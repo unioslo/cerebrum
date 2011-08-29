@@ -323,17 +323,17 @@ class XMLOU2Object(XMLEntity2Object):
                                              ("stedlangnavn_bokmal",
                                               "stedkortnavn_bokmal",
                                               "stednavnfullt", "stednavn"),
-                                             "no"),
+                                             "nb"),
                                             (result.NAME_LONG,
                                              ("stedlangnavn_engelsk",
                                               "stedkortnavn_engelsk"),
                                              "en"),
                                             (result.NAME_ACRONYM,
                                              ("akronym",),
-                                             "no"),
+                                             "nb"),
                                             (result.NAME_SHORT,
                                              ("forkstednavn",),
-                                             "no")):
+                                             "nb")):
             value = self._pull_name(element, *candidates)
             if value:
                 result.add_name(DataName(name_kind, value, lang))

@@ -52,7 +52,6 @@ import cereconf
 
 import getopt
 import sys
-import string
 import time
 import os
 import ftplib
@@ -206,7 +205,7 @@ def prepare_entry(fnr, systemnr, korttype,
     result.extend([""] * 10)
 
     # FIXME: The fields should be quoted
-    return string.join(result, ";") + "\n"
+    return ";".join(result) + "\n"
 # end prepare_entry
 
 
@@ -308,7 +307,7 @@ def process_student(person, ou, const, db_row, stream):
     if not fnr:
         return
     
-    stedkode = locate_stedkode(ou, db_row.fields.ou_id)
+    stedkode = locate_stedkode(ou, db_row["ou_id"])
 
     # systemnr == 1 for students
     stream.write(prepare_entry(fnr = fnr,

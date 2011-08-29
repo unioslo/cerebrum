@@ -118,7 +118,7 @@ def main():
 
     if all:
         ou = Factory.get("OU")(db)
-        all_ous = ou.list_all(filter_quarantined=True)
+        all_ous = ou.search(filter_quarantined=True)
 
         for i in all_ous:
             process_domain(dom_name, i['ou_id'])

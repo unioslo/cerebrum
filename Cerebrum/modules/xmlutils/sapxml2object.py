@@ -182,12 +182,18 @@ class XMLOU2Object(XMLEntity2Object):
         for tmp in sub.getiterator():
             if tmp.tag not in tag2kind or not tmp.text:
                 continue
-            # fi
+
+            # Common mistake. The keys are, like, right next to each other.
+            if language.lower() == "no":
+                language = "nb"
+            
+            # It has been decided that we need to consider nn/nb/en only
+            if language.lower() not in ("nn", "nb", "ny", "en"):
+                continue
             
             result.append(DataName(tag2kind[tmp.tag],
                                    tmp.text.strip().encode("latin1"),
                                    language))
-        # od
 
         return result
     # end _make_names
@@ -288,7 +294,7 @@ class XMLPerson2Object(XMLEntity2Object):
     kode_vitenskaplig = set([966, 1009, 1010, 1011, 1013, 1015, 1016, 1017,
                              1018, 1019, 1020, 1108, 1109, 1110, 1111, 1183,
                              1198, 1199, 1200, 1260, 1352, 1353, 1378, 1404,
-                             1474, 1475, 8013, ])
+                             1474, 1475, 8013,])
 
 
     tag2type = {"Fornavn": HRDataPerson.NAME_FIRST,
@@ -299,8 +305,7 @@ class XMLPerson2Object(XMLEntity2Object):
                 "Ukjent": HRDataPerson.GENDER_UNKNOWN,
                 "HovedStilling": DataEmployment.HOVEDSTILLING,
                 "Bistilling": DataEmployment.BISTILLING,
-                "Ansattnr": SAPPerson.SAP_NR,
-                "Title": HRDataPerson.NAME_TITLE,}
+                "Ansattnr": SAPPerson.SAP_NR,}
 
 
     def _make_address(self, addr_element):
@@ -435,9 +440,14 @@ class XMLPerson2Object(XMLEntity2Object):
 
         kind = self.tag2type[emp_element.tag]
         tmp = DataEmployment(kind = kind, percentage = percentage,
-                             code = code, title = title,
-                             start = start_date, end = end_date,
+                             code = code, start = start_date, end = end_date,
                              place = ou_id, category = category)
+
+        for element in emp_element.findall(".//Tittel"):
+            work_title = self._make_title(DataEmployment.WORK_TITLE, element)
+            if work_title:
+                tmp.add_name(work_title)
+        
         return tmp
     # end _make_employment
     _make_employment = XMLEntity2Object.exception_wrapper(_make_employment)
@@ -482,10 +492,9 @@ class XMLPerson2Object(XMLEntity2Object):
 
         if ou_id is None:
             return None
-        # fi
         
         return DataEmployment(kind = kind, percentage = None,
-                              code = code, title = None,
+                              code = code,
                               start = start_date, end = end_date,
                               place = ou_id, category = None)
     # end _make_role
@@ -518,6 +527,21 @@ class XMLPerson2Object(XMLEntity2Object):
     _make_contact = XMLEntity2Object.exception_wrapper(_make_contact)
 
 
+
+    def _make_title(self, title_kind, title_element):
+        """Return a DataName representing title with language."""
+
+        language = title_element.findtext(".//Sap_navn_spraak")
+        value = title_element.findtext(".//Navn").encode("latin1")
+
+        if not (language and value):
+            return None
+
+        x = DataName(title_kind, value, language)
+        return x
+    # end _make_title
+        
+    
     def next_object(self, element):
         """Return the next SAPPerson object.
 
@@ -556,11 +580,11 @@ class XMLPerson2Object(XMLEntity2Object):
                 # this is the easiest way of skipping them.
                 #
                 # JAZZ 2007-08-01
-                #
-                # '*' did not work all that well as it is used as common wildcard in
-                # SAP. Johannes suggests that we use '@' in stead. As the data is not
-                # updated yet (we don't know when that will happen) we need to test
-                # for '*' as well in order to skipp all the invalid elements
+                # '*' did not work all that well as it is used as common
+                # wildcard in SAP. Johannes suggests that we use '@' in
+                # stead. As the data is not updated yet (we don't know when that
+                # will happen) we need to test for '*' as well in order to skipp
+                # all the invalid elements
                 #
                 if '*' in value or '@' in value:
                     if self.logger:
@@ -598,9 +622,10 @@ class XMLPerson2Object(XMLEntity2Object):
                 emp = self._make_role(sub)
                 if emp is not None:
                     result.add_employment(emp)
-            elif sub.tag == "Title":
-                if value:
-                    result.add_name(DataName(self.tag2type[sub.tag], value))
+            elif sub.tag == "Tittel":
+                personal_title = self._make_title(HRDataPerson.NAME_TITLE, sub)
+                if personal_title:
+                    result.add_name(personal_title)
 
         # We need to order 'Telefon 1' and 'Telefon 2' properly
         celems = list(element.findall("PersonKomm"))

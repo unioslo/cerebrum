@@ -146,7 +146,7 @@ def dump_new_users(db, const, studnr2data, field_sep, spread=None,
         # Finn en (tilfeldig) av stedkodene brukeren har
         # tilknytning til.
         try:
-            sko = _get_ou(db, atypes[0].ou_id)
+            sko = _get_ou(db, atypes[0]["ou_id"])
             stedkode = "%02d%02d%02d" % (sko.fakultet, sko.institutt,
                                          sko.avdeling)
         except:
@@ -170,7 +170,7 @@ def dump_new_users(db, const, studnr2data, field_sep, spread=None,
         try:
             aff = Constants._PersonAffiliationCode(int(atypes[0].affiliation))
             for x in person.get_affiliations():
-                if x.affiliation == aff and x.ou_id == atypes[0].ou_id:
+                if x.affiliation == aff and x["ou_id"] == atypes[0]["ou_id"]:
                     affstatus = Constants._PersonAffStatusCode(
                         int(aff), int(x.status))
                     break

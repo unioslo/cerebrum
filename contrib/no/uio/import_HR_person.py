@@ -42,10 +42,6 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.xmlutils.system2parser import system2parser
 from Cerebrum.modules.xmlutils.object2cerebrum import XML2Cerebrum
 from Cerebrum.modules.xmlutils.xml2object import DataEmployment, DataOU, DataAddress
-try:
-    set()
-except NameError:
-    from Cerebrum.extlib.sets import Set as set
 
 
 db = Factory.get('Database')()
@@ -95,8 +91,12 @@ def get_sko((fakultet, institutt, gruppe), system):
                 addr_street = addr_street[0]
                 address_text = addr_street['address_text']
                 if not addr_street['country']:
+                    ou_name = ou.get_name_with_language(
+                                     name_variant=const.ou_name,
+                                     name_language=const.language_nb,
+                                     default="")
                     address_text = "\n".join(
-                        filter(None, (ou.name, address_text)))
+                        filter(None, (ou_name, address_text)))
                 addr_street = {'address_text': address_text,
                                'p_o_box': addr_street['p_o_box'],
                                'postal_number': addr_street['postal_number'],
@@ -122,11 +122,11 @@ def get_sko((fakultet, institutt, gruppe), system):
             else:
                 fax = None
 
-            ou_cache[stedkode, system] = {'id': int(ou.ou_id),
+            ou_cache[stedkode, system] = {'id': int(ou.entity_id),
                                           'fax': fax,
                                           'addr_street': addr_street,
                                           'addr_post': addr_post}
-            ou_cache[int(ou.ou_id)] = ou_cache[stedkode, system]
+            ou_cache[int(ou.entity_id)] = ou_cache[stedkode, system]
         except Errors.NotFoundError:
             logger.info("bad stedkode: %s" % str(stedkode))
             ou_cache[stedkode, system] = None
@@ -286,7 +286,7 @@ def determine_affiliations(xmlperson, source_system):
                     if x.kind in tils_types and
                     x.is_active() and
                     x.place]
-    title = None
+    titles = list()
     max_so_far = -1
     for t in tilsettinger:
         assert t.place[0] == DataOU.NO_SKO
@@ -299,7 +299,7 @@ def determine_affiliations(xmlperson, source_system):
 
         if t.percentage > max_so_far:
             max_so_far = t.percentage
-            title = t.title
+            titles = t.get_name(t.WORK_TITLE)
 
         if t.category not in kind2affstat:
             logger.warn("Unknown category %s for %s", t.category, str_pid())
@@ -358,7 +358,7 @@ def determine_affiliations(xmlperson, source_system):
                         g.code, str_pid())
             continue
     
-    return ret, title
+    return ret, titles
 # end determine_affiliations
 
 
@@ -435,8 +435,8 @@ def parse_data(parser, source_system, group, gen_groups, old_affs, old_traits):
     xml2db = XML2Cerebrum(db, source_system, logger)
     for xmlperson in parser.iter_person():
         logger.debug("Loading next person: %s", list(xmlperson.iterids()))
-        affiliations, work_title = determine_affiliations(xmlperson,
-                                                          source_system)
+        affiliations, work_titles = determine_affiliations(xmlperson,
+                                                           source_system)
         traits = determine_traits(xmlperson, source_system)
 
         # If the person has primary_ou set, we set the besok/post
@@ -460,12 +460,12 @@ def parse_data(parser, source_system, group, gen_groups, old_affs, old_traits):
                                 city = addr['city'] or '',
                                 country = addr['country'] or ''))
         try:
-            status, p_id = xml2db.store_person(xmlperson, work_title,
+            status, p_id = xml2db.store_person(xmlperson, work_titles,
                                                affiliations,
                                                traits)
         except:
             etype, evalue, tb = sys.exc_info()
-            logger.warn("Something went very wrong: etype=%s, value=%s. "
+            logger.exception("Something went very wrong: etype=%s, value=%s. "
                         "Person id=%s will not be updated/inserted",
                         etype, str(evalue), list(xmlperson.iterids()))
             # Prevent partial person writes

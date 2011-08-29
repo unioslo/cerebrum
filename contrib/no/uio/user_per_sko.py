@@ -235,6 +235,7 @@ def make_empty_statistics(level, db):
     ou = Factory.get("OU")(db)
     sko = ou.get_stedkoder(fakultet = fakultet, institutt = institutt,
                            avdeling = avdeling)
+    const = Factory.get("Constants")()
 
     statistics = dict()
     # "Unspecified" stats.
@@ -247,11 +248,13 @@ def make_empty_statistics(level, db):
         ou.clear()
         ou.find(row["ou_id"])
 
-        acronyms = ou.get_acronyms()
+        acronyms = ou.search_name_with_language(entity_id=ou.entity_id,
+                                           name_variant=const.ou_name_acronym)
         if acronyms:
-            ou_name = acronyms[0]["acronym"]
+            ou_name = acronyms[0]["name"]
         else:
-            names = ou.get_names()
+            names = ou.search_name_with_language(entity_id=ou.entity_id,
+                                            name_variant=const.ou_name)
             if names:
                 ou_name = names[0]["name"]
             else:

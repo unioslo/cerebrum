@@ -248,7 +248,17 @@ def find_name(person, name_variant, authoritative_system):
     except Errors.NotFoundError:
         return None
 # end find_name
-    
+
+
+
+def find_title(person):
+    """Locate person's work title, if any exists."""
+
+    return person.get_name_with_language(name_variant=constants.work_title,
+                                         name_language=constants.language_nb,
+                                         default=None)
+# end find_title
+
 
 
 def find_primary_mail_address(person):
@@ -539,19 +549,29 @@ def _populate_caches(selection_criteria, authoritative_system, email_cache):
 
     logger.debug("Preloading name information")
     _person_id2name = dict()
-    for name_type in (constants.name_first,
-                      constants.name_last,
-                      constants.name_work_title):
-        for row in person.list_persons_name(source_system=authoritative_system,
-                                            name_type=name_type):
-            p_id = row["person_id"]
-            if p_id not in _person_id2fnr:
-                continue
+    for row in person.search_person_names(source_system=authoritative_system,
+                                          name_variant=(constants.name_first,
+                                                        constants.name_last)):
+        p_id = row["person_id"]
+        if p_id not in _person_id2fnr:
+            continue
 
-            _person_id2name.setdefault(p_id, {})[int(name_type)] = row["name"]
+        _person_id2name.setdefault(p_id, {})[int(row["name_variant"])] = row["name"]
+            
     global find_name
     find_name = lambda p, n, a: _person_id2name.get(p.entity_id,
                                                     {}).get(int(n))
+
+
+    logger.debug("Preloading title information")
+    _person_id2title = dict((row["entity_id"], row["name"])
+                            for row in
+                            person.search_name_with_language(
+                                entity_type=constants.entity_person,
+                                name_variant=constants.work_title,
+                                name_language=constants.language_nb))
+    global find_title
+    find_title = lambda p: _person_id2title.get(p.entity_id)
     logger.debug("Done preloading name information (%d entries)",
                  len(_person_id2name))
 # end _populate_caches
@@ -613,10 +633,11 @@ def person2fs_info(row, person, authoritative_system):
 
     # Slurp in names...
     for name_type, attr_name in ((constants.name_first, 'name_first'),
-                                 (constants.name_last, 'name_last'),
-                                 (constants.name_work_title, 'work_title')):
+                                 (constants.name_last, 'name_last'),):
         result[attr_name] = find_name(person, name_type, authoritative_system)
 
+    # ... and work title
+    result["work_title"] = find_title(person)
     if None in (result["name_first"], result["name_last"]):
         logger.warn("Missing name for fnr=%s", fnr)
         return None

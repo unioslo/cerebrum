@@ -207,12 +207,6 @@ ou_structure
   :literal:
 
 
-ou_name_language
-----------------
-.. sysinclude:: %(ext_sqldoc)s --table ou_name_language
-  :literal:
-
-
 person_info
 -----------
 .. sysinclude:: %(ext_sqldoc)s --table person_info

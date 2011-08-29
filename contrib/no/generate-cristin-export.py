@@ -85,8 +85,15 @@ def output_headers(writer, tag, root_ou):
 
     writer.startElement("institusjon")
     output_element("institusjonsnr", cereconf.DEFAULT_INSTITUSJONSNR)
-    output_element("navnBokmal", root_ou.name)
-    output_element("akronym", root_ou.acronym)
+    const = Factory.get("Constants")()
+    name = root_ou.get_name_with_language(name_variant=const.ou_name,
+                                          name_language=const.language_nb,
+                                          default="")
+    output_element("navnBokmal", name)
+    name = root_ou.get_name_with_language(name_variant=const.ou_name_acronym,
+                                          name_language=const.language_nb,
+                                          default="")
+    output_element("akronym", name)
     writer.endElement("institusjon")
 # end output_headers
 
@@ -157,7 +164,7 @@ def output_OUs(writer, perspective):
     ou = Factory.get("OU")(db)
 
     writer.startElement("organisasjon")
-    for row in ou.list_all(filter_quarantined=True):
+    for row in ou.search(filter_quarantined=True):
         ou_id = row["ou_id"]
         if ou_id not in ous:
             logger.warn("No information about ou_id=%s cached", ou_id)
@@ -212,15 +219,22 @@ def _cache_person_names(cache, source_system):
     logger.debug("Caching person names")
     
     # Collect the names...
-    for row in person.list_persons_name(source_system=source_system,
-                                        name_type=(const.name_first,
-                                                   const.name_last,
-                                                   const.name_work_title)):
+    for row in person.search_person_names(source_system=source_system,
+                                          name_variant=(const.name_first,
+                                                        const.name_last)):
         person_id = row["person_id"]
         if person_id not in cache:
             continue
 
         cache[person_id][int(row["name_variant"])] = row["name"]
+
+    for row in person.search_name_with_language(entity_type=const.entity_person,
+                                                name_variant=const.work_title,
+                                                name_language=const.language_nb):
+        person_id = row["entity_id"]
+        if person_id not in cache:
+            continue
+        cache[person_id][row["name_variant"]] = row["name"]
 
     logger.debug("Caching person names complete")
     return cache
@@ -471,7 +485,7 @@ def output_person(writer, chunk, ou_cache):
                                                                  False)]})
     for element, key in (("etternavn", const.name_last),
                          ("fornavn", const.name_first),
-                         ("personligTittel", const.name_work_title)):
+                         ("personligTittel", const.work_title)):
         if key not in chunk:
             continue
         output_element(element, chunk[key])
@@ -571,6 +585,7 @@ def find_root_ou(identifier):
     identifier = identifier.replace("-", "")
     db = Factory.get("Database")()
     ou = Factory.get("OU")(db)
+    co = Factory.get("Constants")()
     if (isinstance(identifier, (long, int)) or
         isinstance(identifier, (str, unicode)) and identifier.isdigit()):
         try:
@@ -594,12 +609,13 @@ def find_root_ou(identifier):
     def typesetter(x):
         ou.clear()
         ou.find(x)
-        return "%s id=%s (%s)" % (ou.acronym,
-                                  ou.ou_id,
-                                  "-".join("%02d" % y
-                                           for y in (ou.fakultet,
-                                                     ou.institutt,
-                                                     ou.avdeling)))
+        return "%s id=%s (%s)" % (
+            ou.get_name_with_language(name_variant=co.ou_name_acronym,
+                                      name_language=co.language_nb,
+                                      default=""),
+            ou.entity_id,
+            "-".join("%02d" % y
+                     for y in (ou.fakultet, ou.institutt, ou.avdeling)))
     logger.error("Could not find root ou for designation '%s'. "
                  "Available roots: %s", identifier,
                  ", ".join(typesetter(x) for x in

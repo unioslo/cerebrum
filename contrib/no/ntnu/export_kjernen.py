@@ -66,7 +66,7 @@ class Export2Kjernen(object):
         if self.verbose:
             print 'Fetching lastnames...'
         lastnames = {}
-        for row in self._person.list_persons_name(name_type=self.co.name_last):
+        for row in self._person.search_person_names(name_variant=self.co.name_last):
             lastnames[row['person_id']] = row['name']
         return lastnames
 
@@ -75,7 +75,7 @@ class Export2Kjernen(object):
         if self.verbose:
             print 'Fetching firstnames...'
         firstnames = {}
-        for row in self._person.list_persons_name(name_type=self.co.name_first):
+        for row in self._person.search_person_names(name_variant=self.co.name_first):
             firstnames[row['person_id']] = row['name']
         return firstnames
 

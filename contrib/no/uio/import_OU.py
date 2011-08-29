@@ -261,7 +261,7 @@ def import_org_units(sources, target_system, cer_ou_tab):
 
         # Once we've registered all OUs, build and register parent information
         for node in ou.get_structure_mappings(perspective):
-            existing_ou_mappings[int(node.fields.ou_id)] = node.fields.parent_id
+            existing_ou_mappings[int(node["ou_id"])] = node["parent_id"]
 
         # Now populate the entire ou_structure. Note that expired OUs will not
         # be processed here.

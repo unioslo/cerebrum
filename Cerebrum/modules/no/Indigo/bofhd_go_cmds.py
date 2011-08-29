@@ -278,7 +278,10 @@ class BofhdExtension(object):
 
         for row in person.get_affiliations():
             ou = self._get_ou(ou_id=row['ou_id'])
-            data.append({'aff_sted_desc': ou.name,
+            data.append({'aff_sted_desc': ou.get_name_with_language(
+                                                 name_variant=self.const.ou_name,
+                                                 name_language=self.const.language_nb,
+                                                 default=""),
                          'aff_type': str(self.const.PersonAffiliation(row['affiliation'])),
                          'aff_status': str(self.const.PersonAffStatus(row['status'])),
                          'ou_id': row['ou_id'],
@@ -524,7 +527,7 @@ class BofhdExtension(object):
 
         def grab_all_ous():
             return [int(x['ou_id']) for x in
-                    self.ou.list_all(filter_quarantined=False)]
+                    self.ou.search(filter_quarantined=False)]
 
         if self.ba.is_superuser(operator.get_entity_id(), True):
             return grab_all_ous()
@@ -602,7 +605,10 @@ class BofhdExtension(object):
                 else:
                     self.ou.clear()
                     self.ou.find(entity.entity_id)
-                    name = self.ou.name
+                    name = ou.get_name_with_language(
+                        name_variant=self.const.ou_name,
+                        name_language=self.const.language_nb,
+                        default="")
                 tmp['name'] = name
                 ret.append(tmp)
         return ret
@@ -613,14 +619,17 @@ class BofhdExtension(object):
         if not self.ba.is_schoolit(operator.get_entity_id(), True):
             raise PermissionDenied("Currently limited to superusers and school IT")
 
-        ou_name_list = self.ou.search(name=name)
-        ou_acronym_list = self.ou.search(acronym=name)
-
-        # let's merge the lists
+        # name could be an acronym or a "regular" name
         result = set()
-        for name_list in (ou_name_list, ou_acronym_list):
-            result.update([row['ou_id'] for row in name_list])
-
+        for name_variant in (self.const.ou_name, self.const.ou_name_acronym):
+            result.update(r["entity_id"]
+                          for r in
+                          ou.search_name_with_language(entity_type=self.const.entity_ou,
+                                name_variant=name_variant,
+                                name=name,
+                                name_language=self.const.language_nb,
+                                exact_match=False))
+            
         if len(result) == 0:
             raise CerebrumError("Could not find school matching %s" % name)
         elif len(result) > 1:
@@ -669,7 +678,11 @@ class BofhdExtension(object):
                                                      account_id=account.entity_id)
                 if affs:
                     ou = self._get_entity(id=affs[0]["ou_id"])
-                    result["institution_name"] = ou.name
+                    ou_name = ou.get_name_with_language(
+                                     name_variant=self.const.ou_name,
+                                     name_language=self.const.language_nb,
+                                     default="")
+                    result["institution_name"] = ou_name
                 else:
                     result["institution_name"] = "n/a"
             else:
@@ -683,8 +696,15 @@ class BofhdExtension(object):
         return self.all_commands[cmd].get_fs()
 
     def _format_ou_name(self, ou):
-        return ou.short_name or ou.name
+        binds = {"name_language": self.const.language_nb,
+                 "default": ""}
+        return (ou.get_name_with_language(name_variant=self.const.ou_name_short,
+                                          **binds) or 
+                ou.get_name_with_language(name_variant=self.const.ou_name,
+                                          **binds))
+    # end _format_ou_name
 
+    
     # this is stripped down version of UiO's, without ldap-functionality.
     def _email_info_detail(self, acc):
         info = []

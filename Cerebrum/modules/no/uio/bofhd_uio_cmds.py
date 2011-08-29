@@ -27,7 +27,6 @@
 #  - det er ikke lenger mulig å lage nye pesoner under bygging av
 #    konto, "person create" må kjøres først
 
-import re
 import sys
 import time
 import os
@@ -39,12 +38,6 @@ import select
 import errno
 
 from mx import DateTime
-try:
-    from sets import Set
-except ImportError:
-    # It's the same module taken from python 2.3, it should
-    # work fine in 2.2  
-    from Cerebrum.extlib.sets import Set    
 
 import cereconf
 from Cerebrum import Cache
@@ -6213,23 +6206,27 @@ Addresses and settings:
                                                   avdeling=a):
                             ou.clear()
                             ou.find(r['ou_id'])
+                            short_name = ou.get_name_with_language(
+                                         name_variant=self.const.ou_name_short,
+                                         name_language=self.const.language_nb,
+                                         default="")
                             output.append({'stedkode':
                                            '%02d%02d%02d' % (ou.fakultet,
                                                              ou.institutt,
                                                              ou.avdeling),
-                                           'short_name':
-                                           ou.short_name})
+                                           'short_name': short_name})
         else:
-            if pattern.count('%') == 0:
-                pattern = '%' + pattern + '%'
-            for r in ou.search(short_name=pattern):
+            for r in ou.search_name_with_language(entity_type=self.const.entity_ou,
+                                             name_variant=self.const.ou_name_short,
+                                             name=pattern,
+                                             exact_match=False):
                 ou.clear()
                 ou.find(r['ou_id'])
                 output.append({'stedkode':
                                '%02d%02d%02d' % (ou.fakultet,
                                                  ou.institutt,
                                                  ou.avdeling),
-                               'short_name': ou.short_name})
+                               'short_name': r["name"]})
         try:
             email_info = meta.get_metainfo('sqlmodule_email')
         except Errors.NotFoundError:
@@ -6237,7 +6234,7 @@ Addresses and settings:
         if len(output) == 1 and email_info:
             eed = Email.EntityEmailDomain(self.db)
             try:
-                eed.find(ou.ou_id)
+                eed.find(ou.entity_id)
             except Errors.NotFoundError:
                 pass
             ed = Email.EmailDomain(self.db)
@@ -6753,20 +6750,16 @@ Addresses and settings:
         person.clear()
         if search_type == 'name':
             if filter is not None:
-                raise CerebrumError, \
-                      "Can't filter by affiliation for search type 'name'"
+                raise CerebrumError("Can't filter by affiliation "
+                                    "for search type 'name'")
             if len(value.strip(" \t%_*?")) < 3:
-                raise CerebrumError, \
-                      "You must specify at least three letters of the name"
-            if not [c for c in "_%?*" if c in value]:
-                # Add wildcard at start and end and between words.
-                value = '*' + value.replace(' ', '*') + '*'
-            matches = person.list_persons_by_name(
-                value,
-                name_variant=self.const.name_full,
-                source_system=self.const.system_cached,
-                return_name=True,
-                case_sensitive=(value != value.lower()))
+                raise CerebrumError("You must specify at least three "
+                                    "letters of the name")
+            matches = person.search_person_names(name=value,
+                                    name_variant=self.const.name_full,
+                                    source_system=self.const.system_cached,
+                                    exact_match=False,
+                                    case_sensitive=(value != value.lower()))
         elif search_type == 'fnr':
             matches = person.list_external_ids(
                 id_type=self.const.externalid_fodselsnr,
@@ -8862,16 +8855,14 @@ Addresses and settings:
         ret['home'] = ac.resolve_homedir(disk_id=ac.disk_id, home=ac.home)
         ret['navn'] = {'cached': person.get_name(
             self.const.system_cached, self.const.name_full)}
-        try:
-            ret['work_title'] = person.get_name(
-                self.const.system_sap, self.const.name_work_title)
-        except Errors.NotFoundError:
-            pass
-        try:
-            ret['personal_title'] = person.get_name(
-                self.const.system_sap, self.const.name_personal_title)
-        except Errors.NotFoundError:
-            pass
+        for key, variant in (("work_title", self.const.work_title),
+                             ("personal_title", self.const.personal_title)):
+            try:
+                ret[key] = person.get_name_with_language(
+                                      name_variant=variant,
+                                      name_language=self.const.language_nb)
+            except (Errors.NotFoundError, Errors.TooManyRowsError):
+                pass
         return ret
 
     #
@@ -8973,8 +8964,12 @@ Addresses and settings:
         return aos
 
     def _format_ou_name(self, ou):
+        short_name = ou.get_name_with_language(
+                            name_variant=self.const.ou_name_short,
+                            name_language=self.const.language_nb,
+                            default="")
         return "%02i%02i%02i (%s)" % (ou.fakultet, ou.institutt, ou.avdeling,
-                                      ou.short_name)
+                                      short_name)
 
     def _get_group_opcode(self, operator):
         if operator is None:

@@ -492,6 +492,14 @@ LDAP = {
     # Example with "libc" md5 hash "{crypt}$1$salt$digest
     'auth_attr':{'userPassword':[('MD5-crypt','{crypt}%s'),]},
     
+    # Whether to insert 'ou/title;lang-<language>' attributes in org.dump.
+    # False with multiple 'pref_languages' likely makes little sense, since
+    # each attr only gets values from its 1st found preferred language.
+    'output_languages': True,
+
+    # Languages (2-letter ISO 639-1 codes) by preference.  Required, e.g.:
+    #'pref_languages': ('nb', 'nn', 'en'),
+
     # Default 'max_change' for the LDAP_<tree>s
     'max_change': 10,
     }

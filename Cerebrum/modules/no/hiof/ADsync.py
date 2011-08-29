@@ -130,9 +130,9 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         # Set person names
         #
         pid2names = {}
-        for row in self.person.list_persons_name(
+        for row in self.person.search_person_names(
                 source_system = self.co.system_cached,
-                name_type     = [self.co.name_first,
+                name_variant  = [self.co.name_first,
                                  self.co.name_last]):
             pid2names.setdefault(int(row['person_id']), {})[
                 int(row['name_variant'])] = row['name']

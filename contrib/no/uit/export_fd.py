@@ -104,8 +104,12 @@ class ad_export:
             self.cached_accs[name['entity_id']] = name['entity_name']
 
         logger.info("Cache worktitles")
-        self.cached_worktitle=person.getdict_persons_names( source_system=co.system_paga,
-                                                              name_types=(co.name_work_title,))
+        self.cached_worktitle = dict((row["entity_id"], row["name"])
+                                     for row in 
+                                     person.search_name_with_language(
+                                         entity_type=co.entity_person,
+                                         name_variant=co.work_title,
+                                         name_language=co.language_nb))
         logger.info("Caching of names done")
 
     def get_group(self,id):
@@ -179,8 +183,7 @@ class ad_export:
             tsprofilepath = self.calculate_tsprofilepath(uname)
 
             namelist = self.cached_names.get(self.posixuser.owner_id, None)
-            titlelist =self.cached_worktitle.get(self.posixuser.owner_id, dict())
-            
+            worktitle = self.cached_worktitle.get(self.posixuser.owner_id, "")
             first_name=last_name=worktitle=""
             if self.posixuser.owner_type==int(co.entity_person):
                try:
@@ -189,7 +192,6 @@ class ad_export:
                except AttributeError:
                    logger.error("Failed to get name for a_id/o_id=%s/%s"  % (acc_id,self.posixuser.owner_id))
                    sys.exit(1)
-               worktitle = titlelist.get(int(co.name_work_title)) or ""
             else:
                lastname=uname
 

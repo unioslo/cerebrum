@@ -78,9 +78,12 @@ def ou_id2human_repr(ou_id):
 
     db = Factory.get("Database")()
     ou = Factory.get("OU")(db)
+    const = Factory.get("Constants")()
     ou.find(ou_id)
 
-    acronym = ou.acronym
+    acronym = ou.get_name_with_language(name_variant=const.ou_name_acronym,
+                                        name_language=const.language_nb,
+                                        default="")
     sko = "%02d-%02d-%02d" % (int(ou.fakultet),
                               int(ou.institutt),
                               int(ou.avdeling))

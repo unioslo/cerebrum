@@ -99,7 +99,7 @@ type_person = int(const.entity_person)
 idtype_fnr  = const.externalid_fodselsnr
 
 # Remove these name variants without saving to Manual.
-drop_names  = (int(const.name_personal_title), int(const.name_work_title))
+drop_names  = ()
 
 affiliation_tilknyttet = int(const.affiliation_tilknyttet)
 affiliation_ansatt = int(const.affiliation_ansatt)

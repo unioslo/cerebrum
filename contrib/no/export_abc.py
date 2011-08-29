@@ -376,11 +376,13 @@ def cache_person_info(db_person, db_account):
         name_types=(constants.name_full, constants.name_last,
                     constants.name_first))
 
-    # whereas name information is selected from system_cached, title
-    # information is not. The source is probably some HR system (e.g. SAP)
-    for person_id, tmp_dict in db_person.getdict_persons_names(
-                       name_types=(constants.name_work_title,)).iteritems():
-        person_id2names.setdefault(person_id, dict()).update(tmp_dict)
+    variant = constants.work_title
+    for row in db_person.search_name_with_language(
+                            entity_type=constants.entity_person,
+                            name_variant=variant,
+                            name_language=constants.language_nb):
+        person_id = row["entity_id"]
+        person_id2names.setdefault(person_id, dict())[variant] = row["name"]
 
     logger.debug("person-id -> external ids")
     # IVR 2007-11-06: We cannot blindly grab external ids, since there may be
@@ -487,7 +489,7 @@ def output_people():
         for xml_name, value in name_collection.items():
             out(xml_name, value)
 
-        work_title = names.get(int(constants.name_work_title))
+        work_title = names.get(int(constants.work_title))
         if work_title:
             out("partname", work_title, {"partnametype": get_name_type("work")})
           

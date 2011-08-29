@@ -25,7 +25,6 @@ import pickle
 import time
 import os
 import sys
-import string
 
 import cereconf
 from Cerebrum.Utils import Factory
@@ -1241,7 +1240,7 @@ class BofhdExtension(BofhdCommandBase):
         disk = Utils.Factory.get('Disk')(self.db)
         disk.clear()
         disk.find(disk_id)
-        tmp = string.split(disk.path, '/')
+        tmp = disk.path.split("/")
         grp_name = 'server-' + str(tmp[1])
         grp = Utils.Factory.get("Group")(self.db)
         grp.clear()

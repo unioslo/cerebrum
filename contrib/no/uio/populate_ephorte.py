@@ -87,8 +87,13 @@ class PopulateEphorte(object):
 
         logger.info("Find OUs with spread ePhorte_ou (StedType=Arkivsted in POLS)")
         self.pols_ephorte_ouid2name = {}
+        ou_id2name = dict((r["entity_id"], r["name"])
+                          for r in ou.search_name_with_language(entity_type=co.entity_ou,
+                                                           name_language=co.language_nb,
+                                                           name_variant=co.ou_name_display))
         for row in ou.search(spread=co.spread_ephorte_ou):
-            self.pols_ephorte_ouid2name[int(row['ou_id'])] = row['display_name']
+            self.pols_ephorte_ouid2name[int(row['ou_id'])] = ou_id2name.get(
+                                                             row["ou_id"], "")
         logger.info("Found %d ous with spread ePhorte_ou" %
                     len(self.pols_ephorte_ouid2name.keys()))
         ##

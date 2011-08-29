@@ -101,8 +101,13 @@ def ou_id2ou_info(ou_id):
             return None
         if not ou.has_spread(constants.spread_ad_ou):
             return None
-        return {"name": ou.name,
-                "acronym": ou.acronym,
+        return {"name": ou.get_name_with_language(name_variant=constants.ou_name,
+                               name_language=constants.language_nb,
+                               default=""),
+                "acronym": ou.get_name_with_language(
+                               name_variant=constants.ou_name_acronym,
+                               name_language=constants.language_nb,
+                               default=""),
                 "ou_id": ou_id}
     except Errors.NotFoundError:
         return None

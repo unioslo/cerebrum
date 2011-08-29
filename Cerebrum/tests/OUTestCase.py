@@ -48,10 +48,7 @@ class OU_createTestCase(unittest.TestCase, object):
         }
 
     def _myPopulateOU(self, ou):
-        ou.populate(self.ou_dta['stednavn'], acronym=self.ou_dta['acronym'],
-                    short_name=self.ou_dta['short_name'],
-                    display_name=self.ou_dta['display_name'],
-                    sort_name=self.ou_dta['sort_name'])
+        ou.populate()
         ou.populate_address(self.co.system_manual,
                             self.co.address_street,
                             address_text=self.ou_dta['addr'],
@@ -89,8 +86,8 @@ class OUTestCase(OU_createTestCase):
         ou.find(self.ou_id)
         new_ou = OU.OU(self.Cerebrum)
         self._myPopulateOU(new_ou)
-        self.failIf(new_ou <> ou, "Error: should be equal")
-        ou.populate('test')
+        self.failIf(new_ou != ou, "Error: should be equal")
+        ou.populate()
         self.failIf(new_ou == ou, "Error: should be different")
 
     def testDeleteOU(self):

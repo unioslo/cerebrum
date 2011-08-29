@@ -38,7 +38,7 @@ targets = {
     'core': ('rel_0_9_2', 'rel_0_9_3', 'rel_0_9_4', 'rel_0_9_5',
              'rel_0_9_6', 'rel_0_9_7', 'rel_0_9_8', 'rel_0_9_9',
              'rel_0_9_10', 'rel_0_9_11', 'rel_0_9_12', 'rel_0_9_13',
-             'rel_0_9_14', 'rel_0_9_15',),
+             'rel_0_9_14', 'rel_0_9_15', 'rel_0_9_16',),
     'bofhd': ('bofhd_1_1', 'bofhd_1_2', 'bofhd_1_3',),
     'changelog': ('changelog_1_2', 'changelog_1_3'),
     'email': ('email_1_0', 'email_1_1', 'email_1_2', 'email_1_3'),
@@ -522,6 +522,62 @@ def migrate_to_rel_0_9_15():
     print "Migration to 0.9.15 completed successfully"
     db.commit()
 
+
+def migrate_to_rel_0_9_16():
+    """Migrate from 0.9.15 database to the 0.9.16 database schema."""
+    assert_db_version("0.9.15")
+    makedb('0_9_16', 'pre')
+    print "\ndone."
+
+    # The new tables exist now. Let's move the OU name data.
+    # 1) move OU names
+    print "Migrating OU titles..."
+    query = """
+    SELECT *
+    FROM [:table schema=cerebrum name=ou_info] oi
+    """
+    ou = Utils.Factory.get("OU")(db)
+    name_map = {"name": co.ou_name,
+                "acronym": co.ou_name_acronym,
+                "short_name": co.ou_name_short,
+                "display_name": co.ou_name_display,}
+    for row in db.query(query):
+        ou_id = row["ou_id"]
+        ou.clear()
+        ou.find(ou_id)
+        for name_key in name_map:
+            # Skip None/NULL names
+            if not row[name_key]:
+                continue
+            ou.add_name_with_language(name_variant=name_map[name_key],
+                                      name_language=co.language_nb,
+                                      name=row[name_key])
+
+    # 2) delete certain work/personal titles...
+    # Unlike OU names, we don't keep person/work titles
+    print "Deleting person titles."
+    binds = dict()
+    args = Utils.argument_to_sql((co.name_personal_title, co.name_work_title),
+                                 "name_variant", binds, int)
+    db.execute("""
+    DELETE
+    FROM [:table schema=cerebrum name=person_name] pn
+    WHERE 
+    """ + args, binds)
+
+    # We must commit at this point in this transaction, since the post stage
+    # touches ou_info, which we have extracted data from (i.e. read lock) in
+    # THIS process. makedb() runs each stage in a separate process. post stage
+    # for 0.9.16 migration will require explusive access to ou_info in order to
+    # drop the necessary columns.
+    db.commit()
+    makedb('0_9_16', 'post')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0,9,16))
+    print "Migration to 0.9.16 completed successfully"
+    db.commit()
+# end migrate_to_rel_0_9_16
+    
 def migrate_to_bofhd_1_1():
     print "\ndone."
     assert_db_version("1.0", component='bofhd')

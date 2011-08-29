@@ -24,25 +24,19 @@
 import cereconf
 from Cerebrum.Entity import \
      EntityContactInfo, EntityAddress, EntityQuarantine, \
-     EntityExternalId, EntitySpread
+     EntityExternalId, EntitySpread, EntityNameWithLanguage
 from Cerebrum import Utils
 from Cerebrum.Utils import argument_to_sql, prepare_string
 from Cerebrum import Errors
 
-try:
-    set()
-except NameError:
-    try:
-        from sets import Set as set
-    except ImportError:    
-        from Cerebrum.extlib.sets import Set as set
 
 class MissingOtherException(Exception): pass
 class MissingSelfException(Exception): pass
 
 Entity_class = Utils.Factory.get("Entity")
 class Person(EntityContactInfo, EntityExternalId, EntityAddress,
-             EntityQuarantine, EntitySpread, Entity_class):
+             EntityQuarantine, EntitySpread, EntityNameWithLanguage,
+             Entity_class):
     __read_attr__ = ('__in_db', '_affil_source', '__affil_data')
     __write_attr__ = ('birth_date', 'gender', 'description', 'deceased_date')
 
@@ -106,34 +100,6 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                 print "Person.super.__eq__ = %s" % identical
             return False
 
-# The affiliation comparison stuff below seems to suffer from bitrot
-# -- and with the current write_db() API, I'm not sure that we really
-# *need* this functionality in __eq__().
-#
-##         if hasattr(self, '_affil_source'):
-##             source = self._affil_source
-##             for affected_affil in self._pa_affected_affiliations:
-##                 other_dict = {}
-##                 for t in other.get_affiliations():
-##                     if t.source_system == source:
-##                         # Not sure why this casting to int is required
-##                         # on PostgreSQL
-##                         other_dict[int(t.ou_id)] = t.status
-##                 for t_ou_id, t_status in \
-##                         self._pa_affiliations.get(affected_affil, []):
-##                     # Not sure why this casting to int is required on
-##                     # PostgreSQL
-##                     t_ou_id = int(t_ou_id)
-##                     if other_dict.has_key(t_ou_id):
-##                         if other_dict[t_ou_id] <> t_status:
-##                             if cereconf.DEBUG_COMPARE:
-##                                 print "PersonAffiliation.__eq__ = %s" % False
-##                             return False
-##                         del other_dict[t_ou_id]
-##                 if len(other_dict) != 0:
-##                     if cereconf.DEBUG_COMPARE:
-##                         print "PersonAffiliation.__eq__ = %s" % False
-##                     return False
         if cereconf.DEBUG_COMPARE:
             print "PersonAffiliation.__eq__ = %s" % identical
         if not identical:
@@ -309,48 +275,12 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         self.__in_db = True
         self.__updated = []
 
-    def list_persons_by_name(self, name, name_variant=None, source_system=None,
-                             return_name=False, case_sensitive=True):
-        """List persons and name with matching name.  A person may
-        occur more than once if return_name is True and he/she has
-        several matching names."""
-        if case_sensitive:
-            name = prepare_string(name, transform=None)
-            where = "name LIKE :name"
-        else:
-            name = prepare_string(name)
-            where = "LOWER(name) LIKE :name"
-        if name_variant is not None:
-            name_variant = int(name_variant)
-            where += " AND name_variant = :name_variant"
-        if source_system is not None:
-            source_system = int(source_system)
-            where += " AND source_system = :source_system"
-        attrs = "person_id"
-        if return_name:
-            attrs += ", name"
-        return self.query("""
-        SELECT DISTINCT %s
-        FROM [:table schema=cerebrum name=person_name]
-        WHERE %s
-        ORDER BY person_id""" % (attrs, where), locals())
-
     # FIXME: these find_* functions should be renamed list_*
     def find_persons_by_bdate(self, bdate):
         return self.query("""
         SELECT person_id FROM [:table schema=cerebrum name=person_info]
         WHERE birth_date = :bdate""", locals())
 
-    # Obsolete, use list_persons_by_name instead.
-    def find_persons_by_name(self, name, case_sensitive=True):
-        if case_sensitive:
-            where = "name LIKE :name"
-        else:
-            name = name.lower()
-            where = "LOWER(name) LIKE :name"
-        return self.query("""
-        SELECT DISTINCT person_id FROM [:table schema=cerebrum name=person_name]
-        WHERE """ + where, locals())
 
     def find_by_export_id(self, export_id):
         person_id = self.query_1("""
@@ -810,25 +740,6 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         FROM [:table schema=cerebrum name=person_info]""")
 
 
-    def list_persons_name(self, source_system=None, name_type=None):
-        type_str = ""
-        if name_type == None:
-            type_str = "= %d" % int(self.const.name_full)
-        elif isinstance(name_type, (list, tuple)):
-            type_str = "IN ("
-            type_str += ", ".join(["%d" % x for x in name_type])
-            type_str += ")"
-        else:
-            type_str = "= %d" % int(name_type)
-        if source_system:
-            type_str += " AND source_system = %d" % int(source_system)
-
-        return self.query("""
-        SELECT DISTINCT person_id, name_variant, name, source_system
-        FROM [:table schema=cerebrum name=person_name]
-        WHERE name_variant %s""" % type_str)
-
-
     def getdict_persons_names(self, source_system=None, name_types=None):
         if name_types is None:
             name_types = self.const.name_full
@@ -893,6 +804,82 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
           """ % locals(), {'spread': spread,'idtype': idtype}, fetchall=False)
 
 
+
+    def search_person_names(self, person_id=None, name_variant=None,
+                            source_system=None, name=None, exact_match=True,
+                            case_sensitive=True):
+        """Collect person names from the db matching the specified criteria.
+
+        The goal of this method is to search for names, rather than person_ids,
+        although both are returned in the result set. 
+
+        person_id, name_variant and source_system can be sequences. The rest are
+        scalars only.
+        
+        @param person_id:
+          Collect names for these person_ids.
+
+        @param name_variant:
+          Collect specified name variants (first, last, full, etc.)
+
+        @param source_system:
+          Collect names from the specified authoritative source(s) only.
+
+        @param name:
+          Collect data for the specified name (pattern). name may contain SQL
+          wildcard characters. '?' will be auto-mapped to '_', '*' to '%'.
+
+        @param exact_match:
+          Only meaningful when L{name} is set. This flag determines whether the
+          name searching is to be performed exactly, or by wildcard (SQL LIKE).
+
+        @param case_sensitive:
+          Only meaningful when L{name} is set. This flag determines whether a
+          lowercasing is applied to the name.
+        """
+
+        binds = dict()
+        where = list()
+        if person_id is not None:
+            where.append(argument_to_sql(person_id, "pn.person_id", binds, int))
+        if name_variant is not None:
+            where.append(argument_to_sql(name_variant, "pn.name_variant", binds,
+                                         int))
+        if source_system is not None:
+            where.append(argument_to_sql(source_system, "pn.source_system",
+                                         binds, int))
+        #
+        # the name attirbute is quite complex, since multiple filters interact
+        if name is not None:
+            if not case_sensitive:
+                name_pattern = prepare_string(name, str.lower)
+                column_name = "LOWER(pn.name)"
+            else:
+                name_pattern = prepare_string(name, None)
+                column_name = "pn.name"
+
+            equality_func = "="
+            if not exact_match:
+                equality_func = "LIKE"
+                if name_pattern.find('%') == -1 :
+                    name_pattern = '%' + name_pattern + '%'
+
+            # Now, putting it all together
+            where.append("(%s %s :name)" % (column_name, equality_func))
+            binds["name"] = name_pattern
+
+        where = " AND ".join(where) or ""
+        if where:
+            where = "WHERE " + where
+
+        return self.query("""
+        SELECT pn.person_id, pn.name_variant, pn.source_system, pn.name
+        FROM [:table schema=cerebrum name=person_name] pn
+        """ + where, binds)
+    # end search_names
+
+
+    
     def search(self, spread=None, name=None, description=None, birth_date=None,
                entity_id=None, exclude_deceased=False, name_variants=[],
                first_name=None, last_name=None):

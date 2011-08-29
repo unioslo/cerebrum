@@ -96,8 +96,13 @@ class ad_export:
             self.cached_accs[name['entity_id']] = name['entity_name']
 
         logger.info("Cache worktitles")
-        self.cached_worktitle=person.getdict_persons_names( source_system=co.system_paga,
-                                                              name_types=(co.name_work_title,))
+        self.cached_worktitle = dict((row["entity_id"], row["name"])
+                                     for row in 
+                                     person.search_name_with_language(
+                                         entity_type=co.entity_person,
+                                         name_variant=co.work_title,
+                                         name_language=co.language_nb))
+        
 
         self.cached_telefon = {}
         logger.info("Cache telefon (intern)")
@@ -128,7 +133,10 @@ class ad_export:
                                                         int(row["avdeling"])))
             ou.clear()
             ou.find(int(int(row["ou_id"])))
-            self.OU2name[int(row["ou_id"])] =   ou.display_name
+            self.OU2name[int(row["ou_id"])] = ou.get_name_with_language(
+                                              name_variant=co.ou_name_display,
+                                              name_language=co.language_nb,
+                                              default=None)
 
         logger.debug("%d ou -> stedkode mappings", len(result))
         return result
@@ -246,10 +254,9 @@ class ad_export:
             logger.debug("Aff sko exported is %s %s" % (sko,skoname))                           
 
             namelist = self.cached_names.get(self.account.owner_id, None)
-            titlelist =self.cached_worktitle.get(self.account.owner_id, dict())
             first_name = namelist.get(int(co.name_first))
             last_name = namelist.get(int(co.name_last))
-            worktitle = titlelist.get(int(co.name_work_title)) or ""
+            worktitle = self.cached_worktitle.get(self.account.owner_id, "")
             telefon = self.cached_telefon.get(self.account.owner_id, '')
 
             # Check quarantines, and set to True if exists

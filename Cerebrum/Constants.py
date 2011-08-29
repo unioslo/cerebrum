@@ -23,6 +23,7 @@ The Constants class defines a set of methods that should be used to
 get the actual database code/code_str representing a given Entity,
 Address, Gender etc. type."""
 
+import copy
 import threading
 
 import cereconf
@@ -218,7 +219,7 @@ class _CerebrumCode(DatabaseAccessor):
     # TBD: Should this take DatabaseAccessor args as well?  Maybe use
     # some kind of currying in Constants to avoid having to pass the
     # Database arg every time?
-    def __init__(self, code, description=None):
+    def __init__(self, code, description=None, lang=None):
         # self may be an already initialised singleton.
         if isinstance(description, str):
             description = description.strip()
@@ -238,6 +239,56 @@ class _CerebrumCode(DatabaseAccessor):
                                          self._lookup_table,
                                          self._lookup_code_column),
                                         {'code': code})
+        self._lang = self._build_language_mappings(lang)
+    # end __init__
+
+
+    def _build_language_mappings(self, lang):
+        "Build a dictionary holding this self's names in various languages."
+
+        if not isinstance(lang, dict):
+            return dict()
+
+        # Now let's build the mapping. Ideally, we should check the strings
+        # against existing language_code constants, but we simply cannot do this
+        # from _CerebrumCode's ctor without introducing a circular dependency.
+        return copy.deepcopy(lang)
+    # end _build_language_mappings
+
+
+    def lang(self, language):
+        """Return self's name in the specified language.
+
+        @type language: str, int or _LanguageCode instance.
+        @param language:
+          Language designation for which we are to retrieve the name.
+        
+        When no suitable name exists, return description (i.e. this method does
+        not fail).
+        """
+
+        if language in self._lang:
+            return self._lang[language]
+
+        lang_kls = _LanguageCode
+        key = None
+        if isinstance(language, lang_kls):
+            key = language.str
+        elif isinstance(language, (long, int)):
+            key = lang_kls(language).str
+        elif isinstance(language, (str, unicode)):
+            # Make sure that a string refers to a valid language code
+            key = lang_kls(int(lang_kls(language))).str
+            
+        if key in self._lang:
+            self._lang[language] = self._lang[key]
+            return self._lang[language]
+
+        # Hmm, do we want to cache the fact that 'language' does not exist as a
+        # key? (so as to speed up subsequent 'misses'?)
+        return self.description
+    # end lang
+    
 
     def __str__(self):
         return self.str
@@ -358,7 +409,16 @@ class _CerebrumCode(DatabaseAccessor):
         DELETE FROM %s
         WHERE %s=:code""" % (self._lookup_table, self._lookup_code_column),
                          {'code': int(self)})
+# end _CerebrumCode
 
+
+class _LanguageCode(_CerebrumCode):
+    "Language codes for Cerebrum."
+    _lookup_table = '[:table schema=cerebrum name=language_code]'
+    pass
+# end _LanguageCode
+
+        
 class _EntityTypeCode(_CerebrumCode):
     "Mappings stored in the entity_type_code table"
     _lookup_table = '[:table schema=cerebrum name=entity_type_code]'
@@ -369,12 +429,12 @@ class _CerebrumCodeWithEntityType(_CerebrumCode):
     column.  Should not and can not be instantiated directly."""
     _insert_dependency = _EntityTypeCode
 
-    def __init__(self, code, entity_type=None, description=None):
+    def __init__(self, code, entity_type=None, description=None, lang=None):
         if entity_type is not None:
             if not isinstance(entity_type, _EntityTypeCode):
                 entity_type = _EntityTypeCode(entity_type)
             self._entity_type = entity_type
-        super(_CerebrumCodeWithEntityType, self).__init__(code, description)
+        super(_CerebrumCodeWithEntityType, self).__init__(code, description, lang)
 
     def insert(self):
         self.sql.execute("""
@@ -474,11 +534,6 @@ class _EntityExternalIdCode(_CerebrumCodeWithEntityType):
     _lookup_table = '[:table schema=cerebrum name=entity_external_id_code]'
     pass
 
-class _PersonNameCode(_CerebrumCode):
-    "Mappings stored in the person_name_code table"
-    _lookup_table = '[:table schema=cerebrum name=person_name_code]'
-    pass
-
 class _PersonAffiliationCode(_CerebrumCode):
     "Mappings stored in the person_affiliation_code table"
     _lookup_table = '[:table schema=cerebrum name=person_affiliation_code]'
@@ -495,7 +550,7 @@ class _PersonAffStatusCode(_CerebrumCode):
 
     # The constructor accepts __init__(int) and
     # __init__(<one of str, int or _PersonAffiliationCode>, str [, str])
-    def __init__(self, affiliation, status=None, description=None):
+    def __init__(self, affiliation, status=None, description=None, lang=None):
         if status is None:
             try:
                 code = int(affiliation)
@@ -516,7 +571,7 @@ class _PersonAffStatusCode(_CerebrumCode):
             self.affiliation = affiliation
         else:
             self.affiliation = _PersonAffiliationCode(affiliation)
-        super(_PersonAffStatusCode, self).__init__(status, description)
+        super(_PersonAffStatusCode, self).__init__(status, description, lang)
 
     def __int__(self):
         if self.int is None:
@@ -575,6 +630,15 @@ class _AccountHomeStatusCode(_CerebrumCode):
 class _ValueDomainCode(_CerebrumCode):
     "Mappings stored in the value_domain_code table"
     _lookup_table = '[:table schema=cerebrum name=value_domain_code]'
+    pass
+
+class _EntityNameCode(_CerebrumCode):
+    _lookup_table = '[:table schema=cerebrum name=entity_name_code]'
+    pass
+
+class _PersonNameCode(_CerebrumCode):
+    "Mappings stored in the person_name_code table"
+    _lookup_table = '[:table schema=cerebrum name=person_name_code]'
     pass
 
 class _AuthenticationCode(_CerebrumCode):
@@ -844,8 +908,21 @@ class CoreConstants(ConstantsBase):
     group_memberop_difference = _GroupMembershipOpCode(
         'difference', 'Difference')
 
-    system_cached = _AuthoritativeSystemCode('Cached',
-                                             'Internally cached data')
+    language_nb = _LanguageCode("nb", "Bokmål")
+    language_nn = _LanguageCode("nn", "Nynorsk")
+    language_en = _LanguageCode("en", "English")
+    language_de = _LanguageCode("de", "Deutsch")
+    language_it = _LanguageCode("it", "Italiano")
+    language_nl = _LanguageCode("nl", "Nederlands")
+    language_sv = _LanguageCode("sv", "Svenska")
+    language_sv = _LanguageCode("fr", "Français")
+    language_ru = _LanguageCode("ru", "Russian")
+    
+    system_cached = _AuthoritativeSystemCode(
+        'Cached',
+        'Internally cached data',
+        {"nb": "Internt cachede data",
+         "en": "Internally cached data",})
 
 
 class CommonConstants(ConstantsBase):
@@ -914,9 +991,38 @@ class CommonConstants(ConstantsBase):
     name_first = _PersonNameCode('FIRST', 'First name')
     name_last = _PersonNameCode('LAST', 'Last name')
     name_full = _PersonNameCode('FULL', 'Full name')
-    name_personal_title = _PersonNameCode('PERSONALTITLE', 'Persons personal title')
-    name_work_title = _PersonNameCode('WORKTITLE', 'Persons work title')
 
+    name_personal_title = _PersonNameCode('PERSONALTITLE', 'Persons personal title',
+                                          {"nb": "Personlig tittel",
+                                           "en": "Personal title",},)
+    name_work_title = _PersonNameCode('WORKTITLE', 'Persons work title',
+                                          {"nb": "Arbeidstittel",
+                                           "en": "Work title",},)
+
+
+    personal_title = _EntityNameCode('PERSONALTITLE', "Person's personal title",
+                                     {"nb": "Personlig tittel",
+                                      "en": "Personal title",},)
+    work_title = _EntityNameCode('WORKTITLE', "Person's work title",
+                                 {"nb": "Arbeidstittel",
+                                  "en": "Work title",},)
+
+    ou_name = _EntityNameCode("OU name", "OU name",
+                              {"nb": "Stedsnavn", 
+                               "en": "OU name",})
+    ou_name_acronym = _EntityNameCode("OU acronym", "OU acronym",
+                              {"nb": "Akronym", 
+                               "en": "Acronym",})
+    ou_name_short = _EntityNameCode("OU short", "OU short name",
+                              {"nb": "Kortnavn", 
+                               "en": "Short name",})
+    ou_name_long = _EntityNameCode("OU long", "OU long name",
+                              {"nb": "Navn", 
+                               "en": "Full name",})
+    ou_name_display = _EntityNameCode("OU display", "OU display name",
+                              {"nb": "Fremvisningsnavn", 
+                               "en": "Display name",})
+    
     system_manual = _AuthoritativeSystemCode('Manual', 'Manual registration')
 
     # bootstrap_account is of this type:
@@ -953,7 +1059,9 @@ class Constants(CoreConstants, CommonConstants):
     GroupMembershipOp = _GroupMembershipOpCode
     GroupVisibility = _GroupVisibilityCode
     Quarantine = _QuarantineCode
-
+    LanguageCode = _LanguageCode
+    EntityNameCode = _EntityNameCode
+    
 class ExampleConstants(Constants):
     """Singleton whose members make up all needed coding values.
 

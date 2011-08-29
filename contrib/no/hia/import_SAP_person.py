@@ -247,8 +247,7 @@ def populate_names(person, fields):
 
     name_types = ((const.name_first, fields.sap_first_name),
                   (const.name_last, fields.sap_last_name),
-                  (const.name_initials, fields.sap_initials),
-                  (const.name_work_title, fields.sap_work_title))
+                  (const.name_initials, fields.sap_initials),)
     
     person.affect_names(const.system_sap,
                         *[x[0] for x in name_types]) 
@@ -266,6 +265,25 @@ def populate_names(person, fields):
     person.populate_name(const.name_first, fields.sap_first_name)
 # end populate_names
     
+
+
+def populate_title(person, fields):
+    """Register work title for person."""
+
+    source_title = fields.sap_work_title
+    if not source_title:
+        person.delete_name_with_language(name_variant=const.work_title,
+                                         name_language=const.language_nb)
+        logger.debug("Removed %s for person id=%s",
+                     str(const.work_title), person.entity_id)
+    else:
+        person.add_name_with_language(name_variant=const.work_title,
+                                      name_language=const.language_nb,
+                                      name=source_title)
+        logger.debug("Added %s '%s' for person id=%s",
+                     str(const.work_title), source_title, person.entity_id)
+# end populate_title        
+
 
 
 def populate_communication(person, fields):
@@ -394,6 +412,8 @@ def process_people(filename, use_fok):
 
         add_person_to_group(person, p)
 
+        populate_title(person, p)
+        
         # Sync person object with the database
         person.write_db()
 # end process_people

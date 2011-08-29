@@ -357,8 +357,15 @@ def build_tree_from_db(ou_perspective):
             parent = ou_id2sko.get(ou.get_parent(perspective))
         except:
             parent = None
-        
-        node = Node(sko, ou.name, ou.acronym, parent, ids,
+
+        ou_name = ou.get_name_with_language(name_variant=const.ou_name,
+                                            name_language=const.language_nb,
+                                            default="")
+        ou_acronym = ou.get_name_with_language(
+            name_variant=const.ou_name_acronym,
+            name_language=const.language_nb,
+            default="")
+        node = Node(sko, ou_name, ou_acronym, parent, ids,
                     bool(person.list_affiliations(ou_id=ou.entity_id)))
         nodes[node.node_id] = node
 

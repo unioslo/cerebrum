@@ -164,12 +164,7 @@ class Object2Cerebrum(object):
             # We found one
             self._ou.find(entity_id)
 
-        self._ou.populate(ou.ou_names['name'],
-                          ou.ou_names['acronym'],
-                          ou.ou_names['short_name'],
-                          ou.ou_names['display_name'],
-                          ou.ou_names['sort_name'],
-                          None)
+        self._ou.populate()
         self._ou.write_db()
         self._process_tags(self._ou, ou._tags)
         self._add_external_ids(self._ou, ou._ids)

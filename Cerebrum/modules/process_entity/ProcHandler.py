@@ -414,7 +414,8 @@ class ProcHandler(object):
                     int(self._co.affiliation_elev) : 'Elevar' }
 
         # Look up the group
-        grp_name = "%s %s" % (ou.acronym, aff2txt[int(affiliation)])
+        grp_name = "%s %s" % (self._get_ou_acronym(ou),
+                              aff2txt[int(affiliation)])
         if not self._group:
             self._group = Factory.get('Group')(self.db)
         if not self.default_creator_id:
@@ -445,7 +446,8 @@ class ProcHandler(object):
         if not self._group.has_member(account_id):
             self._group.add_member(account_id)
             self._group.write_db()
-            self.logger.info("ac_type_add: Account '%s' added to group '%s'." % (account_id, grp_name))
+            self.logger.info("ac_type_add: Account '%s' added to group '%s'." %
+                             (account_id, grp_name))
 
     def ac_type_del(self, account_id, affiliation, ou_id):
         """Deletes an account from special groups which represent an
@@ -454,7 +456,7 @@ class ProcHandler(object):
         ou.find(ou_id)
 
         # Look up the group
-        grp_name = "%s %s" % (ou.acronym, affiliation)
+        grp_name = "%s %s" % (self._get_ou_acronym(ou), affiliation)
         if not self._group:
             self._group = Factory.get('Group')(self.db)
         try:
@@ -475,6 +477,19 @@ class ProcHandler(object):
         except Errors.NotFoundError:
             self.logger.debug("ac_type_del: Group '%s' not found. Nothing to do" % grp_name)
 
+            
+    def _get_ou_acronym(self, ou):
+        """Retrieve ou's acronym.
+
+        If none is present in Norwegian bokmål, return ''.
+        """
+
+        return ou.get_name_with_language(name_variant=self._co.ou_name_acronym,
+                                         name_language=self._co.language_nb,
+                                         default="")
+    # end _get_ou_acronym
+
+            
     def commit(self):
         """Clean up if needed."""
         self.db.commit()

@@ -37,35 +37,6 @@ class OUEntityExpireMixin(EntityExpire, OU):
     behaviour is to exclude all entitites that are expired at the
     time of the query."""
 
-    # Will only find non-expired OUs from non-expired parents
-    def find_by_parent(self, acronym, perspective, parent_id, 
-                                            expired_before=None):
-        """
-        Overridden method. See L{OU} for functionality.
-        
-        @param expired_before: See L{EntityExpire.is_expired}.
-       
-        """
-
-        if self.is_expired(entity_id=parent_id, 
-                           expired_before=expired_before):
-           raise EntityExpiredError('Parent entity (%s) expired.' % 
-                                                            parent_id)
-    
-        pid = "AND s.parent_id=:parent_id"
-        if parent_id is None:
-            pid = "AND s.parent_id IS NULL"
-        ou_id = self.query_1("""
-        SELECT o.ou_id
-        FROM [:table schema=cerebrum name=ou_structure] s,
-             [:table schema=cerebrum name=ou_info] o
-        WHERE s.ou_id = o.ou_id AND s.perspective=:perspective
-             %s AND o.acronym=:acronym""" % pid,
-                                 {'perspective': int(perspective),
-                                  'acronym': acronym,
-                                  'parent_id': parent_id})
-        self.find(ou_id, expired_before=expired_before)
-
     def get_parent(self, perspective, expired_before=None):
         """
         Overridden method. See L{OU} for functionality.
@@ -104,11 +75,14 @@ class OUEntityExpireMixin(EntityExpire, OU):
             if temp.entity_id in visited:
                 raise RuntimeError, "DEBUG: Loop detected: %r" % visited
             visited.append(temp.entity_id)
+
             # Append this node's acronym (if it is non-NULL) to
             # 'components'.
-            # TBD: Is this the correct way to handle NULL acronyms?
-            if temp.acronym is not None:
-                components.append(temp.acronym)
+            acronyms = self.search_name_with_language(entity_id=temp.entity_id,
+                                   name_variant=self.const.ou_name_acronym,
+                                   name_language=self.const.language_nb)
+            if acronyms:
+                components.append(acronyms[0]["name"])
             # Find parent, end search if parent is either NULL or the
             # same node we're currently at.
             parent_id = temp.get_parent(perspective, expired_before)
@@ -130,9 +104,8 @@ class OUEntityExpireMixin(EntityExpire, OU):
         
         if self.is_expired(entity_id=parent_id, 
                            expired_before=expired_before):
-           raise EntityExpiredError('New parent entity (%s) is \
-                                            expired.' % parent_id)
-        
+           raise EntityExpiredError('New parent entity (%s) is expired.' %
+                                    parent_id)
         try:
             # Doesnt't matter if old entity is expired!
             try:
@@ -225,7 +198,7 @@ class OUEntityExpireMixin(EntityExpire, OU):
                                    name=entity_quarantine] eq" \
                     " WHERE oi.ou_id=eq.entity_id) AND "
         return self.query("""
-        SELECT oi.ou_id, oi.name, oi.acronym 
+        SELECT oi.ou_id
         FROM [:table schema=cerebrum name=ou_info] oi
         LEFT JOIN [:table schema=cerebrum name=entity_expire] ee \
         ON ee.entity_id = oi.ou_id
@@ -284,9 +257,7 @@ class OUEntityExpireMixin(EntityExpire, OU):
         WHERE parent_id IS NULL AND %s""" % sql_expire,
         {'expire_date': expired_before,})
 
-    def search(self, spread=None, name=None, acronym=None,
-               short_name=None, display_name=None, sort_name=None,
-               expired_before=None):
+    def search(self, spread=None, expired_before=None):
         """
         Overridden method. See L{OU} for functionality.
         
@@ -324,37 +295,14 @@ class OUEntityExpireMixin(EntityExpire, OU):
             else:
                 where.append("es.spread=:spread")
 
-        if name is not None:
-            name = prepare_string(name)
-            where.append("LOWER(oi.name) LIKE :name")
-
-        if acronym is not None:
-            acronym = prepare_string(acronym)
-            where.append("LOWER(oi.acronym) LIKE :acronym")
-
-        if short_name is not None:
-            short_name = prepare_string(short_name)
-            where.append("LOWER(oi.short_name) LIKE :short_name")
-
-        if display_name is not None:
-            display_name = prepare_string(display_name)
-            where.append("LOWER(oi.display_name) LIKE :display_name")
-        
-        if sort_name is not None:
-            sort_name = prepare_string(sort_name)
-            where.append("LOWER(oi.sort_name) LIKE :sort_name")
-            
         where_str = ""
         if where:
             where_str = "WHERE " + " AND ".join(where)
 
         return self.query("""
-        SELECT DISTINCT oi.ou_id, oi.name, oi.acronym, oi.short_name,
-                        oi.display_name, oi.sort_name
+        SELECT DISTINCT oi.ou_id
         FROM %s %s""" % (','.join(tables), where_str),
             {'spread': spread, 'entity_type': int(self.const.entity_ou),
-             'name': name, 'acronym': acronym, 'short_name': short_name,
-             'display_name': display_name, 'sort_name': sort_name, 
              'expire_date': expired_before})
 
 

@@ -332,11 +332,14 @@ class cf_group_interface(object):
     def load_acronyms(db):
         result = dict()
         ou = Factory.get("OU")(db)
-        for row in ou.list_all():
+        const = Factory.get("Constants")()
+        for row in ou.search_name_with_language(entity_type=const.entity_ou,
+                                           name_variant=const.ou_name_acronym,
+                                           name_language=const.language_nb):
             ou.clear()
-            ou.find(row["ou_id"])
+            ou.find(row["entity_id"])
             key = "%02d%02d%02d" % (ou.fakultet, ou.institutt, ou.avdeling)
-            result[key] = row["acronym"]
+            result[key] = row["name"]
         cf_group_interface._acronym2avdeling = result
     # end load_acronyms
 

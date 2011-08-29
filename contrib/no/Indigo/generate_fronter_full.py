@@ -520,7 +520,10 @@ def update_elev_ans_groups():
                'OSTFAG', 'STOL', 'BORGRESS', 'OFKGS')
     for s in schools:
         ou.clear()
-        sted = ou.search(acronym=s)
+        sted = ou.search_name_with_language(entity_type=const.entity_ou,
+                                       name_variant=const.ou_name_acronym,
+                                       name=s,
+                                       exact_match=False)
         elever = person.list_affiliations(affiliation=const.affiliation_elev,
                                           ou_id=sted[0]['ou_id'])
         ansatte = person.list_affiliations(affiliation=const.affiliation_ansatt,
@@ -692,32 +695,37 @@ def main():
     for gname, members_as_dict in new_groupmembers.iteritems():
         members = {}
         group_sko_akr = find_sko_by_groupname(gname)
-        if group_sko_akr:
+        if not group_sko_akr:
+            continue
+        
+        try:
+            ouid = ou.search_name_with_language(entity_type=const.entity_ou,
+                                           name_variant=const.ou_name_acronym,
+                                           name=group_sko_akr,
+                                           exact_match=False)
+            ou.clear()
+            ou.find(ouid[0]['ou_id'])
+        except Errors.NotFoundError:
+            logger.error("Cannot find OU with acronym %s, skipping group %s",
+                         group_sko_akr,
+                         gname)
+            continue
+        for m in members_as_dict:
+            person.clear()
             try:
-                ouid = ou.search(acronym=group_sko_akr)
-                ou.clear()
-                ou.find(int(ouid[0]['ou_id']))
+                person.find_by_external_id(const.externalid_fodselsnr,
+                                           m,
+                                           source_system=const.system_ekstens)
             except Errors.NotFoundError:
-                logger.error("Cannot find OU with acronym %s, skipping group %s",
-                             group_sko_akr,
-                             gname)
+                logger.error("Could not find person %s, skipping membership in %s",
+                             m, gname)
                 continue
-            for m in members_as_dict:
-                person.clear()
-                try:
-                    person.find_by_external_id(const.externalid_fodselsnr,
-                                               m,
-                                               source_system=const.system_ekstens)
-                except Errors.NotFoundError:
-                    logger.error("Could not find person %s, skipping membership in %s",
-                                 m, gname)
-                    continue
-                subrole = "LÆRER"
-                for row in person.get_affiliations():
-                    if int(row['ou_id']) == int(ou.ou_id):
-                        if row['affiliation'] == const.affiliation_elev:
-                            subrole = 'ELEV'
-                    members[m] = subrole
+            subrole = "LÆRER"
+            for row in person.get_affiliations():
+                if int(row['ou_id']) == int(ou.entity_id):
+                    if row['affiliation'] == const.affiliation_elev:
+                        subrole = 'ELEV'
+                members[m] = subrole
         fxml.personmembers_to_XML(gname, fronter.STATUS_UPDATE,
                                   members)
     fxml.end()

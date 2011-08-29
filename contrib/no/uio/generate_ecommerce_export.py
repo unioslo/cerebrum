@@ -304,8 +304,8 @@ def get_org_unit_data(org_units, exported_orgs):
             logger.warn("Could not find OU with id: %s (this should never happen!).",
                         o['entity_id'])
         oun_id = '%02d%02d%02d' % (ou.fakultet, ou.institutt, ou.avdeling)
-        tmp = ou.get_names()
-        oun_name = tmp[0][0]
+        tmp = ou.search_name_with_language(entity_id=ou.entity_id)
+        oun_name = tmp[0]["name"]
         parent_id = ou.get_parent(const.perspective_sap)
         # No direct parent is registered for ou
         if not parent_id or parent_id not in exported_orgs:
@@ -320,7 +320,7 @@ def get_org_unit_data(org_units, exported_orgs):
             oun_type = '0'
         if oun_type == '2':
             oun_parent_id = '83'
-        org_structure[ou.ou_id] = {'oun_id': oun_id,
+        org_structure[ou.entity_id] = {'oun_id': oun_id,
                                    'oun_name': oun_id + ' - ' + oun_name,
                                    'oun_parent_id': oun_parent_id,
                                    'oun_type': oun_type,
@@ -376,11 +376,14 @@ def generate_address_parts_file(orgs):
         apa_add_id = sko + '2'
         pobox = []
 
+        ou_name = ou.get_name_with_language(name_variant=const.ou_name,
+                                            name_language=const.language_nb,
+                                            default="")
         if len(addrs_1) == 0:
             # This will happen when the OU has no valid postal address registered
-            # Use bogus/empty address to enable further processing            
+            # Use bogus/empty address to enable further processing
             logger.warning("OU '%s' (SKO: '%s', ENT-ID: '%s') is registered"
-                           " without a post address" % (ou.name, sko, o))
+                           " without a post address" % (ou_name, sko, o))
             addrs_1.append((0, 0, 0, '', None, '', None, ''))
 
         for k in addrs_1[0][3].split('\n'):
@@ -391,7 +394,7 @@ def generate_address_parts_file(orgs):
             if apa_id == 'Name1':
                 apa_text = 'Universitetet i Oslo'
             elif apa_id == 'Name2':
-                apa_text = ou.name
+                apa_text = ou_name
             elif apa_id == 'POBox':
                 apa_text = pobox[0]
             elif apa_id == 'Street1':
@@ -417,7 +420,7 @@ def generate_address_parts_file(orgs):
             # This will happen when the OU has no valid street address registered
             # Use bogus/empty address to enable further processing            
             logger.warning("OU '%s' (SKO: '%s', ENT-ID: '%s') is registered"
-                           " without a street address" % (ou.name, sko, o))
+                           " without a street address" % (ou_name, sko, o))
             addrs_2.append((0, 0, 0, '', None, '', None, ''))
             
         for k in addrs_2[0][3].split('\n'):
@@ -427,7 +430,7 @@ def generate_address_parts_file(orgs):
             if apa_id == 'Name1':
                 apa_text = 'Universitetet i Oslo'
             elif apa_id == 'Name2':
-                apa_text = ou.name
+                apa_text = ou_name
             elif apa_id == 'Street1':
                 apa_text = street[0]
             elif apa_id == 'Street2':

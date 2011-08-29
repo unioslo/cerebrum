@@ -91,6 +91,14 @@ def usage(exitcode = 0, message = None):
     sys.exit(exitcode)
 
 
+def ou_name(ou):
+    return ou.get_name_with_language(name_variant=constants.ou_name,
+                                     name_language=constants.language_nb,
+                                     default="")
+# end ou_name
+
+    
+
 def process_report(stream, ou_level = 0, summary = False, ignore_sko = (),
                         ignore_students = False, ignore_quarantined = False):
     '''
@@ -159,8 +167,9 @@ def process_report(stream, ou_level = 0, summary = False, ignore_sko = (),
                 ou.clear()
                 ou.find_stedkode(fakultet=sko[:2], institutt=sko[2:4], avdeling=sko[4:6], 
                         institusjon=cereconf.DEFAULT_INSTITUSJONSNR)
-                stream.write(" %8d affiliations on %02d%02d%02d (%s)\n" % (len(unregistered[sko]),
-                                        ou.fakultet, ou.institutt, ou.avdeling, ou.name))
+                stream.write(" %8d affiliations on %02d%02d%02d (%s)\n" %
+                             (len(unregistered[sko]), ou.fakultet, ou.institutt,
+                              ou.avdeling, ou_name(ou)))
     else:
         for sko in sorted(unregistered):
 
@@ -176,7 +185,7 @@ def process_report(stream, ou_level = 0, summary = False, ignore_sko = (),
                 stream.write("\n----- %02d%02d%02d (%s) -----\n" % (ou.fakultet, 
                                                                     ou.institutt,
                                                                     ou.avdeling, 
-                                                                    ou.name))
+                                                                    ou_name(ou)))
 
             for pid in unregistered[sko]:
                 person.clear()

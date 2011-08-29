@@ -144,7 +144,7 @@ class norEduLDIFMixin(OrgLDIF):
         # Add mail attribute (allowed by the norEdu* object classes).
         # Do not add labeledURIObject; either object class norEduOrgUnit
         # or the update_org_object_entry routine will allow labeledURI.
-        ou_id = self.ou.ou_id
+        ou_id = self.ou.entity_id
         for attr, id2contact in self.attr2id2contacts:
             contact = id2contact.get(ou_id)
             if contact:
@@ -170,30 +170,49 @@ class norEduLDIFMixin(OrgLDIF):
         self.ou.find(ou_id)
         if self.test_omit_ou():
             return parent_dn, None
-        ou_names = [iso2utf((n or '').strip()) for n in (self.ou.acronym,
-                                                         self.ou.short_name,
-                                                         self.ou.name,
-                                                         self.ou.display_name)]
-        acronym  = ou_names[0]
-        ou_names = filter(None, ou_names)
+
+        name_variants = (self.const.ou_name_acronym,
+                         self.const.ou_name_short,
+                         self.const.ou_name,
+                         self.const.ou_name_display)
+        var2pref = dict([(v, i) for i, v in enumerate(name_variants)])
+        ou_names = {}
+        for row in self.ou.search_name_with_language(
+                entity_id=self.ou.entity_id,
+                name_language=self.languages,
+                name_variant=name_variants):
+            name = iso2utf(row["name"].strip())
+            if name:
+                pref   = var2pref[int(row['name_variant'])]
+                lnames = ou_names.setdefault(pref, [])
+                lnames.append((int(row['name_language']), name))
+        if not ou_names:
+            self.logger.warn("No names could be located for ou_id=%s", ou_id)
+            return parent_dn, None
+        
         ldap_ou_id = self.get_orgUnitUniqueID()
         entry = {
             'objectClass': ['top', 'organizationalUnit', 'norEduOrgUnit'],
-            self.FEIDE_attr_ou_id:  (ldap_ou_id,),
-            'ou': ou_names,
-            'cn': ou_names[-1:]}
+            self.FEIDE_attr_ou_id:  (ldap_ou_id,)}
+        if 0 in ou_names:
+            self.add_lang_names(entry, 'norEduOrgAcronym', ou_names[0])
+        ou_names = [names for pref, names in sorted(ou_names.items())]
+        for names in ou_names:
+            self.add_lang_names(entry, 'ou', names)
+        self.add_lang_names(entry, 'cn',               ou_names[-1])
         entry.update(self.FEIDE_ou_common_attrs)
         if self.FEIDE_class_obsolete:
             entry['objectClass'].append(self.FEIDE_class_obsolete)
             if self.norEduOrgUniqueID:
                 entry['norEduOrgUniqueNumber'] = self.norEduOrgUniqueID
             entry['norEduOrgUnitUniqueNumber'] = (ldap_ou_id,)
-        if acronym:
-            entry['norEduOrgAcronym'] = (acronym,)
         dn = self.make_ou_dn(entry, parent_dn or self.ou_dn)
         if not dn:
             return parent_dn, None
-        entry['ou'] = self.attr_unique(entry['ou'], normalize_string)
+
+        for attr in entry.keys():
+            if attr == 'ou' or attr.startswith('ou;'):
+                entry[attr] = self.attr_unique(entry[attr], normalize_string)
         self.fill_ou_entry_contacts(entry)
         self.update_ou_entry(entry)
         return dn, entry

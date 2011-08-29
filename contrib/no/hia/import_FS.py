@@ -88,7 +88,7 @@ def _get_sko(a_dict, kfak, kinst, kgr, kinstitusjon=None):
         try:
             ou.find_stedkode(int(a_dict[kfak]), int(a_dict[kinst]), int(a_dict[kgr]),
                              institusjon=institusjon)
-            ou_cache[key] = ou.ou_id
+            ou_cache[key] = ou.entity_id
         except Errors.NotFoundError:
             logger.info("Cannot find an OU in Cerebrum with stedkode: %s", key)
             ou_cache[key] = None

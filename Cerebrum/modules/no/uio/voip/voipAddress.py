@@ -649,9 +649,10 @@ class VoipAddress(EntityAuthentication, EntityTrait):
         # Now the tough part -- people
         p = Factory.get("Person")(self._db)
         # Fill out 'cn'
-        for row in p.list_persons_name(
-                         name_type=getattr(self.const,
-                                           cereconf.DEFAULT_GECOS_NAME),
+        for row in p.search_person_names(
+                         name_variant=getattr(self.const,
+                                              cereconf.DEFAULT_GECOS_NAME,
+                                              self.const.name_full),
                          source_system=self.const.system_cached):
             owner_data[row["person_id"]] = {"cn": row["name"]}
             

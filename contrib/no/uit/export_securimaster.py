@@ -61,10 +61,13 @@ def load_cache():
     logger.info("Start pnr->acc")
     pnr2account=p.getdict_external_id2primary_account(co.externalid_fodselsnr)
     logger.info("Start get names")
-    name_cache = p.getdict_persons_names( source_system=co.system_cached, name_types=(co.name_first, co.name_last))
-
-    worktitle_cache = p.getdict_persons_names(source_system=co.system_paga, name_types=(co.name_work_title))
-
+    name_cache = p.getdict_persons_names(source_system=co.system_cached,
+                                         name_types=(co.name_first, co.name_last))
+    worktitle_cache = dict((row["entity_id"], row["name"])
+                           for row in 
+                           p.search_name_with_language(entity_type=co.entity_person,
+                                                       name_variant=co.work_title,
+                                                       name_language=co.language_nb))
     logger.info("Start get account names")
     account2name=dict()
     owner2account=dict()
@@ -116,9 +119,12 @@ def load_cb_data():
             
             stedkode.clear()
             stedkode.find(ou_id)
-            sko="%02d%02d%02d"  % ( stedkode.fakultet,stedkode.institutt,\
-                stedkode.avdeling)        
-            ou_cache[ou_id]=(ou.name,sko)
+            sko="%02d%02d%02d"  % (stedkode.fakultet, stedkode.institutt,
+                                   stedkode.avdeling)
+            ou_name = ou.get_name_with_language(name_variant=co.ou_name,
+                                           name_language=co.language_nb,
+                                           default="")
+            ou_cache[ou_id]=(ou_name, sko)
         sko_name,sko=ou_cache[ou_id]
 
         p_id = aff['person_id']
@@ -133,13 +139,11 @@ def load_cb_data():
         primary_mail = owner2email.get(p_id, '')
 
         namelist = name_cache.get(p_id,None)
-        first_name=last_name=worktitle=""
+        first_name=last_name=""
         if namelist:
             first_name = namelist.get(int(co.name_first),"")
             last_name = namelist.get(int(co.name_last),"")
-        worktitlelist = worktitle_cache.get(p_id, None)
-        if worktitlelist:
-            worktitle = worktitlelist.get(int(co.name_work_title),"")
+        worktitle = worktitle_cache.get(p_id, "")
     
         if not acc_name:
             logger.warn("No account for %s %s (fnr=%s)(pid=%s)" % \

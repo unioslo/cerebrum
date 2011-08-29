@@ -22,7 +22,7 @@
 category:metainfo;
 name=cerebrum_database_schema_version;
 category:metainfo;
-version=0.9.15;
+version=0.9.16;
 
 /* Define role hierarchy used for granting access to various database
    objects.
@@ -105,10 +105,11 @@ CREATE TABLE cerebrum_metainfo
 
 
 /*	authoritative_system_code
-
-
-
-*/
+ *
+ * This table holdes one entry per authoritative/source system populating 
+ * this Cerebrum installation.   
+ *
+ */
 category:code;
 CREATE TABLE authoritative_system_code
 (
@@ -358,6 +359,62 @@ category:main/Oracle;
 GRANT SELECT ON entity_name TO read_entity;
 category:main/Oracle;
 GRANT INSERT, UPDATE, DELETE ON entity_name TO change_entity;
+
+
+/*
+ * entity_name_code -- code values for entity language name data.
+ * 
+ */
+category:code;
+CREATE TABLE entity_name_code
+(
+	code		NUMERIC(6, 0)
+			CONSTRAINT entity_name_code_pk PRIMARY KEY,
+        code_str	CHAR VARYING(16)
+			NOT NULL
+			CONSTRAINT entity_name_codestr_u UNIQUE,
+        description	CHAR VARYING(512)
+			NOT NULL
+);
+category:code/Oracle;
+GRANT SELECT ON entity_name_code TO read_code;
+category:code/Oracle;
+GRANT INSERT, UPDATE, DELETE ON entity_name_code TO change_code;
+ 
+
+/*
+ * entity_language_name -- non-unique entity names with languages.
+ * 
+ */
+category:main;
+CREATE TABLE entity_language_name
+(
+        entity_id       NUMERIC(12, 0)
+                        CONSTRAINT entity_lang_name_id
+                          REFERENCES entity_info(entity_id),
+        name_variant    NUMERIC(6, 0)
+                        CONSTRAINT entity_lang_name_code_fk
+                          REFERENCES entity_name_code(code),
+        name_language   NUMERIC(6, 0)
+                        CONSTRAINT entity_lang_name_lang_fk
+                          REFERENCES language_code(code),
+        name            CHAR VARYING(512)
+                        NOT NULL,
+
+        CONSTRAINT entity_lang_name_pk
+          PRIMARY KEY (entity_id, name_variant, name_language)
+);
+category:main/Oracle;
+GRANT SELECT ON entity_name TO read_entity;
+category:main/Oracle;
+GRANT INSERT, UPDATE, DELETE ON entity_name TO change_entity;
+category:main;
+CREATE INDEX eln_entity_id_index ON entity_language_name_(entity_id);
+category:main;
+CREATE INDEX eln_name_variant_index ON entity_language_name(name_variant);
+category:main;
+CREATE INDEX eln_name_language_index ON entity_language_name(name_language);
+
 
 
 /*	entity_external_id_code
@@ -1048,36 +1105,6 @@ category:code/Oracle;
 GRANT SELECT ON language_code TO read_code;
 category:code/Oracle;
 GRANT INSERT, UPDATE, DELETE ON language_code TO change_code;
-
-
-/*	ou_name_language
-
-  Use this table to define the names of OUs in languages other than
-  the default language of this installation.
-
-*/
-category:main;
-CREATE TABLE ou_name_language
-(
-  ou_id		NUMERIC(12,0)
-		CONSTRAINT ou_name_language_ou_id
-		  REFERENCES ou_info(ou_id),
-  language_code	NUMERIC(6,0)
-		CONSTRAINT ou_name_language_language_code
-		  REFERENCES language_code(code),
-  name		CHAR VARYING(512)
-		NOT NULL,
-  acronym	CHAR VARYING(15),
-  short_name	CHAR VARYING(30),
-  display_name	CHAR VARYING(80),
-  sort_name	CHAR VARYING(80),
-  CONSTRAINT ou_name_language_pk
-    PRIMARY KEY (ou_id, language_code)
-);
-category:main/Oracle;
-GRANT SELECT ON ou_name_language TO read_ou;
-category:main/Oracle;
-GRANT INSERT, UPDATE, DELETE ON ou_name_language to change_ou;
 
 
 /*	gender_code
@@ -1855,10 +1882,6 @@ DROP TABLE person_info;
 category:drop;
 DROP TABLE gender_code;
 category:drop;
-DROP TABLE ou_name_language;
-category:drop;
-DROP TABLE language_code;
-category:drop;
 DROP TABLE ou_structure;
 category:drop;
 DROP TABLE ou_perspective_code;
@@ -1898,6 +1921,12 @@ category:drop;
 DROP TABLE entity_name;
 category:drop;
 DROP TABLE value_domain_code;
+category:drop;
+DROP TABLE entity_language_name;
+category:drop;
+DROP TABLE entity_name_code;
+category:drop;
+DROP TABLE language_code;
 category:drop;
 DROP TABLE entity_external_id;
 category:drop;

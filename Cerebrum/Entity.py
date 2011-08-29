@@ -27,7 +27,10 @@ from Cerebrum import Utils
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory
 from Cerebrum.Constants import _EntityTypeCode
-from Cerebrum.Utils import argument_to_sql
+from Cerebrum.Utils import argument_to_sql, prepare_string
+from Cerebrum.Utils import NotSet
+from Cerebrum.Utils import to_unicode
+
 
 
 class Entity(DatabaseAccessor):
@@ -412,6 +415,228 @@ class EntityName(Entity):
         FROM [:table schema=cerebrum name=entity_name]
         WHERE value_domain=:value_domain""",
                             {'value_domain': int(value_domain)})
+
+
+class EntityNameWithLanguage(Entity):
+    """Mixin class for dealing with name-with-language data in Cerebrum.
+
+    This mixin adds support for adorning entities with (potentially) non-unique
+    names. Each entity may have up to one name of a specific type in a given
+    language.
+    """
+
+    def _query_builder(self, entity_id, name_variant, name_language, name,
+                       exact_match=True, include_where=True):
+        """Help build the WHERE-part of SQL-queries for this class.
+
+        exact_match decides whether the name matching is to be exact or
+        approximate (with LIKE). In the latter case we do NOT allow multiple
+        values for name (there are no current use cases for this and this
+        extension is complex enough as it is). Furthermore, exact_match's value
+        is meaningless, unless name is not None.
+
+        Additionally, if exact_match is False we'll prefix/suffix name with '%'
+        (if it does not contain them already).
+
+        @return:
+          A tuple <query, binds>, where query is a str containing the SQL and
+          binds is a dict with free variables (if any) referenced by
+          query. include_where controls whether query is prefixed with 'WHERE '.
+        """
+
+        binds = {}
+        where = list()
+        if entity_id is not None:
+            where.append(argument_to_sql(entity_id, "eln.entity_id", binds, int))
+        if name_variant is not None:
+            where.append(argument_to_sql(name_variant, "eln.name_variant", binds, 
+                                         int))
+        if name_language is not None:
+            where.append(argument_to_sql(name_language, "eln.name_language", binds,
+                                         int))
+        if name is not None:
+            if exact_match:
+                where.append(argument_to_sql(name, "eln.name", binds, str))
+            else:
+                name_pattern = prepare_string(name)
+                if name_pattern.count('%') == 0:
+                    name_pattern = '%' + name_pattern + '%'
+                where.append("(eln.name LIKE :name)")
+                binds["name"] = name_pattern
+
+        where = " AND ".join(where) or ""
+        if include_where and where:
+            where = " WHERE " + where
+
+        return where, binds
+    # end _query_builder
+
+    
+    def find_by_name_with_language(self, name_variant=None, name_language=None,
+                                   name=None):
+        """Locate the one entity matching the language name filters."""
+        where, binds = self._query_builder(None, name_variant, name_language,
+                                           name)
+        entity_id = self.query_1("""
+        SELECT entity_id
+        FROM [:table schema=cerebrum name=entity_language_name] eln
+        %s""" % where, binds)
+        return self.find(entity_id)
+    # end find_by_name_with_language
+    
+    
+    def add_name_with_language(self, name_variant, name_language, name):
+        """Add or update a specific language name."""
+
+        binds = {"name_variant": int(name_variant),
+                 "name_language": int(name_language),
+                 "name": name,
+                 "entity_id": self.entity_id}
+        change_params={'name_variant': int(name_variant),
+                       'name_language': int(self.const.LanguageCode(name_language)),
+                       'name': name}
+        existing = self.search_name_with_language(entity_id=self.entity_id,
+                                             name_variant=name_variant,
+                                             name_language=name_language)
+        if existing:
+            # If the names are equal, stop now and do NOT flood the change log. 
+            m = existing[0]
+            if to_unicode(m["name"], "latin-1") == to_unicode(name, "latin-1"):
+                return
+
+            rv = self.execute("""
+            UPDATE [:table schema=cerebrum name=entity_language_name]
+            SET name = :name
+            WHERE entity_id = :entity_id AND
+                  name_variant = :name_variant AND
+                  name_language = :name_language
+            """, binds)
+            self._db.log_change(self.entity_id, self.const.entity_name_mod, None,
+                                change_params)
+        else:
+            rv = self.execute("""
+            INSERT INTO [:table schema=cerebrum name=entity_language_name]
+            VALUES (:entity_id, :name_variant, :name_language, :name)
+            """, binds)
+            self._db.log_change(self.entity_id, self.const.entity_name_add, None,
+                                change_params)
+            return rv
+    # end add_name_with_language
+
+        
+    def delete_name_with_language(self, name_variant=None, name_language=None,
+                                  name=None):
+        """Delete specific language name entries for self.
+
+        With all filters left unset, this will delete all of self's language
+        names.
+        """
+
+        where, binds = self._query_builder(self.entity_id, name_variant,
+                                           name_language, name)
+
+        # Why bother? Well, because IF the specified name does not exist, we do
+        # NOT want to flood the logs. Imagine 20'000 entities with name
+        # data. Imagine a bunch of deletion calls from an outdated
+        # source which results in deletion of names which no longer exist (and
+        # have not existed for a while). Unless we catch that here, the
+        # change_log will be slapped with 20'000x<#name types>x<#langs>
+        # superfluous entries per run. This cannot be allowed.
+        existing = self.search_name_with_language(entity_id=self.entity_id,
+                                             name_variant=name_variant,
+                                             name_language=name_language,
+                                             name=name)
+        rv = self.execute("""
+        DELETE FROM [:table schema=cerebrum name=entity_language_name] eln
+        """ + where, binds)
+
+        if existing:
+            # Why not a specific constant? Well, because
+            # name_variant/name_language/name could all be a sequence or an
+            # iterable. It should work regardless.
+            change_params={'name_variant': str(name_variant),
+                           'name_language': str(name_language),
+                           'name': name}
+            self._db.log_change(self.entity_id, self.const.entity_name_del,
+                                None, change_params=change_params)
+        return rv
+    # end delete_name_with_language
+        
+
+
+    def delete(self):
+        """Remove all known names for self from the database."""
+
+        # We could use search_name_with_language() + delete_name_with_language(), but
+        # that combo cannot be made atomic without extra effort. Is it worth the
+        # effort, just to get changelogging?
+        where, binds = self._query_builder(self.entity_id, None, None, None)
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=entity_language_name] eln
+        """ + where, binds)
+        return self.__super.delete()
+    # end delete
+
+    
+    def search_name_with_language(self, entity_id=None, entity_type=None,
+                                  name_variant=None, name_language=None,
+                                  name=None, exact_match=True):
+        """Look for language name entries matching specified filters.
+
+        Without filters, return all names with languages for everything.
+
+        @param exact_match:
+          Controls whether name matching is to be exact (foo = 'bar') or
+          approximate (foo LIKE '%bar%'). In the latter case, if name has no
+          SQL-wildcards, they will be supplied automatically. 
+        """
+        where = ["ei.entity_id = eln.entity_id",]
+        where2, binds = self._query_builder(entity_id, name_variant,
+                                            name_language, name, exact_match,
+                                            include_where=False)
+        where.append(where2)
+        if entity_type is not None:
+            where.append(argument_to_sql(entity_type, "ei.entity_type", binds, int))
+
+        return self.query("""
+        SELECT eln.entity_id, ei.entity_type, 
+               eln.name_variant, eln.name_language, eln.name
+        FROM [:table schema=cerebrum name=entity_language_name] eln,
+             [:table schema=cerebrum name=entity_info] ei
+        WHERE """ + " AND ".join(where), binds)
+    # end search_name_with_language
+
+
+
+    def get_name_with_language(self, name_variant, name_language, default=NotSet):
+        """Retrieve a specific name for self.
+
+        A short-hand for search_name_with_language + raise NotFoundError
+        """
+
+        names = self.search_name_with_language(entity_id=self.entity_id,
+                                          name_variant=name_variant,
+                                          name_language=name_language)
+        if len(names) == 1:
+            return names[0]["name"]
+        elif default != NotSet:
+            return default
+        elif not names:
+            raise Errors.NotFoundError("Entity id=%s has no name %s in lang=%s"%
+                                       (self.entity_id,
+                                        self.const.EntityNameCode(name_variant),
+                                        self.const.LanguageCode(name_language)))
+        elif len(names) > 1:
+            raise Errors.TooManyRowsError("Too many rows id=%s (%s, %s): %d" %
+                                          (self.entity_id,
+                                           self.const.EntityNameCode(name_variant),
+                                           self.const.LanguageCode(name_language),
+                                           len(names)))
+        assert False, "NOTREACHED"
+    # end get_name_with_language
+# end EntityNameWithLanguage
+
+    
 
 class EntityContactInfo(Entity):
     "Mixin class, usable alongside Entity for entities having contact info."

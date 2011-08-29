@@ -120,9 +120,9 @@ class XMLOU2Object(XMLEntity2Object):
         result.publishable = True
 
         # names
-        for name_kind, xmlname, lang in ((result.NAME_LONG, "stednavn", "no"),
-                                         (result.NAME_SHORT, "forkstednavn", "no"),
-                                         (result.NAME_ACRONYM, "akronym", "no")):
+        for name_kind, xmlname, lang in ((result.NAME_LONG, "stednavn", "nb"),
+                                         (result.NAME_SHORT, "forkstednavn", "nb"),
+                                         (result.NAME_ACRONYM, "akronym", "nb")):
             value = self._pull_name(element, xmlname)
             if value:
                 result.add_name(DataName(name_kind, value, lang))

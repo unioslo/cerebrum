@@ -200,19 +200,14 @@ def get_ad_ou(ldap_path):
 
 
 def get_crbrm_ou(ou_id):
-     ou.clear()
-     ou.find(cereconf.OMNI_CERE_ROOT_OU_ID)       
-     return 'OU=%s' % ou.acronym
-        
-#    Do not use OU placement at UiO.
-#    try:      
-#        ou.clear()
-#        ou.find(ou_id)
-#        path = ou.structure_path(co.perspective_lt)
-#        #TBD: Utvide med spread sjekk, OUer uten acronym, problem?
-#        return 'OU=%s' % path.replace('/',',OU=')
-#    except Errors.NotFoundError:
-#        logger.debug("Could not find OU with id: %s" % ou_id)
+    names = ou.search_name_with_language(entity_id=cereconf.OMNI_CERE_ROOT_OU_ID,
+                                    name_variant=co.ou_name_acronym,
+                                    name_language=co.language_nb)
+    suffix = ""
+    if len(names) == 1:
+        suffix = names[0]["name"]
+    return "OU=" + suffix
+# end get_crbrm_ou
 
 
 def id_to_ou_path(ou_id,ourootname):
@@ -235,5 +230,3 @@ def find_login_script(account):
 
 if __name__ == '__main__':
     pass
-
-# arch-tag: 9b05a07d-6348-44f5-bbbd-ca027cc515cc

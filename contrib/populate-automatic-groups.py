@@ -156,7 +156,9 @@ def ou_id2ou_info(ou_id):
             return None
         
         return {"sko": format_sko(ou.fakultet, ou.institutt, ou.avdeling),
-                "name": ou.name,
+                "name": ou.get_name_with_language(name_variant=constants.ou_name,
+                                             name_language=constants.ou_language,
+                                             default=""),
                 "ou_id": ou_id}
     except Errors.NotFoundError:
         return None
@@ -1118,7 +1120,7 @@ def build_ou_roots(filters, perspective):
     ou = Factory.get("OU")(database)
     # ou_id -> ou_info block
     ou_set = dict((x["ou_id"], ou_id2ou_info(x["ou_id"]))
-                  for x in ou.list_all(filter_quarantined=True))
+                  for x in ou.search(filter_quarantined=True))
 
     logger.debug("Starting with %d OUs in total", len(ou_set))
     # Choose only the nodes that match at least one regular expression

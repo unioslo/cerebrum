@@ -243,22 +243,6 @@ def load_cb_data():
             logger.warn('Skipped affiliation because it originated from unwanted source system %s' % aff)
             continue
 
-        # Needs to keep original ou id in order to be able to look up persons BAS specific affiliation/stillingskode
-        #original_ou_id = ou_id = aff['ou_id']
-        #
-        # Do mapping to "PORTAL specific" ou
-        #try:
-        #    ou_id_ = bas_portal_mapping[ou_id]
-        #
-        #    if ou_id_ == 'SKIP':
-        #        logger.info('Skipped affiliation to ou=%s due to bas to portal mapping rule saying to do so' % (ou_id))
-        #        continue
-        #    
-        #    logger.info('Mapped %s to %s' % (ou_id, ou_id_))
-        #    ou_id = ou_id_
-        #except KeyError:
-        #    pass
-
         ou_id = aff['ou_id']
         
         last_date=aff['last_date'].strftime("%Y-%m-%d")
@@ -272,8 +256,9 @@ def load_cb_data():
                 logger.warn('Expired ou (%s) for person: %s' % (aff['ou_id'], aff['person_id']))
                 continue
            
-            ou_name = ou.name
- 
+            ou_name = ou.get_name_with_language(name_variant=co.ou_name,
+                                                name_language=co.language_nb,
+                                                default="")
             stedkode.clear()
             stedkode.find(ou_id)
             sko="%02d%02d%02d"  % ( stedkode.fakultet,stedkode.institutt,

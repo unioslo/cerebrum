@@ -20,8 +20,6 @@
 
 import xml.sax
 from time import localtime, strftime, time
-import pprint
-import sys
 
 import cereconf
 from Cerebrum import Errors

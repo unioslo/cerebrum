@@ -119,7 +119,12 @@ def get_ou(ident):
         return ou
     # Assume it's an acronym
     elif isinstance(ident, str):
-        result = ou.search(acronym=ident)
+        const = Factory.get("Constants")()
+        result = ou.search_name_with_language(entity_type=const.entity_ou,
+                                         name_variant=const.ou_name_acronym,
+                                         name=ident,
+                                         name_language=const.language_nb,
+                                         exact_match=False)
         assert len(result) == 1
         ou.find(result[0]["ou_id"])
         return ou
@@ -493,8 +498,12 @@ def prepare_user_group_mismatch_report(aff2groups, mismatches):
             components[0] = str(const.PersonAffStatus(tpl[1]))
         if tpl[2]:
             ou = get_ou(tpl[2])
-            components.append("@%s (%s)" % (ou_id2report(ou.ou_id),
-                                            ou.acronym))
+            acronym = ou.get_name_with_language(
+                name_variant=const.ou_name_acronym,
+                name_language=const.language_nb,
+                default="")
+            components.append("@%s (%s)" % (ou_id2report(ou.entity_id),
+                                            acronym))
         return "".join(components)
     # end affkey2string
     

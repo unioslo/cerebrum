@@ -136,13 +136,16 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         # Change from original: Search titles first by system_lookup_order,
         # then within each system let personal title override work title.
         timer = self.make_timer("Fetching personal titles...")
-        self.person_title = person_title = {}
-        for source in self.system_lookup_order:
-            for name_type in (int(self.const.name_personal_title),
-                              int(self.const.name_work_title)):
-                for row in self.person.list_persons_name(source_system=source,
-                                                         name_type=name_type):
-                    person_title.setdefault(int(row['person_id']), row['name'])
+        titles = {}
+        for name_type in (self.const.personal_title, self.const.work_title):
+            for row in self.person.search_name_with_language(
+                                       entity_type=self.const.entity_person,
+                                       name_variant=name_type,
+                                       name_language=self.languages):
+                titles.setdefault(int(row['entity_id']), {}).setdefault(
+                    int(row['name_language']), iso2utf(row['name']))
+        self.person_titles = dict([(p_id, t.items())
+                                   for p_id, t in titles.items()])
         timer("...personal titles done.")
 
     def make_person_entry(self, row):

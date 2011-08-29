@@ -187,7 +187,7 @@ def import_org_units(sources):
             pass
         else:
             if clean_obsolete_ous:
-                del cer_ou_tab[int(ou.ou_id)]
+                del cer_ou_tab[int(ou.entity_id)]
                 for r in ou.get_entity_quarantine():
                     if (r['quarantine_type'] == co.quarantine_ou_notvalid or
                         r['quarantine_type'] == co.quarantine_ou_remove):

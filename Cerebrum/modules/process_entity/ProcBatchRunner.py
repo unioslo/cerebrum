@@ -133,10 +133,9 @@ class ProcBatchRunner(object):
         """Feed the Handler OU objects."""
         ou = Factory.get('OU')(self.db)
 
-        for row in ou.list_all():
-            ou_id = int(row['ou_id'])
+        for row in ou.search():
             ou.clear()
-            ou.find(ou_id)
+            ou.find(row['ou_id'])
             self.proc.process_ou(ou)
 
 
@@ -182,28 +181,33 @@ class ProcBatchRunner(object):
                 # Group's name doesn't match the criteria. Fail.
                 self.logger.warning("Group '%s' has an odd name for a generated aff group. Skipping" % grp.group_name)
                 continue
-            ous = ou.search(acronym=ou_acronym)
+            ous = ou.search_name_with_language(entity_type=self.co.entity_ou,
+                                          name_variant=self.co.ou_name_acronym,
+                                          name=ou_acronym,
+                                          name_language=self.co.language_nb,
+                                          exact_match=False)
             if len(ous) > 1:
-                self.logger.warning("Acronym '%s' results in more than one OU. Skipping" % ou_acronym)
+                self.logger.warning("Acronym '%s' results in more than one OU. "
+                                    "Skipping" % ou_acronym)
                 continue
             if len(ous) == 0:
-                self.logger.warning("Acronym '%s' doesn't resolve to an OU." % ou_acronym)
+                self.logger.warning("Acronym '%s' doesn't resolve to an OU." %
+                                    ou_acronym)
                 # TBD: What to do? Delete the group? Let The Handler deal with it?
                 continue
             ou.clear()
             ou.find(ous[0]['ou_id'])
-            aff = txt2aff[affiliation]
             # Send a delete call to the Handler if the group has accounts in it
             # without the proper account_type.
             for member in grp.search_members(group_id=grp.entity_id):
                 member_id = int(member["member_id"])
                 for a in txt2aff[affiliation]:
-                    if (ac2aff.has_key((int(a), ou.ou_id)) and
-                        member_id in ac2aff[(int(a), ou.ou_id)]):
-                        aff_grp2ac.setdefault((int(a),ou.ou_id), []).append(member_id)
+                    if (ac2aff.has_key((int(a), ou.entity_id)) and
+                        member_id in ac2aff[(int(a), ou.entity_id)]):
+                        aff_grp2ac.setdefault((int(a),ou.entity_id), []).append(member_id)
                         break
                 else:
-                    self.proc.ac_type_del(member_id, affiliation, ou.ou_id)
+                    self.proc.ac_type_del(member_id, affiliation, ou.entity_id)
 
         # Let the handler take take of added account_types.
         for i in ac2aff:

@@ -641,7 +641,10 @@ class Build(object):
             name_ou.clear()
             try:
                 name_ou.find_stedkode(int(person_info['ou'][0:2]), int(person_info['ou'][2:4]), int(person_info['ou'][4:6]), cereconf.DEFAULT_INSTITUSJONSNR)
-                person_info['ou_navn'] = name_ou.name
+                person_info['ou_navn'] = name_ou.get_name_with_language(
+                                             name_variant=co.ou_name,
+                                             name_language=co.language_nb,
+                                             default="")
             except Exception, m:
                 logger.warn('OU not found from stedkode: %s. Error was: %s' % (person_info['ou'], m))
 

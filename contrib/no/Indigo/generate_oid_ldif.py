@@ -82,10 +82,12 @@ def get_account_info():
     for row in ac.list_accounts_by_type(primary_only=True):
         a_id2p_id[int(row['account_id'])] = int(row['person_id'])
         p_id2a_id[int(row['person_id'])] = int(row['account_id'])
-    ou_id2name = dict()
-    for row in ou.search():
-        ou_id2name[int(row['ou_id'])] = str(row['acronym'])
 
+
+    ou_id2name = dict((r["entity_id"], r["name"])
+                      for r in ou.search_name_with_language(entity_type=co.entity_ou,
+                                     name_variant=co.ou_name_acronym,
+                                     name_language=co.language_nb))
     const2str = dict()
     const2str[int(co.affiliation_ansatt)] = "ANSATTE"
     const2str[int(co.affiliation_elev)] = "ELEVER"

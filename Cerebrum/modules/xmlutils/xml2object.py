@@ -47,23 +47,11 @@ import copy
 import sys
 import time
 import types
-
-# From version 2.5 (c)ElementTree is in Python's standard library,
-# under xml.etree
-try:
-    from xml.etree.cElementTree import parse, iterparse, ElementTree
-except ImportError:
-    from cElementTree import parse, iterparse, ElementTree
-
+from xml.etree.cElementTree import parse, iterparse, ElementTree
 from mx.DateTime import Date, DateTimeDelta
 
 import cerebrum_path
 import cereconf
-try:
-    set()
-except:
-    from Cerebrum.extlib.sets import Set as set
-
 from Cerebrum import Utils
 
 
@@ -148,7 +136,114 @@ class DataContact(object):
 
 
 
-class DataEmployment(object):
+class DataName(object):
+    """Class for representing name information in a data source.
+
+    Typically this includes the string value itself and perhaps a language
+    attribute.
+    """
+
+    def __init__(self, kind, value, lang=None):
+        """Registers a new language.
+
+        lang values are 2-digit ISO 639 codes as found in
+        <http://www.w3.org/WAI/ER/IG/ert/iso639.htm>
+        """
+
+        self.kind = kind
+        self.value = value
+        lang = lang and lang.lower() or lang
+        self.language = lang
+    # end __init__
+
+
+    def __str__(self):
+        if self.language:
+            return str((self.kind, self.value, self.language))
+        return str((self.kind, self.value))
+# end DataName
+
+
+
+class NameContainer(object):
+    """Class for keeping track of multiple names for an object.
+
+    Names are indexed by name type -- first, middle, last, work title, OU
+    name, etc. They may be multiple entries for the same type.
+    """
+
+    def __init__(self):
+        self._names = dict()
+    # end __init__
+
+
+    def validate_name(self, name):
+        """By default all names are valid."""
+        
+        return True
+    # end validate_name
+
+    
+    def add_name(self, name):
+        """Add a new name.
+
+        We can have several names of the same kind. If this happens, they are
+        all chained together under the kind key.
+        """
+
+        self.validate_name(name)
+        kind = name.kind
+
+        if kind in self._names:
+            self._names[kind].append(name)
+        else:
+            self._names[kind] = [name,]
+    # end add_name
+
+    
+    def iternames(self):
+        return self._names.iteritems()
+    # end iternames
+
+    
+    def get_name(self, kind, default=None):
+        tmp = self._names.get(kind, default)
+        return tmp
+    # end get_name
+
+    
+    def get_name_with_lang(self, kind, *priority_order):
+        """Extract a name of given kind, respecting the given priority order.
+
+        priority_order contains languages in the preferred order. If no
+        language matches, we return None. NB! None is different from a name
+        that is an empty string.
+        """
+
+        # Names without language come last
+        max = len(priority_order)+1
+        weights = { None : max, }
+        for i, lang in enumerate(priority_order):
+            weights[lang.lower()] = i
+
+        # If we have no name of this kind at all, just return None at once.
+        names = self._names.get(kind, None)
+        if not names:
+            return None
+        
+        names = filter(lambda x: x.language in priority_order, names)
+        names.sort(lambda x, y: cmp(weights[x.language],
+                                    weights[y.language]))
+        if names:
+            return names[0].value
+        else:
+            return None
+    # end get_name_with_lang
+# end class NameContainer
+    
+
+
+class DataEmployment(NameContainer):
     """Class for representing employment information.
 
     TBD: Do we validate (the parts of) the information against Cerebrum?
@@ -160,8 +255,12 @@ class DataEmployment(object):
     BILAG         = "bilag"
     KATEGORI_OEVRIG = "tekadm-øvrig"
     KATEGORI_VITENSKAPLIG  = "vitenskaplig"
+    WORK_TITLE    = "stillingstittel"
 
-    def __init__(self, kind, percentage, code, title, start, end, place, category, leave=None):
+    
+    def __init__(self, kind, percentage, code, start, end, place, category,
+                 leave=None):
+        super(DataEmployment, self).__init__()
         # TBD: Subclass?
         self.kind = kind
         assert self.kind in (self.HOVEDSTILLING, self.BISTILLING,
@@ -169,7 +268,6 @@ class DataEmployment(object):
         # It can be a floating point value.
         self.percentage = percentage
         self.code = code
-        self.title = title
         # start/end are mx.DateTime objects (well, only the Date part is used)
         self.start = start
         self.end = end
@@ -184,14 +282,17 @@ class DataEmployment(object):
             self.leave = copy.deepcopy(leave)
     # end __init__
 
+    
     def is_main(self):
-        return self.kind == HRDataPerson.HOVEDSTILLING
+        return self.kind == self.HOVEDSTILLING
     # end is_main
 
+    
     def is_guest(self):
         return self.kind == self.GJEST
+    # end is_guest
 
-
+    
     def is_active(self, date = Date(*time.localtime()[:3])):
         # IVR 2009-04-29 Lars Gustav Gudbrandsen requested on 2009-04-22 that
         # all employment-related info should be considered active 14 days
@@ -217,63 +318,25 @@ class DataEmployment(object):
 
 
     def __str__(self):
-        return "(%s) Employment: %s%% %s [%s..%s @ %s]" % (self.kind,
-                                                           self.percentage,
-                                                           self.title,
-                                                           self.start,
-                                                           self.end,
-                                                           self.place)
+        return "(%s) Employment: %s%% %s [%s..%s @ %s]" % (
+            self.kind, self.percentage,
+            ", ".join("%s:%s" % (x.language, x.value)
+                      for x in self.iternames()),
+            self.start, self.end, self.place)
     # end __str__
 # end DataEmployment
 
 
-class DataName(object):
-    """Class for representing name information in a data source.
 
-    Typically this includes the string value itself and perhaps a language
-    attribute.
-    """
-
-    def __init__(self, kind, value, lang=None):
-        """Registers a new language.
-
-        lang values are 2-digit ISO 639 codes as found in
-        <http://www.w3.org/WAI/ER/IG/ert/iso639.htm>
-        """
-
-        self.kind = kind
-        self.value = value
-        self.language = lang
-        if self.language:
-            self.language = self.language.lower()
-            # IVR 2007-07-14 FIXME: Yes, this is a hack. 
-            if self.language == "ny":
-                self.language = "nn"
-            # IVR 2007-05-28 FIXME: This is perhaps the wrong place for such a
-            # check.  We may want to (and should?) have these codes in
-            # Cerebrum.
-            if self.language not in ("en", "it", "nl", "no", "nb", "nn",
-                                     "ru", "sv", "fr",):
-                raise ValueError, "Unknown language code " + self.language
-    # end __init__
-
-
-    def __str__(self):
-        if self.language:
-            return str((self.kind, self.value, self.language))
-        return str((self.kind, self.value))
-# end DataName
-
-
-class DataEntity(object):
+class DataEntity(NameContainer):
     """Class for representing common traits of objects in a data source.
 
     Typically, a subclass of DataEntity will be a Person or an OU.
     """
     
     def __init__(self):
+        super(DataEntity, self).__init__()        
         self._external_ids = dict()
-        self._names = dict()
         self._contacts = list()
         self._addresses = dict()
     # end __init__
@@ -282,27 +345,6 @@ class DataEntity(object):
         self.validate_id(kind, value)
         self._external_ids[kind] = value
     # end add_id
-
-    def add_name(self, name):
-        """Add a new name.
-
-        We can have several names of the same kind. If this happens, they are
-        all chained together under the kind key.
-        """
-
-        self.validate_name(name)
-        kind = name.kind
-
-        if kind in self._names:
-            if isinstance(self._names[kind], types.ListType):
-                self._names[kind].append(name)
-            else:
-                self._names[kind] = [self._names[kind], name]
-            # fi
-        else:
-            self._names[kind] = name
-        # fi
-    # end add_name
 
     def add_contact(self, contact):
         self._contacts.append(contact)
@@ -317,10 +359,6 @@ class DataEntity(object):
         return self._external_ids.iteritems()
     # end iterids
 
-    def iternames(self):
-        return self._names.iteritems()
-    # end iternames
-
     def itercontacts(self):
         return iter(self._contacts)
     # end itercontacts
@@ -328,50 +366,6 @@ class DataEntity(object):
     def iteraddress(self):
         return self._addresses.iteritems()
     # end iteraddress
-
-    def get_name(self, kind, default=None):
-        tmp = self._names.get(kind, default)
-        return tmp
-    # end get_name
-
-    def get_name_with_lang(self, kind, *priority_order):
-        """Extract a name of given kind, respecting the given priority order.
-
-        priority_order contains languages in the preferred order. If no
-        language matches, we return None. NB! None is different from a name
-        that is an empty string.
-        """
-
-        # Names without language come last
-        max = len(priority_order)+1
-        weights = { None : max, }
-        i = 0
-        for lang in priority_order:
-            weights[lang.lower()] = i
-            i += 1
-        # od
-
-        # If we have no name of this kind at all, just return None at once.
-        names = self._names.get(kind, None)
-        if names is None:
-            return None
-        # fi
-        
-        # it can be an atom or a list...
-        if not isinstance(names, types.ListType):
-            names = [names]
-        # fi
-        
-        names = filter(lambda x: x.language in priority_order, names)
-        names.sort(lambda x, y: cmp(weights[x.language],
-                                    weights[y.language]))
-        if names:
-            return names[0].value
-        else:
-            return None
-        # fi
-    # end get_name_with_lang
-
 
     def get_contact(self, kind, default=list()):
         result = list()

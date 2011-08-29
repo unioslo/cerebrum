@@ -279,7 +279,7 @@ class Fronter(object):
         if fields[start] == "kurs":
             if count == 8:                 # undenh
                 key = fields[start:-1]
-            elif count == 9:		   # undakt
+            elif count == 9:               # undakt
                 key = fields[start:-2] + [fields[-1],]
         elif fields[start] == "evu":
             if count == 4:                 # kurs
@@ -1498,10 +1498,10 @@ def build_structure(sko, allow_room=False, allow_contact=False):
     struct_id = "STRUCTURE/Sko:185:%s" % sko
     if ((not new_group.has_key(struct_id)) or
         (allow_room and not new_group[struct_id]['allow_room']) or
-	(allow_contact and not new_group[struct_id]['allow_contact'])):
-	# Insert ancestors first; by not passing $allow_* on up the
-	# tree, we're causing nodes that are created purely as
-	# ancestors to allow neither rooms nor contacts.
+        (allow_contact and not new_group[struct_id]['allow_contact'])):
+        # Insert ancestors first; by not passing $allow_* on up the
+        # tree, we're causing nodes that are created purely as
+        # ancestors to allow neither rooms nor contacts.
         sted = get_sted(stedkode=sko)
         if sted is None:
             # This shouldn't happen, but if it does, there's not much
@@ -1522,11 +1522,15 @@ def build_structure(sko, allow_room=False, allow_contact=False):
                     parent_sted.institutt,
                     parent_sted.avdeling))
         except Errors.NotFoundError:
-	    logger.warn("Stedkode <%s> er uten foreldre; bruker %s" %
+            logger.warn("Stedkode <%s> er uten foreldre; bruker %s" %
                         (sko, root_sko))
-	    parent = build_structure(root_sko)
+            parent = build_structure(root_sko)
 
-	register_group(sted.name, struct_id, parent, allow_room, allow_contact)
+
+        ou_name = sted.get_name_with_language(name_variant=const.ou_name,
+                                              name_language=const.language_nb,
+                                              default="")
+        register_group(ou_name, struct_id, parent, allow_room, allow_contact)
     return struct_id
 # end build_structure
 

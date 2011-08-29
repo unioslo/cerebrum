@@ -17,39 +17,53 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+"""Organisational Unit implementation.
+
+This module implements the functionality for one of the basic elements of
+Cerebrum - organizational units (OUs). They represent an element of an
+organization's tree, typically an administrative unit of some sort (school,
+faculty, etc).
+
+OUs are organized into trees. Trees are specific to a given authoritative data
+source, called perspective. An OU may be in different parts of the
+organizational trees in different perspectives.
 """
 
-"""
 
 import cereconf
 from Cerebrum import Utils
 from Cerebrum.Utils import prepare_string
 from Cerebrum import Errors
-from Cerebrum.Entity import \
-     EntityContactInfo, EntityAddress, EntityQuarantine, \
-     EntityExternalId, EntitySpread
+from Cerebrum.Entity import EntityContactInfo
+from Cerebrum.Entity import EntityAddress
+from Cerebrum.Entity import EntityQuarantine
+from Cerebrum.Entity import EntityExternalId
+from Cerebrum.Entity import EntitySpread
+from Cerebrum.Entity import EntityNameWithLanguage
+
+
+
+
 
 Entity_class = Utils.Factory.get("Entity")
 class OU(EntityContactInfo, EntityExternalId, EntityAddress,
-         EntityQuarantine, EntitySpread, Entity_class):
+         EntityQuarantine, EntitySpread, EntityNameWithLanguage,
+         Entity_class):
 
     __read_attr__ = ('__in_db',)
-    __write_attr__ = ('name', 'acronym', 'short_name', 'display_name',
-                      'sort_name')
+    __deprecated_names = ("name", "acronym", "short_name", "display_name",
+                          "sort_name")
 
     def clear(self):
         """Clear all attributes associating instance with a DB entity."""
         self.__super.clear()
         self.clear_class(OU)
         self.__updated = []
+    # end clear
 
-    def populate(self, name, acronym=None, short_name=None,
-                 display_name=None, sort_name=None, parent=None):
-        """Set instance's attributes without referring to the Cerebrum DB."""
-        if parent is not None:
-            self.__xerox__(parent)
-        else:
-            Entity_class.populate(self, self.const.entity_ou)
+
+    def populate(self):
+        Entity_class.populate(self, self.const.entity_ou)
         # If __in_db is present, it must be True; calling populate on
         # an object where __in_db is present and False is very likely
         # a programming error.
@@ -57,15 +71,38 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
         # If __in_db in not present, we'll set it to False.
         try:
             if not self.__in_db:
-                raise RuntimeError, "populate() called multiple times."
+                raise RuntimeError("populate() called multiple times.")
         except AttributeError:
             self.__in_db = False
-        self.name = name
-        self.acronym = acronym
-        self.short_name = short_name
-        self.display_name = display_name
-        self.sort_name = sort_name
+    # end populate
 
+
+    def __getattribute__(self, name):
+        """Issue warnings for deprecated API usage.
+
+        This should help us pinpoint deprecated usage patterns for OU's name
+        attributes. This hook can be safely removed, once we've cleaned up the
+        code base.
+        """
+
+        if name not in OU.__deprecated_names:
+            return super(OU, self).__getattribute__(name)
+
+        name_map = {"name": self.const.ou_name,
+                    "acronym": self.const.ou_name_acronym,
+                    "short_name": self.const.ou_name_short,
+                    "display_name": self.const.ou_name_display,}
+        logger = Utils.Factory.get_logger()
+        logger.warn("Deprecated usage of OU: OU.%s cannot be accessed directly."
+                    " Use get/add/delete_name_with_language" % (name,))
+        # For the "unspecified" case we assume Norwegian bokmål.
+        return self.get_name_with_language(name_map[name],
+                                           self.const.language_nb,
+                                           default='')
+    # end __getattribute__
+
+
+    
     def write_db(self):
         """Sync instance with Cerebrum database.
 
@@ -81,56 +118,41 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
         if is_new:
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=ou_info]
-              (entity_type, ou_id, name, acronym, short_name, display_name,
-               sort_name)
-            VALUES (:e_type, :ou_id, :name, :acronym, :short_name, :disp_name,
-                    :sort_name)""",
+              (entity_type, ou_id)
+            VALUES (:e_type, :ou_id)""",
                          {'e_type': int(self.const.entity_ou),
-                          'ou_id': self.entity_id,
-                          'name': self.name,
-                          'acronym': self.acronym,
-                          'short_name': self.short_name,
-                          'disp_name': self.display_name,
-                          'sort_name': self.sort_name})
+                          'ou_id': self.entity_id,})
             self._db.log_change(self.entity_id, self.const.ou_create, None)
-        else:
-            self.execute("""
-            UPDATE [:table schema=cerebrum name=ou_info]
-            SET name=:name, acronym=:acronym, short_name=:short_name,
-                display_name=:disp_name, sort_name=:sort_name
-            WHERE ou_id=:ou_id""",
-                         {'name': self.name,
-                          'acronym': self.acronym,
-                          'short_name': self.short_name,
-                          'disp_name': self.display_name,
-                          'sort_name': self.sort_name,
-                          'ou_id': self.entity_id})
-            self._db.log_change(self.entity_id, self.const.ou_mod, None)
         del self.__in_db
         self.__in_db = True
         self.__updated = []
         return is_new
+    # end write_db
 
+    
     def __eq__(self, other):
         """Overide the == test for objects."""
         assert isinstance(other, OU)
         if not self.__super.__eq__(other):
             return False
-        identical = ((other.name == self.name) and
-                     (other.acronym == self.acronym) and
-                     (other.short_name == self.short_name) and
-                     (other.display_name == self.display_name) and
-                     (other.sort_name == self.sort_name))
-        if cereconf.DEBUG_COMPARE:
-            print "OU.__eq__ = %s" % identical
-        return identical
 
-    def new(self, name, acronym=None, short_name=None, display_name=None,
-            sort_name=None):
+        own_names = set((r["name_variant"], r["name_language"], r["name"])
+                        for r in
+                        self.search_name_with_language(entity_id=self.entity_id))
+        other_names = set((r["name_variant"], r["name_language"], r["name"])
+                          for r in
+                          other.search_name_with_language(entity_id=self.entity_id))
+        return own_names == other_names
+    # end __eq__
+
+    
+    def new(self):
         """Register a new OU."""
-        self.populate(name, acronym, short_name, display_name, sort_name)
+        self.populate()
         self.write_db()
         self.find(self.entity_id)
+    # end new
+        
 
     def delete(self):
         if self.__in_db:
@@ -139,39 +161,23 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
             WHERE ou_id = :ou_id""", {'ou_id': self.entity_id})
             self._db.log_change(self.entity_id, self.const.ou_del, None)
         self.__super.delete()
+    # end delete
+    
 
     def find(self, ou_id):
         """Associate the object with the OU whose identifier is OU_ID.
 
-        If OU_ID isn't an existing OU identifier,
-        NotFoundError is raised."""
+        If OU_ID isn't an existing OU identifier, NotFoundError is raised.
+        """
         self.__super.find(ou_id)
-        (self.ou_id, self.name, self.acronym, self.short_name,
-         self.display_name, self.sort_name) = self.query_1("""
-        SELECT ou_id, name, acronym, short_name, display_name, sort_name
-        FROM [:table schema=cerebrum name=ou_info]
-        WHERE ou_id=:ou_id""", {'ou_id': ou_id})
         try:
             del self.__in_db
         except AttributeError:
             pass
         self.__in_db = True
         self.__updated = []
+    # end find
 
-    def find_by_parent(self, acronym, perspective, parent_id):
-        pid = "AND s.parent_id=:parent_id"
-        if parent_id is None:
-            pid = "AND s.parent_id IS NULL"
-        ou_id = self.query_1("""
-        SELECT o.ou_id
-        FROM [:table schema=cerebrum name=ou_structure] s,
-             [:table schema=cerebrum name=ou_info] o
-        WHERE s.ou_id = o.ou_id AND s.perspective=:perspective
-             %s AND o.acronym=:acronym""" % pid,
-                                 {'perspective': int(perspective),
-                                  'acronym': acronym,
-                                  'parent_id': parent_id})
-        self.find(ou_id)
 
     def get_parent(self, perspective):
         return self.query_1("""
@@ -180,75 +186,8 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
         WHERE ou_id=:ou_id AND  perspective=:perspective""",
                             {'ou_id': self.entity_id,
                              'perspective': int(perspective)})
-
-    def _get_item_languages(self, item_name, merge):
-        """
-        Fetch ITEM_NAME's values with respective languages.
-
-        ITEM_NAME can be 'name', 'acronym', 'short_name', 'display_name',
-        'sort_name'.
-
-        MERGE's values can be 'default', 'extra' or 'both', meaning that
-        language information is fetched from tables ou_info only,
-        ou_name_language only, or both respectively.
-
-        This function is not meant to be directly accessible from outside
-        OU. Write a suitable interface, like get_names(), if you need it.
-        """
-        
-        if item_name not in ("name", "acronym", "short_name",
-                             "display_name", "sort_name"):
-            raise Exception, ("Aiee! Merging invalid item in SQL (%s)" %
-                              item_name)
-        # fi
-
-        result = []
-        if merge in ("default", "both"):
-            # Note that we could have obtained this information directly
-            # from SELF, but it is bad carma to return a heterogeneous list
-            # (tuples of strings and db_rows (below)).
-            # This way the client code can safely work with the result as a
-            # list of db rows.
-            result.append(self.query_1("""
-            SELECT %s, '' as language
-            FROM [:table schema=cerebrum name=ou_info]
-            WHERE ou_id=:ou_id""" % item_name,
-                                    {"ou_id": self.entity_id,
-                                     "item": item_name}))
-        # fi
-
-        if merge in ("extra", "both"):
-            result.extend(self.query("""
-            SELECT onl.%s as %s, lc.code_str as language
-            FROM [:table schema=cerebrum name=ou_name_language] onl,
-                 [:table schema=cerebrum name=language_code] lc
-            WHERE onl.ou_id = :ou_id AND
-                  onl.language_code = lc.code""" % (item_name,
-                                                    item_name),
-                                     {"ou_id": self.entity_id,
-                                      "item": item_name}))
-        # fi
-
-        return result
-    # end _get_item_languages
-        
-    def get_names(self):
-        """
-        Returns all names in all languages for this OU
-        """
-
-        return self._get_item_languages(item_name="name",
-                                        merge="both")
-    # end get_names
-
-    def get_acronyms(self):
-        """
-        Returns all acronyms in all languages for this OU
-        """
-
-        return self._get_item_languages(item_name="acronym",
-                                        merge="both")
-    # end get_acronyms
+    # end get_parent
+    
 
     def structure_path(self, perspective):
         """Return a string indicating OU's structural placement.
@@ -260,18 +199,23 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
         """
         temp = self.__class__(self._db)
         temp.find(self.entity_id)
+
         components = []
-        visited = []
+        visited = set()
         while True:
             # Detect infinite loops
             if temp.entity_id in visited:
-                raise RuntimeError, "DEBUG: Loop detected: %r" % visited
-            visited.append(temp.entity_id)
+                raise RuntimeError("DEBUG: Loop detected: %r" % visited)
+            visited.add(temp.entity_id)
+
             # Append this node's acronym (if it is non-NULL) to
             # 'components'.
-            # TBD: Is this the correct way to handle NULL acronyms?
-            if temp.acronym is not None:
-                components.append(temp.acronym)
+            acronyms = self.search_name_with_language(entity_id=temp.entity_id,
+                                   name_variant=self.const.ou_name_acronym,
+                                   name_language=self.const.language_nb)
+            if acronyms:
+                components.append(acronyms[0]["name"])
+
             # Find parent, end search if parent is either NULL or the
             # same node we're currently at.
             parent_id = temp.get_parent(perspective)
@@ -280,6 +224,8 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
             temp.clear()
             temp.find(parent_id)
         return "/".join(components)
+    # end structure_path
+    
 
     def unset_parent(self, perspective):
         self.execute("""
@@ -331,25 +277,18 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
                 ret.extend(self.list_children(perspective, r['ou_id'],
                                               recursive))
         return ret
+    # end list_children
+    
             
-    def list_all(self, filter_quarantined=False):
-        extra = "" 
-        if filter_quarantined:
-            extra = " WHERE NOT EXISTS (" \
-                    " SELECT 'x' " \
-                    " FROM [:table schema=cerebrum name=entity_quarantine] eq" \
-                    " WHERE oi.ou_id=eq.entity_id)"
-        return self.query("""
-        SELECT oi.ou_id, oi.name, oi.acronym FROM [:table schema=cerebrum name=ou_info] oi
-        %s""" % extra)
-
     def get_structure_mappings(self, perspective):
         """Return list of ou_id -> parent_id connections in ``perspective``."""
         return self.query("""
         SELECT ou_id, parent_id
         FROM [:table schema=cerebrum name=ou_structure]
         WHERE perspective=:perspective""", {'perspective': int(perspective)})
+    # end get_structure_mappings
 
+    
     def root(self):
         # FIXME: Doesn't check perspective. Documentation should also
         # make it clear that a perspective can have more than one root.
@@ -362,25 +301,24 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
         SELECT ou_id
         FROM [:table schema=cerebrum name=ou_structure]
         WHERE parent_id IS NULL""")
+    # end root
+    
 
-    def search(self, spread=None, name=None, acronym=None,
-               short_name=None, display_name=None, sort_name=None):
-        """Retrives a list of OUs filtered by the given criterias.
-        
-        Returns a list of tuples with the info (ou_id, name).
-        If no criteria is given, all OUs are returned. ``name``, ``acronum``,
-        ``short_name``, ``display_name`` and ``sort_name`` should be string if
-        given. ``spread`` can be either string or int. Wildcards * and ? are
-        expanded for "any chars" and "one char"."""
+    def search(self, spread=None, filter_quarantined=False):
+        """Retrives a list of OUs filtered by the given criteria.
+    
+        If no criteria is given, all OUs are returned.
+        """
 
-        tables = []
         where = []
-        tables.append("[:table schema=cerebrum name=ou_info] oi")
+        binds = dict()
+        tables = ["[:table schema=cerebrum name=ou_info] oi",]
 
         if spread is not None:
             tables.append("[:table schema=cerebrum name=entity_spread] es")
             where.append("oi.ou_id=es.entity_id")
             where.append("es.entity_type=:entity_type")
+            binds["entity_type"] = int(self.const.entity_ou)
             try:
                 spread = int(spread)
             except (TypeError, ValueError):
@@ -390,37 +328,21 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
                 where.append("LOWER(sc.code_str) LIKE :spread")
             else:
                 where.append("es.spread=:spread")
+            binds["spread"] = spread
 
-        if name is not None:
-            name = prepare_string(name)
-            where.append("LOWER(oi.name) LIKE :name")
-
-        if acronym is not None:
-            acronym = prepare_string(acronym)
-            where.append("LOWER(oi.acronym) LIKE :acronym")
-
-        if short_name is not None:
-            short_name = prepare_string(short_name)
-            where.append("LOWER(oi.short_name) LIKE :short_name")
-
-        if display_name is not None:
-            display_name = prepare_string(display_name)
-            where.append("LOWER(oi.display_name) LIKE :display_name")
-        
-        if sort_name is not None:
-            sort_name = prepare_string(sort_name)
-            where.append("LOWER(oi.sort_name) LIKE :sort_name")
+        if filter_quarantined:
+            where.append("""
+            (NOT EXISTS (SELECT 1
+                         FROM [:table schema=cerebrum name=entity_quarantine] eq
+                         WHERE oi.ou_id=eq.entity_id))
+            """)
 
         where_str = ""
         if where:
             where_str = "WHERE " + " AND ".join(where)
 
         return self.query("""
-        SELECT DISTINCT oi.ou_id, oi.name, oi.acronym, oi.short_name,
-                        oi.display_name, oi.sort_name
-        FROM %s %s""" % (','.join(tables), where_str),
-            {'spread': spread, 'entity_type': int(self.const.entity_ou),
-             'name': name, 'acronym': acronym, 'short_name': short_name,
-             'display_name': display_name, 'sort_name': sort_name})
-
-# arch-tag: 45bda60e-7677-4c5e-a1ba-f07621d9c791
+        SELECT DISTINCT oi.ou_id,
+        FROM %s %s""" % (','.join(tables), where_str), binds)
+    # end search
+# end class OU

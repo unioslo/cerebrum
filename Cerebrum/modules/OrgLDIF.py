@@ -64,6 +64,7 @@ class OrgLDIF(object):
         self.org_dn        = ldapconf('ORG', 'dn', None)
         self.ou_dn         = ldapconf('OU', 'dn', None)
         self.person_dn     = ldapconf('PERSON', 'dn', None)
+        self.init_languages()
         self.dummy_ou_dn   = None  # Set if generate_dummy_ou() made a dummy OU
         self.aliases       = bool(cereconf.LDAP_PERSON['aliases'])
         self.ou2DN         = {None: None}  # {ou_id:      DN or None(root)}
@@ -78,6 +79,19 @@ class OrgLDIF(object):
             'ou':              (iso2utf, None, normalize_string),
             'labeledURI':      (iso2utf, None, normalize_caseExactString),
             'mail':            (None, verify_IA5String, normalize_IA5String)}
+
+    def init_languages(self):
+        self.languages, self.lang2opt, self.lang2pref, pref = [], {}, {}, -1
+        for lang in ldapconf(None, 'pref_languages', None) or ():
+            code = getattr(self.const, "language_" + lang, None)
+            if code is not None:
+                code = int(code)
+                assert code not in self.lang2opt, (lang, code)
+                self.lang2opt[code]  = ';lang-' + lang
+                self.lang2pref[code] = pref = pref + 1
+                self.languages.append(code)
+        assert self.languages
+        self.output_languages = ldapconf(None, 'output_languages')
 
     def init_org_object_dump(self):
         # Set variables for the organization object dump.
@@ -124,8 +138,12 @@ class OrgLDIF(object):
                 for ou_id in self.ou_tree[None]:
                     self.ou.clear()
                     self.ou.find(ou_id)
-                    print "Org.unit: %-30s   ou_id=%s" % (self.ou.display_name,
-                                                          self.ou.ou_id)
+                    print "Org.unit: %-30s   ou_id=%s" % (
+                        self.ou.get_name_with_language(
+                            name_variant=self.const.ou_name_display,
+                            name_language=self.languages[0],
+                            default=""),
+                        self.ou.entity_id)
                 print """\
 Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
                 raise ValueError("No root-OU found.")
@@ -250,17 +268,39 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         self.ou.find(ou_id)
         if self.test_omit_ou():
             return parent_dn, None
-        entry = {
-            'objectClass': ['top', 'organizationalUnit'],
-            'ou': filter(None, [iso2utf((n or '').strip())
-                                for n in (self.ou.acronym,
-                                          self.ou.short_name,
-                                          self.ou.name,
-                                          self.ou.display_name)])}
+
+        name_variants = (self.const.ou_name_acronym,
+                         self.const.ou_name_short,
+                         self.const.ou_name,
+                         self.const.ou_name_display)
+        var2pref = dict([(v, i) for i, v in enumerate(name_variants)])
+        ou_names = {}
+        for row in self.ou.search_name_with_language(
+                entity_id=self.ou.entity_id,
+                name_language=self.languages,
+                name_variant=name_variants):
+            name = iso2utf(row["name"].strip())
+            if name:
+                pref   = var2pref[int(row['name_variant'])]
+                lnames = ou_names.setdefault(pref, [])
+                lnames.append((int(row['name_language']), name))
+        if not ou_names:
+            self.logger.warn("No names could be located for ou_id=%s", ou_id)
+            return parent_dn, None
+        entry = {'objectClass': ['top', 'organizationalUnit']}
+        if 0 in ou_names:
+            self.add_lang_names(entry, 'norEduOrgAcronym', ou_names[0])
+        ou_names = [names for pref, names in sorted(ou_names.items())]
+        for names in ou_names:
+            self.add_lang_names(entry, 'ou', names)
+        self.add_lang_names(entry, 'cn',               ou_names[-1])
         dn = self.make_ou_dn(entry, parent_dn or self.ou_dn)
         if not dn:
             return parent_dn, None
-        entry['ou'] = self.attr_unique(entry['ou'], normalize_string)
+
+        for attr in entry.keys():
+            if attr == 'ou' or attr.startswith('ou;'):
+                entry[attr] = self.attr_unique(entry[attr], normalize_string)
         self.fill_ou_entry_contacts(entry)
         self.update_ou_entry(entry)
         return dn, entry
@@ -287,7 +327,7 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
 
     def fill_ou_entry_contacts(self, entry):
         # Fill in contact info for the entry with the current ou_id.
-        ou_id = self.ou.ou_id
+        ou_id = self.ou.entity_id
         for attr, id2contact in self.attr2id2contacts:
             contact = id2contact.get(ou_id)
             if contact:
@@ -377,11 +417,11 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         # Set self.person_names = dict {person_id: {name_variant: name}}
         timer = self.make_timer("Fetching personal names...")
         self.person_names = person_names = {}
-        for row in self.person.list_persons_name(
-                source_system = self.const.system_cached,
-                name_type     = [self.const.name_full,
+        for row in self.person.search_person_names(
+                name_variant  = [self.const.name_full,
                                  self.const.name_first,
-                                 self.const.name_last]):
+                                 self.const.name_last],
+                source_system = self.const.system_cached):
             person_id = int(row['person_id'])
             if not person_names.has_key(person_id):
                 person_names[person_id] = {}
@@ -389,14 +429,21 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         timer("...personal names done.")
 
     def init_person_titles(self):
-        # Set self.person_title = dict {person_id: title}
+        # Set self.person_titles = dict {person_id: [(language,title),...]}
         timer = self.make_timer("Fetching personal titles...")
-        self.person_title = {}
+        titles = {}
         fill = {
-            int(self.const.name_personal_title): self.person_title.__setitem__,
-            int(self.const.name_work_title):     self.person_title.setdefault }
-        for row in self.person.list_persons_name(name_type = fill.keys()):
-            fill[int(row['name_variant'])](int(row['person_id']), row['name'])
+            int(self.const.personal_title): dict.__setitem__,
+            int(self.const.work_title):     dict.setdefault }
+        for row in self.person.search_name_with_language(
+                entity_type=self.const.entity_person,
+                name_variant=fill.keys(),
+                name_language=self.languages):
+            fill[int(row['name_variant'])](
+                titles.setdefault(int(row['entity_id']), {}),
+                int(row['name_language']), iso2utf(row['name']))
+        self.person_titles = dict([(p_id, t.items())
+                                   for p_id, t in titles.items()])
         timer("...personal titles done.")
 
     def init_account_info(self):
@@ -614,9 +661,8 @@ from None and LDAP_PERSON['dn'].""")
 
         if self.select_bool(self.contact_selector, person_id, p_affiliations):
             # title:
-            title = self.person_title.get(person_id)
-            if title:
-                entry['title'] = (iso2utf(title),)
+            titles = self.person_titles.get(person_id)
+            self.add_lang_names(entry, 'title', titles)
             # phone & fax:
             for attr, contact in self.attr2id2contacts:
                 contact = contact.get(person_id)
@@ -754,6 +800,18 @@ from None and LDAP_PERSON['dn'].""")
              'aliasedObjectName': (dn,),
              'cn':                entry['cn'],
              'sn':                entry['sn']}))
+
+    def add_lang_names(self, entry, attr, l2values):
+        if l2values:
+            l2v = sorted(l2values, key=self.sortkey_lang_val)
+            l2v = [(self.lang2opt[lang], val) for lang, val in l2v]
+            entry.setdefault(attr, []).append(l2v[0][1])
+            if self.output_languages:
+                for opt, val in l2v:
+                    entry.setdefault(attr + opt, []).append(val)
+
+    def sortkey_lang_val(self, lang_val):
+        return self.lang2pref[lang_val[0]]
 
     def make_address(self, sep,
                      p_o_box, address_text, postal_number, city, country):

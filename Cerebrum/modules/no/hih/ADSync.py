@@ -146,7 +146,200 @@ class HIHCerebrumUser(CerebrumUser):
 
 class HIHUserSync(UserSync):
 
+<<<<<<< .working
     # HIH wants to export mobile phones bothe for students and employees
+=======
+
+class ADUserSync(ADUserUtils):
+    def __init__(self, db, logger, host, port, ad_domain_admin):
+        """
+        Connect to AD agent on host:port and initialize user sync.
+
+        @param db: Connection to Cerebrum database
+        @type db: Cerebrum.CLDatabase.CLDatabase
+        @param logger: Cerebrum logger
+        @type logger: Cerebrum.modules.cerelog.CerebrumLogger
+        @param host: Server where AD agent runs
+        @type host: str
+        @param port: port number
+        @type port: int
+        @param ad_domain_admin: The user we connect to the AD agent as
+        @type ad_domain_admin: str
+        """
+
+        ADUserUtils.__init__(self, logger, host, port, ad_domain_admin)
+        self.db = db
+        self.co = Factory.get("Constants")(self.db)
+        self.ac = Factory.get("Account")(self.db)
+        self.pe = Factory.get("Person")(self.db)
+        self.accounts = dict()
+        self.id2uname = dict()
+
+
+    def configure(self, config_args):
+        """
+        Read configuration options from args and cereconf to decide
+        which data to sync.
+
+        @param config_args: Configuration data from cereconf and/or
+                            command line options.
+        @type config_args: dict
+        """
+        self.logger.info("Starting user-sync")
+        # Sync settings for this module
+        for k in ("user_spread", "user_exchange_spread",
+                  "exchange_sync", "delete_users", "dryrun",
+                  "ad_ldap", "store_sid", "ad_subset", "cb_subset"):
+            if k in config_args:
+                setattr(self, k, config_args.pop(k))
+        
+        # Set which attrs that are to be compared with AD
+        self.sync_attrs = cereconf.AD_ATTRIBUTES
+        if self.exchange_sync:
+            self.sync_attrs += cereconf.AD_EX_ATTRIBUTES
+
+        # The rest of the config args goes to the CerebrumAccount
+        # class and instances
+        CerebrumAccount.initialize(self.get_default_ou(),
+                                   config_args.pop("ad_domain"))
+        self.config_args = config_args
+        self.logger.info("Configuration done. Will compare attributes: %s" %
+                         ", ".join(self.sync_attrs))
+        
+
+    def fullsync(self):
+        """
+        This method defines what will be done in the sync.
+        """
+        # Fetch AD-data for users.     
+        self.logger.debug("Fetching AD user data...")
+        addump = self.fetch_ad_data(self.ad_ldap)
+        self.logger.info("Fetched %i AD users" % len(addump))
+
+        # Fetch cerebrum data. store in self.accounts
+        self.logger.debug("Fetching cerebrum user data...")
+        self.fetch_cerebrum_data()
+
+        # Compare AD data with Cerebrum data
+        for uname, ad_user in addump.iteritems():
+            if uname in self.accounts:
+                self.accounts[uname].in_ad = True
+                self.compare(ad_user, self.accounts[uname])
+            else:
+                dn = ad_user["distinguishedName"]
+                self.logger.debug("User %s in AD, but not in Cerebrum" % dn)
+                # User in AD, but not in Cerebrum:
+                # If user is in Cerebrum OU then deactivate
+                if dn.upper().endswith(self.ad_ldap.upper()):
+                    self.deactivate_user(ad_user)
+
+        # Users exist in Cerebrum and has ad spread, but not in AD.
+        # Create user if it's not quarantined
+        for acc in self.accounts.itervalues():
+            if acc.in_ad is False and acc.quarantined is False:
+                self.create_ad_account(acc.ad_attrs, self.get_default_ou())
+
+        #updating Exchange
+        if self.exchange_sync:
+            #self.logger.debug("Sleeping for 5 seconds to give ad-ldap time to update") 
+            #time.sleep(5)
+            for acc in self.accounts.itervalues():
+                if acc.update_recipient:
+                    self.update_Exchange(acc.uname)
+        
+        self.logger.info("User-sync finished")
+
+
+    def fetch_cerebrum_data(self):
+        """
+        Fetch users, name and email information for all users with the
+        given spread. Create CerebrumAccount instances and store in
+        self.accounts.
+        """
+        # Find all users with relevant spread
+        for row in self.ac.search(spread=self.user_spread):
+            uname = row["name"].strip()
+            # For testing or special cases where we only want to sync
+            # a subset
+            if self.cb_subset and uname not in self.cb_subset:
+                continue
+            self.accounts[uname] = CerebrumAccount(int(row["account_id"]),
+                                                   int(row["owner_id"]),
+                                                   uname)
+            # We need to map account_id -> CerebrumAccount as well 
+            self.id2uname[int(row["account_id"])] = uname
+        self.logger.info("Fetched %i cerebrum users with spread %s" % (
+            len(self.accounts), self.user_spread))
+
+        # Remove/mark quarantined users
+        self.filter_quarantines()
+        self.logger.info("Found %i quarantined users" % len(
+            [1 for v in self.accounts.itervalues() if v.quarantined]))
+
+        # fetch names
+        self.logger.debug("..fetch name information..")
+        self.fetch_names()
+        
+        # fetch contact info: phonenumber and title
+        self.logger.debug("..fetch contact info..")
+        self.fetch_contact_info()
+
+        # fetch email info
+        self.logger.debug("..fetch email info..")
+        self.fetch_email_info()
+        
+        # Finally, calculate attribute values based on Cerebrum data
+        # for comparison with AD
+        for acc in self.accounts.itervalues():
+            acc.calc_ad_attrs(self.config_args)
+
+        # Fetch exchange data and calculate attributes
+        if self.exchange_sync:
+            for row in self.ac.search(spread=self.user_exchange_spread):
+                uname = self.id2uname.get(int(row["account_id"]))
+                if uname:
+                    self.accounts[uname].calc_exchange_attrs()
+            self.logger.info("Fetched %i cerebrum users with spreads %s and %s" % (
+                len([1 for acc in self.accounts.itervalues() if acc.to_exchange]),
+                self.user_spread, self.user_exchange_spread))
+    
+
+    def filter_quarantines(self):
+        """
+        Mark quarantined accounts for disabling/deletion.
+        """
+        quarantined_accounts = [int(row["entity_id"]) for row in
+                                self.ac.list_entity_quarantines(only_active=True)]
+        # Set quarantine flag
+        for a_id in set(self.id2uname) & set(quarantined_accounts):
+            self.logger.debug("Quarantine flag is set for %s" %
+                              self.accounts[self.id2uname[a_id]])
+            self.accounts[self.id2uname[a_id]].quarantined = True
+
+
+    def fetch_names(self):
+        """
+        Fetch names for all persons
+        """
+        pid2names = {}
+        # getdict_persons_names might be faster
+        for row in self.pe.search_person_names(
+            source_system = self.co.system_cached,
+            name_variant  = [self.co.name_first,
+                             self.co.name_last]):
+            pid2names.setdefault(int(row["person_id"]), {})[
+                int(row["name_variant"])] = row["name"]
+        # Set names
+        for acc in self.accounts.itervalues():
+            names = pid2names.get(acc.owner_id)
+            if names:
+                acc.name_first = names.get(int(self.co.name_first), "")
+                acc.name_last = names.get(int(self.co.name_last), "")
+            else:
+                self.logger.warn("No name information for user " + acc.uname)
+        
+
+>>>>>>> .merge-right.r14198
     def fetch_contact_info(self):
         """
         Get contact info: phonenumber and title. Personal title takes precedence.
@@ -161,19 +354,20 @@ class HIHUserSync(UserSync):
             pid2data.setdefault(int(row["entity_id"]), {})[
                 int(row["contact_type"])] = row["contact_value"]
         # Get title
-        for row in self.pe.list_persons_name(
-            source_system = self.co.system_sap,
-            name_type     = [self.co.name_personal_title,
-                             self.co.name_work_title]):
-            pid2data.setdefault(int(row["person_id"]), {})[
+        for row in self.pe.search_name_with_language(
+                               entity_type=self.co.entity_person,
+                               name_variant=(self.co.personal_title,
+                                             self.co.work_title),
+                               name_language=self.co.language_nb):
+            pid2data.setdefault(int(row["entity_id"]), {})[
                 int(row["name_variant"])] = row["name"]
         # set data
         for acc in self.accounts.itervalues():
             data = pid2data.get(acc.owner_id)
             if data:
                 acc.contact_mobile_phone = data.get(int(self.co.contact_mobile_phone), "")
-                acc.title = (data.get(int(self.co.name_personal_title), "") or
-                             data.get(int(self.co.name_work_title), ""))
+                acc.title = (data.get(int(self.co.personal_title), "") or
+                             data.get(int(self.co.work_title), ""))
 
 
     def fetch_ad_data(self):

@@ -54,16 +54,13 @@ class Stedkode(OU):
         self.clear_class(Stedkode)
         self.__updated = []
 
-    def populate(self, name, fakultet, institutt, avdeling,
-                 institusjon=None, landkode=0, acronym=None,
-                 short_name=None, display_name=None, sort_name=None,
-                 parent=None):
+    def populate(self, fakultet, institutt, avdeling, institusjon=None,
+                 landkode=0, parent=None):
         """Set instance's attributes without referring to the Cerebrum DB."""
         if parent is not None:
             self.__xerox__(parent)
         else:
-            self.__super.populate(name, acronym, short_name,
-                                  display_name, sort_name)
+            self.__super.populate()
         # If __in_db is present, it must be True; calling populate on
         # an object where __in_db is present and False is very likely
         # a programming error.

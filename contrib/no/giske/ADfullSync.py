@@ -42,11 +42,17 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
                  1562 : {'acronym' : 'SKJ'},
                  1563 : {'acronym' : 'VBS'},
                  1564 : {'acronym' : 'VUS'},
-                 1565 : {'acronym' : 'VIG'}} 
+                 1565 : {'acronym' : 'VIG'}}
+
+        ou_names = dict((r["ou_id"], r["name"])
+                        for r in self.ou.search_name_with_language(
+                            entity_type=co.entity_ou,
+                            name_variant=co.ou_name,
+                            name_language=co.language_nb))
         #Fetching OUid2name mapping.
-        for row in self.ou.list_all():
+        for row in self.ou.search():
             if id2ou.has_key(row['ou_id']):
-                id2ou[row['ou_id']]['name'] = row['name']
+                id2ou[row['ou_id']]['name'] = ou_names.get(row["ou_id"], "")
         self.logger.info("Fetched %i OUs" % len(id2ou))
 
         accinfo = {}

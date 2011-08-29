@@ -74,13 +74,19 @@ def generate_list():
     #
     # First the humans
     person = Factory.get("Person")(db)
-    for row in person.list_persons_name(name_type=(c.name_last,
-                                                   c.name_first,
-                                                   c.name_personal_title,
-                                                   c.name_work_title)):
+    for row in person.search_person_names(name_variant=(c.name_last,
+                                                        c.name_first,)):
         name = row["name"]
         if name_is_valid(name):
             result.add(name)
+
+    result.update(row["name"]
+                  for row in
+                  person.search_name_with_language(entity_type=c.entity_person,
+                            name_variant=(c.personal_title,
+                                          c.work_title))
+                  if name_is_valid(row["name"]))
+                                          
     logger.debug("Collected %d human names", len(result))
 
     #

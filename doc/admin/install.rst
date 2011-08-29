@@ -350,12 +350,8 @@ an Organizational Unit should look something like this::
                            k['gruppenr'])
       except Errors.NotFoundError:
           pass
-      ou.populate(k['stednavn'], k['fakultetnr'],
-                  k['instituttnr'], k['gruppenr'],
-                  acronym=k.get('akronym', None),
-                  short_name=k['forkstednavn'],
-                  display_name=k['stednavn'],
-                  sort_name=k['stednavn'])
+      ou.populate(k['fakultetnr'],
+                  k['instituttnr'], k['gruppenr'])
       if k.has_key('adresselinje1_besok_adr'):
           ou.populate_address(
               co.system_lt, co.address_street,

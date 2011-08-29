@@ -891,12 +891,11 @@ class CleanPersons(object):
                                              co.system_lt, co.system_ureg,
                                              co.system_manual)]
         pid2names = {}
-        for row in person.list_person_name_codes():
-            # TODO: The API for person.list_persons_name is somewhat broken
-            for row2 in person.list_persons_name(name_type=row['code']):
-                if int(row2['source_system']) not in relevant_src_sys:
-                    continue
-                pid2names.setdefault(int(row2['person_id']), []).append(row2)
+        name_variants = [x["code"] for x in person.list_person_name_codes()]
+        for row in person.search_person_names(source_system=relevant_src_sys,
+                                              name_variant=name_variants):
+            pid2names.setdefault(int(row['person_id']), []).append(row)
+                
         logger.debug("got %i names" % len(pid2names))
         remove = []
         fs_lt_sap = (int(co.system_lt), int(co.system_lt), int(co.system_fs))
@@ -919,12 +918,6 @@ class CleanPersons(object):
                     if nr_systems > 1 and self.pid2src_sys_age[pid].get(ss, 1) > 30:
                         remove_sys.append(ss)
                         nr_systems -= 1
-            # if len([s for s in systems if s in fs_lt_sap]) == 2:
-            #     # kast > 30 dager gamle navn hvis et kildesystem er gammelt
-            #     if self.pid2src_sys_age[pid].get(fs_lt_sap[0], 1) > 30:
-            #         remove_sys.append(fs_lt_sap[0])
-            #     elif self.pid2src_sys_age[pid].get(fs_lt_sap[1], 1) > 30:
-            #         remove_sys.append(fs_lt_sap[1])
 
             for s in remove_sys:
                 for row in names:

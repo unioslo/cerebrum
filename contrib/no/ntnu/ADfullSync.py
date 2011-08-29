@@ -41,7 +41,8 @@ class adfusync(ADutilMixIn.ADuserUtil):
 
         #Fetch the mapping person_id to full_name.
         pid2name = {}
-        for row in self.person.list_persons_name(source_system=self.co.system_cached):
+        for row in self.person.search_person_names(name_variant=co.name_full,
+                                                   source_system=co.system_cached):
             pid2name.setdefault(int(row['person_id']), row['name'])
         self.logger.info("Fetched %i person names" % len(pid2name))
 

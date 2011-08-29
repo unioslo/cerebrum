@@ -55,8 +55,8 @@ def fetch_cerebrum_data(spread):
     pid2name = {}
     person = Factory.get('Person')(db)
     ac = Factory.get('Account')(db)
-    for row in person.list_persons_name(source_system=co.system_cached,
-                                        name_type=co.name_full):
+    for row in person.search_person_names(source_system=co.system_cached,
+                                          name_variant=co.name_full):
         pid2name[int(row['person_id'])] = row['name']
 
     # Fetch all accounts with Notes spread

@@ -2955,20 +2955,21 @@ class BofhdExtension(object):
                                            'short_name':
                                            ou.short_name})
         else:
-            if pattern.count('%') == 0:
-                pattern = '%' + pattern + '%'
-            for r in ou.search(short_name=pattern):
+            for r in ou.search_name_with_language(entity_type=self.const.entity_ou,
+                                             name_variant=self.const.ou_name_short,
+                                             name=pattern,
+                                             exact_match=False):
                 ou.clear()
                 ou.find(r['ou_id'])
                 output.append({'stedkode':
                                '%02d%02d%02d' % (ou.fakultet,
                                                  ou.institutt,
                                                  ou.avdeling),
-                               'short_name': ou.short_name})
+                               'short_name': r["name"]})
         if len(output) == 1:
             eed = Email.EntityEmailDomain(self.db)
             try:
-                eed.find(ou.ou_id)
+                eed.find(ou.entity_id)
             except Errors.NotFoundError:
                 pass
             ed = Email.EmailDomain(self.db)
@@ -3370,10 +3371,9 @@ class BofhdExtension(object):
             person = self.person
             person.clear()
             if search_type == 'name':
-                if value.strip() and '%' not in value and '_' not in value:
-                    # Add wildcards to start and end of value.
-                    value = '%' + value.strip() + '%'
-                matches = person.find_persons_by_name(value)
+                matches = person.search_person_names(name=value,
+                                                     case_sensitive=True,
+                                                     exact_match=False)
             elif search_type == 'date':
                 matches = person.find_persons_by_bdate(self._parse_date(value))
             elif search_type == 'stedkode':
@@ -4635,16 +4635,14 @@ class BofhdExtension(object):
         ret['home'] = ac.resolve_homedir(disk_id=ac.disk_id, home=ac.home)
         ret['navn'] = {'cached': person.get_name(
             self.const.system_cached, self.const.name_full)}
-        try:
-            ret['work_title'] = person.get_name(
-                self.const.system_sap, self.const.name_work_title)
-        except Errors.NotFoundError:
-            pass
-        try:
-            ret['personal_title'] = person.get_name(
-                self.const.system_sap, self.const.name_personal_title)
-        except Errors.NotFoundError:
-            pass
+        for key, variant in (("work_title", self.const.work_title),
+                             ("personal_title", self.const.personal_title)):
+            try:
+                ret[key] = person.get_name_with_language(
+                                      name_variant=variant,
+                                      name_language=self.const.language_nb)
+            except (Errors.NotFoundError, Errors.TooManyRowsError):
+                pass
         return ret
 
     #

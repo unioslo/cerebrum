@@ -26,17 +26,13 @@ ADutilMixIn.py to work with the AD setup at the University of Oslo.
 """
 
 import cerebrum_path
-import sys
 import cereconf
 import copy
 import pickle
-import sets
 
-from Cerebrum.Constants import _SpreadCode
 from Cerebrum import Utils
 from Cerebrum import QuarantineHandler
 from Cerebrum.modules import ADutilMixIn
-from Cerebrum import Errors
 from Cerebrum.modules import CLHandler
 
 
@@ -180,9 +176,9 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         #
         self.logger.debug("..setting names..")
         pid2names = {}
-        for row in self.person.list_persons_name(
+        for row in self.person.search_person_names(
                 source_system = self.co.system_cached,
-                name_type     = [self.co.name_first,
+                name_variant  = [self.co.name_first,
                                  self.co.name_last]):
             pid2names.setdefault(int(row['person_id']), {})[
                 int(row['name_variant'])] = row['name']

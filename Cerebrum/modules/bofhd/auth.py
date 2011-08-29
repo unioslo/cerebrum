@@ -30,10 +30,6 @@ from Cerebrum.Utils import Factory, mark_update
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 
-try:
-    set()
-except:
-    from sets import Set as set
 
 
 class AuthConstants(Constants._CerebrumCode):
@@ -1415,7 +1411,7 @@ class BofhdAuth(DatabaseAccessor):
         """Permissions on OUs are granted specifically."""
         ou_id = None
         if ou:
-            ou_id = ou.ou_id
+            ou_id = ou.entity_id
         for r in self._list_target_permissions(operator, operation,
                                                self.const.auth_target_type_ou,
                                                ou_id):

@@ -71,7 +71,7 @@ class BofhdExtension(object):
             ou = cereconf.DEFAULT_OU
         ou = self._get_ou(ou)
         aff = self._get_affiliationid(affiliation)
-        acc.add_account_type(self.owner_id, ou.ou_id, aff)
+        acc.add_account_type(self.owner_id, ou.entity_id, aff)
 
     ## bofh> account affrem <accountname> <affiliation> <ou=>
     all_commands['account_affrem'] = Command(
@@ -84,7 +84,7 @@ class BofhdExtension(object):
             ou = cereconf.DEFAULT_OU
         ou = self._get_ou(ou)
         aff = self._get_affiliationid(affiliation)
-        acc.del_account_type(self.owner_id, ou.ou_id, aff)
+        acc.del_account_type(self.owner_id, ou.entity_id, aff)
 
     ## bofh> account create <accountname> <idtype> <id> \
     ##         <affiliation=> <ou=> [<expire_date>]
@@ -568,10 +568,10 @@ class BofhdExtension(object):
         return group
 
     def _get_ou(self, ou_id):  # TBD: ou_id should be a string, how to encode?
-        ou = OU_class(Cerebrum)
+        ou = self.OU_class(self.Cerebrum)
         ou.clear()
         ou.find(ou_id)
-        return ou.entity_id
+        return ou
 
     def _get_group_opcode(self, operator):
         if operator is None:

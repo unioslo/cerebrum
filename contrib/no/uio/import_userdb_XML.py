@@ -753,7 +753,7 @@ def import_person_users(personfile):
     ou = Factory.get("OU")(db)
     stedkode2ou_id = {}
     if not quick_test:
-        for row in ou.list_all():
+        for row in ou.search():
             ou.clear()
             ou.find(row['ou_id'])
             stedkode2ou_id["%02i%02i%02i" % (

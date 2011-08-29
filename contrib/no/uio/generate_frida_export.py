@@ -57,7 +57,6 @@ the data is checked on import.
 import getopt
 import sys
 import time
-import types
 
 import cerebrum_path
 import cereconf
@@ -65,10 +64,6 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import AtomicFileWriter
 from Cerebrum.extlib import xmlprinter
-try:
-    set()
-except:
-    from Cerebrum.extlib.sets import Set as set
 
 from Cerebrum.modules.xmlutils.system2parser import system2parser
 from Cerebrum.modules.xmlutils.xml2object import DataAddress
@@ -402,7 +397,6 @@ def output_assignments(writer, sequence, ou_cache, blockname, elemname, attrs):
         writer.startElement(blockname)
 
     for item in sequence:
-
         sko = item["place"]
         publishable_sko = find_publishable_sko(sko, ou_cache)
         if not publishable_sko:
@@ -457,6 +451,40 @@ def output_account_info(writer, person_db):
 
 
 
+def output_employments(writer, person, ou_cache):
+    """Output <ansettelser>-element."""
+
+    employments = [x for x in person.iteremployment()
+                   if x.kind in (x.HOVEDSTILLING, x.BISTILLING) and
+                   x.is_active()]
+
+    # Mapping from employment attribute to xml element name. 
+    names = dict((("code", "stillingskode"),
+                  ("start", "datoFra"),
+                  ("end", "datoTil"),
+                  ("percentage", "stillingsandel"),))
+    languages = ("nb", "nn", "en")
+
+    output_sequence = list()
+    for employment in employments:
+        values = dict((key, getattr(employment, key))
+                      for key in names)
+        # grab sko
+        values["place"] = employment.place[1]
+        # grab title
+        values["title"] = employment.get_name_with_lang(employment.WORK_TITLE,
+                                                        *languages)
+        output_sequence.append(values)
+
+    # Register the keys that needed special processing.
+    names["title"] = "stillingsbetegnelse"
+    names["place"] = None
+    return output_assignments(writer, output_sequence, ou_cache,
+                              "ansettelser", "ansettelse", names)
+# end output_employments
+
+
+
 def output_person(writer, person, phd_cache, ou_cache):
     """Output all information pertinent to a particular person.
 
@@ -500,16 +528,15 @@ def output_person(writer, person, phd_cache, ou_cache):
     writer.startElement("person", { "fnr" : fnr,
                                     "reservert" : reserved })
     for attribute, element in ((person.NAME_LAST, "etternavn"),
-                               (person.NAME_FIRST, "fornavn"),
-                               (person.NAME_TITLE, "personligTittel")):
-        # NB! I assume here that there is only *one* name. Is this always true
-        # for personligTittel?
-        name = person.get_name(attribute)
+                               (person.NAME_FIRST, "fornavn")):
+        name = person.get_name(attribute, None)
         if name:
-            name = name.value
-        # fi
+            name = name[0].value
         output_element(writer, name, element)
-    # od
+
+    title = person.get_name_with_lang(person.NAME_TITLE, "nb", "en")
+    if title:
+        output_element(writer, title, "personligTittel")
 
     phds = list()
     try:
@@ -531,14 +558,8 @@ def output_person(writer, person, phd_cache, ou_cache):
                    (DataContact.CONTACT_FAX, "telefaxnr"),
                    (DataContact.CONTACT_URL, "URL"))
 
-    names = dict((("code", "stillingskode"),
-                  ("start", "datoFra"),
-                  ("end", "datoTil"),
-                  ("title", "stillingsbetegnelse"),
-                  ("percentage", "stillingsandel"),
-                  ("place", None)))
-    output_assignments(writer, [xml2dict(x, names) for x in employments],
-                       ou_cache, "ansettelser", "ansettelse", names)
+    output_employments(writer, person, ou_cache)
+    
     if guests or phds:
         writer.startElement("gjester")
         names = dict((("start", "datoFra"),
@@ -599,8 +620,7 @@ def output_phd_students(writer, sysname, phd_students, ou_cache):
                  "system_sap": "SAP-lektroniske-reservasjoner",}
     # name constant -> xml element for that name constant
     name_kinds = dict(((int(constants.name_last), "etternavn"),
-                       (int(constants.name_first), "fornavn"),
-                       (int(constants.name_personal_title), "personligTittel")))
+                       (int(constants.name_first), "fornavn")))
     # contact constant -> xml element for that contact constant
     contact_kinds = dict(((int(constants.contact_phone), "telefonnr"),
                           (int(constants.contact_fax), "telefaxnr"),
@@ -640,7 +660,13 @@ def output_phd_students(writer, sysname, phd_students, ou_cache):
             value = names.get(variant)
             if value:
                 output_element(writer, value, xmlname)
-        
+        title = person_db.get_name_with_language(
+                              name_variant=constants.personal_title,
+                              name_language=constants.language_nb,
+                              default="")
+        if title:
+            output_element(writer, title, "personligTittel")
+                
         output_account_info(writer, person_db)
         
         for contact_kind in contact_kinds:
