@@ -100,8 +100,8 @@ def init_cache(checknames,checkmail):
         uname2expire[a['name']]=a['expire_date']
     if checknames:
         logger.info("Caching person names")
-        name_cache = p.getdict_persons_names(name_types=(co.name_first, \
-            co.name_last, co.name_work_title))
+        name_cache = p.getdict_persons_names(name_types=(co.name_first,
+                                                         co.name_last,))
     logger.info("Caching contact info")
     person2contact=dict()
     for c in p.list_contact_info(source_system=co.system_tlf,
@@ -211,10 +211,9 @@ def process_contact(userid,data,checknames,checkmail):
             if namelist:
                 cb_fname = str_upper_no(namelist.get(int(co.name_first),""))
                 cb_lname = str_upper_no( namelist.get(int(co.name_last),""))
-                worktitle = namelist.get(int(co.name_work_title),"")
                 if cb_fname != tlf_fname or cb_lname != tlf_lname:
-                    s_errors.setdefault(userid,list()).append( \
-                        "Name spelling differ: yours=%s %s, ours=%s %s" % \
+                    s_errors.setdefault(userid, list()).append(
+                        "Name spelling differ: yours=%s %s, ours=%s %s" %
                         (tlf_fname,tlf_lname,cb_fname,cb_lname))
 
     db_idx = Set(cinfo.keys())

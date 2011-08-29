@@ -99,7 +99,7 @@ def _get_sko(a_dict, kfak, kinst, kgr, kinstitusjon=None):
         try:
             ou.find_stedkode(int(a_dict[kfak]), int(a_dict[kinst]), int(a_dict[kgr]),
                              institusjon=institusjon)
-            ou_cache[key] = ou.ou_id
+            ou_cache[key] = ou.entity_id
         except Errors.NotFoundError:
             #print "a_dict keys: %s" % a_dict.keys()
             if (a_dict.has_key('studieprogramkode')):

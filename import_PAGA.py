@@ -84,8 +84,13 @@ def get_sted(fakultet, institutt, gruppe):
                 addr_street = addr_street[0]
                 address_text = addr_street['address_text']
                 if not addr_street['country']:
-                    address_text = "\n".join(
-                        filter(None, (ou.short_name, address_text)))
+                    short_name = ou.get_name_with_language(
+                        name_variant=const.ou_name_short,
+                        name_language=const.language_nb,
+                        default=None)
+                    address_text = "\n".join(x
+                                             for x in (short_name, address_text)
+                                             if x)
                 addr_street = {'address_text': address_text,
                                'p_o_box': addr_street['p_o_box'],
                                'postal_number': addr_street['postal_number'],
@@ -110,11 +115,11 @@ def get_sted(fakultet, institutt, gruppe):
                 fax = fax[0]['contact_value']
             else:
                 fax = None
-            ou_cache[stedkode] = {'id': int(ou.ou_id),
+            ou_cache[stedkode] = {'id': int(ou.entity_id),
                                   'fax': fax,
                                   'addr_street': addr_street,
                                   'addr_post': addr_post}
-            ou_cache[int(ou.ou_id)] = ou_cache[stedkode]
+            ou_cache[int(ou.entity_id)] = ou_cache[stedkode]
         except Errors.NotFoundError:
             logger.error("Bad stedkode: %s" % str(stedkode))
             ou_cache[stedkode] = None
@@ -164,7 +169,9 @@ def determine_affiliations(person):
             ret[k] = sted['id'],const.affiliation_ansatt, aff_stat
     
     if tittel:
-        new_person.populate_name(const.name_work_title, tittel)
+        new_person.add_name_with_language(name_variant=const.work_title,
+                                          name_language=const.language_nb,
+                                          name=tittel)
 
     for g in person.get('gjest', ()):
         if not type_is_active(g):
@@ -307,12 +314,10 @@ def process_person(person):
         logger.error("Person %s populate failed: %s" % (fnr or paga_nr,m))
         return
 
-    new_person.affect_names(const.system_paga, const.name_first, const.name_last, const.name_personal_title)
+    new_person.affect_names(const.system_paga, const.name_first, const.name_last)
     new_person.affect_external_id(const.system_paga, const.externalid_fodselsnr, const.externalid_paga_ansattnr)
     new_person.populate_name(const.name_first, person['fornavn'])
     new_person.populate_name(const.name_last, person['etternavn'])
-    if person.get('tittel_personlig',''):
-        new_person.populate_name(const.name_personal_title, person['tittel_personlig'])
 
     if fnr != '':
        new_person.populate_external_id(const.system_paga, const.externalid_fodselsnr, fnr)
@@ -322,8 +327,12 @@ def process_person(person):
     # assigned to it.
     op = new_person.write_db()
 
+    if person.get('tittel_personlig', ''):
+        new_person.add_name_with_language(name_variant=const.personal_title,
+                                          name_language=const.language_nb,
+                                          name=person['tittel_personlig'])
+
     # work_title is set by determine_affiliations
-    new_person.affect_names(const.system_paga, const.name_work_title)
     affiliations = determine_affiliations(person)
     new_person.populate_affiliation(const.system_paga)
     contact = determine_contact(person)

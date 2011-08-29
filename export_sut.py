@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# -*- coding: iso8859-1 -*-
+# -*- coding: iso-8859-1 -*-
 #
 # Copyright 2004 University of Oslo, Norway
 #
@@ -96,8 +96,9 @@ def build_data_cache():
         auth_list[auth['account_id']]=auth['auth_data']
             
     person_names = dict()
-    logger.info("Retreiving person names strings")
-    for pers in p.list_persons_name(source_system=co.system_cached):
+    logger.info("Retrieving person names strings")
+    for pers in p.search_person_names(source_system=co.system_cached,
+                                      name_variant=co.name_full):
         p_id = int(pers['person_id'])
         p_name=pers['name']        
         if person_names.has_key(p_id):

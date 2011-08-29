@@ -60,7 +60,6 @@ import sys
 import os
 import time
 import getopt
-import string
 import cerebrum_path
 import cereconf
 from xml.sax import make_parser
@@ -647,14 +646,14 @@ def output_OU_address(writer, db_ou, constants):
 
     post_nr_city = None
     if city or (postal_number and country):
-        post_nr_city = string.join(filter(None,
-                                          [postal_number,
-                                           (city or "").strip()]))
+        post_nr_city = "".join(filter(None,
+                                      [postal_number,
+                                       (city or "").strip()]))
 
-    output = string.join(filter(None,
-                                (address_text,
-                                 post_nr_city,
-                                 country))).replace("\n", ",")
+    output = "".join(filter(None,
+                            (address_text,
+                             post_nr_city,
+                             country))).replace("\n", ",")
     if not output:
         logger.error("There is no address information for %s",
                      db_ou.entity_id)
@@ -805,7 +804,7 @@ def output_OUs(writer, db):
     constants = Factory.get("Constants")(db)
 
     writer.startElement("organisasjon")
-    for id in db_ou.list_all():
+    for id in db_ou.search():
         output_OU(writer, id["ou_id"], db_ou, stedkode, constants,db)
     writer.endElement("organisasjon")
 
@@ -1260,8 +1259,7 @@ def output_phd_students(writer, sysname, phd_students, ou_cache):
                  "system_sap": "SAP-lektroniske-reservasjoner",}
     # name constant -> xml element for that name constant
     name_kinds = dict(((int(constants.name_last), "etternavn"),
-                       (int(constants.name_first), "fornavn"),
-                       (int(constants.name_work_title), "tittel")))
+                       (int(constants.name_first), "fornavn")))
     # contact constant -> xml element for that contact constant
     contact_kinds = dict(((int(constants.contact_phone), "telefonnr"),
                           (int(constants.contact_fax), "telefaxnr"),
@@ -1295,12 +1293,17 @@ def output_phd_students(writer, sysname, phd_students, ou_cache):
 
         names = extract_names(person_db, name_kinds)
         for variant, xmlname in name_kinds.iteritems():
-            value = names.get(variant)
-            if value:
-                # RMI000 - Geir Magne Vangen iflg epost ba om denne endringen selv om den er mot DTDen
-                if xmlname == 'tittel':
-                    xmlname = 'personligTittel'
-                output_element(writer, value, xmlname)
+            if names.get(variant):
+                output_element(writer, names.get(variant), xmlname)
+
+        work_title = person_db.get_name_with_language(
+                                   name_variant=constants.work_title,
+                                   name_language=constants.language_nb,
+                                   default=None)
+        if work_title:
+            # RMI000 - Geir Magne Vangen iflg epost ba om denne endringen selv
+            # om den er mot DTDen
+            output_element(writer, work_title, "personligTittel")
         
         output_account_info(writer, person_db)
         
@@ -1418,7 +1421,7 @@ def output_OUs_new(writer, sysname, oufile):
         except EntityExpiredError:
             logger.error("OU %s%s%s expired - not exported to Frida" % (ou[0],ou[1],ou[2]))
             continue
-        id = db_ou.ou_id
+        id = db_ou.entity_id
         db_ou.clear()
         output_OU(writer, id, db_ou, stedkode, constants,db)
     writer.endElement("organisasjon")    

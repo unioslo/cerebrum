@@ -429,6 +429,9 @@ def remove_duplicates(l):
 def get_ou_name(self, ou_id):
     ou.clear()
     ou.find(ou_id)
+    short_name = ou.get_name_with_language(name_variant=co.ou_name_short,
+                                           name_language=co.language_nb,
+                                           default="")
     return "%s (%02i%02i%02i)" % (ou.short_name, ou.fakultet, ou.institutt,
                                   ou.avdeling)
 

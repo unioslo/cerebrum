@@ -41,7 +41,6 @@ options is
 
 import getopt
 import sys
-import time
 import os
 import mx
 import xml.sax

@@ -140,7 +140,7 @@ def rec_make_ou(stedkode, ou, existing_ou_mappings, org_units,
     ou_data = org_units[stedkode]
     org_stedkode = get_stedkode_str(ou_data, suffix='_for_org_sted')
     if not stedkode2ou.has_key(org_stedkode):
-        logger.error("Error in dataset:"\
+        logger.error("Error in dataset:"
                      " %s references missing STEDKODE: %s, using None" % (
             stedkode, org_stedkode))
         org_stedkode = None
@@ -194,10 +194,7 @@ def import_org_units(sources):
     
     ou = OU_class(db)
 
-    expire_ou = []
-    all = ou.list_all()
-    for a in all:
-        expire_ou.append(a['ou_id'])
+    expire_ou = list(a['ou_id'] for a in ou.search())
     #print "############################### BEFORE: "
     #print expire_ou
 
@@ -225,14 +222,10 @@ def import_org_units(sources):
                          (k['fakultetnr'], k['instituttnr'], k['gruppenr']))
             continue
         
-        ou.populate(k['stednavn'], k['fakultetnr'],
+        ou.populate(k['fakultetnr'],
                     k['instituttnr'], k['gruppenr'],
                     institusjon=k.get('institusjonsnr',
-                                      cereconf.DEFAULT_INSTITUSJONSNR),
-                    acronym=k.get('akronym', None),
-                    short_name=k['forkstednavn'],
-                    display_name=k['display_name'],
-                    sort_name=k['sort_key'])
+                                      cereconf.DEFAULT_INSTITUSJONSNR))
         p_o_box = k.get('stedpostboks', None)
         if p_o_box == '0' or k.get('adrtypekode_intern_adr', '') != 'INT':
             p_o_box = None
@@ -300,13 +293,18 @@ def import_org_units(sources):
             ou.populate_contact_info(source_system, co.contact_phone,
 					k['telefonnr'], contact_pref=n)
         op = ou.write_db()
+        populate_ou_names(ou, k["stednavn"],
+                          acronym=k.get('akronym', None),
+                          short_name=k['forkstednavn'],
+                          display_name=k['display_name'],
+                          sort_name=k['sort_key'])
         if (k.get('opprettetmerke_for_oppf_i_kat') and
             not ou.has_spread(co.spread_ou_publishable)):
             ou.add_spread(co.spread_ou_publishable)
         op2 = ou.write_db()
         
         try:
-            expire_ou.remove(ou.ou_id)
+            expire_ou.remove(ou.entity_id)
         except Exception:
             pass
         
@@ -316,7 +314,7 @@ def import_org_units(sources):
             elif op:
                 logger.info("**** NEW ****")
             else:
-                loggger.info("**** UPDATE ****")
+                logger.info("**** UPDATE ****")
 
         stedkode = get_stedkode_str(k)
         # Not sure why this casting to int is required for PostgreSQL
@@ -332,10 +330,6 @@ def import_org_units(sources):
         ou.populate_expire_date("%02d%02d%02d" % (t[0], t[1], t[2]))
         ou.write_db()
 
-    #print "############################### AFTER: "
-    #print expire_ou
-    #print len(expire_ou)
-
     existing_ou_mappings = {}
     for node in ou.get_structure_mappings(perspective):
         existing_ou_mappings[int(node['ou_id'])] = node['parent_id']
@@ -348,6 +342,31 @@ def import_org_units(sources):
                     stedkode2ou, co)
     db.commit()
 
+
+def populate_ou_names(ou, name, acronym, short_name, display_name, sort_name):
+    """Register all of the names for OU.
+    """
+
+    name_map = {co.ou_name: name,
+                co.ou_name_acronym: acronym,
+                co.ou_name_short: short_name,
+                co.ou_name_display: display_name,
+                co.ou_name_sort: sort_name}
+    language = co.language_nb
+    
+    for name_variant in name_map:
+        new_name = name_map[name_variant]
+        if new_name is None:
+            ou.delete_name_with_language(name_variant=name_variant,
+                                         name_language=language)
+        else:
+            ou.add_name_with_language(name_variant=name_variant,
+                                      name_language=language,
+                                      name=new_name)
+# end populate_ou_names
+
+
+    
 def usage(exitcode=0):
     print """Usage: [options] [file ...]
 Imports OU data from systems that use 'stedkoder', primarily used to
