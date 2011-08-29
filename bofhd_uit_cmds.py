@@ -3637,27 +3637,31 @@ class BofhdExtension(object):
                                                   avdeling=a):
                             ou.clear()
                             ou.find(r['ou_id'])
+                            short_name = ou.get_name_with_language(
+                                         name_variant=self.const.ou_name_short,
+                                         name_language=self.const.language_nb,
+                                         default="")
                             output.append({'stedkode':
                                            '%02d%02d%02d' % (ou.fakultet,
                                                              ou.institutt,
                                                              ou.avdeling),
-                                           'short_name':
-                                           ou.short_name})
+                                           'short_name': short_name})
         else:
-            if pattern.count('%') == 0:
-                pattern = '%' + pattern + '%'
-            for r in ou.search(short_name=pattern):
+            for r in ou.search_name_with_language(entity_type=self.const.entity_ou,
+                                             name_variant=self.const.ou_name_short,
+                                             name=pattern,
+                                             exact_match=False):
                 ou.clear()
                 ou.find(r['ou_id'])
                 output.append({'stedkode':
                                '%02d%02d%02d' % (ou.fakultet,
                                                  ou.institutt,
                                                  ou.avdeling),
-                               'short_name': ou.short_name})
+                               'short_name': r["name"]})
         if len(output) == 1:
             eed = Email.EntityEmailDomain(self.db)
             try:
-                eed.find(ou.ou_id)
+                eed.find(ou.entity_id)
             except Errors.NotFoundError:
                 pass
             ed = Email.EmailDomain(self.db)
@@ -4100,17 +4104,13 @@ class BofhdExtension(object):
             person.clear()
             if search_type == 'name':
                 if len(value.strip(" \t%_")) < 3:
-                    raise CerebrumError, \
-                          "You must specify at least three letters of the name"
-                if '%' not in value and '_' not in value:
-                    # Add wildcards to start and end of value.
-                    value = '%' + value + '%'
-                matches = person.list_persons_by_name(
-                    value,
-                    name_variant=self.const.name_full,
-                    source_system=self.const.system_cached,
-                    return_name=True,
-                    case_sensitive=(value != value.lower()))
+                    raise CerebrumError("You must specify at least three "
+                                        "letters of the name")
+                matches = person.search_person_names(name=value,
+                                    name_variant=self.const.name_full,
+                                    source_system=self.const.system_cached,
+                                    exact_match=False,
+                                    case_sensitive=(value != value.lower()))
             elif search_type == 'fnr':
                 matches = person.list_external_ids(
                     id_type=self.const.externalid_fodselsnr,
@@ -5840,16 +5840,14 @@ class BofhdExtension(object):
         ret['home'] = ac.resolve_homedir(disk_id=ac.disk_id, home=ac.home)
         ret['navn'] = {'cached': person.get_name(
             self.const.system_cached, self.const.name_full)}
-        try:
-            ret['work_title'] = person.get_name(
-                self.const.system_lt, self.const.name_work_title)
-        except Errors.NotFoundError:
-            pass
-        try:
-            ret['personal_title'] = person.get_name(
-                self.const.system_lt, self.const.name_personal_title)
-        except Errors.NotFoundError:
-            pass
+        for key, variant in (("work_title", self.const.work_title),
+                             ("personal_title", self.const.personal_title)):
+            try:
+                ret[key] = person.get_name_with_language(
+                                      name_variant=variant,
+                                      name_language=self.const.language_nb)
+            except (Errors.NotFoundError, Errors.TooManyRowsError):
+                pass
         return ret
 
     #
