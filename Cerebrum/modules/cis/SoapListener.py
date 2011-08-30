@@ -27,6 +27,8 @@ based on the twisted framework and soaplib.
 
 import socket
 
+from os import path
+
 import soaplib.core
 from soaplib.core.server import wsgi
 from soaplib.core.service import DefinitionBase
@@ -240,7 +242,12 @@ class TwistedSoapStarter(BasicSoapStarter):
         # Tell the server what certificates it should trust as signers of the
         # client's certificate. Specify directory instead if several
         # certificates are trusted.
-        ctx.load_verify_locations(client_ca)
+        ca_file = ca_dir = None
+        if path.isdir(client_ca):
+            ca_dir = client_ca
+        else:
+            ca_file = client_ca
+        ctx.load_verify_locations(ca_file, ca_dir)
         ctx.set_verify(SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT,
                        self.clientverifycallback)
 
