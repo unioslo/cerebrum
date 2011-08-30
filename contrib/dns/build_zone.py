@@ -65,8 +65,10 @@ class ZoneUtils(object):
 
         self._file.write(header_splitter)
         serial = self._read_update_serial(self._fname)
+        logger.debug("write_heads; serial: %s" % serial)
         first = True
         for h in heads:
+            logger.debug("Looking at header-file '%s'" % h)
             fin = file(h, "r")
             lines = []
             for line in fin:
@@ -85,14 +87,17 @@ class ZoneUtils(object):
 
     def close(self):
         self._file.close(dont_rename=True)
+        if self._file.replaced_file:
+            self._read_update_serial(self._file._tmpname, update=True)
+            os.rename(self._file._tmpname, self._file._name)
 
 
     def write(self, s):
         self._file.write(s)
 
     def _read_update_serial(self, fname, update=False):
-        """Parse existing serial in zonefile, and opionally updates
-        the serial.  Returns the serial used.  """
+        """Parse existing serial in zonefile, and optionally updates
+        the serial. Returns the serial used."""
 
         all_lines = []
         if os.path.exists(fname):
@@ -100,17 +105,21 @@ class ZoneUtils(object):
                 m = ZoneUtils.re_serial.search(line)
                 if m:
                     serial = m.group(1)
+                    logger.debug("Old serial: %s" % serial)
                     if not update:
                         return serial
                     if serial[:-2] == time.strftime('%Y%m%d'):
                         serial = int(serial) + 1
                     else:
                         serial = time.strftime('%Y%m%d') + '01'
+                    logger.debug("New serial: %s" % serial)
                     line = "%30s ; Serialnumber\n" % serial
                 all_lines.append(line)
         if not update:
             # First time this zone is written
-            return time.strftime('%Y%m%d') + '01'
+            serial = time.strftime('%Y%m%d') + '01'
+            logger.debug("First time; new serial used: %s" % serial)
+            return serial
         # Rewrite the entire file in case the serial line length has changed
         f = Utils.AtomicFileWriter(fname, 'w')
         f.write("".join(all_lines))
