@@ -142,7 +142,7 @@ def clientVerificationCallback(instance, connection, x509, errnum, errdepth, ok=
     connection.
     """
     if not ok:
-        log.err('Invalid cert: errnum=%s, errdepth=%s' % (errnum, errdepth))
+        log.err('Invalid cert: errnum=%s, errdepth=%s (see `man verify` for info)' % (errnum, errdepth))
         try:
             log.err('  subject: %s' % x509.get_subject())
             log.err('  issuer:  %s' % x509.get_issuer())
