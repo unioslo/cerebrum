@@ -30,6 +30,7 @@
 import sys
 import time
 import os
+import re
 import email.Generator, email.Message
 import imaplib
 import pickle
