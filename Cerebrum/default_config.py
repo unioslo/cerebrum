@@ -498,7 +498,7 @@ LDAP = {
     'output_languages': True,
 
     # Languages (2-letter ISO 639-1 codes) by preference.  Required, e.g.:
-    #'pref_languages': ('nb', 'nn', 'en'),
+    'pref_languages': ('nb', 'nn', 'en'),
 
     # Default 'max_change' for the LDAP_<tree>s
     'max_change': 10,
