@@ -232,6 +232,19 @@ class TwistedSoapStarter(BasicSoapStarter):
         self.root.putChild(self.soapchildpath, self.resource)
         self.site = Site(self.root)
 
+    def add_certificates(self, ctx, locations):
+        """Tell the server what certificates it should trust as signers of the
+        clients' certificates."""
+        if isinstance(locations, (list, tuple)):
+            for location in locations:
+                self.add_certificates(ctx, location)
+            return
+        if path.isdir(locations):
+            log.msg('WARNING: Adding CA directories might be buggy...')
+            ctx.load_verify_locations(None, locations)
+        else:
+            ctx.load_verify_locations(locations)
+
     def setup_encrypted_reactor(self, port, private_key_file,
                                 certificate_file, client_ca):
         """Setting up the reactor with encryption and certificate
@@ -239,18 +252,9 @@ class TwistedSoapStarter(BasicSoapStarter):
         sslcontext = ssl.DefaultOpenSSLContextFactory(private_key_file,
                                                       certificate_file)
         ctx = sslcontext.getContext()
-        # Tell the server what certificates it should trust as signers of the
-        # client's certificate. Specify directory instead if several
-        # certificates are trusted.
-        ca_file = ca_dir = None
-        if path.isdir(client_ca):
-            ca_dir = client_ca
-        else:
-            ca_file = client_ca
-        ctx.load_verify_locations(ca_file, ca_dir)
+        self.add_certificates(ctx, client_ca)
         ctx.set_verify(SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT,
                        self.clientverifycallback)
-
         self.port = reactor.listenSSL(int(port), self.site,
                                       contextFactory=sslcontext,
                                       interface=self.interface)
