@@ -150,11 +150,24 @@ def clientVerificationCallback(instance, connection, x509, errnum, errdepth, ok=
             log.err('  issuer:  %s' % x509.get_issuer())
             log.err('  serial:  %x' % x509.get_serial_number())
             log.err('  version: %s' % x509.get_version())
+            log.err('  digest: %s (sha256)' % x509.digest('sha256'))
             log.err('  digest: %s (sha1)' % x509.digest('sha1'))
             log.err('  digest: %s (md5)' % x509.digest('md5'))
         except Exception, e:
             log.err('  exception: %s' % e)
         return False
+    # check the whitelist
+    if instance.client_fingerprints:
+        if x509.digest('sha1') not in instance.client_fingerprints:
+            log.err('Valid cert, but not in whitelist')
+            log.err('  subject: %s' % x509.get_subject())
+            log.err('  issuer:  %s' % x509.get_issuer())
+            log.err('  serial:  %x' % x509.get_serial_number())
+            log.err('  version: %s' % x509.get_version())
+            log.err('  digest: %s (sha256)' % x509.digest('sha256'))
+            log.err('  digest: %s (sha1)' % x509.digest('sha1'))
+            log.err('  digest: %s (md5)' % x509.digest('md5'))
+            return False
     # TODO: validate the hostname as well?
     return True
 
@@ -195,8 +208,13 @@ class TwistedSoapStarter(BasicSoapStarter):
     # Callback for verifying client's certificates
     clientverifycallback = clientVerificationCallback
 
+    # The certificate whitelist - only the certificates that matches these
+    # fingerprints are accepted in a TLS connection.
+    client_fingerprints = None
+
     def __init__(self, applications, port, private_key_file=None,
-                 certificate_file=None, client_ca=None, encrypt=True):
+                 certificate_file=None, client_ca=None, encrypt=True,
+                 client_fingerprints=None):
         """Setting up a standard soap server. If either a key or certificate
         file is given, it will use encryption."""
         #super(TwistedSoapStarter, self).__init__()
@@ -205,10 +223,12 @@ class TwistedSoapStarter(BasicSoapStarter):
 
         if encrypt and not (private_key_file and certificate_file):
             log.err("Encryption without certificate is not good")
-
         if encrypt:
-            self.setup_encrypted_reactor(port, private_key_file,
-                                         certificate_file, client_ca)
+            self.setup_encrypted_reactor(port,
+                                         private_key_file=private_key_file,
+                                         certificate_file=certificate_file,
+                                         client_ca=client_ca,
+                                         client_fingerprints=client_fingerprints)
             url = "https://%s:%d/SOAP/" % (socket.gethostname(), port)
         else: # unencrypted
             self.setup_reactor(port=port)
@@ -246,13 +266,20 @@ class TwistedSoapStarter(BasicSoapStarter):
             ctx.load_verify_locations(locations)
 
     def setup_encrypted_reactor(self, port, private_key_file,
-                                certificate_file, client_ca):
+                                certificate_file, client_ca,
+                                client_fingerprints=None):
         """Setting up the reactor with encryption and certificate
         authentication."""
         sslcontext = ssl.DefaultOpenSSLContextFactory(private_key_file,
                                                       certificate_file)
         ctx = sslcontext.getContext()
         self.add_certificates(ctx, client_ca)
+        # TODO: can ctx.set_verify_depth(<int>) be used to avoid having to
+        # validate the whole chain?
+        if client_fingerprints:
+            self.client_fingerprints = client_fingerprints
+        else:
+            log.msg('WARNING: No whitelist, accepting all certs signed by CA')
         ctx.set_verify(SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT,
                        self.clientverifycallback)
         self.port = reactor.listenSSL(int(port), self.site,

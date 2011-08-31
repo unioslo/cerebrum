@@ -294,12 +294,14 @@ if __name__=='__main__':
         private_key_file  = cereconf.SSL_PRIVATE_KEY_FILE
         certificate_file  = cereconf.SSL_CERTIFICATE_FILE
         client_ca         = cereconf.INDIVIDUATION_CLIENT_CA
+        fingerprints      = getattr(cereconf, 'INDIVIDUATION_CLIENT_FINGERPRINTS', None)
     server = SoapListener.TwistedSoapStarter(port = int(port),
                 applications = IndividuationServer,
                 private_key_file = private_key_file,
                 certificate_file = certificate_file,
                 client_ca = client_ca,
-                encrypt = use_encryption)
+                encrypt = use_encryption,
+                client_fingerprints = fingerprints)
     IndividuationServer.site = server.site # to make it global and reachable by Individuation (wrong, I know)
     # If sessions' behaviour should be changed (e.g. timeout):
     # server.site.sessionFactory = BasicSession

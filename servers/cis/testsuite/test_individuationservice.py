@@ -77,7 +77,7 @@ from Cerebrum import Errors, Utils
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 
-from Cerebrum.modules.cis import Individuation
+from Cerebrum.modules.cis import SoapListener, Individuation
 
 log.startLogging(sys.stdout)
 #logging.basicConfig(level=logging.DEBUG,
@@ -242,11 +242,11 @@ class IndividuationTestSetup:
         cereconf.CEREBRUM_DATABASE_NAME = cereconf.CEREBRUM_DATABASE_NAME_original
 
     def createServer(self, instance, encrypt=False, server_key=None, server_cert=None,
-            client_cert=None):
+            client_cert=None, whitelist=None):
         """Creates a temporary Individuation webservice. Note that the reactor
         is handled by twisted.trial.unittest, so do not run() the server."""
         sys.path.append(os.path.join(os.path.dirname(__file__), '../'))
-        import SoapListener, SoapIndividuationServer
+        import SoapIndividuationServer
         SoapListener.interface = '127.0.0.1'
         SoapIndividuationServer.IndividuationServer.individuation = instance
 
@@ -254,7 +254,8 @@ class IndividuationTestSetup:
                     applications = SoapIndividuationServer.IndividuationServer,
                     private_key_file = server_key,
                     certificate_file = server_cert, 
-                    client_ca = client_cert)
+                    client_ca = client_cert,
+                    client_fingerprints = whitelist)
         SoapIndividuationServer.IndividuationServer.site = server.site # to make the site reachable by the Individuation class (wrong, I know)
 
         # The reactor can only be run once in a process, it can not be rerun.
@@ -262,7 +263,7 @@ class IndividuationTestSetup:
         return server
 
     def setupServer(self, encrypt=False, server_key=None, server_cert=None,
-            client_cert=None, instance=None):
+            client_cert=None, instance=None, whitelist=None):
         """Start up the Individuation webservice."""
         self.tearDownServer() # reset if not correctly stopped by last test
 
@@ -275,7 +276,7 @@ class IndividuationTestSetup:
             Individuation.db = db 
             Individuation.Individuation.db = db
             instance = Individuation.Individuation()
-        # overwrite functionality
+        # overwrite some functionality
         def send_token_grabber(phone_no, token):
             self.last_token = token
             return True
@@ -288,7 +289,7 @@ class IndividuationTestSetup:
         
         self.server = self.createServer(instance=instance, encrypt=encrypt,
                             server_key=server_key, server_cert=server_cert,
-                            client_cert=client_cert)
+                            client_cert=client_cert, whitelist=whitelist)
         return self.server
 
     def tearDownServer(self):
@@ -1010,9 +1011,7 @@ class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
         self.server = self.setupServer(encrypt=False,
                                         instance=EmptyIndividuation())
         client = self.setupClient()
-        d = client.callRemote('get_usernames', 3, 3, None, param1='hellu',
-                param2='what"s this', arg323=3.3)
-        # TODO: shouldn't wrong parameters cause an error?
+        d = client.callRemote('get_usernames')
         d = self.assertFailure(d, error.Error)
         return d
 
@@ -1099,6 +1098,41 @@ class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
         f.d.addCallback(cb)
         # TODO: times out - probably wrong use of deferred in test code
         return f.d
+
+    def test_connection_with_whitelisted_certificate(self):
+        (key, cert)   = self.helper_get_certificate()
+        (ckey, ccert) = self.helper_get_client_certificate()
+        client_cert = X509.load_cert(ccert)
+        fingerprint = str(client_cert.get_fingerprint('sha1'))
+        self.server = self.setupServer(encrypt=True, server_key=key,
+                                        server_cert=cert,
+                                        client_cert=cert,
+                                        instance=EmptyIndividuation(),
+                                        whitelist=fingerprint)
+        f = ConnectionDebuggerFactory()
+        ccf = ssl.DefaultOpenSSLContextFactory(ckey, ccert)
+        port = reactor.connectSSL('127.0.0.1', self.server.port.getHost().port, f, ccf)
+        def cb(data):
+            print "data: %s"% data
+        def cbfail(data):
+            print "fail: %s"% data
+        f.d.addErrback(cbfail)
+        f.d.addCallback(cb)
+        # TODO: times out - probably wrong use of deferred in test code
+        return f.d
+
+    def test_connection_with_nonwhitelisted_certificate(self):
+        (key, cert)   = self.helper_get_certificate()
+        (ckey, ccert) = self.helper_get_client_certificate()
+        self.server = self.setupServer(encrypt=True, server_key=key,
+                                        server_cert=cert,
+                                        client_cert=cert,
+                                        instance=EmptyIndividuation(),
+                                        whitelist='asdfasdf')
+        f = ConnectionDebuggerFactory()
+        ccf = ssl.DefaultOpenSSLContextFactory(ckey, ccert)
+        port = reactor.connectSSL('127.0.0.1', self.server.port.getHost().port, f, ccf)
+        return self.assertFailure(f.d, OpenSSL.SSL.Error)
 
     def test_connection_with_wrong_certificate(self):
         (key, cert)   = self.helper_get_certificate()
