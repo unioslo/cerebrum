@@ -163,11 +163,17 @@ class IndividuationTestSetup:
 
         debug = 0
         extra_files = []
+        # TODO: it seems a bit complex having to include all the sql files,
+        #       just to avoid dependencies between them? E.g. should ephorte
+        #       relevant data be referenced by mod_auth?
         for f in ('mod_changelog.sql', 'mod_entity_trait.sql',
                   'mod_password_history.sql', 'mod_posix_user.sql',
                   'mod_email.sql', 'mod_employment.sql', 'mod_sap.sql',
                   'mod_printer_quota.sql', 'mod_stedkode.sql',
-                  'bofhd_tables.sql', 'bofhd_auth.sql'):
+                  'mod_dns.sql',
+                  'mod_ephorte.sql', 'mod_voip.sql',
+                  'bofhd_tables.sql', 'bofhd_auth.sql', 
+                  ):
             extra_files.append(os.path.join(cereconf.CEREBRUM_DDL_DIR, f))
         #bofhd_tables.sql, bofhd_auth.sql, mod_job_runner.sql
 
@@ -605,7 +611,6 @@ class TestIndividuationService(unittest.TestCase, IndividuationTestSetup):
         # this should never return any error, even if account exists or not
         return d
 
-
     def test_phonenumberchange_delay(self):
         """Fresh phone numbers should not be used if config says so."""
         cereconf.INDIVIDUATION_PHONE_TYPES['system_fs']['types']['contact_mobile_phone']['delay'] = 7
@@ -652,6 +657,7 @@ class TestIndividuationService(unittest.TestCase, IndividuationTestSetup):
                     {'s_id': pe.entity_id,
                     'ct_id': co.person_create,
                     'tid': DateTime(2009, 10, 4),})
+        self.db.commit()
 
         d = self.client.callRemote('generate_token',
                 id_type="externalid_studentnr", ext_id='007',
