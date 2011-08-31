@@ -164,9 +164,6 @@ class CleanChangeLog(object):
         int(co.account_type_add): 3600*24*31,
         int(co.account_type_mod): 3600*24*31,
         int(co.account_type_del): 3600*24*31,
-        # Phones for tokens are only necessary to store as long as it takes to
-        # find out of a password theft
-        int(co.account_password_token): 3600*24*31,
         }
 
     if never_forget_homedir:
@@ -365,6 +362,10 @@ class CleanChangeLog(object):
 
     # Password tokens
     if hasattr(co, 'account_password_token'):
+        # Phones for tokens are only necessary to store as long as it takes to
+        # find out of a password theft
+        max_ages[int(co.account_password_token)] = 3600*24*31
+        
         keep_togglers.extend([
             {'columns': ('subject_entity', ),
              'toggleable': False,
