@@ -157,7 +157,7 @@ def ou_id2ou_info(ou_id):
         
         return {"sko": format_sko(ou.fakultet, ou.institutt, ou.avdeling),
                 "name": ou.get_name_with_language(name_variant=constants.ou_name,
-                                             name_language=constants.ou_language,
+                                             name_language=constants.language_nb,
                                              default=""),
                 "ou_id": ou_id}
     except Errors.NotFoundError:
