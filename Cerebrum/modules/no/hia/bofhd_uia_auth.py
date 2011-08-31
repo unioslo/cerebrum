@@ -19,15 +19,13 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 """
-Site specific auth.py for UiO
+Site specific auth.py for UiA
 
 """
 
-import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd import auth
 from Cerebrum.modules.bofhd.errors import PermissionDenied
-from Cerebrum.modules import Email
 
 
 class BofhdAuth(auth.BofhdAuth):
@@ -54,8 +52,8 @@ class BofhdAuth(auth.BofhdAuth):
             if ety.entity_id == account.owner_id:
                 return True        
         elif ety and trait in (self.const.trait_reservation_sms_password,):
-            if ety.entity_id == operator
-                return True        
+            if ety.entity_id == operator:
+                return True
         raise PermissionDenied("Not allowed to set trait")
 
     def can_remove_trait(self, operator, trait=None, ety=None, target=None,
