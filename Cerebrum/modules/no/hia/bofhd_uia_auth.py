@@ -48,11 +48,13 @@ class BofhdAuth(auth.BofhdAuth):
             return True
         # persons can set some of their own traits
         if ety and trait in (self.const.trait_accept_nondisc,
-                             self.const.trait_reject_nondisc,
-                             self.const.trait_reservation_sms_password):
+                             self.const.trait_reject_nondisc):
             account = Factory.get('Account')(self._db)
             account.find(operator)
             if ety.entity_id == account.owner_id:
+                return True        
+        elif ety and trait in (self.const.trait_reservation_sms_password,):
+            if ety.entity_id == operator
                 return True        
         raise PermissionDenied("Not allowed to set trait")
 
