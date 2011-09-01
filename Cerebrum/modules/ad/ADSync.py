@@ -872,8 +872,14 @@ class DistGroupSync(GroupSync):
         ad_dist_grps = self.server.listObjects('group', True, self.ad_ldap)
         if ad_dist_grps:
             # Only deal with distribution groups. Groupsync deals with security groups.
+            dist_group_types = ('2', # Global distribution group
+                                '8', # Universal distribution group
+                                '2147483656') # Universal distribution group,
+                                              # security enabled
             for grp_name, properties in ad_dist_grps.iteritems():
-                if 'groupType' in properties and str(properties['groupType']) in ('2', '8',):
+                if not 'groupType' in properties:
+                    continue
+                if str(properties['groupType']) in dist_group_types:
                     ret[grp_name] = properties
         return ret
 
