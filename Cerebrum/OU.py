@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002-2011 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -342,7 +342,7 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
             where_str = "WHERE " + " AND ".join(where)
 
         return self.query("""
-        SELECT DISTINCT oi.ou_id,
+        SELECT DISTINCT oi.ou_id
         FROM %s %s""" % (','.join(tables), where_str), binds)
     # end search
 # end class OU
