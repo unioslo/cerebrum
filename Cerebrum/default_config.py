@@ -837,9 +837,29 @@ INDIVIDUATION_TOKEN_LENGTH = 8
 INDIVIDUATION_SMS_MESSAGE = "Your one time password:\n%s\nCerebrum"
 # The number of times a token can be checked before it's invalidated
 INDIVIDUATION_TOKEN_ATTEMPTS = 10
-# The location of the certificate(s) for which is accepted as the signer of the
-# client's certificate. Defaults to Cerebrum's own server certificate.
+# The location of the certificate(s) for which is accepted as the signer of
+# the client's certificate. Defaults to Cerebrum's own server certificate. If
+# chains are needed, you need to supply a list of all the needed certificates.
+# If you specify a directory, you first need to run `cacertdir_rehash` on it,
+# to create hashed symlinks to the certificates, otherwize they will be
+# ignored. This script is a wrapper for creating files named by:
+#   openssl x509 -noout -subject_hash -in cert.pem
+# Note that the hashes might vary between OpenSSL versions.
 INDIVIDUATION_CLIENT_CA = SSL_CERTIFICATE_FILE
+
+# A whitelist of sha-1 fingerprints for accepted client certificates. Note
+# that the certificate has to be signed by one of the CAs in
+# INDIVIDUATION_CLIENT_CA as well before it is accepted. Also note that every
+# certificate that is used in a certificate chain has to be whitelisted, which
+# includes the CAs certificates. To get the sha1 fingerprint of a certificate,
+# one can use the command:
+# 
+#   openssl x509 -in certificate.pem -noout -fingerprint -sha1
+# 
+# Fingerprints can, in theory, be hacked through collision attacks. Use sha256
+# in the future to minimize this risk.
+INDIVIDUATION_CLIENT_FINGERPRINTS = ()
+
 # Quarantines that is accepted for password changes. Quarantines not in this
 # list blocks the user from changing password.
 INDIVIDUATION_ACCEPTED_QUARANTINES = ('quarantine_svakt_passord',
