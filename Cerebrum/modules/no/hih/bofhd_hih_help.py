@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003-2005 University of Oslo, Norway
+# Copyright 2003-2011 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,6 +20,7 @@
 
 group_help = {
     'access': "Access (authorisation) related commands",
+    'email': "E-mail commands",
     'group': "Group commands",
     'misc': 'Miscellaneous commands',
     'person': 'Person related commands',
@@ -58,6 +59,18 @@ command_help = {
        "List the operations included in the operation set",
     'access_user':
        "List who's authorised to operate on account <uname>",
+    },
+    'email': {
+    "email_add_address":
+        "Add an alias address",
+    "email_remove_address":
+        "Remove an alias address",
+    "email_reassign_address":
+        "Move an address from one account to another",
+    "email_update":
+        "Update default address and aliases associated with account",
+    "email_info":
+        "View e-mail information about a user or address",
     },
     'group': {
     'group_add': 'Let an account join a group',
