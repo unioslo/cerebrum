@@ -622,10 +622,15 @@ class XMLPerson2Object(XMLEntity2Object):
                 emp = self._make_role(sub)
                 if emp is not None:
                     result.add_employment(emp)
-            elif sub.tag == "Tittel":
-                personal_title = self._make_title(HRDataPerson.NAME_TITLE, sub)
-                if personal_title:
-                    result.add_name(personal_title)
+            elif sub.tag == "person":
+                # Lots of the other entries above also are part of the
+                # "person"-firstlevel element, but we need to
+                # specifically look here for Tittel => personal title,
+                # to avoid confusion with worktitles
+                for subsub in sub.findall("Tittel"):
+                    personal_title = self._make_title(HRDataPerson.NAME_TITLE, subsub)
+                    if personal_title:
+                        result.add_name(personal_title)
 
         # We need to order 'Telefon 1' and 'Telefon 2' properly
         celems = list(element.findall("PersonKomm"))
