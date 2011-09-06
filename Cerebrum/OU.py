@@ -112,8 +112,6 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
         If you want to populate instances with data found in the
         Cerebrum database, use the .find() method."""
         self.__super.write_db()
-        if not self.__updated:
-            return
         is_new = not self.__in_db
         if is_new:
             self.execute("""
