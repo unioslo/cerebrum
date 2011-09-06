@@ -304,7 +304,8 @@ def get_org_unit_data(org_units, exported_orgs):
             logger.warn("Could not find OU with id: %s (this should never happen!).",
                         o['entity_id'])
         oun_id = '%02d%02d%02d' % (ou.fakultet, ou.institutt, ou.avdeling)
-        tmp = ou.search_name_with_language(entity_id=ou.entity_id)
+        tmp = ou.search_name_with_language(entity_id=ou.entity_id,
+                                           name_language=const.language_nb)
         oun_name = tmp[0]["name"]
         parent_id = ou.get_parent(const.perspective_sap)
         # No direct parent is registered for ou
@@ -508,37 +509,39 @@ def main():
                                     'gen-role-file',
                                     'role-file-name=',
                                     'gen-organization-file',
-                                    'org-file-name='])
+                                    'org-file-name=', 
                                     # 'gen-address-file',
-                                    # 'address-file-name=',
+                                    'address-file-name=',
                                     # 'gen-address-part-file',
-                                    #'address-part-file-name='])
+                                    'address-part-file-name='])
     except getopt.GetoptError:
         usage()
 
     for opt, val in opts:
         if opt in ('--help', '-h'):
             usage()
-        elif opt in ('--gen-person-file', '-p'):
-            generate_people_file(exported_orgs)
-        elif opt in ('person-file-name'):
+        elif opt in ('--person-file-name', ):
             person_file_name = val
         elif opt in ('--gen-role-file', '-r'):
             generate_role_file()
-        elif opt in ('role-file-name'):
+        elif opt in ('--role-file-name', ):
             role_file_name = val
+        elif opt in ('--org-file-name', ):
+            org_file_name = val
+        elif opt in ('--address-file-name', ):
+            address_file_name = val
+        elif opt in ('--address-part-file-name', ):
+            address_part_file_name = val
+
+    for opt, val in opts:
+        if opt in ('--gen-person-file', '-p'):
+            generate_people_file(exported_orgs)
         elif opt in ('--gen-organization-file', '-o'):
             generate_organization_file(org_units, exported_orgs)
-        elif opt in ('org-file-name'):
-            org_file_name = val
 #        elif opt in ('--gen-address-file', '-a'):
 #            generate_address_file()
-#        elif opt in ('address-file-name'):
-#            address_file_name = val
 #        elif opt in ('--gen-address-parts-file', '-s'):
 #            generate_address_parts_file()
-#        elif opt in ('address-part-file-name'):
-#            address_part_file_name = val
         
     if not opts:
         usage()    
