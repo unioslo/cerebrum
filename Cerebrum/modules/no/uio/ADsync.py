@@ -610,7 +610,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
         #Set passwords from changelog if option enabled
         if pwd_sync:
-            self.logger.info("Starting passowrd sync.")
+            self.logger.info("Starting password sync.")
             self.get_pwds_from_cl(addump, dry_run, spread, True)
 
         #Cleaning up.
