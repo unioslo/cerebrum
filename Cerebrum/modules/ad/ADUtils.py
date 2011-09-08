@@ -140,9 +140,13 @@ class ADUtils(object):
             ad_attr.sort()
 
         # Now we can compare the attrs
-        if cb_attr != ad_attr:
-            return cb_attr
-        return
+        if isinstance(ad_attr, (str, unicode)) and isinstance(cb_attr, (str, unicode)):
+            # Don't care about case
+            if cb_attr.lower() != ad_attr.lower():
+                return cb_attr
+        else:
+            if cb_attr != ad_attr:
+                return cb_attr
 
 
     def run_cmd(self, command, *args):
