@@ -207,6 +207,9 @@ cereconf.INDIVIDUATION* contains more settings for the service.
   -p
   --port num        Run on alternative port than defined in cereconf.
 
+  --interface ADDR  What interface the server should listen to 
+                    (default: 0.0.0.0)
+
   -l
   --logfile:        Where to log
 
@@ -228,14 +231,16 @@ if __name__=='__main__':
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'p:l:h',
                                    ['port=', 'unencrypted', 'logfile=',
-                                    'help', 'instance='])
-    except getopt.GetoptError:
+                                    'help', 'instance=', 'interface='])
+    except getopt.GetoptError, e:
+        print e
         usage(1)
 
     use_encryption = True
     port     = getattr(cereconf, 'INDIVIDUATION_SERVICE_PORT', 0)
     logfilename = getattr(cereconf, 'INDIVIDUATION_SERVICE_LOGFILE', None)
     instance = getattr(cereconf, 'INDIVIDUATION_INSTANCE', None)
+    interface = None
 
     for opt, val in opts:
         if opt in ('-l', '--logfile'):
@@ -246,6 +251,8 @@ if __name__=='__main__':
             use_encryption = False
         elif opt in ('--instance',):
             instance = val
+        elif opt in ('--interface',):
+            interface = val
         elif opt in ('-h', '--help'):
             usage()
 
@@ -286,15 +293,19 @@ if __name__=='__main__':
     # TBD: Should Individuation be started once per session instead? Takes
     # more memory, but are there benefits we need, e.g. language control?
 
-    if not use_encryption:
-        private_key_file  = None
-        certificate_file  = None
-        client_ca = None
-    else:
+    private_key_file  = None
+    certificate_file  = None
+    client_ca         = None
+    fingerprints      = None
+
+    if use_encryption:
         private_key_file  = cereconf.SSL_PRIVATE_KEY_FILE
         certificate_file  = cereconf.SSL_CERTIFICATE_FILE
         client_ca         = cereconf.INDIVIDUATION_CLIENT_CA
         fingerprints      = getattr(cereconf, 'INDIVIDUATION_CLIENT_FINGERPRINTS', None)
+    if interface:
+        SoapListener.TwistedSoapStarter.interface = interface
+
     server = SoapListener.TwistedSoapStarter(port = int(port),
                 applications = IndividuationServer,
                 private_key_file = private_key_file,
@@ -302,7 +313,9 @@ if __name__=='__main__':
                 client_ca = client_ca,
                 encrypt = use_encryption,
                 client_fingerprints = fingerprints)
+
     IndividuationServer.site = server.site # to make it global and reachable by Individuation (wrong, I know)
+
     # If sessions' behaviour should be changed (e.g. timeout):
     # server.site.sessionFactory = BasicSession
     server.run()

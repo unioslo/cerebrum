@@ -203,7 +203,7 @@ class TwistedSoapStarter(BasicSoapStarter):
     soapchildpath = 'SOAP'
 
     # The interface the server should be connected to
-    interface = ''
+    interface = '0.0.0.0'
 
     # Callback for verifying client's certificates
     clientverifycallback = clientVerificationCallback
