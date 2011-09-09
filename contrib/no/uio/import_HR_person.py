@@ -89,14 +89,21 @@ def get_sko((fakultet, institutt, gruppe), system):
                                                 type=const.address_street)
             if len(addr_street) > 0:
                 addr_street = addr_street[0]
-                address_text = addr_street['address_text']
-                if not addr_street['country']:
-                    ou_name = ou.get_name_with_language(
-                                     name_variant=const.ou_name,
-                                     name_language=const.language_nb,
-                                     default="")
-                    address_text = "\n".join(
-                        filter(None, (ou_name, address_text)))
+                #
+                # Web-people have asked us to refrain from adding 
+                # OU-name to street-addresses. Keeping the code in
+                # case someone else asks as to insert the names 
+                # again :-). Jazz 2011-09-09
+                #
+                # address_text = addr_street['address_text']
+                #
+                #if not addr_street['country']:
+                #    ou_name = ou.get_name_with_language(
+                #                     name_variant=const.ou_name,
+                #                     name_language=const.language_nb,
+                #                     default="")
+                #        address_text = "\n".join(
+                #        filter(None, (ou_name, address_text)))
                 addr_street = {'address_text': address_text,
                                'p_o_box': addr_street['p_o_box'],
                                'postal_number': addr_street['postal_number'],
