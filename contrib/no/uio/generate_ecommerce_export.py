@@ -305,7 +305,8 @@ def get_org_unit_data(org_units, exported_orgs):
                         o['entity_id'])
         oun_id = '%02d%02d%02d' % (ou.fakultet, ou.institutt, ou.avdeling)
         tmp = ou.search_name_with_language(entity_id=ou.entity_id,
-                                           name_language=const.language_nb)
+                                           name_language=const.language_nb,
+                                           name_variant=const.ou_name_display)
         oun_name = tmp[0]["name"]
         parent_id = ou.get_parent(const.perspective_sap)
         # No direct parent is registered for ou
