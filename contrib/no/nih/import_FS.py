@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002, 2003, 2011 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -186,6 +186,55 @@ def _calc_address(person_info):
                 ret[i] = _ext_address_info(tmp, *addr_cols)
     return ret
 
+def register_cellphone(person, person_info):
+    """Register person's cell phone number from person_info.
+
+    @param person:
+      Person db proxy associated with a newly created/fetched person.
+
+    @param person_info:
+      Dict returned by StudentInfoParser.
+    """
+
+    def _fetch_cerebrum_contact():
+        return [x["contact_value"]
+                for x in person.get_contact_info(source=co.system_fs,
+                                                 type=co.contact_mobile_phone)]
+
+    # NB! We may encounter several phone numbers. If they do not match, there
+    # is nothing we can do but to complain.
+    fnr = "%06d%05d" % (int(person_info["fodselsdato"]),
+                        int(person_info["personnr"]))
+    phone_selector = "telefonnr_mobil"
+    numbers = set()
+    for key in person_info:
+        for dct in person_info[key]:
+            if phone_selector in dct:
+                numbers.add(dct[phone_selector].strip())
+
+    if len(numbers) < 1:
+        return
+    if len(numbers) == 1:
+        cell_phone = numbers.pop()
+        # empty string is registered as phone number
+        if not cell_phone:
+            return
+
+        # No point in registering a number that's already there.
+        if cell_phone in _fetch_cerebrum_contact():
+            return 
+
+        person.populate_contact_info(co.system_fs)
+        person.populate_contact_info(co.system_fs,
+                                     co.contact_mobile_phone,
+                                     cell_phone)
+        logger.debug("Registering cell phone number %s for %s",
+                     cell_phone, fnr)
+        return
+
+    logger.warn("Person %s has several cell phone numbers. Ignoring them all", fnr)
+# end register_cellphone
+
 def _load_cere_aff():
     fs_aff = {}
     person = Factory.get("Person")(db)
@@ -342,6 +391,8 @@ def process_person_callback(person_info):
             if old_aff.has_key(key_a):
                 old_aff[key_a] = False
 
+    register_cellphone(new_person, person_info)
+
     op2 = new_person.write_db()
     if op is None and op2 is None:
         logger.info("**** EQUAL ****")
@@ -389,12 +440,13 @@ def main():
     verbose = 0
     include_delete = False
     logger = Factory.get_logger("cronjob")
-    opts, args = getopt.getopt(sys.argv[1:], 'vp:s:gdf', [
+    opts, args = getopt.getopt(sys.argv[1:], 'vp:s:e:gdf', [
         'verbose', 'person-file=', 'studieprogram-file=',
-        'generate-groups','include-delete', ])
+        'emne-file=', 'generate-groups','include-delete', ])
 
     personfile = default_personfile
     studieprogramfile = default_studieprogramfile
+    emnefile = default_emnefile
     for opt, val in opts:
         if opt in ('-v', '--verbose'):
             verbose += 1
@@ -402,6 +454,8 @@ def main():
             personfile = val
         elif opt in ('-s', '--studieprogram-file'):
             studieprogramfile = val
+        elif opt in ('-e', '--emne-file'):
+            emnefile = val
         elif opt in ('-g', '--generate-groups'):
             gen_groups = True
         elif opt in ('-d', '--include-delete'):
@@ -430,7 +484,7 @@ def main():
             _get_sko(s, 'faknr_studieansv', 'instituttnr_studieansv',
                      'gruppenr_studieansv')
 
-    for e in StudentInfo.EmneDefParser(default_emnefile):
+    for e in StudentInfo.EmneDefParser(emnefile):
         emne2sko[e['emnekode']] = \
             _get_sko(e, 'faknr_reglement', 'instituttnr_reglement',
                      'gruppenr_reglement')
