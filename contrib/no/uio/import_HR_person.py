@@ -95,7 +95,7 @@ def get_sko((fakultet, institutt, gruppe), system):
                 # case someone else asks as to insert the names 
                 # again :-). Jazz 2011-09-09
                 #
-                # address_text = addr_street['address_text']
+                address_text = addr_street['address_text']
                 #
                 #if not addr_street['country']:
                 #    ou_name = ou.get_name_with_language(
