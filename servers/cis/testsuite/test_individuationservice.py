@@ -97,6 +97,7 @@ class IndividuationTestSetup:
         # teardown... fix.
 
         cls.dbname = 'nosetest_individuation_%s' % int(random.random() * 1000000000)
+        print "Database: ", cls.dbname
 
         cereconf.CEREBRUM_DATABASE_NAME_new = cls.dbname
         cereconf.CEREBRUM_DATABASE_NAME_original = cereconf.CEREBRUM_DATABASE_NAME
@@ -170,9 +171,9 @@ class IndividuationTestSetup:
                   'mod_password_history.sql', 'mod_posix_user.sql',
                   'mod_email.sql', 'mod_employment.sql', 'mod_sap.sql',
                   'mod_printer_quota.sql', 'mod_stedkode.sql',
-                  'mod_dns.sql',
                   'mod_ephorte.sql', 'mod_voip.sql',
                   'bofhd_tables.sql', 'bofhd_auth.sql', 
+                  #'mod_dns.sql',
                   ):
             extra_files.append(os.path.join(cereconf.CEREBRUM_DDL_DIR, f))
         #bofhd_tables.sql, bofhd_auth.sql, mod_job_runner.sql
@@ -218,8 +219,11 @@ class IndividuationTestSetup:
 
         # create an ou to put affiliations on
         ou = Factory.get('OU')(cls.db)
-        ou.populate(name='Basic OU', fakultet=0, institutt=0, avdeling=0,
-                institusjon=0)
+        ou.populate(fakultet=0, institutt=0, avdeling=0, institusjon=0)
+        ou.write_db()
+        ou.add_name_with_language(name_variant=co.ou_name_display,
+                                  name_language=co.language_en,
+                                  name='Basic OU')
         ou.write_db()
         ou.commit()
 
