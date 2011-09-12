@@ -84,6 +84,8 @@ class Fag(object):
         ('26', '*', '20'): {'All': 'IR'},
         ('26', '*', '30'): {'All': 'HS'},
         ('26', '*', '35'): {'All': 'HS'},
+        ('29', '99', '10'): {'All': 'LU',
+                             'Profile': None} 
         ('30', '*', '00'): {'All': 'LU'},
         ('30', '*', '10'): {'All': 'LU'},
         ('30', '*', '20'): {'All': 'IR'},        
@@ -149,13 +151,17 @@ class Fag(object):
         if sko:
             tmp = self._getAvdeling(sko)
             avdeling = tmp.get('Profile', tmp['All'])
-        return r"\\%s\Profile\%s\%s" % (Fag.DOMAIN_NAME, avdeling, uname)
+        # Some sko implies no profile path
+        if avdeling is None:
+            return ""  # Must return empty string, not None
+        else:
+            return r"\\%s\Profile\%s\%s" % (Fag.DOMAIN_NAME, avdeling, uname)
 
     def getHome(self, uname, sko=None):
         avdeling = Fag.non_personal_avdeling
         if sko:
             tmp = self._getAvdeling(sko)
-            avdeling = tmp.get('Profile', tmp['All'])
+            avdeling = tmp.get('Home', tmp['All'])
         return r"\\%s\Home\%s\%s" % (Fag.DOMAIN_NAME, avdeling, uname)
 
 
