@@ -53,10 +53,6 @@ class SimpleLogger(object):
         print "DEBUG: " + msg    
 
 ## Globals
-
-db = Factory.get('Database')()
-db.cl_init(change_program='individuation_service')
-co = Factory.get('Constants')(db)
 log = SimpleLogger()
 
 class Individuation:
