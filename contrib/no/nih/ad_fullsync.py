@@ -84,7 +84,7 @@ def main():
     host = cereconf.AD_SERVER_HOST
     port = cereconf.AD_SERVER_PORT
     delete = None
-    logger_name = "cronjob"
+    logger_name = "console"
     logger_level = "INFO"
     # Configure AD sync. Set default values, then read cereconf and
     # user input.
@@ -94,6 +94,7 @@ def main():
                    "sec_group_spread": cereconf.AD_GROUP_SPREAD,
                    "dist_group_spread": cereconf.AD_DIST_GROUP_SPREAD,
                    "user_exchange_spread": cereconf.AD_EXCHANGE_SPREAD,
+                   "create_homedir": cereconf.AD_CREATE_HOMEDIR,
                    "dryrun": False,
                    "store_sid": False,
                    "forward_sync": False,

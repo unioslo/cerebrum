@@ -83,7 +83,7 @@ class UserSync(ADUserUtils):
         # Sync settings for this module
         for k in ("user_spread", "user_exchange_spread", "forward_sync",
                   "exchange_sync", "delete_users", "dryrun", "ad_domain",
-                  "ad_ldap", "ad_dc", "store_sid", "subset"):
+                  "ad_ldap", "ad_dc", "store_sid", "create_homedir", "subset"):
             if k in config_args:
                 setattr(self, k, config_args.pop(k))
                 
@@ -133,7 +133,8 @@ class UserSync(ADUserUtils):
         for acc in self.accounts.itervalues():
             if acc.in_ad is False and acc.quarantined is False:
                 sid = self.create_ad_account(acc.ad_attrs,
-                                             self.get_default_ou())
+                                             self.get_default_ou(),
+                                             self.create_homedir)
                 if sid and self.store_sid:
                     self.store_ext_sid(acc.account_id, sid)
                 if sid and acc.to_exchange:

@@ -325,7 +325,7 @@ class ADUserUtils(ADUtils):
         self.commit_changes(dn, ACCOUNTDISABLE=True)
          
 
-    def create_ad_account(self, attrs, ou):
+    def create_ad_account(self, attrs, ou, create_homedir=False):
         """
         Create AD account, set password and default properties. 
 
@@ -361,7 +361,7 @@ class ADUserUtils(ADUtils):
             # TBD: A bool here to decide if createDir should be performed or not?
             # Create accountDir for new account if attributes where set.
             # Give AD time to take a breath before creating homeDir
-            if cereconf.AD_CREATE_HOMEDIR:
+            if create_homedir:
                 time.sleep(5)
                 self.run_cmd("createDir")
         return sid

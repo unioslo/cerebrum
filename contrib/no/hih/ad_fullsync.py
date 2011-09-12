@@ -97,6 +97,7 @@ def main():
                    "forward_sync": False,
                    "exchange_sync": False,
                    "name_prefix": None,
+                   "create_homedir": cereconf.AD_CREATE_HOMEDIR,
                    "subset": []}
     
     for opt, val in opts:
