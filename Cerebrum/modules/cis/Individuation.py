@@ -214,7 +214,7 @@ class Individuation:
         # Check phone_no
         phone_nos = self.get_phone_numbers(person)
         if not phone_nos:
-            log.info("No affiliation or phone registered for %s" % account.account_name)
+            log.info("No relevant affiliation or phone registered for %s" % account.account_name)
             raise Errors.CerebrumRPCException('person_miss_info')
         if not self.check_phone(phone_no, numbers=phone_nos, person=person,
                                 account=account):
@@ -417,7 +417,7 @@ class Individuation:
             for sys, values in cereconf.INDIVIDUATION_PHONE_TYPES.iteritems():
                 if not values.has_key('priority'):
                     log.error('config missing priority for system %s' % sys)
-                    continue
+                    values['priority'] = 999999
                 pri = priorities.setdefault(values['priority'], {})
                 pri[sys] = values
             self._priorities_cache = [priorities[x] for x in sorted(priorities)]
