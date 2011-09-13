@@ -421,6 +421,7 @@ class Individuation:
                 pri = priorities.setdefault(values['priority'], {})
                 pri[sys] = values
             self._priorities_cache = [priorities[x] for x in sorted(priorities)]
+            log.debug("Priorities: %s" % self._priorities_cache)
         return self._priorities_cache
 
     def get_phone_numbers(self, person):
