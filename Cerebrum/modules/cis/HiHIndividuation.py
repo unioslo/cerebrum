@@ -23,6 +23,11 @@
 Functionality for the Individuation project that is specific to HiH.
 """
 
+import cereconf, cerebrum_path
+from Cerebrum import Errors
+from Cerebrum.Utils import Factory
+from Cerebrum.modules.no.hih import PasswordChecker
+
 from Cerebrum.modules.cis import Individuation
 
 class Individuation(Individuation.Individuation):
@@ -70,3 +75,19 @@ class Individuation(Individuation.Individuation):
         'password_invalid':  {'en': u'Bad password: %s',
                               'no': u'Ugyldig passord: %s'},
     }
+
+    def _check_password(self, password, account=None):
+        db = Factory.get('Database')()
+        db.cl_init(change_program='individuation_service')
+        pc = PasswordChecker.HiHPasswordChecker(db)
+        if password:
+            password = unicode(password).encode('utf8')
+        try:
+            pc.goodenough(account, password, uname="foobar")
+        except PasswordChecker.PasswordGoodEnoughException, m:
+            # The PasswordChecker is in iso8859-1, so we need to convert its
+            # message to unicode before we raise it.
+            m = unicode(str(m), 'iso8859-1')
+            raise Errors.CerebrumRPCException('password_invalid', m)
+        else:
+            return True

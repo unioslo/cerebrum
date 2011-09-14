@@ -25,7 +25,7 @@ Interface to Cerebrum for the Individuation service.
 import random, hashlib
 import string, pickle
 from mx.DateTime import RelativeDateTime, now
-import cereconf
+import cereconf, cerebrum_path
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, SMSSender, sendmail
 from Cerebrum.modules import PasswordChecker
