@@ -383,6 +383,29 @@ class Student(FSObject):
         return self.db.query(qry, {'fnr': fnr,
                                    'pnr': pnr})
 
+    def get_undervisningsmelding(self, fnr, pnr):
+        """Hent alle aktive undervisningsmeldinger for en gitt student."""
+        qry = """
+        SELECT DISTINCT 
+            u.emnekode, u.versjonskode, u.terminkode, u.arstall,
+            u.dato_endring
+        FROM
+            fs.undervisningsmelding u, fs.person p
+        WHERE
+            u.fodselsdato = :fnr AND
+            u.personnr = :pnr AND
+            p.fodselsdato = u.fodselsdato AND
+            p.personnr = u.personnr AND
+            u.institusjonsnr = %d AND
+            u.arstall = %d AND
+            u.terminkode = '%s' AND
+            NVL(u.status_opptatt, 'N') = 'J' AND
+            %s
+        """ % (self.institusjonsnr, self.year, self.semester,
+               self._is_alive())
+        print qry
+        return self.db.query(qry, {'fnr': fnr, 'pnr': pnr})
+
     def get_studierett(self, fnr, pnr): # GetStudentStudierett_50
         """Hent info om alle studierett en student har eller har hatt"""
         qry = """
