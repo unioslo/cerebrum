@@ -403,7 +403,6 @@ class Student(FSObject):
             %s
         """ % (self.institusjonsnr, self.year, self.semester,
                self._is_alive())
-        print qry
         return self.db.query(qry, {'fnr': fnr, 'pnr': pnr})
 
     def get_studierett(self, fnr, pnr): # GetStudentStudierett_50

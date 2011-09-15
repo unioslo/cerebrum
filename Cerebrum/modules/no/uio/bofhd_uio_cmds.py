@@ -7014,6 +7014,8 @@ Addresses and settings:
 	  format_day("dato_tildelt"), format_day("dato_gyldig_til"), "privatist")),
         ("Eksamensmeldinger: %s (%s), %s",
          ("ekskode", "programmer", format_day("dato"))),
+        ("Underv.meld: %s, %s",
+         ("undvkode", format_day("dato"))),
         ("Utd. plan: %s, %s, %d, %s",
          ("studieprogramkode", "terminkode_bekreft", "arstall_bekreft",
           format_day("dato_bekreftet"))),
@@ -7039,13 +7041,18 @@ Addresses and settings:
             self.logger.warn("Can't connect to FS (%s)" % e)
             raise CerebrumError("Can't connect to FS, try later")
         fs = FS(db)
+        for row in fs.student.get_undervisningsmelding(fodselsdato, pnum):
+            ret.append({'undvkode': row['emnekode'],
+                        'dato':     row['dato_endring'],
+                        })
+
         for row in fs.student.get_studierett(fodselsdato, pnum):
             har_opptak["%s" % row['studieprogramkode']] = \
                             row['status_privatist']
             ret.append({'studprogkode': row['studieprogramkode'],
                         'studierettstatkode': row['studierettstatkode'],
                         'studentstatkode': row['studentstatkode'],
-			'studieretningkode': row['studieretningkode'],
+                        'studieretningkode': row['studieretningkode'],
                         'dato_tildelt': row['dato_studierett_tildelt'],
                         'dato_gyldig_til': row['dato_studierett_gyldig_til'],
                         'privatist': row['status_privatist']})
