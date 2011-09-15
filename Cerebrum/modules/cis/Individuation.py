@@ -460,6 +460,9 @@ class Individuation:
                                    'system': sys,
                                    'system_name': system,
                                    'type':   co.ContactInfo(row['contact_type']),})
+            log.debug("Phones for person_id:%s from (%s): %s" % (person.entity_id,
+                      ','.join(s for s in systems), 
+                      ','.join('%s:%s:%s' % (p['system_name'], p['type'], p['number']) for p in phones)))
             return phones
         return []
 
