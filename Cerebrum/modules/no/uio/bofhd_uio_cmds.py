@@ -7035,6 +7035,10 @@ Addresses and settings:
             # emnestudents. These should only be listed with limited
             # information.
             if person_id and len(person_id) == 11 and person_id.isdigit():
+                try:
+                    person_id = fodselsnr.personnr_ok(person_id)
+                except:
+                    raise e
                 self.logger.debug('Unknown person %s, asking FS directly', person_id)
                 self.ba.can_get_student_info(operator.get_entity_id(), None)
                 fodselsdato, pnum = person_id[:6], person_id[6:]
