@@ -7025,13 +7025,28 @@ Addresses and settings:
         ]),
         perm_filter='can_get_student_info')
     def person_student_info(self, operator, person_id):
-        person = self._get_person(*self._map_person_id(person_id))
-        self.ba.can_get_student_info(operator.get_entity_id(), person)
-        fnr = person.get_external_id(id_type=self.const.externalid_fodselsnr,
-                                     source_system=self.const.system_fs)
-        if not fnr:
-            raise CerebrumError("No matching fnr from FS")
-        fodselsdato, pnum = fodselsnr.del_fnr(fnr[0]['external_id'])
+        person_exists = False
+        person = None
+        try:
+            person = self._get_person(*self._map_person_id(person_id))
+            person_exists = True
+        except CerebrumError, e:
+            # Check if person exists in FS, but is not imported yet, e.g.
+            # emnestudents. These should only be listed with limited
+            # information.
+            if person_id and len(person_id) == 11 and person_id.isdigit():
+                self.logger.debug('Unknown person %s, asking FS directly', person_id)
+                self.ba.can_get_student_info(operator.get_entity_id(), None)
+                fodselsdato, pnum = person_id[:6], person_id[6:]
+            else:
+                raise e
+        else:
+            self.ba.can_get_student_info(operator.get_entity_id(), person)
+            fnr = person.get_external_id(id_type=self.const.externalid_fodselsnr,
+                                         source_system=self.const.system_fs)
+            if not fnr:
+                raise CerebrumError("No matching fnr from FS")
+            fodselsdato, pnum = fodselsnr.del_fnr(fnr[0]['external_id'])
         har_opptak = {}
         ret = []
         try:
@@ -7043,40 +7058,40 @@ Addresses and settings:
         fs = FS(db)
         for row in fs.student.get_undervisningsmelding(fodselsdato, pnum):
             ret.append({'undvkode': row['emnekode'],
-                        'dato':     row['dato_endring'],
-                        })
+                        'dato':     row['dato_endring'],})
 
-        for row in fs.student.get_studierett(fodselsdato, pnum):
-            har_opptak["%s" % row['studieprogramkode']] = \
-                            row['status_privatist']
-            ret.append({'studprogkode': row['studieprogramkode'],
-                        'studierettstatkode': row['studierettstatkode'],
-                        'studentstatkode': row['studentstatkode'],
-                        'studieretningkode': row['studieretningkode'],
-                        'dato_tildelt': row['dato_studierett_tildelt'],
-                        'dato_gyldig_til': row['dato_studierett_gyldig_til'],
-                        'privatist': row['status_privatist']})
+        if person_exists:
+            for row in fs.student.get_studierett(fodselsdato, pnum):
+                har_opptak["%s" % row['studieprogramkode']] = \
+                                row['status_privatist']
+                ret.append({'studprogkode': row['studieprogramkode'],
+                            'studierettstatkode': row['studierettstatkode'],
+                            'studentstatkode': row['studentstatkode'],
+                            'studieretningkode': row['studieretningkode'],
+                            'dato_tildelt': row['dato_studierett_tildelt'],
+                            'dato_gyldig_til': row['dato_studierett_gyldig_til'],
+                            'privatist': row['status_privatist']})
 
-        for row in fs.student.get_eksamensmeldinger(fodselsdato, pnum):
-            programmer = []
-            for row2 in fs.info.get_emne_i_studieprogram(row['emnekode']):
-                if har_opptak.has_key("%s" % row2['studieprogramkode']):
-                    programmer.append(row2['studieprogramkode'])
-            ret.append({'ekskode': row['emnekode'],
-                        'programmer': ",".join(programmer),
-                        'dato': row['dato_opprettet']})
-                      
-        for row in fs.student.get_utdanningsplan(fodselsdato, pnum):
-            ret.append({'studieprogramkode': row['studieprogramkode'],
-                        'terminkode_bekreft': row['terminkode_bekreft'],
-                        'arstall_bekreft': row['arstall_bekreft'],
-                        'dato_bekreftet': row['dato_bekreftet']})
+            for row in fs.student.get_eksamensmeldinger(fodselsdato, pnum):
+                programmer = []
+                for row2 in fs.info.get_emne_i_studieprogram(row['emnekode']):
+                    if har_opptak.has_key("%s" % row2['studieprogramkode']):
+                        programmer.append(row2['studieprogramkode'])
+                ret.append({'ekskode': row['emnekode'],
+                            'programmer': ",".join(programmer),
+                            'dato': row['dato_opprettet']})
+                          
+            for row in fs.student.get_utdanningsplan(fodselsdato, pnum):
+                ret.append({'studieprogramkode': row['studieprogramkode'],
+                            'terminkode_bekreft': row['terminkode_bekreft'],
+                            'arstall_bekreft': row['arstall_bekreft'],
+                            'dato_bekreftet': row['dato_bekreftet']})
 
-        for row in fs.student.get_semreg(fodselsdato, pnum):
-            ret.append({'regformkode': row['regformkode'],
-                        'betformkode': row['betformkode'],
-                        'dato_endring': row['dato_endring'],
-                        'dato_regform_endret': row['dato_regform_endret']})
+            for row in fs.student.get_semreg(fodselsdato, pnum):
+                ret.append({'regformkode': row['regformkode'],
+                            'betformkode': row['betformkode'],
+                            'dato_endring': row['dato_endring'],
+                            'dato_regform_endret': row['dato_regform_endret']})
         db.close()
         return ret
 
