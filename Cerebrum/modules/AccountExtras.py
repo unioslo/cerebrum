@@ -42,7 +42,8 @@ class AutoPriorityAccountMixin(Account.Account):
                     row['status'])._get_status()
                 break
         if status is None:
-            raise ValueError, "Person don't have that affiliation"
+            raise ValueError("Person %s don't have aff %s at ou_id %s" % (
+                             self.owner_id, affiliation, ou_id))
         affiliation = str(self.const.PersonAffiliation(int(affiliation)))
 
         # Find the range that we resolve to
