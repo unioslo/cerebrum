@@ -1185,10 +1185,18 @@ def make_letters(data_file=None, type=None, range=None):
             print msg
 
 def make_barcode(account_id):
-    ret = os.system("%s -e EAN -E -n -b %012i > barcode_%s.eps" % (
-        cereconf.PRINT_BARCODE, account_id, account_id))
+    if cereconf.PRINT_BARCODE is None:
+        # Barcodes shouldn't be used at this institution, but further
+        # processing seems to require that the file exists
+        barcode_cmd = "touch barcode_%s.eps" % account_id
+    else:
+        barcode_cmd = "%s -e EAN -E -n -b %012i > barcode_%s.eps" % (cereconf.PRINT_BARCODE,
+                                                                     account_id, account_id)
+        
+    logger.debug("Running barcode-command: '%s'" % barcode_cmd)
+    ret = os.system(barcode_cmd)
     if ret:
-        logger.warn("Bardode returned %s" % ret)
+        logger.warn("Barcode-related syscmd returned %s" % ret)
 
 def _filter_person_info(person_info):
     """Makes debugging easier by removing some of the irrelevant
