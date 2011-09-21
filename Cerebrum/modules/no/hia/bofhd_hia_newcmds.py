@@ -500,6 +500,8 @@ class BofhdExtension(BofhdCommandBase):
          ("fnr", "fnr_src")),
         ("External id:   %s [from %s]",
          ("extid", "extid_src")),
+        ("Mobile:        %s [from %s]",
+         ("mobile", "mobile_src")),
         ("Address:       %s",
          ("address_line_1",)),
         ("               %s",
@@ -570,19 +572,19 @@ class BofhdExtension(BofhdCommandBase):
                     data.append({'extid': row['external_id'],
                                  'extid_src': str(
                         self.const.AuthoritativeSystem(row['source_system']))})
-        # Show address
+        # Show contact info, like address and mobile number
         # Can only be shown by those that can set passwords for one of the
         # persons accounts
-        can_show_address = False
+        can_show_contact_info = False
         for a in account_ids:
             try:
                 self.ba.can_set_password(operator.get_entity_id(),
                                         self._get_account(a, idtype='id'))
-                can_show_address = True
+                can_show_contact_info = True
                 break
             except PermissionDenied:
                 pass
-        if can_show_address:
+        if can_show_contact_info:
             for source, kind in ((self.const.system_sap, self.const.address_post),
                                  (self.const.system_fs, self.const.address_post),
                                  (self.const.system_sap, self.const.address_post_private),
@@ -613,6 +615,15 @@ class BofhdExtension(BofhdCommandBase):
                              'address_source': 
                                         str(self.const.AuthoritativeSystem(
                                                         address['source_system']))})
+            # mobile number
+            systems = getattr(cereconf, 'INDIVIDUATION_PHONE_TYPES', {})
+            for sys in systems:
+                for type in systems[sys]['types']:
+                    for row in person.get_contact_info(source=getattr(self.const, sys),
+                                                       type=getattr(self.const, type)):
+                        data.append({
+                            'mobile': row['contact_value'],
+                            'mobile_src': str(self.const.AuthoritativeSystem(row['source_system']))})
         return data
 
 
@@ -679,9 +690,9 @@ class BofhdExtension(BofhdCommandBase):
                         'dato_betaling': DateTime.DateTimeFromTicks(row['dato_betaling']),
                         'dato_regform_endret': DateTime.DateTimeFromTicks(row['dato_regform_endret'])})
 
-	for row in fs.student.get_student_kull(fodselsdato, pnum):
-	    ret.append({'kullkode': "%s-%s-%s" % (row['studieprogramkode'], row['terminkode_kull'], row['arstall_kull']),
-			'status_aktiv': row['status_aktiv']})
+        for row in fs.student.get_student_kull(fodselsdato, pnum):
+            ret.append({'kullkode': "%s-%s-%s" % (row['studieprogramkode'], row['terminkode_kull'], row['arstall_kull']),
+                'status_aktiv': row['status_aktiv']})
 
         db.close()
         return ret
@@ -895,18 +906,18 @@ class BofhdExtension(BofhdCommandBase):
         args.pop(0)
         tpl_lang, tpl_name, tpl_type = self._map_template(args.pop(0))
         skriver = None
-	try:
+        try:
             acc = self._get_account(operator.get_entity_id(), idtype='id')
-	    opr=acc.account_name
+            opr=acc.account_name
         except Errors.NotFoundError:
-	    raise CerebrumError, ("Could not find the operator id!")
-	time_temp = time.strftime("%Y-%m-%d-%H%M%S", time.localtime())
-	selection = args.pop(0)
+            raise CerebrumError, ("Could not find the operator id!")
+        time_temp = time.strftime("%Y-%m-%d-%H%M%S", time.localtime())
+        selection = args.pop(0)
         cache = self._get_cached_passwords(operator)
         th = TemplateHandler(tpl_lang, tpl_name, tpl_type)
         tmp_dir = Utils.make_temp_dir(dir=cereconf.JOB_RUNNER_LOG_DIR,
                                       prefix="bofh_spool")
-	out_name = "%s/%s-%s-%s.%s" % (tmp_dir, opr, time_temp, os.getpid(), tpl_type)
+        out_name = "%s/%s-%s-%s.%s" % (tmp_dir, opr, time_temp, os.getpid(), tpl_type)
         out = file(out_name, "w")
         if th._hdr is not None:
             out.write(th._hdr)
@@ -965,7 +976,7 @@ class BofhdExtension(BofhdCommandBase):
 
                 mapping['birthdate'] = person.birth_date.strftime('%Y-%m-%d')
                 mapping['emailadr'] = account.get_primary_mailaddress()  
-	    num_ok += 1	
+            num_ok += 1
             out.write(th.apply_template('body', mapping, no_quote=('barcode',)))
         if not (num_ok > 0):
             raise CerebrumError("Errors extracting required information: %s" % "+n".join(ret))
