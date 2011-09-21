@@ -943,39 +943,57 @@ class BofhdExtension(BofhdCommandBase):
                     th.make_barcode(account.entity_id, mapping['barcode'])
                 except IOError, msg:
                     raise CerebrumError(msg)
-            person = self._get_person('entity_id', account.owner_id)
-            fullname = person.get_name(self.const.system_cached, self.const.name_full)
-            mapping['fullname'] =  fullname
+            if account.owner_type == self.const.entity_group:
+                grp = self._get_group(account.owner_id, idtype='id')
+                mapping['fullname'] = 'group:%s' % grp.group_name
+            elif account.owner_type == self.const.entity_person:    
+                person = self._get_person('entity_id', account.owner_id)
+                fullname = person.get_name(self.const.system_cached, self.const.name_full)
+                mapping['fullname'] =  fullname
+            else:
+                raise CerebrumError("Unsupported owner type. Please use the 'to screen' option")
+
             if tpl_lang.endswith("letter"):
-                address = None
-                for source, kind in ((self.const.system_sap,
-                                      self.const.address_post),
-                                     (self.const.system_fs,
-                                      self.const.address_post),
-                                     (self.const.system_fs,
-                                      self.const.address_post_private)):
-                    address = person.get_entity_address(source = source, type = kind)
-                    if address:
-                        break
+                if account.owner_type == self.const.entity_group:
+                    # address should be empty
+                    for a in ('address_line1', 'address_line2', 'address_line3',
+                              'zip', 'city', 'country', 'emailadr'):
+                        mapping[a] = ''
+                    mapping['birthdate'] = account.create_date.strftime('%Y-%m-%d')
+                    try:
+                        mapping['emailadr']  = account.get_primary_mailaddress()
+                    except Errors.NotFoundError:
+                        pass
+                else: # person
+                    address = None
+                    for source, kind in ((self.const.system_sap,
+                                          self.const.address_post),
+                                         (self.const.system_fs,
+                                          self.const.address_post),
+                                         (self.const.system_fs,
+                                          self.const.address_post_private)):
+                        address = person.get_entity_address(source = source, type = kind)
+                        if address:
+                            break
 
-                if not address:
-                    ret.append("Error: Couldn't get authoritative address for %s" % account.account_name)
-                    continue
-                
-                address = address[0]
-                mapping['address_line2'] = ""
-                mapping['address_line3'] = ""
-                if address['address_text']:
-                    alines = address['address_text'].split("\n")+[""]
-                    mapping['address_line2'] = alines[0]
-                    mapping['address_line3'] = alines[1]
-                mapping['address_line1'] = fullname
-                mapping['zip'] = address['postal_number']
-                mapping['city'] = address['city']
-                mapping['country'] = address['country']
+                    if not address:
+                        ret.append("Error: Couldn't get authoritative address for %s" % account.account_name)
+                        continue
+                    
+                    address = address[0]
+                    mapping['address_line2'] = ""
+                    mapping['address_line3'] = ""
+                    if address['address_text']:
+                        alines = address['address_text'].split("\n")+[""]
+                        mapping['address_line2'] = alines[0]
+                        mapping['address_line3'] = alines[1]
+                    mapping['address_line1'] = fullname
+                    mapping['zip'] = address['postal_number']
+                    mapping['city'] = address['city']
+                    mapping['country'] = address['country']
 
-                mapping['birthdate'] = person.birth_date.strftime('%Y-%m-%d')
-                mapping['emailadr'] = account.get_primary_mailaddress()  
+                    mapping['birthdate'] = person.birth_date.strftime('%Y-%m-%d')
+                    mapping['emailadr'] = account.get_primary_mailaddress()  
             num_ok += 1
             out.write(th.apply_template('body', mapping, no_quote=('barcode',)))
         if not (num_ok > 0):
