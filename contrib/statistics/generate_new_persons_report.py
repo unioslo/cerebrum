@@ -31,7 +31,9 @@ import cerebrum_path, cereconf
 from Cerebrum.Utils import Factory
 
 def usage(exitcode=0):
-    print """Usage: generate_new_persons.report.py [--from 2011-09-20]
+    print """Usage: generate_new_persons.report.py [--from YYYY-MM-DD]
+
+    Generate a html formatted report of all new persons in the given period.
 
     --from            Date to start searching for new persons from. Defaults
                       to 7 days ago.
@@ -39,14 +41,12 @@ def usage(exitcode=0):
     --to              Date to start searching for new persons until. Defaults
                       to now.
 
-    --html            If the output file should be formatted with simple html.
-
     --source_systems  Comma separated list of source systems to search
                       through. Defaults to 'SAP,FS'.
     """
     sys.exit(exitcode)
 
-def process(source_systems, start_date, end_date=now(), html=False):
+def process(source_systems, start_date, end_date=now()):
     """Get all persons from db created in a given period and print them out,
     sorted by their OU."""
 
@@ -101,91 +101,81 @@ def process(source_systems, start_date, end_date=now(), html=False):
                 'accounts': ', '.join(accounts),
                 })
 
-    # print it
-    if html:
-        print """<html>
-            <head>
-                <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
-                <title>New persons</title>
-                <style type="text/css">
-                    h1 {
-                        margin: 1em .8em 1em .8em;
-                        font-size: 1.4em;
-                    }
-                    h2 {
-                        margin: 1.5em 1em 1em 1em;
-                        font-size: 1em;
-                    }
-                    table + h1 {
-                        margin-top: 3em;
-                    }
-                    table {
-                        border-collapse: collapse;
-                        width: 100%;
-                        text-align: left;
-                    }
-                    table thead {
-                        border-bottom: solid gray 1px;
-                    }
-                    table th, table td {
-                        padding: .5em 1em;
-                        width: 10%;
-                    }
-                    .footer {
-                        color: gray;
-                        text-align: right;
-                    }
-                </style>
-            </head>
-            <body>
-        """
+    print """<html>
+        <head>
+            <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+            <title>New persons</title>
+            <style type="text/css">
+                h1 {
+                    margin: 1em .8em 1em .8em;
+                    font-size: 1.4em;
+                }
+                h2 {
+                    margin: 1.5em 1em 1em 1em;
+                    font-size: 1em;
+                }
+                table + h1 {
+                    margin-top: 3em;
+                }
+                table {
+                    border-collapse: collapse;
+                    width: 100%;
+                    text-align: left;
+                }
+                table thead {
+                    border-bottom: solid gray 1px;
+                }
+                table th, table td {
+                    padding: .5em 1em;
+                    width: 10%;
+                }
+                .footer {
+                    color: gray;
+                    text-align: right;
+                }
+            </style>
+        </head>
+        <body>
+    """
     fakults = []
     for sko in sorted(persons_by_sko):
         fak = "%02s0000" % sko[:2]
-        if html and fak not in fakults:
+        if fak not in fakults:
             print "\n<h1>%s</h1>\n" % sko2name[fak]
             fakults.append(fak)
 
-        if html:
-            print "\n<h2>%s - %s</h2>" % (sko, sko2name[sko])
-            print "<table><thead><tr>"
-            print "<th>Navn</th>"
-            print "<th>Tilknytning</th>"
-            print "<th>entity_id</th>"
-            print "<th>Ansattnr</th>"
-            print "<th>Fødselsdato</th>"
-            print "<th>Brukere</th>"
-            print "</tr></thead>"
-        else:
-            print "\n=== %s ===\n" % sko
+        print "\n<h2>%s - %s</h2>" % (sko, sko2name[sko])
+        print "<table><thead><tr>"
+        print "<th>Navn</th>"
+        print "<th>Tilknytning</th>"
+        print "<th>entity_id</th>"
+        print "<th>Ansattnr</th>"
+        print "<th>Fødselsdato</th>"
+        print "<th>Brukere</th>"
+        print "</tr></thead>"
 
         for p in persons_by_sko[sko]:
-            if html:
-                print "<tr>"
-                print "<td>%s</td>" % p['name']
-                print "<td>%s</td>" % p['status']
-                print "<td>%s</td>" % p['pid']
-                print "<td>%s</td>" % p['sapid']
-                print "<td>%s</td>" % p['birth']
-                print "<td>%s</td>" % p['accounts']
-                print "</tr>"
-            else:
-                print "%s;%s;entity_id:%d" % (p['name'], p['status'], p['pid'])
+            print "<tr>"
+            print "<td>%s</td>" % p['name']
+            print "<td>%s</td>" % p['status']
+            print "<td>%s</td>" % p['pid']
+            print "<td>%s</td>" % p['sapid']
+            print "<td>%s</td>" % p['birth']
+            print "<td>%s</td>" % p['accounts']
+            print "</tr>"
 
-        if html:
-            print "</table>"
+        print "</table>"
 
-    if html:
-        print """
-            <p class="footer">Generert: %s</p>
-            </body>
-        </html>
-        """ % now().strftime('%Y-%m-%d kl %H:%I')
+    print """
+        <p class="footer">Generert: %s</p>
+        </body>
+    </html>
+    """ % now().strftime('%Y-%m-%d kl %H:%I')
 
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'h',
-                ['from=', 'to=', 'source_systems=', 'html'])
+                ['from=', 'to=', 'source_systems='])
     except getopt.GetoptError, e:
         print e
         usage(1)
@@ -193,7 +183,6 @@ def main():
     end_date = now()
     start_date = now() + RelativeDateTime(days=-7)
     source_systems = 'SAP,FS'
-    html = False
 
     for opt, val in opts:
         if opt in ('-h', '--help'):
@@ -202,11 +191,9 @@ def main():
             start_date = ISO.ParseDate(val)
         elif opt in ('--to', ):
             end_date = ISO.ParseDate(val)
-        elif opt in ('--html', ):
-            html = True
         elif opt in ('--source_systems', ):
             source_systems = val
-    process(source_systems=source_systems, start_date=start_date, end_date=end_date, html=html)
+    process(source_systems=source_systems, start_date=start_date, end_date=end_date)
 
 if __name__ == '__main__':
     main()
