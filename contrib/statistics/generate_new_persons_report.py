@@ -46,9 +46,10 @@ def usage(exitcode=0):
     """
     sys.exit(exitcode)
 
-def process(source_systems, start_date, end_date=now()):
-    """Get all persons from db created in a given period and print them out,
-    sorted by their OU."""
+def process(output, source_systems, start_date, end_date):
+    """Get all persons from db created in a given period and send a html
+    formatted report to output. The persons are sorted by their person
+    affiliations' OUs."""
 
     db = Factory.get('Database')()
     co = Factory.get('Constants')(db)
@@ -101,7 +102,7 @@ def process(source_systems, start_date, end_date=now()):
                 'accounts': ', '.join(accounts),
                 })
 
-    print """<html>
+    output.write("""<html>
         <head>
             <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
             <title>New persons</title>
@@ -136,46 +137,45 @@ def process(source_systems, start_date, end_date=now()):
             </style>
         </head>
         <body>
-    """
+    """)
     fakults = []
     for sko in sorted(persons_by_sko):
         fak = "%02s0000" % sko[:2]
         if fak not in fakults:
-            print "\n<h1>%s</h1>\n" % sko2name[fak]
+            output.write("\n<h1>%s</h1>\n" % sko2name[fak])
             fakults.append(fak)
 
-        print "\n<h2>%s - %s</h2>" % (sko, sko2name[sko])
-        print "<table><thead><tr>"
-        print "<th>Navn</th>"
-        print "<th>Tilknytning</th>"
-        print "<th>entity_id</th>"
-        print "<th>Ansattnr</th>"
-        print "<th>Fødselsdato</th>"
-        print "<th>Brukere</th>"
-        print "</tr></thead>"
+        output.write("\n<h2>%s - %s</h2>\n" % (sko, sko2name[sko]))
+        output.write("<table><thead><tr>")
+        output.write("<th>Navn</th>")
+        output.write("<th>Tilknytning</th>")
+        output.write("<th>entity_id</th>")
+        output.write("<th>Ansattnr</th>")
+        output.write("<th>Fødselsdato</th>")
+        output.write("<th>Brukere</th>")
+        output.write("</tr></thead>\n")
 
         for p in persons_by_sko[sko]:
-            print "<tr>"
-            print "<td>%s</td>" % p['name']
-            print "<td>%s</td>" % p['status']
-            print "<td>%s</td>" % p['pid']
-            print "<td>%s</td>" % p['sapid']
-            print "<td>%s</td>" % p['birth']
-            print "<td>%s</td>" % p['accounts']
-            print "</tr>"
+            output.write("\n<tr>\n")
+            output.write("<td>%s</td>\n" % p['name'])
+            output.write("<td>%s</td>\n" % p['status'])
+            output.write("<td>%s</td>\n" % p['pid'])
+            output.write("<td>%s</td>\n" % p['sapid'])
+            output.write("<td>%s</td>\n" % p['birth'])
+            output.write("<td>%s</td>\n" % p['accounts'])
+            output.write("</tr>\n")
 
-        print "</table>"
+        output.write("</table>\n")
 
-    print """
-        <p class="footer">Generert: %s</p>
-        </body>
-    </html>
-    """ % now().strftime('%Y-%m-%d kl %H:%I')
+    output.write("""
+        <p class="footer">Generert: %s</p>\n</body>
+        \n</html>\n""" % now().strftime('%Y-%m-%d kl %H:%M'))
+
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'h',
-                ['from=', 'to=', 'source_systems='])
+        opts, args = getopt.getopt(sys.argv[1:], 'ho:',
+                ['from=', 'to=', 'source_systems=', 'output='])
     except getopt.GetoptError, e:
         print e
         usage(1)
@@ -183,6 +183,7 @@ def main():
     end_date = now()
     start_date = now() + RelativeDateTime(days=-7)
     source_systems = 'SAP,FS'
+    output = sys.stdout
 
     for opt, val in opts:
         if opt in ('-h', '--help'):
@@ -193,7 +194,13 @@ def main():
             end_date = ISO.ParseDate(val)
         elif opt in ('--source_systems', ):
             source_systems = val
-    process(source_systems=source_systems, start_date=start_date, end_date=end_date)
+        elif opt in ('-o', '--output'):
+            output = open(val, 'w')
+
+    process(output=output, source_systems=source_systems,
+            start_date=start_date, end_date=end_date)
+    if not output is sys.stdout:
+        output.close()
 
 if __name__ == '__main__':
     main()
