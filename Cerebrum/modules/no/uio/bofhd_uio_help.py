@@ -488,12 +488,19 @@ make sense for this command.)
 """],
     'id:target:person':
         ['person', 'Enter an existing entity',
-         """Enter the entity as type:name, for example: 'account:bob'.  If
-only a name is entered, it will be assumed to be either an account or
-a fnr.  If an account is given, the person owning the account will be
-used.  Other types include 'account', 'fnr' (fødselsnummer), 'id'
-(Cerebrum's internal id) and 'host'.  The type name may be
-abbreviated.  (Some of the types may not make sense for this command.)
+         """Enter the entity as type:name, for example: 'account:bob'. If only
+a name is entered, it will be assumed to be either an account or a fnr.
+If an account is given, the person owning the account will be used.
+Other types:
+    - account
+    - fnr (fødselsnummer)
+    - id (Cerebrum's internal id)
+    - external_id (e.g. student numbers and SAP ids)
+    - host
+
+The type name may be abbreviated. 
+
+Some of the types may not make sense for this command.
 """],
     'id:op_target':
         ['op_target_id', 'Enter op_target_id'],
