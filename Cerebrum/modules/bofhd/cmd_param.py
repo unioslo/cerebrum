@@ -79,6 +79,10 @@ class AccountPassword(Parameter):
     _type = 'accountPassword'
     _help_ref = 'account_password'
 
+class AddressType(Parameter):
+    _type = 'addressType'
+    _help_ref = 'address_type'
+
 class Affiliation(Parameter):
     _type = 'affiliation'
     _help_ref = 'affiliation'

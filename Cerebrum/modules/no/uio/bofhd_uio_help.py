@@ -292,6 +292,8 @@ command_help = {
         'Add an affiliation to a person',
     'person_affiliation_remove':
         'Remove an affiliation from a person',
+    'person_clear_address':
+        "Remove a person's address coming from a given source system",
     'person_clear_name':
         'Remove the names coming from a source system from a person',
     'person_clear_id':
@@ -375,6 +377,9 @@ arg_help = {
          'You should enter the name of the source account for this operation'],
     'account_password':
         ['password', 'Enter password'],
+    'address_type':
+        ['address_type', 'Enter address type',
+         'The name of the address type, e.g. POST/PRIVPOST/STREET'],
     'affiliation':
         ['affiliation', 'Enter affiliation',
          """A persons affiliation defines the current rolle of that person

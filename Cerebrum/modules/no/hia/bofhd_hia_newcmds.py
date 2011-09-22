@@ -697,6 +697,46 @@ class BofhdExtension(BofhdCommandBase):
         db.close()
         return ret
 
+    # person clear_address
+    all_commands['person_clear_address'] = Command(
+        ("person", "clear_address"), PersonId(),
+        SourceSystem(help_ref="source_system"), AddressType(),
+        perm_filter='is_superuser')
+    def person_clear_address(self, operator, person_id, source_system,
+                             addresstype):
+        """Deleting a person's address from a given source system. Useful in
+        cases where the person has an old address from a source system he no
+        longer is exported from, i.e. no affiliations."""
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
+        person = self.util.get_target(person_id, restrict_to="Person")
+        ss = self.const.AuthoritativeSystem(source_system)
+        try:
+            int(ss)
+        except Errors.NotFoundError:
+            raise CerebrumError("No such source system")
+
+        addresstype = self.const.Address(addresstype)
+        try:
+            int(addresstype)
+        except Errors.NotFoundError:
+            raise CerebrumError("No such address type")
+
+        # check if address exists
+        if not person.get_entity_address(source=ss, type=addresstype):
+            raise CerebrumError("Person has no such address")
+        try:
+            person.delete_entity_address(source_type=ss, a_type=addresstype)
+            self.db.log_change(subject_entity=person.entity_id,
+                               change_type_id=self.const.entity_addr_del,
+                               destination_entity=None,
+                               change_params={'subject': person.entity_id})
+            person.write_db()
+        except:
+            raise CerebrumError("Could not delete address %s:%s for %s" %
+                                (source_system, addresstype, person_id))
+        return "Address deleted"
+
     # user home_create (set extra home per spread for a given account)
     #
     all_commands['user_home_create'] = Command(
