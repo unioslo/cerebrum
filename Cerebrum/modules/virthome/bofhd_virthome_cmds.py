@@ -27,7 +27,7 @@ It should be possible to use the jbofh client with this bofhd command set,
 although the help strings won't be particularily useful.
 """
 
-from mx.DateTime import now
+from mx.DateTime import now, DateTimeDelta
 from mx.DateTime import strptime
 import pickle
 import sys
@@ -52,6 +52,7 @@ from Cerebrum.modules.bofhd.cmd_param import Date
 from Cerebrum.modules.bofhd.cmd_param import PersonName
 from Cerebrum.modules.bofhd.cmd_param import FormatSuggestion
 from Cerebrum.modules.bofhd.cmd_param import GroupName
+from Cerebrum.modules.bofhd.cmd_param import Integer
 from Cerebrum.modules.bofhd.cmd_param import EntityType
 from Cerebrum.modules.bofhd.cmd_param import Id
 from Cerebrum.modules.bofhd.cmd_param import Spread
@@ -1754,8 +1755,10 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     all_commands["group_invite_user"] = Command(
         ("group", "invite_user"),
         EmailAddress(),
-        GroupName())
-    def group_invite_user(self, operator, email, gname):
+        GroupName(),
+        Integer(help_ref='The number of days before the invite times out'),
+        )
+    def group_invite_user(self, operator, email, gname, timeout=None):
         """Invite e-mail (or user) to join gname.
 
         This method is intended to let users invite others to join their groups.
@@ -1764,20 +1767,27 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         Only FAs can invite, and only for groups that they own/moderate.
 
-        An invitation will not be executed until the email recipient performns a
-        confirm-like action.
+        An invitation will not be executed until the email recipient performns
+        a confirm-like action. The invites are only available for a default
+        grace period, or as defined by the timeout parameter.
         """
 
         group = self._get_group(gname)
         # If you can't add members, you can't invite...
         self.ba.can_add_to_group(operator.get_entity_id(), group.entity_id)
 
+        timeout = int(timeout)
+        if (timeout is not None and 
+                           DateTimeDelta(timeout) > cereconf.MAX_INVITE_PERIOD):
+            raise CerebrumError("Timeout too long")
+
         ret = {}
         ret['confirmation_key'] = self.__setup_request(group.entity_id,
                                          self.const.va_group_invitation,
                                          {"inviter_id": operator.get_entity_id(),
                                           "group_id": group.entity_id,
-                                          "invitee_mail": email,})
+                                          "invitee_mail": email,
+                                          "timeout": timeout,})
         # check if e-mail matches a valid username
         try:
             ac = self._get_account(email)
