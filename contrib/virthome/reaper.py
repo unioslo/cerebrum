@@ -349,17 +349,17 @@ def delete_stale_events(cl_events, db):
         timeout = cereconf.GRACE_PERIOD
         try:
             params = pickle.loads(event["change_params"])
-            timeout = DateTimeDelta(params['timeout'])
+            if params['timeout'] is not None:
+                timeout = DateTimeDelta(params['timeout'])
+                logger.debug('Timeout set to %s for %s',
+                             (now() + timeout).strftime('%Y-%m-%d'),
+                             event['change_id'])
 
-            logger.debug('Timeout set to %s for %s',
-                         timeout.strftime('%Y-%m-%d'),
-                         event['change_id'])
-
-            if timeout > cereconf.MAX_INVITE_PERIOD:
-                logger.warning('Too long timeout (%s) for for %s',
-                               timeout.strftime('%Y-%m-%d'),
-                               event['change_id'])
-                timeout = cereconf.MAX_INVITE_PERIOD
+                if timeout > cereconf.MAX_INVITE_PERIOD:
+                    logger.warning('Too long timeout (%s) for for %s',
+                                   timeout.strftime('%Y-%m-%d'),
+                                   event['change_id'])
+                    timeout = cereconf.MAX_INVITE_PERIOD
         except KeyError:
            pass
         if now() - tstamp <= timeout:
