@@ -33,10 +33,12 @@ msgs = DefaultPasswordChecker.msgs
 msgs.update({
     'invalid_char':
     """Vennligst ikke bruk andre tegn enn bokstaver og blank.""",
-    'atleast12':
-    """Passord må ha minst 14 tegn.""",
     'atleast8':
     """Passord må ha minst 8 tegn.""",
+    'atleast11':
+    """Passord må ha minst 11 tegn.""",
+    'atleast12':
+    """Passord må ha minst 12 tegn.""",
     'sequence_keys':
     """Ikke bruk de samme tegn om igjen etter hverandre.""",
     'was_like_old':
