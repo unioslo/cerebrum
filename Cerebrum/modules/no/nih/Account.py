@@ -265,3 +265,21 @@ class AccountNIHMixin(Account.Account):
             ph = PasswordHistory.PasswordHistory(self._db)
             ph.add_history(self, plain)
         return ret    
+
+    def make_passwd(self, uname):
+        words = []
+        pwd = []
+        passwd = ""
+        for fname in cereconf.PASSPHRASE_DICTIONARIES:
+            f = file(fname, 'r')
+            for l in f:
+                words.append(l.rstrip())
+        while(1): 
+            pwd.append(words[random.randint(0, len(words)-1)])
+            passwd = ' '.join([a for a in pwd])
+            if len(passwd) >= 12 and len(pwd) > 1:
+                # do not generate passwords longer than 20 chars
+                if len(passwd) <= 20:
+                    return passwd
+                else:
+                    pwd.pop(0)
