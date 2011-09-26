@@ -1702,8 +1702,10 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     all_commands["group_invite_moderator"] = Command(
         ("group", "invite_moderator"),
         EmailAddress(),
-        GroupName())
-    def group_invite_moderator(self, operator, email, gname):
+        GroupName(),
+        Integer(help_ref='The number of days before the invite times out'),
+        )
+    def group_invite_moderator(self, operator, email, gname, timeout):
         """Invite somebody to join the moderator squad for group gname.
         """
 
@@ -1711,12 +1713,20 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         self.ba.can_moderate_group(operator.get_entity_id())
         self.ba.can_change_moderators(operator.get_entity_id(), group.entity_id)
 
+        timeout = int(timeout)
+        if timeout < 1:
+            raise CerebrumError('Timeout too short')
+        if (timeout is not None and 
+                           DateTimeDelta(timeout) > cereconf.MAX_INVITE_PERIOD):
+            raise CerebrumError("Timeout too long")
+
         ret = {}
         ret['confirmation_key'] = self.__setup_request(group.entity_id,
                                          self.const.va_group_moderator_add,
                                          params={"inviter_id": operator.get_entity_id(),
                                                  "group_id": group.entity_id,
-                                                 "invitee_mail": email,})
+                                                 "invitee_mail": email,
+                                                 "timeout": timeout,})
         # check if e-mail matches a valid username
         try:
             ac = self._get_account(email)
@@ -1758,7 +1768,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         GroupName(),
         Integer(help_ref='The number of days before the invite times out'),
         )
-    def group_invite_user(self, operator, email, gname, timeout=None):
+    def group_invite_user(self, operator, email, gname, timeout):
         """Invite e-mail (or user) to join gname.
 
         This method is intended to let users invite others to join their groups.
@@ -1777,6 +1787,8 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         self.ba.can_add_to_group(operator.get_entity_id(), group.entity_id)
 
         timeout = int(timeout)
+        if timeout < 1:
+            raise CerebrumError('Timeout too short')
         if (timeout is not None and 
                            DateTimeDelta(timeout) > cereconf.MAX_INVITE_PERIOD):
             raise CerebrumError("Timeout too long")
@@ -2433,4 +2445,4 @@ class BofhdVirthomeMiscCommands(BofhdCommandBase):
 
     
 
-
+jkjk
