@@ -125,8 +125,7 @@ def generate_people_file(exported_orgs):
         people_line = ''
         for k in ordered_people_keys:
             people_line = people_line + '%s;' % people_data[p][k]
-        people_line = unicode(people_line, 'iso-8859-1')
-        people_file.write(people_line.encode('utf-8') + free_vals + '\n')
+            people_file.write(people_line + free_vals + '\n')
         role_line = ''
         for r in ordered_role_keys:
             role_line = role_line + '%s;' % people_data[p][r]
@@ -262,24 +261,20 @@ def generate_organization_file(org_units, exported_orgs):
     tmp = []
     addr_part_file_data = generate_address_parts_file(org_structure)
     for apfd in addr_part_file_data:
-        apfd = unicode(apfd, 'iso-8859-1')
-        addr_part_file.write(apfd.encode('utf-8') + '\n')
+        addr_part_file.write(apfd + '\n')
     for o in org_structure.keys():
         org_line = ''
         for k in ordered_org_keys:
             org_line = org_line + '%s;' % org_structure[o][k]
-        org_line = unicode(org_line, 'iso-8859-1')
-        org_file.write(org_line.encode('utf-8') + '\n')
+        org_file.write(org_line + '\n')
         addr_line_1 = ''
         addr_line_2 = ''        
         for a in ordered_addr_keys_1:
             addr_line_1 = addr_line_1 + '%s;' % org_structure[o][a]
-        addr_line_1 = unicode(addr_line_1, 'iso-8859-1')
         for a in ordered_addr_keys_2:
             addr_line_2 = addr_line_2 + '%s;' % org_structure[o][a]
-        addr_line_2 = unicode(addr_line_2, 'iso-8859-1')
-        address_file.write(addr_line_1.encode('utf-8') + '\n')
-        address_file.write(addr_line_2.encode('utf-8') + '\n')        
+        address_file.write(addr_line_1 + '\n')
+        address_file.write(addr_line_2 + '\n')        
         tmp.append(org_structure[o]['oun_type'])
 
     set = {}
@@ -523,8 +518,6 @@ def main():
             usage()
         elif opt in ('--person-file-name', ):
             person_file_name = val
-        elif opt in ('--gen-role-file', '-r'):
-            generate_role_file()
         elif opt in ('--role-file-name', ):
             role_file_name = val
         elif opt in ('--org-file-name', ):
@@ -537,11 +530,16 @@ def main():
     for opt, val in opts:
         if opt in ('--gen-person-file', '-p'):
             generate_people_file(exported_orgs)
+#        elif opt in ('--gen-role-file', '-r'):
+#            # Implied by -p
+#            generate_role_file()
         elif opt in ('--gen-organization-file', '-o'):
             generate_organization_file(org_units, exported_orgs)
 #        elif opt in ('--gen-address-file', '-a'):
+#            # Implied by -o
 #            generate_address_file()
 #        elif opt in ('--gen-address-parts-file', '-s'):
+#            # Implied by -o
 #            generate_address_parts_file()
         
     if not opts:
