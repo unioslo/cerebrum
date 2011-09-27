@@ -546,7 +546,6 @@ class BofhdExtension(BofhdCommandBase):
             # Asking for rights on subnet; IP not of interest
             for accessor in self._list_access("dns", dns_target,
                                               empty_result=[]):
-                print accessor
                 accessor["level"] = "Subnet"
                 ret.append(accessor)            
         else:
@@ -554,12 +553,10 @@ class BofhdExtension(BofhdCommandBase):
             # rights on the IP's subnet too
             for accessor in self._list_access("dns", dns_target + '/',
                                               empty_result=[]):
-                print accessor
                 accessor["level"] = "Subnet"
                 ret.append(accessor)
             for accessor in self._list_access("dns", dns_target,
                                               empty_result=[]):
-                print accessor
                 accessor["level"] = "IP"
                 ret.append(accessor)                           
         return ret
@@ -6222,7 +6219,7 @@ Addresses and settings:
                                              name=pattern,
                                              exact_match=False):
                 ou.clear()
-                ou.find(r['ou_id'])
+                ou.find(r['entity_id'])
                 output.append({'stedkode':
                                '%02d%02d%02d' % (ou.fakultet,
                                                  ou.institutt,
