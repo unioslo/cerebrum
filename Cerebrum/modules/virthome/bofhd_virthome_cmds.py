@@ -2442,7 +2442,3 @@ class BofhdVirthomeMiscCommands(BofhdCommandBase):
         return entity.get_traits().values()
     # end trait_show
 # end BofhdVirthomeMiscCommands
-
-    
-
-jkjk
