@@ -125,7 +125,7 @@ def generate_people_file(exported_orgs):
         people_line = ''
         for k in ordered_people_keys:
             people_line = people_line + '%s;' % people_data[p][k]
-            people_file.write(people_line + free_vals + '\n')
+        people_file.write(people_line + free_vals + '\n')
         role_line = ''
         for r in ordered_role_keys:
             role_line = role_line + '%s;' % people_data[p][r]
