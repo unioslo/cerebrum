@@ -532,7 +532,13 @@ class BofhdVoipCommands(BofhdCommandBase):
         """
         
         ou = self._get_ou(int(ou_id))
-        ou_name = ou.acronym and ou.acronym or ou.short_name
+        # Use acronym, if available, otherwise use short-name
+        acronym = ou.get_name_with_language(self.const.ou_name_acronym,
+                                            self.const.language_nb, None)
+        short_name = ou.get_name_with_language(self.const.ou_name_short,
+                                               self.const.language_nb, None)        
+        ou_name = acronym and acronym or short_name
+        
         location = "%02d-%02d-%02d (%s)" % (ou.fakultet,
                                             ou.institutt,
                                             ou.avdeling,
