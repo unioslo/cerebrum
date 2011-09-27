@@ -1703,7 +1703,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         ("group", "invite_moderator"),
         EmailAddress(),
         GroupName(),
-        Integer(help_ref='The number of days before the invite times out'),
+        Integer(help_ref='invite_timeout'),
         )
     def group_invite_moderator(self, operator, email, gname, timeout):
         """Invite somebody to join the moderator squad for group gname.
@@ -1766,7 +1766,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         ("group", "invite_user"),
         EmailAddress(),
         GroupName(),
-        Integer(help_ref='The number of days before the invite times out'),
+        Integer(help_ref='invite_timeout'),
         )
     def group_invite_user(self, operator, email, gname, timeout):
         """Invite e-mail (or user) to join gname.

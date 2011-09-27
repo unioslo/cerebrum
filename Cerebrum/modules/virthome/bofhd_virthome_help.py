@@ -40,6 +40,9 @@ arg_help = {
     'date':
         ['date', 'Enter date (YYYY-MM-DD)',
          "The legal date format is 2003-12-31"],
+    'invite_timeout':
+        ['timeout', 'Enter timeout (days)',
+         'The number of days before the invite times out'],
     'person_name':
         ['name', 'Enter person name'],
     'group_name':
