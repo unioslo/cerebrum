@@ -1117,7 +1117,7 @@ class BofhdAuth(DatabaseAccessor):
         if self.is_superuser(operator): 
             return True
         if not self._has_operation_perm_somewhere(operator,
-                                                  self.const.auth_create_user):
+                                                  self.const.auth_guest_request):
             return False
         if query_run_any:
             return True

@@ -121,6 +121,8 @@ class Constants(Constants.Constants):
         'qua_disable', "Temporarily disable quarantine on entity")
     auth_quarantine_remove = _AuthRoleOpCode(
         'qua_remove', "Remove quarantine on entity")
+    auth_guest_request = _AuthRoleOpCode(
+        'guest_request', "Request guests")
     # These are values used as auth_op_target.target_type.  This table
     # doesn't use a code table to map into integers, so we can't use
     # the CerebrumCode framework.  TODO: redefine the database table
