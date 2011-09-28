@@ -96,21 +96,19 @@ def process(with_commit=False):
             set_reservation(person_id, person_id not in fsmembers)
         else:
             set_reservation(person_id, True)
-    logger.info("%d reserved", count_resrv_true)
-    logger.info("%d not reserved", count_resrv_false)
+    logger.debug("%d persons got reserved", count_resrv_true)
+    logger.debug("%d persons got unreserved", count_resrv_false)
     if with_commit:
         db.commit()
-        logger.debug('Commited changes')
+        logger.info('Commited changes')
     else:
         db.rollback()
-        logger.debug('Rolled back changes')
+        logger.info('Rolled back changes')
     logger.info("update_publication_reservations done")
 
 def set_reservation(person_id, value=True):
     """Set a reservation on or off for a given person. Checks the already set
     reservations first, to speed up the process."""
-    logger.debug2("Setting reservation to %s for person_id=%s" % (bool(value),
-                                                                  person_id))
     global reservations
     if value and reservations.get(person_id, -1) == 1:
         logger.debug2('person_id=%s already reserved', person_id)
@@ -118,6 +116,8 @@ def set_reservation(person_id, value=True):
     if not value and reservations.get(person_id, -1) == 0:
         logger.debug2('person_id=%s already not reserved', person_id)
         return True
+    logger.debug2("Setting reservation to %s for person_id=%s" % (bool(value),
+                                                                  person_id))
     pe.clear()
     pe.find(person_id)
     pe.populate_trait(code=co.trait_public_reservation, date=now(),
@@ -131,14 +131,16 @@ def set_reservation(person_id, value=True):
     # TODO: commit here?
 
 def get_employees():
-    """Returns a set with person_id for all that are considered employees."""
+    """Returns a set with person_id for all that are considered employees in
+    context of publication."""
     return set(row['person_id'] for row in
             pe.list_affiliations(affiliation=(co.affiliation_ansatt,
                                               co.affiliation_tilknyttet)) 
             if row['status'] != co.affiliation_tilknyttet_fagperson)
 
 def get_students():
-    """Returns a set with person_id for all that are considered students."""
+    """Returns a set with person_id for all that are considered students in
+    context of publication."""
     return set(row['person_id'] for row in
             pe.list_affiliations(status=(co.affiliation_status_student_aktiv,
                                          co.affiliation_status_student_drgrad)))
