@@ -52,6 +52,9 @@ co = Factory.get('Constants')(db)
 logger = Factory.get_logger('cronjob')
 count_resrv_true = count_resrv_false = 0
 
+reservations = dict((row['entity_id'], row['numval']) for row in pe.list_traits(
+                                        code = co.trait_public_reservation))
+
 def usage(exitcode=0):
     print "Usage: %s [--commit]" % sys.argv[0]
     print
@@ -75,14 +78,18 @@ def process(with_commit=False):
     # TODO: cache old trait values? Could be quicker, as we then only commit
     # changes, not everything.
 
-    reservations = set(row['entity_id'] for row in pe.list_traits(
-                                  code = co.trait_public_reservation, numval=1))
+    global reservations
     logger.debug('%d reservations found in db', len(reservations))
 
     logger.info("Iterate over all persons")
+    already_processed = set()
     for row in pe.search():
         # note that people can be returned several times by search()
         person_id = row['person_id']
+        if person_id in already_processed:
+            continue
+        already_processed.add(person_id)
+        
         if person_id in employees:
             set_reservation(person_id, person_id in sapmembers)
         elif person_id in students:
@@ -93,16 +100,24 @@ def process(with_commit=False):
     logger.info("%d not reserved", count_resrv_false)
     if with_commit:
         db.commit()
-        logger.debug('Changes commited')
+        logger.debug('Commited changes')
     else:
         db.rollback()
         logger.debug('Rolled back changes')
     logger.info("update_publication_reservations done")
 
 def set_reservation(person_id, value=True):
-    """Set a reservation on or off for a given person."""
+    """Set a reservation on or off for a given person. Checks the already set
+    reservations first, to speed up the process."""
     logger.debug2("Setting reservation to %s for person_id=%s" % (bool(value),
                                                                   person_id))
+    global reservations
+    if value and reservations.get(person_id, -1) == 1:
+        logger.debug2('person_id=%s already reserved', person_id)
+        return True
+    if not value and reservations.get(person_id, -1) == 0:
+        logger.debug2('person_id=%s already not reserved', person_id)
+        return True
     pe.clear()
     pe.find(person_id)
     pe.populate_trait(code=co.trait_public_reservation, date=now(),
