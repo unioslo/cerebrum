@@ -149,8 +149,12 @@ def synchronize_attribute(cerebrum_lookup, fs_lookup,
 
         logger.debug1("Changing address for %06d%05d: %s -> %s",
                       fdato, persnr, fs_value, cere_value)
-        fs_update(fdato, persnr, cere_value)
-        attempt_commit()
+        try:
+            fs_update(fdato, persnr, cere_value)
+            attempt_commit()
+        except Exception, e:
+            logger.error("Failed updating mailaddr for %06d%05d to %s: %s",
+                         fdato, persnr, cere_value, e)
     # od
 
     # Now all old values are cleared away, and adding values to new(?)
