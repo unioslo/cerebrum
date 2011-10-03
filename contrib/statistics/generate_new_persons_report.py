@@ -31,7 +31,7 @@ import cerebrum_path, cereconf
 from Cerebrum.Utils import Factory
 
 def usage(exitcode=0):
-    print """Usage: generate_new_persons.report.py [--from YYYY-MM-DD]
+    print """Usage: generate_new_persons.report.py [--from YYYY-MM-DD] --output FILE
 
     Generate a html formatted report of all new persons in the given period.
 
@@ -43,6 +43,8 @@ def usage(exitcode=0):
 
     --source_systems  Comma separated list of source systems to search
                       through. Defaults to 'SAP,FS'.
+
+    --output          The file to print the report to. Defaults to stdout.
     """
     sys.exit(exitcode)
 
@@ -130,7 +132,7 @@ def process(output, source_systems, start_date, end_date):
                     padding: .5em 1em;
                     width: 10%;
                 }
-                .footer {
+                .meta {
                     color: gray;
                     text-align: right;
                 }
@@ -138,6 +140,9 @@ def process(output, source_systems, start_date, end_date):
         </head>
         <body>
     """)
+
+    output.write('<p class="meta">Nye personer fra %s til %s</p>' % (start_date.strftime('%Y-%m-%d'),
+                                                                     end_date.strftime('%Y-%m-%d')))
     fakults = []
     for sko in sorted(persons_by_sko):
         fak = "%02s0000" % sko[:2]
@@ -168,7 +173,7 @@ def process(output, source_systems, start_date, end_date):
         output.write("</table>\n")
 
     output.write("""
-        <p class="footer">Generert: %s</p>\n</body>
+        <p class="meta">Generert: %s</p>\n</body>
         \n</html>\n""" % now().strftime('%Y-%m-%d kl %H:%M'))
 
 
