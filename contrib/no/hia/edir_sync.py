@@ -52,7 +52,13 @@ def account_make_attrs(account_id):
     attr['fullName'] = [names['name_full']]
     attr['sn'] = [names['name_last']]
     attr['givenName'] = [names['name_first']]
-    email = account.get_primary_mailaddress()
+    
+    try:
+        email = account.get_primary_mailaddress()
+    except:
+        logger.error("Unable to find primary e-mail-address for '%s'; please check" % account.account_name)
+        return None
+    
     attr['mail'] = [email]
     gen_qual_str = _person_find_gen_qualifier(account.owner_id)
     attr['generationQualifier'] = [gen_qual_str]
