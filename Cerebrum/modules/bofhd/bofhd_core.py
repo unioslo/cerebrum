@@ -145,11 +145,11 @@ class BofhdCommandBase(object):
         Python object.
         """
         
-        if onoff.lower() in ('on', 'true', 'yes'):
+        if onoff.lower() in ('on', 'true', 'yes', 'y'):
             return True
-        elif onoff.lower() in ('off', 'false', 'no'):
+        elif onoff.lower() in ('off', 'false', 'no', 'n'):
             return False
-        raise CerebrumError("Enter one of ON or OFF, not %s" % str(onoff))
+        raise CerebrumError("Invalid value: 's%'; use one of: on true yes y off false no n" % str(onoff))
     # end _get_boolean
 
 
