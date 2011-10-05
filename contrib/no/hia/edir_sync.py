@@ -52,12 +52,19 @@ def account_make_attrs(account_id):
     attr['fullName'] = [names['name_full']]
     attr['sn'] = [names['name_last']]
     attr['givenName'] = [names['name_first']]
-    
-    try:
-        email = account.get_primary_mailaddress()
-    except:
-        logger.error("Unable to find primary e-mail-address for '%s'; please check" % account.account_name)
-        return None
+
+    # this will fail when accounts without primary e-mailaddress are
+    # encountered and it can usually be fixed by adding the
+    # appropriate domain configuration to the "stedkode" account is
+    # affiliated with. using a try-except construct causes a more
+    # serious error that requires manual update in the
+    # cerebrum-database, Jazz, 2011-10-05 
+ 
+     # try:
+    email = account.get_primary_mailaddress()
+     # except:
+     #   logger.error("Unable to find primary e-mail-address for '%s'; please check" % account.account_name)
+     #   return None
     
     attr['mail'] = [email]
     gen_qual_str = _person_find_gen_qualifier(account.owner_id)
@@ -327,7 +334,6 @@ def main():
                         else:
                             edir_util.object_edir_create(dn, tmp_attrs)
                             time.sleep(1)
-                        
             elif event['change_type_id'] in [constants.person_name_add,
                                              constants.person_name_mod]:
                 person_mod_names(event['subject_entity'])
