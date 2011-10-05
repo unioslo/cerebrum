@@ -51,8 +51,7 @@ import traceback
 
 
 class BasicSoapServer(DefinitionBase):
-    """
-    Base class for SOAP services.
+    """Base class for SOAP services.
 
     This class defines general setup useful for SOAP services.
     No SOAP actions are defined here. Define the actions in subclasses.
@@ -335,7 +334,6 @@ class WSGIResourceSession(WSGIResource):
             # Creates the session if it doesn't exist. When created, twisted
             # automatically creates a cookie for it.
             ISessionCache(request.getSession())
-            #log.msg("DEBUG: session id = %s" % request.getSession().uid)
         return super(WSGIResourceSession, self).render(request)
 
 # To make use of the session, we need to give it functionality, either by

@@ -63,14 +63,15 @@ class Account(ClassModel):
     status = String
 
 class IndividuationServer(SoapListener.BasicSoapServer):
-    """
-    This class defines the SOAP actions that should be available to
-    clients. All those actions are decorated as a rpc, defining
-    what parameters the methods accept, types and what is returned.
-    """
+    """Defining the SOAP actions that should be available to clients. All
+    those actions are decorated as a rpc, defining what parameters the methods
+    accept, types and what is returned.
 
-    # The class where the Cerebrum-specific functionality is done
-    individuation = None
+    Note that an instance of this class is created for each incoming call."""
+
+    # The class where the Cerebrum-specific functionality is done. This is
+    # instantiated per call, to avoid thread conflicts.
+    cere_class = None
 
     # The hock for the site object
     site = None
@@ -95,8 +96,9 @@ class IndividuationServer(SoapListener.BasicSoapServer):
         return cache
 
     def call_wrapper(self, call, params):
-        """Subclassing the call wrapper to raise Faults instead of Cerebrum
-        errors. Also translates the error message for the user."""
+        """Subclassing the call wrapper to instantiate the Individuation
+        instance and to handle exceptions in a soap-wise manner."""
+        self.individuation = self.cere_class()
         self.cache = self._get_cache(params.session_id)
         try:
             return super(IndividuationServer, self).call_wrapper(call, params)
@@ -284,11 +286,11 @@ if __name__=='__main__':
     logger.timeFormat = '%Y-%m-%d %H:%M:%S'
     log.startLoggingWithObserver(logger.emit)
 
-    # Initiate the individuation instance
+    # Get the individuation class and give it to the server
     module, classname = instance.split('/', 1)
     mod = dyn_import(module)
     cls = getattr(mod, classname)
-    IndividuationServer.individuation = cls()
+    IndividuationServer.cere_class = cls
     log.msg("Individuation is using: %s" % instance)
     # TBD: Should Individuation be started once per session instead? Takes
     # more memory, but are there benefits we need, e.g. language control?

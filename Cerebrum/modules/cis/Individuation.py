@@ -19,7 +19,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Interface to Cerebrum for the Individuation service.
+Basic Cerebrum functionality for the Individuation service.
 """
 
 import random, hashlib
@@ -56,11 +56,12 @@ class SimpleLogger(object):
 log = SimpleLogger()
 
 class Individuation:
-    """
-    The general functionality for the Individuation project that is talking
+    """The general functionality for the Individuation project that is talking
     with Cerebrum.
 
-    Note that this main class should be independent of what server we use.
+    Note that this main class should be independent of what server we use. It
+    is important that each thread gets its own instance of this class, to
+    avoid race conditions.
 
     TBD: Create a core class with methods that is relevant to both bofhd and
     CIS? For examples: _check_password, get_person, get_account.
@@ -108,6 +109,9 @@ class Individuation:
 
     def __init__(self):
         log.debug('Cerebrum database: %s' % cereconf.CEREBRUM_DATABASE_NAME)
+        self.db = Factory.get('Database')()
+        self.db.cl_init(change_program='individuation_service')
+        self.co = Factory.get('Constants')(self.db)
 
     def get_person_accounts(self, id_type, ext_id):
         """
@@ -122,12 +126,9 @@ class Individuation:
         by priority
         @rtype: list of dicts
         """
-        db = Factory.get('Database')()
-        db.cl_init(change_program='individuation_service')
-        co = Factory.get('Constants')(db)
 
         # Check if person exists
-        account = Factory.get('Account')(db)
+        account = Factory.get('Account')(self.db)
         person = self.get_person(id_type, ext_id)
 
         # Check reservation
@@ -155,7 +156,7 @@ class Individuation:
             status = 'status_inactive'
             if not (account.is_expired() or account.is_deleted()):
                 status = 'status_active'
-                accepted_quars = [int(getattr(co, q)) for q in
+                accepted_quars = [int(getattr(self.co, q)) for q in
                                   cereconf.INDIVIDUATION_ACCEPTED_QUARANTINES]
                 if any(q['quarantine_type'] not in accepted_quars
                        for q in account.get_entity_quarantine(only_active=True)):
@@ -185,10 +186,6 @@ class Individuation:
         @return: True if success, False otherwise
         @rtype: bool
         """
-        db = Factory.get('Database')()
-        db.cl_init(change_program='individuation_service')
-        co = Factory.get('Constants')(db)
-
         # Check if account exists
         account = self.get_account(uname)
         # Check if account has been checked too many times
@@ -227,18 +224,18 @@ class Individuation:
             log.error("Couldn't send token to %s for %s" % (phone_no, uname))
             raise Errors.CerebrumRPCException('token_notsent')
         account._db.log_change(subject_entity=account.entity_id,
-                      change_type_id=co.account_password_token,
+                      change_type_id=self.co.account_password_token,
                       destination_entity=None,
                       change_params={'phone_to': phone_no})
         # store password token as a trait
-        account.populate_trait(co.trait_password_token, date=now(), numval=0,
+        account.populate_trait(self.co.trait_password_token, date=now(), numval=0,
                           strval=self.hash_token(token, uname))
         # store browser token as a trait
         if type(browser_token) is not str:
             log.err("Invalid browser_token, type='%s', value='%s'" % (type(browser_token), 
                                                                       browser_token))
             browser_token = ''
-        account.populate_trait(co.trait_browser_token, date=now(),
+        account.populate_trait(self.co.trait_browser_token, date=now(),
                           strval=self.hash_token(browser_token, uname))
         account.write_db()
         account._db.commit()
@@ -271,21 +268,17 @@ class Individuation:
             # shouldn't tell what went wrong
             return False
 
-        db = Factory.get('Database')()
-        db.cl_init(change_program='individuation_service')
-        co = Factory.get('Constants')(db)
-
         # Check browser_token. The given browser_token may be "" but if so
         # the stored browser_token must be "" as well for the test to pass.
         
-        bt = account.get_trait(co.trait_browser_token)
+        bt = account.get_trait(self.co.trait_browser_token)
         if not bt or bt['strval'] != self.hash_token(browser_token, uname):
             log.info("Incorrect browser_token %s for user %s" % (browser_token, uname))
             return False
 
         # Check password token. Keep track of how many times a token is
         # checked to protect against brute force attack (defaults to 20).
-        pt = account.get_trait(co.trait_password_token)
+        pt = account.get_trait(self.co.trait_password_token)
         no_checks = int(pt['numval'])
         if no_checks > getattr(cereconf, 'INDIVIDUATION_TOKEN_ATTEMPTS', 20):
             log.info("No. of token checks exceeded for user %s" % uname)
@@ -300,7 +293,7 @@ class Individuation:
             # All is fine
             return True
         log.debug("Token %s incorrect for user %s" % (token, uname))
-        account.populate_trait(co.trait_password_token, strval=pt['strval'],
+        account.populate_trait(self.co.trait_password_token, strval=pt['strval'],
                           date=pt['date'], numval=no_checks+1)
         account.write_db()
         account._db.commit()
@@ -310,12 +303,9 @@ class Individuation:
         """
         Delete password token for a given user
         """
-        db = Factory.get('Database')()
-        db.cl_init(change_program='individuation_service')
-        co = Factory.get('Constants')(db)
         try:
             account = self.get_account(uname)
-            account.delete_trait(co.trait_password_token)
+            account.delete_trait(self.co.trait_password_token)
             account.write_db()
             account._db.commit()
         except Errors.CerebrumRPCException:
@@ -328,9 +318,7 @@ class Individuation:
         return self._check_password(password)
 
     def _check_password(self, password, account=None):
-        db = Factory.get('Database')()
-        db.cl_init(change_program='individuation_service')
-        pc = PasswordChecker.PasswordChecker(db)
+        pc = PasswordChecker.PasswordChecker(self.db)
         if password:
             password = unicode(password).encode('utf8')
         try:
@@ -346,9 +334,6 @@ class Individuation:
     def set_password(self, uname, new_password, token, browser_token):
         if not self.check_token(uname, token, browser_token):
             return False
-        db = Factory.get('Database')()
-        db.cl_init(change_program='individuation_service')
-        co = Factory.get('Constants')(db)
         account = self.get_account(uname)
         if not self._check_password(new_password, account):
             return False
@@ -358,12 +343,12 @@ class Individuation:
             account.write_db()
             account._db.commit()
             log.info("Password for %s altered." % uname)
-        except db.DatabaseError, m:
+        except self.db.DatabaseError, m:
             log.error("Error when setting password for %s: %s" % (uname, m))
             raise Errors.CerebrumRPCException('error_unknown')
         # Remove "weak password" quarantine
         for r in account.get_entity_quarantine():
-            for qua in (co.quarantine_autopassord, co.quarantine_svakt_passord):
+            for qua in (self.co.quarantine_autopassord, self.co.quarantine_svakt_passord):
                 if int(r['quarantine_type']) == qua:
                     account.delete_entity_quarantine(qua)
                     account.write_db()
@@ -380,14 +365,10 @@ class Individuation:
         return True
 
     def get_person(self, id_type, ext_id):
-        db = Factory.get('Database')()
-        db.cl_init(change_program='individuation_service')
-        co = Factory.get('Constants')(db)
-
-        person = Factory.get('Person')(db)
+        person = Factory.get('Person')(self.db)
         person.clear()
         try:
-            person.find_by_external_id(getattr(co, id_type), ext_id)
+            person.find_by_external_id(getattr(self.co, id_type), ext_id)
         except AttributeError, e:
             log.error("Wrong id_type: '%s'" % id_type)
             raise Errors.CerebrumRPCException('person_notfound')
@@ -398,9 +379,7 @@ class Individuation:
             return person
 
     def get_account(self, uname):
-        db = Factory.get('Database')()
-        db.cl_init(change_program='individuation_service')
-        account = Factory.get('Account')(db)
+        account = Factory.get('Account')(self.db)
         try:
             account.find_by_name(uname)
         except Errors.NotFoundError:
@@ -435,9 +414,6 @@ class Individuation:
         first priority level where the person has an affiliation is checked for
         numbers, the lower priority levels are ignored.
         """
-        db = Factory.get('Database')()
-        db.cl_init(change_program='individuation_service')
-        co = Factory.get('Constants')(db)
 
         old_limit = now() - RelativeDateTime(days=cereconf.INDIVIDUATION_AFF_GRACE_PERIOD)
         pe_systems = [int(af['source_system']) for af in
@@ -445,21 +421,21 @@ class Individuation:
                       if (af['deleted_date'] is None or af['deleted_date'] > old_limit)]
         log.debug("Person has affiliations in the systems: %s" % pe_systems)
         for systems in self._get_priorities():
-            sys_codes = [getattr(co, s) for s in systems]
+            sys_codes = [getattr(self.co, s) for s in systems]
             if not any(s in sys_codes for s in pe_systems):
                 # person has no affiliation at this priority go to next priority
                 continue
             phones = []
             for system, values in systems.iteritems():
-                types = [getattr(co, t) for t in values['types']]
-                sys = getattr(co, system)
+                types = [getattr(self.co, t) for t in values['types']]
+                sys = getattr(self.co, system)
                 for row in person.list_contact_info(entity_id=person.entity_id,
                                    contact_type=types,
                                    source_system=sys):
                     phones.append({'number': row['contact_value'],
                                    'system': sys,
                                    'system_name': system,
-                                   'type':   co.ContactInfo(row['contact_type']),})
+                                   'type':   self.co.ContactInfo(row['contact_type']),})
             log.debug("Phones for person_id:%s from (%s): %s" % (person.entity_id,
                       ','.join(s for s in systems), 
                       ','.join('%s:%s:%s' % (p['system_name'], p['type'], p['number']) for p in phones)))
@@ -473,9 +449,6 @@ class Individuation:
         contact types as defined in INDIVIDUATION_PHONE_TYPES. Other numbers are
         ignored.
         """
-        db = Factory.get('Database')()
-        db.cl_init(change_program='individuation_service')
-        co = Factory.get('Constants')(db)
 
         for num in numbers:
             if not self.number_match(stored=num['number'], given=phone_no):
@@ -483,10 +456,10 @@ class Individuation:
             delay = self.get_delay(num['system_name'], num['type'])
             block = False
             # TODO: move the following loop to its own method
-            for row in db.get_log_events(types=(co.entity_cinfo_add, co.person_create),
+            for row in self.db.get_log_events(types=(self.co.entity_cinfo_add, self.co.person_create),
                                          any_entity=person.entity_id,
                                          sdate=delay):
-                if row['change_type_id'] == co.person_create:
+                if row['change_type_id'] == self.co.person_create:
                     block = False
                     log.debug("Person %s is fresh" % person.entity_id)
                     break
@@ -521,9 +494,6 @@ class Individuation:
         
         If no delay is set for the number, it returns now(), which will be true
         unless you change your number in the exact same time."""
-        db = Factory.get('Database')()
-        db.cl_init(change_program='individuation_service')
-        co = Factory.get('Constants')(db)
 
         delay = 0
         try:
@@ -533,7 +503,7 @@ class Individuation:
             delay = 0
         else:
             for t in types:
-                if int(getattr(co, t, 0)) == int(type):
+                if int(getattr(self.co, t, 0)) == int(type):
                     delay = int(types[t].get('delay', 0))
                     break
         return now() - RelativeDateTime(days=delay)
@@ -544,10 +514,7 @@ class Individuation:
         msg += "This has failed, due to the following reason:\n\n  %s\n\n" % reason
         msg += "If this was not you, please contact your local IT-department as soon as possible."
         msg += "\n\n-- \n%s\n" % self.email_signature
-        db = Factory.get('Database')()
-        db.cl_init(change_program='individuation_service')
-        co = Factory.get('Constants')(db)
-        account2 = Factory.get('Account')(db)
+        account2 = Factory.get('Account')(self.db)
         for row in person.get_accounts():
             account2.clear()
             account2.find(row['account_id'])
@@ -563,10 +530,8 @@ class Individuation:
         trait if it doesn't exist, and increments the numval. Raises an exception
         when too many attempts occur in the block period.
         """
-        co = Factory.get('Constants')(account._db)
-
         attempts = 0
-        trait = account.get_trait(co.trait_password_failed_attempts)
+        trait = account.get_trait(self.co.trait_password_failed_attempts)
         block_period = now() - RelativeDateTime(seconds=cereconf.INDIVIDUATION_ATTEMPTS_BLOCK_PERIOD)
         if trait and trait['date'] > block_period:
             attempts = int(trait['numval'])
@@ -576,7 +541,7 @@ class Individuation:
             log.info("User %s too many attempts, temporarily blocked" %
                      account.account_name)
             raise Errors.CerebrumRPCException('toomanyattempts')
-        account.populate_trait(code=co.trait_password_failed_attempts,
+        account.populate_trait(code=self.co.trait_password_failed_attempts,
                 target_id=account.entity_id, date=now(), numval=attempts + 1)
         account.write_db()
         account._db.commit()
@@ -588,9 +553,7 @@ class Individuation:
         if account.is_deleted() or account.is_expired():
             return False
         # Check quarantines
-        co = Factory.get('Constants')(account._db)
-
-        quars = [int(getattr(co, q)) for q in
+        quars = [int(getattr(self.co, q)) for q in
                  getattr(cereconf, 'INDIVIDUATION_ACCEPTED_QUARANTINES', ())]
         for q in account.get_entity_quarantine(only_active=True):
             if q['quarantine_type'] not in quars:
@@ -600,7 +563,6 @@ class Individuation:
         
     def is_reserved(self, account, person):
         """Check that the person/account isn't reserved from using the service."""
-        co = Factory.get('Constants')(account._db)
         group = Factory.get('Group')(account._db)
         # Check if superuser or in any reserved group
         for gname in (getattr(cereconf, 'INDIVIDUATION_PASW_RESERVED', ()) +
@@ -610,27 +572,26 @@ class Individuation:
             if account.entity_id in (int(row["member_id"]) for row in
                                      group.search_members(group_id=group.entity_id,
                                                           indirect_members=True,
-                                                          member_type=co.entity_account)):
+                                                          member_type=self.co.entity_account)):
                 return True
             # TODO: these two loops should be merged!
             if person.entity_id in (int(row["member_id"]) for row in
                                      group.search_members(group_id=group.entity_id,
                                                           indirect_members=True,
-                                                          member_type=co.entity_account)):
+                                                          member_type=self.co.entity_account)):
                 return True
         return False
 
     def is_self_reserved(self, account, person):
         """Check if the user has reserved himself from using the service."""
-        co = Factory.get('Constants')(account._db)
 
         # Check if person is reserved
-        for reservation in person.list_traits(code=co.trait_reservation_sms_password,
+        for reservation in person.list_traits(code=self.co.trait_reservation_sms_password,
                                               target_id=person.entity_id):
             if reservation['numval'] > 0:
                 return True
         # Check if account is reserved
-        for reservation in account.list_traits(code=co.trait_reservation_sms_password,
+        for reservation in account.list_traits(code=self.co.trait_reservation_sms_password,
                                                target_id=account.entity_id):
             if reservation['numval'] > 0:
                 return True

@@ -173,7 +173,7 @@ class IndividuationTestSetup:
                   'mod_printer_quota.sql', 'mod_stedkode.sql',
                   'mod_ephorte.sql', 'mod_voip.sql',
                   'bofhd_tables.sql', 'bofhd_auth.sql', 
-                  #'mod_dns.sql',
+                  'mod_dns.sql',
                   ):
             extra_files.append(os.path.join(cereconf.CEREBRUM_DDL_DIR, f))
         #bofhd_tables.sql, bofhd_auth.sql, mod_job_runner.sql
@@ -252,7 +252,7 @@ class IndividuationTestSetup:
         sys.path.append(os.path.join(os.path.dirname(__file__), '../'))
         import SoapIndividuationServer
         SoapListener.interface = '127.0.0.1'
-        SoapIndividuationServer.IndividuationServer.individuation = instance
+        SoapIndividuationServer.IndividuationServer.cere_class = instance
 
         server = SoapListener.TwistedSoapStarter(port = 0, encrypt = encrypt,
                     applications = SoapIndividuationServer.IndividuationServer,
@@ -279,9 +279,9 @@ class IndividuationTestSetup:
                 db = self.db
             Individuation.db = db 
             Individuation.Individuation.db = db
-            instance = Individuation.Individuation()
+            instance = Individuation.Individuation
         # overwrite some functionality
-        def send_token_grabber(phone_no, token):
+        def send_token_grabber(self, phone_no, token):
             self.last_token = token
             return True
         instance.send_token = send_token_grabber
@@ -553,7 +553,7 @@ class TestIndividuationService(unittest.TestCase, IndividuationTestSetup):
             assert ac.verify_auth(new_password), "Password not set"
         def setPassword(data):
             d = self.client.callRemote('set_password', username=uname,
-                    new_password=new_password, token=self.last_token,
+                    new_passworD=NEW_password, token=self.last_token,
                     browser_token=browser_token)
             d.addCallback(self.assertEquals, 'true')
             d.addCallback(checkPassword)
@@ -995,14 +995,14 @@ class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
 
     def test_unencrypted_connection(self):
         self.server = self.setupServer(encrypt=False,
-                                                instance=EmptyIndividuation())
+                                                instance=EmptyIndividuation)
         client = self.setupClient()
         d = client.callRemote('get_usernames', id_type=3, ext_id=4)
         return d
 
     def test_bad_method(self):
         self.server = self.setupServer(encrypt=False,
-                                        instance=EmptyIndividuation())
+                                        instance=EmptyIndividuation)
         client = self.setupClient()
         d = client.callRemote('call_nonexisting_method_14151', 3, param1=4)
         d = self.assertFailure(d, error.Error)
@@ -1013,7 +1013,7 @@ class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
 
     def test_bad_params(self):
         self.server = self.setupServer(encrypt=False,
-                                        instance=EmptyIndividuation())
+                                        instance=EmptyIndividuation)
         client = self.setupClient()
         d = client.callRemote('get_usernames')
         d = self.assertFailure(d, error.Error)
@@ -1023,7 +1023,7 @@ class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
         string = 'test 123'
         string2 = u'99 _'
         self.server = self.setupServer(encrypt=False,
-                                       instance=EmptyIndividuation())
+                                       instance=EmptyIndividuation)
         client = self.setupClient()
         d = client.callRemote('get_usernames', id_type=string, ext_id=string2)
         def cb(data):
@@ -1039,7 +1039,7 @@ class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
         string = u'test & 1% ¤2© ª”«»3' # how to parse this correctly?
         string2 = u'9³ 5² 8¼'
         self.server = self.setupServer(encrypt=False,
-                                       instance=EmptyIndividuation())
+                                       instance=EmptyIndividuation)
         client = self.setupClient()
         d = client.callRemote('get_usernames', id_type=string, ext_id=string2)
         def cb(data):
@@ -1055,7 +1055,7 @@ class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
         (key, cert) = self.helper_get_certificate()
         self.server = self.setupServer(encrypt=True, server_key=key,
                                         server_cert=cert,
-                                        instance=EmptyIndividuation())
+                                        instance=EmptyIndividuation)
         client = self.setupClient(encrypt=True)
         d = client.callRemote('get_usernames', id_type=1, ext_id=None)
         return d
@@ -1071,7 +1071,7 @@ class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
         self.server = self.setupServer(encrypt=True, server_key=key,
                                         server_cert=cert,
                                         client_cert=cert,
-                                        instance=EmptyIndividuation())
+                                        instance=EmptyIndividuation)
         # TODO: create a twisted ssl connection instead, and only try to get the
         # wsdl definitions in a deferred. It should be blocked!
         client = self.setupClient(encrypt=True)
@@ -1084,7 +1084,7 @@ class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
         self.server = self.setupServer(encrypt=True, server_key=key,
                                         server_cert=cert,
                                         client_cert=cert,
-                                        instance=EmptyIndividuation())
+                                        instance=EmptyIndividuation)
         f = ConnectionDebuggerFactory()
         ccf = ssl.DefaultOpenSSLContextFactory(ckey, ccert)
         ctx = ccf.getContext()
@@ -1111,7 +1111,7 @@ class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
         self.server = self.setupServer(encrypt=True, server_key=key,
                                         server_cert=cert,
                                         client_cert=cert,
-                                        instance=EmptyIndividuation(),
+                                        instance=EmptyIndividuation,
                                         whitelist=fingerprint)
         f = ConnectionDebuggerFactory()
         ccf = ssl.DefaultOpenSSLContextFactory(ckey, ccert)
@@ -1131,7 +1131,7 @@ class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
         self.server = self.setupServer(encrypt=True, server_key=key,
                                         server_cert=cert,
                                         client_cert=cert,
-                                        instance=EmptyIndividuation(),
+                                        instance=EmptyIndividuation,
                                         whitelist='asdfasdf')
         f = ConnectionDebuggerFactory()
         ccf = ssl.DefaultOpenSSLContextFactory(ckey, ccert)
@@ -1144,7 +1144,7 @@ class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
         self.server = self.setupServer(encrypt=True, server_key=key,
                                         server_cert=cert,
                                         client_cert=ccert,
-                                        instance=EmptyIndividuation())
+                                        instance=EmptyIndividuation)
         f = ConnectionDebuggerFactory()
         ccf = ssl.DefaultOpenSSLContextFactory(ckey, ccert)
         port = reactor.connectSSL('127.0.0.1', self.server.port.getHost().port, f, ccf)
@@ -1165,7 +1165,7 @@ class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
         self.server = self.setupServer(encrypt=True, server_key=key,
                                         server_cert=cert,
                                         client_cert=cert,
-                                        instance=EmptyIndividuation())
+                                        instance=EmptyIndividuation)
         f = ConnectionDebuggerFactory()
         ccf = ssl.DefaultOpenSSLContextFactory(cakey, ca)
         port = reactor.connectSSL('127.0.0.1', self.server.port.getHost().port, f, ccf)
