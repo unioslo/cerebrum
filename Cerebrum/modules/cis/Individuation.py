@@ -122,10 +122,7 @@ class Individuation:
         destroy the instance."""
         if hasattr(self, 'db'):
             try:
-                self.db.commit()
-                log.info('commited')
                 self.db.close()
-                log.info('closed')
             except Exception, e:
                 log.warning("Problems with db.close: %s" % e)
         else:
