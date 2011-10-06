@@ -34,6 +34,8 @@ __doc__ = """
 Usage: %s [options]
 
    --aff, -a          Comma-seperated list of the affiliations to include
+   --students         Alias for adding the following affiliations:
+                         'STUDENT/aktiv', 'STUDENT/drgrad' and 'STUDENT/evu'
    --file, -f FILE    Where to generate the exported output. Default: STDOUT
    --help             Prints this message and quits
 
@@ -90,7 +92,8 @@ def main(argv=None):
     try:
         opts, args = getopt.getopt(argv[1:],
                                    "ha:f:",
-                                   ["help", "aff=", "file="])
+                                   ["help", "aff=",
+                                    "file=", "students"])
     except getopt.GetoptError, error:
         usage(message=error.msg)
         return 1
@@ -102,21 +105,37 @@ def main(argv=None):
             usage()
             return 0
         if opt in ('-a', '--aff',):
-            options['aff'] = val.split(',')
+            options['aff'] += val.split(',')
+        if opt in ('--students'):
+            options['aff'] += ['STUDENT/aktiv', 'STUDENT/drgrad', 'STUDENT/evu']
         if opt in ('-f', '--file',):
             options["output"] = val
 
     if options["output"] != sys.stdout:
         output_stream = open(options["output"], "w")
 
+    if not options['aff']:
+        usage(message="Did you really want to do this without supplying any affiliations?")
+        return 2
 
     # First, gather a list with all persons with the given affiliations
     person_rows = []
-    for aff in options['aff']:
-        logger.info("Prosessing people with aff '%s'" % aff)
-        aff_con = co.human2constant(aff)
-        result = pe.list_affiliations(affiliation=aff_con)
-        logger.info("Found '%s' people with aff '%s'" % (len(result), aff))
+    for aff_status in options['aff']:
+        logger.info("Prosessing people with aff '%s'" % aff_status)
+
+        # If no status is given, make sure it is set to None in
+        # further processing
+        padded_aff_status = aff_status.split('/') + [None]
+        (aff, status) = padded_aff_status[0:2]
+        
+        aff_const = co.PersonAffiliation(aff)
+        if status is not None:
+            status_const = co.PersonAffStatus(aff, status)
+        else:
+            status_const = None
+
+        result = pe.list_affiliations(affiliation=aff_const, status=status_const)
+        logger.info("Found '%s' people with aff '%s'" % (len(result), aff_status))
         person_rows = person_rows + result
 
     # ..then retrieve the primary accounty for each of them
