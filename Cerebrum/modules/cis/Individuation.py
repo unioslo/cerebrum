@@ -63,6 +63,10 @@ class Individuation:
     is important that each thread gets its own instance of this class, to
     avoid race conditions.
 
+    Another thing to remember is that database connections should be closed.
+    This is to avoid long hanging database connections if the garbage
+    collector can't destroy the instances.
+
     TBD: Create a core class with methods that is relevant to both bofhd and
     CIS? For examples: _check_password, get_person, get_account.
     """
@@ -108,10 +112,25 @@ class Individuation:
     }
 
     def __init__(self):
-        log.debug('Cerebrum database: %s' % cereconf.CEREBRUM_DATABASE_NAME)
         self.db = Factory.get('Database')()
         self.db.cl_init(change_program='individuation_service')
         self.co = Factory.get('Constants')(self.db)
+
+    def close(self):
+        """Explicitly close this instance of the class. This is to make sure
+        that all is closed down correctly, even if the garbace collector can't
+        destroy the instance."""
+        if hasattr(self, 'db'):
+            try:
+                self.db.commit()
+                log.info('commited')
+                self.db.close()
+                log.info('closed')
+            except Exception, e:
+                log.warning("Problems with db.close: %s" % e)
+        else:
+            # TODO: this could be removed later, when it is considered stable
+            log.warning("db doesn't exist")
 
     def get_person_accounts(self, id_type, ext_id):
         """

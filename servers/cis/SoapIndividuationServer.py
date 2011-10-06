@@ -116,6 +116,10 @@ class IndividuationServer(SoapListener.BasicSoapServer):
             # Don't want the client to know too much about unhandled errors, so
             # return a generic error.
             raise Fault(faultstring='Unknown error')
+        finally:
+            # should always close the instance, as the garbage collector might
+            # not work correctly in these threads
+            self.individuation.close()
 
     @rpc(String, String, _returns=Boolean)
     def set_language(self, language, session_id=None):
