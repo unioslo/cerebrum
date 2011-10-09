@@ -1381,7 +1381,7 @@ class BofhdExtension(BofhdCommandBase):
         self.ba.can_email_info(operator.get_entity_id(), acc)
         ret = self._email_info_basic(acc, et)
         try:
-            self.ba.can_email_info_detail(operator.get_entity_id(), acc)
+            self.ba.can_email_info(operator.get_entity_id(), acc)
         except PermissionDenied:
             pass
         else:
