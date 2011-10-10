@@ -120,6 +120,7 @@ class IndividuationServer(SoapListener.BasicSoapServer):
             # should always close the instance and remove it, as the garbage
             # collector might not work correctly in these threads
             self.individuation.close()
+            del self.individuation
 
     @rpc(String, String, _returns=Boolean)
     def set_language(self, language, session_id=None):
