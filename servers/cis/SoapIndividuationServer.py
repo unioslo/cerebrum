@@ -46,7 +46,7 @@ from soaplib.core.model.primitive import String, Integer, Boolean
 from soaplib.core.model.clazz import ClassModel, Array
 from soaplib.core.model.exception import Fault
 
-from twisted.python import log, logfile, util
+from twisted.python import log
 
 try:
     from twisted.internet import ssl
@@ -117,8 +117,8 @@ class IndividuationServer(SoapListener.BasicSoapServer):
             # return a generic error.
             raise Fault(faultstring='Unknown error')
         finally:
-            # should always close the instance, as the garbage collector might
-            # not work correctly in these threads
+            # should always close the instance and remove it, as the garbage
+            # collector might not work correctly in these threads
             self.individuation.close()
 
     @rpc(String, String, _returns=Boolean)
@@ -243,10 +243,10 @@ if __name__=='__main__':
         usage(1)
 
     use_encryption = True
-    port     = getattr(cereconf, 'INDIVIDUATION_SERVICE_PORT', 0)
+    port        = getattr(cereconf, 'INDIVIDUATION_SERVICE_PORT', 0)
     logfilename = getattr(cereconf, 'INDIVIDUATION_SERVICE_LOGFILE', None)
-    instance = getattr(cereconf, 'INDIVIDUATION_INSTANCE', None)
-    interface = None
+    instance    = getattr(cereconf, 'INDIVIDUATION_INSTANCE', None)
+    interface   = None
 
     for opt, val in opts:
         if opt in ('-l', '--logfile'):
@@ -261,34 +261,6 @@ if __name__=='__main__':
             interface = val
         elif opt in ('-h', '--help'):
             usage()
-
-    # Init twisted logger
-    class TwistedCerebrumLogger(log.FileLogObserver):
-        """Modifying twisted's logger to but with a format that is more
-        Cerebrum-like."""
-        def emit(self, eventDict):
-            """Changing the default log format.
-
-            TODO: This is a hack, there should be a better way of modifying the
-            log format"""
-            text = log.textFromEventDict(eventDict)
-            if text is None:
-                return
-
-            timeStr = self.formatTime(eventDict['time'])
-            fmtDict = {'system': eventDict['system'], 'text': text.replace("\n", "\n\t")}
-            msgStr = log._safeFormat("[%(system)s] %(text)s\n", fmtDict)
-
-            util.untilConcludes(self.write, timeStr + " cis_individuation: " + msgStr)
-            util.untilConcludes(self.flush)  # Hoorj!
-
-    logger = TwistedCerebrumLogger(logfile.LogFile.fromFullPath(logfilename,
-                    rotateLength = 50 * 1024 * 1024, # max size of each log file
-                    maxRotatedFiles = 10,
-                    #defaultMode=None # the file mode at creation
-               ))
-    logger.timeFormat = '%Y-%m-%d %H:%M:%S'
-    log.startLoggingWithObserver(logger.emit)
 
     # Get the individuation class and give it to the server
     module, classname = instance.split('/', 1)
@@ -318,8 +290,8 @@ if __name__=='__main__':
                 certificate_file = certificate_file,
                 client_ca = client_ca,
                 encrypt = use_encryption,
-                client_fingerprints = fingerprints)
-
+                client_fingerprints = fingerprints,
+                logfile = logfilename)
     IndividuationServer.site = server.site # to make it global and reachable by Individuation (wrong, I know)
 
     # If sessions' behaviour should be changed (e.g. timeout):

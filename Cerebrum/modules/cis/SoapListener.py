@@ -36,7 +36,7 @@ from soaplib.core.service import DefinitionBase
 from twisted.web.server import Site
 from twisted.web.resource import Resource
 from twisted.internet import reactor
-from twisted.python import log, util
+from twisted.python import log, logfile, util
 
 try:
     from twisted.internet import ssl
@@ -213,11 +213,13 @@ class TwistedSoapStarter(BasicSoapStarter):
 
     def __init__(self, applications, port, private_key_file=None,
                  certificate_file=None, client_ca=None, encrypt=True,
-                 client_fingerprints=None):
+                 client_fingerprints=None, logfile=None):
         """Setting up a standard soap server. If either a key or certificate
         file is given, it will use encryption."""
         #super(TwistedSoapStarter, self).__init__()
         self.setup_soaplib(applications)
+        if logfile:
+            self.setup_logging(logfile)
         self.setup_twisted()
 
         if encrypt and not (private_key_file and certificate_file):
@@ -250,6 +252,21 @@ class TwistedSoapStarter(BasicSoapStarter):
         self.root = Resource()
         self.root.putChild(self.soapchildpath, self.resource)
         self.site = Site(self.root)
+
+    @staticmethod
+    def setup_logging(logfilename, rotatelength = 50 * 1024 * 1024,
+                      maxrotatedfiles = 10, log_prefix = None):
+        """Setting up twisted's log to be used by Cerebrum. This could either
+        be run manually before (or after) initiating the
+        TwistedSoapStarter."""
+        if log_prefix:
+            TwistedCerebrumLogger.log_prefix = log_prefix
+        logger = TwistedCerebrumLogger(logfile.LogFile.fromFullPath(logfilename,
+                        rotateLength = rotatelength,
+                        maxRotatedFiles = maxrotatedfiles,
+                        #defaultMode=None # the file mode at creation
+                   ))
+        log.startLoggingWithObserver(logger.emit)
 
     def add_certificates(self, ctx, locations):
         """Tell the server what certificates it should trust as signers of the
@@ -300,7 +317,36 @@ class TwistedSoapStarter(BasicSoapStarter):
 ### certain behaviour as we want. It should be put here to be able to locate any
 ### changes when upgrading to newer versions of the packages.
 
-#
+# Modifying the logger to work with Cerebrum
+class TwistedCerebrumLogger(log.FileLogObserver):
+    """Modifying twisted's logger to a more Cerebrum-like format. Used by
+    default in TwistedSoapStarter.setup_logging."""
+
+    # Cerebrum's logs make use of a prefix to separate the running scripts.
+    # Set this to the current script's name.
+    # TODO: Remove the now default cis_individuation, as this is not generic.
+    #       Requires maillog-exceptions gets updated with new name.
+    log_prefix = 'cis_individuation: '
+
+    # The time format known by Cerebrum
+    timeFormat = '%Y-%m-%d %H:%M:%S'
+
+    def emit(self, eventDict):
+        """Changing the default log format.
+
+        TODO: This is a hack, twisted should have a better way of modifying
+        its log format"""
+        text = log.textFromEventDict(eventDict)
+        if text is None:
+            return
+
+        timeStr = self.formatTime(eventDict['time'])
+        fmtDict = {'system': eventDict['system'], 'text': text.replace("\n", "\n\t")}
+        msgStr = log._safeFormat("[%(system)s] %(text)s\n", fmtDict)
+
+        util.untilConcludes(self.write, timeStr + ' ' + self.log_prefix + msgStr)
+        util.untilConcludes(self.flush)  # Hoorj!
+
 # Hack of WSGI/soaplib to support sessions.
 #
 # Since the WSGI doesn't define any specific support for sessions and cookies we
