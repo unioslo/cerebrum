@@ -197,11 +197,24 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             else:
                 v['telephoneNumber'] = phones[0]['contact_value']
             v["title"] = u""
-            for title_type in (self.co.work_title, self.co.personal_title):
-                v["title"] = unicode(self.person.get_name_with_language(
-                    name_variant=title_type,
-                    name_language=self.co.language_nb,
-                    default=""), "ISO-8859-1")
+            ##
+            ## rogerha 2011-10-10: Must comment out
+            ## name-language-patch and use old code instead since UiA
+            ## isn't migrated
+            ##
+            # for title_type in (self.co.work_title, self.co.personal_title):
+            #     v["title"] = unicode(self.person.get_name_with_language(
+            #         name_variant=title_type,
+            #         name_language=self.co.language_nb,
+            #         default=""), "ISO-8859-1")
+            for title_type in (self.co.name_work_title, 
+                               self.co.name_personal_title):
+                try:
+                    v["title"] = unicode(self.person.get_name(
+                            self.co.system_sap, title_type), 'ISO-8859-1')
+                except Errors.NotFoundError:
+                    pass
+                
                
 
     def _exchange_addresslist(self, user_dict):
@@ -326,9 +339,18 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         #
         self.logger.debug("..setting names..")
         pid2names = {}
-        for row in self.person.search_person_names(
+        ##
+        ## rogerha 2011-10-10: Must comment out
+        ## name-language-patch and use old code instead since UiA
+        ## isn't migrated
+        ##
+        #for row in self.person.search_person_names(
+        #        source_system = self.co.system_cached,
+        #        name_variant  = [self.co.name_first,
+        #                         self.co.name_last]):
+        for row in self.person.list_persons_name(
                 source_system = self.co.system_cached,
-                name_variant  = [self.co.name_first,
+                name_type     = [self.co.name_first,
                                  self.co.name_last]):
             pid2names.setdefault(int(row['person_id']), {})[
                 int(row['name_variant'])] = row['name']
@@ -517,7 +539,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     changelist.append(changes)
                     changes = {}
 
-                for attr in cereconf.AD_ATTRIBUTES:            
+                for attr in cereconf.AD_ATTRIBUTES:
                     #Catching special cases.
                     if attr == 'msExchPoliciesExcluded':
                         # xmlrpclib appends chars [' and '] to 
