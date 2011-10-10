@@ -460,7 +460,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     del chg['entity_id']
                 if chg.has_key('sAMAccountName'):
                     uname = chg['sAMAccountName']       
-                    del chg['sAMAccountName']               
+                    del chg['sAMAccountName'] 
                 #Setting default for undefined AD_ACCOUNT_CONTROL values.
                 for acc, value in cereconf.AD_ACCOUNT_CONTROL.items():
                     if not chg.has_key(acc):
@@ -522,10 +522,13 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     if attr == 'msExchPoliciesExcluded':
                         # xmlrpclib appends chars [' and '] to 
                         # this attribute for some reason
-                        tmpstring = str(ad_user[attr]).replace("['","")
-                        tmpstring = tmpstring.replace("']","")
-                        if attr not in ad_user or tmpstring != cere_user[attr]:
+                        if attr not in ad_user:
                             changes[attr] = cere_user[attr]
+                        else:
+                            tmpstring = str(ad_user[attr]).replace("['","")
+                            tmpstring = tmpstring.replace("']","")
+                            if tmpstring != cere_user[attr]:
+                                changes[attr] = cere_user[attr]
                     #only change these attributes if forward sync has been run
                     elif attr in ('altRecipient', 'deliverAndRedirect'):
                         if forwarding_sync:
@@ -807,11 +810,13 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             if addr2user.has_key(value['targetAddress'].lower()):
                 #serverside find function does not support contact objects
                 #so we provide full LDAP path to member objects.
-                forwardobject_dn = "CN=%s,OU=%s,%s" % (addr2user[value['targetAddress'].lower()],
-                                                       cereconf.AD_USER_OU, self.ad_ldap)
+                forwardobject_dn = "CN=%s,OU=%s,%s" % (
+                    addr2user[value['targetAddress'].lower()],
+                    cereconf.AD_USER_OU, self.ad_ldap)
                 del forwards[key]
             else:
-                forwardobject_dn = "CN=%s,OU=%s,%s" % (key, cereconf.AD_CONTACT_OU, self.ad_ldap)
+                forwardobject_dn = "CN=%s,OU=%s,%s" % (
+                    key, cereconf.AD_CONTACT_OU, self.ad_ldap)
 
             if cerebrum_dist_grps_dict.has_key(objectname):
                 cerebrum_dist_grps_dict[objectname]['members'].append(forwardobject_dn)
@@ -839,8 +844,9 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         Returns full LDAP path to AD objects of type 'contact' and prefix
         indicating it is used for forwarding.
 
-        @rtype: list
-        @return: a list with LDAP paths to found AD objects
+        @rtype: dict
+        @return: a dict of dict wich maps contact obects name to
+                 objects properties (dict)
         """
         self.server.setContactAttributes(cereconf.AD_CONTACT_FORWARD_ATTRIBUTES)
         search_ou = self.ad_ldap
@@ -858,8 +864,9 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         Returns full LDAP path to AD objects of type 'group' and prefix
         indicating it is to hold forward contact objects.
 
-        @rtype: list
-        @return: a list with LDAP paths to found AD objects
+        @rtype: dict
+        @return: a dict of dict wich maps distribution group names to
+                 distribution groupproperties (dict)
         """
         self.server.setGroupAttributes(cereconf.AD_DIST_GRP_ATTRIBUTES)
         search_ou = self.ad_ldap
@@ -901,7 +908,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     changes = {}
 
                 #Comparing contact info 
-                for attr in cereconf.AD_CONTACT_FORWARD_ATTRIBUTES:            
+                for attr in cereconf.AD_CONTACT_FORWARD_ATTRIBUTES:
                     #Catching special cases.
                     # xmlrpclib appends chars [' and '] 
                     # to this attribute for some reason
