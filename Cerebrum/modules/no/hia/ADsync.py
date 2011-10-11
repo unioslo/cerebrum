@@ -187,7 +187,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             try:
                 self.person.find(v['TEMPownerId'])
             except Errors.NotFoundError:
-                self.logger.info("Getting contact info: Skipping user=%s,"
+                self.logger.debug("Getting contact info: Skipping user=%s,"
                                     "owner (id=%s) is not a person entity." 
                                  % (v['TEMPuname'], v['TEMPownerId']))
                 continue
@@ -611,7 +611,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     if (exchange_change and (not usr in exch_users)
                         and (cere_user['Exchange'] or cere_user['imap'])):
                         exch_users.append(usr)
-                        self.logger.info("Added to run Update-Recipient list: %s" % usr)
+                        self.logger.debug("Added to run Update-Recipient list: %s" % usr)
 
                 #after processing we delete from array.
                 del cerebrumusrs[usr]
