@@ -7388,13 +7388,6 @@ Addresses and settings:
     # trait info -- show trait values for an entity
     all_commands['trait_info'] = Command(
         ("trait", "info"), Id(help_ref="id:target:account"),
-        fs=FormatSuggestion([
-        ("Entity:        %s (%s)", ('name', 'type')),
-        ("Trait:         %s", ('trait_name',)),
-        ("  Numeric:     %d", ('numval',)),
-        ("  String:      %s", ('strval',)),
-        ("  Date:        %s%s", ('dummy', format_time('date'),)),
-        ("  Target:      %s (%s)", ('target_name', 'target_type'))]),
         perm_filter="can_view_trait")
     def trait_info(self, operator, ety_id):
         ety = self.util.get_target(ety_id, restrict_to=[])
@@ -7418,23 +7411,23 @@ Addresses and settings:
             except PermissionDenied:
                 continue
 
-            ret.append({'trait_name': str(trait)})
-            for simple in ('numval', 'strval'):
-                if values[simple] is not None:
-                    ret.append({simple: values[simple]})
-                    
+            ret.append("  Trait:       %s" % str(trait))
+            if values['numval'] is not None:
+                ret.append("    Numeric:   %d" % values['numval'])
+            if values['strval'] is not None:
+                ret.append("    String:    %s" % values['strval'])
             if values['target_id'] is not None:
                 target = self.util.get_target(int(values['target_id']))
-                ret.append({'target_name': target.get_names()[0][0],
-                            'target_type':
-                            str(self.const.EntityType(target.entity_type))})
+                ret.append("    Target:    %s (%s)" % (
+                    target.get_names()[0][0],
+                    str(self.const.EntityType(target.entity_type))))
             if values['date'] is not None:
-                # FormatSuggestion doesn't handle having format_time as
-                # the first parameter.
-                ret.append({'dummy': "", 'date': values['date']})
+                ret.append("    Date:      %s" % values['date'])
         if ret:
-            return [{'name': ety_name,
-                     'type': str(self.const.EntityType(ety.entity_type))}] + ret
+            ret = ["Entity:        %s (%s)" % (
+                ety_name,
+                str(self.const.EntityType(ety.entity_type)))] + ret
+            return "\n".join(ret)
         return "%s has no traits" % ety_name
 
     # trait list -- list all entities with trait
