@@ -195,7 +195,7 @@ def compare_users(notesdata, cerebrumdata):
     ## TODO: Notes-dift vil ikke slette brukere inntil ting er testet
     ## bedre. Kommenterer ut inntil videre.
     ##
-    # delete_notes_users(sock, notesdata)
+    delete_notes_users(sock, notesdata)
     sock.close()
 
 
@@ -252,7 +252,7 @@ def notes_cmd(sock, cmd, dryrun=False):
     return resp_code, lines
 
 
-def delete_notes_users(sock, usernames, status='Splatt'):
+def delete_notes_users(sock, usernames, status='delete'):
     """
     Delete the given notes users.  must be one of the
     alternatives defined in the communication protocol.
