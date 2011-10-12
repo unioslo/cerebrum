@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 #
-# Copyright 2003,2006 University of Oslo, Norway
+# Copyright 2003-2011 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -131,7 +131,7 @@ def change_quarantine(entity_id):
     if NotesUtils.chk_quarantine(entity_id):
         delundel_user(entity_id,'splatt')
     else:
-        delundel_user(entity_id,'unsplat')
+        delundel_user(entity_id,'unsplatt')
 
         
 def change_pw(account_id,pw_params):
