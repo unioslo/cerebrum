@@ -103,6 +103,7 @@ class BofhdExtension(BofhdCommandBase):
         # leaving it out for now, Jazz 2011-10-14
         #'_person_create_externalid_helper',
         'person_affiliation_remove', 'person_create',
+        'person_clear_name',
         'person_find', 'person_info', 'person_list_user_priorities',
         'person_set_user_priority', 'person_set_name',
         #
