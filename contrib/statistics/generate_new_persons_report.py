@@ -29,6 +29,7 @@ from mx.DateTime import now, ISO, RelativeDateTime
 
 import cerebrum_path, cereconf
 from Cerebrum.Utils import Factory
+from Cerebrum.Errors import NotFoundError
 
 def usage(exitcode=0):
     print """Usage: generate_new_persons.report.py [--from YYYY-MM-DD] --output FILE
@@ -75,9 +76,15 @@ def process(output, source_systems, start_date, end_date):
                                                        type=int(co.person_create)))
     persons_by_sko = {}
     for p_id in person_ids:
-        name = pe.search_person_names(person_id=p_id, name_variant=co.name_full)[0]['name']
         pe.clear()
-        pe.find(p_id)
+        try:
+            pe.find(p_id)
+        except NotFoundError, nfe:
+            # Typically happens when a person-object has been joined
+            # with another one since its creation
+            continue
+
+        name = pe.search_person_names(person_id=p_id, name_variant=co.name_full)[0]['name']
         try:
             sapid = pe.get_external_id(source_system=co.system_sap,
                                        id_type=co.externalid_sap_ansattnr)[0]['external_id']
