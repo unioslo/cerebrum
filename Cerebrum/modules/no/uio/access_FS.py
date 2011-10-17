@@ -57,7 +57,8 @@ class UiOStudent(access_FS.Student):
            p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
            sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
            sps.arstall_kull, sp.studienivakode, p.kjonn, p.status_dod,
-           s.studentnr_tildelt
+           s.studentnr_tildelt,
+           p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil
         FROM fs.student s, fs.person p, fs.studieprogramstudent sps,
            fs.studieprogram sp
         WHERE  p.fodselsdato=s.fodselsdato AND
@@ -93,7 +94,8 @@ class UiOStudent(access_FS.Student):
            p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
            sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
            sps.arstall_kull, sp.studienivakode, p.kjonn, p.status_dod,
-           s.studentnr_tildelt
+           s.studentnr_tildelt,
+           p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil
         FROM fs.student s, fs.person p, fs.studieprogramstudent sps,
            fs.studieprogram sp
         WHERE p.fodselsdato=s.fodselsdato AND
@@ -127,7 +129,8 @@ class UiOStudent(access_FS.Student):
            p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
            sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
            sps.arstall_kull, sp.studienivakode, p.kjonn, p.status_dod,
-           s.studentnr_tildelt
+           s.studentnr_tildelt,
+           p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil
         FROM fs.student s, fs.person p, fs.studieprogramstudent sps,
            fs.registerkort r, fs.studieprogram sp
         WHERE  p.fodselsdato=s.fodselsdato AND
@@ -360,7 +363,8 @@ class UiOStudent(access_FS.Student):
                p.adresseland_hjemsted, p.status_reserv_nettpubl,
                p.sprakkode_malform, p.kjonn, p.status_dod,
                s.studentnr_tildelt, u.emnekode, u.versjonskode,
-               u.terminkode, u.arstall
+               u.terminkode, u.arstall,
+               p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil
         FROM fs.person p, fs.student s, fs.registerkort r, fs.undervisningsmelding u
         WHERE p.fodselsdato=s.fodselsdato AND
               p.personnr=s.personnr AND
@@ -382,26 +386,27 @@ class UiOStudent(access_FS.Student):
  
     def list_privatist_emne(self, fodselsdato=None, personnr=None):  # GetStudentPrivatistEmne_50
         """Hent personer som er uekte privatister, dvs. som er
-	eksamensmeldt til et emne i et studieprogram de ikke har
-	opptak til. Disse tildeles affiliation privatist til stedet
-	som eier studieprogrammet de har opptak til.  Dette blir ikke
-	helt riktig efter som man kan ha opptak til studieprogramet
-	'ENKELTEMNE' som betyr at man kan være ordninær student selv
-	om man havner i denne gruppen som plukkes ut av dette søket.
+        eksamensmeldt til et emne i et studieprogram de ikke har
+        opptak til. Disse tildeles affiliation privatist til stedet
+        som eier studieprogrammet de har opptak til.  Dette blir ikke
+        helt riktig efter som man kan ha opptak til studieprogramet
+        'ENKELTEMNE' som betyr at man kan være ordninær student selv
+        om man havner i denne gruppen som plukkes ut av dette søket.
         """
 
         extra = ""
         if fodselsdato and personnr:
             extra = "p.fodselsdato=:fodselsdato AND p.personnr=:personnr AND"
 
-	qry = """
+        qry = """
         SELECT p.fodselsdato, p.personnr, p.etternavn, p.fornavn,
                s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
                s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
                p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
                p.adresseland_hjemsted, p.status_reserv_nettpubl,
                p.sprakkode_malform, p.kjonn, p.status_dod, ve.emnekode,
-               s.studentnr_tildelt
+               s.studentnr_tildelt,
+               p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil
         FROM fs.student s, fs. person p, fs.registerkort r,
              fs.vurdkombmelding vm, fs.vurderingskombinasjon vk,
              fs.vurdkombenhet ve
@@ -469,7 +474,8 @@ class UiOStudent(access_FS.Student):
                p.sprakkode_malform, sps.studieprogramkode,
                sps.studieretningkode, sps.studierettstatkode,
                sps.studentstatkode, sps.terminkode_kull,
-               sps.arstall_kull, p.kjonn, p.status_dod, s.studentnr_tildelt
+               sps.arstall_kull, p.kjonn, p.status_dod, s.studentnr_tildelt,
+               p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil
         FROM fs.student s, fs.person p, fs.studieprogramstudent sps
         WHERE  p.fodselsdato=s.fodselsdato AND
                p.personnr=s.personnr AND
@@ -482,7 +488,7 @@ class UiOStudent(access_FS.Student):
                sps.dato_studierett_tildelt >= to_date('2003-01-01',
                                                       'yyyy-mm-dd') AND
                %s
-       """ % (extra1, self._is_alive())
+        """ % (extra1, self._is_alive())
         qry += """ UNION
         SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
                s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
@@ -493,7 +499,8 @@ class UiOStudent(access_FS.Student):
                p.sprakkode_malform, sps.studieprogramkode,
                sps.studieretningkode, sps.studierettstatkode,
                sps.studentstatkode, sps.terminkode_kull,
-               sps.arstall_kull, p.kjonn, p.status_dod, s.studentnr_tildelt
+               sps.arstall_kull, p.kjonn, p.status_dod, s.studentnr_tildelt,
+               p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil
         FROM fs.student s, fs.person p, fs.studieprogramstudent sps,
              fs.registerkort r
         WHERE  p.fodselsdato=s.fodselsdato AND
@@ -936,7 +943,8 @@ class UiOEVU(access_FS.EVU):
                k.etterutdkurskode, k.kurstidsangivelsekode,
                e.studieprogramkode, e.faknr_adm_ansvar,
                e.instituttnr_adm_ansvar, e.gruppenr_adm_ansvar,
-               p.kjonn, p.status_dod
+               p.kjonn, p.status_dod,
+               p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil
         FROM fs.deltaker d, fs.person p, fs.kursdeltakelse k,
              fs.etterutdkurs e
         WHERE p.fodselsdato=d.fodselsdato AND

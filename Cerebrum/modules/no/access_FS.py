@@ -596,7 +596,8 @@ class Student(FSObject):
                s.adrlin3_semadr, s.adresseland_semadr, 
                p.adrlin1_hjemsted, p.adrlin2_hjemsted,
                p.adrlin3_hjemsted, p.postnr_hjemsted,
-               p.adresseland_hjemsted
+               p.adresseland_hjemsted,
+               p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil
         FROM fs.studieprogramstudent sps, fs.studieprogram sp,
              fs.person p, fs.student s
         WHERE p.fodselsdato = sps.fodselsdato AND
@@ -624,7 +625,8 @@ class Student(FSObject):
           s.adresseland_semadr, p.adrlin1_hjemsted,
           p.sprakkode_malform,sps.studieprogramkode,
           sps.studieretningkode, sps.status_privatist, 
-          s.studentnr_tildelt, p.telefonnr_mobil
+          s.studentnr_tildelt,
+          p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil
         FROM fs.student s, fs.person p, fs.studieprogramstudent sps
         WHERE p.fodselsdato = s.fodselsdato AND
           p.personnr = s.personnr AND
