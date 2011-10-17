@@ -257,6 +257,61 @@ def filter_affiliations(affiliations):
             ret[(ou, aff)] = aff_status
     return [(ou, aff, aff_status) for (ou, aff), aff_status in ret.items()]
 
+
+def register_cellphone(person, person_info):
+    """Register person's cell phone number from person_info.
+
+    @param person:
+      Person db proxy associated with a newly created/fetched person.
+
+    @param person_info:
+      Dict returned by StudentInfoParser.
+    """
+
+    def _fetch_cerebrum_contact():
+        return [x["contact_value"]
+                for x in person.get_contact_info(source=co.system_fs,
+                                                 type=co.contact_mobile_phone)]
+
+    # NB! We may encounter several phone numbers. If they do not match, there
+    # is nothing we can do but to complain.
+    fnr = "%06d%05d" % (int(person_info["fodselsdato"]),
+                        int(person_info["personnr"]))
+    phone_selector = "telefonnr_mobil"
+    phone_country  = "telefonlandnr_mobil"
+    phone_region   = "telefonretnnr_mobil"
+    numbers = set()
+    for key in person_info:
+        for dct in person_info[key]:
+            if phone_selector in dct:
+                if phone_country in dct or phone_region in dct:
+                    logger.debug('Skipping phone for %s', fnr)
+                    break
+                numbers.add(dct[phone_selector].strip())
+
+    if len(numbers) < 1:
+        return
+    if len(numbers) == 1:
+        cell_phone = numbers.pop()
+        # empty string is registered as phone number
+        if not cell_phone:
+            return
+
+        # No point in registering a number that's already there.
+        if cell_phone in _fetch_cerebrum_contact():
+            return 
+
+        person.populate_contact_info(co.system_fs)
+        person.populate_contact_info(co.system_fs,
+                                     co.contact_mobile_phone,
+                                     cell_phone)
+        logger.debug("Registering cell phone number %s for %s",
+                     cell_phone, fnr)
+        return
+
+    logger.warn("Person %s has several cell phone numbers. Ignoring them all", fnr)
+# end register_cellphone
+
 def process_person_callback(person_info):
     """Called when we have fetched all data on a person from the xml
     file.  Updates/inserts name, address and affiliation
@@ -424,6 +479,8 @@ def process_person_callback(person_info):
             key_a = "%s:%s:%s" % (new_person.entity_id,ou,int(aff))
             if old_aff.has_key(key_a):
                 old_aff[key_a] = False
+
+    register_cellphone(new_person, person_info)
 
     op2 = new_person.write_db()
     if op is None and op2 is None:
