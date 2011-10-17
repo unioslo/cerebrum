@@ -21,6 +21,7 @@ import pickle
 from os.path import join as join_paths
 from Cerebrum.modules.no.OrgLDIF import *
 from Cerebrum.modules import LDIFutils
+from Cerebrum.Constants import _PersonAffiliationCode, _PersonAffStatusCode
 
 # Replace these characters with spaces in OU RDNs.
 ou_rdn2space_re = re.compile('[#\"+,;<>\\\\=\0\\s]+')
@@ -43,6 +44,8 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
         # Used by make_ou_dn() for for migration to ny-ldap.uio.no:
         self.used_new_DNs = {}
+        self.aff_cache = {}
+        self.status_cache = {}
         self.dn2new_structure = {'ou=organization,dc=uio,dc=no':
                                  'cn=organization,dc=uio,dc=no',
                                  'ou=--,ou=organization,dc=uio,dc=no':
@@ -147,7 +150,49 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         self.person_titles = dict([(p_id, t.items())
                                    for p_id, t in titles.items()])
         timer("...personal titles done.")
+    
+    def make_eduPersonPrimaryAffiliation(self, p_id):
+        # Ad hoc solution for eduPersonPrimaryAffiliation
+        # 
+        # This function needs a has in ccereconf that looks like this:
+        #    'eduPersonPrimaryAffiliation_selector': {
+        #        'ANSATT' : {'bilag' :(250,'employee'),
+        #                    'vitenskapelig' :(50,'faculty'),
+        #                    'tekadm' :(60,'staff'),
+        #                    },
+        #         ...
+        if not self.affiliations.has_key(p_id):
+            return None
+        p_aff = None
+        pri = None
+        p_ou = None
+        for aff, status, ou in self.affiliations[p_id]:
+            # populate the caches 
+            if self.aff_cache.has_key(aff):
+                aff_str = self.aff_cache[aff]
+            else:
+                aff_str = str(self.const.PersonAffiliation(aff))
+                self.aff_cache[aff] = aff_str
+            if self.status_cache.has_key(status):
+                status_str = self.status_cache[status]
+            else:
+                status_str = str(self.const.PersonAffStatus(status).str)
+                self.status_cache[status] = status_str
 
+            p = None
+            a = None
+            if cereconf.LDAP_PERSON.has_key('eduPersonPrimaryAffiliation_selector') and \
+               cereconf.LDAP_PERSON['eduPersonPrimaryAffiliation_selector'].has_key(aff_str) and \
+               cereconf.LDAP_PERSON['eduPersonPrimaryAffiliation_selector'][aff_str].has_key(status_str):
+                p,a = cereconf.LDAP_PERSON['eduPersonPrimaryAffiliation_selector'][aff_str][status_str]
+            if pri == None or p < pri:
+                pri = p
+                p_aff = a
+                p_ou = ou
+        if p_aff == None:
+            self.logger.warn("Person '%s' did not get eduPersonPrimaryAffiliation. Check his/her affiliations and eduPersonPrimaryAffiliation_selector in cereconf.", p_id)
+        return p_aff, p_ou
+                                    
     def make_person_entry(self, row):
         """Add data from person_course to a person entry."""
         dn, entry, alias_info = self.__super.make_person_entry(row)
@@ -161,6 +206,9 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
             # TODO: remove member and uioPersonObject after transition period
             entry['uioMemberOf'] = entry['member'] = self.person2group[p_id]
             entry['objectClass'].extend(('uioMembership', 'uioPersonObject'))
-                
+        p_aff, p_ou = self.make_eduPersonPrimaryAffiliation(p_id)
+        if p_aff:
+            entry['eduPersonPrimaryAffiliation'] = p_aff
+            entry['eduPersonPrimaryOrgUnitDN'] = self.ou2DN.get(int(p_ou)) or self.dummy_ou_dn
         return dn, entry, alias_info
 # arch-tag: e13d2650-dd88-4cac-a5fb-6a7cc6884914
