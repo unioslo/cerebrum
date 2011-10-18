@@ -26,14 +26,6 @@ Functionality for the Individuation project that is specific to UiO.
 from Cerebrum.modules.cis import Individuation
 
 class Individuation(Individuation.Individuation):
-    def is_reserved_publication(self, person):
-        """
-        Check if a person is reserved from being published on the web pages at
-        UiO.
-        """
-        # TODO: Check the person's reservation trait
-        return False
-
     # The feedback messages
     messages = {
         'error_unknown':     {'en': u'An unknown error occured',

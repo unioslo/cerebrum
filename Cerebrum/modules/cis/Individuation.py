@@ -616,4 +616,9 @@ class Individuation:
     def is_reserved_publication(self, person):
         """Check if a person is reserved from being published on the
         instance's web pages. Most institutions doesn't have this regime."""
+        if not hasattr(self.co, 'trait_public_reservation'):
+            return False
+        trait = person.get_trait(self.co.trait_public_reservation)
+        if trait and trait['numval'] != 0:
+            return True
         return False
