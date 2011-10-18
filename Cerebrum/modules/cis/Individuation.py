@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
+# 
 # Copyright 2010, 2011 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
