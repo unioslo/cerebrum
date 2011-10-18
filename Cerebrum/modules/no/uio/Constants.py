@@ -424,3 +424,10 @@ automatically generated from FS.''')
         'student_disk', Constants.Constants.entity_disk,
         "When set, the disk in question is designated as hosting students' home areas")
 
+
+    # Trait for tagging a person's primary affiliation, to be used by the web
+    # presentations.
+    trait_primary_aff = _EntityTraitCode(
+        "primary_aff", Constants.Constants.entity_person,
+        "A person's chosen primary affiliation, for use at the web presentations")
+
