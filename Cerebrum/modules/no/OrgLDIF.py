@@ -85,6 +85,7 @@ class norEduLDIFMixin(OrgLDIF):
                 'norEduOrgUniqueNumber': self.norEduOrgUniqueID}
         # '@<security domain>' for the eduPersonPrincipalName attribute.
         self.eduPPN_domain = '@' + cereconf.INSTITUTION_DOMAIN_NAME
+        self.ou_uniq_id2ou_id = {}
 
     def update_org_object_entry(self, entry):
         # Changes from superclass:
@@ -191,6 +192,7 @@ class norEduLDIFMixin(OrgLDIF):
             return parent_dn, None
         
         ldap_ou_id = self.get_orgUnitUniqueID()
+        self.ou_uniq_id2ou_id[ldap_ou_id] = ou_id
         entry = {
             'objectClass': ['top', 'organizationalUnit', 'norEduOrgUnit'],
             self.FEIDE_attr_ou_id:  (ldap_ou_id,)}

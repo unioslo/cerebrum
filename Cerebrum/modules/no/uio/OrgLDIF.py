@@ -17,6 +17,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import re
 import pickle
 from os.path import join as join_paths
 from Cerebrum.modules.no.OrgLDIF import *
@@ -45,12 +46,26 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         # Used by make_ou_dn() for for migration to ny-ldap.uio.no:
         self.used_new_DNs = {}
         self.aff_cache = {}
+        self.pri_traits = {}
         self.status_cache = {}
         self.dn2new_structure = {'ou=organization,dc=uio,dc=no':
                                  'cn=organization,dc=uio,dc=no',
                                  'ou=--,ou=organization,dc=uio,dc=no':
                                  'cn=organization,dc=uio,dc=no'}
 
+      def init_person_basic(self):
+          self.__super.init_person_basic()
+          self._get_primary_aff_traits()
+          
+      def _get_primary_aff_traits(self):
+          for row in self.person.list_traits(code=self.const.trait_primary_aff):
+              p_id = row['entity_id']
+              val = row['strval']
+              m = re.match(r"(\w+)\/(\w+)@(\w+)", val)
+              if m and m.group(3) in self.ou_uniq_id2ou_id:
+                  self.pri_traits[p_id] = (m.group(1),m.group(2),
+                                           self.ou_uniq_id2ou_id[m.group(3)])
+                  
       def make_ou_dn(self, entry, parent_dn):
         # Change from superclass:
         # Replace special characters with spaces instead of escaping them.
@@ -161,6 +176,13 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         #                    'tekadm' :(60,'staff'),
         #                    },
         #         ...
+        def lookup_cereconf(aff, status):
+            if 'eduPersonPrimaryAffiliation_selector' in cereconf.LDAP_PERSON and \
+                   aff in cereconf.LDAP_PERSON['eduPersonPrimaryAffiliation_selector'] and \
+                   status in cereconf.LDAP_PERSON['eduPersonPrimaryAffiliation_selector'][aff_str]:
+                return cereconf.LDAP_PERSON['eduPersonPrimaryAffiliation_selector'][aff][status]
+            return (None,None) 
+
         if not self.affiliations.has_key(p_id):
             return None
         p_aff = None
@@ -178,14 +200,19 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
             else:
                 status_str = str(self.const.PersonAffStatus(status).str)
                 self.status_cache[status] = status_str
-
-            p = None
-            a = None
-            if cereconf.LDAP_PERSON.has_key('eduPersonPrimaryAffiliation_selector') and \
-               cereconf.LDAP_PERSON['eduPersonPrimaryAffiliation_selector'].has_key(aff_str) and \
-               cereconf.LDAP_PERSON['eduPersonPrimaryAffiliation_selector'][aff_str].has_key(status_str):
-                p,a = cereconf.LDAP_PERSON['eduPersonPrimaryAffiliation_selector'][aff_str][status_str]
-            if pri == None or p < pri:
+            # if a trait is set to override the general rule, we return that.
+            if p_id == 45517:
+                print "jazz"
+            if p_id in self.pri_traits:
+                print "jazz1.5"
+                if (aff_str, status_str, ou) == self.pri_traits[p_id]:
+                    p,a = lookup_cereconf(aff_str, status_str)
+                    print "jazz2"
+                    if p:
+                        print "jazz3"
+                        return a, ou
+            p,a = lookup_cereconf(aff_str, status_str)
+            if p and (pri == None or p < pri):
                 pri = p
                 p_aff = a
                 p_ou = ou
