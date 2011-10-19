@@ -238,4 +238,7 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
             entry['eduPersonPrimaryAffiliation'] = p_aff
             entry['eduPersonPrimaryOrgUnitDN'] = self.ou2DN.get(int(p_ou)) or self.dummy_ou_dn
         return dn, entry, alias_info
+
+    def _calculate_edu_OUs(self, p_ou, s_ous):
+        return s_ous
 # arch-tag: e13d2650-dd88-4cac-a5fb-6a7cc6884914
