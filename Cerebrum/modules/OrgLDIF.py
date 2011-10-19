@@ -586,6 +586,10 @@ from None and LDAP_PERSON['dn'].""")
             primary_only  = True,
             person_spread = self.person_spread)
 
+    def _calculate_edu_OUs(self, p_ou, s_ous):
+        # FIXME
+        return [p_ou] + s_ous
+
     def make_person_entry(self, row):
         # Return (dn, person entry, alias_info) for a person to output,
         # or (None, anything, anything) if the person should not be output.
@@ -653,8 +657,9 @@ from None and LDAP_PERSON['dn'].""")
             entry['eduPersonOrgDN'] = (self.org_dn,)
         if primary_ou_dn:
             entry['eduPersonPrimaryOrgUnitDN'] = (primary_ou_dn,)
-        edu_OUs = [primary_ou_dn] + [self.ou2DN.get(aff[2])
-                                     for aff in p_affiliations]
+        #edu_OUs = [primary_ou_dn] + [self.ou2DN.get(aff[2])
+        #                             for aff in p_affiliations]
+        edu_OUs = self._calculate_edu_OUs(primary_ou_dn, [self.ou2DN.get(aff[2]) for aff in p_affiliations])
         entry['eduPersonOrgUnitDN']   = self.attr_unique(filter(None, edu_OUs))
         entry['eduPersonAffiliation'] = self.attr_unique(self.select_list(
             self.eduPersonAff_selector, person_id, p_affiliations))
