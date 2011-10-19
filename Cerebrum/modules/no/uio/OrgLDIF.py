@@ -201,15 +201,10 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
                 status_str = str(self.const.PersonAffStatus(status).str)
                 self.status_cache[status] = status_str
             # if a trait is set to override the general rule, we return that.
-            if p_id == 45517:
-                print "jazz"
             if p_id in self.pri_traits:
-                print "jazz1.5"
                 if (aff_str, status_str, ou) == self.pri_traits[p_id]:
                     p,a = lookup_cereconf(aff_str, status_str)
-                    print "jazz2"
                     if p:
-                        print "jazz3"
                         return a, ou
             p,a = lookup_cereconf(aff_str, status_str)
             if p and (pri == None or p < pri):
