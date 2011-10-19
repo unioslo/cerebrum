@@ -76,6 +76,12 @@ class BofhdAuth(auth.BofhdAuth):
         if ety and trait in (self.const.trait_reservation_sms_password,):
             if ety.entity_id == operator:
                 return True
+        # persons can set some of their own traits
+        if ety and trait in (self.const.trait_primary_aff,):
+            account = Factory.get('Account')(self._db)
+            account.find(operator)
+            if ety.entity_id == account.owner_id:
+                return True
         raise PermissionDenied("Not allowed to set trait")
 
     def can_email_address_delete(self, operator_id, account=None, domain=None,
