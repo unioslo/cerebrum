@@ -149,7 +149,7 @@ class BofhdCommandBase(object):
             return True
         elif onoff.lower() in ('off', 'false', 'no', 'n'):
             return False
-        raise CerebrumError("Invalid value: 's%'; use one of: on true yes y off false no n" % str(onoff))
+        raise CerebrumError("Invalid value: '%s'; use one of: on true yes y off false no n" % str(onoff))
     # end _get_boolean
 
 
