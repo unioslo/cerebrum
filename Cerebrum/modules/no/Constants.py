@@ -89,7 +89,7 @@ class ConstantsCommon(Constants.Constants):
     # TODO: should be replaced by a reservation table later
     trait_reservation_sms_password = _EntityTraitCode(
         'reserve_passw', Constants.Constants.entity_account,
-        "Account is reserved from using the SMS password service") 
+        "Reserving account from using the forgotten password service (SMS)") 
     # Trait for reservation from being published at the web
     # TODO: should be replaced by a reservation table later
     trait_public_reservation = _EntityTraitCode(
