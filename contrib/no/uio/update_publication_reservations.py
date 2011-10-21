@@ -75,9 +75,6 @@ def process(with_commit=False):
     fsmembers  = get_members('FS-aktivt-samtykke')
     logger.debug('%d members from FS consent', len(fsmembers))
 
-    # TODO: cache old trait values? Could be quicker, as we then only commit
-    # changes, not everything.
-
     global reservations
     logger.debug('%d reservations found in db', len(reservations))
 
@@ -128,14 +125,15 @@ def set_reservation(person_id, value=True):
         count_resrv_true += 1
     else:
         count_resrv_false += 1
-    # TODO: commit here?
+    # TODO: commit after each update?
 
 def get_employees():
     """Returns a set with person_id for all that are considered employees in
     context of publication."""
     return set(row['person_id'] for row in
             pe.list_affiliations(affiliation=(co.affiliation_ansatt,
-                                              co.affiliation_tilknyttet)) 
+                                              co.affiliation_tilknyttet),
+                                 source_system=co.system_sap) 
             if row['status'] != co.affiliation_tilknyttet_fagperson)
 
 def get_students():
@@ -143,7 +141,8 @@ def get_students():
     context of publication."""
     return set(row['person_id'] for row in
             pe.list_affiliations(status=(co.affiliation_status_student_aktiv,
-                                         co.affiliation_status_student_drgrad)))
+                                         co.affiliation_status_student_drgrad),
+                                 source_system=co.system_fs))
 
 def get_members(groupname):
     """Returns a set with person_id of all person members of a given group."""
