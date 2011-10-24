@@ -23,15 +23,12 @@
 Report accounts in quarantine.
 Idea:
    Events like quarantine_add are logged with a timestamp.
-   Retreive the events and get account ids,
-   process only personal accounts.
-   Account object has required attributes for the report, so does
-   the accounts owner object Person.
+   Retrieve the events and get account ids,
+   Skip non-personal accounts and accounts with no active quarantines.
+   Get desired information from Account and Person objects.
    Output:
    Navn	| Tilknytning | Fødselsdato | Brukernavn | Karantene starter | Karantenens type
    Sort rows by faculties.
-   
-
 """
 
 import sys, getopt
@@ -76,14 +73,14 @@ def generate_report(output, source_systems, start_date, end_date):
     @type end_date: ISO date, YYY-MM-DD
     """
     
-    lg = Factory.get_logger("cronjob")
+    logger = Factory.get_logger("cronjob")
     db = Factory.get('Database')()
     co = Factory.get('Constants')(db)
     pe = Factory.get('Person')(db)
     ac = Factory.get('Account')(db)
     ou = Factory.get('OU')(db)
     
-    lg.info('Start report.')
+    logger.info('Start Quarantine Report.')
     
     ou2sko = dict((row['ou_id'], ("%02d%02d%02d" % (row['fakultet'], 
                                                     row['institutt'],
@@ -105,12 +102,10 @@ def generate_report(output, source_systems, start_date, end_date):
         try: 
             ac.find(row_e['subject_entity'])
         except NotFoundError, nfe:
-            lg.error('%s' %nfe)
+            logger.error('%s' %nfe)
             continue
         
         if ac.owner_type <> co.entity_person:
-            #lg.info('Account %s with id %s is non-personal'
-            #        %(ac.get_account_name(), row_e['subject_entity']))
             continue # Filter out non-personal accounts.
 
         account_name = ac.get_account_name()
@@ -122,20 +117,24 @@ def generate_report(output, source_systems, start_date, end_date):
         ac_q = ac.get_entity_quarantine(only_active=True)
 
         if not ac_q:
-            #lg.info('No active quarantines for %s' %ac.get_account_name())
             continue # No active quarantines for that account, skip.
 
+        if pe.birth_date is None:
+            birth = 'ikke satt'
+        else:
+            birth = pe.birth_date.strftime('%Y-%m-%d')
+        
         num_quarantines += 1
         for row in aff:
             quarantines_by_sko.setdefault(ou2sko[row['ou_id']], []).append({
                 'name': name,
                 'status': str(co.PersonAffStatus(row['status'])),
-                'birth': pe.birth_date.strftime('%Y-%m-%d'),
+                'birth': birth,
                 'account': account_name,
                 'quarantines':ac_q
                 })
 
-    lg.info('Found %d active quaranines created between %s and %s'
+    logger.info('Found %d active quaranines created between %s and %s'
             %(num_quarantines, start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')))
 
     #Write html.
@@ -221,7 +220,7 @@ def generate_report(output, source_systems, start_date, end_date):
         <p class="meta">Generert: %s</p>\n</body>
         \n</html>\n""" % now().strftime('%Y-%m-%d kl %H:%M'))
 
-    lg.info('Done. Quarantine Report is generated.')
+    logger.info('Done. Quarantine Report is generated.')
 
 def main():
     try:
