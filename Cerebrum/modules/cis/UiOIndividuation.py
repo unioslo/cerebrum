@@ -30,12 +30,8 @@ class Individuation(Individuation.Individuation):
     messages = {
         'error_unknown':     {'en': u'An unknown error occured',
                               'no': u'En ukjent feil oppstod'},
-        'person_notfound':   {'en': u'Some of the data is wrong, please try again. Please note that you will ' + 
-                                    u'not be able to use this service if you are reserved from being published on UiO\'s ' +
-                                    u'web pages.',
-                              'no': (u'Noe av den oppgitte informasjonen er feil, vennligst prøv igjen. Merk at du ' + 
-                                     u'ikke kan bruke denne tjenesten om du har reservert deg fra å bli publisert på UiO ' +
-                                     u'sine nettsider.')},
+        'person_notfound':   {'en': u'Some of the data is wrong, please try again.',
+                              'no': u'Noe av den oppgitte informasjonen er feil, vennligst prøv igjen.'},
         'person_miss_info':  {'en': u'Not all your information is available. Please contact your local student office.',
                               'no': u'Ikke all din informasjon er tilgjengelig. Vennligst ta kontakt med ditt lokale studentkontor.'},
         'account_blocked':   {'en': u'This account is inactive. Please contact your local IT.',
