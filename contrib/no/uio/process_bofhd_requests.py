@@ -217,7 +217,10 @@ def connect_cyrus(host=None, username=None, as_admin=True):
 
     if as_admin:
         username = cereconf.CYRUS_ADMIN
-    imapconn = imaplib.IMAP4_SSL(host=host.name)
+    try:
+        imapconn = imaplib.IMAP4_SSL(host=host.name)
+    except socket.gaierror, e:
+        raise CyrusConnectError("%s@%s: %s" % (username, host.name, e))
     try:
         imapconn.authenticate('PLAIN', auth_plain_cb)
     except (imapconn.error, socket.error), e:
