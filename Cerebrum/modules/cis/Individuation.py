@@ -445,6 +445,10 @@ class Individuation:
             for system, values in systems.iteritems():
                 types = [getattr(self.co, t) for t in values['types']]
                 sys = getattr(self.co, system)
+                if not types:
+                    # support empty lists, to be able to block e.g. employees
+                    # from the service
+                    continue
                 for row in person.list_contact_info(entity_id=person.entity_id,
                                    contact_type=types,
                                    source_system=sys):
