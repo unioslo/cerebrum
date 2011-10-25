@@ -283,7 +283,20 @@ class XML2Cerebrum:
             person.populate_external_id(source_system, idxml2db[xmlkind], value)
         op = person.write_db()
 
+        # remove existing personal titles to make sure that personal
+        # titles removed from SAP are removed from Cerebrum as well
+        # all such titles are removed for each run, this may be very 
+        # slightly inefficient
+        if xmlperson.get_name(xmlperson.NAME_TITLE, ()) == ():
+            person.delete_name_with_language(name_variant=const.personal_title)
+            # updating op2 here is void as we remove every title every run
+            person.write_db()
+            self.logger.debug("Dropped all personal titles for person %s", person.entity_id) 
+
+        # add personal titles if any are found in the file
         for personal_title in xmlperson.get_name(xmlperson.NAME_TITLE, ()):
+            #self.logger.debug('personal_title %s, lang %s', personal_title.value, 
+            #                  personal_title.language)
             language = int(const.LanguageCode(personal_title.language))
             person.add_name_with_language(name_variant=const.personal_title,
                                           name_language=language,
