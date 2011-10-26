@@ -98,9 +98,9 @@ class IndividuationServer(SoapListener.BasicSoapServer):
     def call_wrapper(self, call, params):
         """Subclassing the call wrapper to instantiate the Individuation
         instance and to handle exceptions in a soap-wise manner."""
-        self.individuation = self.cere_class()
-        self.cache = self._get_cache(params.session_id)
         try:
+            self.individuation = self.cere_class()
+            self.cache = self._get_cache(params.session_id)
             return super(IndividuationServer, self).call_wrapper(call, params)
         except KeyboardInterrupt: # don't catch signals like ctrl+c
             raise
