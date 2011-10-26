@@ -604,17 +604,14 @@ class Individuation:
 
     def is_self_reserved(self, account, person):
         """Check if the user has reserved himself from using the service."""
-
         # Check if person is reserved
-        for reservation in person.list_traits(code=self.co.trait_reservation_sms_password,
-                                              target_id=person.entity_id):
-            if reservation['numval'] > 0:
-                return True
+        tr = person.get_trait(self.co.trait_reservation_sms_password)
+        if tr['numval'] != 0:
+            return True
         # Check if account is reserved
-        for reservation in account.list_traits(code=self.co.trait_reservation_sms_password,
-                                               target_id=account.entity_id):
-            if reservation['numval'] > 0:
-                return True
+        tr = account.get_trait(self.co.trait_reservation_sms_password)
+        if tr['numval'] != 0:
+            return True
         return False
 
     def is_reserved_publication(self, person):
