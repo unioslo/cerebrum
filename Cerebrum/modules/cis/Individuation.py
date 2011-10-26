@@ -606,11 +606,11 @@ class Individuation:
         """Check if the user has reserved himself from using the service."""
         # Check if person is reserved
         tr = person.get_trait(self.co.trait_reservation_sms_password)
-        if tr['numval'] != 0:
+        if tr and tr['numval'] != 0:
             return True
         # Check if account is reserved
         tr = account.get_trait(self.co.trait_reservation_sms_password)
-        if tr['numval'] != 0:
+        if tr and tr['numval'] != 0:
             return True
         return False
 
