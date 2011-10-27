@@ -179,8 +179,8 @@ def main():
                 usage("Error: the value of parameter --min should be at least 1", 2)
         elif opt in ('--max'):
             maxmum = int(val)
-            if maxmum < 0:
-                usage("Error: the value of parameter --max should be at least 1", 3)
+            if maxmum < 0 or maxmum < minimum:
+                usage("Error: the value of parameter --max should be at least 1 and larger than --min", 3)
         elif opt in ('-o', '--output'):
             outputstream = open(val, 'w')
             outputstream.write("""<html>
