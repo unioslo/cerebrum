@@ -19,11 +19,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA. 
 
-"""This script is a tool used to check active accounts in Cerebrum.
-Check and list summary or detail information of the Cerebrum users and
-active accounts with specific input numbers. Check the number of the
-active Cerebrum accounts for persons and send email as alarm when
-the number is greater than allowed.
+"""This script is a tool used to check active accounts in Cerebrum
+and send email as alarm when the number is greater than allowed.
 """
 import sys
 import getopt
@@ -60,42 +57,33 @@ def usage(msg = None, exit_status = 0):
     
     sys.exit(exit_status)
 
-def accountNr(minimum,maxmum,accs):
+def accountNr(minimum, maxmum, accs):
     """
     Compare the number of accounts in the 'accs' list for each person
     with the input option number 'minimum' and 'maxmum'.
     """
     
-    if maxmum:
-        if len(accs) >= minimum and len(accs) <= maxmum:
-            return True
-        else:
-            return False
-    elif not maxmum:
-        if len(accs) >= minimum:
-            return True
-        else:
-            return False
+    if len(accs) < minimum:
+        return False
+    if  maxmum and len(accs) > maxmum:
+        return False
+    return True
 
-def checkACaccount(source_systems,minimum,maxmum,outputstream):
+def checkACaccount(source_systems, minimum, maxmum, outputstream):
     """
     Check the accounts for each person and report the results into
     print or file. Return the person_ids whose number of accounts is
-    between 'minimum' and 'maxmum'.  'detail' controls if report the
-    account_names for each person_id.  'report_type' shows the way of
-    reporting the checking results (print on screen, write into a
-    file, send email). 'stream' is the output file stream for writting
-    data.
+    between 'minimum' and 'maxmum'.
     """
     logger.info("Checking Cerebrum users in active accounts range (%s,%s)" %(minimum,maxmum))
     source_systems = [int(co.AuthoritativeSystem(sys)) for sys in
                       source_systems.split(',')]
-    ou2sko = dict((row['ou_id'], ("%02d%02d%02d" % (row['fakultet'],
+    ou2sko = dict((row['ou_id'], "%02d%02d%02d" % (row['fakultet'],
                                                     row['institutt'],
-                                                    row['avdeling'])))
+                                                    row['avdeling']))
                   for row in ou.get_stedkoder())
     sko2name = dict((ou2sko[row['entity_id']], row['name']) for row in
-                    ou.search_name_with_language(name_variant = co.ou_name_display,
+                    ou.search_name_with_language(name_variant=co.ou_name_display,
                                                  name_language=co.language_nb))
 
     persons_by_sko = {}
@@ -105,15 +93,14 @@ def checkACaccount(source_systems,minimum,maxmum,outputstream):
         pr.clear()
         pr.find(p_id['person_id'])
         accs = pr.get_accounts()
-        name = pr.search_person_names(person_id=p_id['person_id'], name_variant=co.name_full)[0]['name']
+        name = pr.search_person_names(person_id=p_id['person_id'],
+                                      name_variant=co.name_full)[0]['name']
         try:
             sapid = pr.get_external_id(source_system=co.system_sap,
                                        id_type=co.externalid_sap_ansattnr)[0]['external_id']
         except IndexError:
             sapid = ''
-        call = accountNr(minimum,maxmum,accs)
-        if call:
-            length = len(accs)
+        if accountNr(minimum, maxmum, accs):
             nr_person += 1
             persons += "\n%s" % str(p_id['person_id'])
             accounts = ''
@@ -122,19 +109,20 @@ def checkACaccount(source_systems,minimum,maxmum,outputstream):
                 ac.find(row['account_id'])
                 accounts += ac.account_name
                 accounts += ", "
-            for row in pr.list_affiliations(person_id=p_id['person_id'], source_system=source_systems):
+            for row in pr.list_affiliations(person_id=p_id['person_id'],
+                                            source_system=source_systems):
                 persons_by_sko.setdefault(ou2sko[row['ou_id']], []).append({
                     'pid': p_id['person_id'],
                     'name': name,
                     'birth': pr.birth_date.strftime('%Y-%m-%d'),
                     'sapid': sapid,
-                    'accountsnr': length,
+                    'accountsnr': len(accs),
                     'accounts': accounts,
                     })
     if maxmum:
-        msg = "%s persons have acctive accounts from %s to %s" % (nr_person,minimum,maxmum)
+        msg = "%s persons have acctive accounts between %s and %s" % (nr_person, minimum, maxmum)
     else:
-        msg = "%s persons have more than %s acctive accounts" % (nr_person,minimum)
+        msg = "%s persons have more than %s acctive accounts" % (nr_person, minimum)
     outputstream.write('<p class="meta">%s</p>' % msg)
     persons += "\n\n%s" % msg
     fakults = []
@@ -148,7 +136,7 @@ def checkACaccount(source_systems,minimum,maxmum,outputstream):
         outputstream.write("<th>Navn</th>")
         outputstream.write("<th>person_id</th>")
         outputstream.write("<th>Ansatt_nr</th>")
-        outputstream.write("<th>Fo¿½dselsdato</th>")
+        outputstream.write("<th>Fodselsdato</th>")
         outputstream.write("<th>Brukere_nr</th>")
         outputstream.write("<th>Brukere</th>")
         outputstream.write("</tr></thead>\n")
@@ -237,16 +225,14 @@ def main():
             mail_from = val
         else:
             usage("Error: Unknown parameter '%s'" % opt, 4)
-    persons = 'These following persons are found with the number of accounts between %s and %s in Cerebrum.\n\nperson_id' % (minimum,maxmum)
-    persons += checkACaccount(source_systems,minimum,maxmum,outputstream)
+    persons = 'These following persons are found in Cerebrum:\n\nperson_id'
+    persons += checkACaccount(source_systems, minimum, maxmum, outputstream)
 
     if not outputstream is sys.stdout:
         outputstream.close()
           
     if mail_to:
         logger.info("Sending email to %s" % mail_to)
-      #  count = persons.count("\n")
-      #  persons += "%s persons are found." % count
         subject = "Report from check_acctive_account.py"
         Utils.sendmail(mail_to, mail_from, subject, persons)
             
