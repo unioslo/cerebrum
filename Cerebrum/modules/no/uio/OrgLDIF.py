@@ -185,9 +185,10 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
 
         if not self.affiliations.has_key(p_id):
             return None
-        p_aff = None
+        pri_aff = None
         pri = None
-        p_ou = None
+        pri_ou = None
+        pri_edu_aff = None
         for aff, status, ou in self.affiliations[p_id]:
             # populate the caches 
             if self.aff_cache.has_key(aff):
@@ -205,15 +206,42 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
                 if (aff_str, status_str, ou) == self.pri_traits[p_id]:
                     p,a = lookup_cereconf(aff_str, status_str)
                     if p:
-                        return a, ou
+                        return a, ou, aff_str
             p,a = lookup_cereconf(aff_str, status_str)
             if p and (pri == None or p < pri):
                 pri = p
-                p_aff = a
-                p_ou = ou
-        if p_aff == None:
+                pri_aff = (aff_str, status_str)
+                pri_ou = ou
+                pri_edu_aff = a
+        if pri_aff == None:
             self.logger.warn("Person '%s' did not get eduPersonPrimaryAffiliation. Check his/her affiliations and eduPersonPrimaryAffiliation_selector in cereconf.", p_id)
-        return p_aff, p_ou
+        return pri_edu_aff, pri_ou, pri_aff 
+
+    def make_uioPersonScopedAffiliation(self, p_id, pri_aff, pri_ou):
+        # [primary|secondary]:<affiliation>@<status>/<stedkode>
+        ret = []
+        pri_aff_str = pri_aff[0]
+        pri_status_str = pri_aff[1]
+        for aff, status, ou in self.affiliations[p_id]:
+            # populate the caches 
+            if self.aff_cache.has_key(aff):
+                aff_str = self.aff_cache[aff]
+            else:
+                aff_str = str(self.const.PersonAffiliation(aff))
+                self.aff_cache[aff] = aff_str
+            if self.status_cache.has_key(status):
+                status_str = self.status_cache[status]
+            else:
+                status_str = str(self.const.PersonAffStatus(status).str)
+                self.status_cache[status] = status_str
+            p = 'secondary'
+            if aff_str == pri_aff_str and status_str == pri_status_str and ou == pri_ou:
+                p = 'primary'
+            if ou not in self.ou_id2ou_uniq_id:
+                # ignore OUs not resent in the org tree
+                continue
+            ret += [p +':'+aff_str+'/'+status_str+'@'+self.ou_id2ou_uniq_id[ou]]
+        return ret
                                     
     def make_person_entry(self, row):
         """Add data from person_course to a person entry."""
@@ -228,10 +256,11 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
             # TODO: remove member and uioPersonObject after transition period
             entry['uioMemberOf'] = entry['member'] = self.person2group[p_id]
             entry['objectClass'].extend(('uioMembership', 'uioPersonObject'))
-        p_aff, p_ou = self.make_eduPersonPrimaryAffiliation(p_id)
-        if p_aff:
-            entry['eduPersonPrimaryAffiliation'] = p_aff
-            entry['eduPersonPrimaryOrgUnitDN'] = self.ou2DN.get(int(p_ou)) or self.dummy_ou_dn
+        pri_edu_aff, pri_ou, pri_aff = self.make_eduPersonPrimaryAffiliation(p_id)
+        if pri_edu_aff:
+            entry['eduPersonPrimaryAffiliation'] = pri_edu_aff
+            entry['eduPersonPrimaryOrgUnitDN'] = self.ou2DN.get(int(pri_ou)) or self.dummy_ou_dn
+        entry['uioPersonScopedAffiliation'] = self.make_uioPersonScopedAffiliation(p_id, pri_aff, pri_ou)
         return dn, entry, alias_info
 
     def _calculate_edu_OUs(self, p_ou, s_ous):
