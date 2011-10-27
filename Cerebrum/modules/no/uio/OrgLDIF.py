@@ -206,7 +206,7 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
                 if (aff_str, status_str, ou) == self.pri_traits[p_id]:
                     p,a = lookup_cereconf(aff_str, status_str)
                     if p:
-                        return a, ou, aff_str
+                        return a, ou, (aff_str, status_str)
             p,a = lookup_cereconf(aff_str, status_str)
             if p and (pri == None or p < pri):
                 pri = p
@@ -220,8 +220,7 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
     def make_uioPersonScopedAffiliation(self, p_id, pri_aff, pri_ou):
         # [primary|secondary]:<affiliation>@<status>/<stedkode>
         ret = []
-        pri_aff_str = pri_aff[0]
-        pri_status_str = pri_aff[1]
+        pri_aff_str, pri_status_str = pri_aff
         for aff, status, ou in self.affiliations[p_id]:
             # populate the caches 
             if self.aff_cache.has_key(aff):
