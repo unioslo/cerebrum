@@ -73,7 +73,7 @@ class BofhdExtension(BofhdCommandBase):
         '_email_info_forwarding', '_split_email_address',
         '_email_info_mailman', '_email_info_multi', '_email_info_file',
         '_email_info_pipe', '_email_info_forward',
-        'email_add_address', '_get_email_domain', 
+        'email_add_address', '_get_email_domain', 'email_mod_name',
         'email_reassign_address', 'email_remove_address', 
         '_split_email_address', '_remove_email_address', 
         #
@@ -343,6 +343,41 @@ class BofhdExtension(BofhdCommandBase):
             account.delete_spread(int(s['spread']))
         account.write_db()
         return "User %s queued for deletion immediately" % account.account_name
+
+    # email set_primary_address account lp@dom
+    #
+    all_commands['email_set_primary_address'] = Command(
+        ("email", "set_primary_address"), 
+        AccountName(help_ref="account_name", repeat=False),
+        EmailAddress(help_ref='email_address', repeat=False),
+        perm_filter='is_superuser')
+    def email_set_primary_address(self, operator, uname, address):
+        et, acc = self.__get_email_target_and_account(uname)
+        ea = Email.EmailAddress(self.db)
+        if address == '':
+            return "Primary address cannot be an empty string!"
+        lp, dom = address.split('@')
+        ed = self._get_email_domain(dom)
+        ea.clear()
+        try:
+            ea.find_by_address(address)
+            if ea.email_addr_target_id != et.entity_id:
+                raise CerebrumError, "Address (%s) is in use by another user" % address
+        except Errors.NotFoundError:
+            pass
+        ea.populate(lp, ed.entity_id, et.entity_id)
+        ea.write_db()
+        epat = Email.EmailPrimaryAddressTarget(self.db)
+        epat.clear()
+        try:
+            epat.find(ea.email_addr_target_id)
+            epat.populate(ea.entity_id)
+        except Errors.NotFoundError:
+            epat.clear()
+            epat.populate(ea.entity_id, parent = et)
+        epat.write_db()
+        return "Registered %s as primary address for %s" % (address, uname)
+
 
     # helpers needed for email_info, cannot be copied in the usual way
     #
