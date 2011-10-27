@@ -106,6 +106,12 @@ class AccountHiHMixin(Account.Account):
         # local_parts for availability.  Set user's primary address to
         # the first one found to be available.
         primary_set = False
+        # Never change any existing email addresses
+        try:
+            self.get_primary_mailaddress()
+            primary_set = True
+        except Errors.NotFoundError:
+            pass
         epat = Email.EmailPrimaryAddressTarget(self._db)
         if not domains:
             # no valid domain has been found and no e-mail address
