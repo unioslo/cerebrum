@@ -9377,7 +9377,13 @@ Addresses and settings:
         elif format == 'int':
             return str(val)
         elif format == 'name_variant':
-            return str(self.const.PersonName(val))
+            # Name variants are stored in two separate code-tables; if
+            # one doesn't work, try the other
+            try:
+                name_variant = str(self.const.PersonName(val))
+                return name_variant
+            except:
+                return str(self.const.EntityNameCode(val))
         elif format == 'ou':
             ou = self._get_ou(ou_id=val)
             return self._format_ou_name(ou)
