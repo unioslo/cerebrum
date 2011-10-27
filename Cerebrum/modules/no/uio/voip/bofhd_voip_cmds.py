@@ -1265,8 +1265,8 @@ class BofhdVoipCommands(BofhdCommandBase):
 
         # find the clients
         client = VoipClient(self.db)
-        client_ids = [str(x["entity_id"])
-           for x in client.search(voip_address_id=address.entity_id)]
+        client_ids = sorted([str(x["entity_id"])
+           for x in client.search(voip_address_id=address.entity_id)])
 
         attrs = address.get_voip_attributes()
         result = {"entity_id": address.entity_id,
