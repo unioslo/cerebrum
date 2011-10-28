@@ -69,6 +69,11 @@ command_help = {
         "Move an address from one account to another",
     "email_update":
         "Update default address and aliases associated with account",
+    "email_mod_name":
+        "Override name for person (to be used in e-mail address)",
+    "email_set_primary_address":
+        "Changes the primary address for the e-mail target to the specified "\
+        "value",
     "email_info":
         "View e-mail information about a user or address",
     },
