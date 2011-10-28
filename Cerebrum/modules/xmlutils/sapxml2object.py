@@ -338,8 +338,13 @@ class XMLPerson2Object(XMLEntity2Object):
             elif sub.tag in ("AdressType",):
                 addr_kind = sap2intern.get(value, "")
             elif sub.tag in ("CO",):
-                street.insert(0, value)
-
+                # CO-fields don't seem to be registered intentionally
+                # or with any kind of plan an regularity. we will stop
+                # importing them for now, and do an evaluation at a
+                # latter time. Jazz, 2011-10-28
+                #
+                # street.insert(0, value)
+                continue
         # If we do not know the address kind, we *cannot* register it.
         if not addr_kind:
             return None
