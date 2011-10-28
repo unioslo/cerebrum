@@ -260,6 +260,8 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
             entry['eduPersonPrimaryAffiliation'] = pri_edu_aff
             entry['eduPersonPrimaryOrgUnitDN'] = self.ou2DN.get(int(pri_ou)) or self.dummy_ou_dn
         entry['uioPersonScopedAffiliation'] = self.make_uioPersonScopedAffiliation(p_id, pri_aff, pri_ou)
+        if 'uioPersonObject' not in entry['objectClass']:
+            entry['objectClass'].extend(('uioPersonObject',))
         return dn, entry, alias_info
 
     def _calculate_edu_OUs(self, p_ou, s_ous):
