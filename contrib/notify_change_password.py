@@ -136,7 +136,7 @@ def parse_time(time):
     match = re.match("\s*(?:" + r")?\s*(?:".join((year, month, week, day)) + r")\s*", time, re.IGNORECASE)
 
     # if match failed, or the string had no values:
-    if not match or not filter(lambda x: x is not None, re.groups()):
+    if not match or not filter(lambda x: x is not None, match.groups()):
         raise ValueError, "%s does not give a parseable time" % time
     total = dt.DateTimeDelta(0)
     year = match.group('year') or 0
