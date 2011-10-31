@@ -129,7 +129,7 @@ class BaseVirtHomeAccount(Account,
         assert email and email.strip(), "VirtHome e-mail addresses cannot be empty"
 
         # Double check that the username is available
-        assert self.uname_is_available(uname, domain), "Username already taken"
+        assert self.uname_is_available(account_name), "Username already taken"
 
         Account.populate(self,
                          account_name,
