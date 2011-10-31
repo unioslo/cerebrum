@@ -20,6 +20,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import time, mx.DateTime as dt
+import locale
 
 import cerebrum_path
 import cereconf
@@ -361,7 +362,7 @@ Users with new passwords: %d
     # end except_user
 
     def notify(self, account):
-        def mail_user(account, mail_type, deadline='', first_time=''):
+        def mail_user(account, mail_type, deadline, first_time=''):
             mail_type = min(mail_type, len(self.mail_info)-1)
             if mail_type == -1:
                 self.logger.debug("No template defined")
@@ -375,22 +376,31 @@ Users with new passwords: %d
             subject = subject.replace('${USERNAME}', account.account_name)
             body = self.mail_info[mail_type]['Body']
             body = body.replace('${USERNAME}', account.account_name)
-            body = body.replace('${DEADLINE}', deadline)
-            body = body.replace('${FIRST_TIME}', first_time)
+            body = body.replace('${DEADLINE}', deadline.strftime('%Y-%m-%d'))
+            if isinstance(first_time, dt.DateTimeType):
+                body = body.replace('${FIRST_TIME}', first_time.strftime('%Y-%m-%d'))
+            else:
+                body = body.replace('${FIRST_TIME}', first_time)
 
+            # add dates for different languages::
+            for lang in ('nb_NO', 'nn_NO', 'en_US'):
+                tag = '${DEADLINE_%s}' % lang.upper()
+                body = body.replace(tag, date2human(deadline, lang))
+                if first_time:
+                    tag = '${FIRST_TIME_%s}' % lang.upper()
+                    body = body.replace(tag, date2human(first_time, lang))
             return _send_mail(prim_email, self.mail_info[mail_type]['From'], subject, 
                     body, self.logger, debug_enabled=self.dryrun)
 
-        format = '%Y-%m-%d'
-        deadline = self.get_deadline(account).strftime(format)
+        deadline = self.get_deadline(account)
         self.logger.info("Notifying %s, number=%d, deadline=%s", account.account_name, 
-            self.get_num_notifications(account) + 1, deadline)
+            self.get_num_notifications(account) + 1, deadline.strftime('%Y-%m-%d'))
         if self.get_num_notifications(account) == 0:
-            return mail_user(account, 0, 
-                deadline=deadline)
+            return mail_user(account, 0, deadline=deadline)
         else:
-            return mail_user(account, self.get_num_notifications(account), deadline=deadline,
-                    first_time=self.get_notification_time(account).strftime(format))
+            return mail_user(account, self.get_num_notifications(account),
+                             deadline=deadline,
+                             first_time=self.get_notification_time(account))
 
     def get_notifier(config=None):
         """
@@ -438,7 +448,8 @@ Users with new passwords: %d
 
 def _send_mail(mail_to, mail_from, subject, body, logger, mail_cc=None, debug_enabled=False):
     if debug_enabled:
-        logger.info("Sending mail to %s", mail_to)
+        logger.info("Sending mail to %s. Subject: %s", mail_to, subject)
+        logger.info("Body: %s" % body)
         return True
     try:
         ret = Utils.sendmail(mail_to, mail_from, subject, body,
@@ -456,3 +467,28 @@ def _send_mail(mail_to, mail_from, subject, body, logger, mail_cc=None, debug_en
         return False
     return True
 
+# The language specific strftime format
+date2human_format = {
+        'nb_NO': '%A %d. %B %Y',
+        'nn_NO': '%x',
+        'en_US': '%A, %d %b %Y',
+        None:    '%x', # default
+        }
+
+def date2human(date, language_code=None):
+    """Return a human readable string of a given date, and in the correct
+    language. Making it easier for users to be sure of a deadline date."""
+    if language_code:
+        previous = locale.getlocale(locale.LC_TIME)
+        try:
+            locale.setlocale(locale.LC_TIME, language_code)
+        except locale.Error, e:
+            logger.warning('locale.setlocale failed: %s', e)
+    try:
+        format = date2human_format[language_code]
+    except KeyError:
+        format = date2human_format[None]
+    ret = date.strftime(format).capitalize()
+    if language_code:
+        locale.setlocale(locale.LC_TIME, previous)
+    return ret
