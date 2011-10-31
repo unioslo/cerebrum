@@ -128,6 +128,9 @@ class BaseVirtHomeAccount(Account,
         # email is in a valid format.
         assert email and email.strip(), "VirtHome e-mail addresses cannot be empty"
 
+        # Double check that the username is available
+        assert self.uname_is_available(uname, domain), "Username already taken"
+
         Account.populate(self,
                          account_name,
                          # VA is owned by the system
@@ -166,10 +169,25 @@ class BaseVirtHomeAccount(Account,
         if self.illegal_name(uname):
             return False
 
+        if not self.uname_is_available(uname, domain):
+            return False
+
         return self.__super.validate_new_uname(domain, uname)
     # end validate_new_uname
 
-
+    def uname_is_available(self, uname, domain=None):
+        """Checks that a username can be used. Note that we can not have
+        several usernames which all converts to the same lowercased name, e.g.
+        'User' and 'uSeR'. This is to prevent LDAP from crashing."""
+        if domain is None:
+            domain = int(self.const.account_namespace)
+        return 0 == len(self.query("""
+            SELECT entity_id
+            FROM [:table schema=cerebrum name=entity_name]
+            WHERE value_domain=:domain AND LOWER(entity_name) = :name""", 
+                                            {'domain': int(domain),
+                                             'name': uname.lower()}))
+    # end uname_is_available
 
     def illegal_name(self, uname):
         """Check whether username is compliant with webid guidelines.
@@ -353,7 +371,6 @@ class VirtAccount(BaseVirtHomeAccount):
 
         return False
     # end illegal_name
-
 
     # IVR 2009-04-11 TBD: Do we want to override some of the is_*()-methods?
     # A VirtAccount is not active, until VACCOUNT_UNCONFIRMED trait has been

@@ -534,23 +534,21 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
 
     def __check_account_name_availability(self, account_name):
-        """Check that L{account_name} is available in Cerebrum.
+        """Check that L{account_name} is available in Cerebrum. Names are case
+        sensitive, but there should not exist two accounts with same name in
+        lowercase, due to LDAP, so we have to check this too.
 
         (The combination if this call and account.write_db() is in no way
         atomic, but checking for availability lets us produce more meaningful
         error messages in (hopefully) most cases).
 
         @return:
-          False if account_name is used in Cerebrum, True otherwise.
+          True if account_name is available for use, False otherwise.
         """
 
         # Does not matter which one.
         account = self.virtaccount_class(self.db)
-        try:
-            account.find_by_name(account_name)
-            return False
-        except Errors.NotFoundError:
-            return True
+        return account.uname_is_available(account_name)
 
         # NOTREACHED
         assert False
@@ -1243,7 +1241,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             return True
 
         assert False, "NOTREACHED"
-    # end __check_account_name_availability
+    # end __check_group_name_availability
 
 
 
@@ -1914,9 +1912,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             Date(),
             PersonName(),
             PersonName(),
-            fs=FormatSuggestion("%12s %36s",
+            fs=FormatSuggestion("%12d %36s",
                                 ("entity_id",
-                                 "session_key"),
+                                 "confirmation_key"),
                                 hdr="%12s %36s"
                                 % ("Account id", "Session key")))
     def user_virtaccount_create(self, operator, account_name, email, password,
