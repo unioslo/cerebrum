@@ -180,6 +180,11 @@ class VoipConstants(Constants.Constants):
         "Cisco SPA-525G"
         )
 
+    voip_client_pap2t = VoipClientInfoCode(
+        "003001",
+        "Linksys PAP2T"
+    )
+
     ########################################################################
     # voip-address
     entity_voip_address = EntityTypeCode(
