@@ -110,7 +110,7 @@ def main():
     
     logger.info("Fetching relevant accounts")
     accounts = fetch_all_relevant_accounts(quarantine, since)
-    logger.info("Got %s accounts to deactivate", len(accounts)
+    logger.info("Got %s accounts to deactivate", len(accounts))
 
     for a in accounts:
         logger.info("Deactivated account %s", a.account_name)
