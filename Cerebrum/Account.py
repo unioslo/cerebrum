@@ -449,6 +449,14 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                       'np_type', 'creator_id', 'expire_date', 'create_date',
                       '_auth_info', '_acc_affect_auth_types')
 
+    def deactivate(self):
+        # deactivate is commonly thought of as removal of spreads and
+        # setting of expire_date < today
+        self.expire_date = mx.DateTime.now()
+        for s in self.get_spread():
+            self.delete_spread(int(s['spread']))
+        self.write_db()
+
     def delete(self):
         """Really,really remove the account and homedir"""
 
