@@ -45,6 +45,7 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
         # Used by make_ou_dn() for for migration to ny-ldap.uio.no:
         self.used_new_DNs = {}
+        self.ou_quarantined = {}
         self.aff_cache = {}
         self.pri_traits = {}
         self.status_cache = {}
@@ -53,20 +54,35 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
                                  'ou=--,ou=organization,dc=uio,dc=no':
                                  'cn=organization,dc=uio,dc=no'}
 
-      def init_person_basic(self):
-          self.__super.init_person_basic()
-          self._get_primary_aff_traits()
+    def init_person_basic(self):
+        self.__super.init_person_basic()
+        self._get_primary_aff_traits()
           
-      def _get_primary_aff_traits(self):
-          for row in self.person.list_traits(code=self.const.trait_primary_aff):
-              p_id = row['entity_id']
-              val = row['strval']
-              m = re.match(r"(\w+)\/(\w+)@(\w+)", val)
-              if m and m.group(3) in self.ou_uniq_id2ou_id:
-                  self.pri_traits[p_id] = (m.group(1),m.group(2),
-                                           self.ou_uniq_id2ou_id[m.group(3)])
-                  
-      def make_ou_dn(self, entry, parent_dn):
+    def _get_primary_aff_traits(self):
+        for row in self.person.list_traits(code=self.const.trait_primary_aff):
+            p_id = row['entity_id']
+            val = row['strval']
+            m = re.match(r"(\w+)\/(\w+)@(\w+)", val)
+            if m and m.group(3) in self.ou_uniq_id2ou_id:
+                self.pri_traits[p_id] = (m.group(1),m.group(2),
+                                         self.ou_uniq_id2ou_id[m.group(3)])
+      
+    def init_ou_dump(self):
+        self.__super.init_ou_dump()
+        self.get_ou_quarantines()
+
+    def test_omit_ou(self):
+        return (not self.ou.has_spread(self.const.spread_ou_publishable)) or \
+            self.ou_quarantined.get(self.ou.entity_id,False)
+
+    def get_ou_quarantines(self):
+        for row in self.ou.list_entity_quarantines( 
+                entity_types = self.const.entity_ou,
+                quarantine_types = self.const.quarantine_ou_notvalid,
+                only_active=True):
+            self.ou_quarantined[int(row['entity_id'])] = True
+                
+    def make_ou_dn(self, entry, parent_dn):
         # Change from superclass:
         # Replace special characters with spaces instead of escaping them.
         # Replace multiple whitespace with a single space.  strip() the result.
