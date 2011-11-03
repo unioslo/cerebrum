@@ -338,11 +338,10 @@ class BofhdExtension(BofhdCommandBase):
         self.ba.can_delete_user(operator.get_entity_id(), account)
         if account.is_deleted():
             raise CerebrumError, "User is already deleted"
-        account.expire_date = mx.DateTime.now()
-        for s in account.get_spread():
-            account.delete_spread(int(s['spread']))
-        account.write_db()
-        return "User %s queued for deletion immediately" % account.account_name
+        # it may be an idea to add some robustness to the deactivation
+        # related functions. Jazz, 2011-11-03
+        account.deactivate()
+        return "User %s deactivated" % account.account_name
 
     # email set_primary_address account lp@dom
     #
