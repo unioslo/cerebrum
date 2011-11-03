@@ -37,6 +37,7 @@ import time, mx.DateTime as dt
 
 import cerebrum_path
 import cereconf
+from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 
 logger = Factory.get_logger("cronjob")
@@ -62,7 +63,7 @@ def fetch_all_relevant_accounts(qua_type, since):
             logger.warning("The quarantine has not started yet, this should not happen")
             continue
         if since_start < since:
-            logger.debug("Qarantine not old enough, skipping")
+            logger.debug("Quarantine not old enough, skipping")
         elif since_start >= since:
             logger.debug("Will try to deactivate entity %s", x['subject_entity'])
             account.clear()
@@ -99,7 +100,7 @@ def main():
     
     for option, value in options:
         if option in ("-q", "--quarantine",):
-            quarantine = int(constants.Qarantine(value))
+            quarantine = int(constants.Quarantine(value))
         elif option in ("-d", "--dryrun",):
             dryrun = True
         elif option in ("-s", "--since",):
