@@ -108,7 +108,7 @@ def main():
         else:
             usage()
     
-    accounts = fetch_all_relevant_accounts(qua_type, since)
+    accounts = fetch_all_relevant_accounts(quarantine, since)
 
     for a in accounts:
         logger.info("Deactivated account %s", a.account_name)
