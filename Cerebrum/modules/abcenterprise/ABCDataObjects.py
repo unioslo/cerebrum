@@ -31,16 +31,12 @@ class DataEntity(object):
         addr = dict()
         for a,v in self.iteraddress():
             addr[a] = v.__str__()
-        result = ("DataEntity:\n"
-                  "\tIDs: %s\n"
-                  "\ttags: %s\n"
-                  "\tnames: %s\n"
-                  "\taddress: %s\n"
-                  "\tcontacts: %s\n"% (list(self.iterids()),
-                                       list(self.itertags()),
-                                       list(self.iternames()),
-                                       list(addr.iteritems()),
-                                       list(self.itercontacts())))                                              
+        result = ("DataEntity: IDs: %s tags: %s names: %s address: %s contacts: %s" % 
+                  (list(self.iterids()),
+                   list(self.itertags()),
+                   list(self.iternames()),
+                   list(addr.iteritems()),
+                   list(self.itercontacts())))                                              
         return result
     
     def add_id(self, kind, value):
@@ -85,10 +81,9 @@ class DataPerson(DataEntity):
         self.gender = None
 
     def __str__(self):
-        result = ("%sDataPerson:\n"
-                  "\tgender: %s\n"
-                  "\tbirth: %s\n" % (super(DataPerson, self).__str__(),
-                                     self.gender, self.birth_date))
+        result = ("%s DataPerson: gender: %s birth: %s" % 
+                  (super(DataPerson, self).__str__(),
+                   self.gender, self.birth_date))
         return result
 
 
@@ -105,10 +100,9 @@ class DataOU(DataEntity):
         self.parent = None
 
     def __str__(self):
-        result = ("%sDataOU:\n"
-                  "\trealm: %s\n"
-                  "\tparent: %s\n" % (super(DataOU, self).__str__(),
-                                      self.realm, self.parent))
+        result = ("%s DataOU: trealm: %s parent: %s" % 
+                  (super(DataOU, self).__str__(),
+                   self.realm, self.parent))
         return result
 
 class DataGroup(DataEntity):
@@ -119,9 +113,9 @@ class DataGroup(DataEntity):
         self.desc = None
 
     def __str__(self):
-        result = ("%sDataGroup:\n"
-                  "\tdesc: %s\n" % (super(DataGroup, self).__str__(),
-                                    self.desc))
+        result = ("%s DataGroup: desc: %s" % 
+                  (super(DataGroup, self).__str__(),
+                   self.desc))
         return result
 
 
@@ -135,11 +129,9 @@ class DataRelation(DataEntity):
         self.object = None
 
     def __str__(self):
-        result = ("%sDataRelation:\n"
-                  "\ttype: %s\n"
-                  "\tsubject: %s\n"
-                  "\tobject: %s\n" % (super(DataRelation, self).__str__(),
-                                      self.type, self.subject, self.object))
+        result = ("%s DataRelation: type: %s subject: %s object: %s" % 
+                  (super(DataRelation, self).__str__(),
+                   self.type, self.subject, self.object))
         return result
 
 
@@ -154,13 +146,10 @@ class DataAddress(object):
         self.country = None
 
     def __str__(self):
-        result = ("pobox: %s, "
-                  "street: %s, "
-                  "postcode: %s, "
-                  "city: %s, "
-                  "tcountry: %s" % (self.pobox, self.street,
-                                    self.postcode, self.city,
-                                    self.country))
+        result = ("pobox: %s, street: %s, postcode: %s, city: %s, country: %s" % 
+                  (self.pobox, self.street,
+                   self.postcode, self.city,
+                   self.country))
         return result
 
 # arch-tag: fb615900-6995-11da-9b5c-329d892ac5ab
