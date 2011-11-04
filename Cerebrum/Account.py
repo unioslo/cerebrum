@@ -451,10 +451,17 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
 
     def deactivate(self):
         # deactivate is commonly thought of as removal of spreads and
-        # setting of expire_date < today
+        # setting of expire_date < today. in addition a deactivated
+        # account should not have any group memberships
+        group = Utils.Factory.get("Group")(self._db)
         self.expire_date = mx.DateTime.now()
         for s in self.get_spread():
             self.delete_spread(int(s['spread']))
+        for row in group.search(member_id=self.entity_id):
+            group.clear()
+            group.find(row['group_id'])
+            group.remove_member(self.entity_id)
+            group.write_db()
         self.write_db()
 
     def delete(self):
