@@ -53,12 +53,15 @@ def fetch_all_relevant_accounts(qua_type, since):
     # by using only_active we may inadverently allow accounts with
     # disabled quarantines to live for prolonged periods of
     # time. TODO: is this actually a problem? Jazz, 2011-11-03
+    logger.debug("only quarantines older than %s days", since)
     relevant_accounts = []
     has_quarantine = account.list_entity_quarantines(entity_types=constants.entity_account, 
                                                      quarantine_types=qua_type, 
                                                      only_active=True)
     for x in has_quarantine:
-        since_start = int(today - x['start_date'])
+        tmp = today - x['start_date']
+        since_start = int(tmp.days)
+        logger.debug("Days since quarantine started: %s", since_start)
         if since_start < 0:
             logger.warning("The quarantine has not started yet, this should not happen")
             continue
