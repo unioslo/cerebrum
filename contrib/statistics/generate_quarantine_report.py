@@ -23,7 +23,7 @@
 Report accounts in quarantine. Show accounts that belong to employees.
 Output:
    Navn	| Tilknytning | Brukernavn | Karantene starter | Karantenens type
-Sort rows by faculties.
+Sort rows by faculties and sort the resulting lists by  institutes.
 """
 
 import sys
@@ -56,7 +56,7 @@ def usage(exitcode=0):
 
 def generate_report(output, source_systems, start_date):
     """Generate html formatted report of accounts in quarantine.
-    sort by person affiliations.
+    sort by faculites and sort results by institutes.
     @param output: filename to write output to
     @type output: file object, returned by open or sys.stdout
     @param source_systems: not used for now,
@@ -73,8 +73,7 @@ def generate_report(output, source_systems, start_date):
     ou = Factory.get('OU')(database)
     
     logger.info('Start Quarantine Report.')
-    
-    ou2sko = dict((row['ou_id'], ("%02d%02d%02d" % (row['fakultet'], 
+    ou2sko = dict((row['ou_id'], ("%02d%02d%02d" % (row['fakultet'],
                                                     row['institutt'],
                                                     row['avdeling'])))
                                                     for row in ou.get_stedkoder())
@@ -121,7 +120,7 @@ def generate_report(output, source_systems, start_date):
         
         if row_qua['start_date'] > start_date:
             time_if += 1
-            continue
+            continue # quarantine is not old enough, skip
 
         account.clear()
         try:
@@ -135,16 +134,16 @@ def generate_report(output, source_systems, start_date):
             owner_type_if += 1
             continue # Filter out non-personal accounts.
 
-        if account.is_deleted():
+        if account.is_deleted() or account.is_reserved():
             deleted_if += 1
-            continue # Skip deleted accounts.
+            continue # Skip deleted  and reserved accounts.
 
         try:
             disk_id = account.get_home(int(constants.spread_uio_nis_user))['disk_id']
         except NotFoundError:
             # no homedir exists
             continue
-        
+
         if (disk_id and autostud.disk_tool.get_diskdef_by_diskid(disk_id)):
             disk_if += 1
             continue # disk_id refers to a student disk, skip.
@@ -180,7 +179,7 @@ def generate_report(output, source_systems, start_date):
                                     num_quarantines,(time.clock()-t11)))
         
     t2 = time.clock()
-    logger.info('Retrieved %10d quarantines to show in %.2g seconds.'
+    logger.info('Retrieved %10d quarantines to show in %.2f seconds.'
             %(num_quarantines,t2-t11))
 
     #Write html.
@@ -230,7 +229,7 @@ def generate_report(output, source_systems, start_date):
 
     logger.debug('Skipped %10d quaranintes started after %s.' %
                                                             (time_if,start_date))
-    logger.debug('Skipped %10d deleted accounts.' % deleted_if)
+    logger.debug('Skipped %10d deleted and reserved accounts.' % deleted_if)
     logger.debug('Skipped %10d non-personal accounts.' % owner_type_if)
     logger.debug('Skipped %10d accounts on students disks.' % disk_if)
 
@@ -279,8 +278,6 @@ def generate_report(output, source_systems, start_date):
     logger.info('Total CPU time used: %4.2f seconds.' % (t4-t0))
 
 def main():
-    """ 
-    """
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'hs:o:a:',
                 ['start_date=', 'source_systems=', 'output=', 'age='])
@@ -300,10 +297,10 @@ def main():
         elif opt in ('-a', '--age'):
             age = int(val)
             if age < 0:
-                print 'Enter a positive age in months.'
+                print 'Enter a positive age in days.'
                 usage(2)
 
-            start_date = now() + RelativeDateTime(months=-age)
+            start_date = now() + RelativeDateTime(days=-age)
         elif opt in ('--source_systems', ):
             source_systems = val
         elif opt in ('-o', '--output'):
