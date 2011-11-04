@@ -62,20 +62,21 @@ def fetch_all_relevant_accounts(qua_type, since):
         tmp = today - x['start_date']
         since_start = int(tmp.days)
         logger.debug("Days since quarantine started: %s", since_start)
-        if since_start < 0:
-            logger.warning("The quarantine has not started yet, this should not happen")
-            continue
-        if since_start < since:
-            logger.debug("Quarantine not old enough, skipping")
-        elif since_start >= since:
-            logger.debug("Will try to deactivate entity %s", x['subject_entity'])
+        delta = int(since) - since_start
+        if delta <= 0:
+            logger.debug("in range; quarantine %s days old, %s days required", since_start, since)
             account.clear()
             try:
-                account.find(int(x['subject_entity']))
+                account.find(int(x['entity_id']))
             except Errors.NotFoundError:
-                logger.warn("No account %s found, skipping", int(x['subject_entity']))
+                logger.warn("No account %s found, skipping", int(x['entity_id']))
                 continue
             relevant_accounts.append(account)
+            logger.debug("Added %s to deactivate-list", account.account_name)
+        else:
+            logger.debug("Quarantine for %s is only %s days old (should be %s), skipping",
+                         x['entity_id'], since_start, since)
+            continue
     return relevant_accounts
         
 def usage(exitcode=0):
@@ -121,8 +122,10 @@ def main():
 
     if dryrun:
         database.rollback()
+        logger.info("rolled back all changes")
     else:
         database.commit()
+        logger.info("changes commited")
 
 if __name__ == '__main__':
     main()
