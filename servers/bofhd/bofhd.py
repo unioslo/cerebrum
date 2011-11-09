@@ -505,6 +505,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             raise CerebrumError, "NotImplemented: %s" % str(e)
         except TypeError, e:
             if (str(e).find("takes exactly") != -1 or
+                str(e).find("takes at least") != -1 or
                 str(e).find("takes at most") != -1):
                 raise CerebrumError, str(e)
             logger.warn("Unexpected exception", exc_info=1)
