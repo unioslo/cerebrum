@@ -12,6 +12,8 @@ import no.uio.ephorte.xml.XMLUtil;
 /**
  * Represents a pertgkode entry in ephorte
  *
+ * This module is currently not in use
+ *
  * @author rogerha
  *
  **/

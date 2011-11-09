@@ -132,10 +132,13 @@ public class ImportEphorteXML {
         for (Person p : cp.getPersons()) {
             ephorteGW.updatePersonInfo(p);
         }
+	//
+	//  From september 2011 we no longer update permissions
+	//
 	// Update permissions
-        for (Person p : cp.getPersons()) {
-	    ephorteGW.updatePermissions(p);
-        }
+        //for (Person p : cp.getPersons()) {
+	//    ephorteGW.updatePermissions(p);
+        //}
         log.info("Sync done");
     }
 
