@@ -401,7 +401,7 @@ def list_users_for_fronter_export():
             logger.error("Account %s is impersonal, but has lms spread.",
                          account.account_name)
             continue
-        street = zip = city = country = ''
+        addr = street = zip = city = country = ''
         for a in person.get_affiliations():
             if a['affiliation'] == int(const.affiliation_student):
                 tmp = None
@@ -414,6 +414,8 @@ def list_users_for_fronter_export():
                 if addr:
                     address = addr[0]
                     alines = address['address_text'].split("\n")+[""]
+                else:
+                    logger.warning("No addr for user '%s'" % account.account_id)
                 if alines:
                     street = alines[0] + '\n' + alines[1]
                 if str(address['city']):
