@@ -52,6 +52,12 @@ public class XMLUtil {
             Date dB = (Date) b;
             return Person.dayFormat.format(dA).equals(Person.dayFormat.format(dB));
         }
+	if (a instanceof String && a.equals("") && b == null) {
+	    return true;
+	}
+	if (b instanceof String && b.equals("") && a == null) {
+	    return true;
+	}
         return a == b || (a != null && a.equals(b));
     }
 }
