@@ -33,16 +33,20 @@ public class Adresse {
     public boolean equals(Object obj) {
         if (obj instanceof Adresse) {
             Adresse ad = (Adresse) obj;
-            return XMLUtil.equals(adrType, ad.adrType) && XMLUtil.equals(navn, ad.navn)
-                    && XMLUtil.equals(postadr, ad.postadr) && XMLUtil.equals(postnr, ad.postnr)
-                    && XMLUtil.equals(poststed, ad.poststed) && XMLUtil.equals(ePost, ad.ePost)
-                    && XMLUtil.equals(tlf, ad.tlf);
+            return XMLUtil.equals(adrType, ad.adrType) && 
+		// XMLUtil.equals(navn, ad.navn) && 
+		XMLUtil.equals(postadr, ad.postadr) &&
+		XMLUtil.equals(postnr, ad.postnr) && 
+		XMLUtil.equals(poststed, ad.poststed) && 
+		XMLUtil.equals(ePost, ad.ePost) && 
+		XMLUtil.equals(tlf, ad.tlf);
         }
         return super.equals(obj);
     }
 
-    protected Adresse(Person person, String adrType, String navn, String postadr, String postnr,
-            String poststed, String post, String tlf) {
+    protected Adresse(Person person, String adrType, String navn, 
+		      String postadr, String postnr, String poststed, 
+		      String post, String tlf) {
         this.person = person;
         this.adrType = adrType;
         this.navn = navn;
