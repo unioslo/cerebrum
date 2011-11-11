@@ -408,6 +408,9 @@ def list_users_for_fronter_export():
                 tmp = [x["contact_value"] for x in person.get_contact_info(source=const.system_fs, type=const.contact_mobile_phone)]
                 if tmp:
                     mobile = tmp[0]
+                else:
+                    mobile = ''
+                    logger.warning("No mobile for user '%s'" % account.account_name)
                 addr = None
                 addr = person.get_entity_address(source=const.system_fs, type=const.address_post)
 
