@@ -415,6 +415,7 @@ def list_users_for_fronter_export():
                     address = addr[0]
                     alines = address['address_text'].split("\n")+[""]
                 else:
+                    addr = ''
                     logger.warning("No addr for user '%s'" % account.account_name)
                 if alines:
                     street = alines[0] + '\n' + alines[1]
