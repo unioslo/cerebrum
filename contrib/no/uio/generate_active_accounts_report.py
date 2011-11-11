@@ -27,31 +27,31 @@ import getopt
 from Cerebrum import Utils
 from Cerebrum.Utils import Factory
 
-logger = Factory.get_logger("console")
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 ac = Factory.get('Account')(db)
 pr = Factory.get('Person')(db)
 ou = Factory.get('OU')(db)
 
-def usage(msg = None, exit_status = 0):
-    if msg is not None:
-        logger.debug(msg)
+def usage(exit_status = 0):
     print """Usage: %s [options]
     
-    --min [Nr1]     The default vaule for Nr1 is 1. Check the persons
-                    who have more than Nr1 active accounts in Cerebrum.
+    --min [Nr1]       The default vaule for Nr1 is 1. Check the persons
+                      who have more than Nr1 active accounts in Cerebrum.
                        
-    --max [Nr2]     Check the persons who have less than Nr2 active
-                    accounts in Cerebrum.
+    --max [Nr2]       Check the persons who have less than Nr2 active
+                      accounts in Cerebrum.
+
+    --source_systems  Comma separated list of source system will search through.
+                      Defaults to 'SAP,FS'.
                     
-    -o, --output    The file to print the report to. Defaults to screen.
+    -o, --output      The file to print the report to. Defaults to screen.
 
-    --mail-from     The email address setted to send the report as an email.
+    --mail-from       The email address setted to send the report as an email.
 
-    --mail-to       The email address setted to receive the report.
+    --mail-to         The email address setted to receive the report.
                        
-    -h, --help      See this help infomation and exit.
+    -h, --help        See this help infomation and exit.
     
     """ % sys.argv[0]
     
@@ -75,7 +75,6 @@ def checkACaccount(source_systems, minimum, maxmum, outputstream):
     print or file. Return the person_ids whose number of accounts is
     between 'minimum' and 'maxmum'.
     """
-    logger.info("Checking Cerebrum users in active accounts range (%s,%s)" %(minimum,maxmum))
     source_systems = [int(co.AuthoritativeSystem(sys)) for sys in
                       source_systems.split(',')]
     ou2sko = dict((row['ou_id'], "%02d%02d%02d" % (row['fakultet'],
@@ -150,7 +149,6 @@ def checkACaccount(source_systems, minimum, maxmum, outputstream):
             outputstream.write("<td>%s</td>\n" % p['accounts'])
         outputstream.write("</table>\n")
     outputstream.write("</body>\n</html>\n")
-    logger.info("%s" % msg)
     return persons
 
     
@@ -159,9 +157,9 @@ def main():
         opts, args = getopt.getopt(sys.argv[1:], 'ho:',
                                    ['help', 'min=', 'max=',
                                     'mail-to=', 'mail-from=',
-                                    'output='])
+                                    'source_systems=', 'output='])
     except getopt.GetoptError:
-        usage("Argument error!", 1)
+        usage(1)
 
     minimum = 1  
     maxmum = None
@@ -176,11 +174,13 @@ def main():
         elif opt in ('--min'):
             minimum = int(val)
             if minimum < 0:
-                usage("Error: the value of parameter --min should be at least 1", 2)
+                usage(2)
         elif opt in ('--max'):
             maxmum = int(val)
             if maxmum < 0 or maxmum < minimum:
-                usage("Error: the value of parameter --max should be at least 1 and larger than --min", 3)
+                usage(3)
+        elif opt in ('--source_systems'):
+            source_systems = val
         elif opt in ('-o', '--output'):
             outputstream = open(val, 'w')
             outputstream.write("""<html>
@@ -224,7 +224,7 @@ def main():
         elif opt in ('--mail-from'):
             mail_from = val
         else:
-            usage("Error: Unknown parameter '%s'" % opt, 4)
+            usage(4)
     persons = 'These following persons are found in Cerebrum:\n\nperson_id'
     persons += checkACaccount(source_systems, minimum, maxmum, outputstream)
 
@@ -232,7 +232,6 @@ def main():
         outputstream.close()
           
     if mail_to:
-        logger.info("Sending email to %s" % mail_to)
         subject = "Report from check_acctive_account.py"
         Utils.sendmail(mail_to, mail_from, subject, persons)
             
