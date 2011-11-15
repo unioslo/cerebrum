@@ -267,14 +267,6 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         #
         tmp_ret = {}
         for row in self.ac.search(spread=spread):
-            # FIXME: Temporary code. Remove when UiA have finished exchange migration
-            # Don't sync accounts that are being migrated (exchange)
-            self.uname2id[row['name']] = int(row['account_id'])
-            if int(row['account_id']) in self.under_migration:
-                self.logger.debug("Account %s is being migrated in exchange."
-                                  " Not syncing. " % row['account_id'])
-                continue
-            
             tmp_ret[int(row['account_id'])] = {
                 'Exchange' : False,
                 'imap' : False,
@@ -390,7 +382,6 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             else:
                 v['targetAddress'] = ""
         
-
         return userdict_ret
 
 
@@ -503,13 +494,6 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         changelist = []     
 
         for usr, ad_user in adusrs.iteritems():
-            # FIXME: Temporary code. Remove when UiA have finished exchange migration
-            # Don't sync accounts that are being migrated (exchange)
-            entity_id = self.uname2id.get(usr, None)
-            if entity_id and entity_id in self.under_migration:
-                self.logger.debug("User %s is under migration. Skipping" % usr)
-                continue
-
             changes = {}        
             if cerebrumusrs.has_key(usr):
                 cere_user = cerebrumusrs[usr]
@@ -1331,11 +1315,6 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         self.logger.info("Starting user-sync(forwarding_sync = %s, spread = %s, exchange_spread = %s, imap_spread = %s, delete = %s, dry_run = %s, store_sid = %s)" % \
                              (forwarding_sync, spread, exchange_spread, imap_spread, delete, dry_run, store_sid))     
 
-        ## FIXME: Temporary code. Remove when UiA have finished exchange migration
-        # Don't sync accounts with the trait_exchange_under_migration trait
-        self.uname2id = dict()
-        self.under_migration = [int(row['entity_id']) for row in
-                                self.ac.list_traits(code=self.co.trait_exchange_under_migration)]
         #Fetch cerebrum data for users.
         self.logger.debug("Fetching cerebrum user data...")
         cerebrumdump = self.fetch_cerebrum_data(spread, exchange_spread, imap_spread)
