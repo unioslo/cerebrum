@@ -128,26 +128,11 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 except Errors.NotFoundError:
                     continue
 
-                # UiA will migrate users to new Exchange servers. User
-                # will be migrated in batches, and since the attribute
-                # homeMDB is calculated differently for migrated and
-                # non-migrated users we need some extra check here
-                # until migration is completed.
                 mdb_trait = self.ac.get_trait(self.co.trait_exchange_mdb)
-                if self.ac.get_trait(self.co.trait_exchange_migrated):
-                    # Migrated users
-                    v['msExchHomeServerName'] = cereconf.AD_EX_HOME_SERVER
-                    v['homeMDB'] = "CN=%s,%s" % (mdb_trait["strval"],
-                                                 cereconf.AD_EX_HOME_MDB)
-                elif mdb_trait and mdb_trait["strval"]:
-                    # Non-migrated users
-                    v['homeMDB'] = "CN=%s,CN=SG%s,%s" % (mdb_trait["strval"],
-                                                         mdb_trait["strval"].replace("MDB",""),
-                                                         cereconf.AD_EX_MDB_SERVER)
-                else:
-                    v['homeMDB'] = ""
-                    self.logger.error("Error getting homeMDB"
-                                      " for account %s (id: %i)" % (v['TEMPuname'],int(k)))
+                # Migrated users
+                v['msExchHomeServerName'] = cereconf.AD_EX_HOME_SERVER
+                v['homeMDB'] = "CN=%s,%s" % (mdb_trait["strval"],
+                                             cereconf.AD_EX_HOME_MDB)
 
                 equota.clear()
                 equota.find_by_target_entity(v['entity_id'])

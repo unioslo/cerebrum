@@ -1374,7 +1374,7 @@ class BofhdExtension(BofhdCommandBase):
             raise CerebrumError, "Account %s has expired" % account.account_name
         # Check given mdb
         mdb = mdb.strip()
-        if not mdb in cereconf.EXCHANGE_HOMEMDB_VALID_NEW:
+        if not mdb in cereconf.EXCHANGE_HOMEMDB_VALID:
             raise CerebrumError, "Unvalid mdb"
         # Set new mdb value            
         account.populate_trait(self.const.trait_exchange_mdb, strval=mdb)

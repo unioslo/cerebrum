@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002-2010 University of Oslo, Norway
+# Copyright 2002-2011 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -222,17 +222,6 @@ class Constants(Constants.Constants):
         'rej_non_disc',
         Constants.Constants.entity_person,
         "Trait marking a person who has rejected a non-disclosure agreement with UiA.")
-
-    # Need to differ between migrated and non-migrated accounts
-    trait_exchange_migrated = _EntityTraitCode(
-        'exch_migrated', 
-        Constants.Constants.entity_account,
-        "Trait marking for exchange migrated accounts.")
-    # We also need to mark accounts that are being migrated
-    trait_exchange_under_migration = _EntityTraitCode(
-        'under_migration', 
-        Constants.Constants.entity_account,
-        "Trait marking for accounts that are being migrated.")
 
 ## Kommenteres ut foreløpig, er usikkert om vi skal ha dem 
 
