@@ -3,9 +3,9 @@
   <!-- set global properties for this build -->
   <property name="src" location="src"/>
   <property name="build" location="/tmp/ephorte/build"/>
-  <property name="dist"  location="/site/ephorte"/>
-  <property name="axis.lib" location="/site/axis-1_4/lib"/>
-  <property name="ephorte.lib" location="/site/ephorte/lib/"/>
+  <property name="dist"  location="/cerebrum/uio/cereuio/lib/ephorte"/>
+  <property name="axis.lib" location="/cerebrum/uio/cereuio/src/cerebrum_sites/bin/uio/ephorte"/>
+  <property name="ephorte.lib" location="/cerebrum/uio/cereuio/src/cerebrum_sites/bin/uio/ephorte"/>
 
   <path id="classpath">
     <fileset dir="${axis.lib}" includes="*.jar"/>
@@ -21,7 +21,7 @@
   <target name="compile" depends="init"
         description="compile the source">
     <!-- Compile the java code from ${src} into ${build} -->
-    <javac srcdir="${src}" destdir="${build}" classpathref="classpath"/>
+    <javac target="1.5" srcdir="${src}" destdir="${build}" classpathref="classpath"/>
   </target>
 
   <target name="dist" depends="compile"
@@ -36,7 +36,7 @@
             <include name="**/*.java" />
           </fileset>
     </copy>
-    <jar jarfile="${dist}/lib/ephorte.jar" basedir="${build}"/>
+    <jar jarfile="${dist}/ephorte.jar" basedir="${build}"/>
   </target>
 
   <target name="clean" description="clean up">
