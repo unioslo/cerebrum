@@ -111,9 +111,7 @@ def checkACaccount(source_systems, minimum, maxmum, outputstream):
             for row in pr.list_affiliations(person_id=p_id['person_id'],
                                             source_system=source_systems):
                 persons_by_sko.setdefault(ou2sko[row['ou_id']], []).append({
-                    'pid': p_id['person_id'],
                     'name': name,
-                    'birth': pr.birth_date.strftime('%Y-%m-%d'),
                     'sapid': sapid,
                     'accountsnr': len(accs),
                     'accounts': accounts,
@@ -133,18 +131,14 @@ def checkACaccount(source_systems, minimum, maxmum, outputstream):
         outputstream.write("\n<h2>%s - %s</h2>\n" % (sko, sko2name[sko]))
         outputstream.write("<table><thead><tr>")
         outputstream.write("<th>Navn</th>")
-        outputstream.write("<th>person_id</th>")
-        outputstream.write("<th>Ansatt_nr</th>")
-        outputstream.write("<th>Fodselsdato</th>")
-        outputstream.write("<th>Brukere_nr</th>")
-        outputstream.write("<th>Brukere</th>")
+        outputstream.write("<th>Ansattnummer</th>")
+        outputstream.write("<th>Antall brukere</th>")
+        outputstream.write("<th>Brukernavn</th>")
         outputstream.write("</tr></thead>\n")
         for p in persons_by_sko[sko]:
             outputstream.write("\n<tr>\n")
             outputstream.write("<td>%s</td>\n" % p['name'])
-            outputstream.write("<td>%s</td>\n" % p['pid'])
             outputstream.write("<td>%s</td>\n" % p['sapid'])
-            outputstream.write("<td>%s</td>\n" % p['birth'])
             outputstream.write("<td>%s</td>\n" % p['accountsnr'])
             outputstream.write("<td>%s</td>\n" % p['accounts'])
         outputstream.write("</table>\n")
