@@ -222,6 +222,10 @@ class Constants(Constants.Constants):
         'rej_non_disc',
         Constants.Constants.entity_person,
         "Trait marking a person who has rejected a non-disclosure agreement with UiA.")
+    trait_accept_rules = _EntityTraitCode(
+        'accept_rules',
+        Constants.Constants.entity_person,
+        "Trait marking a person who has accepted terms and rule for use og IT services at UiA.")
 
 ## Kommenteres ut foreløpig, er usikkert om vi skal ha dem 
 
