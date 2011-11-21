@@ -371,7 +371,7 @@ class TwistedCerebrumLogger(log.FileLogObserver):
 # unaffected by this hack, but you wouldn't have session-support.
 #
 from twisted.web.server import NOT_DONE_YET
-from twisted.web.wsgi import WSGIResource, _WSGIResponse
+from twisted.web.wsgi import WSGIResource
 
 class WSGIResourceSession(WSGIResource):
     def render(self, request):

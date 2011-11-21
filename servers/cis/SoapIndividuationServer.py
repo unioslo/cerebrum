@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright 2010 University of Oslo, Norway
+# 
+# Copyright 2010, 2011 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -37,7 +37,7 @@ import sys, socket, traceback
 import getopt
 
 import cerebrum_path, cereconf
-from Cerebrum.modules.cis import Individuation, SoapListener
+from Cerebrum.modules.cis import SoapListener
 from Cerebrum.Utils import Messages, dyn_import
 from Cerebrum import Errors
 
@@ -48,13 +48,6 @@ from soaplib.core.model.exception import Fault
 
 from twisted.python import log
 
-try:
-    from twisted.internet import ssl
-    CRYPTO_AVAILABLE = True
-except ImportError:
-    CRYPTO_AVAILABLE = False
-
-
 class Account(ClassModel):
     # FIXME: define namespace properly 
     __namespace__ = 'account'
@@ -64,8 +57,8 @@ class Account(ClassModel):
 
 class IndividuationServer(SoapListener.BasicSoapServer):
     """Defining the SOAP actions that should be available to clients. All
-    those actions are decorated as a rpc, defining what parameters the methods
-    accept, types and what is returned.
+    those actions are decorated as an rpc, defining what parameters the
+    methods accept, types and what is returned.
 
     Note that an instance of this class is created for each incoming call."""
 
