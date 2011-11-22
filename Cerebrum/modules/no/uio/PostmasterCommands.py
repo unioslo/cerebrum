@@ -47,23 +47,37 @@ class Commands:
                 stats.append(self.co.PersonAffStatus(self.co.PersonAffiliation(aff), status))
         return (affs, stats)
 
-    def get_addresses_by_affiliation(self, status, source, ous=None):
-        affs = stats = None
+    def _get_ous(self, skos):
+        """Return ou_ids for given skos. If the sko is not complete, its sub
+        OUs are returned as well."""
+        ou = Factory.get('OU')(self.db)
+        ou_ids = []
+        for sko in skos:
+            ou_ids += [ous['ou_id'] for ous in 
+                             ou.get_stedkoder(fakultet=sko[:2] or None,
+                                              institutt=sko[2:4] or None,
+                                              avdeling=sko[4:6] or None)]
+        return ou_ids
+
+    def get_addresses_by_affiliation(self, status, source, skos=None):
+        affs = stats = ou_ids = None
         if status:
             affs, stats = self._get_aff_status(status)
         if source:
             source = [self.co.AuthoritativeSystem(s) for s in source]
-        if None: 
-            ous     = 'xxx'
+        if skos:
+            ou_ids = self._get_ous(skos)
+            if not ou_ids:
+                raise Errors.CerebrumRPCException('OUs not found')
 
         pe = Factory.get('Person')(self.db)
 
         pe2email = dict(pe.list_primary_email_address(self.co.entity_person))
         rows = []
         if affs:
-            rows += pe.list_affiliations(affiliation=affs)
-        if status:
-            rows += pe.list_affiliations(status=stats)
+            rows += pe.list_affiliations(affiliation=affs, ou_id=ou_ids)
+        if stats:
+            rows += pe.list_affiliations(status=stats, ou_id=ou_ids)
 
         ret = set(pe2email[row['person_id']] for row in rows
                   if pe2email.has_key(row['person_id']))
