@@ -76,7 +76,7 @@ class VirtGroup(Group_class, EntityContactInfo):
                               self.const.group_visibility_all,
                               name,
                               description)
-        self.expire_date = now() + self.DEFAULT_GROUP_LIFETIME
+        #self.expire_date = now() + self.DEFAULT_GROUP_LIFETIME
     # end populate
 
 
