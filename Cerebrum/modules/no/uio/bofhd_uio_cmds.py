@@ -9274,7 +9274,8 @@ Addresses and settings:
         if date:
             tmp = date.split("--")
             if len(tmp) == 2:
-                date_start = self._parse_date(tmp[0])
+                if tmp[0]: # string could start with '--'
+                    date_start = self._parse_date(tmp[0])
                 date_end = self._parse_date(tmp[1])
             elif len(tmp) == 1:
                 date_end = self._parse_date(date)
