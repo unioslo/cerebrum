@@ -46,7 +46,6 @@ from Cerebrum.modules.ad.CerebrumData import CerebrumGroup
 from Cerebrum.modules.ad.CerebrumData import CerebrumDistGroup
 from Cerebrum.modules.ad.ADUtils import ADUserUtils, ADGroupUtils
 from Cerebrum.Utils import unicode2str
-from Cerebrum import Errors
 
 
 class UserSync(ADUserUtils):
@@ -83,7 +82,8 @@ class UserSync(ADUserUtils):
         # Sync settings for this module
         for k in ("user_spread", "user_exchange_spread", "forward_sync",
                   "exchange_sync", "delete_users", "dryrun", "ad_domain",
-                  "ad_ldap", "ad_dc", "store_sid", "create_homedir", "subset"):
+                  "ad_ldap", "ad_dc", "store_sid", "create_homedir", "subset",
+                  "first_run"):
             if k in config_args:
                 setattr(self, k, config_args.pop(k))
                 
@@ -109,6 +109,10 @@ class UserSync(ADUserUtils):
         # Fetch AD-data for users.     
         self.logger.debug("Fetching AD user data...")
         addump = self.fetch_ad_data()
+        # Check if we get any dat from AD.
+        if addump is None or addump is False:
+            self.logger.critical("No data from AD. Something's wrong!")
+            return
         self.logger.info("Fetched %i AD users" % len(addump))
         # Fetch cerebrum data. store in self.accounts
         self.logger.debug("Fetching cerebrum user data...")
@@ -369,6 +373,13 @@ class UserSync(ADUserUtils):
         self.server.setUserAttributes(self.sync_attrs,
                                       cereconf.AD_ACCOUNT_CONTROL)
         ret = self.server.listObjects("user", True, self.ad_ldap)
+        # Check if we get any dat from AD. If no data the AD service
+        # returns None. If we actually expect no data (the option
+        # first_run is given), then we want an empty dict rather than
+        # None
+        if ret is None and self.first_run:
+            ret = dict()
+
         if self.subset:
             tmp = dict()
             for u in self.subset:
@@ -595,7 +606,7 @@ class GroupSync(ADGroupUtils):
             if k in config_args:
                 setattr(self, k, self.co.Spread(config_args[k]))
         for k in ("exchange_sync", "delete_groups", "dryrun", "store_sid",
-                  "ad_ldap", "ad_domain", "subset", "name_prefix"):
+                  "ad_ldap", "ad_domain", "subset", "name_prefix", "first_run"):
             setattr(self, k, config_args[k])
 
         # Set which attrs that are to be compared with AD
@@ -611,6 +622,9 @@ class GroupSync(ADGroupUtils):
         # Fetch AD-data 
         self.logger.debug("Fetching AD group data...")
         addump = self.fetch_ad_data()
+        if addump is None or addump is False:
+            self.logger.critical("No data from AD. Something's wrong!")
+            return
         self.logger.info("Fetched %i AD groups" % len(addump))
 
         #Fetch cerebrum data.
@@ -670,8 +684,14 @@ class GroupSync(ADGroupUtils):
         @rtype: dict
         """
         self.server.setGroupAttributes(self.sync_attrs)
-        return self.server.listObjects('group', True, self.ad_ldap)
-
+        ret = self.server.listObjects('group', True, self.ad_ldap)
+        # Check if we get any dat from AD. If no data the AD service
+        # returns None. If we actually expect no data (the option
+        # first_run is given), then we want an empty dict rather than
+        # None
+        if ret is None and self.first_run:
+            ret = dict()
+        return ret
 
     def fetch_cerebrum_data(self):
         """
@@ -795,7 +815,7 @@ class DistGroupSync(GroupSync):
             if k in config_args:
                 setattr(self, k, self.co.Spread(config_args[k]))
         for k in ("exchange_sync", "delete_groups", "dryrun", "store_sid",
-                  "ad_ldap", "ad_domain", "subset", "name_prefix"):
+                  "ad_ldap", "ad_domain", "subset", "name_prefix", "first_run"):
             setattr(self, k, config_args[k])
 
         # Set which attrs that are to be compared with AD
@@ -811,6 +831,9 @@ class DistGroupSync(GroupSync):
         # Fetch AD-data 
         self.logger.debug("Fetching AD group data...")
         addump = self.fetch_ad_data()
+        if addump is None or addump is False:
+            self.logger.critical("No data from AD. Something's wrong!")
+            return
         self.logger.info("Fetched %i AD groups" % len(addump))
 
         #Fetch cerebrum data.
@@ -871,6 +894,12 @@ class DistGroupSync(GroupSync):
         attrs = cereconf.AD_DIST_GRP_ATTRIBUTES + tuple(cereconf.AD_DIST_GRP_DEFAULTS.keys())
         self.server.setGroupAttributes(attrs)
         ad_dist_grps = self.server.listObjects('group', True, self.ad_ldap)
+        # Check if we get any dat from AD. If no data the AD service
+        # returns None. If we actually expect no data (the option
+        # first_run is given), then we want an empty dict rather than
+        # None
+        if ad_dist_grps is None and self.first_run:
+            return ret
         if ad_dist_grps:
             # Only deal with distribution groups. Groupsync deals with security groups.
             dist_group_types = ('2', # Global distribution group
