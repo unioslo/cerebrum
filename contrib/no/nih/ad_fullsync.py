@@ -50,6 +50,7 @@ Usage: [options]
   --delete: if user-sync: Should obsolete users be disabled or deleted? 
             if group-sync: Should superfluous groups be deleted?
   --subset: Only sync users/groups from given subset
+  --first-run: Signals that no data from AD is ok
   --logger-level LEVEL: default is INFO
   --logger-name NAME: default is console
 
@@ -75,7 +76,7 @@ def main():
             "store-sid", "user-sync", "forward-sync", "sec-group-sync",
             "dist-group-sync", "exchange-sync", "user-spread=",
             "sec-group-spread=", "dist-group-spread=", "user-exchange-spread=",
-            "subset=", "logger-level=", "logger-name="])
+            "subset=", "first-run", "logger-level=", "logger-name="])
 
     except getopt.GetoptError, e:
         print e
@@ -99,7 +100,8 @@ def main():
                    "store_sid": False,
                    "forward_sync": False,
                    "exchange_sync": False,
-                   "subset": []}
+                   "subset": [],
+                   "first_run": False}
     
     for opt, val in opts:
         # General options
@@ -123,6 +125,8 @@ def main():
             except IOError:
                 names = [f.strip() for f in val.split(",")]
             config_args["subset"] = names
+        elif opt in ("--first-run"):
+            config_args["first_run"] = True
         elif opt == "--logger-name":
             logger_name = val
         elif opt == "--logger-level":
