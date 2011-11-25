@@ -138,14 +138,14 @@ public class EphorteGW {
         }
 
 	// setup is a static method
-	PersonTgKode.setup(conn.getDataSet("object=admindel", "AdminDel"));
+	// PersonTgKode.setup(conn.getDataSet("object=admindel", "AdminDel"));
 	// Find person permissions
-        for (Hashtable<String, String> ht : conn.getDataSet("object=pertgkode", "PerTGKode")) {
-            Person p = personId2Person.get(Integer.parseInt(ht.get("PT_PEID_PE")));
-            if (p == null)
-                continue;
-            p.addTgKode(ht);
-        }
+        // for (Hashtable<String, String> ht : conn.getDataSet("object=pertgkode", "PerTGKode")) {
+        //     Person p = personId2Person.get(Integer.parseInt(ht.get("PT_PEID_PE")));
+        //     if (p == null)
+        //         continue;
+        //     p.addTgKode(ht);
+        // }
 
         // if (log.isDeqbugEnabled()) {
         //     log.debug("Parsed persons from ePhorte:");
@@ -396,6 +396,8 @@ public class EphorteGW {
     }
 
     /**
+     * This method is no longer in use
+     *
      * This method is always called after persons and roles have been
      * updated. 
      *
@@ -439,6 +441,7 @@ public class EphorteGW {
 	}
     }
 
+    // This method is no longer in use
     private boolean updateTgKoder(XMLUtil xml, Person p) {
         boolean isDirty = false;
         Person oldPerson = getPerson(p);
