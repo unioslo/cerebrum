@@ -67,8 +67,8 @@ class PostmasterServer(SoapListener.BasicSoapServer):
         except KeyboardInterrupt: # don't catch signals like ctrl+c
             raise
         except Errors.CerebrumRPCException, e:
-            msg = self.cache['msgs'][e.args[0]] % e.args[1:]
-            raise Fault(faultstring=e.__doc__ + ': ' + msg)
+            #msg = self.cache['msgs'][e.args[0]] % e.args[1:]
+            raise Fault(faultstring=e.__doc__ + ': ' + e.message)
         except Fault, e:
             raise e
         except Exception, e:
@@ -84,13 +84,14 @@ class PostmasterServer(SoapListener.BasicSoapServer):
             if hasattr(self, 'cere_obj'):
                 del self.cere_obj
 
-    @rpc(Array(String), Array(String), _returns=Array(String))
-    def get_addresses_by_affiliation(self, status=None, source=None):
+    @rpc(Array(String), Array(String), Array(String), _returns=Array(String))
+    def get_addresses_by_affiliation(self, status=None, skos=None, source=None):
         """Get primary e-mail addresses for persons that match given
         criterias."""
         if not source and not status:
             raise Fault(faultstring='CerebrumRPCException: Input needed')
         return self.cere_obj.get_addresses_by_affiliation(status=status,
+                                                          skos=skos,
                                                           source=source)
 
 def usage(exitcode=0):
@@ -103,6 +104,10 @@ Fire up the Postmaster's webservice.
   --interface   What interface the server should listen to (default: 0.0.0.0)
 
   --logfile     Where to log
+
+  --fingerprints A comma separated list of certificate fingerprints. If this
+                is set, client certificates that doesn't generate fingerprints
+                which are in this list gets blocked from the service.
 
   --instance    The Cerebrum instance which should be used. E.g:
                     Cerebrum.modules.no.uio.PostmasterCommands/Commands
@@ -117,13 +122,14 @@ if __name__ == '__main__':
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'h',
                                    ['port=', 'unencrypted', 'logfile=',
-                                    'help', 'instance=', 'interface='])
+                                    'help', 'fingerprints=', 'instance=',
+                                    'interface='])
     except getopt.GetoptError, e:
         print e
         usage(1)
 
     use_encryption = True
-    port = logfilename = interface = instance = None
+    port = logfilename = interface = instance = fingerprints = None
 
     for opt, val in opts:
         if opt in ('--logfile',):
@@ -134,6 +140,8 @@ if __name__ == '__main__':
             use_encryption = False
         elif opt in ('--instance',):
             instance = val
+        elif opt in ('--fingerprints',):
+            fingerprints = val.split(',')
         elif opt in ('--interface',):
             interface = val
         elif opt in ('-h', '--help'):
@@ -153,13 +161,11 @@ if __name__ == '__main__':
     private_key_file  = None
     certificate_file  = None
     client_ca         = None
-    fingerprints      = None
 
     if use_encryption:
         private_key_file  = cereconf.SSL_PRIVATE_KEY_FILE
         certificate_file  = cereconf.SSL_CERTIFICATE_FILE
-        client_ca         = cereconf.INDIVIDUATION_CLIENT_CA
-        fingerprints      = getattr(cereconf, 'INDIVIDUATION_CLIENT_FINGERPRINTS', None)
+        client_ca         = [cereconf.SSL_CERTIFICATE_FILE,]
     if interface:
         SoapListener.TwistedSoapStarter.interface = interface
 
