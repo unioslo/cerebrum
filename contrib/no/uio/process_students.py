@@ -154,8 +154,8 @@ class AccountUtil(object):
                 # but name_full will exist.
                 last_name = person.get_name(const.system_cached, const.name_full)
                 assert last_name.count(' ') == 0
-                uname = account.suggest_unames(const.account_namespace,
-                                               first_name, last_name)[0]
+            uname = account.suggest_unames(const.account_namespace,
+                                           first_name, last_name)[0]
         logger.info("uname %s will be used", uname) 
         account.populate(uname,
                          const.entity_person,
