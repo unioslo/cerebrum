@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 #
-# Copyright 2007-2010 University of Oslo, Norway
+# Copyright 2007-2011 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -238,6 +238,12 @@ class SAPConstants(Constants.Constants):
     sap_1136_driftstekniker = SAPLonnsTittelKode(
         "20001136",
         "1136 Driftstekniker",
+        "ØVR"
+    )
+
+    sap_1181_senioringenior = SAPLonnsTittelKode(
+        "20001181",
+        "1181 Senioringeniør",
         "ØVR"
     )
 
