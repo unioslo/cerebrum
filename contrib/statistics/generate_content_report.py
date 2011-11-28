@@ -176,15 +176,19 @@ def generate_person_statistics(output_stream):
     result = db.query("""SELECT person_id
                          FROM [:table schema=cerebrum name=person_info]
                          EXCEPT
-                         SELECT pn1.person_id
+                         SELECT pn1.person_id 
                          FROM [:table schema=cerebrum name=person_name] pn1,
                               [:table schema=cerebrum name=person_name] pn2
                          WHERE
+                              pn1.source_system not in (:system_fs, :system_sap) AND
                               pn1.person_id = pn2.person_id AND
                               pn1.name_variant = :firstname AND
                               pn2.name_variant = :lastname
                          """, {"firstname": int(const.name_first),
-                               "lastname": int(const.name_last)})
+                               "lastname": int(const.name_last),
+                               "system_fs": int(const.system_fs),
+                               "system_sap": int(const.system_sap),
+                               })
 
     present_entity_results(output_stream, result,
                     "Number of people lacking both first and last name")
@@ -398,7 +402,7 @@ def generate_cerebrum_numbers(output_stream):
                          """)
     present_single_result(output_stream, result, "Number of persons")
     # ... per affiliation...
-    result = db.query("""SELECT pac.code_str, count(*)
+    result = db.query("""SELECT pac.code_str, count(distinct pa.person_id)
                          FROM [:table schema=cerebrum name=person_affiliation] pa,
                               [:table schema=cerebrum name=person_affiliation_code] pac
                          WHERE pa.affiliation = pac.code
@@ -407,7 +411,7 @@ def generate_cerebrum_numbers(output_stream):
                          """)
     present_grouped_results(output_stream, result, "- distributed by affiliation")
     # ... and by affiliation status
-    result = db.query("""SELECT pac.code_str, pasc.status_str, count(*)
+    result = db.query("""SELECT pac.code_str, pasc.status_str, count(distinct pas.person_id)
                          FROM [:table schema=cerebrum name=person_affiliation_source] pas,
                               [:table schema=cerebrum name=person_affiliation_code] pac,
                               [:table schema=cerebrum name=person_aff_status_code] pasc
@@ -495,7 +499,7 @@ def main(argv=None):
     try:
         opts, args = getopt.getopt(argv[1:],
                                    "haef:dns",
-                                   ["help", "all", "entities", "file",
+                                   ["help", "all", "entities", "file=",
                                     "details", "numbers", "sap_names"])
     except getopt.GetoptError, error:
         usage(message=error.msg)
