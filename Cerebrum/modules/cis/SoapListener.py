@@ -287,7 +287,8 @@ class TwistedSoapStarter(BasicSoapStarter):
         """Setting up the reactor with encryption and certificate
         authentication."""
         sslcontext = ssl.DefaultOpenSSLContextFactory(private_key_file,
-                                                      certificate_file)
+                                                      certificate_file,
+                                                      SSL.TLSv1_METHOD)
         ctx = sslcontext.getContext()
         self.add_certificates(ctx, client_ca)
         # TODO: can ctx.set_verify_depth(<int>) be used to avoid having to
