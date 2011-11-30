@@ -390,10 +390,13 @@ class VoipAddress(EntityAuthentication, EntityTrait):
 
         result = dict()
         # uid
-        account_id = owner.get_primary_account()
-        acc = Factory.get("Account")(self._db)
-        acc.find(account_id)
-        result["uid"] = acc.account_name
+        try:
+            account_id = owner.get_primary_account()
+            acc = Factory.get("Account")(self._db)
+            acc.find(account_id)
+            result["uid"] = acc.account_name
+        except Errors.NotFoundError:
+            result["uid"] = None
 
         # ALL unames must go into 'voipSipUri'. And so must all e-mail
         # addresses. 
@@ -405,16 +408,17 @@ class VoipAddress(EntityAuthentication, EntityTrait):
                 result["voipSipUri"].append(mangled)
 
         # mail - primary e-mail address.
-        try:
-            et = Email.EmailTarget(self._db)
-            et.find_by_target_entity(acc.entity_id)
-            epat = Email.EmailPrimaryAddressTarget(self._db)
-            epat.find(et.entity_id)
-            ea = Email.EmailAddress(self._db)
-            ea.find(epat.get_address_id())
-            result["mail"] = ea.get_address()
-        except Errors.NotFoundError:
-            result["mail"] = None
+        if result['uid']:
+            try:
+                et = Email.EmailTarget(self._db)
+                et.find_by_target_entity(acc.entity_id)
+                epat = Email.EmailPrimaryAddressTarget(self._db)
+                epat.find(et.entity_id)
+                ea = Email.EmailAddress(self._db)
+                ea.find(epat.get_address_id())
+                result["mail"] = ea.get_address()
+            except Errors.NotFoundError:
+                result["mail"] = None
 
         # cn - grab system cached
         try:
