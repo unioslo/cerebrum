@@ -84,6 +84,23 @@ class BofhdAuth(auth.BofhdAuth):
                 return True
         raise PermissionDenied("Not allowed to set trait")
 
+    def can_get_contact_info(self, operator, person=None, contact_type=None,
+                             query_run_any=False):
+        """If an operator is allowed to see contact information for a given
+        person, i.e. phone numbers."""
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            return True
+        account = Factory.get('Account')(self._db)
+        account.find(operator)
+        if person.entity_id == account.owner_id:
+            return True
+        if (hasattr(cereconf, 'BOFHD_VOIP_ADMINS') and 
+            self.is_group_member(operator, cereconf.BOFHD_VOIP_ADMINS)):
+                return True
+        raise PermissionDenied("Not allowed to see contact info")
+
     def can_email_address_delete(self, operator_id, account=None, domain=None,
                                  query_run_any=False):
         """Checks if the operator can delete an address in a given domain.

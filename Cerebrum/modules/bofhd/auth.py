@@ -554,6 +554,20 @@ class BofhdAuth(DatabaseAccessor):
             return False
         raise PermissionDenied("Not authorized to view student info")
 
+    def can_get_contact_info(self, operator, person=None, contact_type=None,
+                             query_run_any=False):
+        """If an operator is allowed to see contact information for a given
+        person, i.e. phone numbers."""
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            return True
+        account = Factory.get('Account')(self._db)
+        account.find(operator)
+        if person.entity_id == account.owner_id:
+            return True
+        raise PermissionDenied("Not allowed to see contact info")
+
     def can_create_person(self, operator, ou=None, affiliation=None,
                           query_run_any=False):
         if (self.is_superuser(operator) or

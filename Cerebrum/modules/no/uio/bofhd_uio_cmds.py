@@ -6914,15 +6914,6 @@ Addresses and settings:
                 data.append({'fnr': row['external_id'],
                              'fnr_src': str(
                     self.const.AuthoritativeSystem(row['source_system']))})
-            # Show contact info
-            for row in person.get_contact_info():
-                if row['contact_type'] in (self.const.contact_phone,
-                                           self.const.contact_mobile_phone,
-                                           self.const.contact_phone_private,
-                                           self.const.contact_private_mobile):
-                    data.append({'contact': row['contact_value'],
-                                 'contact_src': str(self.const.AuthoritativeSystem(row['source_system'])),
-                                 'contact_type': str(self.const.ContactInfo(row['contact_type']))})
             # Show external id from FS and SAP
             for extid in (self.const.externalid_sap_ansattnr,
                           self.const.externalid_studentnr):
@@ -6930,6 +6921,21 @@ Addresses and settings:
                     data.append({'extid': row['external_id'],
                                  'extid_src': str(
                         self.const.AuthoritativeSystem(row['source_system']))})
+        # Show contact info
+        for row in person.get_contact_info():
+            if row['contact_type'] not in (self.const.contact_phone,
+                                           self.const.contact_mobile_phone,
+                                           self.const.contact_phone_private,
+                                           self.const.contact_private_mobile):
+                continue
+            try:
+                if self.ba.can_get_contact_info(operator.get_entity_id(),
+                        person=person, contact_type=row['contact_type']):
+                    data.append({'contact': row['contact_value'],
+                                 'contact_src': str(self.const.AuthoritativeSystem(row['source_system'])),
+                                 'contact_type': str(self.const.ContactInfo(row['contact_type']))})
+            except PermissionDenied:
+                continue
         return data
 
     # person set_id
