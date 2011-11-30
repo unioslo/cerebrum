@@ -83,14 +83,16 @@ def usage(exitcode=0):
     -q, --quarantine: quarantine type, i.e. quarantine_generell
     -s, --since:      nr of days since quarantine started 
     -d, --dryrun:     do a roll-back in stead of writing to the database
+    -h, --help:       show this and quit
     """
     sys.exit(exitcode)
     
 def main():
     options, junk = getopt.getopt(sys.argv[1:],
-                                  "q:s:d",
+                                  "q:s:dh",
                                   ("quarantine=",
                                    "dryrun",
+                                   "help",
                                    "since=",))
     dryrun = False
     # default quarantine type
@@ -105,6 +107,8 @@ def main():
             dryrun = True
         elif option in ("-s", "--since",):
             since = value
+        elif option in ("-h", "--help",):
+            usage()
         else:
             usage()
     
