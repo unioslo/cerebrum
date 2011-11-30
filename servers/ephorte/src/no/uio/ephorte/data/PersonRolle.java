@@ -81,7 +81,7 @@ public class PersonRolle {
 	if (tittel == null || tittel.isEmpty()) {
 	    String ouDescr = id2stedAkronym.get(adminDel);
 	    tittel = id2rolleBeskrivelse.get(rolleId) + " " + ouDescr + 
-		", " + arkivDel;
+		" " + arkivDel;
 	}
         this.tittel = tittel;
         this.arkivDel = arkivDel;
