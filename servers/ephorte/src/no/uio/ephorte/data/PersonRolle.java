@@ -74,15 +74,19 @@ public class PersonRolle {
         if (tmp == null)
             throw new BadDataException("Illegal sko: " + sko);
         adminDel = tmp;
+	// this patch seems to have caused some trouble and we will 
+        // therefore revert it until we can find out more about how 
+        // better role titles can be created.
+        // Jazz, 2011-12-02
 	// The web service sets the title automagically if empty, but
 	// we want to set it explicitly to avvoid an error which occur
 	// if a person has two roles where rolletype and adminDel is
 	// the same, but arkivdel and journalenhet differs.
-	if (tittel == null || tittel.isEmpty()) {
-	    String ouDescr = id2stedAkronym.get(adminDel);
-	    tittel = id2rolleBeskrivelse.get(rolleId) + " " + ouDescr + 
-		" " + arkivDel;
-	}
+	//if (tittel == null || tittel.isEmpty()) {
+	//    String ouDescr = id2stedAkronym.get(adminDel);
+	//    tittel = id2rolleBeskrivelse.get(rolleId) + " " + ouDescr + 
+	//	" " + arkivDel;
+	// }
         this.tittel = tittel;
         this.arkivDel = arkivDel;
         this.journalEnhet = journalEnhet;
