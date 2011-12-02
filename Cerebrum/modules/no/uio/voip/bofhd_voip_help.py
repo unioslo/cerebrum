@@ -46,6 +46,7 @@ command_help = {
         "voip_client_sip_enabled": "Change sipEnabled attribute of a voip_client.",
         "voip_client_secrets_reset": "Reset sip*Secret for a voip_client.",
         "voip_client_new_secret": "Set a new sipSecret for a voip_client.",
+        "voip_client_set_info_code": "Set a new info code for a voip_client.",
 
         "voip_address_change_pin": "Change pin code for a voip address.",
         "voip_address_list_contact_codes":
