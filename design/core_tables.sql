@@ -409,7 +409,7 @@ GRANT SELECT ON entity_name TO read_entity;
 category:main/Oracle;
 GRANT INSERT, UPDATE, DELETE ON entity_name TO change_entity;
 category:main;
-CREATE INDEX eln_entity_id_index ON entity_language_name_(entity_id);
+CREATE INDEX eln_entity_id_index ON entity_language_name(entity_id);
 category:main;
 CREATE INDEX eln_name_variant_index ON entity_language_name(name_variant);
 category:main;
