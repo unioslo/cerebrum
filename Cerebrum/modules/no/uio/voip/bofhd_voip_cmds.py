@@ -943,6 +943,25 @@ class BofhdVoipCommands(BofhdCommandBase):
 
 
 
+    all_commands["voip_client_set_info_code"] = Command(
+        ("voip", "client_set_info_code"),
+        VoipClientParameter(),
+        VoipClientInfoCode())
+    def voip_client_set_info_code(self, operator, designation, new_info):
+        """Change client_info for a specified client."""
+        
+        self.ba.can_alter_voip_client(operator.get_entity_id())
+
+        ci = self._get_constant(new_info, self.const.VoipClientInfoCode)
+
+        client = self._get_voip_client(designation)
+        if client.client_type != self.const.voip_client_type_hardphone:
+            raise CerebrumError("Can only change hardphones.")
+
+        client.client_info = ci
+        client.write_db()
+        return "OK, changed for voipClient id=%s" % client.entity_id
+
     all_commands["voip_client_sip_enabled"] = Command(
         ("voip", "client_sip_enabled"),
         VoipClientParameter(),
