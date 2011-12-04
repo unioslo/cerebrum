@@ -87,6 +87,10 @@ public class PersonRolle {
 	//   tittel = id2rolleBeskrivelse.get(rolleId) + " " + ouDescr + 
 	//	" " + arkivDel;
 	//}
+	// trying to make sure that the role title is re-written even
+	// if a title is previously registered, Jazz: 2011-12-03
+	String ouDescr = id2stedAkronym.get(adminDel);                                                            
+	tittel = id2rolleBeskrivelse.get(rolleId) + " " + ouDescr + " " + arkivDel;      
 	this.tittel = tittel;
         this.arkivDel = arkivDel;
         this.journalEnhet = journalEnhet;
