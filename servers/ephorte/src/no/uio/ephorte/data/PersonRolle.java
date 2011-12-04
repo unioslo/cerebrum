@@ -87,8 +87,7 @@ public class PersonRolle {
 	//   tittel = id2rolleBeskrivelse.get(rolleId) + " " + ouDescr + 
 	//	" " + arkivDel;
 	//}
-	String ouDescr = id2stedAkronym.get(adminDel);
-        this.tittel = id2rolleBeskrivelse.get(rolleId) + " " + ouDescr + " " + arkivDel;
+	this.tittel = tittel
         this.arkivDel = arkivDel;
         this.journalEnhet = journalEnhet;
         fraDato = new Date();
