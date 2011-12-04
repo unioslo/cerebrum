@@ -82,12 +82,13 @@ public class PersonRolle {
 	// we want to set it explicitly to avvoid an error which occur
 	// if a person has two roles where rolletype and adminDel is
 	// the same, but arkivdel and journalenhet differs.
-	if (tittel == null || tittel.isEmpty()) {
-	    String ouDescr = id2stedAkronym.get(adminDel);
-	    tittel = id2rolleBeskrivelse.get(rolleId) + " " + ouDescr + 
-		"," + arkivDel;
-	}
-        this.tittel = tittel;
+	//if (tittel == null || tittel.isEmpty()) {
+	//   String ouDescr = id2stedAkronym.get(adminDel);
+	//   tittel = id2rolleBeskrivelse.get(rolleId) + " " + ouDescr + 
+	//	" " + arkivDel;
+	//}
+	String ouDescr = id2stedAkronym.get(adminDel);
+        this.tittel = id2rolleBeskrivelse.get(rolleId) + " " + ouDescr + " " + arkivDel;
         this.arkivDel = arkivDel;
         this.journalEnhet = journalEnhet;
         fraDato = new Date();
