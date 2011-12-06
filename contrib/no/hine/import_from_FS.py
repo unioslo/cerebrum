@@ -34,14 +34,10 @@ from Cerebrum.modules.no.hine.access_FS import FS
 from Cerebrum.Utils import Factory
 
 basefsdir = pj("/cerebrum", "hine", "dumps", "FS")
-
 default_ou_file = pj(basefsdir, "ou.xml")
 
 xml = XMLHelper()
 fs = None
-
-KiB = 1024
-MiB = KiB**2
 
 def _ext_cols(db_rows):
     # TBD: One might consider letting xmlify_dbrow handle this
@@ -49,6 +45,7 @@ def _ext_cols(db_rows):
     if db_rows:
         cols = list(db_rows[0].keys())
     return cols, db_rows
+
 
 def write_ou_info(outfile):
     """Lager fil med informasjon om alle OU-er"""
@@ -108,7 +105,7 @@ def usage(exitcode=0):
     sys.exit(exitcode)
 
 
-def assert_connected(user="CEREBRUM", service="FSHINE.uio.no"):
+def assert_connected():
     global fs
     if fs is None:
         fs = Factory.get('FS')()
@@ -118,17 +115,18 @@ def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], "o",
                    ["ou-file="])
-    except getopt.GetoptError:
+    except getopt.GetoptError, ge:
+        print ge
         usage()
         sys.exit(2)
 
     ou_file = default_ou_file
     for o, val in opts:
-        elif o in ('--ou-file',):
+        if o in ('--ou-file',):
             ou_file = val
-    assert_connected(user=db_user, service=db_service)
+    assert_connected()
     for o, val in opts:
-        elif o in ('-o',):
+        if o in ('-o',):
             write_ou_info(ou_file)
 
  
