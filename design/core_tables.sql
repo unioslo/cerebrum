@@ -982,12 +982,6 @@ CREATE TABLE ou_info
 		  CHECK (entity_type = [:get_constant name=entity_ou]),
   ou_id		NUMERIC(12,0)
 		CONSTRAINT ou_info_pk PRIMARY KEY,
-  name		CHAR VARYING(512)
-		NOT NULL,
-  acronym	CHAR VARYING(15),
-  short_name	CHAR VARYING(30),
-  display_name	CHAR VARYING(80),
-  sort_name	CHAR VARYING(80),
   CONSTRAINT ou_info_entity_id
     FOREIGN KEY (entity_type, ou_id)
     REFERENCES entity_info(entity_type, entity_id)
