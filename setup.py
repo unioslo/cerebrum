@@ -447,6 +447,10 @@ data_files = [
       'owner': cerebrum_user,
       'mode': 0755},
      [('contrib/no/nih/*.py', 0755)]),
+    ({'path': "%s/cerebrum/contrib/no/hine" % sharedir,
+      'owner': cerebrum_user,
+      'mode': 0755},
+     [('contrib/no/hine/*.py', 0755)]),
     ({'path': "%s/cerebrum/contrib/no/hist" % sharedir,
       'owner': cerebrum_user,
       'mode': 0755},
@@ -535,6 +539,7 @@ setup (name = "Cerebrum", version = Cerebrum.__version__,
                    'Cerebrum/modules/no/hiof',
                    'Cerebrum/modules/no/nmh',
                    'Cerebrum/modules/no/nih',
+                   'Cerebrum/modules/no/hine',
                    'Cerebrum/modules/no/ntnu',
                    'Cerebrum/modules/no/ntnu/AutoStud',
                    'Cerebrum/modules/no/ntnu/abcenterprise',
@@ -563,5 +568,3 @@ setup (name = "Cerebrum", version = Cerebrum.__version__,
                    'sdist': my_sdist,
                    'test': test}
       )
-
-# arch-tag: 9be53bbd-d5f4-4bcd-bcca-34d123099623
