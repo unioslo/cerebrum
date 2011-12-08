@@ -112,7 +112,13 @@ def hex_escape_match(match):
 def entry_string(dn, attrs, add_rdn = True):
     """Return a string with an LDIF entry with the specified DN and ATTRS.
 
-    If <add_rdn>, add the values in the rdn to the attributes if necessary."""
+    DN is the entry name: A string 'rdn (i.e. relative DN),parent DN'.
+    ATTRS is a dict {attribute name: value or sequence of values}.
+
+    If ADD_RDN, add the values in the rdn to the attributes if necessary.
+    This feature is rudimentary:  Fails with \+ and \, in the DN.  Considers
+    attr names case-sensitive, attr values as caseIgnore Directory Strings."""
+
     if add_rdn:
         attrs = attrs.copy()
         # DN = RDN or "RDN,parentDN".  RDN = "attr=rval+attr=rval+...".
@@ -123,36 +129,45 @@ def entry_string(dn, attrs, add_rdn = True):
             if old is not rval:
                 # The attribute already exists.  Insert rval if needed.
                 norm = normalize_string(rval)
-                if type(old) in (tuple,list):
+                tp = type(old)
+                if tp in _attrval_seqtypes:
                     for val in old:
                         if normalize_string(val) == norm:
                             break
                     else:
-                        attrs[attr] = (rval,) + tuple(old)
+                        attrs[attr] = vals = list(_attrval2iter[tp](old))
+                        vals.insert(0, rval)
                 elif normalize_string(old) != norm:
                     attrs[attr] = (rval, old)
+
     need_b64 = needs_base64
     if need_b64(dn):
         result = ["dn:: ", _base64encode(dn)]
     else:
         result = ["dn: ", dn, "\n"]
+
     extend = result.extend
     attrs = attrs.items()
     attrs.sort()         # not necessary, but minimizes changes in file
     for attr, vals in attrs:
-        if type(vals) in (set,tuple,list):
-            for val in vals:
-                if attr in base64_attrs or need_b64(val):
-                    extend((attr, ":: ", _base64encode(val)))
-                else:
-                    extend((attr, ": ", val, "\n"))
-        elif vals <> None:
-            if attr in base64_attrs or need_b64(vals):
-                    extend((attr, ":: ", _base64encode(vals)))
+        for val in _attrval2iter[type(vals)](vals):
+            if attr in base64_attrs or need_b64(val):
+                extend((attr, ":: ", _base64encode(val)))
             else:
-                extend((attr, ": ", vals, "\n"))
+                extend((attr, ": ", val, "\n"))
+
     result.append("\n")
     return "".join(result)
+
+# For entry_string() attrs: map {type: function producing sequence/iterator}
+_attrval_seqtypes = (tuple, list, set, frozenset)
+_attrval2iter = {
+    tuple:      tuple,
+    list:       iter,
+    set:        sorted, # sorting but minimizes changes in the output file
+    frozenset:  sorted,
+    str:        (lambda *args: args),
+    type(None): (lambda arg: ())}
 
 def container_entry_string(tree_name, attrs = {}, module=cereconf):
     """Return a string with an LDIF entry for the specified container entry."""
