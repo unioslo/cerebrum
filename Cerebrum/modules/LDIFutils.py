@@ -177,6 +177,20 @@ def container_entry_string(tree_name, attrs = {}, module=cereconf):
     return entry_string(ldapconf(tree_name, 'dn', module=module), entry)
 
 
+class LDIFWriter(object):
+    """Wrapper around ldif_outfile with a minimal but sane API."""
+    def __init__(self, tree, filename, module=cereconf):
+        self.f = ldif_outfile(tree, filename=filename, module=module)
+        self.write, self.tree, self.module = self.f.write, tree, module
+
+    #def write(): This is (currently) implemented via an attribute.
+
+    def write_container(self, tree=None):
+        self.write(container_entry_string(tree or self.tree,module=self.module))
+
+    def close(self):
+        end_ldif_outfile(self.tree, self.f, module=self.module)
+
 def ldif_outfile(tree, filename=None, default=None, explicit_default=False,
                  max_change=None, module=cereconf):
     """(Open and) return LDIF outfile for <tree>.
