@@ -114,25 +114,23 @@ def entry_string(dn, attrs, add_rdn = True):
 
     If <add_rdn>, add the values in the rdn to the attributes if necessary."""
     if add_rdn:
+        attrs = attrs.copy()
+        # DN = RDN or "RDN,parentDN".  RDN = "attr=rval+attr=rval+...".
         for ava in dn.split(',', 1)[0].split('+'):
-            ava = ava.split('=', 1)
-            ava[1] = dn_escaped_re.sub(unescape_match, ava[1])
-            old = attrs.get(ava[0])
-            if old:
-                norm = normalize_string(ava[1])
+            attr, rval = ava.split('=', 1)
+            rval = dn_escaped_re.sub(unescape_match, rval)
+            old = attrs.setdefault(attr, rval)
+            if old is not rval:
+                # The attribute already exists.  Insert rval if needed.
+                norm = normalize_string(rval)
                 if type(old) in (tuple,list):
                     for val in old:
                         if normalize_string(val) == norm:
                             break
-                        else:
-                            attrs[ava[0]] = (ava[1],) + tuple(old)
-                else:
-                    if normalize_string(old) == norm:
-                        break
                     else:
-                        attrs[ava[0]] = (ava[1], old)
-            else:
-                attrs[ava[0]] = (ava[1],)
+                        attrs[attr] = (rval,) + tuple(old)
+                elif normalize_string(old) != norm:
+                    attrs[attr] = (rval, old)
     need_b64 = needs_base64
     if need_b64(dn):
         result = ["dn:: ", _base64encode(dn)]
