@@ -22,27 +22,21 @@ import time
 from Cerebrum.modules.no import access_FS
 
 class HINEStudieInfo(access_FS.StudieInfo):
-    pass
-
-
-##     # In time, we'll probably just be retrieving OUs with defined
-##     # stedkode_konv, but for now, use the super-class variant that
-##     # grabs all OUs
-##     def list_ou(self, institusjonsnr=0): # GetAlleOUer
-##         """Hent data om stedskoder registrert i FS"""
-##         qry = """
-##         SELECT DISTINCT
-##           institusjonsnr, faknr, instituttnr, gruppenr, stedakronym,
-##           stednavn_bokmal, faknr_org_under, instituttnr_org_under,
-##           gruppenr_org_under, adrlin1, adrlin2, postnr, adrlin3,
-##           stedkortnavn, telefonnr, faxnr, adrlin1_besok, emailadresse,
-##           adrlin2_besok, postnr_besok, url, bibsysbeststedkode,
-##           stedkode_konv
-##         FROM fs.sted
-##         WHERE institusjonsnr=%s AND
-##           stedkode_konv IS NOT NULL
-##         """ % self.institusjonsnr
-##         return self.db.query(qry)
+    def list_ou(self, institusjonsnr=0): # GetAlleOUer
+        """Hent data om stedskoder registrert i FS"""
+        qry = """
+        SELECT DISTINCT
+           institusjonsnr, faknr, instituttnr, gruppenr, stedakronym,
+           stednavn_bokmal, faknr_org_under, instituttnr_org_under,
+           gruppenr_org_under, adrlin1, adrlin2, postnr, adrlin3,
+           stedkortnavn, telefonnr, faxnr, adrlin1_besok, emailadresse,
+           adrlin2_besok, postnr_besok, url, bibsysbeststedkode,
+           stedkode_konv
+        FROM fs.sted
+        WHERE institusjonsnr=%s AND
+              stedkode_konv IS NOT NULL
+        """ % self.institusjonsnr
+        return self.db.query(qry)
 
 
 class FS(access_FS.FS):
@@ -50,10 +44,5 @@ class FS(access_FS.FS):
     def __init__(self, db=None, user=None, database=None):
         super(FS, self).__init__(db=db, user=user, database=database)
 
-        t = time.localtime()[0:3]
-        self.year = t[0]
-        self.mndnr = t[1]
-        self.dday = t[2]
-        
         # Override with HiNE-spesific classes
         self.info = HINEStudieInfo(self.db)
