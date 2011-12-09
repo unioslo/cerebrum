@@ -25,6 +25,10 @@ import sys
 import mx
 from itertools import ifilter
 from operator  import itemgetter
+try:
+    set
+except NameError:
+    from sets import Set as set
 
 import posixconf
 import cerebrum_path
@@ -42,7 +46,7 @@ class PosixData(object):
     """Just a class in which we can set attributes."""
 
 class PosixExport(object):
-    EMULATE_POSIX_LDIF = True
+    EMULATE_POSIX_LDIF = False
 
     __metaclass__ = auto_super
     usage_string = "Usage: %s [options]%s" % (os.path.basename(sys.argv[0]),"""

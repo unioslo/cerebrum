@@ -1,4 +1,3 @@
-# TODO: Remove HackUserNetGroupUIO
 # -*- coding: iso-8859-1 -*-
 # Copyright 2004-2011 University of Oslo, Norway
 #
@@ -157,13 +156,13 @@ class PosixExport_PersGrpMixin(PosixExport):
 class PosixExportMemberOf(PosixExport):
     """LDAP users += attr uioMemberOf + objectclass uioMembership."""
 
-    def main(self):
+    if False:                           # Memoize?
+      def main(self):
         # We memoize group expansion, since we will be reusing them.
         self.__ng_cache = {}
         self.__fg_cache = {}
         self.__super.main()
 
-    if False:                           # Memoize?
       def expand_filegroup(self, gid):
         ret = self.__fg_cache.get(gid)
         if ret is None:

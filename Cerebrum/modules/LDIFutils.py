@@ -29,6 +29,10 @@ import string
 import os.path
 from binascii import \
      b2a_hex as _str2hex, a2b_hex as _hex2str, b2a_base64 as _base64encode
+try:
+    set
+except NameError:
+    from sets import Set as set
 
 import cereconf
 from Cerebrum import Errors as _Errors, Utils as _Utils
