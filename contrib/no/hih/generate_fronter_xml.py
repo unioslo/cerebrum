@@ -210,7 +210,7 @@ class FronterXML(object):
         self.xml.startTag('adr')
         self.xml.dataElement('street', data['STREET'])
         self.xml.dataElement('pcode', data['ZIP'])
-        self.xml.dataElement('city', data['CITY'])
+        self.xml.dataElement('locality', data['LOCALITY'])
         self.xml.dataElement('country', data['COUNTRY'])                
         self.xml.endTag('adr')
         self.xml.dataElement('tel', data['MOBILE'], {'teltype': 3})
@@ -410,7 +410,7 @@ def list_users_for_fronter_export():
                     mobile = tmp[0]
                 else:
                     mobile = ''
-                    logger.warning("No mobile for user '%s'" % account.account_name)
+                    logger.debug("No mobile for user '%s'" % account.account_name)
                 addr = None
                 addr = person.get_entity_address(source=const.system_fs, type=const.address_post)
 
@@ -420,7 +420,7 @@ def list_users_for_fronter_export():
                 else:
                     addr = ''
                     alines = ''
-                    logger.warning("No addr for user '%s'" % account.account_name)
+                    logger.debug("No addr for user '%s'" % account.account_name)
                 if alines:
                     street = alines[0] + '\n' + alines[1]
                 if str(address['city']):
