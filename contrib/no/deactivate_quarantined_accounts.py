@@ -123,6 +123,9 @@ def main():
         except Errors.NotFoundError:
             logger.warn("Could not find account_id %s, skipping", a)
             continue
+        if account.is_deleted():
+            logger.debug3("account %s deleted, skipping", a)
+            continue
         account.deactivate()
         logger.info("Deactivated account %s", account.account_name)
 
