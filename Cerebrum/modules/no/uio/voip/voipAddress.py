@@ -633,7 +633,8 @@ class VoipAddress(EntityAuthentication, EntityTrait):
             uid = str(row["entity_id"])
             owner_data[row["entity_id"]] = {"uid": uid,
                                             "mail": uid + "@usit.uio.no",
-                                            "cn": row["description"]}
+                                            "cn": row["description"],
+                                            "voipOwnerType": "service"}
         return owner_data
     # end _cache_owner_voip_service_attrs
 
@@ -652,14 +653,15 @@ class VoipAddress(EntityAuthentication, EntityTrait):
 
         # Now the tough part -- people
         p = Factory.get("Person")(self._db)
-        # Fill out 'cn'
+        # Fill out 'cn' and 'type'
         for row in p.search_person_names(
                          name_variant=getattr(self.const,
                                               cereconf.DEFAULT_GECOS_NAME,
                                               self.const.name_full),
                          source_system=self.const.system_cached):
-            owner_data[row["person_id"]] = {"cn": row["name"]}
-            
+            owner_data[row["person_id"]] = {"cn": row["name"],
+                                            "voipOwnerType": "person"}
+
         # Fill out 'uid', 'mail'
         account = Factory.get("Account")(self._db)
         primary2pid = dict((r["account_id"], r["person_id"])
