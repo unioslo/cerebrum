@@ -1857,13 +1857,12 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                         # (Jazz, 2011-05-29)
                         person.clear()
                         person.find(user_id)
-                        try:
-                            user_id = person.get_primary_account()
-                        except Errors.NotFoundError:
+                        user_id = person.get_primary_account()
+                        if user_id is None:
                             self.logger.warn("Person %s has no valid primary account, skipping", user_id)
                             continue
                     if user_id not in entity2name:
-                        self.logger.warning("Missing name for account id=%s," % user_id +
+                        self.logger.warning("Missing name for account id=%s " % user_id +
                                             "(group: '%s'; member: '%s')" % (grp_name, usr["member_id"]))
                         continue
                     members.append(entity2name[user_id])
