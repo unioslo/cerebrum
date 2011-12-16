@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003, 2004 University of Oslo, Norway
+# Copyright 2003-2011 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -34,7 +34,7 @@ import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory, SimilarSizeWriter
+from Cerebrum.Utils import Factory, SimilarSizeWriter, SMSSender
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.bofhd import errors
@@ -70,7 +70,7 @@ posix_spreads = [int(const.Spread(_s)) for _s in cereconf.POSIX_SPREAD_CODES]
 # global Command-line alterable variables.  Defined here to make
 # pychecker happy
 skip_lpr = True       # Must explicitly tell that we want lpr
-create_users = move_users = dryrun = update_accounts = False
+create_users = move_users = dryrun = update_accounts = send_sms = False
 with_quarantines = False
 remove_groupmembers = False
 ou_perspective = None
@@ -84,7 +84,7 @@ emne_info_file = None
 fast_test = False
 
 # Other globals (to make pychecker happy)
-autostud = logger = accounts = persons = None
+autostud = logger = accounts = persons = sms = None
 default_creator_id = default_expire_date = default_shell = None
 
 def pformat(obj):
@@ -112,6 +112,8 @@ class AccountUtil(object):
         logger.debug("refreshing password write_db=%s" % account.account_name)
         account.set_password(password)
         account.write_db()
+        if send_sms:
+            AccountUtil._send_sms(account.owner_id, account.account_name)
         all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
     restore_uname=staticmethod(restore_uname)
         
@@ -167,6 +169,8 @@ class AccountUtil(object):
         logger.debug("new Account, write_db=%s" % tmp)
         account.set_password(password)
         account.write_db()
+        if send_sms:
+            AccountUtil._send_sms(person.entity_id, account.account_name)
         all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
         as_posix = False
         for spread in profile.get_spreads():
@@ -442,6 +446,37 @@ class AccountUtil(object):
                 account_id, fnr, repr(changes)))
     update_account = staticmethod(update_account)
 
+    def _send_sms(person_id, username):
+        """Send an SMS to a student with its (new) username."""
+        logger.debug("Should send SMS about %s for person_id=%s", username, person_id)
+
+        if not send_sms:
+            return
+        cellphone = None
+        for row in person_obj.list_contact_info(entity_id=person_id,
+                                source_system=const.system_fs,
+                                contact_type=(const.contact_mobile_phone,)):
+            if row['contact_value']:
+                cellphone = row['contact_value']
+                break
+
+        if not cellphone:
+            logger.debug("SMS: no phone registered for %s", person_id)
+            return False
+        logger.debug("SMS: Sending for %s to phone %s", username, cellphone)
+
+        # TODO: store message in cereconf
+        msg = cereconf.AUTOADMIN_WELCOME_SMS % {'username': username}
+        if dryrun:
+            logger.debug("SMS to %s: %s", cellphone, msg)
+            return True
+
+        # TODO: don't send SMSs yet, log first in a test period?
+        logger.debug("SMS to %s: %s", cellphone, msg)
+        #sms(cellphone, msg)
+        return True
+    _send_sms = staticmethod(_send_sms)
+
 class RecalcQuota(object):
     """Collection of methods to calculate proper quota settings for a
     person"""
@@ -625,7 +660,7 @@ class BuildAccounts(object):
                                                            fnr, [pinfo.get_best_deleted_ac()])
                 else:
                     account_id = AccountUtil.create_user(fnr, profile)
-                    logger.debug("would create account fo %s", fnr)
+                    logger.debug("would create account for %s", fnr)
                     if account_id is None:
                         logger.set_indent(0)
                         return
@@ -1294,7 +1329,7 @@ def main():
                                    ['debug', 'create-users', 'update-accounts',
                                     'student-info-file=', 'only-dump-results=',
                                     'studconfig-file=', 'fast-test', 'with-lpr',
-                                    'workdir=', 'type=', 'reprint=',
+                                    'workdir=', 'type=', 'reprint=', 'sms',
                                     'ou-perspective=', 'reset-diskquota',
                                     'emne-info-file=', 'move-users',
                                     'recalc-pq', 'studie-progs-file=',
@@ -1306,7 +1341,7 @@ def main():
                                     'posix-tables'])
     except getopt.GetoptError, e:
         usage(str(e))
-    global debug, fast_test, create_users, update_accounts, logger, skip_lpr
+    global debug, fast_test, create_users, update_accounts, logger, skip_lpr, sms
     global student_info_file, studconfig_file, only_dump_to, studieprogs_file, \
            dryrun, emne_info_file, move_users, remove_groupmembers, \
            workdir, paper_money_file, ou_perspective, with_quarantines,\
@@ -1369,6 +1404,9 @@ def main():
             _type = val
         elif opt in ('--reprint',):
             _range = val
+        elif opt in ('--sms',):
+            sms = SMSSender()
+            send_sms = True
         else:
             usage("Unimplemented option: " + opt)
 
@@ -1415,6 +1453,7 @@ def usage(error=None):
         quota).  Cannot be combined with -c/-u
       --reset-diskquota: remove disk quota from users on student disks
         that did not get a callback
+      --sms: Send usernames by SMS to new users
 
     Input files:
       -s | --student-info-file file:
