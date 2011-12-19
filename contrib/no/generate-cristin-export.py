@@ -135,7 +135,7 @@ def _cache_ou_data(perspective):
 
 
 
-def output_OUs(writer, perspective):
+def output_OUs(writer, perspective, spread):
     """Output all OUs exportable to Cristin...
 
     Cristin spec says absolutely nothing about which OUs should be
@@ -157,14 +157,18 @@ def output_OUs(writer, perspective):
       registered in Cerebrum, they are not required required elements XML)
    
     """
+    if spread:
+        logger.debug("Outputting OUs with spread %s" %spread)
+    else:
+        logger.debug("Outputting all OUs")
 
-    logger.debug("Outputting all OUs")
     ous = _cache_ou_data(perspective)
     db = Factory.get("Database")()
     ou = Factory.get("OU")(db)
-
+    const = Factory.get("Constants")()
+    
     writer.startElement("organisasjon")
-    for row in ou.search(filter_quarantined=True):
+    for row in ou.search(spread=spread, filter_quarantined=True):
         ou_id = row["ou_id"]
         if ou_id not in ous:
             logger.warn("No information about ou_id=%s cached", ou_id)
@@ -196,7 +200,12 @@ def output_OUs(writer, perspective):
         output_element("datoAktivFra", "2007-01-01")
         output_element("datoAktivTil", "9999-12-31")
 
-        output_element("navnBokmal", row["name"])
+        ou.clear()
+        ou.find(ou_id)
+        ou_name  = ou.get_name_with_language(name_variant=const.ou_name,
+                                            name_language=const.language_nb)
+        
+        output_element("navnBokmal", ou_name)
         for element in ("postadresse", "postnrOgPoststed", "land",):
             if element in data:
                 output_element(element, data[element])
@@ -469,7 +478,7 @@ def output_guest(writer, entry, ou_cache):
 
 
 
-def output_person(writer, chunk, ou_cache):
+def output_person(writer, chunk, ou_cache, ou_cache_export):
     """Output data about 1 person."""
 
     const = Factory.get("Constants")()
@@ -499,27 +508,29 @@ def output_person(writer, chunk, ou_cache):
         if not contact_block:
             continue
         output_element(element, contact_block["contact_value"])
-
     employments = chunk.get("employments", tuple())
     if employments:
+        prep_employments = prepare_employment(employments,
+                ou_cache, ou_cache_export)
         writer.startElement("ansettelser")
-        for entry in employments:
-            output_employment(writer, entry, ou_cache)
+        for entry in prep_employments:
+            output_employment(writer, entry, ou_cache_export)
         writer.endElement("ansettelser")
 
     associations = [x for x in chunk.get("affiliations", ())
                     if x["affiliation"] == const.affiliation_tilknyttet]
     if associations:
+        prep_associations = prepare_employment(associations,
+                ou_cache, ou_cache_export)
         writer.startElement("gjester")
-        for entry in associations:
-            output_guest(writer, entry, ou_cache)
+        for entry in prep_associations:
+            output_guest(writer, entry, ou_cache_export)
         writer.endElement("gjester")
-    
     writer.endElement("person")
 # end output_person
 
 
-def output_people(writer, perspective, source_system):
+def output_people(writer, perspective, source_system, spread):
     """Output all people of interest.
     
     We publish people who are:
@@ -540,11 +551,13 @@ def output_people(writer, perspective, source_system):
 
     logger.debug("Output people started")
     ous = _cache_ou_data(perspective)
+    ous_filtered = filter_by_spread(ous, spread)
+    logger.debug('cached ous %d, filtered ous %d.' %(len(ous), len(ous_filtered)))
     people = _cache_person_info(perspective, source_system)
     writer.startElement("personer")
     for pid in people:
         data = people[pid]
-        output_person(writer, data, ous)
+        output_person(writer, data, ous, ous_filtered)
 
     writer.endElement("personer")
     logger.debug("Output people complete")
@@ -552,7 +565,7 @@ def output_people(writer, perspective, source_system):
 
 
 
-def output_xml(sink, tag, root_ou, perspective, source_system):
+def output_xml(sink, tag, root_ou, perspective, source_system, spread):
     writer = xmlprinter.xmlprinter(sink,
                                    indent_level=2,
                                    data_mode=True,
@@ -565,8 +578,8 @@ def output_xml(sink, tag, root_ou, perspective, source_system):
     writer.startElement("fridaImport")
     
     output_headers(writer, tag, root_ou)
-    output_OUs(writer, perspective)
-    output_people(writer, perspective, source_system)
+    output_OUs(writer, perspective, spread)
+    output_people(writer, perspective, source_system, spread)
     
     
     writer.endElement("fridaImport")
@@ -625,6 +638,67 @@ def find_root_ou(identifier):
 
 
 
+def filter_by_spread(cache, spread):
+    """Return a dict where each element has the spread.
+
+    Shallow copy is made for values, so changing them will change the originals.
+    @param cache: dict with OU information.
+    @param spread: spread code to filter for.
+    @return dict with elements from cache that have the given spread.
+    """
+    db = Factory.get("Database")()
+    ou = Factory.get("OU")(db)
+    ou_ids = ou.search(spread=spread, filter_quarantined=True)
+    filtered_cache = {}
+    for elm in ou_ids:
+        filtered_cache[elm["ou_id"]] = cache[elm["ou_id"]]
+
+    return filtered_cache
+# end filter_by_spread
+
+
+
+def prepare_employment(alist, cache, filtered):
+    """Return a list with employments that are exportable.
+    
+    @param alist: employments to process.
+    @param cache: dict with ous
+    @param filtered: ous in this dict have spread that defines an exportable ou.
+    @return list of employments for export.
+    """
+    counter = [0,]
+    
+    def get_ou_for_export(cache, filtered, ou_id, counter):
+        """Return ou_id that can be exported.
+
+        @param cache: dict with ou information.
+        @param filtered: ous in this dict have spread that defines an exportable ou.
+        @param ou_id: current value.
+        @param counter: list with one integer to count recursive calls.
+        @return ou_id to export.
+        """
+        counter[0] += 1
+        if ou_id in filtered:
+            return ou_id
+        parent_id = None
+        parent_id = cache[ou_id].get("parent_id")
+        if parent_id is None: # ou_id is root ou
+            logger.debug("Came up to the root ou %d." %ou_id )
+            logger.debug("Returning after %d recursive calls." %counter[0])
+            return ou_id
+        return get_ou_for_export(cache, filtered, parent_id, counter)
+    # end get_ou4export
+    
+    from copy import deepcopy
+    res = deepcopy(alist)
+    for index, elm in enumerate(alist):
+        temp = elm["ou_id"]
+        res[index]["ou_id"] = get_ou_for_export(cache, filtered, temp, counter)
+    return res
+# end prepare_employment
+
+
+
 def main(argv):
     global logger
     logger = Factory.get_logger("cronjob")
@@ -634,13 +708,15 @@ def main(argv):
     perspective = None
     source_system = None
     tag = None
+    spread = None #export all OUs
     args, junk = getopt.getopt(argv[1:],
                                "o:r:p:s:t:",
                                ("output-file=",
                                 "root-ou=",
                                 "perspective=",
                                 "source-system=",
-                                "tag=",))
+                                "tag=",
+                                "spread=",))
     for option, value in args:
         if option in ("-o", "--output-file",):
             output_file = value
@@ -652,6 +728,8 @@ def main(argv):
             source_system = value
         elif option in ("-t", "--tag",):
             tag = value
+        elif option in ("--spread",):
+            spread = value
 
     if output_file is None:
         logger.error("No output file name specified.")
@@ -684,10 +762,13 @@ def main(argv):
         sys.exit(1)
     source_system = const.human2constant(source_system, const.AuthoritativeSystem)
     
+    spread = const.human2constant(spread, const.Spread)
+    logger.info( 'Spread is: %s' %spread)
+
     root_ou = find_root_ou(root_ou)
     sink = SimilarSizeWriter(output_file)
     sink.set_size_change_limit(15)
-    output_xml(sink, tag, root_ou, perspective, source_system)
+    output_xml(sink, tag, root_ou, perspective, source_system, spread)
     sink.close()
 # end main
 
