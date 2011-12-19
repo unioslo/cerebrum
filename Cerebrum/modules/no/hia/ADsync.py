@@ -1859,7 +1859,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                         person.find(user_id)
                         user_id = person.get_primary_account()
                         if user_id is None:
-                            self.logger.warn("Person %s has no valid primary account, skipping", user_id)
+                            self.logger.debug("Person %s has no valid primary account, skipping", usr["member_id"])
                             continue
                     if user_id not in entity2name:
                         self.logger.warning("Missing name for account id=%s " % user_id +
