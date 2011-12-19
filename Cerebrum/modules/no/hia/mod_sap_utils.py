@@ -354,8 +354,8 @@ class _SAPPersonDataTuple(_SAPTupleBase):
                     'sap_work_title': _with_strip(28),
                     'sap_phone_private': _with_strip(12),
                     'sap_phone': _with_strip(13),
-                    'sap_phone_mobile': _with_strip(14),
-                    'sap_phone_mobile_private': _with_strip(15),
+                    'sap_phone_mobile': _with_strip(15),
+                    'sap_phone_mobile_private': _with_strip(14),
                     'sap_fax': _with_strip(29),
                     'sap_address': (range(18, 22),
                                     lambda *rest:
