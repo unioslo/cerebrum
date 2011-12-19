@@ -28,6 +28,7 @@ from Cerebrum import Constants
 from Cerebrum.Constants import _AuthoritativeSystemCode, \
                               _SpreadCode, \
                               _QuarantineCode, \
+                              _ContactInfoCode, \
                               _PersonAffiliationCode, \
                               _PersonAffStatusCode
 from Cerebrum.modules.no.Constants import ConstantsHigherEdu
@@ -213,7 +214,7 @@ class Constants(Constants.Constants):
         'account@radiusia', Constants.Constants.entity_account,
         'User in Radius domain "sia"')
 
-## Definisjon av traits
+    ## Definisjon av traits
     trait_accept_nondisc = _EntityTraitCode(
         'acc_non_disc',
         Constants.Constants.entity_person,
@@ -226,6 +227,10 @@ class Constants(Constants.Constants):
         'accept_rules',
         Constants.Constants.entity_person,
         "Trait marking a person who has accepted terms and rule for use og IT services at UiA.")
+
+    ## Contact info
+    contact_office = _ContactInfoCode('OFFICE',
+        'Office address (building code and room number')
 
 ## Kommenteres ut foreløpig, er usikkert om vi skal ha dem 
 

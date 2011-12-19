@@ -305,7 +305,31 @@ def populate_communication(person, fields):
         logger.debug("Populated comm type %s with «%s»", comm_type, comm_value)
 # end populate_communication
 
+def populate_office(person, fields):
+    """Extract the person's office address from FIELDS and populate the database
+    with it, if it is defined. Both a building code and a room number should be
+    present to be stored.
+    
+    Note that we are also importing building codes for buildings that isn't
+    defined in cereconf. It's the exports' job to validate the codes."""
 
+    if not fields.sap_building_code or not fields.sap_roomnumber:
+        # both building and room has to be defined
+
+        # debug for counting half registrations:
+        if fields.sap_building_code or fields.sap_roomnumber:
+            logger.debug('Office address not fully registered, skipping %s',
+                         person.entity_id)
+        # TODO: delete old address if no new is given?
+        return
+
+    person.populate_contact_info(source_system = const.system_sap, 
+                                 type = const.contact_office,
+                                 value = fields.sap_building_code,
+                                 alias = fields.sap_roomnumber or None)
+    logger.debug('Populated office address for %s: building="%s", room="%s"',
+            person.entity_id, fields.sap_building_code, fields.sap_roomnumber)
+# end populate_office
 
 def populate_address(person, fields):
     """Extract the person's address from FIELDS and populate the database with
@@ -339,8 +363,6 @@ def populate_address(person, fields):
                             city = fields.sap_city,
                             country = country)
 # end populate_address
-      
-
 
 def add_person_to_group(person, fields):
     """
@@ -379,8 +401,6 @@ def add_person_to_group(person, fields):
     logger.info("OK, added %s to group %s" % (
         person.get_name(const.system_cached, const.name_full), group_name))
 # end add_person_to_group
-    
-
 
 def process_people(filename, use_fok):
     """Scan filename and perform all the necessary imports.
@@ -408,6 +428,8 @@ def process_people(filename, use_fok):
 
         populate_communication(person, p)
         
+        populate_office(person, p)
+
         populate_address(person, p)
 
         add_person_to_group(person, p)
@@ -417,8 +439,6 @@ def process_people(filename, use_fok):
         # Sync person object with the database
         person.write_db()
 # end process_people
-
-
 
 def main():
         

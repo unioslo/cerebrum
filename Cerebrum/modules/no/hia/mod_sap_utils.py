@@ -336,6 +336,8 @@ class _SAPPersonDataTuple(_SAPTupleBase):
       23   Bostedsadr. postnr.
       24   Bostedsadr. Land
       25   Forretningsområde ID
+      26   Office building code
+      27   Office room number
       28   Work title
     """
 
@@ -364,6 +366,8 @@ class _SAPPersonDataTuple(_SAPTupleBase):
                     'sap_zip': _with_strip(23),
                     'sap_city': _with_strip(22),
                     'sap_country': _with_strip(24),
+                    'sap_building_code': _with_strip(26),
+                    'sap_roomnumber': _with_strip(27),
                     'sap_publish_tag': _with_strip(36), }
 
 
@@ -391,7 +395,7 @@ class _SAPPersonDataTuple(_SAPTupleBase):
 
         return True
     # end reserved_for_export
-# end SAPPersonDataTuple
+# end _SAPPersonDataTuple
 
 
 
