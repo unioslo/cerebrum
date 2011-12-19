@@ -34,7 +34,7 @@ from Cerebrum import Database
 
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules import Email
-from Cerebrum.modules.no.hih import bofhd_hih_help
+from Cerebrum.modules.no.hine import bofhd_hine_help
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.Constants import _CerebrumCode, _SpreadCode
 from Cerebrum.modules.bofhd.auth import BofhdAuth
@@ -146,7 +146,7 @@ class BofhdExtension(BofhdCommandBase):
         x = object.__new__(cls)
         return x
 
-    def __init__(self, server, default_zone='hih'):
+    def __init__(self, server, default_zone='hine'):
         self.server = server
         self.logger = server.logger
         self.util = server.util
@@ -171,9 +171,9 @@ class BofhdExtension(BofhdCommandBase):
 
 
     def get_help_strings(self):
-        return (bofhd_hih_help.group_help,
-                bofhd_hih_help.command_help,
-                bofhd_hih_help.arg_help)
+        return (bofhd_hine_help.group_help,
+                bofhd_hine_help.command_help,
+                bofhd_hine_help.arg_help)
     
     def get_commands(self, account_id):
         try:
@@ -502,7 +502,7 @@ class BofhdExtension(BofhdCommandBase):
             pass
         else:
             # spam settings, forwarding and filters are not used at
-            # HiH for now
+            # Hine for now
             #ret += self._email_info_spam(et)
             #ret += self._email_info_forwarding(et, addrs)
             #ret += self._email_info_filters(et)
