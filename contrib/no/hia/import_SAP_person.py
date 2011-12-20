@@ -323,10 +323,38 @@ def populate_office(person, fields):
         # TODO: delete old address if no new is given?
         return
 
+    address = cereconf.BUILDING_CODES.get(fields.sap_building_code, None)
+    if not address:
+        logger.debug('Office building code invalid for %s: "%s"',
+                     person.entity_id, fields.sap_building_code)
+        return
+
     person.populate_contact_info(source_system = const.system_sap, 
                                  type = const.contact_office,
                                  value = fields.sap_building_code,
                                  alias = fields.sap_roomnumber or None)
+
+    country = None
+    if address.has_key('country_street'):
+        try:
+            country = int(const.Country(address['country_street']))
+        except Errors.NotFoundError:
+            logger.warn("Could not find country code for «%s», "
+                        "please define country in Constants.py",
+                        address['country_street'])
+        # TBD: should we return here if country is not correct, or is it okay to
+        # just set it to None?
+    try:
+        person.populate_address(source_system = const.system_sap,
+                                type = const.address_street,
+                                address_text = address['street'],
+                                postal_number = address['postnr_street'],
+                                city = address['city_street'],
+                                country = country)
+    except KeyError, e:
+        logger.warn('Building code translation error for code %s: %s',
+                    fields.sap_building_code, e)
+        return
     logger.debug('Populated office address for %s: building="%s", room="%s"',
             person.entity_id, fields.sap_building_code, fields.sap_roomnumber)
 # end populate_office
