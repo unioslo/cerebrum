@@ -168,7 +168,9 @@ def output_OUs(writer, perspective, spread):
     const = Factory.get("Constants")()
     
     writer.startElement("organisasjon")
-    for row in ou.search(spread=spread, filter_quarantined=True):
+
+    filtered_ou_ids = ou.search(spread=spread, filter_quarantined=True)
+    for row in filtered_ou_ids:
         ou_id = row["ou_id"]
         if ou_id not in ous:
             logger.warn("No information about ou_id=%s cached", ou_id)
@@ -183,7 +185,10 @@ def output_OUs(writer, perspective, spread):
             output_element(element, value)
 
         if "parent_id" in data and ous.get(data["parent_id"]):
-            parent = ous[data["parent_id"]]
+            counter = [0,]
+            parent_id = get_ou_for_export(ous, filtered_ou_ids,
+                                        data["parent_id"], counter)
+            parent = ous[parent_id]
         else:
             logger.debug("OU %s (%s) has no parent", ou_id,
                          "-".join("%02d" % data[x]
@@ -657,6 +662,27 @@ def filter_by_spread(cache, spread):
 # end filter_by_spread
 
 
+def get_ou_for_export(cache, filtered, ou_id, counter):
+    """Return ou_id that can be exported.
+
+    @param cache: dict with ou information.
+    @param filtered: ous in this dict have spread that defines an exportable ou.
+    @param ou_id: current value.
+    @param counter: list with one integer to count recursive calls.
+    @return ou_id to export.
+    """
+    counter[0] += 1
+    if ou_id in filtered:
+        return ou_id
+    parent_id = None
+    parent_id = cache[ou_id].get("parent_id")
+    if parent_id is None: # ou_id is root ou
+        logger.debug("Came up to the root ou %d." %ou_id )
+        logger.debug("Returning after %d recursive calls." %counter[0])
+        return ou_id
+    return get_ou_for_export(cache, filtered, parent_id, counter)
+# end get_ou4export
+
 
 def prepare_employment(alist, cache, filtered):
     """Return a list with employments that are exportable.
@@ -667,27 +693,6 @@ def prepare_employment(alist, cache, filtered):
     @return list of employments for export.
     """
     counter = [0,]
-    
-    def get_ou_for_export(cache, filtered, ou_id, counter):
-        """Return ou_id that can be exported.
-
-        @param cache: dict with ou information.
-        @param filtered: ous in this dict have spread that defines an exportable ou.
-        @param ou_id: current value.
-        @param counter: list with one integer to count recursive calls.
-        @return ou_id to export.
-        """
-        counter[0] += 1
-        if ou_id in filtered:
-            return ou_id
-        parent_id = None
-        parent_id = cache[ou_id].get("parent_id")
-        if parent_id is None: # ou_id is root ou
-            logger.debug("Came up to the root ou %d." %ou_id )
-            logger.debug("Returning after %d recursive calls." %counter[0])
-            return ou_id
-        return get_ou_for_export(cache, filtered, parent_id, counter)
-    # end get_ou4export
     
     from copy import deepcopy
     res = deepcopy(alist)
