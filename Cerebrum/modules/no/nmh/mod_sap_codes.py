@@ -24,8 +24,7 @@ Cerebrum -- mod_sap.
 """
 
 from Cerebrum import Constants
-from Cerebrum.modules.no.Constants import SAPForretningsOmradeKode, \
-                                          SAPLonnsTittelKode, \
+from Cerebrum.modules.no.Constants import SAPLonnsTittelKode, \
                                           SAPPermisjonsKode, \
                                           SAPUtvalgsKode
 
@@ -33,12 +32,6 @@ from Cerebrum.modules.no.Constants import SAPForretningsOmradeKode, \
 class SAPConstants(Constants.Constants):
     """This class contains all constants we need to refer to SAP-originated
     HR-data at NMH."""
-
-    # ----[ SAPForretningsOmradeKode ]----------------------------------
-    sap_nmh = SAPForretningsOmradeKode(
-        "0300",
-        "NMH"
-    )
 
     # ----[ SAPLonnsTittelKode ]----------------------------------------
     sap_1007_hogskolelaerer_ovings = SAPLonnsTittelKode(
