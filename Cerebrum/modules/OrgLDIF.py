@@ -725,9 +725,13 @@ from None and LDAP_PERSON['dn'].""")
                 if self.const.affiliation_ansatt == aff or (self.const.affiliation_tilknyttet == aff and \
                                                             status <> self.const.affiliation_tilknyttet_fagperson):
                     # Ansatt/tilknyttet med reservasjon == skjules uansett
-                    if self.init_person_group("SAP-elektroniske-reservasjoner").has_key(person_id):
-                        attrs = self.invisible_person_attrs
-                        alias_info = ()
+                    try:
+                        if self.init_person_group("SAP-elektroniske-reservasjoner").has_key(person_id):
+                            attrs = self.invisible_person_attrs
+                            alias_info = ()
+                    except Cerebrum.Errors.NotFoundError:
+                        # group doesn't exist on this instance; no need to care about this then
+                        pass
                     is_empl_affil = True
                     break
 
