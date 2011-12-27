@@ -24,9 +24,7 @@ Cerebrum -- mod_sap.
 """
 
 from Cerebrum import Constants
-from Cerebrum.modules.no.Constants import SAPLonnsTittelKode, \
-                                          SAPPermisjonsKode, \
-                                          SAPUtvalgsKode
+from Cerebrum.modules.no.Constants import SAPLonnsTittelKode
 
 
 class SAPConstants(Constants.Constants):
