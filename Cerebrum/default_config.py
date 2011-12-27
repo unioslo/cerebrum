@@ -917,3 +917,5 @@ INDIVIDUATION_PHONE_TYPES = {}
 # group is automatically included here.
 INDIVIDUATION_PASW_RESERVED = (INITIAL_GROUPNAME,)
 
+# A mapping of building codes to their addresses. Used by the ldif export.
+BUILDING_CODES = {}
