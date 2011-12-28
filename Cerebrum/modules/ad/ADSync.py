@@ -243,9 +243,9 @@ class UserSync(ADUserUtils):
         # TBD: getdict_persons_names might be faster
         self.logger.debug("..fetch name information..")
         pid2names = {}
-        for row in self.pe.list_persons_name(
+        for row in self.pe.search_persons_name(
             source_system = self.co.system_cached,
-            name_type     = [self.co.name_first,
+            name_variant  = [self.co.name_first,
                              self.co.name_last]):
             pid2names.setdefault(int(row["person_id"]), {})[
                 int(row["name_variant"])] = row["name"]
