@@ -316,11 +316,6 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         #
         self.logger.debug("..setting names..")
         pid2names = {}
-        ##
-        ## rogerha 2011-10-10: Must comment out
-        ## name-language-patch and use old code instead since UiA
-        ## isn't migrated
-        ##
         for row in self.person.search_person_names(
                 source_system = self.co.system_cached,
                 name_variant  = [self.co.name_first,
