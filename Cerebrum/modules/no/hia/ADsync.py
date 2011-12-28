@@ -182,11 +182,24 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             else:
                 v['telephoneNumber'] = phones[0]['contact_value']
             v["title"] = u""
-            for title_type in (self.co.work_title, self.co.personal_title):
-                v["title"] = unicode(self.person.get_name_with_language(
-                    name_variant=title_type,
-                    name_language=self.co.language_nb,
-                    default=""), "ISO-8859-1")
+
+            # If person has a personal_title, it should be used;
+            # otherwise go for worktitle
+
+            work_title = unicode(self.person.get_name_with_language(
+                name_variant=self.co.work_title,
+                name_language=self.co.language_nb,
+                default=""), "ISO-8859-1")
+
+            personal_title = unicode(self.person.get_name_with_language(
+                name_variant=self.co.personal_title,
+                name_language=self.co.language_nb,
+                default=""), "ISO-8859-1")
+
+            if personal_title:
+                v["title"] = personal_title
+            else:
+                v["title"] = work_title
                 
                
 
