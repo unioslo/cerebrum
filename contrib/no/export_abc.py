@@ -547,8 +547,8 @@ def output_all_OUs(orgname):
         xmlwriter.startElement("ou")
         out("ouid", sko, {"ouidtype": "sko"})
         # FIXME: Is there any guarantee that lang==no holds?
-        out("ouname", ou.search_name_with_language(entity_id=ou.entity_id,
-                                                   name_language=constants.language_nb),
+        out("ouname", ou.get_name_with_language(constants.ou_name_display,
+                                                constants.language_nb),
             {"ounametype": "name", "lang": "no"})
         xmlwriter.endElement("ou")
 
