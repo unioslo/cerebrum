@@ -44,7 +44,7 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
                  1564 : {'acronym' : 'VUS'},
                  1565 : {'acronym' : 'VIG'}}
 
-        ou_names = dict((r["ou_id"], r["name"])
+        ou_names = dict((r["entity_id"], r["name"])
                         for r in self.ou.search_name_with_language(
                             entity_type=co.entity_ou,
                             name_variant=co.ou_name,
