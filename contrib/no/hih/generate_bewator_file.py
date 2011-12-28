@@ -118,7 +118,8 @@ def process(userout, groupout):
                                                      co.name_full])
     ent2title = dict((row['entity_id'], row['name']) for row in
                      pe.search_name_with_language(name_variant=co.work_title,
-                                                  name_language=co.language_nb)
+                                                  entity_type=co.entity_person,
+                                                  name_language=co.language_nb))
     ent2phone = dict((row['entity_id'], row['contact_value']) for row in 
                      pe.list_contact_info(source_system=(co.system_sap, co.system_fs)))
     employees = set(row['person_id'] for row in 
@@ -126,7 +127,10 @@ def process(userout, groupout):
     students = set(row['person_id'] for row in 
                      pe.list_affiliations(source_system=co.system_fs,
                                           affiliation=co.affiliation_student))
-    ou2acr = dict((row['ou_id'], row['acronym']) for row in ou.search())
+    ou2acr = dict((row['entity_id'], row['name']) for row in
+                  ou.search_name_with_language(name_variant=co.ou_name_acronym,
+                                               entity_type=co.entity_ou,
+                                               name_language=co.language_nb))    
     ou2sko = dict((row['ou_id'], "%02d%02d%02d" % (row['fakultet'], row['institutt'], row['avdeling'])) for row in ou.get_stedkoder())
     ent2avdeling = dict()
     for row in pe.list_affiliations(source_system=co.system_sap):
