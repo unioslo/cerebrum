@@ -112,18 +112,13 @@ def process(userout, groupout):
                      pe.list_external_ids(id_type=co.externalid_sap_ansattnr))
     ent2studno = dict((row['entity_id'], row['external_id']) for row in
                      pe.list_external_ids(id_type=co.externalid_studentnr))
-    ent2firstname = dict((row['person_id'], row['name']) for row in
-                     pe.list_persons_name(source_system=co.system_cached,
-                                          name_type=co.name_first))
-    ent2lastname  = dict((row['person_id'], row['name']) for row in
-                     pe.list_persons_name(source_system=co.system_cached,
-                                          name_type=co.name_last))
-    ent2fullname = dict((row['person_id'], row['name']) for row in
-                     pe.list_persons_name(source_system=co.system_cached,
-                                          name_type=co.name_full))
-    ent2title = dict((row['person_id'], row['name']) for row in
-                     pe.list_persons_name(source_system=co.system_sap,
-                                          name_type=co.name_work_title))
+    ent2names = pe.getdict_persons_names(source_system=co.system_cached,
+                                         name_types=[co.name_first,
+                                                     co.name_last,
+                                                     co.name_full])
+    ent2title = dict((row['entity_id'], row['name']) for row in
+                     pe.search_name_with_language(name_variant=co.work_title,
+                                                  name_language=co.language_nb)
     ent2phone = dict((row['entity_id'], row['contact_value']) for row in 
                      pe.list_contact_info(source_system=(co.system_sap, co.system_fs)))
     employees = set(row['person_id'] for row in 
@@ -167,12 +162,13 @@ def process(userout, groupout):
             logger.debug("Person %d not employee/student (or hasn't studno/ansno), " % ent)
             line.append('')
 
+        current_persons_names = ent2names[ent]
         # etternavn
-        line.append(ent2lastname.get(ent, ''))
+        line.append(current_persons_names.get(int(co.name_last), ''))
         # fornavn
-        line.append(ent2firstname.get(ent, ''))
+        line.append(current_persons_names.get(int(co.name_first), ''))
         # fullt navn
-        line.append(ent2fullname.get(ent, ''))
+        line.append(current_persons_names.get(int(co.name_full), ''))
         # fødselsdato        
         # TODO: not sure about the format
         line.append(row['birth_date'].strftime('%Y-%m-%d'))
