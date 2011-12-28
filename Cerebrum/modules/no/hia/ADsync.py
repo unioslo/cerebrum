@@ -182,23 +182,11 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             else:
                 v['telephoneNumber'] = phones[0]['contact_value']
             v["title"] = u""
-            ##
-            ## rogerha 2011-10-10: Must comment out
-            ## name-language-patch and use old code instead since UiA
-            ## isn't migrated
-            ##
-            # for title_type in (self.co.work_title, self.co.personal_title):
-            #     v["title"] = unicode(self.person.get_name_with_language(
-            #         name_variant=title_type,
-            #         name_language=self.co.language_nb,
-            #         default=""), "ISO-8859-1")
-            for title_type in (self.co.name_work_title, 
-                               self.co.name_personal_title):
-                try:
-                    v["title"] = unicode(self.person.get_name(
-                            self.co.system_sap, title_type), 'ISO-8859-1')
-                except Errors.NotFoundError:
-                    pass
+            for title_type in (self.co.work_title, self.co.personal_title):
+                v["title"] = unicode(self.person.get_name_with_language(
+                    name_variant=title_type,
+                    name_language=self.co.language_nb,
+                    default=""), "ISO-8859-1")
                 
                
 
