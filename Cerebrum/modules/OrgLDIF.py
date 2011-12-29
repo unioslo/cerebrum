@@ -25,6 +25,7 @@ from Cerebrum                   import Entity
 from Cerebrum.Utils             import Factory, auto_super
 from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.modules.LDIFutils import *
+from Cerebrum.Errors            import NotFoundError
 
 postal_escape_re = re.compile(r'[$\\]')
 
@@ -729,7 +730,7 @@ from None and LDAP_PERSON['dn'].""")
                         if self.init_person_group("SAP-elektroniske-reservasjoner").has_key(person_id):
                             attrs = self.invisible_person_attrs
                             alias_info = ()
-                    except Cerebrum.Errors.NotFoundError:
+                    except NotFoundError:
                         # group doesn't exist on this instance; no need to care about this then
                         pass
                     is_empl_affil = True
