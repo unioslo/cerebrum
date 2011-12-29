@@ -272,19 +272,19 @@ class UserSync(ADUserUtils):
             pid2data.setdefault(int(row["entity_id"]), {})[
                 int(row["contact_type"])] = row["contact_value"]
         # Get title
-        for row in self.pe.list_persons_name(
-            source_system = self.co.system_sap,
-            name_type     = [self.co.name_personal_title,
-                             self.co.name_work_title]):
-            pid2data.setdefault(int(row["person_id"]), {})[
+        for row in self.pe.search_name_with_language(
+            name_language = self.co.language_nb,
+            name_variant  = [self.co.personal_title,
+                             self.co.work_title]):
+            pid2data.setdefault(int(row["entity_id"]), {})[
                 int(row["name_variant"])] = row["name"]
         # set data
         for acc in self.accounts.itervalues():
             data = pid2data.get(acc.owner_id)
             if data:
                 acc.contact_phone = data.get(int(self.co.contact_phone), "")
-                acc.title = (data.get(int(self.co.name_personal_title), "") or
-                             data.get(int(self.co.name_work_title), ""))
+                acc.title = (data.get(int(self.co.personal_title), "") or
+                             data.get(int(self.co.work_title), ""))
                 
 
     def fetch_email_info(self):
