@@ -78,7 +78,7 @@ class ADutil(object):
                                      (xpe.errcode, xpe.errmsg))
                 return [None]
             except Exception, e:
-                self.logger.warn("Unexpected exception", exc_info=1)
+                self.logger.error("Unexpected exception", exc_info=1)
                 self.logger.debug("Command: %s" % repr((command, dry_run, arg1, arg2, arg3)))
                 return [None]
             return ret
