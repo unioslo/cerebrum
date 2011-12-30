@@ -184,8 +184,7 @@ class ProcBatchRunner(object):
             ous = ou.search_name_with_language(entity_type=self.co.entity_ou,
                                           name_variant=self.co.ou_name_acronym,
                                           name=ou_acronym,
-                                          name_language=self.co.language_nb,
-                                          exact_match=False)
+                                          name_language=self.co.language_nb)
             if len(ous) > 1:
                 self.logger.warning("Acronym '%s' results in more than one OU. "
                                     "Skipping" % ou_acronym)
@@ -196,7 +195,7 @@ class ProcBatchRunner(object):
                 # TBD: What to do? Delete the group? Let The Handler deal with it?
                 continue
             ou.clear()
-            ou.find(ous[0]['ou_id'])
+            ou.find(ous[0]['entity_id'])
             # Send a delete call to the Handler if the group has accounts in it
             # without the proper account_type.
             for member in grp.search_members(group_id=grp.entity_id):
