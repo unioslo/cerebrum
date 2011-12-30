@@ -806,10 +806,16 @@ def main():
             logger.error("Finner ikke stedkode for fakultet %d", faknr)
             faknavn = '*Ikke registrert som fakultet i FS*'
         else:
-            if ou.acronym:
-                faknavn = ou.acronym
+            acronym = ou.get_name_with_language(name_variant=const.ou_name_acronym,
+                                                name_language=const.language_nb,
+                                                default="")
+            short_name = ou.get_name_with_language(name_variant=const.ou_name_short,
+                                                   name_language=const.language_nb,
+                                                   default="")
+            if acronym:
+                faknavn = acronym
             else:
-                faknavn = ou.short_name
+                faknavn = short_name
         fak_ans_id = "%s:sap:gruppe:%s:%s:ansatte" % \
                      (cereconf.INSTITUTION_DOMAIN_NAME_LMS,
                       cereconf.DEFAULT_INSTITUSJONSNR,
