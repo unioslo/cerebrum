@@ -9426,7 +9426,11 @@ Addresses and settings:
         elif format == 'string':
             return str(val)
         elif format == 'trait':
-            return str(self.const.EntityTrait(val))
+            try:
+                return str(self.const.EntityTrait(val))
+            except NotFoundError:
+                # Trait has been deleted from the DB, so we can't know which it was
+                return "<unknown>"
         elif format == 'value_domain':
             return str(self.const.ValueDomain(val))
         elif format == 'rolle_type':
