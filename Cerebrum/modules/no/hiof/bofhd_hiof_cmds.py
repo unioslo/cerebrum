@@ -30,6 +30,7 @@ from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdRequests
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.no.hiof import bofhd_hiof_help
 
 
@@ -43,7 +44,7 @@ class HiofBofhdRequests(BofhdRequests):
         self.conflicts[int(const.bofh_ad_attrs_remove)] = None
 
 
-class BofhdExtension(object):
+class BofhdExtension(BofhdCommandBase):
     OU_class = Utils.Factory.get('OU')
     Account_class = Factory.get('Account')
     Group_class = Factory.get('Group')
@@ -53,7 +54,7 @@ class BofhdExtension(object):
         #
         # copy relevant user_create related methods
         #
-        '_find_persons', '_get_person', '_get_account', '_get_ou',
+        '_find_persons', '_get_person', '_get_account',
         '_format_ou_name', '_user_create_set_account_type','_get_group',
         '_get_constant', '_parse_date', '_get_entity_name',
         'misc_list_requests', 'misc_cancel_request',
