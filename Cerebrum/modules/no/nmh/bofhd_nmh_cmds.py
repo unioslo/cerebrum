@@ -111,10 +111,10 @@ class BofhdExtension(BofhdCommandBase):
         #
          '_find_persons', '_get_account', '_format_ou_name',
         '_get_person', '_get_disk', '_get_group', '_map_person_id', '_get_entity',
-         '_get_boolean', '_entity_info', 'num2str', '_get_affiliationid',
+        '_entity_info', 'num2str', '_get_affiliationid',
         '_get_affiliation_statusid', '_parse_date', '_today', 'entity_history',
         '_format_changelog_entry', '_format_from_cl',
-         '_get_entity_name', '_get_group_opcode', '_get_name_from_object',
+        '_get_entity_name', '_get_group_opcode', '_get_name_from_object',
         '_get_constant', '_is_yes', '_remove_auth_target',
         '_remove_auth_role', '_get_cached_passwords', '_parse_date_from_to',
         '_convert_ticks_to_timestamp'
