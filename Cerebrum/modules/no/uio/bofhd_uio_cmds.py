@@ -9428,7 +9428,7 @@ Addresses and settings:
         elif format == 'trait':
             try:
                 return str(self.const.EntityTrait(val))
-            except NotFoundError:
+            except Errors.NotFoundError:
                 # Trait has been deleted from the DB, so we can't know which it was
                 return "<unknown>"
         elif format == 'value_domain':
