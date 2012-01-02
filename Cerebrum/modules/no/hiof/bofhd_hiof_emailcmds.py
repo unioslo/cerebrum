@@ -37,6 +37,7 @@ from Cerebrum.modules.no.hiof import bofhd_hiof_help
 from Cerebrum.Constants import _CerebrumCode, _SpreadCode
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules import Email
 
@@ -44,7 +45,7 @@ def format_day(field):
     fmt = "yyyy-MM-dd"                  # 10 characters wide
     return ":".join((field, "date", fmt))
 
-class BofhdExtension(object):
+class BofhdExtension(BofhdCommandBase):
     OU_class = Utils.Factory.get('OU')
     Account_class = Factory.get('Account')
     Group_class = Factory.get('Group')
@@ -70,7 +71,7 @@ class BofhdExtension(object):
         '_sync_category', '_update_email_for_ou',
         '_get_account', '_get_email_domain',
         '_split_email_address', '_remove_email_address',
-        '_get_ou', '_get_affiliationid', '_format_ou_name',
+        '_get_affiliationid', '_format_ou_name',
         '_get_host'
         )
         
