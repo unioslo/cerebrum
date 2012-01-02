@@ -45,7 +45,7 @@ from Cerebrum.modules.ad.CerebrumData import CerebrumUser
 from Cerebrum.modules.ad.CerebrumData import CerebrumGroup
 from Cerebrum.modules.ad.CerebrumData import CerebrumDistGroup
 from Cerebrum.modules.ad.ADUtils import ADUserUtils, ADGroupUtils
-from Cerebrum.Utils import unicode2str
+from Cerebrum.Utils import unicode2str, Factory
 
 
 class UserSync(ADUserUtils):
@@ -256,7 +256,16 @@ class UserSync(ADUserUtils):
                 acc.name_first = names.get(int(self.co.name_first), "")
                 acc.name_last = names.get(int(self.co.name_last), "")
             else:
-                self.logger.warn("No name information for user " + acc.uname)
+                entity = Factory.get("Entity")(self.db)
+                try:
+                    entity.find(acc.owner_id)
+                except Errors.NotFoundError:
+                    self.logger.error("could not find owner-entity for account %s, this should never happen", acc.uname) 
+                    return
+                if int(entity.entity_type) == self.co.entity_person:
+                    self.logger.warn("No name information for user " + acc.uname)
+                else:
+                    self.logger.debug("Non-personal account %s, don't need full name", acc.uname)
         
 
     def fetch_contact_info(self):
