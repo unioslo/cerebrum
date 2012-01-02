@@ -67,7 +67,7 @@ class BofhdExtension(BofhdCommandBase):
         '_email_info_file', '_email_info_pipe',
         '_email_info_filters',
         '_email_info_forward', '_set_email_primary_address',
-        '_get_boolean', '_onoff', '_has_category',
+        '_onoff', '_has_category',
         '_sync_category', '_update_email_for_ou',
         '_get_account', '_get_email_domain',
         '_split_email_address', '_remove_email_address',
