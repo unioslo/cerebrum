@@ -35,6 +35,7 @@ from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthRole, \
                                         BofhdAuthOpSet, BofhdAuthOpTarget
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.extlib.sets import Set as set
 
 
@@ -51,20 +52,21 @@ To modify permissions, temporary start a separate bofhd with the
 normal bofhd_uio_cmds so that the perm commands are available.
 """
 
-class BofhdExtension(object):
+class BofhdExtension(BofhdCommandBase):
     Account_class = Factory.get('Account')
     Group_class = Factory.get('Group')
     OU_class = Factory.get('OU')
     all_commands = {}
 
     copy_commands = (
-        '_get_account', '_get_ou', '_get_person', '_get_disk',
+        '_get_account', '_get_person', '_get_disk',
         '_get_group', '_map_person_id', '_parse_date', '_get_entity',
         'group_user', 'person_list_user_priorities',
-        'group_memberships', 'group_search', '_get_boolean',
+        'group_memberships', 'group_search',
         '_entity_info', 'num2str', 'group_list',
         '_fetch_member_names', 'misc_list_passwords',
         '_get_cached_passwords', '_get_entity_name',
+        '_get_entity_spreads',
         'group_add_entity', 'group_remove_entity', 'user_password',
         '_get_group_opcode', '_get_name_from_object',
         '_group_add_entity', '_group_count_memberships',
