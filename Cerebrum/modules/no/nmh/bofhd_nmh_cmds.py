@@ -37,13 +37,14 @@ from Cerebrum.modules.no.nmh import bofhd_nmh_help
 from Cerebrum.Constants import _CerebrumCode, _SpreadCode
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.no import fodselsnr
 
 def format_day(field):
     fmt = "yyyy-MM-dd"                  # 10 characters wide
     return ":".join((field, "date", fmt))
 
-class BofhdExtension(object):
+class BofhdExtension(BofhdCommandBase):
     OU_class = Utils.Factory.get('OU')
     Account_class = Factory.get('Account')
     Group_class = Factory.get('Group')
@@ -108,7 +109,7 @@ class BofhdExtension(object):
         #
         # copy relevant helper-functions
         #
-         '_find_persons', '_get_account', '_get_ou', '_format_ou_name',
+         '_find_persons', '_get_account', '_format_ou_name',
         '_get_person', '_get_disk', '_get_group', '_map_person_id', '_get_entity',
          '_get_boolean', '_entity_info', 'num2str', '_get_affiliationid',
         '_get_affiliation_statusid', '_parse_date', '_today', 'entity_history',
