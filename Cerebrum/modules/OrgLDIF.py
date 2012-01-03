@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2004-2007 University of Oslo, Norway
+# Copyright 2004-2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -25,7 +25,6 @@ from Cerebrum                   import Entity
 from Cerebrum.Utils             import Factory, auto_super
 from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.modules.LDIFutils import *
-from Cerebrum.Errors            import NotFoundError
 
 postal_escape_re = re.compile(r'[$\\]')
 
@@ -711,52 +710,11 @@ from None and LDAP_PERSON['dn'].""")
             if mail:
                 entry['mail'] = mail
 
-        alias_info = ()
-        if self.select_bool(self.visible_person_selector,
-                            person_id, p_affiliations):
-            attrs = self.visible_person_attrs
-            alias_info = (primary_ou_dn,)
-            # BEGIN RESERVATION HACK
-            is_empl_affil = False
-            is_active_stud = False
-            # Ansatte
-            for (aff, status, ou) in p_affiliations:
-                # Er personen ansatt (tilkn. og ans. anses begge som ansatt i denne kontekst)
-                # så overstyrer denne FS uansett. 
-                if self.const.affiliation_ansatt == aff or (self.const.affiliation_tilknyttet == aff and \
-                                                            status <> self.const.affiliation_tilknyttet_fagperson):
-                    # Ansatt/tilknyttet med reservasjon == skjules uansett
-                    try:
-                        if self.init_person_group("SAP-elektroniske-reservasjoner").has_key(person_id):
-                            attrs = self.invisible_person_attrs
-                            alias_info = ()
-                    except NotFoundError:
-                        # group doesn't exist on this instance; no need to care about this then
-                        pass
-                    is_empl_affil = True
-                    break
-
-            if not is_empl_affil:
-                # Studenter
-                statuses = []
-                for (aff, status, ou) in p_affiliations:
-                    # Hvis aktiv eller dr.grad så sjekk for manglende samtykke.
-                    # Hvis bare opptak eller evu så skjul automatisk.
-                    if aff == int(self.const.affiliation_student) and \
-                           status in (self.const.affiliation_status_student_aktiv,
-                                      self.const.affiliation_status_student_drgrad):
-                        if not self.init_person_group("FS-aktivt-samtykke").has_key(person_id):
-                            attrs = self.invisible_person_attrs
-                            alias_info = ()
-                        is_active_stud = True
-                        break
-            # De som ikke er ansatt eller student(aktiv,drgrad) skjules automatisk
-            if not (is_empl_affil or is_active_stud):
-                attrs = self.invisible_person_attrs
-                alias_info = ()
-            # END HACK
+        if self.is_person_visible(person_id):
+            attrs, alias_info = self.visible_person_attrs, (primary_ou_dn,)
         else:
-            attrs = self.invisible_person_attrs
+            attrs, alias_info = self.invisible_person_attrs, ()
+
         for key, values in attrs.items():
             if key in entry:
                 entry[key].extend(values)
@@ -765,6 +723,12 @@ from None and LDAP_PERSON['dn'].""")
 
         self.update_person_entry(entry, row)
         return dn, entry, alias_info
+
+    def is_person_visible(self, person_id):
+        # Decide if the person will be visible, rather than
+        # hidden by access controls (but still present)
+        return self.select_bool(self.visible_person_selector, person_id,
+                                self.affiliations[person_id])
 
     def person_dn_primaryOU(self, entry, row, person_id):
         # Return (the person entry's DN,

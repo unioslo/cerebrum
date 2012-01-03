@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2004-2010 University of Oslo, Norway
+# Copyright 2004-2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -282,4 +282,34 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
 
     def _calculate_edu_OUs(self, p_ou, s_ous):
         return s_ous
+
+
+    def init_person_selections(self):
+        """Set up data for no.uio.OrgLDIF.is_person_visible()"""
+        self.__super.init_person_selections()
+        self.visible_sap_affs = (int(self.const.affiliation_ansatt),
+                                 int(self.const.affiliation_tilknyttet))
+        student = int(self.const.affiliation_student)
+        self.fs_aff_statuses = (
+            (student, int(self.const.affiliation_status_student_aktiv)),
+            (student, int(self.const.affiliation_status_student_drgrad)))
+        self.sap_res = self.init_person_group("SAP-elektroniske-reservasjoner")
+        self.fs_samtykke = self.init_person_group("FS-aktivt-samtykke")
+
+    def is_person_visible(self, person_id):
+        """Override cereconf.LDAP_PERSON['visible_selector']"""
+        p_affs = self.affiliations[person_id]
+        # If there is an affiliation from SAP (ANSATT, TILKNYTTET),
+        # then consider reservations/permissions from SAP only.
+        for (aff, status, ou) in p_affs:
+            if aff in self.visible_sap_affs:
+                return person_id not in self.sap_res
+        # Otherwise, if there is an affiliaton STUDENT/<aktiv or drgrad>,
+        # check for permission from FS to make the person visible.
+        for (aff, status, ou) in p_affs:
+            if (aff, status) in self.fs_aff_statuses:
+                return person_id in self.fs_samtykke
+        # Otherwise hide the person.
+        return False
+
 # arch-tag: e13d2650-dd88-4cac-a5fb-6a7cc6884914
