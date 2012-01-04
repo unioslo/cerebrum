@@ -463,17 +463,10 @@ class AccountUtil(object):
         if not cellphone:
             logger.debug("SMS: no phone registered for %s", person_id)
             return False
-        logger.debug("SMS: Sending for %s to phone %s", username, cellphone)
-
-        # TODO: store message in cereconf
         msg = cereconf.AUTOADMIN_WELCOME_SMS % {'username': username}
-        if dryrun:
-            logger.debug("SMS to %s: %s", cellphone, msg)
-            return True
-
-        # TODO: don't send SMSs yet, log first in a test period?
         logger.debug("SMS to %s: %s", cellphone, msg)
-        #sms(cellphone, msg)
+        if not dryrun:
+            sms(cellphone, msg)
         return True
     _send_sms = staticmethod(_send_sms)
 
