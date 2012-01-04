@@ -130,6 +130,10 @@ def _cache_ou_data(perspective):
              "land": row["country"],})
 
     logger.debug("Ending caching ou_data: %d entries", len(ous))
+    #for k,v in ous.items():
+    #    logger.debug("OUS %10s %10s %10s" %(k, v["parent_id"],
+    #        str(v["fakultet"])+ str(v["institutt"])+str(v["avdeling"])))
+    #logger.debug("Ending debug OU print.")
     return ous
 # end _cache_ou_data    
 
@@ -183,7 +187,6 @@ def output_OUs(writer, perspective, spread):
                                ("undavdnr", data["institutt"]),
                                ("gruppenr", data["avdeling"])):
             output_element(element, value)
-
         if "parent_id" in data and ous.get(data["parent_id"]):
             counter = [0,]
             parent_id = get_ou_for_export(ous, filtered_ou_ids,
@@ -666,19 +669,17 @@ def get_ou_for_export(cache, filtered, ou_id, counter):
     """Return ou_id that can be exported.
 
     @param cache: dict with ou information.
-    @param filtered: ous in this dict have spread that defines an exportable ou.
+    @param filtered: ous in this list/dict have spread that defines an exportable ou.
     @param ou_id: current value.
     @param counter: list with one integer to count recursive calls.
     @return ou_id to export.
     """
     counter[0] += 1
-    if ou_id in filtered:
+    if ou_id in filtered or (ou_id,) in filtered:
         return ou_id
     parent_id = None
     parent_id = cache[ou_id].get("parent_id")
     if parent_id is None: # ou_id is root ou
-        logger.debug("Came up to the root ou %d." %ou_id )
-        logger.debug("Returning after %d recursive calls." %counter[0])
         return ou_id
     return get_ou_for_export(cache, filtered, parent_id, counter)
 # end get_ou4export
@@ -701,7 +702,6 @@ def prepare_employment(alist, cache, filtered):
         res[index]["ou_id"] = get_ou_for_export(cache, filtered, temp, counter)
     return res
 # end prepare_employment
-
 
 
 def main(argv):
