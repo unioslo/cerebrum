@@ -881,6 +881,8 @@ def start_process_students(recalc_pq=False, update_create=False):
                                  emne_info_file=emne_info_file,
                                  ou_perspective=ou_perspective)
     logger.info("config processed")
+    if send_sms:
+        logger.debug('SMSs are sent to new/restored users')
     persons, accounts = get_existing_accounts()
     logger.info("got student accounts")
     if recalc_pq:
@@ -1341,11 +1343,11 @@ def main():
                                     'posix-tables'])
     except getopt.GetoptError, e:
         usage(str(e))
-    global debug, fast_test, create_users, update_accounts, logger, skip_lpr, sms
+    global debug, fast_test, create_users, update_accounts, logger, skip_lpr
     global student_info_file, studconfig_file, only_dump_to, studieprogs_file, \
            dryrun, emne_info_file, move_users, remove_groupmembers, \
            workdir, paper_money_file, ou_perspective, with_quarantines,\
-           with_diskquota, posix_tables
+           with_diskquota, posix_tables, send_sms, sms
 
     recalc_pq = False
     validate = False
