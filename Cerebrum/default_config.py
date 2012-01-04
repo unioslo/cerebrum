@@ -454,6 +454,9 @@ PGP_ENC_OPTS = ['--encrypt', '--armor', '--batch', '--quiet']
 # }
 AUTH_PGP = {}
 
+# Realm for A1 crypt, used by const.auth_type_a1_crypt
+AUTH_A1_REALM = ""
+
 #
 # LDAP stuff
 #
