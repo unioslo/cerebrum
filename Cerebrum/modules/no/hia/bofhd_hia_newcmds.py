@@ -565,16 +565,11 @@ class BofhdExtension(BofhdCommandBase):
                 data.append({'fnr': row['external_id'],
                              'fnr_src': str(
                     self.const.AuthoritativeSystem(row['source_system']))})
-            # Show external id from FS and SAP
-            for extid in (self.const.externalid_sap_ansattnr,
-                          self.const.externalid_studentnr):
-                for row in person.get_external_id(id_type=extid):
-                    data.append({'extid': row['external_id'],
-                                 'extid_src': str(
-                        self.const.AuthoritativeSystem(row['source_system']))})
-        # Show contact info, like address and mobile number
+
+        # Show contact info, like address and mobile number, and also external
+        # ids from FS and SAP.
         # Can only be shown by those that can set passwords for one of the
-        # persons accounts
+        # persons accounts.
         can_show_contact_info = False
         for a in account_ids:
             try:
@@ -615,6 +610,13 @@ class BofhdExtension(BofhdCommandBase):
                              'address_source': 
                                         str(self.const.AuthoritativeSystem(
                                                         address['source_system']))})
+            # External ids from FS and SAP
+            for extid in (self.const.externalid_sap_ansattnr,
+                          self.const.externalid_studentnr):
+                for row in person.get_external_id(id_type=extid):
+                    data.append({'extid': row['external_id'],
+                                 'extid_src': str(
+                        self.const.AuthoritativeSystem(row['source_system']))})
             # mobile number
             systems = getattr(cereconf, 'INDIVIDUATION_PHONE_TYPES', {})
             for sys in systems:
