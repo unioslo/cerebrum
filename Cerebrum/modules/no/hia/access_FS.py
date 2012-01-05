@@ -270,7 +270,8 @@ class HiAEVU(access_FS.EVU):
                p.adresseland_hjemsted, d.deltakernr, d.emailadresse,
                k.etterutdkurskode, e.studieprogramkode,
                e.faknr_adm_ansvar, e.instituttnr_adm_ansvar,
-               e.gruppenr_adm_ansvar, p.kjonn, p.status_dod, p.telefonnr_mobil
+               e.gruppenr_adm_ansvar, p.kjonn, p.status_dod, 
+               p.telefonnr_mobil
         FROM fs.deltaker d, fs.person p, fs.kursdeltakelse k,
              fs.etterutdkurs e
         WHERE p.fodselsdato=d.fodselsdato AND
@@ -279,7 +280,7 @@ class HiAEVU(access_FS.EVU):
               e.etterutdkurskode=k.etterutdkurskode AND
               (NVL(e.status_kontotildeling,'J')='J' OR 
               NVL(e.status_nettbasert_und,'J')='J') AND
-              NVL(k.status_opptatt, 'N')='J' AND
+              NVL(k.svarstatkode_svar_pa_tilbud, 'N')='J' AND
               k.kurstidsangivelsekode = e.kurstidsangivelsekode AND
               NVL(e.dato_til, SYSDATE) >= SYSDATE - 30"""
         return self.db.query(qry)
