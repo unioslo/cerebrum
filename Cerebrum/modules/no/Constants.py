@@ -98,7 +98,7 @@ class ConstantsCommon(Constants.Constants):
 
     # Trait for storing if a user has gotten a welcome SMS.
     trait_sms_welcome = _EntityTraitCode(
-        'sms_welcom', Constants.Constants.entity_account,
+        'sms_welcome', Constants.Constants.entity_account,
         "If a user has retrieved a welcome message by SMS")
 
     # Trait for showing that a student account is either newly created or
