@@ -95,7 +95,17 @@ class ConstantsCommon(Constants.Constants):
     trait_public_reservation = _EntityTraitCode(
         'reserve_public', Constants.Constants.entity_person,
         "Reserved from being published at the web pages")
-    
+
+    # Trait for storing if a user has gotten a welcome SMS.
+    trait_sms_welcome = _EntityTraitCode(
+        'sms_welcom', Constants.Constants.entity_account,
+        "If a user has retrieved a welcome message by SMS")
+
+    # Trait for showing that a student account is either newly created or
+    # restored. Used to send welcome message by SMS.
+    trait_student_new = _EntityTraitCode(
+        'new_student', Constants.Constants.entity_account,
+        "If the student account is newly created or restored")
 
 class ConstantsHigherEdu(Constants.Constants):
 
