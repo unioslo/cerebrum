@@ -38,7 +38,7 @@ class OrgLDIFHiAMixin(norEduLDIFMixin):
         syntax = self.attr2syntax[attr]
         c = self.get_contacts(
             contact_type  = self.const.contact_mobile_phone,
-            source_system = source,
+            source_system = self.const.system_sap,
             convert       = syntax[0],
             verify        = syntax[1],
             normalize     = syntax[2])
