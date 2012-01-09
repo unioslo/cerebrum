@@ -27,23 +27,26 @@ class OrgLDIFHiAMixin(norEduLDIFMixin):
     def __init__(self, db, logger):
         self.__super.__init__(db, logger)
         self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
-        self.attr2syntax['roomNumber'] = (None, verify_printableString,
-                                          normalize_string)
+        self.attr2syntax['roomNumber'] = (iso2utf, None, normalize_string)
 
     def init_attr2id2contacts(self):
-        self.__super.init_attr2id2contacts()
-        source = getattr(self.const, cereconf.LDAP['contact_source_system'])
+        # Changes from the original:
+        # - Get phone from system_pbx, others from system_sap.
+        # - Add mobile and roomNumber.
+        sap, pbx = self.const.system_sap, self.const.system_pbx
 
-        attr = 'mobile'
-        syntax = self.attr2syntax[attr]
-        c = self.get_contacts(
-            contact_type  = self.const.contact_mobile_phone,
-            source_system = self.const.system_sap,
-            convert       = syntax[0],
-            verify        = syntax[1],
-            normalize     = syntax[2])
-        if c:
-            self.attr2id2contacts.append((attr, c))
+        c = [(a, self.get_contacts(contact_type  = t,
+                                   source_system = s,
+                                   convert       = self.attr2syntax[a][0],
+                                   verify        = self.attr2syntax[a][1],
+                                   normalize     = self.attr2syntax[a][2]))
+             for a,s,t in (('telephoneNumber', pbx, self.const.contact_phone),
+                           ('facsimileTelephoneNumber',
+                            sap, self.const.contact_fax),
+                           ('mobile', sap, self.const.contact_mobile_phone),
+                           ('labeledURI', None, self.const.contact_url))]
+        self.id2labeledURI    = c[-1][1]
+        self.attr2id2contacts = [v for v in c if v[1]]
 
         # roomNumber
         # Some employees have registered their office addresses in SAP. We store
