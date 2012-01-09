@@ -130,8 +130,8 @@ def process(trait, message, phone_types, affiliations, commit=False):
             logger.debug('Person %s had no phone number, skipping for now',
                          ac.account_name)
             continue
-        message = message % {'username': ac.account_name}
-        if not send_sms(phone, message, commit):
+        msg = message % {'username': ac.account_name}
+        if not send_sms(phone, msg, commit):
             logger.warn('Could not send SMS to %s (%s)', ac.account_name, phone)
             continue
         # sms sent, now update the traits
