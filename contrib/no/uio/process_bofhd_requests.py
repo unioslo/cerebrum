@@ -384,8 +384,11 @@ def email_move_child(host, r):
     new_server = Email.EmailServer(local_db)
     new_server.find(r['destination_id'])
     if old_server.entity_id == new_server.entity_id:
-        logger.error("trying to move %s from and to the same server!",
-                     acc.account_name)
+        logger.error("Trying to move %s from " % acc.account_name +
+                     "and to the same server! Deleting request")
+        br = BofhdRequests(local_db, local_co)
+        br.delete_request(request_id=r_id)
+        local_db.commit()
         return
     if not email_delivery_stopped(acc.account_name):
         logger.debug("E-mail delivery not stopped for %s",
