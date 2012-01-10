@@ -2176,7 +2176,8 @@ class AccountEmailMixin(Account.Account):
         while lp.endswith('.'):
             lp = lp[:-1]
         # Two '.' characters can't be together
-        lp = lp.replace('..', '.')
+        while lp.find('..') != -1:
+            lp = lp.replace('..', '.')
         if not lp:
             raise ValueError, "Local-part can't be empty (%r -> %r)" % (
                 local_part, lp)
