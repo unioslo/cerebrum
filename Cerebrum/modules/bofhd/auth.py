@@ -330,10 +330,11 @@ class BofhdAuth(DatabaseAccessor):
     """Defines methods that are used by bofhd to determine wheter
     an operator is allowed to perform a given action.
 
-    The query_run_any parameter is used to determine if operator has
-    this permission somewhere.  It is used to filter available
-    commands in bofhds get_commands().  Note that this should NOT be
-    used a security measure"""
+    The query_run_any parameter is used to determine if operator has this
+    permission somewhere. It is used to filter available commands in bofhds
+    get_commands(), and if it is True, the method should return either True or
+    False, and not throw PermissionDenied exceptions. Note that this variable
+    should NOT be used a security measure!"""
 
     def __init__(self, database):
         super(BofhdAuth, self).__init__(database)

@@ -75,6 +75,8 @@ class BofhdAuth(auth.BofhdAuth):
             return True
         if self.is_postmaster(operator, query_run_any):
             return True
+        if query_run_any:
+            return False
         raise PermissionDenied('Not allowed to clear name')
 
     def can_set_trait(self, operator, trait=None, ety=None, target=None,
