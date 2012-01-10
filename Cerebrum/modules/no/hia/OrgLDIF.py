@@ -82,29 +82,3 @@ class OrgLDIFHiAMixin(norEduLDIFMixin):
 
         return dict((key, self.attr_unique(values, normalize=normalize))
                     for key, values in cont_tab.iteritems())
-
-    if False:
-      # ??? This was unused ???
-
-      def init_person_dump(self, use_mail_module):
-        self.__super.init_person_dump(use_mail_module)
-        self.primary_affiliation = (
-            int(self.const.affiliation_ansatt),
-            int(self.const.affiliation_status_ansatt_primaer))
-
-      def person_dn_primaryOU(self, entry, row, person_id):
-        # Change from superclass:
-        # If person has affiliation ANSATT/primær, use it for the primary OU.
-        for aff in self.affiliations.get(person_id, ()):
-            if aff[:2] == self.primary_affiliation:
-                ou_id = aff[2]
-                break
-        else:
-            ou_id = int(row['ou_id'])
-        primary_ou_dn = self.ou2DN.get(ou_id)
-        return ",".join(("uid=" + entry['uid'][0],
-                         (self.person_dn_suffix
-                          or primary_ou_dn
-                          or self.person_default_parent_dn))), primary_ou_dn
-
-# arch-tag: f7098a5b-0019-4466-b4d7-becffc95a421
