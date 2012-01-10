@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2004-2010 University of Oslo, Norway
+# Copyright 2004-2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,6 +16,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+from collections import defaultdict
 
 from Cerebrum.modules.LDIFutils import verify_printableString, normalize_string
 
@@ -60,39 +62,26 @@ class OrgLDIFHiAMixin(norEduLDIFMixin):
             verify        = syntax[1],
             normalize     = syntax[2])
         if c:
-            c = dict((key, c[key][0][1]) for key in c if c[key][0])
             self.attr2id2contacts.append((attr, c))
 
-    def get_contact_aliases(self, entity_id=None, contact_type=None,
+    def get_contact_aliases(self, contact_type=None,
             source_system=None, convert=None, verify=None, normalize=None):
-        """Return a list of contact values and aliases for the specified
-        parameters, or if entity_id is None, a dict {entity_id: [contact
-        values]}. Note that each contact value has the form (contact_value,
-        alias).
-        
-        The verify method is called upon both contact_address and contact_alias.
-        A new parameter might be needed for verifying aliases?"""
+        """Return a dict {entity_id: [list of contact aliases]}."""
+        # The code mimics a reduced modules/OrgLDIF.py:get_contacts().
         entity = Entity.EntityContactInfo(self.db)
-        cont_tab = {}
+        cont_tab = defaultdict(list)
         if not convert:
             convert = str
         if not verify:
-            verify = lambda val: True
-        for row in entity.list_contact_info(entity_id     = entity_id,
-                                            source_system = source_system,
+            verify = bool
+        for row in entity.list_contact_info(source_system = source_system,
                                             contact_type  = contact_type):
-            c_list = (convert(str(row['contact_value'])), str(row['contact_alias']))
-            cont_tab.setdefault(row['entity_id'], []).append(c_list)
+            alias = convert(str(row['contact_alias']))
+            if alias and verify(alias):
+                cont_tab[int(row['entity_id'])].append(alias)
 
-        for key, c_list in cont_tab.iteritems():
-            cont_tab[key] = self.attr_unique(
-                    filter(lambda x: verify(x[0]) and verify(x[1]),
-                           [c for c in c_list if c[0] not in ('', '0')]),
-                    normalize = normalize)
-        if entity_id is None:
-            return cont_tab
-        else:
-            return (cont_tab.values() or ((),))[0]
+        return dict((key, self.attr_unique(values, normalize=normalize))
+                    for key, values in cont_tab.iteritems())
 
     if False:
       # ??? This was unused ???
