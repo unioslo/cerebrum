@@ -18,15 +18,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-# Denne fila implementerer en bofhd extension som i størst mulig
-# grad forsøker å etterligne kommandoene i ureg2000 sin bofh klient.
-#
-# Vesentlige forskjeller:
-#  - det finnes ikke lengre fg/ng grupper.  Disse er slått sammen til
-#    "group"
-#  - det er ikke lenger mulig å lage nye pesoner under bygging av
-#    konto, "person create" må kjøres først
-
 import sys
 import time
 import os
@@ -4820,6 +4811,15 @@ Addresses and settings:
         # operator has specified more than one entity.
         if group_d.has_member(src_entity.entity_id):
             return "%s is already a member of %s" % (src_name, dest_group)
+        # Make sure that the src_entity does not have group_d as a
+        # member already, to avoid a recursion well at export
+        if src_entity.entity_type == self.const.entity_group:
+            for row in src_entity.search_members(member_id=group_d.entity_id, 
+                                                 member_type=self.const.entity_group, 
+                                                 indirect_members=True,
+                                                 member_filter_expired=False):
+                if row:
+                    return "Recursive memberships are not allowed (%s is member of %s)" % (dest_group, src_name)
         # This can still fail, e.g., if the entity is a member with a
         # different operation.
         try:
