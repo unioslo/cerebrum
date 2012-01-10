@@ -7057,16 +7057,16 @@ Addresses and settings:
     all_commands['person_clear_name'] = Command(
 	("person", "clear_name"),PersonId(help_ref="person_id_other"),
 	SourceSystem(help_ref="source_system"),
-	perm_filter='is_superuser')
+	perm_filter='can_clear_name')
     def person_clear_name(self, operator, person_id, source_system):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
         person = self.util.get_target(person_id, restrict_to="Person")
         ss = self.const.AuthoritativeSystem(source_system)
         try:
             int(ss)
         except Errors.NotFoundError:
             raise CerebrumError("No such source system")
+        self.ba.can_clear_name(operator.get_entity_id(), person=person,
+                               source_system=ss)
         removed = False
         for variant in (self.const.name_first, self.const.name_last, self.const.name_full):
             try:

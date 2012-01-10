@@ -67,6 +67,16 @@ class BofhdAuth(auth.BofhdAuth):
         return self.is_account_owner(operator, self.const.auth_set_password,
                                      account)
 
+    def can_clear_name(self, operator, person=None, source_system=None,
+            query_run_any=False):
+        """If operator is allowed to remove a person's name from a given source
+        system."""
+        if self.is_superuser(operator, query_run_any):
+            return True
+        if self.is_postmaster(operator, query_run_any):
+            return True
+        raise PermissionDenied('Not allowed to clear name')
+
     def can_set_trait(self, operator, trait=None, ety=None, target=None,
                       query_run_any=False):
         if query_run_any:
