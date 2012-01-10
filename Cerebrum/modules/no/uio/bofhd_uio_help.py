@@ -396,7 +396,7 @@ student or an employee on leave).  'misc affiliations' lists
 affiliation status codes"""],
     'source_system':
         ['source_system', 'Enter source system',
-         'The name of the source system, i.e. FS/LT etc.'],
+         'The name of the source system, i.e. FS/SAP/Override etc.'],
     'command_line':
         ['command', 'Enter command line'],
     'date':

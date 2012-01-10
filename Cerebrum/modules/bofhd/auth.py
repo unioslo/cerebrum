@@ -526,6 +526,8 @@ class BofhdAuth(DatabaseAccessor):
         system."""
         if self.is_superuser(operator):
             return True
+        if query_run_any:
+            return False
         raise PermissionDenied('Not allowed to clear name')
 
     def can_remove_trait(self, operator, trait=None, ety=None, target=None,
