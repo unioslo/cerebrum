@@ -76,6 +76,8 @@ class OrgLDIFHiAMixin(norEduLDIFMixin):
         cont_tab = {}
         if not convert:
             convert = str
+        if not verify:
+            verify = lambda val: True
         for row in entity.list_contact_info(entity_id     = entity_id,
                                             source_system = source_system,
                                             contact_type  = contact_type):
