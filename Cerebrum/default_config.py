@@ -583,6 +583,9 @@ LDAP_PERSON = {
     #'dn': "cn=people," + LDAP_ORG['dn'],
 
 
+    # Which address types to give persons: POST and/or STREET
+    'address_types': ['POST', 'STREET'],
+
     # Whether to give the organization tree alias entries for persons.
     # Disabled by default:  Aliases defeat indexing in OpenLDAP since the
     # server does not index a value "through" an alias, so a search which

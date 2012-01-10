@@ -524,12 +524,12 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         # Set self.addr_info = dict {person_id: {address_type: (addr. data)}}.
         timer = self.make_timer("Fetching personal addresses...")
         self.addr_info = addr_info = {}
+        addr_types = cereconf.LDAP_PERSON['address_types']
         for row in self.person.list_entity_addresses(
                 entity_type  = self.const.entity_person,
                 source_system= getattr(self.const,
                                        cereconf.LDAP['contact_source_system']),
-                address_type = [self.const.address_street,
-                                self.const.address_post]):
+                address_type = map_constants('_AddressCode', addr_types)):
             entity_id = int(row['entity_id'])
             if not addr_info.has_key(entity_id):
                 addr_info[entity_id] = {}
