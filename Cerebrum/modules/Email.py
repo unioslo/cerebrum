@@ -1895,15 +1895,45 @@ class AccountEmailMixin(Account.Account):
         With max_initials=1 and given_names=1
            "John Ronald Reuel Doe" -> "john.r.doe"
         """
-
-        assert(given_names >= -1)
-        assert(max_initials is None or max_initials >= 0)
-
         try:
             full = self.get_fullname()
         except Errors.NotFoundError:
             full = self.account_name
-        names = [x.lower() for x in re.split(r'\s+', full)]
+        return self.get_email_cn_given_local_part(full_name=full,
+                        given_names=given_names, max_initials=max_initials)
+
+    def get_email_cn_given_local_part(self, full_name, given_names=-1,
+                                           max_initials=None):
+        """Return a "pretty" local part out of a given name. This can be used to
+        see what cn a name change would give.
+
+        If given_names=-1, keep the given name if the person has only
+        one, but reduce them to initials only when the person has more
+        than one.
+           "John"                  -> "john"
+           "John Doe"              -> "john.doe"
+           "John Ronald Doe"       -> "j.r.doe"
+           "John Ronald Reuel Doe" -> "j.r.r.doe"
+
+        If given_names=0, only initials are included
+           "John Ronald Doe"       -> "j.r.doe"
+
+        If given_names=1, the first given name will always be included
+           "John Ronald Doe"       -> "john.r.doe"
+
+        If max_initials is set, no more than this number of initials
+        will be included.  With max_initials=1 and given_names=-1
+           "John Doe"              -> "john.doe"
+           "John Ronald Reuel Doe" -> "j.doe"
+
+        With max_initials=1 and given_names=1
+           "John Ronald Reuel Doe" -> "john.r.doe"
+        """
+
+        assert(given_names >= -1)
+        assert(max_initials is None or max_initials >= 0)
+
+        names = [x.lower() for x in re.split(r'\s+', full_name)]
         last = names.pop(-1)
         names = [x for x in '-'.join(names).split('-') if x]
 
@@ -2145,6 +2175,8 @@ class AccountEmailMixin(Account.Account):
             lp = lp[1:]
         while lp.endswith('.'):
             lp = lp[:-1]
+        # Two '.' characters can't be together
+        lp = lp.replace('..', '.')
         if not lp:
             raise ValueError, "Local-part can't be empty (%r -> %r)" % (
                 local_part, lp)

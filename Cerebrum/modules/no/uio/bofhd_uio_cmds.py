@@ -1847,11 +1847,11 @@ class BofhdExtension(BofhdCommandBase):
         SourceSystem(optional=True, help_ref="source_system"),
 	fs=FormatSuggestion("Name and e-mail address altered for: %i",
         ("person_id",)),
-	perm_filter='is_postmaster')
+	perm_filter='can_email_mod_name')
     def email_mod_name(self, operator, person_id, firstname, lastname):
         person = self._get_person(*self._map_person_id(person_id))
-        if not self.ba.is_postmaster(operator.get_entity_id()):
-            raise PermissionDenied("You are not entitled to perform this operation")
+        self.ba.can_email_mod_name(operator.get_entity_id(), person=person,
+                                   firstname=firstname, lastname=lastname)
         source_system = self.const.system_override
         person.affect_names(source_system,
                             self.const.name_first,
@@ -6652,7 +6652,73 @@ Addresses and settings:
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
         return {'person_id': person.entity_id}
+
+    # person name_suggestions
+    hidden_commands['person_name_suggestions'] = Command(
+        ('person', 'name_suggestions'),
+        PersonId(help_ref='person_id_other'))
+    def person_name_suggestions(self, operator, person_id):
+        """Return a list of names that the user can choose for himself. Each
+        name could generate a different primary e-mail address, so this is also
+        returned.
         
+        The name varieties are generated:
+
+        - The primary family name is used as a basis for all varieties.
+
+        - All given names are then added in front of the family name. If the
+          given name contains several names, all of these are added as a
+          variety, e.g:
+
+              family: Doe, given: John Robert
+              varieties: John Doe, John Robert Doe, Robert Doe
+        """
+        person  = self._get_person(*self._map_person_id(person_id))
+        account = self._get_account(operator.get_entity_id(), idtype='id')
+        if not (self.ba.is_superuser(operator.get_entity_id()) or 
+                account.owner_id == person.entity_id):
+            raise CerebrumError('You can only get your own names')
+
+        # get primary last name to use for basis
+        last_name = None
+        for sys in cereconf.SYSTEM_LOOKUP_ORDER:
+            try:
+                last_name = person.get_name(getattr(self.const, sys),
+                                            self.const.name_last)
+                if last_name:
+                    break
+            except Errors.NotFoundError:
+                pass
+        if not last_name:
+            raise CerebrumError('Found no family name for person')
+
+        names = set()
+        for sys in cereconf.SYSTEM_LOOKUP_ORDER:
+            try:
+                name = person.get_name(getattr(self.const, sys),
+                                               self.const.name_first)
+            except Errors.NotFoundError:
+                continue
+            # add the name itself:
+            names.add((name, last_name))
+            # add the different first names, if several are given
+            name = name.split(' ')
+            if len(name) > 1:
+                names.update((n, last_name) for n in name)
+        account.clear()
+        # TODO: what if person has no primary account?
+        try:
+            account.find(person.get_primary_account())
+            ed = Email.EmailDomain(self.db)
+            ed.find(account.get_primary_maildomain())
+            domain = ed.email_domain_name
+        except Errors.NotFoundError:
+            domain = 'ulrik.uio.no'
+        return [(name, 
+                 '%s@%s' % (account.get_email_cn_given_local_part(' '.join(name)),
+                            domain))
+                for name in names]
+
     # person create
     all_commands['person_create'] = Command(
         ("person", "create"), PersonId(), 

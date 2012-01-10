@@ -1353,6 +1353,12 @@ class BofhdAuth(DatabaseAccessor):
                                          self.const.auth_email_reassign,
                                          account, domain, query_run_any)
 
+    def can_email_mod_name(self, operator_id, person=None, firstname=None,
+                           lastname=None, query_run_any=False):
+        """If someone is allowed to modify a person's name. Only postmasters are
+        allowed to do this by default."""
+        return self.is_postmaster(operator_id, query_run_any=query_run_any)
+
     def _is_local_postmaster(self, operator, operation, account=None,
                              domain=None, query_run_any=False):
         if self.is_superuser(operator):

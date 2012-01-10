@@ -24,6 +24,7 @@ Site specific auth.py for UiO
 """
 
 import cereconf
+from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd import auth
 from Cerebrum.modules.bofhd.errors import PermissionDenied
@@ -123,6 +124,46 @@ class BofhdAuth(auth.BofhdAuth):
         if domain.entity_id in account.get_prospect_maildomains():
             raise PermissionDenied("Can't delete e-mail addresses from domains "
                                    "the account is affiliated with")
+        return True
+
+    def can_email_mod_name(self, operator_id, person=None, firstname=None,
+                           lastname=None, query_run_any=False):
+        """If someone is allowed to modify a person's name. Only postmasters are
+        allowed to do this by default, but persons can change their name after
+        some criterias."""
+        if self.is_superuser(operator_id, query_run_any):
+            return True
+        if self.is_postmaster(operator_id, query_run_any):
+            return True
+        if query_run_any:
+            return True
+
+        # last name must match primary one
+        # TBD: only _primary_ family name, or can others be accepted?
+        found = False
+        for sys in cereconf.SYSTEM_LOOKUP_ORDER:
+            try:
+                if lastname != person.get_name(getattr(self.const, sys),
+                                               self.const.name_last):
+                    raise PermissionDenied("Invalid family name")
+                found = True
+                break
+            except NotFoundError:
+                continue
+        if not found:
+            raise PermissionDenied('No family name registered')
+
+        # check that all names already exists
+        names = []
+        for row in person.get_all_names():
+            if row['name_variant'] != self.const.name_first:
+                continue
+            names.extend(row['name'].split(' '))
+        if not names:
+            raise PermissionDenied('No given names registered')
+        for n in firstname.split(' '):
+            if n not in names:
+                raise PermissionDenied('Unregistered name: %s' % n)
         return True
 
 # arch-tag: 4ab0350c-d3a0-11da-9a00-b0596eba3453
