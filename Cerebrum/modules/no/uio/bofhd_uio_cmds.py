@@ -6706,14 +6706,22 @@ Addresses and settings:
             if len(name) > 1:
                 names.update((n, last_name) for n in name)
         account.clear()
+
+        uidaddr = True
         # TODO: what if person has no primary account?
         try:
             account.find(person.get_primary_account())
             ed = Email.EmailDomain(self.db)
             ed.find(account.get_primary_maildomain())
             domain = ed.email_domain_name
+            for cat in ed.get_categories():
+                if int(cat['category'] == int(self.const.email_domain_category_cnaddr)):
+                    uidaddr = False
         except Errors.NotFoundError:
             domain = 'ulrik.uio.no'
+        if uidaddr:
+            return [(name, '%s@%s' % (account.account_name, domain))
+                    for name in names]
         return [(name, 
                  '%s@%s' % (account.get_email_cn_given_local_part(' '.join(name)),
                             domain))
