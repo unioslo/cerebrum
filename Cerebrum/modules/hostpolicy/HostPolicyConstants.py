@@ -20,26 +20,20 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 # $Id$
-
+""" 
+The Constants defined for the HostPolicy module, depending on the DNS module.
+"""
 
 from Cerebrum import Constants
 from Cerebrum.modules.CLConstants import _ChangeTypeCode
-
-""" 
-Module documentation goes here.
-
-"""
 
 __version__ = "$Revision$"
 # $URL$
 # $Source$
 
-
 class _PolicyRelationshipCode(Constants._CerebrumCode):
     "Mappings stored in the hostpolicy_relationship_code table"
     _lookup_table = '[:table schema=cerebrum name=hostpolicy_relationship_code]'
-
-
 
 class Constants(Constants.Constants):
     entity_hostpolicy_atom = Constants._EntityTypeCode(
