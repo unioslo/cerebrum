@@ -26,7 +26,7 @@ This module handles all functionality related to 'roles' and 'atoms', as used
 in Cfengine-configuration.
 """
 
-from Cerebrum.Utils import Factory
+from Cerebrum.Utils import Factory, prepare_string
 from Cerebrum.Entity import EntityName
 
 __version__ = "$Revision$"
@@ -187,16 +187,22 @@ class PolicyComponent(EntityName, Entity_class):
     def find_by_name(self, component_name):
         self.__super.find_by_name(component_name, self.const.hostpolicy_component_namespace)
 
-    def search(self, entity_type=None):
+    def search(self, entity_type=None, description=None, foundation=None):
         """Search for components that satisfy given criteria.
 
         Currently, no criteria can be given, hence all components are
         returned.
         """
-        binds = {}
-        if entity_type:
-            binds['entity_type'] = int(entity_type)
+        where = ['en.entity_id = co.component_id']
 
+        if entity_type is not None:
+            where.append('co.entity_type=:entity_type')
+        if description is not None:
+            description = prepare_string(description)
+            where.append('LOWER(co.description) LIKE :description')
+        if foundation is not None:
+            foundation = prepare_string(foundation)
+            where.append('LOWER(co.foundation) LIKE :foundation')
         return self.query(
             """SELECT DISTINCT co.entity_type AS entity_type,
                                co.component_id AS component_id,
@@ -208,8 +214,12 @@ class PolicyComponent(EntityName, Entity_class):
                  [:table schema=cerebrum name=hostpolicy_component] co,
                  [:table schema=cerebrum name=entity_name] en
                WHERE
-                 en.entity_id = co.component_id
-            """)
+                 %(where)s
+            """ % {'where': ' AND '.join(where)}, {
+                        'entity_type': int(entity_type),
+                        'description': description,
+                        'foundation': foundation,
+            })
 
 class Role(PolicyComponent):
     def new(self, component_name, description, foundation, create_date=None):
@@ -232,3 +242,11 @@ class Atom(PolicyComponent):
                  create_date=None):
         self.__super.populate(self.const.entity_hostpolicy_atom, component_name,
                               description, foundation, create_date)
+
+    def search(self, *args, **kwargs):
+        """Sarch for atoms by different criterias.
+        
+        TODO: add criterias. All atoms are returned for now."""
+        return self.__super.search(entity_type=self.const.entity_hostpolicy_atom,
+                                   *args, **kwargs)
+

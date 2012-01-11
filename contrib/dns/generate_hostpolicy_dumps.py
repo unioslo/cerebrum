@@ -91,7 +91,7 @@ def process_atoms(stream):
     db.cl_init(change_program='gen_hostpolicy_dump')
     co = Factory.get('Constants')(db)
     atom = Atom(db)
-    for row in atom.search(entity_type=co.entity_hostpolicy_atom):
+    for row in atom.search():
         stream.write(';'.join((row['entity_name'],
                                row['description'],
                                row['foundation'], 
