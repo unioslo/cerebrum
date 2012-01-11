@@ -87,8 +87,6 @@ def process_atoms(stream):
     """Go through all atoms in the database and send them to the stream."""
     logger.info('process_atoms started')
     db = Factory.get('Database')()
-
-    db.cl_init(change_program='gen_hostpolicy_dump')
     co = Factory.get('Constants')(db)
     atom = Atom(db)
     for row in atom.search():
@@ -101,7 +99,15 @@ def process_atoms(stream):
 
 def process_roles(stream):
     logger.info('process_roles started')
-    # TODO
+    db = Factory.get('Database')()
+    co = Factory.get('Constants')(db)
+    role = Role(db)
+    for row in role.search():
+        stream.write(';'.join((row['entity_name'],
+                               row['description'],
+                               row['foundation'], 
+                               row['create_date'].strftime('%Y-%m-%d'))))
+        stream.write('\n')
     logger.info('process_roles done')
 
 def process_hostpolicies(stream):

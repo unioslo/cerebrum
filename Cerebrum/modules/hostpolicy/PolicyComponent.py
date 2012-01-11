@@ -231,7 +231,10 @@ class Role(PolicyComponent):
         self.__super.populate(self.const.entity_hostpolicy_role, component_name,
                               description, foundation, create_date)
 
-    # TODO: list or search?
+    def search(self, *args, **kwargs):
+        """Sarch for roles by different criterias."""
+        return self.__super.search(entity_type=self.const.entity_hostpolicy_role,
+                                   *args, **kwargs)
 
 class Atom(PolicyComponent):
     def new(self, component_name, description, foundation, create_date=None):
@@ -244,9 +247,7 @@ class Atom(PolicyComponent):
                               description, foundation, create_date)
 
     def search(self, *args, **kwargs):
-        """Sarch for atoms by different criterias.
-        
-        TODO: add criterias. All atoms are returned for now."""
+        """Sarch for atoms by different criterias."""
         return self.__super.search(entity_type=self.const.entity_hostpolicy_atom,
                                    *args, **kwargs)
 
