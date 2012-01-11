@@ -6692,6 +6692,16 @@ Addresses and settings:
         if not last_name:
             raise CerebrumError('Found no family name for person')
 
+        def name_combinations(names):
+            """Return all different combinations of given names, while keeping
+            the order intact."""
+            ret = []
+            for i in range(len(names)):
+                ret.append([names[i]])
+                ret.extend([names[i]] + nxt
+                           for nxt in name_combinations(names[i+1:]))
+            return ret
+
         names = set()
         for sys in cereconf.SYSTEM_LOOKUP_ORDER:
             try:
@@ -6699,12 +6709,8 @@ Addresses and settings:
                                                self.const.name_first)
             except Errors.NotFoundError:
                 continue
-            # add the name itself:
-            names.add((name, last_name))
-            # add the different first names, if several are given
-            name = name.split(' ')
-            if len(name) > 1:
-                names.update((n, last_name) for n in name)
+            names.update((tuple(n) + (last_name,))
+                         for n in name_combinations(name.split(' ')))
         account.clear()
 
         uidaddr = True
