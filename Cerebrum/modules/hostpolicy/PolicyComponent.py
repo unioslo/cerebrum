@@ -227,6 +227,21 @@ class PolicyComponent(EntityName, Entity_class):
         self._db.log_change(self.entity_id,
                             self.const.hostpolicy_policy_add, dns_owner_id)
 
+    def remove_policy(self, dns_owner_id):
+        """Remove this instance from a given dns_owner_id (host)."""
+        # TODO: give this method another name? Doesn't make much sense now with:
+        # policy.add_policy(host)
+
+        # TODO: anything to check before executing the change?
+        self.execute("""
+            DELETE FROM [:table schema=cerebrum name=hostpolicy_host_policy]
+            WHERE 
+                policy_id = :policy AND 
+                dns_owner_id = :dns_owner""", {'policy': self.entity_id, 
+                                               'dns_owner': dns_owner_id})
+        self._db.log_change(self.entity_id,
+                            self.const.hostpolicy_policy_remove, dns_owner_id)
+
     def search_hostpolicies(self, policy_id=None, host_name=None,
                             dns_owner_id=None, policy_name=None):
         """List out all hostpolicies together with their dns owners."""
@@ -255,7 +270,7 @@ class PolicyComponent(EntityName, Entity_class):
               en2.entity_id = hp.policy_id""")
 
     def search(self, entity_id=None, entity_type=None, description=None,
-               foundation=None):
+               foundation=None, name=None):
         """Search for components that satisfy given criteria.
 
         @type component_id: int or sequence of ints.
@@ -295,6 +310,9 @@ class PolicyComponent(EntityName, Entity_class):
         if foundation is not None:
             where.append('(LOWER(co.foundation) LIKE :foundation)')
             binds['foundation'] = prepare_string(foundation)
+        if name is not None:
+            where.append('(LOWER(en.entity_name) LIKE :name)')
+            binds['name'] = prepare_string(name)
         return self.query("""
             SELECT DISTINCT co.entity_type AS entity_type,
                             co.component_id AS component_id,
@@ -342,6 +360,22 @@ class Role(PolicyComponent):
                  'target': target_id})
         self._db.log_change(self.entity_id,
                             self.const.hostpolicy_relationship_add, target_id)
+
+    def remove_relationship(self, relationship_code, target_id):
+        """Remove a relationship of given type between this role and a target
+        component (atom or role)."""
+        # TODO: check that the relationship actually exists? Group.remove_member
+        # doesn't do that, so don't know what's correcty for the API.
+        self.execute("""
+            DELETE FROM [:table schema=cerebrum name=hostpolicy_relationship]
+            WHERE 
+                source_policy = :source AND 
+                target_policy = :target AND
+                relationship  = :rel""", {'source': self.entity_id, 
+                                          'target': target_id,
+                                          'rel': relationship_code})
+        self._db.log_change(self.entity_id,
+                            self.hostpolicy_relationship_remove, target_id)
 
     def search(self, *args, **kwargs):
         """Sarch for roles by different criterias."""
