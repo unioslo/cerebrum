@@ -26,8 +26,6 @@ in Cfengine-configuration.
 from Cerebrum.Utils import Factory, prepare_string, argument_to_sql
 from Cerebrum.Entity import EntityName
 
-__version__ = "$Revision$"
-
 Entity_class = Factory.get("Entity")
 class PolicyComponent(EntityName, Entity_class):
     """Base class for policy component, i.e. roles and atoms."""
@@ -210,6 +208,25 @@ class PolicyComponent(EntityName, Entity_class):
 
     def find_by_name(self, component_name):
         self.__super.find_by_name(component_name, self.const.hostpolicy_component_namespace)
+
+    def list_hostpolicies(self):
+        """List out all hostpolicies together with their dns owners."""
+        # TODO: should functionality regarding dns owners be moved to DnsOwner?
+        return self.query("""
+            SELECT
+                co.entity_type AS entity_type,
+                hp.policy_id AS policy_id,
+                hp.dns_owner_id AS dns_owner_id,
+                en.entity_name AS dns_owner_name
+            FROM
+              [:table schema=cerebrum name=hostpolicy_component] co,
+              [:table schema=cerebrum name=hostpolicy_host_policy] hp,
+              [:table schema=cerebrum name=dns_owner] dnso,
+              [:table schema=cerebrum name=entity_name] en
+            WHERE 
+              co.component_id = hp.policy_id AND
+              hp.dns_owner_id = dnso.dns_owner_id AND
+              en.entity_id = hp.dns_owner_id""")
 
     def search(self, entity_id=None, entity_type=None, description=None,
                foundation=None):
