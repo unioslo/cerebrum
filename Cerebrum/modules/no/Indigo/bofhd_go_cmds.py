@@ -37,6 +37,7 @@ from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthRole, \
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.extlib.sets import Set as set
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 
 
 def format_day(field):
@@ -626,7 +627,7 @@ class BofhdExtension(BofhdCommandBase):
         for name_variant in (self.const.ou_name, self.const.ou_name_acronym):
             result.update(r["entity_id"]
                           for r in
-                          ou.search_name_with_language(entity_type=self.const.entity_ou,
+                          self.ou.search_name_with_language(entity_type=self.const.entity_ou,
                                 name_variant=name_variant,
                                 name=name,
                                 name_language=self.const.language_nb,
