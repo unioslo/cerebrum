@@ -18,9 +18,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Script for generating the various hostpolicy csv files that is related to
+"""Script for generating the various host policy csv files that is related to
 cfengine. It can be specified what files to generate. The documentation about
-the hostpolicies are located at:
+the host policies are located at:
 
     https://usit.uio.no/om/tjenestegrupper/cerebrum/dokumentasjon/ekstern/uio/dns/
 
@@ -42,7 +42,7 @@ There are four different files:
 
         - Hosts without roles/atoms is not included.
 
-        - Only policies that are directly assosiacte are included.
+        - Only policies that are directly associated are included.
 
         - Policies are comma separated.
 
@@ -58,7 +58,8 @@ from mx import DateTime
 
 import cerebrum_path, cereconf
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.hostpolicy.PolicyComponent import Atom, Role
+from Cerebrum.modules.hostpolicy.PolicyComponent import PolicyComponent, Atom, Role
+from Cerebrum.modules.dns.DnsOwner import DnsOwner
 
 logger = Factory.get_logger('cronjob')
 
@@ -97,6 +98,7 @@ def process_atoms(stream):
     logger.info('process_atoms done')
 
 def process_roles(stream):
+    """Produce a csv list of all roles and its direct members."""
     logger.info('process_roles started')
     db = Factory.get('Database')()
     role = Role(db)
@@ -108,20 +110,38 @@ def process_roles(stream):
                                row['description'],
                                row['foundation'] or '',
                                row['create_date'].strftime('%Y-%m-%d'),
-                               ','.join(m['member_name'] for m in
+                               ','.join(m['target_name'] for m in
                                         role.search_relations(
                                               source_id=row['component_id'])))))
         stream.write('\n')
     logger.info('process_roles done')
 
 def process_hostpolicies(stream):
+    """Produce a csv list of all hostpolicies."""
     logger.info('process_hostpolicies started')
-    # TODO
+    db = Factory.get('Database')()
+    dnsowner = DnsOwner(db)
+    component = PolicyComponent(db)
+    by_hosts = {}
+    for row in component.search_hostpolicies():
+        by_hosts.setdefault(row['dns_owner_id'], []).append(row)
+    for dns_owner_id, rows in by_hosts.iteritems():
+        stream.write(';'.join((dnsowner.name,
+                               ','.join(str(row['policy_name']) for row in rows))))
+        stream.write('\n')
     logger.info('process_hostpolicies done')
 
 def process_relationships(stream):
+    """Produce a csv list of all relationships between source components and
+    target components, and their kind of relationship."""
     logger.info('process_relationships started')
-    # TODO
+    db = Factory.get('Database')()
+    role = Role(db)
+    for row in role.search_relations():
+        stream.write(';'.join((row['source_name'],
+                               str(row['relationship_str']),
+                               row['target_name'])))
+        stream.write('\n')
     logger.info('process_relationships done')
 
 def main():

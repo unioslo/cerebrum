@@ -209,24 +209,50 @@ class PolicyComponent(EntityName, Entity_class):
     def find_by_name(self, component_name):
         self.__super.find_by_name(component_name, self.const.hostpolicy_component_namespace)
 
-    def list_hostpolicies(self):
+    def add_policy(self, dns_owner_id):
+        """Add this instance as a policy to a given dns_owner_id (host)."""
+        # TODO: give this method another name? Doesn't make much sense now with:
+        # policy.add_policy(host)
+
+        # TODO: check that mutex constraints are fullfilled!
+
+        # TODO: other checks before executing the change?
+
+        self.execute("""
+            INSERT INTO [:table schema=cerebrum name=hostpolicy_host_policy]
+              (dns_owner_id, policy_id)
+            VALUES (:dns_owner, :policy_id)""",
+                {'dns_owner': int(dns_owner_id),
+                 'policy_id': self.entity_id})
+        self._db.log_change(self.entity_id,
+                            self.const.hostpolicy_policy_add, dns_owner_id)
+
+    def search_hostpolicies(self, policy_id=None, host_name=None,
+                            dns_owner_id=None, policy_name=None):
         """List out all hostpolicies together with their dns owners."""
-        # TODO: should functionality regarding dns owners be moved to DnsOwner?
+        # TODO: do we need functionality for searching for indirect
+        # relationships too?
+
+        # TODO: make use of input filters
+
         return self.query("""
-            SELECT
+            SELECT DISTINCT
                 co.entity_type AS entity_type,
                 hp.policy_id AS policy_id,
                 hp.dns_owner_id AS dns_owner_id,
-                en.entity_name AS dns_owner_name
+                en1.entity_name AS dns_owner_name,
+                en2.entity_name AS policy_name
             FROM
               [:table schema=cerebrum name=hostpolicy_component] co,
               [:table schema=cerebrum name=hostpolicy_host_policy] hp,
               [:table schema=cerebrum name=dns_owner] dnso,
-              [:table schema=cerebrum name=entity_name] en
+              [:table schema=cerebrum name=entity_name] en1,
+              [:table schema=cerebrum name=entity_name] en2
             WHERE 
               co.component_id = hp.policy_id AND
               hp.dns_owner_id = dnso.dns_owner_id AND
-              en.entity_id = hp.dns_owner_id""")
+              en1.entity_id = hp.dns_owner_id AND
+              en2.entity_id = hp.policy_id""")
 
     def search(self, entity_id=None, entity_type=None, description=None,
                foundation=None):
@@ -256,7 +282,7 @@ class PolicyComponent(EntityName, Entity_class):
             An iterable with db-rows with information about each component
             that matched the given criterias.
         """
-        # TODO: add fetchall
+        # TODO: add fetchall as an option?
         where = ['en.entity_id = co.component_id']
         binds = dict()
 
@@ -293,6 +319,30 @@ class Role(PolicyComponent):
         self.__super.populate(self.const.entity_hostpolicy_role, component_name,
                               description, foundation, create_date)
 
+    def find_by_name(self, component_name):
+        self.__super.find_by_name(component_name)
+        # TODO: should this check be done in an other way?
+        assert self.entity_type == self.const.entity_hostpolicy_role
+
+    def add_relationship(self, relationship_code, target_id):
+        """Add a relationship of given type between this role and a target
+        component (atom or role).
+
+        @type relationship_code: int
+        @param relationship_code:
+            The relationship constant that defines the kind of relationship the
+            source and target will have.
+        """
+        self.execute("""
+            INSERT INTO [:table schema=cerebrum name=hostpolicy_relationship]
+              (source_policy, relationship, target_policy)
+            VALUES (:source, :rel, :target)""",
+                {'source': self.entity_id,
+                 'rel': int(relationship_code),
+                 'target': target_id})
+        self._db.log_change(self.entity_id,
+                            self.const.hostpolicy_relationship_add, target_id)
+
     def search(self, *args, **kwargs):
         """Sarch for roles by different criterias."""
         return self.__super.search(entity_type=self.const.entity_hostpolicy_role,
@@ -321,9 +371,18 @@ class Role(PolicyComponent):
             An iterator with db-rows with data about each relationship.
         """
         binds = dict()
-        where = []
-        tables = ['[:table schema=cerebrum name=hostpolicy_component] co',
-                  '[:table schema=cerebrum name=hostpolicy_relationship] re']
+        tables = ['[:table schema=cerebrum name=hostpolicy_component] co1',
+                # TODO: do we really need data from hostpolicy_component?
+                  '[:table schema=cerebrum name=hostpolicy_component] co2',
+                  '[:table schema=cerebrum name=entity_name] en1',
+                  '[:table schema=cerebrum name=entity_name] en2',
+                  '[:table schema=cerebrum name=hostpolicy_relationship] re',
+                  '[:table schema=cerebrum name=hostpolicy_relationship_code] rc']
+        where = ['(re.relationship = rc.code)',
+                 '(en1.entity_id = re.source_policy)',
+                 '(en2.entity_id = re.target_policy)',
+                 '(co1.component_id = re.source_policy)',
+                 '(co2.component_id = re.target_policy)']
 
         if source_id is not None:
             where.append(argument_to_sql(source_id, 're.source_policy', binds, int))
@@ -331,21 +390,22 @@ class Role(PolicyComponent):
             where.append(argument_to_sql(target_id, 're.target_policy', binds, int))
         if relationship_code is not None:
             tables.append('[:table schema=cerebrum name=hostpolicy_relationship_code] rc')
-            where.append('(rc.code = co.relationship)')
+            where.append('(rc.code = co1.relationship)')
             where.append(argument_to_sql(relationship_code, 're.relationship', binds, int))
-
-        where_str = ''
-        if where:
-            where_str = 'WHERE ' + ' AND '.join(where)
-
-        # TODO; should we include source and target names?
         return self.query("""
-            SELECT DISTINCT co.entity_type AS entity_type,
-                            co.component_id AS component_id
-            FROM
-                %(tables)s
-            %(where)s
-            """ % {'where': where_str, 'tables': ', '.join(tables)}, binds)
+            SELECT DISTINCT co1.entity_type AS source_entity_type,
+                            co2.entity_type AS target_entity_type,
+                            en1.entity_name AS source_name,
+                            en2.entity_name AS target_name,
+                            rc.code_str AS relationship_str,
+                            re.source_policy AS source_id,
+                            re.target_policy AS target_id,
+                            re.relationship AS relationship_id
+            FROM %(tables)s
+            WHERE %(where)s
+            """ % {'where': ' AND '.join(where),
+                   'tables': ', '.join(tables)},
+                binds)
 
 class Atom(PolicyComponent):
     def new(self, component_name, description, foundation, create_date=None):
@@ -356,6 +416,11 @@ class Atom(PolicyComponent):
                  create_date=None):
         self.__super.populate(self.const.entity_hostpolicy_atom, component_name,
                               description, foundation, create_date)
+
+    def find_by_name(self, component_name):
+        self.__super.find_by_name(component_name)
+        # TODO: should this check be done in an other way?
+        assert self.entity_type == self.const.entity_hostpolicy_atom
 
     def search(self, *args, **kwargs):
         """Search for atoms by different criterias."""
