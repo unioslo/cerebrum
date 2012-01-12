@@ -4818,7 +4818,7 @@ Addresses and settings:
                                                  member_type=self.const.entity_group, 
                                                  indirect_members=True,
                                                  member_filter_expired=False):
-                if row:
+                if row['group_id'] == src_entity.entity_id:
                     return "Recursive memberships are not allowed (%s is member of %s)" % (dest_group, src_name)
         # This can still fail, e.g., if the entity is a member with a
         # different operation.
