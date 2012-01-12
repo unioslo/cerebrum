@@ -87,12 +87,11 @@ def process_atoms(stream):
     """Go through all atoms in the database and send them to the stream."""
     logger.info('process_atoms started')
     db = Factory.get('Database')()
-    co = Factory.get('Constants')(db)
     atom = Atom(db)
     for row in atom.search():
-        stream.write(';'.join((row['entity_name'],
+        stream.write(';'.join((row['name'],
                                row['description'],
-                               row['foundation'], 
+                               row['foundation'] or '', 
                                row['create_date'].strftime('%Y-%m-%d'))))
         stream.write('\n')
     logger.info('process_atoms done')
@@ -100,13 +99,18 @@ def process_atoms(stream):
 def process_roles(stream):
     logger.info('process_roles started')
     db = Factory.get('Database')()
-    co = Factory.get('Constants')(db)
     role = Role(db)
+    # TODO: might want to use search_relations directly, and map it in python
+    # instead of have a relations call for every role (there might be a lot of
+    # roles in the future?).
     for row in role.search():
-        stream.write(';'.join((row['entity_name'],
+        stream.write(';'.join((row['name'],
                                row['description'],
-                               row['foundation'], 
-                               row['create_date'].strftime('%Y-%m-%d'))))
+                               row['foundation'] or '',
+                               row['create_date'].strftime('%Y-%m-%d'),
+                               ','.join(m['member_name'] for m in
+                                        role.search_relations(
+                                              source_id=row['component_id'])))))
         stream.write('\n')
     logger.info('process_roles done')
 
