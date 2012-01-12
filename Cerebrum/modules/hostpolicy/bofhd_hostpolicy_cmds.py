@@ -309,7 +309,7 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         """List all roles/atoms associated to a given host."""
         self.ba.assert_dns_superuser(operator.get_entity_id())
         host = self._get_host(dns_owner_id)
-        comp = PolicyComponent(db)
+        comp = PolicyComponent(self.db)
         ret = []
         for row in comp.search_hostpolicies(dns_owner_id=host.entity_id):
             ret.append(row['policy_name'])
@@ -337,7 +337,7 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
     def policy_list_atoms(self, operator, filter):
         """Return a list of atoms that match the given filters."""
         # This method is available for everyone
-        atom = Atom(db)
+        atom = Atom(self.db)
         # TODO: add the filters, see how UiO's bofhd have done this
         # the filter might contain dates as well
         #
@@ -368,7 +368,7 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
     def policy_list_roles(self, operator, filter):
         """Return a list of roles that match the given filters."""
         # This method is available for everyone
-        role = Role(db)
+        role = Role(self.db)
         # TODO: add the filters, see how UiO's bofhd have done this
         # the filter might contain dates as well
         #
