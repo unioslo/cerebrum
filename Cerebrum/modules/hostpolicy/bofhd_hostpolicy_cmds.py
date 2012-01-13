@@ -26,7 +26,7 @@ from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 #from Cerebrum.modules.no.uio.bofhd_auth import BofhdAuth
-from Cerebrum.modules.dns.bofhd_dns_cmds import HostId, DnsBofhdAuth
+from Cerebrum.modules.dns.bofhd_dns_cmds import HostId, DnsBofhdAuth, format_day
 
 from Cerebrum.modules.hostpolicy.PolicyComponent import PolicyComponent, Role, Atom
 
@@ -157,13 +157,12 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
 
     def _get_role(self, role_id):
         """Helper method for getting a role."""
-        return self._get_component(atom_id, Role)
+        return self._get_component(role_id, Role)
 
     all_commands['policy_atom_add'] = Command(
             ('policy', 'atom_add'),
             AtomName(), SimpleString(help_ref='description'),
             SimpleString(help_ref='foundation'), CreateDate(optional=True),
-            # TODO: make create_date optional
             perm_filter='is_dns_superuser')
     def policy_atom_add(self, operator, name, description, foundation,
                         create_date=None):
@@ -185,7 +184,7 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         self.ba.assert_dns_superuser(operator.get_entity_id())
         atom = self._get_atom(atom_id)
         # TODO: check if the atom has any relationship and/or is in any active
-        # policy - if so: fail
+        # policy - if so: fail - This should probably be done in the API?
         name = atom.component_name
         atom.delete()
         atom.write_db()
@@ -195,7 +194,6 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
             ('policy', 'role_add'),
             RoleName(), SimpleString(help_ref='description'),
             SimpleString(help_ref='foundation'), CreateDate(optional=True),
-            # TODO: make create_date optional
             perm_filter='is_dns_superuser')
     def policy_role_add(self, operator, name, description, foundation,
                         create_date=None):
@@ -233,6 +231,7 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         
         # TODO: add checking to comply with the constraints
         # Give feedback about _what_ is wrong, if so
+
         role.add_relationship(self.const.hostpolicy_contains, member.entity_id)
         role.write_db()
         return "Component %s is now member of role %s" % (member.component_name,
@@ -261,7 +260,8 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
             RoleId(),
             perm_filter='is_dns_superuser',
             # TODO
-            fs=FormatSuggestion(None, None))
+            fs=FormatSuggestion('%-20s', ('mem_name',), 
+                hdr='%-20s' % ('Name',)))
     def policy_list_members(self, operator, role_id):
         """List out all members of a given role."""
         self.ba.assert_dns_superuser(operator.get_entity_id())
@@ -270,7 +270,7 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         ret = []
         for row in role.search_relations(source_id=role.entity_id,
                             relationship_code=self.const.hostpolicy_contains):
-            ret.append(row['target_name'])
+            ret.append({'mem_name': row['target_name']})
         return ret
 
     all_commands['host_policy_add'] = Command(
@@ -318,6 +318,8 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
     all_commands['policy_list_hosts'] = Command(
             ('policy', 'list_hosts'),
             PolicyId(),
+            fs=FormatSuggestion('%-20s', ('host_name',),
+                hdr='%-20s' % ('Host',)),
             perm_filter='is_dns_superuser')
     def policy_list_hosts(self, operator, component_id):
         """List all hosts that has a given policy (role/atom)."""
@@ -325,14 +327,16 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         comp = self._get_component(component_id)
         ret = []
         for row in comp.search_hostpolicies(policy_id=comp.entity_id):
-            ret.append(row['dns_owner_name'])
+            ret.append({'host_name': row['dns_owner_name']})
         return ret
 
-    # TBD: Trengs det en kommando som lister hvilke roller en gitt polciy inngår i?
+    # TBD: Trengs det en kommando som lister hvilke roller en gitt policy inngår i?
 
     all_commands['policy_list_atoms'] = Command(
             ('policy', 'list_atoms'),
             SimpleString(), # TODO
+            fs=FormatSuggestion('%-20s %-30s', ('name', 'desc'),
+                hdr='%-20s %-30s' % ('Name', 'Description'))
             )
     def policy_list_atoms(self, operator, filter):
         """Return a list of atoms that match the given filters."""
@@ -357,14 +361,16 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         # Should be possible to use more methods in same go (group search
         # handles it, for instance)
         ret = []
-        for row in atom.search(entity_type=co.entity_hostpolicy_atom,
-                               name=filter):
-            ret.append(row['name'])
+        for row in atom.search(name=filter): # TODO
+            ret.append({'name': row['name'], 'desc': row['description']})
         return ret
 
     all_commands['policy_list_roles'] = Command(
             ('policy', 'list_roles'),
-            SimpleString())
+            SimpleString(),
+            fs=FormatSuggestion('%-20s %-30s', ('name', 'desc'),
+                hdr='%-20s %-30s' % ('Name', 'Description'))
+            )
     def policy_list_roles(self, operator, filter):
         """Return a list of roles that match the given filters."""
         # This method is available for everyone
@@ -388,26 +394,45 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         # Should be possible to use more methods in same go (group search
         # handles it, for instance)
         ret = []
-        for row in role.search(entity_type=co.entity_hostpolicy_role,
-                               name=filter):
-            ret.append(row['name'])
+        for row in role.search(): # name=filter): # TODO
+            ret.append({'name': row['name'], 'desc': row['description']})
         return ret
 
     all_commands['policy_info'] = Command(
             ('policy', 'info'),
             RoleId(),
-            fs=FormatSuggestion(None, None)) # TODO
+            fs=FormatSuggestion([
+                ('Name:             %-30s', ('name',)),
+                ('Description:      %-30s', ('desc',)),
+                ('Foundation:       %-30s', ('foundation',)),
+                ('Created:          %-30s', (format_day('createdate'),)),
+                ('Type:             %-30s', ('type',)),
+                # TODO: The definitions needs to be fixed...
+                ('Relation:         %s (%s)', ('target_rel_name', 'target_rel_type'),
+                    ('Direct relationships where this role is target:')),
+                ('Relation:         %s (%s)', ('rel_name', 'rel_type'),
+                    ('Direct relationships where this role is source:')),
+                ]))
     def policy_info(self, operator, policy_id):
         """Return information about a policy component."""
         # This method is available for everyone
         comp = self._get_component(policy_id)
-        # * Navn
-        # * Hvorvidt det er et atom eller en rolle
-        # * Beskrivelse
-        # * Forankring/begrunnelse
-        # * Hvis rolle, hvilke roller/atomer den inneholder (ikke rekursivt)
-        # * Hvilke roller den inngår i
-        return "name: %s, desc: %s (TODO)" % (comp.component_name, comp.description)
+        ret = [{'name': comp.component_name},
+               {'type': str(comp.entity_type)}, # TODO: how to map to the type's code_str?
+               {'desc': comp.description},
+               {'foundation': comp.foundation},
+               {'createdate': comp.create_date},]
+        # check what this component is in relationship with
+        role = Role(self.db)
+        for row in role.search_relations(target_id=comp.entity_id):
+            ret.append({'target_rel_name': row['source_name'],
+                        'target_rel_type': row['relationship_str']})
+        # if this is a role, add direct relationships where this is the source
+        if comp.entity_type == self.const.entity_hostpolicy_role:
+            for row in role.search_relations(source_id=comp.entity_id):
+                ret.append({'rel_name': row['target_name'],
+                            'rel_type': row['relationship_str']})
+        return ret
 
     # TODO: host remove: Utvides til ukritisk å slette alle roller/atomer assosiert med maskinen.
 

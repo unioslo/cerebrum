@@ -22,11 +22,13 @@
 This module handles all functionality related to 'roles' and 'atoms', as used
 in Cfengine-configuration.
 """
-
+import cerebrum_path, cereconf
+from Cerebrum import Errors
 from Cerebrum.Utils import Factory, prepare_string, argument_to_sql
 from Cerebrum.Entity import EntityName
 
 Entity_class = Factory.get("Entity")
+
 class PolicyComponent(EntityName, Entity_class):
     """Base class for policy component, i.e. roles and atoms."""
 
@@ -248,7 +250,7 @@ class PolicyComponent(EntityName, Entity_class):
         # TODO: do we need functionality for searching for indirect
         # relationships too?
 
-        # TODO: make use of input filters
+        # TODO: make use of the input parameters
 
         return self.query("""
             SELECT DISTINCT
@@ -339,8 +341,12 @@ class Role(PolicyComponent):
 
     def find_by_name(self, component_name):
         self.__super.find_by_name(component_name)
-        # TODO: should this check be done in an other way?
-        assert self.entity_type == self.const.entity_hostpolicy_role
+        # TODO: this does not work atomically - could create problems when
+        # working with threads!
+        if self.entity_type != self.const.entity_hostpolicy_role:
+            self.clear()
+            raise Errors.NotFoundError('Could not find role with name: %s' %
+                                       component_name)
 
     def add_relationship(self, relationship_code, target_id):
         """Add a relationship of given type between this role and a target
@@ -382,6 +388,9 @@ class Role(PolicyComponent):
         return self.__super.search(entity_type=self.const.entity_hostpolicy_role,
                                    *args, **kwargs)
 
+    # TODO: should search_relations be moved to PolicyComponent? Roles have
+    # relations, but Atoms could be target of a relation, but should they "know"
+    # about this?
     def search_relations(self, source_id=None, target_id=None,
                          relationship_code=None):
         """Search for role relations by different criterias.
@@ -417,14 +426,11 @@ class Role(PolicyComponent):
                  '(en2.entity_id = re.target_policy)',
                  '(co1.component_id = re.source_policy)',
                  '(co2.component_id = re.target_policy)']
-
         if source_id is not None:
             where.append(argument_to_sql(source_id, 're.source_policy', binds, int))
         if target_id is not None:
             where.append(argument_to_sql(target_id, 're.target_policy', binds, int))
         if relationship_code is not None:
-            tables.append('[:table schema=cerebrum name=hostpolicy_relationship_code] rc')
-            where.append('(rc.code = co1.relationship)')
             where.append(argument_to_sql(relationship_code, 're.relationship', binds, int))
         return self.query("""
             SELECT DISTINCT co1.entity_type AS source_entity_type,
@@ -453,8 +459,12 @@ class Atom(PolicyComponent):
 
     def find_by_name(self, component_name):
         self.__super.find_by_name(component_name)
-        # TODO: should this check be done in an other way?
-        assert self.entity_type == self.const.entity_hostpolicy_atom
+        # TODO: this does not work atomically - could create problems when
+        # working with threads!
+        if self.entity_type != self.const.entity_hostpolicy_atom:
+            self.clear()
+            raise Errors.NotFoundError('Could not find atom with name: %s' %
+                                       component_name)
 
     def search(self, *args, **kwargs):
         """Search for atoms by different criterias."""
