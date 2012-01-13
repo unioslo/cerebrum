@@ -211,12 +211,12 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
             raise CerebrumError("Component is in use as policy for: %s" %
                                 ', '.join(tmp))
         tmp = tuple(row['source_name'] for row in 
-                    comp.search_relationships(target_id=comp.entity_id))
+                    comp.search_relations(target_id=comp.entity_id))
         if tmp:
             raise CerebrumError("Component is used as target for: %s" %
                                 ', '.join(tmp))
         tmp = tuple(row['target_name'] for row in 
-                    comp.search_relationships(source_id=comp.entity_id))
+                    comp.search_relations(source_id=comp.entity_id))
         if tmp:
             raise CerebrumError("Component is used as source for: %s" %
                                 ', '.join(tmp))
@@ -248,8 +248,9 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         except CerebrumError:
             pass
         else:
+            # TODO: inform about type here
+            print comp.entity_type
             raise CerebrumError('A policy already exists with name: %s' % name)
-
         atom.new(name, description, foundation, create_date)
         return "New atom %s created" % atom.component_name
 
@@ -324,8 +325,11 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         self.ba.assert_dns_superuser(operator.get_entity_id())
         role = self._get_role(role_id)
         member = self._get_component(member_id)
+
+        # TODO: check if already a member
         
         # TODO: add checking to comply with the constraints
+
         # Give feedback about _what_ is wrong, if so
 
         role.add_relationship(self.const.hostpolicy_contains, member.entity_id)
@@ -342,10 +346,17 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         self.ba.assert_dns_superuser(operator.get_entity_id())
         role = self._get_role(role_id)
         member = self._get_component(member_id)
-        # TODO: check if it actually has the relationship
-        
-        # TODO: add checking to comply with the constraints
-        # Give feedback about _what_ is wrong
+
+        # check if relationship do exists:
+        rel = role.search_relations(source_id=role.entity_id,
+                        target_id=member.entity_id,
+                        relationship_code=self.const.hostpolicy_contains)
+        if not tuple(rel):
+            raise CerebrumError('%s is not a member of %s' % (
+                        member.component_name, role.component_name))
+
+        # TODO: need to cheeck any constraints here?
+
         role.remove_relationship(self.const.hostpolicy_contains, member.entity_id)
         role.write_db()
         return "Component %s no longer member of %s" % (member.component_name, 
@@ -378,7 +389,15 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         self.ba.assert_dns_superuser(operator.get_entity_id())
         host = self._get_host(dns_owner_id)
         comp = self._get_component(comp_id)
+
+        # check if already a member
+        for row in comp.search_hostpolicies(policy_id=comp.entity_id,
+                                            dns_owner_id=host.entity_id):
+            raise CerebrumError('Host %s already has policy %s' %
+                                (host.name, comp.component_name))
+
         # TODO: do check the constraints here! Tell what's wrong if so.
+
         comp.add_policy(host.entity_id)
         return "Policy %s added to host %s" % (comp.component_name,
                                                host.name)
@@ -392,7 +411,14 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         self.ba.assert_dns_superuser(operator.get_entity_id())
         host = self._get_host(dns_owner_id)
         comp = self._get_comp(comp_id)
-        # TODO: check that the comp is actually given to the host
+
+        # check that the comp is actually given to the host:
+        if not tuple(comp.search_hostpolicies(policy_id=comp.entity_id,
+                                              dns_owner_id=host.entity_id)):
+            raise CerebrumError("Host %s doesn't have policy %s" %
+                                (host.name, comp.component_name))
+        # TODO: other checks here?
+
         comp.remove_policy(host.entity_id)
         return "Policy %s removed from host %s" % (comp.component_name,
                                                    host.name)
@@ -435,7 +461,7 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
 
     all_commands['policy_list_atoms'] = Command(
             ('policy', 'list_atoms'),
-            SimpleString(), # TODO
+            SimpleString(), # TODO: add help text for "filters"
             fs=FormatSuggestion('%-20s %-30s', ('name', 'desc'),
                 hdr='%-20s %-30s' % ('Name', 'Description'))
             )
@@ -524,13 +550,12 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
                {'foundation': comp.foundation},
                {'createdate': comp.create_date},]
         # check what this component is in relationship with
-        role = Role(self.db)
-        for row in role.search_relations(target_id=comp.entity_id):
+        for row in comp.search_relations(target_id=comp.entity_id):
             ret.append({'target_rel_name': row['source_name'],
                         'target_rel_type': row['relationship_str']})
         # if this is a role, add direct relationships where this is the source
         if comp.entity_type == self.const.entity_hostpolicy_role:
-            for row in role.search_relations(source_id=comp.entity_id):
+            for row in comp.search_relations(source_id=comp.entity_id):
                 ret.append({'rel_name': row['target_name'],
                             'rel_type': row['relationship_str']})
         return ret

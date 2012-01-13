@@ -382,6 +382,63 @@ class PolicyComponent(EntityName, Entity_class):
               %(where)s
             """ % {'where': ' AND '.join(where)}, binds)
 
+    def search_relations(self, source_id=None, target_id=None,
+                         relationship_code=None):
+        """Search for relationships by different criterias.
+
+        @type source_id: int or sequence of ints
+        @param source_id:
+            If given, all relations that has the given components as source
+            are returned.
+
+        @type target_id: int or sequence of ints
+        @param target_id:
+            If given, all relations that has the given components as targets
+            are returned.
+
+        @type relationship_code: int or sequence of ints
+        @param relationship_code:
+            If given, only relations of the given type(s) are returned.
+
+        @rtype: iterable with db-rows
+        @return:
+            An iterator with db-rows with data about each relationship.
+        """
+        binds = dict()
+        tables = ['[:table schema=cerebrum name=hostpolicy_component] co1',
+                # TODO: do we really need data from hostpolicy_component?
+                  '[:table schema=cerebrum name=hostpolicy_component] co2',
+                  '[:table schema=cerebrum name=entity_name] en1',
+                  '[:table schema=cerebrum name=entity_name] en2',
+                  '[:table schema=cerebrum name=hostpolicy_relationship] re',
+                  '[:table schema=cerebrum name=hostpolicy_relationship_code] rc']
+        where = ['(re.relationship = rc.code)',
+                 '(en1.entity_id = re.source_policy)',
+                 '(en2.entity_id = re.target_policy)',
+                 '(co1.component_id = re.source_policy)',
+                 '(co2.component_id = re.target_policy)']
+        if source_id is not None:
+            where.append(argument_to_sql(source_id, 're.source_policy', binds, int))
+        if target_id is not None:
+            where.append(argument_to_sql(target_id, 're.target_policy', binds, int))
+        if relationship_code is not None:
+            where.append(argument_to_sql(relationship_code, 're.relationship', binds, int))
+        return self.query("""
+            SELECT DISTINCT co1.entity_type AS source_entity_type,
+                            co2.entity_type AS target_entity_type,
+                            en1.entity_name AS source_name,
+                            en2.entity_name AS target_name,
+                            rc.code_str AS relationship_str,
+                            re.source_policy AS source_id,
+                            re.target_policy AS target_id,
+                            re.relationship AS relationship_id
+            FROM %(tables)s
+            WHERE %(where)s
+            """ % {'where': ' AND '.join(where),
+                   'tables': ', '.join(tables)},
+                binds)
+
+
 class Role(PolicyComponent):
     def new(self, component_name, description, foundation, create_date=None):
         self.__super.new(self.const.entity_hostpolicy_role, component_name,
@@ -440,65 +497,6 @@ class Role(PolicyComponent):
         """Sarch for roles by different criterias."""
         return self.__super.search(entity_type=self.const.entity_hostpolicy_role,
                                    *args, **kwargs)
-
-    # TODO: should search_relations be moved to PolicyComponent? Roles have
-    # relations, but Atoms could be target of a relation, but should they "know"
-    # about this?
-    def search_relations(self, source_id=None, target_id=None,
-                         relationship_code=None):
-        """Search for role relations by different criterias.
-
-        @type source_id: int or sequence of ints
-        @param source_id:
-            If given, all relations that has the given components as source
-            are returned.
-
-        @type target_id: int or sequence of ints
-        @param target_id:
-            If given, all relations that has the given components as targets
-            are returned.
-
-        @type relationship_code: int or sequence of ints
-        @param relationship_code:
-            If given, only relations of the given type(s) are returned.
-
-        @rtype: iterable with db-rows
-        @return:
-            An iterator with db-rows with data about each relationship.
-        """
-        binds = dict()
-        tables = ['[:table schema=cerebrum name=hostpolicy_component] co1',
-                # TODO: do we really need data from hostpolicy_component?
-                  '[:table schema=cerebrum name=hostpolicy_component] co2',
-                  '[:table schema=cerebrum name=entity_name] en1',
-                  '[:table schema=cerebrum name=entity_name] en2',
-                  '[:table schema=cerebrum name=hostpolicy_relationship] re',
-                  '[:table schema=cerebrum name=hostpolicy_relationship_code] rc']
-        where = ['(re.relationship = rc.code)',
-                 '(en1.entity_id = re.source_policy)',
-                 '(en2.entity_id = re.target_policy)',
-                 '(co1.component_id = re.source_policy)',
-                 '(co2.component_id = re.target_policy)']
-        if source_id is not None:
-            where.append(argument_to_sql(source_id, 're.source_policy', binds, int))
-        if target_id is not None:
-            where.append(argument_to_sql(target_id, 're.target_policy', binds, int))
-        if relationship_code is not None:
-            where.append(argument_to_sql(relationship_code, 're.relationship', binds, int))
-        return self.query("""
-            SELECT DISTINCT co1.entity_type AS source_entity_type,
-                            co2.entity_type AS target_entity_type,
-                            en1.entity_name AS source_name,
-                            en2.entity_name AS target_name,
-                            rc.code_str AS relationship_str,
-                            re.source_policy AS source_id,
-                            re.target_policy AS target_id,
-                            re.relationship AS relationship_id
-            FROM %(tables)s
-            WHERE %(where)s
-            """ % {'where': ' AND '.join(where),
-                   'tables': ', '.join(tables)},
-                binds)
 
 class Atom(PolicyComponent):
     def new(self, component_name, description, foundation, create_date=None):
