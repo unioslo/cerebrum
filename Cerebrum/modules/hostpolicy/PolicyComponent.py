@@ -22,6 +22,9 @@
 This module handles all functionality related to 'roles' and 'atoms', as used
 in Cfengine-configuration.
 """
+
+import re
+
 import cerebrum_path, cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, prepare_string, argument_to_sql
@@ -95,6 +98,10 @@ class PolicyComponent(EntityName, Entity_class):
         self.__super.write_db()
         if not self.__updated:
             return
+        if 'component_name' in self.__updated:
+            tmp = self.illegal_name(self.component_name)
+            if tmp:
+                raise self._db.IntegrityError("Illegal component name: %s" % tmp)
 
         is_new = not self.__in_db
 
@@ -210,6 +217,15 @@ class PolicyComponent(EntityName, Entity_class):
 
     def find_by_name(self, component_name):
         self.__super.find_by_name(component_name, self.const.hostpolicy_component_namespace)
+
+    def illegal_name(self, name):
+        """Validate if a component's name is valid.
+
+        According to the specification: only lowercase alpha numeric characters
+        and dash ('-') is allowed."""
+        if re.search('[^a-z0-9\-]', name):
+            return "name contains illegal characters (%s)" % name
+        return False
 
     def add_policy(self, dns_owner_id):
         """Add this instance as a policy to a given dns_owner_id (host)."""
