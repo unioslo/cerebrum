@@ -250,7 +250,24 @@ class PolicyComponent(EntityName, Entity_class):
         # TODO: do we need functionality for searching for indirect
         # relationships too?
 
-        # TODO: make use of the input parameters
+        where = ['co.component_id = hp.policy_id',
+                 'hp.dns_owner_id = dnso.dns_owner_id',
+                 'en1.entity_id = hp.dns_owner_id',
+                 'en2.entity_id = hp.policy_id',]
+        binds = dict()
+
+        if policy_id is not None:
+            where.append(argument_to_sql(policy_id, 'hp.policy_id', binds, int))
+        if dns_owner_id is not None:
+            where.append(argument_to_sql(dns_owner_id, 'hp.dns_owner_id', binds,
+                         int))
+        if host_name is not None:
+            # TODO:
+            where.append('(LOWER(en1.entity_name) LIKE :host_name)')
+            binds['host_name'] = prepare_string(host_name)
+        if policy_name is not None:
+            where.append('(LOWER(en2.entity_name) LIKE :policy_name)')
+            binds['policy_name'] = prepare_string(policy_name)
 
         return self.query("""
             SELECT DISTINCT
@@ -266,10 +283,7 @@ class PolicyComponent(EntityName, Entity_class):
               [:table schema=cerebrum name=entity_name] en1,
               [:table schema=cerebrum name=entity_name] en2
             WHERE 
-              co.component_id = hp.policy_id AND
-              hp.dns_owner_id = dnso.dns_owner_id AND
-              en1.entity_id = hp.dns_owner_id AND
-              en2.entity_id = hp.policy_id""")
+                %(where)s""" %  {'where': ' AND '.join(where)}, binds)
 
     def search(self, entity_id=None, entity_type=None, description=None,
                foundation=None, name=None):
