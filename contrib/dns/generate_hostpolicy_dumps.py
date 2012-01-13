@@ -120,13 +120,12 @@ def process_hostpolicies(stream):
     """Produce a csv list of all hostpolicies."""
     logger.info('process_hostpolicies started')
     db = Factory.get('Database')()
-    dnsowner = DnsOwner(db)
     component = PolicyComponent(db)
     by_hosts = {}
     for row in component.search_hostpolicies():
-        by_hosts.setdefault(row['dns_owner_id'], []).append(row)
-    for dns_owner_id, rows in by_hosts.iteritems():
-        stream.write(';'.join((dnsowner.name,
+        by_hosts.setdefault(row['dns_owner_name'], []).append(row)
+    for dns_owner_name, rows in by_hosts.iteritems():
+        stream.write(';'.join((dns_owner_name,
                                ','.join(str(row['policy_name']) for row in rows))))
         stream.write('\n')
     logger.info('process_hostpolicies done')
