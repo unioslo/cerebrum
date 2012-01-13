@@ -98,10 +98,20 @@ class PolicyComponent(EntityName, Entity_class):
         self.__super.write_db()
         if not self.__updated:
             return
+
+        # validate data
         if 'component_name' in self.__updated:
             tmp = self.illegal_name(self.component_name)
             if tmp:
                 raise self._db.IntegrityError("Illegal component name: %s" % tmp)
+        if 'description' in self.__updated:
+            tmp = self.illegal_attr(self.description)
+            if tmp:
+                raise self._db.IntegrityError("Illegal description: %s" % tmp)
+        if 'foundation' in self.__updated:
+            tmp = self.illegal_attr(self.foundation)
+            if tmp:
+                raise self._db.IntegrityError("Illegal foundation: %s" % tmp)
 
         is_new = not self.__in_db
 
@@ -174,9 +184,12 @@ class PolicyComponent(EntityName, Entity_class):
     def delete(self):
         """Deletes this policy component from DB."""
         if self.__in_db:
-
-            # TODO: might have to delete its relations?
-
+            # TODO: if component is in any relationship or is used as a policy,
+            # what should be done? 
+            #
+            #  1. raise exception self._db.IntegrityError
+            #
+            #  2. Delete the relationships and/or connection to host
             self.execute("""
             DELETE FROM [:table schema=cerebrum name=hostpolicy_component]
             WHERE component_id=:component_id""", 
@@ -226,6 +239,16 @@ class PolicyComponent(EntityName, Entity_class):
         if re.search('[^a-z0-9\-]', name):
             return "name contains illegal characters (%s)" % name
         return False
+
+    def illegal_attr(self, attribute, attr_type=None):
+        """Validate if an attribute is valid.
+
+        According to the specification can the attributes not contain semi
+        colons."""
+        if attribute.find(';') != -1:
+            return "semi colons ';' not allowed"
+        return False
+
 
     def add_policy(self, dns_owner_id):
         """Add this instance as a policy to a given dns_owner_id (host)."""

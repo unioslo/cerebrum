@@ -200,6 +200,29 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
             raise CerebrumError('Unknown host: %s' % host_id)
         return dns_owner
 
+    def _check_if_unused(self, comp):
+        """Check if component is unused, i.e. not in any relationship or used as
+        a policy for hosts. If it is in use, a CerebrumError is raised, telling
+        where it is in use. Note that only one of the types of "usage" is
+        explained."""
+        tmp = tuple(row['dns_owner_name'] for row in
+                    comp.search_hostpolicies(policy_id=comp.entity_id))
+        if tmp:
+            raise CerebrumError("Component is in use as policy for: %s" %
+                                ', '.join(tmp))
+        tmp = tuple(row['source_name'] for row in 
+                    comp.search_relationships(target_id=comp.entity_id))
+        if tmp:
+            raise CerebrumError("Component is used as target for: %s" %
+                                ', '.join(tmp))
+        tmp = tuple(row['target_name'] for row in 
+                    comp.search_relationships(source_id=comp.entity_id))
+        if tmp:
+            raise CerebrumError("Component is used as source for: %s" %
+                                ', '.join(tmp))
+
+    # TODO: we miss functionality for setting mutex relationships
+
     all_commands['policy_atom_add'] = Command(
             ('policy', 'atom_add'),
             AtomName(), SimpleString(help_ref='description'),
@@ -211,7 +234,22 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         alpha numrice characters and -."""
         self.ba.assert_dns_superuser(operator.get_entity_id())
         atom = Atom(self.db)
-        # TODO: data should be validated - e.g. isn't ';' allowed
+        # validate data
+        tmp = atom.illegal_attr(description)
+        if tmp:
+            raise CerebrumError('Illegal description: %s' % tmp)
+        tmp = atom.illegal_attr(foundation)
+        if tmp:
+            raise CerebrumError('Illegal foundation: %s' % tmp)
+
+        # check that name isn't already in use
+        try:
+            comp = self._get_component(name)
+        except CerebrumError:
+            pass
+        else:
+            raise CerebrumError('A policy already exists with name: %s' % name)
+
         atom.new(name, description, foundation, create_date)
         return "New atom %s created" % atom.component_name
 
@@ -224,9 +262,8 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         relationship."""
         self.ba.assert_dns_superuser(operator.get_entity_id())
         atom = self._get_atom(atom_id)
-        # TODO: check if the atom has any relationship and/or is in any active
-        # policy - if so: fail - This should also be checked in the API, but no
-        # feedback is needed there except an Error message.
+        self._check_if_unused(atom) # will raise CerebrumError
+
         name = atom.component_name
         atom.delete()
         atom.write_db()
@@ -243,7 +280,21 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         alpha numrice characters and -."""
         self.ba.assert_dns_superuser(operator.get_entity_id())
         role = Role(self.db)
-        # TODO: validate data - ';' isn't allowed, for instance
+        # validate data
+        tmp = role.illegal_attr(description)
+        if tmp:
+            raise CerebrumError('Illegal description: %s' % tmp)
+        tmp = role.illegal_attr(foundation)
+        if tmp:
+            raise CerebrumError('Illegal foundation: %s' % tmp)
+
+        # check that name isn't already in use
+        try:
+            comp = self._get_component(name)
+        except CerebrumError:
+            pass
+        else:
+            raise CerebrumError('A policy already exists with name: %s' % name)
         role.new(name, description, foundation, create_date)
         return "New role %s created" % role.component_name
     
@@ -255,7 +306,10 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         any policy."""
         self.ba.assert_dns_superuser(operator.get_entity_id())
         role = self._get_role(role_id)
-        # TODO: check if any relation and/or policy, and then list these.
+        # Check if component is in use anywhere. The method will raise
+        # CerebrumErrors if that's the case:
+        self._check_if_unused(role)
+
         name = role.component_name
         role.delete()
         role.write_db()
