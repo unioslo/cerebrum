@@ -56,8 +56,6 @@ class Constants(Constants.Constants):
     auth_dns_lita = _AuthRoleOpCode(
         'dns_lita', 'Perform LITA-level DNS commands')
 
-
-
 class DnsBofhdAuth(BofhdAuth):
     def assert_dns_superuser(self, operator, query_run_any=False):
         if (not (self.is_dns_superuser(operator)) and

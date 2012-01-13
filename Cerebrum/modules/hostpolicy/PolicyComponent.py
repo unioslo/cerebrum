@@ -381,7 +381,7 @@ class Role(PolicyComponent):
                                           'target': target_id,
                                           'rel': relationship_code})
         self._db.log_change(self.entity_id,
-                            self.hostpolicy_relationship_remove, target_id)
+                            self.const.hostpolicy_relationship_remove, target_id)
 
     def search(self, *args, **kwargs):
         """Sarch for roles by different criterias."""
