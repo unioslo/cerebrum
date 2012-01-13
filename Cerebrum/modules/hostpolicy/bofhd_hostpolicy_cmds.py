@@ -22,13 +22,19 @@ from Cerebrum import Cache, Errors
 #from Cerebrum.Entity import Entity
 from Cerebrum.Utils import Factory, argument_to_sql
 
+# Imports from the DNS module:
+from Cerebrum.modules.dns import DnsOwner, IP_NUMBER, DNS_OWNER
+from Cerebrum.modules.dns.CNameRecord import CNameRecord
+from Cerebrum.modules.dns.Utils import Find
+
+from Cerebrum.modules.hostpolicy.PolicyComponent import PolicyComponent, Role, Atom
+
+# Import for bofhd
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
-#from Cerebrum.modules.no.uio.bofhd_auth import BofhdAuth
 from Cerebrum.modules.dns.bofhd_dns_cmds import HostId, DnsBofhdAuth, format_day
 
-from Cerebrum.modules.hostpolicy.PolicyComponent import PolicyComponent, Role, Atom
 
 
 class HostPolicyBofhdAuth(DnsBofhdAuth):
@@ -48,7 +54,7 @@ class AtomId(Parameter):
     _type = 'atom'
     _help_ref = 'atom_id'
 class AtomName(Parameter):
-    _type = 'name' # TODO: check what these means
+    _type = 'name' # TODO: find out what _type means - are they used to anythin?
     _help_ref = 'atom_name'
 
 class RoleId(Parameter):
@@ -77,6 +83,8 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
     def __init__(self, server):
         super(HostPolicyBofhdExtension, self).__init__(server)
         self.ba = HostPolicyBofhdAuth(self.db)
+        # TODO: don't know where to get the zone setting from
+        self.default_zone = self.const.DnsZone('uio')
 
     def get_help_strings(self):
         """Help strings are used by jbofh to give users explanations for groups
@@ -92,9 +100,9 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         command_help = {
             'policy': {
                 'policy_atom_add': 'Create a new atom',
-                'policy_atom_remove': 'Delete an atom',
+                'policy_atom_delete': 'Delete an atom',
                 'policy_role_add': 'Create a new role',
-                'policy_role_remove': 'Delete a role',
+                'policy_role_delete': 'Delete a role',
                 'policy_add_member': 'Make a role/atom a member of a role',
                 'policy_remove_member': 'Remove a role membership',
                 'policy_list_members': 'List all members of a role',
@@ -120,12 +128,18 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
             'role_id':
             ['role', 'Role',
              """The name or entity_id of a role"""],
+            'role_source':
+            ['source_role', 'Source role',
+             """The name or entity_id of an existing role to be used as source."""],
             'role_name':
             ['role_name', 'Role name',
              """The name of the role"""],
             'policy_id': 
             ['policy', 'Policy',
              """The name or entity_id of a policy, i.e. a role or an atom"""],
+            'policy_target':
+            ['target_policy', 'Target policy',
+             """The policy (atom/role) to be used as the target of a relationship."""],
             'create_date':
             ['date', 'Create date',
              """The date the atom/role should be considered 'created'"""],
@@ -159,6 +173,33 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         """Helper method for getting a role."""
         return self._get_component(role_id, Role)
 
+    def _get_host(self, host_id):
+        """Helper method for getting the DnsOwner for the given host ID, which
+        can either be an IP address, an A record or a CName alias."""
+        finder = Find(self.db, self.default_zone)
+
+        tmp = host_id.split(".")
+        if host_id.find(":") == -1 and tmp[-1].isdigit():
+            # host_id is an IP
+            owner_id = finder.find_target_by_parsing(host_id, IP_NUMBER)
+        else:
+            owner_id = finder.find_target_by_parsing(host_id, DNS_OWNER)
+
+        # Check if it is a Cname, if so: update the owner_id
+        try:           
+            cname_record = CNameRecord(self.db)
+            cname_record.find_by_cname_owner_id(owner_id)
+            owner_id = cname_record.target_owner_id
+        except Errors.NotFoundError:
+            pass
+
+        dns_owner = DnsOwner.DnsOwner(self.db)
+        try:
+            dns_owner.find(owner_id)
+        except Errors.NotFoundError:
+            raise CerebrumError('Unknown host: %s' % host_id)
+        return dns_owner
+
     all_commands['policy_atom_add'] = Command(
             ('policy', 'atom_add'),
             AtomName(), SimpleString(help_ref='description'),
@@ -174,17 +215,18 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         atom.new(name, description, foundation, create_date)
         return "New atom %s created" % atom.component_name
 
-    all_commands['policy_atom_remove'] = Command(
-            ('policy', 'atom_remove'),
+    all_commands['policy_atom_delete'] = Command(
+            ('policy', 'atom_delete'),
             AtomId(),
             perm_filter='is_dns_superuser')
-    def policy_atom_remove(self, operator, atom_id):
-        """Try to remove an atom if it hasn't been used in any policy or
+    def policy_atom_delete(self, operator, atom_id):
+        """Try to delete an atom if it hasn't been used in any policy or
         relationship."""
         self.ba.assert_dns_superuser(operator.get_entity_id())
         atom = self._get_atom(atom_id)
         # TODO: check if the atom has any relationship and/or is in any active
-        # policy - if so: fail - This should probably be done in the API?
+        # policy - if so: fail - This should also be checked in the API, but no
+        # feedback is needed there except an Error message.
         name = atom.component_name
         atom.delete()
         atom.write_db()
@@ -205,11 +247,11 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         role.new(name, description, foundation, create_date)
         return "New role %s created" % role.component_name
     
-    all_commands['policy_role_remove'] = Command(
-            ('policy', 'role_remove'), RoleId(),
+    all_commands['policy_role_delete'] = Command(
+            ('policy', 'role_delete'), RoleId(),
             perm_filter='is_dns_superuser')
-    def policy_role_remove(self, operator, role_id):
-        """Try to remove a given role if it's not in any relationship, or is in
+    def policy_role_delete(self, operator, role_id):
+        """Try to delete a given role if it's not in any relationship, or is in
         any policy."""
         self.ba.assert_dns_superuser(operator.get_entity_id())
         role = self._get_role(role_id)
@@ -221,7 +263,7 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
 
     all_commands['policy_add_member'] = Command(
             ('policy', 'add_member'),
-            RoleId(), PolicyId(),
+            RoleId(help_ref='role_source'), PolicyId(help_ref='policy_target'),
             perm_filter='is_dns_superuser')
     def policy_add_member(self, operator, role_id, member_id):
         """Try to add a given component as a member of a role."""
@@ -285,7 +327,7 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         # TODO: do check the constraints here! Tell what's wrong if so.
         comp.add_policy(host.entity_id)
         return "Policy %s added to host %s" % (comp.component_name,
-                                               host.host_name)
+                                               host.name)
 
     all_commands['host_policy_remove'] = Command(
             ('host', 'policy_remove'),
@@ -299,11 +341,13 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         # TODO: check that the comp is actually given to the host
         comp.remove_policy(host.entity_id)
         return "Policy %s removed from host %s" % (comp.component_name,
-                                                   host.host_name)
+                                                   host.name)
 
     all_commands['host_policy_list'] = Command(
             ('host', 'policy_list'),
             HostId(),
+            fs=FormatSuggestion('%-20s %-40s', ('policy_name', 'desc'),
+                hdr='%-20s %-40s' % ('Policy:', 'Description:')),
             perm_filter='is_dns_superuser')
     def host_policy_list(self, operator, dns_owner_id):
         """List all roles/atoms associated to a given host."""
@@ -312,7 +356,10 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         comp = PolicyComponent(self.db)
         ret = []
         for row in comp.search_hostpolicies(dns_owner_id=host.entity_id):
-            ret.append(row['policy_name'])
+            comp.clear()
+            comp.find(row['policy_id'])
+            ret.append({'policy_name': row['policy_name'], 
+                        'desc': comp.description})
         return ret
 
     all_commands['policy_list_hosts'] = Command(
