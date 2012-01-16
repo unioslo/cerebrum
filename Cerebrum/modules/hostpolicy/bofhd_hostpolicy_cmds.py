@@ -394,9 +394,9 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
             # TODO: there's probably a quicker solution to left padding:
             inc = ''.join(' ' for i in range(increment))
             ret = []
-            # TODO: sort the members!
-            for row in role.search_relations(roleid,
-                              relationship_code=self.const.hostpolicy_contains):
+            members = tuple(row for row in role.search_relations(roleid,
+                              relationship_code=self.const.hostpolicy_contains))
+            for row in sorted(members, key=lambda r: r['target_name']):
                 ret.append({'mem_name': '%s%s' % (inc, row['target_name'])})
                 if row['target_entity_type'] == self.const.entity_hostpolicy_role:
                     ret.extend(_get_members(row['target_id'], increment+2))
