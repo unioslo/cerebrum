@@ -109,9 +109,11 @@ class PolicyComponent(EntityName, Entity_class):
             if tmp:
                 raise self._db.IntegrityError("Illegal description: %s" % tmp)
         if 'foundation' in self.__updated:
+            # TODO: should foundation be validated as an url?
             tmp = self.illegal_attr(self.foundation)
             if tmp:
                 raise self._db.IntegrityError("Illegal foundation: %s" % tmp)
+        # TODO: should_create be validated?
 
         is_new = not self.__in_db
 

@@ -99,9 +99,9 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
 
         command_help = {
             'policy': {
-                'policy_atom_add': 'Create a new atom',
+                'policy_atom_create': 'Create a new atom',
                 'policy_atom_delete': 'Delete an atom',
-                'policy_role_add': 'Create a new role',
+                'policy_role_create': 'Create a new role',
                 'policy_role_delete': 'Delete a role',
                 'policy_add_member': 'Make a role/atom a member of a role',
                 'policy_remove_member': 'Remove a role membership',
@@ -223,12 +223,12 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
 
     # TODO: we miss functionality for setting mutex relationships
 
-    all_commands['policy_atom_add'] = Command(
-            ('policy', 'atom_add'),
+    all_commands['policy_atom_create'] = Command(
+            ('policy', 'atom_create'),
             AtomName(), SimpleString(help_ref='description'),
             SimpleString(help_ref='foundation'), CreateDate(optional=True),
             perm_filter='is_dns_superuser')
-    def policy_atom_add(self, operator, name, description, foundation,
+    def policy_atom_create(self, operator, name, description, foundation,
                         create_date=None):
         """Adds a new atom and its data. Its can only consist of lowercased,
         alpha numrice characters and -."""
@@ -270,12 +270,12 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         atom.write_db()
         return "Atom %s deleted" % name
 
-    all_commands['policy_role_add'] = Command(
-            ('policy', 'role_add'),
+    all_commands['policy_role_create'] = Command(
+            ('policy', 'role_create'),
             RoleName(), SimpleString(help_ref='description'),
             SimpleString(help_ref='foundation'), CreateDate(optional=True),
             perm_filter='is_dns_superuser')
-    def policy_role_add(self, operator, name, description, foundation,
+    def policy_role_create(self, operator, name, description, foundation,
                         create_date=None):
         """Adds a new role and its data. Its can only consist of lowercased,
         alpha numrice characters and -."""
@@ -374,11 +374,34 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         self.ba.assert_dns_superuser(operator.get_entity_id())
         role = self._get_role(role_id)
         # TODO: needs to be sorted "hierarkisk"
-        ret = []
-        for row in role.search_relations(source_id=role.entity_id,
-                            relationship_code=self.const.hostpolicy_contains):
-            ret.append({'mem_name': row['target_name']})
-        return ret
+        #
+        
+        def _get_members(roleid, increment=0):
+            """Get all direct and indirect members of a given role and return
+            them as list of strings. The hierarchy is presented by a space
+            increment in the strings, e.g. when listing the role "server":
+
+                database-server
+                  postgres-server
+                  test-server
+                web-server
+                  production-server
+                    vortex-server
+                      caching-server
+                    apache-server
+                  test-server
+            """
+            # TODO: there's probably a quicker solution to left padding:
+            inc = ''.join(' ' for i in range(increment))
+            ret = []
+            # TODO: sort the members!
+            for row in role.search_relations(roleid,
+                              relationship_code=self.const.hostpolicy_contains):
+                ret.append({'mem_name': '%s%s' % (inc, row['target_name'])})
+                if row['target_entity_type'] == self.const.entity_hostpolicy_role:
+                    ret.extend(_get_members(row['target_id'], increment+2))
+            return ret
+        return _get_members(role.entity_id)
 
     all_commands['host_policy_add'] = Command(
             ('host', 'policy_add'),
