@@ -20,7 +20,7 @@
 import cerebrum_path, cereconf
 from Cerebrum import Cache, Errors
 #from Cerebrum.Entity import Entity
-from Cerebrum.Utils import Factory, argument_to_sql
+from Cerebrum.Utils import Factory, NotSet, argument_to_sql
 
 # Imports from the DNS module:
 from Cerebrum.modules.dns import DnsOwner, IP_NUMBER, DNS_OWNER
@@ -221,6 +221,73 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
             raise CerebrumError("Component is used as source for: %s" %
                                 ', '.join(tmp))
 
+    def _parse_filters(self, input, filters, default_filter=NotSet,
+                       default_value=NotSet, separator=',', type_sep=':'):
+        """Parse an input string with different filters and return a dict with
+        the different filters set, according to the set options. CerebrumErrors
+        are raise in case of invalid input, with explanations to what have
+        failed.
+
+        The input string must define filters on the form:
+
+            name1:pattern1,name2:pattern2,...
+
+        the filters are separated by L{separator} (default: ','), and each
+        filter has a name and a value, separated by L{type_sep} (default: ':').
+
+        The L{filters} is the dict that defines the available filters. Errors
+        are raised if the input contains other types of filters. Example of
+        filters:
+
+            'name':     str
+            'desc':     str
+            'spread':   _is_spread_valid
+            'expired':  _parse_date
+
+        The filters' values are callbacks to a method that should validate and
+        might reformat the input before it's returned. If a callback raises an
+        error, a CerebrumError is given back to the user.
+
+        If an input filter does not specify its filter type, the one defined in
+        L{default_filter} is used - which should match a key in L{filters}.
+
+        If L{default_value} is set, this value will be put in all defined
+        filters that aren't specified in the input."""
+        if default_filter is not NotSet and not filters.has_key(default_filter):
+            raise RuntimeError('Default filter not specified in the filters')
+        if not input or input == "":
+            raise CerebrumError("No filter specified")
+        patterns = {}
+        for rule in input.split(separator):
+            rule = rule.strip()
+            if rule.find(":") != -1:
+                type, pattern = rule.split(type_sep, 1)
+            elif default_filter is not NotSet:
+                # the first defined filter is the default one
+                type = default_filter
+                pattern = rule
+            else:
+                raise CerebrumError('Filter type not specified for: %s' % rule)
+            type, pattern = type.strip(), pattern.strip()
+            if type not in filters:
+                raise CerebrumError("Unknown filter type: %s" % type)
+
+            if filters[type] is None:
+                patterns[type] = pattern
+            else: # call callback function:
+                try:
+                    patterns[type] = filters[name](pattern)
+                except KeyboardInterrupt:
+                    raise # in case bofhd should be shut down
+                except Exception, e:
+                    raise CerebrumError('Invalid input for %s: %s' % (type, e))
+        # fill in with default values
+        if default_value is not NotSet:
+            for f in filters:
+                if not patterns.has_key(f):
+                    patterns[f] = default_value
+        return patterns
+
     # TODO: we miss functionality for setting mutex relationships
 
     all_commands['policy_atom_create'] = Command(
@@ -373,9 +440,7 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         """List out all members of a given role."""
         self.ba.assert_dns_superuser(operator.get_entity_id())
         role = self._get_role(role_id)
-        # TODO: needs to be sorted "hierarkisk"
-        #
-        
+
         def _get_members(roleid, increment=0):
             """Get all direct and indirect members of a given role and return
             them as list of strings. The hierarchy is presented by a space
@@ -393,9 +458,9 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
             """
             # TODO: there's probably a quicker solution to left padding:
             inc = ''.join(' ' for i in range(increment))
-            ret = []
             members = tuple(row for row in role.search_relations(roleid,
                               relationship_code=self.const.hostpolicy_contains))
+            ret = []
             for row in sorted(members, key=lambda r: r['target_name']):
                 ret.append({'mem_name': '%s%s' % (inc, row['target_name'])})
                 if row['target_entity_type'] == self.const.entity_hostpolicy_role:
@@ -433,7 +498,7 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         """Remove a given policy from a given host."""
         self.ba.assert_dns_superuser(operator.get_entity_id())
         host = self._get_host(dns_owner_id)
-        comp = self._get_comp(comp_id)
+        comp = self._get_component(comp_id)
 
         # check that the comp is actually given to the host:
         if not tuple(comp.search_hostpolicies(policy_id=comp.entity_id,
@@ -482,6 +547,7 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
 
     # TBD: Trengs det en kommando som lister hvilke roller en gitt policy inngår i?
 
+
     all_commands['policy_list_atoms'] = Command(
             ('policy', 'list_atoms'),
             SimpleString(), # TODO: add help text for "filters"
@@ -510,8 +576,17 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         #
         # Should be possible to use more methods in same go (group search
         # handles it, for instance)
+        filters = self._parse_filters(filter, {'name': None,
+                                               'date': None,
+                                               'desc': None,
+                                               'foundation': None,},
+                                      default_filter='name', default_value=None)
+        # TODO: should we stop lists of every atom?
         ret = []
-        for row in atom.search(name=filter): # TODO
+        for row in atom.search(name=filters['name'],
+                               description=filters['desc'],
+                               # TODO: create_date 
+                               foundation=filters['foundation']):
             ret.append({'name': row['name'], 'desc': row['description']})
         return ret
 
@@ -543,8 +618,17 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         #
         # Should be possible to use more methods in same go (group search
         # handles it, for instance)
+        filters = self._parse_filters(filter, {'name': None,
+                                               'date': None,
+                                               'desc': None,
+                                               'foundation': None,},
+                                      default_filter='name', default_value=None)
+        # TODO: should we stop lists of every role? e.g. if no filter is
+        # specified, or name is only *
         ret = []
-        for row in role.search(): # name=filter): # TODO
+        for row in role.search(name=filters['name'],
+                               description=filters['desc'],
+                               foundation=filters['foundation']):
             ret.append({'name': row['name'], 'desc': row['description']})
         return ret
 

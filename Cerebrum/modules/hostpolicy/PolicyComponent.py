@@ -406,6 +406,7 @@ class PolicyComponent(EntityName, Entity_class):
         @return:
             An iterator with db-rows with data about each relationship.
         """
+        # TODO: create_date needed
         binds = dict()
         tables = ['[:table schema=cerebrum name=hostpolicy_component] co1',
                 # TODO: do we really need data from hostpolicy_component?
