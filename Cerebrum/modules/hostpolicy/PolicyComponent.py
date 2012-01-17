@@ -327,7 +327,7 @@ class PolicyComponent(EntityName, Entity_class):
                 %(where)s""" %  {'where': ' AND '.join(where)}, binds)
 
     def search(self, entity_id=None, entity_type=None, description=None,
-               foundation=None, name=None):
+               foundation=None, name=None, create_start=None, create_end=None):
         """Search for components that satisfy given criteria.
 
         @type component_id: int or sequence of ints.
@@ -370,6 +370,12 @@ class PolicyComponent(EntityName, Entity_class):
         if name is not None:
             where.append('(LOWER(en.entity_name) LIKE :name)')
             binds['name'] = prepare_string(name)
+        if create_start is not None:
+            where.append("(co.create_date >= :create_start)")
+            binds['create_start'] = create_start
+        if create_end is not None:
+            where.append("(co.create_date <= :create_end)")
+            binds['create_end'] = create_end
         return self.query("""
             SELECT DISTINCT co.entity_type AS entity_type,
                             co.component_id AS component_id,
@@ -406,7 +412,7 @@ class PolicyComponent(EntityName, Entity_class):
         @return:
             An iterator with db-rows with data about each relationship.
         """
-        # TODO: create_date needed
+        # TODO: create_date needed as search option
         binds = dict()
         tables = ['[:table schema=cerebrum name=hostpolicy_component] co1',
                 # TODO: do we really need data from hostpolicy_component?

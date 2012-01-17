@@ -17,6 +17,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from mx import DateTime
+
 import cerebrum_path, cereconf
 from Cerebrum import Cache, Errors
 #from Cerebrum.Entity import Entity
@@ -71,6 +73,10 @@ class PolicyId(Parameter):
 class CreateDate(Parameter):
     _type = 'date'
     _help_ref = 'create_date'
+
+class Filter(Parameter):
+    _type = 'filter'
+    _help_ref = 'component_filter'
 
 class HostPolicyBofhdExtension(BofhdCommandBase):
     """Class to expand bofhd with commands for manipulating host
@@ -143,6 +149,22 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
             'create_date':
             ['date', 'Create date',
              """The date the atom/role should be considered 'created'"""],
+            'component_filter':
+            ['filter', 'Search filter',
+            """A comma separated list of filters. The types:
+
+ 'name'         - The name of the component
+ 'desc'         - The description of the component
+ 'foundation'   - The foundation of the component
+ 'date'         - The 'create date' of the component
+
+The filters are specified on the form 'type:value'. If you don't specify the
+type, 'name' is assumed. The string types handles wildcard search (* and ?).
+
+Example:
+  server*,desc:*test* - All components with names starting with server, and that
+                        have 'test' in their description.
+            """],
             'description':
             ['description', 'Description',
              """A description of what the atom/role is"""],
@@ -276,7 +298,10 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
                 patterns[type] = pattern
             else: # call callback function:
                 try:
-                    patterns[type] = filters[name](pattern)
+                    # TODO: maybe the callbacks should only raise
+                    # CerebrumErrors, which could be concatinated here? Now we
+                    # can't see if I have caused any code bugs.
+                    patterns[type] = filters[type](pattern)
                 except KeyboardInterrupt:
                     raise # in case bofhd should be shut down
                 except Exception, e:
@@ -287,6 +312,96 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
                 if not patterns.has_key(f):
                     patterns[f] = default_value
         return patterns
+
+    def _parse_create_date_range(self, date, separator='--'):
+        """Parse a string with a date range and return a tuple of length two
+        with DateTime objects, or None, if range is missing. The format has the
+        form:
+
+            YYYY-MM-DD--YYYY-MM-DD
+
+        where the end date is optional, and would then default to None.
+        
+        This method is copied and modified from the method _parse_date_from_to
+        in bofhd_uio_cmds.py, which was originally used for parsing dates for
+        expire_date. Some things have been turned since we need it for create
+        dates.
+
+        Dates that have not been specified are set to NotSet, but dates that
+        have explicitly set to nothing returns None. Examples:
+
+            YYYY-MM-DD              returns (<start>, NotSet)
+            YYYY-MM-DD--            returns (<start>, None)
+            --YYYY-MM-DD            returns (None,    <end>)
+            YYYY-MM-DD--YYYY-MM-DD  returns (<start>, <end>)
+            '' (empty string)       returns (NotSet, NotSet)
+        """
+        date_start = date_end = NotSet
+        if date:
+            tmp = date.split(separator)
+            if len(tmp) == 2:
+                date_start = date_end = None
+                if tmp[0]: # string could start with the separator
+                    date_start = self._parse_date(tmp[0])
+                if tmp[1]: # string could end with separator
+                    date_end = self._parse_date(tmp[1])
+            elif len(tmp) == 1:
+                date_start = self._parse_date(date)
+            else:
+                raise CerebrumError("Incorrect date specification: %s." % date)
+        return (date_start, date_end)
+
+    @staticmethod
+    def _parse_date(date):
+        """Convert a written date into DateTime object.  Possible
+        syntaxes are:
+
+            YYYY-MM-DD       (2005-04-03)
+            YYYY-MM-DDTHH:MM (2005-04-03T02:01)
+            THH:MM           (T02:01)
+
+        Time of day defaults to midnight.  If date is unspecified, the
+        resulting time is between now and 24 hour into future.
+
+        """
+        if not date:
+            # TBD: Is this correct behaviour?  mx.DateTime.DateTime
+            # objects allow comparison to None, although that is
+            # hardly what we expect/want.
+            return None
+        if isinstance(date, DateTime.DateTimeType):
+            # Why not just return date?  Answer: We do some sanity
+            # checks below.
+            date = date.Format("%Y-%m-%dT%H:%M")
+        if date.count('T') == 1:
+            date, time = date.split('T')
+            try:
+                hour, min = [int(x) for x in time.split(':')]
+            except ValueError:
+                raise CerebrumError, "Time of day must be on format HH:MM"
+            if date == '':
+                now = DateTime.now()
+                target = DateTime.Date(now.year, now.month, now.day, hour, min)
+                if target < now:
+                    target += DateTime.DateTimeDelta(1)
+                date = target.Format("%Y-%m-%d")
+        else:
+            hour = min = 0
+        try:
+            y, m, d = [int(x) for x in date.split('-')]
+        except ValueError:
+            raise CerebrumError, "Dates must be on format YYYY-MM-DD"
+        # TODO: this should be a proper delta, but rather than using
+        # pgSQL specific code, wait until Python has standardised on a
+        # Date-type.
+        if y > 2050:
+            raise CerebrumError, "Too far into the future: %s" % date
+        if y < 1800:
+            raise CerebrumError, "Too long ago: %s" % date
+        try:
+            return DateTime.Date(y, m, d, hour, min)
+        except:
+            raise CerebrumError, "Illegal date: %s" % date
 
     # TODO: we miss functionality for setting mutex relationships
 
@@ -550,7 +665,7 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
 
     all_commands['policy_list_atoms'] = Command(
             ('policy', 'list_atoms'),
-            SimpleString(), # TODO: add help text for "filters"
+            Filter(),
             fs=FormatSuggestion('%-20s %-30s', ('name', 'desc'),
                 hdr='%-20s %-30s' % ('Name', 'Description'))
             )
@@ -558,33 +673,22 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         """Return a list of atoms that match the given filters."""
         # This method is available for everyone
         atom = Atom(self.db)
-        # TODO: add the filters, see how UiO's bofhd have done this
-        # the filter might contain dates as well
-        #
-        # Dumper en liste med alle atomer, representert ved deres navn og beskrivelse.
-        # 
-        # FILTER kan brukes for å filtrere resultatene, enten på atomnavn, eller på create_date:
-        # 
-        #     * Navnefiltering: Wildcards:
-        #           o * - et vilkårlig antall vilkårlige tegn
-        #           o ? - ett vilkårlig tegn
-        #     * Datofiltrering:
-        #           o YYYY-MM-DD - Policy laget denne datoen
-        #           o :YYYY-MM-DD - Policy laget denne datoen eller tidligere
-        #           o YYYY-MM-DD: - Policy laget denne datoen eller senere
-        #           o YYYY-MM-DD:YYYY-MM-DD - Policy laget mellom disse datoene (inklusive datoene selv)
-        #
-        # Should be possible to use more methods in same go (group search
-        # handles it, for instance)
         filters = self._parse_filters(filter, {'name': None,
-                                               'date': None,
+                                               'date': self._parse_create_date_range,
                                                'desc': None,
                                                'foundation': None,},
                                       default_filter='name', default_value=None)
         # TODO: should we stop lists of every atom?
+        date_start = date_end = None
+        if filters['date']:
+            date_start, date_end = filters['date']
+            if date_end is NotSet: # only the specific date should be used
+                date_end = date_start
         ret = []
         for row in atom.search(name=filters['name'],
                                description=filters['desc'],
+                               create_start = date_start,
+                               create_end = date_end,
                                # TODO: create_date 
                                foundation=filters['foundation']):
             ret.append({'name': row['name'], 'desc': row['description']})
@@ -592,7 +696,7 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
 
     all_commands['policy_list_roles'] = Command(
             ('policy', 'list_roles'),
-            SimpleString(),
+            Filter(),
             fs=FormatSuggestion('%-20s %-30s', ('name', 'desc'),
                 hdr='%-20s %-30s' % ('Name', 'Description'))
             )
@@ -600,34 +704,23 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         """Return a list of roles that match the given filters."""
         # This method is available for everyone
         role = Role(self.db)
-        # TODO: add the filters, see how UiO's bofhd have done this
-        # the filter might contain dates as well
-        #
-        # Dumper en liste med alle atomer, representert ved deres navn og beskrivelse.
-        # 
-        # FILTER kan brukes for å filtrere resultatene, enten på atomnavn, eller på create_date:
-        # 
-        #     * Navnefiltering: Wildcards:
-        #           o * - et vilkårlig antall vilkårlige tegn
-        #           o ? - ett vilkårlig tegn
-        #     * Datofiltrering:
-        #           o YYYY-MM-DD - Policy laget denne datoen
-        #           o :YYYY-MM-DD - Policy laget denne datoen eller tidligere
-        #           o YYYY-MM-DD: - Policy laget denne datoen eller senere
-        #           o YYYY-MM-DD:YYYY-MM-DD - Policy laget mellom disse datoene (inklusive datoene selv)
-        #
-        # Should be possible to use more methods in same go (group search
-        # handles it, for instance)
-        filters = self._parse_filters(filter, {'name': None,
-                                               'date': None,
-                                               'desc': None,
-                                               'foundation': None,},
+        filters = self._parse_filters(filter, {'name': str,
+                                               'date': self._parse_create_date_range,
+                                               'desc': str,
+                                               'foundation': str,},
                                       default_filter='name', default_value=None)
         # TODO: should we stop lists of every role? e.g. if no filter is
         # specified, or name is only *
+        date_start = date_end = None
+        if filters['date']:
+            date_start, date_end = filters['date']
+            if date_end is NotSet: # only the specific date should be used
+                date_end = date_start
         ret = []
         for row in role.search(name=filters['name'],
                                description=filters['desc'],
+                               create_start = date_start,
+                               create_end = date_end,
                                foundation=filters['foundation']):
             ret.append({'name': row['name'], 'desc': row['description']})
         return ret
@@ -639,7 +732,7 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
                 ('Name:             %-30s', ('name',)),
                 ('Description:      %-30s', ('desc',)),
                 ('Foundation:       %-30s', ('foundation',)),
-                ('Created:          %-30s', (format_day('createdate'),)),
+                ('Created:          %s%-30s', ('dummy', format_day('createdate'),)),
                 ('Type:             %-30s', ('type',)),
                 # TODO: The definitions needs to be fixed...
                 ('Relation:         %s (%s)', ('target_rel_name', 'target_rel_type'),
@@ -655,7 +748,9 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
                {'type': str(comp.entity_type)}, # TODO: how to map to the type's code_str?
                {'desc': comp.description},
                {'foundation': comp.foundation},
-               {'createdate': comp.create_date},]
+               # format_day doesn't work as first argument, so put in an empty
+               # dummy
+               {'dummy': '', 'createdate': comp.create_date},]
         # check what this component is in relationship with
         for row in comp.search_relations(target_id=comp.entity_id):
             ret.append({'target_rel_name': row['source_name'],
