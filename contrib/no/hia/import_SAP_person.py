@@ -305,6 +305,14 @@ def populate_communication(person, fields):
         logger.debug("Populated comm type %s with «%s»", comm_type, comm_value)
 # end populate_communication
 
+def _remove_office(person):
+    """Remove a person's office address and the corresponding contact info."""
+    logger.debug("Removing office address and contact info for person=%s",
+                 person.entity_id)
+    person.delete_contact_info(source=const.system_sap,
+                               contact_type=const.contact_office)
+    person.delete_entity_address(const.system_sap, const.address_street)
+
 def populate_office(person, fields):
     """Extract the person's office address from FIELDS and populate the database
     with it, if it is defined. Both a building code and a room number should be
@@ -320,13 +328,14 @@ def populate_office(person, fields):
         if fields.sap_building_code or fields.sap_roomnumber:
             logger.debug('Office address not fully registered, skipping %s',
                          person.entity_id)
-        # TODO: delete old address if no new is given?
+        _remove_office(person)
         return
 
     address = cereconf.BUILDING_CODES.get(fields.sap_building_code, None)
     if not address:
         logger.debug('Office building code invalid for %s: "%s"',
                      person.entity_id, fields.sap_building_code)
+        _remove_office(person)
         return
 
     person.populate_contact_info(source_system = const.system_sap, 
