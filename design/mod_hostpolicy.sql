@@ -30,26 +30,28 @@ version=1.0;
 category:main;
 CREATE TABLE hostpolicy_component
 (
-   entity_type        NUMERIC(6,0)
-  		      NOT NULL
-		      CONSTRAINT dns_policy_component_type_chk
- 		         CHECK (entity_type = [:get_constant name=entity_hostpolicy_atom] OR
-                                entity_type = [:get_constant name=entity_hostpolicy_role]),
-   component_id       NUMERIC(12,0)
- 		      NOT NULL
-		      CONSTRAINT hostpolicy_component_pk PRIMARY KEY,
-   description        CHAR VARYING(512)
- 		      NOT NULL
-   		      DEFAULT '',
-   -- TBD: URL-datatype?
-   foundation         CHAR VARYING(512)
-   		      DEFAULT '',
-   create_date	      DATE
-		      DEFAULT [:now]
-		      NOT NULL,
+   entity_type      NUMERIC(6,0)
+                    NOT NULL
+                    CONSTRAINT dns_policy_component_type_chk
+                        CHECK (entity_type = [:get_constant name=entity_hostpolicy_atom] OR
+                               entity_type = [:get_constant name=entity_hostpolicy_role]),
+   component_id     NUMERIC(12,0)
+                    NOT NULL
+                    CONSTRAINT hostpolicy_component_pk PRIMARY KEY,
+   create_date      DATE
+                    DEFAULT [:now]
+                    NOT NULL,
+   description      CHAR VARYING(512)
+                    NOT NULL
+                    DEFAULT '',
+   foundation       CHAR VARYING(512)
+                    DEFAULT '',
+   foundation_date  DATE
+                    DEFAULT [:now]
+                    NOT NULL,
 
-   CONSTRAINT hostpolicy_component_entity_info FOREIGN KEY (entity_type, component_id) 
-   	      				       REFERENCES entity_info(entity_type, entity_id)
+   CONSTRAINT hostpolicy_component_entity_info FOREIGN KEY (entity_type, component_id)
+                                               REFERENCES entity_info(entity_type, entity_id)
 );
 
 
@@ -70,13 +72,13 @@ category:main;
 CREATE TABLE hostpolicy_relationship (
   source_policy   NUMERIC(12,0)
                   CONSTRAINT hostpolicy_relationship_source
-		         REFERENCES hostpolicy_component(component_id),
+                  REFERENCES hostpolicy_component(component_id),
   relationship    NUMERIC(6,0)
                   CONSTRAINT hostpolicy_relationship_relationship
-                         REFERENCES hostpolicy_relationship_code(code),
+                  REFERENCES hostpolicy_relationship_code(code),
   target_policy   NUMERIC(12,0)
                   CONSTRAINT hostpolicy_relationship_target
-		         REFERENCES hostpolicy_component(component_id),
+                  REFERENCES hostpolicy_component(component_id),
 
   CONSTRAINT hostpolicy_relationship_pk PRIMARY KEY (source_policy, relationship, target_policy),
   CONSTRAINT hostpolicy_relationship_not_self CHECK (source_policy <> target_policy)
@@ -86,14 +88,13 @@ CREATE TABLE hostpolicy_relationship (
 category:main;
 CREATE TABLE hostpolicy_host_policy
 (
-   dns_owner_id       NUMERIC(12,0)
-		      CONSTRAINT hostpolicy_host_policy_dns_owner_id
-		         REFERENCES dns_owner(dns_owner_id),
-   policy_id          NUMERIC(12,0)
-		      CONSTRAINT hostpolicy_host_policy_policy_id
-		         REFERENCES hostpolicy_component(component_id),
+   dns_owner_id NUMERIC(12,0)
+                CONSTRAINT hostpolicy_host_policy_dns_owner_id
+                REFERENCES dns_owner(dns_owner_id),
+   policy_id    NUMERIC(12,0)
+                CONSTRAINT hostpolicy_host_policy_policy_id
+                REFERENCES hostpolicy_component(component_id),
 
    CONSTRAINT hostpolicy_host_policy_pk PRIMARY KEY (dns_owner_id, policy_id)
-
 );
 

@@ -36,7 +36,8 @@ class PolicyComponent(EntityName, Entity_class):
     """Base class for policy component, i.e. roles and atoms."""
 
     __read_attr__ = ('__in_db',)
-    __write_attr__ = ('component_name', 'description', 'foundation', 'create_date')
+    __write_attr__ = ('component_name', 'description', 'foundation',
+                      'create_date', 'foundation_date')
 
     def __init__(self, db):
         super(PolicyComponent, self).__init__(db)
@@ -47,23 +48,8 @@ class PolicyComponent(EntityName, Entity_class):
         self.clear_class(PolicyComponent)
         self.__updated = []
 
-    def new(self, entity_type, component_name, description, foundation, create_date=None):
-        """Insert a new policy component into the database.
-
-        This will be called by subclasses in order to have the entity_type set
-        appropriately."""
-        # TODO: is this correct syntax? running self.populate() runs the
-        # subclass' populate, which doesn't have entity_type as an argument
-        PolicyComponent.populate(self, entity_type=entity_type, component_name=component_name,
-                      description=description, foundation=foundation,
-                      create_date=create_date)
-        self.write_db()
-        # TODO: why have find() here? find creates bugs here, and Group does not
-        # have that. Don't know what's correct to do.
-        #self.find(self.entity_id)
-
     def populate(self, entity_type, component_name, description, foundation,
-                 create_date=None):
+                 foundation_date=None):
         """Populate a component instance's attributes."""
         Entity_class.populate(self, entity_type)
         # If __in_db is present, it must be True; calling populate on an
@@ -81,8 +67,8 @@ class PolicyComponent(EntityName, Entity_class):
         self.component_name = component_name
         self.description = description
         self.foundation = foundation
-        if not self.__in_db or create_date is not None:
-            self.create_date = create_date
+        if not self.__in_db or foundation_date is not None:
+            self.foundation_date = foundation_date
 
     def write_db(self):
         """Write component instance to database.
@@ -109,7 +95,6 @@ class PolicyComponent(EntityName, Entity_class):
             if tmp:
                 raise self._db.IntegrityError("Illegal description: %s" % tmp)
         if 'foundation' in self.__updated:
-            # TODO: should foundation be validated as an url?
             tmp = self.illegal_attr(self.foundation)
             if tmp:
                 raise self._db.IntegrityError("Illegal foundation: %s" % tmp)
@@ -118,12 +103,19 @@ class PolicyComponent(EntityName, Entity_class):
         is_new = not self.__in_db
 
         if is_new:
+            if self.entity_type == self.const.entity_hostpolicy_atom:
+                event = self.const.hostpolicy_atom_create
+            elif self.entity_type == self.const.entity_hostpolicy_role:
+                event = self.const.hostpolicy_role_create
+            else:
+                raise RuntimeError('Unknown entity_type=%s for entity_id=%s' %
+                                   (self.entity_type, self.entity_id))
             cols = [('entity_type', ':e_type'),
                     ('component_id', ':component_id'),
                     ('description', ':description'),
                     ('foundation', ':foundation'),]
-            if self.create_date is not None:
-                cols.append(('create_date', ':create_date'))
+            if self.foundation_date is not None:
+                cols.append(('foundation_date', ':foundation_date'))
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=hostpolicy_component] (%(tcols)s)
             VALUES (%(binds)s)""" % {'tcols': ", ".join([x[0] for x in cols]),
@@ -132,24 +124,26 @@ class PolicyComponent(EntityName, Entity_class):
                                      'component_id': self.entity_id,
                                      'description': self.description,
                                      'foundation': self.foundation,
-                                     # The create_date might not be included
+                                     # The foundation_date might not be included
                                      # in the binds, but it's safe to put it
                                      # here in any case. If it's not in binds,
                                      # it's not included from here.
-                                     'create_date': self.create_date})
-            if self.entity_type == self.const.entity_hostpolicy_atom:
-                event = self.const.hostpolicy_atom_create
-            elif self.entity_type == self.const.entity_hostpolicy_role:
-                event = self.const.hostpolicy_role_create
-            else:
-                raise RuntimeError('Unknown entity_type=%s for entity_id=%s' %
-                                   (self.entity_type, self.entity_id))
+                                     'foundation_date': self.foundation_date})
             self._db.log_change(self.entity_id, event, None)
             self.add_entity_name(self.const.hostpolicy_component_namespace,
                                  self.component_name)
         else:
+            if self.entity_type == self.const.entity_hostpolicy_atom:
+                event = self.const.hostpolicy_atom_mod
+            elif self.entity_type == self.const.entity_hostpolicy_role:
+                event = self.const.hostpolicy_role_mod
+            else:
+                raise RuntimeError('Unknown entity_type=%s for entity_id=%s' %
+                                   (self.entity_type, self.entity_id))
             cols = [('description', ':description'),
                     ('foundation', ':foundation'),]
+            if self.foundation_date is not None:
+                cols.append(('foundation_date', ':foundation_date'))
             if self.create_date is not None:
                 cols.append(('create_date', ':create_date'))
             self.execute("""
@@ -159,20 +153,9 @@ class PolicyComponent(EntityName, Entity_class):
                     {'defs': ", ".join(["%s=%s" % x for x in cols])},
                     {'component_id': self.entity_id,
                      'description': self.description,
+                     'create_date': self.create_date,
                      'foundation': self.foundation,
-                     'create_date': self.create_date})
-                   
-
-            # TODO: check if any in __updated before do changes. no need to
-            # log then either, except if update_entity_name doesn't do that
-
-            if self.entity_type == self.const.entity_hostpolicy_atom:
-                event = self.const.hostpolicy_atom_mod
-            elif self.entity_type == self.const.entity_hostpolicy_role:
-                event = self.const.hostpolicy_role_mod
-            else:
-                raise RuntimeError('Unknown entity_type=%s for entity_id=%s' %
-                                   (self.entity_type, self.entity_id))
+                     'foundation_date': self.foundation_date})
             self._db.log_change(self.entity_id, event, None, change_params=binds)
 
             if 'component_name' in self.__updated:
@@ -209,10 +192,11 @@ class PolicyComponent(EntityName, Entity_class):
     def find(self, component_id):
         """Fill this component instance with data from the database."""
         self.__super.find(component_id)
-        (self.description, self.foundation, self.create_date,
-         self.component_name) = self.query_1(
+        (self.description, self.create_date, self.foundation,
+         self.foundation_date, self.component_name) = self.query_1(
             """SELECT 
-                co.description, co.foundation, co.create_date, en.entity_name
+                co.description, co.create_date, co.foundation,
+                co.foundation_date, en.entity_name
             FROM
                 [:table schema=cerebrum name=hostpolicy_component] co,
                 [:table schema=cerebrum name=entity_name] en
@@ -303,7 +287,6 @@ class PolicyComponent(EntityName, Entity_class):
             where.append(argument_to_sql(dns_owner_id, 'hp.dns_owner_id', binds,
                          int))
         if host_name is not None:
-            # TODO:
             where.append('(LOWER(en1.entity_name) LIKE :host_name)')
             binds['host_name'] = prepare_string(host_name)
         if policy_name is not None:
@@ -327,7 +310,8 @@ class PolicyComponent(EntityName, Entity_class):
                 %(where)s""" %  {'where': ' AND '.join(where)}, binds)
 
     def search(self, entity_id=None, entity_type=None, description=None,
-               foundation=None, name=None, create_start=None, create_end=None):
+               name=None, create_start=None, create_end=None, foundation=None,
+               foundation_start=None, foundation_end=None):
         """Search for components that satisfy given criteria.
 
         @type component_id: int or sequence of ints.
@@ -376,12 +360,19 @@ class PolicyComponent(EntityName, Entity_class):
         if create_end is not None:
             where.append("(co.create_date <= :create_end)")
             binds['create_end'] = create_end
+        if foundation_start is not None:
+            where.append("(co.foundation_date >= :foundation_start)")
+            binds['foundation_start'] = foundation_start
+        if foundation_end is not None:
+            where.append("(co.foundation_date <= :foundation_end)")
+            binds['foundation_end'] = foundation_end
         return self.query("""
             SELECT DISTINCT co.entity_type AS entity_type,
                             co.component_id AS component_id,
                             co.description AS description,
                             co.foundation AS foundation,
                             co.create_date AS create_date,
+                            co.foundation_date AS foundation_date,
                             en.entity_name AS name
             FROM 
               [:table schema=cerebrum name=hostpolicy_component] co,
@@ -412,10 +403,10 @@ class PolicyComponent(EntityName, Entity_class):
         @return:
             An iterator with db-rows with data about each relationship.
         """
-        # TODO: create_date needed as search option
+        # TODO: create_date (and foundation_date) might be needed as search
+        # options?
         binds = dict()
         tables = ['[:table schema=cerebrum name=hostpolicy_component] co1',
-                # TODO: do we really need data from hostpolicy_component?
                   '[:table schema=cerebrum name=hostpolicy_component] co2',
                   '[:table schema=cerebrum name=entity_name] en1',
                   '[:table schema=cerebrum name=entity_name] en2',
@@ -449,19 +440,15 @@ class PolicyComponent(EntityName, Entity_class):
 
 
 class Role(PolicyComponent):
-    def new(self, component_name, description, foundation, create_date=None):
-        self.__super.new(self.const.entity_hostpolicy_role, component_name,
-                     description, foundation, create_date)
-
+    """A PolicyComponent that is a Role. Roles can, in contrast to atoms, have
+    members."""
     def populate(self, component_name, description, foundation,
-                 create_date=None):
+                 foundation_date=None):
         self.__super.populate(self.const.entity_hostpolicy_role, component_name,
-                              description, foundation, create_date)
+                              description, foundation, foundation_date)
 
     def find_by_name(self, component_name):
         self.__super.find_by_name(component_name)
-        # TODO: this does not work atomically - could create problems when
-        # working with threads!
         if self.entity_type != self.const.entity_hostpolicy_role:
             self.clear()
             raise Errors.NotFoundError('Could not find role with name: %s' %
@@ -508,19 +495,14 @@ class Role(PolicyComponent):
                                    *args, **kwargs)
 
 class Atom(PolicyComponent):
-    def new(self, component_name, description, foundation, create_date=None):
-        self.__super.new(self.const.entity_hostpolicy_atom, component_name,
-                     description, foundation, create_date)
-
+    """A Component that is an Atom."""
     def populate(self, component_name, description, foundation,
-                 create_date=None):
+                 foundation_date=None):
         self.__super.populate(self.const.entity_hostpolicy_atom, component_name,
-                              description, foundation, create_date)
+                              description, foundation, foundation_date)
 
     def find_by_name(self, component_name):
         self.__super.find_by_name(component_name)
-        # TODO: this does not work atomically - could create problems when
-        # working with threads!
         if self.entity_type != self.const.entity_hostpolicy_atom:
             self.clear()
             raise Errors.NotFoundError('Could not find atom with name: %s' %

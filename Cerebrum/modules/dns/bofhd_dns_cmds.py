@@ -28,7 +28,7 @@ from Cerebrum import Utils
 from Cerebrum import Cache
 from Cerebrum import Errors
 #from Cerebrum.modules import Host
-from Cerebrum.modules.bofhd.cmd_param import Parameter,Command,FormatSuggestion,GroupName
+from Cerebrum.modules.bofhd.cmd_param import Parameter,Command,FormatSuggestion,GroupName,YesNo
 from Cerebrum.modules.dns.bofhd_dns_utils import DnsBofhdUtils
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.dns import ARecord
@@ -41,6 +41,7 @@ from Cerebrum.modules.dns.Subnet import SubnetError
 from Cerebrum.modules.dns.IPUtils import IPCalc
 from Cerebrum.modules.dns import CNameRecord
 from Cerebrum.modules.dns import Utils
+from Cerebrum.modules.hostpolicy.PolicyComponent import PolicyComponent
 from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.modules import dns
 from Cerebrum.modules.bofhd.auth import BofhdAuth
@@ -376,7 +377,10 @@ class BofhdExtension(BofhdCommandBase):
             ['mac_adr', 'Enter MAC-address'],
             'force':
             ['force', 'Force the operation',
-             'Enter y to force the operation']
+             'Enter y to force the operation'],
+            'yes_no_extrainfo':
+            ['extrainfo', 'Show extra info? (yes/no)',
+             'If extra information should be given'],
             }
         return (group_help, command_help,
                 arg_help)
@@ -397,6 +401,10 @@ class BofhdExtension(BofhdCommandBase):
         self._cached_client_commands[int(account_id)] = commands
         return commands
 
+    def _is_yes(self, val):
+        if isinstance(val, str) and val.lower() in ('y', 'yes', 'ja', 'j'):
+            return True
+        return False
 
     def _map_hinfo_code(self, code_str):
         for k, v in BofhdExtension.legal_hinfo:
@@ -707,7 +715,8 @@ class BofhdExtension(BofhdCommandBase):
 
     # host info
     all_commands['host_info'] = Command(
-        ("host", "info"), HostId(),
+        ("host", "info"), HostId(), 
+        YesNo(optional=True, help_ref='yes_no_extrainfo'),
         fs=FormatSuggestion([
         # Name line
         ("%-22s %%s\n%-22s contact=%%s\n%-22s comment=%%s" % (
@@ -731,10 +740,14 @@ class BofhdExtension(BofhdCommandBase):
           'srv_target')),
         # Rev-map
         ("  %-20s %s", ('rev_ip', 'rev_name'), "Rev-map override:"),
+        # Hostpolicy
+        ("  %-20s", ('policy_name',), 'Hostpolicies:'),
         ]))
-    def host_info(self, operator, host_id):
+    def host_info(self, operator, host_id, extrainfo=False):
         arecord = ARecord.ARecord(self.db)
         tmp = host_id.split(".")
+        extrainfo = self._is_yes(extrainfo)
+
         if host_id.find(":") == -1 and tmp[-1].isdigit():
             # When host_id is an IP, we only return A-records
             owner_id = self._find.find_target_by_parsing(
@@ -846,6 +859,11 @@ class BofhdExtension(BofhdCommandBase):
                         'srv_port': srv['port'],
                         'srv_ttl': int_or_none_as_str(srv['ttl']),
                         'srv_target': srv['target_name']})
+        if extrainfo:
+            # Hostpolicies
+            policy = PolicyComponent(self.db)
+            for row in policy.search_hostpolicies(dns_owner_id=owner_id):
+                ret.append({'policy_name': row['policy_name']})
         return ret
 
     # host unused_list

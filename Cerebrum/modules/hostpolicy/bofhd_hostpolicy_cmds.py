@@ -70,9 +70,9 @@ class PolicyId(Parameter):
     _type = 'policy'
     _help_ref = 'policy_id'
 
-class CreateDate(Parameter):
+class FoundationDate(Parameter):
     _type = 'date'
-    _help_ref = 'create_date'
+    _help_ref = 'foundation_date'
 
 class Filter(Parameter):
     _type = 'filter'
@@ -146,9 +146,9 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
             'policy_target':
             ['target_policy', 'Target policy',
              """The policy (atom/role) to be used as the target of a relationship."""],
-            'create_date':
-            ['date', 'Create date',
-             """The date the atom/role should be considered 'created'"""],
+            'foundation_date':
+            ['date', 'Foundation date',
+             """The date of the foundation of the atom/role."""],
             'component_filter':
             ['filter', 'Search filter',
             """A comma separated list of filters. The types:
@@ -156,7 +156,8 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
  'name'         - The name of the component
  'desc'         - The description of the component
  'foundation'   - The foundation of the component
- 'date'         - The 'create date' of the component
+ 'date'         - The 'foundation date' of the component
+ 'create'       - The date the component were created in bofh
 
 The filters are specified on the form 'type:value'. If you don't specify the
 type, 'name' is assumed. The string types handles wildcard search (* and ?).
@@ -164,6 +165,20 @@ type, 'name' is assumed. The string types handles wildcard search (* and ?).
 Example:
   server*,desc:*test* - All components with names starting with server, and that
                         have 'test' in their description.
+
+The dates filters expects strings on the form YYYY-MM-DD--YYYY-MM-DD, which
+specifies the start and end date. If only a specific date is given - on the
+format YYYY-MM-DD - only components with that specific date is returned. The
+start or end dates could be blank, to filter out older or newer components.
+
+Example:
+  date:--2011-12-31 - All components "founded" before the year 2012.
+
+  date:2011-12-31-- - All components "founded" in the year 2012 and later on.
+
+  date:2011-12-24   - All components "founded" on 24th of December 2011.
+
+  create:2012-01-01--2012-01-31 - All components created in January 2012.
             """],
             'description':
             ['description', 'Description',
@@ -322,10 +337,10 @@ Example:
 
         where the end date is optional, and would then default to None.
         
-        This method is copied and modified from the method _parse_date_from_to
-        in bofhd_uio_cmds.py, which was originally used for parsing dates for
-        expire_date. Some things have been turned since we need it for create
-        dates.
+        The main difference between this method and bofhd_uio_cmds' method
+        _parse_date_from_to is that if only only one date is given, this is
+        considered the start date and not the end date. In addition we differ
+        between not set dates and dates that is explicitly set to None.
 
         Dates that have not been specified are set to NotSet, but dates that
         have explicitly set to nothing returns None. Examples:
@@ -408,10 +423,10 @@ Example:
     all_commands['policy_atom_create'] = Command(
             ('policy', 'atom_create'),
             AtomName(), SimpleString(help_ref='description'),
-            SimpleString(help_ref='foundation'), CreateDate(optional=True),
+            SimpleString(help_ref='foundation'), FoundationDate(optional=True),
             perm_filter='is_dns_superuser')
     def policy_atom_create(self, operator, name, description, foundation,
-                        create_date=None):
+                        foundation_date=None):
         """Adds a new atom and its data. Its can only consist of lowercased,
         alpha numrice characters and -."""
         self.ba.assert_dns_superuser(operator.get_entity_id())
@@ -431,9 +446,9 @@ Example:
             pass
         else:
             # TODO: inform about type here
-            print comp.entity_type
             raise CerebrumError('A policy already exists with name: %s' % name)
-        atom.new(name, description, foundation, create_date)
+        atom.populate(name, description, foundation, foundation_date)
+        atom.write_db()
         return "New atom %s created" % atom.component_name
 
     all_commands['policy_atom_delete'] = Command(
@@ -455,10 +470,10 @@ Example:
     all_commands['policy_role_create'] = Command(
             ('policy', 'role_create'),
             RoleName(), SimpleString(help_ref='description'),
-            SimpleString(help_ref='foundation'), CreateDate(optional=True),
+            SimpleString(help_ref='foundation'), FoundationDate(optional=True),
             perm_filter='is_dns_superuser')
     def policy_role_create(self, operator, name, description, foundation,
-                        create_date=None):
+                        foundation_date=None):
         """Adds a new role and its data. Its can only consist of lowercased,
         alpha numrice characters and -."""
         self.ba.assert_dns_superuser(operator.get_entity_id())
@@ -478,7 +493,8 @@ Example:
             pass
         else:
             raise CerebrumError('A policy already exists with name: %s' % name)
-        role.new(name, description, foundation, create_date)
+        role.populate(name, description, foundation, foundation_date)
+        role.write_db()
         return "New role %s created" % role.component_name
     
     all_commands['policy_role_delete'] = Command(
@@ -675,6 +691,7 @@ Example:
         atom = Atom(self.db)
         filters = self._parse_filters(filter, {'name': None,
                                                'date': self._parse_create_date_range,
+                                               'create': self._parse_create_date_range,
                                                'desc': None,
                                                'foundation': None,},
                                       default_filter='name', default_value=None)
@@ -684,12 +701,18 @@ Example:
             date_start, date_end = filters['date']
             if date_end is NotSet: # only the specific date should be used
                 date_end = date_start
+        create_start = create_end = None
+        if filters['create']:
+            create_start, create_end = filters['create']
+            if create_end is NotSet: # only the specific date should be used
+                create_end = create_start
         ret = []
         for row in atom.search(name=filters['name'],
                                description=filters['desc'],
-                               create_start = date_start,
-                               create_end = date_end,
-                               # TODO: create_date 
+                               create_start = create_start,
+                               create_end = create_end,
+                               foundation_start = date_start,
+                               foundation_end = date_end,
                                foundation=filters['foundation']):
             ret.append({'name': row['name'], 'desc': row['description']})
         return ret
@@ -706,6 +729,7 @@ Example:
         role = Role(self.db)
         filters = self._parse_filters(filter, {'name': str,
                                                'date': self._parse_create_date_range,
+                                               'create': self._parse_create_date_range,
                                                'desc': str,
                                                'foundation': str,},
                                       default_filter='name', default_value=None)
@@ -716,11 +740,18 @@ Example:
             date_start, date_end = filters['date']
             if date_end is NotSet: # only the specific date should be used
                 date_end = date_start
+        create_start = create_end = None
+        if filters['create']:
+            create_start, create_end = filters['create']
+            if create_end is NotSet: # only the specific date should be used
+                create_end = create_start
         ret = []
         for row in role.search(name=filters['name'],
                                description=filters['desc'],
-                               create_start = date_start,
-                               create_end = date_end,
+                               create_start = create_start,
+                               create_end = create_end,
+                               foundation_start = date_start,
+                               foundation_end = date_end,
                                foundation=filters['foundation']):
             ret.append({'name': row['name'], 'desc': row['description']})
         return ret
@@ -730,11 +761,11 @@ Example:
             RoleId(),
             fs=FormatSuggestion([
                 ('Name:             %-30s', ('name',)),
+                ('Created:          %s%-30s', ('dummy2', format_day('create_date'),)),
                 ('Description:      %-30s', ('desc',)),
                 ('Foundation:       %-30s', ('foundation',)),
-                ('Created:          %s%-30s', ('dummy', format_day('createdate'),)),
+                ('Foundation date:  %s%-30s', ('dummy', format_day('foundation_date'),)),
                 ('Type:             %-30s', ('type',)),
-                # TODO: The definitions needs to be fixed...
                 ('Relation:         %s (%s)', ('target_rel_name', 'target_rel_type'),
                     ('Direct relationships where this role is target:')),
                 ('Relation:         %s (%s)', ('rel_name', 'rel_type'),
@@ -750,7 +781,9 @@ Example:
                {'foundation': comp.foundation},
                # format_day doesn't work as first argument, so put in an empty
                # dummy
-               {'dummy': '', 'createdate': comp.create_date},]
+               {'dummy': '', 'foundation_date': comp.foundation_date},
+               {'dummy2': '', 'create_date': comp.create_date},
+               ]
         # check what this component is in relationship with
         for row in comp.search_relations(target_id=comp.entity_id):
             ret.append({'target_rel_name': row['source_name'],
@@ -763,7 +796,3 @@ Example:
         return ret
 
     # TODO: host remove: Utvides til ukritisk å slette alle roller/atomer assosiert med maskinen.
-
-    # TODO: host info: Utvides til å liste alle roller/atomer som er direkte
-    # knyttet til host'en dersom det optional-parameteret policy er lagt til på
-    # kommandoen.
