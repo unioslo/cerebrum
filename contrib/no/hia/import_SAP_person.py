@@ -318,9 +318,8 @@ def populate_office(person, fields):
     with it, if it is defined. Both a building code and a room number should be
     present to be stored.
     
-    Note that we are also importing building codes for buildings that isn't
-    defined in cereconf. It's the exports' job to validate the codes."""
-
+    Note that we are not importing the office address if the given building
+    codes doesn't exist in cereconf."""
     if not fields.sap_building_code or not fields.sap_roomnumber:
         # both building and room has to be defined
 
@@ -449,11 +448,13 @@ def process_people(filename, use_fok):
         if not p.valid():
             logger.info("Ignoring person sap_id=%s, fnr=%s (invalid entry)",
                         p.sap_ansattnr, p.sap_fnr)
+            # TODO: remove some person data?
             continue
         
         if p.expired():
             logger.info("Ignoring person sap_id=%s, fnr=%s (expired data)",
                         p.sap_ansattnr, p.sap_fnr)
+            # TODO: remove some person data?
             continue
 
         # If the IDs are inconsistence with Cerebrum, skip the record

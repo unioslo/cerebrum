@@ -510,6 +510,8 @@ class BofhdExtension(BofhdCommandBase):
          ("address_zip", "address_city")),
         ("               %s [from %s]",
          ("address_country", 'address_source')),
+        ("Office:        %s Room: %s [from %s]",
+         ("office_code", "office_room", "office_source")),
         ]))
     def person_info(self, operator, person_id):
         try:
@@ -626,6 +628,13 @@ class BofhdExtension(BofhdCommandBase):
                         data.append({
                             'mobile': row['contact_value'],
                             'mobile_src': str(self.const.AuthoritativeSystem(row['source_system']))})
+            # Office addresses
+            for row in person.get_contact_info(self.const.system_sap,
+                                               self.const.contact_office):
+                # TODO: add office address here too?
+                data.append({'office_code': row['contact_value'],
+                             'office_room': row['contact_alias'],
+                             'office_source': str(self.const.AuthoritativeSystem(row['source_system']))})
         return data
 
 
