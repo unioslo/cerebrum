@@ -5762,16 +5762,18 @@ Addresses and settings:
     # copy str_vars.
     all_commands['host_info'] = Command(
         ("host", "info"), SimpleString(help_ref='string_host'),
+        YesNo(optional=True, help_ref='yes_no_extrainfo'),
         fs=FormatSuggestion(Dns.all_commands['host_info'].get_fs()['str_vars'] +
                             [("Hostname:              %s\n"
                               "Description:           %s",
                               ("hostname", "desc")),
                              ("Default disk quota:    %d MiB",
                               ("def_disk_quota",))]))
-    def host_info(self, operator, hostname):
-        dns_err = dns_ex = None
+    def host_info(self, operator, hostname, extrainfo=False):
         ret = []
         # More hacks follow.
+        # Call the DNS module's host_info command for data:
+        dns_err = None
         try:
             from Cerebrum.modules.dns.bofhd_dns_cmds import BofhdExtension as DnsCmds
             from Cerebrum.modules.dns import Utils as DnsUtils
@@ -5788,27 +5790,23 @@ Addresses and settings:
             self._find = DnsUtils.Find(self.db, zone)
             self.mb_utils = DnsBofhdUtils(self.server, zone)
             self.dns_parser = DnsUtils.DnsParser(self.db, zone)
-            ret = host_info(self, operator, hostname)
+            ret = host_info(self, operator, hostname, extrainfo=extrainfo)
         except CerebrumError, dns_err:
+            # Even though the DNS module doesn't recognise the host, the
+            # standard host_info could still have some info. We should therefore
+            # continue and see if we could get more info.
             pass
-        except self.db.ProgrammingError:
-            # This will cause all further database access to fail, so
-            # it's no use to proceed.  We don't reraise CerebrumError
-            # since that would hide the backtrace from the log.
-            raise
-        except Exception, dns_ex:
-            # ImportError, missing constants, whatever.
-            pass
+        # Other exceptions are faults and should cause trouble
+        # TODO: make it possible to check if the DNS module are in use by the
+        # active instance.
 
         try:
             host = self._get_host(hostname)
-        except CerebrumError, e:
-            # Return the most relevant error if nothing worked.
-            if dns_err or dns_ex:
-                raise dns_err or e
-            else:
-                return ret
-
+        except CerebrumError:
+            # Only return data from the DNS module
+            if dns_err is not None:
+                raise dns_err
+            return ret
         ret = [{'hostname': hostname,
                 'desc': host.description}] + ret
         hquota = host.get_trait(self.const.trait_host_disk_quota)
