@@ -5093,7 +5093,7 @@ Addresses and settings:
     
     # group info
     all_commands['group_info'] = Command(
-        ("group", "info"), GroupName(),
+        ("group", "info"), GroupName(help_ref="id:gid:name"),
         fs=FormatSuggestion([("Name:         %s\n" +
                               "Spreads:      %s\n" +
                               "Description:  %s\n" +
@@ -5113,6 +5113,9 @@ Addresses and settings:
         try:
             grp = self._get_group(groupname, grtype="PosixGroup")
         except CerebrumError:
+            if groupname.startswith('gid:'):
+                gid = groupname.split(':',1)[1]
+                raise CerebrumError("Could not find PosixGroup with gid=%s" % gid)
             grp = self._get_group(groupname)
         co = self.const
         ret = [ self._entity_info(grp) ]
@@ -9069,6 +9072,13 @@ Addresses and settings:
                 if not (isinstance(id, (int, long)) or id.isdigit()):
                     raise CerebrumError, "Non-numeric id lookup (%s)" % id
                 group.find(id)
+            elif idtype == 'gid':
+                if grtype == 'PosixGroup':
+                    if not (isinstance(id, (int, long)) or id.isdigit()):
+                        raise CerebrumError, "Non-numeric gid lookup (%s)" % id
+                    group.find_by_gid(id)
+                else:
+                    raise Errors.NotFoundError
             else:
                 raise CerebrumError, "Unknown idtype: '%s', did you mean name:%s:%s?" % (
                         idtype, idtype, id)
