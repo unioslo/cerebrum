@@ -46,7 +46,6 @@ class HostPolicyBofhdAuth(DnsBofhdAuth):
     as the DNS-module (on which it depends anyway), so the same mechanisms used
     there are also used here.
     """
-    # TODO: do we need more auth methods here?
     pass
 
 # Define cmd_params for the HostPolicy module
@@ -573,8 +572,6 @@ Example:
             raise CerebrumError('%s is not a member of %s' % (
                         member.component_name, role.component_name))
 
-        # TODO: need to cheeck any constraints here?
-
         role.remove_relationship(self.const.hostpolicy_contains, member.entity_id)
         role.write_db()
         return "Component %s no longer member of %s" % (member.component_name, 
@@ -584,7 +581,6 @@ Example:
             ('policy', 'list_members'),
             RoleId(),
             perm_filter='is_dns_superuser',
-            # TODO
             fs=FormatSuggestion('%-20s', ('mem_name',), 
                 hdr='%-20s' % ('Name',)))
     def policy_list_members(self, operator, role_id):
@@ -627,18 +623,17 @@ Example:
         """Give a host - dns owner - a policy, i.e. a role/atom."""
         self.ba.assert_dns_superuser(operator.get_entity_id())
         host = self._get_host(dns_owner_id)
-        comp = self._get_component(comp_id)
-
+        policy = self._get_component(comp_id)
         # check if already a member
-        for row in comp.search_hostpolicies(policy_id=comp.entity_id,
+        for row in policy.search_hostpolicies(policy_id=policy.entity_id,
                                             dns_owner_id=host.entity_id):
             raise CerebrumError('Host %s already has policy %s' %
-                                (host.name, comp.component_name))
+                                (host.name, policy.component_name))
 
-        # TODO: do check the constraints here! Tell what's wrong if so.
+        # TODO: mutex should be checked here
 
-        comp.add_policy(host.entity_id)
-        return "Policy %s added to host %s" % (comp.component_name,
+        policy.add_to_host(host.entity_id)
+        return "Policy %s added to host %s" % (policy.component_name,
                                                host.name)
 
     all_commands['host_policy_remove'] = Command(
@@ -649,17 +644,14 @@ Example:
         """Remove a given policy from a given host."""
         self.ba.assert_dns_superuser(operator.get_entity_id())
         host = self._get_host(dns_owner_id)
-        comp = self._get_component(comp_id)
-
-        # check that the comp is actually given to the host:
-        if not tuple(comp.search_hostpolicies(policy_id=comp.entity_id,
+        policy = self._get_component(comp_id)
+        # check that the policy is actually given to the host:
+        if not tuple(policy.search_hostpolicies(policy_id=policy.entity_id,
                                               dns_owner_id=host.entity_id)):
             raise CerebrumError("Host %s doesn't have policy %s" %
-                                (host.name, comp.component_name))
-        # TODO: other checks here?
-
-        comp.remove_policy(host.entity_id)
-        return "Policy %s removed from host %s" % (comp.component_name,
+                                (host.name, policy.component_name))
+        policy.remove_from_host(host.entity_id)
+        return "Policy %s removed from host %s" % (policy.component_name,
                                                    host.name)
 
     all_commands['host_policy_list'] = Command(
@@ -672,13 +664,13 @@ Example:
         """List all roles/atoms associated to a given host."""
         self.ba.assert_dns_superuser(operator.get_entity_id())
         host = self._get_host(dns_owner_id)
-        comp = PolicyComponent(self.db)
+        policy = PolicyComponent(self.db)
         ret = []
-        for row in comp.search_hostpolicies(dns_owner_id=host.entity_id):
-            comp.clear()
-            comp.find(row['policy_id'])
+        for row in policy.search_hostpolicies(dns_owner_id=host.entity_id):
+            policy.clear()
+            policy.find(row['policy_id'])
             ret.append({'policy_name': row['policy_name'], 
-                        'desc': comp.description})
+                        'desc': policy.description})
         return ret
 
     all_commands['policy_list_hosts'] = Command(
@@ -715,7 +707,6 @@ Example:
                                                'desc': None,
                                                'foundation': None,},
                                       default_filter='name', default_value=None)
-        # TODO: should we stop lists of every atom?
         date_start = date_end = None
         if filters['date']:
             date_start, date_end = filters['date']
@@ -753,8 +744,6 @@ Example:
                                                'desc': str,
                                                'foundation': str,},
                                       default_filter='name', default_value=None)
-        # TODO: should we stop lists of every role? e.g. if no filter is
-        # specified, or name is only *
         date_start = date_end = None
         if filters['date']:
             date_start, date_end = filters['date']
@@ -796,7 +785,7 @@ Example:
         # This method is available for everyone
         comp = self._get_component(policy_id)
         ret = [{'name': comp.component_name},
-               {'type': str(comp.entity_type)}, # TODO: how to map to the type's code_str?
+               {'type': str(self.const.EntityType(comp.entity_type))},
                {'desc': comp.description},
                {'foundation': comp.foundation},
                # format_day doesn't work as first argument, so put in an empty
@@ -814,5 +803,3 @@ Example:
                 ret.append({'rel_name': row['target_name'],
                             'rel_type': row['relationship_str']})
         return ret
-
-    # TODO: host remove: Utvides til ukritisk å slette alle roller/atomer assosiert med maskinen.

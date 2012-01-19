@@ -17,7 +17,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import os
+import os, traceback
 import cerebrum_path
 import cereconf
 
@@ -688,6 +688,20 @@ class BofhdExtension(BofhdCommandBase):
                 raise CerebrumError("Use 'host cname_remove' to remove cnames")
         except Errors.NotFoundError:
             pass
+        # Remove links to policies if hostpolicy is used:
+        try:
+            policy = PolicyComponent(self.db)
+            for row in policy.search_hostpolicies(dns_owner_id=owner_id):
+                policy.clear()
+                policy.find(row['policy_id'])
+                policy.remove_from_host(owner_id)
+        except CerebrumError:
+            raise
+        except Exception, e:
+            # This could be due to that hostpolicy isn't implemented at the
+            # instance, will therefore log all errors in the start:
+            self.logger.warn(e)
+            self.logger.warn(traceback.format_exc())
         self.mb_utils.ip_free(dns.DNS_OWNER, host_id, force)
         return "OK, DNS-owner %s completly removed" % host_id
 

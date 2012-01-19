@@ -239,10 +239,8 @@ class PolicyComponent(EntityName, Entity_class):
         """Check if a date is valid."""
         return 'feil feil'
 
-    def add_policy(self, dns_owner_id):
+    def add_to_host(self, dns_owner_id):
         """Add this instance as a policy to a given dns_owner_id (host)."""
-        # TODO: give this method another name? Doesn't make much sense now with:
-        # policy.add_policy(host)
 
         # TODO: check that mutex constraints are fullfilled!
 
@@ -257,11 +255,8 @@ class PolicyComponent(EntityName, Entity_class):
         self._db.log_change(self.entity_id,
                             self.const.hostpolicy_policy_add, dns_owner_id)
 
-    def remove_policy(self, dns_owner_id):
-        """Remove this instance from a given dns_owner_id (host)."""
-        # TODO: give this method another name? Doesn't make much sense now with:
-        # policy.add_policy(host)
-
+    def remove_from_host(self, dns_owner_id):
+        """Remove this policy from a given dns_owner_id (host)."""
         # TODO: anything to check before executing the change?
         self.execute("""
             DELETE FROM [:table schema=cerebrum name=hostpolicy_host_policy]
