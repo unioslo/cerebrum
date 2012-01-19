@@ -438,7 +438,6 @@ class PolicyComponent(EntityName, Entity_class):
                    'tables': ', '.join(tables)},
                 binds)
 
-
 class Role(PolicyComponent):
     """A PolicyComponent that is a Role. Roles can, in contrast to atoms, have
     members."""
@@ -454,6 +453,36 @@ class Role(PolicyComponent):
             raise Errors.NotFoundError('Could not find role with name: %s' %
                                        component_name)
 
+    def _illegal_membership_loop(self, member_id):
+        """Check that the given member doesn't have the active role as a member,
+        which would cause infinite loops. The member has to be a role, since
+        atoms can't have members."""
+        def has_member(role_id, check_id):
+            """Go recursively through a role and check if a given id is a direct
+            or indirect member of the role."""
+            for row in self.search_relations(source_id=role_id,
+                    relationship_code=self.const.hostpolicy_contains):
+                if row['target_id'] == check_id:
+                    return True
+                if row['target_entity_type'] == self.const.entity_hostpolicy_role:
+                    if has_member(row['target_id'], check_id):
+                        return True
+            return False
+        return has_member(member_id, self.entity_id)
+
+    def illegal_relationship(self, relationship_code, member_id):
+        """Check if a new relationship is allowed, e.g. if all mutexes are okay,
+        and that the member doesn't have the active role as a member (infinite
+        loops)."""
+        # check for loops in memberships
+        mem = Entity_class(self._db)
+        mem.find(member_id)
+        if (mem.entity_type == self.const.entity_hostpolicy_role and
+            self._illegal_membership_loop(member_id)):
+                return True
+        # TODO: mutexes are not ready yet
+        return False
+
     def add_relationship(self, relationship_code, target_id):
         """Add a relationship of given type between this role and a target
         component (atom or role).
@@ -463,6 +492,9 @@ class Role(PolicyComponent):
             The relationship constant that defines the kind of relationship the
             source and target will have.
         """
+        if self.illegal_relationship(relationship_code, target_id):
+            # TODO: is ProgrammingError the correct exception to raise here?
+            raise Errors.ProgrammingError('Illegal relationship')
         self.execute("""
             INSERT INTO [:table schema=cerebrum name=hostpolicy_relationship]
               (source_policy, relationship, target_policy)

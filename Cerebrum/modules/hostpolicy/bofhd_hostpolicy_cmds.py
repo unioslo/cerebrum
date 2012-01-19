@@ -99,8 +99,8 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         _type in addition?)"""
         group_help = {
             'policy': 'Commands for handling host policies',
-            # TODO: add 'host' here as well? We add commands in the host group,
-            # but don't know what get_help_string which will be used at init...
+            # don't know if the group 'host' is required here, but it's defined
+            # in bofhd_uio_help and bofhd_dns_cmds, and it works without it.
             }
 
         command_help = {
@@ -312,15 +312,9 @@ Example:
             if filters[type] is None:
                 patterns[type] = pattern
             else: # call callback function:
-                try:
-                    # TODO: maybe the callbacks should only raise
-                    # CerebrumErrors, which could be concatinated here? Now we
-                    # can't see if I have caused any code bugs.
-                    patterns[type] = filters[type](pattern)
-                except KeyboardInterrupt:
-                    raise # in case bofhd should be shut down
-                except Exception, e:
-                    raise CerebrumError('Invalid input for %s: %s' % (type, e))
+                # Callbacks should only raise CerebrumErrors, which can be
+                # raised directly. Everything else is bugs and should be raised.
+                patterns[type] = filters[type](pattern)
         # fill in with default values
         if default_value is not NotSet:
             for f in filters:
@@ -393,7 +387,7 @@ Example:
             try:
                 hour, min = [int(x) for x in time.split(':')]
             except ValueError:
-                raise CerebrumError, "Time of day must be on format HH:MM"
+                raise CerebrumError("Time of day must be on format HH:MM")
             if date == '':
                 now = DateTime.now()
                 target = DateTime.Date(now.year, now.month, now.day, hour, min)
@@ -405,18 +399,18 @@ Example:
         try:
             y, m, d = [int(x) for x in date.split('-')]
         except ValueError:
-            raise CerebrumError, "Dates must be on format YYYY-MM-DD"
+            raise CerebrumError("Dates must be on format YYYY-MM-DD")
         # TODO: this should be a proper delta, but rather than using
         # pgSQL specific code, wait until Python has standardised on a
         # Date-type.
         if y > 2050:
-            raise CerebrumError, "Too far into the future: %s" % date
+            raise CerebrumError("Too far into the future: %s" % date)
         if y < 1800:
-            raise CerebrumError, "Too long ago: %s" % date
+            raise CerebrumError("Too long ago: %s" % date)
         try:
             return DateTime.Date(y, m, d, hour, min)
         except:
-            raise CerebrumError, "Illegal date: %s" % date
+            raise CerebrumError("Illegal date: %s" % date)
 
     # TODO: we miss functionality for setting mutex relationships
 
@@ -445,7 +439,6 @@ Example:
         except CerebrumError:
             pass
         else:
-            # TODO: inform about type here
             raise CerebrumError('A policy already exists with name: %s' % name)
         atom.populate(name, description, foundation, foundation_date)
         atom.write_db()
@@ -524,16 +517,41 @@ Example:
         role = self._get_role(role_id)
         member = self._get_component(member_id)
 
-        # TODO: check if already a member
-        
-        # TODO: add checking to comply with the constraints
+        # check if already a member
+        for row in role.search_relations(source_id=role.entity_id,
+                            target_id=member.entity_id,
+                            relationship_code=self.const.hostpolicy_contains):
+            raise CerebrumError('%s is already a member of %s' %
+                                (member.component_name, role.component_name))
 
-        # Give feedback about _what_ is wrong, if so
+        try:
+            role.add_relationship(self.const.hostpolicy_contains, member.entity_id)
+        except Errors.ProgrammingError, e:
+            # The relationship were not accepted, give the user an explanation
+            # of why.
+            def check_member_loop(role_id, check_id):
+                """Find a given check_id in the members of a role, and then
+                raise a CerebrumError with an explanation for this. Works
+                recursively."""
+                for row in role.search_relations(source_id=role_id,
+                        relationship_code=self.const.hostpolicy_contains):
+                    if row['target_id'] == check_id:
+                        raise CerebrumError('%s is a member of the role %s '
+                                '(direct or indirect) - member loops are not '
+                                'allowed' % (row['target_name'], row['source_name']))
+                    if row['target_entity_type'] == self.const.entity_hostpolicy_role:
+                        check_member_loop(row['target_id'], check_id)
+            check_member_loop(member.entity_id, role.entity_id)
 
-        role.add_relationship(self.const.hostpolicy_contains, member.entity_id)
-        role.write_db()
-        return "Component %s is now member of role %s" % (member.component_name,
-                                                          role.component_name)
+            # TODO: mutex isn't checked yet
+
+            # if we get here, we weren't able to explain what is wrong
+            self.logger.warn("Unhandled bad relationship: %s" % e)
+            raise CerebrumError('The membership was not allowed due to constraints')
+        else:
+            role.write_db()
+            return "Component %s is now member of role %s" % (member.component_name,
+                                                              role.component_name)
 
     all_commands['policy_remove_member'] = Command(
             ('policy', 'remove_member'),
