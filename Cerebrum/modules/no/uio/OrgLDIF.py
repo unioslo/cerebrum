@@ -298,6 +298,15 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
 
     def is_person_visible(self, person_id):
         """Override cereconf.LDAP_PERSON['visible_selector']"""
+        # TODO: this could be changed to check the trait 'reserve_public'
+        # later, so we don't have to check group memberships.
+        #
+        # The trait behaves in the followin manner: 
+        # Every person should be 'invisible', except if:
+        #  * The person has a trait of the type 'reserve_public', and
+        #  * The trait's numval is set to 0
+        # This means that a missing trait should be considered as a reservation.
+
         p_affs = self.affiliations[person_id]
         # If there is an affiliation from SAP (ANSATT, TILKNYTTET),
         # then consider reservations/permissions from SAP only.
