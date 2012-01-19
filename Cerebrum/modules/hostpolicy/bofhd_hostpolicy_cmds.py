@@ -432,6 +432,7 @@ Example:
         tmp = atom.illegal_attr(foundation)
         if tmp:
             raise CerebrumError('Illegal foundation: %s' % tmp)
+        foundation_date = self._parse_date(foundation_date)
 
         # check that name isn't already in use
         try:
@@ -478,6 +479,7 @@ Example:
         tmp = role.illegal_attr(foundation)
         if tmp:
             raise CerebrumError('Illegal foundation: %s' % tmp)
+        foundation_date = self._parse_date(foundation_date)
 
         # check that name isn't already in use
         try:

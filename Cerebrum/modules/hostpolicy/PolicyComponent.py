@@ -98,7 +98,7 @@ class PolicyComponent(EntityName, Entity_class):
             tmp = self.illegal_attr(self.foundation)
             if tmp:
                 raise self._db.IntegrityError("Illegal foundation: %s" % tmp)
-        # TODO: should_create be validated?
+        # TODO: should create_date and policy_date be validated?
 
         is_new = not self.__in_db
 
@@ -235,6 +235,9 @@ class PolicyComponent(EntityName, Entity_class):
             return "semi colons ';' not allowed"
         return False
 
+    def illegal_date(self, date):
+        """Check if a date is valid."""
+        return 'feil feil'
 
     def add_policy(self, dns_owner_id):
         """Add this instance as a policy to a given dns_owner_id (host)."""
