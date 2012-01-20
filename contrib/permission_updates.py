@@ -34,6 +34,9 @@ Constants (Cerebrum.modules.bofhd.utils).
 TBD: What should be done with OpSets that exists in cerebrum, but not in this
 script? Should they be removed?
 
+TODO: add option for listing out all defined OpSets and their settings from
+the database.
+
 All changes are logged as INFO, while the rest is only DEBUG. This is to make
 changes easier to spot.
 """
@@ -89,35 +92,12 @@ def convert_existing_opsets(dryrun):
     for src, target in opset_config.convert_mapping.items():
         if not target:
             continue
-        if src == 'ureg_P':
-            # ureg_P skal bli Termvakter dersom gruppen som har
-            # rettigheten slutter på termvakt.  Ellers skal den bli
-            # Lita1
-            for row in db.query("""
-                    SELECT en.entity_name, en.entity_id
-                    FROM auth_operation_set aos, auth_role ar, entity_name en
-                    WHERE aos.op_set_id=ar.op_set_id AND
-                          ar.entity_id=en.entity_id AND
-                          aos.name=:src""", {'src': src}):
-
-                if row['entity_name'].endswith("vakt"):
-                    db.execute("""
-                    UPDATE [:table schema=cerebrum name=auth_role]
-                    SET op_set_id=:new_id
-                    WHERE op_set_id=:old_id AND entity_id=:entity_id""", {
-                        'old_id': name2id[src],
-                        'new_id': name2id[target],
-                        'entity_id': row['entity_id']})
-                    
-            # Ingen gjenværende ureg_P peker lenger på termvakter
-            target = 'Lita1'
         logger.info('Converting opset: %s -> %s', src, target)
         db.execute("""
             UPDATE [:table schema=cerebrum name=auth_role]
             SET op_set_id=:new_id
             WHERE op_set_id=:old_id""", {
                 'old_id': name2id[src], 'new_id': name2id[target]})
-
     if dryrun:
         db.rollback()
         logger.info('Rolled back changes')
