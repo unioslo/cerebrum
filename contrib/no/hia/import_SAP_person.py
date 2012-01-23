@@ -40,6 +40,7 @@ from Cerebrum.modules.no import fodselsnr
 
 import getopt
 import sys
+import re
 
 
 
@@ -285,6 +286,10 @@ def populate_title(person, fields):
 # end populate_title        
 
 
+def _remove_communication(person, comm_type):
+    """Delete a person's given communication type."""
+    logger.debug("Removing comm type %s", comm_type)
+    person.delete_contact_info(const.system_sap, comm_type)
 
 def populate_communication(person, fields):
     """
@@ -294,8 +299,6 @@ def populate_communication(person, fields):
 
     comm_types = ((const.contact_phone_private, fields.sap_phone_private),
                   (const.contact_phone, fields.sap_phone),
-                  (const.contact_mobile_phone, fields.sap_phone_mobile),
-                  (const.contact_private_mobile, fields.sap_phone_mobile_private),
                   (const.contact_fax, fields.sap_fax))
     for comm_type, comm_value in comm_types:
         if not comm_value:
@@ -303,6 +306,17 @@ def populate_communication(person, fields):
 
         person.populate_contact_info(const.system_sap, comm_type, comm_value)
         logger.debug("Populated comm type %s with «%s»", comm_type, comm_value)
+
+    # some communication types need extra care
+    comm_types = ((const.contact_mobile_phone, fields.sap_phone_mobile),
+                  (const.contact_private_mobile, fields.sap_phone_mobile_private))
+    for comm_type, comm_value in comm_types:
+        if not comm_value or not re.match('^\d{8}$', comm_value):
+            _remove_communication(person, comm_type)
+            continue
+        person.populate_contact_info(const.system_sap, comm_type, comm_value)
+        logger.debug("Populated comm type %s with «%s»", comm_type, comm_value)
+
 # end populate_communication
 
 def _remove_office(person):
