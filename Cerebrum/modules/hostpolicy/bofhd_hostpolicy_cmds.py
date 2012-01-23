@@ -68,6 +68,9 @@ class RoleName(Parameter):
 class PolicyId(Parameter):
     _type = 'policy'
     _help_ref = 'policy_id'
+class PolicyName(Parameter):
+    _type = 'name'
+    _help_ref = 'policy_name'
 
 class FoundationDate(Parameter):
     _type = 'date'
@@ -142,6 +145,9 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
             'policy_id': 
             ['policy', 'Policy',
              """The name or entity_id of a policy, i.e. a role or an atom"""],
+            'policy_name':
+            ['policy_name', 'Policy name',
+             """The name of the policy"""],
             'policy_target':
             ['target_policy', 'Target policy',
              """The policy (atom/role) to be used as the target of a relationship."""],
@@ -152,32 +158,32 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
             ['filter', 'Search filter',
             """A comma separated list of filters. The types:
 
- 'name'         - The name of the component
- 'desc'         - The description of the component
- 'foundation'   - The foundation of the component
- 'date'         - The 'foundation date' of the component
- 'create'       - The date the component were created in bofh
+ 'name'         - The name of the policy
+ 'desc'         - The description of the policy
+ 'foundation'   - The foundation of the policy
+ 'date'         - The 'foundation date' of the policy
+ 'create'       - The date the policy were created in bofh
 
 The filters are specified on the form 'type:value'. If you don't specify the
 type, 'name' is assumed. The string types handles wildcard search (* and ?).
 
 Example:
-  server*,desc:*test* - All components with names starting with server, and that
+  server*,desc:*test* - All policies with names starting with server, and that
                         have 'test' in their description.
 
 The dates filters expects strings on the form YYYY-MM-DD--YYYY-MM-DD, which
 specifies the start and end date. If only a specific date is given - on the
-format YYYY-MM-DD - only components with that specific date is returned. The
-start or end dates could be blank, to filter out older or newer components.
+format YYYY-MM-DD - only policies with that specific date is returned. The
+start or end dates could be blank, to filter out older or newer policies.
 
 Example:
-  date:--2011-12-31 - All components "founded" before the year 2012.
+  date:--2011-12-31 - All policies "founded" before the year 2012.
 
-  date:2011-12-31-- - All components "founded" in the year 2012 and later on.
+  date:2011-12-31-- - All policies "founded" in the year 2012 and later on.
 
-  date:2011-12-24   - All components "founded" on 24th of December 2011.
+  date:2011-12-24   - All policies "founded" on 24th of December 2011.
 
-  create:2012-01-01--2012-01-31 - All components created in January 2012.
+  create:2012-01-01--2012-01-31 - All policies created in January 2012.
             """],
             'description':
             ['description', 'Description',
@@ -190,7 +196,7 @@ Example:
                 arg_help)
 
     def _get_component(self, comp_id, comp_class=PolicyComponent):
-        """Helper method for getting a component, or a given subtype."""
+        """Helper method for getting a policy, or a given subtype."""
         comp = comp_class(self.db)
         try:
             if type(comp_id) == int or comp_id.isdigit():
@@ -198,7 +204,11 @@ Example:
             else:
                 comp.find_by_name(comp_id)
         except Errors.NotFoundError:
-            raise CerebrumError("Couldn't find component with id=%s" % comp_id)
+            if comp_class == Atom:
+                raise CerebrumError("Couldn't find atom with id=%s" % comp_id)
+            elif comp_class == Role:
+                raise CerebrumError("Couldn't find role with id=%s" % comp_id)
+            raise CerebrumError("Couldn't find policy with id=%s" % comp_id)
         return comp
 
     def _get_atom(self, atom_id):
@@ -244,17 +254,17 @@ Example:
         tmp = tuple(row['dns_owner_name'] for row in
                     comp.search_hostpolicies(policy_id=comp.entity_id))
         if tmp:
-            raise CerebrumError("Component is in use as policy for: %s" %
+            raise CerebrumError("Policy is in use as policy for: %s" %
                                 ', '.join(tmp))
         tmp = tuple(row['source_name'] for row in 
                     comp.search_relations(target_id=comp.entity_id))
         if tmp:
-            raise CerebrumError("Component is used as target for: %s" %
+            raise CerebrumError("Policy is used as target for: %s" %
                                 ', '.join(tmp))
         tmp = tuple(row['target_name'] for row in 
                     comp.search_relations(source_id=comp.entity_id))
         if tmp:
-            raise CerebrumError("Component is used as source for: %s" %
+            raise CerebrumError("Policy is used as source for: %s" %
                                 ', '.join(tmp))
 
     def _parse_filters(self, input, filters, default_filter=NotSet,
@@ -499,7 +509,7 @@ Example:
         any policy."""
         self.ba.assert_dns_superuser(operator.get_entity_id())
         role = self._get_role(role_id)
-        # Check if component is in use anywhere. The method will raise
+        # Check if policy is in use anywhere. The method will raise
         # CerebrumErrors if that's the case:
         self._check_if_unused(role)
 
@@ -508,14 +518,67 @@ Example:
         role.write_db()
         return "Role %s deleted" % name
 
+    all_commands['policy_rename'] = Command(
+            ('policy', 'rename'), PolicyId(), PolicyName(),
+            perm_filter='is_dns_superuser')
+    def policy_rename(self, operator, policy_id, name):
+        """Rename an existing policy, if the name is not already taken."""
+        self.ba.assert_dns_superuser(operator.get_entity_id())
+        policy = self._get_component(policy_id)
+
+        # check if name is already taken
+        try:
+            self._get_component(name)
+            raise CerebrumError('New name %s is in use' % name)
+        except CerebrumError:
+            pass
+        old_name = policy.component_name
+        policy.component_name = name
+        policy.write_db()
+        return "Policy %s renamed to %s" % (old_name, name)
+
+    all_commands['policy_set_description'] = Command(
+            ('policy', 'set_description'), PolicyId(),
+            SimpleString(help_ref='description'),
+            perm_filter='is_dns_superuser')
+    def policy_set_description(self, operator, policy_id, description):
+        """Update the description of an existing policy."""
+        self.ba.assert_dns_superuser(operator.get_entity_id())
+        policy = self._get_component(policy_id)
+        policy.description = description
+        policy.write_db()
+        return "Description updated for %s" % policy.component_name
+
+    all_commands['policy_set_foundation'] = Command(
+            ('policy', 'set_foundation'), PolicyId(),
+            SimpleString(help_ref='foundation'), FoundationDate(optional=True),
+            perm_filter='is_dns_superuser')
+    def policy_set_foundation(self, operator, policy_id, foundation, date=None):
+        """Update the foundation data of an existing policy."""
+        self.ba.assert_dns_superuser(operator.get_entity_id())
+        policy = self._get_component(policy_id)
+        policy.foundation = foundation
+        if date:
+            policy.foundation_date = self._parse_date(date)
+        policy.write_db()
+        return "Foundation updated for %s" % policy.component_name
+
     all_commands['policy_add_member'] = Command(
             ('policy', 'add_member'),
             RoleId(help_ref='role_source'), PolicyId(help_ref='policy_target'),
             perm_filter='is_dns_superuser')
     def policy_add_member(self, operator, role_id, member_id):
-        """Try to add a given component as a member of a role."""
+        """Try to add a given policy as a member of a role."""
         self.ba.assert_dns_superuser(operator.get_entity_id())
-        role = self._get_role(role_id)
+        try:
+            role = self._get_role(role_id)
+        except CerebrumError, e:
+            # check if it is an atom, and give better feedback
+            try:
+                atom = self._get_atom(role_id)
+            except CerebrumError:
+                raise e
+            raise CerebrumError("Atoms can't have members")
         member = self._get_component(member_id)
 
         # check if already a member
@@ -551,7 +614,7 @@ Example:
             raise CerebrumError('The membership was not allowed due to constraints')
         else:
             role.write_db()
-            return "Component %s is now member of role %s" % (member.component_name,
+            return "Policy %s is now member of role %s" % (member.component_name,
                                                               role.component_name)
 
     all_commands['policy_remove_member'] = Command(
@@ -574,15 +637,15 @@ Example:
 
         role.remove_relationship(self.const.hostpolicy_contains, member.entity_id)
         role.write_db()
-        return "Component %s no longer member of %s" % (member.component_name, 
+        return "Policy %s no longer member of %s" % (member.component_name, 
                                                         role.component_name)
 
     all_commands['policy_list_members'] = Command(
             ('policy', 'list_members'),
             RoleId(),
             perm_filter='is_dns_superuser',
-            fs=FormatSuggestion('%-20s', ('mem_name',), 
-                hdr='%-20s' % ('Name',)))
+            fs=FormatSuggestion('%s %s', ('mem_type', 'mem_name'), 
+                hdr='Name'))
     def policy_list_members(self, operator, role_id):
         """List out all members of a given role."""
         self.ba.assert_dns_superuser(operator.get_entity_id())
@@ -609,7 +672,11 @@ Example:
                               relationship_code=self.const.hostpolicy_contains))
             ret = []
             for row in sorted(members, key=lambda r: r['target_name']):
-                ret.append({'mem_name': '%s%s' % (inc, row['target_name'])})
+                type = 'A'
+                if row['target_entity_type'] == self.const.entity_hostpolicy_role:
+                    type = 'R'
+                ret.append({'mem_name': row['target_name'],
+                            'mem_type': '%s%s' % (inc, type)})
                 if row['target_entity_type'] == self.const.entity_hostpolicy_role:
                     ret.extend(_get_members(row['target_id'], increment+2))
             return ret
@@ -624,11 +691,32 @@ Example:
         self.ba.assert_dns_superuser(operator.get_entity_id())
         host = self._get_host(dns_owner_id)
         policy = self._get_component(comp_id)
-        # check if already a member
+        # check if host already has the policy as direct relation
         for row in policy.search_hostpolicies(policy_id=policy.entity_id,
                                             dns_owner_id=host.entity_id):
             raise CerebrumError('Host %s already has policy %s' %
                                 (host.name, policy.component_name))
+        # Check if host already has the policy indirectly. Not sure if this
+        # should be a part of the API, as it's not directly an error, but more
+        # of a way of holding the structure somewhat tidy. Note that one could
+        # add a role which have sub roles that is already given to the host,
+        # without getting an error for that.
+        def check_member_loop(role_id, check_id):
+            """Find a given check_id in the members of a role, and then
+            raise a CerebrumError with an explanation for this. Works
+            recursively."""
+            for row in policy.search_relations(source_id=role_id,
+                             relationship_code=self.const.hostpolicy_contains):
+                if row['target_id'] == check_id:
+                    raise CerebrumError('%s is a member of the role %s '
+                            '(direct or indirect) - host already has the role'
+                            % (row['target_name'], row['source_name']))
+                if row['target_entity_type'] == self.const.entity_hostpolicy_role:
+                    check_member_loop(row['target_id'], check_id)
+
+        if policy.entity_type == self.const.entity_hostpolicy_role:
+            for row in policy.search_hostpolicies(dns_owner_id=host.entity_id):
+                check_member_loop(row['policy_id'], policy.entity_id)
 
         # TODO: mutex should be checked here
 

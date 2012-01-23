@@ -156,8 +156,11 @@ class PolicyComponent(EntityName, Entity_class):
                      'create_date': self.create_date,
                      'foundation': self.foundation,
                      'foundation_date': self.foundation_date})
-            self._db.log_change(self.entity_id, event, None, change_params=binds)
-
+            self._db.log_change(self.entity_id, event, None, change_params={
+                                    'description': self.description,
+                                    'foundation': self.foundation,
+                                    'foundation_date': str(self.foundation_date),
+                                    })
             if 'component_name' in self.__updated:
                 self.update_entity_name(self.const.hostpolicy_component_namespace,
                                         self.component_name)
