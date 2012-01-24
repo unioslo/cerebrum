@@ -19,6 +19,11 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+"""
+Script for generating and populating groups in HiH's Cerebrum out of student
+information retrieved from FS. The groups are later exported to Fronter by
+generate_fronter_xml.py.
+"""
 
 import sys
 import locale
@@ -35,13 +40,32 @@ from Cerebrum import Errors
 
 from Cerebrum.modules.no.hih.access_FS import FS
 from Cerebrum.Utils import Factory
+logger = Factory.get_logger("cronjob")
 
-def usage(exitcode):
-    print "Usage: populate-fronter-groups.py"
+def usage(exitcode=0):
+    print """Usage: populate-fronter-groups.py
+
+    --delete-groups Delete the groups before creating and populating new
+                    groups. This cleans up and removes old groups from the
+                    database, which in effect also removes students from their
+                    old rooms in Fronter.
+
+                    Note that removing students from old rooms in Fronter also
+                    removes their access to old data in Fronter, so do not do
+                    this unless the instance knows about the effect.
+
+    --dryrun        Do not actually do anything with the database.
+
+    -h --help       Show this and quit.
+    """
     sys.exit(exitcode)
 
 
 def institutt_grupper():
+    """Create and populate groups that is specific for the HiH instance,
+    depending on the persons' affiliations and OUs. This includes both student
+    and some employee groups."""
+
     # sko 220000 has id = 5735
     alle_stud_22 = person.list_affiliations(affiliation=const.affiliation_student, ou_id=5735)
     alle_ans_22 = person.list_affiliations(affiliation=const.affiliation_ansatt, ou_id=5735)    
@@ -140,6 +164,7 @@ def institutt_grupper():
                 raise Errors.CerebrumError, "Database error: %s" % m
 
 def studieprog_grupper(fsconn):
+    """Create and populate groups for active study programs that is defined in FS."""
     for x in fs.info.list_studieprogrammer():
         if x['status_utgatt'] == 'J':
             logger.debug("Studieprogram %s is expired, skipping.", x['studieprogramkode'])
@@ -311,9 +336,42 @@ def undervisningsmelding_grupper(fsconn):
                     grp.write_db()
                 except db.DatabaseError, m:
                     raise CerebrumError, "Database error: %s" % m
-        
+
+def delete_fronter_groups():
+    """Go through the database and delete all fronter study groups that has
+    previously been created by this script."""
+    # TODO: would this spam the change_logger?
+    for match in ('studieprogram-%', 'kull-%-%-%-%', 'emne-%-%-%'):
+        for row in grp.search(name=match):
+            logger.debug("Deleting group: %s" % row['name'])
+            grp.clear()
+            grp.find(row['group_id'])
+            grp.delete()
+    # TODO: should we empty the institutt_grupper() groups?
+
 def main():
-    global db, const, ou, grp, person, acc, fs, logger
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 'h',
+                                   ['help', 'delete-groups',
+                                    'dryrun'])
+    except getopt.GetoptError, e:
+        print e
+        usage(1)
+
+    global db, const, ou, grp, person, acc, fs
+    dryrun = False
+    delete_groups = False
+
+    for opt, arg in opts:
+        if opt in ('-h', '--help'):
+            usage()
+        elif opt in ('--dryrun',):
+            dryrun = True
+        elif opt in ('--delete-groups'):
+            delete_groups = True
+        else:
+            print "Unknown argument: %s" % opt
+            usage(1)
 
     db = Factory.get("Database")()
     const = Factory.get("Constants")(db)
@@ -321,11 +379,17 @@ def main():
     grp = Factory.get("Group")(db)
     person = Factory.get("Person")(db)
     acc = Factory.get("Account")(db)
-    logger = Factory.get_logger("cronjob")
     db.cl_init(change_program='pop-lms-grps')
 
-    fsdb = Database.connect(user='I0208_cerebrum', service='FSHIH.uio.no', DB_driver='cx_Oracle') 
+    fsdb = Database.connect(user=cereconf.FS_USER,
+                            service=cereconf.FS_DATABASE_NAME,
+                            DB_driver='cx_Oracle') 
     fs = FS(fsdb)
+
+    if delete_groups:
+        logger.info("Deleting all fronter groups")
+        delete_fronter_groups()
+        logger.info("Fronter groups eliminated from db, now do the rebuild")
 
     logger.info("Updating studieprogram groups")
     studieprog_grupper(fs)
@@ -336,8 +400,12 @@ def main():
     logger.info("Updating emne/underv.enh groups")
     undervisningsmelding_grupper(fs)
     
-    logger.info("All done, commiting to database")
-    db.commit()
+    if dryrun:
+        logger.info("All done, rolled back changes")
+        db.rollback()
+    else:
+        logger.info("All done, commiting to database")
+        db.commit()
 
 if __name__ == '__main__':
     main()
