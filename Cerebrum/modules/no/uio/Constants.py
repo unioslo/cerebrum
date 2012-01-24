@@ -148,6 +148,9 @@ class Constants(Constants.Constants):
     affiliation_tilknyttet_innkjoper = _PersonAffStatusCode(
         affiliation_tilknyttet, 'innkjoper',
         'Registrert med INNKJØPER rolle i SAPUiO')
+    affiliation_tilknyttet_isf = _PersonAffStatusCode(
+        affiliation_tilknyttet, 'isf',
+        'Person tilknyttet Institutt for samfunnsforskning')
 
     affiliation_manuell = _PersonAffiliationCode(
         'MANUELL', 'Tilknyttet enheter/institusjoner som USIT har avtale med')
@@ -292,6 +295,8 @@ class Constants(Constants.Constants):
                                     'File group in NIS domain "uio" exported to HPC')    
     spread_uio_ldap_person = _SpreadCode('LDAP_person', Constants.Constants.entity_person,
                                          'Person included in LDAP directory')
+    spread_isf_ldap_person = _SpreadCode('LDAP_isf_person', Constants.Constants.entity_person,
+                                         'Person included in ISF-s LDAP directory')
     spread_uio_ldap_ou = _SpreadCode('LDAP_OU', Constants.Constants.entity_ou,
                                      'OU included in LDAP directory')
     spread_uio_ldap_account = _SpreadCode('LDAP_account', Constants.Constants.entity_account,
