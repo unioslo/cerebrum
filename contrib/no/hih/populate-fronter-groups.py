@@ -41,6 +41,29 @@ from Cerebrum import Errors
 from Cerebrum.modules.no.hih.access_FS import FS
 from Cerebrum.Utils import Factory
 logger = Factory.get_logger("cronjob")
+db = Factory.get("Database")()
+db.cl_init(change_program='pop-lms-grps')
+const = Factory.get("Constants")(db)
+ou = Factory.get("OU")(db)
+grp = Factory.get("Group")(db)
+person = Factory.get("Person")(db)
+acc = Factory.get("Account")(db)
+
+# The settings for 'intitutt' groups at HiH:
+#
+# Groups used are: ans-220000, stud-220000, ans-230000, stud-230000,
+# no other 'institutter' exist at HiH for now.
+#
+# Group membership has to be expressed through membership of the primary
+# account.
+institutt_group_settings = (
+    # sko 220000 has id = 5735
+    ('stud-220000', {'affiliation': const.affiliation_student, 'ou_id': 5735}),
+    ('ans-220000', {'affiliation': const.affiliation_ansatt, 'ou_id': 5735}),
+    # sko 230000 has id = 5748 
+    ('stud-230000', {'affiliation': const.affiliation_student, 'ou_id': 5748}),
+    ('ans-230000', {'affiliation': const.affiliation_ansatt, 'ou_id': 5748}),
+   )
 
 def usage(exitcode=0):
     print """Usage: populate-fronter-groups.py
@@ -61,107 +84,55 @@ def usage(exitcode=0):
     sys.exit(exitcode)
 
 
-def institutt_grupper():
+def institutt_grupper(remove_extra_members=False):
     """Create and populate groups that is specific for the HiH instance,
     depending on the persons' affiliations and OUs. This includes both student
-    and some employee groups."""
+    and some employee groups, and its members are defined in
+    L{institutt_group_settings}.
+    
+    If L{remove_extra_members} is True, extra group members are removed from
+    the groups, that is, the members that does not have the correct
+    affiliation anymore."""
 
-    # sko 220000 has id = 5735
-    alle_stud_22 = person.list_affiliations(affiliation=const.affiliation_student, ou_id=5735)
-    alle_ans_22 = person.list_affiliations(affiliation=const.affiliation_ansatt, ou_id=5735)    
-    # sko 230000 has id = 5748 
-    alle_stud_23 = person.list_affiliations(affiliation=const.affiliation_student, ou_id=5748)
-    alle_ans_23 = person.list_affiliations(affiliation=const.affiliation_ansatt, ou_id=5748) 
-    
-    # groups used are: ans-220000, stud-220000, ans-230000, stud-230000
-    # no other 'institutter' exist at HiH for now
-    
-    # group membership has to be expressed through membership of the
-    # primary account
-    # 
-    # stud-groups (220000 and 230000)
-    grp.clear()
-    try:
-        grp.find_by_name('stud-220000')
-    except Errors.NotFoundError:
-        logger.error("Could not find instituttgruppe %s, aborting", 'stud-220000')
-        return
-    for row in alle_stud_22:
-        primary_acc_id = None
-        person.clear()
-        person.find(row['person_id'])
-        primary_acc_id = person.get_primary_account()
-        if primary_acc_id == None:
-            logger.warn("Could not find any accounts for student %s at 220000", row['person_id'])
-            continue
-        if not grp.has_member(primary_acc_id):
-            grp.add_member(primary_acc_id)
+    def fill_group(groupname, members, remove_others=False):
+        """Add the given members to the given group. If L{remove_others} is
+        True, existing members of the group that is not mentioned in
+        L{members} are removed from the group."""
+        logger.debug("Processing group %s, %d members given", groupname, len(members))
+
+        grp.clear()
+        try:
+            grp.find_by_name(groupname)
+        except Errors.NotFoundError:
+            logger.error("Could not find group %s, aborting", groupname)
+            return
+        existing_members = set(row['member_id'] for row in
+                         grp.search_members(group_id=grp.entity_id))
+        if remove_others:
+            for mem in existing_members:
+                if mem not in members:
+                    logger.info('Removing mem %s from group %s', mem, groupname)
+                    grp.remove_member(mem)
+        for mem in members:
+            if mem not in existing_members:
+                logger.info('Adding mem %s to group %s', mem, groupname)
+                grp.add_member(mem)
+
+    # cache the primary accounts
+    pe2primary = dict((r['person_id'], r['account_id']) for r in
+                      acc.list_accounts_by_type(primary_only=True))
+
+    for group, aff_targets in institutt_group_settings:
+        members = set()
+        # add the person's primary account:
+        for row in person.list_affiliations(**aff_targets):
             try:
-                grp.write_db()
-            except db.DatabaseError, m:
-                raise Errors.CerebrumError, "Database error: %s" % m
-    grp.clear()
-    try:
-        grp.find_by_name('stud-230000')
-    except Errors.NotFoundError:
-        logger.error("Could not find instituttgruppe %s, aborting", 'stud-230000')
-        return
-    for row in alle_stud_23:
-        primary_acc_id = None
-        person.clear()
-        person.find(row['person_id'])
-        primary_acc_id = person.get_primary_account()
-        if primary_acc_id == None:
-            logger.warn("Could not find any accounts for student %s at 230000", row['person_id'])
-            continue
-        if not grp.has_member(primary_acc_id):
-            grp.add_member(primary_acc_id)
-            try:
-                grp.write_db()
-            except db.DatabaseError, m:
-                raise Errors.CerebrumError, "Database error: %s" % m
-    
-    # ans-groups (220000 and 230000)
-    grp.clear()
-    try:
-        grp.find_by_name('ans-220000')
-    except Errors.NotFoundError:
-        logger.error("Could not find instituttgruppe %s, aborting", 'ans-220000')
-        return
-    for row in alle_ans_22:
-        primary_acc_id = None
-        person.clear()
-        person.find(row['person_id'])
-        primary_acc_id = person.get_primary_account()
-        if primary_acc_id == None:
-            logger.warn("Could not find any accounts for ans %s at 220000", row['person_id'])
-            continue        
-        if not grp.has_member(primary_acc_id):
-            grp.add_member(primary_acc_id)
-            try:
-                grp.write_db()
-            except db.DatabaseError, m:
-                raise Errors.CerebrumError, "Database error: %s" % m
-    grp.clear()
-    try:
-        grp.find_by_name('ans-230000')
-    except Errors.NotFoundError:
-        logger.error("Could not find instituttgruppe %s, aborting", 'ans-230000')
-        return
-    for row in alle_ans_23:
-        primary_acc_id = None
-        person.clear()
-        person.find(row['person_id'])
-        primary_acc_id = person.get_primary_account()
-        if primary_acc_id == None:
-            logger.warn("Could not find any accounts for ans %s at 230000", row['person_id'])
-            continue
-        if not grp.has_member(primary_acc_id):
-            grp.add_member(primary_acc_id)
-            try:
-                grp.write_db()
-            except db.DatabaseError, m:
-                raise Errors.CerebrumError, "Database error: %s" % m
+                members.add(pe2primary[row['person_id']])
+            except KeyError:
+                logger.warn("Couldn't find account for ans %s (%s)",
+                            row['person_id'], group)
+        fill_group(group, members, remove_extra_members)
+    logger.debug("institutt_grupper done")
 
 def studieprog_grupper(fsconn):
     """Create and populate groups for active study programs that is defined in FS."""
@@ -347,7 +318,6 @@ def delete_fronter_groups():
             grp.clear()
             grp.find(row['group_id'])
             grp.delete()
-    # TODO: should we empty the institutt_grupper() groups?
 
 def main():
     try:
@@ -358,7 +328,7 @@ def main():
         print e
         usage(1)
 
-    global db, const, ou, grp, person, acc, fs
+    global fs
     dryrun = False
     delete_groups = False
 
@@ -372,14 +342,6 @@ def main():
         else:
             print "Unknown argument: %s" % opt
             usage(1)
-
-    db = Factory.get("Database")()
-    const = Factory.get("Constants")(db)
-    ou = Factory.get("OU")(db)
-    grp = Factory.get("Group")(db)
-    person = Factory.get("Person")(db)
-    acc = Factory.get("Account")(db)
-    db.cl_init(change_program='pop-lms-grps')
 
     fsdb = Database.connect(user=cereconf.FS_USER,
                             service=cereconf.FS_DATABASE_NAME,
@@ -395,7 +357,7 @@ def main():
     studieprog_grupper(fs)
 
     logger.info("Updating instittut groups")
-    institutt_grupper()
+    institutt_grupper(delete_groups)
 
     logger.info("Updating emne/underv.enh groups")
     undervisningsmelding_grupper(fs)
