@@ -23,18 +23,12 @@ from Cerebrum.modules.no.OrgLDIF import norEduLDIFMixin
 
 class ISS_LDIF(norEduLDIFMixin):
     def init_ou_structure(self):
-        self.ou_tree = {self.root_ou_id: []}
-
-    def uninit_ou_dump(self):
-        # Change from original: Do not 'del self.ou_tree'
-        del self.ou
-
-    def list_persons(self):
-        # Change from original: Include ou_id in arguments
-        return self.account.list_accounts_by_type(
-            ou_id         = self.root_ou_id,
-            primary_only  = True,
-            person_spread = self.person_spread)
+        # Change from original: Drop OUs outside self.root_ou_id subtree.
+        self.__super.init_ou_structure()
+        OUs, tree = [self.root_ou_id], self.ou_tree
+        for ou in OUs:
+            OUs.extend(tree.get(ou, ()))
+        self.ou_tree = dict((ou, tree[ou]) for ou in OUs if ou in tree)
 
     def init_attr2id2contacts(self):
         self.attr2id2contacts = {}
