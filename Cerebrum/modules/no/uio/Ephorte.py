@@ -89,6 +89,10 @@ class EphorteConstants(ConstantsBase):
     # Values from the ePhorte table ARKIVDEL
     ephorte_arkivdel_avtale_uio = _EphorteArkivdelCode(
         'AVTALE UIO', 'Avtalearkiv ved Universitetet i Oslo')
+    ephorte_arkivdel_cristin = _EphorteArkivdelCode(
+        'CRISTIN', 'Current Research Information System in Norway')
+    ephorte_arkivdel_fs = _EphorteArkivdelCode(
+        'FS', 'FS - Felles studentsystem')
     ephorte_arkivdel_eiend_uio = _EphorteArkivdelCode(
         'EIEND UIO', 'Eiendomsarkiv ved Universitetet i Oslo')
     ephorte_arkivdel_khm_forn = _EphorteArkivdelCode(
@@ -97,6 +101,8 @@ class EphorteConstants(ConstantsBase):
         'PERS UIO', 'Personalarkiv ved Universitetet i Oslo')
     ephorte_arkivdel_persav_uio = _EphorteArkivdelCode(
         'PERSAV UIO', 'Avsluttede personalmapper ved UiO')
+    ephorte_arkivdel_romani = _EphorteArkivdelCode(
+        'ROMANI', 'Romani og taterutvalget')
     ephorte_arkivdel_sak_nikk = _EphorteArkivdelCode(
         'SAK NIKK', 'Saksarkiv ved NIKK')
     ephorte_arkivdel_sak_so = _EphorteArkivdelCode(
@@ -317,6 +323,7 @@ class EphortePermission(DatabaseAccessor):
         self.pe = Factory.get('Person')(database)
 
     def add_permission(self, person_id, tilgang, sko, requestee):
+        # TBD: should we support permissions starting in the future?
         binds = {
             'person_id': person_id,
             'perm_type': tilgang,
