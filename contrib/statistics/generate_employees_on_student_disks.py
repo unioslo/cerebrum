@@ -390,8 +390,8 @@ def main():
     ou = Factory.get('OU')(db)
 
     # Initialize logger
-    #logger = Factory.get_logger('cronjob')
-    logger = Factory.get_logger('console')
+    logger = Factory.get_logger('cronjob')
+    #logger = Factory.get_logger('console')
 
     # Default output channel, spread to sort by and what to arrange the final
     # report by (SKO vs. disk)

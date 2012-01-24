@@ -311,8 +311,7 @@ def main():
     co = Factory.get('Constants')(db)
 
     # Initialization of logger
-    #logger = Factory.get_logger('cronjob')
-    logger = Factory.get_logger('console')
+    logger = Factory.get_logger('cronjob')
 
     # Default output channel and spread to search by
     output = sys.stdout
