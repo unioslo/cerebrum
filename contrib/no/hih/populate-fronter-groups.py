@@ -186,6 +186,7 @@ def studieprog_grupper(fsconn, remove_others=False):
         delete_old_groups(match='studieprogram-%', active=groups)
 
 def kull_grupper(fsconn, studieprogramkode, remove_others=False):
+    groups = set()
     for x in fs.undervisning.list_kull_at_studieprog(studieprogramkode):
         # groups are named by a prefix = kull- and also
         # studieprogkode, kullnavn, terminkode and arstall from fs
@@ -208,6 +209,7 @@ def kull_grupper(fsconn, studieprogramkode, remove_others=False):
                 grp.write_db()
             except db.DatabaseError, m:
                 raise Errors.CerebrumError, "Database error: %s" % m
+        groups.add(grp.entity_id)
 
         # check if the group is tagged for export to LMS, tagg if not
         if not grp.has_spread(const.spread_lms_group):
