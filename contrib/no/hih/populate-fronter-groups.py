@@ -59,23 +59,26 @@ acc = Factory.get("Account")(db)
 institutt_group_settings = (
     # sko 220000 has id = 5735
     ('stud-220000', {'affiliation': const.affiliation_student, 'ou_id': 5735}),
-    ('ans-220000', {'affiliation': const.affiliation_ansatt, 'ou_id': 5735}),
+    ('ans-220000',  {'affiliation': const.affiliation_ansatt,  'ou_id': 5735}),
     # sko 230000 has id = 5748 
     ('stud-230000', {'affiliation': const.affiliation_student, 'ou_id': 5748}),
-    ('ans-230000', {'affiliation': const.affiliation_ansatt, 'ou_id': 5748}),
+    ('ans-230000',  {'affiliation': const.affiliation_ansatt,  'ou_id': 5748}),
    )
 
 def usage(exitcode=0):
     print """Usage: populate-fronter-groups.py
 
-    --delete-groups Delete the groups before creating and populating new
-                    groups. This cleans up and removes old groups from the
-                    database, which in effect also removes students from their
-                    old rooms in Fronter.
+    --remove        This option causes the old groups to be deleted, that is
+                    all groups on the form kull-*, emne-* and studieprogram-*
+                    that is not populated gets deleted.
 
-                    Note that removing students from old rooms in Fronter also
-                    removes their access to old data in Fronter, so do not do
-                    this unless the instance knows about the effect.
+                    Another thing it does is removing existing group members
+                    from the group that should not be there.
+    
+                    Note that removing students from their old groups removes
+                    their access to the corresponding rooms and data in
+                    Fronter. Do not do this unless the instance has accepted
+                    the effect.
 
     --dryrun        Do not actually do anything with the database.
 
@@ -83,65 +86,60 @@ def usage(exitcode=0):
     """
     sys.exit(exitcode)
 
+def fill_group(groupname, members, remove_others=False):
+    """Add the given members to the given group. If L{remove_others} is True,
+    existing members of the group that is not mentioned in L{members} are
+    removed from the group."""
+    logger.debug("Processing group %s, %d members given", groupname,
+                                                          len(members))
+    grp.clear()
+    try:
+        grp.find_by_name(groupname)
+    except Errors.NotFoundError:
+        logger.error("Could not find group %s, aborting", groupname)
+        return
+    existing_members = set(row['member_id'] for row in
+                           grp.search_members(group_id=grp.entity_id))
+    if remove_others:
+        for mem in existing_members:
+            if mem not in members:
+                logger.info('Removing mem %s from group %s', mem, groupname)
+                grp.remove_member(mem)
+    for mem in members:
+        if mem not in existing_members:
+            logger.info('Adding mem %s to group %s', mem, groupname)
+            grp.add_member(mem)
 
-def institutt_grupper(remove_extra_members=False):
+def institutt_grupper(remove_others=False):
     """Create and populate groups that is specific for the HiH instance,
     depending on the persons' affiliations and OUs. This includes both student
     and some employee groups, and its members are defined in
     L{institutt_group_settings}.
     
-    If L{remove_extra_members} is True, extra group members are removed from
+    If L{remove_others} is True, extra group members are removed from
     the groups, that is, the members that does not have the correct
     affiliation anymore."""
-
-    def fill_group(groupname, members, remove_others=False):
-        """Add the given members to the given group. If L{remove_others} is
-        True, existing members of the group that is not mentioned in
-        L{members} are removed from the group."""
-        logger.debug("Processing group %s, %d members given", groupname, len(members))
-
-        grp.clear()
-        try:
-            grp.find_by_name(groupname)
-        except Errors.NotFoundError:
-            logger.error("Could not find group %s, aborting", groupname)
-            return
-        existing_members = set(row['member_id'] for row in
-                         grp.search_members(group_id=grp.entity_id))
-        if remove_others:
-            for mem in existing_members:
-                if mem not in members:
-                    logger.info('Removing mem %s from group %s', mem, groupname)
-                    grp.remove_member(mem)
-        for mem in members:
-            if mem not in existing_members:
-                logger.info('Adding mem %s to group %s', mem, groupname)
-                grp.add_member(mem)
-
-    # cache the primary accounts
-    pe2primary = dict((r['person_id'], r['account_id']) for r in
-                      acc.list_accounts_by_type(primary_only=True))
-
-    for group, aff_targets in institutt_group_settings:
+    for groupname, aff_targets in institutt_group_settings:
         members = set()
         # add the person's primary account:
         for row in person.list_affiliations(**aff_targets):
             try:
                 members.add(pe2primary[row['person_id']])
             except KeyError:
-                logger.warn("Couldn't find account for ans %s (%s)",
-                            row['person_id'], group)
-        fill_group(group, members, remove_extra_members)
+                logger.warn("Couldn't find account for person %s (group %s)",
+                            row['person_id'], groupname)
+        fill_group(groupname, members, remove_others)
     logger.debug("institutt_grupper done")
 
-def studieprog_grupper(fsconn):
+def studieprog_grupper(fsconn, remove_others=False):
     """Create and populate groups for active study programs that is defined in FS."""
+    groups = set()
     for x in fs.info.list_studieprogrammer():
         if x['status_utgatt'] == 'J':
             logger.debug("Studieprogram %s is expired, skipping.", x['studieprogramkode'])
             continue
         # create all connected kull-groups and update memeberships
-        kull_grupper(fsconn, x['studieprogramkode'])
+        kull_grupper(fsconn, x['studieprogramkode'], remove_others)
 
         # naming studieprogram-groups with a prefix (studieprog-) and
         # studieprogramkode from FS. description for group will be the
@@ -170,32 +168,24 @@ def studieprog_grupper(fsconn):
                 grp.write_db()
             except db.DatabaseError, m:
                 raise Errors.CerebrumError, "Database error: %s" % m
+        groups.add(grp.entity_id)
 
         # studieprog-group is either found or created. checking memberships
+        members = set()
         for x in fs.undervisning.list_studenter_studieprog(x['studieprogramkode']):
             fnr = "%06d%05d" % (int(x['fodselsdato']), int(x['personnr']))
-            person.clear()
-            try:
-                person.find_by_external_id(const.externalid_fodselsnr, fnr, source_system=const.system_fs,
-                                           entity_type=const.entity_person)
-            except Errors.NotFoundError:
-                logger.error("Could not find person %s in Cerebrum", fnr)
-                continue
             # all memberships are based on primary account
-            primary_acc_id = person.get_primary_account()
-            if primary_acc_id == None:
-                logger.error("Could not find any primary account for person %s, skipping", fnr)
+            try:
+                members.add(fnr2primary[fnr])
+            except KeyError:
+                logger.error("Person %s not found, or no primary account", fnr)
                 continue
-            if not grp.has_member(primary_acc_id):
-                grp.add_member(primary_acc_id)
-                logger.debug("Added %s to group %s", primary_acc_id, grp.group_name)
-                try:
-                    grp.write_db()
-                except db.DatabaseError, m:
-                    raise CerebrumError, "Database error: %s" % m
+        fill_group(grp_name, members, remove_others)
+    # delete old groups
+    if remove_others:
+        delete_old_groups(match='studieprogram-%', active=groups)
 
-
-def kull_grupper(fsconn, studieprogramkode):
+def kull_grupper(fsconn, studieprogramkode, remove_others=False):
     for x in fs.undervisning.list_kull_at_studieprog(studieprogramkode):
         # groups are named by a prefix = kull- and also
         # studieprogkode, kullnavn, terminkode and arstall from fs
@@ -228,29 +218,21 @@ def kull_grupper(fsconn, studieprogramkode):
             except db.DatabaseError, m:
                 raise Errors.CerebrumError, "Database error: %s" % m
         # update memberships in kull-group
+        members = set()
         for x in fs.undervisning.list_studenter_kull(studieprogramkode, x['terminkode'], x['arstall']):
             fnr = "%06d%05d" % (int(x['fodselsdato']), int(x['personnr']))
-            person.clear()
             try:
-                person.find_by_external_id(const.externalid_fodselsnr, fnr, source_system=const.system_fs,
-                                           entity_type=const.entity_person)
-            except Errors.NotFoundError:
-                logger.error("Could not find person %s in Cerebrum", fnr)
+                members.add(fnr2primary[fnr])
+            except KeyError:
+                logger.error("Person %s not found, or no primary account", fnr)
                 continue
-            # all memberships are based on primary account
-            primary_acc_id = person.get_primary_account()
-            if primary_acc_id == None:
-                logger.error("Could not find any primary account for person %s, skipping", fnr)
-                continue
-            if not grp.has_member(primary_acc_id):
-                grp.add_member(primary_acc_id)
-                logger.debug("Added %s to group %s", primary_acc_id, grp.group_name)
-                try:
-                    grp.write_db()
-                except db.DatabaseError, m:
-                    raise CerebrumError, "Database error: %s" % m
+        fill_group(grp_name, members, remove_others)
+    # delete old groups
+    if remove_others:
+        delete_old_groups(match='kull-%-%-%-%', active=groups)
 
-def undervisningsmelding_grupper(fsconn):
+def undervisningsmelding_grupper(fsconn, remove_others=False):
+    groups = set()
     for x in fs.undervisning.list_undervisningenheter():
         grp_name = 'emne-%s-%s-%s' % (x['emnekode'], x['terminkode'], x['arstall'])
         grp.clear()
@@ -279,8 +261,10 @@ def undervisningsmelding_grupper(fsconn):
                 grp.write_db()
             except db.DatabaseError, m:
                 raise Errors.CerebrumError, "Database error: %s" % m
+        groups.add(grp.entity_id)
 
         # update memberships in emne-groups
+        members = set()
         for y in fs.undervisning.list_studenter_underv_enhet(x['institusjonsnr'], 
                                                              x['emnekode'],
                                                              x['versjonskode'], 
@@ -288,79 +272,76 @@ def undervisningsmelding_grupper(fsconn):
                                                              x['arstall'], 
                                                              x['terminnr']):
             fnr = "%06d%05d" % (int(y['fodselsdato']), int(y['personnr']))
-            person.clear()
             try:
-                person.find_by_external_id(const.externalid_fodselsnr, fnr, source_system=const.system_fs,
-                                           entity_type=const.entity_person)
-            except Errors.NotFoundError:
-                logger.error("Could not find person %s in Cerebrum", fnr)
+                members.add(fnr2primary[fnr])
+            except KeyError:
+                logger.error("Person %s not found, or no primary account", fnr)
                 continue
-            # all memberships are based on primary account
-            primary_acc_id = person.get_primary_account()
-            if primary_acc_id == None:
-                logger.error("Could not find any primary account for person %s, skipping", fnr)
-                continue
-            if not grp.has_member(primary_acc_id):
-                grp.add_member(primary_acc_id)
-                logger.debug("Added %s to group %s", primary_acc_id, grp.group_name)
-                try:
-                    grp.write_db()
-                except db.DatabaseError, m:
-                    raise CerebrumError, "Database error: %s" % m
+        fill_group(grp_name, members, remove_others)
+    # delete old groups
+    if remove_others:
+        delete_old_groups(match='emne-%-%-%', active=groups)
 
-def delete_fronter_groups():
-    """Go through the database and delete all fronter study groups that has
-    previously been created by this script."""
-    # TODO: would this spam the change_logger?
-    for match in ('studieprogram-%', 'kull-%-%-%-%', 'emne-%-%-%'):
-        for row in grp.search(name=match):
-            logger.debug("Deleting group: %s" % row['name'])
-            grp.clear()
-            grp.find(row['group_id'])
-            grp.delete()
+def delete_old_groups(match, active):
+    """Go through the database and delete old groups that does not match any
+    of the given active groups."""
+    if not match or match == '*' or match == '%':
+        raise Exception('Want to delete all groups? Given match: %s' % match)
+    if len(active) <= 0:
+        raise Exception("No active groups, can't delete them all")
+    for row in grp.search(name=match):
+        if row['group_id'] in active:
+            continue
+        logger.debug("Deleting group: %s" % row['name'])
+        grp.clear()
+        grp.find(row['group_id'])
+        grp.delete()
 
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'h',
-                                   ['help', 'delete-groups',
+                                   ['help', 'remove',
                                     'dryrun'])
     except getopt.GetoptError, e:
         print e
         usage(1)
 
-    global fs
+    global fs, pe2primary, fnr2primary
     dryrun = False
-    delete_groups = False
+    remove_others = False
 
     for opt, arg in opts:
         if opt in ('-h', '--help'):
             usage()
         elif opt in ('--dryrun',):
             dryrun = True
-        elif opt in ('--delete-groups'):
-            delete_groups = True
+        elif opt in ('--remove'):
+            remove_others = True
         else:
             print "Unknown argument: %s" % opt
             usage(1)
+
+    # cache the primary accounts
+    pe2primary = dict((r['person_id'], r['account_id']) for r in
+                      acc.list_accounts_by_type(primary_only=True))
+    # TODO: only get fnr from system_fs?
+    fnr2primary = dict((r['external_id'], pe2primary[r['entity_id']]) for r in
+                       person.list_external_ids(id_type=const.externalid_fodselsnr)
+                       if pe2primary.has_key(r['entity_id']))
 
     fsdb = Database.connect(user=cereconf.FS_USER,
                             service=cereconf.FS_DATABASE_NAME,
                             DB_driver='cx_Oracle') 
     fs = FS(fsdb)
 
-    if delete_groups:
-        logger.info("Deleting all fronter groups")
-        delete_fronter_groups()
-        logger.info("Fronter groups eliminated from db, now do the rebuild")
-
     logger.info("Updating studieprogram groups")
-    studieprog_grupper(fs)
+    studieprog_grupper(fs, remove_others)
 
     logger.info("Updating instittut groups")
-    institutt_grupper(delete_groups)
+    institutt_grupper(remove_others)
 
     logger.info("Updating emne/underv.enh groups")
-    undervisningsmelding_grupper(fs)
+    undervisningsmelding_grupper(fs, remove_others)
     
     if dryrun:
         logger.info("All done, rolled back changes")
