@@ -134,12 +134,13 @@ def institutt_grupper(remove_others=False):
 def studieprog_grupper(fsconn, remove_others=False):
     """Create and populate groups for active study programs that is defined in FS."""
     groups = set()
+    kullgroups = set()
     for x in fs.info.list_studieprogrammer():
         if x['status_utgatt'] == 'J':
             logger.debug("Studieprogram %s is expired, skipping.", x['studieprogramkode'])
             continue
         # create all connected kull-groups and update memeberships
-        kull_grupper(fsconn, x['studieprogramkode'], remove_others)
+        kullgroups.update(kull_grupper(fsconn, x['studieprogramkode']))
 
         # naming studieprogram-groups with a prefix (studieprog-) and
         # studieprogramkode from FS. description for group will be the
@@ -183,7 +184,10 @@ def studieprog_grupper(fsconn, remove_others=False):
         fill_group(grp_name, members, remove_others)
     # delete old groups
     if remove_others:
-        delete_old_groups(match='studieprogram-%', active=groups)
+        if groups:
+            delete_old_groups(match='studieprogram-%', active=groups)
+        if kullgroups:
+            delete_old_groups(match='kull-%-%-%-%', active=kullgroups)
 
 def kull_grupper(fsconn, studieprogramkode, remove_others=False):
     groups = set()
@@ -229,9 +233,7 @@ def kull_grupper(fsconn, studieprogramkode, remove_others=False):
                 logger.error("Person %s not found, or no primary account", fnr)
                 continue
         fill_group(grp_name, members, remove_others)
-    # delete old groups
-    if remove_others:
-        delete_old_groups(match='kull-%-%-%-%', active=groups)
+    return groups
 
 def undervisningsmelding_grupper(fsconn, remove_others=False):
     groups = set()
@@ -281,7 +283,7 @@ def undervisningsmelding_grupper(fsconn, remove_others=False):
                 continue
         fill_group(grp_name, members, remove_others)
     # delete old groups
-    if remove_others:
+    if remove_others and groups:
         delete_old_groups(match='emne-%-%-%', active=groups)
 
 def delete_old_groups(match, active):
