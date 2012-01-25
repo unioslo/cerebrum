@@ -31,6 +31,7 @@ import os
 import getopt
 import time
 import re
+from mx.DateTime import now
 
 import cerebrum_path
 import cereconf
@@ -299,7 +300,9 @@ def delete_old_groups(match, active):
         logger.debug("Deleting group: %s" % row['name'])
         grp.clear()
         grp.find(row['group_id'])
-        grp.delete()
+        grp.expire_date = now()
+        grp.write_db()
+        #grp.delete()
 
 def main():
     try:
