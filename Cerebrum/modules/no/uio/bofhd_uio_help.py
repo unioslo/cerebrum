@@ -203,6 +203,8 @@ command_help = {
         "List information about accounts associated with given entities",
     'entity_history':
         "List the changes made to entity.",
+    'entity_contactinfo_add':
+        "Add contact information to entity.",
     },
     'group': {
     'group_multi_add': 'Let an account, person or group join a group',
@@ -445,6 +447,11 @@ affiliation status codes"""],
     'entity_id':
         ['id', 'Enter entity ID',
          "Numeric ID of the entity you wish to process."],
+    'entity_contact_type':
+        ['contact_type', 'Enter contact type',
+        'Legal types:\n - EMAIL'],
+    'entity_contact_value':
+        ['value', 'Enter contact value', 'Enter a valid email address.'],
     'external_id_type':
         ['external_id_type', 'Enter external id type',
          'The external id type, i.e. NO_BIRTHNO/NO_STUDNO etc'],

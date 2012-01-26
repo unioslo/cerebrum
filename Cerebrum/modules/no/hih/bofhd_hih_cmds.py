@@ -66,6 +66,7 @@ class BofhdExtension(BofhdCommandBase):
         '_validate_access_global_ou', 'access_list_opsets', 'access_show_opset',
         'access_list', '_get_auth_op_target', '_grant_auth', '_revoke_auth',
         '_get_opset',
+        'entity_contactinfo_add',
         #
         # copy relevant e-mail-cmds and util methods
         #

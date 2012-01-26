@@ -4736,6 +4736,94 @@ Addresses and settings:
             ret.append(self._format_changelog_entry(r))
         return ret
 
+
+    # entity contactinfo_add <entity_id> <contact_type> <contact_value>
+    all_commands['entity_contactinfo_add'] = Command(
+                    ('entity', 'contactinfo_add'),
+                    Id(help_ref="entity_id"),
+                    SimpleString(help_ref='entity_contact_type'),
+                    SimpleString(help_ref='entity_contact_value'),
+                    perm_filter='is_superuser'
+                )
+    def entity_contactinfo_add(self, operator, entityid,
+                            contact_type, contact_value):
+        # default values
+        contact_pref = 50
+        description = None
+        alias = None
+        # 1. check if the operator can perform the operation
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers.")
+        # 2. get entity object to operate on
+        try:
+            entity = self._get_entity(id=entityid)
+        except Errors.NotFoundError, e:
+            raise CerebrumError("Entity %s not found. Check id you typed." %entityid)
+        source_system = self.const.system_manual
+        contact_type_code = self.const.human2constant(contact_type,
+                                                self.const.ContactInfo)
+        # 3. get existing contacts for this source_system
+        try:
+            contacts = entity.get_contact_info(source=source_system,
+                                                type=contact_type_code)
+        except AttributeError:
+            # entity has no contact info attributes. 
+            raise CerebrumError("Cannot add contact info to a %s."
+                    %(self.const.EntityType(entity.entity_type)))
+        # 4. validate contact_type
+        codes = self.const.fetch_constants(self.const.ContactInfo)
+        code_str = [str(x) for x in codes]
+        if not contact_type in code_str:
+            raise CerebrumError("Invalid contact type %s." %contact_type)
+        # 5. validate contact_value
+        if contact_type == str(self.const.contact_email):
+            # Validate localpart and extract domain.
+            contact_value = contact_value
+            localpart, domain = self._split_email_address(contact_value)
+            ed = Email.EmailDomain(self.db)
+            try:
+                ed._validate_domain_name(domain)
+            except AttributeError, e:
+                raise CerebrumError(e)
+        elif contact_type in [str(x) for x in (self.const.contact_phone,
+                                            self.const.contact_phone_private,
+                                            self.const.contact_mobile_phone,
+                                            self.const.contact_private_mobile)]:
+            # match an 8-digit phone number
+            if not re.match(r"^\d{8}$", contact_value):
+                raise CerebrumError("Invalid phone number: %s. Expecting 8 digits long number."
+                    %contact_value)
+        can_add = True
+        existing_prefs = [int(row["contact_pref"])
+                                    for row in contacts]
+        for row in contacts:
+            # Find out if operators input exists in db.
+            if str(contact_value) == row["contact_value"]:
+                # this contact value is already registered. Don't add.
+                can_add = False
+            elif str(contact_pref) == str(row["contact_pref"]) and can_add:
+                # adding row with existing primary key, but different value
+                # set lower(=greater number) preference for the new value.
+                contact_pref = max(existing_prefs) + 1
+                self.logger.debug('Incremented preference, new value = %s.'
+                        %contact_pref)
+        if can_add:
+            self.logger.debug('Adding contact info: %s, %s, %s, %s. '
+                    %(entity.entity_id,contact_type_code, contact_value,
+                        contact_pref))
+            entity.add_contact_info(source_system,
+                                        type=contact_type_code,
+                                        value=contact_value,
+                                        pref=int(contact_pref),
+                                        description=description,
+                                        alias=alias)
+        else:
+            raise CerebrumError("Contact exists.")
+        
+        return "Added %s %s for entity %s." %(contact_type, contact_value, entityid)
+    # end entity_contactinfo_add
+
+
     #
     # group commands
     #

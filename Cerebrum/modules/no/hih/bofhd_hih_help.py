@@ -21,6 +21,7 @@
 group_help = {
     'access': "Access (authorisation) related commands",
     'email': "E-mail commands",
+    'entity': "Entity commands",
     'group': "Group commands",
     'misc': 'Miscellaneous commands',
     'person': 'Person related commands',
@@ -76,6 +77,10 @@ command_help = {
         "value",
     "email_info":
         "View e-mail information about a user or address",
+    },
+    'entity': {
+    'entity_contactinfo_add':
+        "Add contact information to entity.",
     },
     'group': {
     'group_add': 'Let an account join a group',
@@ -222,6 +227,11 @@ affiliation status codes"""],
     'entity_id':
         ['id', 'Enter entity ID',
          "Numeric ID of the entity you wish to process."],
+    'entity_contact_type':
+        ['contact_type', 'Enter contact type',
+        'Legal types:\n - MOBILE'],
+    'entity_contact_value':
+        ['value', 'Enter contact value', 'Enter an 8-digit phone number.'],
     'group_name':
         ['gname', 'Enter groupname'],
     'group_name_dest':
