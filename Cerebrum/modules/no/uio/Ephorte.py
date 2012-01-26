@@ -121,6 +121,14 @@ class EphorteConstants(ConstantsBase):
         'J-SO', 'Journalenhet for SO - Samordna Opptak')
     ephorte_journenhet_nikk = _EphorteJournalenhetCode(
         'J-NIKK', 'Journalenhet for NIKK - Nordisk institutt for kvinne- og kjønnsforskn')
+    ephorte_journenhet_romani = _EphorteJournalenhetCode(
+        'J-ROMANI', 'Journalenhet for ROMANI - prosjektet')
+    # Avventer svar fra esak om hvorvidt disse enhetene skal legges
+    # inn. Jazz, 2012-01-26
+    # ephorte_journenhet_cristin = _EphorteJournalenhetCode(
+    #     'J-CRISTIN', 'Journalenhet for CRISTIN')
+    # ephorte_journenhet_fs = _EphorteJournalenhetCode(
+    #     'J-FS', 'Journalenhet for FS')
 
     spread_ephorte_person = _SpreadCode('ePhorte_person',
                                         Constants.Constants.entity_person,
