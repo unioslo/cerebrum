@@ -368,10 +368,19 @@ Users with new passwords: %d
                 self.logger.debug("No template defined")
                 return False
             try:
-                prim_email = account.get_primary_mailaddress()
+                to_email = account.get_primary_mailaddress()
             except Errors.NotFoundError:
-                self.logger.warn("No email-address for %i" % account.entity_id)
-                return
+                try:
+                    # We'll pull out the contact type constant via ContactInfo,
+                    # since ContactInfo is a part of core. If there is no e-mail
+                    # type in ContactInfo, we simply wont get any results from
+                    # the lookup of other email-addresses.
+                    ct = self.constants.ContactInfo('EMAIL')
+                    to_email = account.list_contact_info(entity_id=account.owner_id, contact_type=ct)[0]['contact_value']
+                    self.logger.debug("Found email-address for %i in contact info" % account.entity_id)
+                except IndexError:
+                    self.logger.warn("No email-address for %i" % account.entity_id)
+                    return
             subject = self.mail_info[mail_type]['Subject']
             subject = subject.replace('${USERNAME}', account.account_name)
             body = self.mail_info[mail_type]['Body']
@@ -389,7 +398,7 @@ Users with new passwords: %d
                 if first_time:
                     tag = '${FIRST_TIME_%s}' % lang.upper()
                     body = body.replace(tag, date2human(first_time, lang))
-            return _send_mail(prim_email, self.mail_info[mail_type]['From'], subject, 
+            return _send_mail(to_email, self.mail_info[mail_type]['From'], subject, 
                     body, self.logger, debug_enabled=self.dryrun)
 
         deadline = self.get_deadline(account)
