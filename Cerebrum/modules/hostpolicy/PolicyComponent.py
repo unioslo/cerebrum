@@ -255,8 +255,8 @@ class PolicyComponent(EntityName, Entity_class):
             VALUES (:dns_owner, :policy_id)""",
                 {'dns_owner': int(dns_owner_id),
                  'policy_id': self.entity_id})
-        self._db.log_change(self.entity_id,
-                            self.const.hostpolicy_policy_add, dns_owner_id)
+        self._db.log_change(dns_owner_id, self.const.hostpolicy_policy_add,
+                            self.entity_id)
 
     def remove_from_host(self, dns_owner_id):
         """Remove this policy from a given dns_owner_id (host)."""

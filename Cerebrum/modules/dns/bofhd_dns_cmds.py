@@ -953,6 +953,8 @@ class BofhdExtension(BofhdCommandBase):
         perm_filter='can_show_history')
     def host_history(self, operator, host_name):
         host_ref = self._find.find_target_by_parsing(host_name, dns.DNS_OWNER)
+        # TODO: shouldn't access to host_history be limited somewhat?
+        #self.ba.can_show_history(operator.get_entity_id(), host_ref)
         ret = []
         for r in self.db.get_log_events(0, subject_entity=host_ref):
             ret.append(self._format_changelog_entry(r))

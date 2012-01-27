@@ -68,16 +68,16 @@ class Constants(Constants.Constants):
         'hostpolicy', 'role_delete', 'delete role %(subject)s')
 
     hostpolicy_relationship_add = _ChangeTypeCode(
-        'hostpolicy', 'relationship_add', 'add relationship %(subject)s -> %(destination)s')
+        'hostpolicy', 'relationship_add', 'add relationship %(subject)s -> %(dest)s')
         # TODO: type is not given here
     hostpolicy_relationship_remove = _ChangeTypeCode(
-        'hostpolicy', 'relationship_remove', 'remove relationship %(subject)s -> %(destination)s')
+        'hostpolicy', 'relationship_remove', 'remove relationship %(subject)s -> %(dest)s')
         # TODO: type is not given here
 
     hostpolicy_policy_add = _ChangeTypeCode(
-        'hostpolicy', 'policy_add', 'add policy %(subject)s to host %(destination)s')
+        'hostpolicy', 'policy_add', 'add policy %(dest)s to host %(subject)s')
     hostpolicy_policy_remove = _ChangeTypeCode(
-        'hostpolicy', 'policy_remove', 'remove policy %(subject)s to host %(destination)s')
+        'hostpolicy', 'policy_remove', 'remove policy %(dest)s from host %(subject)s')
 
 
 
