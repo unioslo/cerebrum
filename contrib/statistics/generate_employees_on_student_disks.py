@@ -86,7 +86,7 @@ def usage(exitcode=0):
 
     Options:
     -o, --output      <file>     The file to print the report to. Defaults to stdout.
-    -a, --arrange-by  [disk|sko] Arrange report by diskname or sko. Defaults to disk.
+    -a, --arrange-by  [disk|sko] Arrange report by diskname or sko. Defaults to sko.
     -s, --spread      <spread>   Spread to filter users by. Defaults to NIS_user@uio.
     """ % sys.argv[0] 
     sys.exit(exitcode)
@@ -324,27 +324,19 @@ def gen_employees_on_student_disk_report(output, empl_on_stud_disk, sort_by, sko
             output.write('</table>\n')
     # accounts sorted by SKO
     elif sort_by == 'sko':
+        faculties = []
         # For each SKO
-        for key in sorted(empl_on_stud_disk.keys()):
-            # Print the top-level SKO kode with it's name
-            try:
-                output.write('<h1>%s - %s</h1>\n' % (key, sko2name[key]))
-            except KeyError:
-                output.write('<h1>%s - Uregistrert</h1>\n' % key)
+        for sko in sorted(empl_on_stud_disk.keys()):
 
-            # Produce a string on the form: faculty, institute, group, etc..
-            tmpstr = ''
-            for i in xrange(1,len(key)+1):
-                try:
-                    tmpstr += sko2name[key[0:i].ljust(6, '0')]
-                    tmpstr += ', ' if i < len(key) else ''
-                except KeyError:
-                    tmpstr += 'Uregistrert'
-                    tmpstr += ', ' if i < len(key) else ''
+            # Print a header with faculty/institute name..
+            fak = sko2name['%02s0000' % sko[:2]]
+            if fak not in faculties:
+                output.write('<h1>%s</h1>\n' % fak)
+                faculties.append(fak)
 
             # Print out a heading for this SKO-code, and a table header for the
             # accounts:
-            output.write('<h3>%s</h3>\n' % tmpstr)
+            output.write('<h2>%s - %s </h2>\n' % (sko, sko2name[sko]))
             output.write('<table><thead><tr>\n')
             output.write('<th>Username</th>\n')
             output.write('<th>Full name</th>\n')
@@ -357,7 +349,7 @@ def gen_employees_on_student_disk_report(output, empl_on_stud_disk, sort_by, sko
 
             # Print one row for each account. Rows are sorted by the existence
             # of quarantines.
-            for user in sorted(empl_on_stud_disk[key], cmp=sort_by_quar):
+            for user in sorted(empl_on_stud_disk[sko], cmp=sort_by_quar):
                 output.write('<tr><td>%s</td>\n' % user['username'])
                 output.write('<td>%s</td>\n' % user['full_name'])
                 output.write('<td>%s</td>\n' % user['affiliation'])
@@ -391,12 +383,11 @@ def main():
 
     # Initialize logger
     logger = Factory.get_logger('cronjob')
-    #logger = Factory.get_logger('console')
 
     # Default output channel, spread to sort by and what to arrange the final
     # report by (SKO vs. disk)
     output = sys.stdout
-    sort_by = 'disk'
+    sort_by = 'sko'
     spread = 'NIS_user@uio'
     
     # Helpers from generate_quarantine_report.py. Use this to get
