@@ -267,8 +267,8 @@ class PolicyComponent(EntityName, Entity_class):
                 policy_id = :policy AND 
                 dns_owner_id = :dns_owner""", {'policy': self.entity_id, 
                                                'dns_owner': dns_owner_id})
-        self._db.log_change(self.entity_id,
-                            self.const.hostpolicy_policy_remove, dns_owner_id)
+        self._db.log_change(dns_owner_id, self.const.hostpolicy_policy_remove,
+                            self.entity_id)
 
     def search_hostpolicies(self, policy_id=None, host_name=None,
                             dns_owner_id=None, policy_name=None):
