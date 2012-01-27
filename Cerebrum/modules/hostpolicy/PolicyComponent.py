@@ -225,7 +225,7 @@ class PolicyComponent(EntityName, Entity_class):
 
         According to the specification: only lowercase alpha numeric characters
         and dash ('-') is allowed."""
-        if re.search('[^a-z0-9\-]', name):
+        if re.search('[^a-zA-Z0-9_]', name):
             return "name contains illegal characters (%s)" % name
         return False
 
