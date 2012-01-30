@@ -39,10 +39,11 @@ def get_ad_data():
 def get_cerebrum_data():
     pid2name = {}
     
-    pid2name = person.getdict_persons_names(name_types = (co.name_full,
-                                                          co.name_first,
-                                                          co.name_last))
-
+    pid2name = person.getdict_persons_names(source_system=co.system_cached,
+                                            name_types=(co.name_full,
+                                                        co.name_first,
+                                                        co.name_last))
+    
     logger.debug2("Fetched %i person names", len(pid2name))
 
     aid2ainfo = {}
