@@ -378,9 +378,10 @@ class BofhdExtension(BofhdCommandBase):
             'force':
             ['force', 'Force the operation',
              'Enter y to force the operation'],
-            'yes_no_extrainfo':
-            ['extrainfo', 'Show extra info? (yes/no)',
-             'If extra information should be given'],
+            'show_policy':
+            ['policy', 'Show policies? (policy)',
+             'If argument is "policy", all hostpolicies related to the given '
+             'host will be listed'],
             }
         return (group_help, command_help,
                 arg_help)
@@ -730,7 +731,7 @@ class BofhdExtension(BofhdCommandBase):
     # host info
     all_commands['host_info'] = Command(
         ("host", "info"), HostId(), 
-        YesNo(optional=True, help_ref='yes_no_extrainfo'),
+        YesNo(optional=True, help_ref='show_policy'),
         fs=FormatSuggestion([
         # Name line
         ("%-22s %%s\n%-22s contact=%%s\n%-22s comment=%%s" % (
@@ -757,10 +758,13 @@ class BofhdExtension(BofhdCommandBase):
         # Hostpolicy
         ("  %-20s", ('policy_name',), 'Hostpolicies:'),
         ]))
-    def host_info(self, operator, host_id, extrainfo=False):
+    def host_info(self, operator, host_id, policy=False):
         arecord = ARecord.ARecord(self.db)
         tmp = host_id.split(".")
-        extrainfo = self._is_yes(extrainfo)
+        if policy and policy == 'policy':
+            policy = True
+        else:
+            policy = False
 
         if host_id.find(":") == -1 and tmp[-1].isdigit():
             # When host_id is an IP, we only return A-records
@@ -873,7 +877,7 @@ class BofhdExtension(BofhdCommandBase):
                         'srv_port': srv['port'],
                         'srv_ttl': int_or_none_as_str(srv['ttl']),
                         'srv_target': srv['target_name']})
-        if extrainfo:
+        if policy:
             # Hostpolicies
             policy = PolicyComponent(self.db)
             for row in policy.search_hostpolicies(dns_owner_id=owner_id):

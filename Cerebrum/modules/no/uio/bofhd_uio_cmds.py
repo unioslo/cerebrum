@@ -5853,14 +5853,14 @@ Addresses and settings:
     # copy str_vars.
     all_commands['host_info'] = Command(
         ("host", "info"), SimpleString(help_ref='string_host'),
-        YesNo(optional=True, help_ref='yes_no_extrainfo'),
+        YesNo(optional=True, help_ref='show_policy'),
         fs=FormatSuggestion(Dns.all_commands['host_info'].get_fs()['str_vars'] +
                             [("Hostname:              %s\n"
                               "Description:           %s",
                               ("hostname", "desc")),
                              ("Default disk quota:    %d MiB",
                               ("def_disk_quota",))]))
-    def host_info(self, operator, hostname, extrainfo=False):
+    def host_info(self, operator, hostname, policy=False):
         ret = []
         # More hacks follow.
         # Call the DNS module's host_info command for data:
@@ -5881,7 +5881,7 @@ Addresses and settings:
             self._find = DnsUtils.Find(self.db, zone)
             self.mb_utils = DnsBofhdUtils(self.server, zone)
             self.dns_parser = DnsUtils.DnsParser(self.db, zone)
-            ret = host_info(self, operator, hostname, extrainfo=extrainfo)
+            ret = host_info(self, operator, hostname, policy=policy)
         except CerebrumError, dns_err:
             # Even though the DNS module doesn't recognise the host, the
             # standard host_info could still have some info. We should therefore
