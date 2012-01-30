@@ -1,5 +1,6 @@
+#!/bin/env python
 # -*- coding: iso-8859-1 -*-
-# Copyright 2010 University of Oslo, Norway
+# Copyright 2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -32,8 +33,8 @@ from Cerebrum.modules import Email
 from Cerebrum.Utils import Factory
 
 
-class AccountHiNeMixin(Account.Account):
-    """Account mixin class providing functionality specific to HiNE.
+class AccountNVHMixin(Account.Account):
+    """Account mixin class providing functionality specific to NVH.
 
     The methods of the core Account class that are overridden here,
     ensure that any Account objects generated through
@@ -74,10 +75,7 @@ class AccountHiNeMixin(Account.Account):
                     pwd.pop(0)
                     
     def illegal_name(self, name):
-        """HiNe can only allow max 8 characters in usernames, due to
-        restrictions in e.g. TimeEdit.
-
-        """
+        """NVH can only allow max 8 characters in usernames."""
         if len(name) > 8:
             return "too long (%s); max 8 chars allowed" % name
         # TBD: How do these mix with student account automation?
@@ -106,10 +104,13 @@ class AccountHiNeMixin(Account.Account):
             ph.add_history(self, plain)
         return ret
 
-class AccountHiNeEmailMixin(Account.Account):
+class AccountNVHEmailMixin(Account.Account):
     def get_primary_mailaddress(self):
+        """Override the e-mail module, as addresses are put in
+        entity_contact_info."""
         primary = self.get_contact_info(type=self.const.contact_email)
         if primary:
             return primary[0]['contact_value']
         else:
             return "<ukjent>"
+

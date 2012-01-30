@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
-
-# Copyright 2003, 2007 University of Oslo, Norway
+#
+# Copyright 2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -26,7 +26,6 @@ import re
 from Cerebrum.modules import PasswordChecker as DefaultPasswordChecker
 from Cerebrum.modules.PasswordChecker import PasswordGoodEnoughException
 
-
 # The error messages are in Norwegian, since the end-users are likely to
 # prefer it.
 msgs = DefaultPasswordChecker.msgs
@@ -34,13 +33,13 @@ msgs.update({
     'invalid_char':
     """Vennligst ikke bruk andre tegn enn bokstaver og blank.""",
     'atleast8':
-    """Passord må ha minst 8 tegn.""",
+    """Passord mÃ¥ ha minst 8 tegn.""",
     'atleast11':
-    """Passord må ha minst 11 tegn.""",
+    """Passord mÃ¥ ha minst 11 tegn.""",
     'atleast12':
-    """Passord må ha minst 12 tegn.""",
+    """Passord mÃ¥ ha minst 12 tegn.""",
     'atleast15':
-    """Passord må ha minst 15 tegn.""",
+    """Passord mÃ¥ ha minst 15 tegn.""",
     'sequence_keys':
     """Ikke bruk de samme tegn om igjen etter hverandre.""",
     'was_like_old':
@@ -48,32 +47,31 @@ msgs.update({
     'repetitive_sequence':
     """Ikke bruk gjentagende grupper av tegn (eksempel: ikke 'abcabcabc').""",
     'sequence_alphabet':
-    """Ikke bruk tegn i alfabetisk rekkefølge (eksempel: ikke 'abcdef').""",
+    """Ikke bruk tegn i alfabetisk rekkefÃ¸lge (eksempel: ikke 'abcdef').""",
     'uname_in_password':
-    """Ikke la brukernavnet være en del av passordet.""",
+    """Ikke la brukernavnet vÃ¦re en del av passordet.""",
     'bad_password':
-    """Passordkombinasjonen er ikke bra nok, vennligst prøv igjen.""",
+    """Passordkombinasjonen er ikke bra nok, vennligst prÃ¸v igjen.""",
 })
 
 
-class HiNePasswordChecker(DefaultPasswordChecker.PasswordChecker):
+class NVHPasswordChecker(DefaultPasswordChecker.PasswordChecker):
 
     def goodenough(self, account, fullpasswd, uname=None):
         """Perform a number of checks on a password to see if it is good
         enough.
 
-        HiNe has the following rules:
+        NVH has the following rules:
 
         - Characters in the passphrase are either letters or whitespace.
         - The automatically generated password has a minimum of 15
-          characters and 2 words (one space)
+          characters and 3 words (two spaces)
         - The user supplied passwords have a minimum of 15
           characters. There is no maximum (well, there is in the db
           schema, but this is irrelevant in the passwordchecker).
         """
-
         for char in fullpasswd:
-            if not (char.isalpha() or char in 'æøåÆØÅ '):
+            if not (char.isalpha() or char in 'Ã¦Ã¸Ã¥Ã†Ã˜Ã… '):
                 raise PasswordGoodEnoughException(msgs['invalid_char'])
 
         # Check that the password is long enough.
@@ -81,20 +79,19 @@ class HiNePasswordChecker(DefaultPasswordChecker.PasswordChecker):
             raise PasswordGoodEnoughException(msgs['atleast15'])
 
         # at least 2 words, each word at least 2 characters
-        if len([x for x in fullpasswd.split(" ") if len(x) >= 2]) < 2:
-            raise PasswordGoodEnoughException("For få ord i passordet")
+        if len([x for x in fullpasswd.split(" ") if len(x) >= 2]) < 3:
+            raise PasswordGoodEnoughException("For fÃ¥ ord i passordet")
 
         return True
-
 
 if __name__ == "__main__":
     from Cerebrum.Account import Account
     from Cerebrum.Utils import Factory
     db = Factory.get("Database")()
-    pc = HiNePasswordChecker(db)
+    pc = NVHPasswordChecker(db)
     account = Factory.get("Account")(db)
 
-    for candidate in ("åæålllkkk34", # invalid chars (disabled 2007-03-28)
+    for candidate in ("Ã¥Ã¦Ã¥lllkkk34", # invalid chars (disabled 2007-03-28)
                       "hYt87",              # too short
                       "ooooooooo",    # all alike
                       "abcabcabcabcabc",     # repeating pattern
@@ -111,3 +108,4 @@ if __name__ == "__main__":
             print "candidate: <%s>: ok!" % (candidate,)
         except PasswordGoodEnoughException, val:
             print "candidate: <%s>: failed: %s" % (candidate, val)
+
