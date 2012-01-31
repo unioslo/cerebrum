@@ -161,8 +161,13 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             
     
     def _update_contact_info(self, user_dict):
-        """
-        Get contact info: phonenumber and title. Personal title takes precedence.
+        """Get contact info from Cerebrum and update the L{user_dict}
+        directly.
+
+        Retrieved info: phonenumber, mobile, SIP phone, title and addresses.
+        Personal title takes precedence over work title.
+
+        Note that only mobile numbers registered in SAP are used.
 
         @param user_dict: account_id -> account info mapping
         @type user_dict: dict
@@ -177,15 +182,19 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                                  % (v['TEMPuname'], v['TEMPownerId']))
                 continue
             phones = self.person.get_contact_info(type=self.co.contact_phone)
-            if not phones:
-                v['telephoneNumber'] = ''
-            else:
+            v['ipPhone'] = ''
+            v['telephoneNumber'] = ''
+            if phones:
                 v['telephoneNumber'] = phones[0]['contact_value']
-            v["title"] = u""
+                # SIP phones: only last 4 digits in phone numbers, if the
+                # phone number is in a defined SIP serie.
+                if any(v['telephoneNumber'].startswidth(pre) for pre in
+                       ('37233', '38141', '38142')):
+                    v['ipPhone'] = v['telephoneNumber'][-4:]
 
             # If person has a personal_title, it should be used;
             # otherwise go for worktitle
-
+            v["title"] = u""
             work_title = unicode(self.person.get_name_with_language(
                 name_variant=self.co.work_title,
                 name_language=self.co.language_nb,
@@ -200,12 +209,37 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 v["title"] = personal_title
             else:
                 v["title"] = work_title
-                
-               
+
+            # mobile
+            mobiles = self.person.get_contact_info(type=self.co.contact_mobile_phone, 
+                                                   source=self.co.system_sap)
+            v['mobile'] = ''
+            if mobiles:
+                v['mobile'] = mobiles[0]['contact_value']
+
+            # Street address
+            street = self.person.get_entity_address(source=self.co.system_sap,
+                                                    type=self.co.address_street)
+            v['street'] = ''
+            if street:
+                # TODO: what format? Now it's just comma separated...
+                street = street[0]
+                v['street'] = ', '.join(street[v] for v in ('address_text',
+                                                            'p_o_box',
+                                                            'postal_number',
+                                                            'city',
+                                                            'country',)
+                                        if street[v])
+
+            # Room number
+            roomnumber = self.person.get_contact_info(type=self.co.contact_office,
+                                                      source=self.co.system_sap)
+            v['roomNumber'] = ''
+            if roomnumber:
+                v['roomNumber'] = roomnumber[0]['contact_alias']
 
     def _exchange_addresslist(self, user_dict):
-        """
-        Enabling Exchange address list visibility to only primary accounts
+        """Enabling Exchange address list visibility to only primary accounts
 
         @param user_dict: account_id -> account info mapping
         @type user_dict: dict
@@ -218,26 +252,25 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         
 
     def get_default_ou(self):
-        """
-        Return default OU for users. burde vaere i cereconf?
-        """
+        """Return default OU for users. burde vaere i cereconf?"""
         return "OU=%s,%s" % (cereconf.AD_USER_OU,self.ad_ldap)
 
             
 
     def fetch_cerebrum_data(self, spread, exchange_spread, imap_spread):
-        """
-        Fetch relevant cerebrum data for users with the given spread.
-        One spread indicating export to AD, and one spread indicating
-        that is should also be prepped and activated for Exchange 2007.
+        """Fetch relevant cerebrum data for users with the given spread.
+        One spread indicating export to AD, and one spread indicating that it
+        should also be prepped and activated for Exchange 2007.
 
         @param spread: ad account spread for a domain
         @type spread: _SpreadCode
+
         @param exchange_spread: exchange account spread
         @type exchange_spread: _SpreadCode
+
         @rtype: dict
         @return: a dict {uname: {'adAttrib': 'value'}} for all users
-        of relevant spread. Typical attributes::
+                 of relevant spread. Typical attributes::
         
           # canonicalName er et 'constructed attribute' (fra dn)
           'displayName': String,          # Fullt navn
@@ -251,6 +284,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
           'msExchHideFromAddressLists' : Bool, # Exchange verdi
           'userPrincipalName' : String    # brukernavn@domene
           'telephoneNumber' : String      # tlf
+          'ipPhone' : String              # SIP phone numbers - 4 digits
+          'mobile' : String               # mobile number (from SAP)
           'title' : String                # tittel
           'mailNickname' : String         # brukernavn
           'targetAddress' : String        # ekstern adresse
@@ -474,10 +509,13 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
         @param cerebrumusers: account_id -> account info mapping
         @type cerebrumusers: dict
+
         @param adusers: account_id -> account info mapping
         @type adusers: dict
+
         @param delete_users: Delete or move unwanted users
         @type delete_users: Flag
+
         @rtype: list
         @return: a list over dicts with changes to AD objects
         """

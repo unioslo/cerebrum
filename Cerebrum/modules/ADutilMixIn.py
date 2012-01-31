@@ -339,7 +339,7 @@ class ADuserUtil(ADutil):
         contain a dict with the keys found in the AD_ATTRIBUTES list.
         This method is left empty for each institution to override
         with local settings.
-                
+
         Mandatory values in dict is: distinguishedName.
 
         The value OU is optional, and is not an AD_ATTRIBUTE value, if
