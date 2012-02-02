@@ -70,7 +70,11 @@ class XML2Cerebrum:
         self.xmladdr2db = {DataAddress.ADDRESS_BESOK: const.address_street,
                            DataAddress.ADDRESS_POST: const.address_post,
                            DataAddress.ADDRESS_PRIVATE: 
-                             const.address_post_private }
+                             const.address_post_private,
+                           DataAddress.ADDRESS_OTHER_POST:
+                             const.address_other_post,
+                           DataAddress.ADDRESS_OTHER_BESOK:
+                           const.address_other_street,}
 
         self.idxml2db = {HRDataPerson.NO_SSN: const.externalid_fodselsnr,
                          SAPPerson.SAP_NR: const.externalid_sap_ansattnr, }
@@ -317,7 +321,9 @@ class XML2Cerebrum:
         #
         
         for addr_kind in (DataAddress.ADDRESS_BESOK, DataAddress.ADDRESS_POST,
-                          DataAddress.ADDRESS_PRIVATE):
+                          DataAddress.ADDRESS_PRIVATE,
+                          DataAddress.ADDRESS_OTHER_POST,
+                          DataAddress.ADDRESS_OTHER_BESOK,):
             addr = xmlperson.get_address(addr_kind)
             if not addr:
                 continue

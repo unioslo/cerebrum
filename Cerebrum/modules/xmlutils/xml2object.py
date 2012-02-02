@@ -71,6 +71,8 @@ class DataAddress(object):
     ADDRESS_BESOK   = "besøk"
     ADDRESS_PRIVATE = "private"
     ADDRESS_POST    = "post"
+    ADDRESS_OTHER_POST = "addr_other_post"
+    ADDRESS_OTHER_BESOK = "addr_other_besok"
 
     country2ziplength = {
         "": 4, "NO": 4, "DK": 4

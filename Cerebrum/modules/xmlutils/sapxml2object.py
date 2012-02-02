@@ -313,7 +313,10 @@ class XMLPerson2Object(XMLEntity2Object):
         assert addr_element.tag == "Adresse"
 
         sap2intern = { "Fysisk arbeidssted" : DataAddress.ADDRESS_POST,
-                       "Bostedsadresse" : DataAddress.ADDRESS_PRIVATE, }
+                       "Bostedsadresse" : DataAddress.ADDRESS_PRIVATE, 
+                       "Avvikende postadresse": DataAddress.ADDRESS_OTHER_POST,
+                       "Avvikende besøksadresse":
+                               DataAddress.ADDRESS_OTHER_BESOK,}
         zip = city = country = addr_kind = ""
         street = []
 

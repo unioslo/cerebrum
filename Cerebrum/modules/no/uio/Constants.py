@@ -34,7 +34,8 @@ from Cerebrum.Constants import \
      _PersonAffiliationCode, \
      _PersonAffStatusCode, \
      _QuarantineCode, \
-     _SpreadCode
+     _SpreadCode, \
+     _AddressCode
 from Cerebrum.modules.PosixUser import \
      _PosixShellCode
 from Cerebrum.modules.Email import \
@@ -435,4 +436,7 @@ automatically generated from FS.''')
     trait_primary_aff = _EntityTraitCode(
         "primary_aff", Constants.Constants.entity_person,
         "A person's chosen primary affiliation, for use at the web presentations")
+
+    address_other_street = _AddressCode('OTHER_STREET', 'Other street address')
+    address_other_post = _AddressCode('OTHER_POST', 'Other post address')
 
