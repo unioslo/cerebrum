@@ -224,7 +224,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             if street:
                 # TODO: what format? Now it's just comma separated...
                 street = street[0]
-                v['street'] = ', '.join(street[v] for v in ('address_text',
+                v['street'] = ', '.join(str(street[v]) for v in ('address_text',
                                                             'p_o_box',
                                                             'postal_number',
                                                             'city',
