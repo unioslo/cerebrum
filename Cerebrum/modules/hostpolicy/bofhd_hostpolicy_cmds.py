@@ -253,6 +253,7 @@ Example:
         explained."""
         tmp = tuple(row['dns_owner_name'] for row in
                     comp.search_hostpolicies(policy_id=comp.entity_id))
+        # TODO: set indirect_relations to True?
         if tmp:
             raise CerebrumError("Policy is in use as policy for: %s" %
                                 ', '.join(tmp))
@@ -701,6 +702,7 @@ Example:
         # of a way of holding the structure somewhat tidy. Note that one could
         # add a role which have sub roles that is already given to the host,
         # without getting an error for that.
+        # TODO: this could be swapped with setting indirect_relations to True?
         def check_member_loop(role_id, check_id):
             """Find a given check_id in the members of a role, and then
             raise a CerebrumError with an explanation for this. Works
@@ -771,10 +773,10 @@ Example:
         """List all hosts that has a given policy (role/atom)."""
         self.ba.assert_dns_superuser(operator.get_entity_id())
         comp = self._get_component(component_id)
-        ret = []
-        for row in comp.search_hostpolicies(policy_id=comp.entity_id):
-            ret.append({'host_name': row['dns_owner_name']})
-        return ret
+        ret = set(row['dns_owner_name'] for row in
+                  comp.search_hostpolicies(policy_id=comp.entity_id,
+                                           indirect_relations=True))
+        return tuple({'host_name': row} for row in ret)
 
     # TBD: Trengs det en kommando som lister hvilke roller en gitt policy inngår i?
 

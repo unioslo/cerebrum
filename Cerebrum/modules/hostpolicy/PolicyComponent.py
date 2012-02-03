@@ -270,12 +270,66 @@ class PolicyComponent(EntityName, Entity_class):
         self._db.log_change(dns_owner_id, self.const.hostpolicy_policy_remove,
                             self.entity_id)
 
-    def search_hostpolicies(self, policy_id=None, host_name=None,
-                            dns_owner_id=None, policy_name=None):
-        """List out all hostpolicies together with their dns owners."""
-        # TODO: do we need functionality for searching for indirect
-        # relationships too?
+    def search_hostpolicies(self, policy_id=None, policy_type=None,
+            dns_owner_id=None, host_name=None, indirect_relations=False):
+        """Search for hostpolicy relationships matching given criterias. By
+        relationships we here mean policies "attached" to hosts.
 
+        If a criteria is None, it will be ignored. Calling the method without
+        any argument will simply return all hostpolicy relationships from the
+        database.
+
+        @type policy_id: int or a sequence of ints
+        @param policy_id:
+            The policy component IDs to search for. Only hostpolicies related to
+            the given policies will be returned.
+
+            Note that if indirect_relations is True, the given policies' parent
+            policies are included in the search, since the given policies could
+            be indirectly related to hosts through their parents.
+
+        @type policy_type: int/EntityType or a sequence of ints/EntityTypes
+        @param policy_type:
+            Filter the result by policies type. Useful if you for instance only
+            are interested in atoms and not roles.
+
+        @type dns_owner_id: int or sequence of ints
+        @param dns_owner_id:
+            Filter the search to only return hostpolicies related to the given
+            host IDs.
+
+            Note that if indirect_relations is set to True, the hosts' policies'
+            children are also searched through, since these are indirectly
+            related to the given hosts.
+
+        @type host_name: string
+        @param host_name:
+            A string for matching host's entity_name.
+
+        @type indirect_relations: bool
+        @param indirect_relations:
+            If the search should find matches recursively. If this is True and
+            policy_id is set, it will also search through the given policies'
+            parents - useful for getting a list of hosts which has the given
+            policy eiter as a direct or indirect policy. If dns_owner_id is
+            given, it will search through the given host's policies and these
+            policies' children - useful for getting a complete list of all
+            policies attached to given hosts.
+
+            TODO: can both policy id and dns_owner_id be given when searching
+            indirectly?
+
+        @rtype: generator of db-rows
+        @return:
+            A generator yielding successive db-rows. The keys for the db-rows
+            are:
+
+                - entity_type - The policy's entity type
+                - policy_id
+                - policy_name
+                - dns_owner_id
+                - dns_owner_name
+        """
         where = ['co.component_id = hp.policy_id',
                  'hp.dns_owner_id = dnso.dns_owner_id',
                  'en1.entity_id = hp.dns_owner_id',
@@ -283,24 +337,42 @@ class PolicyComponent(EntityName, Entity_class):
         binds = dict()
 
         if policy_id is not None:
+            if indirect_relations:
+                # Search recursively by just adding all policy_ids of policies
+                # that contains the given policy_ids.
+
+                if not isinstance(policy_id, (tuple, set, list)):
+                    policy_id = (policy_id,)
+                # making it a set to avoid searching for same policy twice
+                policy_id = set(policy_id)
+
+                policy_id.update(row['source_id'] for row in
+                                 self.search_relations(target_id=policy_id,
+                                    relationship_code=self.const.hostpolicy_contains,
+                                    indirect_relations=True))
             where.append(argument_to_sql(policy_id, 'hp.policy_id', binds, int))
         if dns_owner_id is not None:
+            if indirect_relations:
+                # TODO: How to do this recursively?
+                raise Exception('Recursive search by host is not implemented yet')
             where.append(argument_to_sql(dns_owner_id, 'hp.dns_owner_id', binds,
-                         int))
+                                         int))
         if host_name is not None:
+            if indirect_relations:
+                # TODO: How to do this recursively?
+                raise Exception('Recursive search by host is not implemented yet')
             where.append('(LOWER(en1.entity_name) LIKE :host_name)')
             binds['host_name'] = prepare_string(host_name)
-        if policy_name is not None:
-            where.append('(LOWER(en2.entity_name) LIKE :policy_name)')
-            binds['policy_name'] = prepare_string(policy_name)
-
+        if policy_type is not None:
+            where.append(argument_to_sql(policy_type, 'co.entity_type', binds,
+                                         int))
         return self.query("""
             SELECT DISTINCT
                 co.entity_type AS entity_type,
-                hp.policy_id AS policy_id,
                 hp.dns_owner_id AS dns_owner_id,
                 en1.entity_name AS dns_owner_name,
-                en2.entity_name AS policy_name
+                en2.entity_name AS policy_name,
+                hp.policy_id AS policy_id
             FROM
               [:table schema=cerebrum name=hostpolicy_component] co,
               [:table schema=cerebrum name=hostpolicy_host_policy] hp,
@@ -343,6 +415,8 @@ class PolicyComponent(EntityName, Entity_class):
         where = ['en.entity_id = co.component_id']
         binds = dict()
 
+        # TODO: what about the namespace?
+
         if entity_type is not None:
             where.append(argument_to_sql(entity_type, 'co.entity_type',
                                          binds, int))
@@ -383,8 +457,8 @@ class PolicyComponent(EntityName, Entity_class):
             """ % {'where': ' AND '.join(where)}, binds)
 
     def search_relations(self, source_id=None, target_id=None,
-                         relationship_code=None):
-        """Search for relationships by different criterias.
+                         relationship_code=None, indirect_relations=False):
+        """Search for relationships betweeen policies by different criterias.
 
         @type source_id: int or sequence of ints
         @param source_id:
@@ -400,10 +474,27 @@ class PolicyComponent(EntityName, Entity_class):
         @param relationship_code:
             If given, only relations of the given type(s) are returned.
 
+        @type indirect_relations: bool
+        @param indirect_relations:
+            If True, relationships will be search for recursively.
+
         @rtype: iterable with db-rows
         @return:
-            An iterator with db-rows with data about each relationship.
+            An iterator with db-rows with data about each relationship. The
+            db-rows contain the elements:
+
+              - source_id
+              - source_entity_type
+              - source_name
+              - target_id
+              - target_entity_type
+              - target_name
+              - relationship_id
+              - relationship_str
+
         """
+        # TODO: handle indirect relations
+
         # TODO: create_date (and foundation_date) might be needed as search
         # options?
         binds = dict()
