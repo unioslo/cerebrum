@@ -188,7 +188,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 v['telephoneNumber'] = phones[0]['contact_value']
                 # SIP phones: only last 4 digits in phone numbers, if the
                 # phone number is in a defined SIP serie.
-                if any(v['telephoneNumber'].startswidth(pre) for pre in
+                if any(v['telephoneNumber'].startswith(pre) for pre in
                        ('37233', '38141', '38142')):
                     v['ipPhone'] = v['telephoneNumber'][-4:]
 
