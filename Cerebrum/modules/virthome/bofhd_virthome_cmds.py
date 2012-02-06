@@ -265,6 +265,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         account.delete_entity_quarantine(self.const.quarantine_pending)
 
         self.__assign_default_user_spreads(account)
+        self.logger.debug("Account %s confirmed", account.account_name)
         return "OK, account %s confirmed" % account.account_name
     # end __process_new_account_request
         
