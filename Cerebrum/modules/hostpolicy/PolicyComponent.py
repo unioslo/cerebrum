@@ -465,10 +465,16 @@ class PolicyComponent(EntityName, Entity_class):
             If given, all relations that has the given components as source
             are returned.
 
+            If indirect_relations is True, all children (targets) of the given
+            source_ids are returned.
+
         @type target_id: int or sequence of ints
         @param target_id:
             If given, all relations that has the given components as targets
             are returned.
+
+            If indirect_relations is True, all parents (sources) of the given
+            target_ids are returned.
 
         @type relationship_code: int or sequence of ints
         @param relationship_code:
@@ -476,7 +482,9 @@ class PolicyComponent(EntityName, Entity_class):
 
         @type indirect_relations: bool
         @param indirect_relations:
-            If True, relationships will be search for recursively.
+            If True, relationships will be search for recursively, either their
+            parents or their children, depending on if source_id or target_id is
+            given.
 
         @rtype: iterable with db-rows
         @return:
@@ -493,10 +501,30 @@ class PolicyComponent(EntityName, Entity_class):
               - relationship_str
 
         """
-        # TODO: handle indirect relations
+        # An effective helper function, copied from Cerebrum/Group.py
+        def search_transitive_closure(start_id_set, searcher, field):
+            """Collect the transitive closure of L{ids} by using the search
+            strategy specified by L{searcher}. Relation loops are not a problem.
 
-        # TODO: create_date (and foundation_date) might be needed as search
-        # options?
+            L{searcher} is simply a tailored search-call which should not go
+            recursively.
+
+            L{field} is the key to extract from db-rows returned by the
+            L{searcher}. Occasionally we need group_id and other times
+            member_id. These are the two permissible values.
+            """
+            result = set()
+            if isinstance(start_id_set, (tuple, set, list)):
+                workset = set(start_id_set)
+            else:
+                workset = set((start_id_set,))
+            while workset:
+                new_set = set([x[field] for x in searcher(workset)])
+                result.update(workset)
+                workset = new_set.difference(result)
+            return result
+        # end search_transitive_closure
+
         binds = dict()
         tables = ['[:table schema=cerebrum name=hostpolicy_component] co1',
                   '[:table schema=cerebrum name=hostpolicy_component] co2',
@@ -510,8 +538,20 @@ class PolicyComponent(EntityName, Entity_class):
                  '(co1.component_id = re.source_policy)',
                  '(co2.component_id = re.target_policy)']
         if source_id is not None:
+            if indirect_relations:
+                source_id = search_transitive_closure(source_id,
+                        lambda ids: self.search_relations(source_id=ids,
+                            indirect_relations=False,
+                            relationship_code=relationship_code),
+                        'target_id')
             where.append(argument_to_sql(source_id, 're.source_policy', binds, int))
         if target_id is not None:
+            if indirect_relations:
+                target_id = search_transitive_closure(target_id,
+                        lambda ids: self.search_relations(target_id=ids,
+                            indirect_relations=False,
+                            relationship_code=relationship_code),
+                        'source_id')
             where.append(argument_to_sql(target_id, 're.target_policy', binds, int))
         if relationship_code is not None:
             where.append(argument_to_sql(relationship_code, 're.relationship', binds, int))
