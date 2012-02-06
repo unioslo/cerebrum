@@ -253,7 +253,6 @@ Example:
         explained."""
         tmp = tuple(row['dns_owner_name'] for row in
                     comp.search_hostpolicies(policy_id=comp.entity_id))
-        # TODO: set indirect_relations to True?
         if tmp:
             raise CerebrumError("Policy is in use as policy for: %s" %
                                 ', '.join(tmp))
@@ -582,41 +581,39 @@ Example:
             raise CerebrumError("Atoms can't have members")
         member = self._get_component(member_id)
 
-        # check if already a member
+        if role.entity_id == member.entity_id:
+            raise CerebrumError("Can't add a role to itself")
+        # Check if already a member
         for row in role.search_relations(source_id=role.entity_id,
-                            target_id=member.entity_id,
-                            relationship_code=self.const.hostpolicy_contains):
-            raise CerebrumError('%s is already a member of %s' %
-                                (member.component_name, role.component_name))
-
+                            relationship_code=self.const.hostpolicy_contains,
+                            indirect_relations=True):
+            if row['target_id'] == member.entity_id:
+                raise CerebrumError("%s already member of %s (through %s)" %
+                                    (member.component_name, role.component_name,
+                                     row['source_name']))
         try:
             role.add_relationship(self.const.hostpolicy_contains, member.entity_id)
         except Errors.ProgrammingError, e:
             # The relationship were not accepted, give the user an explanation
             # of why.
-            def check_member_loop(role_id, check_id):
-                """Find a given check_id in the members of a role, and then
-                raise a CerebrumError with an explanation for this. Works
-                recursively."""
-                for row in role.search_relations(source_id=role_id,
-                        relationship_code=self.const.hostpolicy_contains):
-                    if row['target_id'] == check_id:
-                        raise CerebrumError('%s is a member of the role %s '
-                                '(direct or indirect) - member loops are not '
-                                'allowed' % (row['target_name'], row['source_name']))
-                    if row['target_entity_type'] == self.const.entity_hostpolicy_role:
-                        check_member_loop(row['target_id'], check_id)
-            check_member_loop(member.entity_id, role.entity_id)
 
-            # TODO: mutex isn't checked yet
+            # TODO: need to check for mutex relationships!
 
-            # if we get here, we weren't able to explain what is wrong
+            # Check if member is source in the relationship
+            for row in role.search_relations(source_id=member.entity_id,
+                                relationship_code=self.const.hostpolicy_contains,
+                                indirect_relations=True):
+                if row['target_id'] == role.entity_id:
+                    raise CerebrumError("%s is already a parent for %s (through %s)" %
+                                        (member.component_name, role.component_name,
+                                         row['source_name']))
+
+            # if we got here, we weren't able to explain what is wrong
             self.logger.warn("Unhandled bad relationship: %s" % e)
             raise CerebrumError('The membership was not allowed due to constraints')
-        else:
-            role.write_db()
-            return "Policy %s is now member of role %s" % (member.component_name,
-                                                              role.component_name)
+        role.write_db()
+        return "Policy %s is now member of role %s" % (member.component_name,
+                                                       role.component_name)
 
     all_commands['policy_remove_member'] = Command(
             ('policy', 'remove_member'),
@@ -778,8 +775,20 @@ Example:
                                            indirect_relations=True))
         return tuple({'host_name': row} for row in ret)
 
-    # TBD: Trengs det en kommando som lister hvilke roller en gitt policy inngår i?
-
+    all_commands['policy_has_member'] = Command(
+            ('policy', 'has_member'),
+            PolicyId(),
+            fs=FormatSuggestion('%-20s', ('policy_name',),
+                                hdr='%-20s' % ('Policy',)),
+            perm_filter='is_dns_superuser')
+    def policy_has_member(self, operator, component_id):
+        """List all hosts and/or roles that is related to the given
+        component."""
+        self.ba.assert_dns_superuser(operator.get_entity_id())
+        comp = self._get_component(component_id)
+        return tuple({'policy_name': row['source_name']} for row in
+                      comp.search_relations(target_id=comp.entity_id,
+                            relationship_code=self.const.hostpolicy_contains))
 
     all_commands['policy_list_atoms'] = Command(
             ('policy', 'list_atoms'),

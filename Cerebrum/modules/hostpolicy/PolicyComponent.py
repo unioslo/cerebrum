@@ -353,7 +353,12 @@ class PolicyComponent(EntityName, Entity_class):
             where.append(argument_to_sql(policy_id, 'hp.policy_id', binds, int))
         if dns_owner_id is not None:
             if indirect_relations:
+                # One way to do this is to fetch all the policies directly
+                # attached to the given host(s), and then get their children.
+                # How can this be given correctly?
+                #
                 # TODO: How to do this recursively?
+                #
                 raise Exception('Recursive search by host is not implemented yet')
             where.append(argument_to_sql(dns_owner_id, 'hp.dns_owner_id', binds,
                                          int))
@@ -486,6 +491,11 @@ class PolicyComponent(EntityName, Entity_class):
             parents or their children, depending on if source_id or target_id is
             given.
 
+            Note that if indirect_relations is True and both source_id and
+            target_id is specified, you will not necessarily get what you
+            expect, since source and target are searched for individually. Try
+            to avoid this usage.
+
         @rtype: iterable with db-rows
         @return:
             An iterator with db-rows with data about each relationship. The
@@ -585,34 +595,27 @@ class Role(PolicyComponent):
             raise Errors.NotFoundError('Could not find role with name: %s' %
                                        component_name)
 
-    def _illegal_membership_loop(self, member_id):
-        """Check that the given member doesn't have the active role as a member,
-        which would cause infinite loops. The member has to be a role, since
-        atoms can't have members."""
-        def has_member(role_id, check_id):
-            """Go recursively through a role and check if a given id is a direct
-            or indirect member of the role."""
-            for row in self.search_relations(source_id=role_id,
-                    relationship_code=self.const.hostpolicy_contains):
-                if row['target_id'] == check_id:
-                    return True
-                if row['target_entity_type'] == self.const.entity_hostpolicy_role:
-                    if has_member(row['target_id'], check_id):
-                        return True
-            return False
-        return has_member(member_id, self.entity_id)
+    def _illegal_membership_loop(self, source_id, member_id):
+        """Check that the given member doesn't have the active role as a source,
+        which would cause infinite loops. This does not affect atoms, since they
+        can't have members."""
+        for row in self.search_relations(source_id=member_id,
+                               relationship_code=self.const.hostpolicy_contains,
+                               indirect_relations=True):
+            if row['target_id'] == source_id:
+                return True
+        return False
 
     def illegal_relationship(self, relationship_code, member_id):
         """Check if a new relationship is allowed, e.g. if all mutexes are okay,
         and that the member doesn't have the active role as a member (infinite
         loops)."""
-        # check for loops in memberships
         mem = Entity_class(self._db)
         mem.find(member_id)
         if (mem.entity_type == self.const.entity_hostpolicy_role and
-            self._illegal_membership_loop(member_id)):
+            self._illegal_membership_loop(self.entity_id, member_id)):
                 return True
-        # TODO: mutexes are not ready yet
+        # TODO: mutex checks are not ready yet...
         return False
 
     def add_relationship(self, relationship_code, target_id):
@@ -626,6 +629,7 @@ class Role(PolicyComponent):
         """
         if self.illegal_relationship(relationship_code, target_id):
             # TODO: is ProgrammingError the correct exception to raise here?
+            # Frontends should be able to give better feedbacks
             raise Errors.ProgrammingError('Illegal relationship')
         self.execute("""
             INSERT INTO [:table schema=cerebrum name=hostpolicy_relationship]
