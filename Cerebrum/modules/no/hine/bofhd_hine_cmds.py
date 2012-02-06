@@ -69,7 +69,8 @@ class BofhdExtension(BofhdCommandBase):
         #
         # copy relevant e-mail-cmds and util methods
         #
-        #'email_info', 'email_update', '_email_info_spam', '_email_info_filters',
+        # 'email_info', 'email_update', 
+        # '_email_info_spam', '_email_info_filters',
         #'_email_info_forwarding', '_split_email_address',
         #'_email_info_mailman', '_email_info_multi', '_email_info_file',
         #'_email_info_pipe', '_email_info_forward',
@@ -301,3 +302,29 @@ class BofhdExtension(BofhdCommandBase):
                                    aff_status)
             person.write_db()
         return ou, aff, aff_status
+
+    def _person_create_externalid_helper(self, person):
+        person.affect_external_id(self.const.system_manual,
+                                  self.const.externalid_fodselsnr)    
+
+    all_commands['email_info'] = Command(
+        ("email", "info"),
+        AccountName(help_ref="account_name", repeat=True),
+        perm_filter='can_email_info',
+        fs=FormatSuggestion([
+        ("Type:             %s",
+         ("target_type",)),
+        #
+        # target_type == Account
+        #
+        ("Account:          %s\n",
+         ("account",)),
+        ("Primary address:  %s",
+         ("def_addr",)),
+        ]))
+    def email_info(self, operator, uname):
+        acc = self._get_account(uname)
+        ret = []
+        ret += [ {'target_type': "Account" } ]
+        ret.append({'def_addr': acc.get_primary_mailaddress})
+        return ret
