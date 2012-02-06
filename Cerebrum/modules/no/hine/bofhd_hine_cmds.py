@@ -326,5 +326,5 @@ class BofhdExtension(BofhdCommandBase):
         acc = self._get_account(uname)
         ret = []
         ret += [ {'target_type': "Account" } ]
-        ret.append({'def_addr': acc.get_primary_mailaddress})
+        ret.append({'def_addr': acc.get_primary_mailaddress()})
         return ret
