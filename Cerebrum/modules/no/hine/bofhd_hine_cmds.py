@@ -50,6 +50,17 @@ class BofhdExtension(BofhdCommandBase):
     Account_class = Factory.get('Account')
     Group_class = Factory.get('Group')
     all_commands = {}
+
+    # "Hidden" commands, that is not given to jbofh, but they do exist and are
+    # callable if one wants to. Commands placed here are meant to return
+    # information that is of no immediate use to the operator making the call,
+    # but rather serve to carry administrative information that can be used by
+    # the client software for some purpose.
+    #
+    # NB! This is *NOT* a security measure, just a convenience. These commands
+    # *must* validate all the parameters just like the commands in
+    # all_commands.
+    hidden_commands = {}
     external_id_mappings = {}
 
     copy_commands = (
@@ -303,6 +314,97 @@ class BofhdExtension(BofhdCommandBase):
             person.write_db()
         return ou, aff, aff_status
 
+    # access list_alterable [group/maildom/host/disk] [username]
+    # This command is for listing out what groups an account is a moderator of
+    # in Brukerinfo.
+    hidden_commands['access_list_alterable'] = Command(
+        ('access', 'list_alterable'),
+        SimpleString(optional=True),
+        AccountName(optional=True),
+        fs=FormatSuggestion("%10d %15s     %s",
+                            ("entity_id", "entity_type", "entity_name")))
+    def access_list_alterable(self, operator, target_type='group',
+                              access_holder=None):
+        """List entities that access_holder can moderate."""
+
+        if access_holder is None:
+            account_id = operator.get_entity_id()
+        else:
+            account = self._get_account(access_holder, actype="PosixUser")
+            account_id = account.entity_id
+
+        if not (account_id == operator.get_entity_id() or 
+                self.ba.is_superuser(operator.get_entity_id())):
+            raise PermissionDenied("You do not have permission for this operation")
+
+        result = list()
+        matches = self.ba.list_alterable_entities(account_id, target_type)
+        if len(matches) > cereconf.BOFHD_MAX_MATCHES_ACCESS:
+            raise CerebrumError("More than %d (%d) matches. Refusing to return "
+                                "result" %
+                                (cereconf.BOFHD_MAX_MATCHES_ACCESS, len(matches)))
+        for row in matches:
+            entity = self._get_entity(id=row["entity_id"])
+            etype = str(self.const.EntityType(entity.entity_type))
+            ename = self._get_entity_name(entity.entity_type,
+                                          entity.entity_id)
+            tmp = {"entity_id": row["entity_id"],
+                   "entity_type": etype,
+                   "entity_name": ename,}
+            if entity.entity_type == self.const.entity_group:
+                tmp["description"] = entity.description
+
+            result.append(tmp)
+        return result
+    # end access_list_alterable
+
+    hidden_commands['get_constant_description'] = Command(
+        ("misc", "get_constant_description"),
+        SimpleString(),   # constant class
+        SimpleString(optional=True),
+        fs=FormatSuggestion("%-15s %s",
+                            ("code_str", "description")))
+    def get_constant_description(self, operator, code_cls, code_str=None):
+        """Fetch constant descriptions.
+
+        There are no permissions checks for this method -- it can be called by
+        anyone without any restrictions.
+
+        @type code_cls: basestring
+        @param code_cls:
+          Class (name) for the constants to fetch.
+
+        @type code_str: basestring or None
+        @param code_str:
+          code_str for the specific constant to fetch. If None is specified,
+          *all* constants of the given type are retrieved.
+
+        @rtype: dict or a sequence of dicts
+        @return:
+          Description of the specified constants. Each dict has 'code' and
+          'description' keys.
+        """
+
+        if not hasattr(self.const, code_cls):
+            raise CerebrumError("%s is not a constant type" % code_cls)
+
+        kls = getattr(self.const, code_cls)
+        if not issubclass(kls, self.const.CerebrumCode):
+            raise CerebrumError("%s is not a valid constant class" % code_cls)
+
+        if code_str is not None:
+            c = self._get_constant(kls, code_str)
+            return {"code": int(c),
+                    "code_str": str(c),
+                    "description": c.description}
+
+        # Fetch all of the constants of the specified type
+        return [{"code": int(x),
+                 "code_str": str(x),
+                 "description": x.description}
+                for x in self.const.fetch_constants(kls)]
+    # end get_constant_description
+    
     def _person_create_externalid_helper(self, person):
         person.affect_external_id(self.const.system_manual,
                                   self.const.externalid_fodselsnr)    
