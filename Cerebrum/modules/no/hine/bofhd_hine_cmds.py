@@ -40,6 +40,7 @@ from Cerebrum.Constants import _CerebrumCode, _SpreadCode
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
 from Cerebrum.modules.no import fodselsnr
+from Cerebrum.modules.no.hine import PasswordChecker
 
 def format_day(field):
     fmt = "yyyy-MM-dd"                  # 10 characters wide
@@ -100,7 +101,7 @@ class BofhdExtension(BofhdCommandBase):
         #
         # copy relevant misc-cmds and util methods
         #
-        'misc_affiliations', 'misc_check_password', 'misc_clear_passwords',
+        'misc_affiliations', 'misc_clear_passwords',
         'misc_stedkode', 'misc_verify_password',
         #
         # copy trait-functions
@@ -286,6 +287,25 @@ class BofhdExtension(BofhdCommandBase):
             raise CerebrumError, "User is already deleted"
         account.deactivate()
         return "User %s deactivated" % account.account_name
+
+    # misc check_password
+    all_commands['misc_check_password'] = Command(
+        ("misc", "check_password"), AccountPassword())
+    def misc_check_password(self, operator, password):
+        pc = PasswordChecker.HiNePasswordChecker(self.db)
+        try:
+            pc.goodenough(None, password, uname="foobar")
+        except PasswordChecker.PasswordGoodEnoughException, m:
+            raise CerebrumError, "Bad password: %s" % m
+        ac = self.Account_class(self.db)
+        crypt = ac.encrypt_password(self.const.Authentication("crypt3-DES"),
+                                    password)
+        md5 = ac.encrypt_password(self.const.Authentication("MD5-crypt"),
+                                  password)
+        sha256 = ac.encrypt_password(self.const.auth_type_sha256_crypt, password)
+        sha512 = ac.encrypt_password(self.const.auth_type_sha512_crypt, password)
+        return ("OK.\n  crypt3-DES:   %s\n  MD5-crypt:    %s\n" % (crypt, md5) +
+                "  SHA256-crypt: %s\n  SHA512-crypt: %s" % (sha256, sha512))
 
     def _person_affiliation_add_helper(self, operator, person, ou, aff, aff_status):
         """Helper-function for adding an affiliation to a person with
