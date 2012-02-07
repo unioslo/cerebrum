@@ -191,6 +191,9 @@ class ConstantsUniversityColleges(Constants.Constants):
     affiliation_status_tilknyttet_bilag = _PersonAffStatusCode(affiliation_tilknyttet,
                                                                'bilag',
                                                                'Registrert i HR, bilagslønnet')
+    affiliation_status_tilknyttet_time = _PersonAffStatusCode(affiliation_tilknyttet,
+                                                               'timelønnet',
+                                                               'Registrert i HR, timelønnet')
     affiliation_status_tilknyttet_gjest = _PersonAffStatusCode(affiliation_tilknyttet,
                                                                'gjest',
                                                                'Registrert i HR, gjest')
