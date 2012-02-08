@@ -502,6 +502,8 @@ class BofhdExtension(BofhdCommandBase):
          ("extid", "extid_src")),
         ("Mobile:        %s [from %s]",
          ("mobile", "mobile_src")),
+        ("Telephone:     %s [from %s]",
+         ("phone", "phone_src")),
         ("Address:       %s",
          ("address_line_1",)),
         ("               %s",
@@ -571,7 +573,7 @@ class BofhdExtension(BofhdCommandBase):
         # Show contact info, like address and mobile number, and also external
         # ids from FS and SAP.
         # Can only be shown by those that can set passwords for one of the
-        # persons accounts.
+        # person's accounts.
         can_show_contact_info = False
         for a in account_ids:
             try:
@@ -628,6 +630,10 @@ class BofhdExtension(BofhdCommandBase):
                         data.append({
                             'mobile': row['contact_value'],
                             'mobile_src': str(self.const.AuthoritativeSystem(row['source_system']))})
+            # Telephone numbers
+            for row in person.get_contact_info(type=self.const.contact_phone):
+                data.append({'phone': row['contact_value'],
+                             'phone_src': str(self.const.AuthoritativeSystem(row['source_system']))})
             # Office addresses
             for row in person.get_contact_info(self.const.system_sap,
                                                self.const.contact_office):
