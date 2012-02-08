@@ -1690,6 +1690,8 @@ class BofhdAuth(DatabaseAccessor):
         return members
 
     def _get_user_disk(self, account_id):
+        if not getattr(cereconf, 'BOFHD_CHECK_DISK_SPREAD', None):
+            return None
         try:
             account = Factory.get('Account')(self._db)
             account.find(account_id)
