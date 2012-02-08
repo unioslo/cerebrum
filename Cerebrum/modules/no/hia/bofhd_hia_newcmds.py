@@ -631,7 +631,8 @@ class BofhdExtension(BofhdCommandBase):
                             'mobile': row['contact_value'],
                             'mobile_src': str(self.const.AuthoritativeSystem(row['source_system']))})
             # Telephone numbers
-            for row in person.get_contact_info(type=self.const.contact_phone):
+            for row in person.get_contact_info(type=self.const.contact_phone,
+                                               source=self.const.system_pbx):
                 data.append({'phone': row['contact_value'],
                              'phone_src': str(self.const.AuthoritativeSystem(row['source_system']))})
             # Office addresses
