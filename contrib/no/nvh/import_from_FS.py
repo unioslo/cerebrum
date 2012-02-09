@@ -157,7 +157,7 @@ def main():
 
     # action
     for o, val in opts:
-        if o in ('-o',):
+        if o in ('--ou',):
             write_ou_info(set_filepath(datadir, ou_file))
 
 if __name__ == '__main__':
