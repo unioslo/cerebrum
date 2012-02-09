@@ -152,9 +152,6 @@ def main():
             datadir = val
         elif o in ('-h', '--help'):
             usage()
-        else:
-            print "Unknown argument: %s" % o
-            usage(2)
 
     assert_connected()
 
