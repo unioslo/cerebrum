@@ -22,11 +22,12 @@
 """This scripts backports some of the data to FS from the authoritative human
 resources system (SAP, LT or something else).
 
-Specifically, FS.person and FS.fagperson are populated based on the affiliations
-that have already been assigned in Cerebrum.
+Specifically, FS.person and FS.fagperson are populated based on the
+affiliations that have already been assigned in Cerebrum.
 
 FS.person/FS.fagperson are populated based on the information from
-affiliations. The exact affiliation/status set is specified on the command line.
+affiliations. The exact affiliation/status set is specified on the command
+line.
 
 no/uio/lt2fsPerson.py's equivalent is:
 
@@ -72,6 +73,7 @@ class SimplePerson(IterableUserDict, object):
     allowed_keys = ("fnr11",      # 11-siffret norsk fnr
                     "fnr6",       # 6-digit birth date part of fnr
                     "pnr",        # personnummer (5-digit part of fnr)
+                    "ansattnr",        # ansattnummer
                     "birth_date", # birth date as YYYY-MM-DD
                     "gender",     # 'M' or 'K'
                     "email",      # primary e-mail address
@@ -457,7 +459,8 @@ def find_primary_sko(primary_ou_id, fs, ou_perspective):
                           ou.institusjon):
             return ou.institusjon, ou.fakultet, ou.institutt, ou.avdeling
         # go up 1 level to the parent
-        return find_primary_sko(ou.get_parent(ou_perspective), fs, ou_perspective)
+        return find_primary_sko(ou.get_parent(ou_perspective), fs,
+                                              ou_perspective)
     except Errors.NotFoundError:
         return None
 
@@ -466,7 +469,8 @@ def find_primary_sko(primary_ou_id, fs, ou_perspective):
 
 
 
-def _populate_caches(selection_criteria, authoritative_system, email_cache):
+def _populate_caches(selection_criteria, authoritative_system, email_cache,
+        ansattnr_code_str="NO_SAPNO"):
     """This is a performance enhacing hack.
 
     Looking things up on per-person basis takes too much time (about a
@@ -483,6 +487,11 @@ def _populate_caches(selection_criteria, authoritative_system, email_cache):
     @param email_cache:
       Controls whether we want to cache e-mail addresses. Caching them relies
       on the Email module, and some installations do not have it/use it.
+
+    @param ansattnr_code:
+      The textual code used to fetch the constant representing ansattnummer.
+      This should be \"NO_SAPNO\" for all higher education instances, so this
+      is set by default.
     """
 
     # Pre-load fnrs for everyone
@@ -574,6 +583,27 @@ def _populate_caches(selection_criteria, authoritative_system, email_cache):
     find_title = lambda p: _person_id2title.get(p.entity_id)
     logger.debug("Done preloading name information (%d entries)",
                  len(_person_id2name))
+
+    logger.debug("Preloading ansattnr information")
+    ansattnr_code = constants.EntityExternalId(ansattnr_code_str)
+    # We'll do this try/except/else stuff to insure that we get an existing
+    # constant.
+    try:
+        int(ansattnr_code)
+    except Errors.NotFoundError:
+        _fnr2ansattnr = dict()
+    else:
+        eid2fnr = person.getdict_fodselsnr()
+
+        _fnr2ansattnr = dict((eid2fnr[row['entity_id']], row['external_id'])
+                             for row in
+                             person.list_external_ids(
+                                 source_system=authoritative_system,
+                                 id_type=ansattnr_code))
+    global find_ansattnr
+    find_ansattnr = lambda p: _fnr2ansattnr.get(p)
+    logger.debug("Done preloading ansattnr information (%d entries)",
+                 len(_fnr2ansattnr))
 # end _populate_caches
 
 
@@ -600,7 +630,7 @@ def person2fs_info(row, person, authoritative_system):
       cannot proceed without a certain minimum of information about a person).
     """
 
-    person_id = int(row["person_id"])
+    person_id = int(row['person_id'])
     person.clear()
     person.find(person_id)
 
@@ -611,35 +641,35 @@ def person2fs_info(row, person, authoritative_system):
     try:
         date6, pnr = fodselsnr.del_fnr(fnr)
     except fodselsnr.InvalidFnrError:
-        logger.warn("Invalid fnr: %s (person_id=%s). Person will be ignored",
+        logger.warn('Invalid fnr: %s (person_id=%s). Person will be ignored', \
                     fnr, person_id)
         return None
-        
+
     date = person.birth_date
-    result = SimplePerson(**{"fnr11": fnr,
-                             "fnr6": date6,
-                             "pnr": pnr,
-                             "birth_date": date.strftime("%Y-%m-%d"),
-                             "gender": person.gender == constants.gender_male
+    result = SimplePerson(**{'fnr11': fnr,
+                             'fnr6': date6,
+                             'pnr': pnr,
+                             'birth_date': date.strftime('%Y-%m-%d'),
+                             'gender': person.gender == constants.gender_male
                                          and 'M' or 'K',
-                             "email": find_primary_mail_address(person),
-                             "phone": find_contact_info(person,
+                             'email': find_primary_mail_address(person),
+                             'phone': find_contact_info(person,
                                                         constants.contact_phone,
                                                         authoritative_system),
-                             "fax": find_contact_info(person,
+                             'fax': find_contact_info(person,
                                                       constants.contact_fax,
                                                       authoritative_system),
+                             'ansattnr': find_ansattnr(fnr),
                              })
-
     # Slurp in names...
     for name_type, attr_name in ((constants.name_first, 'name_first'),
                                  (constants.name_last, 'name_last'),):
         result[attr_name] = find_name(person, name_type, authoritative_system)
 
     # ... and work title
-    result["work_title"] = find_title(person)
-    if None in (result["name_first"], result["name_last"]):
-        logger.warn("Missing name for fnr=%s", fnr)
+    result['work_title'] = find_title(person)
+    if None in (result['name_first'], result['name_last']):
+        logger.warn('Missing name for fnr=%s', fnr)
         return None
     
     return result
@@ -745,17 +775,27 @@ def export_person(person_id, info_chunk, fs):
     """
 
     data = info_chunk
+    if not data.has_key('ansattnr'):
+        data.ansattnr = None
     if not fs.person.get_person(data.fnr6, data.pnr):
         try:
             logger.debug("Adding new entry to fs.person id=%s (fnr=%s)",
                          person_id, data["fnr11"])
-            fs.person.add_person(data.fnr6, data.pnr,
-                                 data.name_first, data.name_last, data.email,
-                                 data.gender, data.birth_date)
+            fs.person.add_person(data.fnr6, data.pnr, data.name_first,
+                                 data.name_last, data.email, data.gender,
+                                 data.birth_date, data.ansattnr)
+
         except Database.IntegrityError:
             logger.info("Insertion of id=%s (fnr=%s, email=%s) failed: %s",
                         person_id, data.fnr11, data.email,
                         exc2message(sys.exc_info()))
+    # Here we inject the ansattnummer for people that are already in the DB.
+    elif data.has_key('ansattnr') and data.ansattnr is not None:
+        try:
+            fs.person.set_ansattnr(data.fnr6, data.pnr, data.ansattnr)
+        except Database.IntegrityError:
+            logger.info("Setting of ansattnr=%d on id=%d failed: %s",
+                        data.ansattnr, person_id, exc2message(sys.exc_info()))
 # end export_person
 
 
@@ -964,7 +1004,7 @@ def main():
     _populate_caches(person_affiliations + fagperson_affiliations,
                      authoritative_system,
                      email_cache)
-
+    
     make_fs_updates(person_affiliations, fagperson_affiliations, fs,
                     authoritative_system, ou_perspective)
     logger.debug("Pushed all changes to FS")

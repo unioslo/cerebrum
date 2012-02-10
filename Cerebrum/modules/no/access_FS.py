@@ -95,7 +95,8 @@ class Person(FSObject):
         WHERE fodselsdato=:fnr AND personnr=:pnr""",  {'fnr': fnr, 'pnr': pnr})
 
     def add_person(self, fnr, pnr, fornavn, etternavn, email, kjonn,
-                   birth_date):
+                   birth_date, ansattsnr=None):
+        """Adds a person to the FS database. Ansattnr is not used in this implementation."""
         return self.db.execute("""
         INSERT INTO fs.person
           (fodselsdato, personnr, fornavn, etternavn, fornavn_uppercase,
@@ -108,6 +109,14 @@ class Person(FSObject):
             'etternavn': etternavn, 'email': email,
             'kjonn': kjonn, 'birth_date': birth_date,
             'fornavn2': fornavn, 'etternavn2': etternavn})
+    
+    def set_ansattnr(self, fnr, pnr, asn):
+        """Sets the ansattnr for a person. This is NOT implemented."""
+        pass
+    
+    def get_ansattnr(self, fnr, pnr):
+        """Gets the ansattnr for a person. This is NOT implemented."""
+        pass
 
     def get_personroller(self, fnr, pnr):
         """Helt alle personroller til fnr+pnr."""

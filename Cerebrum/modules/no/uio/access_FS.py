@@ -1062,6 +1062,7 @@ class FS(access_FS.FS):
         super(FS, self).__init__(db=db, user=user, database=database)
 
         # Override with uio-spesific classes
+        self.person = UiOPerson(self.db)
         self.student = UiOStudent(self.db)
         self.portal = UiOPortal(self.db)
         self.betaling = UiOBetaling(self.db)
@@ -1112,6 +1113,61 @@ class FS(access_FS.FS):
         except self.db.DatabaseError:
             pass
         return ''
+
+class UiOPerson(access_FS.Person):
+    def set_ansattnr(self, fnr, pnr, asn):
+        """Sets the ansattnr for a person"""
+        return self.db.execute("""
+        UPDATE fs.person SET ansattnr=:asn WHERE fodselsdato=:fnr
+        AND personnr=:pnr""", {'fnr': fnr, 'pnr': pnr, 'asn': asn})
+
+    def get_ansattnr(self, fnr, pnr):
+        """Gets the ansattnr for a person"""
+        return self.db.query("""
+                SELECT
+                    ansattnr
+                FROM
+                    fs.person
+                WHERE
+                    fodselsdato=:fnr
+                AND
+                    personnr=:pnr""",
+                {'fnr': fnr, 'pnr': pnr}, fetchall=True)
+
+    def add_person(self, fnr, pnr, fornavn, etternavn, email, kjonn,
+                   birth_date, ansattnr=None):
+        """Adds a person to the FS-database."""
+        if ansattnr is None:
+            ansattnr = 0
+        return self.db.execute("""
+        INSERT INTO fs.person
+          (fodselsdato, personnr, fornavn, etternavn, fornavn_uppercase,
+           etternavn_uppercase, emailadresse, kjonn, dato_fodt, ansattnr)
+        VALUES
+          (:fnr, :pnr, :fornavn, :etternavn, UPPER(:fornavn2),
+          UPPER(:etternavn2), :email, :kjonn,
+          TO_DATE(:birth_date, 'YYYY-MM-DD'), :ansattnr)""", {
+            'fnr': fnr, 'pnr': pnr, 'fornavn': fornavn,
+            'etternavn': etternavn, 'email': email,
+            'kjonn': kjonn, 'birth_date': birth_date,
+            'fornavn2': fornavn, 'etternavn2': etternavn,
+            'ansattnr': ansattnr})
+    
+    def update_fagperson(self, fodselsdato, personnr, **rest):
+        """Updates the specified columns in fagperson, when the field
+        'status_ekstern' is not equal 'J'"""
+
+        binds = {"fodselsdato": fodselsdato, "personnr": personnr, }
+        names_to_set = ["%s = :%s" % (x, x) for x in rest]
+        binds.update(rest)
+        return self.db.execute("""
+        UPDATE fs.fagperson
+        SET %s
+        WHERE fodselsdato = :fodselsdato AND personnr = :personnr
+        AND NOT status_ekstern = 'J'
+        """ % ", ".join(names_to_set), binds)
+    # end update_fagperson
+
 
 class FSvpd(FS):
     """Subclass of FS for handling Virtual Private Databases (VPD)."""
