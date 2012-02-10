@@ -19,7 +19,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-
 """This file is a SSØ-SAP extension of Cerebrum.
 
 It contains code which imports SAP-specific person/employee information into
@@ -30,21 +29,34 @@ way, should an update process (touching IDs) run concurrently with this
 import.
 """
 
-import cerebrum_path
-import cereconf
+import cerebrum_path, cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.hia.mod_sap_utils import make_person_iterator
 from Cerebrum.modules.no import fodselsnr
 
-import getopt
-import sys
-import re
+import getopt, sys, re
 
+def usage(exitcode=0):
+    print __doc__
+    print """
+    Usage: import_SAP_person.py --with[out]-fok --sap-file SAPFILE
 
+    -s --sap-file       The SAP person data file to import from. The file is in
+                        csv format and is normally called feide_persondata.txt.
 
+    --with-fok          Use forretningsområdekode as a check in the SAP file if
+                        a person should be imported or not.
 
+    --without-fok       Do not use forretningsområdekode for checking if a
+                        person should be imported.
+
+    -d --dryrun         Do not commit changes.
+
+    -h --help           Show this and quit.
+    """
+    sys.exit(exitcode)
 
 def locate_person(sap_id, fnr):
     """Locate a person who owns both SAP_ID and FNR.
@@ -480,7 +492,8 @@ def process_people(filename, use_fok):
 
         populate_communication(person, p)
         
-        populate_office(person, p)
+        if hasattr(const, 'contact_office'):
+            populate_office(person, p)
 
         populate_address(person, p)
 
@@ -501,12 +514,17 @@ def main():
     global const
     const = Factory.get("Constants")()
 
-    options, rest = getopt.getopt(sys.argv[1:],
-                                  "s:d",
-                                  ["sap-file=",
-                                   "dryrun",
-                                   "with-fok",
-                                   "without-fok",])
+    try:
+        options, rest = getopt.getopt(sys.argv[1:],
+                                      "s:d",
+                                      ["sap-file=",
+                                       "dryrun",
+                                       "with-fok",
+                                       "without-fok",])
+    except getopt.GetoptError, e:
+        print e
+        usage(1)
+
     input_name = None
     dryrun = False
     use_fok = None
@@ -515,13 +533,21 @@ def main():
             input_name = value
         elif option in ("-d", "--dryrun"):
             dryrun = True
+        elif option in ("-h", "--help"):
+            usage()
         elif option in ("--with-fok",):
             use_fok = True
         elif option in ("--without-fok",):
             use_fok = False
+        else:
+            print "Unknown argument: %s" % option
+            usage(1)
 
     if use_fok is None:
         sys.exit("You MUST specify --with{out}-fok")
+    if input_name is None:
+        print "No SAP file is specified"
+        usage(1)
 
     global database
     database = Factory.get("Database")()

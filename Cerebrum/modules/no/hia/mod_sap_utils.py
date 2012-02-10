@@ -36,6 +36,8 @@ import types
 from mx.DateTime import strptime
 from mx.DateTime import now
 
+import cerebrum_path, cereconf
+
 
 
 
@@ -53,7 +55,10 @@ def make_person_iterator(source, fok, logger=None):
       boolean determining whether to respect forretningsområdekode field. 
     """
 
-    if fok:
+    if getattr(cereconf, 'SAP_MG_MU_CODES'):
+        # TODO: should it be possible to use both MG/MU and fok?
+        kls = _SAPPersonDataTupleMGMU
+    elif fok:
         kls = _SAPPersonDataTupleFok
     else:
         kls = _SAPPersonDataTuple
@@ -411,6 +416,19 @@ class _SAPPersonDataTupleFok(_SAPPersonDataTuple):
 # end _SAPPersonDataTupleFok
 
 
+class _SAPPersonDataTupleMGMU(_SAPPersonDataTuple):
+    """This one makes use of medarbeidergrupper (MG) and medarbeiderundergrupper
+    (MU) to filter out persons."""
+
+    _field_rules = {'sap_mg': (37, int), 
+                    'sap_mu': (38, int), }
+
+    def valid(self):
+        """The MG-MU combination must be set in cereconf for the person to be
+        valid."""
+        return (cereconf.SAP_MG_MU_CODES.has_key(self.sap_mg) and
+               self.sap_mu in cereconf.SAP_MG_MU_CODES[self.sap_mg])
+# end _SAPPersonDataTupleMGMU
 
 class _SAPEmploymentTuple(_SAPTupleBase):
     """Adaptor class for feide_persti.txt.
