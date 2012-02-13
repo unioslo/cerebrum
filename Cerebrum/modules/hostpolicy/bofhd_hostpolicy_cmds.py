@@ -114,6 +114,7 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
                 'policy_add_member': 'Make a role/atom a member of a role',
                 'policy_remove_member': 'Remove a role membership',
                 'policy_list_members': 'List all members of a role',
+                'policy_has_member': 'List all roles that has given policy as member (its parents)',
                 'policy_list_hosts': 'List all hosts with the given policy (atom/role)', 
                 'policy_list_atoms': 'List all atoms by given filters',
                 'policy_list_roles': 'List all roles by given filters',
@@ -786,9 +787,40 @@ Example:
         component."""
         self.ba.assert_dns_superuser(operator.get_entity_id())
         comp = self._get_component(component_id)
-        return tuple({'policy_name': row['source_name']} for row in
-                      comp.search_relations(target_id=comp.entity_id,
-                            relationship_code=self.const.hostpolicy_contains))
+
+        def _get_parents(policyid, increment=0, already_processed=[]):
+            """Get all direct and indirect parents of a given policy and return
+            them as list of strings. The hierarchy is presented by a space
+            increment in the strings, e.g. when listing the policy
+            "abc_test_server":
+
+                test_servers
+                  server
+                    machine
+                abc_environment
+                  usit_env
+                    unix_any
+
+            We could have used search_relations with indirect_relations=True,
+            but then we couldn't see the hierarchy.
+
+            The L{already_processed} contains the policies already listed, to
+            avoid listing policies twice.
+            """
+            # TODO: there's probably a quicker solution to left padding:
+            inc = ''.join(' ' for i in range(increment))
+            parents = tuple(row for row in
+                    comp.search_relations(target_id=policyid,
+                              relationship_code=self.const.hostpolicy_contains))
+            ret = []
+            for row in sorted(parents, key=lambda r: r['source_name']):
+                ret.append({'policy_name': '%s%s' % (inc, row['source_name'])})
+                if row['source_id'] not in already_processed:
+                    ret.extend(_get_parents(row['source_id'], increment+2,
+                                            already_processed))
+                already_processed.append(row['source_id'])
+            return ret
+        return _get_parents(comp.entity_id, 0, [])
 
     all_commands['policy_list_atoms'] = Command(
             ('policy', 'list_atoms'),
