@@ -7007,8 +7007,9 @@ Addresses and settings:
         ("Name:          %s\n" +
          "Entity-id:     %i\n" +
          "Birth:         %s\n" +
+         "Spreads:       %s\n" +
          "Affiliations:  %s [from %s]",
-         ("name", "entity_id", "birth",
+         ("name", "entity_id", "birth", "spreads",
           "affiliation_1", "source_system_1")),
         ("               %s [from %s]",
          ("affiliation", "source_system")),
@@ -7035,7 +7036,8 @@ Addresses and settings:
         data = [{'name': p_name,
                  'entity_id': person.entity_id,
                  'birth': date_to_string(person.birth_date),
-                 'entity_id': person.entity_id}]
+                 'spreads': ", ".join([str(self.const.Spread(x['spread']))
+                                for x in person.get_spread()])}]
         affiliations = []
         sources = []
         for row in person.get_affiliations():
