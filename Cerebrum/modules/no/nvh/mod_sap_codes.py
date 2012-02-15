@@ -1264,11 +1264,11 @@ class SAPConstants(Constants.Constants):
         "ØVR"
     )
 
-    #sap_9101_ukjent = SAPLonnsTittelKode(
-    #    "20009101",
-    #    "9101 TODO ukjent",
-    #    "ØVR"
-    #)
+    sap_9101_adm_direktor = SAPLonnsTittelKode(
+        "20009101",
+        "9101 Adm. Direktør",
+        "ØVR"
+    )
 
     sap_9105_departementsrad_utenriksrad_ = SAPLonnsTittelKode(
         "20009105",
