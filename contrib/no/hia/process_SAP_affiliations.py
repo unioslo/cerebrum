@@ -56,7 +56,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import simple_memoize
-from Cerebrum.modules.no.hia.mod_sap_utils import load_expired_employees
+from Cerebrum.modules.no.hia.mod_sap_utils import load_expired_employees, load_invalid_employees
 from Cerebrum.modules.no.hia.mod_sap_utils import make_employment_iterator
 from Cerebrum.modules.no.Constants import SAPLonnsTittelKode
 from Cerebrum.modules.no import fodselsnr
@@ -80,7 +80,7 @@ def sap_employment2affiliation(sap_lonnstittelkode):
     The rules are:
 
     * aff = ANSATT, and VIT/ØVR depending on lonnstittelkode, when:
-      sap_lonnstilltekode != 20009999 (const.sap_9999_dummy_stillingskode)
+      sap_lonnstittelkode != 20009999 (const.sap_9999_dummy_stillingskode)
       fo_kode != 9999
       
     * aff = TILKNYTTET/ekstern, when:
@@ -259,7 +259,8 @@ def synchronise_affiliations(aff_cache, person, ou_id, affiliation, status):
 
 
 
-def process_affiliations(employment_file, person_file, use_fok):
+def process_affiliations(employment_file, person_file, use_fok,
+                         people_to_ignore=None):
     """Parse employment_file and determine all affiliations.
 
     There are roughly 3 distinct parts:
@@ -282,7 +283,11 @@ def process_affiliations(employment_file, person_file, use_fok):
             logger.debug("Ignored invalid entry for person: «%s»",
                          tpl.sap_ansattnr)
             continue
-        
+
+        if people_to_ignore and tpl.sap_ansattnr in people_to_ignore:
+            logger.debug("Invalid person with sap_id=%s", tpl.sap_ansattnr)
+            continue
+
         if tpl.sap_ansattnr in expired:
             logger.debug("Person sap_id=%s is no longer an employee; "
                          "all employment info will be ignored",
@@ -402,13 +407,20 @@ def synchronise_employment(employment_cache, tpl, person, ou_id):
 
 
 
-def process_employments(employment_file, use_fok):
+def process_employments(employment_file, use_fok, people_to_ignore=None):
     "Synchronise the data in person_employment based on the latest SAP file."
 
 
     logger.debug("processing employments")
     employment_cache = cache_db_employments()
     for tpl in make_employment_iterator(file(employment_file), use_fok, logger):
+        # TODO: shouldn't we skip entry if not tpl.valid() here?
+
+        if people_to_ignore and tpl.sap_ansattnr in people_to_ignore:
+            # e.g. those with wrong MG/MU
+            logger.debug("Invalid person with sap_id=%s", tpl.sap_ansattnr)
+            continue
+
         # just like process_affiliations
         ou_id = get_ou_id(tpl.sap_ou_id)
         if ou_id is None:
@@ -464,10 +476,15 @@ def main():
             os.access(employment_file, os.F_OK))
     assert use_fok is not None, "You MUST specify --with{out}-fok"
 
-    if sync_employment:
-        process_employments(employment_file, use_fok)
+    if getattr(cereconf, 'SAP_MG_MU_CODES', None) and use_fok:
+        raise Exception("Use of both MG/MU codes and fok isn't implemented")
 
-    process_affiliations(employment_file, person_file, use_fok)
+    ignored_people = load_invalid_employees(file(person_file), use_fok, logger)
+
+    if sync_employment:
+        process_employments(employment_file, use_fok, ignored_people)
+
+    process_affiliations(employment_file, person_file, use_fok, ignored_people)
 
     if dryrun:
         database.rollback()

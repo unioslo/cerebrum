@@ -55,7 +55,7 @@ def make_person_iterator(source, fok, logger=None):
       boolean determining whether to respect forretningsområdekode field. 
     """
 
-    if getattr(cereconf, 'SAP_MG_MU_CODES'):
+    if getattr(cereconf, 'SAP_MG_MU_CODES', None):
         # TODO: should it be possible to use both MG/MU and fok?
         kls = _SAPPersonDataTupleMGMU
     elif fok:
@@ -104,6 +104,11 @@ def load_expired_employees(source, fok, logger=None):
     return result
 # end load_expired_employees
     
+def load_invalid_employees(source, fok, logger=None):
+    """Collect SAP IDs for all invalid employees from source."""
+    return set(tpl.sap_ansattnr for tpl in make_person_iterator(source, fok, logger)
+               if not tpl.valid())
+# end load_invalid_employees
 
 
 ########################################################################
