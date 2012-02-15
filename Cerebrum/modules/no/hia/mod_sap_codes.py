@@ -167,6 +167,12 @@ class SAPConstants(Constants.Constants):
         "ØVR"
     )
 
+    sap_0810_spes_utd_sykepleier = SAPLonnsTittelKode(
+        "20000810",
+        "0810 Spes. Utd. Sykepleier",
+        "ØVR"
+    )
+
     sap_0829_barnehageassistent = SAPLonnsTittelKode(
         "20000829",
         "0829 Barnehageassistent",
@@ -188,6 +194,12 @@ class SAPConstants(Constants.Constants):
     sap_0835_instruktor_fysioterapeut = SAPLonnsTittelKode(
         "20000835",
         "0835 Instruktør/fysioterapeut",
+        "ØVR"
+    )
+
+    sap_0852_radiograf = SAPLonnsTittelKode(
+        "20000852",
+        "0852 Radiograf",
         "ØVR"
     )
 
@@ -959,6 +971,12 @@ class SAPConstants(Constants.Constants):
         "ØVR"
     )
 
+    sap_1256_avd_radiograf = SAPLonnsTittelKode(
+        "20001256",
+        "1256 Avd. radiograf",
+        "ØVR"
+    )
+
     sap_1257_observator_i = SAPLonnsTittelKode(
         "20001257",
         "1257 Observatør I",
@@ -1004,6 +1022,12 @@ class SAPConstants(Constants.Constants):
     sap_1307_pedagogisk_leder = SAPLonnsTittelKode(
         "20001307",
         "1307 Pedagogisk leder",
+        "ØVR"
+    )
+
+    sap_1308_klinikkveterinaer = SAPLonnsTittelKode(
+        "20001308",
+        "1308 Klinikkveterinær",
         "ØVR"
     )
 
@@ -1205,6 +1229,30 @@ class SAPConstants(Constants.Constants):
         "ØVR"
     )
 
+    sap_1476_spesialistkandidat = SAPLonnsTittelKode(
+        "20001476",
+        "1476 Spesialistkandidat",
+        "ØVR"
+    )
+
+    sap_1511_forskningstekniker = SAPLonnsTittelKode(
+        "20001511",
+        "1511 Forskningstekniker",
+        "ØVR"
+    )
+
+    sap_1512_forskningstekniker = SAPLonnsTittelKode(
+        "20001512",
+        "1512 Forskningstekniker",
+        "ØVR"
+    )
+
+    sap_1514_led_forskningstekniker = SAPLonnsTittelKode(
+        "20001514",
+        "1514 Ledende forskningstekniker",
+        "ØVR"
+    )
+
     sap_1515_bibliotekar = SAPLonnsTittelKode(
         "20001515",
         "1515 Bibliotekar",
@@ -1216,6 +1264,12 @@ class SAPConstants(Constants.Constants):
         "1532 Dosent",
         "ØVR"
     )
+
+    #sap_9101_ukjent = SAPLonnsTittelKode(
+    #    "20009101",
+    #    "9101 TODO ukjent",
+    #    "ØVR"
+    #)
 
     sap_9105_departementsrad_utenriksrad_ = SAPLonnsTittelKode(
         "20009105",
