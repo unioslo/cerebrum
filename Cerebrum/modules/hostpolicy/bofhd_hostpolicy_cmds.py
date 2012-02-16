@@ -764,17 +764,77 @@ Example:
     all_commands['policy_list_hosts'] = Command(
             ('policy', 'list_hosts'),
             PolicyId(),
-            fs=FormatSuggestion('%-20s', ('host_name',),
-                hdr='%-20s' % ('Host',)),
+            fs=FormatSuggestion('%s', ('host_or_policy',)),
             perm_filter='is_dns_superuser')
     def policy_list_hosts(self, operator, component_id):
         """List all hosts that has a given policy (role/atom)."""
         self.ba.assert_dns_superuser(operator.get_entity_id())
         comp = self._get_component(component_id)
-        ret = set(row['dns_owner_name'] for row in
-                  comp.search_hostpolicies(policy_id=comp.entity_id,
-                                           indirect_relations=True))
-        return tuple({'host_name': row} for row in ret)
+        def _get_hosts(policyid, increment=0, already_hosts=[],
+                       already_policies=[]):
+            """Recursive function for getting all hosts at the given policy and
+            its child policies. Returned as a list of strings, where each
+            recursion pads its strings with spaces.
+
+            Note that both policies and hosts are returned, as one needs to see
+            what subpolicy a host is targeted through.
+
+                jbofh> polic list_hosts server
+                
+                  master-server.uio.no.
+                  usit-master.uio.no.
+                  crond_running
+                    usit-worker-server.uio.no.
+                  sharedhost
+                    login.uio.no.
+                    login.ifi.uio.no.
+                    selinux-sharedhosts
+                      usit-login.uio.no.
+                      logon-test.uio.no.
+                    usertestservers
+                      test-login.uio.no.
+                  abc-server
+                    abc-test-server
+                      abc-test-server-external
+                        abcexttests.uio.no.
+
+            One can differ between hosts and policies in that all hosts are
+            returned by their FQDN.
+
+            TBD: Now hosts are only returned through the first found relation,
+            even though it can be related to a policy in many, many ways. Not
+            decided if all relations should be shown for a host.
+
+            The L{already_policies} contains the policies already listed, to
+            avoid listing the same policy twice. The L{already_hosts} contains
+            hosts already listed, to avoid listing the same host twice.
+            """
+            # TODO: there's probably a quicker solution to left padding:
+            inc = ''.join(' ' for i in range(increment))
+
+            # get this policy's hosts
+            ret = []
+            for row in comp.search_hostpolicies(policy_id=policyid):
+                h_id = row['dns_owner_id']
+                if h_id in already_hosts:
+                    continue
+                already_hosts.append(h_id)
+                ret.append({'host_or_policy': '%s%s' % (inc,
+                                                        row['dns_owner_name'])})
+
+            # get children policies if they have hosts related to them
+            children = tuple(row for row in comp.search_relations(policyid,
+                             relationship_code=self.const.hostpolicy_contains)
+                             if row['target_id'] not in already_policies)
+            for row in sorted(children, key=lambda r: r['target_name']):
+                already_policies.append(row['target_name'])
+                subs = _get_hosts(row['target_id'], increment+2, already_hosts,
+                                  already_policies)
+                if subs:
+                    ret.append({'host_or_policy': '%s%s' % (inc, row['target_name'])})
+                    ret.extend(subs)
+            return ret
+        return _get_hosts(comp.entity_id)
 
     all_commands['policy_has_member'] = Command(
             ('policy', 'has_member'),
