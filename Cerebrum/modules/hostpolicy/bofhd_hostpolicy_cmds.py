@@ -773,7 +773,7 @@ Example:
         def _get_hosts(policyid, increment=0, already_hosts=[],
                        already_policies=[]):
             """Recursive function for getting all hosts at the given policy and
-            its child policies. Returned as a list of strings, where each
+            its parent policies. Returned as a list of strings, where each
             recursion pads its strings with spaces.
 
             Note that both policies and hosts are returned, as one needs to see
@@ -822,16 +822,16 @@ Example:
                 ret.append({'host_or_policy': '%s%s' % (inc,
                                                         row['dns_owner_name'])})
 
-            # get children policies if they have hosts related to them
-            children = tuple(row for row in comp.search_relations(policyid,
+            # get parent policies if they have hosts related to them
+            parent = tuple(row for row in comp.search_relations(target_id=policyid,
                              relationship_code=self.const.hostpolicy_contains)
-                             if row['target_id'] not in already_policies)
-            for row in sorted(children, key=lambda r: r['target_name']):
-                already_policies.append(row['target_name'])
-                subs = _get_hosts(row['target_id'], increment+2, already_hosts,
+                             if row['source_id'] not in already_policies)
+            for row in sorted(parent, key=lambda r: r['source_name']):
+                already_policies.append(row['source_id'])
+                subs = _get_hosts(row['source_id'], increment+2, already_hosts,
                                   already_policies)
                 if subs:
-                    ret.append({'host_or_policy': '%s%s' % (inc, row['target_name'])})
+                    ret.append({'host_or_policy': '%s%s' % (inc, row['source_name'])})
                     ret.extend(subs)
             return ret
         return _get_hosts(comp.entity_id)
