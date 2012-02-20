@@ -117,6 +117,16 @@ class AccountUiOMixin(Account.Account):
                       "Cannot add Notes-spread to a non-personal account."
         return ret
 
+    def create(self, name, owner_type, owner_id, np_type, creator_id,
+               expire_date=None, parent=None):
+        ret = self.__super.create(name, owner_type, owner_id, np_type,
+                                  creator_id, expire_date, parent)
+        # TODO: add spreads etc.
+        # TODO: Make use of cereconf.BOFHD_NEW_USER_SPREADS?
+        #       Note that bofhd adds default spreads, while process_students
+        #       might not want to give this to those with STUDENT/opptak.
+        return ret
+
     def set_home(self, spread, homedir_id):
         ret = self.__super.set_home(spread, homedir_id)
         spreads = [int(r['spread']) for r in self.get_spread()]
@@ -197,7 +207,6 @@ class AccountUiOMixin(Account.Account):
         return ret
 
     def _UiO_update_email_server(self, server_type):
-
         """Due to diverse legacy stuff and changes in server types as
            well as requirements for assigning e-mail accounts this
            process is getting rather complicated. The email servers are

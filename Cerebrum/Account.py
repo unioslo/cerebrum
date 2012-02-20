@@ -449,10 +449,21 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                       'np_type', 'creator_id', 'expire_date', 'create_date',
                       '_auth_info', '_acc_affect_auth_types')
 
+    def create(self, name, owner_type, owner_id, np_type, creator_id,
+               expire_date=None, parent=None):
+        """Method for creating a regular account. Should be subclassed for
+        instance specific behaviour, e.g. setting default spreads, creating
+        home disks, fixing group memberships etc."""
+        ret = self.populate(name, owner_type, owner_id, np_type, creator_id,
+                            expire_date, parent)
+        # Settings that is used in every instance could be added here.
+        self.write_db()
+        return ret
+
     def deactivate(self):
-        # deactivate is commonly thought of as removal of spreads and
-        # setting of expire_date < today. in addition a deactivated
-        # account should not have any group memberships
+        """Deactivate is commonly thought of as removal of spreads and setting
+        of expire_date < today. in addition a deactivated account should not
+        have any group memberships."""
         group = Utils.Factory.get("Group")(self._db)
         self.expire_date = mx.DateTime.now()
         for s in self.get_spread():
