@@ -1306,7 +1306,17 @@ class BofhdExtension(BofhdCommandBase):
          ("status",)),
         ]))
     def email_info(self, operator, uname):
-        et, acc = self.__get_email_target_and_account(uname)
+        try:
+            et, acc = self.__get_email_target_and_account(uname)
+        except CerebrumError, e:
+            # handle accounts with email address stored in contact_info
+            try:
+                ac = self._get_account(uname)
+                return self._email_info_contact_info(operator, ac)
+            except CerebrumError:
+                pass
+            raise e
+
         ttype = et.email_target_type
         ttype_name = str(self.const.EmailTarget(ttype))
 
@@ -1367,6 +1377,18 @@ class BofhdExtension(BofhdCommandBase):
             ret += self._email_info_forwarding(et, uname)
 
         return ret
+
+    def _email_info_contact_info(self, operator, acc):
+        """Some accounts doesn't have an e-mail account, but could have stored
+        an e-mail address in the its contact_info.
+        
+        Note that this method raises an exception if no such contact_info
+        address was found."""
+        addresses = acc.get_contact_info(type=self.const.contact_email)
+        if not addresses:
+            raise CerebrumError("No contact info for: %s" % acc.account_name)
+        ret = [{'target_type': 'entity_contact_info'},]
+        return ret + [{'valid_addr_1': a['contact_value']} for a in addresses]
 
     def _email_info_account(self, operator, acc, et, addrs):
         self.ba.can_email_info(operator.get_entity_id(), acc)
