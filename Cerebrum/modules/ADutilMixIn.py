@@ -30,29 +30,35 @@ class ADutil(object):
 
     def __init__(self, db, co, logger,
              host=cereconf.AD_SERVER_HOST, port=cereconf.AD_SERVER_PORT,
-             url=None, ad_ldap=cereconf.AD_LDAP):
+             url=None, ad_ldap=cereconf.AD_LDAP, dry_run=False):
         """
         Initialize AD syncronization, i.e. connect to AD service on
         given host.
         """
         self.db = db
         self.co = co
-        ad_domain_admin = cereconf.AD_DOMAIN_ADMIN_USER
-        if url is None:
-            password = read_password(ad_domain_admin, host)
-            url = "https://%s:%s@%s:%i" % (ad_domain_admin, password,
-                                           host, port)
-        else:
-            m = re.match(r'([^:]+)://([^:]+):(\d+)', url)
-            if not m:
-                raise ValueError, "Error parsing URL: %s" % url
-            protocol = m.group(1)
-            host = m.group(2)
-            port = m.group(3)
-            password = read_password(ad_domain_admin, host)
-            url = "%s://%s:%s@%s:%s" % (protocol, ad_domain_admin, password, host, port)
-        self.server = xmlrpclib.Server(url)
         self.logger = logger
+        ad_domain_admin = cereconf.AD_DOMAIN_ADMIN_USER
+        try:
+            if url is None:
+                password = read_password(ad_domain_admin, host)
+                url = "https://%s:%s@%s:%i" % (ad_domain_admin, password,
+                                               host, port)
+            else:
+                m = re.match(r'([^:]+)://([^:]+):(\d+)', url)
+                if not m:
+                    raise ValueError, "Error parsing URL: %s" % url
+                protocol = m.group(1)
+                host = m.group(2)
+                port = m.group(3)
+                password = read_password(ad_domain_admin, host)
+                url = "%s://%s:%s@%s:%s" % (protocol, ad_domain_admin, password, host, port)
+            self.server = xmlrpclib.Server(url)
+        except IOError, e:
+            if not dry_run:
+                raise e
+            self.logger.critical(e)
+            self.logger.warn("No AD connection, so dryrunning cerebrum code only")
         self.ad_ldap = ad_ldap
 
 

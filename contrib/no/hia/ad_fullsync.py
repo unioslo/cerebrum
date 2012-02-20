@@ -36,6 +36,9 @@ Usage: [options]
   --store-sid: write sid of new AD objects to cerebrum databse as external ids.
                default is _not_ to write sid to database.
   --dryrun: report changes that would have been done without --dryrun.
+            Note that this executes the caching of Cerebrum data even when the
+            AD server can't be reached. This makes it easier to debug some of
+            the code.
   --delete: this option ensures deleting superfluous groups. default
             is _not_ to delete groups.
   --logger-level LEVEL: default is INFO
@@ -80,7 +83,7 @@ def fullsync(user_sync, group_sync, maillists_sync, forwarding_sync,
         # written to log
         try:
             # instantiate sync_class and call full_sync
-            ADsync.ADFullUserSync(db, co, logger).full_sync(
+            ADsync.ADFullUserSync(db, co, logger, dry_run=dryrun).full_sync(
                 delete=delete_objects, spread=user_spread, dry_run=dryrun,
                 store_sid=store_sid, exchange_spread=user_exchange_spread,
                 imap_spread=user_imap_spread, forwarding_sync=forwarding_sync)
