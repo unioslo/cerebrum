@@ -220,17 +220,17 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             # Street address
             street = self.person.get_entity_address(source=self.co.system_sap,
                                                     type=self.co.address_street)
-            v['street'] = ''
+            for s in ('streetAddress', 'postalCode', 'l', 'co'):
+                v[s] = ''
             if street:
                 street = street[0]
-                v['street'] = ', '.join(str(street[s]) for s in ('address_text',
-                                                            'p_o_box',
-                                                            'postal_number',
-                                                            'city',)
-                                        if street[s])
+                v['streetAddress'] = ', '.join(str(street[s]) for s in
+                                               ('address_street', 'p_o_box')
+                                               if street[s])
+                v['postalCode'] = str(street['postal_number'])
+                v['l'] = str(street['city'])
                 if street['country']:
-                    v['street'] += ', %s' % self.co.Country(street['country'])
-
+                    v['co'] = self.co.Country(street['country']).country
             # Room number
             roomnumber = self.person.get_contact_info(type=self.co.contact_office,
                                                       source=self.co.system_sap)
