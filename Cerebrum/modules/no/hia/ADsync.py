@@ -172,7 +172,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         @param user_dict: account_id -> account info mapping
         @type user_dict: dict
         """
-        for v in user_dict.itervalues(): 
+        for ac_id, v in user_dict.iteritems(): 
             self.person.clear()
             try:
                 self.person.find(v['TEMPownerId'])
@@ -190,7 +190,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 # phone number is in a defined SIP serie.
                 if any(v['telephoneNumber'].startswith(pre) for pre in
                        ('37233', '38141', '38142')):
-                    v['ipPhone'] = v['telephoneNumber'][-4:]
+                    if ac_id == self.person.get_primary_account():
+                        v['ipPhone'] = v['telephoneNumber'][-4:]
 
             # If person has a personal_title, it should be used;
             # otherwise go for worktitle
@@ -289,6 +290,10 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
           'title' : String                # tittel
           'mailNickname' : String         # brukernavn
           'targetAddress' : String        # ekstern adresse
+          'streetAddress' : String        # kontoradresse
+          'postalCode' : String           # postnummer til kontoradresse
+          'l': String                     # By for kontoradresse
+          'co': String                    # Land for kontoradresse
           'mDBOverHardQuotaLimit' : int   # epostkvote
           'mDBOverQuotaLimit' : int       # epostkvote
           'mDBStorageQuota' : int         # epostkvote
