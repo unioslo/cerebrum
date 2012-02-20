@@ -227,7 +227,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 street = street[0]
                 v['streetAddress'] = ', '.join(str(street[s]) for s in
                                                ('address_street', 'p_o_box')
-                                               if street[s])
+                                               if street.get(s, None))
                 v['postalCode'] = str(street['postal_number'])
                 v['l'] = str(street['city'])
                 if street['country']:
