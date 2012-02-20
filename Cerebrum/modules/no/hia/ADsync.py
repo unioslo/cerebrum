@@ -222,14 +222,14 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                                                     type=self.co.address_street)
             v['street'] = ''
             if street:
-                # TODO: what format? Now it's just comma separated...
                 street = street[0]
-                v['street'] = ', '.join(str(street[v]) for v in ('address_text',
+                v['street'] = ', '.join(str(street[s]) for s in ('address_text',
                                                             'p_o_box',
                                                             'postal_number',
-                                                            'city',
-                                                            'country',)
-                                        if street[v])
+                                                            'city',)
+                                        if street[s])
+                if street['country']:
+                    v['street'] += ', %s' % self.co.Country(street['country'])
 
             # Room number
             roomnumber = self.person.get_contact_info(type=self.co.contact_office,
