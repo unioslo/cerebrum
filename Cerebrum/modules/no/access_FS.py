@@ -302,27 +302,36 @@ class Student(FSObject):
         """ % self._get_termin_aar(only_current=1)
         return self.db.query(qry)
 
-    def get_semreg(self,fnr,pnr):  # GetStudentSemReg
-        """Hent data om semesterregistrering for student i nåværende semester."""
+    def get_semreg(self, fnr, pnr, only_valid=True):  # GetStudentSemReg
+        """Hent data om semesterregistrering for student i nåværende semester.
+        Om only_valid er True, vil berre gyldige registreringar bli
+        returnerte, altså det som reknast som "gyldig registerkort"."""
+        sjekk_betaling = ''
+        if only_valid:
+            sjekk_betaling = "r.status_bet_ok = 'J' AND r.status_reg_ok = 'J' AND"
         qry = """
         SELECT DISTINCT
-          r.regformkode, r.betformkode, r.dato_betaling, r.dato_regform_endret,
+          r.regformkode, r.betformkode, r.dato_betaling,
+          r.dato_regform_endret, r.status_bet_ok, r.status_reg_ok,
           f.dato_endring
         FROM fs.registerkort r, fs.person p, fs.fakturareskontro f
         WHERE r.fodselsdato = :fnr AND
               r.personnr = :pnr AND
               r.fodselsdato = f.fodselsdato AND
               r.personnr = f.personnr AND
-              f.terminkode = '%s' AND
-              f.arstall = %s AND
-              %s AND
-              r.status_reg_ok = 'J' AND
-              r.status_bet_ok = 'J' AND
+              f.terminkode = '%(semester)s' AND
+              f.arstall = %(year)s AND
+              %(termin)s AND
+              %(sjekk_betaling)s
               NVL(r.status_ugyldig, 'N') = 'N' AND
               r.fodselsdato = p.fodselsdato AND
               r.personnr = p.personnr AND
-              %s
-        """ %(self.semester, self.year, self._get_termin_aar(only_current=1), self._is_alive())
+              %(is_alive)s
+        """ % {'semester': self.semester, 
+               'year': self.year, 
+               'termin': self._get_termin_aar(only_current=1), 
+               'is_alive': self._is_alive(),
+               'sjekk_betaling': sjekk_betaling}
         return self.db.query(qry, {'fnr': fnr, 'pnr': pnr})
 
     ## ToDo: Måten vi knytter vurdkombenhet mot vurdtidkode bør

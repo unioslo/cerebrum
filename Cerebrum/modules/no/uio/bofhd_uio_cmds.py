@@ -7218,7 +7218,7 @@ Addresses and settings:
         fs=FormatSuggestion([
         ("Studieprogrammer: %s, %s, %s, %s, tildelt=%s->%s privatist: %s",
          ("studprogkode", "studieretningkode", "studierettstatkode", "studentstatkode", 
-	  format_day("dato_tildelt"), format_day("dato_gyldig_til"), "privatist")),
+          format_day("dato_tildelt"), format_day("dato_gyldig_til"), "privatist")),
         ("Eksamensmeldinger: %s (%s), %s",
          ("ekskode", "programmer", format_day("dato"))),
         ("Underv.meld: %s, %s",
@@ -7226,9 +7226,11 @@ Addresses and settings:
         ("Utd. plan: %s, %s, %d, %s",
          ("studieprogramkode", "terminkode_bekreft", "arstall_bekreft",
           format_day("dato_bekreftet"))),
-        ("Semesterreg: %s, %s, FS bet. reg: %s, endret: %s",
-         ("regformkode", "betformkode", format_day("dato_endring"),
-          format_day("dato_regform_endret")))
+        ("Semesterregistrert: %s - %s, registrert: %s, endret: %s",
+         ("regstatus", "regformkode", format_day("dato_endring"),
+          format_day("dato_regform_endret"))),
+        ("Semesterbetaling: %s - %s, betalt: %s",
+         ("betstatus", "betformkode", format_day('dato_betaling'))),
         ]),
         perm_filter='can_get_student_info')
     def person_student_info(self, operator, person_id):
@@ -7298,11 +7300,34 @@ Addresses and settings:
                             'arstall_bekreft': row['arstall_bekreft'],
                             'dato_bekreftet': row['dato_bekreftet']})
 
-            for row in fs.student.get_semreg(fodselsdato, pnum):
-                ret.append({'regformkode': row['regformkode'],
-                            'betformkode': row['betformkode'],
+            def _ok_or_not(input):
+                """Helper function for proper feedback of status."""
+                if not input or input == 'N':
+                    return 'Nei'
+                if input == 'J':
+                    return 'Ja'
+                return input
+
+            semregs = tuple(fs.student.get_semreg(fodselsdato, pnum,
+                                                  only_valid=False))
+            for row in semregs:
+                ret.append({'regstatus': _ok_or_not(row['status_reg_ok']),
+                            'regformkode': row['regformkode'],
                             'dato_endring': row['dato_endring'],
                             'dato_regform_endret': row['dato_regform_endret']})
+                ret.append({'betstatus': _ok_or_not(row['status_bet_ok']),
+                            'betformkode': row['betformkode'],
+                            'dato_betaling': row['dato_betaling']})
+            # The semreg and sembet lines should always be sent, to make it
+            # easier for the IT staff to see if a student have paid or not.
+            if not semregs:
+                ret.append({'regstatus': 'Nei',
+                            'regformkode': None,
+                            'dato_endring': None,
+                            'dato_regform_endret': None})
+                ret.append({'betstatus': 'Nei',
+                            'betformkode': None,
+                            'dato_betaling': None})
         db.close()
         return ret
 
