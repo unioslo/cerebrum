@@ -242,8 +242,11 @@ class TwistedSoapStarter(BasicSoapStarter):
         """Setting up the soaplib framework."""
         if type(applications) not in (list, tuple, dict):
             applications = [applications]
+
+        # TODO: Subclass soaplib's Application to support sessions?
         self.service = soaplib.core.Application(applications, self.namespace)
-        self.wsgi_application = wsgi.Application(self.service)
+
+        self.wsgi_application = WSGISessionApplication(self.service)
 
     def setup_twisted(self):
         """Setting up the twisted service. Soaplib has to be setup first."""
@@ -350,38 +353,93 @@ class TwistedCerebrumLogger(log.FileLogObserver):
 
 # Hack of WSGI/soaplib to support sessions.
 #
-# Since the WSGI doesn't define any specific support for sessions and cookies we
-# need to hack it into soaplib's wsgi support. It is a bad hack, as it might
-# crash the server by later soaplib upgrades. This is why it is all put last in
-# this file, so it can be easier to locate and change it when problems occur.
+# Since the WSGI doesn't define any specific support for sessions and cookies
+# we need to hack it into soaplib's wsgi support. It is a bad hack, as the
+# code might break for other soaplib versions, and thus has to be tested
+# between each upgrade. This is why it is all put last in this file, so it can
+# be easier to locate and change when problems occur.
 #
 # To use the hack, you would need to use these subclasses in the server setup.
+# This should all be handled by TwistedSoapStarter.
+# 
 # Example code:
 #
-#    import SoapListener
+#    import SoapListener, soaplib, twisted
 #
-#    service = Application([IndividuationServer], 'tns')
+#    service = soaplib.core.Application([ClassWithPublicSoapMethods], 'tns')
 #    # instead of wsgi.Application(service):
 #    wsgi_app = SoapListener.WSGIApplication(service) 
+#    # this takes the session from the Request and give it to the soap data.
 #
-#    # instead of WSGIResource(reactor, ..., wsgi_app):
+#    # instead of twisted.web.wsgi.WSGIResource(reactor, ..., wsgi_app):
 #    resource = SoapListener.WSGIResourceSession(reactor,
-#                               reactor.getThreadPool(), wsgi_application)
+#                               reactor.getThreadPool(), wsgi_app)
+#    # this adds the session to the environment data, which will be sent to
+#    # the wsgi application
 #
-# If you do not put in these lines in your server setup, the soap server will be
-# unaffected by this hack, but you wouldn't have session-support.
-#
+# If you do not put in these lines in your server setup, the soap server will
+# be unaffected by this hack, but you wouldn't have session-support.
+# 
 from twisted.web.server import NOT_DONE_YET
-from twisted.web.wsgi import WSGIResource
+from twisted.web.wsgi import WSGIResource, _WSGIResponse
 
 class WSGIResourceSession(WSGIResource):
     def render(self, request):
-        """Creates the session, leaving the rest up to WSGIResource."""
-        if request.method == 'POST':
-            # Creates the session if it doesn't exist. When created, twisted
-            # automatically creates a cookie for it.
-            ISessionCache(request.getSession())
-        return super(WSGIResourceSession, self).render(request)
+        """Turn the request into the appropriate C{environ} C{dict} suitable
+        to be passed to the WSGI application object and then pass it on.
+
+        The WSGI application object is given almost complete control of the
+        rendering process.  C{NOT_DONE_YET} will always be returned in order
+        and response completion will be dictated by the application object, as
+        will the status, headers, and the response body.
+
+        Our subclass is for handling sessions, the rest should be up to
+        twisted."""
+        #if request.method == 'POST':
+        #    # Creates the session if it doesn't exist. When created, twisted
+        #    # automatically creates a cookie for it.
+        #    ISessionCache(request.getSession())
+        #return super(WSGIResourceSession, self).render(request)
+        response = _WSGISessionResponse(
+            self._reactor, self._threadpool, self._application, request)
+        response.start()
+        return NOT_DONE_YET
+
+# Hack for handing the session id over to wsgi, to be able to use sessions
+# inside of our wsgi. We subclass twisted's WSGI response to feed the WSGI
+# environment with its session. We can then grab it up in our subclasses of
+# soaplib and force it into the soap method. Note that we couldn't use global
+# variables, since we are in a threaded environment.
+class _WSGISessionResponse(_WSGIResponse):
+    """An override of _WSGIResponse to handle sessions."""
+    def __init__(self, reactor, threadpool, application, request):
+        super(_WSGISessionResponse, self).__init__(reactor, threadpool,
+                                                   application, request)
+        # Feed the session to the environment, as this is given to the wsgi
+        # application later on. getSession is checking the cookie for existing
+        # session IDs, and will create a session of it doesn't exist.
+        self.environ['twisted.session'] = request.getSession().uid
+
+class WSGISessionApplication(wsgi.Application):
+    """An override of soaplib.core.server.wsgi.Application to handle
+    sessions."""
+    def on_wsgi_call(self, environ):
+        super(WSGISessionApplication, self).on_wsgi_call(environ)
+        session = environ.get('twisted.session')
+        print "SESSION: %s" % session
+
+        # TODO: now, want to force the session id into the soap data:
+        #print "wsgi.input: %s" % environ['wsgi.input']
+
+        # TODO: howto read in the wsgi.input without destroying
+        # it? Might have to recreate it before putting it back in?
+
+        # TODO: read the input, parse it as xml and put in the
+        # session id as a parameter. Or any other hook we could
+        # put it into?
+
+        #for d in environ['wsgi.input']:
+        #    print "input: %s" % d
 
 # To make use of the session, we need to give it functionality, either by
 # adaption or subclassing, depending on what we need.
@@ -413,7 +471,7 @@ components.registerAdapter(SessionCache, Session, ISessionCache)
 #   site.sessionFactory = BasicSession
 
 
-#
+
 # Unicode/exception problem fix in twisted. We need to change safe_str's default
 # behaviour to also be able to encode unicode objects to strings, since we could
 # raise unicode exceptions.
