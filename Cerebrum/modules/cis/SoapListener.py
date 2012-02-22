@@ -380,8 +380,17 @@ class TwistedCerebrumLogger(log.FileLogObserver):
 # If you do not put in these lines in your server setup, the soap server will
 # be unaffected by this hack, but you wouldn't have session-support.
 # 
+
+import cgi
+from xml.sax.saxutils import unescape
+from lxml import etree
+from StringIO import StringIO
+
 from twisted.web.server import NOT_DONE_YET
-from twisted.web.wsgi import WSGIResource, _WSGIResponse
+from twisted.web.wsgi import WSGIResource, _WSGIResponse, _InputStream
+
+from soaplib.core.mime import collapse_swa
+from soaplib.core.namespaces import ns_soap_env
 
 class WSGIResourceSession(WSGIResource):
     def render(self, request):
@@ -424,22 +433,50 @@ class WSGISessionApplication(wsgi.Application):
     """An override of soaplib.core.server.wsgi.Application to handle
     sessions."""
     def on_wsgi_call(self, environ):
+        """Our problem is that we can't reach the session ID when inside. The
+        current solution to this problem is to read the XML-input and put the
+        session ID as the last argument to the called SOAP method.
+        
+        One side effect of this is that all SOAP methods have to define
+        session_id as their last argument, even though it's not used. Another
+        side effect is that the WSDL will specify the session_id for the
+        clients, even though its only optional, and will be ignored if it's
+        not the samme ID as in twisted's session cookie. These effects are not
+        show stoppers, though.
+        
+        Note that the parsing of input data is copied from how soaplib does
+        it. If the parsing throws exceptions, it is handled by twisted by
+        sending a Fault back to the client."""
         super(WSGISessionApplication, self).on_wsgi_call(environ)
         session = environ.get('twisted.session')
-        print "SESSION: %s" % session
 
-        # TODO: now, want to force the session id into the soap data:
-        #print "wsgi.input: %s" % environ['wsgi.input']
+        # Read in the input
+        input = environ['wsgi.input'].read(int(environ.get('CONTENT_LENGTH')))
 
-        # TODO: howto read in the wsgi.input without destroying
-        # it? Might have to recreate it before putting it back in?
+        # Clean up the input and parse the XML:
+        content_type = cgi.parse_header(environ.get("CONTENT_TYPE"))
+        input = collapse_swa(content_type, input)
+        xml_string = unescape(input, {"&apos;": "'", "&quot;": '"'})
+        xmlroot, xmlids = etree.XMLID(xml_string)
+        body = xmlroot.find('{%s}Body' % ns_soap_env)
 
-        # TODO: read the input, parse it as xml and put in the
-        # session id as a parameter. Or any other hook we could
-        # put it into?
+        for child in body.iterchildren():
+            already_set = child.find('{%s}session_id' % TwistedSoapStarter.namespace)
+            if already_set is None:
+                # create the session_id parameter
+                ele = etree.Element('{%s}session_id' % TwistedSoapStarter.namespace)
+                ele.text = session
+                child.append(ele)
+            elif already_set.text != session:
+                # overwrite the wrong session ID
+                log.msg('WARNING: wrong session_id, cookie="%s", param="%s"' % (
+                        session, already_set.text))
+                already_set.text = session
 
-        #for d in environ['wsgi.input']:
-        #    print "input: %s" % d
+        # converting it back to a stream, so soaplib can reread it:
+        input = etree.tostring(xmlroot, xml_declaration=True,
+                               encoding=content_type[1].get('charset'))
+        environ['wsgi.input'] = _InputStream(StringIO(input))
 
 # To make use of the session, we need to give it functionality, either by
 # adaption or subclassing, depending on what we need.
