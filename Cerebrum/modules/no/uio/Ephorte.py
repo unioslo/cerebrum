@@ -89,10 +89,6 @@ class EphorteConstants(ConstantsBase):
     # Values from the ePhorte table ARKIVDEL
     ephorte_arkivdel_avtale_uio = _EphorteArkivdelCode(
         'AVTALE UIO', 'Avtalearkiv ved Universitetet i Oslo')
-    ephorte_arkivdel_cristin = _EphorteArkivdelCode(
-        'CRISTIN', 'Current Research Information System in Norway')
-    ephorte_arkivdel_fs = _EphorteArkivdelCode(
-        'FS', 'FS - Felles studentsystem')
     ephorte_arkivdel_eiend_uio = _EphorteArkivdelCode(
         'EIEND UIO', 'Eiendomsarkiv ved Universitetet i Oslo')
     ephorte_arkivdel_khm_forn = _EphorteArkivdelCode(
