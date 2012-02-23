@@ -101,7 +101,7 @@ class EphorteConstants(ConstantsBase):
         'PERS UIO', 'Personalarkiv ved Universitetet i Oslo')
     ephorte_arkivdel_persav_uio = _EphorteArkivdelCode(
         'PERSAV UIO', 'Avsluttede personalmapper ved UiO')
-    ephorte_arkivdel_romani = _EphorteArkivdelCode(
+    ephorte_arkivdel_sak_romani = _EphorteArkivdelCode(
         'ROMANI', 'Romani og taterutvalget')
     ephorte_arkivdel_sak_nikk = _EphorteArkivdelCode(
         'SAK NIKK', 'Saksarkiv ved NIKK')
