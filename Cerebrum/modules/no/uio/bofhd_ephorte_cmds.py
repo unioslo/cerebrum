@@ -165,6 +165,7 @@ class BofhdExtension(BofhdCommandBase):
     all_commands['ephorte_add_role'] = Command(("ephorte", "add_role"), PersonId(), Rolle(), OU(), Arkivdel(), Journalenhet(), 
         perm_filter='can_add_ephorte_role')
     def ephorte_add_role(self, operator, person_id, role, sko, arkivdel, journalenhet):
+        not_ephorte_ou = False
         if not self.ba.can_add_ephorte_role(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to ephorte admins")
         try:
@@ -173,7 +174,7 @@ class BofhdExtension(BofhdCommandBase):
             raise CerebrumError("Unexpectedly found more than one person")
         ou = self._get_ou(stedkode=sko)
         if not ou.has_spread(self.const.spread_ephorte_ou):
-            raise CerebrumError("Cannot assign role to a non-ephorte OU")
+            not_ephorte_ou = True
         extra_msg = ""
         if not person.has_spread(self.const.spread_ephorte_person):
             person.add_spread(self.const.spread_ephorte_person)
@@ -183,6 +184,8 @@ class BofhdExtension(BofhdCommandBase):
         journalenhet = self._get_journalenhet(journalenhet)
         self.ephorte_role.add_role(person.entity_id, self._get_role_type(role), ou.entity_id,
                                    arkivdel, journalenhet, auto_role='F')
+        if not_ephorte_ou:
+            return "Warning: Added %s role for %s%s to a non-archive OU %s " % (role, person_id, extra_msg, sko)
         return "OK, added %s role for %s%s" % (role, person_id, extra_msg)
 
 
