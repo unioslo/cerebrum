@@ -283,9 +283,21 @@ def generate_export(fname, spread=co.spread_ephorte_person):
             tmp['phone'] = row['contact_value']
 
     # Get OU's with ephorte spread
-    has_ou_ephorte_spread = [row['entity_id'] for row in
-                             ou.list_all_with_spread(spreads=co.spread_ephorte_ou)]
-    
+    # 
+    # due to a logical error in ephorte-sync we have to allow
+    # non-existing OU's to be assigned roles. the background for
+    # this change is available in ePhorte case 2011/14072
+    # registrered 10th of november 2011 by Astrid Optun and
+    # updated by USIT in january 2012
+    #
+    # has_ou_ephorte_spread = [row['entity_id'] for row in
+    #                         ou.list_all_with_spread(spreads=co.spread_ephorte_ou)]
+    # 
+    # it would be better to rename/remove has_ou_ephorte_spread-stuff
+    # completely, but the rumor has it that we will be re-writing the
+    # whole ephorte-sync anyway, so we just cannot be bothered now,
+    # Jazz, 2012-02-23
+    has_ou_ephorte_spread = [row['ou_id'] for row in ou.search()]
     logger.info("Fetching roles...")
     for row in ephorte_role.list_roles():
         tmp = persons.get(int(row['person_id']), None)
