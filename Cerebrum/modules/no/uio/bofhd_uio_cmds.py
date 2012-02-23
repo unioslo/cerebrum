@@ -1,4 +1,4 @@
-'# -*- coding: iso-8859-1 -*-
+# -*- coding: iso-8859-1 -*-
 
 # Copyright 2002-2011 University of Oslo, Norway
 #
