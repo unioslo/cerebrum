@@ -89,6 +89,10 @@ class EphorteConstants(ConstantsBase):
     # Values from the ePhorte table ARKIVDEL
     ephorte_arkivdel_avtale_uio = _EphorteArkivdelCode(
         'AVTALE UIO', 'Avtalearkiv ved Universitetet i Oslo')
+    ephorte_arkivdel_cristin = _EphorteArkivdelCode(
+        'CRISTIN', 'Current Research Information System in Norway')
+    ephorte_arkivdel_fs = _EphorteArkivdelCode(
+        'FS', 'FS - Felles studentsystem')
     ephorte_arkivdel_eiend_uio = _EphorteArkivdelCode(
         'EIEND UIO', 'Eiendomsarkiv ved Universitetet i Oslo')
     ephorte_arkivdel_khm_forn = _EphorteArkivdelCode(
@@ -119,13 +123,8 @@ class EphorteConstants(ConstantsBase):
         'J-NIKK', 'Journalenhet for NIKK - Nordisk institutt for kvinne- og kjønnsforskn')
     ephorte_journenhet_romani = _EphorteJournalenhetCode(
         'J-ROMANI', 'Journalenhet for ROMANI - prosjektet')
-    # Avventer svar fra esak om hvorvidt disse enhetene skal legges
-    # inn. Jazz, 2012-01-26
-    # ephorte_journenhet_cristin = _EphorteJournalenhetCode(
-    #     'J-CRISTIN', 'Journalenhet for CRISTIN')
-    # ephorte_journenhet_fs = _EphorteJournalenhetCode(
-    #     'J-FS', 'Journalenhet for FS')
 
+    # Spreads relevant for ephorte
     spread_ephorte_person = _SpreadCode('ePhorte_person',
                                         Constants.Constants.entity_person,
                                         'Person included in ePhorte export')
