@@ -95,9 +95,15 @@ class PopulateEphorte(object):
                           for r in ou.search_name_with_language(entity_type=co.entity_ou,
                                                            name_language=co.language_nb,
                                                            name_variant=co.ou_name_display))
-        for row in ou.search(spread=co.spread_ephorte_ou):
-            self.pols_ephorte_ouid2name[int(row['ou_id'])] = ou_id2name.get(
-                                                             row["ou_id"], "")
+        # due to a logical error in ephorte-sync we have to allow
+        # non-existing OU's to be assigned roles. the background for
+        # this change is available in ePhorte case 2011/14072
+        # registrered 10th of november 2011 by Astrid Optun and
+        # updated by USIT in january 2012
+        #
+        # for row in ou.search(spread=co.spread_ephorte_ou):
+        for row in ou.search():
+            self.pols_ephorte_ouid2name[int(row['ou_id'])] = ou_id2name.get(row["ou_id"], "")
         logger.info("Found %d ous with spread ePhorte_ou" %
                     len(self.pols_ephorte_ouid2name.keys()))
         ##
