@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+'# -*- coding: iso-8859-1 -*-
 
 # Copyright 2002-2011 University of Oslo, Norway
 #
@@ -3939,7 +3939,7 @@ Addresses and settings:
         """Return queue and host of RT queue as tuple."""
         if queuename.count('@') == 0:
             # Use the default host
-            return queuename, "hjelp.uio.no"
+            return queuename, "rt.uio.no"
         elif queuename.count('@') > 1:
             raise CerebrumError, "Invalid RT queue name: %s" % queuename
         return queuename.split('@')
