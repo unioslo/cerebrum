@@ -79,10 +79,6 @@ class PopulateEphorte(object):
             elif sko in cereconf.EPHORTE_NIKK_SKO:
                 self.ouid_2roleinfo[ou_id] = (
                     int(co.ephorte_arkivdel_sak_nikk), int(co.ephorte_journenhet_nikk))
-            # Specal case, ROMANI
-            elif sko in cereconf.EPHORTE_ROMANI_SKO:
-                self.ouid_2roleinfo[ou_id] = (
-                    int(co.ephorte_arkivdel_sak_romani), int(co.ephorte_journenhet_romani))
             # Default case
             else:
                 self.ouid_2roleinfo[ou_id] = (
