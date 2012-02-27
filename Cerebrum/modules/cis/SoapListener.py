@@ -449,10 +449,9 @@ class WSGISessionApplication(wsgi.Application):
         sending a Fault back to the client."""
         super(WSGISessionApplication, self).on_wsgi_call(environ)
         session = environ.get('twisted.session')
-
+        
         # Read in the input
         input = environ['wsgi.input'].read(int(environ.get('CONTENT_LENGTH')))
-
         # Clean up the input and parse the XML:
         content_type = cgi.parse_header(environ.get("CONTENT_TYPE"))
         input = collapse_swa(content_type, input)
@@ -472,11 +471,12 @@ class WSGISessionApplication(wsgi.Application):
                 log.msg('WARNING: wrong session_id, cookie="%s", param="%s"' % (
                         session, already_set.text))
                 already_set.text = session
-
         # converting it back to a stream, so soaplib can reread it:
         input = etree.tostring(xmlroot, xml_declaration=True,
                                encoding=content_type[1].get('charset'))
+        environ['CONTENT_LENGTH'] = len(input)
         environ['wsgi.input'] = _InputStream(StringIO(input))
+
 
 # To make use of the session, we need to give it functionality, either by
 # adaption or subclassing, depending on what we need.
