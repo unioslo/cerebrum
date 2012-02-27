@@ -322,6 +322,13 @@ class TwistedSoapStarter(BasicSoapStarter):
 ### changes when upgrading to newer versions of the packages.
 
 # Modifying the logger to work with Cerebrum
+# Note that Twisted Core 11.1.0 supports log prefixes:
+#   - Protocols may now implement ILoggingContext to customize their
+#     logging prefix.  twisted.protocols.policies.ProtocolWrapper and the
+#     endpoints wrapper now take advantage of this feature to ensure the
+#     application protocol is still reflected in logs. (#5062)
+# which means that this can be removed when upgrading to later twisted
+# versions.
 class TwistedCerebrumLogger(log.FileLogObserver):
     """Modifying twisted's logger to a more Cerebrum-like format. Used by
     default in TwistedSoapStarter.setup_logging."""
@@ -457,6 +464,7 @@ class WSGISessionApplication(wsgi.Application):
         input = collapse_swa(content_type, input)
         xml_string = unescape(input, {"&apos;": "'", "&quot;": '"'})
         xmlroot, xmlids = etree.XMLID(xml_string)
+
         body = xmlroot.find('{%s}Body' % ns_soap_env)
 
         for child in body.iterchildren():
@@ -476,7 +484,6 @@ class WSGISessionApplication(wsgi.Application):
                                encoding=content_type[1].get('charset'))
         environ['CONTENT_LENGTH'] = len(input)
         environ['wsgi.input'] = _InputStream(StringIO(input))
-
 
 # To make use of the session, we need to give it functionality, either by
 # adaption or subclassing, depending on what we need.
@@ -512,6 +519,9 @@ components.registerAdapter(SessionCache, Session, ISessionCache)
 # Unicode/exception problem fix in twisted. We need to change safe_str's default
 # behaviour to also be able to encode unicode objects to strings, since we could
 # raise unicode exceptions.
+# 
+# TODO: this could be removed, as we have cirumvented this issue. It should be
+# tested first, though.
 #
 from twisted.python import reflect
 def safer_str(o):
