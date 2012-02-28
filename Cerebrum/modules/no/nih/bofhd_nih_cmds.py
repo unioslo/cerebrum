@@ -70,10 +70,10 @@ class BofhdExtension(BofhdCommandBase):
         # copy relevant e-mail-cmds and util methods
         #
         'email_info', 'email_update', 'email_mod_name', 
-        '_email_info_spam', '_email_info_filters',
+        '_email_info_spam', '_email_info_filters', '_email_info_contact_info',
         '_email_info_forwarding', '_split_email_address',
         '_email_info_mailman', '_email_info_multi', '_email_info_file',
-        '_email_info_pipe', '_email_info_forward',
+        '_email_info_pipe', '_email_info_forward', 'email_reassign_address',
         'email_add_address', '_get_email_domain', 'email_remove_address',
         '_split_email_address', '_remove_email_address',
         #

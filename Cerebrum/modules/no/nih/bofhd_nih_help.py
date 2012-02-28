@@ -20,6 +20,8 @@
 
 group_help = {
     'access': "Access (authorisation) related commands",
+    'email': "E-mail commands",
+    'entity': "Entity commands",
     'group': "Group commands",
     'misc': 'Miscellaneous commands',
     'person': 'Person related commands',
@@ -59,6 +61,29 @@ command_help = {
     'access_user':
        "List who's authorised to operate on account <uname>",
     },
+    'email': {
+        "email_add_address":
+            "Add an alias address",
+        "email_remove_address":
+            "Remove an alias address",
+        "email_reassign_address":
+            "Move an address from one account to another",
+        "email_update":
+            "Update default address and aliases associated with account",
+        "email_mod_name":
+            "Override name for person (to be used in e-mail address)",
+        "email_set_primary_address":
+            "Changes the primary address for the e-mail target to the specified "\
+            "value",
+        "email_info":
+            "View e-mail information about a user or address",
+        },
+    'entity': {
+        'entity_contactinfo_add':
+            "Add contact information to entity.",
+        'entity_history':
+            "List the changes made to entity.",
+        },
     'group': {
     'group_add': 'Let an account join a group',
     'group_create': 'Create a new Cerebrum group',
@@ -213,7 +238,7 @@ affiliation status codes"""],
     'group_name_src':
         ['gname', 'Enter the source group'],
     'group_name_moderator':
-	['gname', 'Enter the name of the moderator group'],
+        ['gname', 'Enter the name of the moderator group'],
     'group_operation':
         ['op', 'Enter group operation',
          """Three values are legal: union, intersection and difference.
@@ -382,7 +407,7 @@ printer."""],
     'string_description':
         ['description', 'Enter description'],
     'string_spread':
-	['spread', 'Enter spread. Example: group@ad group@lms'],
+        ['spread', 'Enter spread. Example: group@ad group@lms'],
     'string_email_host':
         ['hostname', 'Enter e-mail server.  Example: cyrus02'],
     'string_filename':

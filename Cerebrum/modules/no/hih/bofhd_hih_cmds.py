@@ -73,7 +73,7 @@ class BofhdExtension(BofhdCommandBase):
         'email_info', 'email_update', '_email_info_spam', '_email_info_filters',
         '_email_info_forwarding', '_split_email_address',
         '_email_info_mailman', '_email_info_multi', '_email_info_file',
-        '_email_info_pipe', '_email_info_forward',
+        '_email_info_pipe', '_email_info_forward', '_email_info_contact_info',
         'email_add_address', '_get_email_domain', 'email_mod_name',
         'email_reassign_address', 'email_remove_address', 
         '_split_email_address', '_remove_email_address', 

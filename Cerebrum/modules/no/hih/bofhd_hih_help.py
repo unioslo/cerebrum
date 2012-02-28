@@ -79,9 +79,11 @@ command_help = {
         "View e-mail information about a user or address",
     },
     'entity': {
-    'entity_contactinfo_add':
-        "Add contact information to entity.",
-    },
+        'entity_contactinfo_add':
+            "Add contact information to entity.",
+        'entity_history':
+            "List the changes made to entity.",
+        },
     'group': {
     'group_add': 'Let an account join a group',
     'group_create': 'Create a new Cerebrum group',
