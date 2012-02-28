@@ -453,12 +453,19 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                expire_date=None, parent=None):
         """Method for creating a regular account. Should be subclassed for
         instance specific behaviour, e.g. setting default spreads, creating
-        home disks, fixing group memberships etc."""
-        ret = self.populate(name, owner_type, owner_id, np_type, creator_id,
-                            expire_date, parent)
-        # Settings that is used in every instance could be added here.
+        home disks, fixing group memberships etc.
+        
+        If you don't want to create a normal account, please use L{populate}
+        as before.
+        
+        """
+        self.populate(name, owner_type, owner_id, np_type, creator_id,
+                      expire_date, parent)
         self.write_db()
-        return ret
+
+        # Settings used in every instance
+        for s in getattr(cereconf, 'BOFHD_NEW_USER_SPREADS', ()):
+            self.add_spread(int(self.const.Spread(s)))
 
     def deactivate(self):
         """Deactivate is commonly thought of as removal of spreads and setting
