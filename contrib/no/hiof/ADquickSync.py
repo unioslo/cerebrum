@@ -94,8 +94,8 @@ class ADquiSync(ADutilMixIn.ADuserUtil):
                 return True
             else:
                 #Something went wrong.
-                self.logger.warn('Failed change password for %s in domain %s.' % (
-                    self.ac.account_name, self.ad_ldap))
+                self.logger.warn('Failed change password for %s in domain %s: %s' % (
+                    self.ac.account_name, self.ad_ldap, ret))
                 return False
         else:
             #Account without ADspread, do nothing and return.
@@ -106,17 +106,25 @@ class ADquiSync(ADutilMixIn.ADuserUtil):
 
 def usage():
     print """Usage: ADquickSync.py [options]
-            --url url
-            --user_spread spread
-            --dryrun
-            --commit-changes
-            --ad-ldap domain_dn (overrides cereconf.AD_LDAP)
-  
-            Example:
-            ADquickSync.py --url https://158.39.170.197:8000 \\
-                           --user_spread 'account@ad_adm' \\
-                           --ad-ldap 'DC=adm,DC=hiof2,DC=no'
-                           --commit-changes
+
+    --url URL               The URL to the AD server, e.g.
+                            https://ad.example.com:8000
+
+    --user_spread SPREAD    Only users with the given spread are updated.
+
+    --dryrun                When set, the AD server is not updated.
+
+    --commit-changes        Must be set if Cerebrum's counter should be
+                            updated.
+
+    --ad-ldap DOMAIN_DN     Overrides cereconf.AD_LDAP.
+
+    Example:
+
+    ADquickSync.py --url https://158.39.170.197:8000 \\
+                   --user_spread 'account@ad_adm' \\
+                   --ad-ldap 'DC=adm,DC=hiof2,DC=no'
+                   --commit-changes
             """
     sys.exit(1)
                            
