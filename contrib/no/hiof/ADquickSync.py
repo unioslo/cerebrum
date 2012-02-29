@@ -34,12 +34,12 @@ co = Factory.get('Constants')(db)
 logger = Factory.get_logger("cronjob")
 
 
-class ADquiSync(ADutilMixIn.ADuserUtil):
+class ADquickSync(ADutilMixIn.ADuserUtil):
     def __init__(self, *args, **kwargs):
-        super(ADquiSync, self).__init__(*args, **kwargs)
+        super(ADquickSync, self).__init__(*args, **kwargs)
         self.cl = CLHandler.CLHandler(db)
 
-    def quick_sync(self, spread, dry_run, commit_changes=False):
+    def quick_sync(self, spread, dry_run, cl_key, commit_changes=False):
         # We reverse the set of events, so that if the same account
         # has multiple password changes, only the last will be updated.
         # If we didn't reverse, and if the first password update fails,
@@ -47,7 +47,7 @@ class ADquiSync(ADutilMixIn.ADuserUtil):
         # update(s) will not be rerun afterwards, leaving the user with
         # an older password than the last.
         handled = set()
-        answer = reversed(self.cl.get_events('ad', (self.co.account_password,)))
+        answer = reversed(self.cl.get_events(cl_key, (self.co.account_password,)))
         for ans in answer:
             confirm = True
             if ans['change_type_id'] == self.co.account_password:
@@ -110,7 +110,10 @@ def usage():
     --url URL               The URL to the AD server, e.g.
                             https://ad.example.com:8000
 
-    --user_spread SPREAD    Only users with the given spread are updated.
+    --user-spread SPREAD    Only users with the given spread are updated.
+
+    --cl-key KEY            What key from the change logger the sync should
+                            find unsynced accounts from. Default: ad
 
     --dryrun                When set, the AD server is not updated.
 
@@ -134,17 +137,20 @@ def main():
                                    'sua:dhc',
                                    ['help',
                                     'user-spread=',
+                                    'cl-key=',
                                     'url=',
                                     'ad-ldap=',
                                     'commit-changes',
-                                    'dry_run'])
-    except getopt.GetoptError:
+                                    'dryrun'])
+    except getopt.GetoptError, e:
+        print e
         usage()
 
     delete_objects = False
     dry_run = False	
     ad_ldap = cereconf.AD_LDAP
-    user_spread = None
+    user_spread = url = None
+    cl_key = 'ad'
     commit_changes = False
     
     for opt, val in opts:
@@ -152,29 +158,34 @@ def main():
             user_spread = getattr(co, val)
         elif opt in ('-a', '--ad-ldap'):
             ad_ldap = val
+        elif opt in ('-k', '--cl-key'):
+            cl_key = val
         elif opt in ('-u', '--url'):
             url = val
         elif opt in ('-c', '--commit-changes'):
             commit_changes = True
         elif opt in ('-h', '--help'):
             usage()
-        elif opt in ('-d', '--dry_run'):
+        elif opt in ('-d', '--dryrun'):
             dry_run = True
+        else:
+            print "Unknown argument: %s" % opt
+            usage()
 
-    ADquickUser = ADquiSync(db,
+    ADquickUser = ADquickSync(db,
                             co,
                             logger,
                             url=url,
                             ad_ldap=ad_ldap)
-    
+
     try:
         ADquickUser.quick_sync(user_spread,
                                dry_run,
-                               commit_changes=commit_changes)
+                               cl_key = cl_key,
+                               commit_changes = commit_changes)
     except xmlrpclib.ProtocolError, xpe:
         logger.critical("Error connecting to AD service. Giving up!: %s %s" %
                         (xpe.errcode, xpe.errmsg))
-        
 
 if __name__ == '__main__':
     main()
