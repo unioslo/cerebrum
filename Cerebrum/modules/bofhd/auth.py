@@ -1204,6 +1204,21 @@ class BofhdAuth(DatabaseAccessor):
         return self._is_local_postmaster(operator,
                                          self.const.auth_email_quota_set,
                                          account, None, query_run_any)
+    
+    # not even the user is allowed this operation
+    def can_email_pause(self, operator, account=None, query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if self.is_postmaster(operator):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied("Currently limited to superusers")
+
+    def can_email_set_quota(self, operator, account=None, query_run_any=False):
+        return self._is_local_postmaster(operator,
+                                         self.const.auth_email_quota_set,
+                                         account, None, query_run_any)
 
     # the user and local sysadmin is allowed to turn forwarding and
     # tripnote on/off

@@ -38,6 +38,7 @@ import base64
 import getopt
 from time import time as now
 
+import cereconf
 import cerebrum_path
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
@@ -162,9 +163,15 @@ def write_ldif():
                 if enable:
                     rest += "tripnoteActive: TRUE\n"
 
-            # See if e-mail delivery should be suspended
-            if ei in ldap.pending:
-                rest += "mailPause: TRUE\n"
+            # See if e-mail delivery should be suspended.
+            # We do try/raise/except to support what might be implemented
+            # at other institutions.
+            try:
+                if cereconf.LDAP_INST != "uio":
+                    raise AttributeError
+            except AttributeError:
+                if ei in ldap.pending:
+                    rest += "mailPause: TRUE\n"
 
             # Any server info?
             rest += dict_to_ldif_string(ldap.get_server_info(row))

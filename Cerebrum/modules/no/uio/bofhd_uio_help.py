@@ -197,6 +197,10 @@ command_help = {
         "List user's vacation messages",
     "email_remove_tripnote":
         "Remove vacation message",
+    "email_pause":
+        "Turn delivery pause on or off",
+    "email_list_pause":
+        "List all mailtargets with paused delivery",
     },
     'entity': {
     'entity_accounts':
@@ -681,6 +685,8 @@ The bofh-command 'spread list' lists possible values"""],
     'string_email_target_name':
         ['email_target_name', 'Enter e-mail target name',
          """Target name should be a valid e-mail address"""],
+    'string_email_on_off':
+        ['email_on_off', 'ON/OFF', """Specify ON or OFF"""],
     'string_filename':
         ['filename', 'Enter filename'],
     'string_group_filter':

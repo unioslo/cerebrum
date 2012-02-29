@@ -41,7 +41,8 @@ from Cerebrum.modules.PosixUser import \
 from Cerebrum.modules.Email import \
      _EmailSpamLevelCode, \
      _EmailSpamActionCode, \
-     _EmailDomainCategoryCode
+     _EmailDomainCategoryCode, \
+     EmailConstants
 from Cerebrum.modules.EntityTrait import \
      _EntityTraitCode
 from Cerebrum.modules.bofhd.utils import \
@@ -403,6 +404,10 @@ automatically generated from FS.''')
         'em_server_weight', Constants.Constants.entity_host,
         "The relative weight of this server when assigning new users to "
         "an e-mail server.")
+
+    trait_email_pause = _EntityTraitCode(
+        'email_pause', EmailConstants.entity_email_target, 
+        'Pauses delivery of email')
 
     # TBD: These may fit better into mod_disk_quota as actual mixin
     # tables for disk_info and host_info
