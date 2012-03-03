@@ -465,9 +465,10 @@ AUTH_A1_REALM = ""
 # later.  For optional dict members, None is equivalent to an absent value.
 #
 
-# Generation of LDIF-file for organizational data
+# Generation of LDIF/POSIX files
 CLASS_ORGLDIF = ['Cerebrum.modules.OrgLDIF/OrgLDIF']
 CLASS_POSIXLDIF = ['Cerebrum.modules.PosixLDIF/PosixLDIF']
+CLASS_POSIXEXPORT = ['Cerebrum.modules.PosixExport/PosixExport']
 
 # General LDAP info
 LDAP = {
