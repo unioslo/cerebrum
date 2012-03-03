@@ -58,15 +58,14 @@ export to the given file.  They require a corresponding SPREAD option.
 
 SPREAD options take a comma-separated list of spreads.
 
-Enabling host netgroups will also require a zone. To enable host
-netgroups in the LDIF export, supply a host netgroup spread. This also
-requires a zone.
+To enable host netgroups in the netgroup and LDIF exports, supply a host
+netgroup spread and a zone.
 
 Examples:
 
   generate_posix_data.py -U NIS_user@uio -G NIS_fg@uio -N NIS_ng@uio \\
-    -H NIS_mng@uio -l foo.ldif -p passwd -g groups -n netgroup.user \\
-    -h netgroup.host -z .uio.no -a MD5-crypt
+    -H NIS_mng@uio -l foo.ldif -p passwd -g groups -n netgroups \\
+    -z uio -a MD5-crypt
 
  Creates both a full LDIF file and all four NIS files.
 
@@ -105,8 +104,6 @@ Examples:
           help="Export filegroups to FILE.")
         o("-n", "--netgroup", metavar="FILE", dest="netgroup",
           help="Export netgroups to FILE.")
-        o("-j", "--host-netgroup", metavar="FILE", dest="host_netgroup",
-          help="Export host netgroups to FILE.  Requires '-H' and '-z'.")
         o("-s", "--shadow", metavar="FILE", dest="shadow",
           help="Export shadow file to FILE.  Requires '-p', '-U' and '-a'.")
         o("-z", "--zone", metavar="DNS-ZONE-POSTFIX", dest="zone",
@@ -157,20 +154,21 @@ Examples:
         if args:
             sys.exit("Spurious arguments %s.  Try --help." % ", ".join(args))
         opts = self.opts
-        if opts.ldif          and not (opts.user_spread and
-                                       opts.filegroup_spread and
-                                       opts.netgroup_spread):
-            self.usage("--ldif requires -U, -G and -N")
+        if opts.ldif and not (opts.zone or (opts.user_spread      and
+                                            opts.filegroup_spread and
+                                            opts.netgroup_spread)):
+            self.usage("--ldif requires -U, -G, -N, and/or -H, -z")
         if opts.passwd        and not (opts.user_spread and opts.auth_method):
             self.usage("--passwd requires -U and -a")
         if opts.shadow        and not opts.passwd:
             self.usage("--shadow requires -p (and thus -U and -a)")
         if opts.filegroup     and not opts.filegroup_spread:
             self.usage("--group requires -G")
-        if opts.netgroup      and not opts.netgroup_spread:
-            self.usage("--netgroup requires -N")
-        if opts.host_netgroup and not (opts.host_netgroup_spread and opts.zone):
-            self.usage("--host-netgroup requires -H and -z")
+        if opts.netgroup      and not (opts.netgroup_spread or opts.zone):
+            self.usage("--netgroup requires -N or -H, -z")
+        if opts.host_netgroup_spread or opts.zone:
+            if (not opts.host_netgroup_spread) != (not opts.zone):
+                self.usage("-H and -z require each other")
 
     def setup(self):
         self.zone = self.opts.zone and self.co.DnsZone(self.opts.zone)
@@ -183,30 +181,29 @@ Examples:
         if self.opts.ldif:          self.setup_ldif()
         if self.opts.passwd:        self.setup_passwd()
         if self.opts.filegroup:     self.setup_filegroup()
-        if self.opts.netgroup:      self.setup_netgroup()
-        if self.opts.host_netgroup: self.setup_host_netgroup()
+        if self.opts.netgroup_spread: self.setup_netgroup()
+        if self.opts.zone:            self.setup_host_netgroup()
 
     def generate_files(self):
-        parts = 'ldif passwd shadow filegroup netgroup host_netgroup'.split()
+        parts = ('ldif', 'passwd', 'shadow', 'filegroup', 'netgroup')
         files = map(self.open, parts)
         f = PosixData(); f.__dict__ = dict(zip(parts, files))
 
         self.generate_user_output(f.ldif, f.passwd, f.shadow)
         self.generate_filegroup_output(f.ldif, f.filegroup)
         self.generate_netgroup_output(f.ldif, f.netgroup)
-        self.generate_host_netgroup_output(f.ldif, f.host_netgroup)
 
         self.close_files(files)
 
     def setup_ldif(self):
         DNs = [ldapconf(which, 'dn', default=None, module=posixconf)
-               for which in ('USER', 'FILEGROUP', 'NETGROUP', 'HOSTNETGROUP')]
-        self.user_dn, self.fgrp_dn, self.ngrp_dn = DNs[:3]
-        self.group_info = zip(DNs[2:],(self.netgroups,self.host_netgroups))
-        self.setup_passwd()
-        self.setup_filegroup()
-        self.setup_netgroup()
-        if self.opts.host_netgroup_spread: self.setup_host_netgroup()
+               for which in ('USER', 'FILEGROUP', 'NETGROUP')]
+        self.user_dn, self.fgrp_dn, self.ngrp_dn = DNs
+        self.type2groups = (self.netgroups, self.host_netgroups)
+        if self.opts.user_spread:
+            self.setup_passwd()
+            self.setup_filegroup()
+            self.setup_netgroup()
 
     def setup_passwd(self):
         self._build_entity2name_mapping(self.co.account_namespace)
@@ -231,6 +228,8 @@ Examples:
         self._build_entity2name_mapping(self.co.group_namespace)
         self.load_groups('netgroup', self.netgroups)
         self.load_posix_users()
+        if self.opts.host_netgroup_spread:
+            self.setup_host_netgroup()
 
     def setup_host_netgroup(self):
         self._build_entity2name_mapping(self.co.group_namespace)
@@ -242,7 +241,8 @@ Examples:
         if fname:
             if which == 'ldif':
                 f = LDIFWriter('POSIX', fname, module=posixconf)
-                f.write_container()
+                if self.opts.user_spread:
+                    f.write_container()
             else:
                 f = SimilarSizeWriter(fname, "w")
                 f.set_size_change_limit(10)
@@ -261,6 +261,8 @@ Examples:
 
 
     def generate_user_output(self, f_ldif, f_passwd, f_shadow):
+        if not self.opts.user_spread:
+            return
         if f_ldif:
             f_ldif.write_container('USER')
         elif not self.opts.passwd:
@@ -302,6 +304,8 @@ Examples:
         del self.exported_groups, self.group2desc
 
     def generate_filegroup_output(self, f_ldif, f_filegroup):
+        if not self.opts.filegroup_spread:
+            return
         if f_ldif:
             f_ldif.write_container('FILEGROUP')
         elif not self.opts.filegroup:
@@ -322,9 +326,13 @@ Examples:
         self.clear_groups()
 
     def generate_netgroup_output(self, f_ldif, f_netgroup):
-        if f_ldif:
+        if f_ldif and (self.opts.netgroup_spread or self.opts.zone):
             f_ldif.write_container('NETGROUP')
-        elif not self.opts.netgroup:
+        self.generate_user_netgroup_output(f_ldif, f_netgroup)
+        self.generate_host_netgroup_output(f_ldif, f_netgroup)
+
+    def generate_user_netgroup_output(self, f_ldif, f_netgroup):
+        if not self.opts.netgroup_spread:
             return
         self.find_groups('netgroup')
         self.netgroup_names = set(self.netgroups.values())
@@ -344,11 +352,8 @@ Examples:
                     ' ', self._make_tmp_netgroup_name, is_ng=True))
         self.clear_groups()
 
-    def generate_host_netgroup_output(self, f_ldif, f_host_netgroup):
-        do_ldif = self.opts.host_netgroup_spread and self.opts.ldif
-        if do_ldif:
-            f_ldif.write_container('HOSTNETGROUP')
-        elif not self.opts.host_netgroup:
+    def generate_host_netgroup_output(self, f_ldif, f_netgroup):
+        if not self.opts.zone:
             return
         self._num_map = {}
         zone = self.zone.postfix
@@ -652,7 +657,7 @@ Examples:
 
     def ldif_netgroup(self, is_hostg, group_id, group_members, direct_members):
         """Create the group-entry attributes"""
-        base_dn, groups = self.group_info[is_hostg]
+        groups = self.type2groups[is_hostg] # TODO: Can we combine these?
         name = groups[group_id]
         entry = {'objectClass':       ('top', 'nisNetGroup'),
                  'cn':                (name,),
@@ -661,7 +666,7 @@ Examples:
         desc = self.group2desc(group_id)
         if desc:
             entry['description'] = (latin1_to_iso646_60(desc),)
-        return ','.join(('cn=' + name, base_dn)), entry
+        return ','.join(('cn=' + name, self.ngrp_dn)), entry
 
 
     def ldif_auth_methods(self):

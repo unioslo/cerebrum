@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2004-2011 University of Oslo, Norway
+# Copyright 2004-2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -178,6 +178,7 @@ class PosixExportMemberOf(PosixExport):
     def setup_ldif(self):
         if hasattr(self, 'user2fg'): return
         self.__super.setup_ldif()
+        if not self.opts.user_spread: return
 
         self.user2fg, self.user2ng, self.ng2ng = \
             user2fg, user2ng, ng2ng = map(defaultdict, [set]*3)
