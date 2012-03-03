@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2010-2011 University of Oslo, Norway
+# Copyright 2010-2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -293,7 +293,7 @@ Examples:
                  filter_expired=not self.EMULATE_POSIX_LDIF):
             group_id = int(row['group_id'])
             groups[group_id] = row['name']
-            descs [group_id] = row['description'].rstrip()
+            descs [group_id] = (row['description'] or "").rstrip()
         self.exported_groups = groups
         self.group2desc      = self.opts.ldif and descs.get
 
