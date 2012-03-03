@@ -135,7 +135,7 @@ def entry_string(dn, attrs, add_rdn = True):
                 norm = normalize_string(rval)
                 tp = type(old)
                 if tp in _attrval_seqtypes:
-                    for val in old:
+                    for val in old or ():
                         if normalize_string(val) == norm:
                             break
                     else:
@@ -164,7 +164,7 @@ def entry_string(dn, attrs, add_rdn = True):
     return "".join(result)
 
 # For entry_string() attrs: map {type: function producing sequence/iterator}
-_attrval_seqtypes = (tuple, list, set, frozenset)
+_attrval_seqtypes = (tuple, list, set, frozenset, type(None))
 _attrval2iter = {
     tuple:      tuple,
     list:       iter,
