@@ -356,18 +356,17 @@ Examples:
         for g_id in self.host_netgroups:
             group_members, host_members = map(sorted, self.expand_netgroup(
                     g_id, self.co.entity_dns_owner, None))
-            host_members = [
-                " ".join(group_members),
-                " ".join(["(%s,-,)" % m[:-len(zone)]
-                          for m in host_members if m.endswith(zone)]),
-                " ".join(["(%s,-,)" % m[:-1] for m in host_members])]
-            if do_ldif:
+            members = ["(%s,-,)" % m[:-len(zone)]
+                       for m in host_members if m.endswith(zone)]
+            members.extend("(%s,-,)" % m[:-1] for m in host_members)
+            if self.opts.ldif:
                 dn, entry = self.ldif_netgroup(True, g_id,
-                                               group_members, host_members)
+                                               group_members, members)
                 f_ldif.write(entry_string(dn, entry, False))
-            if f_host_netgroup:
-                f_host_netgroup.write(self._wrap_line(
-                        self.host_netgroups[g_id], " ".join(host_members),
+            if f_netgroup:
+                f_netgroup.write(self._wrap_line(
+                        self.host_netgroups[g_id],
+                        " ".join(group_members) + " " + " ".join(members),
                         ' ', self._make_tmp_host_netgroup_name, is_ng=True))
         self.clear_groups()
 
