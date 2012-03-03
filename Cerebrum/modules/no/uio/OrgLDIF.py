@@ -284,9 +284,9 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         return s_ous
 
 
-    def init_person_selections(self):
+    def init_person_selections(self, *args, **kwargs):
         """Set up data for no.uio.OrgLDIF.is_person_visible()"""
-        self.__super.init_person_selections()
+        self.__super.init_person_selections(*args, **kwargs)
         self.visible_sap_affs = (int(self.const.affiliation_ansatt),
                                  int(self.const.affiliation_tilknyttet))
         student = int(self.const.affiliation_student)
