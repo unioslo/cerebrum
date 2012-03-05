@@ -357,13 +357,15 @@ Examples:
             return
         self._num_map = {}
         zone = self.zone.postfix
+        zone_offset = -len(zone or "")
         self.find_groups('host_netgroup')
         for g_id in self.host_netgroups:
             group_members, host_members = map(sorted, self.expand_netgroup(
                     g_id, self.co.entity_dns_owner, None))
-            members = ["(%s,-,)" % m[:-len(zone)]
-                       for m in host_members if m.endswith(zone)]
-            members.extend("(%s,-,)" % m[:-1] for m in host_members)
+            members = set("(%s,-,)" % m[:-1] for m in host_members)
+            if zone is not None:
+                members.update("(%s,-,)" % m[:zone_offset]
+                               for m in host_members if m.endswith(zone))
             if self.opts.ldif:
                 dn, entry = self.ldif_netgroup(True, g_id,
                                                group_members, members)
