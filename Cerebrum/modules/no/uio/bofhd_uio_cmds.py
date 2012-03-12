@@ -263,7 +263,7 @@ class BofhdExtension(BofhdCommandBase):
         # Read the password and create the binddn
         passwd = self.db._read_password(cereconf.LDAP_SYSTEM,
                                         cereconf.LDAP_USER)
-        ld_binddn = cereconf.LDAP_BIND_DN % cereconf.LDAP_USER
+        ld_binddn = cereconf.LDAP_BIND_DN % cereconf.LDAP_UPDATE_USER
         
         if self._ldap_connect.connections != {} and \
                 len(cereconf.LDAP_SERVERS) > \
