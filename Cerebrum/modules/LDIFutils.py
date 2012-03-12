@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2004-2011 University of Oslo, Norway
+# Copyright 2004-2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -184,6 +184,8 @@ def container_entry_string(tree_name, attrs = {}, module=cereconf):
 class LDIFWriter(object):
     """Wrapper around ldif_outfile with a minimal but sane API."""
     def __init__(self, tree, filename, module=cereconf):
+        if filename and os.path.sep not in filename:
+            filename = os.path.join(module.LDAP['dump_dir'], filename)
         self.f = ldif_outfile(tree, filename=filename, module=module)
         self.write, self.tree, self.module = self.f.write, tree, module
 
@@ -372,6 +374,3 @@ class ldif_parser(object):
     def parse(self):
         self._ldif.parse()
         return(self.res_dict)
-
-
-# arch-tag: 9544a041-07cb-4494-92ea-c8dc82c9808a
