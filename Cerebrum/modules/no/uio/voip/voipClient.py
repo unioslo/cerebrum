@@ -104,8 +104,10 @@ class VoipClient(EntityAuthentication, EntityTrait):
 
         addr = mac_address.translate(string.maketrans("", ""), " :")
         addr = addr.lower()
-        assert all(x in "0123456789abcdef" for x in addr), "Wrong mac character"
-        assert len(addr) == 12, "Wrong mac length"
+        if not all(x in "0123456789abcdef" for x in addr):
+            raise CerebrumError("Wrong mac character in '%s'" % addr)
+        if not len(addr) == 12:
+            raise CerebrumError("Wrong mac length for '%s'" % addr)
         return ":".join(addr[i:i+2]
                         for i in range(0, 12, 2))
     # end _normalize_mac_address
