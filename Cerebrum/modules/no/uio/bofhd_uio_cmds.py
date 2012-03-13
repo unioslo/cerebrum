@@ -805,12 +805,14 @@ class BofhdExtension(BofhdCommandBase):
             raise CerebrumError, "Cannot set OU for global access"
         return None, self.const.auth_target_type_global_ou, None
     def _validate_access_global_ou(self, opset, attr):
-        try:
-            int(self.const.PersonAffiliation(attr))
-        except Errors.NotFoundError:
+        if not attr:
             # This is a policy decision, and should probably be
             # elsewhere.
             raise CerebrumError, "Must specify affiliation for global ou access"
+        try:
+            int(self.const.PersonAffiliation(attr))
+        except Errors.NotFoundError:
+            raise CerebrumError("Unknown affiliation: %s" % attr)
 
     # access list_opsets
     all_commands['access_list_opsets'] = Command(
