@@ -184,7 +184,10 @@ class BofhdExtension(BofhdCommandBase):
     class LDAPStruct:
         ldap = None
         ldapobject = None
-        connections = {}
+        connection = None
+
+        def invalidate_connection(self):
+            self.connection = None
     
     _ldap_connect = LDAPStruct()
 
@@ -259,91 +262,45 @@ class BofhdExtension(BofhdCommandBase):
     def _ldap_init(self):
         """This helper function connects and binds to LDAP-servers
         specified in cereconf."""
+        if self._ldap_connect.connection == None:
+            # We import here, as not everyone got LDAP.
+            try:
+                import ldap
+                from ldap import ldapobject
+            except ImportError:
+                raise CerebrumError, ('ldap module could not be imported')
 
-        # Read the password and create the binddn
-        passwd = self.db._read_password(cereconf.LDAP_SYSTEM,
-                                        cereconf.LDAP_UPDATE_USER)
-        ld_binddn = cereconf.LDAP_BIND_DN % cereconf.LDAP_UPDATE_USER
-        
-        if self._ldap_connect.connections != {} and \
-                len(cereconf.LDAP_SERVERS) > \
-                len(self._ldap_connect.connections.values()):
-            # We'll try to connect to the server that was down during init.
-            # This is a condensed version without comments of the same logic
-            # further down in this function.
-            s = filter(lambda x: x is not None, \
-                       [x if x not in self._ldap_connect.connections.values() \
-                       else None for x in cereconf.LDAP_SERVERS])
+            # Store the LDAP module in a LDAPStruct, this way we'll keep the
+            # options between functions. These options are lost if we import
+            # the module for each function that uses it.
+            self._ldap_connect.ldap = ldap
+            self._ldap_connect.ldapobject = ldapobject
+            self._ldap_connect.__del__ = self._ldap_unbind
 
-            for i in s:
-                c = self._ldap_connect.ldapobject.ReconnectLDAPObject(
-                                "ldap://%s/" % server,
-                                retry_max = cereconf.LDAP_RETRY_MAX,
-                                retry_delay = cereconf.LDAP_RETRY_DELAY)
-                
-                try:
-                    con.start_tls_s()
-                except self._ldap_connect.ldap.OPERATIONS_ERROR:
-                    pass
-                try:
-                    con.simple_bind_s(who=ld_binddn, cred=passwd)
-                except self._ldap_connect.ldap.CONFIDENTIALITY_REQUIRED:
-                    err_str = 'TLS could not be established to %s'
-                    self.logger.warn(err_str % server)
-                    raise CerebrumError, (err_str % server)
-                except ldap.INVALID_CREDENTIALS:
-                    rep_str = 'Connection aborted to %s, invalid credentials' \
-                               % server
-                    self.logger.error(repstr)
-                    raise CerebrumError, (rep_str)
-                except self._ldap_connect.ldap.SERVER_DOWN:
-                    continue
-                self._ldap_connect.connections[server] = con
-            return
-        elif self._ldap_connect.connections != {}:
-            # If we hit this, connections are already established
-            return
+            # Read the password and create the binddn
+            passwd = self.db._read_password(cereconf.LDAP_SYSTEM,
+                                            cereconf.LDAP_UPDATE_USER)
+            ld_binddn = cereconf.LDAP_BIND_DN % cereconf.LDAP_UPDATE_USER
 
-        # We import here, as not everyone got LDAP.
-        try:
-            import ldap
-            from ldap import ldapobject
-        except ImportError:
-            raise CerebrumError, ('ldap module could not be imported')
+            # Avoid indefinite blocking
+            self._ldap_connect.ldap.set_option(ldap.OPT_NETWORK_TIMEOUT, 4)
 
-        # Store the LDAP module in a LDAPStruct, this way we'll keep the
-        # options between functions. These options are lost if we import
-        # the module for each function that uses it.
-        self._ldap_connect.ldap = ldap
-        self._ldap_connect.ldapobject = ldapobject
-        self._ldap_connect.__del__ = self._ldap_unbind
+            # Require TLS cert. This option should be set in
+            # /etc/openldap/ldap.conf along with the cert itself,
+            # but let us make sure.
+            self._ldap_connect.ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT,
+                                               ldap.OPT_X_TLS_DEMAND)
 
-        # Avoid indefinite blocking
-        self._ldap_connect.ldap.set_option(ldap.OPT_NETWORK_TIMEOUT, 10)
+            server = cereconf.LDAP_SERVERS[0]
 
-        # Require TLS cert. This option should be set in
-        # /etc/openldap/ldap.conf along with the cert itself,
-        # but let us make sure.
-        self._ldap_connect.ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT,
-                                           ldap.OPT_X_TLS_DEMAND)
-
-        # Init a connection to all servers defined in cereconf
-        for server in cereconf.LDAP_SERVERS:
-            con = ldapobject.ReconnectLDAPObject("ldap://%s/" % server,
+            con = ldapobject.ReconnectLDAPObject("ldaps://%s/" % server,
                                                  retry_max = \
                                                  cereconf.LDAP_RETRY_MAX,
                                                  retry_delay = \
                                                  cereconf.LDAP_RETRY_DELAY)
 
-            # We try to start TLS
-            try:
-                con.start_tls_s()
-            except ldap.OPERATIONS_ERROR:
-                # This normally happens if TLS is already started
-                pass
 
-            # We bind to the server. We need to auth, since we'll push
-            # stuff to LDAP
+
             try:
                 con.simple_bind_s(who=ld_binddn, cred=passwd)
             except ldap.CONFIDENTIALITY_REQUIRED:
@@ -356,63 +313,55 @@ class BofhdExtension(BofhdCommandBase):
                 self.logger.error(rep_str)
                 raise CerebrumError, (rep_str)
             except ldap.SERVER_DOWN:
-                # If one of the servers are down when we populate the
-                # connection-list, we skip it. We'll try to connect the
-                # next time we do an update.
-                continue
+                con = None
 
-            # And we store the connection in out LDAPStruct
-            self._ldap_connect.connections[server] = con
+            # And we store the connection in our LDAPStruct
+            self._ldap_connect.connection = con
 
-    def _ldap_modify(self, id, attribute, value):
+
+
+    def _ldap_modify(self, id, attribute, *value):
         """This function modifies an LDAP entry defined by 'id' to contain an
         attribute with a specific value."""
+
+        tries = 0
+        while not self._ldap_connect.connection and tries < 2:
+            _ldap_init()
+            tries += 1
+        if not self._ldap_connect.connection:
+            return False
+
         dn = cereconf.LDAP_EMAIL_DN % id
 
         # We'll set the trait on one server, and it should spread to the
         # other servers in less than a minute. This eliminates race conditions
         # when servers go up and down..
-        for ld in self._ldap_connect.connections.values():
+        ld = self._ldap_connect.connection
+        try:
+            val = None if value[0] == None else value
+            ld.modify_s(dn, [(self._ldap_connect.ldap.MOD_REPLACE,
+                        attribute, val)])
+            res = ld.search_s(dn, self._ldap_connect.ldap.SCOPE_SUBTREE,
+                              attrlist=[attribute])
+
+            # We check for success when setting
             try:
-                ld.modify_s(dn, [(self._ldap_connect.ldap.MOD_REPLACE,
-                            attribute, (value,))])
-            except self._ldap_connect.ldap.NO_SUCH_OBJECT:
-                # We'll just pass along here. This error occurs if the
-                # mail-target has been created and mailPause is being set
-                # before the newest LDIF has been handed over to LDAP.
-                continue
-            except self._ldap_connect.ldap.SERVER_DOWN:
-                # We continue, since if the server is down, it should reload a
-                # relatively fresh LDIF, with the attribute set, as we wontinue
-                # to the next server to set it.
-                continue
-            break
+                if res[0][1][attribute][0] == value[0]:
+                    return True
+            # And for deleting, this is a bit, implicit
+            except:
+                if value[0] == None:
+                    return True
 
-    def _ldap_delete(self, id, attribute, value):
-        """This function deletes an attribute from a record."""
-        dn = cereconf.LDAP_EMAIL_DN % id
-
-        # We'll set the trait on one server, and it should spread to the
-        # other servers in less than a minute. This eliminates race conditions
-        # when servers go up and down..
-        for ld in self._ldap_connect.connections.values():
-            try:
-                ld.modify_s(dn, [(self._ldap_connect.ldap.MOD_DELETE,
-                            attribute, value)])
-            except self._ldap_connect.ldap.NO_SUCH_ATTRIBUTE:
-                # We continue, as this error is generated if the attribute is
-                # missing in LDAP.
-                continue
-            except self._ldap_connect.ldap.NO_SUCH_OBJECT:
-                # We'll just continue along here.
-                continue
-            except self._ldap_connect.ldap.SERVER_DOWN:
-                # We continue, and try the next server.
-                continue
-
-            # We break. Since we reach this point, LDAP should be updated,
-            # and the change will spread to the other servers within a minute.
-            break
+        except self._ldap_connect.ldap.NO_SUCH_OBJECT:
+            # This error occurs if the mail-target has been created
+            # and mailPause is being set before the newest LDIF has
+            # been handed over to LDAP.
+            pass
+        except self._ldap_connect.ldap.SERVER_DOWN:
+            # We invalidate the connection (set it to None).
+            self._ldap_connect.invalidate_connection()
+        return False
 
     #
     # access commands
@@ -4321,20 +4270,30 @@ Addresses and settings:
 
         if on_off in ('ON', 'on'):
             et.populate_trait(self.const.trait_email_pause, et.entity_id)
-            self._ldap_modify(et.entity_id, "mailPause", "TRUE")
             et.write_db()
-            et.commit()
-            return "mailPause set for '%s'" % uname
-        
+            r = self._ldap_modify(et.entity_id, "mailPause", "TRUE")
+            if r:
+                et.commit()
+                return "mailPause set for '%s'" % uname
+            else:
+                et._db.rollback()
+                return "Error: mailPause not set for '%s'" % uname
+                
         elif on_off in ('OFF', 'off'):
             try:
                 et.delete_trait(self.const.trait_email_pause)
+                et.write_db()
             except Errors.NotFoundError:
-                pass
-            self._ldap_delete(et.entity_id, "mailPause", "TRUE")
-            et.write_db()
-            et.commit()
-            return "mailPause unset for '%s'" % uname
+                return "Error: mailPause not unset for '%s'" % uname
+            
+            r = self._ldap_modify(et.entity_id, "mailPause", None)
+            if r:
+                et.commit()
+                return "mailPause unset for '%s'" % uname
+            else:
+                et._db.rollback()
+                return "Error: mailPause not unset for '%s'" % uname
+
         else:
             raise CerebrumError, ('Mailpause is either \'ON\' or \'OFF\'')
 
