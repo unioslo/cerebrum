@@ -72,9 +72,9 @@ class XML2Cerebrum:
                            DataAddress.ADDRESS_PRIVATE: 
                              const.address_post_private}
         if hasattr(const, 'address_other_post'):
-            self.xmladdr2ddb[DataAddress.ADDRESS_OTHER_POST] = const.address_other_post
+            self.xmladdr2db[DataAddress.ADDRESS_OTHER_POST] = const.address_other_post
         if hasattr(const, 'address_other_street'):
-            self.xmladdr2ddb[DataAddress.ADDRESS_OTHER_BESOK] = const.address_other_street
+            self.xmladdr2db[DataAddress.ADDRESS_OTHER_BESOK] = const.address_other_street
 
         self.idxml2db = {HRDataPerson.NO_SSN: const.externalid_fodselsnr,
                          SAPPerson.SAP_NR: const.externalid_sap_ansattnr, }
