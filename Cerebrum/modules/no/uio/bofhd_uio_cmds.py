@@ -256,8 +256,13 @@ class BofhdExtension(BofhdCommandBase):
                 bofhd_uio_help.arg_help)
 
     def _ldap_unbind(self):
-        for ld in self._ldap_connect.connections.values():
-            ld.unbind_s()
+        ld = self._ldap_connect.connection
+        if ld:
+            try:
+                ld.unbind_s()
+            except self._ldap_connect.ldap.LDAPError:
+                pass
+            self._ldap_connect.connection = None
 
     def _ldap_init(self):
         """This helper function connects and binds to LDAP-servers
@@ -320,47 +325,37 @@ class BofhdExtension(BofhdCommandBase):
 
 
 
-    def _ldap_modify(self, id, attribute, *value):
+    def _ldap_modify(self, dn, attribute, *values):
         """This function modifies an LDAP entry defined by 'id' to contain an
-        attribute with a specific value."""
+        attribute with the given values, or to delete it if no values."""
 
         tries = 0
-        while not self._ldap_connect.connection and tries < 2:
-            _ldap_init()
+        while tries < 2:
+            if not self._ldap_connect.connection:
+                self._ldap_init()
+                tries = 1
             tries += 1
-        if not self._ldap_connect.connection:
-            return False
+            ld = self._ldap_connect.connection
+            if not ld:
+                break
 
-        dn = cereconf.LDAP_EMAIL_DN % id
-
-        # We'll set the trait on one server, and it should spread to the
-        # other servers in less than a minute. This eliminates race conditions
-        # when servers go up and down..
-        ld = self._ldap_connect.connection
-        try:
-            val = None if value[0] == None else value
-            ld.modify_s(dn, [(self._ldap_connect.ldap.MOD_REPLACE,
-                        attribute, val)])
-            res = ld.search_s(dn, self._ldap_connect.ldap.SCOPE_SUBTREE,
-                              attrlist=[attribute])
-
-            # We check for success when setting
+            # We'll set the trait on one server, and it should spread
+            # to the other servers in less than two miuntes.  This
+            # eliminates race conditions when servers go up and down..
             try:
-                if res[0][1][attribute][0] == value[0]:
-                    return True
-            # And for deleting, this is a bit, implicit
-            except:
-                if value[0] == None:
-                    return True
+                ld.modify_s(dn, [(self._ldap_connect.ldap.MOD_REPLACE,
+                            attribute, values or None)])
+                return True
 
-        except self._ldap_connect.ldap.NO_SUCH_OBJECT:
-            # This error occurs if the mail-target has been created
-            # and mailPause is being set before the newest LDIF has
-            # been handed over to LDAP.
-            pass
-        except self._ldap_connect.ldap.SERVER_DOWN:
-            # We invalidate the connection (set it to None).
-            self._ldap_connect.invalidate_connection()
+            except self._ldap_connect.ldap.NO_SUCH_OBJECT:
+                # This error occurs if the mail-target has been created
+                # and mailPause is being set before the newest LDIF has
+                # been handed over to LDAP.
+                break
+            except self._ldap_connect.ldap.SERVER_DOWN:
+                # We invalidate the connection (set it to None).
+                self._ldap_connect.invalidate_connection()
+
         return False
 
     #
@@ -4268,10 +4263,12 @@ Addresses and settings:
         self.ba.can_email_pause(operator.get_entity_id(), acc)
         self._ldap_init()
 
+        dn = cereconf.LDAP_EMAIL_DN % et.entity_id
+
         if on_off in ('ON', 'on'):
             et.populate_trait(self.const.trait_email_pause, et.entity_id)
             et.write_db()
-            r = self._ldap_modify(et.entity_id, "mailPause", "TRUE")
+            r = self._ldap_modify(dn, "mailPause", "TRUE")
             if r:
                 et.commit()
                 return "mailPause set for '%s'" % uname
@@ -4286,7 +4283,7 @@ Addresses and settings:
             except Errors.NotFoundError:
                 return "Error: mailPause not unset for '%s'" % uname
             
-            r = self._ldap_modify(et.entity_id, "mailPause", None)
+            r = self._ldap_modify(dn, "mailPause")
             if r:
                 et.commit()
                 return "mailPause unset for '%s'" % uname
