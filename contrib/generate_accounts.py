@@ -86,7 +86,13 @@ def create_account(pe, ac, creator_id):
     ac.create(name=names[0], owner_type=pe.entity_type, owner_id=pe.entity_id,
               np_type=None, creator_id=creator_id)
     logger.debug("Account %s created", names[0])
-    # TODO: add user affiliations
+
+    # give the account the person's affiliations
+    for row in pe.list_affiliations(person_id=pe.entity_id):
+        ac.set_account_type(ou_id=row['ou_id'], affiliation=row['affiliation'])
+        ac.write_db()
+        logger.debug("Gave %s aff %s to ou_id=%s", names[0],
+                     co.PersonAffiliation(row['affiliation']), row['ou_id'])
     return True
 
 def process(affiliations, commit=False):
