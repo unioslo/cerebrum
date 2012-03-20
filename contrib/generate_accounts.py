@@ -156,7 +156,7 @@ def main():
             usage()
         elif opt in ("--aff",):
             affiliations.extend((str2aff(a) for a in val.split(',')))
-        elif option  in ("--commit"):
+        elif opt in ("--commit"):
             commit = True
         else:
             print "Unknown argument: %s" % opt
