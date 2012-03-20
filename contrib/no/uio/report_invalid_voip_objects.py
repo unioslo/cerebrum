@@ -19,7 +19,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 """
-Report voipAddress owned by persons without an account. The purpose is to
+Report voipAddress owned by persons without primary account. The purpose is to
 identify objects that get the same LDAP destinguished name leading to a
 collision.
 """
@@ -30,71 +30,79 @@ import sys
 import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory, sendmail
-from Cerebrum.modules.LDIFutils import ldapconf
 from Cerebrum.modules.no.uio.voip.voipAddress import VoipAddress
 
 
+def find_reason(db, entry):
+    account = Factory.get("Account")(db)
+    assert entry['uid'] is None
+    account.clear()
+    accounts = account.list_accounts_by_owner_id(entry['voipOwnerId'],
+                                                    filter_expired=False)
+    if len(accounts) == 0:
+        return 'no accounts'
+    uids = []
+    for elm in accounts:
+        account.clear()
+        account.find(elm["account_id"])
+        uids.append(account.get_account_name())
+        entry["uid"] = uids
+    return "no active accounts"
+
+
 def report_invalid_voip_addresses(logger, report):
-    """Find voipAddress-objects owned by persons without an account.
+    """Find voipAddress-objects owned by persons without primary account.
 
     @param logger
-
     @type list
     @param report is a list of dicts.
     """
     logger.debug('-'*8 + 'voipAddresses' + '-'*8)
     db = Factory.get("Database")()
     va = VoipAddress(db)
-
     for entry in va.list_voip_attributes():
         if entry['voipOwnerType'] != 'person':
             continue # skip objects owned by services
-        entry['objectClass'] = ['top','voipAddress']
-        if 'voipOwnerId' in entry:
-            dn = "voipOwnerId=%s,%s" %(entry['voipOwnerId'],
-                            ldapconf('VOIP_ADDRESS', 'dn', None))
-        else:
-            dn = "uid=%s,%s" %(entry['uid'],
-                            ldapconf('VOIP_ADDRESS', 'dn', None))
-        entry['dn'] = dn
-        del entry["entity_id"]
         if not entry.get("cn"):
             entry["cn"] = ()
+        # find addresses owner
+        va.clear()
+        va.find(entry['entity_id'])
+        entry["voipOwnerId"] = va.owner_entity_id
         if entry["uid"] is None:
             logger.debug('uid is None')
-            entry['reason'] = 'uid is None.'
-            report.append(entry)
+            entry['reason'] = find_reason(db, entry)
+            entr = {}
+            for k,v in entry.iteritems():
+                if k in ('entity_id', 'voipOwnerId', 'cn',
+                            'reason', 'voipExtensionUri', 'uid'):
+                    if k == 'voipExtensionUri':
+                        k = 'extension'
+                        v = v.strip('sip:@uio.no')
+                    entr[k] = v
+            report.append(entr)
     logger.debug('-'*8+'end voipAddresses'+'-'*8)
 
 
 def dump_entry(entry, sink):
     """Dump an entry dict to stream.
 
-    Filters out uneeded data from the dict.
     Output format:
-            key: value
-
+            key: value1 value2
     @type dict
     @param entry
-
     @type file-like object.
     @param sink
     """
     assert isinstance(entry, dict)
-
-    # filter out
-    # passwords and pincodes
-    if 'a1Password' in entry:
-        del entry['a1Password']
-    if 'voipPinCode' in entry:
-        del entry['voipPinCode']
-
     for k,v in sorted(entry.iteritems()):
         if isinstance(v, (list,tuple)):
+            sink.write("%-11s:" %k)
             for elm in v:
-                sink.write("%s: %s\n" %(k,elm))
+                sink.write(" %s" %elm)
+            sink.write("\n")
         else:
-            sink.write("%s: %s\n" %(k,v))
+            sink.write("%-11s: %s\n" %(k,v))
     sink.write("\n")
 
 
@@ -102,20 +110,18 @@ def create_report_message(report):
     """ Return email message text created from list of entries.
 
     @type list
-    @param report is a list of dicts. A dict represents voipAddress in a format
-    based on ldif.
+    @param report is a list of dicts. A dict represents voipAddress.
     @return text of email message as string
     """
-
     from cStringIO import StringIO
     string_stream = StringIO()
     string_stream.write('Found %d voipAddresses owned by persons '
                         'without primary account.\n\n' %len(report))
     for elm in report:
         dump_entry(elm, string_stream)
-
     from mx.DateTime import now
-    string_stream.write('\nReport finished %s.\n' %now().strftime('%Y-%m-%d at %H:%M'))
+    string_stream.write('\nReport finished %s.\n' %now().strftime(
+                                                '%Y-%m-%d at %H:%M'))
     res = string_stream.getvalue()
     string_stream.close()
     return res
@@ -132,7 +138,6 @@ def main():
                 "hdo:",("help","outfile=","mail_to=","mail_from="))
     except getopt.GetoptError, e:
         usage(str(e))
-
     if args:
         usage("Invalid arguments: " + " ".join(args))
     for opt, val in opts:
@@ -145,13 +150,10 @@ def main():
             mail_from = val
         else:
             usage()
-
     report = []
-
     logger.info("### Searching invalid VOIP objects...")
     report_invalid_voip_addresses(logger, report)
     logger.info("### Search  finished, found %d" %len(report))
-
     if len(report):
         message = create_report_message(report)
         if mail_to and mail_from:
@@ -161,7 +163,6 @@ def main():
         else:
             outstream.write(message)
             logger.info("Wrote report to file %s" %outfile)
-
     if not outstream is sys.stdout:
         outstream.close()
 
