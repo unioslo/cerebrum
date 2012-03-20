@@ -117,15 +117,13 @@ class AccountUiOMixin(Account.Account):
                       "Cannot add Notes-spread to a non-personal account."
         return ret
 
-    def create(self, name, owner_type, owner_id, np_type, creator_id,
-               expire_date=None, parent=None):
-        ret = self.__super.create(name, owner_type, owner_id, np_type,
-                                  creator_id, expire_date, parent)
-        # TODO: add spreads etc.
-        # TODO: Make use of cereconf.BOFHD_NEW_USER_SPREADS?
-        #       Note that bofhd adds default spreads, while process_students
-        #       might not want to give this to those with STUDENT/opptak.
-        return ret
+    def create(self, owner_type, owner_id, np_type, creator_id,
+               expire_date=None, parent=None, name=None):
+        """UiO specific functionality for creating a regular account."""
+        self.__super.create(name=name, owner_type=owner_type, owner_id=owner_id,
+                            np_type=np_type, creator_id=creator_id,
+                            expire_date=expire_date, parent=parent)
+        # TODO: use BofhdRequest
 
     def set_home(self, spread, homedir_id):
         ret = self.__super.set_home(spread, homedir_id)

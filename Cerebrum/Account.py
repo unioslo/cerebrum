@@ -449,18 +449,26 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                       'np_type', 'creator_id', 'expire_date', 'create_date',
                       '_auth_info', '_acc_affect_auth_types')
 
-    def create(self, name, owner_type, owner_id, np_type, creator_id,
-               expire_date=None, parent=None):
+    def create(self, owner_type, owner_id, creator_id, np_type=None,
+               expire_date=None, parent=None, name=None):
         """Method for creating a regular account. Should be subclassed for
         instance specific behaviour, e.g. setting default spreads, creating
         home disks, fixing group memberships etc.
         
         If you don't want to create a normal account, please use L{populate}
         as before.
+
+        TODO: This is work in progress, expect changes.
         
         """
-        self.populate(name, owner_type, owner_id, np_type, creator_id,
-                      expire_date, parent)
+        #if not name:
+        #    # TODO: support other entities than persons?
+        #    name = self.suggest_unames(domain = int(self.const.account_namespace),
+        #                               fname = xxx,
+        #                               lname = xxx)
+        self.populate(name=name, owner_type=owner_type, owner_id=owner_id,
+                      np_type=np_type, creator_id=creator_id,
+                      expire_date=expire_date, parent=parent)
         self.write_db()
 
         # Settings used in every instance
