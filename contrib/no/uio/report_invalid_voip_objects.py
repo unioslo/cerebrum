@@ -116,7 +116,9 @@ def create_report_message(report):
     from cStringIO import StringIO
     string_stream = StringIO()
     string_stream.write('Found %d voipAddresses owned by persons '
-                        'without primary account.\n\n' %len(report))
+                        'without primary account.\n'
+                        'uid below shows existing expired accounts '
+                        'for the person if any.\n\n' %len(report))
     for elm in report:
         dump_entry(elm, string_stream)
     from mx.DateTime import now
@@ -133,9 +135,10 @@ def main():
     outstream = sys.stdout
     mail_to = None
     mail_from = None
+    mail_cc = None
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                "hdo:",("help","outfile=","mail_to=","mail_from="))
+                "hdo:",("help","outfile=","mail_to=","mail_from=", "mail_cc="))
     except getopt.GetoptError, e:
         usage(str(e))
     if args:
@@ -144,10 +147,12 @@ def main():
         if opt in ("-o", "--outfile"):
             outfile = val
             outstream = open(outfile, 'w')
-        elif opt in ("--mail_to"):
+        elif opt in ("--mail_to",):
             mail_to = val
-        elif opt in ("--mail_from"):
+        elif opt in ("--mail_from",):
             mail_from = val
+        elif opt in ("--mail_cc",):
+            mail_cc = val
         else:
             usage()
     report = []
@@ -158,7 +163,7 @@ def main():
         message = create_report_message(report)
         if mail_to and mail_from:
             subject = 'Report of invalid voipAddresses.'
-            sendmail(mail_to, mail_from, subject, message)
+            sendmail(mail_to, mail_from, subject, message, cc=mail_cc)
             logger.info("Sent report by mail to %s." %mail_to)
         else:
             outstream.write(message)
@@ -179,6 +184,7 @@ def usage(err=0):
                     was given.
     --mail_to       Email destination address. Mandatory for sending report by email.
     --mail_from     Email source address. Mandatory for sending report by email.
+    --mail_cc       Send carbon copy to that email address. Optional.
     -h, --help      Show this help message and exit.
 
     Examples:
