@@ -630,9 +630,9 @@ class BofhdVoipCommands(BofhdCommandBase):
 
     all_commands["voip_service_type_list"] = Command(
         ("voip", "service_type_list"),
-        fs=FormatSuggestion("%-25s  %s",
+        fs=FormatSuggestion("%-32s  %s",
                             ("code_str", "description"),
-                            hdr = "%-25s  %s" % ("Type", "Description")))
+                            hdr = "%-32s  %s" % ("Type", "Description")))
     def voip_service_type_list(self, operator):
         """List available service_info_code values."""
 

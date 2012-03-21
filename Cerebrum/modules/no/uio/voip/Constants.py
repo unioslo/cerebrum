@@ -115,6 +115,21 @@ class VoipConstants(Constants.Constants):
         "voip_service_fax",
         "fax",
         )
+
+    voip_service_ledig_arbeidsplass = VoipServiceTypeCode(
+        "voip_service_ledig_arbeidsplass",
+        "ledig arbeidsplass",
+        )
+
+    voip_service_heis = VoipServiceTypeCode(
+        "voip_service_heis",
+        "heis",
+        )
+
+    voip_service_svarapparat = VoipServiceTypeCode(
+        "voip_service_svarapparat",
+        "svarapparat",
+    )
     
     ########################################################################
     # voip-client
