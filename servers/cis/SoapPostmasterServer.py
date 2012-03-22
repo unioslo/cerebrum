@@ -82,6 +82,7 @@ class PostmasterServer(SoapListener.BasicSoapServer):
             raise Fault(faultstring='Unknown error')
         finally:
             if hasattr(self, 'cere_obj'):
+                self.cere_obj.close()
                 del self.cere_obj
 
     @rpc(Array(String), Array(String), Array(String), _returns=Array(String))

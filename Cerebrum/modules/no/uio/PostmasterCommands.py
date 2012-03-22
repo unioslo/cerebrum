@@ -29,8 +29,17 @@ class Commands:
 
     def __init__(self):
         self.db = Factory.get('Database')()
-        #self.db.cl_init(change_program='postmaster_webservice')
         self.co = Factory.get('Constants')(self.db)
+
+    def close(self):
+        """Explicitly close the current instance of this class. This is to make
+        sure that all is closed down correctly, even if the garbace collector
+        can't destroy the instance. For now, this means the database link."""
+        if hasattr(self, 'db'):
+            try:
+                self.db.close()
+            except Exception, e:
+                log.warning("Problems with db.close: %s" % e)
 
     def _get_aff_status(self, input):
         """Return a list of CerebrumCodes for given affiliation or affilation
