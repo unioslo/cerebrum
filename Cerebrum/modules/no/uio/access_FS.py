@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002, 2003, 2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -884,13 +884,15 @@ class UiOUndervisning(access_FS.Undervisning):
 
         qry = """
         SELECT
-          fodselsdato, personnr,
-          institusjonsnr, emnekode, versjonskode, terminkode, arstall, terminnr
+          u.fodselsdato, u.personnr, u.institusjonsnr, u.emnekode,
+          u.versjonskode, u.terminkode, u.arstall, u.terminnr
         FROM
-          fs.undervisningsmelding
+          fs.undervisningsmelding u, fs.tilbudsstatus t
         WHERE
-          terminkode in ('VÅR', 'HØST') AND
-          arstall >= :aar1
+          u.terminkode in ('VÅR', 'HØST') AND
+          u.arstall >= :aar1 AND
+          u.tilbudstatkode = t.tilbudstatkode AND
+          t.status_gir_tilbud = 'J'
         UNION
         SELECT DISTINCT
           vm.fodselsdato, vm.personnr,
