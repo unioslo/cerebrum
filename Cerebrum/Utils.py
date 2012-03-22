@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002-2008, 2011 University of Oslo, Norway
+# Copyright 2002-2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -1551,24 +1551,51 @@ class Messages(dict):
         return dict.__getitem__(self, key)[self.fallback]
 
 class SMSSender():
+    """Communicates with a Short Messages Service (SMS) gateway for sending
+    out SMS messages.
+
+    This class is meant to be used with UiOs SMS gateway, which uses basic
+    HTTPS requests for communicating, and is also used by FS, but then through
+    database links. This might not be the solution other institutions want to
+    use if they have their own gateway.
+
     """
-    Communicates with a Short Messages Service (SMS) gateway for sending out SMS
-    messages.
-
-    This class is meant to be used with UiOs SMS gateway, which uses basic http
-    requests for communicating, and not in a much standardized way. This might
-    not be the solution other institutions want to use if they have their own
-    gateway.
-    """
-
-    '''The string to search for, to check if a message got sent ok'''
-    _ok_message = 'OK Message'
-
     def __init__(self, logger = None, url = None, user = None, system = None):
         self._logger = logger or Factory.get_logger("cronjob")
         self._url    = url    or cereconf.SMS_URL
         self._system = system or cereconf.SMS_SYSTEM
         self._user   = user   or cereconf.SMS_USER
+
+    def _validate_response(self, ret):
+        """Check that the response from an SMS gateway says that the message
+        was sent or not. The SMS gateway we use should respond with a line
+        formatted as:
+
+         <msg_id>¤<status>¤<phone_to>¤<timestamp>¤¤¤<message>
+
+        An example:
+
+         UT_19611¤SENDES¤87654321¤20120322-15:36:35¤¤¤Welcome to UiO. Your
+
+        ...followed by the rest of the lines with the message that was sent.
+
+        @rtype: bool
+        @return: True if the server's response says that the message was sent.
+        """
+        # We're only interested in the first line:
+        line = ret.readline()
+        try:
+            msg_id, status, to, timestamp, message = line.split('\xa4', 4)
+        except ValueError, e:
+            print e
+            self._logger.warning("SMS: bad response from server: %s", line)
+            return False
+
+        if status == 'SENDES':
+            return True
+        self._logger.warning("SMS: Bad status '%s' (phone_to='%s', msg_id='%s')",
+                             status, to, msg_id)
+        return False
 
     def __call__(self, phone_to, message, confirm = False):
         """
@@ -1598,34 +1625,22 @@ class SMSSender():
                 % (phone_to, self._user, self._system))
 
         old_timeout = socket.getdefaulttimeout()
-        socket.setdefaulttimeout(120) # in seconds
+        socket.setdefaulttimeout(60) # in seconds
 
         try:
             ret = urllib2.urlopen(self._url, postdata) #, self.timeout) in urllib2 v2.6
         except urllib2.URLError:
             self._logger.warning('SMS gateway timed out')
-            socket.setdefaulttimeout(old_timeout)
             return False
-        socket.setdefaulttimeout(old_timeout)
+        finally:
+            socket.setdefaulttimeout(old_timeout)
 
         if ret.code is not 200:
             self._logger.warning("SMS gateway responded with code "
                 "%s - %s" % (ret.code, ret.msg))
+            return False
 
-        # TODO: need to parse for ok message in a better way. For now, we get
-        # false positives if the message contains self._ok_message. The text we
-        # are looking for are, for now, located in a second <h1> tag in the
-        # return: 
-        #
-        #  ...
-        #  <body>
-        #  <h1>Send SMS</h1><h1>Message not sent</h1>
-        #  <form ...
-        #
-        # The best would be a header status, but this is not implemented in the
-        # gateway, at the moment.
-        text = '\n'.join(ret.readlines())
-        if self._ok_message in text:
+        if self._validate_response(ret):
             self._logger.debug("SMS to %s sent ok" % (phone_to))
             return True
         else:
