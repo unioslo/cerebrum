@@ -69,19 +69,19 @@ class Samson3LDIF(object):
                 affiliation = aff_to_select):
             # We get the account name and password hash
             self.account.clear()
-            self.account.find(ac.account_id)
+            self.account.find(ac['account_id'])
             auth = self.auth[self.account.entity_id]
             auth = '{crypt}' + auth[1]
             
             # Set the hash to None if the account is quarantined.
-            if ac.account_id in self.quarantines:
+            if ac['account_id'] in self.quarantines:
                 # FIXME: jsama, 2012-03-21:
                 # Commenting out these lines is a quick fix. Spreads might not
                 # be totally sane as of this writing, so if anyone has a
                 # quarantine, don't export the password hash. We don't care
                 # about them rules defined in cereconf.
 
-                #qh = QuarantineHandler(self.db, self.quarantines[ac.account_id],
+                #qh = QuarantineHandler(self.db, self.quarantines[ac['account_id']],
                 #                       spreads=[self.const.spread_ldap_account])
                 #if qh.should_skip():
                 #    continue
