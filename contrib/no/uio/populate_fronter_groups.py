@@ -879,6 +879,7 @@ def get_kursakt(edu_info, kursakt_file, edu_file):
     for kursakt in EduDataGetter(kursakt_file, logger).iter_kursakt():
         evu_id = fields2key("evu", kursakt['etterutdkurskode'],
                             kursakt['kurstidsangivelsekode'])
+        logger.debug2('Processing EVU-kurs: %s', evu_id)
         aktkode = fields2key(kursakt["aktivitetskode"])
         if evu_id not in edu_info:
             logger.error("Ikke-eksisterende EVU-kurs <%s> har aktiviteter "
@@ -895,7 +896,7 @@ def get_kursakt(edu_info, kursakt_file, edu_file):
                                                  prefer_student=True))
         tmp = {'aktivitetsnavn': kursakt['aktivitetsnavn'],
                'fronter_spreads': destined_for_lms(kursakt),
-               'sted': make_sko(kursakt, suffix="_adm_ansvar"),
+               'sted': edu_info[evu_id]['sted'],
                'students': student_accounts}
         edu_info[evu_id].setdefault('aktivitet', {})[aktkode] = tmp
 
