@@ -955,6 +955,7 @@ class UiOEVU(access_FS.EVU):
               e.etterutdkurskode=k.etterutdkurskode AND
               NVL(e.status_kontotildeling,'J')='J' AND
               k.kurstidsangivelsekode = e.kurstidsangivelsekode AND
+              k.kursavbruddstatuskode IS NULL AND
               NVL(e.dato_til, SYSDATE) >= SYSDATE - 30"""
         return self.db.query(qry)
 
