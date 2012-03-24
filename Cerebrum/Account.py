@@ -449,31 +449,29 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                       'np_type', 'creator_id', 'expire_date', 'create_date',
                       '_auth_info', '_acc_affect_auth_types')
 
-    def create(self, owner_type, owner_id, creator_id, np_type=None,
-               expire_date=None, parent=None, name=None):
-        """Method for creating a regular account. Should be subclassed for
-        instance specific behaviour, e.g. setting default spreads, creating
-        home disks, fixing group memberships etc.
-        
+    def create(self, name, owner_id, creator_id, expire_date=None, parent=None):
+        """Method for creating a new, regular account. Should be subclassed for
+        instance specific behaviour, e.g. setting default spreads, creating home
+        disks, fixing group memberships etc.
+
         If you don't want to create a normal account, please use L{populate}
         as before.
 
         TODO: This is work in progress, expect changes.
-        
+
         """
-        #if not name:
-        #    # TODO: support other entities than persons?
-        #    name = self.suggest_unames(domain = int(self.const.account_namespace),
-        #                               fname = xxx,
-        #                               lname = xxx)
-        self.populate(name=name, owner_type=owner_type, owner_id=owner_id,
-                      np_type=np_type, creator_id=creator_id,
+        self.populate(name=name, owner_type=self.const.entity_person,
+                      owner_id=owner_id, np_type=None, creator_id=creator_id,
                       expire_date=expire_date, parent=parent)
         self.write_db()
 
         # Settings used in every instance
         for s in getattr(cereconf, 'BOFHD_NEW_USER_SPREADS', ()):
             self.add_spread(int(self.const.Spread(s)))
+
+        # Creating an initial password
+        account.set_password(self.make_passwd(name))
+        account.write_db()
 
     def deactivate(self):
         """Deactivate is commonly thought of as removal of spreads and setting
