@@ -55,6 +55,8 @@ def usage(exitcode=0):
 
                                 ANSATT,TILKNYTTET/ekstern,STUDENT/fagperson
 
+    --commit                Actually commit the work. The default is dryrun.
+
     -h --help               Show this and quit.
     """ % {'file': os.path.basename(sys.argv[0]),
            'doc': __doc__}
