@@ -85,8 +85,7 @@ def create_account(pe, ac, creator_id):
     if len(names) < 1:
         logger.warn('Person %d has no name, skipping', pe.entity_id)
         return
-    ac.create(name=names[0], owner_type=pe.entity_type, owner_id=pe.entity_id,
-              np_type=None, creator_id=creator_id)
+    ac.create(name=names[0], owner_id=pe.entity_id, creator_id=creator_id)
     logger.debug("Account %s created", names[0])
 
     # give the account the person's affiliations
