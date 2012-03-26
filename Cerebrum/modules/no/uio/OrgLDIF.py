@@ -57,7 +57,7 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
     def init_person_basic(self):
         self.__super.init_person_basic()
         self._get_primary_aff_traits()
-          
+    
     def _get_primary_aff_traits(self):
         for row in self.person.list_traits(code=self.const.trait_primary_aff):
             p_id = row['entity_id']
@@ -278,6 +278,22 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         entry['uioPersonScopedAffiliation'] = self.make_uioPersonScopedAffiliation(p_id, pri_aff, pri_ou)
         if 'uioPersonObject' not in entry['objectClass']:
             entry['objectClass'].extend(('uioPersonObject',))
+            
+        # Check if there exists «avvikende» addresses, if so, export them instead:
+        addrs = self.addr_info.get(p_id)
+        post  = addrs and addrs.get(int(self.const.address_other_post))
+        if post:
+            a_txt, p_o_box, p_num, city, country = post
+            post = self.make_address("$", p_o_box,a_txt,p_num,city,country)
+            if post:
+                entry['postalAddress'] = (post,)
+        street = addrs and addrs.get(int(self.const.address_other_street))
+        if street:
+            a_txt, p_o_box, p_num, city, country = street
+            street = self.make_address(", ", None,a_txt,p_num,city,country)
+            if street:
+                entry['street'] = (street,)
+
         return dn, entry, alias_info
 
     def _calculate_edu_OUs(self, p_ou, s_ous):
