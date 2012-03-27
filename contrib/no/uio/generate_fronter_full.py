@@ -1252,7 +1252,7 @@ def init_globals():
         elif opt in ("--kull-file",):
             kull_file = val
         else:
-            raise ValueError, "Invalid argument: %r", (opt,)
+            raise ValueError("Invalid argument: %r" % (opt,))
 
     global root_ou_id
     root_ou_id = _get_ou(root_sko).entity_id
@@ -1299,8 +1299,7 @@ def list_users_for_fronter_export():  # TODO: rewrite this
     email_addrs = posix_user.getdict_uname2mailaddr()
     logger.debug("list_users_for_fronter_export got %d emailaddrs",
                  len(email_addrs))
-    for row in posix_user.list_extended_posix_users(
-        const.auth_type_md5_crypt):
+    for row in posix_user.list_extended_posix_users(const.auth_type_md5_crypt):
         tmp = {'email': email_addrs.get(row['entity_name'],
                                         '@'.join((row['entity_name'],
                                                   'ulrik.uio.no'))),
@@ -1828,6 +1827,7 @@ def main():
         fxml.acl_to_XML(struct_id, fronter.STATUS_UPDATE, data)
     fxml.end()
 
+    logger.info("generate_fronter_full is done")
 
 if __name__ == '__main__':
      main()
