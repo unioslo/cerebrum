@@ -49,7 +49,6 @@ from OpenSSL import SSL
 
 import traceback
 
-
 class BasicSoapServer(DefinitionBase):
     """Base class for SOAP services.
 
@@ -156,7 +155,8 @@ def clientVerificationCallback(instance, connection, x509, errnum, errdepth, ok=
             log.err('  exception: %s' % e)
         return False
     # check the whitelist
-    if instance.client_fingerprints:
+    if instance.client_fingerprints is not None:
+        # TODO: make use of cisconc.FINGERPRINT_ALGORITHM somehow
         if x509.digest('sha1') not in instance.client_fingerprints:
             log.err('Valid cert, but not in whitelist')
             log.err('  subject: %s' % x509.get_subject())
@@ -298,6 +298,9 @@ class TwistedSoapStarter(BasicSoapStarter):
         # validate the whole chain?
         if client_fingerprints:
             self.client_fingerprints = client_fingerprints
+            if client_fingerprints is not None:
+                if len(client_fingerprints) == 0:
+                    log.msg('WARNING: empty whitelist, no client will be accepted')
         else:
             log.msg('WARNING: No whitelist, accepting all certs signed by CA')
         ctx.set_verify(SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT,
