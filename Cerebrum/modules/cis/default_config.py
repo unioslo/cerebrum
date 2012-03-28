@@ -26,7 +26,7 @@ instance and for most CIS services.
 ###
 
 # The port the CIS daemon should run at.
-SERVICE_PORT = 0
+PORT = 0
 
 # The interface the CIS daemon should listen at. Default is 0.0.0.0 which means
 # that it accept incoming connections from every interface.
@@ -43,7 +43,7 @@ SERVER_PRIVATE_KEY_FILE = None
 
 # The file with the x509 certificate of the server. Note that the private key
 # must correspond to the certificate's public key.
-SERVER_SER_CERTIFICATE_FILE = None
+SERVER_CERTIFICATE_FILE = None
 
 # The file(s) with the certificates for which is accepted as the issuers of
 # client certificates. This means that a client must have a certificate that is
@@ -65,7 +65,7 @@ SERVER_SER_CERTIFICATE_FILE = None
 #
 # The output becomes the symlink's filenames. Note that the hashes might vary
 # between OpenSSL versions, so this has to be run on on production server.
-TLS_CA = []
+CERTIFICATE_AUTHORITIES = []
 
 # Whitelist of fingerprints of client certificates that should get accepted for
 # connecting to the server(s). If the list is None, it will be ignored and every
@@ -74,7 +74,7 @@ TLS_CA = []
 # open service.
 #
 # Note that it is not enough to just put a fingerprint in this list. The issuer
-# of the client certificate must be listed in TLS_CA as well.
+# of the client certificate must be listed in CERTIFICATE_AUTHORITIES as well.
 #
 # The fingerprints are by default in SHA-1 format, but that could be changed,
 # see FINGERPRINT_ALGORITHM.
@@ -128,15 +128,14 @@ LOG_MAXROTATES = 10
 ### Miscellaneous
 ###
 
-# A list of classes that should be used as services in a CIS daemon. The names
-# must be references to classes that could be reached by
-# Cerebrum.Utils.dyn_import. The classes are then instantiated and used as
-# services.
+# The Cerebrum class that will be used for the Cerebrum related functionality.
+# A server's main service contains public methods that is callable by the
+# clients. These methods are again calling an instance of this Cerebrum class.
+# This is done to separate the server functionality with the Cerebrum
+# functionality, to easier be able to switch server software if that is needed.
 #
-# Examples:
+# The string must be in a format understandable by Cerebrum.Utils.dyn_import.
+# Example:
 #
-#   ['Cerebrum.modules.cis.Individuation/Individuation',] # simple service
-#
-#   ['Cerebrum.modules.cis.auth/PasswordService',
-#    'Cerebrum.modules.cis.Groups/Service',] # a service with authentication
-SERVICES = []
+#   ['Cerebrum.modules.no.uio.Individuation/Indiv',] # UiO's simple service
+CEREBRUM_CLASS = None
