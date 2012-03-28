@@ -34,17 +34,18 @@ work on later.
 import sys, traceback
 import getopt
 
-import cerebrum_path, cereconf
-from Cerebrum.modules.cis import SoapListener
-from Cerebrum.Utils import Messages, dyn_import
-from Cerebrum import Errors
+from twisted.python import log
 
 from soaplib.core.service import rpc
 from soaplib.core.model.primitive import String, Integer, Boolean
 from soaplib.core.model.clazz import ClassModel, Array
 from soaplib.core.model.exception import Fault
 
-from twisted.python import log
+import cerebrum_path
+from cisconf import postmaster as cisconf
+from Cerebrum.modules.cis import SoapListener
+from Cerebrum.Utils import Messages, dyn_import
+from Cerebrum import Errors
 
 class PostmasterServer(SoapListener.BasicSoapServer):
     """The SOAP commands available for the clients.
@@ -164,9 +165,9 @@ if __name__ == '__main__':
     client_ca         = None
 
     if use_encryption:
-        private_key_file  = cereconf.SSL_PRIVATE_KEY_FILE
-        certificate_file  = cereconf.SSL_CERTIFICATE_FILE
-        client_ca         = [cereconf.SSL_CERTIFICATE_FILE,]
+        private_key_file  = cisconf.SERVER_PRIVATE_KEY_FILE
+        certificate_file  = cisconf.SERVER_CERTIFICATE_FILE
+        client_ca         = cisconf.CERTIFICATE_AUTHORITIES
     if interface:
         SoapListener.TwistedSoapStarter.interface = interface
 

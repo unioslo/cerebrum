@@ -19,34 +19,32 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""
-This file provides a SOAP server for the Individuation service at UiO.
+"""This file provides a SOAP service for the Individuation service at UiO.
 
-This is the glue between Cerebrum and twisted's soap server, as most Cerebrum
-relevant functionality should be placed in Cerebrum/modules/cis/, which should
-not know anything about twisted.
+This is the glue between Cerebrum and twisted's soap server, as the Cerebrum
+specific functionality should not know anything about twisted.
 
-Note that the logger is twisted's own logger and not Cerebrum's. Since twisted
-works in parallell the logger should not be blocked. Due to this, the format of
-the logs is not equal to the rest of Cerebrum. This might be something to work
-on later.
+Note that the logger is twisted's own logger and not Cerebrum's, since twisted
+has special needs, as it works with callbacks and runs in threads - it must not
+be blocked for instance.
 
 """
 
 import sys, socket, traceback
 import getopt
 
-import cerebrum_path, cereconf
-from Cerebrum.modules.cis import SoapListener
-from Cerebrum.Utils import Messages, dyn_import
-from Cerebrum import Errors
+from twisted.python import log
 
 from soaplib.core.service import rpc
 from soaplib.core.model.primitive import String, Integer, Boolean
 from soaplib.core.model.clazz import ClassModel, Array
 from soaplib.core.model.exception import Fault
 
-from twisted.python import log
+import cerebrum_path
+from cisconf import individuation as cisconf
+from Cerebrum.Utils import Messages, dyn_import
+from Cerebrum import Errors
+from Cerebrum.modules.cis import SoapListener
 
 class Account(ClassModel):
     # FIXME: define namespace properly 
@@ -118,8 +116,7 @@ class IndividuationServer(SoapListener.BasicSoapServer):
 
     @rpc(String, String, _returns=Boolean)
     def set_language(self, language, session_id=None):
-        """
-        Sets what language feedback messages should be returned in.
+        """Sets what language feedback messages should be returned in.
         """
         # TODO: improve validation of the language code 
         if language not in ('en', 'no'):
@@ -129,11 +126,10 @@ class IndividuationServer(SoapListener.BasicSoapServer):
 
     @rpc(String, String, String, _returns=Array(Account))
     def get_usernames(self, id_type, ext_id, session_id=None):
-        """
-        Based on id-type and the id, identify a person in Cerebrum and return a
-        list of the persons accounts and their status. If person exist but
-        doesn't have any accounts an empty list is returned.  If no person match
-        the id_type and id an exception is thrown.
+        """Based on id-type and the id, identify a person in Cerebrum and
+        return a list of the persons accounts and their status. If person
+        exist but doesn't have any accounts an empty list is returned.  If no
+        person match the id_type and id an exception is thrown.
 
         The list is sorted by the person's user priorities, the primary account
         listed first. The types of user status are:
@@ -143,6 +139,7 @@ class IndividuationServer(SoapListener.BasicSoapServer):
           - *PasswordQuarantined*: if the account is not inactive, but has a
             quarantine of type 'autopassord'.
           - *Active*: if the account isn't inactive and hasn't any quarantine.
+
         """
         ret = []
         # get_person_accounts returns a list of dicts on the form:
@@ -202,11 +199,11 @@ class IndividuationServer(SoapListener.BasicSoapServer):
 def usage(exitcode=0):
     print """Usage: %s [-p <port number] [-l logfile] [--unencrypted]
 
-Starts up the Individuation webservice on a given port. Please note that
-cereconf.INDIVIDUATION* contains more settings for the service.
+Starts up the Individuation webservice on a given port. Please note that the
+config (cisconf) contains more settings for the service.
 
   -p
-  --port num        Run on alternative port than defined in cereconf.
+  --port num        Run on alternative port than defined in cisconf.
 
   --interface ADDR  What interface the server should listen to 
                     (default: 0.0.0.0)
@@ -215,7 +212,7 @@ cereconf.INDIVIDUATION* contains more settings for the service.
   --logfile:        Where to log
 
   --instance        The individuation instance which should be used. Defaults
-                    to cereconf.INDIVIDUATION_INSTANCE. E.g:
+                    to cisconf.CEREBRUM_CLASS. E.g:
                         Cerebrum.modules.cis.Individuation/Individuation
                     or:
                         Cerebrum.modules.cis.UiAindividuation/Individuation
@@ -238,10 +235,10 @@ if __name__=='__main__':
         usage(1)
 
     use_encryption = True
-    port        = getattr(cereconf, 'INDIVIDUATION_SERVICE_PORT', 0)
-    logfilename = getattr(cereconf, 'INDIVIDUATION_SERVICE_LOGFILE', None)
-    instance    = getattr(cereconf, 'INDIVIDUATION_INSTANCE', None)
-    interface   = None
+    port        = getattr(cisconf, 'PORT', 0)
+    logfilename = getattr(cisconf, 'LOG_FILE', None)
+    instance    = getattr(cisconf, 'CEREBRUM_CLASS', None)
+    interface   = getattr(cisconf, 'INTERFACE', None)
 
     for opt, val in opts:
         if opt in ('-l', '--logfile'):
@@ -256,6 +253,9 @@ if __name__=='__main__':
             interface = val
         elif opt in ('-h', '--help'):
             usage()
+        else:
+            print "Unknown argument: %s" % opt
+            usage(1)
 
     # Get the individuation class and give it to the server
     module, classname = instance.split('/', 1)
@@ -272,10 +272,10 @@ if __name__=='__main__':
     fingerprints      = None
 
     if use_encryption:
-        private_key_file  = cereconf.SSL_PRIVATE_KEY_FILE
-        certificate_file  = cereconf.SSL_CERTIFICATE_FILE
-        client_ca         = cereconf.INDIVIDUATION_CLIENT_CA
-        fingerprints      = getattr(cereconf, 'INDIVIDUATION_CLIENT_FINGERPRINTS', None)
+        private_key_file  = cisconf.SERVER_PRIVATE_KEY_FILE
+        certificate_file  = cisconf.SERVER_CERTIFICATE_FILE
+        client_ca         = cisconf.CERTIFICATE_AUTHORITIES
+        fingerprints      = getattr(cisconf, 'FINGERPRINTS', None)
     if interface:
         SoapListener.TwistedSoapStarter.interface = interface
 
