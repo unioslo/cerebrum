@@ -112,10 +112,15 @@ FINGERPRINT_ALGORITHM = 'sha1'
 # create race conditions and write conflicts.
 LOG_FILE = None
 
-# The name to be put inside the log files
-LOG_PREFIX = 'cis'
-# TODO: prefix is wrong name. It's not a prefix, it's an "application" name, or
-# something...
+# The name of the job to be put in the log files. Cerebrum's root logs contains
+# the elements: 
+#
+#  YYYY-MM-DD HH:mm:ss <jobname>: <loglevel> <message>
+#
+# The job name is an identifier to be able to separate the different jobs' logs,
+# and is useful e.g. for mailloggers. The default is just 'cis' for all CIS
+# servers, but it is changeable to split out certain servers.
+LOG_NAME = 'cis'
 
 # The number of bytes a log file may contain before it gets rotated.
 LOG_LENGTH = 50 * 1024 * 1024 # = 50MiB

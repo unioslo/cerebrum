@@ -218,6 +218,7 @@ class TwistedSoapStarter(BasicSoapStarter):
         file is given, it will use encryption."""
         #super(TwistedSoapStarter, self).__init__()
         self.setup_soaplib(applications)
+        # TODO: make use of log prefixing etc.
         if logfile:
             self.setup_logging(logfile)
         self.setup_twisted()
@@ -340,7 +341,7 @@ class TwistedCerebrumLogger(log.FileLogObserver):
     # Set this to the current script's name.
     # TODO: Remove the now default cis_individuation, as this is not generic.
     #       Requires maillog-exceptions gets updated with new name.
-    log_prefix = 'cis_individuation: '
+    log_prefix = 'cis'
 
     # The time format known by Cerebrum
     timeFormat = '%Y-%m-%d %H:%M:%S'
@@ -358,7 +359,8 @@ class TwistedCerebrumLogger(log.FileLogObserver):
         fmtDict = {'system': eventDict['system'], 'text': text.replace("\n", "\n\t")}
         msgStr = log._safeFormat("[%(system)s] %(text)s\n", fmtDict)
 
-        util.untilConcludes(self.write, timeStr + ' ' + self.log_prefix + msgStr)
+        util.untilConcludes(self.write, '%s %s: %s' % (timeStr, self.log_prefix,
+                                                       msgStr))
         util.untilConcludes(self.flush)  # Hoorj!
 
 # Hack of WSGI/soaplib to support sessions.
