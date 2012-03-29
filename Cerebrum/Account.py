@@ -470,8 +470,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             self.add_spread(int(self.const.Spread(s)))
 
         # Creating an initial password
-        account.set_password(self.make_passwd(name))
-        account.write_db()
+        self.set_password(self.make_passwd(name))
+        self.write_db()
 
     def deactivate(self):
         """Deactivate is commonly thought of as removal of spreads and setting
