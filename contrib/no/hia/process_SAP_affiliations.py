@@ -375,8 +375,15 @@ def synchronise_employment(employment_cache, tpl, person, ou_id):
     Updates employment_cache destructively.
     """
 
-    employment = SAPLonnsTittelKode(tpl.lonnstittel)
-    description = employment.description
+    try:
+        employment = SAPLonnsTittelKode(tpl.lonnstittel)
+        description = employment.description
+    except Errors.NotFoundError, e:
+        logger.warn("Unknown lonnstittelkode %s for person with SAP-id: %s",
+                    tpl.lonnstittel, tpl.sap_ansattnr)
+        logger.warn(e)
+        return
+
     if " " not in description:
         logger.debug("Employment type %s for person %s missing code/description",
                      description, person.entity_id)
