@@ -737,7 +737,7 @@ def pretty_jobs_presenter(jobs, args):
 
     # Should we use getopt here?
     if '-l' in args:
-        for name in jobs.get_jobs():
+        for name in sorted(jobs.get_jobs()):
             print name
     elif '--show-job' in args:
         try:
@@ -759,7 +759,7 @@ def pretty_jobs_presenter(jobs, args):
         dumplevel = args[args.index('--dump') + 1]
         print "not implemented yet..."
     elif '-v' in args:
-        for name, job in jobs.get_jobs().iteritems():
+        for name, job in sorted(jobs.get_jobs().iteritems()):
             print "Job: %s:" % name
             print "  Command: %s" % job.get_pretty_cmd()
             if job.pre:
