@@ -711,6 +711,70 @@ class JobQueue(object):
 
     dump_jobs = staticmethod(dump_jobs)
 
+def pretty_jobs_presenter(jobs, args):
+    """Utility function to give a human readable presentation of the defined
+    jobs. This should simulate job_runner's presentation, to be able to get the
+    information in test, without having to run a real job_runner.
+
+    To use the function, feed it with the jobs from a given scheduled_jobs.py.
+
+    @type jobs: class Cerebrum.modules.job_runner.job_actions.Jobs
+    @param jobs:
+        A class with all the jobs to present. Normally the AllJobs class in a
+        given scheduled_jobs.
+
+    @type args: list
+    @param args:
+        Input arguments, typically sys.argv[1:]. This is to be able to present
+        the jobs in different ways, without the need of much code in
+        scheduled_jobs.py. Not implemented yet, but '--show-job' could for
+        example be a candidate.
+
+    """
+    if not args:
+        print "%d jobs defined" % len(jobs.get_jobs())
+        return
+
+    # Should we use getopt here?
+    if '-l' in args:
+        for name in jobs.get_jobs():
+            print name
+    elif '--show-job' in args:
+        try:
+            jobname = args[args.index('--show-job') + 1]
+        except IndexError:
+            print "No jobname is given"
+            return
+        try:
+            job = jobs.get_jobs()[jobname]
+        except KeyError:
+            print "No such job: %s" % jobname
+            return
+        print "Command: %s" % job.get_pretty_cmd()
+        print "Pre-jobs: %s" % job.pre
+        print "Post-jobs: %s" % job.post
+        print "Non-concurrent jobs: %s" % job.nonconcurrent
+        print "When: %s, max-freq: %s" % (job.when, job.max_freq)
+    elif '--dump' in args:
+        dumplevel = args[args.index('--dump') + 1]
+        print "not implemented yet..."
+    elif '-v' in args:
+        for name, job in jobs.get_jobs().iteritems():
+            print "Job: %s:" % name
+            print "  Command: %s" % job.get_pretty_cmd()
+            if job.pre:
+                print "  Pre-jobs: %s" % job.pre
+            if job.post:
+                print "  Post-jobs: %s" % job.post
+            if job.nonconcurrent:
+                print "  Non-concurrent jobs: %s" % job.nonconcurrent
+            print "  When: %s, max-freq: %s" % (job.when, job.max_freq)
+        #return ret
+    else:
+        print "--show-job JOBNAME   Show a given job"
+        print "-l                   List all the jobs"
+        print "-v                   List jobs verbosely"
+
 def run_tests():
     def parse_time(t):
         return time.mktime(time.strptime(t, '%Y-%m-%d %H:%M')) + time.timezone

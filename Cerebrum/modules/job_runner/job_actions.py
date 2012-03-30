@@ -435,8 +435,6 @@ class Jobs(object):
             
         return ret
 
-
-
 def _test_time():
     from Cerebrum.modules.job_runner.job_utils import When, Time
     ac =  Action(call = System("echo yes"),
