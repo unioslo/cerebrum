@@ -101,18 +101,21 @@ def usage(exitcode=0):
 
 Fire up the Postmaster's webservice.
 
-  --port        What port to run the server.
+  --port        What port to run the server. Default: cisconf.PORT.
 
   --interface   What interface the server should listen to (default: 0.0.0.0)
+                Default: cisconf.INTERFACE.
 
-  --logfile     Where to log
+  --logfile     Where to log. Default: cisconf.LOG_FILE.
 
   --fingerprints A comma separated list of certificate fingerprints. If this
                 is set, client certificates that doesn't generate fingerprints
                 which are in this list gets blocked from the service.
+                Default: cisconf.FINGERPRINTS.
 
   --instance    The Cerebrum instance which should be used. E.g:
                     Cerebrum.modules.no.uio.PostmasterCommands/Commands
+                Default: cisconf.CEREBRUM_CLASS.
 
   --unencrypted Don't use https
 
