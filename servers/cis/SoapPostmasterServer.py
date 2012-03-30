@@ -131,7 +131,11 @@ if __name__ == '__main__':
         usage(1)
 
     use_encryption = True
-    port = logfilename = interface = instance = fingerprints = None
+    port            = getattr(cisconf, 'PORT', 0)
+    logfilename     = getattr(cisconf, 'LOG_FILE', None)
+    instance        = getattr(cisconf, 'CEREBRUM_CLASS', None)
+    interface       = getattr(cisconf, 'INTERFACE', None)
+    fingerprints    = getattr(cisconf, 'FINGERPRINTS', None)
 
     for opt, val in opts:
         if opt in ('--logfile',):
