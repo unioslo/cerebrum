@@ -162,6 +162,7 @@ class BofhdExtension(BofhdCommandBase):
         '_register_list_addresses', '_register_mailman_list_addresses',
         '_email_delete_list', '_check_mailman_official_name',
         '_get_mailman_list', '_create_mailing_list_in_cerebrum', '_is_ok_mailing_list_name',
+        '_email_info_contact_info',
         #
         # copy trait-functions
         #
