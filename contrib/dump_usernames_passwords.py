@@ -115,7 +115,7 @@ def output(stream, ac):
         out.append(ac.get_account_authentication(co.auth_type_plaintext))
     except Errors.NotFoundError, e:
         logger.warn("Could not find plaintext password for %s", ac.account_name)
-        return False
+        return True
     stream.write("%s\n" % ';'.join(out))
     return True
 
