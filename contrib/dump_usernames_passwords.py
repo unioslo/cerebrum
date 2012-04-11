@@ -42,13 +42,14 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-logger = Factory.get_logger("cronjob")
+from Cerebrum.modules import CLHandler
 
+logger = Factory.get_logger("cronjob")
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 ac = Factory.get('Account')(db)
 pe = Factory.get('Person')(db)
-
+cl = CLHandler.CLHandler(db)
 
 def usage(exitcode=0):
     print """Usage: dump_usernames_passwords.py [options]
@@ -63,31 +64,49 @@ def usage(exitcode=0):
     --pwd_file FILE         Where to put the CSV file with accounts that has
                             changed their passwords.
 
-    --hours HOURS           The number of hours back we should check for
-                            changes. Default: 24
+    --dryrun                Do not mark events as processed. This is for
+                            testing, to be able to rerun the dump.
 
     -h --help               Show this and quit.
     """ % {'doc': __doc__}
     sys.exit(exitcode)
 
-def process_accounts(event_types, stream, since, spreads):
+def process_accounts(event_key, event_types, stream, spreads, dryrun):
     """Go through the change log for new events of the given type, and dump out
     the affected accounts to the stream."""
-    entities = set(row['subject_entity'] for row in db.get_log_events(types=event_types, sdate=since))
-    logger.debug("Fond %d entities in change_log", len(entities))
-    for e_id in entities:
-        ac.clear()
-        try:
-            ac.find(e_id)
-        except Errors.NotFoundError, e:
-            logger.info("Unknown account for entity_id: %s", e_id)
-            continue
-        if spreads and not any(ac.has_spread(s) for s in spreads):
-            logger.debug("Ignoring %s due to missing spreads", ac.account_name)
-            continue
-        logger.debug("Processing: %s", ac.account_name)
-        output(stream, ac)
+    handled = set()
+    events = reversed(cl.get_events(event_key, event_types))
+    logger.debug("Fond %d new events", len(events))
+
+    for event in events:
+        if process_account(event['subject_entity'], stream, handled, spreads):
+            cl.confirm_event(event)
     stream.close()
+
+    if not dryrun:
+        logger.debug("Events confirmed and commited")
+        cl.commit_confirmations()
+    else:
+        logger.debug("In dryrun mode, events not commited")
+
+def process_account(e_id, stream, handled, spreads):
+    """Find the account and stream it to the output."""
+    if e_id in handled:
+        logger.debug("User %d already processed", e_id)
+        return True
+    ac.clear()
+    try:
+        ac.find(e_id)
+    except Errors.NotFoundError, e:
+        logger.info("Unknown account for entity_id: %s", e_id)
+        # TODO: Accounts that doesn't exist any more should just be ignored, or
+        # are there cases where this is wrong?
+        return True
+    if spreads and not any(ac.has_spread(s) for s in spreads):
+        logger.debug("Ignoring %s due to missing spreads", ac.account_name)
+        return True
+    logger.debug("Processing: %s", ac.account_name)
+    return output(stream, ac)
 
 def output(stream, ac):
     """Get the needed data and put it into the stream."""
@@ -123,7 +142,7 @@ def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], "h",
                                    ["help",
-                                    "hours=",
+                                    "dryrun",
                                     "spreads=",
                                     "create_file=",
                                     "pwd_file="])
@@ -132,18 +151,18 @@ def main():
         usage(1)
 
     create_file = pwd_file = None
-    since = now() - 1
     spreads = []
+    dryrun = False
 
     for opt, val in opts:
         if opt in ('-h', '--help',):
             usage()
+        elif opt in ('--dryrun',):
+            dryrun = True
         elif opt in ('--create_file',):
             create_file = val
         elif opt in ('--pwd_file',):
             pwd_file = val
-        elif opt in ('--hours',):
-            since = now() - DateTimeDeltaFromSeconds(3600 * int(val))
         elif opt in ('--spreads',):
             spreads.extend(int(co.Spread(s)) for s in val.split(','))
         else:
@@ -152,13 +171,13 @@ def main():
 
     if create_file:
         logger.info("Start processing new accounts")
-        process_accounts(co.account_create, open(create_file, 'w'), since,
-                         spreads)
+        process_accounts('dump_new_accounts', co.account_create,
+                         open(create_file, 'w'), spreads, dryrun)
         logger.info("Processing of new accounts done")
     if pwd_file:
         logger.info("Start processing accounts with new passwords")
-        process_accounts(co.account_password, open(pwd_file, 'w'), since,
-                         spreads)
+        process_accounts('dump_new_passwords', co.account_password,
+                         open(pwd_file, 'w'), spreads, dryrun)
         logger.info("Processing of accounts with new passwords done")
     logger.info("All done")
 
