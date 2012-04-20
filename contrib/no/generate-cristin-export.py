@@ -768,12 +768,17 @@ def main(argv):
     source_system = const.human2constant(source_system, const.AuthoritativeSystem)
     
     spread = const.human2constant(spread, const.Spread)
-    logger.info( 'Spread is: %s' %spread)
-
-    root_ou = find_root_ou(root_ou)
+    root_ou_obj = find_root_ou(root_ou)
+    if spread and not root_ou_obj.has_spread(spread):
+        logger.error('Root OU %s does not have %s spread. To export all OUs '
+                'run the script without --spread option.' %(root_ou, spread))
+        if len(root_ou_obj.list_all_with_spread(spread)) == 0:
+            logger.error('No OU has %s spread. To be exported to Cristin an OU'
+                    ' must have this spread.' %spread)
+        sys.exit(1)
     sink = SimilarSizeWriter(output_file)
     sink.set_size_change_limit(15)
-    output_xml(sink, tag, root_ou, perspective, source_system, spread)
+    output_xml(sink, tag, root_ou_obj, perspective, source_system, spread)
     sink.close()
 # end main
 
