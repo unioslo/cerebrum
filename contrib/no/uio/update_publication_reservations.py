@@ -52,8 +52,6 @@ co = Factory.get('Constants')(db)
 logger = Factory.get_logger('cronjob')
 count_resrv_true = count_resrv_false = 0
 
-reservations = dict((row['entity_id'], row['numval']) for row in pe.list_traits(
-                                        code = co.trait_public_reservation))
 
 def usage(exitcode=0):
     print "Usage: %s [--commit]" % sys.argv[0]
@@ -141,6 +139,7 @@ def get_students():
     context of publication."""
     return set(row['person_id'] for row in
             pe.list_affiliations(status=(co.affiliation_status_student_aktiv,
+                                         co.affiliation_status_student_emnestud,
                                          co.affiliation_status_student_drgrad),
                                  source_system=co.system_fs))
 
@@ -166,4 +165,9 @@ if __name__ == '__main__':
             usage()
         elif opt in ('--commit',):
             with_commit = True
+
+    global reservations
+    reservations = dict((row['entity_id'], row['numval']) for row in pe.list_traits(
+                                            code = co.trait_public_reservation))
+
     process(with_commit = with_commit)
