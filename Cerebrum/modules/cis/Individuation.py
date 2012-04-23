@@ -327,7 +327,7 @@ class Individuation:
         """Send token as a SMS message to phone_no"""
         msg = getattr(cereconf, 'INDIVIDUATION_SMS_MESSAGE', 
                                 'Your one time password: %s')
-        self.send_sms(phone_no, msg % token)
+        return self.send_sms(phone_no, msg % token)
 
     def hash_token(self, token, uname):
         """Generates a hash of a given token, to avoid storing tokens in
