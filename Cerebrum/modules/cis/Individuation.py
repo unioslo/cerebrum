@@ -193,7 +193,7 @@ class Individuation:
             phone_nos = self.get_phone_numbers(person,
                                                only_first_affiliation=False)
             if phone_nos:
-                accounts = (a['uname'] for a in self.get_account_list(person))
+                accounts = [a['uname'] for a in self.get_account_list(person)]
                 log.debug('Sending SMS with usernames: %s' % ', '.join(accounts))
                 self.send_sms(phone_nos[0]['number'],
                               cisconf.SMS_MSG_USERNAMES % '\n'.join(accounts))
