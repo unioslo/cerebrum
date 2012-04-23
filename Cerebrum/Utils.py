@@ -1588,13 +1588,13 @@ class SMSSender():
             msg_id, status, to, timestamp, message = line.split('\xa4', 4)
         except ValueError, e:
             print e
-            self._logger.warning("SMS: bad response from server: %s", line)
+            self._logger.warning("SMS: bad response from server: %s" % line)
             return False
 
         if status == 'SENDES':
             return True
-        self._logger.warning("SMS: Bad status '%s' (phone_to='%s', msg_id='%s')",
-                             status, to, msg_id)
+        self._logger.warning("SMS: Bad status '%s' (phone_to='%s', msg_id='%s')"
+                             % (status, to, msg_id))
         return False
 
     def __call__(self, phone_to, message, confirm = False):
@@ -1622,7 +1622,7 @@ class SMSSender():
                                      't': phone_to,
                                      'm': message})
         self._logger.debug("Sending SMS to %s (user: %s, system: %s)"
-                % (phone_to, self._user, self._system))
+                           % (phone_to, self._user, self._system))
 
         old_timeout = socket.getdefaulttimeout()
         socket.setdefaulttimeout(60) # in seconds
@@ -1637,7 +1637,7 @@ class SMSSender():
 
         if ret.code is not 200:
             self._logger.warning("SMS gateway responded with code "
-                "%s - %s" % (ret.code, ret.msg))
+                                 "%s - %s" % (ret.code, ret.msg))
             return False
 
         if self._validate_response(ret):
