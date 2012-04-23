@@ -51,7 +51,7 @@ class Individuation(Individuation.Individuation):
         'fresh_phonenumber': {'en': u'Your phone number has recently been changed in StudWeb, and can not, due to security reasons, be used ' +
                                     u'in a few days. Please contact your local IT-department.',
                               'no': u'Ditt mobilnummer er nylig byttet i StudentWeb, og kan av sikkerhetsmessige årsaker ikke ' +
-                                    u'benyttes før etter noen dager. Vennlighst ta kontakt med din lokale IT-avdeling.'},
+                                    u'benyttes før etter noen dager. Vennligst ta kontakt med din lokale IT-avdeling.'},
         'password_invalid':  {'en': u'Bad password: %s',
                               'no': u'Ugyldig passord: %s'},
     }
