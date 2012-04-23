@@ -18,17 +18,20 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""
-Basic Cerebrum functionality for the Individuation service.
+"""Basic Cerebrum functionality for the Individuation service.
+
 """
 
 import random, hashlib
 import string, pickle
 from mx.DateTime import RelativeDateTime, now
-import cereconf, cerebrum_path
+
+import cereconf
+import cerebrum_path
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, SMSSender, sendmail
 from Cerebrum.modules import PasswordChecker
+from cisconf import individuation as cisconf
 
 class SimpleLogger(object):
     """
@@ -130,9 +133,10 @@ class Individuation:
             log.warning("db doesn't exist")
 
     def get_person_accounts(self, id_type, ext_id):
-        """
-        Find Person given by id_type and external id and return a list of
-        dicts with username, status and priority. 
+        """Find Person given by id_type and external id and return a list of
+        dicts with username, status and priority. Note that if the person is
+        reserved from publication, it will get an SMS with its usernames
+        instead.
 
         @param id_type: type of external id
         @type  id_type: string 
@@ -141,24 +145,39 @@ class Individuation:
         @return: list of dicts with username, status and priority, sorted
         by priority
         @rtype: list of dicts
-        """
 
+        """
         # Check if person exists
-        account = Factory.get('Account')(self.db)
         person = self.get_person(id_type, ext_id)
 
         # Check reservation
         if self.is_reserved_publication(person):
             log.info("Person id=%s is reserved from publication" % person.entity_id)
-            # Returns same error message as for non existing persons, to avoid
-            # leaking information that a person actually exists in our systems.
+            # if person has a phone number, we could send the usernames by SMS:
+            phone_nos = self.get_phone_numbers(person,
+                                               only_first_affiliation=False)
+            if phone_nos:
+                accounts = (a['uname'] for a in self.get_account_list(person))
+                self.send_sms(phone_nos[0]['number'],
+                              cisconf.SMS_MSG_USERNAMES % '\n'.join(accounts))
             raise Errors.CerebrumRPCException('person_notfound')
+        return self.get_account_list(person)
+
+    def get_account_list(self, person):
+        """Return a list of a person's accounts and a short status. The accounts
+        are sorted by priority.
+
+        @type  person: Cerebrum.Person instance 
+        @param person: A Person instance, set with the person to get the
+                       accounts from.
+        """
+        account = Factory.get('Account')(self.db)
         accounts = dict((a['account_id'], 9999999) for a in
-                         account.list_accounts_by_owner_id(owner_id=person.entity_id,
-                                                      filter_expired=False))
+                        account.list_accounts_by_owner_id(owner_id=person.entity_id,
+                                                          filter_expired=False))
         for row in account.get_account_types(all_persons_types=True,
-                                        owner_id=person.entity_id,
-                                        filter_expired=False):
+                                             owner_id=person.entity_id,
+                                             filter_expired=False):
             if accounts[row['account_id']] > int(row['priority']):
                 accounts[row['account_id']] = int(row['priority'])
         ret = list()
@@ -185,9 +204,8 @@ class Individuation:
         return ret
 
     def generate_token(self, id_type, ext_id, uname, phone_no, browser_token=''):
-        """
-        Generate a token that functions as a short time password for the
-        user and send it by SMS.
+        """Generate a token that functions as a short time password for the user
+        and send it by SMS.
         
         @param id_type: type of external id
         @type  id_type: string 
@@ -201,6 +219,7 @@ class Individuation:
         @type  browser_token: string
         @return: True if success, False otherwise
         @rtype: bool
+
         """
         # Check if account exists
         account = self.get_account(uname)
@@ -262,12 +281,16 @@ class Individuation:
         alphanum = string.digits + string.ascii_letters
         return ''.join(random.sample(alphanum, cereconf.INDIVIDUATION_TOKEN_LENGTH))
 
+    def send_sms(self, phone_no, msg):
+        """Send an SMS with the given msg to the given phone number."""
+        sms = SMSSender(logger=log)
+        return sms(phone_no, msg)
+
     def send_token(self, phone_no, token):
         """Send token as a SMS message to phone_no"""
-        sms = SMSSender(logger=log)
         msg = getattr(cereconf, 'INDIVIDUATION_SMS_MESSAGE', 
                                 'Your one time password: %s')
-        return sms(phone_no, msg % token)
+        self.send_sms(phone_no, msg % token)
 
     def hash_token(self, token, uname):
         """Generates a hash of a given token, to avoid storing tokens in
@@ -316,8 +339,7 @@ class Individuation:
         return False
 
     def delete_token(self, uname):
-        """
-        Delete password token for a given user
+        """Delete password token for a given user.
         """
         try:
             account = self.get_account(uname)
@@ -419,29 +441,30 @@ class Individuation:
             log.debug("Priorities: %s" % self._priorities_cache)
         return self._priorities_cache
 
-    def get_phone_numbers(self, person):
-        """
-        Return a list of the registered phone numbers for a given person. Only
-        the defined source systems and contact types are searched for, and the
-        person must have an active affiliation from a system before a number
+    def get_phone_numbers(self, person, only_first_affiliation=True):
+        """Return a list of the registered phone numbers for a given person.
+        Only the defined source systems and contact types are searched for, and
+        the person must have an active affiliation from a system before a number
         could be retrieved from that same system.
 
-        Note that the priority set for the source systems matters here. Only the
-        first priority level where the person has an affiliation is checked for
-        numbers, the lower priority levels are ignored.
-        """
+        Note that only the person affiliation with the highest priority is
+        checked for phone numbers, as long as L{only_first_affiliation} is True.
+        This is to separate the user types and avoid e.g. a student's phone
+        getting changed and thus be able to get hold of the employee account for
+        the same person.
 
+        """
         old_limit = now() - RelativeDateTime(days=cereconf.INDIVIDUATION_AFF_GRACE_PERIOD)
         pe_systems = [int(af['source_system']) for af in
                       person.list_affiliations(person_id=person.entity_id, include_deleted=True)
                       if (af['deleted_date'] is None or af['deleted_date'] > old_limit)]
         log.debug("Person has affiliations in the systems: %s" % pe_systems)
+        phones = []
         for systems in self._get_priorities():
             sys_codes = [getattr(self.co, s) for s in systems]
             if not any(s in sys_codes for s in pe_systems):
                 # person has no affiliation at this priority go to next priority
                 continue
-            phones = []
             for system, values in systems.iteritems():
                 types = [getattr(self.co, t) for t in values['types']]
                 sys = getattr(self.co, system)
@@ -459,15 +482,16 @@ class Individuation:
             log.debug("Phones for person_id:%s from (%s): %s" % (person.entity_id,
                       ','.join(s for s in systems), 
                       ','.join('%s:%s:%s' % (p['system_name'], p['type'], p['number']) for p in phones)))
-            return phones
-        return []
+            if only_first_affiliation:
+                return phones
+        return phones
 
     def check_phone(self, phone_no, numbers, person, account):
-        """
-        Check if given phone_no belongs to person. The phone number is only searched
-        for in source systems that the person has active affiliations from and
-        contact types as defined in INDIVIDUATION_PHONE_TYPES. Other numbers are
-        ignored.
+        """Check if given phone_no belongs to person. The phone number is only
+        searched for in source systems that the person has active affiliations
+        from and contact types as defined in INDIVIDUATION_PHONE_TYPES. Other
+        numbers are ignored.
+
         """
 
         for num in numbers:
@@ -501,7 +525,8 @@ class Individuation:
     def number_match(self, stored, given):
         """Checks if a given number matches a stored number. Checks, e.g.
         removing spaces, could be put here, if necessary, but note that the best
-        place to fix such mismatches is in the source system."""
+        place to fix such mismatches is in the source system.
+        """
         if given.strip() == stored.strip():
             return True
         # TODO: more checks here?
@@ -513,8 +538,9 @@ class Individuation:
         this DateTime to be accepted.
         
         If no delay is set for the number, it returns now(), which will be true
-        unless you change your number in the exact same time."""
+        unless you change your number in the exact same time.
 
+        """
         delay = 0
         try:
             types = cereconf.INDIVIDUATION_PHONE_TYPES[system]['types']
@@ -545,10 +571,10 @@ class Individuation:
                 log.error("Couldn't warn user %s. Has no primary e-mail address? %s" % (account.account_name, e))
 
     def check_too_many_attempts(self, account):
-        """
-        Checks if a user has tried to use the service too many times. Creates the
-        trait if it doesn't exist, and increments the numval. Raises an exception
-        when too many attempts occur in the block period.
+        """Checks if a user has tried to use the service too many times. Creates
+        the trait if it doesn't exist, and increments the numval. Raises an
+        exception when too many attempts occur in the block period.
+
         """
         attempts = 0
         trait = account.get_trait(self.co.trait_password_failed_attempts)
@@ -567,8 +593,7 @@ class Individuation:
         account._db.commit()
 
     def check_account(self, account):
-        """
-        Check if the account is not blocked from changing password.
+        """Check if the account is not blocked from changing password.
         """
         if account.is_deleted() or account.is_expired():
             return False
@@ -615,8 +640,10 @@ class Individuation:
         return False
 
     def is_reserved_publication(self, person):
-        """Check if a person is reserved from being published on the
-        instance's web pages. Most institutions doesn't have this regime."""
+        """Check if a person is reserved from being published on the instance's
+        web pages. Most institutions doesn't have this regime.
+
+        """
         if not hasattr(self.co, 'trait_public_reservation'):
             return False
         trait = person.get_trait(self.co.trait_public_reservation)
