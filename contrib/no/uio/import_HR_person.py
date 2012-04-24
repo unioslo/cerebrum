@@ -304,7 +304,18 @@ def determine_affiliations(xmlperson, source_system):
                         list(xmlperson.iterids()), t.place[1])
             continue
 
-        if t.percentage > max_so_far:
+        # This check allows us to pick a persons correct title to use on, for
+        # example, the person pages. Earlier, this consisted only of the elif,
+        # which in turn resulted in some professors getting the title from
+        # their bistilling instead of from their hovedstilling, when they
+        # are registred as 50/50 between the positions. Now, we'll pick the
+        # hovedstilling if that position is the larger part of their work 
+        # (the reason for checking for hovedstilling, and comparing with >=),
+        # in other cases, we select the bistilling they work the most in.
+        if t.kind == DataEmployment.HOVEDSTILLING and t.percentage >= max_so_far:
+            max_so_far = t.percentage
+            titles = t.get_name(t.WORK_TITLE)
+        elif t.percentage > max_so_far:
             max_so_far = t.percentage
             titles = t.get_name(t.WORK_TITLE)
 
