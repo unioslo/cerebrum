@@ -1585,7 +1585,7 @@ class SMSSender():
         # TODO: the new SMS-gateway is not used yet, so the following lines are
         # put here temporarily while waiting for the move.
         lines = '\n'.join(ret.readlines())
-        if lines.find('OK ') == -1:
+        if 'OK ' not in lines:
             self._logger.warning('SMSSender: bad response: %s' % (lines[:100],))
             return False
         return True
