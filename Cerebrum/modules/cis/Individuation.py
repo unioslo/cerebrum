@@ -197,6 +197,8 @@ class Individuation:
                 log.debug('Sending SMS with usernames: %s' % ', '.join(accounts))
                 self.send_sms(phone_nos[0]['number'],
                               cisconf.SMS_MSG_USERNAMES % '\n'.join(accounts))
+            else:
+                log.debug('No phone number for person %s' % person.entity_id)
             raise Errors.CerebrumRPCException('person_notfound_usernames')
         return self.get_account_list(person)
 
@@ -650,7 +652,11 @@ class Individuation:
         for gname in (getattr(cereconf, 'INDIVIDUATION_PASW_RESERVED', ()) +
                       (cereconf.BOFHD_SUPERUSER_GROUP,)):
             group.clear()
-            group.find_by_name(gname)
+            try:
+                group.find_by_name(gname)
+            except Errors.NotFoundError:
+                log.warning("Group %s deleted, but tagged for reservation" % gname)
+                continue
             if account.entity_id in (int(row["member_id"]) for row in
                                      group.search_members(group_id=group.entity_id,
                                                           indirect_members=True,
