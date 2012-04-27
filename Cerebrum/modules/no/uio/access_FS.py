@@ -520,151 +520,18 @@ class UiOStudent(access_FS.Student):
                                    'personnr': personnr,
                                    'personnr2': personnr})
 
-
 class UiOPortal(access_FS.FSObject):
+    """Denne funksjonen er ikke lenger i bruk, da portal-ting ikke er i bruk
+    lenger. Dersom jobben cerebrum/contrib/no/uio/generate_portal_export.py
+    skal settes i produksjon igjen, må denne funksjonen oppdateres til
+    gjeldende FS versjon, med vurderingsmodul, og deretter hentes fra
+    svn-loggen, for eksempel r15833.
 
+    """
     pass
-    # Denne funksjonen er ikke lenger i bruk, da portal-ting ikke er i
-    # bruk lenger. Dersom jobben
-    # cerebrum/contrib/no/uio/generate_portal_export.py skal settes i
-    # produksjon igjen, må denne funksjonen oppdateres til FS v6.2
-    # (vurderingsmodul) og deretter kommenteres inn igjen.    
-#     def list_eksmeld(self):  # GetPortalInfo_50
-#         """Hent ut alle eksamensmeldinger i nåværende semester med all
-#         interessant informasjon for portaldumpgenerering.
-
-#         SQL-spørringen er dyp magi. Spørsmål rettes til baardj.
-#         """
-
-#         #
-#         # NB! Det er ikke meningen at vanlige dødelige skal kunne forstå
-#         # denne SQL-spørringen. Lurer du på noe, plag baardj
-#         #
-
-#         # Velg ut studentens eksamensmeldinger for inneværende og
-#         # fremtidige semestre.  Søket sjekker at studenten har
-#         # rett til å følge kurset, og at vedkommende er
-#         # semesterregistrert i inneværende semester (eller,
-#         # dersom fristen for semesterregistrering dette
-#         # semesteret ennå ikke er utløpt, hadde
-#         # semesterregistrert seg i forrige semester)
-
-#         # Brukt i
-#         # cerebrum/contrib/no/uio/generate_portal_export.py. Her
-#         # benyttes manednr. ved at den outputes til fil, mao. må det
-#         # gjøres endringer i koden for denne dersom den skal tas i
-#         # bruk igjen.
-
-#         query = """
-#         SELECT m.fodselsdato, m.personnr,
-#                m.emnekode, m.arstall, m.manednr,
-#                sprg.studienivakode,
-#                e.institusjonsnr_reglement, e.faknr_reglement,
-#                e.instituttnr_reglement, e.gruppenr_reglement,
-#                es.studieprogramkode
-#         FROM fs.eksamensmelding m, fs.emne e, fs.studieprogramstudent sps,
-#              fs.emne_i_studieprogram es, fs.registerkort r,
-#              fs.studieprogram sprg, fs.person p
-#         WHERE
-#             m.arstall >= :aar1 AND
-#             m.fodselsdato = sps.fodselsdato AND
-#             m.personnr = sps.personnr AND
-#             m.fodselsdato = r.fodselsdato AND
-#             m.personnr = r.personnr AND
-#             m.fodselsdato = p.fodselsdato AND
-#             m.personnr = p.personnr AND
-#             NVL(p.status_dod, 'N') = 'N' AND
-#             %s AND
-#             NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
-#             sps.status_privatist = 'N' AND
-#             m.institusjonsnr = e.institusjonsnr AND
-#             m.emnekode = e.emnekode AND
-#             m.versjonskode = e.versjonskode AND
-#             m.institusjonsnr = es.institusjonsnr AND
-#             m.emnekode = es.emnekode AND
-#             es.studieprogramkode = sps.studieprogramkode AND
-#             es.studieprogramkode = sprg.studieprogramkode
-#         """ % self._get_termin_aar()
-
-#         # Velg ut studentens avlagte UiO eksamener i inneværende
-#         # semester (studenten er fortsatt gyldig student ut
-#         # semesteret, selv om alle eksamensmeldinger har gått
-#         # over til å bli eksamensresultater).
-#         #
-#         # Søket sjekker _ikke_ at det finnes noen
-#         # semesterregistrering for inneværende registrering
-#         # (fordi dette skal være implisitt garantert av FS)
-#         query += """ UNION
-#         SELECT sp.fodselsdato, sp.personnr,
-#                sp.emnekode, sp.arstall, sp.manednr,
-#                sprg.studienivakode,
-#                e.institusjonsnr_reglement, e.faknr_reglement,
-#                e.instituttnr_reglement, e.gruppenr_reglement,
-#                sps.studieprogramkode
-#         FROM fs.studentseksprotokoll sp, fs.emne e,
-#              fs.studieprogramstudent sps,
-#              fs.emne_i_studieprogram es, fs.studieprogram sprg, fs.person p
-#         WHERE
-#             sp.arstall >= :aar2 AND
-#             sp.fodselsdato = sps.fodselsdato AND
-#             sp.personnr = sps.personnr AND
-#             sp.fodselsdato = p.fodselsdato AND
-#             sp.personnr = p.personnr AND
-#             NVL(p.status_dod, 'N') = 'N' AND
-#             NVL(sps.DATO_studierett_GYLDIG_TIL,SYSDATE) >= sysdate AND
-#             sps.status_privatist = 'N' AND
-#             sp.emnekode = e.emnekode AND
-#             sp.versjonskode = e.versjonskode AND
-#             sp.institusjonsnr = e.institusjonsnr AND
-#             sp.institusjonsnr = '185' AND
-#             sp.emnekode = es.emnekode AND
-#             es.studieprogramkode = sps.studieprogramkode AND
-#             es.studieprogramkode = sprg.studieprogramkode
-#         """
-#         # Velg ut alle studenter som har opptak til et studieprogram
-#         # som krever utdanningsplan og som har bekreftet utdannings-
-#         # planen dette semesteret.
-#         #
-#         # NB! TO_*-konverteringene er påkrevd
-#         query += """ UNION
-#         SELECT stup.fodselsdato, stup.personnr,
-#                TO_CHAR(NULL) as emnekode, TO_NUMBER(NULL) as arstall,
-#                TO_NUMBER(NULL) as manednr,
-#                sprg.studienivakode,
-#                sprg.institusjonsnr_studieansv, sprg.faknr_studieansv,
-#                sprg.instituttnr_studieansv, sprg.gruppenr_studieansv,
-#                sps.studieprogramkode
-#         FROM fs.studprogstud_planbekreft stup,fs.studieprogramstudent sps,
-#              fs.studieprogram sprg, fs.person p
-#         WHERE
-#               stup.arstall_bekreft=:aar3 AND
-#               stup.terminkode_bekreft=:semester AND
-#               stup.fodselsdato = sps.fodselsdato AND
-#               stup.personnr = sps.personnr AND
-#               stup.fodselsdato = p.fodselsdato AND
-#               stup.personnr = p.personnr AND
-#               NVL(p.status_dod, 'N') = 'N' AND
-#               NVL(sps.DATO_studierett_GYLDIG_TIL, SYSDATE) >= sysdate AND
-#               sps.status_privatist = 'N' AND
-#               stup.studieprogramkode = sps.studieprogramkode AND
-#               stup.studieprogramkode = sprg.studieprogramkode AND
-#               sprg.status_utdplan = 'J'
-#         """
-
-#         semester = "%s" % self.semester
-#         return self.db.query(query,
-#                              {"aar1" : self.year,
-#                               "aar2" : self.year,
-#                               "aar3" : self.year,
-#                               "semester": semester},
-#                              False)
-
 
 class UiOBetaling(access_FS.FSObject):
-    ################################################
-    # Kopiavgift
-    # Ny ordning fra høsten 2004.
-    ################################################
+    """Kopiavgift. Ny ordning fra høsten 2004."""
     def list_utskrifts_betaling(self, days_past=180): # GetUtskriftsBetaling
         """Lister fødselsnummer, betalingsinformasjon og beløp for de
         innbetalinger som er gjordt gjennom studentweben for
