@@ -1200,7 +1200,7 @@ def open_xml_stream(filename):
     """
     
     sink = SimilarSizeWriter(filename, "w")
-    sink.set_size_change_limit(15)
+    sink.set_size_change_limit(30)
     printer = xmlprinter.xmlprinter(sink,
                                     indent_level=2,
                                     data_mode=1,
