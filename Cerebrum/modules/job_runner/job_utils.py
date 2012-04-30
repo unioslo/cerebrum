@@ -161,10 +161,10 @@ class Time(object):
     def __str__(self):
         ret = []
         if self.wday:
-            ret.append("d="+":".join(["%i" % w for w in self.wday]))
+            ret.append("wday="+":".join(["%i" % w for w in self.wday]))
         if self.hour:
             ret.append("h="+":".join(["%i" % w for w in self.hour]))
-        if self.hour:
+        if self.min:
             ret.append("m="+":".join(["%i" % w for w in self.min]))
         return ",".join(ret)
     
@@ -207,6 +207,7 @@ class SocketHandling(object):
         ret += "Post-jobs: %s\n" % job.post
         ret += "Non-concurrent jobs: %s\n" % job.nonconcurrent
         ret += "When: %s, max-freq: %s\n" % (job.when, job.max_freq)
+        ret += "Max duration: %s minutes\n" % (job.max_duration/60)
         return ret
         
         
