@@ -361,6 +361,7 @@ command_help = {
     'user_password': 'Set a new password for an account',
     'user_promote_posix': 'Make a Cerebrum account into a POSIX user account',
     'user_reserve': 'Reserve a user name in the database',
+    'user_restore': 'Restore a deactivated user',
     'user_set_disk_quota': 'Temporary override users disk_kvota',
     'user_set_disk_status': 'Set homedir status for user',
     'user_set_expire': 'Set expire date for an account',

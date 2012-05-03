@@ -8246,7 +8246,10 @@ Addresses and settings:
             raise CerebrumError, ("User is associated with an e-mail pipe " +
                                   "and cannot be deleted until the pipe is " +
                                   "removed. Please notify postmaster if you " +
-                                  "are not able to remove the pipe yourself.")                                  
+                                  "are not able to remove the pipe yourself.")
+
+        # Here we'll register a bofhd_reguest to archive the content of the
+        # users home directory.
         br = BofhdRequests(self.db, self.const)
         br.add_request(operator.get_entity_id(), br.now,
                        self.const.bofh_delete_user,
@@ -8909,267 +8912,230 @@ Addresses and settings:
                                                     'password': passwd})
         return {'account_id': int(account.entity_id)}
 
-    def __group_ids2name(self, group_ids):
-        ret = []
-        ret_tuple = True
-        if not isinstance(group_ids, (tuple, list)):
-            ret_tuple = False
-            group_ids = [group_ids]
-        elif group_ids is None:
-            return None
-        group = self.Group_class(self.db)
-        for g_id in group_ids:
-            group.clear()
-            try:
-                group.find(g_id)
-            except Errors.NotFoundError:
-                pass
-            ret.append(group.group_name)
-        if ret_tuple:
-            return ret
-        return ret[0]
-
-    def __user_restore_check_changelog(self, account):
-        """Find group memberships etc. from changelog.  Returns a
-        tuple: (old_uid, old_default_group_name, old_groups,
-        old_perm_groups).  Note that perm_groups are not in old_groups"""
-        
-        old_uid, old_gid, old_home = None, None, None
-        old_spreads = {}
-        old_groups = {}
-        delete_date = account.expire_date.strftime('%Y-%m-%d')
-        for row in self.db.get_log_events(subject_entity=account.entity_id,
-                                          types=[self.const.posix_demote,
-                                                 self.const.spread_del,
-                                                 self.const.group_rem,
-                                                 self.const.account_home_removed]):
-            if row['change_params'] is not None:
-                change_params = pickle.loads(row['change_params'])
-            if row['change_type_id'] == int(self.const.posix_demote):
-                old_uid, old_gid = change_params['uid'], change_params['gid']
-            elif row['change_type_id'] == int(self.const.account_home_removed):
-                tmp = change_params.get('home')
-                old_home = tmp[:tmp.rindex("/")]
-            elif row['tstamp'].strftime('%Y-%m-%d') == delete_date:
-                if row['change_type_id'] == int(self.const.spread_del):
-                    old_spreads[change_params['spread']] = 1
-                elif row['change_type_id'] == int(self.const.group_rem):
-                    old_groups[int(row['dest_entity'])] = 1
-        ar = BofhdAuthRole(self.db)
-        perm_groups = {}
-        if old_groups:
-            for row in ar.list(entity_ids=old_groups.keys()):
-               perm_groups[int(row['entity_id'])] = 1
-            for k in perm_groups.keys():
-                del old_groups[k]
-        return (old_uid, self.__group_ids2name(old_gid), old_home,
-                old_spreads.keys(),
-                self.__group_ids2name(old_groups.keys()),
-                self.__group_ids2name(perm_groups.keys()))
-
-    def _user_restore_helper(self, session, *args):
-        """Returns a normal prompt_func dict + a choices key
-        containing a dict of all choices if the command is complete"""
-        all_args = list(args[:])
-        if not all_args:
-            return {'prompt': "Enter owner id",
-                    'help_ref': "user_create_person_id"}
-        owner_id = all_args.pop(0)
-        if not all_args:
-            return {'prompt': "Enter account name",
-                    'help_ref': "account_name"}
-        account = self._get_account(all_args.pop(0))
-        if owner_id.startswith('group:'):
-            owner_id = self._get_group(owner_id.split(":")[1]).entity_id
-        else:
-            id_type, id = self._map_person_id(owner_id)
-            if id_type not in ('entity_id', self.const.externalid_fodselsnr):
-                raise CerebrumError, "Must specify fnr or entity_id"
-            owner_id = self._get_person(id_type, id).entity_id
-        if owner_id != account.owner_id:
-            raise CerebrumError("Owner id and account does not match!")
-        if not account.is_expired():
-            raise CerebrumError, "Cannot resore an account that isn't expired"
-        if account.owner_type == self.const.entity_person:
-            person = self._get_person('entity_id', account.owner_id)
-            name = person.get_name(self.const.system_cached,
-                                   getattr(self.const,
-                                           cereconf.DEFAULT_GECOS_NAME))
-            bd = date_to_string(person.birth_date)
-            extra_msg = "\nRestoring '%s', belonging to '%s' (born %s)\n" % (
-                account.account_name, name, bd)
-        else:
-            grp = self._get_group(account.owner_id, idtype='id')
-            extra_msg = "Restoring '%s', belonging to group: '%s'\n" % (
-                account.account_name, grp.group_name)
-        extra_msg += ('NOTE: Please assert that the above line is correct '
-                      'before proceeding!\n\n')
-        choices = {'account': account}
-        old_uid, old_gid, old_home, old_spreads, old_groups, perm_groups = \
-                 self.__user_restore_check_changelog(account)
-
-        # Spreads
-        if not all_args:
-            return {'prompt': "%sSpreads" % extra_msg,
-                    'default': ','.join(
-                ["%s" % self.const.Spread(x) for x in old_spreads])}
-        choices['spreads'] = all_args.pop(0)
-        days_since_deletion = (DateTime.now() - account.expire_date).days
-        # Groups
-        if not all_args:
-            ret = {'prompt': "Groups (comma separated)",
-                   'default': ','.join(["%s" % x for x in old_groups])}
-            if perm_groups:
-                ret['prompt'] = (
-                    '\nNOTE: Membership to the following permission group(s) '
-                    'will NOT be restored: %s\n\n%s' % (",".join(perm_groups),
-                                                      ret['prompt']))
-            return ret
-        choices['groups'] = all_args.pop(0)
-        # spesific to posix users
-        pu = PosixUser.PosixUser(self.db)
-        try:
-            pu.find(account.entity_id)
-            old_uid, old_gid = pu.posix_uid, pu.gid_id
-            choices['is_posix'] = True
-            choices['account'] = pu
-        except Errors.NotFoundError:
-            pass
-        if old_uid is not None:
-            is_superuser = self.ba.is_superuser(session.get_entity_id())
-            if not choices.get('is_posix'):
-                if not all_args:
-                    return {'prompt': "Default filegroup",
-                            'default': '%s' % old_gid}
-                choices['dfg'] = all_args.pop(0)
-            if not all_args:
-                homes = account.get_homes()
-                ret = {'prompt': "Disk", 'help_ref': 'disk'}
-                if homes:
-                    ret['default'] = self._get_disk(homes[0]['disk_id']
-                                                    )[0].path
-                elif old_home:
-                    ret['default'] = old_home
-                elif not is_superuser:
-                    raise PermissionDenied(
-                        "Can't find an old home dir for this user")
-                if days_since_deletion > 180 and not is_superuser:
-                    ret['prompt'] = (
-                        'WARNING: You are not authorized to restore the old '
-                        'homedirectory.  If you continue, a new empty '
-                        'homedirectory will be built for the user.\n%s' %
-                        ret['prompt'])
-                return ret
-            choices['disk'] = all_args.pop(0)
-            if not all_args:
-                ret = {'prompt': "Restore old homedir data?", 'default': 'no'}
-                if days_since_deletion <= 180:
-                    ret['default'] = 'yes'
-                return ret
-            choices['old_homedir_bool'] = all_args.pop(0)
-        # Mail
-        if not all_args:
-            ret = {'prompt': "Restore old mailbox data?", 'default': 'no'}
-            if days_since_deletion <= 180:
-                ret['default'] = 'yes'
-            return ret
-        choices['old_mailbox_bool'] = all_args.pop(0)
-        return {'last_arg': True, 'choices': choices}
 
     def user_restore_prompt_func(self, session, *args):
-        ret = self._user_restore_helper(session, *args)
-        if ret.has_key('choices'):
-            del(ret['choices'])
-        return ret
-    
+        '''Helper function for user_restore. Will display a prompt that
+        asks which affiliation should be used, and more..'''
+        
+        all_args = list(args[:])
+
+        # Get the account name
+        if not all_args:
+            return {'prompt': 'Account name',
+                    'help_ref': 'account_name'}
+        arg = all_args.pop(0)
+        ac = self._get_account(arg)
+
+        # Print a list of affiliations registred on the accounts owner (person)
+        # Prompts user to select one of these. Checks if the input is sane.
+        if not all_args:
+            person = self._get_person('entity_id', ac.owner_id)
+            map = [(('%-8s %s', 'Num', 'Affiliation'), None)]
+            for aff in person.get_affiliations():
+                ou = self._get_ou(ou_id=aff['ou_id'])
+                name = '%s@%s' % (self.const.PersonAffStatus(aff['status']),
+                                  self._format_ou_name(ou))
+                map.append((('%s', name), {'ou_id': int(aff['ou_id']),
+                                           'aff': int(aff['affiliation'])}))
+            if not len(map) > 1:
+                raise CerebrumError('Person has no affiliations. Try' + \
+                                    '\'person affiliation_add\'')
+            return {'prompt': 'Choose affiliation from list', 'map': map}
+        arg = all_args.pop(0)
+        if isinstance(arg, type({})) and arg.has_key('aff') and \
+                arg.has_key('ou_id'):
+            ou = arg['ou_id']
+            aff = arg['aff']
+        else:
+            raise CerebrumError('Invalid affiliation')
+
+        # Gets the name of the primary group for the user
+        if not all_args:
+            return {'prompt': 'Primary group',
+                    'help_ref': 'group_name'}
+        arg = all_args.pop(0)
+        group = self._get_group(arg)
+
+        # Gets the disk the user will reside on
+        if not all_args:
+            return {'prompt': 'Disk',
+                    'help_ref': 'disk',
+                    'last_arg': True}
+        arg = all_args.pop(0)
+        disk = self._get_disk(arg)
+        
+        # Finishes off
+        if len(all_args) == 0:
+            return {'last_arg': True}
+
+        # We'll raise an error, if there is too many arguments:
+        raise CerebrumError('Too many arguments')
+
     # user restore
     all_commands['user_restore'] = Command(
-        ('user', 'restore'), prompt_func=user_restore_prompt_func,
-        perm_filter='is_superuser')
-    def user_restore(self, operator, *args):
+            ('user', 'restore'), prompt_func=user_restore_prompt_func,
+            perm_filter='is_superuser') #'can_create_user')
+    def user_restore(self, operator, accountname, aff_ou, group, home):
+        # TODO: Remove the following two lines, and ajust perm_filter,
+        # to make the command available for Litas
         if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
-        args = self._user_restore_helper(operator, *args)['choices']
-        account = args['account']
-        days_since_deletion = (DateTime.now() - account.expire_date).days
-        if (not args.get('is_posix')) and args.has_key('dfg'):
+            raise PermissionDenied('Only available for superusers')
+        # Checking to see if the home path is hardcoded.
+        # Raises CerebrumError if the disk does not exist.
+        if not home:
+            raise CerebrumError('Home must be specified')
+        elif home[0] != ':':  # Hardcoded path
+            disk_id, home = self._get_disk(home)[1:3]
+        else:
+            if not self.ba.is_superuser(operator.get_entity_id()):
+                raise PermissionDenied('Only superusers may use hardcoded path')
+            disk_id, home = None, home[1:]
+
+        ac = self._get_account(accountname)
+        if not self.ba.can_create_user(operator.get_entity_id(),
+                                       ac, disk_id):
+            raise PermissionDenied('User restore is limited')
+
+        # We'll only let LITAs restore regular accounts, i.e. accounts
+        # owned by persons.
+        if not ac.owner_type == self.const.entity_person and \
+           not ac.is_reserved():
+            raise CerebrumError, \
+                  ('Please contact brukerreg in order to restore %s'
+                  % accountname)
+
+        # We do a check to see if the person has any active accounts,
+        # if so, we won't let them restore.
+        #
+        # We'll exempt the superusers from this, as they should be allowed
+        # full access :)
+        pe = self._get_person('entity_id', ac.owner_id)
+        if not self.ba.is_superuser(operator.get_entity_id()) and \
+           pe.get_accounts():
+            raise CerebrumError('Person has active accounts, please '
+                                'contact brukerreg in order to restore %s' \
+                                % accountname)
+      
+        # We check to see if the group is modifiable by the operator.
+        group = self._get_group(group, grtype='PosixGroup') 
+        if not self.ba.can_alter_group(operator.get_entity_id(), group):
+            raise PermissionDenied('%s has no access to alter group %s' %
+                                   (self._get_uname(operator.entity_id),
+                                    self._get_gname(group.entity_id)))
+
+        # We'll abort if the user is active
+        if not self.ba.is_superuser(operator.get_entity_id()) and \
+           not ac.is_deleted():
+            raise CerebrumError('Account is not deleted')
+
+        # We demote posix
+        try:
+            pu = self._get_account(accountname, actype='PosixUser')
+        except CerebrumError:
             pu = PosixUser.PosixUser(self.db)
-            old_uid, old_gid, old_home, old_spreads, old_groups, perm_groups = \
-                     self.__user_restore_check_changelog(account)
-
-            # Must own group is delete +14 days ago, or the user wasn't
-            # previously member of the group
-            group = self._get_group(args['dfg'], grtype='PosixGroup')
-            if days_since_deletion > 14 or args['dfg'] not in old_groups:
-                self.ba.can_alter_group(operator.get_entity_id(), group.entity_id)
-            pu.populate(old_uid, group.entity_id, None,
-                        self.const.posix_shell_bash, parent=account)
-            pu.expire_date = None
-            pu.write_db()
         else:
-            pu = account
-            old_uid, old_gid, old_home, old_spreads, old_groups, perm_groups = \
-                     self.__user_restore_check_changelog(account)
-            pu.expire_date = None
-            pu.write_db()
+            pu.delete_posixuser()
+            pu = PosixUser.PosixUser(self.db)
 
-        # Spreads
-        if args['spreads']:
-            for s in [self._get_constant(self.const.Spread, x, "spread")
-                      for x in args['spreads'].split(",")]:
-                # TODO: permissions?
-                pu.add_spread(s)
-        # Add homedir entry.  We prefer to reuse the old one if it exists
-        if not args.get('old_homedir_bool', 'n').startswith('y'):
-            # Trigger homedir creation in process_changes.py
-            # TBD: a bofhd_request would be cleaner?
-            for row in pu.get_homes():
-                pu.clear_home(row['spread'])
-            kwargs = {'status': self.const.home_status_not_created}
+        # We remove all old group memberships
+        grp = self.Group_class(self.db)
+        for row in grp.search(member_id=ac.entity_id):
+            grp.clear()
+            grp.find(row['group_id'])
+            grp.remove_member(ac.entity_id)
+            grp.write_db()
+ 
+        # We remove all (the old) affiliations on the account
+        for row in ac.get_account_types(filter_expired=False):
+            ac.del_account_type(row['ou_id'], row['affiliation'])
+
+       # Automatic selection of affiliation. This could be used if the user
+       # should not choose affiliations.
+       # # Sort affiliations according to creation date (newest first), and
+       # # try to save it for later. If there exists no affiliations, we'll
+       # # raise an error, since we'll need an affiliation to copy from the
+       # # person to the account.
+       # try:
+       #     tmp = sorted(pe.get_affiliations(),
+       #                  key=lambda i: i['create_date'], reverse=True)[0]
+       #     ou, aff = tmp['ou_id'], tmp['affiliation']
+       # except IndexError:
+       #     raise CerebrumError('Person must have an affiliation')
+
+        # We set the affiliation selected by the operator.
+        self._user_create_set_account_type(ac, ac.owner_id, aff_ou['ou_id'], \
+                                           aff_ou['aff'])
+        
+        # And promote posix
+        old_uid = self._lookup_old_uid(ac.entity_id)
+        if old_uid is None:
+            uid = pu.get_free_uid()
         else:
-            kwargs = {'status': self.const.home_status_pending_restore}
-        if isinstance(pu, PosixUser.PosixUser):
-            disk_id, home = self._get_disk(args['disk'])[1:3]
-            homes = account.get_homes()
-            kwargs.update({'disk_id': disk_id, 'home': home})
+            uid = old_uid
 
-            if homes:
-                homedir_id = kwargs['current_id'] = homes[0]['homedir_id']
-                pu.set_homedir(**kwargs)
-            else:
-                homedir_id = pu.set_homedir(**kwargs)
-            for s in ([getattr(self.const, x) for x in cereconf.HOME_SPREADS]):
-                if str(s) in args['spreads'].split(","):
-                    pu.set_home(s, homedir_id)
-        # Groups
-        if args['groups']:
-            for g in args['groups'].split(","):
-                if g == args.get('dfg', None):
-                    continue  # already processed
-                group = self._get_group('name:%s' % g)
-                if days_since_deletion > 14 or g not in old_groups:
-                    self.ba.can_alter_group(operator.get_entity_id(),
-                                            group.entity_id)
-                group.add_member(pu.entity_id)
-        br = BofhdRequests(self.db, self.const)
-        n_req = 0
-        if args.get('old_homedir_bool', 'n').startswith('y'):
-            br.add_request(operator.get_entity_id(), br.now,
-                           self.const.bofh_homedir_restore,
-                           pu.entity_id, disk_id)
-            n_req += 1
-        if args.get('old_mailbox_bool', 'n').startswith('y'):
-            for anti_action in br.get_conflicts(self.const.bofh_email_restore):
-                for r in br.get_requests(entity_id=pu.entity_id,
-                                         operation=anti_action):
-                    br.delete_request(request_id=r['request_id'])
-            br.add_request(operator.get_entity_id(), br.now,
-                           self.const.bofh_email_restore,
-                           pu.entity_id, disk_id)
-            n_req += 1
-        return ("'%s' restored.  See 'user info' for details. "
-                "Added %i jobs to restore queue.") % (account.account_name,
-                                                   n_req)
+        shell = self.const.posix_shell_bash
+
+        # Popoulate the posix user, and write it to the database
+        pu.populate(uid, int(group.entity_id), None, shell, parent=ac)
+        try:
+            pu.write_db()
+        except self.db.IntegrityError:
+            self.db.rollback()
+            raise CerebrumError('Please contact brukerreg in order to restore')
+
+        # Add them spreads
+        for s in cereconf.BOFHD_NEW_USER_SPREADS:
+            if not ac.has_spread(self.const.Spread(s)):
+                ac.add_spread(self.const.Spread(s))
+
+        # And remove them quarantines (except those defined in cereconf)
+        for q in ac.get_entity_quarantine():
+            if str(self.const.Quarantine(q['quarantine_type'])) not in \
+               cereconf.BOFHD_RESTORE_USER_SAVE_QUARANTINES:
+                ac.delete_entity_quarantine(q['quarantine_type'])
+
+        # We set the new homedir
+        default_home_spread = self._get_constant(self.const.Spread,
+                                                 cereconf.DEFAULT_HOME_SPREAD,
+                                                 'spread')
+
+        homedir_id = pu.set_homedir(
+            disk_id=disk_id, home=home,
+            status=self.const.home_status_not_created)
+        pu.set_home(default_home_spread, homedir_id)
+
+        # And «unset» the expire date
+        ac.expire_date = None
+
+        # We'll set a new password and store it for printing
+        passwd = ac.make_passwd(ac.account_name)
+        ac.set_password(passwd)
+
+        operator.store_state('new_account_passwd',
+                             {'account_id': int(ac.entity_id),
+                              'password': passwd})
+
+        # We'll need to write to the db, in order to store stuff.
+        try:
+            ac.write_db()
+        except self.db.IntegrityError:
+            self.db.rollback()
+            raise CerebrumError('Please contact brukerreg in order to restore')
+
+        # Return string with some info
+        if ac.get_entity_quarantine():
+            note  = 'Notice: Account is quarantined!'
+        else:
+            note = ''
+
+        if old_uid is None:
+            tmp = ', new uid=%i' % uid
+        else:
+            tmp = ', reused old uid=%i' % old_uid
+        
+        return '''OK, promoted %s to posix user%s.
+Password altered. Use misc list_password to print or view the new password. %s'''\
+        % (accountname, tmp, note)
 
     # user set_disk_status
     all_commands['user_set_disk_status'] = Command(
