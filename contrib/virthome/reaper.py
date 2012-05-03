@@ -192,6 +192,7 @@ def delete_common(entity_id, db):
     group = Factory.get("Group")(db)
     for row in group.search(member_id=entity_id,
                             filter_expired=False):
+        group.clear()
         group.find(row["group_id"])
         logger.debug("Removing %s as member of %s (id=%s)",
                      entity_id, group.group_name, group.entity_id)
