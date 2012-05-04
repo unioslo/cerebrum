@@ -4199,10 +4199,13 @@ Addresses and settings:
             raise CerebrumError, ("Unknown move_type '%s'; must be "
                                   "either 'file' or 'nofile'" % move_type)
         
+        # TODO: Remove this when code has been checked after migrating to
+        # murder.
+        raise CerebrumError("Only 'nofile' is to be used at this time.")
+
         if when is None:
             when = DateTime.now()
         else:
-            raise CerebrumError("Only 'nofile' is to be used at this time.")
             when = self._parse_date(when)
             if when < DateTime.now():
                 raise CerebrumError("Request time must be in the future")
