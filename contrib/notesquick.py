@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 #
-# Copyright 2003-2011 University of Oslo, Norway
+# Copyright 2003-2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -66,7 +66,6 @@ def quick_sync():
     entity = Factory.get("Entity")(db)
 
     for ans in answer:
-        cl.confirm_event(ans)
         chg_type = ans['change_type_id']
         try:
             event_account.clear()
@@ -75,20 +74,36 @@ def quick_sync():
             if event_account.has_spread(co.spread_uio_notes_account):
                 if chg_type == clco.account_password:
                     change_params = pickle.loads(ans['change_params'])  
-                    change_pw(ans['subject_entity'], change_params)
+                    if change_pw(ans['subject_entity'], change_params):
+                        cl.confirm_event(ans)
                 elif chg_type == clco.spread_add:
                     change_params = pickle.loads(ans['change_params'])
                     if change_params['spread'] == co.spread_uio_notes_account:
-                        add_user(ans['subject_entity'])
+                        if add_user(ans['subject_entity']):
+                            cl.confirm_event(ans)
+                    else:
+                        # unrelated event:
+                        cl.confirm_event(ans)
                 elif chg_type == clco.spread_del:
                     change_params = pickle.loads(ans['change_params'])
                     if change_params['spread'] == co.spread_uio_notes_account:
-                        delundel_user(ans['subject_entity'], 'splatt')
+                        if delundel_user(ans['subject_entity'], 'splatt'):
+                            cl.confirm_event(ans)
+                    else:
+                        # unrelated event:
+                        cl.confirm_event(ans)
                 elif (chg_type == clco.quarantine_add or
                       chg_type == clco.quarantine_del or
                       chg_type == clco.quarantine_mod or
                       chg_type == clco.quarantine_refresh):
-                    change_quarantine(ans['subject_entity']) 
+                    if change_quarantine(ans['subject_entity']):
+                        cl.confirm_event(ans)
+                else:
+                    # unrelated events:
+                    cl.confirm_event(ans)
+            else:
+                # unrelated events:
+                cl.confirm_event(ans)
         except Errors.NotFoundError:
             #
             # Accounts are not the only ones that can have the type of events
@@ -123,17 +138,17 @@ def quick_sync():
                         logger.warn("Could not find any *entity* with id=%s "
                                     "although there is a change_log entry for it",
                                     ans['subject_entity'])
-
+            # unrelated events:
+            cl.confirm_event(ans)
     cl.commit_confirmations()
 # end quick_sync
 
 def change_quarantine(entity_id):
     if NotesUtils.chk_quarantine(entity_id):
-        delundel_user(entity_id,'splatt')
+        return delundel_user(entity_id, 'splatt')
     else:
-        delundel_user(entity_id,'unsplatt')
+        return delundel_user(entity_id, 'unsplatt')
 
-        
 def change_pw(account_id,pw_params):
     pw=pw_params['password']
     user = id_to_name(account_id)
@@ -143,10 +158,11 @@ def change_pw(account_id,pw_params):
         sock.read()
     else:
         logger.error('Could not change password for %s!', user)
-        
+        return False
+    return True
 
 def add_user(account_id):
-    account_name =id_to_name(account_id)        
+    account_name = id_to_name(account_id)        
     pri_ou = NotesUtils.get_primary_ou(account_id)
     if not pri_ou:
         oustr="OU1&%s" % (cereconf.NOTES_DEFAULT_OU)
@@ -162,19 +178,20 @@ def add_user(account_id):
         else:
             oustr="OU1&%s" % (cereconf.NOTES_DEFAULT_OU)
 
-    name=get_names(account_id)   
+    name = get_names(account_id)   
     if name:    
         if sock.send('CREATEUSR&ShortName&%s&FirstName&%s&LastName&%s&%s\n' % (account_name,name[0],name[1],oustr)):
             sock.read()
         else:
             logger.error('Something went wrong, could not create user %s', account_name)
-            return
+            return False
     if NotesUtils.chk_quarantine(account_id):
-        delundel_user(account_id,'splatt')      
+        return delundel_user(account_id, 'splatt')      
+    return True
 
-def delundel_user(account_id,status):
+def delundel_user(account_id, status):
     account_name = id_to_name(account_id)
-    name=get_names(account_id)
+    name = get_names(account_id)
     if name:
         cmd = 'DELUNDELUSR&ShortName&%s&FirstName&%s&LastName&%s&Status&%s' % (
             account_name, name[0], name[1], status)
@@ -183,8 +200,8 @@ def delundel_user(account_id,status):
             sock.read()
         else:
             logger.warn('Could not remove user %s!', account_name)
-
-
+            return False
+    return True
 
 def get_names(account_id):
     try:
@@ -205,7 +222,6 @@ def get_names(account_id):
                     person_id)
         return False
 
-
 def id_to_name(id):
     e_type = int(co.entity_account)
     namespace = int(co.account_namespace)
@@ -213,7 +229,6 @@ def id_to_name(id):
     entityname.find(id)
     name = entityname.get_name(namespace)
     return name
-
 
 if __name__ == '__main__':
     sock = NotesUtils.SocketCom()  
