@@ -326,7 +326,8 @@ class VoipAddress(EntityAuthentication, EntityTrait):
         if result["mail"]:
             value = voipify(result["mail"], None)
             result["voipSipPrimaryUri"] = value
-            uris.append(value)
+            if owner.entity_type != self.const.entity_person:
+                uris.append(value)
         result["voipSipUri"] = uris
 
         e164 = owner.get_contact_info(self.const.system_voip,
@@ -605,7 +606,8 @@ class VoipAddress(EntityAuthentication, EntityTrait):
             if entry["mail"]:
                 value = self._voipify(entry["mail"], None)
                 entry["voipSipPrimaryUri"] = value
-                entry["voipSipUri"].append(value)
+                if entry["voipOwnerType"] != "person":
+                    entry["voipSipUri"].append(value)
 
             entry["mobile"] = owner2mobiles.get(owner_id, list())
 
