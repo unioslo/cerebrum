@@ -231,7 +231,7 @@ def kull_grupper(fsconn, studieprogramkode, remove_others=False):
             try:
                 members.add(fnr2primary[fnr])
             except KeyError:
-                logger.error("Person %s not found, or no primary account (kull)", fnr)
+                logger.info("Person %s not found, or no primary account (kull)", fnr)
                 continue
         fill_group(grp_name, members, remove_others)
     return groups
@@ -280,7 +280,7 @@ def undervisningsmelding_grupper(fsconn, remove_others=False):
             try:
                 members.add(fnr2primary[fnr])
             except KeyError:
-                logger.error("Person %s not found, or no primary account (undvmeld)", fnr)
+                logger.info("Person %s not found, or no primary account (undvmeld)", fnr)
                 continue
         fill_group(grp_name, members, remove_others)
     # delete old groups
