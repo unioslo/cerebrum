@@ -1582,14 +1582,6 @@ class SMSSender():
         @rtype: bool
         @return: True if the server's response says that the message was sent.
         """
-        # TODO: the new SMS-gateway is not used yet, so the following lines are
-        # put here temporarily while waiting for the move.
-        lines = '\n'.join(ret.readlines())
-        if 'OK ' not in lines:
-            self._logger.warning('SMSSender: bad response: %s' % (lines[:100],))
-            return False
-        return True
-
         # We're only interested in the first line:
         line = ret.readline()
         try:
