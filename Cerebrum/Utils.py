@@ -1629,8 +1629,8 @@ class SMSSender():
 
         try:
             ret = urllib2.urlopen(self._url, postdata) #, self.timeout) in urllib2 v2.6
-        except urllib2.URLError:
-            self._logger.warning('SMS gateway timed out')
+        except urllib2.URLError, e:
+            self._logger.warning('SMS gateway error: %s' % e)
             return False
         finally:
             socket.setdefaulttimeout(old_timeout)
