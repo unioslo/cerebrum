@@ -650,6 +650,7 @@ class BofhdExtension(BofhdCommandBase):
         dns_find = DNSUtils.Find(self.db, self.const.DnsZone('uio'))
         return (dns_find.find_entity_id_of_dns_target(target),
                 self.const.auth_target_type_dns,
+                # TODO: shouldn't this be auth_grant_dns?
                 self.const.auth_dns_lita)
     
     def _validate_access_dns(self, opset, attr):
@@ -1998,13 +1999,13 @@ class BofhdExtension(BofhdCommandBase):
 
     # email modify_name
     all_commands['email_mod_name'] = Command(
-	("email", "mod_name"),PersonId(help_ref="person_id_other"),
-	PersonName(help_ref="person_name_first"),
-	PersonName(help_ref="person_name_last"),
+        ("email", "mod_name"),PersonId(help_ref="person_id_other"),
+        PersonName(help_ref="person_name_first"),
+        PersonName(help_ref="person_name_last"),
         SourceSystem(optional=True, help_ref="source_system"),
-	fs=FormatSuggestion("Name and e-mail address altered for: %i",
+        fs=FormatSuggestion("Name and e-mail address altered for: %i",
         ("person_id",)),
-	perm_filter='can_email_mod_name')
+        perm_filter='can_email_mod_name')
     def email_mod_name(self, operator, person_id, firstname, lastname):
         person = self._get_person(*self._map_person_id(person_id))
         self.ba.can_email_mod_name(operator.get_entity_id(), person=person,
@@ -3505,16 +3506,16 @@ Addresses and settings:
 
 
     def __get_all_related_maillist_targets(self, address):
-	"""This method locates and returns all ETs associated with the same ML.
+        """This method locates and returns all ETs associated with the same ML.
 
-	Given any address associated with a ML, this method returns all the
-	ETs associated with that ML. E.g.: 'foo-subscribe@domain' for a Sympa
-	ML will result in returning the ETs for 'foo@domain',
-	'foo-owner@domain', 'foo-request@domain', 'foo-editor@domain',
-	'foo-subscribe@domain' and 'foo-unsubscribe@domain'
+        Given any address associated with a ML, this method returns all the
+        ETs associated with that ML. E.g.: 'foo-subscribe@domain' for a Sympa
+        ML will result in returning the ETs for 'foo@domain',
+        'foo-owner@domain', 'foo-request@domain', 'foo-editor@domain',
+        'foo-subscribe@domain' and 'foo-unsubscribe@domain'
 
-	If address (EA) is not associated with a mailing list ET, this method
-	raises an exception. Otherwise a list of ET entity_ids is returned.
+        If address (EA) is not associated with a mailing list ET, this method
+        raises an exception. Otherwise a list of ET entity_ids is returned.
 
         @type address: basestring
         @param address:
@@ -3524,7 +3525,8 @@ Addresses and settings:
         @return:
           A sequence with entity_ids of all ETs related to the ML that address
           is related to.
-	"""
+
+        """
 
         # step 1, find the ET, check its type.
         et, ea = self.__get_email_target_and_address(address)
@@ -4087,8 +4089,8 @@ Addresses and settings:
         all the ETs associated with that RT queue. E.g.: 'foo@domain' will return
         'foo@domain' and 'foo-comment@queuehost'
 
-	If address (EA) is not associated with a RT queue, this method
-	raises an exception. Otherwise a list of ET entity_ids is returned.
+        If address (EA) is not associated with a RT queue, this method
+        raises an exception. Otherwise a list of ET entity_ids is returned.
 
         @type address: basestring
         @param address:
@@ -4098,7 +4100,8 @@ Addresses and settings:
         @return:
           A sequence with entity_ids of all ETs related to the RT queue that address
           is related to.
-	"""
+
+        """
       
         et = Email.EmailTarget(self.db)
         queue, host = self._get_rt_queue_and_host(address)
@@ -4217,7 +4220,7 @@ Addresses and settings:
                 # UiO's add_spread mixin will not do much since
                 # email_server_id is set to a Cyrus server already.
                 acc.add_spread(self.const.spread_uio_imap)
-            # Create the mailbox.	
+            # Create the mailbox.
             req = br.add_request(operator.get_entity_id(), when,
                                  self.const.bofh_email_create,
                                  acc.entity_id, es.entity_id)
@@ -6927,8 +6930,8 @@ Addresses and settings:
             person = self.util.get_target(person_id, restrict_to=['Person'])
         except Errors.TooManyRowsError:
             raise CerebrumError("Unexpectedly found more than one person")
-	for a in person.get_affiliations():
-	    if (int(a['source_system']) in
+        for a in person.get_affiliations():
+            if (int(a['source_system']) in
                 [int(self.const.system_fs), int(self.const.system_sap)]):
 		raise PermissionDenied("You are not allowed to alter birth date for this person.")        
         bdate = self._parse_date(bdate)
@@ -7059,7 +7062,7 @@ Addresses and settings:
     all_commands['person_create'] = Command(
         ("person", "create"), PersonId(), 
         Date(help_ref='date_birth'), PersonName(help_ref='person_name_first'), 
-	PersonName(help_ref='person_name_last'), OU(), Affiliation(),
+        PersonName(help_ref='person_name_last'), OU(), Affiliation(),
         AffiliationStatus(),
         fs=FormatSuggestion("Created: %i",
         ("person_id",)), perm_filter='can_create_person')
@@ -7115,7 +7118,7 @@ Addresses and settings:
         person.affect_names(self.const.system_manual, self.const.name_first, self.const.name_last)
         person.populate_name(self.const.name_first,
                              person_name_first)
-	person.populate_name(self.const.name_last,
+        person.populate_name(self.const.name_last,
                              person_name_last)
         try:
             person.write_db()
@@ -7393,9 +7396,9 @@ Addresses and settings:
 
     # person clear_name
     all_commands['person_clear_name'] = Command(
-	("person", "clear_name"),PersonId(help_ref="person_id_other"),
-	SourceSystem(help_ref="source_system"),
-	perm_filter='can_clear_name')
+        ("person", "clear_name"),PersonId(help_ref="person_id_other"),
+        SourceSystem(help_ref="source_system"),
+        perm_filter='can_clear_name')
     def person_clear_name(self, operator, person_id, source_system):
         person = self.util.get_target(person_id, restrict_to="Person")
         ss = self.const.AuthoritativeSystem(source_system)
@@ -9751,8 +9754,8 @@ Password altered. Use misc list_password to print or view the new password. %s''
         # Date-type.
         if y > 2050:
             raise CerebrumError, "Too far into the future: %s" % date
-	if y < 1800:
-	    raise CerebrumError, "Too long ago: %s" % date
+        if y < 1800:
+            raise CerebrumError, "Too long ago: %s" % date
         try:
             return DateTime.Date(y, m, d, hour, min)
         except:
