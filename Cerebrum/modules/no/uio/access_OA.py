@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002, 2003, 2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -30,24 +30,23 @@ class OA(object):
     This class contains methods for accessing the OAPRD database.
     """
 
-
     def __init__(self, db):
         self.db = db
     # end __init__
 
-
-
     def list_dbfg_usernames(self, fetchall = False):
-        """
-        Get all usernames and return them as a sequence of db_rows.
-        """
+        """Get all usernames and return them as a sequence of db_rows."""
 
         query = """
-                SELECT
-                  user_name as username
-                FROM
-                  applsys.fnd_user
-                """
+            SELECT
+                LOWER(user_name) as username
+            FROM
+                applsys.fnd_user
+            WHERE
+                NVL(end_date, SYSDATE) >= SYSDATE AND
+                (email_address IS NULL OR
+                 LOWER(email_address) LIKE '%@%.uio.no' OR
+                 LOWER(email_address) = 'uio')"""
         return self.db.query(query, fetchall = fetchall)
     # end list_usernames
 

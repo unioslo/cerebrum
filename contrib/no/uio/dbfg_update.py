@@ -126,8 +126,7 @@ def sanitize_group(cerebrum_group, constants):
 
 
 def synchronize_group(external_group, cerebrum_group_name):
-    """
-    This is where all the work is done.
+    """This is where all the work is done.
 
     This function implements direct/immediate (rather then transitive)
     membership only.
@@ -559,19 +558,22 @@ def usage():
 This script performes updates of certain groups in Cerebrum and fetches
 information about certain kind of expired accounts
 
---ofprod		   update ofprod group
---fsprod		   update fsprod group
---fssbkurs                 update fssbkurs group
---ajprod		   update ajprod group
---oaprd			   update oaprd group
---basware-users            update basware-users group
---basware-masters          update basware-masters group
---basware-monitor-test     update basware-monitor-test group
---basware-readsoft-test    update basware-readsoft-test group
---basware-useradmin-test   update basware-useradmin-test group
---expired-file, -e=file    locate expired accounts and generate a report
+--ofprod                    Update ofprod group
+--fsprod                    Update fsprod group
+--fssbkurs                  Update fssbkurs group
+--ajprod                    Update ajprod group
+--oaprd                     Update oaprd group
+--basware-users             Update basware-users group
+--basware-masters           Update basware-masters group
+--basware-monitor-test      Update basware-monitor-test group
+--basware-readsoft-test     Update basware-readsoft-test group
+--basware-useradmin-test    Update basware-useradmin-test group
+--expired-file, -e=file     Locate expired accounts and generate a report
+
+-d, --dryrun                Do not commit the changes.
+-h, --help                  Show this and quit.
 """
-    logger.info(message)
+    print message
 # end usage
                 
     
