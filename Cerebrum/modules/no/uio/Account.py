@@ -319,7 +319,8 @@ class AccountUiOMixin(Account.Account):
                 return "too long (%s)" % name
             if re.search("^[^A-Za-z]", name):
                 return "must start with a character (%s)" % name
-            if re.search("[^A-Za-z0-9\-_]", name):
+            # Satisfy the LDAP syntax for usernames in netgroups (RFC 2307).
+            if re.search("[^A-Za-z0-9\-]", name):
                 return "contains illegal characters (%s)" % name
         return False
 
