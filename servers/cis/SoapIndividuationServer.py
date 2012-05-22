@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # 
-# Copyright 2010, 2011 University of Oslo, Norway
+# Copyright 2010, 2011, 2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -24,9 +24,12 @@
 This is the glue between Cerebrum and twisted's soap server, as the Cerebrum
 specific functionality should not know anything about twisted.
 
+Each public method's docstring is the string that is put into the wsdl file for
+the web service, and is therefore given to those who should use the web service.
+
 Note that the logger is twisted's own logger and not Cerebrum's, since twisted
-has special needs, as it works with callbacks and runs in threads - it must not
-be blocked for instance.
+has special needs, as it works with callbacks and runs in threads - it must for
+instance not be blocked.
 
 """
 
@@ -35,10 +38,13 @@ import getopt
 
 from twisted.python import log
 
-from soaplib.core.service import rpc
-from soaplib.core.model.primitive import String, Integer, Boolean
-from soaplib.core.model.clazz import ClassModel, Array
-from soaplib.core.model.exception import Fault
+from rpclib.model.complex import ComplexModel, Iterable
+from rpclib.model.primitive import String, Integer, Boolean
+from rpclib.model.fault import Fault
+# Note the difference between rpc and the static srpc - the former sets the
+# first parameter as the current MethodContext. Very nice if you want
+# environment details.
+from rpclib.decorator import rpc, srpc
 
 import cerebrum_path
 from cisconf import individuation as cisconf
@@ -46,7 +52,7 @@ from Cerebrum.Utils import Messages, dyn_import
 from Cerebrum import Errors
 from Cerebrum.modules.cis import SoapListener
 
-class Account(ClassModel):
+class Account(ComplexModel):
     # FIXME: define namespace properly 
     __namespace__ = 'account'
     uname = String
@@ -58,7 +64,18 @@ class IndividuationServer(SoapListener.BasicSoapServer):
     those actions are decorated as an rpc, defining what parameters the
     methods accept, types and what is returned.
 
-    Note that an instance of this class is created for each incoming call."""
+    Note that the service classes will _not_ be instantiated by rpclib. Instead,
+    rpclib creates a MethodContext instance for each call and feeds it to the
+    public methods. To avoid thread conflicts, you should use this ctx instance
+    for storing local variables, and _not_ the service class.
+
+    """
+
+    # Require the session ID in the client's header
+    __in_header__ = SoapListener.SessionHeader
+
+    # Respond with a header with the current session ID
+    __out_header__ = SoapListener.SessionHeader
 
     # The class where the Cerebrum-specific functionality is done. This is
     # instantiated per call, to avoid thread conflicts.
@@ -67,139 +84,148 @@ class IndividuationServer(SoapListener.BasicSoapServer):
     # The hock for the site object
     site = None
 
-    def _get_cache(self, session_id):
-        """Get the cache which is stored in the session. A temporary cache is
-        created if the session doesn't exist (happens at server restarts)."""
-        # Besides, the client could send its previous session id according to
-        # what is created by request.getSession() at the same request. This
-        # might only happen when the server restarts, so it might not be a real
-        # problem.
-        try:
-            cache = SoapListener.ISessionCache(self.site.getSession(session_id))
-        except KeyError:
-            # Session doesn't exists, creating default one. Affects only the
-            # first call.
-            # TODO: This will be fixed when we're able to get hold of the
-            # session from the request, and not as a soap-parameter.
-            cache = SoapListener.SessionCache()
-        if not cache.has_key('msgs'):
-            cache['msgs'] = Messages(text=self.individuation.messages)
-        return cache
-
-    def call_wrapper(self, call, params):
-        """Subclassing the call wrapper to instantiate the Individuation
-        instance and to handle exceptions in a soap-wise manner."""
-        try:
-            self.individuation = self.cere_class()
-            self.cache = self._get_cache(params.session_id)
-            return super(IndividuationServer, self).call_wrapper(call, params)
-        except KeyboardInterrupt: # don't catch signals like ctrl+c
-            raise
-        except Errors.CerebrumRPCException, e:
-            msg = self.cache['msgs'][e.args[0]] % e.args[1:]
-            raise Fault(faultstring=e.__doc__ + ': ' + msg)
-        except Exception, e:
-            # If anything breaks in here, it will not get logged. Beware!
-            log.msg('ERROR: Unhandled exception: %s' % type(e))
-            log.err(e)
-            log.msg(traceback.format_exc())
-
-            # Don't want the client to know too much about unhandled errors, so
-            # return a generic error.
-            raise Fault(faultstring='Unknown error')
-        finally:
-            # should always close the instance and remove it, as the garbage
-            # collector might not work correctly in these threads
-            if hasattr(self, 'individuation'):
-                self.individuation.close()
-                del self.individuation
-
-    @rpc(String, String, _returns=Boolean)
-    def set_language(self, language, session_id=None):
-        """Sets what language feedback messages should be returned in.
-        """
+    @rpc(String, _returns=Boolean)
+    def set_language(ctx, language):
+        """Sets what language feedback messages should be returned in."""
         # TODO: improve validation of the language code 
         if language not in ('en', 'no'):
             return False
-        self.cache['msgs'].lang = language
+        ctx.udc['session']['msgs'].lang = language
         return True
 
-    @rpc(String, String, String, _returns=Array(Account))
-    def get_usernames(self, id_type, ext_id, session_id=None):
-        """Based on id-type and the id, identify a person in Cerebrum and
-        return a list of the persons accounts and their status. If person
-        exist but doesn't have any accounts an empty list is returned.  If no
-        person match the id_type and id an exception is thrown.
+    @rpc(String, String, _returns=Iterable(Account))
+    def get_usernames(ctx, id_type, ext_id):
+        """Based on id-type and the ID, identify a person in Cerebrum and return
+        a list of the person's accounts and their status. If the person exist
+        but doesn't have an account an empty list is returned. If no person
+        match the id_type and ID an exception is thrown.
 
-        The list is sorted by the person's user priorities, the primary account
-        listed first. The types of user status are:
+        The list is sorted by the person's user priorities, with the primary
+        account first.
+
+        The types of user statuses are:
 
           - *Inactive*: if the account is reserved, deleted or expired, or if it
-            has an active quarantine other than autopassord.
+            has an active quarantine. Note that some quarantines are ignored,
+            e.g. autopassord, since the user is still able to use the forgotten
+            password service with this quarantine.
           - *PasswordQuarantined*: if the account is not inactive, but has a
             quarantine of type 'autopassord'.
-          - *Active*: if the account isn't inactive and hasn't any quarantine.
+          - *Active*: if the account is active and without quarantine.
 
         """
         ret = []
         # get_person_accounts returns a list of dicts on the form:
         # [{'uname': '...', 'priority': '...', 'status': '...'}, ...]
-        for acc in self.individuation.get_person_accounts(id_type, ext_id):
+        for acc in ctx.udc['individuation'].get_person_accounts(id_type, ext_id):
             a = Account()
             for k, v in acc.items():
                 setattr(a, k, v)
             ret.append(a)
         return ret
 
-    @rpc(String, String, String, String, String, String, _returns=Boolean)
-    def generate_token(self, id_type, ext_id, username, phone_no, browser_token, session_id=None):
-        """
-        Send a token by SMS to the persons phone and store the token in
-        Cerebrum. The input must be matched to only one existing person in
-        Cerebrum, including the phone number.
-        """
-        return self.individuation.generate_token(id_type, ext_id, username,
-                                            phone_no, browser_token)
+    @rpc(String, String, String, String, String, _returns=Boolean)
+    def generate_token(ctx, id_type, ext_id, username, phone_no, browser_token):
+        """Send a token by SMS to the person's phone and store the token in
+        Cerebrum. All input must match the same, existing person in Cerebrum,
+        include the phone number. Phone numbers are only retrieved for some
+        source systems, depending on the configuration of the service.
 
-    @rpc(String, String, String, String, _returns=Boolean)
-    def check_token(self, username, token, browser_token, session_id=None):
         """
-        Check if a given token is correct for the given user.
+        return ctx.udc['individuation'].generate_token(id_type, ext_id, username,
+                                                       phone_no, browser_token)
+
+    @rpc(String, String, String, _returns=Boolean)
+    def check_token(ctx, username, token, browser_token):
+        """Check if given token is the same token as the last one generated
+        through L{generate_token} for the given user. This is to validate that
+        the person has gotten the token through its own cell phone.
+
+        If the token is correct, it means that the user is able to change its
+        password.
 
         Throws an exception if the token is too old, or in case of too many
         failed attempts.
-        """
-        return self.individuation.check_token(username, token, browser_token)
 
-    @rpc(String, String, _returns=Boolean)
-    def abort_token(self, username, session_id=None):
         """
-        Remove token for given user from Cerebrum. Used in case the user wants
-        to abort the process.
-        """
-        return self.individuation.delete_token(username)
+        return ctx.udc['individuation'].check_token(username, token, browser_token)
 
-    @rpc(String, String, String, String, String, _returns=Boolean)
-    def set_password(self, username, new_password, token, browser_token,
-                     session_id=None):
-        """
-        Set new password for a user if the tokens are valid and the password is
-        good enough.
-        """
-        return self.individuation.set_password(username, new_password, token, browser_token)
+    @rpc(String, _returns=Boolean)
+    def abort_token(ctx, username):
+        """Remove the temporary token for the given user from Cerebrum. This
+        should be used in case the user wants to abort the process of setting a
+        new password.
 
-    @rpc(String, String, _returns=Boolean)
-    def validate_password(self, password, session_id=None):
         """
-        Check if a given password is good enough. Returns either True or throws
-        exceptions with an explanation of what is wrong with the password.
+        return ctx.udc['individuation'].delete_token(username)
+
+    @rpc(String, String, String, String, _returns=Boolean)
+    def set_password(ctx, username, new_password, token, browser_token):
+        """Set a new password for a given user. Note that both the token and the
+        browser token must match the ones stored in Cerebrum. Also, the password
+        must match the instance' password criterias.
+
         """
-        return self.individuation.validate_password(password)
+        return ctx.udc['individuation'].set_password(username, new_password,
+                                                     token, browser_token)
+
+    @rpc(String, _returns=Boolean)
+    def validate_password(ctx, password):
+        """Check if a given password is good enough. Returns True if the
+        password meets the instance' password criterias. If the password does
+        not meet all the criterias, an exception is thrown with an explanation
+        of what is wrong with the password.
+
+        """
+        return ctx.udc['individuation'].validate_password(password)
+
+# Add the session events:
+IndividuationServer.event_manager.add_listener('method_call',
+                                            SoapListener.on_method_call_session)
+IndividuationServer.event_manager.add_listener('method_return_object',
+                                            SoapListener.on_method_exit_session)
+
+# And then the individuation specific events:
+def _on_method_call(ctx):
+    """Event method for fixing the individuation functionality, like language."""
+    # TODO: the language functionality may be moved into SoapListener? It is
+    # probably usable by other services too.
+    ctx.udc['individuation'] = ctx.service_class.cere_class()
+    if not ctx.udc['session'].has_key('msgs'):
+        ctx.udc['session']['msgs'] = Messages(text=ctx.udc['individuation'].messages)
+IndividuationServer.event_manager.add_listener('method_call', _on_method_call)
+
+def _on_method_exception(ctx):
+    """Event for updating raised exceptions to return a proper error message in
+    the chosen language. The individuation instance could then raise errors with
+    a code that corresponds to a message, and this event updates the error with
+    the message in the correct language.
+    """
+    if isinstance(ctx.out_error, SoapListener.EndUserFault):
+        err = ctx.out_error
+        try:
+            err.faultstring = ctx.udc['session']['msgs'][err.faultstring] % err.extra
+        except KeyError, e:
+            log.msg('WARNING: Unknown error: %s - %s' % (err.faultstring, e))
+IndividuationServer.event_manager.add_listener('method_exception_object',
+                                               _on_method_exception)
+
+# When a call is processed, it has to be closed:
+def _on_method_exit(ctx):
+    """Event for cleaning up the individuation instances, i.e. close the
+    database connections. Since twisted runs all calls in a pool of threads, we
+    can not trust __del__."""
+    # TODO: is this necessary any more, as we now are storing it in the method
+    # context? Are these deleted after each call?
+    if ctx.udc.has_key('individuation'):
+        ctx.udc['individuation'].close()
+IndividuationServer.event_manager.add_listener('method_return_object', _on_method_exit)
+IndividuationServer.event_manager.add_listener('method_exception_object', _on_method_exit)
 
 def usage(exitcode=0):
     print """Usage: %s [-p <port number] [-l logfile] [--unencrypted]
 
-Starts up the Individuation webservice on a given port. Please note that the
+Starts up the Individuation webservice on a given port. Please note that
 config (cisconf) contains more settings for the service.
 
   -p
@@ -262,7 +288,7 @@ if __name__=='__main__':
     mod = dyn_import(module)
     cls = getattr(mod, classname)
     IndividuationServer.cere_class = cls
-    log.msg("Individuation is using: %s" % instance)
+    log.msg("DEBUG: Individuation is using: %s" % instance)
     # TBD: Should Individuation be started once per session instead? Takes
     # more memory, but are there benefits we need, e.g. language control?
 
@@ -271,24 +297,30 @@ if __name__=='__main__':
     client_ca         = None
     fingerprints      = None
 
+    if interface:
+        SoapListener.TwistedSoapStarter.interface = interface
+
     if use_encryption:
         private_key_file  = cisconf.SERVER_PRIVATE_KEY_FILE
         certificate_file  = cisconf.SERVER_CERTIFICATE_FILE
         client_ca         = cisconf.CERTIFICATE_AUTHORITIES
         fingerprints      = getattr(cisconf, 'FINGERPRINTS', None)
-    if interface:
-        SoapListener.TwistedSoapStarter.interface = interface
-
-    server = SoapListener.TwistedSoapStarter(port = int(port),
-                applications = IndividuationServer,
-                private_key_file = private_key_file,
-                certificate_file = certificate_file,
-                client_ca = client_ca,
-                encrypt = use_encryption,
-                client_fingerprints = fingerprints,
-                logfile = logfilename)
+        
+        server = SoapListener.TLSTwistedSoapStarter(port = int(port),
+                        applications = IndividuationServer,
+                        private_key_file = private_key_file,
+                        certificate_file = certificate_file,
+                        client_ca = client_ca,
+                        client_fingerprints = fingerprints,
+                        logfile = logfilename)
+    else:
+        server = SoapListener.TwistedSoapStarter(port = int(port),
+                                    applications = IndividuationServer,
+                                    logfile = logfilename)
     IndividuationServer.site = server.site # to make it global and reachable by Individuation (wrong, I know)
 
-    # If sessions' behaviour should be changed (e.g. timeout):
-    # server.site.sessionFactory = BasicSession
+    # We want the sessions to be simple dicts, for now:
+    server.site.sessionFactory = SoapListener.SessionCacher
+    # Set the timeout to something appropriate:
+    SoapListener.SessionCacher.sessionTimeout = 600 # = 10 minutes
     server.run()

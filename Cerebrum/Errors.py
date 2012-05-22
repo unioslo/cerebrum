@@ -127,8 +127,8 @@ class PolicyException(CerebrumError):
     what policy is broken."""
 
 class CerebrumRPCException(CerebrumError):
-    """CerebrumRPCException"""
     # The message should be a text code, to be used by a Message object.
+    pass
 
 def _test():
     import doctest,Errors 

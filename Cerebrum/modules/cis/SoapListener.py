@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright 2010, 2011 University of Oslo, Norway
+# 
+# Copyright 2010, 2011, 2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,159 +20,204 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
 The core functionality for SOAP services running in the CIS framework. CIS is
-based on the twisted framework and soaplib.
+based on the twisted framework and rpclib.
 
-...
+This file contains the main parts that is needed for a basic setup of a new CIS
+service. The new service itself has to be created in its own file, and be given
+to a TwistedSoapStarter class. Other settings are available, e.g. to apply SSL
+encryption, authentication and authorization.
+
+TODO: describe how to fire up a standard CIS service.
+
 """
 
 import socket
+import traceback
+import time
 
 from os import path
 
-import soaplib.core
-from soaplib.core.server import wsgi
-from soaplib.core.service import DefinitionBase
+import rpclib
+import rpclib.application
+import rpclib.service
+# TODO: should probably import most of these by its parent module:
+from rpclib.server.wsgi import WsgiApplication
+from rpclib.protocol.soap import Soap11
+from rpclib.interface.wsdl import Wsdl11
+from rpclib.model.fault import Fault
+from rpclib.model.complex import ComplexModel
+from rpclib.model.primitive import Mandatory, String
+#from rpclib.error import ArgumentError
 
-from twisted.web.server import Site
+from twisted.web.server import Site, Session
 from twisted.web.resource import Resource
 from twisted.internet import reactor
 from twisted.python import log, logfile, util
+from twisted.web.wsgi import WSGIResource
 
+CRYPTO_AVAILABLE = True
 try:
     from twisted.internet import ssl
-    CRYPTO_AVAILABLE = True
 except ImportError:
     CRYPTO_AVAILABLE = False
-
-# TODO: how to import this correctly?
 from OpenSSL import SSL
 
-import traceback
+import cerebrum_path
+import cereconf
+from Cerebrum import Errors
 
-class BasicSoapServer(DefinitionBase):
-    """Base class for SOAP services.
+# TODO: Set up the logger correctly e.g. rpclib/application.py has::
+#
+#   logger = logging.getLogger(__name__)
+#
+# how to tweak that to log what we want?
 
-    This class defines general setup useful for SOAP services.
-    No SOAP actions are defined here. Define the actions in subclasses.
-    """
 
-    # Hooks, nice for logging etc.
+###
+### Faults
+###
 
-    def on_method_call(self, method_name, py_params, soap_params):
-        '''Called BEFORE the service implementing the functionality is called
-
-        @param the method name
-        @param the tuple of python params being passed to the method
-        @param the soap elements for each argument
-        '''
-        log.msg("DEBUG: Calling method %s(%s)" % (method_name, 
-                                         ', '.join(repr(p) for p in py_params)))
-
-    def on_method_return_object(self, py_results):
-        '''Called AFTER the service implementing the functionality is called,
-        with native return object as argument
-        
-        @param the python results from the method
-        '''
-        pass
-
-    def on_method_return_xml(self, soap_results):
-        '''Called AFTER the service implementing the functionality is called,
-        with native return object serialized to Element objects as argument.
-        
-        @param the xml element containing the return value(s) from the method
-        '''
-        pass
-
-    def on_method_exception_object(self, exc):
-        '''Called BEFORE the exception is serialized, when an error occurs
-        during execution.
+# TODO: define type name and faultcodes better
+class EndUserFault(Fault):
+    """This is the Fault that should be returned and given to the end user.
+    Faults of this type should be understandable by an end user.
     
-        @param the exception object
-        '''
-        #exc.faultstring
-        pass
-
-    def on_method_exception_xml(self, fault_xml):
-        '''Called AFTER the exception is serialized, when an error occurs
-        during execution.
-        
-        @param the xml element containing the exception object serialized to a
-        soap fault
-        '''
-        pass
-
-    def call_wrapper(self, call, params):
-        '''Called in place of the original method call.
-
-        @param the original method call
-        @param the arguments to the call
-        '''
-        return call(*params)
-
-def clientVerificationCallback(instance, connection, x509, errnum, errdepth, ok=None):
-    """Callback for verifying a client's certificate. This is called every time
-    listenSSL gets an incoming connection, and is used for more validations,
-    logging and debug.
-    
-    Note that load_verify_locations is called at startup, which tells the server
-    what specific certificates we trust blindly. Connection by these
-    certificates will therefore set ok to True.
-
-    @param instance
-    @type  TwistedSoapStarter, for instance.
-
-    @param connection
-    @type  OpenSSL.SSL.Connection
-
-    @param x509
-    @type  X509.X509
-
-    @param errnum
-    @type  int
-
-    @param errdepth
-    @type  int
-
-    @param ok
-    @type  int
-
-    @return bool
-    True if the client should be allowed a connection, False closes the
-    connection.
     """
-    if not ok:
-        log.err('Invalid cert: errnum=%s, errdepth=%s (see `man verify` for info)' % (errnum, errdepth))
+    __type_name__ = 'UserError'
+    __namespace__ = 'tns'
+    # TODO: define namespace here?
+    def __init__(self, err):
+        Fault.__init__(self,
+                       faultcode='Client.UserError',
+                       faultstring=str(err.args[0]))
+        self.extra = err.args[1:]
+
+class UnknownFault(Fault):
+    """A generic Fault when unknown errors occur on the server side."""
+    __type_name__ = 'UnknownError'
+    __namespace__ = 'tns'
+    # TODO: define namespace here?
+    def __init__(self):
+        Fault.__init__(self, faultcode='Server', faultstring='Unknown Error')
+
+class BasicSoapServer(rpclib.service.ServiceBase):
+    """Base class for our SOAP services, with general setup useful for us.
+    Public methods should be defined in subclasses.
+
+    """
+    @classmethod
+    def call_wrapper(cls, ctx):
+        """The wrapper for calling a public service method. Can be subclassed
+        for instance specific functionality, e.g. special exception handles.
+
+        Service classes can raise CerebrumRPCException, which should be returned
+        to the client and considered to be shown to the end users. Any other
+        exceptions should not be returned to the client, but gets logged and a
+        generic 'unknown error' Fault is returned.
+
+        """
         try:
-            log.err('  subject: %s' % x509.get_subject())
-            log.err('  issuer:  %s' % x509.get_issuer())
-            log.err('  serial:  %x' % x509.get_serial_number())
-            log.err('  version: %s' % x509.get_version())
-            log.err('  digest: %s (sha256)' % x509.digest('sha256'))
-            log.err('  digest: %s (sha1)' % x509.digest('sha1'))
-            log.err('  digest: %s (md5)' % x509.digest('md5'))
+            return super(BasicSoapServer, cls).call_wrapper(ctx)
+        except Errors.CerebrumRPCException, e:
+            raise EndUserFault(e)
+        except EndUserFault:
+            raise
         except Exception, e:
-            log.err('  exception: %s' % e)
-        return False
-    # check the whitelist
-    if instance.client_fingerprints is not None:
-        # TODO: make use of cisconc.FINGERPRINT_ALGORITHM somehow
-        if x509.digest('sha1') not in instance.client_fingerprints:
-            log.err('Valid cert, but not in whitelist')
-            log.err('  subject: %s' % x509.get_subject())
-            log.err('  issuer:  %s' % x509.get_issuer())
-            log.err('  serial:  %x' % x509.get_serial_number())
-            log.err('  version: %s' % x509.get_version())
-            log.err('  digest: %s (sha256)' % x509.digest('sha256'))
-            log.err('  digest: %s (sha1)' % x509.digest('sha1'))
-            log.err('  digest: %s (md5)' % x509.digest('md5'))
-            return False
-    # TODO: validate the hostname as well?
-    return True
+            # TODO: We should make unknown exceptions available for subclasses,
+            # as they might not be unkonwn to them.
+            log.msg('ERROR: Unhandled exception: %s' % type(e))
+            log.err(e)
+            log.msg(traceback.format_exc())
+            raise UnknownFault()
 
-class BasicSoapStarter:
+def _on_method_call(ctx):
+    """Event that is executed at every call, which logs the transaction and
+    initiates the User Defined Context.
     """
-    Basic utility class for starting a soap server with the preferred
+    log.msg("DEBUG: BasicSoapServer - Calling method %s" % ctx.in_object)
+
+    # The UserDefinedContext is Tha Place to put stuff. Setting it to a dict
+    # here, to be able to add different stuff in different Service classes:
+    if ctx.udc is None:
+        # TODO: change to object later, or is that necessary at all?
+        ctx.udc = dict()
+BasicSoapServer.event_manager.add_listener('method_call', _on_method_call)
+
+###
+### Events that could be used by CIS servers
+###
+### See rpclib.service.ServiceBase.__doc__ for the event handlers
+###
+
+def on_method_call_session(ctx):
+    """Event for session handling. Add this to services to use sessions. Note
+    that they also have to add SessionHeader in their __in_header__, to let
+    clients give them the session id.
+
+    """
+    site = ctx.service_class.site
+    # TODO: what if in_header is empty/None?
+    #if ctx.in_header is None or not ctx.in_header.session_id:
+    #    raise Exception("No session ID given in header")
+    sid = getattr(ctx.in_header, 'session_id', None)
+
+    if not sid:
+        session = site.makeSession()
+    else:
+        try:
+            session = site.getSession(sid)
+        except KeyError:
+            # Either wrong given ID, or the old session has expired
+            session = site.makeSession()
+    session.touch()
+    log.msg("DEBUG: session ID: %s (given: %s)" % (session.uid, sid))
+    ctx.udc['session'] = session
+
+def on_method_exit_session(ctx):
+    """Event for session handling at exit. By calling this event, the current
+    session ID is returned to the client through the reponse SOAP header."""
+    sid = ctx.udc['session'].uid
+    if not sid:
+        return
+    sh = SessionHeader()
+    sh.session_id = sid
+
+    if ctx.out_header is None:
+        ctx.out_header = sh
+    elif isinstance(ctx.out_header, list):
+        ctx.out_header.append(sh)
+    elif isinstance(ctx.out_header, tuple):
+        ctx.out_header += (sh,)
+    else:
+        ctx.out_header = [ctx.out_header, sh]
+
+###
+### Session support
+###
+class SessionHeader(ComplexModel):
+    """A header for support of sessions. Can be used both by clients and
+    servers. One could subclass this if more data is needed in client's
+    header."""
+    __namespace__ = 'tns' # TODO: what is correct tns?
+    #__namespace__ = 'SoapListener.session' # TODO: what is correct tns?
+    session_id = String
+
+class SessionCacher(Session, dict):
+    """The session class does nothing by itself, except for timing out. This is
+    a simple class for using the session as a dict. It could be subclassed for
+    more functionality. 
+    
+    To make use of this as your session, you have to set site.sessionFactory to
+    this class."""
+    # Not sure if zope.interface.components should be used instead, but this was
+    # easier.
+    sessionTimeout = 60 # in seconds
+
+    # TODO: create a __copy__ method to be able to copy data from an old session
+    # to a new one. This is needed for switching session ID when authenticating.
+
+class BasicSoapStarter(object):
+    """Basic utility class for starting a soap server with the preferred
     settings.
     """
     def __init__(self):
@@ -183,8 +228,7 @@ class BasicSoapStarter:
         pass
 
 class TwistedSoapStarter(BasicSoapStarter):
-    """
-    Basic utility class for starting a soap server through Twisted. Could be
+    """Basic utility class for starting a soap server through Twisted. Could be
     subclassed or manipulated directly to change standard behaviour. Normally,
     you would only run::
 
@@ -204,55 +248,34 @@ class TwistedSoapStarter(BasicSoapStarter):
     # The interface the server should be connected to
     interface = '0.0.0.0'
 
-    # Callback for verifying client's certificates
-    clientverifycallback = clientVerificationCallback
-
-    # The certificate whitelist - only the certificates that matches these
-    # fingerprints are accepted in a TLS connection.
-    client_fingerprints = None
-
-    def __init__(self, applications, port, private_key_file=None,
-                 certificate_file=None, client_ca=None, encrypt=True,
-                 client_fingerprints=None, logfile=None):
+    def __init__(self, applications, port, logfile=None, log_prefix=None):
         """Setting up a standard soap server. If either a key or certificate
         file is given, it will use encryption."""
-        #super(TwistedSoapStarter, self).__init__()
-        self.setup_soaplib(applications)
-        # TODO: make use of log prefixing etc.
+        super(TwistedSoapStarter, self).__init__()
+        self.setup_services(applications)
         if logfile:
-            self.setup_logging(logfile)
+            self.setup_logging(logfile, log_prefix=log_prefix)
         self.setup_twisted()
 
-        if encrypt and not (private_key_file and certificate_file):
-            log.err("Encryption without certificate is not good")
-        if encrypt:
-            self.setup_encrypted_reactor(port,
-                                         private_key_file=private_key_file,
-                                         certificate_file=certificate_file,
-                                         client_ca=client_ca,
-                                         client_fingerprints=client_fingerprints)
-            url = "https://%s:%d/SOAP/" % (socket.gethostname(), port)
-        else: # unencrypted
-            self.setup_reactor(port=port)
-            url = "http://%s:%d/SOAP/" % (socket.gethostname(),
-                                          self.port.getHost().port)
-        log.msg("Server set up at %s" % url)
-        log.msg("WSDL definition at %s?wsdl" % url)
+        self.setup_reactor(port=port)
 
-    def setup_soaplib(self, applications):
-        """Setting up the soaplib framework."""
+    def setup_services(self, applications):
+        """Setting up the service that should be run by twisted. This is here
+        an rpclib service in the standard WSGI format."""
         if type(applications) not in (list, tuple, dict):
             applications = [applications]
 
-        # TODO: Subclass soaplib's Application to support sessions?
-        self.service = soaplib.core.Application(applications, self.namespace)
-
-        self.wsgi_application = WSGISessionApplication(self.service)
+        self.service = rpclib.application.Application(applications,
+                                    tns=self.namespace,
+                                    interface=Wsdl11(),
+                                    in_protocol=Soap11(validator='lxml'),
+                                    out_protocol=Soap11())
+        self.wsgi_application = WsgiApplication(self.service)
 
     def setup_twisted(self):
         """Setting up the twisted service. Soaplib has to be setup first."""
-        self.resource = WSGIResourceSession(reactor, reactor.getThreadPool(),
-                                            self.wsgi_application)
+        self.resource = WSGIResource(reactor, reactor.getThreadPool(),
+                                     self.wsgi_application)
         self.root = Resource()
         self.root.putChild(self.soapchildpath, self.resource)
         self.site = Site(self.root)
@@ -272,52 +295,170 @@ class TwistedSoapStarter(BasicSoapStarter):
                    ))
         log.startLoggingWithObserver(logger.emit)
 
-    def add_certificates(self, ctx, locations):
-        """Tell the server what certificates it should trust as signers of the
-        clients' certificates."""
-        if isinstance(locations, (list, tuple)):
-            for location in locations:
-                self.add_certificates(ctx, location)
-            return
-        if path.isdir(locations):
-            log.msg('WARNING: Adding CA directories might be buggy...')
-            ctx.load_verify_locations(None, locations)
-        else:
-            ctx.load_verify_locations(locations)
-
-    def setup_encrypted_reactor(self, port, private_key_file,
-                                certificate_file, client_ca,
-                                client_fingerprints=None):
-        """Setting up the reactor with encryption and certificate
-        authentication."""
-        sslcontext = ssl.DefaultOpenSSLContextFactory(private_key_file,
-                                                      certificate_file)
-                                                      #SSL.TLSv1_METHOD)
-        ctx = sslcontext.getContext()
-        self.add_certificates(ctx, client_ca)
-        # TODO: can ctx.set_verify_depth(<int>) be used to avoid having to
-        # validate the whole chain?
-        if client_fingerprints:
-            self.client_fingerprints = client_fingerprints
-            if client_fingerprints is not None:
-                if len(client_fingerprints) == 0:
-                    log.msg('WARNING: empty whitelist, no client will be accepted')
-        else:
-            log.msg('WARNING: No whitelist, accepting all certs signed by CA')
-        ctx.set_verify(SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT,
-                       self.clientverifycallback)
-        self.port = reactor.listenSSL(int(port), self.site,
-                                      contextFactory=sslcontext,
-                                      interface=self.interface)
-
     def setup_reactor(self, port):
         """Setting up the reactor, without encryption."""
         self.port = reactor.listenTCP(int(port), self.site,
                                       interface=self.interface)
+        url = "http://%s:%d/SOAP/" % (socket.gethostname(),
+                                      self.port.getHost().port)
+        log.msg("DEBUG: Server set up at %s" % url)
+        log.msg("DEBUG: WSDL definition at %s?wsdl" % url)
 
     def run(self):
         """Starts the soap server"""
         reactor.run()
+
+
+class TLSTwistedSoapStarter(TwistedSoapStarter):
+    """Utility class for starting a SOAP server with TLS encryption. To fire it
+    up, you could run::
+
+      server = TLSTwistedSoapStarter(applications, port, ...)
+      server.run()
+
+    """
+
+    # The certificate whitelist - only the certificates that matches these
+    # fingerprints are accepted in a TLS connection.
+    client_fingerprints = None
+
+    def __init__(self, applications, port, private_key_file=None,
+                 certificate_file=None, client_ca=None,
+                 client_fingerprints=None, logfile=None):
+        if not CRYPTO_AVAILABLE:
+            raise Exception('Could not import cryptostuff')
+        if not (private_key_file and certificate_file):
+            # TODO: raise exception instead?
+            log.msg("ERROR: Encryption without certificate is not good")
+        self.setup_sslcontext(client_ca = client_ca,
+                              client_fingerprints = client_fingerprints,
+                              private_key_file = private_key_file, 
+                              certificate_file = certificate_file)
+        super(TLSTwistedSoapStarter, self).__init__(applications, port,
+                                                    logfile=logfile)
+
+    def setup_sslcontext(self, client_ca, client_fingerprints, private_key_file,
+                         certificate_file):
+        """Setup the ssl context and its settings."""
+        if client_fingerprints:
+            self.client_fingerprints = client_fingerprints
+        else:
+            log.msg('WARNING: No whitelist, accepting all certs signed by CA')
+
+        self.sslcontext = ssl.DefaultOpenSSLContextFactory(private_key_file,
+                                                           certificate_file)
+                                                           #SSL.TLSv1_METHOD)
+        self.add_certificates(client_ca)
+        self.sslcontext.getContext().set_verify(
+                SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT,
+                self.clientTLSVerify)
+        # TODO: could self.sslcontext.getContext().set_verify_depth(<int>) be
+        # used to avoid having to validate the whole chain?
+
+    def add_certificates(self, locations):
+        """Tell the server what certificates it should trust as signers of the
+        clients' certificates."""
+        if isinstance(locations, (list, tuple)):
+            for location in locations:
+                self.add_certificates(location)
+            return
+        if path.isdir(locations):
+            log.msg('WARNING: Adding CA directories might be buggy...')
+            self.sslcontext.getContext().load_verify_locations(None, locations)
+        else:
+            self.sslcontext.getContext().load_verify_locations(locations)
+
+    def setup_reactor(self, port):
+        """Setting up the reactor with encryption."""
+        self.port = reactor.listenSSL(int(port), self.site,
+                                      contextFactory=self.sslcontext,
+                                      interface=self.interface)
+        url = "https://%s:%d/SOAP/" % (socket.gethostname(),
+                                      self.port.getHost().port)
+        log.msg("DEBUG: Server set up at %s" % url)
+        log.msg("DEBUG: WSDL definition at %s?wsdl" % url)
+
+    @classmethod
+    def clientTLSVerify(cls, connection, x509, errnum, errdepth, ok=None):
+        """Callback for verifying a client's certificate. This is called every time
+        listenSSL gets an incoming connection, and is used for more validations,
+        logging and debug.
+        
+        Note that load_verify_locations is called at startup, which tells the server
+        what specific certificates we trust blindly. Connection by these
+        certificates will therefore set ok to True.
+
+        @param connection
+        @type  OpenSSL.SSL.Connection
+
+               The TLS connection. Note that the connection gets automatically
+               dropped if this function return False.
+
+        @param x509
+        @type  X509.X509
+
+               Contains the current X.509 certificate to be verified.
+
+        @param errnum
+        @type  int
+
+               The TLS error number if the certificate was not okay. See `man
+               verify` for a list of error codes.
+
+        @param errdepth
+        @type  int
+
+               TODO: Where we are in the X.509 certificate chain.
+
+        @param ok
+        @type  int or None
+
+               If X.509 verified the certificate to be okay or not.
+
+        @return bool
+        True if the client should be allowed a connection, False closes the
+        connection.
+
+        """
+        if not ok:
+            log.msg('WARNING: Invalid cert: errnum=%s, errdepth=%s (see `man verify` for info)' % (errnum, errdepth))
+            try:
+                log.msg('  subject: %s' % x509.get_subject())
+                log.msg('  issuer:  %s' % x509.get_issuer())
+                log.msg('  serial:  %x' % x509.get_serial_number())
+                log.msg('  start:   %s' % x509.get_notBefore())
+                log.msg('  expires: %s' % x509.get_notAfter())
+                log.msg('  version: %s' % x509.get_version())
+                log.msg('  digest: %s (sha256)' % x509.digest('sha256'))
+                log.msg('  digest: %s (sha1)' % x509.digest('sha1'))
+                log.msg('  digest: %s (md5)' % x509.digest('md5'))
+            except Exception, e:
+                log.msg('  exception: %s' % e)
+                log.err(e)
+            return False
+        # check the whitelist
+        if cls.client_fingerprints:
+            if x509.digest('sha1') not in cls.client_fingerprints:
+                log.msg('WARNING: Valid cert, but not in whitelist')
+                log.msg('  subject: %s' % x509.get_subject())
+                log.msg('  issuer:  %s' % x509.get_issuer())
+                log.msg('  serial:  %x' % x509.get_serial_number())
+                log.msg('  version: %s' % x509.get_version())
+                log.msg('  digest: %s (sha256)' % x509.digest('sha256'))
+                log.msg('  digest: %s (sha1)' % x509.digest('sha1'))
+                log.msg('  digest: %s (md5)' % x509.digest('md5'))
+                return False
+        # TODO: validate the hostname as well?
+
+        # Log if a certificate is close to expiration. A weeks delay.
+        expire = x509.get_notAfter() # format: 'YYYYMMDDhhmmssZ'
+        if expire and int(expire[:8]) < int(time.strftime('%Y%m%d')) - 7:
+            log.msg('WARNING: Cert close to expire')
+            log.msg('  subject: %s' % x509.get_subject())
+            log.msg('  issuer:  %s' % x509.get_issuer())
+            log.msg('  start:   %s' % x509.get_notBefore())
+            log.msg('  expires: %s' % x509.get_notAfter())
+        return True
 
 
 ### Hacks at Soaplib/Twisted
@@ -326,7 +467,7 @@ class TwistedSoapStarter(BasicSoapStarter):
 ### changes when upgrading to newer versions of the packages.
 
 # Modifying the logger to work with Cerebrum
-# Note that Twisted Core 11.1.0 supports log prefixes:
+# Note that Twisted Core 11.1.0 and later supports log prefixes:
 #   - Protocols may now implement ILoggingContext to customize their
 #     logging prefix.  twisted.protocols.policies.ProtocolWrapper and the
 #     endpoints wrapper now take advantage of this feature to ensure the
@@ -341,7 +482,7 @@ class TwistedCerebrumLogger(log.FileLogObserver):
     # Set this to the current script's name.
     # TODO: Remove the now default cis_individuation, as this is not generic.
     #       Requires maillog-exceptions gets updated with new name.
-    log_prefix = 'cis'
+    log_prefix = 'cis_individuation: '
 
     # The time format known by Cerebrum
     timeFormat = '%Y-%m-%d %H:%M:%S'
@@ -359,182 +500,5 @@ class TwistedCerebrumLogger(log.FileLogObserver):
         fmtDict = {'system': eventDict['system'], 'text': text.replace("\n", "\n\t")}
         msgStr = log._safeFormat("[%(system)s] %(text)s\n", fmtDict)
 
-        util.untilConcludes(self.write, '%s %s: %s' % (timeStr, self.log_prefix,
-                                                       msgStr))
+        util.untilConcludes(self.write, timeStr + ' ' + self.log_prefix + msgStr)
         util.untilConcludes(self.flush)  # Hoorj!
-
-# Hack of WSGI/soaplib to support sessions.
-#
-# Since the WSGI doesn't define any specific support for sessions and cookies
-# we need to hack it into soaplib's wsgi support. It is a bad hack, as the
-# code might break for other soaplib versions, and thus has to be tested
-# between each upgrade. This is why it is all put last in this file, so it can
-# be easier to locate and change when problems occur.
-#
-# To use the hack, you would need to use these subclasses in the server setup.
-# This should all be handled by TwistedSoapStarter.
-# 
-# Example code:
-#
-#    import SoapListener, soaplib, twisted
-#
-#    service = soaplib.core.Application([ClassWithPublicSoapMethods], 'tns')
-#    # instead of wsgi.Application(service):
-#    wsgi_app = SoapListener.WSGIApplication(service) 
-#    # this takes the session from the Request and give it to the soap data.
-#
-#    # instead of twisted.web.wsgi.WSGIResource(reactor, ..., wsgi_app):
-#    resource = SoapListener.WSGIResourceSession(reactor,
-#                               reactor.getThreadPool(), wsgi_app)
-#    # this adds the session to the environment data, which will be sent to
-#    # the wsgi application
-#
-# If you do not put in these lines in your server setup, the soap server will
-# be unaffected by this hack, but you wouldn't have session-support.
-# 
-
-import cgi
-from xml.sax.saxutils import unescape
-from lxml import etree
-from StringIO import StringIO
-
-from twisted.web.server import NOT_DONE_YET
-from twisted.web.wsgi import WSGIResource, _WSGIResponse, _InputStream
-
-from soaplib.core.mime import collapse_swa
-from soaplib.core.namespaces import ns_soap_env
-
-class WSGIResourceSession(WSGIResource):
-    def render(self, request):
-        """Turn the request into the appropriate C{environ} C{dict} suitable
-        to be passed to the WSGI application object and then pass it on.
-
-        The WSGI application object is given almost complete control of the
-        rendering process.  C{NOT_DONE_YET} will always be returned in order
-        and response completion will be dictated by the application object, as
-        will the status, headers, and the response body.
-
-        Our subclass is for handling sessions, the rest should be up to
-        twisted."""
-        #if request.method == 'POST':
-        #    # Creates the session if it doesn't exist. When created, twisted
-        #    # automatically creates a cookie for it.
-        #    ISessionCache(request.getSession())
-        #return super(WSGIResourceSession, self).render(request)
-        response = _WSGISessionResponse(
-            self._reactor, self._threadpool, self._application, request)
-        response.start()
-        return NOT_DONE_YET
-
-# Hack for handing the session id over to wsgi, to be able to use sessions
-# inside of our wsgi. We subclass twisted's WSGI response to feed the WSGI
-# environment with its session. We can then grab it up in our subclasses of
-# soaplib and force it into the soap method. Note that we couldn't use global
-# variables, since we are in a threaded environment.
-class _WSGISessionResponse(_WSGIResponse):
-    """An override of _WSGIResponse to handle sessions."""
-    def __init__(self, reactor, threadpool, application, request):
-        super(_WSGISessionResponse, self).__init__(reactor, threadpool,
-                                                   application, request)
-        # Feed the session to the environment, as this is given to the wsgi
-        # application later on. getSession is checking the cookie for existing
-        # session IDs, and will create a session of it doesn't exist.
-        self.environ['twisted.session'] = request.getSession().uid
-
-class WSGISessionApplication(wsgi.Application):
-    """An override of soaplib.core.server.wsgi.Application to handle
-    sessions."""
-    def on_wsgi_call(self, environ):
-        """Our problem is that we can't reach the session ID when inside. The
-        current solution to this problem is to read the XML-input and put the
-        session ID as the last argument to the called SOAP method.
-        
-        One side effect of this is that all SOAP methods have to define
-        session_id as their last argument, even though it's not used. Another
-        side effect is that the WSDL will specify the session_id for the
-        clients, even though its only optional, and will be ignored if it's
-        not the samme ID as in twisted's session cookie. These effects are not
-        show stoppers, though.
-        
-        Note that the parsing of input data is copied from how soaplib does
-        it. If the parsing throws exceptions, it is handled by twisted by
-        sending a Fault back to the client."""
-        super(WSGISessionApplication, self).on_wsgi_call(environ)
-        session = environ.get('twisted.session')
-        
-        # Read in the input
-        input = environ['wsgi.input'].read(int(environ.get('CONTENT_LENGTH')))
-        # Clean up the input and parse the XML:
-        content_type = cgi.parse_header(environ.get("CONTENT_TYPE"))
-        input = collapse_swa(content_type, input)
-        xml_string = unescape(input, {"&apos;": "'", "&quot;": '"'})
-        xmlroot, xmlids = etree.XMLID(xml_string)
-
-        body = xmlroot.find('{%s}Body' % ns_soap_env)
-
-        for child in body.iterchildren():
-            already_set = child.find('{%s}session_id' % TwistedSoapStarter.namespace)
-            if already_set is None:
-                # create the session_id parameter
-                ele = etree.Element('{%s}session_id' % TwistedSoapStarter.namespace)
-                ele.text = session
-                child.append(ele)
-            elif already_set.text != session:
-                # overwrite the wrong session ID
-                log.msg('WARNING: wrong session_id, cookie="%s", param="%s"' % (
-                        session, already_set.text))
-                already_set.text = session
-        # converting it back to a stream, so soaplib can reread it:
-        input = etree.tostring(xmlroot, xml_declaration=True,
-                               encoding=content_type[1].get('charset'))
-        environ['CONTENT_LENGTH'] = len(input)
-        environ['wsgi.input'] = _InputStream(StringIO(input))
-
-# To make use of the session, we need to give it functionality, either by
-# adaption or subclassing, depending on what we need.
-
-# To use the session as a simple (cached) dict, you could do:
-# 
-#   cache = ISessionCache(request.getSession())
-#   
-from zope.interface import Interface, implements, Attribute
-from twisted.python import components
-from twisted.web.server import Session
-
-class ISessionCache(Interface):
-    """Simple class for storing data onto a session object."""
-    data = Attribute("For testing")
-
-class SessionCache(dict):
-    """A simple class for using the session as a normal dict."""
-    implements(ISessionCache)
-    def __init__(self, instance=None):
-        dict.__init__(self)
-components.registerAdapter(SessionCache, Session, ISessionCache)
-
-# Session could also be subclassed, e.g. for setting the timeout, like:
-#
-#   class BasicSession(Session):
-#       sessionTimeout = 60 # in seconds
-#   site = Site(rootResource)
-#   site.sessionFactory = BasicSession
-
-
-
-# Unicode/exception problem fix in twisted. We need to change safe_str's default
-# behaviour to also be able to encode unicode objects to strings, since we could
-# raise unicode exceptions.
-# 
-# TODO: this could be removed, as we have cirumvented this issue. It should be
-# tested first, though.
-#
-from twisted.python import reflect
-def safer_str(o):
-    """Safer than safe_str, as it doesn't seem to handle unicode objects."""
-    if isinstance(o, unicode):
-        try:
-            return o.encode('utf-8')
-        except Exception, e:
-            log.err("Unicode: %s" % e)
-    return reflect._safeFormat(str, o)
-reflect.safe_str = safer_str

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# 
-# Copyright 2011 University of Oslo, Norway
+#
+# Copyright 2011, 2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,14 +18,27 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Cerebrum functionality for Postmaster's webservice."""
+"""Cerebrum functionality for Postmaster's webservice.
+
+"""
 
 import cereconf, cerebrum_path
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 
 class Commands:
-    """The available commands for the postmaster webservice."""
+    """The available commands for the postmaster webservice. The public commands
+    are in the Postmaster server, which calls this class for the Cerebrum
+    functionality.
+
+    This class is instantiated for each incoming call, and closed and destroyed
+    after each call. Note that we should explicitly shut down db connections,
+    since the server could run many connections in parallell.
+
+    Note that this class should be independent of what server and communication
+    form we are using.
+
+    """
 
     def __init__(self):
         self.db = Factory.get('Database')()

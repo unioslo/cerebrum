@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# 
-# Copyright 2011 University of Oslo, Norway
+#
+# Copyright 2011, 2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,35 +22,41 @@
 """A SOAP server for giving Postmaster's what they want of information from
 Cerebrum.
 
-The code is not separated from the server, which is not the recommended way of
-creating servers.
-
 Note that the logger is twisted's own logger and not Cerebrum's. Since twisted
-works in parallell the logger should not be blocked. Due to this, the format
-of the logs is not equal to the rest of Cerebrum. This might be something to
-work on later.
+works in parallell the logger should not be blocked. Due to this, the format of
+the logs is not equal to the rest of Cerebrum. This might be something to work
+on later.
+
 """
 
-import sys, traceback
+import sys
+import traceback
 import getopt
 
 from twisted.python import log
 
-from soaplib.core.service import rpc
-from soaplib.core.model.primitive import String, Integer, Boolean
-from soaplib.core.model.clazz import ClassModel, Array
-from soaplib.core.model.exception import Fault
+from rpclib.model.primitive import String
+from rpclib.model.complex import Array
+from rpclib.model.fault import Fault
+# Note the difference between rpc and the static srpc - the former sets the
+# first parameter as the current MethodContext. Very nice if you want
+# environment details.
+from rpclib.decorator import rpc, srpc
 
 import cerebrum_path
 from cisconf import postmaster as cisconf
-from Cerebrum.modules.cis import SoapListener
 from Cerebrum.Utils import Messages, dyn_import
 from Cerebrum import Errors
+from Cerebrum.modules.cis import SoapListener
 
 class PostmasterServer(SoapListener.BasicSoapServer):
     """The SOAP commands available for the clients.
 
-    Note that an instance of this class is created for each incoming call."""
+    TODO: is the following correct anymore? Note that an instance of this class
+    is created for each incoming call.
+
+    """
+    # Headers: no need for headers for e.g. session IDs in this web service.
 
     # The class where the Cerebrum-specific functionality is done. This is
     # instantiated per call, to avoid thread conflicts.
@@ -59,42 +65,35 @@ class PostmasterServer(SoapListener.BasicSoapServer):
     # The hock for the site object
     site = None
 
-    def call_wrapper(self, call, params):
-        """Subclassing the call wrapper to instantiate the cerebrum instance
-        and to handle exceptions in a soap-wise manner."""
-        try:
-            self.cere_obj = self.cere_class()
-            return super(PostmasterServer, self).call_wrapper(call, params)
-        except KeyboardInterrupt: # don't catch signals like ctrl+c
-            raise
-        except Errors.CerebrumRPCException, e:
-            #msg = self.cache['msgs'][e.args[0]] % e.args[1:]
-            raise Fault(faultstring=e.__doc__ + ': ' + e.message)
-        except Fault, e:
-            raise e
-        except Exception, e:
-            # If anything breaks in here, it will not get logged. Beware!
-            log.msg('ERROR: Unhandled exception: %s' % type(e))
-            log.err(e)
-            log.msg(traceback.format_exc())
-
-            # Don't want the client to know too much about unhandled errors, so
-            # return a generic error.
-            raise Fault(faultstring='Unknown error')
-        finally:
-            if hasattr(self, 'cere_obj'):
-                self.cere_obj.close()
-                del self.cere_obj
-
     @rpc(Array(String), Array(String), Array(String), _returns=Array(String))
-    def get_addresses_by_affiliation(self, status=None, skos=None, source=None):
+    def get_addresses_by_affiliation(ctx, status=None, skos=None, source=None):
         """Get primary e-mail addresses for persons that match given
         criterias."""
         if not source and not status:
-            raise Fault(faultstring='CerebrumRPCException: Input needed')
-        return self.cere_obj.get_addresses_by_affiliation(status=status,
-                                                          skos=skos,
-                                                          source=source)
+            raise Errors.CerebrumRPCException('Input needed')
+        return ctx.udc['postmaster'].get_addresses_by_affiliation(status=status,
+                                                                  skos=skos,
+                                                                  source=source)
+
+# Events for the project:
+
+def event_method_call(ctx):
+    """Event for incoming calls."""
+    ctx.udc['postmaster'] = ctx.service_class.cere_class()
+PostmasterServer.event_manager.add_listener('method_call', event_method_call)
+
+def event_exit(ctx):
+    """Event for cleaning after a call, i.e. close up db connections. Since
+    twisted runs all calls in a pool of threads, we can not trust __del__.
+
+    """
+    # TODO: is this necessary any more, as we now are storing it in the method
+    # context? Are these deleted after each call? Check it out!
+    if ctx.udc.has_key('postmaster'):
+        ctx.udc['postmaster'].close()
+PostmasterServer.event_manager.add_listener('method_return_object', event_exit)
+PostmasterServer.event_manager.add_listener('method_exception_object',
+                                            event_exit)
 
 def usage(exitcode=0):
     print """Usage: %s --port PORT --instance INSTANCE --logfile FILE
@@ -138,7 +137,6 @@ if __name__ == '__main__':
     logfilename     = getattr(cisconf, 'LOG_FILE', None)
     instance        = getattr(cisconf, 'CEREBRUM_CLASS', None)
     interface       = getattr(cisconf, 'INTERFACE', None)
-    fingerprints    = getattr(cisconf, 'FINGERPRINTS', None)
 
     for opt, val in opts:
         if opt in ('--logfile',):
@@ -149,15 +147,16 @@ if __name__ == '__main__':
             use_encryption = False
         elif opt in ('--instance',):
             instance = val
-        elif opt in ('--fingerprints',):
-            fingerprints = val.split(',')
         elif opt in ('--interface',):
             interface = val
         elif opt in ('-h', '--help'):
             usage()
+        else:
+            print "Unknown argument: %s" % opt
+            usage(1)
 
     if not port or not logfilename or not instance:
-        print "Missing arguments"
+        print "Missing arguments or cisconf variables"
         usage(1)
 
     # Get the cerebrum class and give it to the server
@@ -165,29 +164,37 @@ if __name__ == '__main__':
     mod = dyn_import(module)
     cls = getattr(mod, classname)
     PostmasterServer.cere_class = cls
-    log.msg("Cerebrum class used: %s" % instance)
+    log.msg("DEBUG: Cerebrum class used: %s" % instance)
 
     private_key_file  = None
     certificate_file  = None
     client_ca         = None
+    fingerprints      = None
+
+    if interface:
+        SoapListener.TwistedSoapStarter.interface = interface
 
     if use_encryption:
         private_key_file  = cisconf.SERVER_PRIVATE_KEY_FILE
         certificate_file  = cisconf.SERVER_CERTIFICATE_FILE
         client_ca         = cisconf.CERTIFICATE_AUTHORITIES
-    if interface:
-        SoapListener.TwistedSoapStarter.interface = interface
+        fingerprints      = getattr(cisconf, 'FINGERPRINTS', None)
 
-    server = SoapListener.TwistedSoapStarter(port = int(port),
-                applications = PostmasterServer,
-                private_key_file = private_key_file,
-                certificate_file = certificate_file,
-                client_ca = client_ca,
-                encrypt = use_encryption,
-                client_fingerprints = fingerprints,
-                logfile = logfilename)
+        server = SoapListener.TLSTwistedSoapStarter(port = int(port),
+                    applications = PostmasterServer,
+                    private_key_file = private_key_file,
+                    certificate_file = certificate_file,
+                    client_ca = client_ca,
+                    client_fingerprints = fingerprints,
+                    logfile = logfilename)
+    else:
+        server = SoapListener.TwistedSoapStarter(port = int(port),
+                    applications = PostmasterServer,
+                    logfile = logfilename)
     PostmasterServer.site = server.site # to make it global and reachable (wrong, I know)
 
     # If sessions' behaviour should be changed (e.g. timeout):
     # server.site.sessionFactory = BasicSession
+
+    # Fire up the server:
     server.run()

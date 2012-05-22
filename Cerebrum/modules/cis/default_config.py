@@ -107,13 +107,13 @@ FINGERPRINT_ALGORITHM = 'sha1'
 # Cerebrum's own. This is to avoid blocking conflicts, since the services are
 # threaded, and it is easier to use the native logger instead of adapting our
 # current logger.
-# 
+#
 # Note that two different daemons must not log to the same file, as this would
 # create race conditions and write conflicts.
 LOG_FILE = None
 
 # The name of the job to be put in the log files. Cerebrum's root logs contains
-# the elements: 
+# the elements:
 #
 #  YYYY-MM-DD HH:mm:ss <jobname>: <loglevel> <message>
 #
