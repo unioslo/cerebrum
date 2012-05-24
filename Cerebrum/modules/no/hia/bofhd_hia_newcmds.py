@@ -1218,16 +1218,16 @@ class BofhdExtension(BofhdCommandBase):
         perm_filter='can_create_user')
     def user_create(self, operator, *args):
         if args[0].startswith('group:'):
-            group_id, np_type, filegroup, shell, home, novell_home, email_spread, uname = args
+            group_id, np_type, filegroup, shell, home, email_spread, uname = args
             owner_type = self.const.entity_group
             owner_id = self._get_group(group_id.split(":")[1]).entity_id
             np_type = self._get_constant(self.const.Account, np_type,
                                          "account type")
         else:
-            if len(args) == 9:
-                idtype, person_id, affiliation, filegroup, shell, home, novell_home, email_spread, uname = args
+            if len(args) == 8:
+                idtype, person_id, affiliation, filegroup, shell, home, email_spread, uname = args
             else:
-                idtype, person_id, yes_no, affiliation, filegroup, shell, home, novell_home, email_spread, uname = args
+                idtype, person_id, yes_no, affiliation, filegroup, shell, home, email_spread, uname = args
             owner_type = self.const.entity_person
             owner_id = self._get_person("entity_id", person_id).entity_id
             np_type = None
@@ -1252,21 +1252,14 @@ class BofhdExtension(BofhdCommandBase):
             if not self.ba.is_superuser(operator.get_entity_id()):
                 raise PermissionDenied("only superusers may use hardcoded path")
             disk_id, home = None, home[1:]
-        if novell_home[0] != ':':  # Hardcoded path
-            ndisk_id, novell_home = self._get_disk(novell_home)[1:3]
-        else:
-            if not self.ba.is_superuser(operator.get_entity_id()):
-                raise PermissionDenied("only superusers may use hardcoded path")
-            ndisk_id, novell_home = None, home[1:]
         posix_user.clear()
         gecos = None
         expire_date = None
         self.ba.can_create_user(operator.get_entity_id(), owner_id, disk_id)
 
         posix_user.populate(uid, group.entity_id, gecos, shell, name=uname,
-                            owner_type=owner_type,
-                            owner_id=owner_id, np_type=np_type,
-                            creator_id=operator.get_entity_id(),
+                            owner_type=owner_type, owner_id=owner_id, 
+                            np_type=np_type, creator_id=operator.get_entity_id(),
                             expire_date=expire_date)
         try:
             posix_user.write_db()
@@ -1276,10 +1269,6 @@ class BofhdExtension(BofhdCommandBase):
                 disk_id=disk_id, home=home,
                 status=self.const.home_status_not_created)
             posix_user.set_home(self.const.spread_nis_user, homedir_id)
-            nhomedir_id = posix_user.set_homedir(
-                disk_id=ndisk_id, home=novell_home,
-                status=self.const.home_status_not_created)
-            posix_user.set_home(self.const.spread_hia_novell_user, nhomedir_id)
             # For correct ordering of ChangeLog events, new users
             # should be signalled as "exported to" a certain system
             # before the new user's password is set.  Such systems are
@@ -1311,23 +1300,15 @@ class BofhdExtension(BofhdCommandBase):
         
         return "Ok, create %s" % {'uid': uid}
 
-    # helper func, let new account join appropriate server_group
+    # helper func, let new account join a random AD-server group
     #
     def _meld_inn_i_server_gruppe(self, acc_id, operator):
-        acc = Utils.Factory.get('Account')(self.db)
-        acc.clear()
-        acc.find(acc_id)
-        acc_stuff= acc.get_home(self.const.spread_hia_novell_user)
-        disk_id = acc_stuff['disk_id']
-        disk = Utils.Factory.get('Disk')(self.db)
-        disk.clear()
-        disk.find(disk_id)
-        tmp = disk.path.split("/")
-        grp_name = 'server-' + str(tmp[1])
+        import random 
+        grp_choice = random.choice(cereconf.AD_OTHERS_FILEGROUPS)
         grp = Utils.Factory.get("Group")(self.db)
         grp.clear()
-        grp.find_by_name(grp_name)
-        grp.add_member(acc.entity_id)
+        grp.find_by_name(grp_choice)
+        grp.add_member(acc_id)
         
     # helper func, set radius-ans spread for employees
     def _add_radiusans_spread(self, acc_id, operator):
