@@ -23,6 +23,7 @@ import time
 import random
 
 from Cerebrum import Account
+from Cerebrum import Utils
 from Cerebrum.modules import Email
 from Cerebrum import Errors
 from Cerebrum.modules import PasswordHistory
