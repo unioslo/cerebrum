@@ -17,8 +17,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-""""""
-
 import re
 import cereconf
 
@@ -27,45 +25,6 @@ from Cerebrum.Utils import Factory
 from Cerebrum.Database import Errors
 
 class GroupHiAMixin(Group.Group):
-    """Group mixin class providing functionality specific to HiA.
-    """
-    def add_member(self, member_id):
-        '''Override default add_member with checks that avoids
-        membership in more than one eDir server-group'''
-
-        server_groups = ['server-ulv',
-                         'server-laks',
-                         'server-uer',
-                         'server-abbor',
-                         'server-rev',
-                         'server-orrhane',
-                         'server-rype']
-        group = Factory.get("Group")(self._db)
-        dest_group = Factory.get("Group")(self._db)
-        try:
-            dest_group.clear()
-            dest_group.find(self.entity_id)
-        except Errors.NotFoundError:
-            raise self._db.IntegrityError, \
-                  'Cannot add members to a non-existing group!'
-        dest_group_name = dest_group.group_name
-        account = Factory.get("Account")(self._db)
-        member_type = self.query_1("""
-            SELECT entity_type
-            FROM [:table schema=cerebrum name=entity_info]
-            WHERE entity_id = :member_id""", {"member_id": member_id})
-        if (member_type == int(self.const.entity_account) and
-            dest_group_name in server_groups):
-            account.clear()
-            account.find(member_id)
-            for g in server_groups:
-                group.clear()
-                group.find_by_name(g)
-                if group.has_member(member_id):
-                    raise self._db.IntegrityError(
-                        "Member of a eDir server group already (%s)" % g)
-        super(GroupHiAMixin, self).add_member(member_id)
-        
     def add_spread(self, spread):
         # FIXME, jazz 2008-07-28: we should move this check into PosixGroup
         # and establish a cereconf.POSIX_GROUP_SPREAD or something
@@ -73,8 +32,7 @@ class GroupHiAMixin(Group.Group):
         from Cerebrum.modules import PosixGroup
 
         # When adding a NIS-spread, assert that group is a PosixGroup
-        if int(spread) in (self.const.spread_nis_fg,
-                           self.const.spread_ans_nis_fg):
+        if int(spread)  == self.const.spread_nis_fg:
             pg = PosixGroup.PosixGroup(self._db)
             try:
                 pg.clear()
