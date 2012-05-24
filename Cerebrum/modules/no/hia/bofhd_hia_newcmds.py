@@ -1166,18 +1166,17 @@ class BofhdExtension(BofhdCommandBase):
                         'help_ref': 'string_np_type'}
             np_type = all_args.pop(0)
         if ac_type == 'PosixUser':
-            if not all_args:
-                return {'prompt': "Default filegroup"}
-            filgruppe = all_args.pop(0)
+            #if not all_args:
+            #    return {'prompt': "Default filegroup"}
+            # UiA wants everyone to get 'ansatt' as default filegroup
+            filegruppe = 'ansatt'
             if not all_args:
                 return {'prompt': "Shell", 'default': 'bash'}
             shell = all_args.pop(0)
-            if not all_args:
-                return {'prompt': "Disk", 'help_ref': 'disk'}
-            disk = all_args.pop(0)
-            if not all_args:
-                return {'prompt': "Novell disk", 'help_ref': 'disk'}
-            ndisk = all_args.pop(0)
+            # if not all_args:
+            #   return {'prompt': "Disk", 'help_ref': 'disk'}
+            # UiA wants everyone to get '/hia/ravn/u4' as nis disk
+            disk = '/hia/ravn/u4'
             if not all_args:
                 return {'prompt': 'E-mail spread', 'help_ref': 'string_spread'}
             email_spread = all_args.pop(0)
