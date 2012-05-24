@@ -241,6 +241,12 @@ EXCHANGE_HOMEMDB_VALID = {}
 # EXCHANGE_HOMEMDB = {'ANSATT': (homeMDB01, homeMDB02...),
 #                     'MANUELL': (homeMDB03, homeMDB04...)}
 EXCHANGE_HOMEMDB_PER_AFFILIATION = {}
+# Active Directory file server settings, used at UiA only for the time
+# being (Jazz, 2012-05-23)
+AD_OTHERS_FILEGROUPS = []
+AD_STUDENT_FILEGROUPS = []
+
+
 # Novell eDirectory settings.
 NW_LDAPHOST = 'www.nldap.com'
 NW_LDAPPORT = 389
