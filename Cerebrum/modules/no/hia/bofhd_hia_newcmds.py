@@ -1166,17 +1166,9 @@ class BofhdExtension(BofhdCommandBase):
                         'help_ref': 'string_np_type'}
             np_type = all_args.pop(0)
         if ac_type == 'PosixUser':
-            #if not all_args:
-            #    return {'prompt': "Default filegroup"}
-            # UiA wants everyone to get 'ansatt' as default filegroup
-            filegruppe = 'ansatt'
             if not all_args:
                 return {'prompt': "Shell", 'default': 'bash'}
             shell = all_args.pop(0)
-            # if not all_args:
-            #   return {'prompt': "Disk", 'help_ref': 'disk'}
-            # UiA wants everyone to get '/hia/ravn/u4' as nis disk
-            disk = '/hia/ravn/u4'
             if not all_args:
                 return {'prompt': 'E-mail spread', 'help_ref': 'string_spread'}
             email_spread = all_args.pop(0)
@@ -1217,16 +1209,16 @@ class BofhdExtension(BofhdCommandBase):
         perm_filter='can_create_user')
     def user_create(self, operator, *args):
         if args[0].startswith('group:'):
-            group_id, np_type, filegroup, shell, home, email_spread, uname = args
+            group_id, np_type, shell, email_spread, uname = args
             owner_type = self.const.entity_group
             owner_id = self._get_group(group_id.split(":")[1]).entity_id
             np_type = self._get_constant(self.const.Account, np_type,
                                          "account type")
         else:
             if len(args) == 8:
-                idtype, person_id, affiliation, filegroup, shell, home, email_spread, uname = args
+                idtype, person_id, affiliation, shell, email_spread, uname = args
             else:
-                idtype, person_id, yes_no, affiliation, filegroup, shell, home, email_spread, uname = args
+                idtype, person_id, yes_no, affiliation, shell, email_spread, uname = args
             owner_type = self.const.entity_person
             owner_id = self._get_person("entity_id", person_id).entity_id
             np_type = None
@@ -1241,16 +1233,13 @@ class BofhdExtension(BofhdCommandBase):
                 if owner_type != self.const.entity_group:
                     raise CerebrumError("Personal account names cannot contain capital letters")
             
+        filegroup = 'ansatt'
         group = self._get_group(filegroup, grtype="PosixGroup")
         posix_user = PosixUser.PosixUser(self.db)
         uid = posix_user.get_free_uid()
         shell = self._get_shell(shell)
-        if home[0] != ':':  # Hardcoded path
-            disk_id, home = self._get_disk(home)[1:3]
-        else:
-            if not self.ba.is_superuser(operator.get_entity_id()):
-                raise PermissionDenied("only superusers may use hardcoded path")
-            disk_id, home = None, home[1:]
+        path = '/hia/ravn/u4'
+        disk_id, home = self._get_disk(path)[1:3]
         posix_user.clear()
         gecos = None
         expire_date = None
