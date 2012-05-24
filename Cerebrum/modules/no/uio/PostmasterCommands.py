@@ -22,7 +22,8 @@
 
 """
 
-import cereconf, cerebrum_path
+import cerebrum_path
+import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 
@@ -47,7 +48,8 @@ class Commands:
     def close(self):
         """Explicitly close the current instance of this class. This is to make
         sure that all is closed down correctly, even if the garbace collector
-        can't destroy the instance. For now, this means the database link."""
+        can't destroy the instance. For now, this means the database link.
+        """
         if hasattr(self, 'db'):
             try:
                 self.db.close()
@@ -57,7 +59,8 @@ class Commands:
     def _get_aff_status(self, input):
         """Return a list of CerebrumCodes for given affiliation or affilation
         status strings, e.g. 'STUDENT', 'STUDENT/aktiv' and
-        'ANSATT/vitenskapelig'. Returned in two lists, affs and statuses."""
+        'ANSATT/vitenskapelig'. Returned in two lists, affs and statuses.
+        """
         affs  = list()
         stats = list()
         for string in input:
@@ -71,7 +74,8 @@ class Commands:
 
     def _get_ous(self, skos):
         """Return ou_ids for given skos. If the sko is not complete, its sub
-        OUs are returned as well."""
+        OUs are returned as well.
+        """
         ou = Factory.get('OU')(self.db)
         ou_ids = []
         for sko in skos:
@@ -82,6 +86,15 @@ class Commands:
         return ou_ids
 
     def get_addresses_by_affiliation(self, status, source, skos=None):
+        """Find persons that has the given affiliations/statuses from the given
+        source systems and at the given stedkoder (SKOs), if any. Return a list
+        of all the persons' primary e-mail addresses.
+
+        Note that some persons might not have any user affiliations, thus having
+        no *primary* affiliation, even if they have user accounts with e-mail
+        addresses.
+
+        """
         affs = stats = ou_ids = None
         if status:
             affs, stats = self._get_aff_status(status)
