@@ -20,6 +20,7 @@
 import re
 import cereconf
 import time
+import random
 
 from Cerebrum import Account
 from Cerebrum.modules import Email
@@ -239,6 +240,15 @@ class AccountHiAMixin(Account.Account):
             et.email_server_id=es.entity_id
             et.write_db()
         return et
+
+    def add_student_to_server_group(self):
+        """add a student account at UiA to an AD file server group to
+           create homedirectory"""
+        group = Utils.Factory.get("Group")(self._db)
+        group_choice = random.choice(cereconf.AD_STUDENT_FILEGROUPS)
+        group.clear()
+        group.find_by_name(group_choice)
+        group.add_member(self)
 
     def set_password(self, plaintext):
         # Override Account.set_password so that we get a copy of the
