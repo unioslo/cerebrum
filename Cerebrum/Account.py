@@ -714,6 +714,10 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 return False
         return success
 
+    def add_student_to_server_group(self):
+        """add a student account to a file server group to create homedir"""
+        pass
+
     def illegal_name(self, name):
         """Return a string with error message if username is illegal"""
         return False
