@@ -28,7 +28,7 @@ from Cerebrum.modules import PasswordHistory
 
 class AccountHiAMixin(Account.Account):
     def add_spread(self, spread):
-        if spread == self.const.spread_nis_user or spread == self.const.spread_ans_nis_user:
+        if spread == self.const.spread_nis_user:
             if self.illegal_name(self.account_name):
                 raise self._db.IntegrityError, \
                       "Can't add NIS spread to an account with illegal name."
