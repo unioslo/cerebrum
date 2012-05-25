@@ -19,16 +19,17 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#
-# This script checks all accounts for a given type of quarantine. If
-# such quarantine exists and it has been created before the date
-# implied by the since-parameter the account is deactivated.  Only
-# active quarantines are considered.  
-# 
-# If anything but removal of spreads and setting of expire_data <
-# today is needed for deactivation and institution specific
-# deactivate() should be implemented in modules/no/INST/Account.py
-# (institution-specific account mixin).
+"""This script checks all accounts for a given type of quarantine. If such
+quarantine exists and it has been created before the date implied by the
+since-parameter the account is deactivated. Only active quarantines are
+considered.
+
+Note that this script depends on Account.deactivate() for removal of spreads,
+home directory etc. depending on what the institution needs. The deactivate
+method must be implemented in the institution specific account mixin -
+Cerebrum/modules/no/INST/Account.py - before this script would work.
+
+"""
 
 import sys
 import getopt
@@ -77,14 +78,16 @@ def fetch_all_relevant_accounts(qua_type, since):
         
 def usage(exitcode=0):
     print """Usage: deactivate_quarantined_accounts.py -q quarantine_type -s #days [-d]
-    Deactivate all accounts where quarantine q has been set for at least #days
-    Default values are: quarantine_generell and 30 days
 
-    -q, --quarantine: quarantine type, i.e. quarantine_generell
-    -s, --since:      nr of days since quarantine started 
+Deactivate all accounts where given quarantine has been set for at least #days.
+    
+%s
+
+    -q, --quarantine: quarantine type. Default: quarantine_generell
+    -s, --since:      nr of days since quarantine started. Default: 30
     -d, --dryrun:     do a roll-back in stead of writing to the database
     -h, --help:       show this and quit
-    """
+    """ % __doc__
     sys.exit(exitcode)
     
 def main():
