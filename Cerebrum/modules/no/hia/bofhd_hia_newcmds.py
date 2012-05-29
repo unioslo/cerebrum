@@ -1215,7 +1215,7 @@ class BofhdExtension(BofhdCommandBase):
             np_type = self._get_constant(self.const.Account, np_type,
                                          "account type")
         else:
-            if len(args) == 8:
+            if len(args) == 6:
                 idtype, person_id, affiliation, shell, email_spread, uname = args
             else:
                 idtype, person_id, yes_no, affiliation, shell, email_spread, uname = args
