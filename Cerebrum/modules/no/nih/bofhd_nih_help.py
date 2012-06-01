@@ -233,6 +233,9 @@ affiliation status codes"""],
     'entity_id':
         ['id', 'Enter entity ID',
          "Numeric ID of the entity you wish to process."],
+    'external_id_type':
+        ['external_id_type', 'Enter external id type',
+         'The external id type, i.e. NO_BIRTHNO/NO_STUDNO etc'],
     'group_name':
         ['gname', 'Enter groupname'],
     'group_name_dest':
