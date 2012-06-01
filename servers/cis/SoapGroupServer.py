@@ -39,10 +39,17 @@ from Cerebrum import Errors
 from Cerebrum.modules.cis import SoapListener, auth
 
 class GroupMember(ComplexModel):
+    """Information about a group member."""
     __namespace__ = 'tns'
     __tns__ = 'tns'
+
+    # The username
     uname = String
+
+    # The entity_type of the member
     member_type = String
+
+    # The entity_id of the member
     member_id = String
 
     # TODO more info about a member?
@@ -65,6 +72,18 @@ class GroupService(SoapListener.BasicSoapServer):
     @rpc(String, _returns = Iterable(GroupMember),
             _throws=SoapListener.EndUserFault)
     def get_members(ctx, groupname):
+        """Get a list of all the members of a given group.
+
+        @type groupname: String
+        @param groupname: The name of the group that should be listed.
+
+        @rtype: List/array of GroupMember objects
+        @return: Returns a list or array where the elements are objects of the
+                 type GroupMember, which contains the member's username,
+                 entity_type and entity_id, i.e. the member's internal ID in
+                 Cerebrum.
+
+        """
         return ctx.udc['groupinfo'].search_members_flat(groupname)
 
 

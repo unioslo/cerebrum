@@ -70,29 +70,25 @@ from Cerebrum import QuarantineHandler
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.cis import SoapListener
 
-
-class AuthenticationError(Fault):
-    """The Fault that is returned if the authentication process failed."""
-    # TODO: define namespace here?
+class AuthenticationError(SoapListener.CerebrumFault):
+    """The Fault that is returned if the authentication process failed.
+    """
     __type_name__ = 'AuthenticationFault'
-    __namespace__ = 'tns'
-    __tns__ = 'tns'
-    def __init__(self, value=None):
-        if not value:
-            value = 'Authenticated failed'
-        Fault.__init__(self, faultcode='Client.AuthenticationFault',
-                       faultstring=value)
+    faultcode = 'Client.AuthenticationFault'
+    def __init__(self, err=None):
+        if not err:
+            err = 'Authenticated failed'
+        super(AuthenticationError, self).__init__(err)
 
-class NotAuthenticatedError(Fault):
+class NotAuthenticatedError(SoapListener.CerebrumFault):
     """The Fault that is returned if the end user has not authenticated before
     calling a method that requires authentication. Raised by the event
     L{on_method_authentication}.
     """
-    # TODO: define namespace here?
     __type_name__ = 'NotAuthenticated'
-    __namespace__ = 'tns'
-    __tns__ = 'tns'
-    def __init__(self, value=None):
+    faultcode = 'Client.NotAuthenticated'
+
+    def __init__(self, err=None):
         if not value:
             value = 'Not authenticated'
         Fault.__init__(self, faultcode='Client.NotAuthenticated',
@@ -101,6 +97,7 @@ class NotAuthenticatedError(Fault):
 class Authenticator(object):
     """Class for handling an authenticated entity. Could be subclassed for more
     functionality, e.g. other timeouts.
+
     """
     def __init__(self, id):
         """Feed the authenticator instance with the identifier of the
@@ -199,20 +196,25 @@ class PasswordAuthenticationService(AuthenticationService):
     # Standard message to return in case of errors:
     error_msg = 'Unknown username or password'
 
-    #@rpc(String, String, _returns=String, _throws=AuthenticationError)
-    @rpc(String, String, _returns=String, _throws=SoapListener.EndUserFault)
+    @rpc(String, String, _returns=String, _throws=AuthenticationError)
     def authenticate(ctx, username, password):
         """The authentication method, as some methods require you to be
         authenticated before use. Please add your username and password.
 
+        @type username: String
+        @param username: Your username. The user must exist in Cerebrum.
+
+        @type password: String
+        @param password: Your password.
+
+        @rtype: String
         @return:
             The new authenticated session ID. It is also available in the
             returned SOAP headers, as session_id.
         """
         log.msg('DEBUG: in authenticate: time: %s' %DateTime.now())
         if not username or not password:
-            #raise AuthenticationError(ctx.service_class.error_msg)
-            raise SoapListener.EndUserFault(ctx.service_class.error_msg)
+            raise AuthenticationError(ctx.service_class.error_msg)
 
         # TODO: should add some short, random delay at startup, to avoid letting
         #       people know what went wrong, e.g. if a username exists or not.
@@ -226,8 +228,7 @@ class PasswordAuthenticationService(AuthenticationService):
             account.find_by_name(username)
         except Errors.NotFoundError:
             log.msg("INFO: auth: no such user: %s" % username)
-            #raise AuthenticationError(ctx.service_class.error_msg)
-            raise SoapListener.EndUserFault(ctx.service_class.error_msg)
+            raise AuthenticationError(ctx.service_class.error_msg)
 
         # TODO: bofhd.py's bofhd_login has much functionality - put much of it
         # into the Account class to be able to use same code in both places? For
@@ -260,8 +261,7 @@ class PasswordAuthenticationService(AuthenticationService):
                                  for q in quarantines)
             log.msg("INFO: user has active quarantine. Access denied: %s" 
                     %qua_repr)
-            #raise AuthenticationError(ctx.service_class.error_msg)
-            raise SoapListener.EndUserFault(ctx.service_class.error_msg)
+            raise AuthenticationError(ctx.service_class.error_msg)
         # User exists here, check password 
         # Check password
         enc_passwords = []
@@ -276,8 +276,7 @@ class PasswordAuthenticationService(AuthenticationService):
         if not enc_passwords:
             log.msg("INFO: Missing password for %s from %s" % (username,
                         ":".join([str(x) for x in self.client_address])))
-            #raise AuthenticationError(ctx.service_class.error_msg)
-            raise SoapListener.EndUserFault(ctx.service_class.error_msg)
+            raise AuthenticationError(ctx.service_class.error_msg)
         if isinstance(password, unicode):  # crypt.crypt don't like unicode
             # TODO: ideally we should not hardcode charset here.
             password = password.encode('iso8859-1')
@@ -300,15 +299,19 @@ class PasswordAuthenticationService(AuthenticationService):
                             % (len(password), chars, username,
                                "', '".join(match), "', '".join(mismatch)))
             log.msg("INFO: Failed login for %s." % username)
-            #raise AuthenticationError(ctx.service_class.error_msg)
-            raise SoapListener.EndUserFault(ctx.service_class.error_msg)
+            raise AuthenticationError(ctx.service_class.error_msg)
         ses = ctx.service_class._authenticate(ctx, account.entity_id)
         return ses.uid
 
     @rpc()
     def deauthenticate(ctx):
-            ctx.service_class._deauthenticate(ctx)
-            log.msg("INFO: service_class - %s" %ctx.service_class)
+        """Logs out of the service. No input is needed, makes use of the
+        session id in the SOAP headers.
+
+        """
+        ctx.service_class._deauthenticate(ctx)
+        log.msg("INFO: service_class - %s" %ctx.service_class)
+
 ###
 ### Events
 ###

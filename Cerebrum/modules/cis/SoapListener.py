@@ -78,27 +78,46 @@ from Cerebrum import Errors
 ###
 
 # TODO: define type name and faultcodes better
-class EndUserFault(Fault):
+
+class CerebrumFault(Fault):
+    """The base Fault for our usage. All our Faults should be subclassed out
+    of this, to be able to catch and return the faults correctly. See the
+    L{call_wrapper} for its usage.
+
+    """
+    __namespace__ = 'tns'
+    __tns__ = 'tns'
+
+    # The faultcode that should be returned in the SOAP faults:
+    faultcode = 'Client.CerebrumError'
+
+    def __init__(self, err):
+        # TODO: handle that err could be a list of strings, first element
+        # should be faultstring, rest should go in self.extra.
+        faultstring = err
+        if isinstance(err, Exception):
+            faultstring = str(err.args[0])
+            self.extra = err.args[1:]
+        Fault.__init__(self, faultcode=self.faultcode,
+                             faultstring=faultstring)
+
+class EndUserFault(CerebrumFault):
     """This is the Fault that should be returned and given to the end user.
     Faults of this type should be understandable by an end user.
     
     """
     __type_name__ = 'UserError'
-    __namespace__ = 'tns'
-    # TODO: define namespace here?
-    def __init__(self, err):
-        Fault.__init__(self,
-                       faultcode='Client.UserError',
-                       faultstring=str(err.args[0]))
-        self.extra = err.args[1:]
+    faultcode = 'Client.UserError'
 
-class UnknownFault(Fault):
+class UnknownFault(CerebrumFault):
     """A generic Fault when unknown errors occur on the server side."""
     __type_name__ = 'UnknownError'
-    __namespace__ = 'tns'
-    # TODO: define namespace here?
-    def __init__(self):
-        Fault.__init__(self, faultcode='Server', faultstring='Unknown Error')
+    faultcode = 'Server'
+
+    def __init__(self, err=None):
+        if not err:
+            err = 'Unknown Error'
+        super(UnknownFault, self).__init__(err)
 
 class BasicSoapServer(rpclib.service.ServiceBase):
     """Base class for our SOAP services, with general setup useful for us.
@@ -120,11 +139,10 @@ class BasicSoapServer(rpclib.service.ServiceBase):
             return super(BasicSoapServer, cls).call_wrapper(ctx)
         except Errors.CerebrumRPCException, e:
             raise EndUserFault(e)
-        except EndUserFault:
+        except CerebrumFault:
             raise
         except Exception, e:
-            # TODO: We should make unknown exceptions available for subclasses,
-            # as they might not be unkonwn to them.
+            # TODO: How to make unknown exceptions available for subclasses?
             log.msg('ERROR: Unhandled exception: %s' % type(e))
             log.err(e)
             log.msg(traceback.format_exc())
