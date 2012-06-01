@@ -229,13 +229,13 @@ Starts up the Individuation webservice on a given port. Please note that
 config (cisconf) contains more settings for the service.
 
   -p
-  --port num        Run on alternative port than defined in cisconf.
+  --port num        Run on alternative port than defined in cisconf.PORT.
 
-  --interface ADDR  What interface the server should listen to 
-                    (default: 0.0.0.0)
+  --interface ADDR  What interface the server should listen to. Overrides
+                    cisconf.INTERFACE. Default: 0.0.0.0
 
   -l
-  --logfile:        Where to log
+  --logfile:        Where to log. Overrides cisconf.LOG_FILE.
 
   --instance        The individuation instance which should be used. Defaults
                     to cisconf.CEREBRUM_CLASS. E.g:
@@ -243,10 +243,11 @@ config (cisconf) contains more settings for the service.
                     or:
                         Cerebrum.modules.cis.UiAindividuation/Individuation
 
-  --unencrypted     Don't use https
+  --unencrypted     Don't use HTTPS. All communications goes unencrypted, and
+                    should only be used for testing.
 
   -h
-  --help            Show this and quit
+  --help            Show this and quit.
     """
     sys.exit(exitcode)
 
@@ -265,6 +266,7 @@ if __name__=='__main__':
     logfilename = getattr(cisconf, 'LOG_FILE', None)
     instance    = getattr(cisconf, 'CEREBRUM_CLASS', None)
     interface   = getattr(cisconf, 'INTERFACE', None)
+    log_prefix  = getattr(cisconf, 'LOG_PREFIX', None)
 
     for opt, val in opts:
         if opt in ('-l', '--logfile'):
@@ -312,11 +314,13 @@ if __name__=='__main__':
                         certificate_file = certificate_file,
                         client_ca = client_ca,
                         client_fingerprints = fingerprints,
-                        logfile = logfilename)
+                        logfile = logfilename,
+                        log_prefix = log_prefix)
     else:
         server = SoapListener.TwistedSoapStarter(port = int(port),
                                     applications = IndividuationServer,
-                                    logfile = logfilename)
+                                    logfile = logfilename,
+                                    log_prefix = log_prefix)
     IndividuationServer.site = server.site # to make it global and reachable by Individuation (wrong, I know)
 
     # We want the sessions to be simple dicts, for now:

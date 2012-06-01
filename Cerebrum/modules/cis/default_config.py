@@ -129,6 +129,15 @@ LOG_LENGTH = 50 * 1024 * 1024 # = 50MiB
 # file gets deleted.
 LOG_MAXROTATES = 10
 
+# The prefix to be added to logs. This is to comply with Cerebrum's log
+# format, e.g:
+#
+#   2011-09-13 15:40:28 cis_individuation: DEBUG: Logger started
+#
+# where the 'cis_individuation:' is the prefix being used. Without this the
+# logs will not get parsed and sent by e-mail to the sysadmins.
+LOG_PREFIX = 'cis:'
+
 ###
 ### Miscellaneous
 ###

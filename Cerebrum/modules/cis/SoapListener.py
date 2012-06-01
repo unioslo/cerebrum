@@ -249,8 +249,8 @@ class TwistedSoapStarter(BasicSoapStarter):
     interface = '0.0.0.0'
 
     def __init__(self, applications, port, logfile=None, log_prefix=None):
-        """Setting up a standard soap server. If either a key or certificate
-        file is given, it will use encryption."""
+        """Setting up a standard SOAP server.
+        """
         super(TwistedSoapStarter, self).__init__()
         self.setup_services(applications)
         if logfile:
@@ -322,9 +322,13 @@ class TLSTwistedSoapStarter(TwistedSoapStarter):
     # fingerprints are accepted in a TLS connection.
     client_fingerprints = None
 
-    def __init__(self, applications, port, private_key_file=None,
-                 certificate_file=None, client_ca=None,
-                 client_fingerprints=None, logfile=None):
+    def __init__(self, private_key_file=None, certificate_file=None,
+                 client_ca=None, client_fingerprints=None, **kwargs):
+        """Constructor. Takes the arguments necessary to setup the encrypted
+        server, the rest of the arguments are sent up to
+        L{TwistedSoapStarter}'s __init__ method.
+
+        """
         if not CRYPTO_AVAILABLE:
             raise Exception('Could not import cryptostuff')
         if not (private_key_file and certificate_file):
@@ -334,8 +338,7 @@ class TLSTwistedSoapStarter(TwistedSoapStarter):
                               client_fingerprints = client_fingerprints,
                               private_key_file = private_key_file, 
                               certificate_file = certificate_file)
-        super(TLSTwistedSoapStarter, self).__init__(applications, port,
-                                                    logfile=logfile)
+        super(TLSTwistedSoapStarter, self).__init__(**kwargs)
 
     def setup_sslcontext(self, client_ca, client_fingerprints, private_key_file,
                          certificate_file):
@@ -480,9 +483,7 @@ class TwistedCerebrumLogger(log.FileLogObserver):
 
     # Cerebrum's logs make use of a prefix to separate the running scripts.
     # Set this to the current script's name.
-    # TODO: Remove the now default cis_individuation, as this is not generic.
-    #       Requires maillog-exceptions gets updated with new name.
-    log_prefix = 'cis_individuation: '
+    log_prefix = 'cis:'
 
     # The time format known by Cerebrum
     timeFormat = '%Y-%m-%d %H:%M:%S'
@@ -500,5 +501,5 @@ class TwistedCerebrumLogger(log.FileLogObserver):
         fmtDict = {'system': eventDict['system'], 'text': text.replace("\n", "\n\t")}
         msgStr = log._safeFormat("[%(system)s] %(text)s\n", fmtDict)
 
-        util.untilConcludes(self.write, timeStr + ' ' + self.log_prefix + msgStr)
+        util.untilConcludes(self.write, '%s %s %s' % (timeStr, self.log_prefix, msgStr))
         util.untilConcludes(self.flush)  # Hoorj!

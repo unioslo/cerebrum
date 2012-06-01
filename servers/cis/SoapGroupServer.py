@@ -34,7 +34,6 @@ from rpclib.decorator import rpc, srpc
 
 import cerebrum_path
 from cisconf import groupservice as cisconf
-#import cereconf
 from Cerebrum.Utils import Messages, dyn_import
 from Cerebrum import Errors
 from Cerebrum.modules.cis import SoapListener, auth
@@ -130,27 +129,27 @@ auth.PasswordAuthenticationService.event_manager.add_listener('method_call',
 def usage(exitcode=0):
     print """Usage: %s [-p <port number] [-l logfile] [--unencrypted]
 
-Starts up the GroupService webservice on a given port. Please note that
-config (cisconf) contains more settings for the service.
+Starts up the GroupService webservice on a given port. Please note that config
+(cisconf) contains more settings for the service.
 
   -p
-  --port num        Run on alternative port than defined in cereconf.
+  --port num        Run on alternative port than defined in cisconf.PORT.
 
-  --interface ADDR  What interface the server should listen to
-                    (default: 0.0.0.0)
+  --interface ADDR  What interface the server should listen to. Overrides
+                    cisconf.INTERFACE. Default: 0.0.0.0
 
   -l
-  --logfile:        Where to log
+  --logfile:        Where to log. Overrides cisconf.LOG_FILE.
 
   --instance        The individuation instance which should be used. Defaults
-                    to [TODO default value must be changed, because CIS is not
-                    using cereconf any more.]cereconf.INDIVIDUATION_INSTANCE. E.g:
+                    to what is defined in cisconf.CEREBRUM_CLASS, e.g:
                         Cerebrum.modules.cis.GroupInfo/GroupInfo
 
-  --unencrypted     Don't use https
+  --unencrypted     Don't use HTTPS. All communications goes unencrypted, and
+                    should only be used for testing.
 
   -h
-  --help            Show this and quit
+  --help            Show this and quit.
     """
     sys.exit(exitcode)
 
@@ -167,7 +166,8 @@ if __name__=='__main__':
     port        = getattr(cisconf, 'PORT', 0)
     logfilename = getattr(cisconf, 'LOG_FILE', None)
     instance    = getattr(cisconf, 'CEREBRUM_CLASS', None)
-    #interface   = None
+    interface   = getattr(cisconf, 'INTERFACE', None)
+    log_prefix  = getattr(cisconf, 'LOG_PREFIX', None)
 
     for opt, val in opts:
         if opt in ('-l', '--logfile'):
@@ -182,6 +182,9 @@ if __name__=='__main__':
             interface = val
         elif opt in ('-h', '--help'):
             usage()
+        else:
+            print "Unknown argument: %s" % opt
+            usage(1)
 
     # Get the service tier class and give it to the server
     module, classname = instance.split('/', 1)
@@ -197,8 +200,8 @@ if __name__=='__main__':
     fingerprints      = None
 
     services = [auth.PasswordAuthenticationService, GroupService]
-    server_cls = SoapListener.TwistedSoapStarter
-    log_prefix = 'cis_groupservice: '
+    if interface:
+        SoapListener.TwistedSoapStarter.interface = interface
 
     if use_encryption:
         private_key_file  = cisconf.SERVER_PRIVATE_KEY_FILE
@@ -206,8 +209,6 @@ if __name__=='__main__':
         client_ca         = cisconf.CERTIFICATE_AUTHORITIES
         fingerprints      = getattr(cisconf, 'FINGERPRINTS', None)
 
-        if interface:
-            SoapListener.TLSTwistedSoapStarter.interface = interface
         server = SoapListener.TLSTwistedSoapStarter(port = int(port),
                         applications = services,
                         private_key_file = private_key_file,

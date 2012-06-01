@@ -159,8 +159,8 @@ class AuthenticationService(SoapListener.BasicSoapServer):
         properly. This method blindly accepts an entity as authenticated.
 
         Note that we use twisted's session, which e.g. handles timeouts
-        automatically. Be aware that this method creates a new session, as it is
-        a security risk to reuse the old session due to session fixation
+        automatically. Be aware that this method creates a new session, as it
+        is a security risk to reuse the old session due to session fixation
         attacks. This is mostly important for web browsers, but still.
 
         @type id: string or mixed
@@ -170,6 +170,7 @@ class AuthenticationService(SoapListener.BasicSoapServer):
         """
         log.msg('DEBUG: Authenticated: %s' % id)
         old = ctx.udc['session']
+        # creates a new session to use
         new = ctx.service_class.site.makeSession()
         for key in old:
             new[key] = old[key]
