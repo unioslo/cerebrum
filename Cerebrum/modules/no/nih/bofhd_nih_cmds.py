@@ -101,7 +101,7 @@ class BofhdExtension(BofhdCommandBase):
         '_person_affiliation_add_helper', 
         '_person_create_externalid_helper',
         'person_affiliation_remove', 'person_create',
-        'person_clear_name',
+        'person_clear_name', 'person_clear_id',
         'person_find', 'person_info', 'person_list_user_priorities',
         'person_set_user_priority', 'person_set_name',
         #
