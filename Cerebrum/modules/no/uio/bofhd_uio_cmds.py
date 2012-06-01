@@ -8980,12 +8980,8 @@ Addresses and settings:
     # user restore
     all_commands['user_restore'] = Command(
             ('user', 'restore'), prompt_func=user_restore_prompt_func,
-            perm_filter='is_superuser') #'can_create_user')
+            perm_filter='can_create_user')
     def user_restore(self, operator, accountname, aff_ou, group, home):
-        # TODO: Remove the following two lines, and ajust perm_filter,
-        # to make the command available for Litas
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied('Only available for superusers')
         # Checking to see if the home path is hardcoded.
         # Raises CerebrumError if the disk does not exist.
         if not home:
@@ -9010,18 +9006,6 @@ Addresses and settings:
                   ('Please contact brukerreg in order to restore %s'
                   % accountname)
 
-        # We do a check to see if the person has any active accounts,
-        # if so, we won't let them restore.
-        #
-        # We'll exempt the superusers from this, as they should be allowed
-        # full access :)
-        pe = self._get_person('entity_id', ac.owner_id)
-        if not self.ba.is_superuser(operator.get_entity_id()) and \
-           pe.get_accounts():
-            raise CerebrumError('Person has active accounts, please '
-                                'contact brukerreg in order to restore %s' \
-                                % accountname)
-      
         # We check to see if the group is modifiable by the operator.
         group = self._get_group(group, grtype='PosixGroup') 
         if not self.ba.can_alter_group(operator.get_entity_id(), group):
@@ -9130,7 +9114,7 @@ Addresses and settings:
 
         # Return string with some info
         if ac.get_entity_quarantine():
-            note  = 'Notice: Account is quarantined!'
+            note  = '\nNotice: Account is quarantined!'
         else:
             note = ''
 
@@ -9140,7 +9124,7 @@ Addresses and settings:
             tmp = ', reused old uid=%i' % old_uid
         
         return '''OK, promoted %s to posix user%s.
-Password altered. Use misc list_password to print or view the new password. %s'''\
+Password altered. Use misc list_password to print or view the new password.%s'''\
         % (accountname, tmp, note)
 
     # user set_disk_status
