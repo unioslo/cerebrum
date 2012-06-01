@@ -94,13 +94,6 @@ class CLConfigData:
         int(co.posix_group_demote): AGE_FOREVER,
         int(co.posix_promote): AGE_FOREVER,
         int(co.posix_group_promote): AGE_FOREVER,
-        int(co.ephorte_role_add): AGE_FOREVER,
-        int(co.ephorte_role_rem): AGE_FOREVER,
-        int(co.ephorte_role_upd): AGE_FOREVER,
-        int(co.ephorte_perm_add): AGE_FOREVER,
-        int(co.ephorte_perm_rem): AGE_FOREVER,
-        int(co.subnet_create): AGE_FOREVER,
-        int(co.subnet_delete): AGE_FOREVER,
         int(co.subnet_mod): AGE_FOREVER,
         # TODO: Once account_type changes are better logged, we don't need
         # this special case
@@ -108,6 +101,23 @@ class CLConfigData:
         int(co.account_type_mod): 3600*24*31,
         int(co.account_type_del): 3600*24*31,
         }
+
+      if hasattr(co, 'ephorte_role_add'):
+        for c in (co.ephorte_role_add, co.ephorte_role_rem, co.ephorte_role_upd,
+                  co.ephorte_perm_add, co.ephorte_perm_rem):
+            max_ages[int(c)] = AGE_FOREVER
+            
+      if hasattr(co, 'subnet_create'):
+          max_ages[int(co.subnet_create)] = AGE_FOREVER
+          max_ages[int(co.subnet_delete)] = AGE_FOREVER
+
+      if hasattr(co, 'hostpolicy_policy_add'):
+        for c in (co.hostpolicy_policy_add, co.hostpolicy_relationship_add,
+                  co.hostpolicy_role_mod, co.hostpolicy_atom_mod,
+                  co.hostpolicy_role_create, co.hostpolicy_atom_delete,
+                  co.hostpolicy_relationship_remove, co.hostpolicy_role_delete,
+                  co.hostpolicy_policy_remove, co.hostpolicy_atom_create):
+            max_ages[int(c)] = AGE_FOREVER
 
       if never_forget_homedir:
         for c in (co.account_move, co.account_home_updated,
@@ -237,6 +247,27 @@ class CLConfigData:
          'change_params': ('code', ),
          'toggleable': False,
          'triggers': (co.trait_mod, )},
+        # Host Policy
+        {'columns': ('subject_entity', ),
+         'triggers': (co.hostpolicy_policy_add, )},
+        {'columns': ('subject_entity', ),
+         'triggers': (co.hostpolicy_relationship_add, )},
+        {'columns': ('subject_entity', ),
+         'triggers': (co.hostpolicy_role_mod, )},
+        {'columns': ('subject_entity', ),
+         'triggers': (co.hostpolicy_atom_mod, )},
+        {'columns': ('subject_entity', ),
+         'triggers': (co.hostpolicy_role_create, )},
+        {'columns': ('subject_entity', ),
+         'triggers': (co.hostpolicy_atom_delete, )},
+        {'columns': ('subject_entity', ),
+         'triggers': (co.hostpolicy_relationship_remove, )},
+        {'columns': ('subject_entity', ),
+         'triggers': (co.hostpolicy_role_delete, )},
+        {'columns': ('subject_entity', ),
+         'triggers': (co.hostpolicy_policy_remove, )},
+        {'columns': ('subject_entity', ),
+         'triggers': (co.hostpolicy_atom_create, )},
         ]
 
       if never_forget_homedir:
@@ -314,6 +345,3 @@ class CLConfigData:
              'toggleable': False,
              'triggers': (co.account_password_token, )}
             ])
-
-if __name__ == "__main__":
-    print "Welcome back to Cerebrum";
