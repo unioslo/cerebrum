@@ -520,7 +520,7 @@ class BofhdAuth(DatabaseAccessor):
             return True
         raise PermissionDenied("Not allowed to set trait")
 
-    def can_clear_name(self, operator, person_id=None, source_system=None,
+    def can_clear_name(self, operator, person=None, source_system=None,
                        query_run_any=False):
         """If operator is allowed to remove a person's name from a given source
         system."""
