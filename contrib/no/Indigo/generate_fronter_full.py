@@ -700,8 +700,7 @@ def main():
         try:
             ouid = ou.search_name_with_language(entity_type=const.entity_ou,
                                            name_variant=const.ou_name_acronym,
-                                           name=group_sko_akr,
-                                           exact_match=False)
+                                           name=group_sko_akr)
             ou.clear()
             ou.find(ouid[0]['entity_id'])
         except Errors.NotFoundError:
