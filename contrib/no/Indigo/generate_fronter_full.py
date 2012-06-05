@@ -522,8 +522,7 @@ def update_elev_ans_groups():
         ou.clear()
         sted = ou.search_name_with_language(entity_type=const.entity_ou,
                                        name_variant=const.ou_name_acronym,
-                                       name=s,
-                                       exact_match=False)
+                                       name=s)
         elever = person.list_affiliations(affiliation=const.affiliation_elev,
                                           ou_id=sted[0]['ou_id'])
         ansatte = person.list_affiliations(affiliation=const.affiliation_ansatt,
