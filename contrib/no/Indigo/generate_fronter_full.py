@@ -524,12 +524,12 @@ def update_elev_ans_groups():
                                        name_variant=const.ou_name_acronym,
                                        name=s)
         elever = person.list_affiliations(affiliation=const.affiliation_elev,
-                                          ou_id=sted[0]['ou_id'])
+                                          ou_id=sted[0]['entity_id'])
         ansatte = person.list_affiliations(affiliation=const.affiliation_ansatt,
-                                           ou_id=sted[0]['ou_id'])
+                                           ou_id=sted[0]['entity_id'])
         tilknyttet = person.list_affiliations(
             affiliation=const.affiliation_tilknyttet,
-            ou_id=sted[0]['ou_id'])
+            ou_id=sted[0]['entity_id'])
         elev_group_id = s + 'all_students'
         ans_group_id = s + 'Employees'
         tilk_group_id = s + 'Affiliates'
