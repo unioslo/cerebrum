@@ -139,6 +139,7 @@ class BasicSoapServer(rpclib.service.ServiceBase):
             return super(BasicSoapServer, cls).call_wrapper(ctx)
         except Errors.CerebrumRPCException, e:
             raise EndUserFault(e)
+        # TODO: also except generic Faults?
         except CerebrumFault:
             raise
         except Exception, e:
@@ -160,6 +161,20 @@ def _on_method_call(ctx):
         # TODO: change to object later, or is that necessary at all?
         ctx.udc = dict()
 BasicSoapServer.event_manager.add_listener('method_call', _on_method_call)
+
+def _on_method_exception(ctx):
+    """Event for logging unhandled exceptions and return a generic fault. This
+    is to avoid giving too much information to the client, and to log the
+    errors.
+
+    """
+    e = ctx.out_error
+    if not isinstance(e, CerebrumFault):
+        log.msg("WARNING: Unhandled exception: %s" % e)
+        log.err(ctx.out_error)
+        log.msg(traceback.format_exc())
+    ctx.out_error = UnknownFault()
+BasicSoapServer.event_manager.add_listener('method_exception_object', _on_method_exception)
 
 ###
 ### Events that could be used by CIS servers
