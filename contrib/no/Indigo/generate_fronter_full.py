@@ -703,7 +703,7 @@ def main():
                                            name=group_sko_akr,
                                            exact_match=False)
             ou.clear()
-            ou.find(ouid[0]['ou_id'])
+            ou.find(ouid[0]['entity_id'])
         except Errors.NotFoundError:
             logger.error("Cannot find OU with acronym %s, skipping group %s",
                          group_sko_akr,
