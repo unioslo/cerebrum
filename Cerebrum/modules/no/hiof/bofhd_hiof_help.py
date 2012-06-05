@@ -272,6 +272,12 @@ Normally only union is used."""],
     'id:entity_ext':
         ['entity_id', 'Enter entity_id, example: group:foo',
          'Enter an entity_id either as number or as group:name / account:name'],
+    'id:gid:name':
+        ['group', 'Enter an existing entity',
+         """Enter the entity as type:name, for example 'name:foo'.  If only a
+name is entered, the type 'name' is assumed.  Other types are 'gid'
+(only Posix groups), and 'id' (Cerebrum's internal id).
+"""],
     'id:target:account':
         ['account', 'Enter an existing entity',
          """Enter the entity as type:name, for example 'account:bob'.  If only
