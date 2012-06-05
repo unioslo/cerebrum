@@ -168,12 +168,12 @@ def _on_method_exception(ctx):
     errors.
 
     """
-    e = ctx.out_error
-    if not isinstance(e, CerebrumFault):
+    if not isinstance(ctx.out_error, CerebrumFault):
+        e = ctx.out_error
         log.msg("WARNING: Unhandled exception: %s" % e)
-        log.err(ctx.out_error)
+        log.err(e)
         log.msg(traceback.format_exc())
-    ctx.out_error = UnknownFault()
+        ctx.out_error = UnknownFault()
 BasicSoapServer.event_manager.add_listener('method_exception_object', _on_method_exception)
 
 ###
