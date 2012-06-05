@@ -18,19 +18,22 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""
-The part of CIS which handles authentication of Services.
+"""The part of CIS which handles authentication of Services, in addition to
+access control. The access control is mostly a wrapper around BofhdAuth that
+was originally used by bofhd.
 
-TODO: functionality for authorization is not implemented yet, but it will mostly
-be a wrapper to BofhdAuth that can be called in every public method that needs
-access control.
+Authentication
+--------------
 
-To add authentication for all public methods in a Service class:
+To add authentication for all public methods in a Service class::
 
     from Cerebrum.modules.cis import SoapListener, auth
 
     class NewService(SoapListener.BasicSoapServer):
         '''Your Service class that requires authentication'''
+
+        # The session ID is put in the SOAP headers, and is required for the
+        # authentication functionality:
         __in_header__ = SoapListener.SessionHeader
 
         # All your public methods here
@@ -53,6 +56,29 @@ To add authentication for all public methods in a Service class:
 TODO: add documentation for how to only require authentication for single public
 methods.
 
+Access control
+--------------
+
+It is recommended to check the authorizations in the cerebrum specific
+classes, and not in the server specific classes. The reason is that we know
+more about the operator and the environment while we have access to Cerebrum.
+It does, howevere, require the Cerebrum class to import from the CIS module.
+TODO: This might be reorganized in the future.
+
+To support access control, add the following to your Cerebrum class:
+
+    from Cerebrum.modules.cis.auth immport Authorizer, NotAuthorizedError
+
+    class CerebrumFunctions(object):
+        __init__(self, operator_id):
+            self.auth = Authorizer(self.db)
+            self.operator_id
+
+        def get_something(self, data):
+            # This could raise Cerebrum.modules.bofhd.errors.PermissionDenied:
+            self.auth.can_access_data(self.operator_id, data)
+            ...
+
 """
 import crypt
 from mx import DateTime
@@ -69,6 +95,10 @@ from Cerebrum import Errors
 from Cerebrum import QuarantineHandler
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.cis import SoapListener
+
+# TODO: This will only use the generic auth class, and not the instance
+# specific ones... How to be able to import those?
+from Cerebrum.modules.bofhd.auth import BofhdAuth
 
 class AuthenticationError(SoapListener.CerebrumFault):
     """The Fault that is returned if the authentication process failed.
@@ -89,10 +119,24 @@ class NotAuthenticatedError(SoapListener.CerebrumFault):
     faultcode = 'Client.NotAuthenticated'
 
     def __init__(self, err=None):
-        if not value:
-            value = 'Not authenticated'
-        Fault.__init__(self, faultcode='Client.NotAuthenticated',
-                       faultstring=value)
+        if not err:
+            err = 'Not authenticated'
+        super(NotAuthenticatedError, self).__init__(err)
+
+class NotAuthorizedError(SoapListener.CerebrumFault):
+    """The Fault that is returned if the end user is authenticated, but is not
+    authorized to fully execute the command. This could be raised either
+    before the method itself is executed, or inside the method, if the user
+    tries to do something e.g. that is only allowed for superusers.
+
+    """
+    __type_name__ = 'NotAuthorized'
+    faultcode = 'Client.NotAuthorized'
+
+    def __init__(self, err=None):
+        if not err:
+            err = 'Not authorized'
+        super(NotAuthorizedError, self).__init__(err)
 
 class Authenticator(object):
     """Class for handling an authenticated entity. Could be subclassed for more
@@ -312,6 +356,15 @@ class PasswordAuthenticationService(AuthenticationService):
         ctx.service_class._deauthenticate(ctx)
         log.msg("INFO: service_class - %s" %ctx.service_class)
 
+class Authorizer(BofhdAuth):
+    """A wrapper for using the access control functionality originally used by
+    bofhd.
+
+    """
+    # Add CIS specific access control functions here, but try to make it
+    # behave as for bofhd as much as possible, to avoid confusion.
+    pass
+
 ###
 ### Events
 ###
@@ -322,9 +375,10 @@ def on_method_authentication(ctx):
     log.msg('DEBUG: on_authentication')
     try:
         auth = ctx.udc['session']['authenticated']
-        log.msg('DEBUG: auth_%s' %auth.id)
+        log.msg('DEBUG: auth_%s' % auth.id)
+        if not auth.expired():
+            return True
     except KeyError:
-        raise NotAuthenticatedError()
-    if not auth.expired():
-        return True
+        pass
+    log.msg('INFO: Not authenticated')
     raise NotAuthenticatedError()

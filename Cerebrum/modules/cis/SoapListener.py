@@ -65,6 +65,8 @@ from OpenSSL import SSL
 import cerebrum_path
 import cereconf
 from Cerebrum import Errors
+#from Cerebrum.modules.bofhd.errors import PermissionDenied
+
 
 # TODO: Set up the logger correctly e.g. rpclib/application.py has::
 #

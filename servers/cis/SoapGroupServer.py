@@ -96,8 +96,10 @@ def _on_method_call(ctx):
         # TODO: change to object later, or is that necessary at all?
         log.msg("DEBUG: ctx.udc is None, initializing")
         ctx.udc = dict()
-    ctx.udc['groupinfo'] = ctx.service_class.cere_class()
-    log.msg('DEBUG: GroupService _on_method_call')
+    operator_id = ctx.udc['session'].get('authenticated', None)
+    if operator_id:
+        operator_id = operator_id.id
+    ctx.udc['groupinfo'] = ctx.service_class.cere_class(operator_id)
 
 def _on_method_exception(ctx):
     """Event for updating raised exceptions to return a proper error message in

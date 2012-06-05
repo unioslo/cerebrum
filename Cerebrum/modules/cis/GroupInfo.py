@@ -28,6 +28,10 @@ import cereconf, cerebrum_path
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 
+# TODO: To be able to be independent of what server we use, should we be
+# importing from the CIS module?
+from Cerebrum.modules.cis.auth import Authorizer, NotAuthorizedError
+
 class SimpleLogger(object):
     """Simple logger that has the same API as the Cerebrum logger, but uses
     twisted's logger.
@@ -37,7 +41,8 @@ class SimpleLogger(object):
 
     def _log(self, *args):
         """The logger."""
-        # join is supposed to be faster than string concatenation
+        # TODO: note that this has to be changed if we won't use twisted in
+        # the future
         twisted.python.log.msg(' '.join(args))
 
     def error(self, msg):
@@ -56,13 +61,31 @@ class SimpleLogger(object):
 log = SimpleLogger()
 
 class GroupInfo(object):
+    """The general functionality for the Group service project that is talking
+    with Cerebrum.
 
+    Note that this main class should be independent of what server we use. It
+    is important that each thread gets its own instance of this class, to
+    avoid race conditions.
 
-    def __init__(self):
+    Another thing to remember is that database connections should be closed.
+    This is to avoid long hanging database connections if the garbage
+    collector can't destroy the instances, due to reuse of threads.
+
+    """
+    def __init__(self, operator_id):
+        """Constructor. Since we are using access control, we need the
+        authenticated entity's ID as a parameter.
+
+        """
         self.db = Factory.get('Database')()
         self.db.cl_init(change_program='group_service')
         self.co = Factory.get('Constants')(self.db)
         self.grp = Factory.get("Group")(self.db)
+        # TODO: could we save work by only using a single, shared object of
+        # the auth class? It is supposed to be thread safe.
+        self.auth = Authorizer(self.db)
+        self.operator_id = operator_id
 
     def close(self):
         """Explicitly close this instance of the class. This is to make sure
@@ -79,6 +102,14 @@ class GroupInfo(object):
             log.warning("db doesn't exist")
 
     def search_members_flat(self, groupname):
+        # TODO: add access control for who is allowed to get the members. Only
+        # moderators of the given group?
+        #if not self.auth.is_superuser(self.operator_id):
+        #    raise NotAuthorizedError('Only for superusers')
+        # Raises Cerebrum.modules.bofh.errors.PermissionDenied - how to handle
+        # these?
+        #self.auth.can_set_trait(self.operator_id)
+
         account = Factory.get("Account")(self.db)
         try:
             self.grp.clear()

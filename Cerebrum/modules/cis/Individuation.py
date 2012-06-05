@@ -72,6 +72,7 @@ class Individuation:
 
     TBD: Create a core class with methods that is relevant to both bofhd and
     CIS? For examples: _check_password, get_person, get_account.
+
     """
 
     # The subject of the warning e-mails
