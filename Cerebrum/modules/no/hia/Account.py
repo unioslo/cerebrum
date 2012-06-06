@@ -249,7 +249,7 @@ class AccountHiAMixin(Account.Account):
         group_choice = random.choice(cereconf.AD_STUDENT_FILEGROUPS)
         group.clear()
         group.find_by_name(group_choice)
-        group.add_member(self)
+        group.add_member(self.entity_id)
 
     def set_password(self, plaintext):
         # Override Account.set_password so that we get a copy of the
