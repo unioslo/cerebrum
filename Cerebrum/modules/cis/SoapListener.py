@@ -36,6 +36,7 @@ import traceback
 import time
 
 from os import path
+from lxml import etree
 
 import rpclib
 import rpclib.application
@@ -83,8 +84,7 @@ from Cerebrum import Errors
 
 class CerebrumFault(Fault):
     """The base Fault for our usage. All our Faults should be subclassed out
-    of this, to be able to catch and return the faults correctly. See the
-    L{call_wrapper} for its usage.
+    of this, to be able to catch and return the faults correctly.
 
     """
     __namespace__ = 'tns'
@@ -126,30 +126,9 @@ class BasicSoapServer(rpclib.service.ServiceBase):
     Public methods should be defined in subclasses.
 
     """
-    @classmethod
-    def call_wrapper(cls, ctx):
-        """The wrapper for calling a public service method. Can be subclassed
-        for instance specific functionality, e.g. special exception handles.
-
-        Service classes can raise CerebrumRPCException, which should be returned
-        to the client and considered to be shown to the end users. Any other
-        exceptions should not be returned to the client, but gets logged and a
-        generic 'unknown error' Fault is returned.
-
-        """
-        try:
-            return super(BasicSoapServer, cls).call_wrapper(ctx)
-        except Errors.CerebrumRPCException, e:
-            raise EndUserFault(e)
-        # TODO: also except generic Faults?
-        except CerebrumFault:
-            raise
-        except Exception, e:
-            # TODO: How to make unknown exceptions available for subclasses?
-            log.msg('ERROR: Unhandled exception: %s' % type(e))
-            log.err(e)
-            log.msg(traceback.format_exc())
-            raise UnknownFault()
+    # TODO: our override of the call_wrapper was removed. Instead we're using
+    # events for the same functionality.
+    pass
 
 def _on_method_call(ctx):
     """Event that is executed at every call, which logs the transaction and
@@ -169,14 +148,56 @@ def _on_method_exception(ctx):
     is to avoid giving too much information to the client, and to log the
     errors.
 
+    Note that this is one of the first events to be fired when exceptions
+    occur. Since subclasses should be able to handle their own exceptions,
+    this event does not modify unknown exceptions. That is instead handled by
+    a later event below.
+
     """
-    if not isinstance(ctx.out_error, CerebrumFault):
-        e = ctx.out_error
-        log.msg("WARNING: Unhandled exception: %s" % e)
-        log.err(e)
-        log.msg(traceback.format_exc())
-        ctx.out_error = UnknownFault()
+    e = ctx.out_error
+    if isinstance(e, CerebrumFault):
+        return
+    if isinstance(e, Errors.CerebrumRPCException):
+        ctx.out_error = EndUserFault(e)
+        return
+
+    e = ctx.out_error
+    e.traceback = traceback.format_exc()
+    log.msg("DEBUG: Unhandled exception: %s" % e)
 BasicSoapServer.event_manager.add_listener('method_exception_object', _on_method_exception)
+
+def _event_handling_unknown_exceptions(ctx):
+    """Event that should be called at the end, when exceptions are returned to
+    the client. The event checks for unknown exceptions and logs it. In
+    addition, the exception gets overwritten by a generic "unknown error", to
+    avoid giving out too much information to the client.
+
+    Note that for this event to work, you should not add any more events after
+    this of the type 'method_exception_string'. This is probably not a
+    problem, as you would normally just use 'method_exception_object'.
+
+    If rpclib had some support for setting the priorities for events, this
+    could be set to the last one, and we could use method_exception_object
+    instead, which is a bit more effective as we don't have to parse and
+    generate XML.
+
+    """
+    default_msg = 'Unknown Error'
+    if not isinstance(ctx.out_error, CerebrumFault):
+        # Log the unhandled error:
+        log.msg('WARNING: Unknown error returned: %s' % ctx.out_error)
+        if hasattr(ctx.out_error, 'traceback'):
+            log.msg(ctx.out_error.traceback)
+        else:
+            log.err(ctx.out_error)
+
+        # Return a generic 'unknown error' to the client:
+        root = etree.XML(ctx.out_string[0])
+        for faultstring in root.iter('faultstring'):
+            faultstring.text = default_msg
+        ctx.out_string[0] = etree.tostring(root)
+BasicSoapServer.event_manager.add_listener('method_exception_string',
+                                           _event_handling_unknown_exceptions)
 
 ###
 ### Events that could be used by CIS servers
