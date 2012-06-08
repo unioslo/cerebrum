@@ -55,6 +55,9 @@ class GroupMember(ComplexModel):
     # TODO more info about a member?
 
 class GroupService(SoapListener.BasicSoapServer):
+    """The Group service, for returning information about groups.
+    
+    """
 
     # Require the session ID in the client's header
     __in_header__ = SoapListener.SessionHeader
@@ -86,66 +89,46 @@ class GroupService(SoapListener.BasicSoapServer):
         """
         return ctx.udc['groupinfo'].search_members_flat(groupname)
 
+# The group service events:
 
-# And then the individuation specific events:
-def _on_method_call(ctx):
-    """Event method for fixing the individuation functionality, like language."""
+def _event_setup_groupservice(ctx):
+    """Event method for fixing the individuation functionality, like language.
+    Makes use of the session, so it has to be run after the session setup.
+
+    """
     # TODO: the language functionality may be moved into SoapListener? It is
     # probably usable by other services too.
-    if ctx.udc is None:
-        # TODO: change to object later, or is that necessary at all?
-        log.msg("DEBUG: ctx.udc is None, initializing")
-        ctx.udc = dict()
     operator_id = ctx.udc['session'].get('authenticated', None)
     if operator_id:
         operator_id = operator_id.id
     ctx.udc['groupinfo'] = ctx.service_class.cere_class(operator_id)
 
-def _on_method_exception(ctx):
-    """Event for updating raised exceptions to return a proper error message in
-    the chosen language. The individuation instance could then raise errors with
-    a code that corresponds to a message, and this event updates the error with
-    the message in the correct language.
-    """
-    log.msg('DEBUG: GroupService _on_method_exception')
-    if isinstance(ctx.out_error, SoapListener.EndUserFault):
-        err = ctx.out_error
-        #try:
-        #    err.faultstring = 'Soap Fault'#ctx.udc['session']['msgs'][err.faultstring] % err.extra
-        #except KeyError, e:
-        #    log.msg('WARNING: Unknown error: %s - %s' % (err.faultstring, e))
-
-# When a call is processed, it has to be closed:
-def _on_method_exit(ctx):
+def _event_cleanup(ctx):
     """Event for cleaning up the groupinfo instances, i.e. close the
     database connections. Since twisted runs all calls in a pool of threads, we
     can not trust __del__."""
     # TODO: is this necessary any more, as we now are storing it in the method
     # context? Are these deleted after each call?
-    log.msg('DEBUG: GroupService  on_exit')
     if ctx.udc.has_key('groupinfo'):
         ctx.udc['groupinfo'].close()
-GroupService.event_manager.add_listener('method_exception_object',
-                                               _on_method_exception)
-GroupService.event_manager.add_listener('method_exception_object', _on_method_exit)
 
-
-# Add events to this service:
+# Add session support to the group service:
 GroupService.event_manager.add_listener('method_call',
-                                            SoapListener.on_method_call_session)
-GroupService.event_manager.add_listener('method_call', _on_method_call)
-GroupService.event_manager.add_listener('method_call',
-                                            auth.on_method_authentication)
+                                        SoapListener.on_method_call_session)
 GroupService.event_manager.add_listener('method_return_object',
-                                            SoapListener.on_method_exit_session)
-GroupService.event_manager.add_listener('method_return_object', _on_method_exit)
+                                        SoapListener.on_method_exit_session)
 
+# Add the group specific events:
+GroupService.event_manager.add_listener('method_call',
+                                        _event_setup_groupservice)
+GroupService.event_manager.add_listener('method_return_object',
+                                        _event_cleanup)
+GroupService.event_manager.add_listener('method_exception_object',
+                                        _event_cleanup)
 
-## Add events to authentication service:
-auth.PasswordAuthenticationService.event_manager.add_listener('method_exception_object',
-                                               _on_method_exception)
-auth.PasswordAuthenticationService.event_manager.add_listener('method_call',
-                                            SoapListener.on_method_call_session)
+# Add authentication support to the group service:
+GroupService.event_manager.add_listener('method_call',
+                                        auth.on_method_authentication)
 
 def usage(exitcode=0):
     print """Usage: %s [-p <port number] [-l logfile] [--unencrypted]

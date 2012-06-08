@@ -28,9 +28,10 @@ import cereconf, cerebrum_path
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 
-# TODO: To be able to be independent of what server we use, should we be
-# importing from the CIS module?
-from Cerebrum.modules.cis.auth import Authorizer, NotAuthorizedError
+# TODO: Should we be able to import instance specific auth classes more
+# automatically than to reach it through the subclasses? Such dynamic is also
+# needed e.g. in Cerebrum.modules.bofhd_guest_cmds.py.
+from Cerebrum.modules.bofhd.auth import BofhdAuth
 
 class SimpleLogger(object):
     """Simple logger that has the same API as the Cerebrum logger, but uses
@@ -84,14 +85,13 @@ class GroupInfo(object):
         self.grp = Factory.get("Group")(self.db)
         # TODO: could we save work by only using a single, shared object of
         # the auth class? It is supposed to be thread safe.
-        self.auth = Authorizer(self.db)
+        self.ba = BofhdAuth(self.db)
         self.operator_id = operator_id
 
     def close(self):
         """Explicitly close this instance of the class. This is to make sure
         that all is closed down correctly, even if the garbage collector can't
         destroy the instance."""
-        log.warning("GroupInfo. Closing itself.")
         if hasattr(self, 'db'):
             try:
                 self.db.close()
@@ -104,11 +104,11 @@ class GroupInfo(object):
     def search_members_flat(self, groupname):
         # TODO: add access control for who is allowed to get the members. Only
         # moderators of the given group?
-        #if not self.auth.is_superuser(self.operator_id):
+        #if not self.ba.is_superuser(self.operator_id):
         #    raise NotAuthorizedError('Only for superusers')
         # Raises Cerebrum.modules.bofh.errors.PermissionDenied - how to handle
         # these?
-        #self.auth.can_set_trait(self.operator_id)
+        #self.ba.can_set_trait(self.operator_id)
 
         account = Factory.get("Account")(self.db)
         try:
@@ -129,7 +129,7 @@ class GroupInfo(object):
                 account.clear()
                 account.find(row['member_id'])
                 entry['uname'] = account.get_account_name()
-            except  Errors.NotFoundError:
+            except Errors.NotFoundError:
                 entry['uname'] = 'Not found'
                 log.warning("Member account %s not found." %entry['member_id'])
             members.append(entry)

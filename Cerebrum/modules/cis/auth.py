@@ -38,14 +38,13 @@ To add authentication for all public methods in a Service class::
 
         # All your public methods here
 
-        # TODO: show example of access control
+    # Add auth events to the service:
 
-    # Add the authentication check for all calls on your Service:
+    # This will check if the client is authenticated and raise
+    # NotAuthenticatedErrors for everyone that are not authenticated.
     NewService.event_manager.add_listener('method_call', auth.on_method_authentication)
-    # this will raise NotAuthenticatedErrors for everyone that has not
-    # authenticated themselves first.
 
-    ...
+    # ...
 
     # Add the proper auth service to the list of services, to make the auth
     # methods callable (otherwise you would never be able to authenticate).
@@ -60,22 +59,29 @@ Access control
 --------------
 
 It is recommended to check the authorizations in the cerebrum specific
-classes, and not in the server specific classes. The reason is that we know
-more about the operator and the environment while we have access to Cerebrum.
-It does, howevere, require the Cerebrum class to import from the CIS module.
-TODO: This might be reorganized in the future.
+classes, and not in the service classes. The reason is that we could find out
+more about the operator and the environment when we're in the Cerebrum class.
+
+To support access control, simply make use of BofhdAuth in the same way as for
+the bofh daemon. CIS handles the exceptions from BofhdAuth and gives the
+client proper error messages.
+
+TODO: It might be necessary to create own BofhdAuth classes that has CIS
+specific functionality in the future. Don't know were it should be put, but
+probably not here.
 
 To support access control, add the following to your Cerebrum class:
 
-    from Cerebrum.modules.cis.auth immport Authorizer, NotAuthorizedError
+    from Cerebrum.modules.bofhd.auth import BofhdAuth
+    from Cerebrum.modules.bofhd.errors import PermissionDenied
 
     class CerebrumFunctions(object):
         __init__(self, operator_id):
-            self.auth = Authorizer(self.db)
-            self.operator_id
+            self.auth = BofhdAuth(self.db)
+            self.operator_id = operator_id
 
         def get_something(self, data):
-            # This could raise Cerebrum.modules.bofhd.errors.PermissionDenied:
+            # This could raise PermissionDenied, which is then handled by CIS:
             self.auth.can_access_data(self.operator_id, data)
             ...
 
@@ -92,6 +98,7 @@ from rpclib.decorator import rpc
 import cerebrum_path
 import cereconf
 from Cerebrum import Errors
+from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum import QuarantineHandler
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.cis import SoapListener
@@ -122,21 +129,6 @@ class NotAuthenticatedError(SoapListener.CerebrumFault):
         if not err:
             err = 'Not authenticated'
         super(NotAuthenticatedError, self).__init__(err)
-
-class NotAuthorizedError(SoapListener.CerebrumFault):
-    """The Fault that is returned if the end user is authenticated, but is not
-    authorized to fully execute the command. This could be raised either
-    before the method itself is executed, or inside the method, if the user
-    tries to do something e.g. that is only allowed for superusers.
-
-    """
-    __type_name__ = 'NotAuthorized'
-    faultcode = 'Client.NotAuthorized'
-
-    def __init__(self, err=None):
-        if not err:
-            err = 'Not authorized'
-        super(NotAuthorizedError, self).__init__(err)
 
 class Authenticator(object):
     """Class for handling an authenticated entity. Could be subclassed for more
@@ -209,7 +201,7 @@ class AuthenticationService(SoapListener.BasicSoapServer):
             entity. Could for instance be its username.
 
         """
-        log.msg('DEBUG: Authenticated: %s' % id)
+        log.msg('DEBUG: Authenticated entity_id:%s' % id)
         old = ctx.udc['session']
         # creates a new session to use
         new = ctx.service_class.site.makeSession()
@@ -232,6 +224,8 @@ class AuthenticationService(SoapListener.BasicSoapServer):
             log.msg("DEBUG: deauthenticating: %s" % auth.id)
             auth.expire()
             del ctx.udc['session']['authenticated']
+AuthenticationService.event_manager.add_listener('method_call',
+                                        SoapListener.on_method_call_session)
 
 class PasswordAuthenticationService(AuthenticationService):
     """Authentication Service where the auth is handled by username and
@@ -256,7 +250,6 @@ class PasswordAuthenticationService(AuthenticationService):
             The new authenticated session ID. It is also available in the
             returned SOAP headers, as session_id.
         """
-        log.msg('DEBUG: in authenticate: time: %s' %DateTime.now())
         if not username or not password:
             raise AuthenticationError(ctx.service_class.error_msg)
 
@@ -354,16 +347,6 @@ class PasswordAuthenticationService(AuthenticationService):
 
         """
         ctx.service_class._deauthenticate(ctx)
-        log.msg("INFO: service_class - %s" %ctx.service_class)
-
-class Authorizer(BofhdAuth):
-    """A wrapper for using the access control functionality originally used by
-    bofhd.
-
-    """
-    # Add CIS specific access control functions here, but try to make it
-    # behave as for bofhd as much as possible, to avoid confusion.
-    pass
 
 ###
 ### Events
