@@ -92,7 +92,6 @@ from mx import DateTime
 from twisted.python import log
 
 from rpclib.model.primitive import String
-from rpclib.model.fault import Fault
 from rpclib.decorator import rpc
 
 import cerebrum_path
@@ -102,33 +101,11 @@ from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum import QuarantineHandler
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.cis import SoapListener
+from Cerebrum.modules.cis.faults import *
 
 # TODO: This will only use the generic auth class, and not the instance
 # specific ones... How to be able to import those?
 from Cerebrum.modules.bofhd.auth import BofhdAuth
-
-class AuthenticationError(SoapListener.CerebrumFault):
-    """The Fault that is returned if the authentication process failed.
-    """
-    __type_name__ = 'AuthenticationFault'
-    faultcode = 'Client.AuthenticationFault'
-    def __init__(self, err=None):
-        if not err:
-            err = 'Authenticated failed'
-        super(AuthenticationError, self).__init__(err)
-
-class NotAuthenticatedError(SoapListener.CerebrumFault):
-    """The Fault that is returned if the end user has not authenticated before
-    calling a method that requires authentication. Raised by the event
-    L{on_method_authentication}.
-    """
-    __type_name__ = 'NotAuthenticated'
-    faultcode = 'Client.NotAuthenticated'
-
-    def __init__(self, err=None):
-        if not err:
-            err = 'Not authenticated'
-        super(NotAuthenticatedError, self).__init__(err)
 
 class Authenticator(object):
     """Class for handling an authenticated entity. Could be subclassed for more

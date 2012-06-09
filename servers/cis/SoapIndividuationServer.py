@@ -40,7 +40,6 @@ from twisted.python import log
 
 from rpclib.model.complex import ComplexModel, Iterable
 from rpclib.model.primitive import String, Integer, Boolean
-from rpclib.model.fault import Fault
 # Note the difference between rpc and the static srpc - the former sets the
 # first parameter as the current MethodContext. Very nice if you want
 # environment details.
@@ -50,7 +49,7 @@ import cerebrum_path
 from cisconf import individuation as cisconf
 from Cerebrum.Utils import Messages, dyn_import
 from Cerebrum import Errors
-from Cerebrum.modules.cis import SoapListener
+from Cerebrum.modules.cis import SoapListener, faults
 
 class Account(ComplexModel):
     # FIXME: define namespace properly 
@@ -201,7 +200,7 @@ def _on_method_exception(ctx):
     a code that corresponds to a message, and this event updates the error with
     the message in the correct language.
     """
-    if isinstance(ctx.out_error, SoapListener.EndUserFault):
+    if isinstance(ctx.out_error, faults.EndUserFault):
         err = ctx.out_error
         try:
             err.faultstring = ctx.udc['session']['msgs'][err.faultstring] % err.extra

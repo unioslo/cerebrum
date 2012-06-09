@@ -87,3 +87,27 @@ class NotAuthorizedError(CerebrumFault):
         if not err:
             err = 'Not authorized'
         super(NotAuthorizedError, self).__init__(err)
+
+class AuthenticationError(CerebrumFault):
+    """The Fault that is returned if the authentication process failed.
+    """
+    __type_name__ = 'AuthenticationFault'
+    faultcode = 'Client.AuthenticationFault'
+    def __init__(self, err=None):
+        if not err:
+            err = 'Authenticated failed'
+        super(AuthenticationError, self).__init__(err)
+
+class NotAuthenticatedError(CerebrumFault):
+    """The Fault that is returned if the end user has not authenticated before
+    calling a method that requires authentication. Raised by the event
+    L{on_method_authentication}.
+    """
+    __type_name__ = 'NotAuthenticated'
+    faultcode = 'Client.NotAuthenticated'
+
+    def __init__(self, err=None):
+        if not err:
+            err = 'Not authenticated'
+        super(NotAuthenticatedError, self).__init__(err)
+

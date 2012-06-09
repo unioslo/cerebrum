@@ -26,7 +26,6 @@ from twisted.python import log
 
 from rpclib.model.complex import ComplexModel, Iterable
 from rpclib.model.primitive import String, Integer, Boolean
-from rpclib.model.fault import Fault
 # Note the difference between rpc and the static srpc - the former sets the
 # first parameter as the current MethodContext. Very nice if you want
 # environment details.
@@ -36,7 +35,7 @@ import cerebrum_path
 from cisconf import groupservice as cisconf
 from Cerebrum.Utils import Messages, dyn_import
 from Cerebrum import Errors
-from Cerebrum.modules.cis import SoapListener, auth
+from Cerebrum.modules.cis import SoapListener, auth, faults
 
 class GroupMember(ComplexModel):
     """Information about a group member."""
@@ -73,7 +72,7 @@ class GroupService(SoapListener.BasicSoapServer):
     site = None
 
     @rpc(String, _returns = Iterable(GroupMember),
-            _throws=SoapListener.EndUserFault)
+            _throws=faults.EndUserFault)
     def get_members(ctx, groupname):
         """Get a list of all the members of a given group.
 
