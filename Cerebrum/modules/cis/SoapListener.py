@@ -67,6 +67,7 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.modules.bofhd.errors import PermissionDenied
+from Cerebrum.modules.cis.faults import *
 
 
 # TODO: Set up the logger correctly e.g. rpclib/application.py has::
@@ -75,66 +76,6 @@ from Cerebrum.modules.bofhd.errors import PermissionDenied
 #
 # how to tweak that to log what we want?
 
-
-###
-### Faults
-###
-
-# TODO: define type name and faultcodes better
-
-class CerebrumFault(Fault):
-    """The base Fault for our usage. All our Faults should be subclassed out
-    of this, to be able to catch and return the faults correctly.
-
-    """
-    __namespace__ = 'tns'
-    __tns__ = 'tns'
-
-    # The faultcode that should be returned in the SOAP faults:
-    faultcode = 'Client.CerebrumError'
-
-    def __init__(self, err):
-        # TODO: handle that err could be a list of strings, first element
-        # should be faultstring, rest should go in self.extra.
-        faultstring = err
-        if isinstance(err, Exception):
-            faultstring = str(err.args[0])
-            self.extra = err.args[1:]
-        Fault.__init__(self, faultcode=self.faultcode,
-                             faultstring=faultstring)
-
-class EndUserFault(CerebrumFault):
-    """This is the Fault that should be returned and given to the end user.
-    Faults of this type should be understandable by an end user.
-    
-    """
-    __type_name__ = 'UserError'
-    faultcode = 'Client.UserError'
-
-class UnknownFault(CerebrumFault):
-    """A generic Fault when unknown errors occur on the server side."""
-    __type_name__ = 'UnknownError'
-    faultcode = 'Server'
-
-    def __init__(self, err=None):
-        if not err:
-            err = 'Unknown Error'
-        super(UnknownFault, self).__init__(err)
-
-class NotAuthorizedError(CerebrumFault):
-    """The Fault that is returned if the end user is authenticated, but is not
-    authorized to fully execute the command. This could be raised either
-    before the method itself is executed, or inside the method, if the user
-    tries to do something e.g. that is only allowed for superusers.
-
-    """
-    __type_name__ = 'NotAuthorized'
-    faultcode = 'Client.NotAuthorized'
-
-    def __init__(self, err=None):
-        if not err:
-            err = 'Not authorized'
-        super(NotAuthorizedError, self).__init__(err)
 
 class BasicSoapServer(rpclib.service.ServiceBase):
     """Base class for our SOAP services, with general setup useful for us.
