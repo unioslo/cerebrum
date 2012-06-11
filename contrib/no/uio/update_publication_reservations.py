@@ -204,7 +204,8 @@ def get_employees(affs):
     affiliations = affs[0] or None
     statuses = affs[1] or None
     return set(row['person_id'] for row in
-               pe.list_affiliations(affiliation=affiliations, status=statuses)
+               pe.list_affiliations(affiliation=affiliations, status=statuses,
+                                    source_system=co.system_sap)
                if row['status'] not in affs[2])
 
 def get_students(affs):
@@ -213,7 +214,8 @@ def get_students(affs):
     affiliations = affs[0] or None
     statuses = affs[1] or None
     return set(row['person_id'] for row in
-               pe.list_affiliations(affiliation=affiliations, status=statuses)
+               pe.list_affiliations(affiliation=affiliations, status=statuses,
+                                    source_system=co.system_fs)
                if row['status'] not in affs[2])
 
 def get_members(groupname):
