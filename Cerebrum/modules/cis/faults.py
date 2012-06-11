@@ -49,9 +49,10 @@ class CerebrumFault(Fault):
         # TODO: handle that err could be a list of strings, first element
         # should be faultstring, rest should go in self.extra.
         faultstring = err
-        if isinstance(err, Exception):
-            faultstring = str(err.args[0])
+        if isinstance(err, Exception) and err.args:
+            faultstring = err.args[0]
             self.extra = err.args[1:]
+        faultstring = str(faultstring)
         Fault.__init__(self, faultcode=self.faultcode,
                              faultstring=faultstring)
 

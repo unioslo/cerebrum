@@ -32,6 +32,7 @@ from Cerebrum.Utils import Factory
 # automatically than to reach it through the subclasses? Such dynamic is also
 # needed e.g. in Cerebrum.modules.bofhd_guest_cmds.py.
 from Cerebrum.modules.bofhd.auth import BofhdAuth
+from Cerebrum.modules.cis.faults import NotAuthorizedError
 
 class SimpleLogger(object):
     """Simple logger that has the same API as the Cerebrum logger, but uses
