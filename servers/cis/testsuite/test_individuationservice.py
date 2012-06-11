@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # 
-# Copyright 2011 University of Oslo, Norway
+# Copyright 2011-2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,10 +19,9 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""
-Testing of the Individuation service. The Cerebrum database and the
-Individuation server is set up by the script, so the tests should run
-as automatically as possible.
+"""Testing of the Individuation service. The Cerebrum database and the
+Individuation server is set up by the script, so the tests should run as
+automatically as possible.
 
 To get a system ready for testing:
 
@@ -173,7 +172,7 @@ class IndividuationTestSetup:
                   'mod_printer_quota.sql', 'mod_stedkode.sql',
                   'mod_ephorte.sql', 'mod_voip.sql',
                   'bofhd_tables.sql', 'bofhd_auth.sql', 
-                  'mod_dns.sql',
+                  'mod_hostpolicy.sql', 'mod_dns.sql',
                   ):
             extra_files.append(os.path.join(cereconf.CEREBRUM_DDL_DIR, f))
         #bofhd_tables.sql, bofhd_auth.sql, mod_job_runner.sql
@@ -248,18 +247,25 @@ class IndividuationTestSetup:
     def createServer(self, instance, encrypt=False, server_key=None, server_cert=None,
             client_cert=None, whitelist=None):
         """Creates a temporary Individuation webservice. Note that the reactor
-        is handled by twisted.trial.unittest, so do not run() the server."""
+        is handled by twisted.trial.unittest, so do not run() the server.
+
+        """
         sys.path.append(os.path.join(os.path.dirname(__file__), '../'))
         import SoapIndividuationServer
         SoapListener.interface = '127.0.0.1'
         SoapIndividuationServer.IndividuationServer.cere_class = instance
 
-        server = SoapListener.TwistedSoapStarter(port = 0, encrypt = encrypt,
-                    applications = SoapIndividuationServer.IndividuationServer,
-                    private_key_file = server_key,
-                    certificate_file = server_cert, 
-                    client_ca = client_cert,
-                    client_fingerprints = whitelist)
+        if encrypt:
+            server = SoapListener.TLSTwistedSoapStarter(port = 0,
+                        applications = SoapIndividuationServer.IndividuationServer,
+                        private_key_file = server_key,
+                        certificate_file = server_cert, 
+                        client_ca = client_cert,
+                        client_fingerprints = whitelist)
+        else:
+            server = SoapListener.TwistedSoapStarter(port = 0, 
+                        applications = SoapIndividuationServer.IndividuationServer)
+
         SoapIndividuationServer.IndividuationServer.site = server.site # to make the site reachable by the Individuation class (wrong, I know)
 
         # The reactor can only be run once in a process, it can not be rerun.
@@ -268,7 +274,8 @@ class IndividuationTestSetup:
 
     def setupServer(self, encrypt=False, server_key=None, server_cert=None,
             client_cert=None, instance=None, whitelist=None):
-        """Start up the Individuation webservice."""
+        """Start up the Individuation webservice.
+        """
         self.tearDownServer() # reset if not correctly stopped by last test
 
         if not instance:
@@ -290,10 +297,12 @@ class IndividuationTestSetup:
                 charset='iso-8859-1', debug=False):
             log.msg("email %s -> %s (%s)" % (fromaddr, toaddr, subject))
         Individuation.sendmail = sendmail_grabber
-        
+
         self.server = self.createServer(instance=instance, encrypt=encrypt,
-                            server_key=server_key, server_cert=server_cert,
-                            client_cert=client_cert, whitelist=whitelist)
+                                        server_key=server_key,
+                                        server_cert=server_cert,
+                                        client_cert=client_cert,
+                                        whitelist=whitelist)
         return self.server
 
     def tearDownServer(self):
@@ -328,8 +337,9 @@ class IndividuationTestSetup:
             url = '%s://%s:%d/SOAP/?wsdl' % (proto, host.host, host.port)
         return soap.Proxy(url)
 
-    def createPerson(self, birth=DateTime(1970,2,3), first_name=None, last_name=None,
-            system=None, gender=True, fnr=None, ansnr=None, studnr=None):
+    def createPerson(self, birth=DateTime(1970,2,3), first_name=None,
+                     last_name=None, system=None, gender=True, fnr=None,
+                     ansnr=None, studnr=None):
         """Shortcut for creating a test person in the db"""
         pe = Factory.get('Person')(self.db)
         co = Factory.get('Constants')(self.db)
@@ -412,7 +422,9 @@ class IndividuationTestSetup:
 
 class TestIndividuationService(unittest.TestCase, IndividuationTestSetup):
     """Testing the Individuation webservice. A test database is created and
-    filled with test data, and the webservice is setup on a port."""
+    filled with test data, and the webservice is setup on a port.
+
+    """
 
     @classmethod
     def setUpClass(cls):
