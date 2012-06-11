@@ -65,6 +65,12 @@ def usage(exitcode=0):
     --message       The message to send to the users. Should not be given if
                     --message-cereconf is specified.
 
+    --too-old DAYS  How many days the given trait can be before the "new"
+                    account is not considered as new anymore. The SMS will not
+                    be sent for this account, and it will be logged as a
+                    warning. Default: 180 days.
+                    TODO: It could be considered to remove the trait as well.
+
     --commit        Actual send out the SMSs and update traits.
 
     --help          Show this and quit
@@ -72,7 +78,7 @@ def usage(exitcode=0):
     sys.exit(exitcode)
 
 
-def process(trait, message, phone_types, affiliations, commit=False):
+def process(trait, message, phone_types, affiliations, too_old, commit=False):
     """Go through the given trait type and send out welcome SMSs to the users.
     Remove the traits, and set a new message-is-sent-trait, to avoid spamming
     the users."""
@@ -84,8 +90,8 @@ def process(trait, message, phone_types, affiliations, commit=False):
     pe = Factory.get('Person')(db)
 
     for row in ac.list_traits(code=trait):
-        if row['date'] < (now() - 180):
-            logger.warn('Really old new_student trait for entity_id=%s',
+        if row['date'] < (now() - too_old):
+            logger.warn('Too old new_user trait for entity_id=%s',
                         row['entity_id'])
             continue
         ac.clear()
@@ -113,9 +119,9 @@ def process(trait, message, phone_types, affiliations, commit=False):
 
         # Check if user already has been texted. If so, the trait is removed.
         tr = ac.get_trait(co.trait_sms_welcome)
-        if tr and tr['date'] > now() - 180:
-            logger.debug('User %s already texted last 180 days, removing trait',
-                         ac.account_name)
+        if tr and tr['date'] > (now() - too_old):
+            logger.debug('User %s already texted last %d days, removing trait',
+                         ac.account_name, too_old)
             ac.delete_trait(code=trait)
             ac.write_db()
             if commit:
@@ -166,7 +172,7 @@ def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'h',
                 ['trait=', 'phone-types=', 'affiliations=', 'message=',
-                'message-cereconf=', 'commit'])
+                 'too-old=', 'message-cereconf=', 'commit'])
     except getopt.GetoptError, e:
         print e
         usage(1)
@@ -175,12 +181,16 @@ def main():
     phone_types = []
     message = trait = None
     commit = False
+    too_old = 180
 
     for opt, arg in opts:
         if opt in ('-h', '--help'):
             usage()
         elif opt == '--trait':
             trait = getattr(co, arg)
+        elif opt == '--too-old':
+            too_old = int(arg)
+            assert 0 < too_old, "--too_old must be a positive integer"
         elif opt == '--phone-types':
             phone_types.extend((co.human2constant(t[0], co.AuthoritativeSystem),
                                 co.human2constant(t[1], co.ContactInfo)) 
@@ -216,7 +226,7 @@ def main():
         trait = co.trait_student_new
 
     process(trait=trait, message=message, phone_types=phone_types,
-            affiliations=affiliations, commit=commit)
+            affiliations=affiliations, too_old=too_old, commit=commit)
 
 if __name__ == '__main__':
     main()
