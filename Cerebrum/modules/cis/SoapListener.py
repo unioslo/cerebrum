@@ -265,10 +265,10 @@ class TwistedSoapStarter(BasicSoapStarter):
     def __init__(self, applications, port, logfile=None, log_prefix=None):
         """Setting up a standard SOAP server.
         """
-        super(TwistedSoapStarter, self).__init__()
-        self.setup_services(applications)
         if logfile:
             self.setup_logging(logfile, log_prefix=log_prefix)
+        super(TwistedSoapStarter, self).__init__()
+        self.setup_services(applications)
         self.setup_twisted()
 
         self.setup_reactor(port=port)
@@ -343,6 +343,14 @@ class TLSTwistedSoapStarter(TwistedSoapStarter):
         L{TwistedSoapStarter}'s __init__ method.
 
         """
+        # The log will be set up by the super class, but we need it already
+        # now, so we set it up twice, now just to get any warnings.
+        # TODO: it would probably be better to be able to run setup_sslcontext
+        # after super.__init__().
+        if kwargs.has_key('logfile'):
+            self.setup_logging(kwargs['logfile'],
+                               log_prefix=kwargs.get('log_prefix', None))
+
         if not CRYPTO_AVAILABLE:
             raise Exception('Could not import cryptostuff')
         if not (private_key_file and certificate_file):
@@ -357,18 +365,20 @@ class TLSTwistedSoapStarter(TwistedSoapStarter):
     def setup_sslcontext(self, client_ca, client_fingerprints, private_key_file,
                          certificate_file):
         """Setup the ssl context and its settings."""
-        if client_fingerprints:
-            self.client_fingerprints = client_fingerprints
-        else:
-            log.msg('WARNING: No whitelist, accepting all certs signed by CA')
-
         self.sslcontext = ssl.DefaultOpenSSLContextFactory(private_key_file,
                                                            certificate_file)
                                                            #SSL.TLSv1_METHOD)
-        self.add_certificates(client_ca)
-        self.sslcontext.getContext().set_verify(
-                SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT,
-                self.clientTLSVerify)
+        if client_fingerprints:
+            self.client_fingerprints = client_fingerprints
+        if client_ca:
+            if not client_fingerprints:
+                log.msg('WARNING: No whitelist, accepting signed by CA')
+            self.add_certificates(client_ca)
+            self.sslcontext.getContext().set_verify(
+                    SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT,
+                    self.clientTLSVerify)
+        else:
+            log.msg('INFO: No CA given, accepting all clients')
         # TODO: could self.sslcontext.getContext().set_verify_depth(<int>) be
         # used to avoid having to validate the whole chain?
 
