@@ -31,8 +31,9 @@ from Cerebrum.Utils import Factory
 # TODO: Should we be able to import instance specific auth classes more
 # automatically than to reach it through the subclasses? Such dynamic is also
 # needed e.g. in Cerebrum.modules.bofhd_guest_cmds.py.
-from Cerebrum.modules.bofhd.auth import BofhdAuth
-from Cerebrum.modules.cis.faults import NotAuthorizedError
+
+# TODO: Use a lightweight authorization mechanism instead of BofhAuth
+#from Cerebrum.modules.bofhd.auth import BofhdAuth
 
 class SimpleLogger(object):
     """Simple logger that has the same API as the Cerebrum logger, but uses
@@ -86,7 +87,7 @@ class GroupInfo(object):
         self.grp = Factory.get("Group")(self.db)
         # TODO: could we save work by only using a single, shared object of
         # the auth class? It is supposed to be thread safe.
-        self.ba = BofhdAuth(self.db)
+        #self.ba = BofhdAuth(self.db)
         self.operator_id = operator_id
 
     def close(self):
@@ -116,7 +117,7 @@ class GroupInfo(object):
             self.grp.clear()
             self.grp.find_by_name(groupname)
         except Errors.NotFoundError:
-            raise Errors.CerebrumRPCException
+            raise Errors.CerebrumRPCException("Group %s was not found." % groupname)
 
         grp_id = self.grp.entity_id
 
