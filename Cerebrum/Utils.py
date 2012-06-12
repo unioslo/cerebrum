@@ -1587,7 +1587,6 @@ class SMSSender():
         try:
             msg_id, status, to, timestamp, message = line.split('\xa4', 4)
         except ValueError, e:
-            print e
             self._logger.warning("SMS: bad response from server: %s" % line)
             return False
 
