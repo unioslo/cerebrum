@@ -170,12 +170,15 @@ class BofhdExtension(BofhdCommandBase):
         #
         # UiA needs a local version of 'trait_set' 
         #
+        # copy entity-functions
+        'entity_history', 'entity_contactinfo_add',
+        #
         # copy relevant helper-functions
         #
          '_find_persons', '_get_account', '_format_ou_name',
         '_get_person', '_get_disk', '_get_group', '_map_person_id', '_get_entity',
         '_entity_info', 'num2str', '_get_affiliationid',
-        '_get_affiliation_statusid', '_parse_date', '_today', 'entity_history',
+        '_get_affiliation_statusid', '_parse_date', '_today',
         '_format_changelog_entry', '_format_from_cl',
          '_get_entity_name', '_get_group_opcode', '_get_name_from_object',
         '_get_constant', '_is_yes', '_remove_auth_target',
@@ -663,7 +666,7 @@ class BofhdExtension(BofhdCommandBase):
          ("regformkode", "betformkode", format_day("dato_betaling"),
           format_day("dato_regform_endret"))),
         ("Kull: %s, (%s)", ("kullkode", "status_aktiv"))
-	]),
+        ]),
         perm_filter='can_get_student_info')
     def person_student_info(self, operator, person_id):
         person = self._get_person(*self._map_person_id(person_id))
@@ -680,7 +683,7 @@ class BofhdExtension(BofhdCommandBase):
         fs = FS(db)
         for row in fs.student.get_studierett(fodselsdato, pnum):
             har_opptak["%s" % row['studieprogramkode']] = \
-			    row['status_privatist']
+                              row['status_privatist']
             ret.append({'studprogkode': row['studieprogramkode'],
                         'studierettstatkode': row['studierettstatkode'],
                         'status': row['studentstatkode'],
@@ -759,9 +762,10 @@ class BofhdExtension(BofhdCommandBase):
     # user home_create (set extra home per spread for a given account)
     #
     all_commands['user_home_create'] = Command(
-	("user", "home_create"), AccountName(), Spread(), DiskId(), perm_filter='can_create_user')
+        ("user", "home_create"), AccountName(), Spread(), DiskId(),
+        perm_filter='can_create_user')
     def user_home_create(self, operator, accountname, spread, disk):
-	account = self._get_account(accountname)
+        account = self._get_account(accountname)
         disk_id, home = self._get_disk(disk)[1:3]
         homedir_id = None
         home_spread = False
@@ -774,7 +778,7 @@ class BofhdExtension(BofhdCommandBase):
                 home = home[1:]
             else:
                 raise CerebrumError, "Invalid disk"
-	self.ba.can_create_user(operator.get_entity_id(), account)
+        self.ba.can_create_user(operator.get_entity_id(), account)
         is_posix = False
         try:
             self._get_account(accountname, actype="PosixUser")
@@ -786,16 +790,16 @@ class BofhdExtension(BofhdCommandBase):
         if not home_spread:
             raise CerebrumError, "Cannot assign home in a non-home spread!"
         if account.has_spread(int(self._get_constant(self.const.Spread, spread))):
-	    try:
+            try:
                 if account.get_home(int(self._get_constant(self.const.Spread, spread))):
                     return "User already has a home in spread %s, use user move" % spread
-	    except:
+            except:
                 homedir_id = account.set_homedir(disk_id=disk_id, home=home,
                                                  status=self.const.home_status_not_created)
 
-	else:
-	    account.add_spread(self._get_constant(self.const.Spread, spread))
-	    homedir_id = account.set_homedir(disk_id=disk_id, home=home,
+        else:
+            account.add_spread(self._get_constant(self.const.Spread, spread))
+            homedir_id = account.set_homedir(disk_id=disk_id, home=home,
                                              status=self.const.home_status_not_created)
         account.set_home(int(self._get_constant(self.const.Spread, spread)), homedir_id)
         account.write_db()
@@ -816,6 +820,8 @@ class BofhdExtension(BofhdCommandBase):
                                format_day("expire"),
                                "home", "entity_id", "owner_id",
                                "owner_type", "owner_desc")),
+                             ("Contact:       %s: %s [from %s]",
+                              ("contact_type", "contact_value", "contact_src")),
                              ("UID:           %i\n" +
                               "Default fg:    %i=%s\n" +
                               "Gecos:         %s\n" +
@@ -857,16 +863,16 @@ class BofhdExtension(BofhdCommandBase):
             except Errors.NotFoundError:
                 pass
         home = ("\n" + (" " * 15)).join([x for x in hm])
-        ret = {'entity_id': account.entity_id,
+        ret = [{'entity_id': account.entity_id,
                'username': account.account_name,
                'spread': ",".join([str(self.const.Spread(a['spread']))
                                    for a in account.get_spread()]),
                'affiliations': (",\n" + (" " * 15)).join(affiliations),
                'expire': account.expire_date,
-	       'home': home,
+               'home': home,
                'owner_id': account.owner_id,
                'owner_type': str(self.const.EntityType(account.owner_type))
-               }
+               }]
         if account.owner_type == self.const.entity_person:
             person = self._get_person('entity_id', account.owner_id)
             try:
@@ -875,18 +881,29 @@ class BofhdExtension(BofhdCommandBase):
                                                  cereconf.DEFAULT_GECOS_NAME))
             except Errors.NotFoundError:
                 p_name = '<none>'
-            ret['owner_desc'] = p_name
+            ret[0]['owner_desc'] = p_name
         else:
             grp = self._get_group(account.owner_id, idtype='id')
-            ret['owner_desc'] = grp.group_name
+            ret[0]['owner_desc'] = grp.group_name
 
         if is_posix:
             group = self._get_group(account.gid_id, idtype='id', grtype='PosixGroup')
-            ret['uid'] = account.posix_uid
-            ret['dfg_posix_gid'] = group.posix_gid
-            ret['dfg_name'] = group.group_name
-            ret['gecos'] = account.gecos
-            ret['shell'] = str(self.const.PosixShell(account.shell))
+            ret.append({
+                'uid': account.posix_uid,
+                'dfg_posix_gid': group.posix_gid,
+                'dfg_name': group.group_name,
+                'gecos': account.gecos,
+                'shell': str(self.const.PosixShell(account.shell))})
+
+        # Contact info
+        for row in account.get_contact_info():
+                                    #type=self.const.contact_mobile_phone):
+            ret.append({'contact_type': str(self.const.ContactInfo(
+                                                        row['contact_type'])),
+                        'contact_value': row['contact_value'],
+                        'contact_src': str(self.const.AuthoritativeSystem(
+                                                        row['source_system']))})
+
         # TODO: Return more info about account
         quarantined = None
         now = DateTime.now()
@@ -904,7 +921,7 @@ class BofhdExtension(BofhdCommandBase):
             else:
                 quarantined = 'pending'
         if quarantined:
-            ret['quarantined'] = quarantined
+            ret.append({'quarantined': quarantined})
         return ret
 
     # misc list_passwords_prompt_func
@@ -1352,10 +1369,10 @@ class BofhdExtension(BofhdCommandBase):
 
 
     all_commands['user_migrate_exchange'] = Command(
-	("user", "migrate_exchange"), 
+        ("user", "migrate_exchange"), 
         AccountName(help_ref="account_name", repeat=True),
         SimpleString(help_ref='string_mdb'),        
-	perm_filter='is_superuser')
+        perm_filter='is_superuser')
     def user_migrate_exchange(self, operator, uname, mdb):
         account = self._get_account(uname)
         if account.is_expired():
@@ -1373,9 +1390,9 @@ class BofhdExtension(BofhdCommandBase):
 
 
     all_commands['user_migrate_exchange_finished'] = Command(
-	("user", "migrate_exchange_finished"), 
+        ("user", "migrate_exchange_finished"), 
         AccountName(help_ref="account_name", repeat=True),
-	perm_filter='is_superuser')
+        perm_filter='is_superuser')
     def user_migrate_exchange_finished(self, operator, uname):
         account = self._get_account(uname)
         if account.is_expired():
@@ -1391,50 +1408,50 @@ class BofhdExtension(BofhdCommandBase):
     # email set_primary_address account lp@dom
     #
     all_commands['email_set_primary_address'] = Command(
-	("email", "set_primary_address"), 
+        ("email", "set_primary_address"), 
         AccountName(help_ref="account_name", repeat=False),
         EmailAddress(help_ref='email_address', repeat=False),
-	perm_filter='is_superuser')
+        perm_filter='is_superuser')
     def email_set_primary_address(self, operator, uname, address):
-	et, acc = self.__get_email_target_and_account(uname)
+        et, acc = self.__get_email_target_and_account(uname)
         ea = Email.EmailAddress(self.db)
-	if address == '':
-	    return "Primary address cannot be an empty string!"
-	lp, dom = address.split('@')
+        if address == '':
+            return "Primary address cannot be an empty string!"
+        lp, dom = address.split('@')
         ed = self._get_email_domain(dom)
         ea.clear()
         try:
             ea.find_by_address(address)
-	    if ea.email_addr_target_id <> et.entity_id:
-		raise CerebrumError, "Address (%s) is in use by another user" % address
+            if ea.email_addr_target_id <> et.entity_id:
+                raise CerebrumError, "Address (%s) is in use by another user" % address
         except Errors.NotFoundError:
             pass
-	ea.populate(lp, ed.entity_id, et.entity_id)
-	ea.write_db()
-	epat = Email.EmailPrimaryAddressTarget(self.db)
-	epat.clear()
-	try:
-	    epat.find(ea.email_addr_target_id)
-	    epat.populate(ea.entity_id)
-	except Errors.NotFoundError:
-	    epat.clear()
-	    epat.populate(ea.entity_id, parent = et)
-	epat.write_db()
-	return "Registered %s as primary address for %s" % (address, uname)
+        ea.populate(lp, ed.entity_id, et.entity_id)
+        ea.write_db()
+        epat = Email.EmailPrimaryAddressTarget(self.db)
+        epat.clear()
+        try:
+            epat.find(ea.email_addr_target_id)
+            epat.populate(ea.entity_id)
+        except Errors.NotFoundError:
+            epat.clear()
+            epat.populate(ea.entity_id, parent = et)
+        epat.write_db()
+        return "Registered %s as primary address for %s" % (address, uname)
 
     # email find all list targets
     #
     def __get_all_related_maillist_targets(self, address):
-	"""This method locates and returns all ETs associated with the same ML.
+        """This method locates and returns all ETs associated with the same ML.
 
-	Given any address associated with a ML, this method returns all the
-	ETs associated with that ML. E.g.: 'foo-subscribe@domain' for a Sympa
-	ML will result in returning the ETs for 'foo@domain',
-	'foo-owner@domain', 'foo-request@domain', 'foo-editor@domain',
-	'foo-subscribe@domain' and 'foo-unsubscribe@domain'
+        Given any address associated with a ML, this method returns all the
+        ETs associated with that ML. E.g.: 'foo-subscribe@domain' for a Sympa
+        ML will result in returning the ETs for 'foo@domain',
+        'foo-owner@domain', 'foo-request@domain', 'foo-editor@domain',
+        'foo-subscribe@domain' and 'foo-unsubscribe@domain'
 
-	If address (EA) is not associated with a mailing list ET, this method
-	raises an exception. Otherwise a list of ET entity_ids is returned.
+        If address (EA) is not associated with a mailing list ET, this method
+        raises an exception. Otherwise a list of ET entity_ids is returned.
 
         @type address: basestring
         @param address:
@@ -1444,7 +1461,7 @@ class BofhdExtension(BofhdCommandBase):
         @return:
           A sequence with entity_ids of all ETs related to the ML that address
           is related to.
-	"""
+        """
 
         # step 1, find the ET, check its type.
         et, ea = self.__get_email_target_and_address(address)

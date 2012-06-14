@@ -286,6 +286,18 @@ QUARANTINE_RULES = {}
 #   'system': {'lock': 1, 'shell': '/local/etc/shells/nologin.system'}
 # }
 
+# A list of quarantines that are only handled automatically. The given
+# quarantines are not allowed to be modified manually, not even temporarily
+# disabling them. This is usable e.g. for guest-quarantines.
+QUARANTINE_STRICTLY_AUTOMATIC = ()
+
+# A list of quarantines that are handled automatically. The given quarantines
+# are not allowed to be set or removed manually, but it is allowed to
+# temporarily disable them. This is usable e.g. for
+# inactive-student-quarantines. Superusers might be able to modify them,
+# depending on the instance's policies.
+QUARANTINE_AUTOMATIC = ()
+
 # List of quarantine-rule names where LDAP Person/FEIDE should ignore 'lock'
 QUARANTINE_FEIDE_NONLOCK = ()
 
@@ -931,3 +943,49 @@ INDIVIDUATION_PASW_RESERVED = (INITIAL_GROUPNAME,)
 
 # A mapping of building codes to their addresses. Used by the ldif export.
 BUILDING_CODES = {}
+
+###
+### Guest accounts
+###
+
+# Note that these configuration variables should be put in their own file,
+# guestconfig.py, in the same location as cereconf.py.
+
+# The maximum number of days a guest account can live. The set expire date for
+# guest accounts can not be longer than this. It is, however, possible to set it
+# lower than this.
+GUEST_MAX_DAYS = 30
+
+# The different types of guests. This is a dict where each element is a type
+# with the different settings for the given type of guest accounts. The dict's
+# keys are the guest group that the account should be added to. Possible
+# variables:
+#
+#  - prefix -   Prefix for the usernames. Used when creating guest accounts.
+#               Must be set.
+#  - spreads -  A list of spreads to add to the guest account at creation.
+#               Optional.
+#
+# Example:
+#  {'gueststudent':  {'prefix': 'guests-',
+#                     'spread': ('stud_account@AD',),},
+#   'guestemployee': {'prefix': 'guesta-',
+#                     'spread': ('account@AD',),},
+GUEST_TYPES = {}
+
+# The group that stands as the 'owner' of the guest accounts. Note that this is
+# the owner group, and not the 'responsible' for the guest, which is a different
+# thing which is stored in a trait.
+GUEST_OWNER_GROUP = 'guestaccounts'
+
+# The maximum number of simultaneously active guest accounts a given person
+# could create. Superusers are still able to create more than this.
+GUEST_MAX_PER_PERSON = 100
+
+# The message that should be sent to guest accounts that are registered with a
+# mobile phone number. Some input variables are needed, like 'username',
+# 'password' and 'expire' with the expire date, formated like YYYY-MM-DD.
+GUEST_WELCOME_SMS = ('Welcome.\n'
+        'Your username is: %(username)s\n'
+        'Your password is: %(password)s\n'
+        'The account will expire at %(expire)s')

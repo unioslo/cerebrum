@@ -2203,6 +2203,39 @@ class AccountEmailMixin(Account.Account):
         self.update_email_addresses()
         return ret
 
+    def delete(self):
+        """Delete the account's email addresses and email target, so that the
+        entity could be fully deleted from the database.
+
+        TODO: Note that the EmailTarget and EmailAddresses are automatically
+        readded by update_email_addresses if you for instance remove an ac_type
+        for the account. Not sure how to avoid this, other than either first
+        disable the account, or 
+        
+        """
+        et = EmailTarget(self._db)
+        try:
+            et.find_by_target_entity(self.entity_id)
+        except Errors.NotFoundError:
+            pass
+        else:
+            ep = EmailPrimaryAddressTarget(self._db)
+            try:
+                ep.find(et.entity_id)
+                ep.delete()
+                ep.write_db()        
+            except Errors.NotFoundError:
+                pass
+
+            ea = EmailAddress(self._db)
+            for row in et.get_addresses():
+                ea.clear()
+                ea.find(row['address_id'])
+                ea.delete()
+                ea.write_db()
+            et.write_db()
+            et.delete()
+        self.__super.delete()
 
 class AccountEmailQuotaMixin(Account.Account):
     """Email-quota module for core class 'Account'."""

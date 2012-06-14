@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2004, 2005, 2006, 2007, 2008, 2009 University of Oslo, Norway
+# Copyright 2004-2009, 2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -30,6 +30,12 @@ from Cerebrum.modules import PasswordHistory
 
 class AccountHiAMixin(Account.Account):
     def add_spread(self, spread):
+        # guest accounts:
+        if (hasattr(self.const, 'trait_guest_owner') and
+                self.get_trait(self.const.trait_guest_owner)):
+            if spread not in (self.const.spread_ad_guest,):
+                raise self._db.IntegrityError, \
+                      "Guest accounts are not allowed other than guest spreads."
         if spread == self.const.spread_nis_user:
             if self.illegal_name(self.account_name):
                 raise self._db.IntegrityError, \
@@ -64,6 +70,24 @@ class AccountHiAMixin(Account.Account):
         # (Try to) perform the actual spread removal.
         ret = self.__super.delete_spread(spread)
         return ret
+
+    def terminate(self):
+        """Remove related data to the account before totally deleting it from
+        the database.
+        """
+        # TODO: Should some of the functionality be moved upwards?
+
+        # Demote posix
+        from Cerebrum.modules.PosixUser import PosixUser
+        pu = PosixUser(self._db)
+        try:
+            pu.find(self.entity_id)
+        except Errors.NotFoundError:
+            pass
+        else:
+            pu.delete_posixuser()
+
+        self.__super.terminate()
 
     def illegal_name(self, name):
         # Avoid circular import dependency
@@ -147,16 +171,16 @@ class AccountHiAMixin(Account.Account):
         # Figure out which domain(s) the user should have addresses
         # in.  Primary domain should be at the front of the resulting
         # list.
-	# if the only address found is in EMAIL_DEFAULT_DOMAIN
+        # if the only address found is in EMAIL_DEFAULT_DOMAIN
         # don't set default address. This is done in order to prevent
         # adresses in default domain being sat as primary 
-	# TODO: account_types affiliated to OU's  without connected
-	# email domain don't get a default address
+        # TODO: account_types affiliated to OU's  without connected
+        # email domain don't get a default address
         primary_set = False
         ed = Email.EmailDomain(self._db)
         ed.find(self.get_primary_maildomain())
         domains = [ed.email_domain_name]
-	if ed.email_domain_name == cereconf.EMAIL_DEFAULT_DOMAIN:
+        if ed.email_domain_name == cereconf.EMAIL_DEFAULT_DOMAIN:
             if not self.owner_type == self.const.entity_group:
                 primary_set = True
         if cereconf.EMAIL_DEFAULT_DOMAIN not in domains:
@@ -164,13 +188,13 @@ class AccountHiAMixin(Account.Account):
         # Iterate over the available domains, testing various
         # local_parts for availability.  Set user's primary address to
         # the first one found to be available.
-	# Never change any existing email addresses
+        # Never change any existing email addresses
         try:
             self.get_primary_mailaddress()
-	    primary_set = True
+            primary_set = True
         except Errors.NotFoundError:
             pass
-	epat = Email.EmailPrimaryAddressTarget(self._db)
+        epat = Email.EmailPrimaryAddressTarget(self._db)
         for domain in domains:
             if ed.email_domain_name <> domain:
                 ed.clear()
@@ -268,12 +292,15 @@ class AccountHiAMixin(Account.Account):
             ph.add_history(self, plain)
         return ret
 
-    def suggest_unames(self, domain, fname, lname, maxlen=8, suffix=""):
-        from time import localtime
-        t = localtime()[0:2]
-        year = str(t[0])[2:]
+    def suggest_unames(self, domain, fname, lname, maxlen=8, suffix=None,
+                       prefix=""):
+        if suffix is None:
+            from time import localtime
+            t = localtime()[0:2]
+            year = str(t[0])[2:]
+            suffix = year
         return self.__super.suggest_unames(domain, fname, lname, maxlen,
-                                           suffix=year)
+                                           suffix=suffix, prefix=prefix)
 
     def is_employee(self):
         for r in self.get_account_types():

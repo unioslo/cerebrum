@@ -454,9 +454,10 @@ affiliation status codes"""],
          "Numeric ID of the entity you wish to process."],
     'entity_contact_type':
         ['contact_type', 'Enter contact type',
-        'Legal types:\n - EMAIL'],
+        'Examples:\n - EMAIL\n - PHONE\n - MOBILE\n - PRIVPHONE\n'
+        ' - PRIVATEMOBILE\n - OFFICE\n - URL'],
     'entity_contact_value':
-        ['value', 'Enter contact value', 'Enter a valid email address.'],
+        ['value', 'Enter contact value', 'Enter the valid contact information.'],
     'external_id_type':
         ['external_id_type', 'Enter external id type',
          'The external id type, i.e. NO_BIRTHNO/NO_STUDNO etc'],

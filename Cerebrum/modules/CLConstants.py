@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003, 2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -281,6 +281,10 @@ class CLConstants(Constants.Constants):
         'posix', 'group-promote', 'group promote posix %(subject)s',
         ('gid=%(int:gid)s',))
 
+    # Guest functionality
+    guest_create = _ChangeTypeCode(
+        'guest', 'create', 'created guest %(subject)s',
+        ('owner=%(string:owner)s, mobile=%(string:mobile)s, name=%(string:name)s',))
 
 def main():
     from Cerebrum.Utils import Factory

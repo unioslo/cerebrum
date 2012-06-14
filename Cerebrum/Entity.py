@@ -211,7 +211,7 @@ class Entity(DatabaseAccessor):
         WHERE entity_id=:e_id""", {'e_id': self.entity_id})
         self._db.log_change(self.entity_id, self.const.entity_del, None)
         self.clear()
-        
+
     def list_all_with_type(self, entity_type):
         """Return sequence of all 'entity_id's that has ``type``."""
         return self.query("""
@@ -1074,7 +1074,7 @@ class EntityQuarantine(Entity):
                                 only_active=False):
         sel = ""
         where = ""
-	conditions = []
+        conditions = []
         if entity_types:
             sel = """
             JOIN [:table schema=cerebrum name=entity_info] ei
@@ -1089,10 +1089,10 @@ class EntityQuarantine(Entity):
             else:
                 qtypes = "= %d" % quarantine_types
             conditions.append("quarantine_type %s" % qtypes)
-	if only_active:
-	    conditions.append("""start_date <= [:now] AND  
-	    (end_date IS NULL OR end_date > [:now]) AND 
-	    (disable_until IS NULL OR disable_until <= [:now])""")
+        if only_active:
+            conditions.append("""start_date <= [:now] AND  
+            (end_date IS NULL OR end_date > [:now]) AND 
+            (disable_until IS NULL OR disable_until <= [:now])""")
         if conditions:
             where = " WHERE " + " AND ".join(conditions)
         return self.query("""

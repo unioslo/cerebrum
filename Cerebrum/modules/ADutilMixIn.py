@@ -91,9 +91,11 @@ class ADutil(object):
 
 
     def get_default_ou(self, change=None):
-        #Returns default OU in AD.
-        return "CN=Users,%s" % self.ad_ldap
+        """Returns the default OU in AD. Note that self.ad_ldap is always
+        appended. This is normally retrieved from cereconf.AD_LDAP.
 
+        """
+        return "CN=Users,%s" % self.ad_ldap
 
     def move_object(self, chg, dry_run):
         ret = self.run_cmd('moveObject', dry_run, chg['OU'])

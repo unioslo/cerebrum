@@ -38,7 +38,7 @@ import base64
 from Cerebrum import Utils, Disk
 from Cerebrum.Entity import EntityName, EntityQuarantine, \
      EntityContactInfo, EntityExternalId, EntitySpread
-from Cerebrum.modules import PasswordChecker
+from Cerebrum.modules import PasswordChecker, PasswordHistory
 from Cerebrum import Errors
 from Cerebrum.Utils import NotSet
 from Cerebrum.Utils import argument_to_sql, prepare_string
@@ -132,7 +132,7 @@ class AccountType(object):
         self._db.log_change(self.entity_id, self.const.account_type_mod,
                             None, change_params={'new_pri': int(new_pri),
                                                  'old_pri': int(orig_pri)})
-        
+
     def del_account_type(self, ou_id, affiliation):
         cols = {'person_id': self.owner_id,
                 'ou_id': ou_id,
@@ -145,6 +145,13 @@ class AccountType(object):
         self._db.log_change(self.entity_id, self.const.account_type_del,
                             None, change_params={'ou_id': int(ou_id),
                                                  'affiliation': int(affiliation)})
+
+    def delete_ac_types(self):
+        """Delete all the AccountTypes for the account."""
+
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=account_type]
+        WHERE account_id=:a_id""", {'a_id': self.entity_id})
 
     def list_accounts_by_type(self, ou_id=None, affiliation=None,
                               status=None, filter_expired=True,
@@ -190,7 +197,7 @@ class AccountType(object):
             join += " JOIN [:table schema=cerebrum name=entity_spread] es" \
                     " ON es.entity_id = at.account_id" \
                     " AND es.spread " + account_spread
-			
+
         rows = self.query("""
         SELECT DISTINCT at.person_id, at.ou_id, at.affiliation, at.account_id,
                         at.priority
@@ -489,11 +496,18 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         self.write_db()
 
     def delete(self):
-        """Really,really remove the account and homedir"""
+        """Really, really remove the account, homedir, account types and the
+        password history."""
 
         if self.__in_db:
-            # remove homedir first:
+            # Homedir needs to be removed first
             AccountHome.delete(self)
+
+            # Remove the account types
+            self.delete_ac_types()
+
+            # Remove password history
+            PasswordHistory.PasswordHistory(self._db).del_history(self.entity_id)
 
             self.execute("""
             DELETE FROM [:table schema=cerebrum name=account_authentication]
@@ -501,6 +515,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             self.execute("""
             DELETE FROM [:table schema=cerebrum name=account_info]
             WHERE account_id=:a_id""", {'a_id': self.entity_id})
+
             # Remove name of account from the account namespace.
             self.delete_entity_name(self.const.account_namespace)
             self._db.log_change(self.entity_id, self.const.account_destroy, None)
@@ -512,6 +527,60 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         # particular case. 
         super(AccountHome, self).delete()
     # end delete
+
+    def terminate(self):
+        """Deletes the account and all data related to it. The different
+        instances should subclass it and feed it with what they need to delete
+        before the account could be fully removed from the database.
+
+        Note that also change_log entries are removed, so you don't get any log
+        entry when executing this method. However, change_log events where the
+        given entity_id is in L{change_by} is not removed, as the API does not
+        know what to do with such events, as they are for other entities. If
+        such events occur, a db constraint will complain.
+
+        It works by first removing related data, before it runs L{delete}, which
+        deletes the account itself.
+
+        """
+        if not self.entity_id:
+            raise RuntimeError('No account set')
+
+        # TBD: Deactivate the account first?
+        #self.deactivate()
+
+        # TODO: Overwriting update_email_addresses was necessary, as it is
+        # recreating the EmailTarget in the progress of terminating the account,
+        # in addition to the e-mail addresses. There must be a better way to do
+        # this, but I have no experience in how update_email_addresses could be
+        # changed to avoid this. Another solution could be to set the
+        # expire_date and remove all spreads, but that creates other race
+        # conditions and does not follow the mro chain for delete(). The third,
+        # and probably the best, solution, would be to make
+        # update_email_addresses handle deletion of accounts.
+        update_email_func = getattr(self, 'update_email_addresses', None)
+        self.update_email_addresses = lambda: None
+
+        # Remove group memberships
+        group = Utils.Factory.get("Group")(self._db)
+        for row in group.search(member_id=self.entity_id):
+            group.clear()
+            group.find(row['group_id'])
+            group.remove_member(self.entity_id)
+            group.write_db()
+
+        # Remove change_log entries
+        for row in self._db.get_log_events(any_entity=self.entity_id):
+            self._db.remove_log_event(int(row['change_id']))
+
+        # Add this if we put it in Entity as well:
+        #self.__super.terminate()
+        self.delete()
+        self.clear()
+
+        # Add the update_email_addresses back in, if it exists
+        if update_email_func:
+            self.update_email_addresses = update_email_func
 
     def clear(self):
         super(Account, self).clear()
@@ -746,7 +815,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 newvalues[key] = int(getattr(self, key))                
             elif key not in ['_auth_info', '_acc_affect_auth_types', 'password']:
                 newvalues[key] = getattr(self, key)
-                
+
         # mark_update will not change the value if the new value is
         # __eq__ to the old.  in other words, it's impossible to
         # convert it from _CerebrumCode-instance to an integer.
@@ -1097,7 +1166,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             except PasswordChecker.PasswordGoodEnoughException:
                 pass  # Wasn't good enough
 
-    def suggest_unames(self, domain, fname, lname, maxlen=8, suffix=""):
+    def suggest_unames(self, domain, fname, lname, maxlen=8, suffix="",
+                       prefix=""):
         """Returns a tuple with 15 (unused) username suggestions based
         on the person's first and last name.
 
@@ -1106,15 +1176,18 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         lname:  last name
         maxlen: maximum length of a username (incl. the suffix)
         suffix: string to append to every generated username
+        prefix: string to add to every generated username
         """
         goal = 15       # We may return more than this
         maxlen -= len(suffix)
+        maxlen -= len(prefix)
+        assert maxlen > 0, "maxlen - prefix - suffix = no characters left"
         potuname = ()
 
         lastname = self.simplify_name(lname, alt=1)
         if lastname == "":
-            raise ValueError,\
-                  "Must supply last name, got '%s', '%s'" % (fname, lname)
+            raise ValueError(
+                  "Must supply last name, got '%s', '%s'" % (fname, lname))
 
         fname = self.simplify_name(fname, alt=1)
         lname = lastname
@@ -1163,12 +1236,12 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         if len(firstinit) > 1:
             llen = min(len(lname), maxlen - len(firstinit))
             for j in range(llen, 0, -1):
-                un = firstinit + lname[0:j] + suffix
+                un = prefix + firstinit + lname[0:j] + suffix
                 if self.validate_new_uname(domain, un):
                     potuname += (un, )
 
                 if initial and len(firstinit) + 1 + j <= maxlen:
-                    un = firstinit + initial + lname[0:j] + suffix
+                    un = prefix + firstinit + initial + lname[0:j] + suffix
                     if self.validate_new_uname(domain, un):
                         potuname += (un, )
 
@@ -1196,10 +1269,10 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 if initial:
                     # Is there room for an initial?
                     if j < llim:
-                        un = fname[0:i] + initial + lname[0:j] + suffix
+                        un = prefix + fname[0:i] + initial + lname[0:j] + suffix
                         if self.validate_new_uname(domain, un):
                             potuname += (un, )
-                un = fname[0:i] + lname[0:j] + suffix
+                un = prefix + fname[0:i] + lname[0:j] + suffix
                 if self.validate_new_uname(domain, un):
                     potuname += (un, )
             if len(potuname) >= goal:
@@ -1213,7 +1286,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         
         flen = min(len(fname), maxlen)
         for i in range(flen, 1, -1):
-            un = fname[0:i] + suffix
+            un = prefix + fname[0:i] + suffix
             if self.validate_new_uname(domain, un):
                 potuname += (un, )
             if len(potuname) >= goal:

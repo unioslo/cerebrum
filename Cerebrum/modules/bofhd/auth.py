@@ -17,9 +17,65 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""The functionality to be used for bofhd and other services for handling access
+control for viewing and editing data in Cerebrum. The control could be quite
+fine grained, with the downside of being a bit complex.
+
+Overview
+========
+
+The auth module consists of the parts:
+
+- Operations that should be allowed or not for given operators.
+
+- Operation Sets (OpSets) that contains operations that fits together, e.g. all
+  operations that is needed for Local IT accounts. Authorization is delegated
+  through OpSets and not directly by operations.
+
+  OpSets can be seen in bofhd through `access list_opsets` and `access
+  show_opset OPSET`.
+
+- Roles that are given to entities, which means that the entitiy is authorized
+  for a given OpSet, and has therefore access to execute the operations that the
+  OpSet consists of. Note that roles connected to groups means that every member
+  of the group is authorized for the OpSet.
+
+  Roles are manipulated by `access grant` and `access revoke` in bofhd.
+
+
+Operations (BofhdAuth)
+----------------------
+
+The different operations for what is allowed to be done. The operations often
+have their own method, e.g. can_view_trait(operator_id, ...), which are the
+methods that bofhd and other services should be calling when checking for an
+operation.
+
+Operation Sets (BofhdAuthOpSet)
+-------------------------------
+
+Sets of operation for making it easier to delegate access controls. For
+instance, could a specific group or account be delegated an OpSet LocalIT, which
+is an operation set with all the different operations the staff at local IT
+would need in their work.
+
+OpSets are handled by BofhdAuthOpSet, and is stored in the table
+*auth_operation_set*, while the operations that belongs to an OpSet is
+referenced to in the table *auth_operation*. Operation attributes, e.g. for
+setting constraints for an operation, is put in *auth_op_attrs*.
+
+Roles (BofhdAuthRole)
+---------------------
+
+TODO: what does owners of roles, i.e. target_id, mean?
+
+
+
+"""
 
 import re
 
+import cerebrum_path
 import cereconf
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum import Constants
@@ -632,11 +688,16 @@ class BofhdAuth(DatabaseAccessor):
 
     def can_disable_quarantine(self, operator, entity=None,
                                qtype=None, query_run_any=False):
-        if self.is_superuser(operator):
-            return True
         if query_run_any:
+            if self.is_superuser(operator):
+                return True
             return self._has_operation_perm_somewhere(
                 operator, self.const.auth_quarantine_disable)
+        if str(qtype) in getattr(cereconf, 'QUARANTINE_STRICTLY_AUTOMATIC', ()):
+            raise PermissionDenied('Not allowed to modify automatic quarantine')
+        if self.is_superuser(operator):
+            return True
+
         # Special rule for guestusers. Only superuser are allowed to
         # alter quarantines for these users.
         if self._entity_is_guestuser(entity):
@@ -648,11 +709,19 @@ class BofhdAuth(DatabaseAccessor):
 
     def can_remove_quarantine(self, operator, entity=None, qtype=None,
                               query_run_any=False):
-        if self.is_superuser(operator):
-            return True
         if query_run_any:
+            if self.is_superuser(operator):
+                return True
             return self._has_operation_perm_somewhere(
                 operator, self.const.auth_quarantine_remove)
+        if str(qtype) in getattr(cereconf, 'QUARANTINE_STRICTLY_AUTOMATIC', ()):
+            raise PermissionDenied('Not allowed to modify automatic quarantine')
+        # TBD: should superusers be allowed to remove automatic quarantines?
+        if self.is_superuser(operator):
+            return True
+        if str(qtype) in getattr(cereconf, 'QUARANTINE_AUTOMATIC', ()):
+            raise PermissionDenied('Not allowed to modify automatic quarantine')
+
         # Special rule for guestusers. Only superuser are allowed to
         # alter quarantines for these users.
         if self._entity_is_guestuser(entity):
@@ -668,11 +737,18 @@ class BofhdAuth(DatabaseAccessor):
 
     def can_set_quarantine(self, operator, entity=None, qtype=None,
                            query_run_any=False):
-        if self.is_superuser(operator):
-            return True
         if query_run_any:
+            if self.is_superuser(operator):
+                return True
             return self._has_operation_perm_somewhere(
                 operator, self.const.auth_quarantine_set)
+        if str(qtype) in getattr(cereconf, 'QUARANTINE_STRICTLY_AUTOMATIC', ()):
+            raise PermissionDenied('Not allowed to set automatic quarantine')
+        if self.is_superuser(operator):
+            return True
+        if str(qtype) in getattr(cereconf, 'QUARANTINE_AUTOMATIC', ()):
+            raise PermissionDenied('Not allowed to set automatic quarantine')
+
         # TODO 2003-07-04: Bård is going to comment this
         if not(isinstance(entity, Factory.get('Account'))):
             raise PermissionDenied("No access")
@@ -1125,13 +1201,15 @@ class BofhdAuth(DatabaseAccessor):
                        self.const.auth_grant_group,
                        self.const.auth_grant_host,
                        self.const.auth_grant_maildomain,
-#                       self.const.auth_grant_dns,
+                       self.const.auth_grant_dns,
                        self.const.auth_grant_ou):
                 if self._has_operation_perm_somewhere(operator, op):
                     return True
             return False
         if opset is not None:
             opset = opset.name
+        print "can_grant_access: operation=%s, target_type=%s, target_id=%s, opset=%s" % (
+                    operation, target_type, target_id, opset)
         if self._has_target_permissions(operator, operation,
                                         target_type, target_id,
                                         None, operation_attr=opset):
@@ -1166,6 +1244,27 @@ class BofhdAuth(DatabaseAccessor):
             return False
         raise PermissionDenied("Can't create guest accounts")
 
+    # Guest users
+    # The new guest user regime, where the guests can be created by end users
+    # and not the IT staff.
+    def can_create_personal_guest(self, operator, query_run_any=False):
+        """Can the operator create a personl guest user?"""
+        if query_run_any:
+            return True
+        if self.is_superuser(operator):
+            return True
+        # check person affiliations
+        ac = Factory.get('Account')(self._db)
+        ac.find(operator)
+        if ac.owner_type == self.const.entity_person:
+            pe = Factory.get('Person')(self._db)
+            for row in pe.list_affiliations(person_id=ac.owner_id,
+                                affiliation=self.const.affiliation_ansatt):
+                return True
+        raise PermissionDenied(
+                "Guest accounts can only be created by employees")
+
+    #
     # TODO: the can_email_xxx functions do not belong in core Cerebrum
 
     # everyone can see basic information
@@ -1511,6 +1610,10 @@ class BofhdAuth(DatabaseAccessor):
         
         This function returns True or False.
         """
+        print "_has_target_perm: operation: %s" % operation
+        print "_has_target_perm: target_type: %s" % target_type
+        print "_has_target_perm: target_id: %s" % target_id
+        print "_has_target_perm: victim_id: %s" % victim_id
         if target_id is not None:
             if target_type in (self.const.auth_target_type_host,
                                self.const.auth_target_type_disk):
@@ -1533,12 +1636,14 @@ class BofhdAuth(DatabaseAccessor):
                                            self.const.auth_target_type_global_ou,
                                            victim_id, operation_attr=operation_attr):
                     return True
-#            elif target_type == self.const.auth_target_type_dns:
-#                if self._has_global_access(operator, operation,
-#                                           self.const.auth_target_type_dns,
-#                                           victim_id, operation_attr=operation_attr):
-#                    return True
+            elif target_type == self.const.auth_target_type_dns:
+                print "_has_target_permissions: target_type is dns"
+                if self._has_global_access(operator, operation,
+                                           self.const.auth_target_type_global_dns,
+                                           victim_id, operation_attr=operation_attr):
+                    return True
 
+        print "_has_target_perm: Not global access, no"
         if self._list_target_permissions(
             operator, operation, target_type, target_id,  operation_attr):
             return True
@@ -1557,6 +1662,7 @@ class BofhdAuth(DatabaseAccessor):
         ewhere = ""
         if target_id is not None:
             ewhere = "AND aot.entity_id=:target_id"
+        print "Ewhere: '%s'" % ewhere
         # Connect auth_operation and auth_op_target
         # Relevant entries in auth_operation are:
         # 
@@ -1588,11 +1694,18 @@ class BofhdAuth(DatabaseAccessor):
           """ % (", ".join(
             ["%i" % x for x in self._get_users_auth_entities(operator)]),
                  ewhere)
-        return self.query(sql,
+        print "sql: %s" % sql
+        print "params: %s" % ({'opcode': int(operation),
+                           'target_type': target_type,
+                           'target_id': target_id,
+                           'operation_attr': operation_attr},)
+        ret = self.query(sql,
                           {'opcode': int(operation),
                            'target_type': target_type,
                            'target_id': target_id,
                            'operation_attr': operation_attr})
+        print "RETURNS: %s" % ret
+        return ret
 
     def _has_access_to_entity_via_ou(self, operator, operation, entity,
                                      operation_attr=None):

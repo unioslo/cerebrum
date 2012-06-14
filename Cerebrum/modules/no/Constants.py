@@ -107,6 +107,15 @@ class ConstantsCommon(Constants.Constants):
         'new_student', Constants.Constants.entity_account,
         "If the student account is newly created or restored")
 
+    # Traits for guest accounts:
+    trait_guest_owner = _EntityTraitCode(
+        'guest_owner', Constants.Constants.entity_account,
+        "Trait for registering the entity that is responsible for the guest "
+        "account.")
+    trait_guest_name = _EntityTraitCode(
+        'guest_name', Constants.Constants.entity_account,
+        "The full name of the guest that should have the guest accounts.")
+
 class ConstantsHigherEdu(Constants.Constants):
 
     # authoritative source systems (FS = student registry, SAP = common HR-system)
@@ -129,8 +138,8 @@ class ConstantsHigherEdu(Constants.Constants):
                                              Constants.Constants.entity_person,
                                              'User name (external system)')
     externalid_stedkode = _EntityExternalIdCode('STEDKODE',
-						Constants.Constants.entity_ou,
-						'Stedkode')
+                                                Constants.Constants.entity_ou,
+                                                'Stedkode')
 
     # OU-structure perspectives
     perspective_fs = _OUPerspectiveCode('FS', 'FS')
@@ -231,6 +240,8 @@ class ConstantsUniversityColleges(Constants.Constants):
                                              'Sted ugyldig i autoritativ kildesystem')    
     quarantine_ou_remove = _QuarantineCode('ou_remove',
                                            'Sted fjernet fra autoritativ kildesystem')
+    quarantine_guest_old = _QuarantineCode('guest_old',
+                           'Old guest accounts are automatically quarantined')
     
     ## Non-personal account codes
     account_test = _AccountCode('testbruker', 'Testkonto')
@@ -238,6 +249,7 @@ class ConstantsUniversityColleges(Constants.Constants):
     account_studorg = _AccountCode('studorgbruker','Studentorganisasjonsbruker')
     account_felles  = _AccountCode('fellesbruker','Fellesbruker')
     account_system  = _AccountCode('systembruker', 'Systembruker') 
+    account_guest = _AccountCode('gjestebruker','Gjestekonto')
 
     ## SAP name constants
     name_middle = _PersonNameCode('MIDDLE', 'Mellomnavn')
@@ -281,6 +293,11 @@ class ConstantsUniversityColleges(Constants.Constants):
     spread_lms_account = _SpreadCode(
         'account@lms', Constants.Constants.entity_account,
         'Brukeren kjent i LMSen')
+
+    ## Spread definitions - guest user related
+    spread_ad_guest = _SpreadCode(
+        'guest_account@ad', Constants.Constants.entity_account,
+        'Guest account included in Active Directory')
 
     ## Spread definitions - person related
     spread_ldap_person = _SpreadCode(

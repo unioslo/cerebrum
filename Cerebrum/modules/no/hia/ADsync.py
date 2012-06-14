@@ -38,6 +38,10 @@ import time
 
 class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
+    # Default OU in AD. Could be set to override the returned value from
+    # .get_default_ou():
+    default_ou = None
+
     def _filter_quarantines(self, user_dict):
         """Filter quarantined accounts
 
@@ -253,8 +257,16 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         
 
     def get_default_ou(self):
-        """Return default OU for users. burde vaere i cereconf?"""
-        return "OU=%s,%s" % (cereconf.AD_USER_OU,self.ad_ldap)
+        """Return default OU for users in AD. Note that self.default_ou could
+        be set to override this, otherwise cereconf.AD_USER_OU is used. Note
+        that self.ad_ldap (cereconf.AD_LDAP) is always appended.
+
+        """
+        if self.default_ou:
+            ou = self.default_ou
+        else:
+            ou = cereconf.AD_USER_OU
+        return "OU=%s,%s" % (ou, self.ad_ldap)
 
             
 

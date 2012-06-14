@@ -1,5 +1,7 @@
+#!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002, 2003 University of Oslo, Norway
+#
+# Copyright 2002, 2003, 2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,29 +19,29 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-# $Id$
+"""Sample module that extends bofhd with a set of commands. Also see
+Cerebrum.modules.bofhd.bofhd_core for more details and the basic functionality
+common for all bofhd instances.
 
-# Sample module that extends bofhd with a set of commands
+"""
 
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum import Utils
 from Cerebrum import Errors
 
-from Cerebrum.modules.bofhd.cmd_param import Command,AccountName,FormatSuggestion
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
+from Cerebrum.modules.bofhd.cmd_param import Command, AccountName, FormatSuggestion
 
 def format_day(field):
     fmt = "yyyy-MM-dd"                  # 10 characters wide
     return ":".join((field, "date", fmt))
 
-class BofhdExtension(object):
+class BofhdExtension(BofhdCommandBase):
     all_commands = {}
 
     def __init__(self, server):
-        self.server = server
-        self.logger = server.logger
-        self.db = server.db
-        self.ou = Factory.get('OU')(self.db)
+        super(BofhdExtension, self).__init__(server)
 
     def get_help_strings(self):
         group_help = {
@@ -62,14 +64,6 @@ class BofhdExtension(object):
         return (group_help, command_help,
                 arg_help)
 
-    
-    def get_commands(self, uname):
-        # TODO: Do some filtering on uname to remove commands
-        commands = {}
-        for k in self.all_commands.keys():
-            commands[k] = self.all_commands[k].get_struct(self)
-        return commands
-
     # user info
     all_commands['user_info'] = Command(
         ("user", "info"), AccountName(),
@@ -79,20 +73,13 @@ class BofhdExtension(object):
                              ("Quarantined:   %s",
                               ("quarantined",))]))
     def user_info(self, operator, accountname):
-        account = Utils.Factory.get('Account')(self.db)
-        try: 
-            account.find_by_name(accountname)
-        except Errors.NotFoundError:
-            raise CerebrumError, "Could not find user %s" % accountname
+        account = self._get_account(accountname, idtype='name')
 
         ret = {'entity_id': account.entity_id,
                'expire': account.expire_date}
         if account.get_entity_quarantine():
             ret['quarantined'] = 'Yes'
         return ret
-
-    def get_format_suggestion(self, cmd):
-        return self.all_commands[cmd].get_fs()
 
 if __name__ == '__main__':
     Cerebrum = Factory.get('Database')()
