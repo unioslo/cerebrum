@@ -1201,15 +1201,13 @@ class BofhdAuth(DatabaseAccessor):
                        self.const.auth_grant_group,
                        self.const.auth_grant_host,
                        self.const.auth_grant_maildomain,
-                       self.const.auth_grant_dns,
+                       #self.const.auth_grant_dns,
                        self.const.auth_grant_ou):
                 if self._has_operation_perm_somewhere(operator, op):
                     return True
             return False
         if opset is not None:
             opset = opset.name
-        print "can_grant_access: operation=%s, target_type=%s, target_id=%s, opset=%s" % (
-                    operation, target_type, target_id, opset)
         if self._has_target_permissions(operator, operation,
                                         target_type, target_id,
                                         None, operation_attr=opset):
@@ -1610,10 +1608,6 @@ class BofhdAuth(DatabaseAccessor):
         
         This function returns True or False.
         """
-        print "_has_target_perm: operation: %s" % operation
-        print "_has_target_perm: target_type: %s" % target_type
-        print "_has_target_perm: target_id: %s" % target_id
-        print "_has_target_perm: victim_id: %s" % victim_id
         if target_id is not None:
             if target_type in (self.const.auth_target_type_host,
                                self.const.auth_target_type_disk):
@@ -1636,14 +1630,12 @@ class BofhdAuth(DatabaseAccessor):
                                            self.const.auth_target_type_global_ou,
                                            victim_id, operation_attr=operation_attr):
                     return True
-            elif target_type == self.const.auth_target_type_dns:
-                print "_has_target_permissions: target_type is dns"
-                if self._has_global_access(operator, operation,
-                                           self.const.auth_target_type_global_dns,
-                                           victim_id, operation_attr=operation_attr):
-                    return True
+            #elif target_type == self.const.auth_target_type_dns:
+            #    if self._has_global_access(operator, operation,
+            #                               self.const.auth_target_type_global_dns,
+            #                               victim_id, operation_attr=operation_attr):
+            #        return True
 
-        print "_has_target_perm: Not global access, no"
         if self._list_target_permissions(
             operator, operation, target_type, target_id,  operation_attr):
             return True
@@ -1662,7 +1654,6 @@ class BofhdAuth(DatabaseAccessor):
         ewhere = ""
         if target_id is not None:
             ewhere = "AND aot.entity_id=:target_id"
-        print "Ewhere: '%s'" % ewhere
         # Connect auth_operation and auth_op_target
         # Relevant entries in auth_operation are:
         # 
@@ -1694,18 +1685,11 @@ class BofhdAuth(DatabaseAccessor):
           """ % (", ".join(
             ["%i" % x for x in self._get_users_auth_entities(operator)]),
                  ewhere)
-        print "sql: %s" % sql
-        print "params: %s" % ({'opcode': int(operation),
-                           'target_type': target_type,
-                           'target_id': target_id,
-                           'operation_attr': operation_attr},)
-        ret = self.query(sql,
+        return self.query(sql,
                           {'opcode': int(operation),
                            'target_type': target_type,
                            'target_id': target_id,
                            'operation_attr': operation_attr})
-        print "RETURNS: %s" % ret
-        return ret
 
     def _has_access_to_entity_via_ou(self, operator, operation, entity,
                                      operation_attr=None):
