@@ -8982,6 +8982,20 @@ Addresses and settings:
             ('user', 'restore'), prompt_func=user_restore_prompt_func,
             perm_filter='can_create_user')
     def user_restore(self, operator, accountname, aff_ou, group, home):
+        ac = self._get_account(accountname)
+        # Check if the account is deleted or reserved
+        if not ac.is_deleted() and not ac.is_reserved():
+            raise CerebrumError, \
+                  ('Please contact brukerreg in order to restore %s'
+                  % accountname)
+        
+        # We check to see if the group is modifiable by the operator.
+        group = self._get_group(group, grtype='PosixGroup') 
+        if not self.ba.can_alter_group(operator.get_entity_id(), group):
+            raise PermissionDenied('%s has no access to alter group %s' %
+                                   (self._get_uname(operator.entity_id),
+                                    self._get_gname(group.entity_id)))
+
         # Checking to see if the home path is hardcoded.
         # Raises CerebrumError if the disk does not exist.
         if not home:
@@ -8993,30 +9007,10 @@ Addresses and settings:
                 raise PermissionDenied('Only superusers may use hardcoded path')
             disk_id, home = None, home[1:]
 
-        ac = self._get_account(accountname)
+        # Check if the operator can alter the user
         if not self.ba.can_create_user(operator.get_entity_id(),
                                        ac, disk_id):
             raise PermissionDenied('User restore is limited')
-
-        # We'll only let LITAs restore regular accounts, i.e. accounts
-        # owned by persons.
-        if not ac.owner_type == self.const.entity_person and \
-           not ac.is_reserved():
-            raise CerebrumError, \
-                  ('Please contact brukerreg in order to restore %s'
-                  % accountname)
-
-        # We check to see if the group is modifiable by the operator.
-        group = self._get_group(group, grtype='PosixGroup') 
-        if not self.ba.can_alter_group(operator.get_entity_id(), group):
-            raise PermissionDenied('%s has no access to alter group %s' %
-                                   (self._get_uname(operator.entity_id),
-                                    self._get_gname(group.entity_id)))
-
-        # We'll abort if the user is active
-        if not self.ba.is_superuser(operator.get_entity_id()) and \
-           not ac.is_deleted():
-            raise CerebrumError('Account is not deleted')
 
         # We demote posix
         try:
