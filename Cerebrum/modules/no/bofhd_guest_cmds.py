@@ -211,6 +211,22 @@ class BofhdExtension(BofhdCommandBase):
         # Everything should now be okay, so we create the guest account
         ac = self._create_guest_account(responsible, end_date, fname, lname, mobile,
                                         guest_group)
+
+        # An extra change log is required in the responsible's log
+        ac._db.log_change(responsible, ac.const.guest_create, ac.entity_id,
+                          change_params={'owner': responsible,
+                                         'mobile': mobile,
+                                         'name': '%s %s' % (fname, lname)},
+                          change_by=operator.get_entity_id())
+        # In case a superuser has set a specific account as the responsible, the
+        # event should be logged for both operator and responsible:
+        if operator.get_entity_id() != responsible:
+            ac._db.log_change(operator.get_entity_id(), ac.const.guest_create,
+                              ac.entity_id, change_params={
+                                    'owner': responsible,
+                                    'mobile': mobile,
+                                    'name': '%s %s' % (fname, lname)},
+                              change_by=operator.get_entity_id())
         # Set the password
         password = ac.make_passwd(ac.account_name)
         ac.set_password(password)
@@ -260,7 +276,6 @@ class BofhdExtension(BofhdCommandBase):
         # Tag the account as a guest account:
         ac.populate_trait(code=self.const.trait_guest_owner,
                           target_id=responsible_id)
-        # TODO; have to run write_db() here?
 
         # Save the guest's name:
         ac.populate_trait(code=self.const.trait_guest_name,
@@ -281,13 +296,6 @@ class BofhdExtension(BofhdCommandBase):
                 self.logger.warn('Unknown guest spread: %s' % spr)
                 continue
             ac.add_spread(spr)
-        # TODO: write_db now?
-
-        # TODO: log the guest create for both the responsible and the operator
-        #self.log... for responsible
-        #if operator.get_entity_id() != responsible:
-        #    # self.log... for operator
-        #    pass
 
         # Add guest account to correct group
         guest_group.add_member(ac.entity_id)
