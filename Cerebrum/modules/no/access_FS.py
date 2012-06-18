@@ -975,8 +975,6 @@ class Undervisning(FSObject):
         return self.db.query(qry, {"aar": self.year}, fetchall=False)
     # end list_studenter_alle_undakt
 
-
-
 class EVU(FSObject):
     def list(self):  # GetDeltaker_50
         """Hent info om personer som er ekte EVU-studenter ved
@@ -994,6 +992,7 @@ class EVU(FSObject):
                p.status_reserv_nettpubl, p.adrlin2_hjemsted,
                p.postnr_hjemsted, p.adrlin3_hjemsted,
                p.adresseland_hjemsted, d.deltakernr, d.emailadresse,
+               p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil
                k.etterutdkurskode, k.kurstidsangivelsekode,
                e.studieprogramkode, e.faknr_adm_ansvar,
                e.instituttnr_adm_ansvar, e.gruppenr_adm_ansvar,
@@ -1094,8 +1093,6 @@ class EVU(FSObject):
             'kurs': kurs,
             'tid': tid,
             'aktkode': aktkode})
-
-
 
 class Alumni(FSObject):
     def list(self):  # GetAlumni_50
