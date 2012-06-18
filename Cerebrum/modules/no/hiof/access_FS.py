@@ -24,8 +24,8 @@ from Cerebrum.modules.no import access_FS
 class HiOfStudent(access_FS.Student):
     ## Vi bruker list_privatist, og list_tilbud fra no/access_FS
     def list_aktiv(self, fodselsdato=None, personnr=None):
-	""" Hent opplysninger om studenter definert som aktive 
-	ved HiOF. En aktiv student er en student som har et gyldig
+        """ Hent opplysninger om studenter definert som aktive 
+        ved HiOF. En aktiv student er en student som har et gyldig
         opptak til et studieprogram der studentstatuskode er 'AKTIV'
         eller 'PERMISJON' og sluttdatoen er enten i fremtiden eller
         ikke satt."""
@@ -33,7 +33,7 @@ class HiOfStudent(access_FS.Student):
         if fodselsdato and personnr:
             extra = "s.fodselsdato=:fodselsdato AND s.personnr=:personnr AND"
 
-	qry = """
+        qry = """
         SELECT DISTINCT
           s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
           s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
@@ -41,8 +41,9 @@ class HiOfStudent(access_FS.Student):
           p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
           p.adresseland_hjemsted, p.status_reserv_nettpubl,
           p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
+          p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil
           sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
-          sps.arstall_kull, p.kjonn, p.status_dod, p.telefonnr_mobil,
+          sps.arstall_kull, p.kjonn, p.status_dod,
           s.studentnr_tildelt, kks.klassekode, kks.status_aktiv AS status_aktiv_klasse
         FROM fs.studieprogramstudent sps, fs.person p,
              fs.student s, fs.kullklassestudent kks
@@ -98,12 +99,12 @@ class HiOfUndervisning(access_FS.Undervisning):
     ##      Prøve å lage generell list_studenter_kull.
     ##      Prøve å fjerne behov for override-metoder her 
     def list_undervisningenheter(self, sem="current"):
-	"""Metoden som henter data om undervisningsenheter
-	i nåverende (current) eller neste (next) semester. Default
-	vil være nåværende semester. For hver undervisningsenhet 
-	henter vi institusjonsnr, emnekode, versjonskode, terminkode + årstall 
-	og terminnr."""
-	qry = """
+        """Metoden som henter data om undervisningsenheter
+        i nåverende (current) eller neste (next) semester. Default
+        vil være nåværende semester. For hver undervisningsenhet 
+        henter vi institusjonsnr, emnekode, versjonskode, terminkode + årstall 
+        og terminnr."""
+        qry = """
         SELECT DISTINCT
           r.institusjonsnr, r.emnekode, r.versjonskode, e.emnenavnfork,
           e.emnenavn_bokmal, e.faknr_kontroll, e.instituttnr_kontroll, 
@@ -113,10 +114,10 @@ class HiOfUndervisning(access_FS.Undervisning):
         WHERE r.emnekode = e.emnekode AND
           r.versjonskode = e.versjonskode AND """ 
         if (sem=="current"):
-	    qry +="""%s""" % self._get_termin_aar(only_current=1)
+            qry +="""%s""" % self._get_termin_aar(only_current=1)
         else: 
-	    qry +="""%s""" % self._get_next_termin_aar()
-	return self.db.query(qry)
+            qry +="""%s""" % self._get_next_termin_aar()
+        return self.db.query(qry)
 
     
     def list_aktiviteter(self):
@@ -148,10 +149,10 @@ class HiOfUndervisning(access_FS.Undervisning):
 
     def list_studenter_underv_enhet(self, institusjonsnr, emnekode, versjonskode,
                                     terminkode, arstall, terminnr):
-	"""Finn fødselsnumrene til alle studenter på et gitt 
-	undervisningsenhet. Skal brukes til å generere grupper for
-	adgang til CF."""
-	qry = """
+        """Finn fødselsnumrene til alle studenter på et gitt 
+        undervisningsenhet. Skal brukes til å generere grupper for
+        adgang til CF."""
+        qry = """
         SELECT DISTINCT
           fodselsdato, personnr
         FROM fs.undervisningsmelding
