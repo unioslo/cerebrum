@@ -546,41 +546,21 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         if not self.entity_id:
             raise RuntimeError('No account set')
 
-        # TBD: Deactivate the account first?
-        #self.deactivate()
-
-        # TODO: Overwriting update_email_addresses was necessary, as it is
-        # recreating the EmailTarget in the progress of terminating the account,
-        # in addition to the e-mail addresses. There must be a better way to do
-        # this, but I have no experience in how update_email_addresses could be
-        # changed to avoid this. Another solution could be to set the
-        # expire_date and remove all spreads, but that creates other race
-        # conditions and does not follow the mro chain for delete(). The third,
-        # and probably the best, solution, would be to make
-        # update_email_addresses handle deletion of accounts.
-        update_email_func = getattr(self, 'update_email_addresses', None)
-        self.update_email_addresses = lambda: None
-
-        # Remove group memberships
-        group = Utils.Factory.get("Group")(self._db)
-        for row in group.search(member_id=self.entity_id):
-            group.clear()
-            group.find(row['group_id'])
-            group.remove_member(self.entity_id)
-            group.write_db()
+        # Deactivating the account first. This is not an optimal solution, but
+        # it solves race conditions like for update_email_addresses, which
+        # recreates EmailTarget and e-mail addresses for the account until it is
+        # deactivated. Makes termination a bit slower.
+        self.deactivate()
 
         # Remove change_log entries
         for row in self._db.get_log_events(any_entity=self.entity_id):
+            # TODO: any_entity or just subject_entity?
             self._db.remove_log_event(int(row['change_id']))
 
         # Add this if we put it in Entity as well:
         #self.__super.terminate()
         self.delete()
         self.clear()
-
-        # Add the update_email_addresses back in, if it exists
-        if update_email_func:
-            self.update_email_addresses = update_email_func
 
     def clear(self):
         super(Account, self).clear()

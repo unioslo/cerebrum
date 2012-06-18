@@ -71,6 +71,17 @@ class AccountHiAMixin(Account.Account):
         ret = self.__super.delete_spread(spread)
         return ret
 
+    def deactivate(self):
+        """Do the UiA specific deactivations."""
+
+        # Have to remove the home disks first, to avoid db-constraints when
+        # removing spreads.
+        if hasattr(self, 'get_homes'):
+            for home in self.get_homes():
+                self.clear_home(home['spread'])
+        self.write_db()
+        self.__super.deactivate()
+
     def terminate(self):
         """Remove related data to the account before totally deleting it from
         the database.
