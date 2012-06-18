@@ -130,6 +130,11 @@ class VoipConstants(Constants.Constants):
         "voip_service_svarapparat",
         "svarapparat",
     )
+
+    voip_service_upersonlig_kontor = VoipServiceTypeCode(
+        "voip_service_upersonlig_kontor",
+        "upersonlig kontor",
+    )
     
     ########################################################################
     # voip-client
