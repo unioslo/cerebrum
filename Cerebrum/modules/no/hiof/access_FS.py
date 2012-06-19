@@ -41,7 +41,7 @@ class HiOfStudent(access_FS.Student):
           p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
           p.adresseland_hjemsted, p.status_reserv_nettpubl,
           p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
-          p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil
+          p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil,
           sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
           sps.arstall_kull, p.kjonn, p.status_dod,
           s.studentnr_tildelt, kks.klassekode, kks.status_aktiv AS status_aktiv_klasse
