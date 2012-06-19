@@ -501,12 +501,12 @@ for i in range(20):
 #   ## remove spreads before adding, or else
 #   ## the db will complain about already extisting.
   for i in range(2):
-    for as in account_add_spread:
-      stdout_write('Account remove = %s - ' % as)
-      tgetpage('acc_rm_spread', '/entity/remove_spread', as)
+    for aas in account_add_spread:
+      stdout_write('Account remove = %s - ' % aas)
+      tgetpage('acc_rm_spread', '/entity/remove_spread', aas)
       time.sleep(1)
-      stdout_write('Account save = %s - ' % as)   
-      tgetpage('acc_add_spread', '/entity/add_spread', as)
+      stdout_write('Account save = %s - ' % aas)   
+      tgetpage('acc_add_spread', '/entity/add_spread', aas)
       time.sleep(1)
 
 ## Disabled until we've converted entity
