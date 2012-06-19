@@ -26,7 +26,11 @@ restored.
 Note that a person will only get one account top. TBD: or should it be possible
 to override this?
 
-TODO: add support for restore of accounts.
+Note that the script does not update already existing accounts. This might be
+the job for another script? We don't want this script to be too complex...
+
+TODO: Whern restoring, the account does not get all the updates it should have.
+Maybe we should have a Account.restore() method that takes care of this?
 
 TODO: add functionality for only affecting new person affiliations instead, e.g.
 only new employeed from the last 7 days. This is usable e.g. for UiO.
@@ -154,24 +158,22 @@ def process(affiliations, commit=False, new_trait=None):
     affs = tuple(af for af in affiliations 
                  if isinstance(af, Constants._PersonAffiliationCode))
 
+    persons = set()
     if statuses:
-        for row in pe.list_affiliations(status=statuses):
-            if row['person_id'] in has_account:
-                continue
-            pe.clear()
-            pe.find(row['person_id'])
-            update_account(pe, ac, creator_id, new_trait)
-            has_account.add(row['person_id'])
+        persons.update(row['person_id'] for row in
+                       pe.list_affiliations(status=status)
+                       if row['person_id'] not in has_account)
     if affs:
-        peaffs = pe.list_affiliations(affiliation=affs)
-        logger.debug("%d affiliations to process" % len(peaffs))
-        for row in peaffs:
-            if row['person_id'] in has_account:
-                continue
-            pe.clear()
-            pe.find(row['person_id'])
-            update_account(pe, ac, creator_id, new_trait)
-            has_account.add(row['person_id'])
+        persons.update(row['person_id'] for row in
+                       pe.list_affiliations(affiliation=affs)
+                       if row['person_id'] not in has_account)
+    logger.debug("Found %d persons without an account", len(persons))
+
+    for p_id in persons:
+        logger.debug("Processing person_id=%d", p_id)
+        pe.clear()
+        pe.find(p_id)
+        update_account(pe, ac, creator_id, new_trait)
 
     if commit:
         db.commit()
