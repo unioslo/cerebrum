@@ -19,13 +19,18 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""Script for creating accounts for persons by given criterias.
+"""Script for creating accounts for all persons that matches given criterias. If
+a person has previously had an account which is now deactivated, it will be
+restored.
 
-Note that a person will only get one account max. TODO: this should be able to
-override by an argument.
+Note that a person will only get one account top. TBD: or should it be possible
+to override this?
+
+TODO: add support for restore of accounts.
 
 TODO: add functionality for only affecting new person affiliations instead, e.g.
 only new employeed from the last 7 days. This is usable e.g. for UiO.
+
 """
 
 import sys
@@ -55,6 +60,10 @@ def usage(exitcode=0):
 
                                 ANSATT,TILKNYTTET/ekstern,STUDENT/fagperson
 
+    --new-trait TRAITNAME   If set, gives every new account the given trait.
+                            Usable e.g. for sending a welcome SMS for every new
+                            account.
+
     --commit                Actually commit the work. The default is dryrun.
 
     -h --help               Show this and quit.
@@ -75,10 +84,23 @@ def str2aff(affstring):
         raise Exception("Unknown affiliation: %s" % affstring)
     return aff
 
-def create_account(pe, ac, creator_id):
-    """Give a person a new account."""
+def create_account(pe, ac, creator_id, new_trait=None):
+    """Give a person a new account, or restore one of its old ones, if such an
+    account exists. Note that we here assume that a person only should have
+    one account automatically created.
+
+    """
     ac.clear()
-    # TODO: not sure if usernames should be handled by create() instead
+    #for row in ac.search(owner_id=pe.entity_id, expire_start=None):
+    #    logger.debug("Person %d already has account: %s", pe.entity_id,
+    #                 row['name'])
+    #    # TODO: should we just assume that persons only should have one
+    #    # automatically generated account?
+    #    ac.find(row['account_id'])
+    #    if ac.
+
+    #    return True
+
     name = (pe.get_name(co.system_cached, co.name_first),
             pe.get_name(co.system_cached, co.name_last))
     names = ac.suggest_unames(domain=co.account_namespace, fname=name[0], lname=name[1])
@@ -88,6 +110,9 @@ def create_account(pe, ac, creator_id):
     ac.create(name=names[0], owner_id=pe.entity_id, creator_id=creator_id)
     logger.debug("Account %s created", names[0])
 
+    if new_trait:
+        ac.populate_trait(new_trait, date=DateTime.now())
+
     # give the account the person's affiliations
     for row in pe.list_affiliations(person_id=pe.entity_id):
         ac.set_account_type(ou_id=row['ou_id'], affiliation=row['affiliation'])
@@ -96,7 +121,7 @@ def create_account(pe, ac, creator_id):
                      co.PersonAffiliation(row['affiliation']), row['ou_id'])
     return True
 
-def process(affiliations, commit=False):
+def process(affiliations, commit=False, new_trait=None):
     """Go through the database for new persons and give them accounts."""
     logger.info("generate_accounts started")
 
@@ -106,7 +131,7 @@ def process(affiliations, commit=False):
     ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
     creator_id = ac.entity_id
 
-    # cache those who already has an account
+    logger.debug('Caching existing accounts')
     has_account = set(row['owner_id'] for row in
                       ac.search(owner_type=co.entity_person, expire_start=None))
     logger.debug("%d people already have an account" % len(has_account))
@@ -123,7 +148,7 @@ def process(affiliations, commit=False):
                 continue
             pe.clear()
             pe.find(row['person_id'])
-            create_account(pe, ac, creator_id)
+            create_account(pe, ac, creator_id, new_trait)
             has_account.add(row['person_id'])
     if affs:
         peaffs = pe.list_affiliations(affiliation=affs)
@@ -133,7 +158,7 @@ def process(affiliations, commit=False):
                 continue
             pe.clear()
             pe.find(row['person_id'])
-            create_account(pe, ac, creator_id)
+            create_account(pe, ac, creator_id, new_trait)
             has_account.add(row['person_id'])
 
     if commit:
@@ -148,17 +173,21 @@ def main():
     opts, junk = getopt.getopt(sys.argv[1:], "h",
                                ("help",
                                 "aff=",
+                                "new-trait=",
                                 "commit"))
     affiliations = list()
     commit = False
+    new_trait = None
 
     for opt, val in opts:
         if opt in ("-h", "--help",):
             usage()
         elif opt in ("--aff",):
             affiliations.extend((str2aff(a) for a in val.split(',')))
-        elif opt in ("--commit"):
+        elif opt in ("--commit",):
             commit = True
+        elif opt in ("--new-trait",):
+            new_trait = int(co.EntityTrait(val))
         else:
             print "Unknown argument: %s" % opt
             usage(1)
@@ -166,7 +195,7 @@ def main():
     if not affiliations:
         print "No affiliations given"
         usage(1)
-    process(affiliations, commit)
+    process(affiliations, commit, new_trait)
 
 if __name__ == '__main__':
     main()
