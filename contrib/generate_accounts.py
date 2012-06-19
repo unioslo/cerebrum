@@ -84,40 +84,52 @@ def str2aff(affstring):
         raise Exception("Unknown affiliation: %s" % affstring)
     return aff
 
-def create_account(pe, ac, creator_id, new_trait=None):
-    """Give a person a new account, or restore one of its old ones, if such an
-    account exists. Note that we here assume that a person only should have
-    one account automatically created.
+def update_account(pe, ac, creator_id, new_trait=None):
+    """Make sure that the given person has an active account. It the person has
+    no accounts, a new one will be created. If the person already has an account
+    it will be 'restored'.
+
+    Note that we here assume that a person only should have one account
+    automatically created.
+
+    This function must only be called if a person does not have an active
+    account.
 
     """
     ac.clear()
-    #for row in ac.search(owner_id=pe.entity_id, expire_start=None):
-    #    logger.debug("Person %d already has account: %s", pe.entity_id,
-    #                 row['name'])
-    #    # TODO: should we just assume that persons only should have one
-    #    # automatically generated account?
-    #    ac.find(row['account_id'])
-    #    if ac.
-
-    #    return True
-
-    name = (pe.get_name(co.system_cached, co.name_first),
-            pe.get_name(co.system_cached, co.name_last))
-    names = ac.suggest_unames(domain=co.account_namespace, fname=name[0], lname=name[1])
-    if len(names) < 1:
-        logger.warn('Person %d has no name, skipping', pe.entity_id)
-        return
-    ac.create(name=names[0], owner_id=pe.entity_id, creator_id=creator_id)
-    logger.debug("Account %s created", names[0])
+    for row in ac.search(owner_id=pe.entity_id, expire_start=None,
+                         expire_stop=None):
+        logger.info("Restore account %s for person %d", row['name'],
+                     pe.entity_id)
+        ac.find(row['account_id'])
+        if not ac.is_expired():
+            logger.error("Account %s not expired anyway, it's a trap",
+                         ac.account_name)
+            return True
+        ac.expire_date = None
+        ac.write_db()
+        # TODO: more 'recreate' settings here? Should we instead make use of a
+        # Account.recreate() or something?
+        break
+    else:
+        # no account found, create a new one
+        name = (pe.get_name(co.system_cached, co.name_first),
+                pe.get_name(co.system_cached, co.name_last))
+        names = ac.suggest_unames(domain=co.account_namespace, fname=name[0], lname=name[1])
+        if len(names) < 1:
+            logger.warn('Person %d has no name, skipping', pe.entity_id)
+            return False
+        ac.create(name=names[0], owner_id=pe.entity_id, creator_id=creator_id)
+        logger.info("Account %s created for person %d", names[0], pe.entity_id)
 
     if new_trait:
         ac.populate_trait(new_trait, date=DateTime.now())
 
-    # give the account the person's affiliations
+    # give the account all the person's affiliations
     for row in pe.list_affiliations(person_id=pe.entity_id):
         ac.set_account_type(ou_id=row['ou_id'], affiliation=row['affiliation'])
         ac.write_db()
-        logger.debug("Gave %s aff %s to ou_id=%s", names[0],
+        logger.debug("Gave %s aff %s to ou_id=%s", ac.account_name,
                      co.PersonAffiliation(row['affiliation']), row['ou_id'])
     return True
 
@@ -133,8 +145,8 @@ def process(affiliations, commit=False, new_trait=None):
 
     logger.debug('Caching existing accounts')
     has_account = set(row['owner_id'] for row in
-                      ac.search(owner_type=co.entity_person, expire_start=None))
-    logger.debug("%d people already have an account" % len(has_account))
+                      ac.search(owner_type=co.entity_person))
+    logger.debug("%d people already have an active account" % len(has_account))
 
     # sort by affiliation and status
     statuses = tuple(af for af in affiliations 
@@ -148,7 +160,7 @@ def process(affiliations, commit=False, new_trait=None):
                 continue
             pe.clear()
             pe.find(row['person_id'])
-            create_account(pe, ac, creator_id, new_trait)
+            update_account(pe, ac, creator_id, new_trait)
             has_account.add(row['person_id'])
     if affs:
         peaffs = pe.list_affiliations(affiliation=affs)
@@ -158,7 +170,7 @@ def process(affiliations, commit=False, new_trait=None):
                 continue
             pe.clear()
             pe.find(row['person_id'])
-            create_account(pe, ac, creator_id, new_trait)
+            update_account(pe, ac, creator_id, new_trait)
             has_account.add(row['person_id'])
 
     if commit:
