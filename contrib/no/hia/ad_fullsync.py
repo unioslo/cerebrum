@@ -32,6 +32,11 @@ Usage: [options]
   --user_exchange_spread SPREAD: overrides cereconf.AD_EXCHANGE_SPREAD
   --user_imap_spread SPREAD: overrides cereconf.AD_IMAP_SPREAD
   --default_user_ou OU: overrides default OU for users
+  --only_ous OU: Override what user OUs that should be affected by the sync.
+                 Users outside of these OUs are for instance not deleted. OUs
+                 are separated by semicolons.
+                 Default: cereconf.AD_ALL_CEREBRUM_OU
+                 Example: 'OU=Users,OU=UiA;OU=Deleted Users,OU=UiA'
   --group_spread SPREAD: overrides cereconf.AD_GROUP_SPREAD
   --group_exchange_spread SPREAD: overrides cereconf.AD_GROUP_EXCHANGE_SPREAD
   --store-sid: write sid of new AD objects to cerebrum databse as external ids.
@@ -73,7 +78,7 @@ def fullsync(user_sync, group_sync, maillists_sync, forwarding_sync,
              user_spread, user_exchange_spread, user_imap_spread, 
              group_spread, group_exchange_spread, dryrun,
              delete_objects, store_sid, logger_name, logger_level,
-             default_user_ou):
+             default_user_ou, only_ous):
         
     # initate logger
     logger = Utils.Factory.get_logger(logger_name)
@@ -87,6 +92,7 @@ def fullsync(user_sync, group_sync, maillists_sync, forwarding_sync,
             # instantiate sync_class and call full_sync
             adsync = ADsync.ADFullUserSync(db, co, logger, dry_run=dryrun)
             adsync.default_ou = default_user_ou
+            adsync.only_ous = only_ous
             adsync.full_sync(delete=delete_objects, spread=user_spread,
                              dry_run=dryrun, store_sid=store_sid,
                              exchange_spread=user_exchange_spread,
@@ -130,7 +136,7 @@ def main():
         opts, args = getopt.getopt(sys.argv[1:], 'hugfm',  [
             'help', 'user-sync', 'group-sync', 'user_spread=', 
             'user_exchange_spread=', 'user_imap_spread=', 'default_user_ou=',
-            'dryrun', 'store-sid', 'delete', 
+            'only_ous=', 'dryrun', 'store-sid', 'delete', 
             'group_spread=', 'logger-level=', 'logger-name=',
             'group_exchange_spread=', 'maillists-sync', 'forwarding-sync'])
     except getopt.GetoptError:
@@ -147,6 +153,7 @@ def main():
     user_exchange_spread = cereconf.AD_EXCHANGE_SPREAD
     user_imap_spread = cereconf.AD_IMAP_SPREAD
     default_user_ou = None
+    only_ous = None
     group_spread = cereconf.AD_GROUP_SPREAD
     group_exchange_spread = cereconf.AD_GROUP_EXCHANGE_SPREAD
     logger_name = 'console'
@@ -176,6 +183,8 @@ def main():
             user_imap_spread = val
         elif opt == '--default_user_ou':
             default_user_ou = val
+        elif opt == '--only_ous':
+            only_ous = val.split(';')
         elif opt == '--group_spread':
             group_spread = val
         elif opt == '--group_exchange_spread':
@@ -189,7 +198,7 @@ def main():
              user_spread, user_exchange_spread, user_imap_spread, 
              group_spread, group_exchange_spread, dryrun,
              delete_objects, store_sid, logger_name, logger_level,
-             default_user_ou)
+             default_user_ou, only_ous)
 
 def usage(exitcode=0):
     print __doc__

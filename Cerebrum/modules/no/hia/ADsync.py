@@ -42,6 +42,10 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
     # .get_default_ou():
     default_ou = None
 
+    # What user OUs that should be affected by the sync. If set, only users in
+    # these OUs will for instance be deactivated/deleted.
+    only_ous = None
+
     def _filter_quarantines(self, user_dict):
         """Filter quarantined accounts
 
@@ -441,6 +445,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         #Setting the userattributes to be fetched.
         self.server.setUserAttributes(cereconf.AD_ATTRIBUTES,
                                       cereconf.AD_ACCOUNT_CONTROL)
+        self.logger.debug('fetch_ad_data from search_ou: %s', search_ou)
         return self.server.listObjects('user', True, search_ou)
         
 
@@ -540,6 +545,11 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
         changelist = []     
 
+        # Override of what OUs that should be touched:
+        all_cerebrum_ous = cereconf.AD_ALL_CEREBRUM_OU
+        if self.only_ous:
+            all_cerebrum_ous = self.only_ous
+
         for usr, ad_user in adusrs.iteritems():
             changes = {}        
             if cerebrumusrs.has_key(usr):
@@ -634,7 +644,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
             else:
                 #Account not in Cerebrum, but in AD.                
-                if [s for s in cereconf.AD_ALL_CEREBRUM_OU if
+                if [s for s in all_cerebrum_ous if
                     ad_user['distinguishedName'].upper().find(s.upper()) >= 0]:
                     #ac.is_deleted() or ac.is_expired() pluss a small rest of 
                     #accounts created in AD, but that do not have AD_spread. 
