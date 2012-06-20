@@ -66,8 +66,10 @@ class ADutil(object):
         
         if dry_run:
             self.logger.debug('server.%s(%s,%s,%s)' % (command, arg1, arg2, arg3))
-            #Assume success on all changes.
-            return (True, command)
+            # Assume success on all changes.
+            # Note that some commands are required to return a tuple of either
+            # two or three, so this might not always work.
+            return (True, command, None)
         else:
             cmd = getattr(self.server, command)
             try:
