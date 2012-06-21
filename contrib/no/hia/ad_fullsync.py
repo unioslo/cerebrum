@@ -57,6 +57,12 @@ Example:
     --user_exchange_spread 'account@exchange' --user_imap_spread 'account@imap'\\
     --group_spread 'group@ad' --group_exchange_spread 'group@exchange \\
     --delete --store-sid --logger-level DEBUG --logger-name console
+
+TODO: the script should support --ad_ldap for setting the root OU. Usable e.g.
+for the guest users, and might speed up the job quite a bit. It is already
+supported in ADutilsMixin, so all we need is to give it as an argument to
+ADFullUserSync when instantiating it.
+
 """
 
 import getopt

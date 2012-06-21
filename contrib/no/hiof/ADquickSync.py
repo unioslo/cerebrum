@@ -39,7 +39,7 @@ class ADquickSync(ADutilMixIn.ADuserUtil):
         super(ADquickSync, self).__init__(*args, **kwargs)
         self.cl = CLHandler.CLHandler(db)
 
-    def quick_sync(self, spread, dry_run, cl_key, commit_changes=False):
+    def quick_sync(self, spreads, dry_run, cl_key, commit_changes=False):
         # We reverse the set of events, so that if the same account
         # has multiple password changes, only the last will be updated.
         # If we didn't reverse, and if the first password update fails,
@@ -56,7 +56,7 @@ class ADquickSync(ADutilMixIn.ADuserUtil):
                     pw = pickle.loads(ans['change_params'])['password']
                     try: 
                         confirm = self.change_pw(ans['subject_entity'],
-                                                 spread, pw, dry_run)
+                                                 spreads, pw, dry_run)
                     except xmlrpclib.ProtocolError, xpe:
                         self.logger.warn("Caught ProtocolError: %s %s" %
                                          (xpe.errcode, xpe.errmsg))
@@ -78,10 +78,10 @@ class ADquickSync(ADutilMixIn.ADuserUtil):
             self.cl.commit_confirmations()
             self.logger.info("Commited all changes, updated c_l_handler.")
             
-    def change_pw(self, account_id, spread, pw, dry_run):
+    def change_pw(self, account_id, spreads, pw, dry_run):
         self.ac.clear()
         self.ac.find(account_id)
-        if self.ac.has_spread(spread):
+        if any(self.ac.has_spread(s) for s in spreads):
             dn = self.server.findObject(self.ac.account_name)
             self.logger.debug("DN: %s", dn)
             ret = self.run_cmd('bindObject', dry_run, dn)
@@ -100,7 +100,7 @@ class ADquickSync(ADutilMixIn.ADuserUtil):
         else:
             #Account without ADspread, do nothing and return.
             self.logger.debug('Account %s does not have spread %s, not updating', 
-                              self.ac.account_name, spread)
+                              self.ac.account_name, spreads)
             return True
 
 
@@ -110,7 +110,8 @@ def usage():
     --url URL               The URL to the AD server, e.g.
                             https://ad.example.com:8000
 
-    --user-spread SPREAD    Only users with the given spread are updated.
+    --user-spread SPREAD    Only users with the given spreads are updated. Can
+                            be a comma separated list of spreads.
 
     --cl-key KEY            What key from the change logger the sync should
                             find unsynced accounts from. Default: ad
@@ -134,7 +135,7 @@ def usage():
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                                   'sua:dhc',
+                                   's:ua:dhc',
                                    ['help',
                                     'user-spread=',
                                     'cl-key=',
@@ -149,13 +150,14 @@ def main():
     delete_objects = False
     dry_run = False	
     ad_ldap = cereconf.AD_LDAP
-    user_spread = url = None
+    user_spreads = []
+    url = None
     cl_key = 'ad'
     commit_changes = False
     
     for opt, val in opts:
         if opt in ('-s', '--user-spread'):
-            user_spread = getattr(co, val)
+            user_spreads = [getattr(co, v) for v in val.split(',')]
         elif opt in ('-a', '--ad-ldap'):
             ad_ldap = val
         elif opt in ('-k', '--cl-key'):
@@ -172,6 +174,9 @@ def main():
             print "Unknown argument: %s" % opt
             usage()
 
+    if not user_spreads:
+        raise Exception('No spreads given, no account will be synced')
+
     ADquickUser = ADquickSync(db,
                             co,
                             logger,
@@ -179,7 +184,7 @@ def main():
                             ad_ldap=ad_ldap)
 
     try:
-        ADquickUser.quick_sync(user_spread,
+        ADquickUser.quick_sync(user_spreads,
                                dry_run,
                                cl_key = cl_key,
                                commit_changes = commit_changes)
