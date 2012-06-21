@@ -58,14 +58,20 @@ class ADutil(object):
             if not dry_run:
                 raise e
             self.logger.critical(e)
-            self.logger.warn("No AD connection, so dryrunning cerebrum code only")
+            self.logger.error("No AD connection, so dryrunning cerebrum code only")
+            from Cerebrum.modules.ad import ADTesting
+            self.server = ADTesting.MockADServer(self.logger)
         self.ad_ldap = ad_ldap
 
 
     def run_cmd(self, command, dry_run, arg1=None, arg2=None, arg3=None):
         
         if dry_run:
-            self.logger.debug('Dryrun of server.%s(%s,%s,%s)' % (command, arg1, arg2, arg3))
+            nr_args = 0
+            for i in (arg1, arg1, arg2):
+                if i:
+                    nr_args += 1
+            self.logger.debug('Dryrun of server.%s(%d args)' % (command, nr_args))
             # Assume success on all changes.
             # Note that some commands are required to return a tuple of either
             # two or three, so this might not always work.
@@ -562,4 +568,5 @@ class ADuserUtil(ADutil):
                 changes['homeDrive'] = self.get_home_drive(cdta)
 
         return changelist
+
 
