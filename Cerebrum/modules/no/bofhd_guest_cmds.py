@@ -214,7 +214,7 @@ class BofhdExtension(BofhdCommandBase):
 
         # An extra change log is required in the responsible's log
         ac._db.log_change(responsible, ac.const.guest_create, ac.entity_id,
-                          change_params={'owner': responsible,
+                          change_params={'owner': str(responsible),
                                          'mobile': mobile,
                                          'name': '%s %s' % (fname, lname)},
                           change_by=operator.get_entity_id())
@@ -223,7 +223,7 @@ class BofhdExtension(BofhdCommandBase):
         if operator.get_entity_id() != responsible:
             ac._db.log_change(operator.get_entity_id(), ac.const.guest_create,
                               ac.entity_id, change_params={
-                                    'owner': responsible,
+                                    'owner': str(responsible),
                                     'mobile': mobile,
                                     'name': '%s %s' % (fname, lname)},
                               change_by=operator.get_entity_id())

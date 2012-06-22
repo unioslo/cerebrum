@@ -284,7 +284,7 @@ class CLConstants(Constants.Constants):
     # Guest functionality
     guest_create = _ChangeTypeCode(
         'guest', 'create', 'created guest %(dest)s',
-        ('mobile=%(string:mobile)s, name=%(string:name)s, owner_id=%(int:owner)s',))
+        ('mobile=%(string:mobile)s, name=%(string:name)s, owner_id=%(string:owner)s',))
 
 def main():
     from Cerebrum.Utils import Factory
