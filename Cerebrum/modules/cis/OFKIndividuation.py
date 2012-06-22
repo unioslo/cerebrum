@@ -41,8 +41,7 @@ class Individuation(Individuation.Individuation):
         'error_unknown':     {'en': u'An unknown error occured',
                               'no': u'En ukjent feil oppstod'},
         'person_notfound':   {'en': u'Could not find a person by given data, please try again. Please note that you will ' +
-                                    u'not be able to use this service if you are
-                                    reserved from being published on the\'s ' +
+                                    u'not be able to use this service if you are reserved from being published on the\'s ' +
                                     u'web pages.',
                               'no': (u'Kunne ikke finne personen ut fra oppgitte data, vennligst prøv igjen. Merk at du ' +
                                      u'ikke kan bruke denne tjenesten om du har reservert deg fra å bli publisert på ' +
