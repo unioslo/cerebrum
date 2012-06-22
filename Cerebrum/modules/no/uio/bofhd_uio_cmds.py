@@ -648,11 +648,14 @@ class BofhdExtension(BofhdCommandBase):
     # the dns-derived functions need to be too
     def _get_access_id_dns(self, target):
         dns_find = DNSUtils.Find(self.db, self.const.DnsZone('uio'))
+        # TODO: targets that are not found simply returns None - should we check
+        # for this and raise NotFoundException? It might create problems in other
+        # places if we change this the DNS module.
         return (dns_find.find_entity_id_of_dns_target(target),
                 self.const.auth_target_type_dns,
                 # TODO: shouldn't this be auth_grant_dns?
                 self.const.auth_dns_lita)
-    
+
     def _validate_access_dns(self, opset, attr):
         # TODO: check if the opset is relevant for a dns-target
         if attr is not None:
@@ -9843,7 +9846,12 @@ Password altered. Use misc list_password to print or view the new password.%s'''
         # Append information from change_params to the string.  See
         # _ChangeTypeCode.__doc__
         if row['change_params']:
-            params = pickle.loads(row['change_params'])
+            try:
+                params = pickle.loads(row['change_params'])
+            except TypeError:
+                self.logger.error("Bogus change_param in change_id=%s, row: %s",
+                                  row['change_id'], row)
+                raise
         else:
             params = {}
 
