@@ -146,7 +146,7 @@ def get_cerebrum_ou_path(ou_id):
         # "A/B/C/D/E/F" -> ["B", "C", "D", E"]
         return ou_struct[-4:]
     except Errors.NotFoundError:
-        logger.warn("Could not find OU with id %s", ou_id)
+        logger.info("Could not find OU with id %s", ou_id)
 
 
 def chk_quarantine(account_id):
