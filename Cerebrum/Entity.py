@@ -677,7 +677,7 @@ class EntityContactInfo(Entity):
                       'desc': description,
                       'alias': alias})
         self._db.log_change(self.entity_id, self.const.entity_cinfo_add, None,
-                            change_params={'type': type,
+                            change_params={'type': int(type),
                                            'value': value,
                                            'src': int(source)})
 
@@ -768,7 +768,7 @@ class EntityContactInfo(Entity):
         if str(pref) != 'ALL':
             sql += """ AND contact_pref=:pref"""
         self._db.log_change(self.entity_id, self.const.entity_cinfo_del, None,
-                            change_params={'type': type,
+                            change_params={'type': int(type),
                                            'src': int(source)})        
         return self.execute(sql, {'e_id': self.entity_id,
                                   'src': int(source),
