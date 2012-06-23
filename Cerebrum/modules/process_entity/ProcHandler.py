@@ -103,12 +103,14 @@ class ProcHandler(object):
             pwd = self._ac.make_passwd(unames[0])
             self._ac.write_db()
             self._ac.set_password(pwd)
+
+            # Set new-account-traits
+            self._ac_add_new_traits(self._ac)
             self._ac.write_db()
         else:
             self._ac.find(ac)
-            
+
         return self._ac
-                    
 
     def process_person(self, person):
         """Sync spreads between a person and it's accounts."""
@@ -201,6 +203,7 @@ class ProcHandler(object):
                     self._ac.expire_date = None
                     change = True
                     self.logger.info("Account '%s' is restored." % self._ac.account_name)
+                    self._ac_add_new_traits(self._ac)
 
             # TODO: Limit the removal of spreads to types known by proc_entity
 
@@ -477,7 +480,15 @@ class ProcHandler(object):
         except Errors.NotFoundError:
             self.logger.debug("ac_type_del: Group '%s' not found. Nothing to do" % grp_name)
 
-            
+    def _ac_add_new_traits(self, ac):
+        """Give an account new traits, as defined in
+        procconf.NEW_ACCOUNT_TRAITS. This method should be called when creating
+        and restoring accounts.
+        """
+        for trait in getattr(procconf, 'NEW_ACCOUNT_TRAITS', ()):
+            ac.populate_trait(code=trait, date=DateTime.now())
+        # write_db is handled outside of this method
+
     def _get_ou_acronym(self, ou):
         """Retrieve ou's acronym.
 

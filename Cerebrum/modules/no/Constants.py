@@ -101,6 +101,13 @@ class ConstantsCommon(Constants.Constants):
         'sms_welcome', Constants.Constants.entity_account,
         "If a user has retrieved a welcome message by SMS")
 
+    # Trait for showing that a user account is either newly created or restored.
+    # Used to e.g. send welcome message by SMS. This trait is for all accounts,
+    # the trait_student_new should be used for only targeting student accounts.
+    trait_account_new = _EntityTraitCode(
+        'new_account', Constants.Constants.entity_account,
+        "The account is newly created or restored")
+
     # Trait for showing that a student account is either newly created or
     # restored. Used to send welcome message by SMS.
     trait_student_new = _EntityTraitCode(
