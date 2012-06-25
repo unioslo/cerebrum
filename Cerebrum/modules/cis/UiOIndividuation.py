@@ -33,13 +33,8 @@ class Individuation(Individuation.Individuation):
              'no': u'Noe av den oppgitte informasjonen er feil, vennligst'
                    u' prøv igjen.'},
         'person_notfound_usernames':   
-            {'en': u'You are either reserved or have given wrong information.'
-                   u' If you are reserved, an SMS have been sent to you, as'
-                   u' long as your cell phone number is registered in our'
-                   u' systems.',
-             'no': u'Du er reservert eller har gitt feil info. Hvis du er'
-                   u' reservert skal du nå ha mottatt en SMS, såfremt ditt'
-                   u' mobilnummer er registrert i våre systemer.'},
+            {'en': u'You are either reserved or have the given wrong information.',
+             'no': u'Du er reservert eller har oppgitt feil informasjon.'},
         'person_miss_info':
             {'en': u'Not all your information is available. Please contact your'
                    u' local student office.',
