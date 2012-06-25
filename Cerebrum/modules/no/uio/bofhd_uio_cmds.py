@@ -5294,6 +5294,8 @@ Addresses and settings:
     def group_delete(self, operator, groupname, force=None):
         grp = self._get_group(groupname)
         self.ba.can_delete_group(operator.get_entity_id(), grp)
+        if grp.group_name == cereconf.BOFHD_SUPERUSER_GROUP:
+            raise CerebrumError("Can't delete superuser group")
         if self._is_yes(force):
             try:
                 pg = self._get_group(groupname, grtype="PosixGroup")
