@@ -318,18 +318,18 @@ def process_person_callback(person_info):
                                  affiliations, _get_sko(p, 'faknr',
                                  'instituttnr', 'gruppenr', 'institusjonsnr'))
         elif dta_type in ('aktiv', ):
- 	  for row in x:
-	      # aktiv_sted is necessary in order to avoid different affiliation statuses
-	      # to a same 'stedkode' to be overwritten 
-              # e.i. if a person has both affiliations status 'evu' and
-	      # aktive to a single stedkode we want to register the status 'aktive'
-	      # in cerebrum
-              if studieprog2sko[row['studieprogramkode']] is not None:
-                  aktiv_sted.append(int(studieprog2sko[row['studieprogramkode']]))
-		  _process_affiliation(co.affiliation_student,
-				       co.affiliation_status_student_aktiv, affiliations,
-				       studieprog2sko[row['studieprogramkode']])
-	elif dta_type in ('evu',):
+            for row in x:
+                # aktiv_sted is necessary in order to avoid different affiliation statuses
+                # to a same 'stedkode' to be overwritten 
+                # e.i. if a person has both affiliations status 'evu' and
+                # aktive to a single stedkode we want to register the status 'aktive'
+                # in cerebrum
+                if studieprog2sko[row['studieprogramkode']] is not None:
+                    aktiv_sted.append(int(studieprog2sko[row['studieprogramkode']]))
+                _process_affiliation(co.affiliation_student,
+                                     co.affiliation_status_student_aktiv, affiliations,
+                                     studieprog2sko[row['studieprogramkode']])
+        elif dta_type in ('evu',):
             subtype = co.affiliation_status_student_evu
             if studieprog2sko[row['studieprogramkode']] in aktiv_sted:
                 subtype = co.affiliation_status_student_aktiv
