@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
-
-# Copyright 2002-2009 University of Oslo, Norway
+# 
+# Copyright 2002-2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,6 +19,10 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+"""Script for gathering data from FS and put it into XML files for further
+processing by other scripts. This job is for UiO's FS.
+
+"""
 
 import re
 import os
@@ -37,22 +41,86 @@ from Cerebrum.Utils import AtomicFileWriter, SimilarSizeWriter
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
 
-default_person_file = "/cerebrum/uio/dumps/FS/persons.xml"
-default_emne_file = "/cerebrum/uio/dumps/FS/emner.xml"
-default_role_file = "/cerebrum/uio/dumps/FS/roles.xml"
-default_topics_file = "/cerebrum/uio/dumps/FS/topics.xml"
-default_studieprogram_file = "/cerebrum/uio/dumps/FS/studieprogrammer.xml"
-default_regkort_file = "/cerebrum/uio/dumps/FS/regkort.xml"
-default_ou_file = "/cerebrum/uio/dumps/FS/ou.xml"
-default_fnrupdate_file = "/cerebrum/uio/dumps/FS/fnr_udpate.xml"
-default_betalt_papir_file = "/cerebrum/uio/dumps/FS/betalt_papir.xml"
-default_netpubl_file = "/cerebrum/uio/dumps/FS/nettpublisering.xml"
-
 xml = XMLHelper()
 fs = None
 
 logger = Factory.get_logger("cronjob")
 
+def usage(exitcode=0):
+    print """Usage: %(filename)s [options]
+
+    %(doc)s
+
+    Settings:
+
+    --datadir           Override the directory where all files should be put.
+                        Default: see cereconf.FS_DATADIR
+
+                        Note that the datadir can be overriden by the file path
+                        options, if these are absolute paths.
+
+    --person-file       Override person xml filename. Default: persons.xml.
+
+    --topics-file       Override topics xml filename. Default: topics.xml.
+
+    --studprog-file     Override studprog xml filename. Default:
+                        studieprogrammer.xml
+
+    --emne-file         Override emne xml filename. Default: emner.xml.
+
+    --regkort-file      Override regkort xml filename. Default: regkort.xml.
+
+    --fnr-update-file   Override fnr-update xml filename. Default:
+                        fnr_update.xml.
+
+    --betalt-papir-file Override betalt-papir xml filename. Default:
+                        betalt_papir.xml.
+
+    --ou-file           Override ou xml filename. Default: ou.xml.
+
+    --role-file         Override person role xml filename. Default: roles.xml.
+
+    --netpubl-file      Override netpublication filename. Default:
+                        nettpublisering.xml.
+
+    --misc-func func:   Name of extra function in access_FS to call. Will be
+                        called at the next given --misc-file.
+
+    --misc-tag tag:     Tag to use in the next given --misc-file argument.
+
+    --misc-file name:   Name of output file for previous set misc-func and
+                        misc-tag arguments. Note that a relative filename could
+                        be used for putting it into the set datadir.
+
+    Action:
+
+    -p              Generate person xml file
+
+    -t              Generate topics xml file
+
+    -e              Generate emne xml file
+
+    -b              Generate betalt-papir xml file
+
+    -f              Generate fnr xml update file
+
+    -s              Generate studprog xml file
+
+    -r              Generate regkort xml file
+
+    -k              Generate person role xml file
+
+    -o              Generate ou xml file
+
+    -n              Generate netpublication reservation xml file
+
+    Other:
+
+    -h, --help      Show this and quit.
+
+    """ % {'filename': os.path.basename(sys.argv[0]),
+           'doc': __doc__}
+    sys.exit(exitcode)
 
 def _ext_cols(db_rows):
     # TBD: One might consider letting xmlify_dbrow handle this
@@ -408,42 +476,21 @@ def fix_float(row):
         if isinstance(row[n], float):
             row[n] = int(row[n])
 
-def usage(exitcode=0):
-    print """Usage: [options]
-    --person-file name: override person xml filename
-    --topics-file name: override topics xml filename
-    --studprog-file name: override studprog xml filename
-    --emne-file name: override emne xml filename
-    --regkort-file name: override regkort xml filename
-    --fnr-update-file name: override fnr-update xml filename
-    --betalt-papir-file name: override betalt-papir xml filename
-    --misc-func func: name of function in access_FS to call
-    --misc-file name: name of output file for misc-func
-    --misc-tag tag: tag to use in misc-file
-    --ou-file name: override ou xml filename
-    --role-file name: override person role xml filename
-    --netpubl-file: override netpublication filename
-    -p: generate person xml file
-    -t: generate topics xml file
-    -e: generate emne xml file
-    -b: generate betalt-papir xml file
-    -f: generate fnr xml update file
-    -s: generate studprog xml file
-    -r: generate regkort xml file
-    -k: generate person role xml file
-    -o: generate ou xml file
-    -n: generate netpublication reservation xml file
+def set_filepath(datadir, file):
+    """Return the string of path to a file. If the given file path is relative,
+    the datadir is used as a prefix, otherwise only the file path is returned.
+
     """
-    sys.exit(exitcode)
-# end usage
-
-
+    if os.path.isabs(file):
+        return file
+    return os.path.join(datadir, file)
 
 def main():
     logger.info("Starting import from FS")
     try:
         opts, args = getopt.getopt(sys.argv[1:], "ptsroefbknd",
-                                   ["person-file=", "topics-file=",
+                                   ["datadir=",
+                                    "person-file=", "topics-file=",
                                     "studprog-file=", "regkort-file=",
                                     'emne-file=', "ou-file=", 
                                     'fnr-update-file=', 'betalt-papir-file=',
@@ -454,19 +501,23 @@ def main():
         usage()
         sys.exit(2)
 
-    person_file = default_person_file
-    topics_file = default_topics_file
-    studprog_file = default_studieprogram_file
-    regkort_file = default_regkort_file
-    emne_file = default_emne_file
-    ou_file = default_ou_file
-    role_file = default_role_file
-    fnrupdate_file = default_fnrupdate_file
-    betalt_papir_file = default_betalt_papir_file
-    netpubl_file = default_netpubl_file
-    edu_file = None
+    datadir = cereconf.FS_DATADIR
+    person_file = 'persons.xml'
+    topics_file = 'topics.xml'
+    studprog_file = 'studieprogrammer.xml'
+    regkort_file = 'regkort.xml'
+    emne_file = 'emner.xml'
+    ou_file = 'ou.xml'
+    role_file = 'roles.xml'
+    fnrupdate_file = 'fnr_update.xml'
+    betalt_papir_file = 'betalt_papir.xml'
+    netpubl_file = 'nettpublisering.xml'
+    edu_file = 'edu_info.xml'
+
     for o, val in opts:
-        if o in ('--person-file',):
+        if o in ('--datadir',):
+            datadir = val
+        elif o in ('--person-file',):
             person_file = val
         elif o in ('--topics-file',):
             topics_file = val
@@ -495,34 +546,35 @@ def main():
     for o, val in opts:
         try:
             if o in ('-p',):
-                write_person_info(person_file)
+                write_person_info(set_filepath(datadir, person_file))
             elif o in ('-t',):
-                write_topic_info(topics_file)
+                write_topic_info(set_filepath(datadir, topics_file))
             elif o in ('-b',):
-                write_betalt_papir_info(betalt_papir_file)
+                write_betalt_papir_info(set_filepath(datadir,
+                                                     betalt_papir_file))
             elif o in ('-s',):
-                write_studprog_info(studprog_file)
+                write_studprog_info(set_filepath(datadir, studprog_file))
             elif o in ('-f',):
-                write_fnrupdate_info(fnrupdate_file)
+                write_fnrupdate_info(set_filepath(datadir, fnrupdate_file))
             elif o in ('-e',):
-                write_emne_info(emne_file)
+                write_emne_info(set_filepath(datadir, emne_file))
             elif o in ('-r',):
-                write_regkort_info(regkort_file)
+                write_regkort_info(set_filepath(datadir, regkort_file))
             elif o in ('-o',):
-                write_ou_info(ou_file)
+                write_ou_info(set_filepath(datadir, ou_file))
             elif o in ('-k',):
-                write_personrole_info(role_file)
+                write_personrole_info(set_filepath(datadir, role_file))
             elif o in ('-n',):
-                write_netpubl_info(netpubl_file)
+                write_netpubl_info(set_filepath(datadir, netpubl_file))
             elif o in ('-d',):
-                write_edu_info(edu_file)
+                write_edu_info(set_filepath(datadir, edu_file))
             # We want misc-* to be able to produce multiple file in one script-run
             elif o in ('--misc-func',):
                 misc_func = val
             elif o in ('--misc-tag',):
                 misc_tag = val
             elif o in ('--misc-file',):
-                write_misc_info(val, misc_tag, misc_func)
+                write_misc_info(set_filepath(datadir, val), misc_tag, misc_func)
         except FileChangeTooBigError, msg:
             logger.error("Manual intervention required: %s" % msg)
 

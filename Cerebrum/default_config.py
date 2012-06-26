@@ -369,6 +369,9 @@ AUTOADMIN_PRINT_LETTER_DIRECTORY='no_NO/letter'
 # Default message for 
 AUTOADMIN_WELCOME_SMS = 'Welcome\nYour username is: %(username)s'
 
+# The default directory for where the data from FS is put.
+FS_DATADIR = None
+
 # make autostud use studentnr as uname
 USE_STUDENTNR_AS_UNAME=False
 # Socket used to query the job-runner server, should not be writeable by untrusted users
