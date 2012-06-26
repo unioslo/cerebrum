@@ -112,7 +112,9 @@ class BofhdAuth(auth.BofhdAuth):
         if (hasattr(cereconf, 'BOFHD_VOIP_ADMINS') and 
             self.is_group_member(operator, cereconf.BOFHD_VOIP_ADMINS)):
                 return True
-        raise PermissionDenied("Not allowed to see contact info")
+        return super(BofhdAuth, self).can_get_contact_info(operator, person,
+                                                           contact_type,
+                                                           query_run_any)
 
     def can_email_address_delete(self, operator_id, account=None, domain=None,
                                  query_run_any=False):

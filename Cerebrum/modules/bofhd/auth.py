@@ -629,6 +629,13 @@ class BofhdAuth(DatabaseAccessor):
             return True
         if query_run_any:
             return True
+        # check for permission through opset
+        if self._has_target_permissions(operator,
+                                        self.const.auth_view_contactinfo,
+                                        self.const.auth_target_type_host,
+                                        person.entity_id, person.entity_id):
+            return True
+        # The person itself should be able to see it:
         account = Factory.get('Account')(self._db)
         account.find(operator)
         if person.entity_id == account.owner_id:
@@ -1756,8 +1763,12 @@ class BofhdAuth(DatabaseAccessor):
 
     def _has_global_access(self, operator, operation, global_type, victim_id,
                            operation_attr=None):
-        """global_host and global_group should not be allowed to
-        operate on BOFHD_SUPERUSER_GROUP"""
+        """Check if operator has permission to the given operation globally for
+        the given global_type.
+        
+        Note that global_host and global_group should not be allowed to operate
+        on BOFHD_SUPERUSER_GROUP.
+        """
         if global_type == self.const.auth_target_type_global_group:
             if victim_id == self._superuser_group:
                 return False

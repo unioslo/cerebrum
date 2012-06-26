@@ -77,6 +77,8 @@ class Constants(Constants.Constants):
         'disk_quota_show', 'View disk quota information')
     auth_view_studentinfo = _AuthRoleOpCode(
         'view_studinfo', 'View student information')
+    auth_view_contactinfo = _AuthRoleOpCode(
+        'view_contactinfo', 'View contact information')
     auth_alter_printerquota = _AuthRoleOpCode(
         'alter_printerquo', 'Alter printer quota')
     auth_modify_spread = _AuthRoleOpCode(
