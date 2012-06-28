@@ -545,6 +545,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         """
         if not self.entity_id:
             raise RuntimeError('No account set')
+        e_id = self.entity_id
 
         # Deactivating the account first. This is not an optimal solution, but
         # it solves race conditions like for update_email_addresses, which
@@ -552,15 +553,18 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         # deactivated. Makes termination a bit slower.
         self.deactivate()
 
-        # Remove change_log entries
-        for row in self._db.get_log_events(any_entity=self.entity_id):
-            # TODO: any_entity or just subject_entity?
-            self._db.remove_log_event(int(row['change_id']))
-
         # Add this if we put it in Entity as well:
         #self.__super.terminate()
         self.delete()
         self.clear()
+
+        # Have to commit the change_log entries, to be able to remove them:
+        self._db.commit_log()
+
+        # Remove change_log entries
+        for row in self._db.get_log_events(any_entity=e_id):
+            # TODO: any_entity or just subject_entity?
+            self._db.remove_log_event(int(row['change_id']))
 
     def clear(self):
         super(Account, self).clear()
