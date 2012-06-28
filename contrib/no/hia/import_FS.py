@@ -214,7 +214,7 @@ def register_cellphone(person, person_info):
                 if phone_country in dct or phone_region in dct:
                     logger.debug("Skipping phone for %s: '%s', '%s', '%s'" %
                                  (fnr, dct[phone_country], dct[phone_region],
-                                  dct[phone_selector])
+                                  dct[phone_selector]))
                     break
                 numbers.add(dct[phone_selector].strip())
 
