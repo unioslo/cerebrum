@@ -43,6 +43,8 @@ from Cerebrum.modules import Email
 from Cerebrum.modules import PasswordHistory
 from Cerebrum.modules import PosixUser
 
+logger = Factory.get_logger("console")
+
 def usage(errorcode = 0, message = None):
     if message:
         print "%s\n" % message
@@ -70,14 +72,20 @@ def has_remains(db, entity_id):
     """Check the database for if the entity is still there. This is to double
     check that the termination process actually works.
     """
+    logger.debug("Checking for remains of entity %d" % entity_id)
     for row in db.query('''SELECT * from entity_info 
                            WHERE entity_id = :e_id''',
                         {'e_id': entity_id}):
+        logger.error("Entity still exists in entity_info")
+        return True
+    for row in db.query('''SELECT * from change_log
+                           WHERE subject_entity = :e_id''',
+                        {'e_id': entity_id}):
+        logger.error("Entity still exists in change_log")
         return True
     return False
 
 def main():
-    logger = Factory.get_logger("console")
     db = Factory.get("Database")()
     db.cl_init(change_program='terminate_accounts')
     account = Factory.get("Account")(db)
@@ -85,6 +93,7 @@ def main():
 
     dryrun = True
     accounts = []
+    terminated_entities = []
 
     try:
         opts, args = getopt.getopt(sys.argv[1:], 
@@ -131,9 +140,10 @@ def main():
         account.terminate()
         # Double check that it is actually deleted:
         if has_remains(db, ent_id):
-            raise Exception('Found remainings of %s, check code' % name)
+            raise Exception('Found remainings of %s in db, check code' % name)
+        terminated_entities.append(ent_id)
 
-    ret = raw_input('Is this correct? Really delete the given accounts? (y/n) ')
+    ret = raw_input('Is this correct? Really delete the given accounts? (y/N) ')
     ret = ret in ('y', 'yes')
     if dryrun or not ret:
         db.rollback()
@@ -141,6 +151,12 @@ def main():
     else:
         db.commit()
         logger.info("Changes committed")
+
+    # Double checking:
+    db = Factory.get('Database')()
+    for e_id in terminated_entities:
+        if has_remains(db, e_id):
+            logger.error("Found remainings for entity %d in db" % e_id)
     logger.info("Terminator done")
 
 if __name__ == '__main__':
