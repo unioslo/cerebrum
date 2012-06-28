@@ -136,7 +136,8 @@ def process(trait, message, phone_types, affiliations, too_old, commit=False):
             logger.debug('Person %s had no phone number, skipping for now',
                          ac.account_name)
             continue
-        msg = message % {'username': ac.account_name}
+        msg = message % {'username': ac.account_name,
+                         'email': ac.get_primary_mailaddress()}
         if not send_sms(phone, msg, commit):
             logger.warn('Could not send SMS to %s (%s)', ac.account_name, phone)
             continue
