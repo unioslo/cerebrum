@@ -72,16 +72,15 @@ def has_remains(db, entity_id):
     """Check the database for if the entity is still there. This is to double
     check that the termination process actually works.
     """
-    logger.debug("Checking for remains of entity %d" % entity_id)
     for row in db.query('''SELECT * from entity_info 
                            WHERE entity_id = :e_id''',
                         {'e_id': entity_id}):
-        logger.error("Entity still exists in entity_info")
+        logger.error("Entity %d still exists in entity_info" % entity_info)
         return True
     for row in db.query('''SELECT * from change_log
                            WHERE subject_entity = :e_id''',
                         {'e_id': entity_id}):
-        logger.error("Entity still exists in change_log")
+        logger.error("Entity %d still exists in change_log" % entity_info)
         return True
     return False
 
@@ -152,8 +151,7 @@ def main():
         db.commit()
         logger.info("Changes committed")
 
-    # Double checking:
-    db = Factory.get('Database')()
+    # Double checking after commit/rollback
     for e_id in terminated_entities:
         if has_remains(db, e_id):
             logger.error("Found remainings for entity %d in db" % e_id)
