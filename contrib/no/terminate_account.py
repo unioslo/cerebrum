@@ -75,12 +75,12 @@ def has_remains(db, entity_id):
     for row in db.query('''SELECT * from entity_info 
                            WHERE entity_id = :e_id''',
                         {'e_id': entity_id}):
-        logger.error("Entity %d still exists in entity_info" % entity_info)
+        logger.error("Entity %d still exists in entity_info" % entity_id)
         return True
     for row in db.query('''SELECT * from change_log
                            WHERE subject_entity = :e_id''',
                         {'e_id': entity_id}):
-        logger.error("Entity %d still exists in change_log" % entity_info)
+        logger.error("Entity %d still exists in change_log" % entity_id)
         return True
     return False
 
@@ -151,10 +151,11 @@ def main():
         db.commit()
         logger.info("Changes committed")
 
-    # Double checking after commit/rollback
-    for e_id in terminated_entities:
-        if has_remains(db, e_id):
-            logger.error("Found remainings for entity %d in db" % e_id)
+        # Double checking after commit:
+        for e_id in terminated_entities:
+            if has_remains(db, e_id):
+                logger.error("Found remainings for entity %d in db" % e_id)
+
     logger.info("Terminator done")
 
 if __name__ == '__main__':
