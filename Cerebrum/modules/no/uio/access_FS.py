@@ -67,7 +67,7 @@ class UiOStudent(access_FS.Student):
            p.personnr=sps.personnr AND
            %s
            sps.studieprogramkode=sp.studieprogramkode AND
-           NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
+           NVL(sps.dato_studierett_gyldig_til, SYSDATE) >= (SYSDATE - 180) AND
            sps.status_privatist = 'N' AND
            sps.dato_studierett_tildelt < SYSDATE + 14 AND           
            sps.dato_studierett_tildelt >= to_date('2003-01-01', 'yyyy-mm-dd') AND
@@ -103,7 +103,7 @@ class UiOStudent(access_FS.Student):
            p.fodselsdato=sps.fodselsdato AND
            p.personnr=sps.personnr AND
            %s
-           NVL(sps.dato_studierett_gyldig_til, sysdate) >= SYSDATE AND
+           NVL(sps.dato_studierett_gyldig_til, SYSDATE) >= (SYSDATE - 180) AND
            sps.status_privatist='N' AND
            sps.studieprogramkode=sp.studieprogramkode AND
            sp.studienivakode in (900,980) AND
@@ -141,7 +141,7 @@ class UiOStudent(access_FS.Student):
            p.personnr=r.personnr AND
            %s
            sps.studieprogramkode=sp.studieprogramkode AND
-           NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
+           NVL(sps.dato_studierett_gyldig_til, SYSDATE) >= (SYSDATE - 180) AND
            sps.status_privatist = 'N' AND
            r.arstall >= (%s - 1) AND
            %s""" % (extra, self.year, self._is_alive())
@@ -343,7 +343,6 @@ class UiOStudent(access_FS.Student):
         return self.db.query(qry, locals())
 
     def list_aktiv_emnestud(self, fodselsdato=None, personnr=None):
-
         """Hent informasjon om personer som anses som aktive studenter
            på grunnlag av eksisterende gyldig undervisningsmelding og
            gyldig semesterkort i inneværende semester. Merk at disse
@@ -633,7 +632,6 @@ class UiOBetaling(access_FS.FSObject):
                                    'year2': self.year})
 
 class UiOUndervisning(access_FS.Undervisning):
-
     def list_undervisningenheter(self, year=None, sem=None): # GetUndervEnhetAll
         if year is None:
             year = self.year
@@ -790,7 +788,6 @@ class UiOUndervisning(access_FS.Undervisning):
 
         return result
     # end list_studenter_underv_enhet
-
 
 class UiOEVU(access_FS.EVU):
     def list(self):  # GetDeltaker_50
