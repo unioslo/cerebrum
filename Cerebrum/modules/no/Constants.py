@@ -64,6 +64,12 @@ class ConstantsCommon(Constants.Constants):
                        Constants.Constants.entity_ou,
                        'OUs publishable in online directories')
 
+    quarantine_autopassord = _QuarantineCode('autopassord',
+                                             'Passord ikke skiftet trass pålegg')
+
+    quarantine_svakt_passord = _QuarantineCode('svakt_passord',
+                                               'For dårlig passord')
+
     trait_auto_group = _EntityTraitCode(
         'auto_group',
         Constants.Constants.entity_group,
@@ -223,7 +229,6 @@ class ConstantsUniversityColleges(Constants.Constants):
     affiliation_tilknyttet_fagperson = _PersonAffStatusCode(affiliation_tilknyttet,
                                                             'fperson',
                                                             'Dummy, do not use')
-    
     ## quarantine definitions
     quarantine_generell = _QuarantineCode('generell',
                                           'Generell sperring')
@@ -232,13 +237,9 @@ class ConstantsUniversityColleges(Constants.Constants):
     quarantine_auto_emailonly = _QuarantineCode('kunepost',
                                                 'Ikke ordinær student, tilgang til bare e-post')
     
-    quarantine_svakt_passord = _QuarantineCode('svakt_passord',
-                                               'For dårlig passord')
     quarantine_system = _QuarantineCode('system',
                                         'Systembruker som ikke skal logge inn')
     ## Cerebrum (internal), used by automagic only
-    quarantine_autopassord = _QuarantineCode('autopassord',
-                                             'Passord ikke skiftet trass pålegg')
     quarantine_auto_inaktiv = _QuarantineCode('auto_inaktiv',
                                               'Ikke aktiv student, utestengt')
     quarantine_autoemailonly = _QuarantineCode('auto_kunepost',
