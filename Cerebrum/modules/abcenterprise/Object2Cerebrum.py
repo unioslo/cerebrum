@@ -147,9 +147,18 @@ class Object2Cerebrum(object):
     def _add_entity_contact_info(self, entity, contact_info):
         """Add contact info for an entity."""
         for cont in contact_info.keys():
+            if cont in getattr(abcconf, 'WITH_PHONE_FILTER', ()):
+                contact_info[cont] = self._filter_phone_number(
+                                                            contact_info[cont])
             entity.populate_contact_info(self.source_system, type=cont,
                                          value=contact_info[cont])
                          
+    def _filter_phone_number(self, number):
+        """Filter a phone number to follow a more correct format, if wrong."""
+        if len(number) > 8 and not number.startswith('+'):
+            number = "+%s" % number
+        return number
+
         
     def store_ou(self, ou):
         """Pass a DataOU to this function and it gets stored
