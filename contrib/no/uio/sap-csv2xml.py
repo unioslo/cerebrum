@@ -660,6 +660,7 @@ def fields_to_comm(fields):
          u"Privat e-postadresse",
          u"Privat telefon",
          u"Privat telefon, midlertidig arbeidssted",
+         u"Privat mobil synlig på web",
          u"Sentralbord",
          u"Sted for lønnslipp",
          u"Svarsted",
