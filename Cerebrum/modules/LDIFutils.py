@@ -183,16 +183,24 @@ def container_entry_string(tree_name, attrs = {}, module=cereconf):
 
 class LDIFWriter(object):
     """Wrapper around ldif_outfile with a minimal but sane API."""
+
     def __init__(self, tree, filename, module=cereconf):
         if filename and os.path.sep not in filename:
             filename = os.path.join(module.LDAP['dump_dir'], filename)
         self.f = ldif_outfile(tree, filename=filename, module=module)
         self.write, self.tree, self.module = self.f.write, tree, module
 
+    def getconf(self, attr, default=_dummy, utf8=True):
+        """ldapconf() wrapper for this LDIF file's LDAP tree"""
+        return ldapconf(self.tree, attr, default, utf8, self.module)
+
     #def write(): This is (currently) implemented via an attribute.
 
     def write_container(self, tree=None):
         self.write(container_entry_string(tree or self.tree,module=self.module))
+
+    def write_entry(self, dn, attrs, add_rdn=True):
+        self.write(entry_string(dn, attrs, add_rdn))
 
     def close(self):
         end_ldif_outfile(self.tree, self.f, module=self.module)
