@@ -34,6 +34,7 @@ import cerebrum_path
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.LDIFutils import LDIFWriter
+from Cerebrum.QuarantineHandler import QuarantineHandler
 
 def main():
     logger = Factory.get_logger("cronjob")
@@ -52,11 +53,13 @@ def main():
         except Errors.NotFoundError:
             logger.error("User '%s' not found" % username)
             sys.exit(1)
-        try:
-            passwd = account.get_account_authentication(auth_method)
-        except Errors.NotFoundError:
-            passwd = None
-            logger.warn("Password not found for user %s", username)
+        passwd = None
+        qh = QuarantineHandler.check_entity_quarantines(db, account.entity_id)
+        if not (qh.should_skip() or qh.is_locked()):
+            try:
+                passwd = account.get_account_authentication(auth_method)
+            except Errors.NotFoundError:
+                logger.warn("Password not found for user %s", username)
         ldif.write_entry("cn=%s,%s" % (username, dn), {
             'description': "Note: The password is maintained in Cerebrum.",
             'objectClass': ('applicationProcess', 'simpleSecurityObject'),
