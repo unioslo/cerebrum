@@ -448,6 +448,8 @@ class Individuation:
         try:
             id_type_constant = getattr(self.co, id_type)
             if id_type_constant == self.co.externalid_studentnr:
+                # student number may be given as (zeros)12345
+                # strip the zeros
                 ext_id = str(int(ext_id))
             person.find_by_external_id(id_type_constant, ext_id)
         except AttributeError:
