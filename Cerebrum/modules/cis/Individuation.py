@@ -446,17 +446,9 @@ class Individuation:
         person = Factory.get('Person')(self.db)
         person.clear()
         try:
-            id_type_constant = getattr(self.co, id_type)
-            if id_type_constant == self.co.externalid_studentnr:
-                # student number may be given as (zeros)12345
-                # strip the zeros
-                ext_id = str(int(ext_id))
-            person.find_by_external_id(id_type_constant, ext_id)
-        except AttributeError:
+            person.find_by_external_id(getattr(self.co, id_type), ext_id)
+        except AttributeError, e:
             log.error("Wrong id_type: '%s'" % id_type)
-            raise Errors.CerebrumRPCException('person_notfound')
-        except ValueError:
-            log.error("Wrong ext_id: '%s', must be a number" % ext_id)
             raise Errors.CerebrumRPCException('person_notfound')
         except Errors.NotFoundError:
             log.debug("Couldn't find person with %s='%s'" % (id_type, ext_id))
