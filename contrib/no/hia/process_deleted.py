@@ -57,7 +57,6 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.extlib import logging
-from Cerebrum.modules.no.hia import EdirLDAP
 
 db = Factory.get('Database')()
 db.cl_init(change_program='process_bofhd_r')
@@ -200,21 +199,8 @@ def process_delete_requests():
                 logger.debug("Set home to archived %s (%s)", home['homedir_id'], row['spread'])
                 account.clear_home(row['spread'])
                 account.delete_spread(row['spread'])
-            ## Account is valid in eDir, remove account@edir spread, delete user-object in eDir
+            ## Account was valid in eDir, remove account@edir spread, archive homedir
             elif row['spread'] == const.spread_hia_novell_user:
-                passwd = db._read_password(cereconf.NW_LDAPHOST,
-                                           cereconf.NW_ADMINUSER.split(',')[:1][0])
-                ldap_handle = EdirLDAP.LDAPConnection(db, cereconf.NW_LDAPHOST,
-                                                      cereconf.NW_LDAPPORT,
-                                                      binddn=cereconf.NW_ADMINUSER,
-                                                      password=passwd, scope='sub')
-                search_str = '(&(cn=%s)(%s))' % (account.account_name, 'objectClass=inetOrgPerson')
-                ldap_objects = ldap_handle.ldap_get_objects(cereconf.NW_LDAP_ROOT, search_str)
-                if ldap_objects:
-                    (ldap_object_dn, ldap_attrs) = ldap_objects[0]
-                    ldap_handle.ldap_delete_object(ldap_object_dn)
-                    ldap_handle.close_connection()
-
                 try:
                     home = account.get_home(row['spread'])
                 except Errors.NotFoundError:
