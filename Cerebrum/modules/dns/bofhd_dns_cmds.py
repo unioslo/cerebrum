@@ -723,7 +723,11 @@ class BofhdExtension(BofhdCommandBase):
         owner_id = self._find.find_target_by_parsing(
             host_name, dns.DNS_OWNER)
         host = HostInfo.HostInfo(self.db)
-        host.find_by_dns_owner_id(owner_id)
+        try:
+            host.find_by_dns_owner_id(owner_id)
+        except Errors.NotFoundError:
+            raise CerebrumError('Cannot set host info on A-record %s.' % \
+                    host_name)
         host.hinfo = hinfo
         host.write_db()
         return "OK, hinfo set for %s" % host_name
