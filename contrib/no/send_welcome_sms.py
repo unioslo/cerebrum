@@ -42,6 +42,9 @@ def usage(exitcode=0):
     SMS to them with their username. The 'sms_welcome' trait is set on SMS'ed
     accounts to avoid sending them duplicate SMSs.
 
+    Note that we will not send out an SMS to the same account twice in a period
+    of 180 days. We don't want to spam the users.
+
     --trait TRAIT   The trait that defines new accounts. Default: trait_student_new
 
     --phone-types   The phone types and source systems to get phone numbers
@@ -65,11 +68,13 @@ def usage(exitcode=0):
     --message       The message to send to the users. Should not be given if
                     --message-cereconf is specified.
 
-    --too-old DAYS  How many days the given trait can be before the "new"
-                    account is not considered as new anymore. The SMS will not
-                    be sent for this account, and it will be logged as a
-                    warning. Default: 180 days.
-                    TODO: It could be considered to remove the trait as well.
+    --too-old DAYS  How many days the given trait can exist before we give up
+                    trying to send the welcome SMS. This is for the cases where
+                    the phone number e.g. is incorrect, or the person hasn't a
+                    phone number. After a while it will be too late to try
+                    sending the SMS. When the given number of days has passed,
+                    the trait will be deleted, and a warning will be logged.
+                    Default: 180 days.
 
     --commit        Actual send out the SMSs and update traits.
 
@@ -91,8 +96,9 @@ def process(trait, message, phone_types, affiliations, too_old, commit=False):
 
     for row in ac.list_traits(code=trait):
         if row['date'] < (now() - too_old):
-            logger.warn('Too old new_user trait for entity_id=%s',
-                        row['entity_id'])
+            logger.warn('Too old trait %s for entity_id=%s, giving up',
+                        trait, row['entity_id'])
+            remove_trait(ac, row['entity_id'], trait, commit)
             continue
         ac.clear()
         ac.find(row['entity_id'])
@@ -119,15 +125,10 @@ def process(trait, message, phone_types, affiliations, too_old, commit=False):
 
         # Check if user already has been texted. If so, the trait is removed.
         tr = ac.get_trait(co.trait_sms_welcome)
-        if tr and tr['date'] > (now() - too_old):
+        if tr and tr['date'] > (now() - 180):
             logger.debug('User %s already texted last %d days, removing trait',
-                         ac.account_name, too_old)
-            ac.delete_trait(code=trait)
-            ac.write_db()
-            if commit:
-                db.commit()
-            else:
-                db.rollback()
+                         ac.account_name, 180)
+            remove_trait(ac, row['entity_id'], trait, commit)
             continue
 
         # get phone number
@@ -159,6 +160,18 @@ def process(trait, message, phone_types, affiliations, too_old, commit=False):
     if not commit:
         logger.debug('Changes rolled back')
     logger.info('send_welcome_sms done')
+
+def remove_trait(ac, ac_id, trait, commit=False):
+    """Remove a given trait from an account."""
+    ac.clear()
+    ac.find(ac_id)
+    logger.debug("Deleting trait %s from account %s", trait, ac.account_name)
+    ac.delete_trait(code=trait)
+    ac.write_db()
+    if commit:
+        db.commit()
+    else:
+        db.rollback()
 
 def get_phone_number(pe, phone_types):
     """Search through a person's contact info and return the first found info
