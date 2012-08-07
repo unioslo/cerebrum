@@ -17,7 +17,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-""""""
 
 import random
 import string
@@ -186,59 +185,65 @@ class AccountOfkMixin (Account.Account):
         random.shuffle(pwd)
         return string.join(pwd,'')
 
-    def suggest_unames(self, domain, fname, lname, maxlen=8):
-        """Returns a tuple with 15 (unused) username suggestions based
-        on the person's first and last name.
-        
-        domain: value domain code
-        fname:  first name (and any middle names)
-        lname:  last name
-        maxlen: maximum length of a username
-        """
-        goal = 15       # We may return more than this
-        prim = ""
-        potuname = ()
-        
-        lastname = self.simplify_name(lname, alt=1)
-        if lastname == "":
-            raise ValueError,\
-                  "Must supply last name, got '%s', '%s'" % (fname, lname)
-    
-        firstname = self.simplify_name(fname, alt=1)
-        if firstname == "":
-            raise ValueError,\
-                  "Must supply first name, got '%s', '%s'" % (fname, lname)
-
-        fname = firstname
-        fname = fname.replace('-', '').replace(' ', '')        
-        lname = lastname
-        lname = lname.replace('-', '').replace(' ', '')
-        
-        if len(fname) >= 3:
-            if len(lname) >= 3:
-                prim = fname[0:3] + lname[0:3]
-            else:
-                prim = fname[0:3] + lname
-        elif len(fname) < 3:
-            if len(lname) < 3:
-                prim = fname + lname
-            else:
-                max_len_lname = 6 - len(fname)
-                prim = fname + lname[0:max_len_lname]
-
-        if self.validate_new_uname(domain, prim):            
-            potuname += (prim, )
-
-        i = 1
-        prefix = prim
-        
-        while len(potuname) < goal and i < 100:
-            un = prefix + str(i)
-            i += 1
-            if self.validate_new_uname(domain, un):
-                potuname += (un, )
-                
-        return potuname
+##
+## due to the user name space being partially used up, we will start
+## using the default algorithm for suggesting user names. Simon@ØFK
+## confirmed that this should be done in an e-mail 7th of august
+## 2012. The earlier version may be removed after 1st of november 2012
+##
+##    def suggest_unames(self, domain, fname, lname, maxlen=8):
+##        """Returns a tuple with 15 (unused) username suggestions based
+##        on the person's first and last name.
+##        
+##        domain: value domain code
+##        fname:  first name (and any middle names)
+##        lname:  last name
+##        maxlen: maximum length of a username
+##        """
+##        goal = 15       # We may return more than this
+##        prim = ""
+##        potuname = ()
+##        
+##        lastname = self.simplify_name(lname, alt=1)
+##        if lastname == "":
+##            raise ValueError,\
+##                  "Must supply last name, got '%s', '%s'" % (fname, lname)
+##    
+##        firstname = self.simplify_name(fname, alt=1)
+##        if firstname == "":
+##            raise ValueError,\
+##                  "Must supply first name, got '%s', '%s'" % (fname, lname)
+##
+##        fname = firstname
+##        fname = fname.replace('-', '').replace(' ', '')        
+##        lname = lastname
+##        lname = lname.replace('-', '').replace(' ', '')
+##        
+##        if len(fname) >= 3:
+##            if len(lname) >= 3:
+##                prim = fname[0:3] + lname[0:3]
+##            else:
+##                prim = fname[0:3] + lname
+##        elif len(fname) < 3:
+##            if len(lname) < 3:
+##                prim = fname + lname
+##            else:
+##                max_len_lname = 6 - len(fname)
+##                prim = fname + lname[0:max_len_lname]
+##
+##        if self.validate_new_uname(domain, prim):            
+##            potuname += (prim, )
+##
+##        i = 1
+##        prefix = prim
+##        
+##        while len(potuname) < goal and i < 100:
+##            un = prefix + str(i)
+##            i += 1
+##            if self.validate_new_uname(domain, un):
+##                potuname += (un, )
+##                
+##        return potuname
 
     def _get_old_homeMDB(self):
         """
