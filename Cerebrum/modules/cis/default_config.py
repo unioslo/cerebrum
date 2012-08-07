@@ -153,3 +153,18 @@ LOG_PREFIX = 'cis:'
 #
 #   ['Cerebrum.modules.no.uio.Individuation/Indiv',] # UiO's simple service
 CEREBRUM_CLASS = None
+
+
+###
+### Individuation specific settings
+###
+
+# The following settings are only related to the forgotten-password service.
+
+
+# The number of days a person or account should be considered "fresh". This is
+# used to avoid blocking recent changes phone numbers for fresh entities. Note
+# that this must be longer than the max delay value, to avoid that some fresh
+# students could still be blocked.
+FRESH_DAYS = 10
+

@@ -153,6 +153,13 @@ class Individuation:
         self.db.cl_init(change_program='individuation_service')
         self.co = Factory.get('Constants')(self.db)
 
+        # Do some tests, just to make sure that the service is set up properly.
+        # This is so that the service crashes at once, and not after the first
+        # client has connected and called a few commands.
+        int(self.co.trait_public_reservation)
+        int(self.co.trait_reservation_sms_password)
+        # TODO: more should be tested
+
     def close(self):
         """Explicitly close this instance of the class. This is to make sure
         that all is closed down correctly, even if the garbace collector can't
@@ -530,36 +537,59 @@ class Individuation:
         """Check if given phone_no belongs to person. The phone number is only
         searched for in source systems that the person has active affiliations
         from and contact types as defined in INDIVIDUATION_PHONE_TYPES. Other
-        numbers are ignored.
+        numbers are ignored. Set delays are also checked, to avoid that changed
+        phone numbers are used for some period.
 
         """
-
+        is_fresh = self.entity_is_fresh(person, account)
         for num in numbers:
             if not self.number_match(stored=num['number'], given=phone_no):
                 continue
+            if is_fresh:
+                # delay is ignored for fresh entities
+                return True
             delay = self.get_delay(num['system_name'], num['type'])
-            block = False
-            # TODO: move the following loop to its own method
-            for row in self.db.get_log_events(types=(self.co.entity_cinfo_add, self.co.person_create),
-                                         any_entity=person.entity_id,
-                                         sdate=delay):
-                if row['change_type_id'] == self.co.person_create:
-                    block = False
-                    log.debug("Person %s is fresh" % person.entity_id)
-                    break
-                else:
-                    data = pickle.loads(row['change_params'])
-                    if num['number'] == data['value']:
-                        log.info('person_id=%s recently changed phoneno' % person.entity_id)
-                        block = True
-            if block:
-                self.mail_warning(person=person, account=account,
-                        reason=("Your phone number has recently been"
-                            + " changed. Due to security reasons, it"
-                            + " can not be used by the password service"
-                            + " for a few days."))
-                raise Errors.CerebrumRPCException('fresh_phonenumber')
+
+            for row in self.db.get_log_events(types=self.co.entity_cinfo_add,
+                                              any_entity=person.entity_id,
+                                              sdate=delay):
+                data = pickle.loads(row['change_params'])
+                if num['number'] == data['value']:
+                    log.info('person_id=%s recently changed phoneno' % person.entity_id)
+                    self.mail_warning(person=person, account=account,
+                            reason=("Your phone number has recently been"
+                                + " changed. Due to security reasons, it"
+                                + " can not be used by the password service"
+                                + " for a few days."))
+                    raise Errors.CerebrumRPCException('fresh_phonenumber')
             return True
+        return False
+
+    def entity_is_fresh(self, person, account):
+        """Check if a person or account is 'fresh', i.e. if the account or
+        person is newly created, or if the account has been restored lately.
+
+        This is to be able to avoid blocking new phone numbers from systems
+        where the account is just activated.
+
+        """
+        delay = now() - getattr(cisconf, 'FRESH_DAYS', 10)
+
+        # Check for traits only set for 'fresh' accounts:
+        for tr in (self.co.trait_student_new, self.co.trait_sms_welcome):
+            trait = account.get_trait(tr)
+            if trait and trait['date'] > delay:
+                log.debug('Fresh trait %s for account %s, so considered fresh' %
+                          (tr, account.account_name))
+                return True
+        # Check if person has recently been created:
+        for row in self.db.get_log_events(types=(self.co.person_create),
+                                          any_entity=person.entity_id,
+                                          sdate=delay):
+            log.debug("Person %s is fresh" % person.entity_id)
+            return True
+        log.debug("Person %s (account %s) is not fresh" % (person.entity_id,
+                                                           account.entity_id))
         return False
 
     def number_match(self, stored, given):
