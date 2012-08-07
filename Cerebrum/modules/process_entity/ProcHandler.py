@@ -95,8 +95,12 @@ class ProcHandler(object):
             except Errors.NotFoundError:
                 self.logger.warning("Person '%d' missing first- or lastname. User not built.", owner.entity_id)
                 return None
+            self.logger.debug("Trying to find a uname for %s %s", firstname, lastname)
             unames = self._ac.suggest_unames(self._co.account_namespace,
                                              firstname, lastname)
+            self.logger.debug("Name: %s %s, owner ent_type: %s, owner ent_id:%s", firstname, lastname)
+            if not unames:
+                self.logger.debug("No uname for %s %s", firstname, lastname)
             self._ac.populate(unames[0], owner.entity_type, owner.entity_id,
                               None, self.default_creator_id, None)
             # Give the account a password
