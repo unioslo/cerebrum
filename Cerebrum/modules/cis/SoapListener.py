@@ -34,6 +34,7 @@ TODO: describe how to fire up a standard CIS service.
 import socket
 import traceback
 import time
+import logging
 
 from os import path
 from lxml import etree
@@ -48,7 +49,6 @@ from rpclib.interface.wsdl import Wsdl11
 from rpclib.model.fault import Fault
 from rpclib.model.complex import ComplexModel
 from rpclib.model.primitive import Mandatory, String
-#from rpclib.error import ArgumentError
 
 from twisted.web.server import Site, Session
 from twisted.web.resource import Resource
@@ -69,12 +69,6 @@ from Cerebrum import Errors
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.cis.faults import *
 
-
-# TODO: Set up the logger correctly e.g. rpclib/application.py has::
-#
-#   logger = logging.getLogger(__name__)
-#
-# how to tweak that to log what we want?
 
 
 class BasicSoapServer(rpclib.service.ServiceBase):
@@ -279,6 +273,11 @@ class TwistedSoapStarter(BasicSoapStarter):
         if type(applications) not in (list, tuple, dict):
             applications = [applications]
 
+        # Set the encoding for SOAP data, converting it from unicode to some str
+        # encoding. We could instead use the Unicode classes, but Cerebrum
+        # doesn't support unicode natively quite yet.
+        String.Attributes.encoding = 'latin1'
+
         self.service = rpclib.application.Application(applications,
                                     tns=self.namespace,
                                     interface=Wsdl11(),
@@ -308,6 +307,11 @@ class TwistedSoapStarter(BasicSoapStarter):
                         #defaultMode=None # the file mode at creation
                    ))
         log.startLoggingWithObserver(logger.emit)
+
+        # Make python's standard logging to also use twisted's logger:
+        # TODO: this should be tested for deadlocks before being put in
+        # production:
+        #logging.basicConfig(level=logging.INFO, stream=logger)
 
     def setup_reactor(self, port):
         """Setting up the reactor, without encryption."""
