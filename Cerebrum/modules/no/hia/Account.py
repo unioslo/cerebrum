@@ -50,6 +50,19 @@ class AccountHiAMixin(Account.Account):
             mdb = self._autopick_homeMDB()
             self.populate_trait(self.const.trait_exchange_mdb, strval=mdb)
             self.write_db()
+        if spread == self.const.spread_hia_email:
+            et = Email.EmailTarget(self._db)
+            try:
+                et.find_by_email_target_attrs(target_entity_id = self.entity_id)
+            except Errors.NotFoundError:
+                # the user has no previosly assigned e-mail target to fix 
+                return
+            # make sure that the assigned server is 'mail-imap2'
+            es = Email.EmailServer(self._db)
+            server_name = 'mail-imap2'
+            es.find_by_name(server_name)
+            et.email_server_id=es.entity_id
+            et.write_db()
         #
         # (Try to) perform the actual spread addition.
         ret = self.__super.add_spread(spread)
@@ -254,11 +267,7 @@ class AccountHiAMixin(Account.Account):
     def _update_email_server(self, spread):
         es = Email.EmailServer(self._db)
         et = Email.EmailTarget(self._db)
-        if spread == int(self.const.spread_hia_email):
-            if self.is_employee() or self.is_affiliate():
-                server_name = 'mail-imap1'
-            else:
-                server_name = 'mail-imap2'
+        server_name = 'mail-imap2'
         elif spread == int(self.const.spread_exchange_account):
             server_name = 'exchkrs01.uia.no'
         es.find_by_name(server_name)
