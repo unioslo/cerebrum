@@ -635,10 +635,16 @@ class Individuation:
             account2.clear()
             account2.find(row['account_id'])
             try:
-                log.debug("Emailing user %s (%d)" % (account2.account_name, account2.entity_id))
-                sendmail(account2.get_primary_mailaddress(), self.email_from, self.email_subject, msg)
+                primary = account2.get_primary_mailaddress()
             except Errors.NotFoundError, e:
-                log.error("Couldn't warn user %s. Has no primary e-mail address? %s" % (account.account_name, e))
+                log.error("Couldn't warn user %s, no primary mail: %s" %
+                          (account.account_name, e))
+                continue
+            log.debug("Emailing user %s (%d)" % (account2.account_name, account2.entity_id))
+            try:
+                sendmail(primary, self.email_from, self.email_subject, msg)
+            except Exception, e:
+                log.error("Error for %s from Utils.sendmail: %s" % (primary, e))
 
     def check_too_many_attempts(self, account):
         """Checks if a user has tried to use the service too many times. Creates
