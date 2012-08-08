@@ -404,8 +404,6 @@ class Individuation:
 
     def _check_password(self, password, account=None):
         pc = PasswordChecker.PasswordChecker(self.db)
-        if password:
-            password = unicode(password).encode('utf8')
         try:
             pc.goodenough(account, password, uname="foobar")
         except PasswordChecker.PasswordGoodEnoughException, m:
