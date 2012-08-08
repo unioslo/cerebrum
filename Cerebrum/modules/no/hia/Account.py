@@ -55,14 +55,17 @@ class AccountHiAMixin(Account.Account):
             try:
                 et.find_by_email_target_attrs(target_entity_id = self.entity_id)
             except Errors.NotFoundError:
-                # the user has no previosly assigned e-mail target to fix 
-                return
-            # make sure that the assigned server is 'mail-imap2'
-            es = Email.EmailServer(self._db)
-            server_name = 'mail-imap2'
-            es.find_by_name(server_name)
-            et.email_server_id=es.entity_id
-            et.write_db()
+                # the user has no previosly assigned e-mail target to
+                # fix, disregard the process
+                pass
+            else:
+                # a target was found. make sure that the assigned server
+                # is 'mail-imap2'
+                es = Email.EmailServer(self._db)
+                server_name = 'mail-imap2'
+                es.find_by_name(server_name)
+                et.email_server_id=es.entity_id
+                et.write_db()
         #
         # (Try to) perform the actual spread addition.
         ret = self.__super.add_spread(spread)
