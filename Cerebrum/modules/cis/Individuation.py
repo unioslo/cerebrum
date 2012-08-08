@@ -342,9 +342,7 @@ class Individuation:
     def hash_token(self, token, uname):
         """Generates a hash of a given token, to avoid storing tokens in
         plaintext."""
-        # need to convert unicode into bytes, e.g. utf8, or else hashlib
-        # converts it into ascii, which doesn't work for e.g. æøå.
-        return hashlib.sha1(unicode(uname + token).encode('utf8')).hexdigest()
+        return hashlib.sha1(uname + token).hexdigest()
 
     def check_token(self, uname, token, browser_token):
         """Check if token and other data from user is correct."""
