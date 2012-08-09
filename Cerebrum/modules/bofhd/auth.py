@@ -26,50 +26,94 @@ Overview
 
 The auth module consists of the parts:
 
-- Operations that should be allowed or not for given operators.
+- Operations that should be allowed or not for given operators. Operations are
+  Cerebrum Constants, and the base constants are located in
+  Cerebrum/modules/bofhd/utils.py. The operations are not used directly, but is
+  handled by BofhdAuth through different auth-methods.
 
-- Operation Sets (OpSets) that contains operations that fits together, e.g. all
+- Operation Sets (OpSets) that contain operations that fits together, e.g. all
   operations that is needed for Local IT accounts. Authorization is delegated
-  through OpSets and not directly by operations.
+  through OpSets and not directly by single operations. An OpSet is therefore
+  linking to different operation constants.
 
-  OpSets can be seen in bofhd through `access list_opsets` and `access
-  show_opset OPSET`.
+  OpSets can be seen in bofhd through `access list_opsets` and to see all
+  operations in an OpSet run `access show_opset OPSET`.
 
-- Roles that are given to entities, which means that the entitiy is authorized
-  for a given OpSet, and has therefore access to execute the operations that the
-  OpSet consists of. Note that roles connected to groups means that every member
-  of the group is authorized for the OpSet.
+  The different Cerebrum instances have their own OpSets.
 
-  Roles are manipulated by `access grant` and `access revoke` in bofhd.
+- Roles are given to entities, which means that the entitiy is authorized for a
+  given OpSet. The roles could be given global access, but most of them are set
+  for a certain *target*, e.g. for a given OU, group or disk.
 
+  An example could be that the group matnat-drift is granted access to the
+  LocalIT OpSet, but only for the OU of MatNat. This means that all members of
+  the group matnat-drift are authorized for the LocalIT operations, but only for
+  the accounts and persons located at MatNat.
+
+  Roles are manipulated by `access grant` and `access revoke` in bofhd. The
+  entity that executes an access command needs to be authorized to execute it
+  through a role.
+
+  Note that roles given to groups means that every member of the group is
+  authorized for the OpSet. Also note that superusers are not authorized through
+  roles and OpSets, but instead the superuser group is given hardcoded access in
+  the different auth commands. You would therefore not find any superuser role.
 
 Operations (BofhdAuth)
 ----------------------
 
-The different operations for what is allowed to be done. The operations often
-have their own method, e.g. can_view_trait(operator_id, ...), which are the
-methods that bofhd and other services should be calling when checking for an
-operation.
+The different operations for what is allowed to be done. The operations are only
+handled inside the BofhdAuth methods. Services that uses BofhdAuth would only
+see different auth methods, e.g. can_view_trait(), which is itself making use of
+operations to check if the operator have the requested access.
+
+An example is the bofhd command 'user_history', which calls
+BofhdAuth.can_show_history(). The auth method will check if the operator has
+access to the user by the operation 'auth_view_history' (or 'view_history')
+through either an OU or a disk.
+
+Some operations have the need for *attributes*. An example of this is the
+operation 'modify_spread', where the attribute decide what kind of spread it
+should be allowed to modify. Note that the attributes could change between the
+OpSets.
+
+The different auth methods rely on some common methods for querying for the
+permissions. The methods start with '_query', in addition to methods like
+_list_target_permissions.
 
 Operation Sets (BofhdAuthOpSet)
 -------------------------------
 
-Sets of operation for making it easier to delegate access controls. For
-instance, could a specific group or account be delegated an OpSet LocalIT, which
-is an operation set with all the different operations the staff at local IT
-would need in their work.
+Sets of operations for making it easier to delegate access control. For
+instance, a specific group or account could be delegated an OpSet 'LocalIT',
+which could be an operation set with all the different operations the staff at
+local IT would need in their work.
 
 OpSets are handled by BofhdAuthOpSet, and is stored in the table
 *auth_operation_set*, while the operations that belongs to an OpSet is
-referenced to in the table *auth_operation*. Operation attributes, e.g. for
-setting constraints for an operation, is put in *auth_op_attrs*.
+referenced to in the table L{auth_operation}. Operation attributes, e.g. for
+setting constraints for an operation, is put in L{auth_op_attrs}.
 
 Roles (BofhdAuthRole)
 ---------------------
 
-TODO: what does owners of roles, i.e. target_id, mean?
+Roles are authorizations given to entities. The role gives an entity access to a
+given OpSet for either a given target or globally. The entity could for instance
+be an account or a group (which gives all direct members of the group access),
+and the target could for instance be an OU, group or a disk.
 
+In the database
+===============
 
+The operations are Cerebrum constants, but is also put in the table
+L{auth_operation}
+
+- Operations are put in L{auth_operation}. Some operations have certain
+  attributes, which are put in L{auth_op_attrs}.
+
+- OpSets are put in L{auth_operation_set}.
+
+- Roles are put in L{auth_role}, and their targets are put in L{auth_op_target}.
 
 """
 
@@ -383,14 +427,16 @@ class BofhdAuthRole(DatabaseAccessor):
 
 
 class BofhdAuth(DatabaseAccessor):
-    """Defines methods that are used by bofhd to determine wheter
-    an operator is allowed to perform a given action.
+    """Defines methods that are used by bofhd to determine whether an operator
+    is allowed to perform a given action.
 
     The query_run_any parameter is used to determine if operator has this
     permission somewhere. It is used to filter available commands in bofhds
     get_commands(), and if it is True, the method should return either True or
     False, and not throw PermissionDenied exceptions. Note that this variable
-    should NOT be used a security measure!"""
+    should NOT be used a security measure!
+
+    """
 
     def __init__(self, database):
         super(BofhdAuth, self).__init__(database)
@@ -442,7 +488,7 @@ class BofhdAuth(DatabaseAccessor):
             return self._has_operation_perm_somewhere(operator,
                                               self.const.auth_set_password)
         return False
-        
+
     def is_postmaster(self, operator, query_run_any=False):
         # Rather than require an operation as an argument, we pick a
         # suitable value which all postmasters ought to have.
@@ -1208,7 +1254,7 @@ class BofhdAuth(DatabaseAccessor):
                        self.const.auth_grant_group,
                        self.const.auth_grant_host,
                        self.const.auth_grant_maildomain,
-                       #self.const.auth_grant_dns,
+                       self.const.auth_grant_dns,
                        self.const.auth_grant_ou):
                 if self._has_operation_perm_somewhere(operator, op):
                     return True
@@ -1609,10 +1655,10 @@ class BofhdAuth(DatabaseAccessor):
 
     def _has_target_permissions(self, operator, operation, target_type,
                                   target_id, victim_id, operation_attr=None):
-        """Query any permissions that operator, or any of the groups
-        where operator is a member, has been granted operation on
+        """Query any permissions that operator, or any of the groups where
+        operator is a member, has been granted operation on
         target_type:target_id, or the global equivalent of the target.
-        
+
         This function returns True or False.
         """
         if target_id is not None:
@@ -1637,11 +1683,11 @@ class BofhdAuth(DatabaseAccessor):
                                            self.const.auth_target_type_global_ou,
                                            victim_id, operation_attr=operation_attr):
                     return True
-            #elif target_type == self.const.auth_target_type_dns:
-            #    if self._has_global_access(operator, operation,
-            #                               self.const.auth_target_type_global_dns,
-            #                               victim_id, operation_attr=operation_attr):
-            #        return True
+            elif target_type == self.const.auth_target_type_dns:
+                if self._has_global_access(operator, operation,
+                                           self.const.auth_target_type_global_dns,
+                                           victim_id, operation_attr=operation_attr):
+                    return True
 
         if self._list_target_permissions(
             operator, operation, target_type, target_id,  operation_attr):
@@ -1651,12 +1697,13 @@ class BofhdAuth(DatabaseAccessor):
 
     def _list_target_permissions(self, operator, operation, target_type,
                                  target_id,  operation_attr=None):
-        """
-        List permissions that operator, or any of the groups
-        where operator is a member, for the operation on the direct target
+        """List permissions that operator, or any of the groups where operator
+        is a member, has for the operation on the direct target. This could be
+        used instead of L{_has_target_permissions} if you would like to accept
+        more than one exact operation_attr.
         
-        The result of this function is a sequence of dbrows which
-        can be checked for dbrow['attr'].
+        The result of this function is a sequence of dbrows which can be checked
+        for dbrow['attr']. The keys are 'attr', 'op_id' and 'op_target_id'.
         """
         ewhere = ""
         if target_id is not None:

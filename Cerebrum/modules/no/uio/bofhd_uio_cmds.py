@@ -529,6 +529,15 @@ class BofhdExtension(BofhdCommandBase):
     def access_global_ou(self, operator):
         return self._list_access("global_ou")
 
+    # access global_dns
+    all_commands['access_global_dns'] = Command(
+        ('access', 'global_dns'),
+        fs=FormatSuggestion("%-16s %-16s %-9s %s",
+                            ("opset", "attr", "type", "name"),
+                            hdr="%-16s %-16s %-9s %s" %
+                            ("Operation set", "Affiliation", "Type", "Name")))
+    def access_global_dns(self, operator):
+        return self._list_access("global_dns")
 
     def _list_access(self, target_type, target_name=None, decode_attr=str,
                      empty_result="None"):
@@ -648,18 +657,26 @@ class BofhdExtension(BofhdCommandBase):
     # the dns-derived functions need to be too
     def _get_access_id_dns(self, target):
         dns_find = DNSUtils.Find(self.db, self.const.DnsZone('uio'))
-        # TODO: targets that are not found simply returns None - should we check
-        # for this and raise NotFoundException? It might create problems in other
-        # places if we change this the DNS module.
-        return (dns_find.find_entity_id_of_dns_target(target),
+        dns_target = dns_find.find_entity_id_of_dns_target(target)
+        # Targets that are not found simply returns None. Should we do anything
+        # about this in Cerebrum.modules.dns.Utils.Find.find_ip()?
+        if not dns_target:
+            raise CerebrumError('Could not find DNS target: %s' % target)
+        return (dns_target,
                 self.const.auth_target_type_dns,
-                # TODO: shouldn't this be auth_grant_dns?
-                self.const.auth_dns_lita)
-
+                self.const.auth_grant_dns)
     def _validate_access_dns(self, opset, attr):
         # TODO: check if the opset is relevant for a dns-target
         if attr is not None:
-            raise CerebrumError, "Can't specify attribute for dns access"
+            raise CerebrumError("Can't specify attribute for dns access")
+
+    def _get_access_id_global_dns(self, target_name):
+        if target_name:
+            raise CerebrumError("You can't specify an address")
+        return None, self.const.auth_target_type_global_dns, None
+    def _validate_access_global_dns(self, opset, attr):
+        if attr:
+            raise CerebrumError("You can't specify a pattern with global_dns.")
 
     # access dns <dns-target>
     all_commands['access_dns'] = Command(
