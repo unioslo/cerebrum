@@ -656,13 +656,9 @@ class BofhdExtension(BofhdCommandBase):
     # place that "access grant" & friends are defined, this is where
     # the dns-derived functions need to be too
     def _get_access_id_dns(self, target):
-        dns_find = DNSUtils.Find(self.db, self.const.DnsZone('uio'))
-        dns_target = dns_find.find_entity_id_of_dns_target(target)
-        # Targets that are not found simply returns None. Should we do anything
-        # about this in Cerebrum.modules.dns.Utils.Find.find_ip()?
-        if not dns_target:
-            raise CerebrumError('Could not find DNS target: %s' % target)
-        return (dns_target,
+        sub = Subnet(self.db)
+        sub.find(target.split('/')[0])
+        return (sub.entity_id,
                 self.const.auth_target_type_dns,
                 self.const.auth_grant_dns)
     def _validate_access_dns(self, opset, attr):
