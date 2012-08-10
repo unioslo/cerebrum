@@ -589,14 +589,24 @@ class Individuation:
         return False
 
     def number_match(self, stored, given):
-        """Checks if a given number matches a stored number. Checks, e.g.
-        removing spaces, could be put here, if necessary, but note that the best
-        place to fix such mismatches is in the source system.
+        """Checks if a given number matches a stored number. You could for
+        instance check with and without country codes and spaces, to support
+        different varieties of phone numbers. Note that you can not change the
+        numbers here, so you can not tolerate invalid numbers, that has to be
+        fixed in the source system.
+
         """
-        if given.strip() == stored.strip():
-            return True
-        # TODO: more checks here?
-        return False
+        return (self._filter_numbermatch(given) ==
+                self._filter_numbermatch(stored))
+
+    def _filter_numbermatch(self, number):
+        """Filter a number to be checked for matching."""
+        number = number.strip()
+        # The Norwegian country code could be removed, so that users could
+        # specify it or not, and still let the numbers match.
+        if number.startswith('+47'):
+            number = number[3:]
+        return number
 
     def get_delay(self, system, type):
         """Return a DateTime set to the correct delay time for numbers of the
