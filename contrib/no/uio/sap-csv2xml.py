@@ -92,6 +92,7 @@ import csv
 import getopt
 import sys
 import types
+import re
 from cStringIO import StringIO as IO
 
 
@@ -244,8 +245,8 @@ def collector(fields, tags, names_in_order, legal_values={}):
                 continue
 
             if tmp[name] not in legal_values[name]:
-                raise ValueError("Aiee! tag=%s, value=%s not in legal=%s" %
-                                 (name, tmp[name], legal_values[name]))
+                raise ValueError("Aiee! tag=%s, value=%s not in legal_values" %
+                                 (name, tmp[name]))
         collect.append(tmp)
         i += count
 
@@ -347,6 +348,15 @@ def consume_line(producer):
     """
 
     for fields in producer:
+        # in july 2012 SPLO added a starting line to *.csv-file
+        # without letting us know in advance. this first line contains
+        # a production date for the csv file. we might in the future
+        # use the production date in the xml-file as well but for now
+        # we are hoping that SPLO will be able to deliver an XML-file
+        # in stead. we thus strip the offending line before the file
+        # is processed. Jazz, 2012-08-10
+        if re.match('^#.*', fields[0]):
+            continue
         ended_with_delimiter = False
         if fields[-1] == '':
             ended_with_delimiter = True
