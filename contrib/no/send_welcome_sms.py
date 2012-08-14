@@ -107,6 +107,10 @@ def process(trait, message, phone_types, affiliations, too_old, commit=False):
             logger.warn('Tagged new user %s not personal', ac.account_name)
             # TODO: remove trait?
             continue
+        if ac.is_expired():
+            logger.debug('New user %s is expired, skipping', ac.account_name)
+            # TODO: remove trait?
+            continue
 
         # check person affiliations
         if affiliations:
