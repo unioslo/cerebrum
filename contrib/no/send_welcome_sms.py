@@ -236,8 +236,6 @@ def main():
             usage(1)
 
     # DEFAULTS
-    if not affiliations:
-        affiliations.append(co.affiliation_student)
     if not message:
         message = cereconf.AUTOADMIN_WELCOME_SMS
     if not phone_types:
