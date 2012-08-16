@@ -448,16 +448,28 @@ class Individuation:
     def get_person(self, id_type, ext_id):
         person = Factory.get('Person')(self.db)
         person.clear()
-        try:
-            person.find_by_external_id(getattr(self.co, id_type), ext_id)
-        except AttributeError, e:
+        if not hasattr(self.co, id_type):
             log.error("Wrong id_type: '%s'" % id_type)
             raise Errors.CerebrumRPCException('person_notfound')
+        try:
+            person.find_by_external_id(getattr(self.co, id_type), ext_id)
+            return person
         except Errors.NotFoundError:
             log.debug("Couldn't find person with %s='%s'" % (id_type, ext_id))
-            raise Errors.CerebrumRPCException('person_notfound')
-        else:
-            return person
+
+        # Try without leading zeros, as FS use that, and which could confuse
+        # students. TODO: Note that this does not help if the external IDs are
+        # stored _with_ leading zeros in the database, i.e. the opposite way.
+        if ext_id.isdigit():
+            ext_id = str(int(ext_id))
+            try:
+                person.find_by_external_id(getattr(self.co, id_type), ext_id)
+                log.debug("Found person %s without leading zeros in ext_id: %s"
+                          % (person.entity_id, ext_id))
+                return person
+            except Errors.NotFoundError:
+                pass
+        raise Errors.CerebrumRPCException('person_notfound')
 
     def get_account(self, uname):
         account = Factory.get('Account')(self.db)
