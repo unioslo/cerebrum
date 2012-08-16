@@ -461,14 +461,28 @@ class Individuation:
         # students. TODO: Note that this does not help if the external IDs are
         # stored _with_ leading zeros in the database, i.e. the opposite way.
         if ext_id.isdigit():
-            ext_id = str(int(ext_id))
             try:
-                person.find_by_external_id(getattr(self.co, id_type), ext_id)
+                person.find_by_external_id(getattr(self.co, id_type),
+                                           str(int(ext_id)))
                 log.debug("Found person %s without leading zeros in ext_id: %s"
                           % (person.entity_id, ext_id))
                 return person
             except Errors.NotFoundError:
                 pass
+
+            # Still not found? Try to padd with zeros if it's a student number
+            # with less than 6 digits:
+            if (hasattr(self.co, 'externalid_studentnr') and 
+                getattr(self.co, id_type) == self.co.externalid_studentnr and
+                len(ext_id) < 6):
+                try:
+                    person.find_by_external_id(getattr(self.co, id_type),
+                                               '%06d' % int(ext_id))
+                    log.debug("Found person %s with padded zeros in ext_id: %s"
+                              % (person.entity_id, ext_id))
+                    return person
+                except Errors.NotFoundError:
+                    pass
         raise Errors.CerebrumRPCException('person_notfound')
 
     def get_account(self, uname):
