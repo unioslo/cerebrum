@@ -80,7 +80,7 @@ def usage(exitcode = 0):
 
     --messageconf CONF      The name of a cereconf variable that contains the
                             message to send. The variable must be a string, and
-                            could contain %(username)s. Default: SMS_REMINDER_MSG.
+                            could contain %%(username)s. Default: SMS_REMINDER_MSG.
 
     --days DAYS             How many days back the script should go and find
                             users with the proper traits. Users that has traits
