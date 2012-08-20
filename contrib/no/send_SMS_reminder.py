@@ -107,7 +107,9 @@ def process(check_trait, set_trait, days, phone_types, message, only_aff):
     pe = Factory.get('Person')(db)
 
     target_traits = set(t['entity_id'] for t in ac.list_traits(code=check_trait)
-                        if t['date'] >= limit_date)
+                        if (t['date'] >= limit_date and # Filter out old traits.
+                            t['date'] < (now() - 1)))   # Filter out traits from
+                                                        # the last 24 hours.
     logger.debug('Found %d traits of type %s from last %d days to check',
                  len(target_traits), check_trait, days)
     set_traits = set(t['entity_id'] for t in ac.list_traits(code=set_trait)
@@ -221,9 +223,7 @@ def send_sms(ac, pe, phone_types, message):
         logger.debug('Dryrun, SMS not sent')
         # assumes gets sent okay
         return True
-    # TODO: remove the comment when the script has been double checked!
-    #return sms(phone_number, msg)
-    return True
+    return sms(phone_number, msg)
 
 if __name__ == '__main__':
     try:
