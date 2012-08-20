@@ -205,3 +205,7 @@ class Constants(Constants.Constants):
         'Register urls for this person')    
 
 
+## SMS traits
+    trait_sms_reminder = _EntityTraitCode(
+        'sms_reminder', Constants.Constants.entity_account,
+        'Tagging that an SMS has been sent')    
