@@ -75,6 +75,9 @@ def usage(exitcode = 0):
 
                                 FS:MOBILE,EKSTENS:PRIVATEMOBILE
 
+    --only-aff AFFIILATIONS If set, only persons with the given person
+                            affiliations will be processed.
+
     --messageconf CONF      The name of a cereconf variable that contains the
                             message to send. The variable must be a string, and
                             could contain %(username)s. Default: SMS_REMINDER_MSG.
@@ -90,7 +93,7 @@ def usage(exitcode = 0):
            'doc': __doc__}
     sys.exit(exitcode)
 
-def process(check_trait, set_trait, days, phone_types, message):
+def process(check_trait, set_trait, days, phone_types, message, only_aff):
     logger.info("SMS-reminder started")
     if commit:
         logger.info("In commit, will send out SMS")
@@ -115,6 +118,15 @@ def process(check_trait, set_trait, days, phone_types, message):
     logger.debug('Then %d traits of type %s remains to be checked',
                  len(target_traits), check_trait)
 
+    pe_affs = set()
+    if only_aff:
+        for a in only_aff:
+            pe_affs.update(r['person_id'] for r in
+                           pe.list_affiliations(affiliation=a))
+        logger.debug('Found %d person affiliations to filter by', len(pe_affs))
+    else:
+        logger.debug('No only_aff specified, so no filtering on affiliation')
+
     processed = 0
 
     for account_id in target_traits:
@@ -122,7 +134,8 @@ def process(check_trait, set_trait, days, phone_types, message):
         try:
             ac.find(account_id)
         except Errors.NotFoundError:
-            logger.error("Could not find user with entity_id: %s", account_id)
+            logger.error("Could not find user with entity_id: %s, skipping",
+                         account_id)
             continue
 
         if ac.is_expired():
@@ -130,6 +143,10 @@ def process(check_trait, set_trait, days, phone_types, message):
             continue
         if ac.get_entity_quarantine(only_active=True):
             logger.info("Account %s is quarantined, skipping", ac.account_name)
+            continue
+        if pe_affs and ac.owner_id not in pe_affs:
+            logger.info('Account %s without given person affiliation, skipping',
+                        ac.account_name)
             continue
 
         # Check password changes for the user
@@ -140,7 +157,6 @@ def process(check_trait, set_trait, days, phone_types, message):
 
         # Everything ready, should send the SMS
         if send_sms(ac, pe, phone_types, message=message):
-            # TODO: where to store the SMS message?
             ac.populate_trait(code=set_trait, date=now())
             ac.write_db()
             if commit:
@@ -149,6 +165,9 @@ def process(check_trait, set_trait, days, phone_types, message):
                 db.rollback()
             logger.debug("Trait set for %s", ac.account_name)
             processed += 1
+        else:
+            logger.warn('Failed to send SMS to %s', ac.account_name)
+
     logger.info("SMS-reminder done, %d accounts processed" % processed)
 
 def have_changed_password(ac):
@@ -204,6 +223,7 @@ def send_sms(ac, pe, phone_types, message):
         return True
     # TODO: remove the comment when the script has been double checked!
     #return sms(phone_number, msg)
+    return True
 
 if __name__ == '__main__':
     try:
@@ -212,6 +232,7 @@ if __name__ == '__main__':
                            'commit',
                            'days=',
                            'messageconf=',
+                           'only-aff=',
                            'check-trait=',
                            'phone-types=',
                            'set-trait='])
@@ -222,6 +243,7 @@ if __name__ == '__main__':
     days = 180
     check_trait = set_trait = message = None
     phone_types = []
+    only_aff = []
 
     for opt, val in opts:
         if opt in ('-h', '--help'):
@@ -234,6 +256,9 @@ if __name__ == '__main__':
             commit = True
         elif opt == '--check-trait':
             check_trait = getattr(co, val)
+        elif opt == '--only-aff':
+            only_aff.extend(int(co.PersonAffiliation(a))
+                            for a in val.split(','))
         elif opt == '--set-trait':
             set_trait = getattr(co, val)
         elif opt == '--phone-types':
@@ -263,4 +288,4 @@ if __name__ == '__main__':
         message = cereconf.SMS_REMINDER_MSG
 
     process(days=days, set_trait=set_trait, check_trait=check_trait,
-            phone_types=phone_types, message=message)
+            phone_types=phone_types, message=message, only_aff=only_aff)
