@@ -112,7 +112,7 @@ class OfkPasswordChecker(DefaultPasswordChecker.PasswordChecker):
                 num_chars_upper = num_chars_upper + 1
 
         if not (num_digits >= 2 and num_chars_lower > 0 and num_chars_upper > 0):
-            raise PasswordGoodEnoughException(msgs['uname_in_password'])
+            raise PasswordGoodEnoughException(msgs['bad_password'])
 
         # Password good enough
         return True
