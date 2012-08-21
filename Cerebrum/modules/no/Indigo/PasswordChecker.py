@@ -70,7 +70,7 @@ class OfkPasswordChecker(DefaultPasswordChecker.PasswordChecker):
         num_chars_upper = 0
         
         for char in fullpasswd:
-            if not (char.isalpha() or char.isdigit()):
+            if not (char.isalpha() or char.isdigit()) or char == '$':
                 raise PasswordGoodEnoughException(msgs['invalid_char'])
 
         # Check that the password is long enough.
