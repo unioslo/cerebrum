@@ -401,9 +401,12 @@ class Individuation:
         return self._check_password(password)
 
     def _check_password(self, password, account=None):
-        pc = PasswordChecker.PasswordChecker(self.db)
+        ac = Factory.get('Account')(self.db)
+        uname = None
+        if account is None:
+            uname = 'foobar'
         try:
-            pc.goodenough(account, password, uname="foobar")
+            ac.goodenough(account, password, uname=uname)
         except PasswordChecker.PasswordGoodEnoughException, m:
             # The PasswordChecker is in iso8859-1, so we need to convert its
             # message to unicode before we raise it.
