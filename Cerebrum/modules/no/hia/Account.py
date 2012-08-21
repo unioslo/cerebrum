@@ -271,7 +271,7 @@ class AccountHiAMixin(Account.Account):
         es = Email.EmailServer(self._db)
         et = Email.EmailTarget(self._db)
         server_name = 'mail-imap2'
-        elif spread == int(self.const.spread_exchange_account):
+        if spread == int(self.const.spread_exchange_account):
             server_name = 'exchkrs01.uia.no'
         es.find_by_name(server_name)
         try:
