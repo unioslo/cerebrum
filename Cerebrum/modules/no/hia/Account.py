@@ -292,11 +292,14 @@ class AccountHiAMixin(Account.Account):
     def add_student_to_server_group(self):
         """add a student account at UiA to an AD file server group to
            create homedirectory"""
+        # TODO: check that the account is not already a member of any of the
+        # groups
         group = Utils.Factory.get("Group")(self._db)
         group_choice = random.choice(cereconf.AD_STUDENT_FILEGROUPS)
         group.clear()
         group.find_by_name(group_choice)
-        group.add_member(self.entity_id)
+        if not group.has_member(self.entity_id):
+            group.add_member(self.entity_id)
 
     def set_password(self, plaintext):
         # Override Account.set_password so that we get a copy of the
