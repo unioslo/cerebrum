@@ -115,7 +115,10 @@ def main():
             ngu = MachineNetGroup(group_spread, None, zone)
             ngu.write_netgroup(val, e_o_f)
         elif opt in ('--group_spread',):
-            group_spread = map_spread(val)
+            if val.find(',') == -1:
+                group_spread = map_spread(val)
+            else:
+                group_spread = [map_spread(v) for v in val.split(',')]
         elif opt in ('-Z', '--zone',):
             zone = co.DnsZone(val)
         elif opt in ('--max_memberships',):
@@ -139,6 +142,8 @@ def usage(exitcode=0):
    result in generate_nismaps making several maps based on spread. If eg.
    user_spread is set, generate_nismaps will use this if a new one is not
    set before later passwd files. This is not the case for shadow.
+
+   group_spread could be comma separated to support more than one spread.
 
    Misc options:
     -d | --debug
