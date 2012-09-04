@@ -39,7 +39,8 @@ def get_constants_by_type(co, class_type):
             ret.append(c)
     return ret
 
-def person_join(old_person, new_person, with_uio_pq, with_uia_pq, with_uio_ephorte):
+def person_join(old_person, new_person, with_uio_pq, with_uia_pq,
+                                with_uio_ephorte, with_uio_voip):
     old_id = old_person.entity_id
     new_id = new_person.entity_id
 
@@ -214,6 +215,9 @@ def person_join(old_person, new_person, with_uio_pq, with_uia_pq, with_uio_ephor
 
     if with_uio_ephorte:
         join_ephorte_roles(old_id, new_id)
+
+    if with_uio_voip:
+        join_uio_voip_objects(old_id, new_id)
         
 def join_ephorte_roles(old_id, new_id):
     # All ephorte roles belonging to old_person must be deleted.
@@ -327,10 +331,56 @@ def join_uio_printerquotas(old_id, new_id):
                     update_program='join_persons',
                     ignore_transaction_type=True)
 
+
+def join_uio_voip_objects(old_id, new_id):
+    """Transfer voip objects from person old_id to person new_id.
+
+    Respect that a person can have at most one voip_address, i.e.
+    transfer happens only if old_id owns one address and new_id
+    owns none. In case old_id owns no voip_address, nothing is transfered
+    and join continues. Otherwise, join rolls back.
+    @type int
+    @param old_id person id
+    @type int
+    @param new_id person id
+    """
+    from Cerebrum.modules.no.uio.voip.voipAddress import VoipAddress
+    va = VoipAddress(db)
+    va.clear()
+    old_person_voip_addr = va.search(owner_entity_id=old_id)
+    new_person_voip_addr = va.search(owner_entity_id=new_id)
+    if (len(old_person_voip_addr) == 1
+            and not new_person_voip_addr):
+        # Transfer
+        va.clear()
+        try:
+            va.find_by_owner_id(old_id)
+        except Errors.NotFoundError:
+            logger.info("No voip address found for owner id %s"%(old_id))
+            return
+        logger.debug("Change owner of voip_address %s to %s" %(va.entity_id,
+                                                                new_id))
+        va.populate(new_id)
+        va.write_db()
+    elif not old_person_voip_addr:
+        logger.info("Nothing to transfer."
+                    " Person %s owns no voip addresses: %s" %(old_id))
+    else:
+        logger.warn("Source person %s owns voip addresses: %s" %(old_id,
+            old_person_voip_addr))
+        logger.warn("Target person %s owns voip addresses:%s" %(new_id,
+            new_person_voip_addr))
+        db.rollback()
+        logger.warn("Cannot transfer, rollback all changes."
+                    "Manual intervention required to join voip objects.")
+        sys.exit(1)
+
+
 def usage(exitcode=0):
-    print """join_persons.py --old entity_id --new entity_id[options] 
+    print """join_persons.py --old entity_id --new entity_id[options]
              --pq-uio transfer uio-printerquotas
              --pq-uia transfer uia-printerquotas
+             --voip-uio transfer voip objects
              --ephorte-uio transfer uio-ephorte roles
              --dryrun
 
@@ -346,11 +396,12 @@ def main():
         opts, args = getopt.getopt(sys.argv[1:], '',
                                    ['old=', 'new=', 'dryrun',
                                     'pq-uio', 'ephorte-uio',
-                                    'pq-uia'])
+                                    'pq-uia', 'voip-uio'])
     except getopt.GetoptError:
         usage(1)
 
     dryrun = with_uio_pq = with_uio_ephorte = with_uia_pq = False
+    with_uio_voip = False
     old = new = 0
     for opt, val in opts:
         if opt == '--old':
@@ -363,6 +414,8 @@ def main():
             new = int(val)
         elif opt == '--ephorte-uio':
             with_uio_ephorte = True
+        elif opt == '--voip-uio':
+            with_uio_voip = True
         elif opt == '--dryrun':
             dryrun = True
     if not (old and new):
@@ -371,7 +424,8 @@ def main():
     old_person.find(old)
     new_person = Factory.get('Person')(db)
     new_person.find(new)
-    person_join(old_person, new_person, with_uio_pq, with_uia_pq, with_uio_ephorte)
+    person_join(old_person, new_person, with_uio_pq, with_uia_pq,
+                                with_uio_ephorte, with_uio_voip)
     old_person.delete()
 
     if dryrun:
