@@ -78,7 +78,8 @@ def report_invalid_voip_addresses(logger, report):
                             'reason', 'voipExtensionUri', 'uid'):
                     if k == 'voipExtensionUri':
                         k = 'extension'
-                        v = v.strip('sip:@uio.no')
+                        if isinstance(v, basestring):
+                            v = v.strip('sip:@uio.no')
                     entr[k] = v
             report.append(entr)
     logger.debug('-'*8+'end voipAddresses'+'-'*8)
@@ -173,29 +174,31 @@ def main():
 
 
 def usage(err=0):
+    import os
     if err:
         print >>sys.stderr, err
-    prog = sys.argv[0]
-    print >>sys.stderr, """Usage: %s [options]
-    Report voip addresses owned by persons without accounts.
+    prog = os.path.basename(sys.argv[0])
+    print >>sys.stderr, """\nUsage: %(prog)s [options]
+Report voip addresses owned by persons without accounts.
 
-    -o, --output    File to save the report to. Defaults to stdout.
-                    Report is saved if no source and destination email address
-                    was given.
-    --mail_to       Email destination address. Mandatory for sending report by email.
-    --mail_from     Email source address. Mandatory for sending report by email.
-    --mail_cc       Send carbon copy to that email address. Optional.
-    -h, --help      Show this help message and exit.
+-o, --output    File to save the report to. Defaults to stdout.
+                Report is saved if no source and destination email address
+                was given.
+--mail_to       Email destination address. Mandatory for sending report by email.
+--mail_from     Email source address. Mandatory for sending report by email.
+--mail_cc       Send carbon copy to that email address. Optional.
+-h, --help      Show this help message and exit.
 
-    Examples:
-        %s
-            report is dumped to stdout.
-        %s --output filename --mail_to dest@example.com --mail_from source@example.com
-            report is sent to mail_to address. File filename is not written to.
+Examples:
+%(prog)s
+    report is dumped to stdout.
+%(prog)s --output filename --mail_to dest@example.com \\
+        --mail_from source@example.com
+    report is sent to mail_to address. File filename is not written to.
 
-        %s --output filename --mail_to dest@example.com
-            report is written to file.
-    """ % (prog, prog, prog, prog)
+%(prog)s --output filename --mail_to dest@example.com
+    report is written to file.
+    """ % {'prog':prog}
     sys.exit(bool(err))
 
 
