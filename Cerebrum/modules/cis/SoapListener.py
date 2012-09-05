@@ -483,7 +483,7 @@ class TLSTwistedSoapStarter(TwistedSoapStarter):
 
         # Log if a certificate is close to expiration. A weeks delay.
         expire = x509.get_notAfter() # format: 'YYYYMMDDhhmmssZ'
-        if expire and int(expire[:8]) < int(time.strftime('%Y%m%d')) - 7:
+        if expire and int(expire[:8]) < int(time.strftime('%Y%m%d')) - 30:
             log.msg('WARNING: Cert close to expire')
             log.msg('  subject: %s' % x509.get_subject())
             log.msg('  issuer:  %s' % x509.get_issuer())
