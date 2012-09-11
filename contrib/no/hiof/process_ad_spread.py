@@ -335,7 +335,7 @@ class Job(object):
         # To avoid writing this file every time the script runs (every
         # 15 mins) we write it once per day after important FS and SAP
         # jobs have run, that is after 0400.
-        if not user_diff_attrs or os.path.exists(out_file) or now.hour < 5:
+        if not user_diff_attrs or (os.path.exists(out_file) and not (now.hour > 5 and now.hour < 6)):
             return 
         try:
             f = file(out_file, 'w')
