@@ -312,11 +312,12 @@ class XMLPerson2Object(XMLEntity2Object):
         """Make a DataAddress instance out of an <Adresse>."""
         assert addr_element.tag == "Adresse"
 
-        sap2intern = { "Fysisk arbeidssted" : DataAddress.ADDRESS_POST,
+        sap2intern = { "Besøksadresse" : DataAddress.ADDRESS_BESOK,
+                       "Postadresse"   : DataAddress.ADDRESS_POST,
                        "Bostedsadresse" : DataAddress.ADDRESS_PRIVATE, 
                        "Avvikende postadresse": DataAddress.ADDRESS_OTHER_POST,
-                       "Avvikende besøksadresse":
-                               DataAddress.ADDRESS_OTHER_BESOK,}
+                       "Avvikende besøksadresse": DataAddress.ADDRESS_OTHER_BESOK,}
+
         zip = city = country = addr_kind = ""
         street = []
 
