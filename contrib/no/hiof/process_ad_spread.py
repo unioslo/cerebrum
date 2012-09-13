@@ -48,13 +48,11 @@ Usage: process_AD.py [options]
 
 import getopt
 import sys
-import os.path
 import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.hiof import ADMappingRules
 from Cerebrum.modules.xmlutils.GeneralXMLParser import GeneralXMLParser
-from mx import DateTime
 
 db = Factory.get('Database')()
 db.cl_init(change_program="process_ad")
@@ -331,12 +329,6 @@ class Job(object):
         @param out_file: file name
         @type  out_file: str
         """
-        now = DateTime.now()
-        # To avoid writing this file every time the script runs (every
-        # 15 mins) we write it once per day after important FS and SAP
-        # jobs have run, that is after 0400.
-        if not user_diff_attrs or (os.path.exists(out_file) and not (now.hour > 5 and now.hour < 6)):
-            return 
         try:
             f = file(out_file, 'w')
             f.write("brukernavn;domene;ny verdi;gammel verdi\n")
