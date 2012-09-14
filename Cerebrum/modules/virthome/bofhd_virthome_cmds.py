@@ -1635,17 +1635,20 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     all_commands["group_change_owner"] = Command(
         ("group", "change_owner"),
         EmailAddress(),
-        GroupName())
+        GroupName(),
+        fs=FormatSuggestion("Confirm key:  %s",
+                            ("confirmation_key",)))
     def group_change_owner(self, operator, email, gname):
         """Change gname's owner to FA associated with email.
         """
-
         group = self._get_group(gname)
         self.ba.can_change_owners(operator.get_entity_id(), group.entity_id)
+        owner = self._opset_account_lister(group.group_name, "group-owner"),
+        owner = owner[0][0]['account_id']
         ret = {}
         ret['confirmation_key'] = self.__setup_request(group.entity_id,
                                          self.const.va_group_owner_swap,
-                                         params={"old": operator.get_entity_id(),
+                                         params={"old": owner,
                                                  "group_id": group.entity_id,
                                                  "new": email,})
         # check if e-mail matches a valid username
