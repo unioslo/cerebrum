@@ -51,6 +51,11 @@ class AccountHiAMixin(Account.Account):
             self.populate_trait(self.const.trait_exchange_mdb, strval=mdb)
             self.write_db()
         if spread == self.const.spread_hia_email:
+            if self.has_spread(self.const.spread_exchange_account):
+                # Accounts with Exchange can't have IMAP too. Should raise an
+                # exception, but process_students tries to add IMAP spreads,
+                # which would then fail, so it just returns instead.
+                return
             et = Email.EmailTarget(self._db)
             try:
                 et.find_by_email_target_attrs(target_entity_id = self.entity_id)
