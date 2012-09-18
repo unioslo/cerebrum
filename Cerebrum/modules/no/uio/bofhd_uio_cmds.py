@@ -5412,7 +5412,7 @@ Addresses and settings:
                     (member_name, group.group_name))
         if member.entity_type == self.const.entity_account:
             try:
-                pu = PosixUser.PosixUser(self.db)
+                pu = Utils.Factory.get('PosixUser')(self.db)
                 pu.find(member.entity_id)
                 if pu.gid_id == group.entity_id:
                     raise CerebrumError("Can't remove %s from primary group %s" %
@@ -8130,7 +8130,7 @@ Addresses and settings:
             disk = all_args.pop(0)
         if not all_args:
             ret = {'prompt': "Username", 'last_arg': True}
-            posix_user = PosixUser.PosixUser(self.db)
+            posix_user = Utils.Factory.get('PosixUser')(self.db)
             if not group_owner:
                 try:
                     person = self._get_person("entity_id", owner_id)
@@ -8199,7 +8199,7 @@ Addresses and settings:
                     raise CerebrumError("Personal account names cannot contain capital letters")
             
         group = self._get_group(filegroup, grtype="PosixGroup")
-        posix_user = PosixUser.PosixUser(self.db)
+        posix_user = Utils.Factory.get('PosixUser')(self.db)
         uid = posix_user.get_free_uid()
         shell = self._get_shell(shell)
         if home[0] != ':':  # Hardcoded path
@@ -8836,7 +8836,7 @@ Addresses and settings:
         if is_posix:
             raise CerebrumError("%s is already a PosixUser" % accountname)
         account = self._get_account(accountname)
-        pu = PosixUser.PosixUser(self.db)
+        pu = Utils.Factory.get('PosixUser')(self.db)
         old_uid = self._lookup_old_uid(account.entity_id)
         if old_uid is None:
             uid = pu.get_free_uid()
@@ -8857,7 +8857,8 @@ Addresses and settings:
         else:
             person = None
         self.ba.can_create_user(operator.get_entity_id(), person, disk_id)
-        pu.populate(uid, group.entity_id, None, shell, parent=account)
+        pu.populate(uid, group.entity_id, None, shell, parent=account,
+                    creator_id=operator.get_entity_id())
         pu.write_db()
 
         default_home_spread = self._get_constant(self.const.Spread,
@@ -9034,10 +9035,10 @@ Addresses and settings:
         try:
             pu = self._get_account(accountname, actype='PosixUser')
         except CerebrumError:
-            pu = PosixUser.PosixUser(self.db)
+            pu = Utils.Factory.get('PosixUser')(self.db)
         else:
             pu.delete_posixuser()
-            pu = PosixUser.PosixUser(self.db)
+            pu = Utils.Factory.get('PosixUser')(self.db)
 
         # We remove all old group memberships
         grp = self.Group_class(self.db)
@@ -9077,11 +9078,13 @@ Addresses and settings:
 
         shell = self.const.posix_shell_bash
 
-        # Popoulate the posix user, and write it to the database
-        pu.populate(uid, int(group.entity_id), None, shell, parent=ac)
+        # Populate the posix user, and write it to the database
+        pu.populate(uid, int(group.entity_id), None, shell, parent=ac,
+                    creator_id=operator.get_entity_id())
         try:
             pu.write_db()
-        except self.db.IntegrityError:
+        except self.db.IntegrityError, e:
+            self.logger.debug("IntegrityError: %s" % e)
             self.db.rollback()
             raise CerebrumError('Please contact brukerreg in order to restore')
 
@@ -9314,7 +9317,7 @@ Password altered. Use misc list_password to print or view the new password.%s'''
         if actype == 'Account':
             account = self.Account_class(self.db)
         elif actype == 'PosixUser':
-            account = PosixUser.PosixUser(self.db)
+            account = Utils.Factory.get('PosixUser')(self.db)
         account.clear()
         try:
             if idtype is None:

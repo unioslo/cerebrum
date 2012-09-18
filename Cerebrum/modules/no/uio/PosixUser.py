@@ -1,5 +1,6 @@
+#!/user/bin/env python
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002-2006 University of Oslo, Norway
+# Copyright 2002-2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,116 +21,93 @@
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules import PosixGroup, PosixUser  
+from Cerebrum.modules import PosixUser  
 from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet, \
      BofhdAuthOpTarget, BofhdAuthRole
 
 class PosixUserUiOMixin(PosixUser.PosixUser):
-    """This mixin overrides PosixUser for the UiO instance,
-    and automatically creates a personal file group for each
-    user created. It also makes sure the group is deleted when
-    POSIX is demoted for a user."""
+    """This mixin overrides PosixUser for the UiO instance, and automatically
+    creates a personal file group for each user created. It also makes sure
+    the group is deleted when POSIX is demoted for a user.
+
+    """
 
     __read_attr__ = ('__in_db',)
 
+    def __init__(self, database):
+        self.__super.__init__(database)
+        self.pg = Factory.get('PosixGroup')(self._db)
+
     def delete_posixuser(self):
-        """Demotes this PosixUser to a normal Account."""
-        if self.entity_id is None:
-            raise Errors.NoEntityAssociationError, \
-                  "Unable to determine which entity to delete."
-        self._db.log_change(self.entity_id, self.const.posix_demote,
-                            None, change_params={'uid': int(self.posix_uid),
-                                                 'gid': int(self.gid_id),
-                                                 'shell': int(self.shell),
-                                                 'gecos': self.gecos})
-        self.execute("""
-        DELETE FROM [:table schema=cerebrum name=posix_user]
-        WHERE account_id=:e_id""", {'e_id': self.entity_id})
+        """Demotes this PosixUser to a normal Account. Overridden to also
+        demote the PosixUser's file group to a normal group, as long as it is
+        the account's personal group.
 
-        # Demote this PosixUsers personal group to a normal group
-        # TODO: needs logic to ensure that the group is the personal
-        # file group?
-        primary_group = PosixGroup.PosixGroup(self._db)
-        primary_group.find(self.gid_id)
-        if primary_group.group_name == self.account_name:
+        """
+        ret = self.__super.delete_posixuser()
+        self.pg.clear()
+        self.pg.find(self.gid_id)
+        if self.pg.group_name == self.account_name:
             self.pg.delete()
+        return ret
 
-    def populate(self, posix_uid, gid_id, gecos, shell, name=None,
-                 owner_type=None, owner_id=None, np_type=None,
-                 creator_id=None, expire_date=None, parent=None):
-        """Populate PosixUser instance's attributes without database access."""
-        if parent is not None:
-            self.__xerox__(parent)
-        else:
-            self.__super.populate(posix_uid, gid_id, gecos, shell, name,
-                                  owner_type, owner_id, np_type, creator_id,
-                                  expire_date, parent)
-        self.__in_db = False
-        self.posix_uid = posix_uid
-        self.gecos = gecos
-        self.shell = shell
+    def populate(self, posix_uid, gid_id, gecos, shell, name=None, owner_type=None,
+                 owner_id=None, np_type=None, creator_id=None, expire_date=None,
+                 parent=None):
+        """Populate PosixUser instance's attributes without database access.
+        Note that the given L{gid_id} is ignored, the account's personal file
+        group is used anyways. The personal group's entity_id will be fetched at
+        L{write_db}.
 
-        self.pg = PosixGroup.PosixGroup(self._db)
-        self.pg.populate(visibility=self.const.group_visibility_all,
-                         name=name,
-                         description=('Personal file group for %s' % name),
-                             creator_id=creator_id)
+        Note that the gid_id could be forced by explicitly setting pu.gid_id
+        after populate. The module would then respect this at write_db.
+
+        """
+        assert name or parent, "Need to either specify name or parent"
+        if not creator_id:
+            creator_id = parent.entity_id
+
+        self.pg.clear()
+        try:
+            self.pg.find_by_name(name or parent.account_name)
+        except Errors.NotFoundError:
+            self.pg.populate(visibility=self.const.group_visibility_all,
+                             name=name or parent.account_name,
+                             creator_id=creator_id,
+                             description=('Personal file group for %s' % name))
+
+        # The gid_id is not given to the super class, but should be set at
+        # write_db, when we have the group's entity_id.
+        return self.__super.populate(posix_uid, None, gecos, shell, name,
+                                     owner_type, owner_id, np_type, creator_id,
+                                     expire_date, parent)
 
     def write_db(self):
-        """Write PosixUser instance to database."""
-        # Writing group to DB
-        try:
-            self.pg.write_db()
-            # We'll need to set this here, as the groups entity id is created
-            # when we write to the DB.
-            self.gid_id = self.pg.entity_id
-        except self._db.DatabaseError, m:
-            raise Errors.CerebrumError, "Database error: %s" % m
+        """Write PosixUser instance to database, in addition to the personal
+        file group. As long as L{gid_id} is not set, it gets set to the
+        account's personal file group instead.
 
-        # Writing the user to DB
-        self.__super.write_db()
-        if not self.__updated:
-            return
-        is_new = not self.__in_db
-        primary_group = PosixGroup.PosixGroup(self._db)
-        primary_group.find(self.gid_id)
-        # TBD: should Group contain a utility function to add a member
-        # if it's not a member already?  There are many occurences of
-        # code like this, and but none of them implement all the
-        # robustness below.
-        if not primary_group.has_member(self.entity_id):
-            primary_group.add_member(self.entity_id)
+        """
+        if not self.gid_id:
+            # Create the PosixGroup first, to get its entity_id
+            # TODO: Should we handle that self.pg could not be set?
+            try:
+                self.pg.write_db()
+                # We'll need to set this here, as the groups entity_id is created
+                # when we write to the DB.
+                self.gid_id = self.pg.entity_id
+            except self._db.DatabaseError, m:
+                raise Errors.CerebrumError("Database error: %s" % m)
 
-        if is_new:
-            self.execute("""
-            INSERT INTO [:table schema=cerebrum name=posix_user]
-              (account_id, posix_uid, gid, gecos, shell)
-            VALUES (:a_id, :u_id, :gid, :gecos, :shell)""",
-                         {'a_id': self.entity_id,
-                          'u_id': self.posix_uid,
-                          'gid': self.gid_id,
-                          'gecos': self.gecos,
-                          'shell': int(self.shell)})
-        else:
-            self.execute("""
-            UPDATE [:table schema=cerebrum name=posix_user]
-            SET posix_uid=:u_id, gid=:gid, gecos=:gecos,
-                shell=:shell
-            WHERE account_id=:a_id""",
-                         {'a_id': self.entity_id,
-                          'u_id': self.posix_uid,
-                          'gid': self.gid_id,
-                          'gecos': self.gecos,
-                          'shell': int(self.shell)})
+        ret = self.__super.write_db()
 
-        self._db.log_change(self.entity_id, self.const.posix_promote,
-                            None, change_params={'uid': int(self.posix_uid),
-                                                 'gid': int(self.gid_id),
-                                                 'shell': int(self.shell),
-                                                 'gecos': self.gecos})
-
+        # Become a member of the group:
+        if not self.pg.has_member(self.entity_id):
+            self.add_member(self.entity_id)
 
         # Register the posixuser as owner of the group
+        # TODO: this would give the opset every time write_db is run. Need to
+        # check if account is already authorized for modifying the group.
         op_set = BofhdAuthOpSet(self._db)
         op_set.find_by_name(cereconf.BOFHD_AUTH_GROUPMODERATOR)
         op_target = BofhdAuthOpTarget(self._db)
@@ -139,9 +117,6 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
         role.grant_auth(self.entity_id, op_set.op_set_id,
                         op_target.op_target_id)
 
-        # Add the posixuser to the group
-        self.pg.add_member(self.entity_id)
-       
         # Syncronizing the groups spreads with the users
         mapping = { int(self.const.spread_uio_nis_user):
                     int(self.const.spread_uio_nis_fg),
@@ -149,25 +124,13 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
                     int(self.const.spread_uio_ad_group),
                     int(self.const.spread_ifi_nis_user):
                     int(self.const.spread_ifi_nis_fg) }
-        wanted = []
-        for r in self.get_spread():
-            spread = int(r['spread'])
-            if spread in mapping:
-                wanted.append(mapping[spread])
-        for r in self.pg.get_spread():
-            spread = int(r['spread'])
-            if not spread in mapping.values():
-                pass
-            elif spread in wanted:
-                wanted.remove(spread)
-            else:
+        user_spreads = [int(r['spread']) for r in self.get_spread()]
+        group_spreads = [int(r['spread']) for r in self.pg.get_spread()]
+        for uspr, gspr in mapping.iteritems():
+            if uspr in user_spreads:
+                if gspr not in group_spreads:
+                    self.pg.add_spread(gspr)
+            elif gspr in group_spreads:
                 self.pg.delete_spread(spread)
-        for spread in wanted:
-            self.pg.add_spread(spread)
 
-        # Return
-        del self.__in_db
-        self.__in_db = True
-        self.__updated = []
-        return is_new
-
+        return ret
