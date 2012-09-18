@@ -105,17 +105,16 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
         if not self.pg.has_member(self.entity_id):
             self.add_member(self.entity_id)
 
-        # Register the posixuser as owner of the group
-        # TODO: this would give the opset every time write_db is run. Need to
-        # check if account is already authorized for modifying the group.
-        op_set = BofhdAuthOpSet(self._db)
-        op_set.find_by_name(cereconf.BOFHD_AUTH_GROUPMODERATOR)
+        # Register the posixuser as owner of the group, if not already set
         op_target = BofhdAuthOpTarget(self._db)
-        op_target.populate(self.pg.entity_id, 'group')
-        op_target.write_db()
-        role = BofhdAuthRole(self._db)
-        role.grant_auth(self.entity_id, op_set.op_set_id,
-                        op_target.op_target_id)
+        if not op_target.list(entity_id=self.pg.entity_id, target_type='group'):
+            op_target.populate(self.pg.entity_id, 'group')
+            op_target.write_db()
+            op_set = BofhdAuthOpSet(self._db)
+            op_set.find_by_name(cereconf.BOFHD_AUTH_GROUPMODERATOR)
+            role = BofhdAuthRole(self._db)
+            role.grant_auth(self.entity_id, op_set.op_set_id,
+                            op_target.op_target_id)
 
         # Syncronizing the groups spreads with the users
         mapping = { int(self.const.spread_uio_nis_user):
