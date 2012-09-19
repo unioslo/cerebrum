@@ -36,7 +36,6 @@ import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, SimilarSizeWriter
-from Cerebrum.modules import PosixUser
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.bofhd import errors
 from Cerebrum.modules.no import fodselsnr
@@ -58,7 +57,7 @@ keep_account_home = {}
 paid_paper_money = {}
 account_id2fnr = {}
 
-posix_user_obj = PosixUser.PosixUser(db)
+posix_user_obj = Factory.get('PosixUser')(db)
 account_obj = Factory.get('Account')(db)
 person_obj = Factory.get('Person')(db)
 group_obj = Factory.get('Group')(db)
