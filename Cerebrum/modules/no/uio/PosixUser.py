@@ -102,6 +102,8 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
         ret = self.__super.write_db()
 
         # Become a member of the group:
+        if not hasattr(self.pg, 'entity_id'):
+            self.pg.find(self.gid_id)
         if not self.pg.has_member(self.entity_id):
             self.add_member(self.entity_id)
 
