@@ -8120,9 +8120,6 @@ Addresses and settings:
             np_type = all_args.pop(0)
         if ac_type == 'PosixUser':
             if not all_args:
-                return {'prompt': "Default filegroup"}
-            filgruppe = all_args.pop(0)
-            if not all_args:
                 return {'prompt': "Shell", 'default': 'bash'}
             shell = all_args.pop(0)
             if not all_args:
@@ -8174,16 +8171,16 @@ Addresses and settings:
         perm_filter='can_create_user')
     def user_create(self, operator, *args):
         if args[0].startswith('group:'):
-            group_id, np_type, filegroup, shell, home, uname = args
+            group_id, np_type, shell, home, uname = args
             owner_type = self.const.entity_group
             owner_id = self._get_group(group_id.split(":")[1]).entity_id
             np_type = self._get_constant(self.const.Account, np_type,
                                          "account type")
         else:
-            if len(args) == 7:
-                idtype, person_id, affiliation, filegroup, shell, home, uname = args
+            if len(args) == 6:
+                idtype, person_id, affiliation, shell, home, uname = args
             else:
-                idtype, person_id, yes_no, affiliation, filegroup, shell, home, uname = args
+                idtype, person_id, yes_no, affiliation, shell, home, uname = args
             owner_type = self.const.entity_person
             owner_id = self._get_person("entity_id", person_id).entity_id
             np_type = None
@@ -8198,7 +8195,6 @@ Addresses and settings:
                 if owner_type != self.const.entity_group:
                     raise CerebrumError("Personal account names cannot contain capital letters")
             
-        group = self._get_group(filegroup, grtype="PosixGroup")
         posix_user = Utils.Factory.get('PosixUser')(self.db)
         uid = posix_user.get_free_uid()
         shell = self._get_shell(shell)
@@ -8213,7 +8209,7 @@ Addresses and settings:
         expire_date = None
         self.ba.can_create_user(operator.get_entity_id(), owner_id, disk_id)
 
-        posix_user.populate(uid, group.entity_id, gecos, shell, name=uname,
+        posix_user.populate(uid, None, gecos, shell, name=uname,
                             owner_type=owner_type,
                             owner_id=owner_id, np_type=np_type,
                             creator_id=operator.get_entity_id(),
@@ -8822,11 +8818,10 @@ Addresses and settings:
     
     # user promote_posix
     all_commands['user_promote_posix'] = Command(
-        ('user', 'promote_posix'), AccountName(), GroupName(),
+        ('user', 'promote_posix'), AccountName(),
         PosixShell(default="bash"), DiskId(),
         perm_filter='can_create_user')
-    def user_promote_posix(self, operator, accountname, dfg=None, shell=None,
-                          home=None):
+    def user_promote_posix(self, operator, accountname, shell=None, home=None):
         is_posix = False
         try:
             self._get_account(accountname, actype="PosixUser")
@@ -8842,7 +8837,6 @@ Addresses and settings:
             uid = pu.get_free_uid()
         else:
             uid = old_uid
-        group = self._get_group(dfg, grtype='PosixGroup')
         shell = self._get_shell(shell)
         if not home:
             raise CerebrumError("home cannot be empty")
@@ -8857,7 +8851,7 @@ Addresses and settings:
         else:
             person = None
         self.ba.can_create_user(operator.get_entity_id(), person, disk_id)
-        pu.populate(uid, group.entity_id, None, shell, parent=account,
+        pu.populate(uid, None, None, shell, parent=account,
                     creator_id=operator.get_entity_id())
         pu.write_db()
 

@@ -132,7 +132,7 @@ class BofhdExtension(BofhdCommandBase):
         'user_affiliation_add', '_user_affiliation_add_helper',
         'user_affiliation_remove', 'user_history',
         'user_find', 'user_password', 'user_set_expire',
-        'user_reserve', 'user_gecos', 'user_promote_posix', 'user_demote_posix',
+        'user_reserve', 'user_gecos', 'user_demote_posix',
         'user_set_np_type', 'user_shell', 'user_set_disk_status',
         '_user_create_set_account_type', '_get_shell',
         'user_set_owner', 'user_set_owner_prompt_func', '_lookup_old_uid',
@@ -923,6 +923,63 @@ class BofhdExtension(BofhdCommandBase):
         if quarantined:
             ret.append({'quarantined': quarantined})
         return ret
+
+    # user promote_posix
+    all_commands['user_promote_posix'] = Command(
+        ('user', 'promote_posix'), AccountName(), GroupName(),
+        PosixShell(default="bash"), DiskId(),
+        perm_filter='can_create_user')
+    def user_promote_posix(self, operator, accountname, dfg=None, shell=None,
+                           home=None):
+        is_posix = False
+        try:
+            self._get_account(accountname, actype="PosixUser")
+            is_posix = True
+        except CerebrumError:
+            pass
+        if is_posix:
+            raise CerebrumError("%s is already a PosixUser" % accountname)
+        account = self._get_account(accountname)
+        pu = Utils.Factory.get('PosixUser')(self.db)
+        old_uid = self._lookup_old_uid(account.entity_id)
+        if old_uid is None:
+            uid = pu.get_free_uid()
+        else:
+            uid = old_uid
+        group = self._get_group(dfg, grtype='PosixGroup')
+        shell = self._get_shell(shell)
+        if not home:
+            raise CerebrumError("home cannot be empty")
+        elif home[0] != ':':  # Hardcoded path
+            disk_id, home = self._get_disk(home)[1:3]
+        else:
+            if not self.ba.is_superuser(operator.get_entity_id()):
+                raise PermissionDenied("only superusers may use hardcoded path")
+            disk_id, home = None, home[1:]
+        if account.owner_type == self.const.entity_person:
+            person = self._get_person("entity_id", account.owner_id)
+        else:
+            person = None
+        self.ba.can_create_user(operator.get_entity_id(), person, disk_id)
+        pu.populate(uid, group.entity_id, None, shell, parent=account,
+                    creator_id=operator.get_entity_id())
+        pu.write_db()
+
+        default_home_spread = self._get_constant(self.const.Spread,
+                                                 cereconf.DEFAULT_HOME_SPREAD,
+                                                 "spread")
+        if not pu.has_spread(default_home_spread):
+            pu.add_spread(default_home_spread)
+
+        homedir_id = pu.set_homedir(
+            disk_id=disk_id, home=home,
+            status=self.const.home_status_not_created)
+        pu.set_home(default_home_spread, homedir_id)
+        if old_uid is None:
+            tmp = ', new uid=%i' % uid
+        else:
+            tmp = ', reused old uid=%i' % old_uid
+        return "OK, promoted %s to posix user%s" % (accountname, tmp)
 
     # misc list_passwords_prompt_func
     #
