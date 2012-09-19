@@ -41,7 +41,6 @@ from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 from Cerebrum.modules import Email
 from Cerebrum.modules import PasswordHistory
-from Cerebrum.modules import PosixUser
 
 logger = Factory.get_logger("console")
 

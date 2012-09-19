@@ -33,8 +33,6 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory, NotSet
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.bofhd.utils import BofhdRequests
-from Cerebrum.modules.PosixUser import PosixUser
-
 
 class GuestAccountException(Exception):
     """General exception for GuestAccount"""
@@ -344,7 +342,7 @@ class BofhdUtils(object):
         cereconf.GUESTS_MEMBER_GROUPS.
 
         """
-        user = PosixUser(self.db)
+        user = Factory.get('PosixUser')(self.db)
         user.find(account_id)
         gr = Factory.get("Group")(self.db)
         gr.find_by_name(cereconf.GUESTS_DEFAULT_FILEGROUP)

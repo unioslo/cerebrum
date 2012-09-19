@@ -24,7 +24,6 @@ import mx, sys
 import cerebrum_path
 from Cerebrum import Errors
 from Cerebrum import Utils
-from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
 from Cerebrum.Entity import EntityName
 from Cerebrum import QuarantineHandler
@@ -39,7 +38,7 @@ Factory = Utils.Factory
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 logger = Factory.get_logger("cronjob")
-posix_user = PosixUser.PosixUser(db)
+posix_user = Utils.Factory.get('PosixUser')(db)
 posix_group = PosixGroup.PosixGroup(db)
 
 # The "official" NIS max line length (consisting of key + NUL + value

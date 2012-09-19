@@ -1191,7 +1191,7 @@ class BofhdExtension(BofhdCommandBase):
             email_spread = all_args.pop(0)
         if not all_args:
             ret = {'prompt': "Username", 'last_arg': True}
-            posix_user = PosixUser.PosixUser(self.db)
+            posix_user = Factory.get('PosixUser')(self.db)
             if not group_owner:
                 try:
                     person = self._get_person("entity_id", owner_id)
@@ -1252,7 +1252,7 @@ class BofhdExtension(BofhdCommandBase):
             
         filegroup = 'ansatt'
         group = self._get_group(filegroup, grtype="PosixGroup")
-        posix_user = PosixUser.PosixUser(self.db)
+        posix_user = Factory.get('PosixUser')(self.db)
         uid = posix_user.get_free_uid()
         shell = self._get_shell(shell)
         path = '/hia/ravn/u4'

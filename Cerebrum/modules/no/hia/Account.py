@@ -110,8 +110,7 @@ class AccountHiAMixin(Account.Account):
         # TODO: Should some of the functionality be moved upwards?
 
         # Demote posix
-        from Cerebrum.modules.PosixUser import PosixUser
-        pu = PosixUser(self._db)
+        pu = Utils.Factory.get('PosixUser')(self._db)
         try:
             pu.find(self.entity_id)
         except Errors.NotFoundError:

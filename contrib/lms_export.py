@@ -30,7 +30,6 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, SimilarSizeWriter
-from Cerebrum.modules import PosixUser
 from Cerebrum.modules.LMS.LMSImport import LMSImport, course2CerebumID
 from Cerebrum.modules.LMS.LMSExport import LMSExport
 from Cerebrum.modules.no.access_FS import roles_xml_parser

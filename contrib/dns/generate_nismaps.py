@@ -10,7 +10,6 @@ import mx
 import cerebrum_path
 from Cerebrum import Errors
 from Cerebrum import Utils
-from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
 from Cerebrum.Entity import EntityName
 from Cerebrum import QuarantineHandler
@@ -25,7 +24,7 @@ Factory = Utils.Factory
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 logger = Factory.get_logger("cronjob")
-posix_user = PosixUser.PosixUser(db)
+posix_user = Factory.get('PosixUser')(db)
 posix_group = PosixGroup.PosixGroup(db)
 
 # The "official" NIS max line length (consisting of key + NUL + value
@@ -61,7 +60,7 @@ def generate_passwd(filename, shadow_file, spread=None):
     n = 0
     diskid2path = {}
     disk = Factory.get('Disk')(db)
-    static_posix_user = PosixUser.PosixUser(db)
+    static_posix_user = Factory.get('PosixUser')(db)
     for d in disk.list(spread=spread):
         diskid2path[int(d['disk_id'])] = d['path']
     def process_user(user_rows):

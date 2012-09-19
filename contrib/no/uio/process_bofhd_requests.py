@@ -38,7 +38,6 @@ import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.modules import Email
-from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
 from Cerebrum import Constants
 from Cerebrum.Utils import Factory, read_password, spawn_and_log_output
@@ -1016,7 +1015,7 @@ def proc_delete_user(r):
 def _get_default_group(account_id):
     try:
         # only posix_user-objects have a default group
-        account = PosixUser.PosixUser(db)        
+        account = Factory.get('PosixUser')(db)        
         account.clear()
         account.find(account_id)
     except Errors.NotFoundError:
@@ -1089,7 +1088,7 @@ def get_account_and_home(account_id, type='Account', spread=None):
     if type == 'Account':
         account = Factory.get('Account')(db)
     elif type == 'PosixUser':
-        account = PosixUser.PosixUser(db)        
+        account = Factory.get('PosixUser')(db)        
     account.clear()
     account.find(account_id)
     if spread is None:

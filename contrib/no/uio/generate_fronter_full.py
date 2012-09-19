@@ -48,7 +48,6 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum import Database
 from Cerebrum.Utils import Factory
-from Cerebrum.modules import PosixUser
 from Cerebrum.modules.no.uio.fronter_lib \
      import XMLWriter, UE2KursID, key2fields, fields2key, host_config
 from Cerebrum.modules.no.uio.fronter_lib import semester_number
@@ -1295,7 +1294,7 @@ def init_globals():
 
 def list_users_for_fronter_export():  # TODO: rewrite this
     ret = []
-    posix_user = PosixUser.PosixUser(db)
+    posix_user = Factory.get('PosixUser')(db)
     email_addrs = posix_user.getdict_uname2mailaddr()
     logger.debug("list_users_for_fronter_export got %d emailaddrs",
                  len(email_addrs))

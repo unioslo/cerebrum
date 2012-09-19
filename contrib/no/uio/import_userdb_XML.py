@@ -46,7 +46,6 @@ from Cerebrum import Person
 from Cerebrum import Entity
 from Cerebrum import Errors
 from Cerebrum.modules import PosixGroup
-from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PasswordHistory
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import PrinterQuotas
@@ -84,7 +83,7 @@ account2entity_id = {}
 
 namestr2const = {'lname': co.name_last, 'fname': co.name_first}
 personObj = Factory.get('Person')(db)
-posix_user = PosixUser.PosixUser(db)
+posix_user = Factory.get('PosixUser')(db)
 disk2id = {}
 account = Account.Account(db)
 account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)

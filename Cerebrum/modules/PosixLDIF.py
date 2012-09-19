@@ -47,12 +47,12 @@ class PosixLDIF(object):
         used in more than one method.
         """
         super(PosixLDIF, self).__init__(db)
-        from Cerebrum.modules import PosixUser, PosixGroup
+        from Cerebrum.modules import PosixGroup
         from Cerebrum.QuarantineHandler import QuarantineHandler
         self.db = db
         self.logger = logger
         self.const = Factory.get('Constants')(self.db)
-        self.posuser = PosixUser.PosixUser(self.db)
+        self.posuser = Factory.get('PosixUser')(self.db)
         self.posgrp = PosixGroup.PosixGroup(self.db)
         self.user_dn = LDIFutils.ldapconf('USER', 'dn', None)
         self.get_name = True
@@ -97,8 +97,7 @@ class PosixLDIF(object):
 
     def init_user(self, auth_meth=None):
         self.get_name = False
-        from Cerebrum.modules import PosixUser
-        self.posuser = PosixUser.PosixUser(self.db)
+        self.posuser = Factory.get('PosixUser')(self.db)
         self.load_disk_tab()
         self.load_shell_tab()
         self.load_quaratines()

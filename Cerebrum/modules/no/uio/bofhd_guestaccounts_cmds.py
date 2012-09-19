@@ -26,7 +26,6 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory 
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
-from Cerebrum.modules import PosixUser
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.no.uio.bofhd_guestaccounts_utils \
@@ -148,7 +147,7 @@ class BofhdExtension(BofhdCommandBase):
                                         default_lookup="group").entity_id
         np_type = self.const.account_guest
         group = self.util.get_target(filegroup, default_lookup="group")
-        posix_user = PosixUser.PosixUser(self.db)
+        posix_user = Factory.get('PosixUser')(self.db)
         shell = self._get_shell(shell)
         disk_id, home = self._get_disk(home)[1:3]
         gecos = None

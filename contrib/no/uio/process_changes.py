@@ -45,7 +45,6 @@ from Cerebrum.modules import CLHandler
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 from Cerebrum.Entity import EntityQuarantine
-from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 
@@ -54,7 +53,7 @@ db = Factory.get('Database')()
 db.cl_init(change_program="process_changes")
 cl_const = Factory.get('CLConstants')(db)
 const = Factory.get('Constants')(db)
-posix_user = PosixUser.PosixUser(db)
+posix_user = Factory.get('PosixUser')(db)
 posix_group = PosixGroup.PosixGroup(db)
 host = Factory.get('Host')(db)
 disk = Factory.get('Disk')(db)

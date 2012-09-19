@@ -36,7 +36,7 @@ from Cerebrum.Entity import EntityName
 from Cerebrum.Utils  import Factory, auto_super, latin1_to_iso646_60, \
      SimilarSizeWriter, FileSizeChangeError
 from Cerebrum.QuarantineHandler import QuarantineHandler
-from Cerebrum.modules           import PosixUser, PosixGroup
+from Cerebrum.modules           import PosixGroup
 from Cerebrum.modules.LDIFutils import ldapconf, LDIFWriter, iso2utf, \
      map_constants, map_spreads, entry_string
 
@@ -123,7 +123,7 @@ Examples:
         self.db = Factory.get('Database')()
         self.co = Factory.get('Constants')(self.db)
         self.group = Factory.get('Group')(self.db)
-        self.posix_user = PosixUser.PosixUser(self.db)
+        self.posix_user = Factory.get('PosixUser')(self.db)
         self.posix_group = PosixGroup.PosixGroup(self.db)
         self._namecachedtime = mx.DateTime.now()
 

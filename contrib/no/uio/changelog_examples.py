@@ -29,9 +29,6 @@ import cereconf
 from Cerebrum.modules import ChangeLog
 from Cerebrum.Utils import Factory
 
-# If you want to link data from ChangeLog against PosixUsers, import:
-from Cerebrum.modules import PosixUser
-
 # Set up the basics.
 db = Factory.get('Database')()
 const = Factory.get('CLConstants')(db)
@@ -49,7 +46,7 @@ const = Factory.get('CLConstants')(db)
 # and import the right module for this info.
 
 def list_new_users(after_date=None, before_date=None):
-    posix_user = PosixUser.PosixUser(db)
+    posix_user = Factory.get('PosixUser')(db)
     for evt in db.get_log_events_date(int(const.account_create),
                                       sdate=after_date,
                                       edate=before_date):

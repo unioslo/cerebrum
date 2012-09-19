@@ -22,10 +22,10 @@ from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum import Group
 from Cerebrum import Person
+from Cerebrum.Utils import Factory
 from templates.letters import TemplateHandler
 from bofhd_errors import CerebrumError
 import cereconf
-from Cerebrum.modules import PosixUser
 import re
 
 class BofhdExtension(object):
@@ -145,7 +145,7 @@ class BofhdExtension(object):
         """Create a PosixUser for existing 'accountname'"""
         account = self._get_account(accountname)
         group=self._get_group(prigroup)
-        posix_user = PosixUser.PosixUser(self.Cerebrum)
+        posix_user = Factory.get('PosixUser')(self.Cerebrum)
         uid = posix_user.get_free_uid()
 
         if shell == 'bash':

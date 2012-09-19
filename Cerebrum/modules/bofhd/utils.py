@@ -537,11 +537,10 @@ class BofhdUtils(object):
             """
             # FIXME: due to constants being defined in this file, we
             # can't import these at the top level.
-            from Cerebrum.modules.PosixUser import PosixUser
             from Cerebrum.modules.PosixGroup import PosixGroup
 
             if clstype == "account":
-                promoted = PosixUser(self.db)
+                promoted = Factory.get('PosixUser')(self.db)
             elif clstype == "group":
                 promoted = PosixGroup(self.db)
             try:
@@ -557,7 +556,6 @@ class BofhdUtils(object):
             """
             # FIXME: due to constants being defined in this file, we
             # can't import these at the top level.
-            from Cerebrum.modules.PosixUser import PosixUser
             from Cerebrum.modules.PosixGroup import PosixGroup
 
             # We could use get_target_posix_by_object, but then the
@@ -565,7 +563,7 @@ class BofhdUtils(object):
             # instantiation of a plain Account object first.
             if clstype == "account":
                 plain_cls = Factory.get("Account")
-                posix_cls = PosixUser
+                posix_cls = Factory.get("PosixUser")
             elif clstype == "group":
                 plain_cls = Factory.get("Group")
                 posix_cls = PosixGroup
