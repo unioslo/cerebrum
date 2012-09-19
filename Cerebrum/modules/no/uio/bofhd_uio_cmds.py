@@ -8974,13 +8974,6 @@ Addresses and settings:
         else:
             raise CerebrumError('Invalid affiliation')
 
-        # Gets the name of the primary group for the user
-        if not all_args:
-            return {'prompt': 'Primary group',
-                    'help_ref': 'group_name'}
-        arg = all_args.pop(0)
-        group = self._get_group(arg)
-
         # Gets the disk the user will reside on
         if not all_args:
             return {'prompt': 'Disk',
@@ -9000,7 +8993,7 @@ Addresses and settings:
     all_commands['user_restore'] = Command(
             ('user', 'restore'), prompt_func=user_restore_prompt_func,
             perm_filter='can_create_user')
-    def user_restore(self, operator, accountname, aff_ou, group, home):
+    def user_restore(self, operator, accountname, aff_ou, home):
         ac = self._get_account(accountname)
         # Check if the account is deleted or reserved
         if not ac.is_deleted() and not ac.is_reserved():
@@ -9008,13 +9001,6 @@ Addresses and settings:
                   ('Please contact brukerreg in order to restore %s'
                   % accountname)
         
-        # We check to see if the group is modifiable by the operator.
-        group = self._get_group(group, grtype='PosixGroup') 
-        if not self.ba.can_alter_group(operator.get_entity_id(), group):
-            raise PermissionDenied('%s has no access to alter group %s' %
-                                   (self._get_uname(operator.entity_id),
-                                    self._get_gname(group.entity_id)))
-
         # Checking to see if the home path is hardcoded.
         # Raises CerebrumError if the disk does not exist.
         if not home:
@@ -9079,7 +9065,7 @@ Addresses and settings:
         shell = self.const.posix_shell_bash
 
         # Populate the posix user, and write it to the database
-        pu.populate(uid, int(group.entity_id), None, shell, parent=ac,
+        pu.populate(uid, None, None, shell, parent=ac,
                     creator_id=operator.get_entity_id())
         try:
             pu.write_db()
@@ -9123,7 +9109,8 @@ Addresses and settings:
         # We'll need to write to the db, in order to store stuff.
         try:
             ac.write_db()
-        except self.db.IntegrityError:
+        except self.db.IntegrityError, e:
+            self.logger.debug("IntegrityError (ac.write_db): %s" % e)
             self.db.rollback()
             raise CerebrumError('Please contact brukerreg in order to restore')
 
