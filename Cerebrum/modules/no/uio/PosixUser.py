@@ -105,6 +105,10 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
         if not self.pg.has_member(self.entity_id):
             self.add_member(self.entity_id)
 
+        # If the dfg is not a personal group we are done now:
+        if self.account_name == self.pg.group_name:
+            return ret
+
         # Register the posixuser as owner of the group, if not already set
         op_target = BofhdAuthOpTarget(self._db)
         if not op_target.list(entity_id=self.pg.entity_id, target_type='group'):
