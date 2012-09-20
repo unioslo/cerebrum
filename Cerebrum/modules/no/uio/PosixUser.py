@@ -105,7 +105,7 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
         if not hasattr(self.pg, 'entity_id'):
             self.pg.find(self.gid_id)
         if not self.pg.has_member(self.entity_id):
-            self.add_member(self.entity_id)
+            self.pg.add_member(self.entity_id)
 
         # If the dfg is not a personal group we are done now:
         if self.account_name != self.pg.group_name:
