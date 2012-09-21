@@ -204,7 +204,8 @@ class AccountUiOMixin(Account.Account):
         except Errors.NotFoundError:
             pass
         else:
-            raise Errors.CerebrumError('Account name taken by group: %s' % name)
+            raise self._db.IntegrityError('Account name taken by group: %s' %
+                                          name)
         return self.__super.populate(name, owner_type, owner_id, np_type,
                                      creator_id, expire_date, parent=parent)
 
