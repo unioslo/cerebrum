@@ -45,7 +45,7 @@ from Cerebrum.modules import PasswordChecker
 from Cerebrum.modules import PasswordHistory
 from Cerebrum.modules import PosixGroup
 from Cerebrum.modules import PosixUser
-from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdRequests
@@ -136,7 +136,7 @@ class UiOAuth(BofhdAuth):
     can_rt_address_remove = can_rt_address_add
 
 
-class BofhdExtension(BofhdCommandBase):
+class BofhdExtension(BofhdCommonMethods):
     """All CallableFuncs take user as first arg, and are responsible
     for checking necessary permissions"""
 
@@ -210,8 +210,14 @@ class BofhdExtension(BofhdCommandBase):
             self.change_type2details[int(r['change_type_id'])] = [
                 r['category'], r['type'], r['msg_string']]
         self.fixup_imaplib()
-        self.server = server
-        
+
+        # Copy in all defined commands from the superclass that is not defined
+        # in this class. TODO: This is not an optimal solution: If we are
+        # subclassing this class, we need to run another copy loop there too.
+        # How could we avoid this?
+        for key, cmd in super(BofhdExtension, self).all_commands.iteritems():
+            if not self.all_commands.has_key(key):
+                self.all_commands[key] = cmd
 
     def fixup_imaplib(self):
         def nonblocking_open(self, host=None, port=None):
@@ -5205,26 +5211,21 @@ Addresses and settings:
               "to become group member" % src_entity_id
         return self._group_add_entity(operator, src_entity, dest_group)
 
-    # group create
-    all_commands['group_create'] = Command(
-        ("group", "create"), GroupName(help_ref="group_name_new"),
-        SimpleString(help_ref="string_description"),
-        fs=FormatSuggestion("Group created as a normal group, internal id: %i", ("group_id",)),
-        perm_filter='can_create_group')
+    ## group create
+    # (all_commands is updated from BofhdCommonMethods)
     def group_create(self, operator, groupname, description):
-        self.ba.can_create_group(operator.get_entity_id())
-        g = self.Group_class(self.db)
-        g.populate(creator_id=operator.get_entity_id(),
-                   visibility=self.const.group_visibility_all,
-                   name=groupname, description=description)
+        """Override group_create to double check that there doesn't exist an
+        account with the same name.
+        """
+        ac = self.Account_class(self.db)
         try:
-            g.write_db()
-        except self.db.DatabaseError, m:
-            raise CerebrumError, "Database error: %s" % m
-        for spread in cereconf.BOFHD_NEW_GROUP_SPREADS:
-            g.add_spread(self.const.Spread(spread))
-            g.write_db()
-        return {'group_id': int(g.entity_id)}
+            ac.find_by_name(groupname)
+        except Errors.NotFoundError:
+            pass
+        else:
+            raise CerebrumError('An account exists with name: %s' % groupname)
+        return super(BofhdExtension, self).group_create(operator, groupname,
+                                                        description)
 
     # group request, like group create, but only send request to
     # the ones with the access to the 'group create' command

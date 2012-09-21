@@ -36,6 +36,7 @@ from Cerebrum import Entity
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.errors import CerebrumError
 
+from Cerebrum.modules.bofhd import cmd_param as cmd
 
 
 class BofhdCommandBase(object):
@@ -455,3 +456,56 @@ class BofhdCommandBase(object):
         assert False
     # end _get_entity_name
 # end BofhdCommandBase
+
+class BofhdCommonMethods(BofhdCommandBase):
+    """Class with common methods that is used by most, 'normal' instances.
+    Instances that requires some special care for some methods could subclass
+    those in their own institution-specific class
+    (modules.no.<inst>.bofhd_<inst>_cmds.py:BofhdExtension).
+
+    The methods are using the BofhdAuth that is defined in the institution's
+    subclass - L{self.ba}.
+
+    Since L{all_commands} is a class variable, subclasses won't reach this
+    directly. In addition, they have their own command definition dict. For now,
+    the subclass has to manually import the definitions it want, e.g. by::
+
+        for key, cmd in super(BofhdExtension, self).all_commands.iteritems():
+            if not self.all_commands.has_key(key):
+                self.all_commands[key] = cmd
+
+    TODO: More to describe here? Other requirements?
+
+    """
+
+    # Each subclass defines its own class attribute containing the relevant
+    # commands - the subclass therefore has to copy in the wanted method
+    # definitions from this class' all_commands dict. TODO: or find a smarter
+    # solution to this.
+    all_commands = {}
+
+    # group create
+    all_commands['group_create'] = cmd.Command(
+        ("group", "create"),
+        cmd.GroupName(help_ref="group_name_new"),
+        cmd.SimpleString(help_ref="string_description"),
+        fs=cmd.FormatSuggestion("Group created, internal id: %i", ("group_id",)),
+        perm_filter='can_create_group')
+    def group_create(self, operator, groupname, description):
+        """Standard method for creating normal groups. BofhdAuth's
+        L{can_create_group} is first checked. The group gets the spreads as
+        defined in L{cereconf.BOFHD_NEW_GROUP_SPREADS}."""
+        self.ba.can_create_group(operator.get_entity_id())
+        g = self.Group_class(self.db)
+        g.populate(creator_id=operator.get_entity_id(),
+                   visibility=self.const.group_visibility_all,
+                   name=groupname, description=description)
+        try:
+            g.write_db()
+        except self.db.DatabaseError, m:
+            raise CerebrumError("Database error: %s" % m)
+        for spread in cereconf.BOFHD_NEW_GROUP_SPREADS:
+            g.add_spread(self.const.Spread(spread))
+            g.write_db()
+        return {'group_id': int(g.entity_id)}
+
