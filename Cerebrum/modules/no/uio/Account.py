@@ -193,6 +193,21 @@ class AccountUiOMixin(Account.Account):
         self.__plaintext_password = plaintext
         self.__super.set_password(plaintext)
 
+    def populate(self, name, owner_type, owner_id, np_type, creator_id,
+                 expire_date, parent=None):
+        """Override to check that the account name is not already taken by a
+        group.
+        """
+        gr = Factory.get('Group')(self._db)
+        try:
+            gr.find_by_name(name)
+        except Errors.NotFoundError:
+            pass
+        else:
+            raise Errors.CerebrumError('Account name taken by group: %s' % name)
+        return self.__super.populate(name, owner_type, owner_id, np_type,
+                                     creator_id, expire_date, parent=parent)
+
     def write_db(self):
         try:
             plain = self.__plaintext_password
