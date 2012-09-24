@@ -5520,7 +5520,7 @@ Addresses and settings:
                                             indirect_members=False,
                                             member_filter_expired=False))
         if len(members) > cereconf.BOFHD_MAX_MATCHES and not self.ba.is_superuser(operator.get_entity_id()):
-            raise CerebrumError("More than %d (%d) matches. Contact superuser"
+            raise CerebrumError("More than %d (%d) matches. Contact superuser "
                                 "to get a listing for %s." %
                                 (cereconf.BOFHD_MAX_MATCHES, len(members), groupname))
         for x in self._fetch_member_names(members):
