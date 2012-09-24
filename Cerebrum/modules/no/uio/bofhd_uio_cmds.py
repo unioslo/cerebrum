@@ -6952,7 +6952,7 @@ Addresses and settings:
         for a in person.get_affiliations():
             if (int(a['source_system']) in
                 [int(self.const.system_fs), int(self.const.system_sap)]):
-		raise PermissionDenied("You are not allowed to alter birth date for this person.")        
+                raise PermissionDenied("You are not allowed to alter birth date for this person.")        
         bdate = self._parse_date(bdate)
         if bdate > self._today():
             raise CerebrumError, "Please check the date of birth, cannot register date_of_birth > now"
