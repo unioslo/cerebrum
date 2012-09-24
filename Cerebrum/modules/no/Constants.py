@@ -80,6 +80,11 @@ class ConstantsCommon(Constants.Constants):
         Constants.Constants.entity_group,
         "Trait marking automatically administered groups with group members.")
 
+    trait_personal_dfg = _EntityTraitCode(
+        'personal_group',
+        Constants.Constants.entity_group,
+        "Group is a personal file group.")
+
     # Traits for the password service (Individuation)
     trait_password_token = _EntityTraitCode(
         "password_token", Constants.Constants.entity_account,

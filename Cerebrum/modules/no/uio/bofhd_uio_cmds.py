@@ -5654,6 +5654,11 @@ Addresses and settings:
         acc.write_db()
         # 6. add spreads corresponding to its owning user
         self.__spread_sync_group(acc, group)
+        # 7. give personal group a trait
+        if hasattr(self.const, 'trait_personal_dfg'):
+            pg.populate_trait(self.const.trait_personal_dfg,
+                              target_id=acc.entity_id)
+            pg.write_db()
         return {'group_id': int(pg.posix_gid)}
 
     # group posix_create

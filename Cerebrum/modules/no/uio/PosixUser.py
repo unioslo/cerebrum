@@ -32,8 +32,6 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
 
     """
 
-    __read_attr__ = ('__in_db',)
-
     def __init__(self, database):
         self.__super.__init__(database)
         self.pg = Factory.get('PosixGroup')(self._db)
@@ -47,7 +45,11 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
         ret = self.__super.delete_posixuser()
         self.pg.clear()
         self.pg.find(self.gid_id)
+        # TODO: check personal_group trait instead or in addition
         if self.pg.group_name == self.account_name:
+            if hasattr(self, 'delete_trait'):
+                self.delete_trait(self.const.trait_personal_dfg)
+                self.write_db()
             self.pg.delete()
         return ret
 
@@ -90,11 +92,12 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
         """
         if not self.gid_id:
             # Create the PosixGroup first, to get its entity_id
-            # TODO: Should we handle that self.pg could not be set?
+            # TODO: Should we handle that self.pg could not be populated when
+            # we're here? When could gid_id be none without running populate?
             try:
                 self.pg.write_db()
-                # We'll need to set this here, as the groups entity_id is created
-                # when we write to the DB.
+                # We'll need to set this here, as the groups entity_id is
+                # created when we write to the DB.
                 self.gid_id = self.pg.entity_id
             except self._db.DatabaseError, m:
                 raise Errors.CerebrumError("Database error: %s" % m)
@@ -108,8 +111,15 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
             self.pg.add_member(self.entity_id)
 
         # If the dfg is not a personal group we are done now:
+        # TODO: check trait_personal_dfg instead or in addition?
         if self.account_name != self.pg.group_name:
             return ret
+
+        # Set the personal file group trait
+        if not self.pg.get_trait(self.const.trait_personal_dfg):
+            self.pg.populate_trait(self.const.trait_personal_dfg,
+                                   target_id=self.entity_id)
+            self.pg.write_db()
 
         # Register the posixuser as owner of the group, if not already set
         op_target = BofhdAuthOpTarget(self._db)
