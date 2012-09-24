@@ -76,6 +76,9 @@ class Fronter(object):
         self.uname2extid = self.uname2ext_id_fnr()
 
     def uname2ext_id_fnr(self):
+        """Return a dict with mappings of fnr to primary accounts. This
+        includes all persons in the database, not only students.
+        """
         person = Factory.get("Person")(self.db)
         const = Factory.get("Constants")(self.db)
         uname2ext_id = {}
@@ -123,6 +126,7 @@ class Fronter(object):
     #        ret.append(tmp)
     
     def get_frontergroups_names(self):
+        """Get a list of all LMS groups' names and descriptions."""
         group = Factory.get("Group")(self.db)
         ret = []
         for e in group.list_all_with_spread(self.const.spread_lms_group):
@@ -328,7 +332,9 @@ def init_globals():
     ou = Factory.get("OU")(db)
     logger = Factory.get_logger("cronjob")
 
-    fsdb = Database.connect(user='I0208_cerebrum', service='FSHIH.uio.no', DB_driver='cx_Oracle') 
+    fsdb = Database.connect(user='I0208_cerebrum',
+                            service=cereconf.FS_DATABASE_NAME,
+                            DB_driver='cx_Oracle') 
     fs = FS(fsdb)
 
     cf_dir = '/cerebrum/hih/dumps/Fronter'
