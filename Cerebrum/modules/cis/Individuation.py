@@ -34,15 +34,16 @@ from Cerebrum.modules import PasswordChecker
 from cisconf import individuation as cisconf
 
 class SimpleLogger(object):
-    """
-    Very simple logger that just writes to stdout. Main reason for a
-    class is to have the same api as Cerebrum logger.
-    """
-    def __init__(self):
-        pass
+    """Very simple logger that just writes to stdout. Main reason for this
+    class is to have the same API as the Cerebrum logger.
 
-    # Logging functions use print since twisted logger logs everything
-    # written to stdout
+    It uses print for now, since twisted's logger logs everything written to
+    stdout. It is, however, not the most efficient solution, as printing is
+    slow. Services that makes use of this module should therefore override:
+
+        Individuation.log = twisted.log
+
+    """
     def error(self, msg):
         print "ERROR: " + msg
         
@@ -158,6 +159,8 @@ class Individuation:
         # client has connected and called a few commands.
         int(self.co.trait_public_reservation)
         int(self.co.trait_reservation_sms_password)
+        int(self.co.trait_student_new)
+        int(self.co.trait_sms_welcome)
         # TODO: more should be tested
 
     def close(self):
