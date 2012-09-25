@@ -502,7 +502,6 @@ new_groupmembers = {}
 new_group = {}
 def register_group(title, desc):
      """Adds info in new_group about group."""
-     parent_id = ""
      pid, rest = title.split('-', 1)
      parent_id = '99 NO-FS Studenter importert fra FS'
      new_group[title] = {'title': desc,
@@ -560,6 +559,7 @@ def main():
         except Errors.NotFoundError:
             logger.warn("Could not find group %s in Cerebrum", g['group_id'])
             continue
+        logger.debug("Gathering group: %s", group.group_name)
         for row in group.search_members(group_id=group.entity_id,
                                         member_type=const.entity_account):
             member_id = int(row["member_id"])

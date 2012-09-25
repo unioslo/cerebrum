@@ -66,6 +66,11 @@ institutt_group_settings = (
     ('ans-230000',  {'affiliation': const.affiliation_ansatt,  'ou_id': 5748}),
    )
 
+# A set of group_ids that the script has been working on. This is to be able to
+# disable all other groups with the LMS-spread that should not be active
+# anymore.
+touched_groups = set()
+
 def usage(exitcode=0):
     print """Usage: populate-fronter-groups.py
 
@@ -134,14 +139,12 @@ def institutt_grupper(remove_others=False):
 
 def studieprog_grupper(fsconn, remove_others=False):
     """Create and populate groups for active study programs that is defined in FS."""
-    groups = set()
-    kullgroups = set()
     for x in fs.info.list_studieprogrammer():
         if x['status_utgatt'] == 'J':
             logger.debug("Studieprogram %s is expired, skipping.", x['studieprogramkode'])
             continue
         # create all connected kull-groups and update memeberships
-        kullgroups.update(kull_grupper(fsconn, x['studieprogramkode']))
+        kull_grupper(fsconn, x['studieprogramkode'], remove_others)
 
         # naming studieprogram-groups with a prefix (studieprog-) and
         # studieprogramkode from FS. description for group will be the
@@ -161,8 +164,9 @@ def studieprog_grupper(fsconn, remove_others=False):
                 grp.write_db()
             except db.DatabaseError, m:
                 raise Errors.CerebrumError, "Database error: %s" % m
+        touched_groups.add(grp.entity_id)
 
-        # check if the group is tagged for export to LMS, tagg if not
+        # check if the group is tagged for export to LMS, tag if not
         if not grp.has_spread(const.spread_lms_group):
             grp.add_spread(const.spread_lms_group)
             logger.debug("Added spread to LMS for studieprog group %s", grp_name)
@@ -170,7 +174,6 @@ def studieprog_grupper(fsconn, remove_others=False):
                 grp.write_db()
             except db.DatabaseError, m:
                 raise Errors.CerebrumError, "Database error: %s" % m
-        groups.add(grp.entity_id)
 
         # studieprog-group is either found or created. checking memberships
         members = set()
@@ -183,15 +186,9 @@ def studieprog_grupper(fsconn, remove_others=False):
                 logger.error("Person %s not found, or no primary account (studyprog)", fnr)
                 continue
         fill_group(grp_name, members, remove_others)
-    # delete old groups
-    if remove_others:
-        if groups:
-            delete_old_groups(match='studieprogram-%', active=groups)
-        if kullgroups:
-            delete_old_groups(match='kull-%-%-%-%', active=kullgroups)
 
 def kull_grupper(fsconn, studieprogramkode, remove_others=False):
-    groups = set()
+    """Create and update kullgrupper for a given studieprogram."""
     for x in fs.undervisning.list_kull_at_studieprog(studieprogramkode):
         # groups are named by a prefix = kull- and also
         # studieprogkode, kullnavn, terminkode and arstall from fs
@@ -214,7 +211,7 @@ def kull_grupper(fsconn, studieprogramkode, remove_others=False):
                 grp.write_db()
             except db.DatabaseError, m:
                 raise Errors.CerebrumError, "Database error: %s" % m
-        groups.add(grp.entity_id)
+        touched_groups.add(grp.entity_id)
 
         # check if the group is tagged for export to LMS, tagg if not
         if not grp.has_spread(const.spread_lms_group):
@@ -234,21 +231,22 @@ def kull_grupper(fsconn, studieprogramkode, remove_others=False):
                 logger.info("Person %s not found, or no primary account (kull)", fnr)
                 continue
         fill_group(grp_name, members, remove_others)
-    return groups
 
 def undervisningsmelding_grupper(fsconn, remove_others=False):
-    groups = set()
     for x in fs.undervisning.list_undervisningenheter():
-        grp_name = 'emne-%s-%s-%s' % (x['emnekode'], x['terminkode'], x['arstall'])
+        grp_name = 'emne-%s-%s-%s-%s' % (x['emnekode'], x['terminkode'],
+                                         x['arstall'], x['terminnr'])
+        logger.debug("Processing group: %s", grp_name)
         grp.clear()
         try:
             grp.find_by_name(grp_name)
         except Errors.NotFoundError:
             logger.info("Could not find emne group %s, creating", grp_name)
             # all groups are created/owned by bootstrap_account, id = 2
-            desc = "Alle studenter undervisningsmeldt på %s, %s %s" % (x['emnekode'], 
-                                                                       x['arstall'], 
-                                                                       x['terminkode'])
+            desc = "Alle studenter undervisningsmeldt på %s, %s %s %s" % (x['emnekode'],
+                                                                          x['arstall'],
+                                                                          x['terminkode'],
+                                                                          x['terminnr'])
             grp.populate(creator_id=2,
                          visibility=const.group_visibility_all,
                          name=grp_name, 
@@ -257,8 +255,9 @@ def undervisningsmelding_grupper(fsconn, remove_others=False):
                 grp.write_db()
             except db.DatabaseError, m:
                 raise Errors.CerebrumError, "Database error: %s" % m
+        touched_groups.add(grp.entity_id)
 
-        # check if the group is tagged for export to LMS, tagg if not
+        # check if the group is tagged for export to LMS, tag if not
         if not grp.has_spread(const.spread_lms_group):
             grp.add_spread(const.spread_lms_group)
             logger.debug("Added spread to LMS for kull group %s", grp_name)
@@ -266,7 +265,6 @@ def undervisningsmelding_grupper(fsconn, remove_others=False):
                 grp.write_db()
             except db.DatabaseError, m:
                 raise Errors.CerebrumError, "Database error: %s" % m
-        groups.add(grp.entity_id)
 
         # update memberships in emne-groups
         members = set()
@@ -283,25 +281,26 @@ def undervisningsmelding_grupper(fsconn, remove_others=False):
                 logger.info("Person %s not found, or no primary account (undvmeld)", fnr)
                 continue
         fill_group(grp_name, members, remove_others)
-    # delete old groups
-    if remove_others and groups:
-        delete_old_groups(match='emne-%-%-%', active=groups)
 
-def delete_old_groups(match, active):
-    """Go through the database and delete old groups that does not match any
-    of the given active groups."""
-    if not match or match == '*' or match == '%':
-        raise Exception('Want to delete all groups? Given match: %s' % match)
-    if len(active) <= 0:
-        raise Exception("No active groups, can't delete them all")
-    for row in grp.search(name=match):
-        if row['group_id'] in active:
+def remove_old_groups():
+    """Go through the database and disable all groups with the LMS-spread but
+    have not been touched by this script, i.e. is in the global set
+    touched_groups.
+
+    """
+    for row in grp.search(spread=const.spread_lms_group):
+        if row['group_id'] in touched_groups:
             continue
-        logger.debug("Deleting group: %s" % row['name'])
+        logger.info("Expiring group: %s" % row['name'])
         grp.clear()
         grp.find(row['group_id'])
         grp.expire_date = now()
         grp.write_db()
+        # Have to remove spread too, as generate_fronter_xml is using
+        # gr.list_all_with_spread, which is ignoring expire dates:
+        grp.delete_spread(const.spread_lms_group)
+        grp.write_db()
+        # Maybe we want to delete the group in the future:
         #grp.delete()
 
 def main():
@@ -349,6 +348,10 @@ def main():
 
     logger.info("Updating emne/underv.enh groups")
     undervisningsmelding_grupper(fs, remove_others)
+
+    if remove_others:
+        logger.info("Removing other/old groups with LMS-spread")
+        remove_old_groups()
     
     if dryrun:
         logger.info("All done, rolled back changes")
