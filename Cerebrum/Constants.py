@@ -954,8 +954,8 @@ class CommonConstants(ConstantsBase):
         'MD4-NT',
         "MD4-derived password hash with Microsoft-added security.  "
         "Requires the smbpasswd module to be installed.")
-    auth_type_a1_crypt = _AuthenticationCode(
-        'A1',
+    auth_type_ha1_md5 = _AuthenticationCode(
+        'HA1-MD5',
         "Used in digest access authentication as specified in RFC 2617. "
         "Is an unsalted MD5 digest hash over 'username:realm:password'. "
         "See <http://tools.ietf.org/html/rfc2617#section-3.2.2.2>")

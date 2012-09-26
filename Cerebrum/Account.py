@@ -699,9 +699,9 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         elif method == self.const.auth_type_md5_unsalt:
             import hashlib
             return hashlib.md5(plaintext).hexdigest()
-        elif method == self.const.auth_type_a1_crypt:
+        elif method == self.const.auth_type_ha1_md5:
             import hashlib
-            s = ":".join([self.account_name,cereconf.AUTH_A1_REALM,plaintext])
+            s = ":".join([self.account_name,cereconf.AUTH_HA1_REALM,plaintext])
             return hashlib.md5(s).hexdigest()
         raise Errors.NotImplementedAuthTypeError, "Unknown method " + repr(method)
 
@@ -712,7 +712,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         the method it handles.
         """
         if method in (self.const.auth_type_md5_crypt,
-                      self.const.auth_type_a1_crypt,
+                      self.const.auth_type_ha1_md5,
                       self.const.auth_type_crypt3_des,
                       self.const.auth_type_sha256_crypt,
                       self.const.auth_type_sha512_crypt,
@@ -728,7 +728,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         verification, NotImplemented is returned.
         """
         if method in (self.const.auth_type_md5_crypt,
-                      self.const.auth_type_a1_crypt,
+                      self.const.auth_type_ha1_md5,
                       self.const.auth_type_crypt3_des,
                       self.const.auth_type_md4_nt,
                       self.const.auth_type_ssha,
