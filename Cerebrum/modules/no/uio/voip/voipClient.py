@@ -367,14 +367,27 @@ class VoipClient(EntityAuthentication, EntityTrait):
             client2auth.setdefault(row['entity_id'],
                                    {})[row['auth_method']] = row['auth_data']
 
-        # person_id -> primary_uname
+
+        # entity_id -> quarantine
         account = Factory.get("Account")(self._db)
+        entity2quarantine = dict()
+        for row in account.list_entity_quarantines(entity_types=self.const.entity_account,
+                                                   only_active=True):
+             entity2quarantine[row['entity_id']] = 'locked'
+
+        # person_id -> primary_uname
         primary_accounts = set(r["account_id"] for r in
                                account.list_accounts_by_type(primary_only=True))
         owner2uname = dict((r["owner_id"], r["name"])
                            for r in account.search(
                                owner_type=self.const.entity_person)
                            if r["account_id"] in primary_accounts)
+
+        # uname -> HA1 hashes, only for softphone for Account users aka persons.
+        uname2ha1 = dict()
+        for row in account.list_account_authentication(self.const.auth_type_ha1_md5):
+            uname2ha1[row['entity_name']] = entity2quarantine.get(row['account_id']) or row['auth_data']
+
         for row in self.search():
             mac = row["mac_address"]
             mac = mac.replace(":", "") if mac else None
@@ -393,6 +406,8 @@ class VoipClient(EntityAuthentication, EntityTrait):
             if row["client_type"] == self.const.voip_client_type_softphone:
                 owner_id = row["owner_entity_id"]
                 entry["uid"] = owner2uname.get(owner_id, str(owner_id))
+                if row["owner_entity_type"] == self.const.entity_person:
+                    entry["ha1MD5password"] = uname2ha1.get(entry["uid"]) or "missing"
 
             yield entry
     # end list_voip_attributes
