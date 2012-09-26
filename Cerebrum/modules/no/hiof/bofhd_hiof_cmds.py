@@ -30,7 +30,7 @@ from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdRequests
-from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.no.hiof import bofhd_hiof_help
 
 
@@ -44,7 +44,7 @@ class HiofBofhdRequests(BofhdRequests):
         self.conflicts[int(const.bofh_ad_attrs_remove)] = None
 
 
-class BofhdExtension(BofhdCommandBase):
+class BofhdExtension(BofhdCommonMethods):
     OU_class = Utils.Factory.get('OU')
     Account_class = Factory.get('Account')
     Group_class = Factory.get('Group')
@@ -75,6 +75,7 @@ class BofhdExtension(BofhdCommandBase):
         return x
 
     def __init__(self, server, default_zone='hiof'):
+        super(BofhdExtension, self).__init__(server)
         self.server = server
         self.logger = server.logger
         self.util = server.util
@@ -96,6 +97,11 @@ class BofhdExtension(BofhdCommandBase):
                                                            Cache.cache_timeout],
                                                    size=500,
                                                    timeout=60*60)
+        # Copy in all defined commands from the superclass that is not defined
+        # in this class.
+        for key, cmd in super(BofhdExtension, self).all_commands.iteritems():
+            if not self.all_commands.has_key(key):
+                self.all_commands[key] = cmd
 
     def get_help_strings(self):
         return (bofhd_hiof_help.group_help,

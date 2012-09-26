@@ -35,9 +35,8 @@ from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthRole, \
                                         BofhdAuthOpSet, BofhdAuthOpTarget
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
-from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.extlib.sets import Set as set
-from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 
 
 def format_day(field):
@@ -53,7 +52,7 @@ To modify permissions, temporary start a separate bofhd with the
 normal bofhd_uio_cmds so that the perm commands are available.
 """
 
-class BofhdExtension(BofhdCommandBase):
+class BofhdExtension(BofhdCommonMethods):
     Account_class = Factory.get('Account')
     Group_class = Factory.get('Group')
     OU_class = Factory.get('OU')
@@ -71,7 +70,7 @@ class BofhdExtension(BofhdCommandBase):
         'group_add_entity', 'group_remove_entity', 'user_password',
         '_get_group_opcode', '_get_name_from_object',
         '_group_add_entity', '_group_count_memberships',
-        'group_create', 'spread_add', '_get_constant',
+        'spread_add', '_get_constant',
         'misc_clear_passwords', 'person_set_user_priority',
         'email_add_address', 'email_remove_address',
         'email_info', '_email_info_basic', '_email_info_account', 
@@ -100,6 +99,7 @@ class BofhdExtension(BofhdCommandBase):
         return x
 
     def __init__(self, server, default_zone='uio'):
+        super(BofhdExtension, self).__init__(server)
         self.server = server
         self.logger = server.logger
         self.db = server.db
@@ -122,6 +122,11 @@ class BofhdExtension(BofhdCommandBase):
                                                            Cache.cache_timeout],
                                                    size=500,
                                                    timeout=60*60)
+        # Copy in all defined commands from the superclass that is not defined
+        # in this class.
+        for key, cmd in super(BofhdExtension, self).all_commands.iteritems():
+            if not self.all_commands.has_key(key):
+                self.all_commands[key] = cmd
 
 
     def get_help_strings(self):

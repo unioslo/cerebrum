@@ -148,6 +148,7 @@ class BofhdExtension(BofhdCommonMethods):
         return x
 
     def __init__(self, server, default_zone='hih'):
+        super(BofhdExtension, self).__init__(server)
         self.server = server
         self.logger = server.logger
         self.util = server.util
@@ -171,9 +172,7 @@ class BofhdExtension(BofhdCommonMethods):
                                                    timeout=60*60)
 
         # Copy in all defined commands from the superclass that is not defined
-        # in this class. TODO: This is not an optimal solution: If we are
-        # subclassing this class, we need to run another copy loop there too.
-        # How could we avoid this?
+        # in this class.
         for key, cmd in super(BofhdExtension, self).all_commands.iteritems():
             if not self.all_commands.has_key(key):
                 self.all_commands[key] = cmd

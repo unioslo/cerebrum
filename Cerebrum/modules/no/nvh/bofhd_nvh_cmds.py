@@ -40,7 +40,7 @@ from Cerebrum import Database
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules import Email
 from Cerebrum.modules.no.nvh import bofhd_nvh_help
-from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.Constants import _CerebrumCode, _SpreadCode
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
@@ -51,7 +51,7 @@ def format_day(field):
     fmt = "yyyy-MM-dd"                  # 10 characters wide
     return ":".join((field, "date", fmt))
 
-class BofhdExtension(BofhdCommandBase):
+class BofhdExtension(BofhdCommonMethods):
     OU_class = Utils.Factory.get('OU')
     Account_class = Factory.get('Account')
     Group_class = Factory.get('Group')
@@ -98,7 +98,7 @@ class BofhdExtension(BofhdCommandBase):
         # copy relevant group-cmds and util methods
         #
         'group_add', 'group_gadd', '_group_add', '_group_add_entity',
-        '_group_count_memberships', 'group_add_entity', 'group_create',
+        '_group_count_memberships', 'group_add_entity',
         'group_delete', 'group_remove', 'group_gremove', '_group_remove',
         '_group_remove_entity', 'group_remove_entity', 'group_info',
         'group_list', 'group_list_expanded', 'group_search', 'group_set_description',
@@ -165,6 +165,7 @@ class BofhdExtension(BofhdCommandBase):
         return x
 
     def __init__(self, server, default_zone='nvh'):
+        super(BofhdExtension, self).__init__(server)
         self.server = server
         self.logger = server.logger
         self.util = server.util
@@ -186,6 +187,12 @@ class BofhdExtension(BofhdCommandBase):
                                                            Cache.cache_timeout],
                                                    size=500,
                                                    timeout=60*60)
+        # Copy in all defined commands from the superclass that is not defined
+        # in this class.
+        for key, cmd in super(BofhdExtension, self).all_commands.iteritems():
+            if not self.all_commands.has_key(key):
+                print key
+                self.all_commands[key] = cmd
 
     def get_help_strings(self):
         return (bofhd_nvh_help.group_help,

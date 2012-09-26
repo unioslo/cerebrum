@@ -467,12 +467,20 @@ class BofhdCommonMethods(BofhdCommandBase):
     subclass - L{self.ba}.
 
     Since L{all_commands} is a class variable, subclasses won't reach this
-    directly. In addition, they have their own command definition dict. For now,
-    the subclass has to manually import the definitions it want, e.g. by::
+    directly. In addition, they have their own command definition dict. If such
+    a subclass wants to make use of superclass's' defined commands, they have to
+    import them in __init__::
 
         for key, cmd in super(BofhdExtension, self).all_commands.iteritems():
             if not self.all_commands.has_key(key):
                 self.all_commands[key] = cmd
+
+    This works in they way that the given class imports its direct
+    superclass(es)' all_commands, and the superclass's are responsible for
+    importing their own superclass's' all_commands. An instance doesn't
+    necessarily want to import all_commands - it could define all of them itself
+    if it wants to. Commands not defined in the instances' all_commands will not
+    be remotely executable.
 
     TODO: More to describe here? Other requirements?
 

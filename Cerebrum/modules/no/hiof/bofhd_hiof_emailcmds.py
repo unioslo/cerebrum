@@ -90,6 +90,7 @@ class BofhdExtension(BofhdCommandBase):
         return x
 
     def __init__(self, server, default_zone='hiof'):
+        super(BofhdExtension, self).__init__(server)
         self.server = server
         self.logger = server.logger
         self.util = server.util
@@ -110,6 +111,11 @@ class BofhdExtension(BofhdCommandBase):
                                                            Cache.cache_timeout],
                                                    size=500,
                                                    timeout=60*60)
+        # Copy in all defined commands from the superclass that is not defined
+        # in this class.
+        for key, cmd in super(BofhdExtension, self).all_commands.iteritems():
+            if not self.all_commands.has_key(key):
+                self.all_commands[key] = cmd
 
 
     def get_help_strings(self):
