@@ -8237,7 +8237,7 @@ Addresses and settings:
             # And, to write the new password to the database, we have
             # to .write_db() one more time...
             posix_user.write_db()
-            if len(args) != 6:
+            if len(args) != 5:
                 ou_id, affiliation = affiliation['ou_id'], affiliation['aff']
                 self._user_create_set_account_type(posix_user, owner_id,
                                                    ou_id, affiliation)
