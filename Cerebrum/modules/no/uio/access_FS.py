@@ -18,6 +18,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import time
+import mx
 
 from Cerebrum import Database
 from Cerebrum import Errors
@@ -518,6 +519,195 @@ class UiOStudent(access_FS.Student):
                                    'fodselsdato2': fodselsdato,
                                    'personnr': personnr,
                                    'personnr2': personnr})
+
+    # New queries
+    def list_new_students(self, last_updated=None):
+        extra = ""
+        if last_updated:
+            extra = """
+            AND
+                (NVL(s.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated OR
+                NVL(p.dato_sist_endret, TO_DATE('1970', 'YYYY')) >= :last_updated)
+            """
+        qry = """
+        SELECT DISTINCT
+            s.studentnr_tildelt
+        FROM
+            fs.student s, fs.person p
+        WHERE
+            s.fodselsdato = p.fodselsdato AND
+            s.personnr = p.personnr AND
+            NVL(s.dato_opprettet, TO_DATE('1970', 'YYYY')) >= (SYSDATE - 180)
+            AND NVL(p.status_dod, 'N') = 'N'
+            %s
+        """ % extra
+        return self.db.query(qry, {'last_updated': last_updated})
+
+
+    def list_gyldige_regkort(self, last_updated=None):
+        extra = ""
+        if last_updated:
+            extra = """
+            AND
+                (NVL(p.dato_sist_endret, TO_DATE('1970', 'YYYY')) >= :last_updated OR
+                NVL(s.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated OR
+                NVL(r.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated)
+            """
+        qry = """
+        SELECT DISTINCT
+            s.studentnr_tildelt, r.arstall, r.terminkode
+        FROM
+            fs.person p, fs.student s, fs.registerkort r
+        WHERE
+            p.fodselsdato   = s.fodselsdato AND
+            p.personnr      = s.personnr AND
+            p.fodselsdato   = r.fodselsdato AND
+            p.personnr      = r.personnr AND
+            r.status_reg_ok = 'J' AND
+            r.status_bet_ok = 'J' AND
+            NVL(r.status_ugyldig, 'N') = 'N' AND
+            r.arstall >= (TO_CHAR(SYSDATE, 'YYYY') - 1) AND
+            NVL(p.status_dod, 'N') = 'N'
+            %s
+        """ %extra
+        return self.db.query(qry, {'last_updated': last_updated})
+
+
+    def list_studieopptak(self, last_updated=None):
+        extra = ""
+        if last_updated:
+            extra = """
+            AND
+                (NVL(sps.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated OR
+                 NVL(r.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated OR
+                 NVL(p.dato_sist_endret, TO_DATE('1970', 'YYYY')) >= :last_updated OR
+                 NVL(sp.dato_sist_endret, TO_DATE('1970', 'YYYY')) >= :last_updated OR
+                 NVL(s.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated)
+            """
+        qry = """
+        SELECT DISTINCT
+            s.studentnr_tildelt
+            /*
+            , sp.faknr_studieansv, sp.instituttnr_studieansv,
+            sp.gruppenr_studieansv, sps.dato_studierett_gyldig_til
+            */
+        FROM
+            fs.student s, fs.person p, fs.registerkort r,
+            fs.studieprogramstudent sps, fs.studieprogram sp
+        WHERE
+            p.fodselsdato   = s.fodselsdato AND
+            p.personnr      = s.personnr AND
+            p.fodselsdato   = sps.fodselsdato AND
+            p.personnr      = sps.personnr AND
+            p.fodselsdato   = r.fodselsdato AND
+            p.personnr      = r.personnr AND
+            sps.studieprogramkode = sp.studieprogramkode AND
+            NVL(sps.dato_studierett_gyldig_til, SYSDATE) >= SYSDATE AND
+            r.status_reg_ok = 'J' AND
+            r.status_bet_ok = 'J' AND
+            r.arstall >= (TO_CHAR(SYSDATE, 'YYYY') - 1) AND
+            /* TODO: må vi sjekke terminen også? */
+            NVL(r.status_ugyldig, 'N') = 'N' AND
+            NVL(p.status_dod, 'N') = 'N'
+            %s
+        """ %extra
+        return self.db.query(qry, {'last_updated': last_updated})
+
+
+    def list_tidligere_students(self, last_updated=None):
+        raise NotImplementedError("Design SQL-query  before calling this.")
+        #return self.db.query(qry, {'last_updated': last_updated})
+
+
+    def list_drgrad_students(self, last_updated=None):
+        extra = ""
+        if last_updated:
+            extra = """
+            AND
+                (NVL(p.dato_sist_endret, TO_DATE('1970', 'YYYY')) >= :last_updated OR
+                 NVL(s.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated OR
+                 NVL(sps.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated OR
+                 NVL(sp.dato_sist_endret, TO_DATE('1970', 'YYYY')) >= :last_updated)
+            """
+        qry = """
+        SELECT DISTINCT
+            s.studentnr_tildelt
+            /*
+            , sp.faknr_studieansv, sp.instituttnr_studieansv,
+            sp.gruppenr_studieansv, sps.dato_studierett_gyldig_til
+            */
+        FROM
+            fs.person p, fs.student s,
+            fs.studieprogramstudent sps, fs.studieprogram sp
+        WHERE
+            p.fodselsdato = s.fodselsdato AND
+            p.personnr    = s.personnr AND
+            p.fodselsdato = sps.fodselsdato AND
+            p.personnr    = sps.personnr AND
+            sps.studieprogramkode = sp.studieprogramkode AND
+            NVL(sps.dato_studierett_gyldig_til, SYSDATE) >= (SYSDATE - 365) AND
+            /* TODO: er det poeng i å ta med studieprogram eit år tilbake? */
+            sp.studienivakode in (900, 980) AND
+            NVL(p.status_dod, 'N') = 'N'
+            %s
+        """ %extra
+        return self.db.query(qry, {'last_updated': last_updated})
+
+
+    def list_all_students_information(self, last_updated=None):
+        extra = ""
+        if last_updated:
+            extra = """
+            AND
+                (NVL(p.dato_siste_endring, TO_DATE('1970', 'YYYY')) >= :last_updated OR
+                NVL(s.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated OR
+                NVL(s.dato_endret_semadr, TO_DATE('1970', 'YYYY')) >= :last_updated)
+            """
+        qry = """
+        SELECT DISTINCT
+            s.studentnr_tildelt
+            /*
+            , s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+            s.adrlin1_semadr, s.adrlin2_semadr, s.adrlin3_semadr,
+            s.postnr_semadr, s.adresseland_semadr,
+            p.status_reserv_nettpubl, p.sprakkode_malform, p.kjonn, p.status_dod,
+            p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil
+            */
+        FROM
+            fs.student s, fs.person p
+        WHERE
+            s.fodselsdato = p.fodselsdato AND
+            s.personnr = p.personnr
+            %s
+        """ %extra
+        return self.db.query(qry, {'last_updated': last_updated})
+
+
+    def list_fodselsnr_changes(self, last_updated=None):
+        """
+        Import changes in fodselsnummere. Check how long back we want
+        to look. Hardcoded to 30 days, so last_updated param is not used at all.
+        """
+        raise NotImplementedError("Implementation is not yet available.")
+        #extra = ""
+        #if last_updated:
+        #    extra = """
+        #    WHERE
+        #        dato_foretatt > SYSDATE - 30
+        #    """
+        #qry = """
+        #SELECT DISTINCT
+        #    fodselsdato_naverende, personnr_naverende,
+        #    fodselsdato_tidligere, personnr_tidligere,
+        #    TO_CHAR(dato_foretatt, 'YYYY-MM-DD HH24:MI:SS') AS dato_foretatt
+        #FROM
+        #    fs.fnr_endring
+        #%s
+        #ORDER BY
+        #    dato_foretatt
+        #""" %extra
+        #return self.db.query(qry, {'last_updated': last_updated})
+
 
 class UiOPortal(access_FS.FSObject):
     """Denne funksjonen er ikke lenger i bruk, da portal-ting ikke er i bruk
