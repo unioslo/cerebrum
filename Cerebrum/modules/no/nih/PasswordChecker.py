@@ -69,8 +69,11 @@ class NIHPasswordChecker(DefaultPasswordChecker.PasswordChecker):
         """
 
         for char in fullpasswd:
-            if not (char.isalpha() or char in 'Ê¯Â∆ÿ≈ '):
-                raise PasswordGoodEnoughException(msgs['invalid_char'])
+            if char.isalpha():
+                continue # regular chars are okay
+            if char in ' ':
+                continue # some special chars are okay
+            raise PasswordGoodEnoughException(msgs['invalid_char'])
 
         # Check that the password is long enough.
         if len(fullpasswd) < 12:
