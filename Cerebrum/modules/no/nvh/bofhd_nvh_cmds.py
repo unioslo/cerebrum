@@ -191,7 +191,6 @@ class BofhdExtension(BofhdCommonMethods):
         # in this class.
         for key, cmd in super(BofhdExtension, self).all_commands.iteritems():
             if not self.all_commands.has_key(key):
-                print key
                 self.all_commands[key] = cmd
 
     def get_help_strings(self):
