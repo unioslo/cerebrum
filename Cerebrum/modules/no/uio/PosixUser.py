@@ -146,6 +146,5 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
                 if gspr not in group_spreads:
                     self.pg.add_spread(gspr)
             elif gspr in group_spreads:
-                self.pg.delete_spread(spread)
-
+                self.pg.delete_spread(gspr)
         return ret
