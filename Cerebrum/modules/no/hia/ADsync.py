@@ -566,11 +566,6 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     changes = {}
 
                 for attr in cereconf.AD_ATTRIBUTES:
-                    # TODO: Debug message hack, remove when done testing:
-                    if attr == 'roomNumber' and cere_user.get(attr, False):
-                        self.logger.debug("roomNumber: Cerebrum='%s', AD='%s'" % (cere_user[attr], ad_user.get(attr, '<None>')))
-                    #### hack done
-
                     #Catching special cases.
                     if attr == 'msExchPoliciesExcluded':
                         # xmlrpclib appends chars [' and '] to 
@@ -593,6 +588,29 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                                     changes[attr] = cere_user[attr]
                             elif attr in ad_user:
                                 changes[attr] = ''                            
+                    # roomNumber is somewhat special, as it could be given to us
+                    # as a list, even though we sent it to AD as a string. Have
+                    # to get the list's only string when this happens.
+                    elif attr == 'roomNumber': # 
+                        if attr in cere_user and attr in ad_user:
+                            # AD could return roomNumber as a list, even though
+                            # we send it as a simple string:
+                            if isinstance(ad_user[attr], (list, tuple)):
+                                if len(ad_user[attr]) != 1:
+                                    self.logger.warn("For %s, roomNumber is not"
+                                        " one element: %s", usr, ad_user[attr])
+                                elif ad_user[attr][0] != cere_user[attr]:
+                                    changes[attr] = cere_user[attr]
+                            elif ad_user[attr] != cere_user[attr]:
+                                changes[attr] = cere_user[attr]
+                        elif attr in cere_user:
+                            # A blank value in cerebrum and <not set>
+                            # in AD -> do nothing.
+                            if cere_user[attr] != "":
+                                changes[attr] = cere_user[attr]
+                        elif attr in ad_user:
+                            #Delete value
+                            changes[attr] = ''                            
                     #Treating general cases
                     else:
                         if attr in cere_user and attr in ad_user:
