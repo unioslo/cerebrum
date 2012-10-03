@@ -566,6 +566,11 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     changes = {}
 
                 for attr in cereconf.AD_ATTRIBUTES:
+                    # TODO: Debug message hack, remove when done testing:
+                    if attr == 'roomNumber' and cere_user.get(attr, False):
+                        self.logger.debug("roomNumber: Cerebrum='%s', AD='%s'" % (cere_user[attr], ad_user.get(attr, '<None>')))
+                    #### hack done
+
                     #Catching special cases.
                     if attr == 'msExchPoliciesExcluded':
                         # xmlrpclib appends chars [' and '] to 
