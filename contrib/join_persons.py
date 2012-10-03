@@ -364,7 +364,7 @@ def join_uio_voip_objects(old_id, new_id):
         va.write_db()
     elif not old_person_voip_addr:
         logger.info("Nothing to transfer."
-                    " Person %s owns no voip addresses: %s" %(old_id))
+                    " Person %s owns no voip addresses" % (old_id))
     else:
         logger.warn("Source person %s owns voip addresses: %s" %(old_id,
             old_person_voip_addr))
