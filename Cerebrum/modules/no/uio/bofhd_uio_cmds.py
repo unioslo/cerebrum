@@ -5844,6 +5844,10 @@ Addresses and settings:
     all_commands['misc_change_request'] = Command(
         ("misc", "change_request"), Id(help_ref="id:request_id"), Date())
     def misc_change_request(self, operator, request_id, date):
+        if not request_id:
+            raise CerebrumError('Request id required')
+        if not date:
+            raise CerebrumError('Date required')
         date = self._parse_date(date)
         br = BofhdRequests(self.db, self.const)
         old_req = br.get_requests(request_id=request_id)
