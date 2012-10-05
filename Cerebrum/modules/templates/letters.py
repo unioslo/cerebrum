@@ -20,6 +20,7 @@
 
 import os
 import re
+import string
 import cereconf
 from Cerebrum import Utils
 
@@ -142,16 +143,24 @@ tag is present, hdr and footer will be empty.
                 if status:
                     raise IOError("Error spooling job, see %s for details" % logfile)
             if not skip_lpr:
-                if re.search(r'[^a-z0-9\-_]', printer):
+                if printer is not None and re.search(r'[^a-z0-9\-_]', printer):
                     raise IOError("Bad printer name")
+                
                 if def_lpr_cmd:
-                    lpr_cmd = def_lpr_cmd.replace("<printer>", printer)
+                    lpr_cmd = string.Template(def_lpr_cmd)
                 else:
-                    lpr_cmd = cereconf.PRINT_LPR_CMD.replace("<printer>", printer)
-                lpr_cmd = lpr_cmd.replace("<uname>", lpr_user)
-                lpr_cmd = lpr_cmd.replace("<hostname>", os.uname()[1])
-                status = os.system("%s %s.ps >> %s 2>&1" % (
-                    lpr_cmd, base_filename, logfile))
+                    lpr_cmd = string.Template(cereconf.PRINT_LPR_CMD)
+
+                # Assemble parameters that might be of use for further
+                # handling of the job. Contents of def_lpr_cmd/
+                # cereconf.PRINT_LPR_CMD determine what is actually used and for
+                # what purpose
+                lpr_params = {'filename': base_filename,
+                              'uname': lpr_user,
+                              'printer': printer,
+                              'hostname': os.uname()[1]}
+
+                status = os.system("%s >> %s 2>&1" % (lpr_cmd.substitute(lpr_params), logfile))
                 if status:
                     raise IOError("Error spooling job, see %s for details (tail: %s)"
                                   % (logfile, self._tail(logfile, num=1)))
