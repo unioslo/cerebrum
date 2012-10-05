@@ -23,7 +23,7 @@ class norEduLDIFMixin(OrgLDIF):
     """Mixin class for OrgLDIF, adding FEIDE attributes to the LDIF output.
 
     Adds object classes norEdu<Org,OrgUnit,Person> from the FEIDE schema:
-    <http://www.feide.no/feide-prosjektet/dokumenter/ldap/FEIDEldap.html>.
+    <http://www.feide.no/ldap-schema-feide>.
 
     cereconf.py setup:
 
