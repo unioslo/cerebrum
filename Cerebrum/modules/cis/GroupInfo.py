@@ -111,29 +111,21 @@ class GroupInfo(object):
         # Raises Cerebrum.modules.bofh.errors.PermissionDenied - how to handle
         # these?
         #self.ba.can_set_trait(self.operator_id)
-
-        account = Factory.get("Account")(self.db)
         try:
             self.grp.clear()
             self.grp.find_by_name(groupname)
         except Errors.NotFoundError:
-            raise Errors.CerebrumRPCException("Group %s was not found." % groupname)
-
+            raise Errors.CerebrumRPCException("Group %s not found." % groupname)
         grp_id = self.grp.entity_id
-
         self.grp.clear()
-        members = []
-        for row in self.grp.search_members(group_id=grp_id):
-            entry = {}
-            entry['member_type'] = str(self.co.EntityType(row['member_type']))
-            entry['member_id'] = str(row['member_id'])
-            try:
-                account.clear()
-                account.find(row['member_id'])
-                entry['uname'] = account.get_account_name()
-            except Errors.NotFoundError:
-                entry['uname'] = 'Not found'
-                log.warning("Member account %s not found." %entry['member_id'])
-            members.append(entry)
-        return members
+        type_account = str(self.co.entity_account)
+        member_rows = self.grp.search_members(group_id=grp_id,
+                                            indirect_members=True,
+                                            include_member_entity_name=True)
+        return [{   'member_type': type_account,
+                    'member_id': str(row['member_id']),
+                    'uname': row['member_name']
+                }
+                    for row in member_rows
+                    if row['member_type'] == self.co.entity_account]
 
