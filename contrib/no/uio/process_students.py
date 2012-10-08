@@ -356,8 +356,15 @@ class AccountUtil(object):
         changes = []
         ac = accounts[account_id]
         if as_posix:
-            gid = profile.get_dfg()
-            # we no longer want to change the default-group
+            try:
+                gid = profile.get_dfg()
+            except AutoStud.ProfileHandler.NoDefaultGroup:
+                logger.info("Found no dfg for account %s" % account_id)
+                # Setting it to a bad value, as UiO ignores the use of dfg.
+                # Other instances will get an exception later on, when trying to
+                # run write_db.
+                gid = 0
+            # we no longer want to change the default-group if already set
             if (ac.get_gid() is None): # or ac['gid'] != gid):
                 changes.append(('dfg', gid))
 
