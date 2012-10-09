@@ -966,7 +966,16 @@ class BofhdServerImplementation(object):
         for k in t:
             if not hasattr(self.cmd2instance[k], k):
                 logger.warn("Warning, function '%s' is not implemented" % k)
-        self.help = Help(self.cmd_instances)
+        self.help = Help(self.cmd_instances, logger=logger)
+
+        # Check that the help text is okay
+        # Reformat the command definitions to be suitable for the help.
+        cmds_for_help = dict()
+        for inst in self.cmd_instances:
+            cmds_for_help.update(dict((k, cmd.get_struct(inst))
+                                     for k, cmd in inst.all_commands.iteritems()
+                                     if cmd and self.cmd2instance[k] == inst))
+        self.help.check_consistency(cmds_for_help)
 
     def get_cmd_info(self, cmd):
         """Return BofhdExtension and Command object for this cmd

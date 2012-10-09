@@ -64,7 +64,7 @@ class Parameter(object):
     def getPrompt(self, bofhd_ref):
         arg_help = bofhd_ref.server.help.arg_help
         if self._help_ref not in arg_help:
-            bofhd_ref.logger.info("Missing arg_help item <%s>", self._help_ref)
+            bofhd_ref.logger.warn("Missing arg_help item <%s>", self._help_ref)
             return ""
 
         return arg_help[self._help_ref][1]

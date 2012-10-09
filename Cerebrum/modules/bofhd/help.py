@@ -283,7 +283,7 @@ import pprint
 pp = pprint.PrettyPrinter(indent=4)
 
 class Help(object):
-    def __init__(self, cmd_instances):
+    def __init__(self, cmd_instances, logger=None):
         self.group_help = _group_help
         self.command_help = _command_help
         self.arg_help = _arg_help
@@ -295,6 +295,22 @@ class Help(object):
                 self.command_help.setdefault(k, {}).update(ch[k])
             for k in ah.keys():
                 self.arg_help[k] = ah[k]
+
+        self.logger = logger
+        if not self.logger:
+            class PrintLog(object):
+                """Simple logger that simulates the Cerebrum logger, but is just
+                printing to stdout.
+                """
+                def warn(self, msg):
+                    print "WARN: %s" % (msg,)
+                def info(self, msg):
+                    print "INFO: %s" % (msg,)
+                def error(self, msg):
+                    print "ERROR: %s" % (msg,)
+                def debug(self, msg):
+                    print "DEBUG: %s" % (msg,)
+            self.logger = PrintLog()
 
     def _map_all_commands(self, all_commands):
         """Return a mapping {'maingroup': {'call_func': data}}. 'data'
@@ -412,7 +428,10 @@ class Help(object):
         Note that the check only tests data in all_commands.  Thus
         arg_help entries from prompt_func is not detected."""
 
-        ch = self.command_help.copy()
+        # Make a semi deep copy of command_help (copy of the main dict is not
+        # enough, have to copy the sub elements too):
+        ch = dict((group, self.command_help[group].copy())
+                  for group in self.command_help)
         used_arg_help = {}
         for k in self.arg_help.keys():
             used_arg_help[k] = 0
@@ -421,7 +440,7 @@ class Help(object):
             if ch.get(grp, {}).get(call_func, None) != None:
                 del(ch[grp][call_func])
             else:
-                print "Missing help for %s" % call_func
+                self.logger.info("Missing help for %s" % call_func)
             if len(all_commands[call_func]) > 1:
                 if isinstance(all_commands[call_func][1], (tuple, list)):
                     for arg in all_commands[call_func][1]:
@@ -429,10 +448,10 @@ class Help(object):
         for k in used_arg_help.keys():
             if used_arg_help[k]:
                 del(used_arg_help[k])
-        print "Unused arg_help: %s" % used_arg_help.keys()
+        self.logger.info("Unused arg_help: %s" % used_arg_help.keys())
         for k in ch.keys():
             if ch[k]:
-                print "Unused help for %s" % ch[k].keys()
+                self.logger.debug("Unused help for %s" % ch[k].keys())
 
 if __name__ == '__main__':
     import getopt
