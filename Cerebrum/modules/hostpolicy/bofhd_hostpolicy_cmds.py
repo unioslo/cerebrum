@@ -109,6 +109,7 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
             'policy': {
                 'policy_atom_create': 'Create a new atom',
                 'policy_atom_delete': 'Delete an atom',
+                'policy_rename': 'Rename an existing policy',
                 'policy_role_create': 'Create a new role',
                 'policy_role_delete': 'Delete a role',
                 'policy_add_member': 'Make a role/atom a member of a role',
@@ -119,6 +120,7 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
                 'policy_list_atoms': 'List all atoms by given filters',
                 'policy_list_roles': 'List all roles by given filters',
                 'policy_info': 'Show info about a policy, i.e. an atom or a role',
+                'policy_set_foundation': 'Update the foundation data of an existing policy',
                 },
             'host': {
                 'host_policy_add': 'Give a host a policy (atom/role)',
