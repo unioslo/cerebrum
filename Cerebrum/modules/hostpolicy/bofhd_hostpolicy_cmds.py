@@ -120,6 +120,7 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
                 'policy_list_atoms': 'List all atoms by given filters',
                 'policy_list_roles': 'List all roles by given filters',
                 'policy_info': 'Show info about a policy, i.e. an atom or a role',
+                'policy_set_description': 'Update the description of an existing policy',
                 'policy_set_foundation': 'Update the foundation data of an existing policy',
                 },
             'host': {

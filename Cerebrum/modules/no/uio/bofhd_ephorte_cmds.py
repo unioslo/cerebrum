@@ -95,6 +95,7 @@ class BofhdExtension(BofhdCommandBase):
         command_help = {
             'ephorte': {
             'ephorte_add_role': 'Add an ePhorte role for a person',
+            'ephorte_history': 'Show the ePhorte related history for a person',
             'ephorte_remove_role': 'Remove an ePhorte role from a person',
             'ephorte_list_roles': 'List a persons ePhorte roles',
             'ephorte_set_standard_role': 'Set given role as standard role',

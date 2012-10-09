@@ -45,6 +45,8 @@ command_help = {
        "The meaning of <attr> depends on <type>.",
     'access_disk':
        "List who's authorised to operate on disk <disk>",
+    'access_global_dns':
+       "List who's authorised to operate on all dns targets",
     'access_global_group':
        "List who's authorised to operate on all groups",
     'access_global_host':
