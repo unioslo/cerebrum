@@ -47,7 +47,8 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
         self.pg.find(self.gid_id)
         # TODO: check personal_group trait instead or in addition
         if self.pg.group_name == self.account_name:
-            if hasattr(self, 'delete_trait'):
+            if (hasattr(self, 'delete_trait') and
+                    self.get_trait(self.const.trait_personal_dfg)):
                 self.delete_trait(self.const.trait_personal_dfg)
                 self.write_db()
             self.pg.delete()
