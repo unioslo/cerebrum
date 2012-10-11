@@ -51,6 +51,8 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
                     self.get_trait(self.const.trait_personal_dfg)):
                 self.delete_trait(self.const.trait_personal_dfg)
                 self.write_db()
+            self.pg.delete_spread(self.const.spread_uio_nis_fg)
+            self.pg.delete_spread(self.const.spread_ifi_nis_fg)
             self.pg.delete()
         return ret
 
