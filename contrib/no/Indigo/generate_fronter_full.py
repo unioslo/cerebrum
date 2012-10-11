@@ -131,7 +131,7 @@ class Fronter(object):
         title = group_id = parent_id = ""
         schools = ('ASKI', 'BORG', 'FRED', 'GLEM', 'GREA',
                    'HALD', 'KALN', 'KIRK', 'MALA', 'MYSE',
-                   'OSTFAG', 'STOL', 'BORGRESS', 'OFKGS', 'OPBL')
+                   'OSTFAG', 'STOL', 'BORGRESS', 'OFKGS', 'OPLB')
         for s in schools:
             tmp = {'title': '06 Importerte Grupper',
                    'group_id': s + 'Groups', 
