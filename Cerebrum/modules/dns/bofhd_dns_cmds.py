@@ -221,13 +221,14 @@ class BofhdExtension(BofhdCommandBase):
     legal_hinfo = (
         ("win", "IBM-PC\tWINDOWS"),
         ("linux", "IBM-PC\tLINUX"),
+        ("bsd", "IBM-PC\tBSD"),
         ("printer", "PRINTER\tPRINTER"),
         ("unix", "UNIX\tUNIX"),
         ("nett", "NET\tNET"),
         ("mac", "MAC\tDARWIN"),
         ("other", "OTHER\tOTHER"),
         ("dhcp", "DHCP\tDHCP"),
-        ("netapp", "NETAPP\tONTAP")
+        ("netapp", "NETAPP\tONTAP"),
         )
 
     def __new__(cls, *arg, **karg):
