@@ -313,12 +313,15 @@ class AccountUtil(object):
             if not already_member.has_key(g):
                 group_obj.clear()
                 group_obj.find(g)
-                try:
-                    group_obj.add_member(account_id)
-                    changes.append(("g_add", group_obj.group_name))
-                except db.IntegrityError, m:
-                    logger.info("Did not give membership because: %s", m)
-                    continue
+                # Double check the membership, as some members aren't cached
+                # correctly, due to unknown reasons.
+                if not group_obj.has_member(account_id):
+                    try:
+                        group_obj.add_member(account_id)
+                        changes.append(("g_add", group_obj.group_name))
+                    except db.IntegrityError, m:
+                        logger.info("Did not give membership because: %s", m)
+                        continue
             else:
                 del already_member[g]
         if remove_groupmembers:
