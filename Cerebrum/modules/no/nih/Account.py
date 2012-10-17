@@ -183,6 +183,12 @@ class AccountNIHMixin(Account.Account):
         # local_parts for availability.  Set user's primary address to
         # the first one found to be available.
         primary_set = False
+        # Never change any existing email addresses
+        try:
+            self.get_primary_mailaddress()
+            primary_set = True
+        except Errors.NotFoundError:
+            pass
         epat = Email.EmailPrimaryAddressTarget(self._db)
         if not domains:
             # no valid domain has been found and no e-mail address
@@ -232,7 +238,6 @@ class AccountNIHMixin(Account.Account):
                         epat.populate(ea.entity_id, parent = et)
                     epat.write_db()
                     primary_set = True
-
                     
     def _autopick_homeMDB(self):
         mdb_choice = None

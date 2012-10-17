@@ -483,3 +483,37 @@ class BofhdExtension(BofhdCommonMethods):
             #ret += self._email_info_filters(et)
             ret += self._email_info_detail(acc)            
         return ret
+
+    # email set_primary_address account lp@dom
+    #
+    all_commands['email_set_primary_address'] = Command(
+        ("email", "set_primary_address"),
+        AccountName(help_ref="account_name", repeat=False),
+        EmailAddress(help_ref='email_address', repeat=False),
+        perm_filter='is_superuser')
+    def email_set_primary_address(self, operator, uname, address):
+        et, acc = self.__get_email_target_and_account(uname)
+        ea = Email.EmailAddress(self.db)
+        if address == '':
+            return "Primary address cannot be an empty string!"
+        lp, dom = address.split('@')
+        ed = self._get_email_domain(dom)
+        ea.clear()
+        try:
+            ea.find_by_address(address)
+            if ea.email_addr_target_id != et.entity_id:
+                raise CerebrumError, "Address (%s) is in use by another user" % address
+        except Errors.NotFoundError:
+            pass
+        ea.populate(lp, ed.entity_id, et.entity_id)
+        ea.write_db()
+        epat = Email.EmailPrimaryAddressTarget(self.db)
+        epat.clear()
+        try:
+            epat.find(ea.email_addr_target_id)
+            epat.populate(ea.entity_id)
+        except Errors.NotFoundError:
+            epat.clear()
+            epat.populate(ea.entity_id, parent = et)
+        epat.write_db()
+        return "Registered %s as primary address for %s" % (address, uname)
