@@ -632,7 +632,10 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
 class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
 
-        
+    def __init__(self, *args, **kwargs):
+        super(ADFullGroupSync, self).__init__(*args, **kwargs)
+        self.ac = Utils.Factory.get('Account')(self.db)
+
     def fetch_cerebrum_data(self, spread):
         """
         Fetch relevant cerebrum data for groups of the three
@@ -884,8 +887,6 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                                    (chg['distinguishedName'], ret))
                 else:
                     exec('self.' + chg['type'] + '(chg, dry_run)')
-                        
-
 
 
     def create_object(self, chg, dry_run, store_sid):
@@ -984,6 +985,16 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                         group_id=gruppe_id, member_type=self.co.entity_account,
                         member_spread=int(self.co.Spread(user_spread)))):
                     user_members.add(usr["member_id"])
+                # persons doesn't have AD-spread, so we have to search for them
+                # explicitly:
+                #for usr in (self.group.search_members(
+                #            group_id=gruppe_id, member_type=self.co.entity_person)):
+                #    primary = pe2primary.get(usr['member_id'], None)
+                #    if primary:
+                #        self.logger.debug2('Adding primary: %s' % primary)
+                #        user_members.add(primary)
+                #    else:
+                #        self.logger.debug("Person %s has no primary account" % usr['member_id'])
 
             for gruppe in (self.group.search_members(
                     group_id=gruppe_id, member_type=self.co.entity_group)):
@@ -1002,6 +1013,14 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                             self.group.list_names(self.co.account_namespace)])
         entity2name.update([(x["entity_id"], x["entity_name"]) for x in
                             self.group.list_names(self.co.group_namespace)]) 
+        #pe2primary = dict((r['person_id'], r['account_id']) for r in
+        #                  self.ac.list_accounts_by_type(primary_only=True,
+        #                            account_spread=self.co.Spread(user_spread)))
+        # TBD: Note that if a person's primary account does not have the
+        # user_spread, the first account with the user_spread is returned. This
+        # means that it's not necessarily the primary account that is used, but
+        # the account with the most priority and a user_spread. Is this correct
+        # behaviour?
 
         groups_with_ad_spread = set(int(x['group_id']) for x in 
                                      self.group.search(spread=int(self.co.Spread(group_spread))))
@@ -1042,15 +1061,15 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                     else:
                         members.append("%s%s" % (entity2name[group_id],
                                              cereconf.AD_GROUP_POSTFIX))
-      
+                self.logger.debug("Group: %s: %d members" % (grp, len(members)))
+
                 if sendDN_boost:
                     members_in_ad = ad_dict.get(grp, {}).get("member", [])
                 else:
                     #To extract the username/groupname from the FQDN (CN=username,OU=...etc)
                     members_in_ad = [x.split(",")[0].split("=")[1] for x in 
                                      ad_dict.get(grp, {}).get("member", [])]
-                    
-                
+
                 #If number of members returned from AD is zero and the group
                 #has members in cerebrum we do a full sync on this group. It 
                 #is either an empty group that gets members or it is a group 
@@ -1227,7 +1246,6 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         cerebrumdump = self.fetch_cerebrum_data(group_spread)
         self.logger.info("Fetched %i groups with spread %s", 
                          len(cerebrumdump), group_spread)
-                
 
         #Fetch AD data
         self.logger.info("Fetching AD data...")
