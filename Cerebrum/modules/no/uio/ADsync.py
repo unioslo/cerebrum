@@ -987,14 +987,14 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                     user_members.add(usr["member_id"])
                 # persons doesn't have AD-spread, so we have to search for them
                 # explicitly:
-                #for usr in (self.group.search_members(
-                #            group_id=gruppe_id, member_type=self.co.entity_person)):
-                #    primary = pe2primary.get(usr['member_id'], None)
-                #    if primary:
-                #        self.logger.debug2('Adding primary: %s' % primary)
-                #        user_members.add(primary)
-                #    else:
-                #        self.logger.debug("Person %s has no primary account" % usr['member_id'])
+                for usr in self.group.search_members(group_id=gruppe_id,
+                                            member_type=self.co.entity_person):
+                    primary = pe2primary.get(usr['member_id'], None)
+                    if primary:
+                        self.logger.debug2('Adding primary: %s' % primary)
+                        user_members.add(primary)
+                    else:
+                        self.logger.debug("Person %s has no primary account" % usr['member_id'])
 
             for gruppe in (self.group.search_members(
                     group_id=gruppe_id, member_type=self.co.entity_group)):
@@ -1013,9 +1013,9 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                             self.group.list_names(self.co.account_namespace)])
         entity2name.update([(x["entity_id"], x["entity_name"]) for x in
                             self.group.list_names(self.co.group_namespace)]) 
-        #pe2primary = dict((r['person_id'], r['account_id']) for r in
-        #                  self.ac.list_accounts_by_type(primary_only=True,
-        #                            account_spread=self.co.Spread(user_spread)))
+        pe2primary = dict((r['person_id'], r['account_id']) for r in
+                          self.ac.list_accounts_by_type(primary_only=True,
+                                    account_spread=self.co.Spread(user_spread)))
         # TBD: Note that if a person's primary account does not have the
         # user_spread, the first account with the user_spread is returned. This
         # means that it's not necessarily the primary account that is used, but
