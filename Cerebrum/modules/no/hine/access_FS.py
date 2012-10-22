@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2009, 2010 University of Oslo, Norway
+# Copyright 2009, 2010, 2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,6 +20,37 @@
 import time
 
 from Cerebrum.modules.no import access_FS
+
+class HineStudent(access_FS.Student):
+    def list_aktiv(self):
+        """ Hent opplysninger om studenter definert som aktive 
+            ved Hine. En aktiv student er en student som har et gyldig
+            opptak til et studieprogram der studentstatuskode er 'AKTIV'
+            eller 'PERMISJON' og sluttdatoen er enten i fremtiden eller
+            ikke satt."""
+        qry = """
+            SELECT DISTINCT
+              s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+              s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
+              s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
+              p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
+              p.adresseland_hjemsted, p.status_reserv_nettpubl,
+              p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
+              sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
+              sps.arstall_kull, p.kjonn, p.status_dod, p.telefonnr_mobil,
+              s.studentnr_tildelt
+            FROM fs.studieprogramstudent sps, fs.person p,
+                 fs.student s
+            WHERE p.fodselsdato = sps.fodselsdato AND
+              p.personnr = sps.personnr AND
+              p.fodselsdato = s.fodselsdato AND
+              p.personnr = s.personnr AND
+              %s AND
+              sps.status_privatist = 'N' AND
+              sps.studentstatkode IN ('AKTIV', 'PERMISJON') AND
+              NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE
+              """ % (self._is_alive())
+        return self.db.query(qry)
 
 class HINEStudieInfo(access_FS.StudieInfo):
     def list_ou(self, institusjonsnr=0): # GetAlleOUer

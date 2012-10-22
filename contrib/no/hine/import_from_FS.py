@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
-# Copyright 2009 University of Oslo, Norway
+# Copyright 2009, 2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -35,6 +35,8 @@ from Cerebrum.Utils import Factory
 
 basefsdir = pj("/cerebrum", "hine", "dumps", "FS")
 default_ou_file = pj(basefsdir, "ou.xml")
+default_person_file = pj(basefsdir, "person.xml")
+default_studieprogram_file = pj(basefsdir, "studieprog.xml")
 
 xml = XMLHelper()
 fs = None
@@ -45,7 +47,6 @@ def _ext_cols(db_rows):
     if db_rows:
         cols = list(db_rows[0].keys())
     return cols, db_rows
-
 
 def write_ou_info(outfile):
     """Lager fil med informasjon om alle OU-er"""
@@ -96,11 +97,53 @@ def write_ou_info(outfile):
     f.write("</data>\n")
     f.close()
 
+def write_person_info(outfile):
+    f = MinimumSizeWriter(outfile)
+    f.set_minimum_size_limit(0)
+    f.write(xml.xml_hdr + "<data>\n")
+
+#    # Aktive fagpersoner ved HIH
+#    cols, fagperson = _ext_cols(fs.undervisning.list_fagperson_semester())
+#    for p in fagperson:
+#        f.write(xml.xmlify_dbrow(p, xml.conv_colnames(cols), 'fagperson') + "\n")
+    # Aktive ordinære studenter ved HIH
+    cols, student = _ext_cols(fs.student.list_aktiv())
+    for a in student:
+        f.write(xml.xmlify_dbrow(a, xml.conv_colnames(cols), 'aktiv') + "\n")
+#    # Eksamensmeldinger
+#    cols, student = _ext_cols(fs.student.list_eksamensmeldinger())
+#    for s in student:
+#        f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'eksamen') + "\n")
+     # EVU-studenter ved HIH
+     # For now, HiH does not want to import information about EVU students
+     # cols, student = _ext_cols(fs.evu.list())
+     # for e in student:
+     #     f.write(xml.xmlify_dbrow(e, xml.conv_colnames(cols), 'evu') + "\n")
+
+    f.write("</data>\n")
+    f.close()
+
+def write_studprog_info(outfile):
+    """Lager fil med informasjon om alle definerte studieprogrammer"""
+    f = MinimumSizeWriter(outfile)
+    f.set_minimum_size_limit(10*KiB)
+    f.write(xml.xml_hdr + "<data>\n")
+    cols, dta = _ext_cols(fs.info.list_studieprogrammer())
+    for t in dta:
+        f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'studprog')
+                + "\n")
+    f.write("</data>\n")
+    f.close()
 
 def usage(exitcode=0):
     print """Usage: [options]
     --ou-file name: override ou xml filename
+    --personinfo-file: override person xml filename
+    --studprog-file name: override studprog xml filename
+    
     -o: generate ou xml (sted.xml) file
+    -p: generate person file
+    -s: generate studprog xml file
     """
     sys.exit(exitcode)
 
@@ -113,21 +156,32 @@ def assert_connected():
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "o",
-                   ["ou-file="])
+        opts, args = getopt.getopt(sys.argv[1:], "ops",
+                   ["ou-file=", "personinfo-file=", "studprog-file="])
     except getopt.GetoptError, ge:
         print ge
         usage()
         sys.exit(2)
 
     ou_file = default_ou_file
+    person_file = default_person_file
+    studieprogram_file = default_studieprogram_file
     for o, val in opts:
         if o in ('--ou-file',):
             ou_file = val
+        elif o in ('--personinfo-file',):
+            person_file = val
+        elif o in ('--studprog-file',):
+            studprog_file = val
+
     assert_connected()
     for o, val in opts:
         if o in ('-o',):
             write_ou_info(ou_file)
+        elif o in ('-p',):
+            write_person_info(person_file)
+        elif o in ('-s',):
+            write_studprog_info(studprog_file)
 
  
 if __name__ == '__main__':
