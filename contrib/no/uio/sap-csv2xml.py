@@ -635,6 +635,7 @@ def fields_to_hovedstilling(fields):
                     u"DBH-KAT",
                     u"stillingsprosent",
                     u"MGType",
+                    u"MUGType",
                     u"Start_Date",
                     u"End_Date",
                     u"Orgenhet",
