@@ -35,6 +35,7 @@ import socket
 import traceback
 import time
 import logging
+import re
 
 from os import path
 from lxml import etree
@@ -113,7 +114,7 @@ def _event_setup_basic(ctx):
     """
     log.msg("DEBUG: BasicSoapServer - Calling method %s" % ctx.in_object)
 
-    # The UserDefinedContext is Tha Place to put stuff. Setting it to a dict
+    # The UserDefinedContext is The Place to put stuff. Setting it to a dict
     # here, to be able to add different stuff in different Service classes:
     if ctx.udc is None:
         # TBD: Should we have this as an object instead?
@@ -256,11 +257,13 @@ class TwistedSoapStarter(BasicSoapStarter):
     # The interface the server should be connected to
     interface = '0.0.0.0'
 
-    def __init__(self, applications, port, logfile=None, log_prefix=None):
+    def __init__(self, applications, port, logfile=None, log_prefix=None,
+            log_formatters=None):
         """Setting up a standard SOAP server.
         """
         if logfile:
-            self.setup_logging(logfile, log_prefix=log_prefix)
+            self.setup_logging(logfile, log_prefix=log_prefix,
+                    log_formatters=log_formatters)
         super(TwistedSoapStarter, self).__init__()
         self.setup_services(applications)
         self.setup_twisted()
@@ -295,12 +298,15 @@ class TwistedSoapStarter(BasicSoapStarter):
 
     @staticmethod
     def setup_logging(logfilename, rotatelength = 50 * 1024 * 1024,
-                      maxrotatedfiles = 10, log_prefix = None):
+                      maxrotatedfiles = 10, log_prefix = None,
+                      log_formatters=None):
         """Setting up twisted's log to be used by Cerebrum. This could either
         be run manually before (or after) initiating the
         TwistedSoapStarter."""
         if log_prefix:
             TwistedCerebrumLogger.log_prefix = log_prefix
+        if log_formatters:
+            TwistedCerebrumLogger.log_formatters = log_formatters
         logger = TwistedCerebrumLogger(logfile.LogFile.fromFullPath(logfilename,
                         rotateLength = rotatelength,
                         maxRotatedFiles = maxrotatedfiles,
@@ -353,7 +359,8 @@ class TLSTwistedSoapStarter(TwistedSoapStarter):
         # after super.__init__().
         if kwargs.has_key('logfile'):
             self.setup_logging(kwargs['logfile'],
-                               log_prefix=kwargs.get('log_prefix', None))
+                               log_prefix=kwargs.get('log_prefix', None),
+                               log_formatters=kwargs.get('log_formatters',None))
 
         if not CRYPTO_AVAILABLE:
             raise Exception('Could not import cryptostuff')
@@ -513,17 +520,30 @@ class TwistedCerebrumLogger(log.FileLogObserver):
     # Set this to the current script's name.
     log_prefix = 'cis:'
 
+    # tuple of (pattern, replacement) pairs when defined.
+    log_formatters = None
+
     # The time format known by Cerebrum
     timeFormat = '%Y-%m-%d %H:%M:%S'
 
     def emit(self, eventDict):
         """Changing the default log format.
 
+        Base method that writes cis log. Here we can access the log
+        message and manipulate it as we need. For example, define
+        the log format and filter out password from the message.
+        This can be configured per service in cisconf with LOG_FORMATTERS
+        tuple of pairs (pattern, replacement).
+
         TODO: This is a hack, twisted should have a better way of modifying
         its log format"""
         text = log.textFromEventDict(eventDict)
         if text is None:
             return
+
+        if isinstance(self.log_formatters, (list,tuple)):
+            for pattern, replacement in self.log_formatters:
+                text = re.sub(pattern, replacement, text)
 
         timeStr = self.formatTime(eventDict['time'])
         fmtDict = {'system': eventDict['system'], 'text': text.replace("\n", "\n\t")}
