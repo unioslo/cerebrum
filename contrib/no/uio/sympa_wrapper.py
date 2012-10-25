@@ -77,8 +77,9 @@ def main():
         for a in admin:
             validate_address(a)
 
-        args = ["/usr/bin/sudo", "/site/bin/createlist",
-                "--pkg", host,
+        args = ["/usr/bin/sudo",
+                "PKG=%s" % host,
+                "/site/bin/createlist",
                 "--listname", listname,
                 "--type", '"' + profile + '"',
                 "--subject", '"' + description + '"',]
@@ -86,7 +87,7 @@ def main():
             args.extend(("--owner", a))
             
     elif command == "rmlist":
-        args = ["/usr/bin/sudo", "/site/bin/closelist", "--pkg", host, listname]
+        args = ["/usr/bin/sudo", "PKG=%s" % host, "/site/bin/closelist", listname]
     else:
         raise ValueError("Unknown command <%s> for sympa list" % command)
 
