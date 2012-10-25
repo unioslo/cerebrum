@@ -171,6 +171,7 @@ if __name__=='__main__':
     instance    = getattr(cisconf, 'CEREBRUM_CLASS', None)
     interface   = getattr(cisconf, 'INTERFACE', None)
     log_prefix  = getattr(cisconf, 'LOG_PREFIX', None)
+    log_formatters = getattr(cisconf, 'LOG_FORMATTERS', None)
 
     for opt, val in opts:
         if opt in ('-l', '--logfile'):
@@ -219,12 +220,14 @@ if __name__=='__main__':
                         client_ca = client_ca,
                         client_fingerprints = fingerprints,
                         logfile = logfilename,
-                        log_prefix = log_prefix)
+                        log_prefix = log_prefix,
+                        log_formatters=log_formatters)
     else:
         server = SoapListener.TwistedSoapStarter(port = int(port),
                                     applications = services,
                                     logfile = logfilename,
-                                    log_prefix = log_prefix)
+                                    log_prefix = log_prefix,
+                                    log_formatters=log_formatters)
     GroupService.site = server.site # to make it global and reachable by tier (wrong, I know)
     auth.PasswordAuthenticationService.site = server.site # to make it global and reachable (wrong, I know)
 
