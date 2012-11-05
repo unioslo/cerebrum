@@ -779,7 +779,7 @@ class UiOBetaling(access_FS.FSObject):
         r.arstall = :year2 AND
         %s
         %s
-        r.betformkode IN ('FRITATT', 'EKSTERN')""" % (extra_semreg2, extra2)
+        r.betformkode NOT IN ('GIRO')""" % (extra_semreg2, extra2)
 
         if kun_fritak:
             return self.db.query(qry1, {'fodselsdato2': fodselsdato,
