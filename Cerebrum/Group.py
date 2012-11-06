@@ -630,6 +630,13 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
           NOT return any rows where members have expired (i.e. have
           expire_date in the past relative to the call time).
 
+        @type include_member_entity_name: bool or dict
+        @param include_member_entity_name:
+          If the members' entity_name should be included in output or not. If
+          the value is a dict, it is used as a mapping of what entity_types' of
+          namespaces to get the names from, otherwise it uses
+          cereconf.ENTITY_TYPE_NAMESPACE.
+
         @rtype: generator (yielding db-rows with membership information)
         @return:
           A generator that yields successive db-rows (from group_member)
