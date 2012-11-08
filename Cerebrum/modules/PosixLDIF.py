@@ -28,6 +28,7 @@ import cereconf
 from Cerebrum.modules import LDIFutils
 from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.Utils import Factory, latin1_to_iso646_60, auto_super
+from Cerebrum import Errors
  
  
 # logger = Factory.get_logger("cronjob")
@@ -291,7 +292,11 @@ class PosixLDIF(object):
     def filegroup_object(self, row):
         """Create the group-entry attributes"""
         self.posgrp.clear()
-        self.posgrp.find(row["group_id"])
+        try:
+            self.posgrp.find(row["group_id"])
+        except Errors.NotFoundError:
+            self.logger.warn("Group %s has filegroup-spread but lacks posix-data", row['group_id'])
+            return None, None
         gname = LDIFutils.iso2utf(self.posgrp.group_name)
         if not self.id2uname.has_key(int(row["group_id"])):
             self.id2uname[int(row["group_id"])] = gname
