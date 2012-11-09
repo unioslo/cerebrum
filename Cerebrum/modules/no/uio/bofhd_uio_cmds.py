@@ -5273,7 +5273,8 @@ Addresses and settings:
         body.append("group create %s \"%s\"" % (groupname, description))
         for spr in spreads:
             if spr and (self._get_constant(self.const.Spread, spr) in
-                [self.const.spread_uio_nis_fg, self.const.spread_ifi_nis_fg]):
+                [self.const.spread_uio_nis_fg, self.const.spread_ifi_nis_fg,
+                 self.const.spread_hpc_nis_fg]):
                 pg = PosixGroup.PosixGroup(self.db)
                 if not pg.illegal_name(groupname):
                     body.append("group promote_posix %s" % groupname)
