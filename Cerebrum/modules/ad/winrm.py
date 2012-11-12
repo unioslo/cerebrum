@@ -27,17 +27,18 @@ which is based on SOAP and uses different WS-* standards.
 Our focus is to use WinRM to execute commands on the server side, which we then
 could use to administrate Active Directory (AD).
 
-The WinRM server has to be set up properly before we could connect to it. See:
+The WinRM server has to be set up properly before we could connect to it.
+
+For more information about the WinRM standard, see:
 
     http://msdn.microsoft.com/en-us/library/aa384426.aspx
     http://msdn.microsoft.com/en-us/library/cc251526(v=prot.10).aspx
 
-
-for more information about WinRM.
-
 """
+
 import random
 import base64
+import socket
 import urllib2
 from lxml import etree
 
@@ -50,7 +51,9 @@ namespaces = {
     's':     "http://www.w3.org/2003/05/soap-envelope",
     'wsa':   "http://schemas.xmlsoap.org/ws/2004/08/addressing",
     'wsman': "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd",
+    'wsen':  "http://schemas.xmlsoap.org/ws/2004/09/enumeration",
     'wsmid': "http://schemas.dmtf.org/wbem/wsman/identity/1/wsmanidentity.xsd",
+    'xml':   "http://www.w3.org/XML/1998/namespace",
     }
 #if hasattr(etree, 'register_namespace'):
 #    for prefix, url in namespaces.iteritems():
@@ -64,8 +67,12 @@ action_types = {
     'create':  'http://schemas.xmlsoap.org/ws/2004/09/transfer/Create',
     # Deleting a shell
     'delete':  'http://schemas.xmlsoap.org/ws/2004/09/transfer/Delete',
+    # Retrieve list of information, e.g. listeners or certificates
+    'enumerate': 'http://schemas.xmlsoap.org/ws/2004/09/enumeration/Enumerate',
     # Get information, e.g. config
     'get': 'http://schemas.xmlsoap.org/ws/2004/09/transfer/Get',
+    # Pull information from the server
+    'pull': 'http://schemas.xmlsoap.org/ws/2004/09/enumeration/Pull',
     # Receive output from a shell
     'receive': 'http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Receive',
     # Send input to stdin
@@ -73,6 +80,18 @@ action_types = {
     # Send a signal to a shell, e.g. 'terminate' or 'ctrl_c'
     'signal':  'http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Signal',
     }
+
+class WinRMServerException(Exception):
+    """Exception for HTTP 500 Server Errors. WinRM's standard way of saying that
+    something failed, and it's either an unknown error or something the client
+    have done.
+
+    """
+    def __init__(self, code, reason, details=None):
+        super(WinRMServerException, self).__init__(code, reason, details)
+        self.code = code
+        self.reason = reason
+        self.details = details
 
 class WinRMProtocol(object):
     """The basic protocol for sending correctly formatted SOAP-data to the WinRM
@@ -152,6 +171,12 @@ class WinRMProtocol(object):
         @rtype: urllib2 responce instance
         @return: An instance with returned data. Interesting attributes are
             ret.headers, ret.fp and ret.code.
+
+        @raise WinRMServerException: For HTTP 500 Server Errors. Used by WinRM
+            together with a Fault message.
+
+        @raise urllib2.HTTPError: When other, unhandled errors arrive.
+
         """
         if not isinstance(xml, basestring):
             xml = etree.tostring(xml)
@@ -176,8 +201,9 @@ class WinRMProtocol(object):
                                  e.hdrs.get('www-authenticate', None))
                 raise
             elif e.code == 500:
-                self.logger.warn("Server says 500 (Internal Server Error)")
-                code, reason, detail = self._parse_errormessage(e)
+                code, reason, detail = self._parse_fault(e)
+                raise WinRMServerException(code, reason, detail)
+
                 self.logger.warn("Fault [%s]: %s" % (','.join(code),
                                                   '| '.join(reason)))
                 self.logger.warn("Fault detail: %s" % '\n'.join(detail))
@@ -196,17 +222,21 @@ class WinRMProtocol(object):
             urllib2.socket.setdefaulttimeout(original_timeout)
         return ret
 
-    def _parse_errormessage(self, fp):
-        """Parse input data for an error message retrieved from the WinRM
-        server. Faults from WinRM contains:
+    def _parse_fault(self, fp):
+        """Parse a response from the server for a fault message.
+        
+        Faults from WinRM contains:
 
-        - Fault code (list of strings): A human semi-readable code pointing on
-          what failed, formatted in string. Consists of a "primary" code and
-          could also contain subcode(s). Returned in the order of appearance.
+        - Fault code (list of strings): A human semi-readable code pointing to
+          where something has failed, formatted in string. Consists of a
+          "primary" code and could also contain subcode(s). Returned in the
+          order of appearance, supposedly.
 
         - Reason (list of strings): An short explanation of the error.
 
-        - Detail (list of XXX): More details about the error. This contains more data:
+        - Detail (list of mixed content): More details about the error. This
+          contains more data, and could give you more help about fixing the
+          fault:
 
             - Code (int): Could be an internal Win32 error code or an application
               specific code. Search for MS-ERREF to get a list of standard
@@ -217,7 +247,7 @@ class WinRMProtocol(object):
             - Message (mixed content) [optional]: Different data that gives more
               details about the fault.
 
-        Example on the format of an Fault response:
+        Example on the format of a Fault response:
 
         <s:Envelope xml:lang="en-US" 
                     xmlns:s="http://www.w3.org/2003/05/soap-envelope"
@@ -288,11 +318,11 @@ class WinRMProtocol(object):
         """Create the base SOAP element, an s:Envelope with given header and
         body. If body is not given, an empty <s:Body/> will be created instead.
 
-        The envelope should look like:
+        The envelope would look like:
 
-            <s:Envelope xml:s="http..." 
-                        xml:wsa="http..."
-                        xml:wsman="http..."
+            <s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope"
+                        xmlns:a="http://schemas.xmlsoap.org/ws/2004/08/addressing"
+                        xmlns:wsman="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
                         ...>
                 <s:Header>
                     ...
@@ -301,6 +331,10 @@ class WinRMProtocol(object):
                     ...
                 </s:Body>
             </s:Envelope>
+
+        As you can see, the XML specifications are put in the envelope. The
+        Header and Body should exist, but at least the Body could be empty (e.g.
+        <s:Body/>).
 
         @type header: etree._Element
         @param header: An XML Element that should be tagged s:Header.
@@ -371,7 +405,7 @@ class WinRMProtocol(object):
             ele.text = text
         return ele
 
-    def _xml_header(self, action, resource='windows/shell/cmd'):
+    def _xml_header(self, action, resource='windows/shell/cmd', selectors=None):
         """Create an XML header for different request types. WinRM makes use of
         a lot of different WS-* standards, e.g. WS-Addressing and WS-Management,
         but most of the WSMan calls looks fortunately the same. The Header
@@ -407,12 +441,15 @@ class WinRMProtocol(object):
 
         - wsman:ResourceURI: An URL to a defined resource that should be used
           for the requests. The default is a 'cmd' shell, but it is possible to
-          create custom shells. The URL that is used is:
+          create custom shells. If the resource doesn't start with 'http' it
+          will be set up with a prefix of:
 
-            http://schemas.microsoft.com/wbem/wsman/1/XXX
+            http://schemas.microsoft.com/wbem/wsman/1/
 
-        - wsman:Selector: wsman:ShellId: The ShellId that the request should be
-          executed in/for. Not always used.
+        - wsman:Selector: Selectors, which depens on the given type of action.
+          Could for instance be wsman:ShellId for Command and Send, or the name
+          of the information to retrieve through Get. Not required for all
+          commands.
 
         Example on how a header could look like:
 
@@ -446,11 +483,18 @@ class WinRMProtocol(object):
             Examples are 'command', 'create', 'send' and 'delete'.
 
         @type resource: String
-        @param resource: The resource as specified in wsman:ResourceURI. For
-            action types that works with shell and commands, 'windows/shell/cmd'
-            or a custom shell could be specified. Other requests could for
-            instance set 'config'. The URL that is used:
-            http://schemas.microsoft.com/wbem/wsman/1/XXX
+        @param resource: The resource URI as specified in wsman:ResourceURI.
+            Used differently for the various action types, some types doesn't
+            even use it. If the URI doesn't start with 'http' it will be set up
+            with a prefix of:
+
+                http://schemas.microsoft.com/wbem/wsman/1/
+
+            Examples of resources could be 'windows/shell/cmd' when working with
+            standard shells, 'config' at Get requests for getting the server
+            configuration and
+            'http://schemas.microsoft.com/wbem/wsman/1/config/plugin' for
+            getting list of plugins.
 
         @rtype: etree._Element
         @return: An s:Header element with the proper settings to be
@@ -467,8 +511,13 @@ class WinRMProtocol(object):
         reply.append(addr)
         header.append(reply)
 
+        if not resource.startswith('http'):
+            resource = 'http://schemas.microsoft.com/wbem/wsman/1/%s' % resource
+
         uri = self._xml_element('ResourceURI', 'wsman',
-                text='http://schemas.microsoft.com/wbem/wsman/1/%s' % resource,
+                #text='http://schemas.microsoft.com/powershell/microsoft.powershell',
+                #text='http://schemas.microsoft.com/wbem/wsman/1/%s' % resource,
+                text=resource,
                 attribs={'s:mustUnderstand': 'true'})
         header.append(uri)
 
@@ -486,25 +535,32 @@ class WinRMProtocol(object):
                                                  for i in xrange(30)))
         header.append(msgid)
 
-        # TODO: how to add 'xml:lang' to elementtree?
-        #locale = self._xml_element('Locale', 'wsman', attribs={
-        #                                        'xml:lang': 'en-US',
-        #                                        's:mustUnderstand': 'false'})
-        #header.append(locale)
+        locale = self._xml_element('Locale', 'wsman',
+                                   attribs={'xml:lang': 'en-US',
+                                            's:mustUnderstand': 'false'})
+        header.append(locale)
 
         timeout = self._xml_element('OperationTimeout', 'wsman',
-                                    text='PT120.000S')
+                                    text='PT20.000S')
         header.append(timeout)
 
+        # Add Selector, if given:
+        if selectors:
+            selectorset = self._xml_element('SelectorSet', 'wsman')
+            for s in selectors:
+                selectorset.append(s)
+            header.append(selectorset)
+
         # Add the Shell ID as a selector, if it exists.
-        # TODO: Make this an input argument instead.
-        if getattr(self, 'shellid', None):
-            selector = self._xml_element('Selector', 'wsman',
-                                            text=self.shellid, attribs={'Name':
-                                                                    'ShellId'})
-            selectors = self._xml_element('SelectorSet', 'wsman')
-            selectors.append(selector)
-            header.append(selectors)
+        # TODO: This should be added from somewhere else...
+        #
+        #if getattr(self, 'shellid', None):
+        #    selector = self._xml_element('Selector', 'wsman',
+        #                                    text=self.shellid, attribs={'Name':
+        #                                                            'ShellId'})
+        #    selectors = self._xml_element('SelectorSet', 'wsman')
+        #    selectors.append(selector)
+        #    header.append(selectors)
         return header
 
     # Commands that are defined by the WSMan and WinRM standards:
@@ -547,20 +603,31 @@ class WinRMProtocol(object):
             TODO
 
         """
-        header = self._xml_header('command')
+        selector = self._xml_element('Selector', 'wsman', text=shellid,
+                                     attribs={'Name': 'ShellId'})
+        header = self._xml_header('command', selectors=[selector])
         options = self._xml_element('OptionSet', 'wsman')
+        # WINRS_CONSOLEMODE_STDIN: TRUE makes input from wsman_send go directly
+        # to the console. FALSE send input from wsman_send through pipes. Is for
+        # different purposes, not sure of what we should use, but
+        # get-credentials does not accept input through pipes, so it looks like
+        # we have to set it to true:
         options.append(self._xml_element('Option', 'wsman', 
                                     attribs={'Name': 'WINRS_CONSOLEMODE_STDIN'},
                                     text='TRUE'))
-        # Not necessary as long as we just set the default:
-        #options.append(self._xml_element('Option', 'wsman', 
-        #                            attribs={'Name': 'WINRS_SKIP_CMD_SHELL'},
-        #                            text='FALSE'))
+        options.append(self._xml_element('Option', 'wsman', 
+                                    attribs={'Name': 'WINRS_SKIP_CMD_SHELL'},
+                                    text='TRUE'))
         header.append(options)
 
         body = self._xml_element('Body', 's')
         cmdline = self._xml_element('CommandLine', 'rsp')
         body.append(cmdline)
+
+        # To support sending blank commands:
+        if not args:
+            args = [None]
+
         cmd = self._xml_element('Command', 'rsp', text=args[0])
         cmdline.append(cmd)
         for a in args[1:]:
@@ -578,16 +645,24 @@ class WinRMProtocol(object):
 
         Example on how a Create request looks like (inside s:Body):
 
+        <s:Header>
+          ...
+          <wsman:OptionSet xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+            <wsman:Option Name="WINRS_NOPROFILE">TRUE</wsman:Option>
+            <wsman:Option Name="WINRS_CODEPAGE">437</wsman:Option>
+          </wsman:OptionSet>
+          ...
+        </s:Header>
         <s:Body>
-        <rsp:Shell xmlns:rsp="http://schemas.microsoft.com/wbem/wsman/1/windows/shell">
-          <rsp:Environment>
-              <rsp:Variable Name="test">1</rsp:Variable>
-          </rsp:Environment>
-          <rsp:WorkingDirectory>d:\windows</rsp:WorkingDirectory>
-          <rsp:Lifetime>PT1000.000S</rsp:Lifetime>
-          <rsp:InputStreams>stdin</rsp:InputStreams>
-          <rsp:OutputStreams>stdout stderr</rsp:OutputStreams>
-        </rsp:Shell>
+          <rsp:Shell xmlns:rsp="http://schemas.microsoft.com/wbem/wsman/1/windows/shell">
+            <rsp:Environment>
+                <rsp:Variable Name="test">1</rsp:Variable>
+            </rsp:Environment>
+            <rsp:WorkingDirectory>d:\windows</rsp:WorkingDirectory>
+            <rsp:Lifetime>PT1000.000S</rsp:Lifetime>
+            <rsp:InputStreams>stdin</rsp:InputStreams>
+            <rsp:OutputStreams>stdout stderr</rsp:OutputStreams>
+          </rsp:Shell>
         </s:Body>
 
         TODO: Make some input configurable.
@@ -601,20 +676,29 @@ class WinRMProtocol(object):
             TODO
 
         """
+        header = self._xml_header('create')
+        #env = self._xml_element('Environment', 'rsp')
+        # TODO: Do we need  environment variables?
+        #header.append(env)
+        options = self._xml_element('OptionSet', 'wsman')
+        options.append(self._xml_element('Option', 'wsman', text='TRUE',
+                                         attribs={'Name': 'WINRS_NOPROFILE'}))
+        header.append(options)
+
         body = self._xml_element('Body', 's')
         shell = self._xml_element('Shell', 'rsp', nsmap={'rsp':
                      'http://schemas.microsoft.com/wbem/wsman/1/windows/shell'})
-        shell.append(self._xml_element('Lifetime', 'rsp', text='PT120.000S'))
+        shell.append(self._xml_element('Lifetime', 'rsp', text='PT20.000S'))
         shell.append(self._xml_element('InputStreams', 'rsp', text='stdin'))
         shell.append(self._xml_element('OutputStreams', 'rsp',
                                        text='stdout stderr'))
         body.append(shell)
-        ret = self._http_call(self._xml_envelope(self._xml_header('create'), body))
+        ret = self._http_call(self._xml_envelope(header, body))
         # Find the ShellID:
         for event, elem in etree.iterparse(ret.fp,
                     tag='{http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd}Selector'):
             return elem.text 
-        raise Exception('Could not Create Shell')
+        raise Exception('Did not receive ShellId from server')
 
     def wsman_delete(self, shellid):
         """Send a Delete request to the server, to terminate the Shell by the
@@ -626,17 +710,91 @@ class WinRMProtocol(object):
         get deleted.
 
         """
-        # TODO: Make use of the given shellid
-        ret = self._http_call(self._xml_envelope(self._xml_header('delete')))
+        selector = self._xml_element('Selector', 'wsman', text=shellid,
+                                     attribs={'Name': 'ShellId'})
+        ret = self._http_call(self._xml_envelope(self._xml_header('delete',
+                                                        selectors=[selector])))
         # TODO: Parse and check reply?
 
-    def wsman_get(self, type='config'):
+    def wsman_enumerate(self, type='config', selector=None):
+        """Send an Enumerate request to the server, to get a list of specified
+        information.
+
+        Example on how how an enumeration message looks like in the Body:
+
+            <wsen:Enumerate>
+                <!-- Where to send EnumerationEnd messages if unexpectedly
+                     terminated. Is optional. -->
+                <wsen:EndTo>endpoint-reference</wsen:EndTo> ?
+                <!-- For how long until timeout. If not specified, set to
+                     infinite, which might not be accepted by the endpoint -->
+                <wsen:Expires>[xs:dateTime | xs:duration]</wsen:Expires>
+                <wsen:Filter Dialect="xs:anyURI"> xs:any </wsen:Filter>
+            </wsen:Enumerate>
+
+        @type type: string
+        @param type: The type of information to get. Could start with http, or
+            it could be relative to:
+
+                http://schemas.microsoft.com/wbem/wsman/1/
+
+        @type selector: dict
+        @param selector: The parameters of a selector for the get request.
+            Should be a dict which contains the attributes of the selector.
+            Some usable attribute names:
+                - Name: The name of the selector, used to target what to select
+                - text: The value of the selection.
+
+        @rtype: string
+        @return: The Id of the EnumerateResponse. This should be used to get the
+            output from the enumerate request through L{wsman_pull}. You might
+            want to do something else while waiting, as it might take a while to
+            process, depending on what you requested.
+
+        """
+        sel = None
+        if selector:
+            s_txt = ''
+            if selector.has_key('text'):
+                s_txt = selector['text']
+                del selector['text']
+            sel = [self._xml_element('Selector', 'wsman', text=s_txt,
+                                    attribs=selector)]
+        header = self._xml_header('enumerate', resource=type, selectors=sel)
+        body = self._xml_element('Body', 's')
+        enum = self._xml_element('Enumerate', 'wsen')
+        # wsen:Expires must either be a datetime, e.g.
+        # '2002-10-10T12:00:00-05:00', or a ISO8601 duration on the format "PnYn
+        # MnDTnH nMnS" - quoting:
+        #
+        #   [...] where nY represents the number of years, nM the number of
+        #   months, nD the number of days, 'T' is the date/time separator, nH
+        #   the number of hours, nM the number of minutes and nS the number of
+        #   seconds. The number of seconds can include decimal digits to
+        #   arbitrary precision
+        #enum.append(self._xml_element('Expires', 'wsen', text='PT120.000S'))
+        body.append(enum)
+        ret = self._http_call(self._xml_envelope(header, body))
+        tag = '{%s}EnumerationContext' % namespaces['wsen']
+        for event, elem in etree.iterparse(ret.fp, tag=tag):
+            return elem.text
+        raise Exception("Unknown Enumeration response for type='%s'" % type)
+
+    def wsman_get(self, type='config', selector=None):
         """Send a Get request to the server, to get specified information.
 
         @type type: string
-        @param type: The type of information to get.
-            TODO: Should be able to specify full URL, or is the last part
-            enough? It depends on what URLs that are available...
+        @param type: The type of information to get. Could start with http, or
+            it could be relative to:
+
+                http://schemas.microsoft.com/wbem/wsman/1/
+
+        @type selector: dict
+        @param selector: The parameters of a selector for the get request.
+            Should be a dict which contains the attributes of the selector.
+            Some usable attribute names:
+                - Name: The name of the selector, used to target what to select
+                - text: The value of the selection.
 
         @rtype: etree._Element
         @return: The XML returned from the server.
@@ -644,7 +802,15 @@ class WinRMProtocol(object):
             information in the Header interesting too?
 
         """
-        header = self._xml_header('get', resource=type)
+        sel = None
+        if selector:
+            s_txt = ''
+            if selector.has_key('text'):
+                s_txt = selector['text']
+                del selector['text']
+            sel = [self._xml_element('Selector', 'wsman', text=s_txt,
+                                    attribs=selector)]
+        header = self._xml_header('get', resource=type, selectors=sel)
         ret = self._http_call(self._xml_envelope(header))
         xml = etree.parse(ret.fp)
         return xml
@@ -658,10 +824,16 @@ class WinRMProtocol(object):
         e.g. WinRM, and the brand, e.g. Microsoft.
 
         Note that WinRM still requires you to authenticate to see this
-        information.
+        information, unless the header: 
+        
+            WSMANIDENTIFY: unauthenticated
+
+        is specified.
 
         @rtype: etree._Element
         @return: The Identify response from the server, in SOAP XML format.
+
+        TODO: return only the important part of the response, e.g. as a dict?
 
         """
         env = self._xml_element('Envelope', 's')
@@ -669,20 +841,60 @@ class WinRMProtocol(object):
         body = self._xml_element('Body', 's')
         body.append(self._xml_element('Identify', 'wsmid'))
         env.append(body)
+        self._http_headers['WSMANIDENTIFY'] = 'unauthenticated'
         ret = self._http_call(env) # , address='/wsman-anon/identify')
+        del self._http_headers['WSMANIDENTIFY']
         xml = etree.parse(ret.fp)
         return xml
 
-    def wsman_receive(self, shellid, commandid, sequence=0):
+    def wsman_pull(self, type='config', context=None):
+        """Send a Pull request to the server, to pull for data.
+
+        How a Pull request's Body could look like:
+
+            <wsen:Pull>
+                <wsen:EnumerationContext>...</wsen:EnumerationContext>
+                <wsen:MaxTime>PT120.000S</wsen:MaxTime>
+                <wsen:MaxElements>xs:long</wsen:MaxElements>
+                <wsen:MaxCharacters>xs:long</wsen:MaxCharacters>
+            </wsen:Pull>
+
+        @type type: string
+        @param type: The type of information to get. Could start with http, or
+            it could be relative to:
+
+                http://schemas.microsoft.com/wbem/wsman/1/
+
+        @type context: string
+        @param contet: The EnumerationContext which should have been returned
+            by a L{wsman_enumerate} request.
+
+        @rtype: etree._Element
+        @return: The XML PullResponse returned from the server.
+            TODO: Does the Header contain something useful too?
+
+        """
+        header = self._xml_header('pull', resource=type)
+        body = self._xml_element('Body', 's')
+        pull = self._xml_element('Pull', 'wsen')
+        pull.append(self._xml_element('EnumerationContext', 'wsen', text=context))
+        body.append(pull)
+
+        tag = '{%s}PullResponse' % namespaces['wsen']
+        ret = self._http_call(self._xml_envelope(header, body))
+        for event, elem in etree.iterparse(ret.fp, tag=tag):
+            return elem
+
+    def wsman_receive(self, shellid, commandid=None, sequence=0):
         """Send a Recieve request to the server, to get a command's output.
 
         WinRM's execution of commands works in the way that the command is first
         called by a Command request, which only returns a CommandId, which we
         should then use when sending a Receive request later.
 
-        TODO: Should this method return an iterator instead, so that you could
-        see the first output while waiting for the next reply with more data?
-
+        Note that this command only returns one page of output, you would need
+        to loop over the method with a growing L{sequence} to get the rest of
+        the pages, until State is "Done".
 
         Example on how the SOAP XML looks like:
 
@@ -703,6 +915,7 @@ class WinRMProtocol(object):
         @type commandid: string
         @param commandid: The CommanId for the command that has already been
             given to the server. Only output from this command will be received.
+            Not needed for Custom Remote Shells.
 
         @type sequence: int
         @param sequence: Specifies what "page" of the output that should be
@@ -713,72 +926,60 @@ class WinRMProtocol(object):
         @rtype: tuple
         @return: A three element tuple on the form:
 
-                (int:return_code, string:stdout, string:stderr)
+                (string:status, int:return_code, dict:out)
 
-            The return code might be None, if not given by the server.
-
-            TODO: Return iterator or something else instead? An object maybe?
+            The L{status} could be Done, Running or Pending. The return code
+            might be None, if not given by the server. The out dict could
+            contain elements 'stdout' and 'stderr', depending on what the server
+            sends. The elements in the dict are unicode strings with output.
 
         """
-        # TODO: Move the loop out of this method. This method should _only_ send
-        # the command and return the server response!
+        selector = self._xml_element('Selector', 'wsman', text=shellid,
+                                     attribs={'Name': 'ShellId'})
+        header = self._xml_header('receive', selectors=[selector])
+        body = self._xml_element('Body', 's')
+        receiver = self._xml_element('Receive', 'rsp')
+        receiver.set('SequenceId', str(sequence))
+        body.append(receiver)
+        stream = self._xml_element('DesiredStream', 'rsp')
+        if commandid:
+            stream.set('CommandId', str(commandid))
+        stream.text = 'stdout stderr'
+        receiver.append(stream)
 
-        self.log.debug("In shell %s: Get output for command: %s" % (self.shellid,
-                                                                   commandid))
-        out = {'stdout': [], 'stderr': []}
+        ret = self._http_call(self._xml_envelope(header, body))
+
+        out = dict()
         exitcode = None
-        sequence = 0
-        state = 'Running'
+        state = None
 
-        while state != 'Done':
-            header = self._xml_header('receive')
-            body = self._xml_element('Body', 's')
-            receiver = self._xml_element('Receive', 'rsp')
-            receiver.set('SequenceId', str(sequence))
-            body.append(receiver)
-            stream = self._xml_element('DesiredStream', 'rsp')
-            stream.set('CommandId', commandid)
-            stream.text = 'stdout stderr'
-            receiver.append(stream)
+        root = etree.parse(ret.fp)
+        tag = "{%s}Stream" % namespaces['rsp']
+        amount = 0
+        for elem in root.iter(tag=tag):
+            if elem.text:
+                amount += len(elem.text)
+                out.setdefault(elem.get('Name'), []).append(elem.text)
+        self.logger.debug("Received %d bytes of base64 data" % amount)
 
-            try:
-                ret = self._http_call(self._xml_envelope(header, body))
-            except urllib2.HTTPError, e:
-                print e
-                # TODO: Handle it somehow? Return only what has been returned?
-                raise
+        tag = "{%s}CommandState" % namespaces['rsp']
+        for xml_state in root.iter(tag=tag):
+            state = xml_state.get('State').split('/')[-1]
+        # TODO: Check if state is not set?
 
-            root = etree.parse(ret.fp)
-            tag = "{%s}Stream" % namespaces['rsp']
-            amount = 0
-            for elem in root.iter(tag=tag):
-                if elem.text:
-                    amount += len(elem.text)
-                    out[elem.get('Name')].append(elem.text)
-            self.log.debug("Received %d bytes of base64 data" % amount)
+        tag = "{%s}ExitCode" % namespaces['rsp']
+        for code in root.iter(tag=tag):
+            exitcode = code.text
+        # TODO: Check if exitcode is not set?
 
-            tag = "{%s}CommandState" % namespaces['rsp']
-            for xml_state in root.iter(tag=tag):
-                state = xml_state.get('State').split('/')[-1]
-                self.log.debug("New state = %s, sequence = %d" % (state, sequence))
-                sequence += 1
-
-            tag = "{%s}ExitCode" % namespaces['rsp']
-            for code in root.iter(tag=tag):
-                exitcode = code.text
-
-            # Tell the server that the reponse was read successfully:
-            if state != 'Done':
-                self.send_signal(commandid, 'terminate')
-
-            # TODO: the loop doesn't work for now. Need to find out why it only
-            # hangs at first round.
-            #break
-
-        stdout = ''.join(base64.decodestring(s) for s in out['stdout'])
-        stderr = ''.join(base64.decodestring(s) for s in out['stderr'])
-        # TODO: Check if the return code has been set?
-        return (exitcode, stdout, stderr)
+        # Clean up output
+        for t in out:
+            # TODO: Why is it returned as latin-1 and not utf-8? Is it because
+            # we send in latin-1 characters? Can't find anything about this in
+            # the specification.
+            out[t] = u''.join(unicode(base64.decodestring(s), 'latin-1')
+                              for s in out[t]).replace('\r\n', '\n')
+        return state, exitcode, out
 
     def wsman_send(self, commandid, data):
         """Make a Send call with input to be given to the remote Shell. This
@@ -805,22 +1006,27 @@ class WinRMProtocol(object):
         if isinstance(data, (tuple, list)):
             data = '\n'.join(data)
         # TODO: Might not want to log what is sent when done debugging:
-        self.log.debug("In shell %s, for CmdID: %s: Sending stdin input: '%s'" %
+        self.logger.debug("In shell %s, for CmdID: %s: Sending stdin input: '%s'" %
                        (self.shellid, commandid, data))
         # Need to add carriage return, to simulate Enter in Windows. A simple
         # newline (\n) would not work, carriage return (\r) is required:
         data = data.replace('\n', '\r\n')
         if not data.endswith('\n'):
             data += '\r\n'
-        header = self._xml_header('send')
+        selector = self._xml_element('Selector', 'wsman', text=self.shellid,
+                                     attribs={'Name': 'ShellId'})
+        header = self._xml_header('send', selectors=[selector])
         body = self._xml_element('Body', 's')
         send = self._xml_element('Send', 'rsp')
         send.append(self._xml_element('Stream', 'rsp',
                                       text=base64.encodestring(data),
                                       attribs={'Name': 'stdin',
-                                               'CommandId': commandid}))
+                                               'CommandId': commandid,
+                                               # Not sure if End is used
+                                               'End': 'TRUE'}))
         body.append(send)
-        return self._http_call(self._xml_envelope(header, body))
+        ret = self._http_call(self._xml_envelope(header, body))
+        return etree.parse(ret.fp)
         # TODO: What to return? Only True?
 
     def wsman_signal(self, commandid, signalcode='terminate'):
@@ -850,53 +1056,231 @@ class WinRMProtocol(object):
         xml = self._xml_element('Signal', 'rsp',
                                 attribs={'CommandId': commandid})
         code = self._xml_element('Code', 'rsp')
-        code.text = 'http://schemas.microsoft.com/wbem/wsman/1/windows/shell/signal/%s' % signal_code
+        code.text = 'http://schemas.microsoft.com/wbem/wsman/1/windows/shell/signal/%s' % signalcode
         xml.append(code)
         body.append(xml)
-        return self._http_call(self._xml_envelope(self._xml_header('signal'), body))
+        selector = self._xml_element('Selector', 'wsman', text=self.shellid,
+                                     attribs={'Name': 'ShellId'})
+        return self._http_call(self._xml_envelope(self._xml_header('signal',
+                                                    selectors=[selector]), body))
         # TODO: What to return?
 
 class WinRMClient(WinRMProtocol):
-    """Client that talks with a service through the WinRM protocol.
+    """Client for handling a remote Shell at a WinRM service through the WinRM
+    protocol.
 
-    The standard workflow when communicating with a WinRM server is:
+    What the client is taking care of, is how all the wsman request should be
+    sent and received. The standard workflow when communicating with a WinRM
+    server is:
 
-        1. Send Create request to create a Shell on the server. A ShellId is
+        1. Send a Create request to create a Shell on the server. A ShellId is
            returned.
-        2. Send Command request to start a new command in the given Shell. A
-           CommandID is returned.
-        3. If needed, you could send a Send request to send input to stdin.
-           Could be used to e.g. fill in prompts.
-        4. If you want to, you could now wait and do something else. The server
-           is processing the command and caching the output.
-        5. Send Receive request to receive the output from the command.
-        6. Send Signal request to tell the server that the output was received.
-        7. Repeat step 5-6 until CommandState is Done 
-        8. Send and receive more commands if needed.
-        9. Send Delete request to shut down the given Shell when done.
+        2. Send a Command request to start a new command in the given Shell. A
+           CommandId is returned. Note that it's not the result from the
+           execution that is returned now, the command might not even be started
+           on yet.
+        3. If needed, you could send a Send request to send input to stdin or
+           pipe. This could e.g. be used to e.g. fill in data in prompts.
+           TODO: This does not work as expected, so more work needs to be done
+           for this to work.
+        4. If you want to, you could now go and do something else. The server is
+           processing the command and caching the output.
+        5. Send a Receive request to receive the output from the command. If the
+           returned State is not "Done", you could keep on sending Send requests
+           to get all of the data.
+        6. Send a Signal request to tell the server that the output was
+           received. The server could now remove the output from its cache and
+           use for other commands.
+        8. Send and receive more commands if needed in the shell. Note that each
+           command is independent of the others, as we need to start powershell
+           at each Command request. We might need to improve on this in the
+           future, depending on our needs.
+        9. Send a Delete request to shut down the given Shell when done. Each
+           user only have a limited number of shells available, so you should do
+           this to avoid getting temporarily blocked from the server if too many
+           AD jobs are running simultaneously.
 
     """
-
-    # TODO:
-    #def __init__(self):
-    #   self.shellid = None
 
     def connect(self):
         """Set up a connection to the WinRM server.
 
         TODO: should we handle reconnects? Shells could be running on the
-        server, and we have request types to get them.
+        server, and we could get list of active shell through wsman_enumerate.
 
         """
         self.logger.debug("Connecting to WinRM: %s:%s" % (self.host, self.port))
         self.shellid = self.wsman_create()
-
         # Subclasses could now run some startup commands on the server, e.g.
         # starting powershell in the active shell and import the ActiveDirectory
         # module. Example:
         #   commandid = self.wsman_command(self.shellid, "powershell")
         return True 
 
-    def run(self, *args):
-        """Send commands to the server, and get their response. TODO"""
-        pass
+    def execute(self, *args, **kwargs):
+        """Send a command to the server and return a CommandId that could be
+        used to retrieve the output. This is for larger operations which could
+        take some time to process. For faster commands you could rather use the
+        easier method L{run} which returns the command's output directly.
+
+        @type *args: strings
+        @param *args: Input should be the code that should be executed. Note
+            that when using the default shell, cmd, you can only specify one
+            single command, which must be in the first argument, and the rest of
+            the arguments are considered parameters for that.
+
+        @type stdin: string
+        @param stdin: Data to send as input to the server.
+
+        """
+        commandid = self.wsman_command(self.shellid, *args)
+        # Send input to stdin, if given:
+        if 'stdin' in kwargs:
+            self.wsman_send(commandid, kwargs['stdin'])
+        self._last_commandid = commandid
+        return commandid
+
+    def run(self, *args, **kwargs):
+        """Send a command to the server, return its response after execution.
+
+        This method is meant to be used for quick commands, as it hangs while
+        waiting for the response. If you want to execute commands that take some
+        time, please use L{execute} instead, and then use L{get_output} later
+        on.
+
+        @type *args: strings
+        @param *args: Input should be the code that should be executed. Note
+            that when using the default shell, cmd, you can only specify one
+            single command, which must be in the first argument, and the rest of
+            the arguments are considered parameters for that.
+
+        @type stdin: string
+        @param stdin: Data to send as input to the server.
+
+        @rtype: tuple
+        @return: The first element is the exitcode for the command, while the
+            second element is a dict with output, where the keys are output
+            types, and the values are strings of output.
+
+        """
+        commandid = self.execute(*args, **kwargs)
+        out = dict()
+        # Get output from server
+        for code, tmpout in self.get_output(commandid):
+            for type in tmpout:
+                out.setdefault(type, []).append(tmpout[type])
+        # Transform output from lists to strings
+        for t in out:
+            out[t] = ''.join(out[t])
+        return code, out
+
+    def get_output(self, commandid=None, signal=True, timeout_retries=10):
+        """Get the exitcode and output for a given command.
+
+        The output is returned as an iterator, to be able to process the first
+        parts of the output already before all is processed or returned from the
+        server.
+
+        @type commandid: string
+        @param commandid: The CommandId for the command that the output should
+            be retrieved from. If not given, the CommandId from the latest call
+            to L{execute} is used instead.
+
+        @type signal: bool
+        @param signal: If we should send a end signal to the server when all the
+            output was received. This must be done, according to the
+            specifications, after a process has finished, so that the server
+            could free up the cache space and use it for the next command.
+            It could be set to false in case of a command that needs input later
+            on, but you want its initial output first. You then have to signal
+            it yourself later on.
+
+        @type timeout_retries: int
+        @param timeout_retries: How many retry attempts should be made if the
+            server responds with a time out. Some methods take a long time to
+            process, other cases there might be a deadlock, e.g. when waiting
+            for input from the client or other bugs, which we shouldn't wait for
+            forever.
+
+        @rtype: iterator
+        @return: Iterating over output from the server. WinRM splits output into
+            different XML response messages if it's too much data. Small
+            commands would normally only be sent in one response message, so
+            this makes only sense for large output, to start processing the
+            output faster.
+
+        """
+        if not commandid:
+            commandid = self._last_commandid
+        assert commandid, "No CommandId is given, and no previos Ids found"
+
+        retried = 0
+        sequence = 0
+        state = 'Running'
+        while state != 'Done':
+            try:
+                state, code, out = self.wsman_receive(self.shellid, commandid,
+                                                      sequence)
+            except WinRMServerException, e:
+                # Only timeouts are okay to retry:
+                if e.code != ['s:Receiver', 'w:TimedOut']:
+                    raise
+                # Timeouts shouldn't be retried for forever:
+                if retried >= timeout_retries:
+                    raise
+                retried += 1
+                state = "TimedOut"
+                self.logger.debug("wsman_receive: Timeout %d" % retried)
+                continue
+            yield code, out
+            retried = 0
+            sequence += 1
+        # Tell the server that the reponse was read successfully:
+        if signal:
+            self.wsman_signal(commandid, 'terminate')
+
+    def close(self):
+        """Shut down the active Shell on the server. Useful so that you could
+        make of the Shell for other processes, since each user has a limited
+        number of shells available on the server.
+
+        """
+        if self.shellid:
+            return self.wsman_delete(self.shellid)
+        del self.shellid
+
+class PowershellClient(WinRMClient):
+    """Client for using powershell through WinRM.
+
+    Note that it is not using the Powershell plugin or CustomRemoteShell set up
+    with powershell, but is rather just executing powershell.exe through the
+    normal WinRM interface. This is easier than to implement the more complex
+    Powershell Remote Protocol (PSRP).
+
+    """
+
+    def execute(self, *args, **kwargs):
+        """Send powershell commands to the server."""
+        return super(PowershellClient, self).execute(
+                # TODO: We are here expecting x64, and the path might change in
+                # the future, so we should be able to configure this somewhere.
+                u'%SystemRoot%\syswow64\WindowsPowerShell\\v1.0\powershell.exe',
+                u'-NonInteractive', # As we can't handle stdin yet. This avoids
+                                    # deadlocks, if a prompt is popping up.
+                *args, **kwargs)
+
+# TODO: The rest should be moved to a file with more AD related stuff:
+#class ADClient(PowershellClient):
+#
+#    def execute(self, *args, **kwargs):
+#        """Send commands to the server, but first setting up the environment
+#        properly, to be able to work with AD with Cerebrum's domain account.
+#
+#        """
+#        return self.execute(u"""$pass = ConvertTo-SecureString -Force -AsPlainText '%(ad_password)s';
+#                       $cred = New-Object System.Management.Automation.PSCredential('"%(ad_user)s"', $pass);
+#                       Import-Module ActiveDirectory;
+#                       Get-ADUser -Credential $cred -filter "'*'";
+#                       """ % {'ad_user': u'some_username',
+#                              'ad_password': u'some_kinda_password'},
+#                       *args, **kwargs)
