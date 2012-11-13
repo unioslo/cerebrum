@@ -63,14 +63,15 @@ each setting.
 * Edit ACCESSLIST to the ip-address of the cerebrum server. This is a list 
   and can contain more than one address.
   
-* Edit DOMAIN to the domain you want to autenticate against. This might be a 
-  windows AD domain or the local machine. The windows domain is resolved 
-  by default.
+* Edit DOMAIN to the domain you want to autenticate against. This
+  might be a windows AD domain or the DN of the local macine. The
+  windows domain is resolved by default.
 
-* Edit AUTH to a valid user in the domain specified by the DOMAIN constant. 
-  The default user is cerebrum. The password specified in the basic HTML 
-  autentication header sent in the XML-RPC request is used to autenticate the 
-  specified user.
+* Edit AUTH to a valid user in the domain specified by the DOMAIN
+  constant.  The default user is cerebrum. The password specified in
+  the basic HTML autentication header sent in the XML-RPC request is
+  used to autenticate the specified user. NB: avoid using chars not in
+  7 bit ASCII in the password for the account.
 
 * Configure the logger (see documentation of the python logger module) 
 
