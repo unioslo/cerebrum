@@ -367,7 +367,7 @@ def cache_person_info(db_person, db_account):
     * person_id -> eids, where eids is a dictionary external_id -> value
     * fnr -> primary uname
     * uname -> email
-    * eid_id -> cell, where cell is the persons cellphone number
+    * person_id -> cell, where cell is the persons cellphone number
     """
 
     logger.debug("Populating all person caches")
