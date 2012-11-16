@@ -940,6 +940,7 @@ def main():
 
     filename = institution = None
     with_email = False
+    with_cell = False
     for option, value in options:
         if option in ("-f", "--out-file",):
             filename = value
