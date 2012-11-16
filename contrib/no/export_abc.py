@@ -163,7 +163,8 @@ def _cache_id_types():
     c = constants
     for id, xml_name in (("work", "work title"),
                          ("uname", "primary account"),
-                         ("email", "primary e-mail address")):
+                         ("email", "primary e-mail address"),
+                         ("cell", "cellular phone")):
         _id_type_cache[id] = xml_name
 
     #
@@ -360,12 +361,13 @@ def cache_person_info(db_person, db_account):
 
     This is a potential memory hog.
 
-    Returns a 4-tuple:
+    Returns a 5-tuple:
 
     * person_id -> names, where names is a dictionary indexed by name type
     * person_id -> eids, where eids is a dictionary external_id -> value
     * fnr -> primary uname
     * uname -> email
+    * eid_id -> cell, where cell is the persons cellphone number
     """
 
     logger.debug("Populating all person caches")
@@ -399,9 +401,18 @@ def cache_person_info(db_person, db_account):
         uname2mail = db_account.getdict_uname2mailaddr()
     else:
         uname2mail = dict()
+
+    if with_cell:
+        logger.debug("eid -> cell")
+        eid2cell = dict((x['entity_id'], x['contact_value'],) for x in
+                db_person.list_contact_info(
+                    contact_type=constants.contact_mobile_phone))
+    else:
+        eid2cell = dict()
     
     logger.debug("person caching complete")
-    return person_id2names, person_id2external_ids, fnr2uname, uname2mail
+    return person_id2names, person_id2external_ids, fnr2uname, uname2mail, \
+            eid2cell
 # end cache_person_info
 
 
@@ -417,8 +428,8 @@ def output_people():
     # and we trade some of the clarity and memory for running time.
     (person_id2name,
      person_id2external_ids,
-     fnr2uname,
-     uname2mail) = cache_person_info(person, account)
+     fnr2uname, uname2mail,
+     eid2cell) = cache_person_info(person, account)
 
     # cache for person_id -> external-IDs
     person_info = dict()
@@ -505,11 +516,12 @@ def output_people():
 
         primary_uname = fnr2uname.get(current_fnr)
         for value, contact_type in ((primary_uname, "uname"),
-                                    (uname2mail.get(primary_uname), "email")):
+                                    (uname2mail.get(primary_uname), "email"),
+                                    (eid2cell.get(id), "cell")):
             if value:
                 out("contactinfo", value, {"contacttype":
                                            get_contact_type(contact_type)})
-                
+
         xmlwriter.endElement("person")
 
     return person_info
@@ -573,7 +585,7 @@ def output_properties():
     # All ID types must be declared before usage. The order is significant.
     xmlwriter.startElement("types")
 
-    for contact_name in ("uname", "email"):
+    for contact_name in ("uname", "email", "cell"):
         out("contacttype", get_contact_type(contact_name),
             {"subject": "person"})
 
@@ -910,7 +922,8 @@ def generate_report(orgname):
 
 
 def main():
-    global cerebrum_db, constants, fs_db, xmlwriter, logger, with_email
+    global cerebrum_db, constants, fs_db, xmlwriter, logger, with_email, \
+            with_cell
 
     logger = Factory.get_logger("cronjob")
     logger.info("generating ABC export")
@@ -919,10 +932,11 @@ def main():
     cerebrum_db = Factory.get("Database")()
     constants = Factory.get("Constants")(cerebrum_db)
 
-    options, rest = getopt.getopt(sys.argv[1:], "f:i:e",
+    options, rest = getopt.getopt(sys.argv[1:], "f:i:ec",
                                   ["out-file=",
                                    "institution=",
-                                   "with-email"])
+                                   "with-email",
+                                   "with-cellular"])
 
     filename = institution = None
     with_email = False
@@ -933,6 +947,8 @@ def main():
             institution = value
         elif option in ("-e", "--with-email",):
             with_email = True
+        elif option in ("-c", "--with-cellular",):
+            with_cell = True
 
     _cache_id_types()
     fs_db = Factory.get("FS")()
