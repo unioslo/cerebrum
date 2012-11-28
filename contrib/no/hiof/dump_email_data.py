@@ -41,7 +41,7 @@ def get_valid_email_addrs(et):
     return ["%s@%s" % a for a in addrs]
 
 def generate_email_data():
-    all_accounts = account.list()
+    all_accounts = account.search(spread=constants.spread_email_account)
     all_email_data = {}
     es = Email.EmailServer(db)
     for k in all_accounts:
