@@ -403,10 +403,29 @@ def cache_person_info(db_person, db_account):
         uname2mail = dict()
 
     if with_cell:
+        # Helper function for ordering items.
+        def lookup_order_index(system):
+            i = 0
+            system = str(constants.AuthoritativeSystem(system))
+            for x in cereconf.SYSTEM_LOOKUP_ORDER:
+                if str(getattr(constants, x)) == system:
+                    return i
+                else:
+                    i = i + 1
+            return i
+
         logger.debug("eid -> cell")
-        eid2cell = dict((x['entity_id'], x['contact_value'],) for x in
-                db_person.list_contact_info(
-                    contact_type=constants.contact_mobile_phone))
+        eid2cell = {}
+        for x in db_person.list_contact_info(
+                contact_type=constants.contact_mobile_phone):
+            eid2cell.setdefault(x['entity_id'], []).append(
+                    (x['source_system'], x['contact_value'],))
+
+        # Sort according to SYSTEM_LOOKUP_ORDER and pick the first.
+        for x in eid2cell:
+            eid2cell[x] = sorted(eid2cell[x],
+                    cmp=lambda p, n: lookup_order_index(p[1])
+                    - lookup_order_index(n[1]))[0][1]
     else:
         eid2cell = dict()
     
