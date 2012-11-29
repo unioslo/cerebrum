@@ -256,21 +256,25 @@ def undervisningsmelding_grupper(fsconn, remove_others=False):
         fill_group(grp, members, remove_others)
 
 def vurderingsmelding_grupper(fsconn, remove_others=False):
-    for x in fs.student.list_eksamensmeldinger(with_terminkode=True):
-        grp = get_group("vurd-%s" % (x['emnekode']),
-                        "Alle studenter vurderingsmeldt på %s" % (
-                                              x['emnekode']))
+    aktuelle_emnekoder = []
+    for x in fs.student.list_eksamensmeldinger():
+        if fs.student.semester == x['terminkode_gjelder_i']:
+            if not x['emnekode'] in aktuelle_emnekoder:
+                aktuelle_emnekoder.append(x['emnekode'])
+    for x in aktuelle_emnekoder:
+        grp = get_group("vurd-%s" % (x),
+                        "Alle studenter vurderingsmeldt på %s" % (x))
         logger.debug("Processing group: %s", grp.group_name)
-
         # update memberships in vurd-groups
         members = set()
-        for y in fs.student.get_emne_eksamensmeldinger(x['emnekode']):
-            fnr = "%06d%05d" % (int(y['fodselsdato']), int(y['personnr']))
-            try:
-                members.add(fnr2primary[fnr])
-            except KeyError:
-                logger.info("Person %s not found, or no primary account (vurderingsmelding)", fnr)
-                continue
+        for y in fs.student.get_emne_eksamensmeldinger(x):
+            if y['terminkode_gjelder_i'] == fs.student.semester and y['arstall_gjelder_i'] == fs.student.year:
+                fnr = "%06d%05d" % (int(y['fodselsdato']), int(y['personnr']))
+                try:
+                    members.add(fnr2primary[fnr])
+                except KeyError:
+                    logger.info("Person %s not found, or no primary account (vurderingsmelding)", fnr)
+                    continue
         fill_group(grp, members, remove_others)
 
 def remove_old_groups():
