@@ -464,7 +464,8 @@ class Student(FSObject):
         FROM fs.person p, fs.vurdkombmelding vm,
              fs.vurderingskombinasjon vk, 
              fs.vurdkombenhet ve, fs.vurderingstid vt
-        WHERE  p.fodselsdato=vm.fodselsdato AND
+        WHERE vm.emnekode = :emnekode AND
+              p.fodselsdato=vm.fodselsdato AND
               p.personnr=vm.personnr AND
               vk.institusjonsnr = vm.institusjonsnr AND
               vk.emnekode = vm.emnekode AND
