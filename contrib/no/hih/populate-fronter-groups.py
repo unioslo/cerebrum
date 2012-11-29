@@ -255,6 +255,24 @@ def undervisningsmelding_grupper(fsconn, remove_others=False):
                 continue
         fill_group(grp, members, remove_others)
 
+def vurderingsmelding_grupper(fsconn, remove_others=False):
+    for x in fs.student.list_eksamensmeldinger(with_terminkode=True):
+        grp = get_group("vurd-%s" % (x['emnekode']),
+                        "Alle studenter vurderingsmeldt på %s" % (
+                                              x['emnekode']))
+        logger.debug("Processing group: %s", grp.group_name)
+
+        # update memberships in vurd-groups
+        members = set()
+        for y in fs.student.get_emne_eksamensmeldinger(x['emnekode']):
+            fnr = "%06d%05d" % (int(y['fodselsdato']), int(y['personnr']))
+            try:
+                members.add(fnr2primary[fnr])
+            except KeyError:
+                logger.info("Person %s not found, or no primary account (vurderingsmelding)", fnr)
+                continue
+        fill_group(grp, members, remove_others)
+
 def remove_old_groups():
     """Go through the database and disable all groups with the LMS-spread but
     have not been touched by this script, i.e. is in the global set
@@ -321,6 +339,9 @@ def main():
 
     logger.info("Updating emne/underv.enh groups")
     undervisningsmelding_grupper(fs, remove_others)
+
+    logger.info("Updating vurderingsmeldinger groups")
+    vurderingsmelding_grupper(fs, remove_others)
 
     if remove_others:
         logger.info("Removing other/old groups with LMS-spread")
