@@ -336,12 +336,16 @@ class Student(FSObject):
 
     ## ToDo: Måten vi knytter vurdkombenhet mot vurdtidkode bør
     ## sjekkes nærmere med Geir.
-    def list_eksamensmeldinger(self):  # GetAlleEksamener
+    def list_eksamensmeldinger(self, with_terminkode=False):  # GetAlleEksamener
         """Hent ut alle eksamensmeldinger i nåværende sem.
         samt fnr for oppmeldte(topics.xml)"""
+        extra = ""
+        if with_terminkode:
+            extra = "vt.terminkode_gjelder_i = %s AND\n" % self.semester
         qry = """
         SELECT p.fodselsdato, p.personnr, vm.emnekode,
-               vm.studieprogramkode
+               vm.studieprogramkode, vm.arstall, 
+               vm.versjonskode, vm.vurdtidkode
         FROM fs.person p, fs.vurdkombmelding vm,
              fs.vurderingskombinasjon vk, fs.vurderingstid vt, 
              fs.vurdkombenhet ve
@@ -363,8 +367,9 @@ class Student(FSObject):
               ve.vurdtidkode_reell=vt.vurdtidkode AND
               vt.arstall_gjelder_i = %s AND
               %s
+              %s
         ORDER BY fodselsdato, personnr
-        """ % (self.year, self._is_alive())                            
+        """ % (self.year, extra, self._is_alive())                            
         return self.db.query(qry)
 
     ## ToDo: Denne maa oppdateres til aa samsvare med
@@ -452,30 +457,36 @@ class Student(FSObject):
         return self.db.query(qry)
     # end list_betalt_semesteravgift
 
-    ## ToDo: Denne maa oppdateres til aa samsvare med
-    ## list_eksamensmeldinger!    
     def get_emne_eksamensmeldinger(self, emnekode):  # GetEmneinformasjon
-        """Hent informasjon om alle som er registrert på EMNEKODE"""
+        """Hent informasjon om alle som er vurderingsmeldt til
+           EMNEKODE i inneværende semester"""
         query = """
-        SELECT DISTINCT p.fodselsdato, p.personnr, p.fornavn, p.etternavn
+        SELECT DISTINCT p.fodselsdato, p.personnr, p.fornavn, p.etternavn,
+             vm.emnekode, vm.studieprogramkode, vm.arstall, vm.versjonskode
         FROM fs.person p, fs.vurdkombmelding vm,
              fs.vurderingskombinasjon vk, 
              fs.vurdkombenhet ve, fs.vurderingstid vt
-        WHERE vm.emnekode = :emnekode AND
-              p.fodselsdato = vm.fodselsdato AND
-              p.personnr = vm.personnr AND
-              ve.institusjonsnr = vm.institusjonsnr AND
-              ve.emnekode = vm.emnekode AND
-              ve.versjonskode = vm.versjonskode AND
-              ve.vurdkombkode = vm.vurdkombkode AND
+        WHERE  p.fodselsdato=vm.fodselsdato AND
+              p.personnr=vm.personnr AND
+              vk.institusjonsnr = vm.institusjonsnr AND
+              vk.emnekode = vm.emnekode AND
+              vk.versjonskode = vm.versjonskode AND
+              vk.vurdkombkode = vm.vurdkombkode AND
+              vk.vurdordningkode IS NOT NULL and
               ve.arstall = vm.arstall AND
               ve.vurdtidkode = vm.vurdtidkode AND
-              ve.arstall_reell = vt.arstall AND
-              ve.vurdtidkode_reell = vt.vurdtidkode AND
+              ve.emnekode = vm.emnekode AND
+              ve.versjonskode = vm.versjonskode AND
+              ve.vurdkombkode = vm.vurdkombkode AND 
+              ve.vurdtidkode = vm.vurdtidkode AND
+              ve.institusjonsnr = vm.institusjonsnr AND
+              ve.arstall_reell=vt.arstall AND
+              ve.vurdtidkode_reell=vt.vurdtidkode AND
               vt.arstall_gjelder_i = %s AND
-              vt.terminkode_gjelder_i = %s
-              """ % (self.year, self.semester)
-        return self.db.query(query, {"emnekode" : emnekode})
+              vt.terminkode_gjelder_i = %s AND
+              %s
+        """ % (self.year, self.semester, self._is_alive())                           
+        return self.db.query(query, {"emnekode": emnekode})
 
     def get_student_kull(self, fnr, pnr):
         """Hent opplysninger om hvilken klasse studenten er en del av og 
@@ -735,7 +746,7 @@ class Undervisning(FSObject):
         if start_semester is None:
             start_semester = self.semester
         return self.db.query("""
-        SELECT  
+        SELECT
           ua.institusjonsnr, ua.emnekode, ua.versjonskode,
           ua.terminkode, ua.arstall, ua.terminnr, ua.aktivitetkode,
           ua.undpartilopenr, ua.disiplinkode, ua.undformkode, ua.aktivitetsnavn
