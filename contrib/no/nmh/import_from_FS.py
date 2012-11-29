@@ -83,7 +83,6 @@ def write_person_info(outfile):
 
 def write_netpubl_info(outfile):
     """Lager fil med informasjon om status nettpublisering"""
-    logger.info("Writing nettpubl info to '%s'" % outfile)
     f = SimilarSizeWriter(outfile, "w")
     f.set_size_change_limit(15)
     f.write(xml.xml_hdr + "<data>\n")
