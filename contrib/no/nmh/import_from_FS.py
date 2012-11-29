@@ -29,7 +29,7 @@ import cereconf
 from Cerebrum import Database
 from Cerebrum import Errors
 from Cerebrum.extlib import xmlprinter
-from Cerebrum.Utils import XMLHelper, MinimumSizeWriter, AtomicFileWriter
+from Cerebrum.Utils import XMLHelper, MinimumSizeWriter, AtomicFileWriter, SimilarSizeWriter
 from Cerebrum.modules.no.nmh.access_FS import FS
 from Cerebrum.Utils import Factory
 
