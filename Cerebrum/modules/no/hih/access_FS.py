@@ -82,36 +82,6 @@ class HIHStudent(access_FS.Student):
               """ % (self._is_alive())
         return self.db.query(qry)
 
-    def list_eksamensmeldinger(self):  # GetAlleEksamener
-        """ Hent ut alle eksamensmeldinger i nåværende sem."""
-
-        qry = """
-            SELECT p.fodselsdato, p.personnr, vm.emnekode, vm.studieprogramkode
-            FROM fs.person p, fs.vurdkombmelding vm,
-            fs.vurderingskombinasjon vk, fs.vurderingstid vt, 
-            fs.vurdkombenhet ve
-            WHERE p.fodselsdato=vm.fodselsdato AND
-                  p.personnr=vm.personnr AND
-                  vm.institusjonsnr = vk.institusjonsnr AND
-                  vm.emnekode = vk.emnekode AND
-                  vm.versjonskode = vk.versjonskode AND
-                  vm.vurdkombkode = vk.vurdkombkode AND
-                  vk.vurdordningkode IS NOT NULL and
-                  vm.arstall = vt.arstall AND
-                  vm.vurdtidkode = vt.vurdtidkode AND
-                  ve.emnekode = vm.emnekode AND
-                  ve.versjonskode = vm.versjonskode AND
-                  ve.vurdkombkode = vm.vurdkombkode AND 
-                  ve.vurdtidkode = vm.vurdtidkode AND
-                  ve.institusjonsnr = vm.institusjonsnr AND
-                  ve.arstall = vt. arstall AND
-                  ve.vurdtidkode = vt.vurdtidkode AND
-                  ve.arstall_reell = %s
-                  AND %s
-            ORDER BY fodselsdato, personnr
-            """ % (self.year, self._is_alive())                            
-        return self.db.query(qry)
-
 class HIHUndervisning(access_FS.Undervisning):
     def list_undervisningenheter(self, sem="current"):
         """ Metoden som henter data om undervisningsenheter
@@ -203,6 +173,32 @@ class HIHUndervisning(access_FS.Undervisning):
                                    'terminkode': terminkode,
                                    'arstall': arstall}
                              )
+
+    def list_studenter_vurderingsmelding(self, institusjonsnr, emnekode, versjonskode, terminkode, arstall, terminnr):
+        """ Finn fødselsnumrene til alle studenter som er
+            vurderingsmeldt i et emne. Skal brukes til å generere
+            grupper for adgang til CF."""
+        qry = """
+            SELECT DISTINCT
+              vm.fodselsdato, vm.personnr
+
+              vm.institusjonsnr, vm.emnekode, vm.versjonskode,
+              vt.terminkode_gjelder_i AS terminkode,
+              vt.arstall_gjelder_i AS arstall, 1 AS terminnr
+            FROM
+              fs.vurdkombmelding vm, fs.vurdkombenhet ve,
+              fs.vurderingstid vt
+            WHERE
+              ve.institusjonsnr=vm.institusjonsnr AND
+              vm.institusjonsnr = :institusjonsnr
+              ve.emnekode=vm.emnekode AND
+              ve.versjonskode=vm.versjonskode AND
+              ve.vurdkombkode=vm.vurdkombkode AND
+              ve.vurdtidkode=vm.vurdtidkode AND
+              ve.arstall=vm.arstall AND
+              ve.arstall_reell=vt.arstall AND
+              ve.vurdtidkode_reell=vt.vurdtidkode AND
+              vt.arstall_gjelder_i >= :aar2"""
 
     def list_studenter_kull(self, studieprogramkode, terminkode, arstall):
         """Hent alle studentene som er oppført på et gitt kull."""
