@@ -314,11 +314,12 @@ def assert_connected(user="CEREBRUM", service="FSNMH.uio.no"):
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "fpsruUoeE",
+        opts, args = getopt.getopt(sys.argv[1:], "fpsruUoeEn",
                                    ["personinfo-file=", "studprog-file=", 
 				    "roleinfo-file=", "undenh-file=",
                                     "student-undenh-file=",
 				    "emneinfo-file=",
+                                    "netpubl-file=",
                                     "evukursinfo-file=",
 				    "fnr-update-file=", "misc-func=", 
                                     "misc-file=", "misc-tag=",
@@ -336,6 +337,7 @@ def main():
     evu_kursinfo_file = default_evu_kursinfo_file
     fnr_update_file = default_fnr_update_file
     undenh_student_file = default_undenh_student_file
+    nettpubl_file = default_nettpubl_info_file 
     db_user = None         # TBD: cereconf value?
     db_service = None      # TBD: cereconf value?
     for o, val in opts:
@@ -381,6 +383,8 @@ def main():
             write_ou_info(ou_file)
         elif o in ('-E',):
             write_evukurs_info(evu_kursinfo_file)
+        elif o in ('-n',):
+            write_netpubl_info(nettpubl_file)
         # We want misc-* to be able to produce multiple file in one script-run
         elif o in ('--misc-func',):
             misc_func = val
