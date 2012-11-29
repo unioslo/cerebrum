@@ -336,16 +336,14 @@ class Student(FSObject):
 
     ## ToDo: Måten vi knytter vurdkombenhet mot vurdtidkode bør
     ## sjekkes nærmere med Geir.
-    def list_eksamensmeldinger(self, with_terminkode=False):  # GetAlleEksamener
+    def list_eksamensmeldinger(self):  # GetAlleEksamener
         """Hent ut alle eksamensmeldinger i nåværende sem.
         samt fnr for oppmeldte(topics.xml)"""
-        extra = ""
-        if with_terminkode:
-            extra = "vt.terminkode_gjelder_i = %s AND\n" % self.semester
         qry = """
         SELECT p.fodselsdato, p.personnr, vm.emnekode,
                vm.studieprogramkode, vm.arstall, 
-               vm.versjonskode, vm.vurdtidkode
+               vm.versjonskode, vm.vurdtidkode, vt.terminkode_gjelder_i,
+               vt.arstall_gjelder_i
         FROM fs.person p, fs.vurdkombmelding vm,
              fs.vurderingskombinasjon vk, fs.vurderingstid vt, 
              fs.vurdkombenhet ve
@@ -367,9 +365,8 @@ class Student(FSObject):
               ve.vurdtidkode_reell=vt.vurdtidkode AND
               vt.arstall_gjelder_i = %s AND
               %s
-              %s
         ORDER BY fodselsdato, personnr
-        """ % (self.year, extra, self._is_alive())                            
+        """ % (self.year, self._is_alive())                            
         return self.db.query(qry)
 
     ## ToDo: Denne maa oppdateres til aa samsvare med
@@ -462,7 +459,8 @@ class Student(FSObject):
            EMNEKODE i inneværende semester"""
         query = """
         SELECT DISTINCT p.fodselsdato, p.personnr, p.fornavn, p.etternavn,
-             vm.emnekode, vm.studieprogramkode, vm.arstall, vm.versjonskode
+             vm.emnekode, vm.studieprogramkode, vm.arstall, vm.versjonskode,
+             vt.terminkode_gjelder_i, vt.arstall_gjelder_i
         FROM fs.person p, fs.vurdkombmelding vm,
              fs.vurderingskombinasjon vk, 
              fs.vurdkombenhet ve, fs.vurderingstid vt
@@ -483,9 +481,8 @@ class Student(FSObject):
               ve.arstall_reell=vt.arstall AND
               ve.vurdtidkode_reell=vt.vurdtidkode AND
               vt.arstall_gjelder_i = %s AND
-              vt.terminkode_gjelder_i = %s AND
               %s
-        """ % (self.year, self.semester, self._is_alive())                           
+        """ % (self.year, self._is_alive())                           
         return self.db.query(query, {"emnekode": emnekode})
 
     def get_student_kull(self, fnr, pnr):
