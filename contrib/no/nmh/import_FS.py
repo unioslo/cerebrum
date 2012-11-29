@@ -146,7 +146,7 @@ def _calc_address(person_info):
     # FS.DELTAKER   *_hjem (5) 
     rules = [
         ('fagperson', ('_arbeide', '_hjemsted', '_besok_adr')),
-        ('aktiv', ('_semadr', '_hjemsted', None)),
+        ('aktiv', ('_hjemsted', None)),
         ('evu', ('_job', '_hjem', None)),
         ]
     adr_map = {
@@ -348,22 +348,11 @@ def process_person_callback(person_info):
     # Reservations    
     if gen_groups:
         should_add = False
-        for dta_type in person_info.keys():
-            p = person_info[dta_type][0]
-            if isinstance(p, str):
-                continue
-            # Presence of 'fagperson' elements for a person should not
-            # affect that person's reservation status.
-            if dta_type in ('fagperson',):
-                continue
-            # We only fetch the column in these queries
-            if dta_type not in ('evu'):
-                continue
-            # If 'status_reserv_nettpubl' == "N": add to group
-            if p.get('status_reserv_nettpubl', "") == "N":
-                should_add = True
-            else:
-                should_add = False
+        if person_info.has_key('nettpubl'):
+            for row in person_info['nettpubl']:
+                if row.get('akseptansetypekode', "") == "NETTPUBL" and row.get('status_svar', "") == "J":
+                    should_add = True
+
         if should_add:
             # The student has explicitly given us permission to be
             # published in the directory.

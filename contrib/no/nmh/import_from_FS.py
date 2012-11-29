@@ -33,16 +33,16 @@ from Cerebrum.Utils import XMLHelper, MinimumSizeWriter, AtomicFileWriter
 from Cerebrum.modules.no.nmh.access_FS import FS
 from Cerebrum.Utils import Factory
 
-default_person_file = "/cerebrum/dumps/FS/person.xml"
-default_role_file = "/cerebrum/dumps/FS/roles.xml"
-default_undvenh_file = "/cerebrum/dumps/FS/underv_enhet.xml"
-default_undenh_student_file = "/cerebrum/dumps/FS/student_undenh.xml"
-default_studieprogram_file = "/cerebrum/dumps/FS/studieprog.xml"
-default_ou_file = "/cerebrum/dumps/FS/ou.xml"
-default_emne_file = "/cerebrum/dumps/FS/emner.xml"
-default_fnr_update_file = "/cerebrum/dumps/FS/fnr_update.xml"
-default_evu_kursinfo_file = "/cerebrum/dumps/FS/evu_kursinfo.xml"
-
+default_person_file = "/cerebrum/nmh/dumps/FS/person.xml"
+default_role_file = "/cerebrum/nmh/dumps/FS/roles.xml"
+default_undvenh_file = "/cerebrum/nmh/dumps/FS/underv_enhet.xml"
+default_undenh_student_file = "/cerebrum/nmh/dumps/FS/student_undenh.xml"
+default_studieprogram_file = "/cerebrum/nmh/dumps/FS/studieprog.xml"
+default_ou_file = "/cerebrum//nmh/dumps/FS/ou.xml"
+default_emne_file = "/cerebrum/nmh/dumps/FS/emner.xml"
+default_fnr_update_file = "/cerebrum/nmh/dumps/FS/fnr_update.xml"
+default_evu_kursinfo_file = "/cerebrum/nmh/dumps/FS/evu_kursinfo.xml"
+default_nettpubl_info_file = "/cerebrum/nmh/dumps/FS/nettpublisering.xml"
 xml = XMLHelper()
 fs = None
 
@@ -57,8 +57,8 @@ def _ext_cols(db_rows):
     return cols, db_rows
 
 def write_person_info(outfile):
-    f = MinimumSizeWriter(outfile)
-    f.set_minimum_size_limit(0)
+    f = SimilarSizeWriter(outfile)
+    f.set_size_change_limit(20)
     f.write(xml.xml_hdr + "<data>\n")
 
     # Aktive fagpersoner ved NMH
@@ -78,6 +78,18 @@ def write_person_info(outfile):
     for e in student:
         f.write(xml.xmlify_dbrow(e, xml.conv_colnames(cols), 'evu') + "\n")
 
+    f.write("</data>\n")
+    f.close()
+
+def write_netpubl_info(outfile):
+    """Lager fil med informasjon om status nettpublisering"""
+    logger.info("Writing nettpubl info to '%s'" % outfile)
+    f = SimilarSizeWriter(outfile, "w")
+    f.set_size_change_limit(15)
+    f.write(xml.xml_hdr + "<data>\n")
+    cols, nettpubl = _ext_cols(fs.person.list_status_nettpubl())
+    for n in nettpubl:
+        f.write(xml.xmlify_dbrow(n, xml.conv_colnames(cols), 'nettpubl') + "\n")
     f.write("</data>\n")
     f.close()
 
@@ -272,6 +284,7 @@ def usage(exitcode=0):
     --emneinfo-file: override emne info
     --student-undenh-file: override student on UE file
     --fnr-update-file: override fnr_update file
+    --netpubl-file: override netpublication filename
     --misc-func func: name of function in access_FS to call
     --misc-file name: name of output file for misc-func
     --misc-tag tag: tag to use in misc-file
@@ -288,6 +301,7 @@ def usage(exitcode=0):
     -u: generate undervisningsenhet xml file
     -E: generate evu_kurs xml file
     -U: generate student on UE xml file
+    -n: generate netpublication reservation xml file
     """
     sys.exit(exitcode)
 
