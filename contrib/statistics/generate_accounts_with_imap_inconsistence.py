@@ -85,13 +85,13 @@ def usage():
     type account.
 
     Options:
-    -o, --output <file>             The file to print the report to. Defaults to 
-                                    stdout.
-    -i, --include_expired           Include expired accounts.
-    -s, --imap_spread               Generate the alternate report.
-    -g, --exlude_groups <group(s)>  Exclude users with membership in the 
-                                    specified groups. Only used in conjunction 
-                                    with the --imap_spread option. Comma-separated list.
+    -o, --output <file>            The file to print the report to. Defaults to 
+                                   stdout.
+    -i, --include_expired          Include expired accounts.
+    -s, --imap_spread              Generate the alternate report.
+    -g, --exlude_groups <group(s)> Exclude users with membership in the 
+                                   specified groups. Only used in conjunction 
+                                   with the --imap_spread option. Comma-separated list.
     """ % sys.argv[0]
 
 
@@ -299,8 +299,7 @@ def main(argv=None):
     """
 
     # Get logger
-    # logger = Factory.get_logger('cronjob')
-    logger = Factory.get_logger('console')
+    logger = Factory.get_logger('cronjob')
 
     # Default opts
     output = sys.stdout
