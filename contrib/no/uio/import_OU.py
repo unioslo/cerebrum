@@ -34,9 +34,11 @@ import sys
 import getopt
 import time
 from mx import DateTime
+from smtplib import SMTPRecipientsRefused, SMTPException
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.Utils import sendmail
 from Cerebrum.modules.xmlutils.system2parser import system2parser
 from Cerebrum.modules.xmlutils.object2cerebrum import XML2Cerebrum
 
@@ -45,7 +47,10 @@ OU_class = Factory.get('OU')
 db = Factory.get('Database')()
 db.cl_init(change_program='import_OU')
 co = Factory.get('Constants')(db)
-logger = Factory.get_logger("cronjob")
+
+# TODO:
+#logger = Factory.get_logger("cronjob")
+logger = Factory.get_logger("console")
 
 # We cannot refer to constants directly, since co.system_<something> may not
 # exist on a particular installation.
@@ -56,8 +61,6 @@ for system_name, perspective_name in (("system_lt", "perspective_lt"),
     if hasattr(co, system_name) and hasattr(co, perspective_name):
         source2perspective[getattr(co, system_name)] = \
                                        getattr(co, perspective_name)
-
-
 
 
 
@@ -323,6 +326,78 @@ def set_quaran(cer_ou_tab):
 # end set_quaran
 
 
+def list_new_ous(old_cere_ous):
+    """Compares current OUs in Cerebrum to the OUs supplied as an argument, and 
+    return the ones that are new.
+
+    Uses 'get_cere_ou_table' to get the current OUs.
+
+    @type  old_cere_ous: dict
+    @param old_cere_ous: ou_id -> sko (basestring) mapping, containing the 
+                         OUs that should be compared to the current OUs in 
+                         the database.
+    """
+    new_cere_ous = get_cere_ou_table()
+
+    for ou_id in old_cere_ous.keys():
+        new_cere_ous.pop(ou_id, 0) # 0 as default, we're not interested in the 
+                                   # actual mapping, we only want to remove the
+                                   # mapping if it exists.
+
+    return new_cere_ous
+
+
+def send_notify_email(new_cere_ous, to_email_addrs):
+    """Sends information about OUs to a set of mail_addresses.
+
+    @type  new_cere_ous:   dict
+    @param new_cere_ous:   ou_id -> sko (basestring) mapping, containing the OUs
+                           that has been added to the database.
+
+    @type  to_email_addrs: list
+    @param to_email_addrs: List of email addresses that should be notified about
+                           the new OUs.
+    """
+
+    if len(new_cere_ous) < 1:
+        logger.warn('No new OUs to send notification about')
+        return
+
+    ous = OU_class(db)
+
+    # Set up email
+    sender = 'cerebrum@ulrik.uio.no'
+    subject = 'New OUs added to Cerebrum'
+    body = '%(num)d OUs added to Cerebrum on %(time)s\n\n' % \
+           {'num': len(new_cere_ous), \
+            'time': DateTime.now().strftime()}
+
+    for ou_id in new_cere_ous.keys():
+        names = ous.search_name_with_language(entity_id=ou_id, 
+                                              name_language=co.language_nb,
+                                              name_variant=co.ou_name)
+
+        body += '  Entity Id: %d\n' % ou_id
+        body += '  Stedkode:  %s\n' % new_cere_ous[ou_id]
+        if len(names):
+            body += '  Name     : %s\n\n' % names[0]['name']
+    
+    for to_email in to_email_addrs:
+        try:
+            sendmail(to_email, sender, subject, body)
+
+        except SMTPRecipientsRefused, ref:
+            for email, cond in ref.recipients.iteritems():
+                logger.info('Failed to notify \'%s\': %s', email, cond)
+            continue
+
+        except SMTPException, e:
+            logger.warn('Failed to notify \'%s\': %s', to_email, e)
+            continue
+
+        logger.info('OUs added, \'%s\' notified', to_email)
+
+
 def usage(exitcode=0):
     print """Usage: [options] [file ...]
 Imports OU data from systems that use 'stedkoder' (e.g. SAP, FS or LT)
@@ -332,6 +407,7 @@ Imports OU data from systems that use 'stedkoder' (e.g. SAP, FS or LT)
     -f | --file SPEC            colon-separated (source-system, filename) pair
     -t | --target-system NAME   authoritative system the data is supplied for
     -l | --ldap-visibility
+    -e | --email                email address to notify about new OUs
     --dump-perspective          view the hierarchy of the ou-file
 
     -t specifies which system/perspective is to be updated in cerebrum from
@@ -345,14 +421,14 @@ Imports OU data from systems that use 'stedkoder' (e.g. SAP, FS or LT)
 def main():
     global verbose, clean_obsolete_ous, def_kat_merke
 
-    opts, args = getopt.getopt(sys.argv[1:], 'vcf:lt:',
+    opts, args = getopt.getopt(sys.argv[1:], 'vcf:lt:e:',
                                ['verbose',
                                 'clean',
                                 'file=',
                                 'ldap-visibility',
-                                'target-system=',])
+                                'target-system=',
+                                'email='])
     
-
     verbose = 0
     sources = []
     clean_obsolete_ous = False
@@ -360,6 +436,9 @@ def main():
     cer_ou_tab = dict()
     do_perspective = False
     target_system = None
+    email_notify = []
+    old_cere_ous = dict()
+
     for opt, val in opts:
         if opt in ('-v', '--verbose'):
             verbose += 1
@@ -373,8 +452,14 @@ def main():
             def_kat_merke = True
         elif opt in ('-t', '--target-system',):
             target_system = val
+        elif opt in ('-e', '--email'):
+            email_notify.extend(val.split(','))
 
     assert target_system
+
+    if email_notify:
+        old_cere_ous = get_cere_ou_table()
+
     if clean_obsolete_ous:
         cer_ou_tab = get_cere_ou_table()
         logger.debug("Collected %d ou_id->sko mappings from Cerebrum",
@@ -384,8 +469,15 @@ def main():
     else:
         usage(4)
     set_quaran(cer_ou_tab)
-# end main
+    
+    if email_notify:
+        new_cere_ous = list_new_ous(old_cere_ous)
+        if len(new_cere_ous):
+            send_notify_email(new_cere_ous, email_notify)
+        else:
+            logger.info('No new OUs, no notifications sent')
 
+# end main
 
 
 if __name__ == '__main__':
