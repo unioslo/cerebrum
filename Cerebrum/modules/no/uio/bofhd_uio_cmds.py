@@ -910,11 +910,23 @@ class BofhdExtension(BofhdCommonMethods):
                 elif r['target_type'] == self.const.auth_target_type_maildomain:
                     # FIXME: EmailDomain is not an Entity.
                     ed = Email.EmailDomain(self.db)
-                    ed.find(r['entity_id'])
+                    try:
+                        ed.find(r['entity_id'])
+                    except (Errors.NotFoundError, ValueError):
+                        self.logger.warn("Non-existing entity (e-mail domain) in "
+                                         "auth_op_target %s:%d" %
+                                         (r['target_type'], r['entity_id']))
+                        continue                        
                     target_name = ed.email_domain_name
                 elif r['target_type'] == self.const.auth_target_type_ou:
                     ou = self.OU_class(self.db)
-                    ou.find(r['entity_id'])
+                    try:
+                        ou.find(r['entity_id'])
+                    except (Errors.NotFoundError, ValueError):
+                        self.logger.warn("Non-existing entity (ou) in "
+                                         "auth_op_target %s:%d" %
+                                         (r['target_type'], r['entity_id']))
+                        continue      
                     target_name = "%02d%02d%02d (%s)" % (ou.fakultet,
                                                     ou.institutt,
                                                     ou.avdeling,
@@ -922,7 +934,13 @@ class BofhdExtension(BofhdCommonMethods):
                 elif r['target_type'] == self.const.auth_target_type_dns:
                     s = Subnet(self.db)
                     # TODO: should Subnet.find() support ints as input?
-                    s.find('entity_id:%s' % r['entity_id'])
+                    try:
+                        s.find('entity_id:%s' % r['entity_id'])
+                    except (Errors.NotFoundError, ValueError):
+                        self.logger.warn("Non-existing entity (subnet) in "
+                                         "auth_op_target %s:%d" %
+                                         (r['target_type'], r['entity_id']))
+                        continue                        
                     target_name = "%s/%s" % (s.subnet_ip, s.subnet_mask)
                 else:
                     try:
