@@ -86,6 +86,8 @@ class CLCleanDefConf:
       # overrides it.  Data in max_ages may be removed by keep_togglers.
       # This allows us to allways keep a group_add, unless there was a
       # subsequent group_remove.
+      # Adding an entry for a new entity in max_ages requires 
+      # having it referenced in the keep_togglers data structure.
 
       max_ages = {
         int(co.account_create): AGE_FOREVER,
@@ -132,6 +134,12 @@ class CLCleanDefConf:
                   co.homedir_add, co.homedir_update,
                   co.homedir_remove):
               max_ages[int(c)] = AGE_FOREVER
+
+      try:
+        max_ages[int(co.guest_create)] = AGE_FOREVER
+      except:
+        pass
+
       # The keep_togglers datastructure is a list of entries that has the
    	  # format:
       #
@@ -348,7 +356,6 @@ class CLCleanDefConf:
          'triggers': (co.hostpolicy_atom_create, )},
         ])
 
-
       # Password tokens
       if hasattr(co, 'account_password_token'):
         # Phones for tokens are only necessary to store as long as it takes to
@@ -359,3 +366,11 @@ class CLCleanDefConf:
              'toggleable': False,
              'triggers': (co.account_password_token, )}
             ])
+
+      try:
+       if max_ages[int(co.guest_create)]:
+        keep_togglers.extend([
+        {'columns': ('subject_entity', ),
+         'triggers': (co.guest_create, )},])
+      except:
+       pass
