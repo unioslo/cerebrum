@@ -1,9 +1,11 @@
 # -*- coding: iso-8859-1 -*-
 import re
 from Cerebrum.modules.dns import ARecord
+from Cerebrum.modules.dns import AAAARecord
 from Cerebrum.modules.dns import HostInfo
 from Cerebrum.modules.dns import DnsOwner
 from Cerebrum.modules.dns import IPNumber
+from Cerebrum.modules.dns import IPv6Number
 from Cerebrum.modules.dns import CNameRecord
 from Cerebrum.modules.dns import Subnet
 from Cerebrum.modules.dns.Subnet import SubnetError
@@ -141,7 +143,9 @@ class Find(object):
     def __init__(self, db, default_zone):
         self._db = db
         self._ip_number = IPNumber.IPNumber(db)
+        self._ipv6_number = IPv6Number.IPv6Number(db)
         self._arecord = ARecord.ARecord(db)
+        self._aaaarecord = AAAARecord.AAAARecord(db)
         self._dns_owner = DnsOwner.DnsOwner(db)
         self._mx_set = DnsOwner.MXSet(db)
         self._host = HostInfo.HostInfo(db)
@@ -159,6 +163,9 @@ class Find(object):
         arecord = ARecord.ARecord(self._db)
         for row in arecord.list_ext(dns_owner_id=dns_owner_id):
             ret.append((dns.A_RECORD, row['a_record_id']))
+        aaaarecord = AAAARecord.AAAARecord(self._db)
+        for row in aaaarecord.list_ext(dns_owner_id=dns_owner_id):
+            ret.append((dns.AAAA_RECORD, row['aaaa_record_id']))
         hi = HostInfo.HostInfo(self._db)
         try:
             hi.find_by_dns_owner_id(dns_owner_id)
@@ -177,23 +184,39 @@ class Find(object):
             return [x[0] for x in ret]
         return ret
 
-    def find_referers(self, ip_number_id=None, dns_owner_id=None, only_type=True):
+    def find_referers(self, ip_number_id=None, dns_owner_id=None,
+                      only_type=True, ip_type=dns.IP_NUMBER):
         """Return information about registrations that point to this
         ip-number/dns-owner. If only_type=True, returns a list of
         owner_type.  Otherwise returns a list of (owner_type,
         owner_id) tuples"""
+
+        # We choose classes and record type depending on the ip_type
+        # parameter. This is a bit dirty, but reduces the amount of
+        # functions required.
+        ip_class = IPNumber.IPNumber if ip_type == dns.IP_NUMBER \
+                    else IPv6Number.IPv6Number
+        record_class = ARecord.ARecord if ip_type == dns.IP_NUMBER \
+                    else AAAARecord.AAAARecord
+        record_type = dns.A_RECORD if ip_type == dns.IP_NUMBER \
+                    else dns.AAAA_RECORD
+
+        ip_key = 'ip_number_id' if ip_type == dns.IP_NUMBER else \
+                'ipv6_number_id'
+        record_key = 'a_record_id' if ip_type == dns.IP_NUMBER else \
+                'aaaa_record_id'
 
         # Not including entity-note
         assert not (ip_number_id and dns_owner_id)
         ret = []
 
         if ip_number_id:
-            ipnumber = IPNumber.IPNumber(self._db)
+            ipnumber = ip_class(self._db)
             for row in ipnumber.list_override(ip_number_id=ip_number_id):
-                ret.append((dns.REV_IP_NUMBER, row['ip_number_id']))
-            arecord = ARecord.ARecord(self._db)
+                ret.append((dns.REV_IP_NUMBER, row[ip_key]))
+            arecord = record_class(self._db)
             for row in arecord.list_ext(ip_number_id=ip_number_id):
-                ret.append((dns.A_RECORD, row['a_record_id']))
+                ret.append((record_type, row[record_key]))
             if only_type:
                 return [x[0] for x in ret]
             return ret
@@ -206,9 +229,9 @@ class Find(object):
         cn = CNameRecord.CNameRecord(self._db)
         for row in cn.list_ext(target_owner=dns_owner_id):
             ret.append((dns.CNAME_TARGET, row['cname_id']))
-        arecord = ARecord.ARecord(self._db)
+        arecord = record_class(self._db)
         for row in arecord.list_ext(dns_owner_id=dns_owner_id):
-            ret.append((dns.A_RECORD, row['a_record_id']))
+            ret.append((record_type, row[record_key]))
         if only_type:
             return [x[0] for x in ret]
         return ret
@@ -227,6 +250,26 @@ class Find(object):
         if not host_id:
             raise CerebrumError, "Expected hostname/ip, found empty string"
         tmp = host_id.split(".")
+
+        if host_id.count(':') > 2:
+            # It is an IPv6-number
+            self._ipv6_number.clear()
+            try:
+                self._ipv6_number.find_by_ip(host_id)
+            except Errors.NotFoundError:
+                raise CerebrumError, "Could not find ip-number: %s" % host_id
+            if target_type == dns.IPv6_NUMBER:
+                return self._ipv6_number.entity_id
+
+            self._aaaarecord.clear()
+            try:
+                self._aaaarecord.find_by_ip(self._ipv6_number.entity_id)
+            except Errors.NotFoundError:
+                raise CerebrumError, "Could not find name for ip-number: %s" % host_id
+            except Errors.TooManyRowsError:
+                raise CerebrumError, "Not unique name for ip-number: %s" % host_id
+            return self._aaaarecord.dns_owner_id
+
         if tmp[-1].isdigit():
             # It is an IP-number
             self._ip_number.clear()
@@ -406,23 +449,33 @@ class Find(object):
             return None
 
     def find_a_record(self, host_name, ip=None):
-        owner_id = self.find_target_by_parsing(
-            host_name, dns.DNS_OWNER)
-        ar = ARecord.ARecord(self._db)
+        owner_id = self.find_target_by_parsing(host_name, dns.DNS_OWNER)
+
+        # Check for IPv6 / IPv4
+        if ip and ip.count(':') > 1:
+            ar = AAAARecord.AAAARecord(self._db)
+            ip_type = dns.IPv6_NUMBER
+            rt = 'AAAA-record'
+        else:
+            ar = ARecord.ARecord(self._db)
+            ip_type = dns.IP_NUMBER
+            rt = 'A-record'
+
         if ip:
             a_ip = ip
             ip = self.find_target_by_parsing(
-                ip, dns.IP_NUMBER)
+                ip, ip_type)
             try:
                 ar.find_by_owner_and_ip(ip, owner_id)
             except Errors.NotFoundError:
                 raise CerebrumError(
-                    "No A-record with name=%s and ip=%s" % (host_name, a_ip))
+                    "No %s with name=%s and ip=%s" % (rt, host_name, a_ip))
         else:
             try:
                 ar.find_by_dns_owner_id(owner_id)
             except Errors.NotFoundError:
-                raise CerebrumError("No A-record with name=%s" % host_name)
+                raise CerebrumError("No %s with name=%s" % (rt, host_name))
             except Errors.TooManyRowsError:
-                raise CerebrumError("Multiple A-records with name=%s" % host_name)
+                raise CerebrumError("Multiple %s with name=%s" %
+                                    (rt, host_name))
         return ar.entity_id

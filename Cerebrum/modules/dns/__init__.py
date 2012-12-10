@@ -2,12 +2,14 @@
 import cereconf
 
 
-__version__ = "1.2"
+__version__ = "1.3"
 
 IP_NUMBER = 'IPNumber'
+IPv6_NUMBER = 'IPv6Number'
 DNS_OWNER='DnsOwner'
 REV_IP_NUMBER = 'IPNumber_rev'
 A_RECORD = 'ARecord'
+AAAA_RECORD = 'AAAARecord'
 HOST_INFO = 'HostInfo'
 MX_SET = 'MXSet'
 SRV_TARGET = "SRV_target"

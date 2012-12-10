@@ -24,7 +24,9 @@ from Cerebrum import Errors
 from Cerebrum.modules.dns import DnsOwner
 from Cerebrum.modules.dns import CNameRecord
 from Cerebrum.modules.dns import ARecord
+from Cerebrum.modules.dns import AAAARecord
 from Cerebrum.modules.dns import IPNumber
+from Cerebrum.modules.dns import IPv6Number
 from Cerebrum.modules.dns import HostInfo
 from Cerebrum.modules.dns.Errors import DNSError
 from Cerebrum.modules import dns
@@ -62,9 +64,13 @@ class Validator(object):
         if record_type == dns.HOST_INFO:
             if dns.HOST_INFO in owner_types:
                 raise DNSError, "%s already exists" % name
-        if record_type == dns.A_RECORD:
-            if dns.A_RECORD in owner_types:
+        # TODO: This should probarbly be rewritten, since it is a bit ugly.
+        # The difference between A- and AAAA-records is minimal, so this is
+        # enough for now.
+        if record_type in (dns.A_RECORD, dns.AAAA_RECORD,):
+            if dns.A_RECORD in owner_types or dns.AAAA_RECORD in owner_types:
                 return dns_owner.entity_id, True
+
         return dns_owner.entity_id, False
 
 
@@ -108,19 +114,35 @@ class Updater(object):
         update override_revmap and remove the entry in ip_number if it
         is no longer referred to by other tables."""
 
+        ip_type = dns.IP_NUMBER
+        record_type = dns.A_RECORD
         arecord = ARecord.ARecord(self._db)
-        arecord.find(a_record_id)
-        ipnumber = IPNumber.IPNumber(self._db)
-        ipnumber.find(arecord.ip_number_id)
+        
+        try:
+            arecord.find(a_record_id)
+            ip_number_id = arecord.ip_number_id
+            ipnumber = IPNumber.IPNumber(self._db)
+        except Errors.NotFoundError:
+            arecord = AAAARecord.AAAARecord(self._db)
+            arecord.find(a_record_id)
+            ip_type = dns.IPv6_NUMBER
+            record_type = dns.AAAA_RECORD
+            ip_number_id = arecord.ipv6_number_id
+            ipnumber = IPv6Number.IPv6Number(self._db)
+        
+        ipnumber.find(ip_number_id)
+
         dns_owner_id = arecord.dns_owner_id
         arecord._delete()
 
-        refs = self._find.find_referers(ip_number_id=ipnumber.entity_id)
+        refs = self._find.find_referers(ip_number_id=ipnumber.entity_id,
+                                        ip_type=ip_type)
         if dns.REV_IP_NUMBER in refs:
             self._update_override(ipnumber.entity_id, dns_owner_id)
-            refs = self._find.find_referers(ip_number_id=ipnumber.entity_id)
+            refs = self._find.find_referers(ip_number_id=ipnumber.entity_id,
+                                            ip_type=ip_type)
 
-        if not (dns.REV_IP_NUMBER in refs or dns.A_RECORD in refs):
+        if not (dns.REV_IP_NUMBER in refs or record_type in refs):
             # IP no longer used
             ipnumber.delete()
 
@@ -129,8 +151,9 @@ class Updater(object):
         # a_record.
         # TODO: This check should be somewhere that makes it is easier
         # to always enforce this constraint.
-        refs = self._find.find_referers(dns_owner_id=dns_owner_id)
-        if not dns.A_RECORD in refs:
+        refs = self._find.find_referers(dns_owner_id=dns_owner_id,
+                                        ip_type=ip_type)
+        if not record_type in refs:
             if dns.HOST_INFO in refs:
                 raise DNSError("Host is used as home server (use misc hrem)")
             elif dns.SRV_TARGET in refs or dns.CNAME_TARGET in refs:
@@ -175,6 +198,9 @@ class Updater(object):
         arecord = ARecord.ARecord(self._db)
         for row in arecord.list_ext(dns_owner_id=dns_owner_id):
             self.remove_arecord(row['a_record_id'])
+        aaaarecord = AAAARecord.AAAARecord(self._db)
+        for row in aaaarecord.list_ext(dns_owner_id=dns_owner_id):
+            self.remove_arecord(row['aaaa_record_id'])
         self.remove_cname(dns_owner_id)
         dns_owner = DnsOwner.DnsOwner(self._db)
         for row in dns_owner.list_general_dns_records(
@@ -186,42 +212,22 @@ class Updater(object):
         # rev-map override må brukeren rydde i selv, da vi ikke vet
         #   hva som er rett.
 
-    def add_reverse_override(self, ip_number_id, dest_host):
-        # TODO: Only allow one None/ip
-        ipnumber = IPNumber.IPNumber(self._db)
-        ipnumber.add_reverse_override(ip_number_id, dest_host)
-
-    def remove_reverse_override(self, ip_number_id, dest_host):
-        """Remove reverse-map override for ip_number_id.  Will remove
-        dns_owner and ip_number entries if they are no longer in
-        use."""
-        ipnumber = IPNumber.IPNumber(self._db)
-        ipnumber.find(ip_number_id)
-        ipnumber.delete_reverse_override(ip_number_id, dest_host)
-
-        refs = self._find.find_referers(ip_number_id=ip_number_id)
-        if not (dns.REV_IP_NUMBER in refs or dns.A_RECORD in refs):
-            # IP no longer used
-            ipnumber.delete()
-
-        if dest_host is not None:
-            refs = self._find.find_referers(dns_owner_id=dest_host)
-            if not refs:
-                tmp = []
-                for row in ipnumber.list_override(dns_owner_id=dest_host):
-                    # One might argue that find_referers also should find this type of refs.
-                    tmp.append((dns.DNS_OWNER, row['dns_owner_id']))
-                if not tmp:
-                    dns_owner = DnsOwner.DnsOwner(self._db)
-                    dns_owner.find(dest_host)
-                    dns_owner.delete()
-
     def _update_override(self, ip_number_id, dns_owner_id):
         """Handles the updating of the override_reversemap when an
         ARecord is removed."""
 
+        # Select correct IP-variant
+        try:
+            ipnumber = IPNumber.IPNumber(self._db)
+            ipnumber.clear()
+            ipnumber.find(ip_number_id)
+            ar = ARecord.ARecord(self._db)
+        except Errors.NotFoundError:
+            ipnumber = IPv6Number.IPv6Number(self._db)
+            ar = AAAARecord.AAAARecord(self._db)
+
+
         owners = []
-        ipnumber = IPNumber.IPNumber(self._db)
         for row in ipnumber.list_override(ip_number_id=ip_number_id):
             if dns_owner_id == row['dns_owner_id']:
                 # Always remove the reverse which corresponds to the
@@ -241,8 +247,54 @@ class Updater(object):
 
         # The single entry left is redundant if there is only one
         # ARecord referring to the IP.
-
-        ar = ARecord.ARecord(self._db)
         rows = ar.list_ext(ip_number_id=ip_number_id)
         if len(rows) == 1 and rows[0]['dns_owner_id'] == owners[0]:
             ipnumber.delete_reverse_override(ip_number_id, owners[0])
+
+    def add_reverse_override(self, ip_number_id, dest_host):
+        # TODO: Only allow one None/ip
+        try: 
+            ipnumber = IPv6Number.IPv6Number(self._db)
+            ipnumber.find(ip_number_id)
+        except Errors.NotFoundError:
+            ipnumber = IPNumber.IPNumber(self._db)
+
+        ipnumber.add_reverse_override(ip_number_id, dest_host)
+
+    def remove_reverse_override(self, ip_number_id, dest_host):
+        """Remove reverse-map override for ip_number_id.  Will remove
+        dns_owner and ip_number entries if they are no longer in
+        use."""
+
+        try:
+            ipnumber = IPv6Number.IPv6Number(self._db)
+            ipnumber.find(ip_number_id)
+            a_type = dns.AAAA_RECORD
+            ip_type = dns.IPv6_NUMBER
+        except Errors.NotFoundError:
+            ipnumber = IPNumber.IPNumber(self._db)
+            ipnumber.find(ip_number_id)
+            a_type = dns.A_RECORD
+            ip_type = dns.IP_NUMBER
+
+        ipnumber.delete_reverse_override(ip_number_id, dest_host)
+
+        refs = self._find.find_referers(ip_number_id=ip_number_id, ip_type=ip_type)
+        if not (dns.REV_IP_NUMBER in refs or a_type in refs):
+            # IP no longer used
+            ipnumber.delete()
+
+        if dest_host is not None:
+            refs = self._find.find_referers(dns_owner_id=dest_host, 
+                                            ip_type=ip_type)
+            if not refs:
+                tmp = []
+                for row in ipnumber.list_override(dns_owner_id=dest_host):
+                    # One might argue that find_referers also should find 
+                    # this type of refs.
+                    tmp.append((dns.DNS_OWNER, row['dns_owner_id']))
+                if not tmp:
+                    dns_owner = DnsOwner.DnsOwner(self._db)
+                    dns_owner.find(dest_host)
+                    dns_owner.delete()
+

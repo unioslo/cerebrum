@@ -6,9 +6,11 @@ import re
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.dns.HostInfo import HostInfo
 from Cerebrum.modules.dns import ARecord
+from Cerebrum.modules.dns import AAAARecord
 from Cerebrum.modules.dns import HostInfo
 from Cerebrum.modules.dns import DnsOwner
 from Cerebrum.modules.dns import IPNumber
+from Cerebrum.modules.dns import IPv6Number
 from Cerebrum.modules.dns.IPUtils import IPCalc
 from Cerebrum.modules.dns import CNameRecord
 from Cerebrum.modules.dns import IntegrityHelper
@@ -37,9 +39,11 @@ class DnsBofhdUtils(object):
         self.const = Factory.get('Constants')(self.db)
         # TBD: This pre-allocating may interfere with multi-threaded bofhd
         self._arecord = ARecord.ARecord(self.db)
+        self._aaaarecord = AAAARecord.AAAARecord(self.db)
         self._host = HostInfo.HostInfo(self.db)
         self._dns_owner = DnsOwner.DnsOwner(self.db)
         self._ip_number = IPNumber.IPNumber(self.db)
+        self._ipv6_number = IPv6Number.IPv6Number(self.db)
         self._cname = CNameRecord.CNameRecord(self.db)
         self._validator = IntegrityHelper.Validator(server.db, default_zone)
         self._update_helper = IntegrityHelper.Updater(server.db)
@@ -64,6 +68,18 @@ class DnsBofhdUtils(object):
             self._ip_number.find(old_ref)
             self._ip_number.a_ip = new_id
             self._ip_number.write_db()
+        elif name_type == dns.IPv6_NUMBER:
+            old_ref = self._find.find_target_by_parsing(old_id, dns.IPv6_NUMBER)
+            self._ip_number.clear()
+            try:
+                self._ipv6_number.find_by_ip(new_id)
+                raise CerebrumError("New IP in use")
+            except Errors.NotFoundError:
+                pass
+            self._ipv6_number.clear()
+            self._ipv6_number.find(old_ref)
+            self._ipv6_number.aaaa_ip = new_id
+            self._ipv6_number.write_db()
         else:
             old_ref = self._find.find_target_by_parsing(old_id, dns.DNS_OWNER)
             new_id = self._parser.qualify_hostname(new_id)
@@ -83,6 +99,7 @@ class DnsBofhdUtils(object):
             # krev force hvis maskinen har cname.  Returner info om slettet cname.
             refs = self._find.find_dns_owners(dns_owner_id=owner_id)
             if not force and (
+                refs.count(dns.AAAA_RECORD) > 1 or
                 refs.count(dns.A_RECORD) > 1 or
                 dns.GENERAL_DNS_RECORD in refs):
                 raise CerebrumError(
@@ -177,19 +194,27 @@ class DnsBofhdUtils(object):
             free_ip_numbers = [ ip ]
                 
         return free_ip_numbers
-    
 
-    def alloc_ip(self, a_ip, force=False):
-        """Allocates an IP-number.  force must be true to use IPs in a
-        reserved range"""
+    def alloc_ip(self, ip, force=False):
+        if ip.count(':') > 2:
+            ipn = self._ipv6_number
+        else:
+            ipn = self._ip_number
+        
+        new = False
+        ipn.clear()
+        try:
+            ipn.find_by_ip(ip)
+        except Errors.NotFoundError:
+            new = True
+            ipn.clear()
+            ipn.populate(ip)
+            ipn.write_db()
 
-        self._ip_number.clear()
-        if not force:
-            # TODO: Check if IP is in reserved range
-            pass
-        self._ip_number.populate(a_ip)
-        self._ip_number.write_db()
-        return self._ip_number.entity_id
+        if not force and not new:
+            raise CerebrumError, 'IP already in use, must force (y)'
+        return ipn.entity_id
+
 
     #
     # dns-owners, general_dns_records and mx-sets, srv_records
@@ -338,6 +363,13 @@ class DnsBofhdUtils(object):
             arecord.ttl=ttl
             arecord.write_db()
 
+        aaaarecord = AAAARecord.AAAARecord(self.db)
+        for row in aaaarecord.list_ext(dns_owner_id=owner_id):
+            aaaarecord.clear()
+            aaaarecord.find(row['aaaa_record_id'])
+            aaaarecord.ttl=ttl
+            aaaarecord.write_db()
+
         host = HostInfo.HostInfo(self.db)
         try:
             host.find_by_dns_owner_id(owner_id)
@@ -372,20 +404,25 @@ class DnsBofhdUtils(object):
         associated with gievn DNS-owner.
 
         """
-        # Caveat: if TTL is set for one of the host's A-records, it is
-        # set for the host in general. If no A-record exists, we don't
+        # Caveat: if TTL is set for one of the host's A*-records, it is
+        # set for the host in general. If no A*-record exists, we don't
         # acknowledge any other TTL than "default"
         dns_owner = DnsOwner.DnsOwner(self.db)
         dns_owner.find(owner_id)
-
-        arecord = ARecord.ARecord(self.db)
-        arecord.clear()
-        arecords = arecord.list_ext(dns_owner_id=owner_id)
-        if arecords:
-            arecord.find(arecords[0]['a_record_id'])
-            return arecord.ttl
-        else:
-            return None
+        
+        # This adaption to A- and AAAA-records is very ugly, but it honours
+        # "The Old Way" of getting the TTL for a host.
+        ar = ARecord.ARecord(self.db)
+        ar.clear()
+        for r in ar.list_ext(dns_owner_id=owner_id):
+            ar.find(r['a_record_id'])
+            return ar.ttl
+        ar = AAAARecord.AAAARecord(self.db)
+        ar.clear()
+        for r in ar.list_ext(dns_owner_id=owner_id):
+            ar.find(r['aaaa_record_id'])
+            return ar.ttl
+        return None
 
 
     #
@@ -414,7 +451,8 @@ class DnsBofhdUtils(object):
             host_name, dns.A_RECORD)
         if dns_owner_ref and same_type and not force:
             owner_types = self._find.find_dns_owners(dns_owner_ref)
-            if [x for x in owner_types if x != dns.A_RECORD]:
+            if [x for x in owner_types if x != dns.A_RECORD or \
+                    x != dns.AAAA_RECORD]:
                 raise CerebrumError, "name already in use, must force (y)"
 
         # Check or get free IP
@@ -444,15 +482,55 @@ class DnsBofhdUtils(object):
         self._alloc_arecord(dns_owner_ref, ip_ref)
         return ip
 
+    def _alloc_aaaarecord(self, owner_id, ip_id):
+        old_aaaa_records = self._aaaarecord.list_ext(ip_number_id=ip_id)
+        self._aaaarecord.clear()
+        self._aaaarecord.populate(owner_id, ip_id)
+        self._aaaarecord.write_db()
+
+        # If we now have two AAAA-records for the same IP, register an
+        # override for the previous ip.
+        if len(old_aaaa_records) == 1:
+            if len(self._ipv6_number.list_override(ip_number_id=ip_id,
+                    dns_owner_id=old_aaaa_records[0]['dns_owner_id'])) < 1:
+                self._ipv6_number.add_reverse_override(
+                    ip_id, old_aaaa_records[0]['dns_owner_id'])
+        return self._aaaarecord.entity_id
+
+    def alloc_aaaa_record(self, host_name, ip, force):
+        host_name = self._parser.qualify_hostname(host_name)
+        # Check for existing record with same name
+        dns_owner_ref, same_type = self._validator.dns_reg_owner_ok(
+            host_name, dns.AAAA_RECORD)
+        if dns_owner_ref and same_type and not force:
+            owner_types = self._find.find_dns_owners(dns_owner_ref)
+            if [x for x in owner_types if x != dns.A_RECORD or \
+                    x != dns.AAAA_RECORD]:
+                raise CerebrumError, "name already in use, must force (y)"
+
+        ip_eid = self.alloc_ip(ip, force=force)
+        if not dns_owner_ref:
+            dns_owner_ref = self.alloc_dns_owner(host_name, warn_other=True,
+                                                 force=force)
+        self._alloc_aaaarecord(dns_owner_ref, ip_eid)
+        return ip
+
     def remove_arecord(self, a_record_id):
         # If this IP is in override_reversemap, the helper will
         # update that too as needed.        
         self._update_helper.remove_arecord(a_record_id)
-
+    
     def add_revmap_override(self, ip_host_id, dest_host, force):
+        if ip_host_id.count(':') > 2:
+            ip_type= dns.IPv6_NUMBER
+            a_type = dns.A_RECORD
+        else:
+            ip_type = dns.IP_NUMBER
+            a_type = dns.A_RECORD
+
         if dest_host:
             dns_owner_ref, same_type = self._validator.dns_reg_owner_ok(
-            dest_host, dns.A_RECORD)
+            dest_host, a_type)
             self._dns_owner.clear()
             try:
                 self._dns_owner.find_by_name(dest_host)
@@ -467,7 +545,7 @@ class DnsBofhdUtils(object):
 
         try:
             ip_owner_id = self._find.find_target_by_parsing(
-                ip_host_id, dns.IP_NUMBER)
+                ip_host_id, ip_type)
         except (Errors.NotFoundError, CerebrumError):
             if not force:
                 raise CerebrumError(
@@ -479,3 +557,4 @@ class DnsBofhdUtils(object):
     def remove_revmap_override(self, ip_host_id, dest_host_id):
         self._update_helper.remove_reverse_override(
             ip_host_id, dest_host_id)
+

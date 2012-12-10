@@ -41,15 +41,21 @@ class Constants(Constants.Constants):
     entity_dns_a_record = Constants._EntityTypeCode(
         'a_record',
         'a_record - see table "cerebrum.a_record_info" and friends.')
+    entity_dns_aaaa_record = Constants._EntityTypeCode(
+        'aaaa_record',
+        'aaaa_record - see table "cerebrum.aaaa_record_info" and friends.')
     entity_dns_owner = Constants._EntityTypeCode(
         'dns_owner',
         'dns_owner - see table "cerebrum.dns_owner" and friends.')
     entity_dns_ip_number = Constants._EntityTypeCode(
         'dns_ip_number',
         'dns_ip_number - see table "cerebrum.dns_ip_number" and friends.')
+    entity_dns_ipv6_number = Constants._EntityTypeCode(
+        'dns_ipv6_number',
+        'dns_ipv6_number - see table "cerebrum.dns_ipv6_number" and friends.')
     entity_dns_subnet = Constants._EntityTypeCode(
         'dns_subnet',
-        'dns_subnet - see table "cerebrum.dns_dubnet" and friends.')
+        'dns_subnet - see table "cerebrum.dns_subnet" and friends.')
     dns_owner_namespace = Constants._ValueDomainCode('dns_owner_ns',
                                                      'Domain for dns_owners')
 
@@ -78,6 +84,12 @@ class Constants(Constants.Constants):
         'host', 'a_rec_del', 'del a-record %(subject)s -> %(dest)s')
     a_record_update = _ChangeTypeCode(
         'host', 'a_rec_upd', 'update a-record %(subject)s -> %(dest)s')
+    aaaa_record_add = _ChangeTypeCode(
+        'host', 'aaaa_rec_add', 'add aaaa-record %(subject)s -> %(dest)s')
+    aaaa_record_del = _ChangeTypeCode(
+        'host', 'aaaa_rec_del', 'del aaaa-record %(subject)s -> %(dest)s')
+    aaaa_record_update = _ChangeTypeCode(
+        'host', 'aaaa_rec_upd', 'update aaaa-record %(subject)s -> %(dest)s')
     cname_add = _ChangeTypeCode(
         'host', 'cname_add', 'add cname %(subject)s -> %(dest)s')
     cname_del = _ChangeTypeCode(
@@ -115,6 +127,14 @@ class Constants(Constants.Constants):
         ('a_ip=%(string:a_ip)s',))
     ip_number_del = _ChangeTypeCode(
         'host', 'ip_number_del', 'del %(subject)s')
+    ipv6_number_add = _ChangeTypeCode(
+        'host', 'ipv6_number_add', 'add %(subject)s',
+        ('aaaaaaa_ip=%(string:aaaa_ip)s',))
+    ipv6_number_update = _ChangeTypeCode(
+        'host', 'ipv6_number_upd', 'update %(subject)s',
+        ('aaaaaaa_ip=%(string:aaaa_ip)s',))
+    ipv6_number_del = _ChangeTypeCode(
+        'host', 'ipv6_number_del', 'del %(subject)s')
     mac_adr_set = _ChangeTypeCode(
         'host', 'mac_adr_set', 'set %(subject)s',
         ('mac_adr=%(string:mac_adr)s',))

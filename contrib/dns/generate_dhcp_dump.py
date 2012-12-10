@@ -27,7 +27,7 @@ import getopt
 import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory, SimilarSizeWriter
-from Cerebrum.modules.dns import IPNumber
+from Cerebrum.modules.dns import IPNumber, IPv6Number
 
 
 progname = __file__.split("/")[-1]
@@ -83,6 +83,17 @@ def get_data_from_DB():
             continue
         current = ips_by_mac.get(ip['mac_adr'], [])
         current.append(ip['a_ip'])
+        ips_by_mac[ip['mac_adr']] = current
+        mac_ips += 1
+    
+    ipnumber = IPv6Number.IPv6Number(db)
+    all_ips = ipnumber.list()
+
+    for ip in all_ips:
+        if ip['mac_adr'] is None:
+            continue
+        current = ips_by_mac.get(ip['mac_adr'], [])
+        current.append(ip['aaaa_ip'])
         ips_by_mac[ip['mac_adr']] = current
         mac_ips += 1
 

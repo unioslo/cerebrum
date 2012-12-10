@@ -32,10 +32,12 @@ from Cerebrum.modules.bofhd.cmd_param import Parameter,Command,FormatSuggestion,
 from Cerebrum.modules.dns.bofhd_dns_utils import DnsBofhdUtils
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.dns import ARecord
+from Cerebrum.modules.dns import AAAARecord
 from Cerebrum.modules.dns import DnsOwner
 from Cerebrum.modules.dns import CNameRecord
 from Cerebrum.modules.dns import HostInfo
 from Cerebrum.modules.dns import IPNumber
+from Cerebrum.modules.dns import IPv6Number
 from Cerebrum.modules.dns import Subnet
 from Cerebrum.modules.dns.Subnet import SubnetError
 from Cerebrum.modules.dns.IPUtils import IPCalc
@@ -221,14 +223,13 @@ class BofhdExtension(BofhdCommandBase):
     legal_hinfo = (
         ("win", "IBM-PC\tWINDOWS"),
         ("linux", "IBM-PC\tLINUX"),
-        ("bsd", "IBM-PC\tBSD"),
         ("printer", "PRINTER\tPRINTER"),
         ("unix", "UNIX\tUNIX"),
         ("nett", "NET\tNET"),
         ("mac", "MAC\tDARWIN"),
         ("other", "OTHER\tOTHER"),
         ("dhcp", "DHCP\tDHCP"),
-        ("netapp", "NETAPP\tONTAP"),
+        ("netapp", "NETAPP\tONTAP")
         )
 
     def __new__(cls, *arg, **karg):
@@ -478,28 +479,36 @@ class BofhdExtension(BofhdCommandBase):
         force = self.dns_parser.parse_force(force)
         host_name = host_name.lower()
 
-        s = Subnet.Subnet(self.db)
-        subnet_ip = None
-        free_ip_numbers = []
-        try:
-            s.find(subnet_or_ip)
-            subnet_ip = s.subnet_ip
-            if s.dns_delegated and not force:
-                raise CerebrumError("Must force 'host a_add' for subnets " +
-                                    "delegated to external DNS-server")
-            free_ip_numbers = self.mb_utils.get_relevant_ips(subnet_or_ip, force)
+        # Fast check for IPv4
+        if '.' in subnet_or_ip:
+            s = Subnet.Subnet(self.db)
+            subnet_ip = None
+            free_ip_numbers = []
+            try:
+                s.find(subnet_or_ip)
+                subnet_ip = s.subnet_ip
+                if s.dns_delegated and not force:
+                    raise CerebrumError("Must force 'host a_add' for subnets " +
+                                        "delegated to external DNS-server")
+                free_ip_numbers = self.mb_utils.get_relevant_ips(subnet_or_ip, force)
+                
+            except SubnetError:
+                if not force:
+                    raise SubnetError, "Unknown subnet; must force"
+                if subnet_or_ip.find('/') > 0:
+                    raise SubnetError, "Unknown subnet; must use specific ip"
+                if subnet_or_ip.endswith(".0"):
+                    raise CerebrumError, "Unknown subnet; cannot allocate .0-address"
+                free_ip_numbers = [ subnet_or_ip ]
+                
             
-        except SubnetError:
-            if not force:
-                raise SubnetError, "Unknown subnet; must force"
-            if subnet_or_ip.find('/') > 0:
-                raise SubnetError, "Unknown subnet; must use specific ip"
-            if subnet_or_ip.endswith(".0"):
-                raise CerebrumError, "Unknown subnet; cannot allocate .0-address"
-            free_ip_numbers = [ subnet_or_ip ]
-            
-        
-        ip = self.mb_utils.alloc_arecord(host_name, subnet_ip, free_ip_numbers[0], force)
+            ip = self.mb_utils.alloc_arecord(host_name, subnet_ip, free_ip_numbers[0], force)
+
+        # Fast check for IPv6
+        elif ':' in subnet_or_ip:
+            ip = self.mb_utils.alloc_aaaa_record(host_name, subnet_or_ip, force)
+        else:
+            raise CerebrumError, 'IP is invalid.'
         return "OK, ip=%s" % ip
 
     # host a_remove
@@ -525,42 +534,58 @@ class BofhdExtension(BofhdCommandBase):
         force = self.dns_parser.parse_force(force)
         hostnames = self.dns_parser.parse_hostname_repeat(hostname)
         hinfo = self._map_hinfo_code(hinfo)
-        
-        s = Subnet.Subnet(self.db)
-        subnet_ip = None
-        free_ip_numbers = []
-        try:
-            s.find(subnet_or_ip)
-            subnet_ip = s.subnet_ip
-            if s.dns_delegated:
-                raise CerebrumError("Cannot add host to subnet zone " +
-                                    "delegated to external DNS-server")
-            free_ip_numbers = self.mb_utils.get_relevant_ips(subnet_or_ip, force)
-            
-        except SubnetError:
-            if not force:
-                raise SubnetError, "Unknown subnet; must force"
-            if subnet_or_ip.find('/') > 0:
-                raise SubnetError, "Unknown subnet; must use specific ip"
-            if subnet_or_ip.endswith(".0"):
-                raise CerebrumError, "Unknown subnet; cannot allocate .0-address"
-            free_ip_numbers = [ subnet_or_ip ]
 
-        if len(free_ip_numbers) < len(hostnames):
-            raise CerebrumError("Not enough free ips")
-        
-        # If user don't want mx_set, it must be removed with "ip mx_set"
-        mx_set=self._find.find_mx_set(cereconf.DNS_DEFAULT_MX_SET)
-        ret = []
-        for name in hostnames:
-            # TODO: bruk hinfo ++ for å se etter passende sekvens uten
-            # hull (i en passende klasse)
-            ip = self.mb_utils.alloc_arecord(
-                name, subnet_ip, free_ip_numbers.pop(0), force)
-            self.mb_utils.alloc_host(
-                name, hinfo, mx_set.mx_set_id, comment, contact)
-            ret.append({'name': name, 'ip': ip})
-        return ret
+        # Fast check for IPv4.
+        if '.' in subnet_or_ip:
+            s = Subnet.Subnet(self.db)
+            subnet_ip = None
+            free_ip_numbers = []
+            try:
+                s.find(subnet_or_ip)
+                subnet_ip = s.subnet_ip
+                if s.dns_delegated:
+                    raise CerebrumError("Cannot add host to subnet zone " +
+                                        "delegated to external DNS-server")
+                free_ip_numbers = self.mb_utils.get_relevant_ips(subnet_or_ip, force)
+                
+            except SubnetError:
+                if not force:
+                    raise SubnetError, "Unknown subnet; must force"
+                if subnet_or_ip.find('/') > 0:
+                    raise SubnetError, "Unknown subnet; must use specific ip"
+                if subnet_or_ip.endswith(".0"):
+                    raise CerebrumError, "Unknown subnet; cannot allocate .0-address"
+                free_ip_numbers = [ subnet_or_ip ]
+
+            if len(free_ip_numbers) < len(hostnames):
+                raise CerebrumError("Not enough free ips")
+            
+            # If user don't want mx_set, it must be removed with "ip mx_set"
+            mx_set=self._find.find_mx_set(cereconf.DNS_DEFAULT_MX_SET)
+            ret = []
+            for name in hostnames:
+                # TODO: bruk hinfo ++ for å se etter passende sekvens uten
+                # hull (i en passende klasse)
+                ip = self.mb_utils.alloc_arecord(
+                    name, subnet_ip, free_ip_numbers.pop(0), force)
+                self.mb_utils.alloc_host(
+                    name, hinfo, mx_set.mx_set_id, comment, contact)
+                ret.append({'name': name, 'ip': ip})
+            return ret
+
+        # Handling IPv6
+        else:
+            # TODO: Add support for multiple hostnames and automatic IP
+            # assignment
+            
+            # If user don't want mx_set, it must be removed with "ip mx_set"
+            mx_set=self._find.find_mx_set(cereconf.DNS_DEFAULT_MX_SET)
+            
+            name = hostnames.pop(0)
+            ip = self.mb_utils.alloc_aaaa_record(name, subnet_or_ip, force)
+            self.mb_utils.alloc_host(name, hinfo, mx_set.mx_set_id, comment,
+                                     contact)
+            return [{'name': name, 'ip': ip}]
     
 
     # host cname_add
@@ -670,10 +695,19 @@ class BofhdExtension(BofhdCommandBase):
         self.ba.assert_dns_superuser(operator.get_entity_id())
         force = self.dns_parser.parse_force(force)
         tmp = host_id.split(".")
-        if host_id.find(":") == -1 and tmp[-1].isdigit():
+
+        # Quick check of IP-proto and loading of appropriate modules.
+        ip = False
+        if host_id.count(":") > 1:
+            arecord = AAAARecord.AAAARecord(self.db)
+            ip = True
+        elif host_id.find(":") == -1 and tmp[-1].isdigit():
+            arecord = ARecord.ARecord(self.db)
+            ip = True
+
+        if ip:
             # Freeing an ip-number
             owner_id = self._find.find_target_by_parsing(host_id, dns.IP_NUMBER)
-            arecord = ARecord.ARecord(self.db)
             names = dict([(a['name'], True)
                           for a in arecord.list_ext(ip_number_id=owner_id)])
             if len(names) > 1:
@@ -744,6 +778,9 @@ class BofhdExtension(BofhdCommandBase):
         # A-records
         ("  %-20s %-20s %s", ('name', 'ip', 'mac'),
          "%-22s %-20s MAC" % ('A-records', 'IP')),
+        # AAAA-records
+        ("  %-20s %-40s %s", ('name6', 'ipv6', 'mac6'),
+         "%-22s %-40s MAC" % ('AAAA-records', 'IPv6')),
         # Hinfo line
         ("%-22s %s" % ('Hinfo:', 'os=%s cpu=%s'), ('hinfo.os', 'hinfo.cpu')),
         # MX
@@ -765,32 +802,55 @@ class BofhdExtension(BofhdCommandBase):
         ]))
     def host_info(self, operator, host_id, policy=False):
         arecord = ARecord.ARecord(self.db)
+        aaaarecord = AAAARecord.AAAARecord(self.db)
         tmp = host_id.split(".")
         if policy and policy == 'policy':
             policy = True
         else:
             policy = False
 
-        if host_id.find(":") == -1 and tmp[-1].isdigit():
-            # When host_id is an IP, we only return A-records
+        # Ugly way to check if this is IPv4 or IPv6, and selecting
+        # appropriate target type.
+        if host_id.find(':') != -1:
+            target_type = dns.IPv6_NUMBER
+        elif tmp[-1].isdigit():
+            target_type = dns.IP_NUMBER
+        else:
+            target_type = None
+
+        if target_type:
+            # When host_id is an IP, we only return A- and AAAA-records
             owner_id = self._find.find_target_by_parsing(
-                host_id, dns.IP_NUMBER)
+                host_id, target_type)
+            
             ret = []
             for a in arecord.list_ext(ip_number_id=owner_id):
                 ret.append({'ip': a['a_ip'], 'name': a['name'],
                             'mac': a['mac_adr']})
 
+            for a in aaaarecord.list_ext(ip_number_id=owner_id):
+                ret.append({'ipv6': a['aaaa_ip'], 'name6': a['name'],
+                            'mac6': a['mac_adr']})
+
             ip = IPNumber.IPNumber(self.db)
+            ipv6 = IPv6Number.IPv6Number(self.db)
             added_rev = False
             for row in ip.list_override(ip_number_id=owner_id):
                 ret.append({'rev_ip': row['a_ip'],
                             'rev_name': row['name']})
                 added_rev = True
+            for row in ipv6.list_override(ip_number_id=owner_id):
+                ret.append({'rev_ip': row['aaaa_ip'],
+                            'rev_name': row['name']})
+                added_rev = True
             if not ret:
                 self.logger.warn("Nothing known about '%s'?" % host_id)
             if not added_rev:
+                rev_type = 'A-record' if target_type == dns.IP_NUMBER \
+                                else 'AAAA-record'
                 ret.append({'rev_ip': host_id,
-                            'rev_name': "using default PTR from A-record"})
+                            'rev_name': "using default PTR from " + rev_type})
+
             return ret
 
         owner_id = self._find.find_target_by_parsing(host_id, dns.DNS_OWNER)
@@ -850,7 +910,19 @@ class BofhdExtension(BofhdCommandBase):
             for r in ip_ref.list_override(ip_number_id=ip_id):
                 ret.append({'rev_ip': a_ip, 'rev_name': r['name']})
 
-        # MX records
+        # AAAA records
+        forward_ipv6 = []
+        for a in aaaarecord.list_ext(dns_owner_id=owner_id):
+            ret.append({'ipv6': a['aaaa_ip'], 'name6': a['name'],
+                        'mac6': a['mac_adr']})
+            forward_ipv6.append((a['aaaa_ip'], a['ipv6_number_id']))
+
+        ipv6_ref = IPv6Number.IPv6Number(self.db)
+        for aaaa_ip, ip_id in forward_ipv6:
+            for row in ipv6_ref.list_override(ip_number_id=ip_id):
+                ret.append({'rev_ip': aaaa_ip, 'rev_name': row['name']})
+
+# MX records
         if dns_owner.mx_set_id:
             mx_set = DnsOwner.MXSet(self.db)
             mx_set.find(dns_owner.mx_set_id)
@@ -887,6 +959,7 @@ class BofhdExtension(BofhdCommandBase):
             policy = PolicyComponent(self.db)
             for row in policy.search_hostpolicies(dns_owner_id=owner_id):
                 ret.append({'policy_name': row['policy_name']})
+
         return ret
 
     # host unused_list
@@ -1029,8 +1102,12 @@ class BofhdExtension(BofhdCommandBase):
         if new_id.find('/') > 0:
             new_id = new_id.split('/')[0] + "/"
         lastpart = new_id.split(".")[-1]
-        # Rename by IP-number
-        if (new_id.find(":") == -1 and lastpart and
+        # Rename by IPv6-number
+        if new_id.count(':') > 2:
+            self.mb_utils.ip_rename(dns.IPv6_NUMBER, old_id, new_id)
+            return "OK, ip-number %s renamed to %s" % (old_id, new_id)
+        # Rename by IPv4-number
+        elif (new_id.find(":") == -1 and lastpart and
             (lastpart[-1] == '/' or lastpart.isdigit())):
             free_ip_numbers = self.mb_utils.get_relevant_ips(new_id, force)
             new_id = free_ip_numbers[0]
@@ -1040,9 +1117,13 @@ class BofhdExtension(BofhdCommandBase):
         # Rename by dns-owner
         new_id = self.dns_parser.qualify_hostname(new_id)
         self.mb_utils.ip_rename(dns.DNS_OWNER, old_id, new_id)
-        arecord = ARecord.ARecord(self.db)
         owner_id = self._find.find_target_by_parsing(new_id, dns.DNS_OWNER)
+
+        arecord = ARecord.ARecord(self.db)
+        aaaarecord = AAAARecord.AAAARecord(self.db)
         ips = [row['a_ip'] for row in arecord.list_ext(dns_owner_id=owner_id)]
+        ips += [row['aaaa_ip'] for row in \
+                aaaarecord.list_ext(dns_owner_id=owner_id)]
         return "OK, dns-owner %s renamed to %s (IP: %s)" % (
             old_id, new_id, ", ".join(ips))
 
@@ -1054,14 +1135,22 @@ class BofhdExtension(BofhdCommandBase):
     def host_ptr_add(self, operator, ip_host_id, dest_host, force=False):
         self.ba.assert_dns_superuser(operator.get_entity_id())
         force = self.dns_parser.parse_force(force)
-
-        s = Subnet.Subnet(self.db)
-        s.find(ip_host_id)
-        if s.dns_delegated:
-            raise CerebrumError("Cannot add reversemap in subnet zone " +
-                                "delegated to external DNS-server")
         
-        self.mb_utils.add_revmap_override(ip_host_id, dest_host, force)
+        # Fast chack for IPv4
+        if ip_host_id.find('.') != -1:
+            s = Subnet.Subnet(self.db)
+            s.find(ip_host_id)
+            if s.dns_delegated:
+                raise CerebrumError("Cannot add reversemap in subnet zone " +
+                                    "delegated to external DNS-server")
+            
+            self.mb_utils.add_revmap_override(ip_host_id, dest_host, force)
+        # Fast check for IPv6
+        elif ip_host_id.find(':') != -1:
+            self.mb_utils.add_revmap_override(ip_host_id, dest_host,
+                                                    force)
+        else:
+            raise CerebrumError, 'IP is invalid'
         return "OK, added reversemap override for %s -> %s" % (
             ip_host_id, dest_host)
 
@@ -1073,14 +1162,25 @@ class BofhdExtension(BofhdCommandBase):
     def host_ptr_remove(self, operator, ip_host_id, dest_host, force=False):
         self.ba.assert_dns_superuser(operator.get_entity_id())
         force = self.dns_parser.parse_force(force)
+        
+        # Fast IP check
+        if ip_host_id.find('.') != -1:
+            ip_type = dns.IP_NUMBER
+        elif ip_host_id.find(':') != -1:
+            ip_type = dns.IPv6_NUMBER
+        else:
+            raise CerebrumError, 'IP is invalid.'
+
         ip_owner_id = self._find.find_target_by_parsing(
-            ip_host_id, dns.IP_NUMBER)
+            ip_host_id, ip_type)
         if dest_host:
             dest_owner_id = self._find.find_target_by_parsing(
                 dest_host, dns.DNS_OWNER)
         else:
             dest_owner_id = None
+
         self.mb_utils.remove_revmap_override(ip_owner_id, dest_owner_id)
+
         return "OK, removed reversemap override for %s -> %s" % (
             ip_host_id, dest_host)
         
@@ -1188,37 +1288,55 @@ class BofhdExtension(BofhdCommandBase):
         the change must be forced.
 
         """
-        arecord = ARecord.ARecord(self.db)
-        ipnumber = IPNumber.IPNumber(self.db)
+        
+        if host_id.count(':') > 1:
+            ipnumber = IPv6Number.IPv6Number(self.db)
+            arecord = AAAARecord.AAAARecord(self.db)
+            ip_type = dns.IPv6_NUMBER
+            ip_key = 'ipv6_number_id'
+            record_key = 'aaaa_ip'
+        else:
+            arecord = ARecord.ARecord(self.db)
+            ipnumber = IPNumber.IPNumber(self.db)
+            ip_type = dns.IP_NUMBER
+            ip_key = 'ip_number_id'
+            record_key = 'a_ip'
         
         # Identify the host we are dealing with, and retrieve the A-records
         tmp = host_id.split(".")
-        if host_id.find(":") == -1 and tmp[-1].isdigit():
-            owner_id = self._find.find_target_by_parsing(host_id, dns.IP_NUMBER)
+        if (host_id.find(":") == -1 and tmp[-1].isdigit()) \
+                or host_id.count(':') > 2:
+            owner_id = self._find.find_target_by_parsing(host_id, ip_type)
             arecords = arecord.list_ext(ip_number_id=owner_id)
         else:
-            owner_id = self._find.find_target_by_parsing(host_id, dns.DNS_OWNER)
+            owner_id = self._find.find_target_by_parsing(host_id, \
+                    dns.DNS_OWNER)
             arecords = arecord.list_ext(dns_owner_id=owner_id)
 
         # Retrive IPNumber-interface
         ipnumber.clear()
-        ipnumber.find(arecords[0]['ip_number_id'])
+        ipnumber.find(arecords[0][ip_key])
 
-        # Now that we have the IP, ensure operator has proper permissions to do this
-        if not self.ba.can_do_lita_dns_by_ip(operator.get_entity_id(), arecords[0]['a_ip']):
-            raise PermissionDenied("You are not allowed to do this for '%s'" % host_id)
+        # Now that we have the IP, ensure operator has proper permissions
+        # to do this
+        if not self.ba.can_do_lita_dns_by_ip(operator.get_entity_id(), 
+                                             arecords[0][record_key]):
+            raise PermissionDenied("You are not allowed to do this for '%s'"
+                                   % host_id)
 
         res = ipnumber.find_by_mac(mac_adr)
         if res and not force:
             raise CerebrumError("MAC-adr '%s' already in use, must force (y)%s"
                                 "MAC-adr '%s' is in use by '%s'" %
-                                (mac_adr, os.linesep, mac_adr, res[0]['a_ip']))
+                                (mac_adr, os.linesep, mac_adr,
+                                    res[0][record_key]))
             
         # Cannot associate a MAC-address unless we have a single
         # specific address to associate with.
         if len(arecords) != 1:
-            raise CerebrumError("Must have 1 and only 1 IP-address to associate "
-                                "MAC-adr (%s has %i)." % (host_id, len(arecords)))
+            raise CerebrumError(
+                    "Must have 1 and only 1 IP-address to associate "
+                    "MAC-adr (%s has %i)." % (host_id, len(arecords)))
         
         if ipnumber.mac_adr is not None and not force:
             # Already has MAC = reassign => force required
@@ -1227,7 +1345,8 @@ class BofhdExtension(BofhdCommandBase):
         ipnumber.mac_adr = mac_adr
         ipnumber.write_db() # Will raise DNSError if malformed MAC
 
-        return "MAC-adr '%s' associated with host '%s'" % (ipnumber.mac_adr, host_id)
+        return "MAC-adr '%s' associated with host '%s'" % \
+                (ipnumber.mac_adr, host_id)
 
 
     all_commands['dhcp_disassoc'] = Command(
@@ -1238,25 +1357,36 @@ class BofhdExtension(BofhdCommandBase):
         If the host has multiple IPs, the removal must be forced.
 
         """
-        arecord = ARecord.ARecord(self.db)
-        ipnumber = IPNumber.IPNumber(self.db)
-
-        # Identify the host we are dealing with, and retrieve the A-record(s)
+        if host_id.count(':') > 1:
+            ipnumber = IPv6Number.IPv6Number(self.db)
+            arecord = AAAARecord.AAAARecord(self.db)
+            ip_type = dns.IPv6_NUMBER
+            ip_key = 'ipv6_number_id'
+            record_key = 'aaaa_ip'
+        else:
+            arecord = ARecord.ARecord(self.db)
+            ipnumber = IPNumber.IPNumber(self.db)
+            ip_type = dns.IP_NUMBER
+            ip_key = 'ip_number_id'
+            record_key = 'a_ip'
+        
+        # Identify the host we are dealing with, and retrieve the A-records
         tmp = host_id.split(".")
-        if host_id.find(":") == -1 and tmp[-1].isdigit():
-            owner_id = self._find.find_target_by_parsing(host_id, dns.IP_NUMBER)
+        if (host_id.find(":") == -1 and tmp[-1].isdigit()) \
+                or host_id.count(':') > 2:
+            owner_id = self._find.find_target_by_parsing(host_id, ip_type)
             arecords = arecord.list_ext(ip_number_id=owner_id)
         else:
-            owner_id = self._find.find_target_by_parsing(host_id, dns.DNS_OWNER)
+            owner_id = self._find.find_target_by_parsing(host_id, 
+                                                         dns.DNS_OWNER)
             arecords = arecord.list_ext(dns_owner_id=owner_id)
 
-        ips = []
-        for arecord_row in arecords:
-            ips.append(arecord_row['ip_number_id'])
-
-        # Now that we have the IP, ensure operator has proper permissions to do this
-        if not self.ba.can_do_lita_dns_by_ip(operator.get_entity_id(), arecords[0]['a_ip']):
-            raise PermissionDenied("You are not allowed to do this for '%s'" % host_id)
+        # Now that we have the IP, ensure operator has proper
+        # permissions to do this
+        if not self.ba.can_do_lita_dns_by_ip(operator.get_entity_id(),
+                                             arecords[0][record_key]):
+            raise PermissionDenied("You are not allowed to do this for '%s'" %
+                                    host_id)
 
         if len(arecords) != 1 and not force:
             raise CerebrumError("Host has multiple A-records, must force (y)")
@@ -1264,7 +1394,7 @@ class BofhdExtension(BofhdCommandBase):
         old_macs = set()
         for arecord_row in arecords:
             ipnumber.clear()
-            ipnumber.find(arecord_row['ip_number_id'])
+            ipnumber.find(arecord_row[ip_key])
             if ipnumber.mac_adr is None:
                 continue
 

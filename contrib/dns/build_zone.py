@@ -12,12 +12,13 @@ import cereconf
 
 from Cerebrum import Utils
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.dns import ARecord
+from Cerebrum.modules.dns import ARecord, AAAARecord
 from Cerebrum.modules.dns import HostInfo
 from Cerebrum.modules.dns import DnsOwner
-from Cerebrum.modules.dns import IPNumber
+from Cerebrum.modules.dns import IPNumber, IPv6Number
 from Cerebrum.modules.dns import CNameRecord
 from Cerebrum.modules.dns.Utils import IPCalc
+from Cerebrum.modules.dns.IPv6Utils import IPv6Calc
 
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
@@ -135,6 +136,9 @@ class ForwardMap(object):
     def __init__(self, zone):
         self.zu = ZoneUtils(zone)
         self.a_records = {}
+        self.a_records_by_dns_owner = {}
+        self.aaaa_records = {}
+        self.aaaa_records_by_dns_owner = {}
         self.hosts = {}
         self.cnames = {}
         self.mx_sets = {}
@@ -152,8 +156,25 @@ class ForwardMap(object):
         # CnameRecords key=target_owner_id
         # entity2txt, entity2note has_key=entity_id
         for row in ARecord.ARecord(db).list_ext(zone=zone):
+            id = int(row['dns_owner_id'])
+            if self.a_records_by_dns_owner.has_key(id):
+                self.a_records_by_dns_owner[id] += [row]
+            else:
+                self.a_records_by_dns_owner[id] = [row]
+
+            # Following dict is populated to support HostFile
             self.a_records[int(row['a_record_id'])] = row
         logger.debug("... arecords")
+        
+        for row in AAAARecord.AAAARecord(db).list_ext(zone=zone):
+            id = int(row['dns_owner_id'])
+            if self.aaaa_records_by_dns_owner.has_key(id):
+                self.aaaa_records_by_dns_owner[id] += [row]
+            else:
+                self.aaaa_records_by_dns_owner[id] = [row]
+            # Following dict is populated to support HostFile
+            self.aaaa_records[int(row['aaaa_record_id'])] = row
+        logger.debug("... aaaarecords")
 
         for row in HostInfo.HostInfo(db).list(zone=zone):
             # Unique constraint on dns_owner_id
@@ -189,33 +210,62 @@ class ForwardMap(object):
                 int(row['service_owner_id']), []).append(row) 
         logger.debug("... srv records")
 
-
     def generate_zone_file(self, fname, heads, data_dir):
         logger.debug("Generating zone file")
         self.zu.open(os.path.join(data_dir, os.path.basename(fname)))
         self.zu.write_heads(heads, data_dir)
 
-        order = self.a_records.keys()
-        order.sort(lambda x,y: int(self.a_records[x]['ipnr'] - self.a_records[y]['ipnr']))
+        def aaaa_cmp(x,y):
+            if IPv6Calc.ip_to_long(self.aaaa_records[x]['aaaa_ip']) == \
+                    IPv6Calc.ip_to_long(self.aaaa_records[y]['aaaa_ip']):
+                return 0
+            elif IPv6Calc.ip_to_long(self.aaaa_records[x]['aaaa_ip']) < \
+                    IPv6Calc.ip_to_long(self.aaaa_records[y]['aaaa_ip']):
+                return -1
+            else:
+                return 1
 
-        # If multiple A-records have the same name with different IP, the
-        # dns_owner data is only shown for the first IP.
+        ar = self.a_records.keys()
+        ar.sort(lambda x,y: int(self.a_records[x]['ipnr'] -
+                                   self.a_records[y]['ipnr']))
+
+        aaaar = self.aaaa_records.keys()
+        aaaar.sort(aaaa_cmp)
+
+        order = ar + aaaar
+
+        # If multiple A- or AAAA-records have the same name with different IP,
+        # the dns_owner data is only shown for the first IP.
         shown_owner = {}
         prev_name = None
         for a_id in order:
-            #logger.debug2("A: %s" % a_id)
             line = ''
-            a_ref = self.a_records[a_id]
-            name = self.zu.trim_name(a_ref['name'])
-            if name == prev_name:
-                tmp_name = ''
-            else:
-                tmp_name = name
-                prev_name = name
-            line = "%s\t%s\tA\t%s\n" % (
-                tmp_name, a_ref['ttl'] or '', a_ref['a_ip'])
+            
+            ar = self.a_records.get(a_id, None)
+            aaaar = self.aaaa_records.get(a_id, None)
+            
+            if ar is not None:
+                name = self.zu.trim_name(ar['name'])
+                if name == prev_name:
+                    tmp_name = ''
+                else:
+                    tmp_name = prev_name = name
 
-            dns_owner_id = int(a_ref['dns_owner_id'])
+                line += "%s\t%s\tA\t%s\n" % (
+                    tmp_name, ar['ttl'] or '', ar['a_ip'])
+
+            elif aaaar is not None:
+                ar = aaaar
+                name = self.zu.trim_name(ar['name'])
+                if name == prev_name:
+                    tmp_name = ''
+                else:
+                    tmp_name = prev_name = name
+
+                line += "%s\t%s\tAAAA\t%s\n" % (
+                    tmp_name, ar['ttl'] or '', ar['aaaa_ip'])
+
+            dns_owner_id = int(ar['dns_owner_id']) 
             if shown_owner.has_key(dns_owner_id):
                 self.zu.write(line)
                 continue
@@ -270,8 +320,6 @@ class ForwardMap(object):
                 self.zu.write(line)
         self.zu.close()
         logger.debug("zone file completed")
-
-
 
 class ReverseMap(object):
     def __init__(self, mask):
@@ -338,7 +386,105 @@ class ReverseMap(object):
                     self.zu.write(line)
         self.zu.close()
 
+class IPv6ReverseMap(object):
+    def __init__(self, mask):
+        # TODO: Make this dependent on the netmask?
+        self.start = self.stop = self.__expand_ipv6(mask)
+        self.start += ':0000' 
+        self.stop += ':ffff'
+
+        self.ip_numbers = {}
+        self.a_records = {}
+        self.override_ip = {}
+        self.origins = {}
+        self._get_reverse_data()
+
+        self.__prev_origin = self.__net2origin(mask)
+        self.zu = ZoneUtils(None, self.__prev_origin)
+
+
+
+    def _get_reverse_data(self):
+        for row in IPv6Number.IPv6Number(db).list(start=self.start,
+                                                  stop=self.stop):
+            self.ip_numbers[int(row['ipv6_number_id'])] = row
+
+        for row in AAAARecord.AAAARecord(db).list_ext(start=self.start,
+                                                      stop=self.stop):
+            self.a_records.setdefault(int(row['ipv6_number_id']), []).append(row)
+
+        for row in IPv6Number.IPv6Number(db).list_override(start=self.start,
+                                                           stop=self.stop):
+            self.override_ip.setdefault(int(row['ipv6_number_id']), []).append(row)
+        logger.debug("_get_reverse_ipv6_data -> %i, %i, %i" % (
+            len(self.ip_numbers), len(self.a_records), len(self.override_ip)))
+    
+
+    # Expand the parts of the adress that are not filled.
+    def __expand_ipv6(self, ip):
+        ip = ip.split(':')
+        eip = []
+        for i in range(0, len(ip)):
+            if len(ip[i]) < 4:
+                tmp = '%4s' % ip[i]
+                tmp = tmp.replace(' ', '0')
+                eip += [tmp]
+            else:
+                eip += [ip[i]]
+        return ':'.join(eip)
+
+    def __ipv6_reversed_parts(self, ip):
+        # Fast check to see if IP is expanded:
+        if not len(ip) == 39:
+            ip = self.__expand_ipv6(ip)
+
+        # We reverse the IP and strip it of ':'
+        rev = ''.join(ip[::-1].split(':'))
+        first = '.'.join(rev[:16])
+        second = '.'.join(rev[16:])
+        # return a tuple with both parts, dotted
+        return (first, second)
+
+    def __net2origin(self, net):
+            return '$ORIGIN %s.ip6.arpa.\n' % self.__ipv6_reversed_parts(net)[1]
+
+    def generate_reverse_file(self, fname, heads, data_dir):
+        self.zu.open(os.path.join(data_dir, os.path.basename(fname)))
+        self.zu.write_heads(heads, data_dir)
+
+        for ip_id in self.ip_numbers.keys():
+            if self.override_ip.has_key(ip_id):
+                tmp = self.override_ip[ip_id]
+            elif self.a_records.has_key(ip_id):
+                tmp = self.a_records[ip_id]
+            else:
+                logger.warn("dangling ip-number %i" % ip_id)
+                continue
+
+            ip = self.ip_numbers[ip_id]['aaaa_ip']
+            rev_ip = self.__ipv6_reversed_parts(ip)
+
+            adrs = []
+            for row in tmp:
+                if row['name'] is not None:
+                    adrs.append("%s\tPTR\t%s\n" % (rev_ip[0], row['name']))
+            self.origins.setdefault(rev_ip[1], []).extend(adrs)
         
+        def sort_rev_lines(x,y):
+            x1 = x[:31][::-1]
+            y1 = y[:31][::-1]
+            if x1 == y1:
+                return 0
+            elif x1 < y1:
+                return -1
+            else:
+                return 1
+
+        for key in sorted(self.origins.keys()):
+            self.zu.write('$ORIGIN %s.ip6.arpa.\n' % key)
+            for line in sorted(self.origins[key], cmp=sort_rev_lines):
+                self.zu.write(line)
+        self.zu.close()
 
 class HostsFile(object):
     MAX_LINE_LENGTH = 1000
@@ -358,6 +504,8 @@ class HostsFile(object):
     
     def generate_hosts_file(self, fname, with_comments=False):
         f = Utils.AtomicFileWriter(fname, "w")
+        
+        # IPv4
         fm = ForwardMap(self._zone)
         order = fm.a_records.keys()
         order.sort(lambda x,y: int(fm.a_records[x]['ipnr'] - fm.a_records[y]['ipnr']))
@@ -392,6 +540,41 @@ class HostsFile(object):
             line += entity_id2comment.get(int(a_ref['dns_owner_id']), '')
 
             f.write(self._wrap_line(prefix, line))
+
+        # IPv6
+        order = fm.aaaa_records.keys()
+
+        entity_id2comment = {}
+        if with_comments:
+            for row in DnsOwner.DnsOwner(db).list_traits(co.trait_dns_comment):
+                entity_id2comment[int(row['entity_id'])] = ' # ' + row['strval']
+
+        # If multiple A-records have the same name with different IP, the
+        # dns_owner data is only shown for the first IP.
+        shown_owner = {}
+        prev_name = None
+        for a_id in order:
+            line = ''
+            a_ref = fm.aaaa_records[a_id]
+
+            prefix = '%s\t%s' % (a_ref['aaaa_ip'], self._exp_name(a_ref['name']))
+            line = ''
+            names = [ ]
+
+            dns_owner_id = int(a_ref['dns_owner_id'])
+            if shown_owner.has_key(dns_owner_id):
+                # raise ValueError, "%s already shown?" % a_ref['name']
+                continue
+            shown_owner[dns_owner_id] = True
+
+            for c_ref in fm.cnames.get(dns_owner_id, []):
+                names.append(c_ref['name'])
+
+            line += " " + " ".join([self._exp_name(n) for n in names])
+            line += entity_id2comment.get(int(a_ref['dns_owner_id']), '')
+
+            f.write(self._wrap_line(prefix, line))
+
         f.close()
 
 
@@ -422,8 +605,10 @@ def usage(exitcode=0):
     -h | --help: help
     -Z | --zone zone: use with -b to specify zone
     -m | --mask net/mask: use with -r to specify iprange
+    -n | --mask6 mask: use with -s to specify range
     -b | --build filename: write new zonefile to filename
     -r | --reverse filename: write new reverse map to filename
+    -s | --reverse6 filename: write new IPv6 reverse map to filename
     -d | --dir dir: store .status/.serial files in this dir (default:
       same dir as filename)
     --head filename: header for the static part of the zone-file.  May
@@ -437,9 +622,9 @@ def usage(exitcode=0):
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'b:hr:Z:m:Rd:', [
-            'help', 'build=', 'reverse=', 'hosts=', 'head=', 'zone=', 'mask=',
-            'dir=', 'comments'])
+        opts, args = getopt.getopt(sys.argv[1:], 'b:hr:s:Z:m:n:Rd:', [
+            'help', 'build=', 'reverse=', 'reverse6=', 'hosts=', 'head=',
+            'zone=', 'mask=', 'mask6=', 'dir=', 'comments'])
     except getopt.GetoptError:
         usage(1)
 
@@ -456,6 +641,8 @@ def main():
             int(zone) # Triggers error if missing
         elif opt in ('--mask', '-m'):
             mask = val
+        elif opt in ('--mask6', '-n'):
+            mask6 = val
         elif opt in ('--dir', '-d'):
             data_dir = val
         elif opt in ('--comments',):
@@ -472,6 +659,14 @@ def main():
             if not (heads and mask):
                 usage(1)
             rm = ReverseMap(mask)
+            if data_dir:
+                rm.generate_reverse_file(val, heads, data_dir)
+            else:
+                rm.generate_reverse_file(val, heads, os.path.dirname(val))
+        elif opt in ('--reverse6', '-s'):
+            if not (heads and mask6):
+                usage(1)
+            rm = IPv6ReverseMap(mask6)
             if data_dir:
                 rm.generate_reverse_file(val, heads, data_dir)
             else:
