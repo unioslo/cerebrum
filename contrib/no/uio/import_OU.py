@@ -48,9 +48,8 @@ db = Factory.get('Database')()
 db.cl_init(change_program='import_OU')
 co = Factory.get('Constants')(db)
 
-# TODO:
-#logger = Factory.get_logger("cronjob")
-logger = Factory.get_logger("console")
+logger = Factory.get_logger("cronjob")
+
 
 # We cannot refer to constants directly, since co.system_<something> may not
 # exist on a particular installation.
