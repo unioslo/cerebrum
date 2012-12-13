@@ -246,24 +246,15 @@ class ForwardMap(object):
             
             if ar is not None:
                 name = self.zu.trim_name(ar['name'])
-                if name == prev_name:
-                    tmp_name = ''
-                else:
-                    tmp_name = prev_name = name
-
                 line += "%s\t%s\tA\t%s\n" % (
-                    tmp_name, ar['ttl'] or '', ar['a_ip'])
+                    name, ar['ttl'] or '', ar['a_ip'])
 
             elif aaaar is not None:
+                name = self.zu.trim_name(aaaar['name'])
                 ar = aaaar
-                name = self.zu.trim_name(ar['name'])
-                if name == prev_name:
-                    tmp_name = ''
-                else:
-                    tmp_name = prev_name = name
 
                 line += "%s\t%s\tAAAA\t%s\n" % (
-                    tmp_name, ar['ttl'] or '', ar['aaaa_ip'])
+                    name, ar['ttl'] or '', ar['aaaa_ip'])
 
             dns_owner_id = int(ar['dns_owner_id']) 
             if shown_owner.has_key(dns_owner_id):
@@ -389,9 +380,8 @@ class ReverseMap(object):
 class IPv6ReverseMap(object):
     def __init__(self, mask):
         # TODO: Make this dependent on the netmask?
-        self.start = self.stop = self.__expand_ipv6(mask)
-        self.start += ':0000' 
-        self.stop += ':ffff'
+        self.start = mask + '0000'[:len(mask.split(':')[-1])]
+        self.stop = mask + 'ffff'[:len(mask.split(':')[-1])]
 
         self.ip_numbers = {}
         self.a_records = {}
@@ -418,8 +408,7 @@ class IPv6ReverseMap(object):
             self.override_ip.setdefault(int(row['ipv6_number_id']), []).append(row)
         logger.debug("_get_reverse_ipv6_data -> %i, %i, %i" % (
             len(self.ip_numbers), len(self.a_records), len(self.override_ip)))
-    
-
+   
     # Expand the parts of the adress that are not filled.
     def __expand_ipv6(self, ip):
         ip = ip.split(':')
@@ -480,7 +469,7 @@ class IPv6ReverseMap(object):
             else:
                 return 1
 
-        for key in sorted(self.origins.keys()):
+        for key in sorted(self.origins.keys(), cmp=sort_rev_lines):
             self.zu.write('$ORIGIN %s.ip6.arpa.\n' % key)
             for line in sorted(self.origins[key], cmp=sort_rev_lines):
                 self.zu.write(line)
