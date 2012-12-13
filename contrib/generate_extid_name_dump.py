@@ -67,54 +67,18 @@ def usage():
     """ % sys.argv[0]
 
 
-#def resolve_preferred_name(entity_id):
-
-    #systems = [getattr(co, system) for system in cereconf.SYSTEM_LOOKUP_ORDER]
-
-    #pe.clear()
-    #pe.find(entity_id)
-
-    #name = ''
-
-    #for s in systems:
-        #fname = ''
-        #lname = ''
-        #try:
-            #name = pe.get_name(s, co.name_full)
-        #except Errors.NotFoundError:
-            #pass
-
-        #try:
-            #fname = pe.get_name(s, co.name_first)
-        #except Errors.NotFoundError:
-            #pass
-
-        #try:
-            #lname = pe.get_name(s, co.name_last)
-        #except Errors.NotFoundError:
-            #pass
-
-        #if name:
-            #break
-
-        #if fname and lname:
-            #name = "%s %s" % (fname, lname)
-            #break
-
-    #return name
-
-
 def getdict_external_ids(source_system, id_type):
-    """Fetches a list of employees with employee number.
+    """Fetches a list of people, their external ID and their name from a source
+    system.
     
     @type  logger: CerebrumLogger
     @param logger: Logger to use.
 
     @type  source_sys: Subclass of Constants.AuthoritativeSystem
-    @param source_sys: The authorative system to list
+    @param source_sys: The authorative system to list from.
 
     @type  id_type: Subclass of Constants.EntityExternalId
-    @param id_type: The external ID type to list
+    @param id_type: The external ID type to list.
 
     @rtype:  list
     @return: A list of dictionary objects with the keys:
@@ -125,7 +89,7 @@ def getdict_external_ids(source_system, id_type):
 
     ext_ids = [] # Return list
 
-    employees = pe.list_external_ids(source_system=source_system, 
+    persons = pe.list_external_ids(source_system=source_system, 
                                      id_type=id_type, 
                                      entity_type=co.entity_person)
 
@@ -133,28 +97,29 @@ def getdict_external_ids(source_system, id_type):
     names = pe.getdict_persons_names(source_system=co.system_cached, 
                                      name_types=co.name_full)
 
-    for employee in employees:
+    for person in persons:
         try:
-            name = names[employee['entity_id']][int(co.name_full)]
+            name = names[person['entity_id']][int(co.name_full)]
         except KeyError:
             logger.warn("No name for person with external id '%d'. \
-                         Excluded from list" % employee['entity_id'])
+                         Excluded from list." % person['entity_id'])
             continue
 
         # Each entry in the result list is a dictionary:
         tmp = {
-                 'entity_id': employee['entity_id'],
-                 'ext_id':    employee['external_id'],
+                 'entity_id': person['entity_id'],
+                 'ext_id':    person['external_id'],
                  'name':      name
               }
     
         ext_ids.append(tmp)
-    print len(ext_ids)
+
     return ext_ids
 
 
-def write_dump_file(output, employees):
-    """Writes a list of employees to a file object
+def write_dump_file(output, id_names):
+    """Writes a list of persons IDs and names to a file object, as colon
+    separated data.
     
     @type  logger: CerebrumLogger
     @param logger: Logger to use.
@@ -162,18 +127,21 @@ def write_dump_file(output, employees):
     @type  output: file
     @param output: Output file handle to write to
 
-    @type  employees: list
-    @param employees: List of dictionary objects, each dictionary must contain:
-                        'ext_id' -> <string> External id
-                        'name'   -> <string> Full name of the employee
+    @type  id_names: list
+    @param id_names: List of dictionary objects, each dictionary must contain:
+                       'ext_id' -> <string> External id
+                       'name'   -> <string> Full name of the employee
     """
 
-    first = employees.pop(0)
-    if first:
+    try:
+        first = id_names.pop(0)
         output.write("%s:%s" % (first['ext_id'], first['name']))
+    except IndexError:
+        logger.warn("No data to write")
+        return
 
-    for employee in employees:
-        output.write(":%s:%s" % (employee['ext_id'], employee['name']))
+    for id_name in id_names:
+        output.write(":%s:%s" % (id_name['ext_id'], id_name['name']))
 
 
 def main(argv=None):
@@ -220,7 +188,7 @@ def main(argv=None):
             if not id_type:
                 logger.warn("No external ID type matching '%s'" % v)
 
-    # Check that source system and external id type is set
+    # Ensure that source system and external id type is set
     if not source_system:
         logger.error("No valid source system provided")
         sys.exit(1)
@@ -228,14 +196,12 @@ def main(argv=None):
     if not id_type:
         logger.error("No valid external ID type provided")
         sys.exit(1)
-    
 
     # Generate selected report
     logger.info("Start dumping external id's")
     external_ids = getdict_external_ids(source_system, id_type)
     write_dump_file(output, external_ids)
     logger.info("Done dumping external id's")
-
 
     # Close output if we explicitly opened a file for writing
     if not output is sys.stdout:
