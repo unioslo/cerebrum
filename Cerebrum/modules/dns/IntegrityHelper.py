@@ -271,11 +271,15 @@ class Updater(object):
             ipnumber.find(ip_number_id)
             a_type = dns.AAAA_RECORD
             ip_type = dns.IPv6_NUMBER
+            o_ip_type = dns.IP_NUMBER
+            o_ipnumber = IPNumber.IPNumber(self._db)
         except Errors.NotFoundError:
             ipnumber = IPNumber.IPNumber(self._db)
             ipnumber.find(ip_number_id)
             a_type = dns.A_RECORD
             ip_type = dns.IP_NUMBER
+            o_ip_type = dns.IPv6_NUMBER
+            o_ipnumber = IPv6Number.IPv6Number(self._db)
 
         ipnumber.delete_reverse_override(ip_number_id, dest_host)
 
@@ -287,12 +291,17 @@ class Updater(object):
         if dest_host is not None:
             refs = self._find.find_referers(dns_owner_id=dest_host, 
                                             ip_type=ip_type)
+            refs += self._find.find_referers(dns_owner_id=dest_host, 
+                                            ip_type=o_ip_type)
             if not refs:
                 tmp = []
                 for row in ipnumber.list_override(dns_owner_id=dest_host):
                     # One might argue that find_referers also should find 
                     # this type of refs.
                     tmp.append((dns.DNS_OWNER, row['dns_owner_id']))
+                for row in o_ipnumber.list_override(dns_owner_id=dest_host):
+                    tmp.append((dns.DNS_OWNER, row['dns_owner_id']))
+                    
                 if not tmp:
                     dns_owner = DnsOwner.DnsOwner(self._db)
                     dns_owner.find(dest_host)

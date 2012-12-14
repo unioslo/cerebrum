@@ -697,17 +697,17 @@ class BofhdExtension(BofhdCommandBase):
         tmp = host_id.split(".")
 
         # Quick check of IP-proto and loading of appropriate modules.
-        ip = False
+        ip_type = None
         if host_id.count(":") > 1:
             arecord = AAAARecord.AAAARecord(self.db)
-            ip = True
+            ip_type = dns.IPv6_NUMBER
         elif host_id.find(":") == -1 and tmp[-1].isdigit():
             arecord = ARecord.ARecord(self.db)
-            ip = True
+            ip_type = dns.IP_NUMBER
 
-        if ip:
+        if ip_type == dns.IPv6_NUMBER or ip_type == dns.IP_NUMBER:
             # Freeing an ip-number
-            owner_id = self._find.find_target_by_parsing(host_id, dns.IP_NUMBER)
+            owner_id = self._find.find_target_by_parsing(host_id, ip_type)
             names = dict([(a['name'], True)
                           for a in arecord.list_ext(ip_number_id=owner_id)])
             if len(names) > 1:
