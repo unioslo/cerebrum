@@ -29,7 +29,10 @@ Eg. To dump all employee-numbers from SAP:
     <scipt name> -s SAP -t NO_SAPNO
 
 will produce a file:
-    9831:Ola Normann:7321:Kari Normann:<employee_no>:<employee_name>...
+    9831:Ola Normann
+    7321:Kari Normann
+    <employee_no>:<employee_name>
+    ...
 """
 
 import sys
@@ -133,15 +136,12 @@ def write_dump_file(output, id_names):
                        'name'   -> <string> Full name of the employee
     """
 
-    try:
-        first = id_names.pop(0)
-        output.write("%s:%s" % (first['ext_id'], first['name']))
-    except IndexError:
+    if len(id_names) < 1:
         logger.warn("No data to write")
         return
 
     for id_name in id_names:
-        output.write(":%s:%s" % (id_name['ext_id'], id_name['name']))
+        output.write("%s:%s\n" % (id_name['ext_id'], id_name['name']))
 
 
 def main(argv=None):
