@@ -996,5 +996,5 @@ GUEST_WELCOME_SMS = ('Welcome.\n'
 # The maximum length of the username of guest accounts. Used to restrict the
 # length of usernames when generating them, to conform with limits of some
 # systems
-GUEST_MAX_LENGHT_USERNAME = 20
+GUEST_MAX_LENGTH_USERNAME = 20
 
