@@ -261,7 +261,8 @@ class BofhdExtension(BofhdCommandBase):
 
         ac = self.Account_class(self.db)
         name = ac.suggest_unames(self.const.account_namespace, fname, lname,
-                                 maxlen=25, prefix=settings['prefix'],
+                                 maxlen=guestconfig.GUEST_MAX_LENGTH_USERNAME, 
+                                 prefix=settings['prefix'],
                                  suffix='')[0]
         # TODO: make use of ac.create() instead, when it has been defined
         # properly.
