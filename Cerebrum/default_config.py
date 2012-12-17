@@ -992,3 +992,9 @@ GUEST_WELCOME_SMS = ('Welcome.\n'
         'Your username is: %(username)s\n'
         'Your password is: %(password)s\n'
         'The account will expire at %(expire)s')
+
+# The maximum length of the username of guest accounts. Used to restrict the
+# length of usernames when generating them, to conform with limits of some
+# systems
+GUEST_MAX_LENGHT_USERNAME = 20
+
