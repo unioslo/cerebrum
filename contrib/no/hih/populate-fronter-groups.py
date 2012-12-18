@@ -193,6 +193,7 @@ def studieprog_grupper(fsconn, remove_others=False):
         # full name of the studieprogram
         grp = get_group("studieprogram-%s" % x['studieprogramkode'],
                         'Alle studenter på ' + x['studieprognavn'])
+        logger.debug("Processing group (studieprog): %s", grp.group_name)
         # studieprog-group is either found or created. checking memberships
         members = set()
         for x in fs.undervisning.list_studenter_studieprog(x['studieprogramkode']):
@@ -219,6 +220,7 @@ def kull_grupper(fsconn, studieprogramkode, remove_others=False):
                                               x['terminkode'],
                                               x['arstall'],
                                               studieprogramkode))
+        logger.debug("Processing group (kull): %s", grp.group_name)        
         # update memberships in kull-group
         members = set()
         for x in fs.undervisning.list_studenter_kull(studieprogramkode, x['terminkode'], x['arstall']):
@@ -231,13 +233,13 @@ def kull_grupper(fsconn, studieprogramkode, remove_others=False):
         fill_group(grp, members, remove_others)
 
 def undervisningsmelding_grupper(fsconn, remove_others=False):
-    for x in fs.undervisning.list_undervisningenheter():
+    for x in fs.undervisning.list_undervisningenheter(sem=None):
         grp = get_group("emne-%s-%s-%s-%s" % (x['emnekode'], x['terminkode'],
                                               x['arstall'], x['terminnr']),
                         "Alle studenter undervisningsmeldt på %s, %s %s %s" % (
                                               x['emnekode'], x['arstall'],
                                               x['terminkode'], x['terminnr']))
-        logger.debug("Processing group: %s", grp.group_name)
+        logger.debug("Processing group (undervisningsmelding): %s", grp.group_name)
 
         # update memberships in emne-groups
         members = set()
@@ -264,7 +266,7 @@ def vurderingsmelding_grupper(fsconn, remove_others=False):
     for x in aktuelle_emnekoder:
         grp = get_group("vurd-%s" % (x),
                         "Alle studenter vurderingsmeldt på %s" % (x))
-        logger.debug("Processing group: %s", grp.group_name)
+        logger.debug("Processing group (vurdering): %s", grp.group_name)
         # update memberships in vurd-groups
         members = set()
         for y in fs.student.get_emne_eksamensmeldinger(x):
