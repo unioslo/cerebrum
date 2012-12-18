@@ -53,7 +53,7 @@ class GroupHiAMixin(Group.Group):
         from Cerebrum.modules import PosixGroup
 
         if isinstance(self, PosixGroup.PosixGroup):
-            if len(name) > 8:
+            if len(name) > 16:
                 return "name too long (%d characters)" % len(name)
             if re.search("^[^a-z]", name):
                 return "name must start with a character (%s)" % name
