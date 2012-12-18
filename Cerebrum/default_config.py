@@ -998,3 +998,10 @@ GUEST_WELCOME_SMS = ('Welcome.\n'
 # systems
 GUEST_MAX_LENGTH_USERNAME = 20
 
+
+# This switch decides if users are allowed to supply a phone number to send SMS
+# to, in bofhd commands that sends SMS-es. 
+# At its current state, it's a kill switch for the mobile number-parameter
+# of UiA's bofhd-command 'user send_welcome_sms'.
+BOFHD_ALLOW_MANUAL_MOBILE = False
+

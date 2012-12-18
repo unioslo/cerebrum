@@ -370,6 +370,7 @@ command_help = {
     'user_set_np_type': 'Set/remove np-type for an account (i.e. program, system etc)',
     'user_set_owner': 'Assign ownership for an account',
     'user_shell': 'Set login-shell for a POSIX user account',
+    'user_send_welcome_sms': 'Manually send out the Welcome SMS to a student',
     #'user_student_create': 'Create a user for a student'
     },
     }
@@ -472,7 +473,7 @@ affiliation status codes"""],
     'group_name_src':
         ['src_gname', 'Enter the source group'],
     'group_name_moderator':
-	['gname', 'Enter the name(s) of the moderator group(s)'],
+        ['gname', 'Enter the name(s) of the moderator group(s)'],
     'group_operation':
         ['op', 'Enter group operation',
          """Three values are legal: union, intersection and difference.
@@ -550,6 +551,9 @@ Some of the types may not make sense for this command.
          'account, person or group'],
     'member_name_src':
         ['member_name_src', 'Enter name of source member'],
+    'mobile_phone':
+        ['mobile', 'Enter the mobile number',
+         "Enter the 8 digit mobile phone number of the receiver"],
     'move_type':
         ['move_type', 'Enter move type',
          """Legal move types:
@@ -669,7 +673,7 @@ The bofh-command 'spread list' lists possible values"""],
     'string_description':
         ['description', 'Enter description'],
     'string_spread':
-	['spread', 'Enter spread. Example: AD_group NIS_fg@uio'],
+        ['spread', 'Enter spread. Example: AD_group NIS_fg@uio'],
     'string_email_host':
         ['hostname', 'Enter e-mail server.  Example: cyrus02'],
     'string_exec_host':

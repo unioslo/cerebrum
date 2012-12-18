@@ -70,3 +70,11 @@ class BofhdAuth(auth.BofhdAuth):
             if ety.entity_id == account.owner_id:
                 return True        
         raise PermissionDenied("Not allowed to remove trait")
+
+    def can_send_welcome_sms(self, operator, query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if self.is_group_member(operator, 'cerebrum-password'):
+            return True
+        return False
+

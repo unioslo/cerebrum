@@ -69,6 +69,14 @@ def date_to_string(date):
     
     return "%04i-%02i-%02i" % (date.year, date.month, date.day)
 
+
+# Parameter class for mobile phone number
+# FIXME: Refers help text in bofhd_uio_help
+class Mobile(Parameter):
+    _type = 'mobilePhone'
+    _help_ref = 'mobile_phone'
+
+
 class BofhdExtension(BofhdCommonMethods):
     OU_class = Utils.Factory.get('OU')
     Account_class = Factory.get('Account')
@@ -1466,6 +1474,87 @@ class BofhdExtension(BofhdCommonMethods):
         account.populate_trait(self.const.trait_exchange_migrated)
         account.write_db()
         return "OK, deleted trait for user %s" % uname
+
+
+    ## Helper function, get phone number
+    def _get_phone_number(self, person_id, phone_types):
+        """Search through a person's contact info and return the first found info
+        value as defined by the given types and source systems.
+        
+        @type  person_id: integer
+        @param person_id: Entity ID of the person
+
+        @type  phone_types: list
+        @param phone_types: list containing pairs of the source system and
+                            contact type to look for, i.e. on the form:
+                            (_AuthoritativeSystemCode, _ContactInfoCode)
+        """
+        #person = Utils.Factory.get('Person')(self.db)
+        person = self._get_person('entity_id', person_id)
+        for sys, type in phone_types:
+            for row in person.get_contact_info(source=sys, type=type):
+                return row['contact_value']
+
+
+    ## user send_welcome_sms
+    #
+    all_commands['user_send_welcome_sms'] = Command(
+        ("user", "send_welcome_sms"),
+        AccountName(help_ref="account_name", repeat=False),
+        Mobile(optional=True),
+        perm_filter='can_send_welcome_sms')
+    def user_send_welcome_sms(self, operator, username, mobile=None):
+        sms = Utils.SMSSender(logger=self.logger)
+        account = self._get_account(username)
+        phone = mobile
+        # Access Control
+        if (not self.ba.is_superuser(operator.get_entity_id()) and 
+            not self.ba.is_group_member(operator, 'cerebrum-password')):
+            raise PermissionDenied("You do not have permission for this operation")
+        # Ensure allowed to specify a phone number
+        if not cereconf.BOFHD_ALLOW_MANUAL_MOBILE and mobile:
+            raise CerebrumError('Not allowed to specify number')
+        # Ensure proper formatted phone number
+        if mobile and not (len(mobile) == 8 and mobile.isdigit()):
+            raise CerebrumError('Invalid phone number, must be 8 digits')
+        # Ensure proper account
+        if account.is_deleted():
+            raise CerebrumError("User is deleted")
+        if account.is_expired():
+            raise CerebrumError("User is expired")
+        if account.owner_type != self.const.entity_person:
+            raise CerebrumError("User is not a personal account")
+        # Look up the mobile number
+        if not phone:
+            phone_type = [(self.const.system_fs, 
+                           self.const.contact_mobile_phone)]
+            phone = self._get_phone_number(account.owner_id, phone_type)
+            if not phone:
+               raise CerebrumError("No mobile phone number for '%s'" % username)
+        # Get primary e-mail address, if it exists
+        mailaddr = ''
+        try:
+            mailaddr = ac.get_primary_mailaddress()
+        except:
+            pass
+        # NOTE: There's no need to supply the 'email' entry at the moment,
+        # but contrib/no/send_welcome_sms.py does it as well
+        message = cereconf.AUTOADMIN_WELCOME_SMS % {"username": username, 
+                                                    "email": mailaddr}
+        if not sms(phone, message):
+            raise CerebrumError("Cound not send SMS to %s" % phone)
+
+        # Set sent sms welcome sent-trait, so that it will be ignored by the
+        # scheduled job for sending welcome-sms.
+        try:
+            account.delete_trait(self.const.trait_sms_welcome)
+        except Errors.NotFoundError:
+            pass
+        finally:
+            account.populate_trait(code=self.const.trait_sms_welcome,
+                                   date=DateTime.now())
+            account.write_db()
+        return "Ok, message sent!"
 
 
     # email set_primary_address account lp@dom
