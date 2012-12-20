@@ -305,7 +305,7 @@ def main(argv=None):
     output = sys.stdout
     expired = False
     noimap = False
-    exclude = None
+    exclude = []
 
     ## Parse args
     if not argv:
@@ -333,7 +333,7 @@ def main(argv=None):
         if o in ('-s', '--imap_spread'):
             noimap = True
         if o in ('-g', '--exclude_groups'):
-            exclude = v.split(',')
+            exclude.extend(v.split(','))
 
 
     if exclude and not noimap:
