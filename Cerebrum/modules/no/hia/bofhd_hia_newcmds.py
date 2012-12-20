@@ -1508,9 +1508,7 @@ class BofhdExtension(BofhdCommonMethods):
         account = self._get_account(username)
         phone = mobile
         # Access Control
-        if (not self.ba.is_superuser(operator.get_entity_id()) and 
-            not self.ba.is_group_member(operator, 'cerebrum-password')):
-            raise PermissionDenied("You do not have permission for this operation")
+        self.ba.can_send_welcome_sms(operator.get_entity_id())
         # Ensure allowed to specify a phone number
         if not cereconf.BOFHD_ALLOW_MANUAL_MOBILE and mobile:
             raise CerebrumError('Not allowed to specify number')
