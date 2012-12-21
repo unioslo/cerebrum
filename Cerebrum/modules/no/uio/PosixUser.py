@@ -33,8 +33,8 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
     """
 
     def __init__(self, database):
+        self.pg = Factory.get('PosixGroup')(database)
         self.__super.__init__(database)
-        self.pg = Factory.get('PosixGroup')(self._db)
 
     def delete_posixuser(self):
         """Demotes this PosixUser to a normal Account. Overridden to also
@@ -56,6 +56,11 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
             self.pg.write_db()
             self.pg.delete()
         return ret
+
+    def clear(self):
+        """Also clear the PosixGroup."""
+        self.pg.clear()
+        return self.__super.clear()
 
     def populate(self, posix_uid, gid_id, gecos, shell, name=None, owner_type=None,
                  owner_id=None, np_type=None, creator_id=None, expire_date=None,
