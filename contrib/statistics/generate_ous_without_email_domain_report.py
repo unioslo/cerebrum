@@ -25,35 +25,31 @@ from datetime import datetime
 import cerebrum_path
 import cereconf
 
-from Cerebrum import OU
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 
-db = Factory.get("Database")()
-co = Factory.get("Constants")(db)
-ou = Factory.get("OU")(db)
-ac = Factory.get("Account")(db)
-
-email = Email.EmailDomain(db)
-eed = Email.EntityEmailDomain(db)
-
 
 def usage(exitcode=0):
-	"""Prints a usage string."""
+	"""Prints a usage string"""
 
 	print """Usage: generate_ous_without_email_domain_report.py --output <file>
 
-	Generates a HTML formatted report of OUs/stedkoder without an associated email domain
+	Generates an HTML formatted report of OUs/stedkoder without an associated 
+	email domain
 
 	-o, --output <file>		The file to print the report to. Defaults to stdout.
-	-e, --exclude-empty		Exclude OUs with no affiliated users. Defaults to false if not present.
+	-e, --exclude-empty		Exclude OUs with no affiliated users. Defaults to 
+							false if not present.
 	"""
+	
 	sys.exit(exitcode)
 
 
 def main():
 	try:
-		opts, args = getopt.getopt(sys.argv[1:], 'ho:e', ['output=', 'exclude-empty'])
+		opts, args = getopt.getopt(
+			sys.argv[1:], 'ho:e', ['output=', 'exclude-empty']
+		)
 	except getopt.GetoptError, e:
 		print e
 		usage(1)
@@ -77,6 +73,14 @@ def main():
 
 def get_report(exclude_empty):
 	"""Returns a list of OUs with no email domain"""
+
+	db = Factory.get("Database")()
+	co = Factory.get("Constants")(db)
+	ou = Factory.get("OU")(db)
+	ac = Factory.get("Account")(db)
+
+	email = Email.EmailDomain(db)
+	eed = Email.EntityEmailDomain(db)
 
 	# Count the number of accounts in each OU
 	ou_to_num_accounts = {}
@@ -114,10 +118,15 @@ def get_report(exclude_empty):
 				else:
 					ou_num_accounts = ou_to_num_accounts[ou_id]
 
-				ou_name = ou.get_name_with_language(name_variant=co.ou_name, name_language=co.language_nb, default="")
+				ou_name = ou.get_name_with_language(
+					name_variant=co.ou_name,
+					name_language=co.language_nb,
+					default=""
+				)
 
 				report.append({
-					'stedkode': '%02d%02d%02d' % (sko['fakultet'], sko['institutt'], sko['avdeling']),
+					'stedkode': '%02d%02d%02d' 
+						% (sko['fakultet'], sko['institutt'], sko['avdeling']),
 					'ou_id': ou_id,
 					'ou_num_accounts': ou_num_accounts,
 					'ou_name': ou_name
@@ -127,7 +136,7 @@ def get_report(exclude_empty):
 
 
 def print_report(output, report):
-	"""Turns a list of OUs into a formatted HTML report"""
+	"""Turns a list of OUs into an HTML formatted report"""
 
 	output.write("""<html>
 	<head>
@@ -142,7 +151,9 @@ def print_report(output, report):
 		</style>
 	</head>
 	<body>
-		<p class="meta">Generert """ + datetime.now().strftime('%Y-%m-%d %H:%M:%S') + """</p>
+		<p class="meta">Generert """
+		+ datetime.now().strftime('%Y-%m-%d %H:%M:%S') + 
+		"""</p>
 		<h1>Stedkoder uten e-postdomene</h1>
 		<table>
 			<thead>
@@ -156,7 +167,15 @@ def print_report(output, report):
 			<tbody>""")
 
 	for item in report:
-		output.write("\n<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>" % (item['stedkode'], item['ou_id'], item['ou_num_accounts'], item['ou_name']))
+		output.write(
+			"\n<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>"
+			% (
+				item['stedkode'], 
+				item['ou_id'], 
+				item['ou_num_accounts'], 
+				item['ou_name']
+			)
+		)
 
 	output.write("\n\t\t\t</tbody>\n\t\t</table>\n\t</body>\n</html>")
 
