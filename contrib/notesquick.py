@@ -162,6 +162,10 @@ def change_pw(account_id,pw_params):
     return True
 
 def add_user(account_id):
+    # TODO: we are actually using to different ways of accessing
+    # information about primary ou for an account in full- and quick
+    # sync respectively. This practice should be discontinued in
+    # future calender integrations.
     account_name = id_to_name(account_id)        
     pri_ou = NotesUtils.get_primary_ou(account_id)
     if not pri_ou:

@@ -66,7 +66,14 @@ def fetch_cerebrum_data(spread):
         aid2ainfo[int(row['account_id'])] = {'uname': row['name'],
                                              'owner_id': int(row['owner_id'])}
     # Fetch OU information for accounts, that is the OU for the
-    # primary affiliation.
+    # primary affiliation.  
+
+    # TODO: we should use person affiliation and person affiliation
+    # status to determine primary affiliation, not account types (much
+    # as we do in generate_org_ldif for UiO). there is however no time
+    # to do this now and as notes will be disused fairly soon (as of
+    # 2013-01-03) this change does not have a high priority
+
     ou_path = {}
     logger.debug('Fetching ous from Cerebrum')
     done_person = {}
