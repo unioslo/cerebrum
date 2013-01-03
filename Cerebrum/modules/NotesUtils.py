@@ -128,22 +128,27 @@ def get_cerebrum_ou_path(ou_id):
         ou.clear()
         ou.find(ou_id)
         path = ou.structure_path(co.perspective_sap)
-        # Don't include the root OU name since it is implicit. Also
-        # check if an idiot[tm] have altered the OU structure in such
-        # a way that we have several root nodes. If so chop of all
-        # root nodes.
         ou_struct = path.split('/')
-        # FIXME: This code is crap, because we really don't know if
-        # root node acronyms == 'UIO', but since we don't know how to
-        # recognise these we have to do a lame hack like this.
-        # Another thing is that UIO-specific code really shouldn't be
-        # in Cerebrum/module directory. Oh well, this hack should be
-        # removed soon.
+        sko = '%02d%02d%02d' % (ou.fakultet, ou.institutt, ou.avdeling)
+        logger.debug("OU-path: %s for OU %s", path, sko)
+        # This is highly UiO-specific. As UiO has two consecutive
+        # "roots" and the root node in Notes is built in, we need to
+        # get rid of both roots registered in Cerebrum
         while ou_struct and ou_struct[-1] == 'UIO':
             ou_struct.pop(-1)
-        # Notes can only take 4 OU levels, if there are more, we chop
-        # off the more specific levels.  
-        # "A/B/C/D/E/F" -> ["B", "C", "D", E"]
+        # Notes can only take 4 OU-levels in addition to the built in
+        # root. In all cases except of USIT we dropp the lowest
+        # OU-level. USIT has, however, decided that the best match for
+        # our organisation is to dropp the highest level (except for
+        # the root-level. Again, this code is highly UiO-specific.
+        # Everyone else: "A/B/C/D/E/F" -> ["B", "C", "D", E"] 
+        # USIT: "A/B/C/D/E/F" -> ["A", "B", "C", "D"]
+        if int(ou.fakultet) == 35:
+            if ou_struct[-1] == 'SADM':
+                ou_struct.pop(-1)
+            else:
+                logger.warn("Something may be wrong, all USIT-OUs should be attached to SADM. Trying to sync %s (%s) anyway", sko, path)
+            return ou_struct
         return ou_struct[-4:]
     except Errors.NotFoundError:
         logger.info("Could not find OU with id %s", ou_id)
