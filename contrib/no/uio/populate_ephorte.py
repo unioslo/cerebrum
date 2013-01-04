@@ -89,8 +89,8 @@ class PopulateEphorte(object):
         self.pols_ephorte_ouid2name = {}
         ou_id2name = dict((r["entity_id"], r["name"])
                           for r in ou.search_name_with_language(entity_type=co.entity_ou,
-                                                           name_language=co.language_nb,
-                                                           name_variant=co.ou_name_display))
+                                                                name_language=co.language_nb,
+                                                                name_variant=co.ou_name_display))
         # due to a logical error in ephorte-sync we have to allow
         # non-existing OU's to be assigned roles. the background for
         # this change is available in ePhorte case 2011/14072
@@ -206,7 +206,6 @@ class PopulateEphorte(object):
         
         return ret
 
-    
     def populate_roles(self):
         """Automatically add roles and spreads for employees according to
         rules in ephorte-sync-spec.rst """
@@ -233,9 +232,8 @@ class PopulateEphorte(object):
                 tmp_msg = "Failed mapping '%s' to known ePhorte OU. " % sko
                 tmp_msg += "Skipping affiliation %s@%s for person %s" % (
                     co.affiliation_ansatt, sko, row['person_id'])
-                # warn -> info level since ephorte support must deal
-                # with this anyway
-                logger.info(tmp_msg)
+                # ephorte support must deal with this and they should be informed
+                logger.warning(tmp_msg)
                 continue
             person2ou.setdefault(int(row['person_id']), {})[ou_id] = 1
 
