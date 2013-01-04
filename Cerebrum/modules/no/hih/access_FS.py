@@ -100,8 +100,10 @@ class HIHUndervisning(access_FS.Undervisning):
               r.versjonskode = e.versjonskode AND """ 
         if (sem=="current"):
             qry +="""%s""" % self._get_termin_aar(only_current=1)
+            # choose current semester only
         else: 
-            qry +="""%s""" % self._get_next_termin_aar()
+            qry +="""%s""" % self._get_termin_aar()
+            # choose current and following semester
         return self.db.query(qry)
 
     def list_aktiviteter(self, start_aar=time.localtime()[0],
