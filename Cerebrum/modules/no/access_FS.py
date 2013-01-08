@@ -65,6 +65,40 @@ class FSObject(object):
         return "NVL(p.status_dod, 'N') = 'N'\n"
 
     def _get_termin_aar(self, only_current=0):
+        """Generate an SQL query part for limiting registerkort to the current
+        term and maybe also the previous term. The output from this method
+        should be a part of an SQL query, and must have a reference to
+        L{fs.registerkort} by the character 'r'.
+
+        FS is working in terms and not with proper dates, so the query is
+        generated differently depending on the current date:
+
+        - From 1st of January to 15th of February: This year's 'VÅR' is
+          returned. If L{only_current} is False, also last year's 'HØST' is
+          included.
+
+        - From 15th of February to 30th of June: Only this year's 'VÅR' is
+          returned.
+
+        - From 1st of July to 15th of September: This year's 'HØST' is returned.
+          If L{only_current} is False, also this year's 'VÅR' is included.
+
+        - From 15th of September to 31st of December: Only this year's 'HØST' is
+          returned.
+
+        @type only_current: bool
+        @param only_current: If set to True, the query is limiting to only the
+            current term. If False, the previous term is also included if we are
+            early in the current term. This has no effect if the current date is
+            more than halfway into the current term.
+
+        @rtype: string
+        @return: An SQL formatted string that should be put in a larger query.
+            Example:
+                (r.terminkode = 'HØST' and r.arstall = 2013)
+            where 'r' refers to 'fs.registerkort r'.
+
+        """
         if self.mndnr <= 6:
             # Months January - June == Spring semester
             current = "(r.terminkode = 'VÅR' AND r.arstall=%s)\n" % self.year;
