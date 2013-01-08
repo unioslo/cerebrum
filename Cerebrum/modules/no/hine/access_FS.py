@@ -77,3 +77,5 @@ class FS(access_FS.FS):
 
         # Override with HiNE-spesific classes
         self.info = HINEStudieInfo(self.db)
+        self.student = HineStudent(self.db)
+        

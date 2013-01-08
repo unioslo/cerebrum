@@ -126,7 +126,7 @@ def write_person_info(outfile):
 def write_studprog_info(outfile):
     """Lager fil med informasjon om alle definerte studieprogrammer"""
     f = MinimumSizeWriter(outfile)
-    f.set_minimum_size_limit(10*KiB)
+    f.set_minimum_size_limit(10)
     f.write(xml.xml_hdr + "<data>\n")
     cols, dta = _ext_cols(fs.info.list_studieprogrammer())
     for t in dta:
