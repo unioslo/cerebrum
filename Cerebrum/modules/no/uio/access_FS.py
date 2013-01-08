@@ -344,13 +344,13 @@ class UiOStudent(access_FS.Student):
         return self.db.query(qry, locals())
 
     def list_aktiv_emnestud(self, fodselsdato=None, personnr=None):
-        """Hent informasjon om personer som anses som aktive studenter
-           på grunnlag av eksisterende gyldig undervisningsmelding og
-           gyldig semesterkort i inneværende semester. Merk at disse
-           ikke nødvendigvis har studierett på noen studieprogrammer
-           og at det derfor må hentes ut personopplysninger i tillegg
-           til opplysninger om studieaktivitet."""
+        """Hent informasjon om personer som anses som aktive studenter på
+        grunnlag av eksisterende gyldig undervisningsmelding og gyldig
+        semesterkort i inneværende semester. Merk at disse ikke nødvendigvis har
+        studierett på noen studieprogrammer og at det derfor må hentes ut
+        personopplysninger i tillegg til opplysninger om studieaktivitet.
 
+        """
         extra = ""
         if fodselsdato and personnr:
             extra = "p.fodselsdato=:fodselsdato AND p.personnr=:personnr AND"
@@ -381,7 +381,8 @@ class UiOStudent(access_FS.Student):
               u.terminkode = r.terminkode AND
               u.arstall = r.arstall AND
               NVL(u.status_opptatt, 'N') = 'J'
-              """ % (self._is_alive(), self._get_termin_aar(only_current=1), extra)
+              """ % (self._is_alive(), self._get_termin_aar(only_current=0),
+                     extra)
         return self.db.query(qry, locals())
  
     def list_privatist_emne(self, fodselsdato=None, personnr=None):  # GetStudentPrivatistEmne_50
