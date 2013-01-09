@@ -230,7 +230,11 @@ class PopulateEphorte(object):
             if ou_id is None or ou_id not in self.app_ephorte_ouid2name:
                 sko = self.ouid2sko[int(row['ou_id'])]
                 tmp_msg = "Failed mapping '%s' to known ePhorte OU. " % sko
-                tmp_msg += "Skipping affiliation %s@%s for person %s" % (
+                if self.find_person_info(row['person_id'])['uname']:
+                  tmp_msg += "Skipping affiliation %s@%s for user %s" % (
+                    co.affiliation_ansatt, sko, self.find_person_info(row['person_id'])['uname'])
+                else:
+                  tmp_msg += "Skipping affiliation %s@%s for person %s" % (
                     co.affiliation_ansatt, sko, row['person_id'])
                 # ephorte support must deal with this and they should be informed
                 logger.warning(tmp_msg)
