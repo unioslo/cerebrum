@@ -2114,6 +2114,13 @@ class BofhdExtension(BofhdCommonMethods):
         # All OK, let's nuke it all.
         result = []
         ea = Email.EmailAddress(self.db)
+        epat = Email.EmailPrimaryAddressTarget(self.db)
+        try:
+            epat.find(et.entity_id)
+        except Errors.NotFoundError:
+            pass
+        else:
+            epat.delete()
         for r in et.get_addresses():
             ea.clear()
             ea.find(r['address_id'])
