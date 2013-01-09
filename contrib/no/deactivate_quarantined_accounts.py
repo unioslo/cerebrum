@@ -161,7 +161,12 @@ def main():
             logger.warn("Could not find account_id %s, skipping", a)
             continue
         logger.debug('Processing account %s', account.account_name)
-        process_account(account, delete)
+        try:
+            process_account(account, delete)
+        except Exception, e:
+            # Add debug info
+            logger.warn("Failed processing account: %s" % account.account_name)
+            raise
 
     if dryrun:
         database.rollback()
