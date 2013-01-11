@@ -220,16 +220,46 @@ def _load_cere_aff():
     return(fs_aff)
 
 def rem_old_aff():
+    """Deleting the remaining person affiliations that were not processed by the
+    import. This is all student affiliations from FS which should not be here
+    anymore.
+
+    Note that affiliations are really not removed until 365 days after they are
+    not found from FS any more. This is a workaround to prolong the XXX
+
+    """
     person = Factory.get("Person")(db)
-    for k,v in old_aff.items():
-        if v:
-            ent_id,ou,affi = k.split(':')
+    for k in old_aff:
+        if not old_aff[k]:
+            continue
+        ent_id, ou, affi = (int(x) for x in k.split(':'))
+        aff = person.list_affiliations(person_id=ent_id,
+                                       source_system=co.system_fs,
+                                       affiliation=affi, ou_id=ou)
+        if not aff:
+            logger.debug("No affiliation %s for person %s, skipping",
+                         co.PersonAffiliation(affi), ent_id)
+            continue
+        if len(aff) > 1:
+            logger.warn("More than one aff for person %s, what to do?", ent_id)
+            # if more than one aff we should probably just remove both/all
+            continue
+        aff = aff[0]
+
+        # Check date, do not remove affiliation until last_date has not been
+        # updated in the last 365 days. Only EVU affs should be removed at once.
+        if (int(aff['status']) == int(co.affiliation_status_student_evu) or
+                aff['last_date'] < (mx.DateTime.now() - 365)):
             person.clear()
             try:
-                person.find(int(ent_id))
-                person.delete_affiliation(ou, affi, co.system_fs)
+                person.find(ent_id)
             except Errors.NotFoundError:
                 logger.warn("Couldn't find person with id %s", ent_id)
+                continue
+            logger.info("Removing aff %s for person=%s. OU_id=%s",
+                        co.PersonAffiliation(affi), ent_id, ou)
+            person.delete_affiliation(ou_id=ou, affiliation=affi,
+                                      source=co.system_fs)
 
 def filter_affiliations(affiliations):
     """The affiliation list with cols (ou, affiliation, status) may
