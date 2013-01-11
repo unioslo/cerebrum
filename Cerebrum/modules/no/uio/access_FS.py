@@ -68,7 +68,7 @@ class UiOStudent(access_FS.Student):
            p.personnr=sps.personnr AND
            %s
            sps.studieprogramkode=sp.studieprogramkode AND
-           NVL(sps.dato_studierett_gyldig_til, SYSDATE) >= (SYSDATE - 180) AND
+           NVL(sps.dato_studierett_gyldig_til, SYSDATE) >= SYSDATE AND
            sps.status_privatist = 'N' AND
            sps.dato_studierett_tildelt < SYSDATE + 14 AND           
            sps.dato_studierett_tildelt >= to_date('2003-01-01', 'yyyy-mm-dd') AND
@@ -104,7 +104,7 @@ class UiOStudent(access_FS.Student):
            p.fodselsdato=sps.fodselsdato AND
            p.personnr=sps.personnr AND
            %s
-           NVL(sps.dato_studierett_gyldig_til, SYSDATE) >= (SYSDATE - 180) AND
+           NVL(sps.dato_studierett_gyldig_til, SYSDATE) >= SYSDATE AND
            sps.status_privatist='N' AND
            sps.studieprogramkode=sp.studieprogramkode AND
            sp.studienivakode in (900,980) AND
@@ -142,7 +142,7 @@ class UiOStudent(access_FS.Student):
            p.personnr=r.personnr AND
            %s
            sps.studieprogramkode=sp.studieprogramkode AND
-           NVL(sps.dato_studierett_gyldig_til, SYSDATE) >= (SYSDATE - 180) AND
+           NVL(sps.dato_studierett_gyldig_til, SYSDATE) >= SYSDATE AND
            sps.status_privatist = 'N' AND
            r.arstall >= (%s - 1) AND
            %s""" % (extra, self.year, self._is_alive())
@@ -381,7 +381,7 @@ class UiOStudent(access_FS.Student):
               u.terminkode = r.terminkode AND
               u.arstall = r.arstall AND
               NVL(u.status_opptatt, 'N') = 'J'
-              """ % (self._is_alive(), self._get_termin_aar(only_current=0),
+              """ % (self._is_alive(), self._get_termin_aar(only_current=1),
                      extra)
         return self.db.query(qry, locals())
  
