@@ -367,6 +367,14 @@ class CLCleanDefConf:
              'triggers': (co.account_password_token, )}
             ])
 
+      if hasattr(co, 'aaaa_record_add'):
+        # IPV6 changes
+        keep_togglers.extend([
+            {'columns': ('subject_entity', ),
+             'triggers': (co.aaaa_record_add, co.aaaa_record_del, co.aaaa_record_update)},
+            {'columns': ('subject_entity', ),
+             'triggers': (co.ipv6_number_add, co.ipv6_number_del, co.ipv6_number_update, )}])
+
       try:
        if max_ages[int(co.guest_create)]:
         keep_togglers.extend([
