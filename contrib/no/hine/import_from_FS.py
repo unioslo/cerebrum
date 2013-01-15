@@ -128,7 +128,7 @@ def write_studprog_info(outfile):
     f = MinimumSizeWriter(outfile)
     f.set_minimum_size_limit(10)
     f.write(xml.xml_hdr + "<data>\n")
-    cols, dta = _ext_cols(fs.info.list_studieprogrammer())
+    cols, dta = _ext_cols(fs.info.list_studieprogrammer(expired=False))
     for t in dta:
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'studprog')
                 + "\n")
@@ -165,7 +165,7 @@ def main():
 
     ou_file = default_ou_file
     person_file = default_person_file
-    studieprogram_file = default_studieprogram_file
+    studprog_file = default_studieprogram_file
     for o, val in opts:
         if o in ('--ou-file',):
             ou_file = val

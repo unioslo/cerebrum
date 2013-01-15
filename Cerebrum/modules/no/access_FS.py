@@ -1166,7 +1166,7 @@ class Alumni(FSObject):
         return self.db.query(qry)
 
 class StudieInfo(FSObject):
-    def list_studieprogrammer(self): # GetStudieproginf
+    def list_studieprogrammer(self, expired=True): # GetStudieproginf
         """For hvert definerte studieprogram henter vi 
         informasjon om utd_plan og eier samt studieprogkode. Vi burde
         her ha en sjekk på om studieprogrammet er utgått, men datagrunnalget
@@ -1177,6 +1177,8 @@ class StudieInfo(FSObject):
                instituttnr_studieansv, gruppenr_studieansv,
                studienivakode, status_utgatt, studieprognavn
         FROM fs.studieprogram"""
+        if not expired:
+            qry += " WHERE status_utgatt = 'N'"
         return self.db.query(qry)
 
     def list_emner(self): # GetEmneinf
