@@ -824,6 +824,16 @@ DB_DRIVER_ORACLE = "cx_Oracle"
 # 
 AUTOMATIC_GROUPS = {}
 
+
+# Mapping of affiliations and groups, used for automatic group membership 
+# based on person affiliations.
+# Syntax: 'AFFILIATION': 'group'
+# The variable is overwritten by local cereconf.py and used by
+# update_affiliation_groups.py (contrib).
+# Initiated by UiA Dec 2012, implemented Jan 2013.
+AFFILIATION_GROUPS = {}
+
+
 ###
 ### SMS gateway
 ###
