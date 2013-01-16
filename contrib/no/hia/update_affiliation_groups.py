@@ -158,9 +158,6 @@ def update_aff_groups(aff_groups, dryrun):
 
 def main():
 
-    if len(sys.argv) < 2:
-        usage(0)
-
     dryrun = False
     aff_groups = None
 
