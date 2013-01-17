@@ -64,7 +64,7 @@ def list_affs():
     """
     affiliations = pe.list_person_affiliation_codes()
     for a in affiliations:
-        print str(int(a['code'])) + ": " + a['code_str'] + " (" + a['description'] + ")"
+        print "%s: %s (%s)" % (str(int(a['code'])), a['code_str'], a['description'])
 
 def update_aff_groups(aff_groups, dryrun):
     # get all affiliations and aff ids
@@ -77,7 +77,7 @@ def update_aff_groups(aff_groups, dryrun):
         
         # valid affiliation?
         if not affiliation in affs:
-            logger.error("Affiliation not found (" + affiliation + ").")
+            logger.error("Affiliation not found (%s)." % affiliation)
             return
 
         gr.clear()
@@ -85,7 +85,7 @@ def update_aff_groups(aff_groups, dryrun):
             # valid group?
             gr.find_by_name(group)
         except Errors.NotFoundError:
-            logger.error("Group not found (" + group + ").")
+            logger.error("Group not found (%s)." % group)
             return
 
         # get all persons with this affiliation
@@ -113,25 +113,25 @@ def update_aff_groups(aff_groups, dryrun):
             group_members.add(int(member['member_id']))
 
         # accounts that should be added to the group
-        to_be_added = list(primary_accounts - group_members)
+        to_be_added = primary_accounts - group_members
 
         # accounts that should be removed from the group
-        to_be_removed = list(group_members - primary_accounts)
+        to_be_removed = group_members - primary_accounts
 
         # remove accounts from group
         for account in to_be_removed:
             try:
                 gr.remove_member(account)
                 gr.write_db()
-                logger.debug("Removed " + str(account) + " from " + group + ".")
+                logger.debug("Removed %s from %s." % (str(account), group))
             except Errors.DatabaseError, e:
-                logger.error("Failed removing " + str(account) + " from " +
-                             group + ": " + e)
+                logger.error("Failed removing %s from %s: %s" % 
+                             (str(account), group, e))
         if not dryrun:
             try:
                 gr.commit()
             except Errors.DatabaseError, e:
-                logger.error("Commit of removed group members failed: " + e)
+                logger.error("Commit of removed group members failed: %s" % e)
         else:
             db.rollback()
 
@@ -140,15 +140,15 @@ def update_aff_groups(aff_groups, dryrun):
             try:
                 gr.add_member(account)
                 gr.write_db()
-                logger.debug("Added " + str(account) + " to " + group + ".")
+                logger.debug("Added %s to %s." % (str(account), group))
             except Errors.DatabaseError, e:
-                logger.error("Failed adding " + str(account) + " to " + group + ": "
-                             + e)
+                logger.error("Failed adding %s to %s: %s" % 
+                             (str(account), group, e))
         if not dryrun:
             try:
                 gr.commit()
             except Errors.DatabaseError, e:
-                logger.error("Commit of added group members failed: " + e)
+                logger.error("Commit of added group members failed: %s" % e)
         else:
             db.rollback()
 
