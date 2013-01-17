@@ -42,7 +42,7 @@ baot = BofhdAuthOpTarget(db)
 db.cl_init(change_program="update_affiliation_groups.py")
 
 # Initialize logger
-logger = Factory.get_logger('console')
+logger = Factory.get_logger('cronjob')
     
 def usage(exitcode=0):
     print """Usage:
@@ -64,13 +64,13 @@ def list_affs():
     """
     affiliations = pe.list_person_affiliation_codes()
     for a in affiliations:
-        print str(int(a[0])) + ": " + a[1] + " (" + a[2] + ")"
+        print str(int(a['code'])) + ": " + a['code_str'] + " (" + a['description'] + ")"
 
 def update_aff_groups(aff_groups, dryrun):
     # get all affiliations and aff ids
     affs = {}
     for a in pe.list_person_affiliation_codes():
-        affs[a[1]] = int(a[0])
+        affs[a['code_str']] = int(a['code'])
 
     # for each aff:group...
     for affiliation,group in aff_groups.items():
@@ -99,24 +99,24 @@ def update_aff_groups(aff_groups, dryrun):
         # list_affiliations). Account.list_accounts_by_type may serve as an
         # example.
         #####
-        primary_accounts = []
+        primary_accounts = set()
         for person in persons:
             ac.clear()
-            account = ac.list_accounts_by_type(person_id=person[0],
+            account = ac.list_accounts_by_type(person_id=person['person_id'],
                                                primary_only=True)
             if account:
-                primary_accounts.append(int(account[0][3]))
+                primary_accounts.add(int(account[0]['account_id']))
         
         # get all entity_ids in target group
-        group_members = []
+        group_members = set()
         for member in list(gr.search_members(group_id=gr.entity_id)):
-            group_members.append(int(member[3]))
+            group_members.add(int(member['member_id']))
 
         # accounts that should be added to the group
-        to_be_added = list(set(primary_accounts) - set(group_members))
+        to_be_added = list(primary_accounts - group_members)
 
         # accounts that should be removed from the group
-        to_be_removed = list(set(group_members) - set(primary_accounts))
+        to_be_removed = list(group_members - primary_accounts)
 
         # remove accounts from group
         for account in to_be_removed:
@@ -127,13 +127,11 @@ def update_aff_groups(aff_groups, dryrun):
             except Errors.DatabaseError, e:
                 logger.error("Failed removing " + str(account) + " from " +
                              group + ": " + e)
-                db.rollback()
         if not dryrun:
             try:
                 gr.commit()
             except Errors.DatabaseError, e:
                 logger.error("Commit of removed group members failed: " + e)
-                db.rollback()
         else:
             db.rollback()
 
@@ -146,13 +144,11 @@ def update_aff_groups(aff_groups, dryrun):
             except Errors.DatabaseError, e:
                 logger.error("Failed adding " + str(account) + " to " + group + ": "
                              + e)
-                db.rollback()
         if not dryrun:
             try:
                 gr.commit()
             except Errors.DatabaseError, e:
                 logger.error("Commit of added group members failed: " + e)
-                db.rollback()
         else:
             db.rollback()
 
