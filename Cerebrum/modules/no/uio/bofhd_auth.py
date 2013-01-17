@@ -47,9 +47,17 @@ class BofhdAuth(auth.BofhdAuth):
         owner = account.get_trait(self.const.trait_guest_owner)
         if not owner or not owner['target_id']:
             return None
+        # Lets check if operator is the guest account owner
+        if operator == owner['target_id']:
+            return True
+
         # Let members of temporary owner group for guest accounts set password
+        # Guests can now have other types of owners than groups:
         grp = Factory.get("Group")(self._db)
-        grp.find(owner['target_id'])
+        try:
+            grp.find(owner['target_id'])
+        except NotFoundError:
+            return False
         return self.is_group_member(operator, grp.group_name)
     
     def can_set_password(self, operator, account=None,
