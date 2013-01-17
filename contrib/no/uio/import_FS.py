@@ -228,6 +228,7 @@ def rem_old_aff():
     not found from FS any more. This is a workaround to prolong the XXX
 
     """
+    logger.info("Removing old FS affiliations")
     person = Factory.get("Person")(db)
     for k in old_aff:
         if not old_aff[k]:
@@ -558,7 +559,7 @@ def usage(exitcode=0):
 
     Action:
 
-    -q --generate-groups    If set, the group for accept for being published at
+    -g --generate-groups    If set, the group for accept for being published at
                             uio.no gets populated with the students.
 
     -d --include-delete     If set, old person affiliations are deleted from the
