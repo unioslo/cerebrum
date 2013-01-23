@@ -26,6 +26,7 @@ group_help = {
     'group': "Group commands",
     'host': "Host related commands",
     'misc': 'Miscellaneous commands',
+    'ou': 'Organizational unit related commands',
     'perm': 'Control of Privileges in Cerebrum',
     'person': 'Person related commands',
     'pquota': 'Pquota related commands',
@@ -274,10 +275,12 @@ command_help = {
         "View pending jobs",
     "misc_samba_mount":
         "Maps disk to logon-server (for use with Samba)",
-    "misc_stedkode":
-        "Look up OU by stedkode or name",
     "misc_verify_password":
         "Check whether an account has a given password",
+    },
+    'ou': {
+    'ou_search': 'Search for OUs by name or a partial stedkode',
+    'ou_info': 'View information about an OU'
     },
     'perm': {
     'perm_opset_list': 'List defined opsets',
@@ -580,6 +583,14 @@ Some of the types may not make sense for this command.
         ['ou', 'Enter OU',
         'Enter the 6-digit code of the organizational unit the person is '+
         'affiliated to'],
+    'ou_search_pattern':
+        ['pattern', 'Enter search pattern',
+        'Enter a string (% works as a wildcard) or a partial stedkode to' +
+        'search for.'],
+    'ou_search_language':
+        ['language', 'Enter a language code (nb/en)',
+        'Enter a language code (nb/en) to be used for searching and ' +
+        'displaying OU names and acronyms.'],
     'person_id':
         ['person_id', 'Enter person id',
         """Enter person id as idtype:id.

@@ -6547,29 +6547,40 @@ Addresses and settings:
         self.server.read_config()
         return "OK, server-config reloaded"
 
-    # misc stedkode <pattern>
-    all_commands['misc_stedkode'] = Command(
-        ("misc", "stedkode"), SimpleString(),
+    # ou search <pattern> <language> <spread_filter>
+    all_commands['ou_search'] = Command(
+        ("ou", "search"),
+        SimpleString(help_ref='ou_search_pattern'),
+        SimpleString(help_ref='ou_search_language', optional=True),
+        Spread(help_ref='spread_filter', optional=True),
         fs=FormatSuggestion([
-        (" %06s    %s",
-         ('stedkode', 'short_name')),
-        ("   affiliation %-7s @%s",
-         ('affiliation', 'domain'))],
-         hdr="Stedkode   Organizational unit"))
-    def misc_stedkode(self, operator, pattern):
-        meta = Metainfo.Metainfo(self.db)
+            (" %06s    %s", ('stedkode', 'name'))
+            ],
+        hdr="Stedkode   Organizational unit"))
+    def ou_search(self, operator, pattern, language='nb', spread_filter=None):
+        if len(pattern) == 0:
+            return 'Please specify a search pattern.'
+
+        try:
+            language = int(self.const.LanguageCode(language))
+        except Errors.NotFoundError:
+            return "Unknown language \"%s\", try \"nb\" or \"en\"" % language
+
         output = []
         ou = self.OU_class(self.db)
+
         if re.match(r'[0-9]{1,6}$', pattern):
             fak = [ pattern[0:2] ]
             inst = [ pattern[2:4] ]
             avd = [ pattern[4:6] ]
+
             if len(fak[0]) == 1:
                 fak = [ int(fak[0]) * 10 + x for x in range(10) ]
             if len(inst[0]) == 1:
                 inst = [ int(inst[0]) * 10 + x for x in range(10) ]
             if len(avd[0]) == 1:
                 avd = [ int(avd[0]) * 10 + x for x in range(10) ]
+
             # the following loop may look scary, but we will never
             # call get_stedkoder() more than 10 times.
             for f in fak:
@@ -6583,47 +6594,222 @@ Addresses and settings:
                                                   avdeling=a):
                             ou.clear()
                             ou.find(r['ou_id'])
-                            short_name = ou.get_name_with_language(
-                                         name_variant=self.const.ou_name_short,
-                                         name_language=self.const.language_nb,
+
+                            if spread_filter:
+                                spread_filter_match = False
+                                for spread in ou.get_spread():
+                                    if str(self.const.Spread(spread[0])).lower() == spread_filter.lower():
+                                        spread_filter_match = True
+                                        break
+                            
+                            acronym = ou.get_name_with_language(
+                                         name_variant=self.const.ou_name_acronym,
+                                         name_language=language,
                                          default="")
-                            output.append({'stedkode':
-                                           '%02d%02d%02d' % (ou.fakultet,
-                                                             ou.institutt,
-                                                             ou.avdeling),
-                                           'short_name': short_name})
+                            name = ou.get_name_with_language(
+                                         name_variant=self.const.ou_name,
+                                         name_language=language,
+                                         default="")
+                            
+                            if len(acronym) > 0:
+                                acronym = "(%s) " % acronym
+
+                            if not spread_filter or (spread_filter and spread_filter_match):
+                                output.append({
+                                    'stedkode': '%02d%02d%02d' % (ou.fakultet,
+                                                                  ou.institutt,
+                                                                  ou.avdeling),
+                                    'name': "%s%s" % (acronym, name)
+                                })
         else:
-            for r in ou.search_name_with_language(entity_type=self.const.entity_ou,
-                                             name_variant=self.const.ou_name_short,
-                                             name=pattern,
-                                             exact_match=False):
+            for r in ou.search_name_with_language(
+                                    entity_type=self.const.entity_ou,
+                                    name_language=language,
+                                    name=pattern,
+                                    exact_match=False):
                 ou.clear()
                 ou.find(r['entity_id'])
-                output.append({'stedkode':
-                               '%02d%02d%02d' % (ou.fakultet,
-                                                 ou.institutt,
-                                                 ou.avdeling),
-                               'short_name': r["name"]})
-        try:
-            email_info = meta.get_metainfo('sqlmodule_email')
-        except Errors.NotFoundError:
-            email_info = None
-        if len(output) == 1 and email_info:
-            eed = Email.EntityEmailDomain(self.db)
+
+                if spread_filter:
+                    spread_filter_match = False
+                    for spread in ou.get_spread():
+                        if str(self.const.Spread(spread[0])).lower() == spread_filter.lower():
+                            spread_filter_match = True
+                            break
+
+                acronym = ou.get_name_with_language(
+                                         name_variant=self.const.ou_name_acronym,
+                                         name_language=language,
+                                         default="")
+                name = ou.get_name_with_language(
+                                         name_variant=self.const.ou_name,
+                                         name_language=language,
+                                         default="")
+
+                if len(acronym) > 0:
+                    acronym = "(%s) " % acronym
+
+                if not spread_filter or (spread_filter and spread_filter_match):
+                    output.append({
+                        'stedkode': '%02d%02d%02d' % (ou.fakultet,
+                                                      ou.institutt,
+                                                      ou.avdeling),
+                        'name': "%s%s" % (acronym, name)
+                    })
+
+        if len(output) == 0:
+            if spread_filter:
+                return "No matches for \"%s\" with spread filter \"%s\"" % (pattern, spread_filter)
+            return "No matches for \"%s\"" % pattern
+
+        #removes duplicate results
+        seen = set()
+        output_nodupes = []
+        for r in output:
+            t = tuple(r.items())
+            if t not in seen:
+                seen.add(t)
+                output_nodupes.append(r)
+
+        return output_nodupes
+
+    # ou info <stedkode>
+    all_commands['ou_info'] = Command(
+        ("ou", "info"),
+        OU(),
+        fs=FormatSuggestion([
+            ("Stedkode:      %s\n" +
+             "Entity ID:     %i\n" +
+             "Name (nb):     %s\n" +
+             "Name (en):     %s\n" +
+             "Quarantines:   %s\n" +
+             "Spreads:       %s",
+             ('stedkode', 'entity_id', 'name_nb', 'name_en', 'quarantines',
+              'spreads')),
+            ("Contact:       (%s) %s: %s",
+             ('contact_source', 'contact_type', 'contact_value')),
+            ("Address:       (%s) %s: %s%s%s %s %s",
+             ('address_source', 'address_type', 'address_text', 'address_po_box',
+              'address_postal_number', 'address_city', 'address_country')),
+            ("Email domain:  affiliation %-7s @%s",
+             ('email_affiliation', 'email_domain'))
+            ]
+        ))
+    def ou_info(self, operator, stedkode):
+        output = []
+        ou = self.OU_class(self.db)
+
+        if re.match(r'[0-9]{6}$', stedkode):
             try:
-                eed.find(ou.entity_id)
+                ou.find_stedkode(
+                    stedkode[0:2],
+                    stedkode[2:4],
+                    stedkode[4:6], 
+                    cereconf.DEFAULT_INSTITUSJONSNR
+                )
             except Errors.NotFoundError:
-                pass
-            ed = Email.EmailDomain(self.db)
-            for r in eed.list_affiliations():
-                affname = "<any>"
-                if r['affiliation']:
-                    affname = str(self.const.PersonAffiliation(r['affiliation']))
-                ed.clear()
-                ed.find(r['domain_id'])
-                output.append({'affiliation': affname,
-                               'domain': ed.email_domain_name})
-        return output
+                return "Stedkode %s was not found." % stedkode
+            
+            acronym_nb = ou.get_name_with_language(
+                                     name_variant=self.const.ou_name_acronym,
+                                     name_language=self.const.language_nb,
+                                     default="")
+            fullname_nb = ou.get_name_with_language(
+                                     name_variant=self.const.ou_name,
+                                     name_language=self.const.language_nb,
+                                     default="")
+            acronym_en = ou.get_name_with_language(
+                                     name_variant=self.const.ou_name_acronym,
+                                     name_language=self.const.language_en,
+                                     default="")
+            fullname_en = ou.get_name_with_language(
+                                     name_variant=self.const.ou_name,
+                                     name_language=self.const.language_en,
+                                     default="")
+
+            if len(acronym_nb) > 0:
+                acronym_nb = "(%s) " % acronym_nb
+
+            if len(acronym_en) > 0:
+                acronym_en = "(%s) " % acronym_en
+
+            quarantines = []
+            for q in ou.get_entity_quarantine(only_active=True):
+                quarantines.append(str(self.const.Quarantine(q['quarantine_type'])))
+            if len(quarantines) == 0:
+                quarantines = ['<none>']
+
+            spreads = []
+            for s in ou.get_spread():
+                spreads.append(str(self.const.Spread(s['spread'])))
+            if len(spreads) == 0:
+                spreads = ['<none>']
+
+            output.append({
+                'entity_id': ou.entity_id,
+                'stedkode': stedkode,
+                'name_nb': "%s%s" % (acronym_nb, fullname_nb),
+                'name_en': "%s%s" % (acronym_en, fullname_en),
+                'quarantines': ', '.join(quarantines),
+                'spreads': ', '.join(spreads)
+            })
+
+            for c in ou.get_contact_info():
+                output.append({
+                    'contact_source': str(self.const.AuthoritativeSystem(c['source_system'])),
+                    'contact_type': str(self.const.ContactInfo(c['contact_type'])),
+                    'contact_value': c['contact_value']
+                })
+
+            for a in ou.get_entity_address():
+                if a['country'] is not None:
+                    a['country'] = ', ' + a['country']
+                else:
+                    a['country'] = ''
+
+                if a['p_o_box'] is not None:
+                    a['p_o_box'] = "PO box %s, " % a['p_o_box']
+                else:
+                    a['p_o_box'] = ''
+
+                if len(a['address_text']) > 0:
+                    a['address_text'] += ', '
+
+                output.append({
+                    'address_source': str(self.const.AuthoritativeSystem(a['source_system'])),
+                    'address_type': str(self.const.Address(a['address_type'])),
+                    'address_text': a['address_text'].replace("\n", ', '),
+                    'address_po_box': a['p_o_box'],
+                    'address_city': a['city'],
+                    'address_postal_number': a['postal_number'],
+                    'address_country': a['country']
+                })
+
+            try:
+                meta = Metainfo.Metainfo(self.db)
+                email_info = meta.get_metainfo('sqlmodule_email')
+            except Errors.NotFoundError:
+                email_info = None
+            if email_info:
+                eed = Email.EntityEmailDomain(self.db)
+                try:
+                    eed.find(ou.entity_id)
+                except Errors.NotFoundError:
+                    pass
+                ed = Email.EmailDomain(self.db)
+                for r in eed.list_affiliations():
+                    affname = "<any>"
+                    if r['affiliation']:
+                        affname = str(self.const.PersonAffiliation(r['affiliation']))
+                    ed.clear()
+                    ed.find(r['domain_id'])
+
+                    output.append({'email_affiliation': affname,
+                                   'email_domain': ed.email_domain_name})
+
+            return output
+        else:
+            return "Expected a six-digit stedkode."
 
     # misc verify_password
     all_commands['misc_verify_password'] = Command(
