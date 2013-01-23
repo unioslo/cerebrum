@@ -461,7 +461,7 @@ class EntityNameWithLanguage(Entity):
                 name_pattern = prepare_string(name)
                 if name_pattern.count('%') == 0:
                     name_pattern = '%' + name_pattern + '%'
-                where.append("(eln.name LIKE :name)")
+                where.append("(LOWER(eln.name) LIKE :name)")
                 binds["name"] = name_pattern
 
         where = " AND ".join(where) or ""
