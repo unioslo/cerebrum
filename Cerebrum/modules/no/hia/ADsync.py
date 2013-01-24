@@ -279,14 +279,14 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 # user_dict with account_id as key (before key switch)
                 data['uidNumber'] = eid2posix[id]['uid']
                 data['gidNumber'] = eid2posix[id]['gid']
-            elif data.has_key('entity_id') and eid2posix.has_key(int(data['entity_id'])):
-                # user_dict with account_name as key (after key switch)
-                data['uidNumber'] = eid2posix[int(data['entity_id'])]['uid']
-                data['gidNumber'] = eid2posix[int(data['entity_id'])]['gid']
-            elif isinstance(id, int):
-                self.logger.debug('Account id %s is not a posix account' % id)
+            #elif data.has_key('entity_id') and eid2posix.has_key(int(data['entity_id'])):
+                ## user_dict with account_name as key (after key switch)
+                #data['uidNumber'] = eid2posix[int(data['entity_id'])]['uid']
+                #data['gidNumber'] = eid2posix[int(data['entity_id'])]['gid']
+            #elif not isinstance(id, int):
+                #self.logger.debug('Account name %s is not a posix account' % id)
             else:
-                self.logger.debug('Account name %s is not a posix account' % id)
+                self.logger.debug('Account id %s is not a posix account' % id)
 
 
     def _exchange_addresslist(self, user_dict):
