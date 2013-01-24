@@ -244,8 +244,50 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             roomnumber = self.person.get_contact_info(type=self.co.contact_office,
                                                       source=self.co.system_sap)
             v['roomNumber'] = ''
+            v['physicalDeliveryOfficeName'] = ''
             if roomnumber:
                 v['roomNumber'] = [r['contact_alias'] for r in roomnumber]
+                v['physicalDeliveryOfficeName'] = v['roomNumber']
+
+
+    def _update_posix_id(self, user_dict):
+        """Get POSIX account ids (uid, gid) from Cerebrum and update the
+        L{user_dict} directly, with the keys uidNumber <int> and gidNumber
+        <int>.
+
+        @type  user_dict: dict
+        @param user_dict: account_id or username -> account info mapping
+        """
+        pu = Utils.Factory.get('PosixUser')(self.db)
+        pg = Utils.Factory.get('PosixGroup')(self.db)
+
+        # Mapping <group entity_id> => <posix GID>
+        eid2gid = {}
+        for (entity_id, gid) in pg.list_posix_groups():
+            eid2gid[int(entity_id)] = int(gid)
+
+        # Mapping <Account entity_id> => {'uid' => <posix UID>, 'gid' => <posix GID>}
+        eid2posix = {}
+        for row in pu.list_posix_users():
+            eid2posix[int(row['account_id'])] = {
+                    'uid' : int(row['posix_uid']) if row['posix_uid'] else '', 
+                    'gid' : eid2gid[int(row['gid'])] if eid2gid.has_key(int(row['gid'])) else ''
+                    }
+
+        for id, data in user_dict.iteritems():
+            if eid2posix.has_key(id):
+                # user_dict with account_id as key (before key switch)
+                data['uidNumber'] = eid2posix[id]['uid']
+                data['gidNumber'] = eid2posix[id]['gid']
+            elif data.has_key('entity_id') and eid2posix.has_key(int(data['entity_id'])):
+                # user_dict with account_name as key (after key switch)
+                data['uidNumber'] = eid2posix[int(data['entity_id'])]['uid']
+                data['gidNumber'] = eid2posix[int(data['entity_id'])]['gid']
+            elif isinstance(id, int):
+                self.logger.debug('Account id %s is not a posix account' % id)
+            else:
+                self.logger.debug('Account name %s is not a posix account' % id)
+
 
     def _exchange_addresslist(self, user_dict):
         """Enabling Exchange address list visibility to only primary accounts
@@ -399,6 +441,27 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         self.logger.debug("..setting contact info..")
         self._update_contact_info(tmp_ret)
 
+        #
+        # Set posix info
+        #
+        self.logger.debug("..setting posix info..")
+        self._update_posix_id(tmp_ret)
+
+        #
+        # Set employee number
+        #
+        self.logger.debug("..setting employee numbers..")
+        pid2employee = {}
+        for row in self.person.list_external_ids(
+                source_system=self.co.system_sap,
+                id_type=self.co.externalid_sap_ansattnr,
+                entity_type=self.co.entity_person):
+            pid2employee[row['entity_id']] = int(row['external_id'])
+
+        for v in tmp_ret.values():
+            if pid2employee.has_key(v['TEMPownerId']):
+                v['employeenumber'] = pid2employee[v['TEMPownerId']]
+        
         #
         # Indexing dict on username instead of account id
         #
