@@ -1391,13 +1391,14 @@ class BofhdExtension(BofhdCommonMethods):
         acc = Utils.Factory.get('Account')(self.db)
         acc.clear()
         acc.find(acc_id)
-        if acc.is_employee() or self._person_is_employee(acc.owner_id, operator):
+        if (acc.is_employee() or acc.is_affiliate() or
+              self._person_is_employee_or_affiliate(acc.owner_id, operator)):
             if not acc.has_spread(self.const.spread_ans_radius_user):
                 acc.add_spread(self.const.spread_ans_radius_user)
                 acc.write_db()
 
-    # helper func, check if a person is a registered employee
-    def _person_is_employee(self, person_id, operator):
+    # helper func, check if a person is a registered employee or affiliate
+    def _person_is_employee_or_affiliate(self, person_id, operator):
         person = Utils.Factory.get('Person')(self.db)
         person.clear()
         try:
@@ -1406,7 +1407,8 @@ class BofhdExtension(BofhdCommonMethods):
             # non-personal accounts cannot be assigned radiusans spread
             return False
         for row in person.get_affiliations():
-            if int(row['affiliation']) == int(self.const.affiliation_ansatt):
+            if int(row['affiliation']) in (int(self.const.affiliation_ansatt),
+                                       int(self.const.affiliation_tilknyttet)):
                 return True
         return False
             
