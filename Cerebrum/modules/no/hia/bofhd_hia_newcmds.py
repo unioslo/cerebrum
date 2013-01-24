@@ -1489,11 +1489,12 @@ class BofhdExtension(BofhdCommonMethods):
                             contact type to look for, i.e. on the form:
                             (_AuthoritativeSystemCode, _ContactInfoCode)
         """
-        #person = Utils.Factory.get('Person')(self.db)
         person = self._get_person('entity_id', person_id)
         for sys, type in phone_types:
             for row in person.get_contact_info(source=sys, type=type):
                 return row['contact_value']
+
+        return None
 
 
     ## user send_welcome_sms
@@ -1506,7 +1507,6 @@ class BofhdExtension(BofhdCommonMethods):
     def user_send_welcome_sms(self, operator, username, mobile=None):
         sms = Utils.SMSSender(logger=self.logger)
         account = self._get_account(username)
-        phone = mobile
         # Access Control
         self.ba.can_send_welcome_sms(operator.get_entity_id())
         # Ensure allowed to specify a phone number
@@ -1523,11 +1523,11 @@ class BofhdExtension(BofhdCommonMethods):
         if account.owner_type != self.const.entity_person:
             raise CerebrumError("User is not a personal account")
         # Look up the mobile number
-        if not phone:
+        if not mobile:
             phone_type = [(self.const.system_fs, 
                            self.const.contact_mobile_phone)]
-            phone = self._get_phone_number(account.owner_id, phone_type)
-            if not phone:
+            mobile = self._get_phone_number(account.owner_id, phone_type)
+            if not mobile:
                raise CerebrumError("No mobile phone number for '%s'" % username)
         # Get primary e-mail address, if it exists
         mailaddr = ''
@@ -1539,8 +1539,8 @@ class BofhdExtension(BofhdCommonMethods):
         # but contrib/no/send_welcome_sms.py does it as well
         message = cereconf.AUTOADMIN_WELCOME_SMS % {"username": username, 
                                                     "email": mailaddr}
-        if not sms(phone, message):
-            raise CerebrumError("Cound not send SMS to %s" % phone)
+        if not sms(mobile, message):
+            raise CerebrumError("Cound not send SMS to %s" % mobile)
 
         # Set sent sms welcome sent-trait, so that it will be ignored by the
         # scheduled job for sending welcome-sms.
