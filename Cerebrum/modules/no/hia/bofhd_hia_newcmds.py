@@ -1540,7 +1540,7 @@ class BofhdExtension(BofhdCommonMethods):
         message = cereconf.AUTOADMIN_WELCOME_SMS % {"username": username, 
                                                     "email": mailaddr}
         if not sms(mobile, message):
-            raise CerebrumError("Cound not send SMS to %s" % mobile)
+            raise CerebrumError("Could not send SMS to %s" % mobile)
 
         # Set sent sms welcome sent-trait, so that it will be ignored by the
         # scheduled job for sending welcome-sms.
