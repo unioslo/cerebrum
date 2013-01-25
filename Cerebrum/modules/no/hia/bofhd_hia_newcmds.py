@@ -1505,6 +1505,7 @@ class BofhdExtension(BofhdCommonMethods):
         ("user", "send_welcome_sms"),
         AccountName(help_ref="account_name", repeat=False),
         Mobile(optional=True),
+        fs=FormatSuggestion([('Ok, message sent to %s', ('mobile',)),]),
         perm_filter='can_send_welcome_sms')
     def user_send_welcome_sms(self, operator, username, mobile=None):
         sms = Utils.SMSSender(logger=self.logger)
@@ -1556,7 +1557,7 @@ class BofhdExtension(BofhdCommonMethods):
             account.populate_trait(code=self.const.trait_sms_welcome,
                                    date=DateTime.now())
             account.write_db()
-        return "Ok, message sent!"
+        return {'mobile': mobile}
 
 
     # email set_primary_address account lp@dom
