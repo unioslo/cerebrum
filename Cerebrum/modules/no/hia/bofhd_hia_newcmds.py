@@ -1526,9 +1526,11 @@ class BofhdExtension(BofhdCommonMethods):
             raise CerebrumError("User is not a personal account")
         # Look up the mobile number
         if not mobile:
-            phone_type = [(self.const.system_fs, 
-                           self.const.contact_mobile_phone)]
-            mobile = self._get_phone_number(account.owner_id, phone_type)
+            phone_types = [(self.const.system_fs, 
+                            self.const.contact_mobile_phone),
+                           (self.const.system_sap,
+                            self.const.contact_mobile_phone)]
+            mobile = self._get_phone_number(account.owner_id, phone_types)
             if not mobile:
                raise CerebrumError("No mobile phone number for '%s'" % username)
         # Get primary e-mail address, if it exists
