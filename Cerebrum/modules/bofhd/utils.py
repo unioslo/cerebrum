@@ -433,6 +433,7 @@ class BofhdUtils(object):
              'host' (name of host => Host)
              'id' (entity ID => any)
              'external_id' (i.e. employee or studentnr)
+             'stedkode' (stedkode => OU)
 
         If name is actually an integer, 'id' lookup is always chosen.
 
@@ -458,6 +459,7 @@ class BofhdUtils(object):
                                 "group": ("Group",),
                                 "host": ("Host",),
                                 "disk": ("Disk",),
+                                "stedkode": ("OU",),
                                 "entity_id": None,
                                 "id": None,
                                 "external_id": None,}
@@ -491,6 +493,8 @@ class BofhdUtils(object):
                 return get_target_disk(name)
             elif ltype == 'external_id':
                 return get_target_by_external_id(name)
+            elif ltype == 'stedkode':
+                return get_target_ou_by_stedkode(name)
             else:
                 raise CerebrumError, "Lookup type %s not implemented yet" % ltype
 
@@ -624,6 +628,24 @@ class BofhdUtils(object):
                 # UNIQUE constraint.
                 raise CerebrumError("%s is not unique, use 'host:path'" % path)
             return disk
+
+        def get_target_ou_by_stedkode(stedkode):
+            ou = Factory.get("OU")(self.db)
+
+            if len(stedkode) != 6 or not stedkode.isdigit():
+                raise CerebrumError("Expected a six-digit stedkode.")
+
+            try:
+                ou.find_stedkode(
+                    stedkode[0:2],
+                    stedkode[2:4],
+                    stedkode[4:6], 
+                    cereconf.DEFAULT_INSTITUSJONSNR
+                )
+            except Errors.NotFoundError:
+                raise CerebrumError("Stedkode %s was not found." % stedkode)
+
+            return ou
 
          #
          # Finally, here is the start of the function itself
