@@ -262,16 +262,14 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         pg = Utils.Factory.get('PosixGroup')(self.db)
 
         # Mapping <group entity_id> => <posix GID>
-        eid2gid = {}
-        for (entity_id, gid) in pg.list_posix_groups():
-            eid2gid[int(entity_id)] = int(gid)
+        eid2gid = dict((int(eid), int(gid)) for eid, gid in pg.list_posix_groups())
 
         # Mapping <Account entity_id> => {'uid' => <posix UID>, 'gid' => <posix GID>}
         eid2posix = {}
         for row in pu.list_posix_users():
             eid2posix[int(row['account_id'])] = {
-                    'uid' : int(row['posix_uid']) if row['posix_uid'] else '', 
-                    'gid' : eid2gid[int(row['gid'])] if eid2gid.has_key(int(row['gid'])) else ''
+                    'uid' : int(row['posix_uid'])  or '', 
+                    'gid' : eid2gid.get(int(row['gid']), '')
                     }
 
         for id, data in user_dict.iteritems():
@@ -279,14 +277,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 # user_dict with account_id as key (before key switch)
                 data['uidNumber'] = eid2posix[id]['uid']
                 data['gidNumber'] = eid2posix[id]['gid']
-            #elif data.has_key('entity_id') and eid2posix.has_key(int(data['entity_id'])):
-                ## user_dict with account_name as key (after key switch)
-                #data['uidNumber'] = eid2posix[int(data['entity_id'])]['uid']
-                #data['gidNumber'] = eid2posix[int(data['entity_id'])]['gid']
-            #elif not isinstance(id, int):
-                #self.logger.debug('Account name %s is not a posix account' % id)
             else:
-                self.logger.debug('Account id %s is not a posix account' % id)
+                self.logger.debug('Account id %d is not a posix account' % id)
 
 
     def _exchange_addresslist(self, user_dict):
