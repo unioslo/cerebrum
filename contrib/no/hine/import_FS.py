@@ -32,6 +32,7 @@ from Cerebrum.modules.no.uio.AutoStud import StudentInfo
 
 default_personfile = "/cerebrum/hine/dumps/FS/merged_persons.xml"
 default_studieprogramfile = "/cerebrum/hine/dumps/FS/studieprog.xml"
+default_ou_file = "/cerebrum/hine/dumps/FS/ou.xml"
 default_emnefile = "/cerebrum/hine/dumps/FS/emner.xml"
 group_name = "FS-aktivt-samtykke"
 group_desc = "Internal group for students which will be shown online."
@@ -426,14 +427,12 @@ def main():
     verbose = 0
     include_delete = False
     logger = Factory.get_logger("cronjob")
-    opts, args = getopt.getopt(sys.argv[1:], 'vp:s:e:gdf', [
+    opts, args = getopt.getopt(sys.argv[1:], 'vp:s:o:gdf', [
         'verbose', 'person-file=', 'studieprogram-file=',
-        'emne-file=', 'generate-groups','include-delete', ])
+        'ou-file=', 'generate-groups','include-delete', ])
 
     personfile = default_personfile
     studieprogramfile = default_studieprogramfile
-    ou_file = default_ou_file
-    #emnefile = default_emnefile
     for opt, val in opts:
         if opt in ('-v', '--verbose'):
             verbose += 1
@@ -441,10 +440,6 @@ def main():
             personfile = val
         elif opt in ('-s', '--studieprogram-file'):
             studieprogramfile = val
-        elif opt in ('-o', '--ou-file'):
-            ou_file = val
-        #elif opt in ('-e', '--emne-file'):
-        #    emnefile = val
         elif opt in ('-g', '--generate-groups'):
             gen_groups = True
         elif opt in ('-d', '--include-delete'):
@@ -472,11 +467,6 @@ def main():
             _get_sko(s, 'faknr_studieansv', 'instituttnr_studieansv',
                      'gruppenr_studieansv')
 
-    for e in StudentInfo.EmneDefParser(emnefile):
-        emne2sko[e['emnekode']] = \
-            _get_sko(e, 'faknr_reglement', 'instituttnr_reglement',
-                     'gruppenr_reglement')
-        
     # create fnr2person_id mapping, always using fnr from FS when set
     person = Factory.get('Person')(db)
     if include_delete:

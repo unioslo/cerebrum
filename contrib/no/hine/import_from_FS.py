@@ -19,24 +19,21 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 
-import re
 import sys
 import getopt
 from os.path import join as pj
 
 import cerebrum_path
 import cereconf
-from Cerebrum import Database
-from Cerebrum import Errors
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.Utils import XMLHelper, MinimumSizeWriter, AtomicFileWriter
-from Cerebrum.modules.no.hine.access_FS import FS
 from Cerebrum.Utils import Factory
 
 basefsdir = pj("/cerebrum", "hine", "dumps", "FS")
 default_ou_file = pj(basefsdir, "ou.xml")
 default_person_file = pj(basefsdir, "person.xml")
 default_studieprogram_file = pj(basefsdir, "studieprog.xml")
+default_fnr_update_file = pj(basefsdir, "fnr_update.xml")
 
 xml = XMLHelper()
 fs = None
@@ -135,6 +132,39 @@ def write_studprog_info(outfile):
     f.write("</data>\n")
     f.close()
 
+def write_fnrupdate_info(outfile):
+    """Lager fil med informasjon om alle fødselsnummerendringer"""
+    stream = AtomicFileWriter(outfile, 'w')
+    writer = xmlprinter.xmlprinter(stream,
+                                   indent_level = 2,
+                                   # Human-readable output
+                                   data_mode = True,
+                                   input_encoding = "latin1")
+    writer.startDocument(encoding = "iso8859-1")
+
+    db = Factory.get("Database")()
+    const = Factory.get("Constants")(db)
+
+    writer.startElement("data", {"source_system" : str(const.system_fs)})
+
+    data = fs.person.list_fnr_endringer()
+    for row in data:
+        # Make the format resemble the corresponding FS output as close as
+        # possible.
+        attributes = { "type" : str(const.externalid_fodselsnr), 
+                       "new"  : "%06d%05d" % (row["fodselsdato_naverende"],
+                                              row["personnr_naverende"]),
+                       "old"  : "%06d%05d" % (row["fodselsdato_tidligere"],
+                                              row["personnr_tidligere"]),
+                       "date" : str(row["dato_foretatt"]),
+                     }
+        
+        writer.emptyElement("external_id", attributes)
+
+    writer.endElement("data")
+    writer.endDocument()
+    stream.close()
+
 def usage(exitcode=0):
     print """Usage: [options]
     --ou-file name: override ou xml filename
@@ -144,6 +174,7 @@ def usage(exitcode=0):
     -o: generate ou xml (sted.xml) file
     -p: generate person file
     -s: generate studprog xml file
+    -f: generate fnr_update file
     """
     sys.exit(exitcode)
 
@@ -156,8 +187,9 @@ def assert_connected():
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "ops",
-                   ["ou-file=", "personinfo-file=", "studprog-file="])
+        opts, args = getopt.getopt(sys.argv[1:], "opsf",
+                   ["ou-file=", "personinfo-file=", "studprog-file=",
+                    "fnr-update-file="])
     except getopt.GetoptError, ge:
         print ge
         usage()
@@ -166,6 +198,7 @@ def main():
     ou_file = default_ou_file
     person_file = default_person_file
     studprog_file = default_studieprogram_file
+    fnr_update_file = default_fnr_update_file
     for o, val in opts:
         if o in ('--ou-file',):
             ou_file = val
@@ -173,6 +206,8 @@ def main():
             person_file = val
         elif o in ('--studprog-file',):
             studprog_file = val
+        elif o in ('--fnr-update-file',):
+            fnr_update_file = val 
 
     assert_connected()
     for o, val in opts:
@@ -182,6 +217,8 @@ def main():
             write_person_info(person_file)
         elif o in ('-s',):
             write_studprog_info(studprog_file)
+        elif o in ('-f',):
+            write_fnrupdate_info(fnr_update_file)
 
  
 if __name__ == '__main__':
