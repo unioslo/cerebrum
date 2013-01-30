@@ -280,7 +280,8 @@ command_help = {
     },
     'ou': {
     'ou_search': 'Search for OUs by name or a partial stedkode',
-    'ou_info': 'View information about an OU'
+    'ou_info': 'View information about an OU',
+    'ou_tree': 'Show parents/children of an OU'
     },
     'perm': {
     'perm_opset_list': 'List defined opsets',
@@ -583,6 +584,9 @@ Some of the types may not make sense for this command.
         ['ou', 'Enter OU',
         'Enter the 6-digit code of the organizational unit the person is '+
         'affiliated to'],
+    'ou_perspective':
+        ['perspective', 'Enter a perspective (usually SAP or FS)',
+        'Enter a perspective used for getting the organizational structure.'],
     'ou_search_pattern':
         ['pattern', 'Enter search pattern',
         'Enter a string (% works as a wildcard) or a partial stedkode to' +

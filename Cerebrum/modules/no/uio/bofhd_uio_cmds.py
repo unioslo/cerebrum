@@ -6567,7 +6567,7 @@ Addresses and settings:
             return "Unknown language \"%s\", try \"nb\" or \"en\"" % language
 
         output = []
-        ou = self.OU_class(self.db)
+        ou = Utils.Factory.get('OU')(self.db)
 
         if re.match(r'[0-9]{1,6}$', pattern):
             fak = [ pattern[0:2] ]
@@ -6673,7 +6673,7 @@ Addresses and settings:
 
         return output_nodupes
 
-    # ou info <stedkode>
+    # ou info <stedkode/entity_id>
     all_commands['ou_info'] = Command(
         ("ou", "info"),
         OU(),
@@ -6695,121 +6695,209 @@ Addresses and settings:
              ('email_affiliation', 'email_domain'))
             ]
         ))
-    def ou_info(self, operator, stedkode):
+    def ou_info(self, operator, target):
         output = []
-        ou = self.OU_class(self.db)
 
-        if re.match(r'[0-9]{6}$', stedkode):
-            try:
-                ou.find_stedkode(
-                    stedkode[0:2],
-                    stedkode[2:4],
-                    stedkode[4:6], 
-                    cereconf.DEFAULT_INSTITUSJONSNR
-                )
-            except Errors.NotFoundError:
-                return "Stedkode %s was not found." % stedkode
-            
-            acronym_nb = ou.get_name_with_language(
-                                     name_variant=self.const.ou_name_acronym,
-                                     name_language=self.const.language_nb,
-                                     default="")
-            fullname_nb = ou.get_name_with_language(
-                                     name_variant=self.const.ou_name,
-                                     name_language=self.const.language_nb,
-                                     default="")
-            acronym_en = ou.get_name_with_language(
-                                     name_variant=self.const.ou_name_acronym,
-                                     name_language=self.const.language_en,
-                                     default="")
-            fullname_en = ou.get_name_with_language(
-                                     name_variant=self.const.ou_name,
-                                     name_language=self.const.language_en,
-                                     default="")
+        ou = self.util.get_target(target, default_lookup='stedkode', restrict_to=['OU'])
+        
+        acronym_nb = ou.get_name_with_language(
+                                 name_variant=self.const.ou_name_acronym,
+                                 name_language=self.const.language_nb,
+                                 default="")
+        fullname_nb = ou.get_name_with_language(
+                                 name_variant=self.const.ou_name,
+                                 name_language=self.const.language_nb,
+                                 default="")
+        acronym_en = ou.get_name_with_language(
+                                 name_variant=self.const.ou_name_acronym,
+                                 name_language=self.const.language_en,
+                                 default="")
+        fullname_en = ou.get_name_with_language(
+                                 name_variant=self.const.ou_name,
+                                 name_language=self.const.language_en,
+                                 default="")
 
-            if len(acronym_nb) > 0:
-                acronym_nb = "(%s) " % acronym_nb
+        if len(acronym_nb) > 0:
+            acronym_nb = "(%s) " % acronym_nb
 
-            if len(acronym_en) > 0:
-                acronym_en = "(%s) " % acronym_en
+        if len(acronym_en) > 0:
+            acronym_en = "(%s) " % acronym_en
 
-            quarantines = []
-            for q in ou.get_entity_quarantine(only_active=True):
-                quarantines.append(str(self.const.Quarantine(q['quarantine_type'])))
-            if len(quarantines) == 0:
-                quarantines = ['<none>']
+        quarantines = []
+        for q in ou.get_entity_quarantine(only_active=True):
+            quarantines.append(str(self.const.Quarantine(q['quarantine_type'])))
+        if len(quarantines) == 0:
+            quarantines = ['<none>']
 
-            spreads = []
-            for s in ou.get_spread():
-                spreads.append(str(self.const.Spread(s['spread'])))
-            if len(spreads) == 0:
-                spreads = ['<none>']
+        spreads = []
+        for s in ou.get_spread():
+            spreads.append(str(self.const.Spread(s['spread'])))
+        if len(spreads) == 0:
+            spreads = ['<none>']
 
+        output.append({
+            'entity_id': ou.entity_id,
+            'stedkode': '%02d%02d%02d' % (ou.fakultet, ou.institutt, ou.avdeling),
+            'name_nb': "%s%s" % (acronym_nb, fullname_nb),
+            'name_en': "%s%s" % (acronym_en, fullname_en),
+            'quarantines': ', '.join(quarantines),
+            'spreads': ', '.join(spreads)
+        })
+
+        for c in ou.get_contact_info():
             output.append({
-                'entity_id': ou.entity_id,
-                'stedkode': stedkode,
-                'name_nb': "%s%s" % (acronym_nb, fullname_nb),
-                'name_en': "%s%s" % (acronym_en, fullname_en),
-                'quarantines': ', '.join(quarantines),
-                'spreads': ', '.join(spreads)
+                'contact_source': str(self.const.AuthoritativeSystem(c['source_system'])),
+                'contact_type': str(self.const.ContactInfo(c['contact_type'])),
+                'contact_value': c['contact_value']
             })
 
-            for c in ou.get_contact_info():
-                output.append({
-                    'contact_source': str(self.const.AuthoritativeSystem(c['source_system'])),
-                    'contact_type': str(self.const.ContactInfo(c['contact_type'])),
-                    'contact_value': c['contact_value']
-                })
+        for a in ou.get_entity_address():
+            if a['country'] is not None:
+                a['country'] = ', ' + a['country']
+            else:
+                a['country'] = ''
 
-            for a in ou.get_entity_address():
-                if a['country'] is not None:
-                    a['country'] = ', ' + a['country']
-                else:
-                    a['country'] = ''
+            if a['p_o_box'] is not None:
+                a['p_o_box'] = "PO box %s, " % a['p_o_box']
+            else:
+                a['p_o_box'] = ''
 
-                if a['p_o_box'] is not None:
-                    a['p_o_box'] = "PO box %s, " % a['p_o_box']
-                else:
-                    a['p_o_box'] = ''
+            if len(a['address_text']) > 0:
+                a['address_text'] += ', '
 
-                if len(a['address_text']) > 0:
-                    a['address_text'] += ', '
+            output.append({
+                'address_source': str(self.const.AuthoritativeSystem(a['source_system'])),
+                'address_type': str(self.const.Address(a['address_type'])),
+                'address_text': a['address_text'].replace("\n", ', '),
+                'address_po_box': a['p_o_box'],
+                'address_city': a['city'],
+                'address_postal_number': a['postal_number'],
+                'address_country': a['country']
+            })
 
-                output.append({
-                    'address_source': str(self.const.AuthoritativeSystem(a['source_system'])),
-                    'address_type': str(self.const.Address(a['address_type'])),
-                    'address_text': a['address_text'].replace("\n", ', '),
-                    'address_po_box': a['p_o_box'],
-                    'address_city': a['city'],
-                    'address_postal_number': a['postal_number'],
-                    'address_country': a['country']
-                })
-
+        try:
+            meta = Metainfo.Metainfo(self.db)
+            email_info = meta.get_metainfo('sqlmodule_email')
+        except Errors.NotFoundError:
+            email_info = None
+        if email_info:
+            eed = Email.EntityEmailDomain(self.db)
             try:
-                meta = Metainfo.Metainfo(self.db)
-                email_info = meta.get_metainfo('sqlmodule_email')
+                eed.find(ou.entity_id)
             except Errors.NotFoundError:
-                email_info = None
-            if email_info:
-                eed = Email.EntityEmailDomain(self.db)
-                try:
-                    eed.find(ou.entity_id)
-                except Errors.NotFoundError:
-                    pass
-                ed = Email.EmailDomain(self.db)
-                for r in eed.list_affiliations():
-                    affname = "<any>"
-                    if r['affiliation']:
-                        affname = str(self.const.PersonAffiliation(r['affiliation']))
-                    ed.clear()
-                    ed.find(r['domain_id'])
+                pass
+            ed = Email.EmailDomain(self.db)
+            for r in eed.list_affiliations():
+                affname = "<any>"
+                if r['affiliation']:
+                    affname = str(self.const.PersonAffiliation(r['affiliation']))
+                ed.clear()
+                ed.find(r['domain_id'])
 
-                    output.append({'email_affiliation': affname,
-                                   'email_domain': ed.email_domain_name})
+                output.append({'email_affiliation': affname,
+                               'email_domain': ed.email_domain_name})
 
-            return output
-        else:
-            return "Expected a six-digit stedkode."
+        return output
+
+    # ou tree <stedkode/entity_id> <perspective> <language>
+    all_commands['ou_tree'] = Command(
+        ("ou", "tree"),
+        OU(),
+        SimpleString(help_ref='ou_perspective', optional=True),
+        SimpleString(help_ref='ou_search_language', optional=True),
+        fs=FormatSuggestion([
+            ("%s%s %s",
+             ('indent', 'stedkode', 'name'))
+            ]
+        ))
+    def ou_tree(self, operator, target, ou_perspective=None, language='nb'):
+        def _is_root(ou, perspective):
+            if ou.get_parent(perspective) in (ou.entity_id, None):
+                return True
+            return False
+
+        co = self.const
+
+        try:
+            language = int(co.LanguageCode(language))
+        except Errors.NotFoundError:
+            return "Unknown language \"%s\", try \"nb\" or \"en\"" % language
+
+        output = []
+
+        perspective = None
+        if ou_perspective:
+            perspective = co.human2constant(ou_perspective, co.OUPerspective)
+        if not ou_perspective and 'perspective' in cereconf.LDAP_OU:
+            perspective = co.human2constant(cereconf.LDAP_OU['perspective'], co.OUPerspective)
+        if ou_perspective and not perspective:
+            return "No match for perspective \"%s\". Try one of: %s" % (
+                ou_perspective,
+                ", ".join(str(x) for x in co.fetch_constants(co.OUPerspective))
+            )
+        if not perspective:
+            return "Unable to guess perspective. Please specify one of: %s" % (
+                ", ".join(str(x) for x in co.fetch_constants(co.OUPerspective))
+            )
+
+        target_ou = self.util.get_target(target, default_lookup='stedkode', restrict_to=['OU'])
+        ou = Utils.Factory.get('OU')(self.db)
+
+        data = {
+            'parents': [],
+            'target': [target_ou.entity_id],
+            'children': []
+        }
+
+        prev_parent = None
+
+        try:
+            while True:
+                if prev_parent:
+                    ou.clear()
+                    ou.find(prev_parent)
+
+                    if _is_root(ou, perspective):
+                        break
+
+                    prev_parent = ou.get_parent(perspective)
+                    data['parents'].insert(0, prev_parent)
+                else:
+                    if _is_root(target_ou, perspective):
+                        break
+
+                    prev_parent = target_ou.get_parent(perspective)
+                    data['parents'].insert(0, prev_parent)
+        except:
+            raise CerebrumError('Error getting OU structure for %s. Is the OU valid?' % target)
+
+        for c in target_ou.list_children(perspective):
+            data['children'].append(c[0])
+
+        for d in data:
+            if d is 'target':
+                indent = '* ' + (len(data['parents']) -1) * '  '
+            elif d is 'children':
+                indent = (len(data['parents']) +1) * '  '
+
+            for num, item in enumerate(data[d]):
+                ou.clear()
+                ou.find(item)
+
+                if d is 'parents':
+                    indent = num * '  '
+
+                output.append({
+                    'indent': indent,
+                    'stedkode': '%02d%02d%02d' % (ou.fakultet, ou.institutt, ou.avdeling),
+                    'name': ou.get_name_with_language(
+                        name_variant=co.ou_name,
+                        name_language=language,
+                        default="")
+                })
+
+        return output
+
 
     # misc verify_password
     all_commands['misc_verify_password'] = Command(
