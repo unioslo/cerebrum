@@ -65,7 +65,7 @@ class BofhdExtension(BofhdCommandBase):
         command_help = {
             'guest': {
             'guest_create': 'Create a new guest user',
-            'guest_deactivate': 'Deactivate a guest user',
+            'guest_remove': 'Deactivate a guest user',
             'guest_info': 'View information about a guest user',
             'guest_list': 'List out all guest users for a given owner',
             'guest_list_all': 'List out all guest users',
@@ -152,21 +152,35 @@ class BofhdExtension(BofhdCommandBase):
         group.write_db()
         return group
 
-    def _get_guests(self, responsible_id=NotSet):
+    def _get_guests(self, responsible_id=NotSet, include_expired=True):
         """Get a list of guest accounts that belongs to a given account.
 
         @type responsible: int
         @param responsible: The responsible's entity_id
 
+        @type include_expired: bool
+        @param include_expired: 
+            If True, all guests will be returned. If false, guests with a
+            'guest_old' quarantine will be filtered from the results. Defaults
+            to True.
+
         @rtype: list
-        @return: A list of db rows from ent.list_trait. The interesting keys
-                 are entity_id, target_id and strval.
-
+        @return: 
+            A list of db-rows from ent.list_trait. The interesting keys are
+            entity_id, target_id and strval.
         """
-        return self.Account_class(self.db).list_traits(
-                                code=self.const.trait_guest_owner,
-                                target_id=responsible_id)
-
+        all = self.Account_class(self.db).list_traits(
+                  code=self.const.trait_guest_owner,
+                  target_id=responsible_id)
+        if include_expired:
+            return all
+        # Get entity_ids for expired quarantined guests
+        expired = [q['entity_id'] for q in
+                   self.Account_class(self.db).list_entity_quarantines(
+                       entity_types=self.const.entity_account,
+                       quarantine_types=self.const.quarantine_guest_old,
+                       only_active=True)]
+        return filter(lambda a: a['entity_id'] not in expired, all)
 
     def _get_account_name(self, account_id):
         """Simple lookup of Account.entity_id -> Account.account_name
@@ -220,7 +234,7 @@ class BofhdExtension(BofhdCommandBase):
             pass
         # Get account state
         status = 'active'
-        if end_date < DateTime.now() or (account.expire_date and account.expire_date < DateTime.now()):
+        if end_date < DateTime.now():
             status = 'expired'
         
         return {'username':     account.account_name,
@@ -252,7 +266,7 @@ class BofhdExtension(BofhdCommandBase):
         lname = lname.strip()
         try:
             days = int(days)
-        except ValueError, e:
+        except ValueError:
             raise CerebrumError('The number of days must be an integer')
         if not (0 < days <= guestconfig.GUEST_MAX_DAYS):
             raise CerebrumError('Invalid number of days, must be in the '
@@ -285,8 +299,8 @@ class BofhdExtension(BofhdCommandBase):
         # Check the maximum number of guest accounts per user
         # TODO: or should we check per person instead?
         if not self.ba.is_superuser(operator.get_entity_id()):
-            nr = len(tuple(self._get_guests(responsible))) 
-            if nr > guestconfig.GUEST_MAX_PER_PERSON:
+            nr = len(tuple(self._get_guests(responsible, include_expired=False))) 
+            if nr >= guestconfig.GUEST_MAX_PER_PERSON:
                 self.logger.debug("More than %d guests, stopped" %
                                   guestconfig.GUEST_MAX_PER_PERSON)
                 raise PermissionDenied('Not allowed to have more than '
@@ -323,8 +337,8 @@ class BofhdExtension(BofhdCommandBase):
                     'username': ac.account_name,
                     'expire': end_date.strftime('%Y-%m-%d'),
                     'password': password}
-            sms = SMSSender(logger=self.logger)
             #FIXME: actually send sms in prod
+            #sms = SMSSender(logger=self.logger)
             #sms(mobile, msg)
             print "--\nWould send the following message to %s:" % mobile
             print msg + "\n--"
@@ -361,7 +375,7 @@ class BofhdExtension(BofhdCommandBase):
                     owner_id=owner_group.entity_id,
                     np_type=self.const.account_guest, 
                     creator_id=responsible_id,
-                    expire_date=end_date)
+                    expire_date=None)
         ac.write_db()
 
         # Tag the account as a guest account:
@@ -400,9 +414,9 @@ class BofhdExtension(BofhdCommandBase):
         ac.write_db()
         return ac
 
-    all_commands['guest_deactivate'] = Command(
-        ("guest", "deactivate"), AccountName())
-    def guest_deactivate(self, operator, username):
+    all_commands['guest_remove'] = Command(
+        ("guest", "remove"), AccountName())
+    def guest_remove(self, operator, username):
         """Set a new expire-quarantine that starts now, effectively blocking
         the user from all systems"""
         account = self._get_account(username)
@@ -434,7 +448,7 @@ class BofhdExtension(BofhdCommandBase):
                                       start=DateTime.now())
         account.expire_date = DateTime.now()
         account.write_db()
-        return 'Ok, %s deactivated' % account.account_name
+        return 'Ok, %s quarantined, will be removed' % account.account_name
 
     # guest info
     all_commands['guest_info'] = Command(
@@ -494,7 +508,6 @@ class BofhdExtension(BofhdCommandBase):
         #TODO: TBD: 
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied('Only superuser can list all guest accounts')
-        account = self.Account_class(self.db)
         ret = []
         for row in self._get_guests():
             ret.append(self._get_guest_info(row['entity_id']))
