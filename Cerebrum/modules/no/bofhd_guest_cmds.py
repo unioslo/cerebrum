@@ -160,7 +160,7 @@ class BofhdExtension(BofhdCommandBase):
 
         @type include_expired: bool
         @param include_expired: 
-            If True, all guests will be returned. If false, guests with a
+            If True, all guests will be returned. If False, guests with a
             'guest_old' quarantine will be filtered from the results. Defaults
             to True.
 
@@ -169,15 +169,14 @@ class BofhdExtension(BofhdCommandBase):
             A list of db-rows from ent.list_trait. The interesting keys are
             entity_id, target_id and strval.
         """
-        all = self.Account_class(self.db).list_traits(
-                  code=self.const.trait_guest_owner,
-                  target_id=responsible_id)
+        ac = self.Account_class(self.db)
+        all = ac.list_traits(code=self.const.trait_guest_owner,
+                              target_id=responsible_id)
         if include_expired:
             return all
-        # Get entity_ids for expired quarantined guests
-        expired = [q['entity_id'] for q in
-                   self.Account_class(self.db).list_entity_quarantines(
-                       entity_types=self.const.entity_account,
+        # Get entity_ids for expired guests, and filter them out
+        expired = [q['entity_id'] for q in ac.list_entity_quarantines(
+                       entity_types=self.const.entity_acount,
                        quarantine_types=self.const.quarantine_guest_old,
                        only_active=True)]
         return filter(lambda a: a['entity_id'] not in expired, all)
@@ -338,10 +337,10 @@ class BofhdExtension(BofhdCommandBase):
                     'expire': end_date.strftime('%Y-%m-%d'),
                     'password': password}
             #FIXME: actually send sms in prod
-            #sms = SMSSender(logger=self.logger)
-            #sms(mobile, msg)
-            print "--\nWould send the following message to %s:" % mobile
-            print msg + "\n--"
+            sms = SMSSender(logger=self.logger)
+            sms(mobile, msg)
+            #print "--\nWould send the following message to %s:" % mobile
+            #print msg + "\n--"
             #FIXME: ^^
             return {'username': ac.account_name, 'sms_to': mobile}
         #else:
@@ -474,15 +473,11 @@ class BofhdExtension(BofhdCommandBase):
         AccountName(optional=True),
         fs=FormatSuggestion([('%-25s %-30s %-10s %-10s',
             ('username', 'name', format_day('created'), format_day('expires')))],
-            hdr='%-25s %-30s %-10s %-10s' % ('Username', 'Name', 'Created', 'Expires')),
-        perm_filter='can_create_personal_guest')
+            hdr='%-25s %-30s %-10s %-10s' % ('Username', 'Name', 'Created', 'Expires')))
     def guest_list(self, operator, username=None):
         """Return a list of guest accounts that belongs to a given entity.
         """
-        # TBD: change this to be able to get groups as owner too?
-        if not self.ba.is_superuser(operator.get_entity_id()) and username:
-            raise PermissionDenied("Only superuser can specify account")
-        elif not username:
+        if not username:
             target_id = operator.get_entity_id()
         else:
             account = self._get_account(username)
