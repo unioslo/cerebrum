@@ -103,13 +103,10 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
             # Create the PosixGroup first, to get its entity_id
             # TODO: Should we handle that self.pg could not be populated when
             # we're here? When could gid_id be none without running populate?
-            try:
-                self.pg.write_db()
-                # We'll need to set this here, as the groups entity_id is
-                # created when we write to the DB.
-                self.gid_id = self.pg.entity_id
-            except self._db.DatabaseError, m:
-                raise Errors.CerebrumError("Database error: %s" % m)
+            self.pg.write_db()
+            # We'll need to set this here, as the groups entity_id is
+            # created when we write to the DB.
+            self.gid_id = self.pg.entity_id
 
         ret = self.__super.write_db()
 
