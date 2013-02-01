@@ -66,6 +66,8 @@ command_help = {
         "Add an alias address",
     "email_remove_address":
         "Remove an alias address",
+    "email_reassign_address":
+        "Move an address from one account to another",
     "email_update":
         "Update default address and aliases associated with account",
     "email_create_domain":
