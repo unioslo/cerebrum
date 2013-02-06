@@ -39,21 +39,21 @@ logger = Factory.get_logger("cronjob")
 ou_mismatch_warnings = {'pols': [], 'ephorte': []}
 
 class SimpleRole(object):
-    def __init__(self, role_type, adm_enhet, arkivdel, journalenhet, auto_role=True):
+    def __init__(self, role_type, adm_enhet, arkivdel, journalenhet, standard_role=True, auto_role=True):
         self.role_type = role_type
         self.adm_enhet = adm_enhet
         self.arkivdel = arkivdel
         self.journalenhet = journalenhet
         self.auto_role = auto_role
+        self.standard_role = standard_role
 
     def __eq__(self, b):
         return (self.role_type == b.role_type and self.adm_enhet == b.adm_enhet and
                 self.arkivdel == b.arkivdel and self.journalenhet == b.journalenhet)
 
     def __str__(self):
-        return "role_type=%s, adm_enhet=%s, arkivdel=%s, journalenhet=%s" % (
-            self.role_type, self.adm_enhet, self.arkivdel,
-            self.journalenhet)
+        return "role_type=%s, adm_enhet=%s, arkivdel=%s, journalenhet=%s, standard_role=%s" % (
+            self.role_type, self.adm_enhet, self.arkivdel, self.journalenhet, self.standard_role)
 
 
 class PopulateEphorte(object):
@@ -172,7 +172,7 @@ class PopulateEphorte(object):
         self._superuser_role = SimpleRole(
             int(co.ephorte_role_sy), self.sko2ou_id[cereconf.EPHORTE_UIO_ROOT_SKO],
             int(co.ephorte_arkivdel_sak_uio), int(co.ephorte_journenhet_uio),
-            auto_role=False)
+            standard_role=False, auto_role=False)
 
 
     def map_ou2role(self, ou_id):
@@ -243,10 +243,12 @@ class PopulateEphorte(object):
 
         logger.info("Listing roles")
         person2roles = {}
+        std_role = False
         for row in ephorte_role.list_roles():
             person2roles.setdefault(int(row['person_id']), []).append(
                 SimpleRole(int(row['role_type']), int(row['adm_enhet']),
                            row['arkivdel'], row['journalenhet'],
+                           row['standard_role'],
                            auto_role=(row['auto_role']=='T')))
 
         has_ephorte_spread = {}
@@ -300,6 +302,24 @@ class PopulateEphorte(object):
                     logger.debug("Removing role (pid=%i): %s" % (person_id, er))
                     ephorte_role.remove_role(person_id, er.role_type, er.adm_enhet,
                                              er.arkivdel, er.journalenhet)
+
+                if er.standard_role == 'T':
+                    std_role = True
+
+            if not std_role:
+                for er in existing_roles:
+                    if er.role_type == int(co.ephorte_role_sb):
+                        ephorte_role.set_standard_role_val(person_id,
+                                                           co.ephorte_role_sb,
+                                                           er.adm_enhet,
+                                                           int(co.EphorteArkivdel(er.arkivdel)),
+                                                           int(co.EphorteJournalenhet(er.journalenhet)),
+                                                           'T')
+                        logger.info("Added standard role for %d, '%s, %d, %s, %s'",
+                                    person_id, str(co.ephorte_role_sb),
+                                    er.adm_enhet, str(co.EphorteArkivdel(er.arkivdel)),
+                                    str(co.EphorteJournalenhet(er.journalenhet)))
+                        break
         logger.info("Done")
 
 
