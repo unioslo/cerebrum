@@ -64,12 +64,10 @@ class ResourceService(object):
         self.db = Factory.get('Database')()
         self.db.cl_init(change_program='resource_service')
         self.co = Factory.get('Constants')(self.db)
-        # Dns Owner
-        self.dnsowner = dns.DnsOwner.DnsOwner(self.db)
-        # Hostnames:
         self.finder = dns.Utils.Find(self.db, self.default_zone)
-        # IP numbers and their MAC addresses:
-        self.ipv6 = dns.IPv6Number.IPv6Number(self.db)
+        self.subnet = dns.Subnet.Subnet(self.db)
+        self.aaaa = dns.AAAARecord.AAAARecord(self.db)
+        self.ip = dns.IPv6Number.IPv6Number(self.db)
 
         # TODO: could we save work by only using a single, shared object of
         # the auth class? It is supposed to be thread safe.
@@ -110,20 +108,32 @@ class ResourceService(object):
 
     def register_mac_address(self, hostname, mac_address):
         """Register a MAC address for a given host."""
-        by_mac = None
-        if mac_address:
-            by_mac = self.ipv6.find_by_mac(mac_address)
-
-        # TODO
-        return False
-        # find the host by its hostname
-        # register the address
-        # host.write_db()
-        # db.commit()
+        self.aaaa.clear()
+        a_id = self.finder.find_a_record(hostname)
+        self.aaaa.find(a_id)
+        # TODO: do any validation on the MAC address?
+        self.aaaa.mac = mac_address
+        self.aaaa.write_db()
+        self.db.commit()
         return True
 
     def get_vlan_info(self, hostname):
-        """Get the VLAN info about a given host."""
-        # TODO
-        return ()
+        """Get the VLAN info about a given host.
+
+        The needed details are VLAN number and net category.
+
+        """
+        self.subnet.clear()
+        # Check if hostname is rather an IP address or subnet:
+        if ':' in hostname:
+            self.subnet.find(hostname)
+        else:
+            a_id = self.finder.find_a_record(hostname)
+            self.aaaa.clear()
+            self.aaaa.find(a_id)
+            self.ip.clear()
+            self.ip.find(a_id.ip_number)
+            # bah, now we have the ip address
+            self.subnet.find(self.ip.aaaa_ip)
+        return (self.subnet.vlan_number, self.subnet.subnet_mask)
 
