@@ -18,10 +18,39 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""Utility methods for CIS webservices.
+
+"""
 
 import cerebrum_path
 from Cerebrum.Utils import Factory
 from Cerebrum.Errors import CerebrumError
+
+class SimpleLogger(object):
+    """Simple logger that has the same API as the Cerebrum logger, but uses
+    twisted's logger.
+    """
+    def __init__(self):
+        pass
+
+    def _log(self, *args):
+        """The logger."""
+        # TODO: note that this has to be changed if we won't use twisted in
+        # the future
+        twisted.python.log.msg(' '.join(args))
+
+    def error(self, msg):
+        self._log('ERROR:', msg)
+
+    def warning(self, msg):
+        self._log('WARNING:', msg)
+
+    def info(self, msg):
+        self._log('INFO:', msg)
+
+    def debug(self, msg):
+        self._log('DEBUG:', msg)
+
 
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)

@@ -18,19 +18,30 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""
-The core functionality for SOAP services running in the CIS framework. CIS is
-based on the twisted framework and rpclib.
+"""The core functionality for SOAP services running in the CIS framework. CIS is
+based on the twisted framework and rpclib (now called spyne).
 
-This file contains the main parts that is needed for a basic setup of a new CIS
+This file contains the main parts that are needed for a basic setup of a new CIS
 service. The new service itself has to be created in its own file, and be given
 to a TwistedSoapStarter class. Other settings are available, e.g. to apply SSL
 encryption, authentication and authorization.
 
-TODO: describe how to fire up a standard CIS service.
+The structure is:
+
+- The L{Server} is run, and sets up the webservice. It is normally located in
+  servers/cis/.
+  
+- The L{Server} imports the proper L{Service} class and instantiates it. This
+  contains the main functionality for the service, and could be defined in
+  Cerebrum/modules/cis/ or be in a local instance' code directory.
+
+- The L{Server} defines (or imports) a L{Service Framework} for what commands
+  that are available, and how to communicate with the L{Service}. The L{Service
+  Framework} is normally a subclass of L{BasicSoapStarter} from this file.
 
 """
 
+import sys
 import socket
 import traceback
 import time
@@ -317,7 +328,7 @@ class TwistedSoapStarter(BasicSoapStarter):
         # Make python's standard logging to also use twisted's logger:
         # TODO: this should be tested for deadlocks before being put in
         # production:
-        #logging.basicConfig(level=logging.INFO, stream=logger)
+        #logging.basicConfig(level=logging.ERROR, stream=sys.stdout)
 
     def setup_reactor(self, port):
         """Setting up the reactor, without encryption."""
