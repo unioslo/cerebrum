@@ -23,6 +23,7 @@ group_help = {
     'email': "E-mail commands",
     'group': "Group commands",
     'misc': 'Miscellaneous commands',
+    'ou': 'Organizational unit related commands',
     'person': 'Person related commands',
     'print': 'Printer quota manipulation',
     'quarantine': 'Quarantine related commands',
@@ -111,8 +112,12 @@ command_help = {
     'misc_list_passwords': 'View/print all the password altered during a session',
     'misc_reload': 'Re-read server config file (use with care)',
     'misc_list_requests': 'View pending jobs the current BOFH user has requested/may confirm',
-    'misc_stedkode': 'Look up OU by stedkode or name',
     'misc_user_passwd': 'Check whether an account has a given password',
+    },
+    'ou': {
+    'ou_search': 'Search for OUs by name or a partial stedkode',
+    'ou_info': 'View information about an OU',
+    'ou_tree': 'Show parents/children of an OU',
     },
     'perm': {
     'perm_opset_list': 'List defined opsets',
@@ -307,6 +312,21 @@ name is entered, the type 'name' is assumed.  Other types are 'gid'
         ['ou', 'Enter OU',
         'Enter the 6-digit code of the organizational unit the person is '+
         'affiliated to'],
+    'ou_stedkode_or_id':
+        ['ou', 'Enter OU stedkode/id',
+        'Enter a 6-digit stedkode of an organizational unit, or id:? to ' +
+        'look up by entity ID.'],
+    'ou_perspective':
+        ['perspective', 'Enter a perspective (usually SAP or FS)',
+        'Enter a perspective used for getting the organizational structure.'],
+    'ou_search_pattern':
+        ['pattern', 'Enter search pattern',
+        'Enter a string (% works as a wildcard) or a partial stedkode to' +
+        'search for.'],
+    'ou_search_language':
+        ['language', 'Enter a language code (nb/en)',
+        'Enter a language code (nb/en) to be used for searching and ' +
+        'displaying OU names and acronyms.'],
     'person_id':
         ['person_id', 'Enter person id',
         """Enter person id as idtype:id.

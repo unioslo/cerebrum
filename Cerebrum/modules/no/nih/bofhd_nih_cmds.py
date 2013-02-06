@@ -89,7 +89,11 @@ class BofhdExtension(BofhdCommonMethods):
         # copy relevant misc-cmds and util methods
         #
         'misc_affiliations', 'misc_check_password', 'misc_clear_passwords',
-        'misc_stedkode', 'misc_verify_password',
+        'misc_verify_password',
+        #
+        # copy relevant ou-cmds and util methods
+        #
+        'ou_search', 'ou_info', 'ou_tree',
         #
         # copy trait-functions
         #

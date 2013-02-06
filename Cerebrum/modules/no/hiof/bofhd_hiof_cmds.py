@@ -58,6 +58,10 @@ class BofhdExtension(BofhdCommonMethods):
         '_format_ou_name', '_user_create_set_account_type','_get_group',
         '_get_constant', '_parse_date', '_get_entity_name',
         'misc_list_requests', 'misc_cancel_request',
+        #
+        # copy relevant ou-cmds and util methods
+        #
+        'ou_search', 'ou_info', 'ou_tree',
         )
         
     def __new__(cls, *arg, **karg):

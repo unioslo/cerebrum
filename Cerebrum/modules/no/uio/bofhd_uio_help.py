@@ -281,7 +281,7 @@ command_help = {
     'ou': {
     'ou_search': 'Search for OUs by name or a partial stedkode',
     'ou_info': 'View information about an OU',
-    'ou_tree': 'Show parents/children of an OU'
+    'ou_tree': 'Show parents/children of an OU',
     },
     'perm': {
     'perm_opset_list': 'List defined opsets',
