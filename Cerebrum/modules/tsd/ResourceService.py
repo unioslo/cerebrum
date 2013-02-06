@@ -36,7 +36,7 @@ import cereconf
 import cerebrum_path
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.dns import IPv6Number
+from Cerebrum.modules import dns
 
 from Cerebrum.modules.cis import Utils
 log = Utils.SimpleLogger()
@@ -53,6 +53,9 @@ class ResourceService(object):
     collector can't destroy the instances, due to twisted's reuse of threads.
 
     """
+    # The default DNS zone to use:
+    default_zone = 'tsd.usit.no.'
+
     def __init__(self, operator_id):
         """Constructor. Since we are using access control, we need the
         authenticated entity's ID as a parameter.
@@ -61,8 +64,13 @@ class ResourceService(object):
         self.db = Factory.get('Database')()
         self.db.cl_init(change_program='resource_service')
         self.co = Factory.get('Constants')(self.db)
-        #self.grp = Factory.get("Group")(self.db)
-        self.ipv6 = IPv6Number(self.db)
+        # Dns Owner
+        self.dnsowner = dns.DnsOwner.DnsOwner(self.db)
+        # Hostnames:
+        self.finder = dns.Utils.Find(self.db, self.default_zone)
+        # IP numbers and their MAC addresses:
+        self.ipv6 = dns.IPv6Number.IPv6Number(self.db)
+
         # TODO: could we save work by only using a single, shared object of
         # the auth class? It is supposed to be thread safe.
         #self.ba = BofhdAuth(self.db)
@@ -84,8 +92,21 @@ class ResourceService(object):
 
     def search_mac_addresses(self, hostname, mac_address):
         """Search for hostnames and their MAC addresses."""
-        # TODO
-        return ()
+        m_id = a_id = None
+        if hostname:
+            a_id = self.finder.find_a_record(hostname)
+            self.aaaa.clear()
+            self.aaaa.find(a_id)
+            if not self.aaaa.mac:
+                return ()
+            if mac_address and mac_address != self.aaaa.mac:
+                return ()
+            return ((self.aaaa.name, self.aaaa.mac),)
+        # Return either the complete list of hosts and their MAC addresses, or
+        # only the host with the given MAC address:
+        # TODO: What is used? The element 'mac' or IPNumber's 'mac_adr'?
+        return ((row['name'], row['mac']) for row in self.aaaa.list_ext() if
+                row['mac'] and (not mac_address or (row['mac'] == mac_address)))
 
     def register_mac_address(self, hostname, mac_address):
         """Register a MAC address for a given host."""

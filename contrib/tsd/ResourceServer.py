@@ -73,11 +73,14 @@ class ResourceService(SoapListener.BasicSoapServer):
         """Get a list of hostnames and their MAC addresses.
 
         If neither the hostname nor the mac_address is given, a complete list of
-        all hostnames and their MAC-adresses is returned.
+        all hostnames and their MAC-adresses is returned. If both the hostname
+        and the mac_address is given, you would only get a result if there
+        exists such a hostname in the database with the given MAC address.
 
         @type hostname: String
-        @param hostname: The name of the host that you would like to get the MAC
-            address for.
+        @param hostname: The FQDN name of the host that you would like to get
+            the MAC address for. Note that the name must end with a dot.
+            Example: melk.uio.no.
 
         @type mac_address: String
         @param mac_address: The MAC address you would like to get the hostname
@@ -100,7 +103,8 @@ class ResourceService(SoapListener.BasicSoapServer):
         gotten a MAC address.
 
         @type hostname: String
-        @param hostname: The name of the host that should be updated.
+        @param hostname: The FQDN name of the host that should be updated. Note
+            that the name must end with a dot. Example: melk.uio.no.
 
         @type mac_address: String
         @param mac_address: The MAC address to set for the given hosst. Could be
@@ -118,7 +122,8 @@ class ResourceService(SoapListener.BasicSoapServer):
         """Get the VLAN information about a given host.
 
         @type hostname: String
-        @param hostname: The name of the host to get the vlan info about.
+        @param hostname: The FQDN name of the host to get the vlan info about.
+            Note that the name must end with a dot. Example: melk.uio.no.
 
         @rtype: Iterable/Array/List
         @return: A list with the elements:
@@ -236,6 +241,7 @@ if __name__=='__main__':
     ResourceService.cere_class = cls
     # TBD: Should Cerebrum tier be started once per session instead? Takes
     # more memory, but are there benefits we need, e.g. language control?
+    cls.default_zone = cisconf.DEFAULT_ZONE
 
     private_key_file  = None
     certificate_file  = None
