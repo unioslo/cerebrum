@@ -584,6 +584,10 @@ Some of the types may not make sense for this command.
         ['ou', 'Enter OU',
         'Enter the 6-digit code of the organizational unit the person is '+
         'affiliated to'],
+    'ou_stedkode_or_id':
+        ['ou', 'Enter OU stedkode/id',
+        'Enter a 6-digit stedkode of an organizational unit, or id:? to ' +
+        'look up by entity ID.'],
     'ou_perspective':
         ['perspective', 'Enter a perspective (usually SAP or FS)',
         'Enter a perspective used for getting the organizational structure.'],

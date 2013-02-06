@@ -6559,12 +6559,12 @@ Addresses and settings:
         hdr="Stedkode   Organizational unit"))
     def ou_search(self, operator, pattern, language='nb', spread_filter=None):
         if len(pattern) == 0:
-            return 'Please specify a search pattern.'
+            raise CerebrumError, 'Please specify a search pattern.'
 
         try:
             language = int(self.const.LanguageCode(language))
         except Errors.NotFoundError:
-            return "Unknown language \"%s\", try \"nb\" or \"en\"" % language
+            raise CerebrumError, 'Unknown language "%s", try "nb" or "en"' % language
 
         output = []
         ou = Utils.Factory.get('OU')(self.db)
@@ -6659,8 +6659,8 @@ Addresses and settings:
 
         if len(output) == 0:
             if spread_filter:
-                return "No matches for \"%s\" with spread filter \"%s\"" % (pattern, spread_filter)
-            return "No matches for \"%s\"" % pattern
+                return 'No matches for "%s" with spread filter "%s"' % (pattern, spread_filter)
+            return 'No matches for "%s"' % pattern
 
         #removes duplicate results
         seen = set()
@@ -6676,7 +6676,7 @@ Addresses and settings:
     # ou info <stedkode/entity_id>
     all_commands['ou_info'] = Command(
         ("ou", "info"),
-        OU(),
+        OU(help_ref='ou_stedkode_or_id'),
         fs=FormatSuggestion([
             ("Stedkode:      %s\n" +
              "Entity ID:     %i\n" +
@@ -6802,7 +6802,7 @@ Addresses and settings:
     # ou tree <stedkode/entity_id> <perspective> <language>
     all_commands['ou_tree'] = Command(
         ("ou", "tree"),
-        OU(),
+        OU(help_ref='ou_stedkode_or_id'),
         SimpleString(help_ref='ou_perspective', optional=True),
         SimpleString(help_ref='ou_search_language', optional=True),
         fs=FormatSuggestion([
@@ -6821,7 +6821,7 @@ Addresses and settings:
         try:
             language = int(co.LanguageCode(language))
         except Errors.NotFoundError:
-            return "Unknown language \"%s\", try \"nb\" or \"en\"" % language
+            raise CerebrumError, 'Unknown language "%s", try "nb" or "en"' % language
 
         output = []
 
@@ -6831,12 +6831,12 @@ Addresses and settings:
         if not ou_perspective and 'perspective' in cereconf.LDAP_OU:
             perspective = co.human2constant(cereconf.LDAP_OU['perspective'], co.OUPerspective)
         if ou_perspective and not perspective:
-            return "No match for perspective \"%s\". Try one of: %s" % (
+            raise CerebrumError, 'No match for perspective "%s". Try one of: %s' % (
                 ou_perspective,
                 ", ".join(str(x) for x in co.fetch_constants(co.OUPerspective))
             )
         if not perspective:
-            return "Unable to guess perspective. Please specify one of: %s" % (
+            raise CerebrumError, "Unable to guess perspective. Please specify one of: %s" % (
                 ", ".join(str(x) for x in co.fetch_constants(co.OUPerspective))
             )
 
@@ -6869,7 +6869,7 @@ Addresses and settings:
                     prev_parent = target_ou.get_parent(perspective)
                     data['parents'].insert(0, prev_parent)
         except:
-            raise CerebrumError('Error getting OU structure for %s. Is the OU valid?' % target)
+            raise CerebrumError, 'Error getting OU structure for %s. Is the OU valid?' % target
 
         for c in target_ou.list_children(perspective):
             data['children'].append(c[0])
@@ -6879,6 +6879,8 @@ Addresses and settings:
                 indent = '* ' + (len(data['parents']) -1) * '  '
             elif d is 'children':
                 indent = (len(data['parents']) +1) * '  '
+                if len(data['parents']) == 0:
+                    indent += '  '
 
             for num, item in enumerate(data[d]):
                 ou.clear()
