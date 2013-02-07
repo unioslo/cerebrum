@@ -1035,7 +1035,7 @@ class EVU(FSObject):
                p.status_reserv_nettpubl, p.adrlin2_hjemsted,
                p.postnr_hjemsted, p.adrlin3_hjemsted,
                p.adresseland_hjemsted, d.deltakernr, d.emailadresse,
-               p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil
+               p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil,
                k.etterutdkurskode, k.kurstidsangivelsekode,
                e.studieprogramkode, e.faknr_adm_ansvar,
                e.instituttnr_adm_ansvar, e.gruppenr_adm_ansvar,
@@ -1046,7 +1046,7 @@ class EVU(FSObject):
               p.personnr=d.personnr AND
               d.deltakernr=k.deltakernr AND
               e.etterutdkurskode=k.etterutdkurskode AND
-              NVL(e.status_nettbasert_und,'J')='J' AND
+              NVL(e.status_nettbasert_und, 'J') = 'J' AND
               k.kurstidsangivelsekode = e.kurstidsangivelsekode AND
               NVL(e.dato_til, SYSDATE) >= SYSDATE - 30"""
         return self.db.query(qry)
