@@ -22,6 +22,7 @@
 
 import re
 import sys
+import os
 import getopt
 
 import cerebrum_path
@@ -33,16 +34,6 @@ from Cerebrum.Utils import XMLHelper, MinimumSizeWriter, AtomicFileWriter, Simil
 from Cerebrum.modules.no.nmh.access_FS import FS
 from Cerebrum.Utils import Factory
 
-default_person_file = "/cerebrum/nmh/dumps/FS/person.xml"
-default_role_file = "/cerebrum/nmh/dumps/FS/roles.xml"
-default_undvenh_file = "/cerebrum/nmh/dumps/FS/underv_enhet.xml"
-default_undenh_student_file = "/cerebrum/nmh/dumps/FS/student_undenh.xml"
-default_studieprogram_file = "/cerebrum/nmh/dumps/FS/studieprog.xml"
-default_ou_file = "/cerebrum//nmh/dumps/FS/ou.xml"
-default_emne_file = "/cerebrum/nmh/dumps/FS/emner.xml"
-default_fnr_update_file = "/cerebrum/nmh/dumps/FS/fnr_update.xml"
-default_evu_kursinfo_file = "/cerebrum/nmh/dumps/FS/evu_kursinfo.xml"
-default_nettpubl_info_file = "/cerebrum/nmh/dumps/FS/nettpublisering.xml"
 xml = XMLHelper()
 fs = None
 
@@ -123,8 +114,8 @@ def write_ou_info(outfile):
         for fs_col, typekode in (
             ('telefonnr', 'EKSTRA TLF'),
             ('faxnr', 'FAX'),
-	    ('emailadresse','EMAIL'),
-	    ('url', 'URL')):
+            ('emailadresse','EMAIL'),
+            ('url', 'URL')):
             if o[fs_col]:               # Skip NULLs and empty strings
                 komm.append({'kommtypekode': xml.escape_xml_attr(typekode),
                              'kommnrverdi': xml.escape_xml_attr(o[fs_col])})
@@ -160,7 +151,7 @@ def write_role_info(outfile):
     f.write(xml.xml_hdr + "<data>\n")
     cols, role = _ext_cols(fs.undervisning.list_alle_personroller())
     for r in role:
-	f.write(xml.xmlify_dbrow(r, xml.conv_colnames(cols), 'rolle') + "\n")
+        f.write(xml.xmlify_dbrow(r, xml.conv_colnames(cols), 'rolle') + "\n")
     f.write("</data>\n")
     f.close()
 
@@ -276,6 +267,10 @@ def fix_float(row):
 
 def usage(exitcode=0):
     print """Usage: [options]
+
+    --datadir DIR           Override the directory where all files should be
+                            put. Not used if a file path is absolute.
+
     --studprog-file name: override studprog xml filename
     --personinfo-file: override person xml filename
     --roleinfo-file: override role xml filename
@@ -311,32 +306,44 @@ def assert_connected(user="CEREBRUM", service="FSNMH.uio.no"):
         db = Database.connect(user=user, service=service, DB_driver=DB_driver)
         fs = FS(db)
 
+def set_filepath(datadir, file):
+    """Return the string of path to a file. If the given file path is relative,
+    the datadir is used as a prefix, otherwise only the file path is returned.
+
+    """
+    if os.path.isabs(file):
+        return file
+    return os.path.join(datadir, file)
+
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], "fpsruUoeEn",
                                    ["personinfo-file=", "studprog-file=", 
-				    "roleinfo-file=", "undenh-file=",
+                                    "roleinfo-file=", "undenh-file=",
+                                    "datadir=",
                                     "student-undenh-file=",
-				    "emneinfo-file=",
+                                    "emneinfo-file=",
                                     "netpubl-file=",
                                     "evukursinfo-file=",
-				    "fnr-update-file=", "misc-func=", 
+                                    "fnr-update-file=", "misc-func=", 
                                     "misc-file=", "misc-tag=",
                                     "ou-file=", "db-user=", "db-service="])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
 
-    person_file = default_person_file
-    studprog_file = default_studieprogram_file
-    ou_file = default_ou_file
-    role_file = default_role_file
-    undervenh_file = default_undvenh_file
-    emne_info_file = default_emne_file
-    evu_kursinfo_file = default_evu_kursinfo_file
-    fnr_update_file = default_fnr_update_file
-    undenh_student_file = default_undenh_student_file
-    nettpubl_file = default_nettpubl_info_file 
+    datadir = '/cerebrum/nmh/dumps/FS/'
+    person_file = 'person.xml'
+    studprog_file = 'studieprog.xml'
+    ou_file = 'ou.xml'
+    role_file = 'roles.xml'
+    undervenh_file = 'underv_enhet.xml'
+    emne_info_file = 'emner.xml'
+    evu_kursinfo_file = 'evu_kursinfo.xml'
+    fnr_update_file = 'fnr_update.xml'
+    undenh_student_file = 'student_undenh.xml'
+    nettpubl_file = 'nettpublisering.xml'
+
     db_user = None         # TBD: cereconf value?
     db_service = None      # TBD: cereconf value?
     for o, val in opts:
@@ -344,18 +351,20 @@ def main():
             emne_info_file = val
         elif o in ('--personinfo-file',):
             person_file = val
+        elif o in ('--datadir',):
+            datadir = val
         elif o in ('--evukursinfo-file',):
             evu_kursinfo_file = val
         elif o in ('--studprog-file',):
             studprog_file = val
-	elif o in ('--roleinfo-file',):
-	    role_file = val
-	elif o in ('--undenh-file',):
-	    undervenh_file = val
+        elif o in ('--roleinfo-file',):
+            role_file = val
+        elif o in ('--undenh-file',):
+            undervenh_file = val
         elif o in ('--student-undenh-file',):
             undenh_student_file = val
-	elif o in ('--fnr-update-file',):
-	    fnr_update_file = val
+        elif o in ('--fnr-update-file',):
+            fnr_update_file = val
         elif o in ('--ou-file',):
             ou_file = val
         elif o in ('--db-user',):
@@ -365,32 +374,32 @@ def main():
     assert_connected(user=db_user, service=db_service)
     for o, val in opts:
         if o in ('-p',):
-            write_person_info(person_file)
+            write_person_info(set_filepath(datadir, person_file))
         elif o in ('-s',):
-            write_studprog_info(studprog_file)
-	elif o in ('-r',):
-	    write_role_info(role_file)
-	elif o in ('-u',):
-	    write_undenh_metainfo(undervenh_file)
+            write_studprog_info(set_filepath(datadir, studprog_file))
+        elif o in ('-r',):
+            write_role_info(set_filepath(datadir, role_file))
+        elif o in ('-u',):
+            write_undenh_metainfo(set_filepath(datadir, undervenh_file))
         elif o in ('-U',):
-            write_undenh_student(undenh_student_file)
+            write_undenh_student(set_filepath(datadir, undenh_student_file))
         elif o in ('-e',):
-	    write_emne_info(emne_info_file)
-	elif o in ('-f',):
-	    write_fnrupdate_info(fnr_update_file)
+            write_emne_info(set_filepath(datadir, emne_info_file))
+        elif o in ('-f',):
+            write_fnrupdate_info(set_filepath(datadir, fnr_update_file))
         elif o in ('-o',):
-            write_ou_info(ou_file)
+            write_ou_info(set_filepath(datadir, ou_file))
         elif o in ('-E',):
-            write_evukurs_info(evu_kursinfo_file)
+            write_evukurs_info(set_filepath(datadir, evu_kursinfo_file))
         elif o in ('-n',):
-            write_netpubl_info(nettpubl_file)
+            write_netpubl_info(set_filepath(datadir, nettpubl_file))
         # We want misc-* to be able to produce multiple file in one script-run
         elif o in ('--misc-func',):
             misc_func = val
         elif o in ('--misc-tag',):
             misc_tag = val
         elif o in ('--misc-file',):
-            write_misc_info(val, misc_tag, misc_func)
+            write_misc_info(set_filepath(val), misc_tag, misc_func)
 
 if __name__ == '__main__':
     main()
