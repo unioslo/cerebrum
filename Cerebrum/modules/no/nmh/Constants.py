@@ -28,6 +28,7 @@ from Cerebrum import Constants
 from Cerebrum.Constants import _SpreadCode, \
                                _PersonAffiliationCode, \
                                _PersonAffStatusCode
+from Cerebrum.modules.EntityTrait import _EntityTraitCode
 
 
 class Constants(Constants.Constants):
@@ -66,3 +67,13 @@ class Constants(Constants.Constants):
     spread_adgang_person = _SpreadCode(
         'person@adgang', Constants.Constants.entity_person,
         'Person kjent i adgangssystemet til NMH')
+
+    ## Traits for fagområde
+    trait_fagomrade_fagfelt = _EntityTraitCode(
+            'fagfelt',
+            Constants.Constants.entity_person, 
+            'Trait registering part of fagområde: fagfelt')
+    trait_fagomrade_instrument = _EntityTraitCode(
+            'instrument',
+            Constants.Constants.entity_person, 
+            'Trait registering part of fagområde: instrument')

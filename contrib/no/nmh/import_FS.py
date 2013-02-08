@@ -345,6 +345,8 @@ def process_person_callback(person_info):
     else:
         logger.info("**** UPDATE ****")
 
+    register_fagomrade(new_person, person_info)
+
     # Reservations    
     if gen_groups:
         should_add = False
@@ -365,7 +367,43 @@ def process_person_callback(person_info):
             _rem_res(new_person.entity_id)
     db.commit()
 
+def register_fagomrade(person, person_info):
+    """Register 'fagomrade' for a person, if set. It consists of fagfelt and
+    instrument. Not all is registered with this.
 
+    @param person:
+      Person db proxy associated with a newly created/fetched person.
+
+    @param person_info:
+      Dict returned by StudentInfoParser.
+
+    """
+    now = mx.DateTime.now()
+    fnr = "%06d%05d" % (int(person_info["fodselsdato"]),
+                        int(person_info["personnr"]))
+    c_fagfelt = person.get_trait(co.trait_fagomrade_fagfelt)
+    if c_fagfelt:
+        c_fagfelt = c_fagfelt['strval']
+    c_instrument = person.get_trait(co.trait_fagomrade_instrument)
+    if c_instrument:
+        c_instrument = c_instrument['strval']
+
+    fs_fagfelt = fs_instrument = None
+    for key, items in person_info.iteritems():
+        for data in items:
+            if 'fagfelt' in data:
+                fs_fagfelt = data['fagfelt']
+            if 'instrumentnavn' in data:
+                fs_instrument = data['instrumentnavn']
+    if c_fagfelt != fs_fagfelt:
+        logger.debug("For %s, added fagfelt: %s", fnr, fs_fagfelt)
+        person.populate_trait(co.trait_fagomrade_fagfelt, date=now,
+                              strval=fs_fagfelt)
+    if c_instrument != fs_instrument:
+        logger.debug("For %s, added instrument: %s", fnr, fs_instrument)
+        person.populate_trait(co.trait_fagomrade_instrument, date=now,
+                              strval=fs_instrument)
+    person.write_db()
 
 def main():
     global verbose, ou, logger, fnr2person_id, gen_groups, group
