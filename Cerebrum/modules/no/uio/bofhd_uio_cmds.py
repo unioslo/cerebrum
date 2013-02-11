@@ -561,7 +561,7 @@ class BofhdExtension(BofhdCommonMethods):
             for r2 in ar.list(op_target_id=r['op_target_id']):
                 aos.clear()
                 aos.find(r2['op_set_id'])
-                ety = self._get_entity(id=r2['entity_id'])
+                ety = self._get_entity(ident=r2['entity_id'])
                 ret.append({'opset': aos.name,
                             'attr': attr,
                             'type': str(self.const.EntityType(ety.entity_type)),
@@ -823,7 +823,7 @@ class BofhdExtension(BofhdCommonMethods):
                                 "result" %
                                 (cereconf.BOFHD_MAX_MATCHES_ACCESS, len(matches)))
         for row in matches:
-            entity = self._get_entity(id=row["entity_id"])
+            entity = self._get_entity(ident=row["entity_id"])
             etype = str(self.const.EntityType(entity.entity_type))
             ename = self._get_entity_name(entity.entity_type,
                                           entity.entity_id)
@@ -944,7 +944,7 @@ class BofhdExtension(BofhdCommonMethods):
                     target_name = "%s/%s" % (s.subnet_ip, s.subnet_mask)
                 else:
                     try:
-                        ety = self._get_entity(id=r['entity_id'])
+                        ety = self._get_entity(ident=r['entity_id'])
                         target_name = self._get_name_from_object(ety)
                     except (Errors.NotFoundError, ValueError):
                         self.logger.warn("Non-existing entity in "
@@ -4909,7 +4909,7 @@ Addresses and settings:
     all_commands['entity_info'] = None
     def entity_info(self, operator, entity_id):
         """Returns basic information on the given entity id"""
-        entity = self._get_entity(id=entity_id)
+        entity = self._get_entity(ident=entity_id)
         return self._entity_info(entity)
 
     def _entity_info(self, entity):
@@ -5039,7 +5039,7 @@ Addresses and settings:
             raise PermissionDenied("Currently limited to superusers.")
         # 2. get entity object to operate on
         try:
-            entity = self._get_entity(id=entityid)
+            entity = self._get_entity(ident=entityid)
         except Errors.NotFoundError, e:
             raise CerebrumError("Entity %s not found. Check id you typed." %entityid)
         source_system = self.const.system_manual
@@ -5228,7 +5228,7 @@ Addresses and settings:
            should be entity IDs"""          
         # tell _group_find later on that dest_group is a entity id          
         dest_group = 'id:%s' % dest_group_id
-        src_entity = self._get_entity(id=src_entity_id)
+        src_entity = self._get_entity(ident=src_entity_id)
         if not src_entity.entity_type in \
             (self.const.entity_account, self.const.entity_group):
             raise CerebrumError, \
@@ -5455,8 +5455,8 @@ Addresses and settings:
     # group remove_entity
     all_commands['group_remove_entity'] = None
     def group_remove_entity(self, operator, member_entity, group_entity):
-        group = self._get_entity(id=group_entity)
-        member = self._get_entity(id=member_entity)
+        group = self._get_entity(ident=group_entity)
+        member = self._get_entity(ident=member_entity)
         return self._group_remove_entity(operator, member, group)
                                
     
@@ -5499,7 +5499,7 @@ Addresses and settings:
             aos.clear()
             aos.find(row['op_set_id'])
             id = int(row['entity_id'])
-            en = self._get_entity(id=id)
+            en = self._get_entity(ident=id)
             if en.entity_type == co.entity_account:
                 owner = en.account_name
             elif en.entity_type == co.entity_group:
@@ -9725,25 +9725,25 @@ Password altered. Use misc list_password to print or view the new password.%s'''
             return self.const.group_memberop_difference
         raise CerebrumError("unknown group opcode: '%s'" % operator)
 
-    def _get_entity(self, idtype=None, id=None):
-        if id is None:
-            raise CerebrumError, "Invalid id"
+    def _get_entity(self, idtype=None, ident=None):
+        if ident is None:
+            raise CerebrumError("Invalid id")
         if idtype == 'account':
-            return self._get_account(id)
+            return self._get_account(ident)
         if idtype == 'person':
-            return self._get_person(*self._map_person_id(id))
+            return self._get_person(*self._map_person_id(ident))
         if idtype == 'group':
-            return self._get_group(id)
+            return self._get_group(ident)
         if idtype == 'stedkode':
-            return self._get_ou(stedkode=id)
+            return self._get_ou(stedkode=ident)
         if idtype is None:
             try:
-                int(id)
+                int(ident)
             except ValueError:
-                raise CerebrumError, "Expected int as id"
+                raise CerebrumError("Expected int as id")
             ety = Entity.Entity(self.db)
-            return ety.get_subclassed_object(id)
-        raise CerebrumError, "Invalid idtype"
+            return ety.get_subclassed_object(ident)
+        raise CerebrumError("Invalid idtype")
 
     def _find_persons(self, arg):
         if arg.isdigit() and len(arg) > 10:  # finn personer fra fnr
