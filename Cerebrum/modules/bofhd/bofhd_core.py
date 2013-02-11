@@ -322,7 +322,6 @@ class BofhdCommandBase(object):
           An account associated with the specified id (or an exception is
           raised if nothing suitable matches)
         """
-
         account = self.Account_class(self.db)
         account.clear()
         try:
@@ -486,11 +485,34 @@ class BofhdCommonMethods(BofhdCommandBase):
 
     """
 
+    def __init__(self, server):
+        self.util = server.util
+        super(BofhdCommonMethods, self).__init__(server)
+
     # Each subclass defines its own class attribute containing the relevant
     # commands - the subclass therefore has to copy in the wanted method
     # definitions from this class' all_commands dict. TODO: or find a smarter
     # solution to this.
     all_commands = {}
+
+    ##
+    ## User methods
+
+    # user delete
+    all_commands['user_delete'] = cmd.Command(
+        ("user", "delete"), cmd.AccountName(),
+        perm_filter='can_delete_user')
+    def user_delete(self, operator, accountname):
+        account = self._get_account(accountname)
+        self.ba.can_delete_user(operator.get_entity_id(), account)
+        if account.is_deleted():
+            raise CerebrumError("User is already deleted")
+        account.deactivate()
+        account.write_db()
+        return "User %s is deactivated" % account.account_name
+
+    ##
+    ## Group methods
 
     # group create
     all_commands['group_create'] = cmd.Command(
