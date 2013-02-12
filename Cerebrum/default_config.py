@@ -957,27 +957,6 @@ INDIVIDUATION_PASW_RESERVED = (INITIAL_GROUPNAME,)
 # A mapping of building codes to their addresses. Used by the ldif export.
 BUILDING_CODES = {}
 
-
-
-###
-### Generic account and group settings
-###
-
-# These configuration variables are used to control and limit the Account,
-# PosixAccount, Group and PosixGroup entity name lengths.
-# They should be set to the smallest limitation of any export system that uses
-# the entity names. 
-# NOTE: Some legacy *nix systems limits user-/groupnames to 8 characters.
-#       Some legacy Windows-clients (98, NT4.0, LAN Manager) uses the AD
-#       attribute 'sAMAccountName', which is limited to 19 characters
-#
-## Generic account lengths, used in the 'illegal_name' methods of Account/Group
-## mixins. Some mixins will still be using hardcoded values, those should be
-## replaced with cereconf-constants.
-ACCOUNT_MAX_LENGTH_ACCOUNTNAME = 8
-GROUP_MAX_LENGTH_GROUPNAME = 8
-
-
 ###
 ### Guest accounts
 ###
@@ -1007,7 +986,8 @@ GUEST_MAX_DAYS = 30
 #                     'spread': ('account@AD',),},
 GUEST_TYPES = {}
 
-# The default choice
+# The default GUEST_TYPES choice. This will be presented as the default choice
+# when using 'guest create' and then giving arguments interactively.
 GUEST_TYPES_DEFAULT = ''
 
 # The group that stands as the 'owner' of the guest accounts. Note that this is
