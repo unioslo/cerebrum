@@ -21,6 +21,7 @@
 
 group_help = {
     'access': "Access (authorisation) related commands",
+    'entity': "Entity commands",
     'group': "Group commands",
     'misc': 'Miscellaneous commands',
     'ou': 'Organizational unit related commands',
@@ -57,6 +58,8 @@ command_help = {
     'group_list': 'List account members of a group',
     'group_list_all': 'List all existing groups',
     'group_list_expanded': 'List all members of a group, direct and indirect',
+    'group_memberships': 'List all groups an entity is a member of',
+    'group_search': 'Search for a group using various criteria',
     'group_set_expire': 'Set expire date for a group',
     'group_set_description': 'Set description for a group',
     'group_set_visibility': 'Set visibility for a group',
@@ -74,11 +77,21 @@ command_help = {
     'misc_reload': 'Re-read server config file (use with care)',
     'misc_list_requests': 'View pending jobs the current BOFH user has requested/may confirm',
     'misc_user_passwd': 'Check whether an account has a given password',
+    "misc_verify_password":
+        "Check whether an account has a given password",
     },
     'ou': {
     'ou_search': 'Search for OUs by name or a partial stedkode',
     'ou_info': 'View information about an OU',
     'ou_tree': 'Show parents/children of an OU',
+    },
+    'entity': {
+    'entity_accounts':
+        "List information about accounts associated with given entities",
+    'entity_history':
+        "List the changes made to entity.",
+    'entity_contactinfo_add':
+        "Add contact information to entity.",
     },
     'perm': {
     'perm_opset_list': 'List defined opsets',
@@ -101,6 +114,10 @@ command_help = {
     'person_find': 'Search for a person in Cerebrum',
     'person_info': 'View information about a person',
     'person_set_id': 'Set a new id for a person',
+    'person_set_bdate':
+        'Set a new birth date for a person',
+    'person_set_name':
+        'Change the full name of a manually registered person',
     },
     'quarantine': {
     'quarantine_disable': 'Temporarily remove a quarantine',
@@ -134,7 +151,7 @@ command_help = {
     'user_history': "Show history of the account with uname. Limited to users subordinate to a privilege group the BOFH user is a member of",
     'user_info': 'View general information about an account',
     'user_move': 'Move a users home directory to another disk',
-    'user_password': 'Set a new password for an account',
+    'user_set_password': 'Set a new password for an account',
     'user_promote_posix': 'Make a Cerebrum account into a POSIX user account',
     'user_reserve': 'Reserve a user name in the database',
     'user_set_expire': 'Set expire date for an account',

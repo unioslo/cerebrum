@@ -42,6 +42,7 @@ from Cerebrum import Utils
 from Cerebrum import Cache
 from Cerebrum import Errors
 #from Cerebrum.modules import Host
+from Cerebrum.modules import PasswordChecker
 from Cerebrum.modules.bofhd import cmd_param as cmd
 from Cerebrum.modules.dns.bofhd_dns_utils import DnsBofhdUtils
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
