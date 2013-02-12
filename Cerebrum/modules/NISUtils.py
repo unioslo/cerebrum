@@ -22,6 +22,7 @@
 import mx, sys
 
 import cerebrum_path
+import cereconf
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.modules import PosixGroup
@@ -48,6 +49,11 @@ posix_group = PosixGroup.PosixGroup(db)
 # Specifically, on Solaris 9 makedbm(1M) chokes on lines longer than
 # 1018 characters.  Other systems might be even more limited.
 MAX_LINE_LENGTH = 1000
+
+# Entity name restrictions. This allows us to easily change the limitations,
+# e.g. if we want a separate limit for NIS accounts, or a different constant name.
+MAX_UNAME_LENGTH = getattr(cereconf, 'ACCOUNT_MAX_LENGTH_ACCOUNTNAME', 8)
+MAX_GNAME_LENGTH = getattr(cereconf, 'GROUP_MAX_LENGTH_GROUPNAME', 8)
 
 class NISMapException(Exception): pass
 class UserSkipQuarantine(NISMapException): pass
@@ -86,7 +92,7 @@ class Passwd(object):
         tmp = posix_user.illegal_name(uname)
         if tmp:
             raise BadUsername, "Bad username %s" % tmp            
-        if len(uname) > 8:
+        if len(uname) > MAX_UNAME_LENGTH:
             raise BadUsername, "Bad username %s" % uname
         passwd = row['auth_data']
         if passwd is None:
@@ -293,6 +299,9 @@ class NISGroupUtil(object):
                 return tmp_gname
         
     def _wrap_line(self, group_name, line, g_separator, is_ng=False):
+        """ If the line length (total length of member entity names +
+        separators) exceeds MAX_LINE_LENGTH, this method will add the offending
+        members to new groups with the same gid. """
         if is_ng:
             delim = ' '
         else:
@@ -346,7 +355,7 @@ class NISGroupUtil(object):
             tmp = posix_user.illegal_name(uname)
             if tmp:
                 logger.warn("Bad username %s in %s" % (tmp, group_name))
-            elif len(uname) > 8:
+            elif len(uname) > MAX_UNAME_LENGTH:
                 logger.warn("Bad username %s in %s" % (uname, group_name))
             else:
                 tmp_users.append(uname)
@@ -365,6 +374,9 @@ class FileGroup(NISGroupUtil):
         logger.debug("__init__ done")
       
     def _make_tmp_name(self, base):
+        """ Helper, generates available entity names for the _wrap_line method,
+        based on the original entity name.
+        """
         name = base
         harder = False
         while len(name) > 0:
@@ -372,11 +384,11 @@ class FileGroup(NISGroupUtil):
             if harder:
                 name = name[:-1]
             format = "%s%x"
-            if len(name) < 7:
+            if len(name) < MAX_GNAME_LENGTH - 1:
                 format = "%s%02x"
             while True:
                 tname = format % (name, i)
-                if len(tname) > 8:
+                if len(tname) > MAX_GNAME_LENGTH:
                     break
                 if not self._exported_groups.has_key(tname):
                     self._exported_groups[tname] = True
@@ -412,7 +424,7 @@ class FileGroup(NISGroupUtil):
         for group_id in groups:
             group_name = self._exported_groups[group_id]
             tmp = posix_group.illegal_name(group_name)
-            if tmp or len(group_name) > 8:
+            if tmp or len(group_name) > MAX_GNAME_LENGTH:
                 logger.warn("Bad groupname %s %s" % (group_name, tmp))
                 continue
             try:
