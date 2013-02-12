@@ -38,7 +38,6 @@ from Cerebrum.modules.bofhd.errors import CerebrumError
 
 from Cerebrum.modules.bofhd import cmd_param as cmd
 
-
 class BofhdCommandBase(object):
     """Base class for bofhd command support.
 
@@ -65,7 +64,6 @@ class BofhdCommandBase(object):
     # Each subclass defines its own class attribute containing the relevant
     # commands.
     all_commands = {}
-
 
 
     def __init__(self, server):
@@ -538,4 +536,67 @@ class BofhdCommonMethods(BofhdCommandBase):
             g.add_spread(self.const.Spread(spread))
             g.write_db()
         return {'group_id': int(g.entity_id)}
+
+    # person clear_contact_info
+    all_commands['person_clear_contact_info'] = cmd.Command(
+        ("person", "clear_contact_info"),
+        cmd.PersonId(),
+        cmd.SourceSystem(help_ref='source_system'),
+        cmd.SimpleString(help_ref='entity_contact_type'),
+        perm_filter='is_superuser'
+        )
+    def person_clear_contact_info(self, operator, person_id, source_system, citype):
+        """Deleting a person's contact info from a given source system. Useful in
+        cases where the person has old contact information from a source system 
+        he no longer is exported from, i.e. no affiliations."""
+
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
+
+        if not person_id:
+            raise CerebrumError('Empty value given')
+
+        person = self.util.get_target(person_id, restrict_to="Person")
+
+        ss = self.const.AuthoritativeSystem(source_system)
+        try:
+            int(ss)
+        except Errors.NotFoundError:
+            raise CerebrumError('No such source system "%s"' % source_system)
+
+        citype = self.const.ContactInfo(citype)
+        try:
+            int(citype)
+        except Errors.NotFoundError:
+            raise CerebrumError('Invalid contact info type "%s", try one of %s' % (
+                    citype, 
+                    ", ".join(str(x) for x in self.const.fetch_constants(self.const.ContactInfo))
+                ))
+
+        # check if person is still affiliated with the given source system
+        for a in person.get_affiliations():
+            if self.const.AuthoritativeSystem(a['source_system']) is ss:
+                raise CerebrumError('Person is still affiliated with source system %s' % source_system)            
+
+        # check if given contact info type exists for this person
+        if not person.get_contact_info(source=ss, type=citype):
+            raise CerebrumError("Person does not have contact info type %s in %s" % 
+                (citype, source_system))
+
+        try:
+            person.delete_contact_info(source=ss, contact_type=citype)
+            self.db.log_change(
+                subject_entity=person.entity_id,
+                change_type_id=self.const.entity_cinfo_del,
+                destination_entity=None,
+                change_params={'subject': person.entity_id}
+            )
+            person.write_db()
+        except:
+            raise CerebrumError("Could not delete contact info %s:%s for %s" %
+                                (source_system, citype, person_id))
+
+        return "Contact info %s:%s for %s has been deleted" % (
+            source_system, citype, person_id
+        )
 

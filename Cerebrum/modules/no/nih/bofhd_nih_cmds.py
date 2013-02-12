@@ -207,6 +207,13 @@ class BofhdExtension(BofhdCommonMethods):
     def get_format_suggestion(self, cmd):
         return self.all_commands[cmd].get_fs()
     
+    # person clear_contact_info
+    # (all_commands is updated from BofhdCommonMethods)
+    def person_clear_contact_info(self, operator, person_id, source_system, citype):
+        return super(BofhdExtension, self).person_clear_contact_info(
+            operator, person_id, source_system, citype
+        )
+
     # person student_info
     #
     all_commands['person_student_info'] = Command(

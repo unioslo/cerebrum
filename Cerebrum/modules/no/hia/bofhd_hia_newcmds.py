@@ -777,6 +777,13 @@ class BofhdExtension(BofhdCommonMethods):
                                 (source_system, addresstype, person_id))
         return "Address deleted"
 
+    # person clear_contact_info
+    # (all_commands is updated from BofhdCommonMethods)
+    def person_clear_contact_info(self, operator, person_id, source_system, citype):
+        return super(BofhdExtension, self).person_clear_contact_info(
+            operator, person_id, source_system, citype
+        )
+
     # user home_create (set extra home per spread for a given account)
     #
     all_commands['user_home_create'] = Command(

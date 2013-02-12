@@ -306,6 +306,8 @@ command_help = {
         'Remove an affiliation from a person',
     'person_clear_address':
         "Remove a person's address coming from a given source system",
+    'person_clear_contact_info':
+        "Remove a person's contact info coming from a given source system",
     'person_clear_name':
         'Remove the names coming from a source system from a person',
     'person_clear_id':

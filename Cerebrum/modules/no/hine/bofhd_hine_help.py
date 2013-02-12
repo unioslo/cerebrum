@@ -116,6 +116,8 @@ command_help = {
         'Add an affiliation to a person',
     'person_affiliation_remove':
         'Remove an affiliation from a person',
+    'person_clear_contact_info':
+        "Remove a person's contact info coming from a given source system",
     'person_create':
         'Register a new person in Cerebrum',
     'person_find':
