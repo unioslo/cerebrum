@@ -7236,8 +7236,8 @@ Addresses and settings:
         aff = self._get_affiliationid(aff)
         ou = self._get_ou(stedkode=ou)
         auth_systems = []
-        for as in cereconf.BOFHD_AUTH_SYSTEMS:
-            tmp=getattr(self.const, as)
+        for auth_sys in cereconf.BOFHD_AUTH_SYSTEMS:
+            tmp=getattr(self.const, auth_sys)
             auth_systems.append(int(tmp))
         self.ba.can_remove_affiliation(operator.get_entity_id(), person, ou, aff)
         for row in person.list_affiliations(person_id=person.entity_id,
@@ -7288,8 +7288,8 @@ Addresses and settings:
         perm_filter='can_create_person')
     def person_set_name(self, operator, person_id, firstname, lastname):
         auth_systems = []
-        for as in cereconf.BOFHD_AUTH_SYSTEMS:
-            tmp=getattr(self.const, as)
+        for auth_sys in cereconf.BOFHD_AUTH_SYSTEMS:
+            tmp=getattr(self.const, auth_sys)
             auth_systems.append(int(tmp))
         person = self._get_person(*self._map_person_id(person_id))
         self.ba.can_create_person(operator.get_entity_id())        
