@@ -28,8 +28,9 @@ class nmhOrgLDIFMixin(OrgLDIF):
         self.pe2fagomr = self.get_fagomrade()
 
     def test_omit_ou(self):
-        # Not using Stedkode, so all OUs are available (there is no need to
-        # look for special spreads).
+        """Not using Stedkode, so all OUs are available (there is no need to
+        look for special spreads).
+        """
         return False
 
     def get_fagomrade(self):
