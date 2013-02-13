@@ -38,9 +38,9 @@ class nmhOrgLDIFMixin(OrgLDIF):
         'instrument'. Both fields are stored in traits for each person.
 
         """
-        fagfelts = dict((row['entity_id'], row['strval']) for row in
+        fagfelts = dict((row['entity_id'], iso2utf(row['strval'])) for row in
                     self.person.list_traits(self.const.trait_fagomrade_fagfelt))
-        instr = dict((row['entity_id'], row['strval']) for row in
+        instr = dict((row['entity_id'], iso2utf(row['strval'])) for row in
                  self.person.list_traits(self.const.trait_fagomrade_instrument))
         return fagfelts, instr
 
@@ -57,7 +57,6 @@ class nmhOrgLDIFMixin(OrgLDIF):
                            ('facsimileTelephoneNumber', sap,
                                                         self.const.contact_fax),
                            ('labeledURI', None, self.const.contact_url))]
-        self.logger.info("in nmh's init_attr2id2contacts!!!!!!!")
         self.id2labeledURI    = c[-1][1]
         self.attr2id2contacts = [v for v in c if v[1]]
 
