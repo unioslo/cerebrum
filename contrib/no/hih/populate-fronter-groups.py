@@ -234,6 +234,9 @@ def kull_grupper(fsconn, studieprogramkode, remove_others=False):
 
 def undervisningsmelding_grupper(fsconn, remove_others=False):
     for x in fs.undervisning.list_undervisningenheter(sem=None):
+        if x['arstall'] < int(fs.student.year):
+            logger.debug("Returned old underv.enheter; %s, skipping", x)
+            continue
         grp = get_group("emne-%s-%s-%s-%s" % (x['emnekode'], x['terminkode'],
                                               x['arstall'], x['terminnr']),
                         "Alle studenter undervisningsmeldt på %s, %s %s %s" % (
