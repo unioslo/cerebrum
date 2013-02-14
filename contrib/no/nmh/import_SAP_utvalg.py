@@ -82,6 +82,7 @@ def process_utvalg(filename, use_fok):
     person.
 
     """
+    logger.info('Start importing utvalg from file: %s', filename)
     sapid2pe = dict((r['external_id'], r['entity_id']) for r in
                     pe.list_external_ids(source_system=co.system_sap,
                                          id_type=co.externalid_sap_ansattnr))
@@ -104,6 +105,8 @@ def process_utvalg(filename, use_fok):
             continue
         sapid2fag_sap.setdefault(u.sap_ansattnr, []).append(u.sap_fagmiljo)
 
+    logger.debug("Found %d valid employees with 'utvalg'", len(sapid2fag_sap))
+
     # Update Cerebrum
     for sap_id, fag in sapid2fag_sap.iteritems():
         # Comma separate in case of more than one element from the file.
@@ -119,6 +122,7 @@ def process_utvalg(filename, use_fok):
             logger.info("Populating fagmiljo for sap_id=%s: %s",
                         sap_id, fag)
             populate_fagmiljo(e_id, fag)
+    # TODO: remove all other utvalg entries in Cerebrum?
 
 def main():
     try:
