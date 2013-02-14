@@ -91,6 +91,22 @@ def make_employment_iterator(source, fok, logger=None):
 # end make_employment_iterator
 
 
+def make_utvalg_iterator(source, fok, logger=None):
+    """Iterator for getting SSØ-SAP utvalg data about persons.
+
+    @param source:
+        Any iterable yielding successice lines with utvalg data.
+
+    @param fok:
+        See L{make_person_iterator}
+
+    """
+    if not fok:
+        raise Exception('Not implemented')
+    kls = _SAPUtvalgTuple
+    for line in source:
+        tpl = _sap_row_to_tuple(line)
+        yield kls(tpl, logger)
 
 def load_expired_employees(source, fok, logger=None):
     """Collect SAP IDs for all expired employees from source."""
@@ -485,6 +501,43 @@ class _SAPEmploymentTupleFok(_SAPEmploymentTuple):
 # end SAPEmploymentTuple
 
 
+class _SAPUtvalgTuple(_SAPTupleBase):
+    """Abstracting away 'utvalg' data from SAP, from feide_perutvalg.txt.
+
+    The field split looks like this:
+
+      Field  Description
+        0    SAP person ID
+        1    Seksjonstilhørighet - forretningsområde ID? - orgeh?
+        2    Ansattkode (vert erstatta av MEG/MUG) - employment type?
+        3    Fagmiljø
+        4    Start date
+        5    End date
+        6    Role
+
+    """
+
+    _field_count = 7
+    _field_rules = {'sap_ansattnr':    0,
+                    'sap_orgeh': 1,
+                    'sap_unknown': 2,
+                    'sap_fagmiljo': 3,
+                    'sap_start_date': (4, lambda x: x and strptime(x, "%Y%m%d")
+                                                    or None),
+                    'sap_termination_date': (5, lambda x: x and strptime(x, "%Y%m%d")
+                                                          or None),
+                    'sap_role': 6, }
+
+    def expired(self):
+        """Is this entry expired?"""
+
+        return (self.sap_termination_date and 
+                self.sap_termination_date < now())
+
+    def valid(self):
+        """Is this entry to be ignored?"""
+
+        return not self.sap_start_date or self.sap_start_date < now()
 
 def _sap_row_to_tuple(sap_row):
     """Split a line into fields delimited by ';'.
