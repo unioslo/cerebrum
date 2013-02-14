@@ -26,6 +26,7 @@ class nmhOrgLDIFMixin(OrgLDIF):
         self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
         self.person = Factory.get('Person')(self.db)
         self.pe2fagomr = self.get_fagomrade()
+        self.pe2fagmiljo = self.get_fagmiljo()
 
     def test_omit_ou(self):
         """Not using Stedkode, so all OUs are available (there is no need to
@@ -43,6 +44,17 @@ class nmhOrgLDIFMixin(OrgLDIF):
         instr = dict((row['entity_id'], iso2utf(row['strval'])) for row in
                  self.person.list_traits(self.const.trait_fagomrade_instrument))
         return fagfelts, instr
+
+    def get_fagmiljo(self):
+        """Returns a dict mapping from person_id to 'fagmiljø'.
+
+        NMH wants 'fagmiljø' exported, which is retrieved from SAP as 'utvalg'
+        and stored in a trait for each person. We blindly treat them as
+        plaintext.
+
+        """
+        return dict((row['entity_id'], iso2utf(row['strval'])) for row in
+                    self.person.list_traits(self.const.trait_fagmiljo))
 
     def init_attr2id2contacts(self):
         """Override to include 'mobile' data from contact info."""
@@ -75,6 +87,11 @@ class nmhOrgLDIFMixin(OrgLDIF):
             inst = self.pe2fagomr[1].get(p_id, '')
             if fagf or inst:
                 urn = 'urn:mace:uio.no:nmh.no:fagomrade:%s,%s' % (fagf, inst)
+                entry.setdefault('eduPersonEntitlement', []).append(urn)
+            # Add fagmiljø:
+            fagm = self.pe2fagmiljo.get(p_id)
+            if fagm:
+                urn = 'urn:mace:uio.no:nmh.no:fagmiljo:%s' % fagm
                 entry.setdefault('eduPersonEntitlement', []).append(urn)
         return dn, entry, alias_info
 
