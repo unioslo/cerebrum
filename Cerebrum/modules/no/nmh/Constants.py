@@ -77,3 +77,9 @@ class Constants(Constants.Constants):
             'instrument',
             Constants.Constants.entity_person, 
             'Trait registering part of fagområde: instrument')
+
+    ## Trait for fagmiljø
+    trait_fagmiljo = _EntityTraitCode(
+            'fagmiljo',
+            Constants.Constants.entity_person, 
+            'Trait registering fagmiljø')
