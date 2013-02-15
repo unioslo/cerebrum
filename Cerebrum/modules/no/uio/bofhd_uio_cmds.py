@@ -7251,13 +7251,6 @@ Addresses and settings:
                 raise CerebrumError("Cannot remove affiliation registered from an authoritative source system")
         return "OK, removed %s@%s from %s" % (aff, self._format_ou_name(ou), person.entity_id)
 
-    # person clear_contact_info
-    # (all_commands is updated from BofhdCommonMethods)
-    def person_clear_contact_info(self, operator, person_id, source_system, citype):
-        return super(BofhdExtension, self).person_clear_contact_info(
-            operator, person_id, source_system, citype
-        )
-
     # person set_bdate
     all_commands['person_set_bdate'] = Command(
         ("person", "set_bdate"), PersonId(help_ref="id:target:person"),
