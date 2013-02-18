@@ -35,8 +35,9 @@ $NAME (0.0-0) UNRELEASED; urgency=low
 EOF
 dch --newversion $VERSION "updated to $VERSION"
 
+[[ -f ~/.devscripts ]] && source ~/.devscripts
 echo "Building new package"
-dpkg-buildpackage -rfakeroot
+dpkg-buildpackage -rfakeroot ${DEBSIGN_KEYID+"-k$DEBSIGN_KEYID"}
 popd > /dev/null 2>&1
 
 echo "Finished build of $NAME."
