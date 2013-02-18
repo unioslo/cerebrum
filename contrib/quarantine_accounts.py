@@ -19,9 +19,30 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+"""
+This script sets a quarantine on users without affiliations.
+
+The script should be extended to do the following:
+    - Send an SMS to account owners.
+    - Introduce a new command-line option that allows a given set
+        of expired affiliations to be extempted by the check.
+
+The flow of the script is something like this:
+    1. Parse args and initzialise globals in the main-function. This is
+        also where the rest of the action is sparked.
+    2. Call the find_affless_persons-function to collect all person IDs
+        wich do not have an active affiliation.
+    3. Call the set_quarantine-function. This sets a given quarantine on
+        all accounts associated with the persons collected in step 2.
+    4. Call the notify_users-function. This sends the users an E-email,
+        telling them that the account has been quarantined.
+
+        4.1 The send_mail-function gets called by notify_users, for each
+             each account quarantined.
+"""
+
 import sys
 import getopt
-import re
 
 import cerebrum_path
 import cereconf
@@ -39,6 +60,28 @@ import email
 logger = Factory.get_logger('cronjob')
 
 def send_mail(mail_to, mail_from, subject, body, mail_cc=None):
+    """
+    Function for sending mail to users.
+
+    @type mail_to: string
+    @param mail_to: The recipient of the Email.
+
+    @type mail_from: string
+    @param mail_from: The senders address.
+
+    @type subject: string
+    @param subject: The messages subject.
+
+    @type body: string
+    @param body: The message body.
+
+    @type mail_cc: string
+    @param mail_cc: An optional address that the mail will be CCed to.
+
+    @rtype: bool
+    @return: A boolean that tells if the email was sent sucessfully or not.
+    """
+
     if dryrun and not debug_verbose:
         return True
     try:
@@ -57,6 +100,22 @@ def send_mail(mail_to, mail_from, subject, body, mail_cc=None):
     return True
 
 def notify_users(ac_ids, email_info, quar_start_in_days):
+    """
+    Sends an email to users, telling them that a quarantine has been set.
+
+    @type ac_ids: list
+    @param ac_ids: A list of account IDs which will recieve an email.
+
+    @type email_info: dict
+    @param email_info: A dictionary containing the Email-message to send.
+
+    @type quar_start_in_days: int
+    @param quar_start_in_days: An integer representing the number of days
+        until the quarantine will be enforced.
+
+    @rtype: list
+    @return: Returns a list of account IDs that have been sent a notification.
+    """
     notified_users = []
     for x in ac_ids:
         ac.clear()
@@ -79,6 +138,12 @@ def notify_users(ac_ids, email_info, quar_start_in_days):
     return notified_users
 
 def find_affless_persons():
+    """
+    Returns all persons who does not have any active affiliation.
+
+    @rtype: list
+    @return: Returns a list of person IDs.
+    """
     affless = []
     for x in pe.list_persons():
         if not pe.list_affiliations(person_id=x['person_id']):
@@ -86,24 +151,46 @@ def find_affless_persons():
     return affless
 
 def set_quarantine(pids, quar, offset):
+    """
+    This method sets a given quarantine on a set of accounts.
+
+    @type pids: list
+    @param pids: A list of account IDs that will be processed.
+
+    @type quar: _QuarantineCode
+    @param quar: The quarantine that will be set on accounts referenced in
+        C{pids}.
+
+    @type offset: int
+    @param offset: The number of days until the quarantine starts.
+
+    @rtype: list
+    @return: Returns a list of account IDs that has had old quarantines
+        "updated" or new_quarantines set. 
+    """
     ac.clear()
     ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
     creator = ac.entity_id
     quarantined = []
+    accounts = 0
 
     for x in pids:
         pe.clear()
         pe.find(x)
         for y in pe.get_accounts():
+            accounts += 1
             ac.clear()
             ac.find(y['account_id'])
             # Refreshing/setting the quarantine
             if ac.get_entity_quarantine(type=quar, only_active=True):
+                logger.info('%s is already quarantined' % ac.account_name)
                 continue
             ac.delete_entity_quarantine(type=quar)
             date = DateTime.today() + offset
             ac.add_entity_quarantine(quar, creator, start=date)
+            logger.info('%s acquires new quarantine' % ac.account_name)
             quarantined.append(ac.entity_id)
+    logger.debug('Checked %d accounts' % accounts)
     return quarantined
 
 def usage():
@@ -112,7 +199,6 @@ def usage():
 -d    drydrun
 -o    quarantine offset in days (default 7)
 
--f    from-address for email-notification
 -m    file containing the message to be sent
 
 -e    debug_verbose
@@ -131,7 +217,7 @@ def main():
     dryrun = debug_verbose = False
     email_info = {}
 
-    opts, j = getopt.getopt(sys.argv[1:], 'q:do:f:m:eh')
+    opts, j = getopt.getopt(sys.argv[1:], 'q:do:m:eh')
     for opt, val in opts:
         if opt in ('-q',):
             quarantine = co.Quarantine(val)
@@ -142,8 +228,6 @@ def main():
             debug_verbose = True
         elif opt in ('-o',):
             quarantine_offset = val
-        elif opt in ('-f',):
-            email_info['From'] = val
         elif opt in ('-m',):
             try:
                 f = open(val)
@@ -162,7 +246,7 @@ def main():
                 sys.exit(2)
         elif opt in ('-h',):
             usage()
-            sys.exit(1)
+            sys.exit(0)
         else:
             print "Error: Invalid argument."
             usage()
@@ -182,7 +266,7 @@ def main():
     if not dryrun and 'From' in email_info and 'Body' in email_info:
         notified = notify_users(quarantined, email_info, quarantine_offset)
 
-    logger.info('%d quarantines added, %d users notified' % (len(pids),
+    logger.info('%d quarantines added, %d users notified' % (len(quarantined),
                                                              len(notified),))
 
     db.commit()
