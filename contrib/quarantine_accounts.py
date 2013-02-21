@@ -178,7 +178,8 @@ def set_quarantine(pids, quar, offset):
             ac.find(y['account_id'])
 
             if filter(lambda x: x['start_date'] <= date,
-                    ac.get_entity_quarantine(type=quar)):
+                    ac.get_entity_quarantine(type=quar)) or \
+                            ac.get_entity_quarantine(only_active=True):
                 logger.info('%s is already quarantined' % ac.account_name)
                 continue
 
@@ -227,14 +228,23 @@ def main():
     opts, j = getopt.getopt(sys.argv[1:], 'q:do:m:eh')
     for opt, val in opts:
         if opt in ('-q',):
-            quarantine = co.Quarantine(val)
+            try:
+                quarantine = co.Quarantine(val)
+                int(quarantine)
+            except Errors.NotFoundError:
+                logger.error('\'%s\' is not a valid quarantine!' % val)
+                sys.exit(3)
         elif opt in ('-d',):
             db.commit = db.rollback
             dryrun = True
         elif opt in ('-e',):
             debug_verbose = True
         elif opt in ('-o',):
-            quarantine_offset = int(val)
+            try:
+                quarantine_offset = int(val)
+            except ValueError:
+                logger.error('\'%s\' is not an integer' % val)
+                sys.exit(4)
         elif opt in ('-m',):
             try:
                 f = open(val)
@@ -248,20 +258,15 @@ def main():
                     'Body': msg.get_payload(decode=1)
                 }
             except IOError, e:
-                logger.error('Mail body file: %s' % e)
+                logger.error('Mail body file: \'%s\'' % e)
                 sys.exit(2)
         elif opt in ('-h',):
             usage()
             sys.exit(0)
         else:
-            print "Error: Invalid argument."
+            logger.error('Invalid argument: \'%s\'' % val)
             usage()
             sys.exit(1)
-
-    try:
-        int(quarantine)
-    except Errors.NotFoundError:
-        logger.error('Invalid quarantine')
 
     logger.debug('Finding persons without affiliation')
     pids = find_affless_persons()
