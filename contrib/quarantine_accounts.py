@@ -200,7 +200,7 @@ def set_quarantine(pids, quar, offset):
 
 def usage():
     print """ %s
--q    quarantine to set (default 'generell')
+-q    quarantine to set (default 'auto_no_aff')
 -d    drydrun
 -o    quarantine offset in days (default 7)
         If a quarantine of the same type exists, and is longer away in
@@ -220,7 +220,7 @@ def main():
     pe = Factory.get('Person')(db)
     ac = Factory.get('Account')(db)
 
-    quarantine = co.quarantine_generell
+    quarantine = co.quarantine_auto_no_aff
     quarantine_offset = 7
     dryrun = debug_verbose = False
     email_info = None
