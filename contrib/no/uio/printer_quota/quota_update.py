@@ -355,6 +355,18 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file,
             del(quota_victim[int(row['person_id'])])
     logger.debug("removed employees: %i" % len(quota_victim))
 
+    # Alle personer som har disse typer tilknyttet affiliation skal ha fritak
+    for row in person.list_affiliations(affiliation=const.affiliation_tilknyttet,
+                                        status=(const affiliation_tilknyttet_bilag,
+                                                const.affiliation_tilknyttet_ekst_forsker,
+                                                const.affiliation_tilknyttet_gjesteforsker,
+                                                const.affiliation_tilknyttet_innkjoper,),
+                                        source_system=const.system_sap,
+                                        include_deleted=False, fetchall=False):
+        if quota_victim.has_key(int(row['person_id'])):
+            del(quota_victim[int(row['person_id'])])
+    logger.debug("removed tilknyttet people: %i" % len(quota_victim))
+
     # Mappe fødselsnummer til person-id
     fnr2pid = {}
     for p in person.list_external_ids(source_system=const.system_fs,
