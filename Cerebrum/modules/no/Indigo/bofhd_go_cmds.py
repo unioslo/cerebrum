@@ -187,7 +187,7 @@ class BofhdExtension(BofhdCommonMethods):
             aos.clear()
             aos.find(row['op_set_id'])
             id = int(row['entity_id'])
-            en = self._get_entity(id=id)
+            en = self._get_entity(ident=id)
             if en.entity_type == co.entity_account:
                 owner = en.account_name
             elif en.entity_type == co.entity_group:
@@ -228,7 +228,7 @@ class BofhdExtension(BofhdCommonMethods):
 
     all_commands['get_entity_spreads'] = None
     def get_entity_spreads(self, operator, entity_id):
-        entity = self._get_entity(id=int(entity_id))
+        entity = self._get_entity(ident=int(entity_id))
         return [{'spread': str(self.const.Spread(int(row['spread']))),
                  'spread_desc': self.const.Spread(int(row['spread']))._get_description()}
                 for row in entity.get_spread()]
@@ -357,7 +357,7 @@ class BofhdExtension(BofhdCommonMethods):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
         account = self.Account_class(self.db)
-        entity = self._get_entity(id=int(owner_id))
+        entity = self._get_entity(ident=int(owner_id))
         if entity.entity_type == int(self.const.entity_person):
             np_type=None
         else:
@@ -599,7 +599,7 @@ class BofhdExtension(BofhdCommonMethods):
                     'change_type': str(cl),
                     'misc': params,
                     }
-                entity = self._get_entity(id=int(v['subject_entity']))
+                entity = self._get_entity(ident=int(v['subject_entity']))
                 if entity.entity_type == int(self.const.entity_person):
                     person = self._get_person("entity_id", entity.entity_id)
                     name = person.get_name(self.const.system_cached,
@@ -674,8 +674,8 @@ class BofhdExtension(BofhdCommonMethods):
                       "uname": self._get_entity_name(self.const.entity_account,
                                                      entity_id),
                       "password": row["state_data"]["password"]}
-            account = self._get_entity(id=entity_id)
-            owner = self._get_entity(id=account.owner_id)
+            account = self._get_entity(ident=entity_id)
+            owner = self._get_entity(ident=account.owner_id)
             result["name"] = self._get_entity_name(owner.entity_type,
                                                    owner.entity_id)
             if owner.entity_type == self.const.entity_person:
@@ -685,7 +685,7 @@ class BofhdExtension(BofhdCommonMethods):
                                                      person_id=owner.entity_id,
                                                      account_id=account.entity_id)
                 if affs:
-                    ou = self._get_entity(id=affs[0]["ou_id"])
+                    ou = self._get_entity(ident=affs[0]["ou_id"])
                     ou_name = ou.get_name_with_language(
                                      name_variant=self.const.ou_name,
                                      name_language=self.const.language_nb,
