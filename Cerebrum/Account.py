@@ -755,21 +755,32 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         a mismatch, return False.
         
         """
-        success = False
+        success = []
+        failed = []
         for m in cereconf.AUTH_CRYPT_METHODS:
             method = self.const.Authentication(m)
             try:
                 auth_data = self.get_account_authentication(method)
             except Errors.NotFoundError:
+                # No credentials set by the given method for the given account.
+                # This is normally okay, as we could create new methods without
+                # requiring all users to set new passwords. However, at least
+                # one auth method has to succeed.
                 continue
             status = self.verify_password(method, plaintext, auth_data)
             if status is NotImplemented:
                 continue
-            elif status is True:
-                success = True
+            if status is True:
+                success.append(m)
             else:
-                return False
-        return success
+                failed.append(m)
+        # If you both pass and fail various crypt methods, it is normally an
+        # error:
+        if success and failed:
+            if hasattr(self, 'logger'):
+                self.logger.warn('Cred mismatch for %s, success: %s, fail: %s',
+                                 self.account_name, success, failed)
+        return success and not failed
 
     def add_student_to_server_group(self):
         """add a student account to a file server group to create
