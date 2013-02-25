@@ -255,6 +255,8 @@ class ConstantsUniversityColleges(Constants.Constants):
                                            'Sted fjernet fra autoritativ kildesystem')
     quarantine_guest_old = _QuarantineCode('guest_old',
                            'Old guest accounts are automatically quarantined')
+    quarantine_auto_no_aff = _QuarantineCode('auto_no_aff',
+                                              'Ikke tilknyttet person, utestengt')
     
     ## Non-personal account codes
     account_test = _AccountCode('testbruker', 'Testkonto')
