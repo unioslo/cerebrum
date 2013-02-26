@@ -24,7 +24,8 @@ This script sets a quarantine on users without affiliations.
 
 NOTE! The script will delete and re-set quarantines that are temporarily
 disabled! Only quarantines of the type supplied to the -q flag are checked
-and set.
+and set. With the -r option, quarantines of the defined type are removed if
+the person is affiliated.
 
 The script should be extended to do the following:
     - Send an SMS to account owners.
@@ -34,11 +35,13 @@ The script should be extended to do the following:
 The flow of the script is something like this:
     1. Parse args and initzialise globals in the main-function. This is
         also where the rest of the action is sparked.
-    2. Call the find_affless_persons-function to collect all person IDs
-        wich do not have an active affiliation.
+    2. Call the find_candidates-function to collect all person IDs that are
+        affiliated and are not affiliated.
     3. Call the set_quarantine-function. This sets a given quarantine on
         all accounts associated with the persons collected in step 2 if
         the notify_users-function sucessfully sends an email to the user.
+    4. Optionally call the remopve_quarantine-function, in order to remove
+        quarantines set on persons who are affiliated.
 """
 
 import sys
@@ -131,26 +134,29 @@ def notify_users(ac_id, quar_start_in_days):
 
     return send_mail(addr, email_info['From'], subject, body, email_info['Cc'])
 
-def find_affless_persons():
+def find_candidates():
     """
-    Returns all persons who does not have any active affiliation.
+    Find persons who should be quarantined and dequarantined.
 
-    @rtype: list
-    @return: Returns a list of person IDs.
+    @rtype: dict
+    @return: C{{'affiliated': set(), 'not_affiliated': set()}}
     """
-    affless = []
-    for x in pe.list_persons():
-        if not pe.list_affiliations(person_id=x['person_id']):
-            affless.append(x['person_id'])
-    return affless
+
+    affed = set([x['person_id'] for x in pe.list_affiliations()])
+    naffed = set([x['person_id'] for x in pe.list_persons()]) - affed
+
+    logger.info('Found %d persons with affiliations' % len(affed))
+    logger.info('Found %d persons without affiliations' % len(naffed))
+    
+    return {'affiliated': affed, 'not_affiliated': naffed}
 
 def set_quarantine(pids, quar, offset):
     """
     This method sets a given quarantine on a set of accounts.
 
     @type pids: list
-    @param pids: A list of account IDs that will be processed.
-
+    @param pids: A list of person IDs that will be evaluated for quarantine.
+    
     @type quar: _QuarantineCode
     @param quar: The quarantine that will be set on accounts referenced in
         C{pids}.
@@ -176,7 +182,6 @@ def set_quarantine(pids, quar, offset):
             accounts += 1
             ac.clear()
             ac.find(y['account_id'])
-
             if filter(lambda x: x['start_date'] <= date,
                     ac.get_entity_quarantine(type=quar)) or \
                             ac.get_entity_quarantine(only_active=True):
@@ -195,12 +200,46 @@ def set_quarantine(pids, quar, offset):
                 quarantined.append(ac.account_name)
             else:
                 failed_notify.append(ac.account_name)
-    logger.debug('Checked %d accounts' % accounts)
+    logger.debug('SQ checked %d accounts' % accounts)
     return {'quarantined': quarantined, 'failed_notify': failed_notify}
+
+def remove_quarantine(pids, quar):
+    """
+    This method removes quarantines on a set of accounts.
+
+    @type pids: list
+    @param pids: A list of person IDs that will have quar removed from their
+        accounts.
+    
+    @type quar: _QuarantineCode
+    @param quar: The quarantine that will be removed from accounts referenced
+        in C{pids}.
+
+    @rtype: dict
+    @return: C{{'dequarantined': []}}
+    """
+    dequarantined = []
+    accounts = 0
+    
+    for x in pids:
+        pe.clear()
+        pe.find(x)
+        for y in pe.get_accounts():
+            accounts += 1
+            ac.clear()
+            ac.find(y['account_id'])
+
+            if not dryrun and ac.get_entity_quarantine(type=quar):
+                ac.delete_entity_quarantine(type=quar)
+                logger.info('Deleting quarantine on %s' % ac.account_name)
+                dequarantined.append(ac.account_name)
+    logger.debug('RQ checked %d accounts' % accounts)
+    return {'dequarantined': dequarantined}
 
 def usage():
     print """ %s
 -q    quarantine to set (default 'auto_no_aff')
+-r    remove quarantines
 -d    drydrun
 -o    quarantine offset in days (default 7)
         If a quarantine of the same type exists, and is longer away in
@@ -224,8 +263,15 @@ def main():
     quarantine_offset = 7
     dryrun = debug_verbose = False
     email_info = None
+    remove = False
 
-    opts, j = getopt.getopt(sys.argv[1:], 'q:do:m:eh')
+    try:
+        opts, j = getopt.getopt(sys.argv[1:], 'q:rdo:m:eh')
+    except getopt.GetoptError, e:
+        logger.error(e)
+        usage()
+        sys.exit(1)
+
     for opt, val in opts:
         if opt in ('-q',):
             try:
@@ -234,6 +280,8 @@ def main():
             except Errors.NotFoundError:
                 logger.error('\'%s\' is not a valid quarantine!' % val)
                 sys.exit(3)
+        elif opt in ('-r',):
+            remove = True
         elif opt in ('-d',):
             db.commit = db.rollback
             dryrun = True
@@ -268,13 +316,16 @@ def main():
             usage()
             sys.exit(1)
 
-    logger.debug('Finding persons without affiliation')
-    pids = find_affless_persons()
-    logger.debug('Setting quarantine on affless persons')
-    r = set_quarantine(pids, quarantine, quarantine_offset)
-    
+    logger.debug('Finding candidates for addition/removal of quarantine')
+    cands = find_candidates()
+    logger.debug('Setting/removing quarantine on accounts')
+    r = set_quarantine(cands['not_affiliated'], quarantine, quarantine_offset)
     logger.info('%d quarantines added, %d users skipped' %
                 (len(r['quarantined']), len(r['failed_notify']),))
+
+    if remove:
+        r = remove_quarantine(cands['affiliated'], quarantine)
+        logger.info('%d quarantines removed' % len(r['dequarantined']))
 
     db.commit()
 
