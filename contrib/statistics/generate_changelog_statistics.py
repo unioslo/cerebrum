@@ -18,18 +18,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-import sys
-import getopt
-
-from mx.DateTime import *
-
-import cerebrum_path
-import cereconf
-from Cerebrum.Utils import Factory
-from Cerebrum.modules.CLProcessors import *
-from Cerebrum.modules.CLConstants import _ChangeTypeCode
-
 """This program provides statistics about various activities within Cerebrum.
 
 Currently it reports the following:
@@ -43,9 +31,19 @@ down by affiliation, when the 'affiliation'-option is used.
 
 """
 
+import sys
+import getopt
+
+from mx.DateTime import *
+
+import cerebrum_path
+import cereconf
+from Cerebrum.Utils import Factory
+from Cerebrum.modules.CLProcessors import *
+from Cerebrum.modules.CLConstants import _ChangeTypeCode
+
 __version__ = "$Revision$"
 # $Source$
-
 
 db = Factory.get('Database')()
 constants = Factory.get('Constants')(db)
