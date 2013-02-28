@@ -43,10 +43,10 @@ class Constants(Constants.Constants):
                                                  'Member of a project')
     # Project Administrator (PA)
     affiliation_status_project_admin = _PersonAffStatusCode(
-            affiliation_project, 'pa', 'Project Administrator (PA)')
+            affiliation_project, 'admin', 'Project Administrator (PA)')
     # Project Member (PM)
     affiliation_status_project_member = _PersonAffStatusCode(
-            affiliation_project, 'pm', 'Project Member (PM)')
+            affiliation_project, 'member', 'Project Member (PM)')
 
     ## Spreads
 
