@@ -118,7 +118,7 @@ class AccountHiAMixin(Account.Account):
         else:
             pu.delete_posixuser()
 
-        self.__super.terminate()
+        return self.__super.terminate()
 
     def illegal_name(self, name):
         # Avoid circular import dependency
