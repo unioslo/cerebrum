@@ -134,15 +134,22 @@ def notify_users(ac_id, quar_start_in_days):
 
     return send_mail(addr, email_info['From'], subject, body, email_info['Cc'])
 
-def find_candidates():
+def find_candidates(exclude_aff=[]):
     """
     Find persons who should be quarantined and dequarantined.
+
+    @type exclude_aff: list
+    @param exclude_aff: A list of tuples with affiliation- or affiliation- and
+        status-codes.
 
     @rtype: dict
     @return: C{{'affiliated': set(), 'not_affiliated': set()}}
     """
+    affs = filter(lambda x: not ((x['affiliation'], x['status']) in exclude_aff
+                            or (x['affiliation'],) in exclude_aff),
+                            pe.list_affiliations())
 
-    affed = set([x['person_id'] for x in pe.list_affiliations()])
+    affed = set([x['person_id'] for x in affs])
     naffed = set([x['person_id'] for x in pe.list_persons()]) - affed
 
     logger.info('Found %d persons with affiliations' % len(affed))
@@ -196,6 +203,10 @@ def set_quarantine(pids, quar, offset):
                 # Refreshing/setting the quarantine
                 ac.delete_entity_quarantine(type=quar)
                 ac.add_entity_quarantine(quar, creator, start=date)
+
+                # We'll need to commit here. Would be silly to send multiple
+                # emails about the same thing.
+                ac.commit()
                 logger.info('%s acquires new quarantine' % ac.account_name)
                 quarantined.append(ac.account_name)
             else:
@@ -236,6 +247,32 @@ def remove_quarantine(pids, quar):
     logger.debug('RQ checked %d accounts' % accounts)
     return {'dequarantined': dequarantined}
 
+def parse_affs(affs):
+    """
+    Function for parsing affiliations
+
+    @type affs: string
+    @param affs: A string of affiliations, separated by commas
+
+    @rtype: list
+    @return: Returns a list of tuples with affiliation- or affiliation- and
+        status-codes.
+    """
+    parsed = []
+    for x in affs.split(','):
+        aff = x.split('/', 1)
+        try:
+            if len(aff) > 1:
+                aff = co.PersonAffStatus(aff[0], aff[1])
+                parsed.append((int(aff.affiliation), int(aff),))
+            else:
+                aff = co.PersonAffiliation(x)
+                parsed.append((int(aff),))
+        except Errors.NotFoundError:
+            raise Exception("Unknown affiliation: %s" % x)
+    return parsed
+
+
 def usage():
     print """ %s
 -q    quarantine to set (default 'auto_no_aff')
@@ -244,7 +281,8 @@ def usage():
 -o    quarantine offset in days (default 7)
         If a quarantine of the same type exists, and is longer away in
         the future than the offset defines, it will be removed and a new
-        quarantine will be set.
+        quarantine will be set
+-a    affiliations that should be ignored, i.e. 'ANSATT/tekadm'
 
 -m    file containing the message to be sent
 
@@ -264,9 +302,10 @@ def main():
     dryrun = debug_verbose = False
     email_info = None
     remove = False
+    ignore_aff = []
 
     try:
-        opts, j = getopt.getopt(sys.argv[1:], 'q:rdo:m:eh')
+        opts, j = getopt.getopt(sys.argv[1:], 'q:rdo:m:eha:')
     except getopt.GetoptError, e:
         logger.error(e)
         usage()
@@ -293,6 +332,8 @@ def main():
             except ValueError:
                 logger.error('\'%s\' is not an integer' % val)
                 sys.exit(4)
+        elif opt in ('-a',):
+            ignore_aff = parse_affs(val)
         elif opt in ('-m',):
             try:
                 f = open(val)
@@ -317,7 +358,7 @@ def main():
             sys.exit(1)
 
     logger.debug('Finding candidates for addition/removal of quarantine')
-    cands = find_candidates()
+    cands = find_candidates(ignore_aff)
     logger.debug('Setting/removing quarantine on accounts')
     r = set_quarantine(cands['not_affiliated'], quarantine, quarantine_offset)
     logger.info('%d quarantines added, %d users skipped' %
@@ -327,6 +368,8 @@ def main():
         r = remove_quarantine(cands['affiliated'], quarantine)
         logger.info('%d quarantines removed' % len(r['dequarantined']))
 
+    if dryrun:
+        logger.info('This is a dryrun, rolling back DB')
     db.commit()
 
 if __name__ == '__main__':
