@@ -129,7 +129,7 @@ def process(trait, message, phone_types, affiliations, too_old, commit=False):
 
         # Check if user already has been texted. If so, the trait is removed.
         tr = ac.get_trait(co.trait_sms_welcome)
-        if tr and tr['date'] > (now() - 180):
+        if tr and tr['date'] > (now() - 300):
             logger.debug('User %s already texted last %d days, removing trait',
                          ac.account_name, 180)
             remove_trait(ac, row['entity_id'], trait, commit)
