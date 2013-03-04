@@ -386,10 +386,12 @@ def init_globals():
 
 
 def list_users_for_fronter_export():  
+    """Gather information about all users with the LMS spread.
+
+    The information is gathered to be exported to the LMS system.
+
+    """
     ret = []
-    email_addr = ""
-    mobile = None
-    address = None
     account = Factory.get("Account")(db)
     person = Factory.get("Person")(db)
     for row in account.list_all_with_spread(const.spread_lms_account):
@@ -407,43 +409,41 @@ def list_users_for_fronter_export():
             logger.error("Account %s is impersonal, but has lms spread.",
                          account.account_name)
             continue
-        mobile = addr = street = zip = city = country = locality = ''
+        mobile = street = zip = city = locality = ''
+        country = 'Norge'
         for a in person.get_affiliations():
             if a['affiliation'] == int(const.affiliation_student):
-                tmp = None
-                tmp = [x["contact_value"] for x in person.get_contact_info(source=const.system_fs, type=const.contact_mobile_phone)]
+                tmp = [x["contact_value"] for x in
+                       person.get_contact_info(source=const.system_fs,
+                                               type=const.contact_mobile_phone)]
                 if tmp:
                     mobile = tmp[0]
                 else:
-                    mobile = ''
                     logger.debug("No mobile for user '%s'" % account.account_name)
-                addr = None
-                addr = person.get_entity_address(source=const.system_fs, type=const.address_post)
 
+                addr = person.get_entity_address(source=const.system_fs, type=const.address_post)
                 if addr:
                     address = addr[0]
                     alines = address['address_text'].split("\n")+[""]
-                else:
-                    addr = ''
-                    alines = ''
-                    logger.debug("No addr for user '%s'" % account.account_name)
-                if alines:
                     street = alines[0] + '\n' + alines[1]
-                if str(address['city']):
-                    #city = str(address['city'])
-                    locality = str(address['city'])
-                if str(address['postal_number']):
-                    zip = str(address['postal_number'])
-                if address['country']:
-                    country = address['country']
+                    if str(address['city']):
+                        #city = str(address['city'])
+                        locality = str(address['city'])
+                    if str(address['postal_number']):
+                        zip = str(address['postal_number'])
+                    if address['country']:
+                        country = str(address['country'])
                 else:
-                    country = 'Norge'
+                    logger.debug("No addr for user '%s'" % account.account_name)
         roletype = 'Student'
+
+        # Employees and affiliated gets overridden:
         for a in person.get_affiliations():
-            if a['affiliation'] == int(const.affiliation_ansatt) or \
-               a['affiliation'] == int(const.affiliation_tilknyttet):
+            if (a['affiliation'] == int(const.affiliation_ansatt) or
+                    a['affiliation'] == int(const.affiliation_tilknyttet)):
                 roletype = 'Staff'
                 mobile = ''
+
         tmp = {'email': email_addr,
                'uname': account.account_name,
                'fullname': person.get_name(const.system_cached, 
