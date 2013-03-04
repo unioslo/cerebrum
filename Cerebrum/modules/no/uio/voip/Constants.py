@@ -215,6 +215,11 @@ class VoipConstants(Constants.Constants):
         "Cisco SPA-112"
         )
 
+    voip_client_spa232d = VoipClientInfoCode(
+        "002007",
+        "Cisco SPA-232D"
+        )
+
     voip_client_pap2t = VoipClientInfoCode(
         "003001",
         "Linksys PAP2T"
