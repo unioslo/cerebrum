@@ -83,6 +83,11 @@ def date_to_string(date):
         return "<not set>"
     return "%04i-%02i-%02i" % (date.year, date.month, date.day)
 
+class ProjectName(cmd.Parameter):
+    """The bofhd Parameter for giving a project name."""
+    _type = 'projectName'
+    _help_ref = 'project_name'
+
 class TSDBofhdExtension(BofhdCommandBase):
     """Superclass for common functionality for TSD's bofhd servers."""
 
@@ -192,6 +197,38 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                 cls.all_commands[func] = UiOBofhdExtension.all_commands[func]
         x = object.__new__(cls)
         return x
+
+    ##
+    ## Project commands
+
+    all_commands['project_approve'] = cmd.Command(
+        ('project', 'approve'), ProjectName(),
+        perm_filter='is_superuser')
+    def project_approve(self, operator, project_name):
+        """Approve an existing project that is not already approved. A project
+        is created after we get metadata for it from the outside world, but is
+        only visible inside of Cerebrum. When a superuser approves the project,
+        it gets spread to AD and gets set up properly.
+
+        """
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise CerebrumError('Only superusers are allowed to do this')
+        ou = self.OU_class(self.db)
+        matched = ou.search_name_with_language(
+                                    entity_type=self.const.entity_ou,
+                                    name_variant=self.const.ou_name_acronym,
+                                    # TODO: name_language=self.const.language_en
+                                    name=project_name, exact_match=True)
+        if not matched:
+            raise CerebrumError("Could not find project: %s" % project_name)
+        if len(matched) > 1:
+            raise CerebrumError("Found more than one OU with given name")
+        project = matched[0]
+        # TODO: check that the OU is a project OU, e.g. by checking its parent
+
+        # TODO: how should we approve - remove quarantine? more to do? Send a
+        # bofhdrequest, or remove all project member's quarantines directly?
+        return "Not implemented yet..."
 
     ##
     ## User commands
