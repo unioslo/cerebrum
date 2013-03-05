@@ -29,11 +29,11 @@ The TSD project should have their own, minimal set of Constants.
 """
 
 from Cerebrum import Constants
-from Cerebrum.Constants import _SpreadCode, \
-                               _PersonAffiliationCode, \
-                               _PersonAffStatusCode, \
-                               _EntityExternalIdCode
-
+from Cerebrum.Constants import _SpreadCode
+from Cerebrum.Constants import _PersonAffiliationCode
+from Cerebrum.Constants import _PersonAffStatusCode
+from Cerebrum.Constants import _EntityExternalIdCode
+from Cerebrum.Constants import _QuarantineCode
 
 class Constants(Constants.Constants):
     ## Affiliations and statuses
@@ -58,3 +58,9 @@ class Constants(Constants.Constants):
     spread_ad_group = _SpreadCode(
         'group@ad', Constants.Constants.entity_group,
         'Group should be synced with AD')
+
+    ## Quarantines
+
+    quarantine_not_approved = _QuarantineCode('not_approved',
+                                'Waiting for approval from admin')
+

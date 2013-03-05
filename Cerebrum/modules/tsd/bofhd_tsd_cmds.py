@@ -224,7 +224,16 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         if len(matched) > 1:
             raise CerebrumError("Found more than one OU with given name")
         project = matched[0]
+
         # TODO: check that the OU is a project OU, e.g. by checking its parent
+
+        if not project.get_entity_quarantine(only_active=True,
+                                    type=self.const.quarantine_not_approved):
+            raise CerebrumError('Project already approved')
+        project.delete_entity_quarantine(type=self.const.quarantine_not_approved)
+
+        project.write_db()
+
 
         # TODO: how should we approve - remove quarantine? more to do? Send a
         # bofhdrequest, or remove all project member's quarantines directly?
