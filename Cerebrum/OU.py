@@ -304,6 +304,10 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
 
     def search(self, spread=None, filter_quarantined=False):
         """Retrives a list of OUs filtered by the given criteria.
+
+        Note that acronyms and other name variants is not a part of the basic OU
+        table, but could be searched for through
+        L{EntityNameWithLanguage.search_name_with_language}.
     
         If no criteria is given, all OUs are returned.
         """

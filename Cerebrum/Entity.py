@@ -594,7 +594,8 @@ class EntityNameWithLanguage(Entity):
         where2, binds = self._query_builder(entity_id, name_variant,
                                             name_language, name, exact_match,
                                             include_where=False)
-        where.append(where2)
+        if where2:
+            where.append(where2)
         if entity_type is not None:
             where.append(argument_to_sql(entity_type, "ei.entity_type", binds, int))
 
