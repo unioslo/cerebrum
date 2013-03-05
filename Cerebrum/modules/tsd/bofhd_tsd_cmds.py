@@ -113,6 +113,9 @@ class TSDBofhdExtension(BofhdCommandBase):
             if not self.all_commands.has_key(key):
                 self.all_commands[key] = cmd
 
+        # The client talking with the TSD gateway
+        self.gateway = None # TODO
+
     def get_help_strings(self):
         """Return all help messages for TSD."""
         return (bofhd_help.group_help, bofhd_help.command_help,
@@ -231,9 +234,14 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                                     type=self.const.quarantine_not_approved):
             raise CerebrumError('Project already approved')
         project.delete_entity_quarantine(type=self.const.quarantine_not_approved)
-
         project.write_db()
 
+        # TODO: Send a message to the gateway about the new project
+        #self.gateway.project.create(project_name)
+
+        # TODO: accounts, should they be approved through the command
+        # 'user_approve', or is it okay to approve all existing project accounts
+        # when the project is approved?
 
         # TODO: how should we approve - remove quarantine? more to do? Send a
         # bofhdrequest, or remove all project member's quarantines directly?
@@ -517,6 +525,24 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         elif account.get_entity_quarantine(only_active=True):
             return "Warning: user has an active quarantine"
         return "OTP-key regenerated."
+
+    # user approve
+    all_commands['user_approve'] = cmd.Command(
+        ('user', 'approve'), cmd.AccountName(),
+        perm_filter='is_superuser')
+    def user_approve(self, operator, accountname):
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise CerebrumError('Only superusers could approve users')
+        account = self._get_account(accountname)
+        if not account.get_entity_quarantine(
+                                       type=self.const.quarantine_not_approved):
+            raise CerebrumError('Account does not need approval: %s' %
+                                accountname)
+        account.delete_entity_quarantine(self.const.quarantine_not_approved)
+        account.write_db()
+        return 'Approved account: %s' % account.account_name
+        # TODO: add more feedback, e.g. tell if account is expired or has other
+        # quarantines?
 
     ##
     ## Group commands
