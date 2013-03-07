@@ -27,6 +27,8 @@ able to reserve the name of the project, which is stored in the acronym.
 
 """
 
+import re
+
 import cerebrum_path
 import cereconf
 from Cerebrum import Errors
@@ -73,11 +75,60 @@ class OUTSDMixin(OU):
                                     # TODO: name_language=self.const.language_en
                                     name=name, exact_match=True)
 
+    def _validate_project_name(self, name):
+        """Check if a given project name is valid.
+
+        Project names are used as prefix for most of the project's entities,
+        like accounts, groups and machines. We need to make sure that the name
+        doesn't cause problems for e.g. AD.
+
+        Some requirements:
+
+        - Can not contain spaces. TODO: Why?
+
+        - Can not contain commas. This is due to AD's way of identifying
+          objects. Example: CN=username,OU=projectname,DC=tsd,DC=uio,DC=no.
+
+        - Can not contain the SQL wildcards ? and %. This is a convenience
+          limit, to be able to use Cerebrum's existing API without
+          modifications.
+
+        - Can not contain control characters.
+
+        - Should not contains characters outside of ASCII. This is due to
+          Cerebrum's lack of unicode support, and to avoid unexpected encoding
+          issues.
+
+        - TBD: A maximum length in the name? AD probably has a limit. As a
+          prefix, it should be a bit less than AD's limit.
+
+        In practice, we only accept regular alphanumeric characters in ASCII, in
+        addition to some punctuation characters, like colon, dash and question
+        marks. This would need to be extended in the future.
+
+        """
+        # TODO: whitelisting accepted characters, might want to extend the list
+        # with characters I've forgotten:
+        m = re.search('[^A-Za-z0-9_\-:;\*"\'\#\&\=!\?]', name)
+        if m:
+            raise Errors.CerebrumError('Invalid characters in projectname: %s' %
+                                m.group())
+        if len(m) > 1024: # TBD:
+            raise Errors.CerebrumError('Project name is too long')
+        return True
+
     def add_name_with_language(self, name_variant, name_language, name):
-        """Override to be able to check that the acronym is not already used.
+        """Override to be able to verify project names (acronyms).
 
         """
         if name_variant == self.const.ou_name_acronym:
+            # TODO: Do we accept *changing* project names?
+
+            # Validate the format of the acronym. The project name is used as a
+            # prefix for other entities, like accounts, groups and machines, so
+            # we need to be careful.
+            self._validate_project_name(name)
+
             # TODO: check name_language too
             matched = self.search_name_with_language(
                                     entity_type=self.const.entity_ou,
