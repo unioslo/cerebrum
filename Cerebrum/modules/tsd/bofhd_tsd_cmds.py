@@ -113,6 +113,8 @@ class TSDBofhdExtension(BofhdCommandBase):
             if not self.all_commands.has_key(key):
                 self.all_commands[key] = cmd
 
+        self.util = server.util
+
         # The client talking with the TSD gateway
         self.gateway = None # TODO
 
@@ -204,6 +206,25 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     ##
     ## Project commands
 
+    def _get_project(self, projectname):
+        """Return a project's OU by its name, if found. We identify project's by
+        their acronym name, which is not handled uniquely in the database, so we
+        could be up for integrity errors, e.g. if two projects are called the
+        same. This should be handled by TSD's OU class.
+
+        @type projectname: string
+        @param projectname: The name of the project. Must match one and only one
+            OU.
+
+        @raise CerebrumError: If no project OU with the given acronym name was
+            found, or if more than one project OU was found.
+
+        """
+        ou = self.OU_class(self.db)
+        # TODO: catch errors?
+        ou.find_by_tsd_projectname(projectname)
+        return ou
+
     all_commands['project_approve'] = cmd.Command(
         ('project', 'approve'), ProjectName(),
         perm_filter='is_superuser')
@@ -246,6 +267,28 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         # TODO: how should we approve - remove quarantine? more to do? Send a
         # bofhdrequest, or remove all project member's quarantines directly?
         return "Not implemented yet..."
+
+    all_commands['project_set_enddate'] = cmd.Command(
+        ('project', 'set_enddate'), ProjectName(), cmd.Date(),
+        perm_filter='is_superuser')
+    def project_set_enddate(self, operator, project_name, enddate):
+        """Set the end date for a project.
+
+        """
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise CerebrumError('Only superusers are allowed to do this')
+        project = self._get_project(project_name)
+        if project.get_entity_quarantine(type=self.const.quarantine_not_approved):
+
+            raise CerebrumError('Project already approved')
+        project.delete_entity_quarantine(type=self.const.quarantine_not_approved)
+        project.write_db()
+
+        # TODO: Send a message to the gateway about the new project
+        #self.gateway.project.create(project_name)
+
+        # TODO: More to do?
+        return "Project approved: %s" % project_name
 
     ##
     ## User commands

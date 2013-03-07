@@ -34,7 +34,44 @@ from Cerebrum.OU import OU
 
 class OUTSDMixin(OU):
     """Mixin of OU for TSD. Projects in TSD are stored as OUs, which then has to
-    be unique."""
+    be unique.
+
+    """
+    def find_by_tsd_projectname(self, project_name):
+        """TSD specific helper method for finding an OU by the project's name.
+
+        In TSD, each project is stored as an OU, with the acronym as the unique
+        project name. 
+
+        TODO: All project OUs could be stored under the same OU, if we need
+        other OUs than project OUs.
+
+        """
+        matched = self.search_tsd_projects(name=project_name)
+        if not matched:
+            raise Errors.NotFoundError("Unknown project: %s" % project_name)
+        if len(matched) != 1:
+            raise Errors.TooManyRowsError("Found more than one OU with given name")
+        return self.find(matched[0]['entity_id'])
+
+    def search_tsd_projects(self, name=None):
+        """Search method for finding projects by given input.
+
+        TODO: Only project name is in use for now. Fix it if we need more
+        functionality.
+
+        @type name: string
+        @param name: The project name.
+
+        @rtype: db-rows
+        @return: TODO: what db elements do we need?
+
+        """
+        # TBD: filter out OU's that are not project OU's, if we need other OUs.
+        return self.search_name_with_language(entity_type=self.const.entity_ou,
+                                    name_variant=self.const.ou_name_acronym,
+                                    # TODO: name_language=self.const.language_en
+                                    name=name, exact_match=True)
 
     def add_name_with_language(self, name_variant, name_language, name):
         """Override to be able to check that the acronym is not already used.

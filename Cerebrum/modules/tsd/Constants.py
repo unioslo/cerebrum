@@ -63,4 +63,6 @@ class Constants(Constants.Constants):
 
     quarantine_not_approved = _QuarantineCode('not_approved',
                                 'Waiting for approval from admin')
+    quarantine_project_end = _QuarantineCode('project_end',
+                                'Blocking projects when end date is reached')
 
