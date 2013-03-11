@@ -34,6 +34,7 @@ from Cerebrum.Constants import _PersonAffiliationCode
 from Cerebrum.Constants import _PersonAffStatusCode
 from Cerebrum.Constants import _EntityExternalIdCode
 from Cerebrum.Constants import _QuarantineCode
+from Cerebrum.Constants import _AuthoritativeSystemCode
 
 class Constants(Constants.Constants):
     ## Affiliations and statuses
@@ -65,4 +66,13 @@ class Constants(Constants.Constants):
                                 'Waiting for approval from admin')
     quarantine_project_end = _QuarantineCode('project_end',
                                 'Blocking projects when end date is reached')
+    quarantine_project_start = _QuarantineCode('not_started_yet',
+                          "Project haven't started yet, waiting for start date")
+
+    ## Source systems
+
+    system_nettskjema = _AuthoritativeSystemCode('Nettskjema',
+                            'Information from Nettskjema, registered by anyone')
+    
+
 
