@@ -29,8 +29,7 @@ import cerebrum_path, cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, SMSSender
 
-#logger = Factory.get_logger('cronjob')
-logger = Factory.get_logger('console')
+logger = Factory.get_logger('cronjob')
 db = Factory.get('Database')()
 db.cl_init(change_program='send_welcome_sms')
 co = Factory.get('Constants')(db)
