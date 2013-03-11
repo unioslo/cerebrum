@@ -29,7 +29,8 @@ import cerebrum_path, cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, SMSSender
 
-logger = Factory.get_logger('cronjob')
+#logger = Factory.get_logger('cronjob')
+logger = Factory.get_logger('console')
 db = Factory.get('Database')()
 db.cl_init(change_program='send_welcome_sms')
 co = Factory.get('Constants')(db)
@@ -76,6 +77,12 @@ def usage(exitcode=0):
                     the trait will be deleted, and a warning will be logged.
                     Default: 180 days.
 
+    --min-attempts ATTEMPTS
+                    The minimum number of attempts per account. If this option is
+                    set, the trait will be removed if these two conditions apply:
+                        1) the trait is too old
+                    and 2) number of attempts > minimum number of attempts
+
     --commit        Actual send out the SMSs and update traits.
 
     --help          Show this and quit
@@ -83,7 +90,8 @@ def usage(exitcode=0):
     sys.exit(exitcode)
 
 
-def process(trait, message, phone_types, affiliations, too_old, commit=False):
+def process(trait, message, phone_types, affiliations, too_old, min_attempts,
+            commit=False):
     """Go through the given trait type and send out welcome SMSs to the users.
     Remove the traits, and set a new message-is-sent-trait, to avoid spamming
     the users."""
@@ -95,16 +103,32 @@ def process(trait, message, phone_types, affiliations, too_old, commit=False):
     pe = Factory.get('Person')(db)
 
     for row in ac.list_traits(code=trait):
-        if row['date'] < (now() - too_old):
+        ac.clear()
+        ac.find(row['entity_id'])
+        logger.debug('Found user %s', ac.account_name)
+
+        # increase attempt counter for this account
+        if min_attempts:
+            attempt = inc_attempt(ac, row['entity_id'], trait, commit)
+
+        is_too_old = (row['date'] < (now() - too_old))
+
+        # remove trait if older than too_old days and min_attempts is not set
+        if is_too_old and not min_attempts:
             logger.warn('Too old trait %s for entity_id=%s, giving up',
                         trait, row['entity_id'])
             remove_trait(ac, row['entity_id'], trait, commit)
             continue
-        ac.clear()
-        ac.find(row['entity_id'])
-        logger.debug('Found user %s', ac.account_name)
+
+        # remove trait if more than min_attempts attempts have been made and trait is too old
+        if (min_attempts and is_too_old and min_attempts < attempt):
+            logger.warn('Too old trait and too many attempts (%s) for entity_id=%s, giving up',
+                        attempt, row['entity_id'])
+            remove_trait(ac, row['entity_id'], trait, commit)
+            continue
+
         if ac.owner_type != co.entity_person:
-            logger.warn('Tagged new user %s not personal', ac.account_name)
+            logger.warn('Tagged new user %s not personal, skipping', ac.account_name)
             # TODO: remove trait?
             continue
         if ac.is_expired():
@@ -141,17 +165,21 @@ def process(trait, message, phone_types, affiliations, too_old, commit=False):
             logger.debug('Person %s had no phone number, skipping for now',
                          ac.account_name)
             continue
+
+        # get email
         email = ''
         try:
             if hasattr(ac, 'get_primary_mailaddress'):
                 email = ac.get_primary_mailaddress()
         except Errors.NotFoundError:
             pass
+
         msg = message % {'username': ac.account_name,
                          'email': email}
         if not send_sms(phone, msg, commit):
             logger.warn('Could not send SMS to %s (%s)', ac.account_name, phone)
             continue
+
         # sms sent, now update the traits
         ac.delete_trait(trait)
         ac.populate_trait(code=co.trait_sms_welcome, date=now())
@@ -177,6 +205,27 @@ def remove_trait(ac, ac_id, trait, commit=False):
     else:
         db.rollback()
 
+def inc_attempt(ac, ac_id, trait, commit=False):
+    """Increase the attempt counter (stored in trait) for a given account."""
+    ac.clear()
+    ac.find(ac_id)
+
+    attempt = ac.get_trait(trait)['numval']
+    if not attempt:
+        attempt = 1
+    else:
+        attempt = int(attempt) +1
+
+    logger.debug("Attempt number %s for account %s", attempt, ac.account_name)
+
+    ac.populate_trait(code=trait, numval=attempt)
+    ac.write_db()
+    if commit:
+        db.commit()
+    else:
+        db.rollback()
+    return attempt
+
 def get_phone_number(pe, phone_types):
     """Search through a person's contact info and return the first found info
     value as defined by the given types and source systems."""
@@ -196,7 +245,7 @@ def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'h',
                 ['trait=', 'phone-types=', 'affiliations=', 'message=',
-                 'too-old=', 'message-cereconf=', 'commit'])
+                 'too-old=', 'message-cereconf=', 'commit', 'min-attempts='])
     except getopt.GetoptError, e:
         print e
         usage(1)
@@ -206,6 +255,7 @@ def main():
     message = trait = None
     commit = False
     too_old = 180
+    min_attempts = None
 
     for opt, arg in opts:
         if opt in ('-h', '--help'):
@@ -215,6 +265,9 @@ def main():
         elif opt == '--too-old':
             too_old = int(arg)
             assert 0 < too_old, "--too_old must be a positive integer"
+        elif opt == '--min-attempts':
+            min_attempts = int(arg)
+            assert 0 < min_attempts, "--min-attempts must be a positive integer"
         elif opt == '--phone-types':
             phone_types.extend((co.human2constant(t[0], co.AuthoritativeSystem),
                                 co.human2constant(t[1], co.ContactInfo)) 
@@ -248,7 +301,8 @@ def main():
         trait = co.trait_student_new
 
     process(trait=trait, message=message, phone_types=phone_types,
-            affiliations=affiliations, too_old=too_old, commit=commit)
+            affiliations=affiliations, too_old=too_old, min_attempts=min_attempts,
+            commit=commit)
 
 if __name__ == '__main__':
     main()
