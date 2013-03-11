@@ -49,7 +49,7 @@ class ABCObj2Cerebrum(object):
         try:
             return abcconf.CONSTANTS[value]
         except:
-            raise ABCConfigError, "constant mismatch '%s'" % value
+            raise ABCConfigError("constant mismatch '%s'" % value)
         
     def _conv_const_entity(self, entity):
         """Convert temporary text constants to real Constants."""
@@ -110,18 +110,16 @@ class ABCObj2Cerebrum(object):
         ou = self._conv_const_entity(ou)
         # Convert names to standardized OU format
         ou.ou_names = dict()
-        if abcconf.OU_NAMES.has_key('name') and \
-               ou._names.has_key(abcconf.OU_NAMES['name']):
-            ou.ou_names['name'] = ou._names[abcconf.OU_NAMES['name']]
-        else:
-            raise ABCDataError, "no name for OU"
-        for n in ("acronym", "short_name", "display_name", "sort_name"):
-            if abcconf.OU_NAMES.has_key(n) and \
-                   abcconf.OU_NAMES[n] and \
-                   ou._names.has_key(abcconf.OU_NAMES[n]):
-                ou.ou_names[n] = ou._names[abcconf.OU_NAMES[n]]
-            else:
-                ou.ou_names[n] = None
+        for type, ceretype in (("name", self.co.ou_name),
+                               ("acronym", self.co.ou_name_acronym),
+                               ("short_name", self.co.ou_name_short),
+                               ("display_name", self.co.ou_name_display),
+                               ("sort_name", self.co.ou_name_short)):
+            if abcconf.OU_NAMES.get(type):
+                ou.ou_names[ceretype] = ou._names.get(abcconf.OU_NAMES[type])
+        # Name must be set
+        if not ou.ou_names.get(self.co.ou_name):
+            raise ABCDataError("Missing name for OU: %s" % ou._ids)
         return ou
 
     def _conv_const_group(self, group):

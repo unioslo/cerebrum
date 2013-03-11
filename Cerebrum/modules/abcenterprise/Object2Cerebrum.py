@@ -175,12 +175,17 @@ class Object2Cerebrum(object):
 
         self._ou.populate()
         self._ou.write_db()
+
+        # Handle names
+        for type, name in ou.ou_names.iteritems():
+            self._ou.add_name_with_language(name_variant=type, 
+                                            name_language=self.co.language_nb,
+                                            name=name)
         self._process_tags(self._ou, ou._tags)
         self._add_external_ids(self._ou, ou._ids)
         self._add_entity_addresses(self._ou, ou._address)
         self._add_entity_contact_info(self._ou, ou._contacts)
         return (self._ou.write_db(), self._ou.entity_id)
-
 
     def set_ou_parent(self, child_entity_id, perspective, parent):
         """Set a parent ID on an OU. Parent may be an entity_id or a
