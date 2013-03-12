@@ -113,7 +113,7 @@ class OUTSDMixin(OU):
         if m:
             raise Errors.CerebrumError('Invalid characters in projectname: %s' %
                                 m.group())
-        if len(m) > 1024: # TBD:
+        if len(name) > 1024: # TBD:
             raise Errors.CerebrumError('Project name is too long')
         return True
 

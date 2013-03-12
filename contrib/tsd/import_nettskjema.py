@@ -55,9 +55,10 @@ ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
 systemaccount_id = ac.entity_id
 
 def usage(exitcode=0):
-    print """%(doc)s 
+    print """
+    %(doc)s 
     
-    Usage: %s FILE_OR_DIR [MORE_FILES_AND_DIRS...]
+    Usage: %(file)s FILE_OR_DIR [MORE_FILES_AND_DIRS...]
 
     Where FILE_OR_DIR is the XML files to import, or directories where all the
     XML files should be imported from.
@@ -91,23 +92,94 @@ def process_files(locations, dryrun):
                 pass
         except Errors.CerebrumError, e:
             logger.warn("Failed processing %s: %s", location, e)
-            traceback.print_exc()
+
+# The XML files from Nettskjema only have integers refering to what question it
+# is answering. We need to map the integers into something we could understand.
+# Integers not defined here gets ignored. In the mapping we include what type of
+# survey the integer is used in, as we have no other identifier of this in the
+# XML file.
+questionID2str = {
+        'new_project': {
+            '131473': 'project_id',
+            '131472': 'project_name',
+            '131474': 'project_leader_name',
+            '131475': 'project_leader_phone',
+            '131476': 'project_leader_mail',
+            '131477': 'project_leader_uio_username',
+            '131478': 'project_admin_name',
+            '131479': 'institution_name',
+            '131489': 'members',
+            '131485': 'equipment',
+            '131480': 'project_start',
+            '159706': 'project_end',
+            },
+        'new_person': {
+            },
+        }
+
+def xml2dict(xml):
+    """Take the XML from Nettskjema and take out the information we want.
+
+    The XML schema would most likely change a lot in the near future, so we're
+    not putting much effort into this for now.
+
+    TODO: Would be great if we could know for *what* survey the submission is
+    from.
+
+    @rtype: dict
+    @return: A dict with the answers and the ID of the submission.
+
+    """
+    ret = dict()
+    ret['id'] = xml.find('submissionId').text
+    ret['answers'] = dict()
+    for ans in xml.find('answers').iterfind('answer'):
+        qid = ans.find('question').find('questionId').text
+        answer = ans.find('textAnswer')
+        if answer is not None:
+            answer = answer.text
+        else:
+            # TODO
+            logger.warn("For qid %s, got unhandled answerOption: %s", qid,
+                        etree.tostring(ans)[:50])
+        ret['answers'][qid] = answer
+    return ret
 
 def process_file(file, dryrun):
     logger.info("Processing file: %s", file)
     xml = etree.parse(file).getroot()
-    print type(xml)
-    print etree.tostring(xml, pretty_print=True)
+    data = xml2dict(xml)
+    logger.debug("SubmissionId: %s" % data['id'])
 
-    if xml.tag == 'new_project':
-        create_project(xml)
-    elif xml.tag == 'new_person':
-        create_person(xml)
+    # The file is missing some ID for the submission type, for now. We find the
+    # submission type by comparing the answerIDs with a list of IDs per type.
+    target_type = None
+    for ansid in data['answers']:
+        logger.debug2('Processing answerId: %s', ansid)
+        for questiontype, ansids in questionID2str.iteritems():
+            if ansid in ansids:
+                if not target_type:
+                    target_type = questiontype
+                if questiontype != target_type:
+                    raise Exception("File contained different answer types")
+    # Mapping the answers into the variables
+    logger.debug("Type of file: %s", target_type)
+    if not target_type:
+        raise Errors.CerebrumError('Unknown submission type')
+    action = questionID2str[target_type]
+    answers = dict((action[ansid], ans) for ansid, ans in
+                                        data['answers'].iteritems()
+                                        if ansid in action)
+
+    if target_type == 'new_project':
+        create_project(answers)
+    elif target_type == 'new_person':
+        create_person(answers)
     # TODO: add more tags here?
     # - Manage project accounts
     # - Manage project
     else:
-        raise Error.CerebrumError('Unknown root tag in XML file: %s', xml.tag)
+        raise Errors.CerebrumError('Unhandled type in file: %s' % target_type)
 
 def create_project(data):
     """Create a given project.
@@ -116,7 +188,7 @@ def create_project(data):
     @param data: The data about the requested project.
 
     """
-    projectname = data.get('id')
+    projectname = data['project_id']
     logger.info('Creating new project: %s', projectname)
 
     # Validate the name, raise errors if not valid
@@ -140,24 +212,26 @@ def create_project(data):
     # Storing the names:
     ou.add_name_with_language(name_variant=co.ou_name_acronym,
                               name_language=co.language_en, name=projectname)
-    longname = data.find('long_title').text
+    longname = data['project_name']
     logger.debug("Storing long name: %s", longname)
     ou.add_name_with_language(name_variant=co.ou_name_long,
                               name_language=co.language_en, name=longname)
-    shortname = data.find('short_title').text
-    logger.debug("Storing short name: %s", shortname)
-    ou.add_name_with_language(name_variant=co.ou_name_long,
-                              name_language=co.language_en, name=shortname)
+    shortname = data.get('short_title')
+    if shortname:
+        logger.debug("Storing short name: %s", shortname)
+        ou.add_name_with_language(name_variant=co.ou_name_long,
+                                  name_language=co.language_en, name=shortname)
     ou.write_db()
 
     # Always start projects quarantined, needs to be approved first!
     ou.add_entity_quarantine(type=co.quarantine_not_approved,
                              creator=systemaccount_id,
-                             description='Project not approved yet')
+                             description='Project not approved yet',
+                             start=DateTime.now())
     ou.write_db()
 
     # Storing the dates:
-    endtime = DateTime.strptime(data.find('project_end').text, '%d.%m.%Y')
+    endtime = DateTime.strptime(data['project_end'], '%d.%m.%Y')
     if endtime < DateTime.now():
         raise Errors.CerebrumError("End date of project has passed: %s" %
                                    endtime)
@@ -167,12 +241,12 @@ def create_project(data):
                              start=endtime)
     ou.write_db()
 
-    starttime = DateTime.strptime(data.find('project_start').text, '%d.%m.%Y')
+    starttime = DateTime.strptime(data['project_start'], '%d.%m.%Y')
     if starttime > DateTime.now():
         ou.add_entity_quarantine(type=co.quarantine_project_start,
                                  creator=systemaccount_id,
                                  description='Initial requested starttime for project',
-                                 end=starttime)
+                                 start=DateTime.now(), end=starttime)
         ou.write_db()
 
     # TODO: should we care about the start date? We could then create another
@@ -205,10 +279,10 @@ def create_person(data):
     """
     logger.debug('Creating new person...')
 
-    projectname = data.id('projectid')
-    name = data.get('name')
-    uio_username = data.get('uioname')
-    fnr = data.get('fnr')
+    projectname = data['projectid']
+    name = data['name']
+    uio_username = data['uioname']
+    fnr = data['fnr']
     # TODO: Validate the information!
 
     # The person must be registered to a project, even though it's not necessary
@@ -280,6 +354,10 @@ if __name__=='__main__':
         else:
             print "Unknown argument: %s" % opt
             usage(1)
+
+    if not args:
+        print "No input file given"
+        usage(1)
 
     process_files(args, dryrun)
 
