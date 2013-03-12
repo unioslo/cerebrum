@@ -339,7 +339,7 @@ class Jobs(object):
                         n, name)
             for n in job.post:
                 if not all_jobs.has_key(n):
-                    raise ValueError, "Undefined pre-job '%s' in '%s'" % (
+                    raise ValueError, "Undefined post-job '%s' in '%s'" % (
                         n, name)
 
 
