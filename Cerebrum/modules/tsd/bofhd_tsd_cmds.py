@@ -84,9 +84,19 @@ def date_to_string(date):
     return "%04i-%02i-%02i" % (date.year, date.month, date.day)
 
 class ProjectName(cmd.Parameter):
-    """The bofhd Parameter for giving a project name."""
+    """Bofhd Parameter for specifying a project name."""
     _type = 'projectName'
     _help_ref = 'project_name'
+
+class ProjectStatusFilter(cmd.Parameter):
+    """Bofhd Parameter for filtering on projects' status.
+
+    A project could have status not-approved, frozen or active. More status
+    types are probably needed in the future.
+
+    """
+    _type = 'projectStatusFilter'
+    _help_ref = 'project_statusfilter'
 
 class TSDBofhdExtension(BofhdCommandBase):
     """Superclass for common functionality for TSD's bofhd servers."""
@@ -289,6 +299,75 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
         # TODO: More to do?
         return "Project approved: %s" % project_name
+
+    all_commands['project_list'] = cmd.Command(
+        ('project', 'list'), ProjectStatusFilter(optional=True),
+        fs=cmd.FormatSuggestion(
+            '%-16s %-10s %s', ('name', 'entity_id', 'quars'),
+            hdr='%-16s %-10s %s' % ('Name', 'Entity-Id', 'Quarantines')),
+        perm_filter='is_superuser')
+    def project_list(self, operator, filter=None):
+        """List out all projects by their acronym and status.
+
+        If a filter is specified, only active, frozen or unapproved projects are
+        listed.
+
+        """
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise CerebrumError('Only superusers are allowed to do this')
+        ou = self.OU_class(self.db)
+        projects = dict()
+
+        # Get all OUs with acronym. Note that OUs without an acronym will not be
+        # listed here.
+        for row in ou.search_name_with_language(
+                                     entity_type=self.const.entity_ou,
+                                     name_variant=self.const.ou_name_acronym):
+            print row
+            project = projects.setdefault(row['entity_id'], dict())
+            project['entity_id'] = str(row['entity_id'])
+            project['name'] = row['name']
+            project['quars'] = []
+
+        # TODO: only check for any quarantine for now, until we know what types
+        # that matter:
+        for row in ou.list_entity_quarantines(entity_types=self.const.entity_ou,
+                                              only_active=True):
+            if projects.has_key(row['entity_id']):
+                q = self.const.Quarantine(row['quarantine_type'])
+                projects[row['entity_id']]['quars'].append(str(q))
+
+        # TODO: add filtering later, when we know what is neccessary
+
+        # Turn lists of quarantines into strings:
+        for p in projects.itervalues():
+            p['quars'] = ', '.join(p['quars'])
+
+        # TODO: sort by projectname
+        return projects.values()
+
+    all_commands['project_info'] = cmd.Command(
+        ('project', 'info'), ProjectName(),
+        # TODO: fs:
+        fs=cmd.FormatSuggestion([
+            ('Entity-id:    %s', ('entity_id',)),
+            ('Name (%s):    %s (%s)', ('variant', 'name', 'lang')),]),
+        perm_filter='is_superuser')
+    def project_info(self, operator, projectname):
+        """Display information about a specified project."""
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise CerebrumError('Only superusers are allowed to do this')
+        project = self._get_project(projectname)
+        ret = [{'entity_id': str(project.entity_id)},]
+
+        # Fetch names
+        for row in project.search_name_with_language(
+                                                entity_id=project.entity_id):
+            ret.append({'name': row['name'],
+                'variant': str(self.const.EntityNameCode(row['name_variant'])),
+                'lang': str(self.const.LanguageCode(row['name_language']))})
+
+        return ret
 
     ##
     ## User commands

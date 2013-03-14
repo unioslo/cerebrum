@@ -142,33 +142,36 @@ command_help = {
         "Add or update an entity's trait",
     },
     'user': {
-    'user_affiliation_add': 'Add affiliation for an account',
-    'user_affiliation_remove': 'Remove an affiliation for an account',
-    'user_create': 'Create a POSIX user account',
-    'user_find': 'Search for users',
-    'user_delete': 'Delete an account',
-    'user_demote_posix': 'Make a POSIX user account into a generic Cerebrum account',
-    'user_history': "Show history of the account with uname. Limited to users subordinate to a privilege group the BOFH user is a member of",
-    'user_info': 'View general information about an account',
-    'user_move': 'Move a users home directory to another disk',
-    'user_set_password': 'Set a new password for an account',
-    'user_promote_posix': 'Make a Cerebrum account into a POSIX user account',
-    'user_reserve': 'Reserve a user name in the database',
-    'user_set_expire': 'Set expire date for an account',
-    'user_set_np_type': 'Set/remove np-type for an account (i.e. program, system etc)',
-    'user_set_otpkey': 'Regenerate a One Time Password (OTP) key for an account',
-    'user_set_owner': 'Assign ownership for an account',
-    'user_shell': 'Set login-shell for a POSIX user account',
+        'user_affiliation_add': 'Add affiliation for an account',
+        'user_approve': 'Activate a user in the systems, after checking',
+        'user_affiliation_remove': 'Remove an affiliation for an account',
+        'user_create': 'Create a POSIX user account',
+        'user_find': 'Search for users',
+        'user_delete': 'Delete an account',
+        'user_demote_posix': 'Make a POSIX user account into a generic Cerebrum account',
+        'user_history': "Show history of the account with uname. Limited to users subordinate to a privilege group the BOFH user is a member of",
+        'user_info': 'View general information about an account',
+        'user_move': 'Move a users home directory to another disk',
+        'user_set_password': 'Set a new password for an account',
+        'user_promote_posix': 'Make a Cerebrum account into a POSIX user account',
+        'user_reserve': 'Reserve a user name in the database',
+        'user_set_expire': 'Set expire date for an account',
+        'user_set_np_type': 'Set/remove np-type for an account (i.e. program, system etc)',
+        'user_set_otpkey': 'Regenerate a One Time Password (OTP) key for an account',
+        'user_set_owner': 'Assign ownership for an account',
+        'user_shell': 'Set login-shell for a POSIX user account',
     },
     'project': {
         'project_approve':
             'Approve a project with the given name',
         'project_freeze_request':
             'Add a BofhdRequest for freezing a project',
-        'project_terminate':
-            'Terminate a project by removing all data',
         'project_list':
             'List all projects according to given filter',
+        'project_set_enddate':
+            'Reset the end date for a project',
+        'project_terminate':
+            'Terminate a project by removing all data',
     },
     }
 
@@ -393,6 +396,13 @@ Ranges can be written as "3-15" """],
 template name is: <language>:<template-name>.  If language ends with
 -letter the letter will be sendt through snail-mail from a central
 printer."""],
+    # Project arguments:
+    'project_name':
+        ['projectname', 'Project name',
+         'Short, unique name of the project, around 6 digits'],
+    'project_statusfilter':
+        ['filter', 'Filter on project status',
+         'Not implemented yet'],
     'quarantine_type':
         ['qtype', 'Enter quarantine type',
           "'quarantine list' lists defined quarantines"],
