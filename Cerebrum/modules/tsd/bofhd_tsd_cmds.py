@@ -348,25 +348,39 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
     all_commands['project_info'] = cmd.Command(
         ('project', 'info'), ProjectName(),
-        # TODO: fs:
+        # TODO: Now we need to copy in ou_info's FormatSuggestion if that has
+        # changed!
         fs=cmd.FormatSuggestion([
-            ('Entity-id:    %s', ('entity_id',)),
-            ('Name (%s):    %s (%s)', ('variant', 'name', 'lang')),]),
+            ("Stedkode:      %s\n" +
+             "Entity ID:     %i\n" +
+             "Name (nb):     %s\n" +
+             "Name (en):     %s\n" +
+             "Quarantines:   %s\n" +
+             "Spreads:       %s",
+             ('stedkode', 'entity_id', 'name_nb', 'name_en', 'quarantines',
+              'spreads')),
+            ("Contact:       (%s) %s: %s",
+             ('contact_source', 'contact_type', 'contact_value')),
+            ("Address:       (%s) %s: %s%s%s %s %s",
+             ('address_source', 'address_type', 'address_text', 'address_po_box',
+              'address_postal_number', 'address_city', 'address_country')),
+            ("Email domain:  affiliation %-7s @%s",
+             ('email_affiliation', 'email_domain'))
+            ]),
         perm_filter='is_superuser')
     def project_info(self, operator, projectname):
-        """Display information about a specified project."""
+        """Display information about a specified project using ou_info.
+
+        The reason for the semi-sub method is to be able to specify the OU with
+        the projectname instead of entity_id. This could probably be handled in
+        a much better way.
+
+        """
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise CerebrumError('Only superusers are allowed to do this')
         project = self._get_project(projectname)
-        ret = [{'entity_id': str(project.entity_id)},]
-
-        # Fetch names
-        for row in project.search_name_with_language(
-                                                entity_id=project.entity_id):
-            ret.append({'name': row['name'],
-                'variant': str(self.const.EntityNameCode(row['name_variant'])),
-                'lang': str(self.const.LanguageCode(row['name_language']))})
-
+        ret = self.ou_info(operator, 'id:%d' % project.entity_id)
+        # TODO: add more information?
         return ret
 
     ##
