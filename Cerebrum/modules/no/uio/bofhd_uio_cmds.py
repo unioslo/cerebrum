@@ -6735,9 +6735,14 @@ Addresses and settings:
         if len(spreads) == 0:
             spreads = ['<none>']
 
+        # To support OU objects without the mixin for stedkode:
+        stedkode = '<Not set>'
+        if hasattr(ou, 'fakultet'):
+            stedkode = '%02d%02d%02d' % (ou.fakultet, ou.institutt, ou.avdeling)
+
         output.append({
             'entity_id': ou.entity_id,
-            'stedkode': '%02d%02d%02d' % (ou.fakultet, ou.institutt, ou.avdeling),
+            'stedkode': stedkode,
             'name_nb': "%s%s" % (acronym_nb, fullname_nb),
             'name_en': "%s%s" % (acronym_en, fullname_en),
             'quarantines': ', '.join(quarantines),
