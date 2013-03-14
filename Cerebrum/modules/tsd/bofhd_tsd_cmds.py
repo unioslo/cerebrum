@@ -32,6 +32,8 @@ reachable from the web host.
 """
 
 import os, traceback
+from mx import DateTime
+
 import cerebrum_path
 import cereconf
 
@@ -231,8 +233,11 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
         """
         ou = self.OU_class(self.db)
-        # TODO: catch errors?
-        ou.find_by_tsd_projectname(projectname)
+        try:
+            ou.find_by_tsd_projectname(projectname)
+        except Errors.NotFoundError:
+            # TODO: check for entity_id and integers?
+            raise CerebrumError("Could not find project: %s" % projectname)
         return ou
 
     all_commands['project_approve'] = cmd.Command(
@@ -288,17 +293,20 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise CerebrumError('Only superusers are allowed to do this')
         project = self._get_project(project_name)
-        if project.get_entity_quarantine(type=self.const.quarantine_not_approved):
-
-            raise CerebrumError('Project already approved')
-        project.delete_entity_quarantine(type=self.const.quarantine_not_approved)
+        qtype = self.const.quarantine_project_end
+        end = self._parse_date(enddate)
+        if end < DateTime.now():
+            raise CerebrumError("Can't set end dates in the past")
+        for row in project.get_entity_quarantine(qtype):
+            project.delete_entity_quarantine(qtype)
+            project.write_db()
+        project.add_entity_quarantine(type=qtype,
+                                      creator=operator.get_entity_id(),
+                                      description='Reset lifetime for project',
+                                      start=end)
         project.write_db()
-
-        # TODO: Send a message to the gateway about the new project
-        #self.gateway.project.create(project_name)
-
-        # TODO: More to do?
-        return "Project approved: %s" % project_name
+        return "Project %s updated to end: %s" % (project_name,
+                                                  date_to_string(end))
 
     all_commands['project_list'] = cmd.Command(
         ('project', 'list'), ProjectStatusFilter(optional=True),
@@ -365,7 +373,9 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
              ('address_source', 'address_type', 'address_text', 'address_po_box',
               'address_postal_number', 'address_city', 'address_country')),
             ("Email domain:  affiliation %-7s @%s",
-             ('email_affiliation', 'email_domain'))
+             ('email_affiliation', 'email_domain')),
+            ('Project start: %s', ('project_start',)),
+            ('Project end:   %s', ('project_end',)),
             ]),
         perm_filter='is_superuser')
     def project_info(self, operator, projectname):
@@ -380,7 +390,14 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             raise CerebrumError('Only superusers are allowed to do this')
         project = self._get_project(projectname)
         ret = self.ou_info(operator, 'id:%d' % project.entity_id)
-        # TODO: add more information?
+        # Project start:
+        for row in project.get_entity_quarantine(
+                                           self.const.quarantine_project_start):
+            ret.append({'project_start': date_to_string(row['end_date'])})
+        # Project end:
+        for row in project.get_entity_quarantine(
+                                           self.const.quarantine_project_end):
+            ret.append({'project_end': date_to_string(row['start_date'])})
         return ret
 
     ##
@@ -438,7 +455,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             for r in account.list_accounts_by_owner_id(person.entity_id):
                 account = self._get_account(r['account_id'], idtype='id')
                 if account.expire_date:
-                    exp = account.expire_date.strftime('%Y-%m-%d')
+                    exp = date_to_string(account.expire_date)
                 else:
                     exp = '<not set>'
                 existing_accounts.append("%-10s %s" % (account.account_name,
