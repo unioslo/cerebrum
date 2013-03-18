@@ -445,7 +445,12 @@ def output_employment(writer, employment, ou_cache):
     """
 
     ou_id = employment["ou_id"]
-    ou = ou_cache[ou_id]
+    try:
+        ou = ou_cache[ou_id]
+    except KeyError:
+        logger.warn("Could not find ou_id:%s for employment: %s" % (ou_id,
+                                                                    employment))
+        return
     writer.startElement("ansettelse")
     for element, value in (("institusjonsnr", cereconf.DEFAULT_INSTITUSJONSNR),
                            ("avdnr", ou["fakultet"]),
@@ -496,7 +501,11 @@ def output_person(writer, chunk, ou_cache, ou_cache_export):
         logger.info("Person %s is missing fnr. Will be skipped from output",
                     repr(chunk))
         return 
-    
+    if const.name_first not in chunk or const.name_last not in chunk:
+        logger.info("Person %s is missing name. Will be skipped from output",
+                    repr(chunk))
+        return 
+
     writer.startElement("person", {"fnr": chunk[const.externalid_fodselsnr],
                                    "reserved": rstatus[chunk.get("reserved",
                                                                  False)]})
