@@ -331,7 +331,6 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         for row in ou.search_name_with_language(
                                      entity_type=self.const.entity_ou,
                                      name_variant=self.const.ou_name_acronym):
-            print row
             project = projects.setdefault(row['entity_id'], dict())
             project['entity_id'] = str(row['entity_id'])
             project['name'] = row['name']

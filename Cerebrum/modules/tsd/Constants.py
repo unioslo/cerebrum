@@ -35,6 +35,7 @@ from Cerebrum.Constants import _PersonAffStatusCode
 from Cerebrum.Constants import _EntityExternalIdCode
 from Cerebrum.Constants import _QuarantineCode
 from Cerebrum.Constants import _AuthoritativeSystemCode
+from Cerebrum.Constants import _AuthenticationCode
 
 class Constants(Constants.Constants):
     ## Affiliations and statuses
@@ -60,6 +61,14 @@ class Constants(Constants.Constants):
         'group@ad', Constants.Constants.entity_group,
         'Group should be synced with AD')
 
+    spread_gateway_account = _SpreadCode(
+        'account@gw', Constants.Constants.entity_account,
+        'Account to be synced to the gateway')
+
+    spread_gateway_group = _SpreadCode(
+        'group@gw', Constants.Constants.entity_group,
+        'Group to be synced to the gateway')
+
     ## Quarantines
 
     quarantine_not_approved = _QuarantineCode('not_approved',
@@ -74,5 +83,11 @@ class Constants(Constants.Constants):
     system_nettskjema = _AuthoritativeSystemCode('Nettskjema',
                             'Information from Nettskjema, registered by anyone')
     
+    ## Authentication codes (password types):
+
+    auth_type_otp_key = _AuthenticationCode('OTP-key',
+            'One-Time Password key, used to be able to generate one-time'
+            'passwords')
+
 
 
