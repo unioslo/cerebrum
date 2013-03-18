@@ -1019,3 +1019,13 @@ GUEST_MAX_LENGTH_USERNAME = 20
 # of UiA's bofhd-command 'user send_welcome_sms'.
 BOFHD_ALLOW_MANUAL_MOBILE = False
 
+
+# These variables define the UID- and GID-ranges reserved for allocation by
+# PosixUser and PosixGroup. They should either be empty (as below), or should
+# look something like:
+# UID_RESERVED_RANGE = ((5, 10), (20, 25), (30, 35),)
+# GID_RESERVED_RANGE = ((40, 42), (89, 92),)
+#In the example above, UIDs 5,6,7,8,9,10,20,21,22,23,24,25,30,31,32,33,34,35
+#will not be alloced. For the GIDs, 40,41,42,89,90,91,92 will not be alloced.
+UID_RESERVED_RANGE = tuple()
+GID_RESERVED_RANGE = tuple()

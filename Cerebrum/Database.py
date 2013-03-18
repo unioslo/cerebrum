@@ -826,6 +826,28 @@ class Database(object):
         SELECT [:sequence schema=cerebrum name=%s op=next]
         [:from_dual]""" % seq_name)
 
+    def currval(self, seq_name):
+        return self.query_1("""
+        SELECT [:sequence schema=cerebrum name=%s op=curr]
+        [:from_dual]""" % seq_name)
+
+    def setval(self, seq_name, val):
+        """Sets the value of a sequence.
+
+        @type seq_name : string
+        @param seq_name: The name of the sequence to update
+        
+        @type val: int
+        @param val: The integer we want to set
+
+        @rtype: int
+        @return: The integer set in the sequence
+
+        """
+        return self.query_1("""
+        SELECT [:sequence schema=cerebrum name=%s op=set val=%d]""" % \
+                (seq_name, val))
+
     def ping(self):
         """Check that communication with the database works.
 
@@ -945,11 +967,13 @@ class PostgreSQLBase(Database):
     def _sql_port_table(self, schema, name):
         return [name]
 
-    def _sql_port_sequence(self, schema, name, op):
+    def _sql_port_sequence(self, schema, name, op, val=None):
         if op == 'next':
             return ["nextval('%s')" % name]
-        elif op == 'current':
+        elif op == 'curr':
             return ["currval('%s')" % name]
+        elif op == 'set' and val != None:
+            return ["setval('%s', %s)" % (name, val)]
         else:
             raise ValueError, 'Invalid sequnce operation: %s' % op
 

@@ -29,6 +29,7 @@ a numeric GID.
 
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
+import cereconf
 
 Group_class = Factory.get("Group")
 class PosixGroup(Group_class):
@@ -122,8 +123,22 @@ class PosixGroup(Group_class):
         self.find(group_id)
 
     def _get_gid(self):
+        """Returns the next free GID from 'posix_gid_seq'"""
         while True:
+            # Pick a new GID
             gid = self.nextval('posix_gid_seq')
+            # We check if the GID is in any of the reserved ranges.
+            # If it is, we'll skip past the range (call setval), and
+            # pick a new GID that is past the reserved range.
+            for x in cereconf.GID_RESERVED_RANGE:
+                # TODO: Move this check to some unit-testing stuff sometime
+                if x[1] < x[0]:
+                    raise Errors.ProgrammingError(
+                        'Wrong order in cereconf.GID_RESERVED_RANGE')
+                if gid >= x[0] and gid <= x[1]:
+                    self._db.setval('posix_gid_seq', x[1])
+                    gid = self.nextval('posix_gid_seq')
+            # We check if the GID is in use, if not, return, else start over.
             try:
                 self.query_1("""
                 SELECT posix_gid

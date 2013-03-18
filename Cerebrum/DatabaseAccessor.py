@@ -55,6 +55,12 @@ class DatabaseAccessor(object):
     def nextval(self, seq_name):
         return self._db.nextval(seq_name)
 
+    def currval(self, seq_name):
+        return self._db.currval(seq_name)
+
+    def setval(self, seq_name, val):
+        return self._db.setval(seq_name, val)
+
     def commit(self):
         return self._db.commit()
 

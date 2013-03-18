@@ -274,7 +274,20 @@ class PosixUser(Account_class):
     def get_free_uid(self):
         """Returns the next free uid from ``posix_uid_seq``"""
         while 1:
+            # We pick an UID
             uid = self.nextval("posix_uid_seq")
+            # We check if the UID is in any of the reserved ranges.
+            # If it is, we'll skip past the range (call setval), and
+            # pick a new UID that is past the reserved range.
+            for x in cereconf.UID_RESERVED_RANGE:
+                # TODO: Move this check to some unit-testing stuff sometime
+                if x[1] < x[0]:
+                    raise Errors.ProgrammingError(
+                            'Wrong order in cereconf.UID_RESERVED_RANGE')
+                if uid >= x[0] and uid <= x[1]:
+                    self._db.setval('posix_uid_seq', x[1])
+                    uid = self.nextval("posix_uid_seq")
+            # If the UID is not in use, we return it, else, we try over.
             try:
                 self.query_1("""
                 SELECT posix_uid
