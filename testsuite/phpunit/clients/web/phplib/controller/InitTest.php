@@ -22,8 +22,6 @@ class InitTest extends PHPUnit_Framework_TestCase {
             $dir = TEST_PREFIX_CEREBRUM . "/clients/web/phplib/$d";
             HelperInit::addAutoloadDir($dir);
         }
-    
-    
     }
     public function tearDown() { }
 

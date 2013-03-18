@@ -1,20 +1,20 @@
 <?php
-# Copyright 2010 University of Oslo, Norway
-# 
-# This file is part of Cerebrum.
-# 
-# Cerebrum is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-# 
-# Cerebrum is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-# 
-# You should have received a copy of the GNU General Public License
-# along with Cerebrum. If not, see <http://www.gnu.org/licenses/>.
+// Copyright 2010 University of Oslo, Norway
+// 
+// This file is part of Cerebrum.
+// 
+// Cerebrum is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+// 
+// Cerebrum is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+// 
+// You should have received a copy of the GNU General Public License
+// along with Cerebrum. If not, see <http://www.gnu.org/licenses/>.
 
 class BofhFormTest extends PHPUnit_Framework_TestCase
 {
@@ -27,7 +27,7 @@ class BofhFormTest extends PHPUnit_Framework_TestCase
 
     public function setUp()
     {
-        # pretend that the session has started:
+        // pretend that the session has started:
         $_SESSION = array();
     }
     public function tearDown()
@@ -41,17 +41,16 @@ class BofhFormTest extends PHPUnit_Framework_TestCase
         $form = new BofhForm('name');
     }
 
+    /**
+     * @expectedException BofhFormSessionException
+     */
     public function testWithoutSession()
     {
-        # if no session is started, an error should be returned
+        // if no session is started, an error should be returned
         unset($_SESSION);
-        try {
-            $form = new BofhForm('teste');
-        } catch (Exception $e) {
-            return true;
-        }
-        $this->fail('BofhForm should fail if session is not started');
+        $form = new BofhForm('teste');
     }
+
     public function testOutputName()
     {
         $form = new BofhForm('testForm');
@@ -65,7 +64,7 @@ class BofhFormTest extends PHPUnit_Framework_TestCase
     public function testPostMethod()
     {
         $form = new BofhForm('namn');
-        # TODO: need to parse the html somehow to test it thorough. 
+        // TODO: need to parse the html somehow to test it thorough. 
         $out = (string) $form;
         $this->assertTrue(is_numeric(stripos($out, 'method="post"')),
             'Forms should set method=POST as default, due to security. This does not!');
@@ -73,7 +72,7 @@ class BofhFormTest extends PHPUnit_Framework_TestCase
             'Forms should set method=POST as default, due to security. This does not!');
     }
 
-    public function testElements()
+    public function testAddedElements()
     {
         $form = new BofhForm('name');
         $form->addElement('text', 'textEleName', 'Label info:', 'attributes="2"');
@@ -108,7 +107,7 @@ class BofhFormTest extends PHPUnit_Framework_TestCase
 
     public function testReCaptchaKeys()
     {
-        BofhForm_reCaptcha::setKeys('public-one', 'a-private-one');
+        BofhForm_reCaptcha::setKeys('a-private-one', 'public-one');
         $this->assertEquals('public-one', BofhForm_reCaptcha::$public_key,
             'Public key not correctly set');
     }
@@ -139,7 +138,7 @@ class BofhFormTest extends PHPUnit_Framework_TestCase
 
     public function testOutputValidation()
     {
-        # TODO: need to parse the html somehow to test it thorough. 
+        // TODO: need to parse the html somehow to test it thorough. 
         $this->markTestIncomplete('Need to parse the html to test it for validation');
     }
 
@@ -287,7 +286,7 @@ class BofhFormTest extends PHPUnit_Framework_TestCase
     public function testNotIndexInAction()
     {
 
-        # keys = urls, values = urls without index.php
+        // keys = urls, values = urls without index.php
         $urls = array(
             'logon.php' => 'logon.php',
             '/subdir/index.php' => '/subdir/',
@@ -298,7 +297,8 @@ class BofhFormTest extends PHPUnit_Framework_TestCase
             '/index.php' => '/',
             '/index.htm' => '/',
             '/index.html' => '/',
-            #'index.php' => '', # this creates problems...
+            'index.php' => '',
+            'index.htm' => '',
         );
         foreach ($urls as $oldurl => $newurl) {
             $_SERVER['PHP_SELF'] = $oldurl;

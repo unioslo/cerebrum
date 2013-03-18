@@ -1,20 +1,20 @@
 <?php
-# Copyright 2010 University of Oslo, Norway
-# 
-# This file is part of Cerebrum.
-# 
-# Cerebrum is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-# 
-# Cerebrum is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-# 
-# You should have received a copy of the GNU General Public License
-# along with Cerebrum. If not, see <http://www.gnu.org/licenses/>.
+// Copyright 2010 University of Oslo, Norway
+// 
+// This file is part of Cerebrum.
+// 
+// Cerebrum is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+// 
+// Cerebrum is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+// 
+// You should have received a copy of the GNU General Public License
+// along with Cerebrum. If not, see <http://www.gnu.org/licenses/>.
 
 
 class TextTest extends PHPUnit_Framework_TestCase
@@ -26,6 +26,7 @@ class TextTest extends PHPUnit_Framework_TestCase
         # include directly, hoping that include_path has it? The latter doesn't 
         # guarantee that we include the correct file.
         include_once TEST_PREFIX_CEREBRUM . '/clients/web/phplib/view/Text.php';
+        include_once TEST_PREFIX_CEREBRUM . '/clients/web/phplib/controller/InitBase.php';
 
         # create directory for the test language files 
         @mkdir(self::example_path());
@@ -234,14 +235,14 @@ class TextTest extends PHPUnit_Framework_TestCase
     public function testValidLanguageTags()
     {
         $valids = array('en', 'no', 'NO', 'nn-no', 'en-gb', 'en-GB', 'EN-gb');
-        foreach ($valids as $v) $this->assertTrue(Text::is_valid_tag($v));
+        foreach ($valids as $v) $this->assertTrue(Text::isValidTag($v));
     }
 
     public function testInvalidLanguageTags()
     {
         foreach(array('tjalla', 'tj-tjalla', 'no-nn', 'nn-no-en', 'nn ', ' no', 
                  '*', '#', 'en-', '', '..', '../', '/..', '/../') as $invalid) {
-            $this->assertFalse(Text::is_valid_tag($invalid));              
+            $this->assertFalse(Text::isValidTag($invalid));              
         }
     }
 

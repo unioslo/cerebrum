@@ -63,12 +63,12 @@ class BrukerinfoTextTest extends PHPUnit_Framework_TestCase
     public function testAllKeysDefined()
     {
         $txt = new Text(Text::getDefaultLanguage());
-        $def_keys = array_keys($txt->getAll());
+        $def_keys = array_keys($txt->getAllText());
         sort($def_keys);
 
         foreach (Text::getAvailableLanguages() as $lang => $desc) {
             $txt = new Text($lang);
-            $keys = array_keys($txt->getAll());
+            $keys = array_keys($txt->getAllText());
 
             foreach ($def_keys as $k) {
                 $pos = array_search($k, $keys, true);

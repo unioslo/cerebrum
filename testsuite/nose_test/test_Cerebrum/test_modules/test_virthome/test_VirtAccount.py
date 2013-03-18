@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-"""This file constains unit tests (nose) for the VirtAccount modules.
+"""This file contains unit tests (nose) for the VirtAccount modules.
 
 For now (2009-03-18), just jot down something. The tests assume an existing
 environment and a database. This cannot be a prerequisite, but for now we
@@ -20,6 +20,8 @@ Notes:
 
 from mx.DateTime import now
 from nose.tools import raises, assert_raises
+
+from Cerebrum.modules.virthome.VirtAccount import VirtAccount, FEDAccount
 
 
 class testbase(object):
@@ -48,17 +50,17 @@ class testbase(object):
 
 
 
-class test_VAccount(testbase):
+class test_VirtAccount(testbase):
     def test_vaccount_exists(self):
-        """Check that VAccount instances exist."""
+        """Check that VirtAccount instances exist."""
 
-        va = self.factory.get("VAccount")(self.db)
+        va = self.factory.get("VirtAccount")(self.db)
     # end test_vaccount_exists
 
     def test_vaccount_has_methods(self):
-        """Check that VAccounts have the necessary methods."""
+        """Check that VirtAccounts have the necessary methods."""
 
-        va = self.factory.get("VAccount")(self.db)
+        va = self.factory.get("VirtAccount")(self.db)
         for name in ("write_db", "clear", "find", "populate",):
             obj = getattr(va, name)
             assert hasattr(obj, "__call__")
@@ -66,9 +68,9 @@ class test_VAccount(testbase):
 
 
     def test_populate_vaccont1(self):
-        """Simplest VAccount.populate() test."""
+        """Simplest VirtAccount.populate() test."""
 
-        va = self.factory.get("VAccount")(self.db)
+        va = self.factory.get("VirtAccount")(self.db)
         va.populate(now(), None, "nosetest@virthome")
         va.write_db()
     # end test_populate_vaccont1
@@ -76,9 +78,9 @@ class test_VAccount(testbase):
 
     @raises(Exception)
     def test_populate_vaccount2(self):
-        """Test that VAccount's expire date exceeds create date."""
+        """Test that VirtAccount's expire date exceeds create date."""
 
-        va = self.factory.get("VAccount")(self.db)
+        va = self.factory.get("VirtAccount")(self.db)
         va.populate(now(), now() - 20, "nosetest@virthome")
         va.write_db()
     # end test_populate_vaccount2
@@ -86,23 +88,23 @@ class test_VAccount(testbase):
 
     @raises(Exception)
     def test_populate_vaccount3(self):
-        """Check that VAccount ID's realm is hardwired to a specific value."""
+        """Check that VirtAccount ID's realm is hardwired to a specific value."""
 
-        va = self.factory.get("VAccount")(self.db)
+        va = self.factory.get("VirtAccount")(self.db)
         va.populate(now(), now() - 20, "nosetest1@schnappi")
         va.write_db()
     # end test_populate_vaccount3
         
 
     def test_vaccount_has_attributes(self):
-        """Check that VAccounts have the necessary attributes.
+        """Check that VirtAccounts have the necessary attributes.
 
         We'll have to populate an account in order to check for attributes. It
         is like that by design.
         """
 
-        va = self.factory.get("VAccount")(self.db)
-        va = self.factory.get("VAccount")(self.db)
+        va = self.factory.get("VirtAccount")(self.db)
+        va = self.factory.get("VirtAccount")(self.db)
         va.populate(now(), None, "nosetest1@virthome")
         for name in ("create_date", "expire_date"):
             assert hasattr(va, name)
@@ -113,7 +115,7 @@ class test_VAccount(testbase):
     def test_double_populate_impossible(self):
         """Test that 2 consecutive populate() calls are impossible."""
 
-        va = self.factory.get("VAccount")(self.db)
+        va = self.factory.get("VirtAccount")(self.db)
         va.populate(now(), None, "nosetest1@virthome")
         va.populate(now(), None, "nosetest1@virthome")
     # end test_double_populate_impossible
@@ -122,12 +124,12 @@ class test_VAccount(testbase):
     def test_find_nonexisting_vaccount_fails(self):
         """Check that find() on non-existing vaccounts fails."""
 
-        va = self.factory.get("VAccount")(self.db)
+        va = self.factory.get("VirtAccount")(self.db)
         va.find(-1)
     # end test_find_nonexisting_vaccount_fails
 
 
-# end test_VAccount
+# end test_VirtAccount
         
 
 
