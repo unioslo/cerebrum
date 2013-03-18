@@ -22,12 +22,11 @@
 """
 This file is part of the Cerebrum framework.
 
-It generates an XML file, suitable for importing into the FRIDA project (for
-more information on FRIDA, start at <URL:
-http://www.usit.uio.no/prosjekter/frida/pg/>). The output format is specified
-in:
+It generates an XML file, suitable for importing into the CRISTIN project,
+formerly called FRIDA (for more information on FRIDA, start at <URL:
+http://www.cristin.no/>). The output format is specified in:
 
-<http://frida.usit.uio.no/prosjektet/dok/import/institusjonsdata/index.html>
+<http://www.cristin.no/institusjonsdata/>
 
 The uiocerebrum project has some additional notes
 (cvs.uio.no:/uiocerebrum/docs/frida/frida-export.txt).
