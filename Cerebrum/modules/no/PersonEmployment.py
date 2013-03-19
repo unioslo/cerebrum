@@ -164,7 +164,8 @@ class PersonEmploymentMixin(object):
     
     
     def search_employment(self, person_id=None, ou_id=None, description=None,
-                          source_system=None, employment_code=None):
+                          source_system=None, employment_code=None,
+                          include_expired=True):
         """Look for employment entries matching certain criteria.
 
         @type person_id: int or a sequence thereof or None.
@@ -178,6 +179,10 @@ class PersonEmploymentMixin(object):
         @type employment: int or constant or a sequence thereof or None.
         @param person_id:
           Filter the results by the specific employment(s).
+
+        @type include_expired: bool
+        @param include_expired:
+          Filter out results that has an end date in the past.
 
         @rtype: iterable over db_rows
         @return:
@@ -199,6 +204,8 @@ class PersonEmploymentMixin(object):
         if employment_code is not None:
             where.append(argument_to_sql(employment_code, "employment_code",
                                          binds, str))
+        if not include_expired:
+            where.append('(end_date IS NULL OR end_date > [:now])')
 
         query = """
         SELECT person_id, ou_id, description, source_system,
