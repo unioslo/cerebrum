@@ -130,7 +130,7 @@ class PosixGroup(Group_class):
             # We check if the GID is in any of the reserved ranges.
             # If it is, we'll skip past the range (call setval), and
             # pick a new GID that is past the reserved range.
-            for x in cereconf.GID_RESERVED_RANGE:
+            for x in sorted(cereconf.GID_RESERVED_RANGE):
                 # TODO: Move this check to some unit-testing stuff sometime
                 if x[1] < x[0]:
                     raise Errors.ProgrammingError(

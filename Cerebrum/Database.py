@@ -845,8 +845,8 @@ class Database(object):
 
         """
         return self.query_1("""
-        SELECT [:sequence schema=cerebrum name=%s op=set val=%d]""" % \
-                (seq_name, val))
+        SELECT [:sequence schema=cerebrum name=%s op=set val=%d]""" %
+        (seq_name, int(val)))
 
     def ping(self):
         """Check that communication with the database works.
