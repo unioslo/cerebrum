@@ -67,6 +67,7 @@ from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
 
 from Cerebrum.modules.tsd.bofhd_auth import TSDBofhdAuth
 from Cerebrum.modules.tsd import bofhd_help
+from Cerebrum.modules.tsd import Gateway
 
 def format_day(field):
     fmt = "yyyy-MM-dd"                  # 10 characters wide
@@ -89,6 +90,16 @@ class ProjectName(cmd.Parameter):
     """Bofhd Parameter for specifying a project name."""
     _type = 'projectName'
     _help_ref = 'project_name'
+
+class ProjectLongName(cmd.Parameter):
+    """Bofhd Parameter for specifying a project's long (full) name."""
+    _type = 'projectLongName'
+    _help_ref = 'project_longname'
+
+class ProjectShortName(cmd.Parameter):
+    """Bofhd Parameter for specifying a project's short name."""
+    _type = 'projectShortName'
+    _help_ref = 'project_shortname'
 
 class ProjectStatusFilter(cmd.Parameter):
     """Bofhd Parameter for filtering on projects' status.
@@ -135,89 +146,6 @@ class TSDBofhdExtension(BofhdCommandBase):
         return (bofhd_help.group_help, bofhd_help.command_help,
                 bofhd_help.arg_help)
 
-class AdministrationBofhdExtension(TSDBofhdExtension):
-    """The bofhd commands for the TSD project's system administrators.
-    
-    Here you have the commands that should be availble for the superusers
-    
-    """
-
-    # Commands that should be publicised for an operator, e.g. in jbofh:
-    all_commands = {}
-
-    # Commands that are available, but not publicised, as they are normally
-    # called through other systems, e.g. Brukerinfo. It should NOT be used as a
-    # security feature - thus you have security by obscurity.
-    hidden_commands = {}
-
-    # Commands that should be copied from UiO's BofhdExtension. We don't want to
-    # copy all of the commands for TSD, but tweak them a bit first.
-    copy_commands = (
-        # Person
-        'person_create', 'person_find', 'person_info', 'person_accounts',
-        'person_set_name', 'person_set_bdate', 'person_set_id',
-        # User
-        'user_history', 'user_info', 'user_find', 'user_set_expire',
-        # Group
-        'group_info', 'group_list', 'group_list_expanded', 'group_memberships',
-        'group_delete', 'group_set_description', 'group_set_expire',
-        'group_search', 
-        # Quarantine
-        'quarantine_disable', 'quarantine_list', 'quarantine_remove',
-        'quarantine_set', 'quarantine_show',
-        # OU
-        'ou_search', 'ou_info', 'ou_tree',
-        # TODO: find out if the remaining methods should be imported too:
-        #
-        # Access:
-        #'access_disk', 'access_group', 'access_ou', 'access_user',
-        #'access_global_group', 'access_global_ou', '_list_access',
-        #'access_grant', 'access_revoke', '_manipulate_access',
-        #'_get_access_id', '_validate_access', '_get_access_id_disk',
-        #'_validate_access_disk', '_get_access_id_group', '_validate_access_group',
-        #'_get_access_id_global_group', '_validate_access_global_group',
-        #'_get_access_id_ou', '_validate_access_ou', '_get_access_id_global_ou',
-        #'_validate_access_global_ou', 'access_list_opsets', 'access_show_opset',
-        #'access_list', '_get_auth_op_target', '_grant_auth', '_revoke_auth',
-        #'_get_opset',
-        #
-        # Misc
-        'misc_affiliations', 'misc_clear_passwords', 'misc_verify_password',
-        # Trait
-        'trait_info', 'trait_list', 'trait_remove', 'trait_set',
-        # Spread
-        'spread_list', 'spread_add', 'spread_remove',
-        # Entity
-        'entity_history',
-        # Helper functions
-        '_find_persons', '_format_ou_name', '_get_person', '_get_disk',
-        '_map_person_id', '_entity_info', 'num2str', '_get_affiliationid',
-        '_get_affiliation_statusid', '_parse_date', '_today', 
-        '_format_changelog_entry', '_format_from_cl', '_get_name_from_object',
-        '_get_constant', '_is_yes', '_remove_auth_target', '_remove_auth_role',
-        '_get_cached_passwords', '_parse_date_from_to',
-        '_convert_ticks_to_timestamp', '_fetch_member_names',
-        )
-
-    def __new__(cls, *arg, **karg):
-        """Hackish override to copy in methods from UiO's bofhd.
-
-        A better fix would be to split bofhd_uio_cmds.py into separate classes.
-
-        """
-        from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as \
-             UiOBofhdExtension
-        non_all_cmds = ('num2str', 'user_set_owner_prompt_func',)
-        for func in cls.copy_commands:
-            setattr(cls, func, UiOBofhdExtension.__dict__.get(func))
-            if func[0] != '_' and func not in non_all_cmds:
-                cls.all_commands[func] = UiOBofhdExtension.all_commands[func]
-        x = object.__new__(cls)
-        return x
-
-    ##
-    ## Project commands
-
     def _get_project(self, projectname):
         """Return a project's OU by its name, if found. We identify project's by
         their acronym name, which is not handled uniquely in the database, so we
@@ -250,8 +178,169 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
         """
         if ou_id is not None:
-            return self.__super._get_ou(ou_id=ou_id, stedkode=stedkode)
+            return super(TSDBofhdExtension, self)._get_ou(ou_id, stedkode)
         return self._get_project(stedkode)
+
+    def _format_ou_name(self, ou):
+        """Return a human readable name for a given OU."""
+        acronym = ou.get_name_with_language(
+                            name_variant=self.const.ou_name_acronym,
+                            name_language=self.const.language_en)
+        try:
+            short_name = ou.get_name_with_language(
+                                name_variant=self.const.ou_name_short,
+                                name_language=self.const.language_en)
+        except Errors.NotFoundError:
+            return str(acronym)
+        return "%s (%s)" % (acronym, short_name)
+
+class AdministrationBofhdExtension(TSDBofhdExtension):
+    """The bofhd commands for the TSD project's system administrators.
+    
+    Here you have the commands that should be availble for the superusers
+    
+    """
+
+    # Commands that should be publicised for an operator, e.g. in jbofh:
+    all_commands = {}
+
+    # Commands that are available, but not publicised, as they are normally
+    # called through other systems, e.g. Brukerinfo. It should NOT be used as a
+    # security feature - thus you have security by obscurity.
+    hidden_commands = {}
+
+    # Commands that should be copied from UiO's BofhdExtension. We don't want to
+    # copy all of the commands for TSD, but tweak them a bit first.
+    copy_commands = (
+        # Person
+        'person_create', 'person_find', 'person_info', 'person_accounts',
+        'person_set_name', 'person_set_bdate', 'person_set_id',
+        # User
+        'user_history', 'user_info', 'user_find', 'user_set_expire',
+        # Group
+        'group_info', 'group_list', 'group_list_expanded', 'group_memberships',
+        'group_delete', 'group_set_description', 'group_set_expire',
+        'group_search',
+        # Quarantine
+        'quarantine_disable', 'quarantine_list', 'quarantine_remove',
+        'quarantine_set', 'quarantine_show',
+        # OU
+        'ou_search', 'ou_info', 'ou_tree',
+        # TODO: find out if the remaining methods should be imported too:
+        #
+        # Access:
+        #'access_disk', 'access_group', 'access_ou', 'access_user',
+        #'access_global_group', 'access_global_ou', '_list_access',
+        #'access_grant', 'access_revoke', '_manipulate_access',
+        #'_get_access_id', '_validate_access', '_get_access_id_disk',
+        #'_validate_access_disk', '_get_access_id_group', '_validate_access_group',
+        #'_get_access_id_global_group', '_validate_access_global_group',
+        #'_get_access_id_ou', '_validate_access_ou', '_get_access_id_global_ou',
+        #'_validate_access_global_ou', 'access_list_opsets', 'access_show_opset',
+        #'access_list', '_get_auth_op_target', '_grant_auth', '_revoke_auth',
+        #'_get_opset',
+        #
+        # Misc
+        'misc_affiliations', 'misc_clear_passwords', 'misc_verify_password',
+        # Trait
+        'trait_info', 'trait_list', 'trait_remove', 'trait_set',
+        # Spread
+        'spread_list', 'spread_add', 'spread_remove',
+        # Entity
+        'entity_history',
+        # Helper functions
+        '_find_persons', '_get_person', '_get_disk', '_get_group',
+        '_map_person_id', '_entity_info', 'num2str', '_get_affiliationid',
+        '_get_affiliation_statusid', '_parse_date', '_today', 
+        '_format_changelog_entry', '_format_from_cl', '_get_name_from_object',
+        '_get_constant', '_is_yes', '_remove_auth_target', '_remove_auth_role',
+        '_get_cached_passwords', '_parse_date_from_to',
+        '_convert_ticks_to_timestamp', '_fetch_member_names',
+        )
+
+    def __new__(cls, *arg, **karg):
+        """Hackish override to copy in methods from UiO's bofhd.
+
+        A better fix would be to split bofhd_uio_cmds.py into separate classes.
+
+        """
+        # Copy in UiO's commands defined in copy_commands:
+        from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as \
+             UiOBofhdExtension
+        non_all_cmds = ('num2str', 'user_set_owner_prompt_func',)
+        for func in cls.copy_commands:
+            setattr(cls, func, UiOBofhdExtension.__dict__.get(func))
+            if func[0] != '_' and func not in non_all_cmds:
+                cls.all_commands[func] = UiOBofhdExtension.all_commands[func]
+        x = object.__new__(cls)
+        return x
+
+    def __init__(self, server, default_zone='tsdutv.usit.no.'):
+        super(AdministrationBofhdExtension, self).__init__(server)
+
+        # Copy in all defined commands from the superclass that is not defined
+        # in this class.
+        for key, cmd in super(AdministrationBofhdExtension, self).all_commands.iteritems():
+            if not self.all_commands.has_key(key):
+                self.all_commands[key] = cmd
+
+    ##
+    ## Project commands
+
+    all_commands['project_create'] = cmd.Command(
+        ('project', 'create'), ProjectName(), ProjectLongName(),
+        ProjectShortName(), cmd.Date(help_ref='project_start_date'),
+        cmd.Date(help_ref='project_end_date'),
+        perm_filter='is_superuser')
+    def project_create(self, operator, projectname, longname, shortname,
+                       startdate, enddate):
+        """Create a new project."""
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise CerebrumError('Only superusers are allowed to do this')
+        try:
+            self._get_project(projectname)
+        except CerebrumError:
+            pass
+        else:
+            raise CerebrumError('Projectname already taken: %s' % projectname)
+
+        start = self._parse_date(startdate)
+        end = self._parse_date(enddate)
+        if end < DateTime.now():
+            raise CerebrumError("End date of project has passed: %s" % end)
+
+        ou = self.OU_class(self.db)
+        ou.populate()
+        ou.write_db()
+
+        # Storing the names:
+        ou.add_name_with_language(name_variant=self.const.ou_name_acronym,
+                                  name_language=self.const.language_en,
+                                  name=projectname)
+        ou.add_name_with_language(name_variant=self.const.ou_name_long,
+                                  name_language=self.const.language_en,
+                                  name=longname)
+        if shortname:
+            ou.add_name_with_language(name_variant=self.const.ou_name_long,
+                                      name_language=self.const.language_en,
+                                      name=shortname)
+        ou.write_db()
+
+        # Storing start date
+        if start > DateTime.now():
+            ou.add_entity_quarantine(type=self.const.quarantine_project_start,
+                    creator=operator.get_entity_id(), start=DateTime.now(),
+                    end=start, description='Initial start set by superuser')
+            ou.write_db()
+        # Storing end date
+        ou.add_entity_quarantine(type=self.const.quarantine_project_end,
+                creator=operator.get_entity_id(), start=end,
+                description='Initial end set by superuser')
+        ou.write_db()
+
+        # TODO: The gateway needs to be informed!
+
+        return "New project created successfully: %s" % projectname
 
     all_commands['project_approve'] = cmd.Command(
         ('project', 'approve'), ProjectName(),
@@ -265,20 +354,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         """
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise CerebrumError('Only superusers are allowed to do this')
-        ou = self.OU_class(self.db)
-        matched = ou.search_name_with_language(
-                                    entity_type=self.const.entity_ou,
-                                    name_variant=self.const.ou_name_acronym,
-                                    # TODO: name_language=self.const.language_en
-                                    name=project_name, exact_match=True)
-        if not matched:
-            raise CerebrumError("Could not find project: %s" % project_name)
-        if len(matched) > 1:
-            raise CerebrumError("Found more than one OU with given name")
-        project = matched[0]
-
-        # TODO: check that the OU is a project OU, e.g. by checking its parent
-
+        project = self._get_project(project_name)
         if not project.get_entity_quarantine(only_active=True,
                                     type=self.const.quarantine_not_approved):
             raise CerebrumError('Project already approved')
@@ -288,13 +364,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         # TODO: Send a message to the gateway about the new project
         #self.gateway.project.create(project_name)
 
-        # TODO: accounts, should they be approved through the command
-        # 'user_approve', or is it okay to approve all existing project accounts
-        # when the project is approved?
-
-        # TODO: how should we approve - remove quarantine? more to do? Send a
-        # bofhdrequest, or remove all project member's quarantines directly?
-        return "Not implemented yet..."
+        return "Project approved: %s" % project_name
 
     all_commands['project_set_enddate'] = cmd.Command(
         ('project', 'set_enddate'), ProjectName(), cmd.Date(),
@@ -413,6 +483,35 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         return ret
 
     ##
+    ## Person commands
+
+    def _person_affiliation_add_helper(self, operator, person, ou, aff, aff_status):
+        """Helper-function for adding an affiliation to a person with permission
+        checking. Person is expected to be a person object, while ou, aff and
+        aff_status should be the textual representation from the client.
+        """
+        aff = self._get_affiliationid(aff)
+        aff_status = self._get_affiliation_statusid(aff, aff_status)
+        ou = self._get_ou(stedkode=ou)
+
+        # Assert that the person already have the affiliation
+        has_aff = False
+        for a in person.get_affiliations():
+            if a['ou_id'] == ou.entity_id and a['affiliation'] == aff:
+                if a['status'] == aff_status:
+                    has_aff = True
+                elif a['source_system'] == self.const.system_manual:
+                    raise CerebrumError("Person has conflicting aff_status "
+                                        "for this OU/affiliation combination")
+        if not has_aff:
+            self.ba.can_add_affiliation(operator.get_entity_id(), person, ou,
+                                        aff, aff_status)
+            person.add_affiliation(ou.entity_id, aff, self.const.system_manual,
+                                   aff_status)
+            person.write_db()
+        return ou, aff, aff_status
+
+    ##
     ## User commands
 
     # user_create_prompt_func_helper
@@ -506,9 +605,6 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             if not all_args:
                 return {'prompt': "Shell", 'default': 'bash'}
             shell = all_args.pop(0)
-            if not all_args:
-                return {'prompt': 'E-mail spread', 'help_ref': 'string_spread'}
-            email_spread = all_args.pop(0)
         if not all_args:
             ret = {'prompt': "Username", 'last_arg': True}
             posix_user = Factory.get('PosixUser')(self.db)
@@ -518,7 +614,10 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                     fname, lname = [
                         person.get_name(self.const.system_cached, v)
                         for v in (self.const.name_first, self.const.name_last) ]
-                    sugg = posix_user.suggest_unames(self.const.account_namespace, fname, lname)
+                    sugg = posix_user.suggest_unames(
+                            self.const.account_namespace, fname, lname,
+                            maxlen=cereconf.USERNAME_MAX_LENGTH,
+                            prefix='projectname_')
                     if sugg:
                         ret['default'] = sugg[0]
                 except ValueError:
@@ -544,16 +643,16 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         # from UiA, and needs to be modified
 
         if args[0].startswith('group:'):
-            group_id, np_type, shell, email_spread, uname = args
+            group_id, np_type, shell, uname = args
             owner_type = self.const.entity_group
             owner_id = self._get_group(group_id.split(":")[1]).entity_id
             np_type = self._get_constant(self.const.Account, np_type,
                                          "account type")
         else:
-            if len(args) == 6:
-                idtype, person_id, affiliation, shell, email_spread, uname = args
+            if len(args) == 5:
+                idtype, person_id, affiliation, shell, uname = args
             else:
-                idtype, person_id, yes_no, affiliation, shell, email_spread, uname = args
+                idtype, person_id, yes_no, affiliation, shell, uname = args
             owner_type = self.const.entity_person
             owner_id = self._get_person("entity_id", person_id).entity_id
             np_type = None
@@ -598,15 +697,6 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             # flawed, and should be fixed.
             passwd = posix_user.make_passwd(uname)
             posix_user.set_password(passwd)
-            if email_spread:
-                if not int(self.const.Spread(email_spread)) in \
-                   [int(self.const.spread_exchange_account),
-                    int(self.const.spread_hia_email)]:
-                    raise CerebrumError, "Not an e-mail spread: %s!" % email_spread
-            try:
-                posix_user.add_spread(self.const.Spread(email_spread))
-            except Errors.NotFoundError:
-                raise CerebrumError, "No such spread %s" % spread                            
             # And, to write the new password to the database, we have
             # to .write_db() one more time...
             posix_user.write_db()
@@ -861,10 +951,6 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         except self.db.DatabaseError, m:
             raise CerebrumError("Database error: %s" % m)
         return "OK, removed '%s' from '%s'" % (member_name, group.group_name)
-
-    ##
-    ## Project commands
-
 
 class EnduserBofhdExtension(TSDBofhdExtension):
     """The bofhd commands for the end users of TSD.

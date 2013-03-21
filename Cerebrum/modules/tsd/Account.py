@@ -52,7 +52,9 @@ class AccountTSDMixin(Account.Account):
     def set_account_type(self, ou_id, affiliation, priority=None):
         """Subclass setting of the account_type to avoid more than one OU.
 
-        This is to avoid letting an account get access to different projects."""
+        This is to avoid letting an account get access to different projects.
+
+        """
         if affiliation == self.const.affiliation_project:
             for row in self.list_accounts_by_type(account_id=self.entity_id,
                                 affiliation=self.const.affiliation_project,
@@ -63,3 +65,5 @@ class AccountTSDMixin(Account.Account):
                     raise Errors.CerebrumError('Account already part of other '
                                                'project OUs')
         return self.__super.set_account_type(ou_id, affiliation, priority)
+
+
