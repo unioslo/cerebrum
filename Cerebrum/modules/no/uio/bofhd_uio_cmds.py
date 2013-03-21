@@ -7657,12 +7657,14 @@ Addresses and settings:
                              'fnr_src': str(
                     self.const.AuthoritativeSystem(row['source_system']))})
             # Show external id from FS and SAP
-            for extid in (self.const.externalid_sap_ansattnr,
-                          self.const.externalid_studentnr):
-                for row in person.get_external_id(id_type=extid):
-                    data.append({'extid': row['external_id'],
-                                 'extid_src': str(
-                        self.const.AuthoritativeSystem(row['source_system']))})
+            for extid in ('externalid_sap_ansattnr',
+                          'externalid_studentnr'):
+                extid = getattr(self.const, extid, None)
+                if extid:
+                    for row in person.get_external_id(id_type=extid):
+                        data.append({'extid': row['external_id'],
+                                     'extid_src': str(
+                            self.const.AuthoritativeSystem(row['source_system']))})
         # Show contact info
         for row in person.get_contact_info():
             if row['contact_type'] not in (self.const.contact_phone,
