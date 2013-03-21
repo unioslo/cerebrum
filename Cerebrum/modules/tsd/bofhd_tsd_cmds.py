@@ -240,6 +240,19 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             raise CerebrumError("Could not find project: %s" % projectname)
         return ou
 
+    def _get_ou(self, ou_id=None, stedkode=None):
+        """Override to change the use of L{stedkode} to check the acronym.
+        
+        In TSD, we do not use L{stedkode}, but we do have some unique IDs stored
+        as acronyms. To avoid having to change too much, we just override the
+        stedkode reference so we don't have to override each method that fetches
+        an OU by its stedkode.
+
+        """
+        if ou_id is not None:
+            return self.__super._get_ou(ou_id=ou_id, stedkode=stedkode)
+        return self._get_project(stedkode)
+
     all_commands['project_approve'] = cmd.Command(
         ('project', 'approve'), ProjectName(),
         perm_filter='is_superuser')
