@@ -37,12 +37,14 @@ command_help['user'].update({
     })
 
 command_help['project'] = {
-    'project_create':
-        'Create a new project manually',
     'project_approve':
         'Approve a project with the given name',
+    'project_create':
+        'Create a new project manually',
     'project_freeze_request':
         'Add a BofhdRequest for freezing a project',
+    'project_info':
+        'Show information about a given project',
     'project_list':
         'List all projects according to given filter',
     'project_set_enddate':

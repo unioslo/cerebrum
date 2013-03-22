@@ -181,7 +181,7 @@ class TSDBofhdExtension(BofhdCommandBase):
             return super(TSDBofhdExtension, self)._get_ou(ou_id, stedkode)
         return self._get_project(stedkode)
 
-    def _format_ou_name(self, ou):
+    def _format_ou_name(self, ou, include_short_name=True):
         """Return a human readable name for a given OU."""
         acronym = ou.get_name_with_language(
                             name_variant=self.const.ou_name_acronym,
@@ -215,12 +215,13 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         # Person
         'person_create', 'person_find', 'person_info', 'person_accounts',
         'person_set_name', 'person_set_bdate', 'person_set_id',
+        'person_affiliation_add', 'person_affiliation_remove',
         # User
         'user_history', 'user_info', 'user_find', 'user_set_expire',
         # Group
         'group_info', 'group_list', 'group_list_expanded', 'group_memberships',
         'group_delete', 'group_set_description', 'group_set_expire',
-        'group_search',
+        'group_search', #'group_create',
         # Quarantine
         'quarantine_disable', 'quarantine_list', 'quarantine_remove',
         'quarantine_set', 'quarantine_show',
@@ -249,7 +250,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         # Entity
         'entity_history',
         # Helper functions
-        '_find_persons', '_get_person', '_get_disk', '_get_group',
+        '_find_persons', '_get_person', '_get_disk', '_get_group', '_get_shell',
         '_map_person_id', '_entity_info', 'num2str', '_get_affiliationid',
         '_get_affiliation_statusid', '_parse_date', '_today', 
         '_format_changelog_entry', '_format_from_cl', '_get_name_from_object',
@@ -667,98 +668,54 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                 if owner_type != self.const.entity_group:
                     raise CerebrumError("Personal account names cannot contain capital letters")
             
-        filegroup = 'ansatt'
-        group = self._get_group(filegroup, grtype="PosixGroup")
         posix_user = Factory.get('PosixUser')(self.db)
+        # TODO: disk?
         uid = posix_user.get_free_uid()
         shell = self._get_shell(shell)
-        path = '/hia/ravn/u4'
-        disk_id, home = self._get_disk(path)[1:3]
         posix_user.clear()
-        gecos = None
-        expire_date = None
-        self.ba.can_create_user(operator.get_entity_id(), owner_id, disk_id)
+        self.ba.can_create_user(operator.get_entity_id(), owner_id, None)
 
-        posix_user.populate(uid, group.entity_id, gecos, shell, name=uname,
+        # TODO: get the project's standard dfg's entity_id and use that 
+        if owner_type == self.const.entity_person:
+            ou_id, affiliation = affiliation['ou_id'], affiliation['aff']
+            ou = self._get_ou(ou_id=ou_id)
+            projectname = self._format_ou_name(ou, include_short_name=False)
+            gr = self._get_group('%s_dfg' % projectname, grtype='PosixGroup')
+
+        posix_user.populate(uid, gr.entity_id, None, shell, name=uname,
                             owner_type=owner_type, owner_id=owner_id, 
                             np_type=np_type, creator_id=operator.get_entity_id(),
-                            expire_date=expire_date)
+                            expire_date=None)
         try:
             posix_user.write_db()
-            for spread in cereconf.BOFHD_NEW_USER_SPREADS:
-                posix_user.add_spread(self.const.Spread(spread))
-            homedir_id = posix_user.set_homedir(
-                disk_id=disk_id, home=home,
-                status=self.const.home_status_not_created)
-            posix_user.set_home(self.const.spread_nis_user, homedir_id)
+            #for spread in cereconf.BOFHD_NEW_USER_SPREADS:
+            #    posix_user.add_spread(self.const.Spread(spread))
+            #homedir_id = posix_user.set_homedir(
+            #    disk_id=disk_id, home=home,
+            #    status=self.const.home_status_not_created)
+            #posix_user.set_home(self.const.spread_nis_user, homedir_id)
             # For correct ordering of ChangeLog events, new users
             # should be signalled as "exported to" a certain system
             # before the new user's password is set.  Such systems are
             # flawed, and should be fixed.
             passwd = posix_user.make_passwd(uname)
             posix_user.set_password(passwd)
-            # And, to write the new password to the database, we have
-            # to .write_db() one more time...
             posix_user.write_db()
             if posix_user.owner_type == self.const.entity_person:
-                ou_id, affiliation = affiliation['ou_id'], affiliation['aff']
                 self._user_create_set_account_type(posix_user, owner_id,
                                                    ou_id, affiliation)
         except self.db.DatabaseError, m:
-            raise CerebrumError, "Database error: %s" % m
+            raise CerebrumError("Database error: %s" % m)
         operator.store_state("new_account_passwd", {'account_id': int(posix_user.entity_id),
                                                     'password': passwd})
-        self._meld_inn_i_server_gruppe(int(posix_user.entity_id), operator)
-        self._add_radiusans_spread(int(posix_user.entity_id), operator)
-        
-        return "Ok, create %s" % {'uid': uid}
+        return "Ok, created %s (entity_id:%s)" % (posix_user.account_name, uid)
 
     # user password
     all_commands['user_set_password'] = cmd.Command(
         ('user', 'set_password'), cmd.AccountName(), cmd.AccountPassword(optional=True))
     def user_set_password(self, operator, accountname, password=None):
         """Set password for a user. Copied from UiO, but renamed for TSD."""
-        account = self._get_account(accountname)
-        self.ba.can_set_password(operator.get_entity_id(), account)
-        if password is None:
-            password = account.make_passwd(accountname)
-        else:
-            # this is a bit complicated, but the point is that
-            # superusers are allowed to *specify* passwords for other
-            # users if cereconf.BOFHD_SU_CAN_SPECIFY_PASSWORDS=True
-            # otherwise superusers may change passwords by assigning
-            # automatic passwords only.
-            if self.ba.is_superuser(operator.get_entity_id()):
-                if (operator.get_entity_id() != account.entity_id and
-                    not cereconf.BOFHD_SU_CAN_SPECIFY_PASSWORDS):
-                    raise CerebrumError("Superuser cannot specify passwords "
-                                        "for other users")
-            elif operator.get_entity_id() != account.entity_id:
-                raise CerebrumError("Cannot specify password for another user.")
-        try:
-            account.goodenough(account, password)
-        except PasswordChecker.PasswordGoodEnoughException, m:
-            raise CerebrumError("Bad password: %s" % m)
-        account.set_password(password)
-        try:
-            account.write_db()
-        except self.db.DatabaseError, m:
-            raise CerebrumError("Database error: %s" % m)
-        operator.store_state("user_passwd", {'account_id': int(account.entity_id),
-                                             'password': password})
-        # Remove "weak password" quarantine
-        for r in account.get_entity_quarantine():
-            if int(r['quarantine_type']) == self.const.quarantine_autopassord:
-                account.delete_entity_quarantine(self.const.quarantine_autopassord)
-            if int(r['quarantine_type']) == self.const.quarantine_svakt_passord:
-                account.delete_entity_quarantine(self.const.quarantine_svakt_passord)
-        if account.is_deleted():
-            return "OK.  Warning: user is deleted"
-        elif account.is_expired():
-            return "OK.  Warning: user is expired"
-        elif account.get_entity_quarantine(only_active=True):
-            return "Warning: user has an active quarantine"
-        return "Password altered. Please use misc list_password."
+        return self.user_password(operator, accountname, password)
 
     # user password
     all_commands['user_set_otpkey'] = cmd.Command(
