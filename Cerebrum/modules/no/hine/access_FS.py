@@ -38,7 +38,7 @@ class HineStudent(access_FS.Student):
               p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
               sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
               sps.arstall_kull, p.kjonn, p.status_dod, p.telefonnr_mobil,
-              s.studentnr_tildelt
+              p.emailadresse_privat, s.studentnr_tildelt
             FROM fs.studieprogramstudent sps, fs.person p,
                  fs.student s
             WHERE p.fodselsdato = sps.fodselsdato AND
