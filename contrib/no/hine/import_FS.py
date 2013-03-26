@@ -175,8 +175,8 @@ def _calc_address(person_info):
                 ret[i] = _ext_address_info(tmp, *addr_cols)
     return ret
 
-def register_cellphone(person, person_info):
-    """Register person's cell phone number from person_info.
+def register_contact(person, person_info):
+    """Register person's cell phone number or email from person_info.
 
     @param person:
       Person db proxy associated with a newly created/fetched person.
@@ -185,44 +185,69 @@ def register_cellphone(person, person_info):
       Dict returned by StudentInfoParser.
     """
 
-    def _fetch_cerebrum_contact():
-        return [x["contact_value"]
-                for x in person.get_contact_info(source=co.system_fs,
-                                                 type=co.contact_mobile_phone)]
-
     # NB! We may encounter several phone numbers. If they do not match, there
     # is nothing we can do but to complain.
     fnr = "%06d%05d" % (int(person_info["fodselsdato"]),
                         int(person_info["personnr"]))
+    # These should be column names from FS
     phone_selector = "telefonnr_mobil"
+    email_selector = "emailadresse_privat"
+    # Variables for storage
     numbers = set()
+    email_addresses = set()
+
+    # We pull out the contact info
     for key in person_info:
         for dct in person_info[key]:
             if phone_selector in dct:
                 numbers.add(dct[phone_selector].strip())
-
-    if len(numbers) < 1:
-        return
-    if len(numbers) == 1:
+            if email_selector in dct:
+                email_addresses.add(dct[email_selector].strip())
+   
+    # For convenience
+    if numbers:
         cell_phone = numbers.pop()
-        # empty string is registered as phone number
-        if not cell_phone:
-            return
+        numbers.add(cell_phone)
+    else:
+        cell_phone = None
 
-        # No point in registering a number that's already there.
-        if cell_phone in _fetch_cerebrum_contact():
-            return 
+    if email_addresses:
+        email = email_addresses.pop()
+        email_addresses.add(email)
+    else:
+        email = None
 
-        person.populate_contact_info(co.system_fs)
+    # Remove all contact information from FS
+    person.populate_contact_info(co.system_fs)
+
+    # If we get only one number from FS for this person, store it
+    if len(numbers) == 1 and cell_phone:
         person.populate_contact_info(co.system_fs,
                                      co.contact_mobile_phone,
                                      cell_phone)
         logger.debug("Registering cell phone number %s for %s",
                      cell_phone, fnr)
-        return
 
-    logger.warn("Person %s has several cell phone numbers. Ignoring them all", fnr)
-# end register_cellphone
+    # No number recieved
+    elif len(numbers) < 1:
+        logger.debug("No tlf. number registred for %s", fnr)
+    # We don't know which number to store..
+    else:
+        logger.warn("Person %s has several cell phone numbers. Ignoring them all", fnr)
+
+    # There is only one address in FS, store it
+    if len(email_addresses) == 1 and email:
+        person.populate_contact_info(co.system_fs,
+                                     co.contact_email,
+                                     email)
+        logger.debug("Registering email address %s for %s",
+                     email, fnr)
+    # No addresses, skipping
+    elif len(email_addresses) < 1:
+        logger.debug("No e-mail address registred for %s", fnr)
+    # We don't know what to choose
+    else:
+        logger.warn("Person %s has several email addresses. Ignoring them all", fnr)
 
 def _load_cere_aff():
     fs_aff = {}
@@ -378,7 +403,7 @@ def process_person_callback(person_info):
             if old_aff.has_key(key_a):
                 old_aff[key_a] = False
 
-    register_cellphone(new_person, person_info)
+    register_contact(new_person, person_info)
 
     op2 = new_person.write_db()
     if op is None and op2 is None:

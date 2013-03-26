@@ -18,6 +18,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from Cerebrum.modules.no.OrgLDIF import *
+from Cerebrum.Utils import Factory
 
 class HiNeOrgLDIFMixin(OrgLDIF):
     def test_omit_ou(self):
@@ -27,3 +28,20 @@ class HiNeOrgLDIFMixin(OrgLDIF):
 
     # Fetch mail addresses from entity_contact_info of accounts, not persons.
     person_contact_mail = False
+
+    def update_person_entry(entry, row):
+        OrgLDIF.update_person_entry(entry, row)
+        db = Factory.get('Database')()
+        ac = Factory.get('Account')(db)
+        pe = Factory.get('Person')(db)
+        co = Factory.get('Constants')(db)
+
+        ac.clear()
+        ac.find_by_name(entry['uid'])
+        pe.clear()
+        pe.find(ac.owner_id)
+        addrs = pe.get_contact_info(source=co.system_fs, type=co.contact_email)
+        if addrs and 'student' in entry['eduPersonAffiliation'] and \
+                not 'employee' in entry['eduPersonAffiliation']:
+            entry['mail'] = addrs.pop()['contact_value']
+    update_person_entry = staticmethod(update_person_entry)
