@@ -29,8 +29,8 @@ class HiNeOrgLDIFMixin(OrgLDIF):
     # Fetch mail addresses from entity_contact_info of accounts, not persons.
     person_contact_mail = False
 
-    def update_person_entry(entry, row):
-        OrgLDIF.update_person_entry(entry, row)
+    def update_person_entry(self, entry, row):
+        self.__super.update_person_entry(entry, row)
         db = Factory.get('Database')()
         ac = Factory.get('Account')(db)
         pe = Factory.get('Person')(db)
@@ -44,4 +44,3 @@ class HiNeOrgLDIFMixin(OrgLDIF):
         if addrs and 'student' in entry['eduPersonAffiliation'] and \
                 not 'employee' in entry['eduPersonAffiliation']:
             entry['mail'] = addrs.pop()['contact_value']
-    update_person_entry = staticmethod(update_person_entry)
