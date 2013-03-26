@@ -19,8 +19,16 @@
 
 from Cerebrum.modules.no.OrgLDIF import *
 from Cerebrum.Utils import Factory
+from Cerebrum import Errors
 
 class HiNeOrgLDIFMixin(OrgLDIF):
+    def __init__(self, db, logger):
+        self.__super.__init__(db, logger)
+        self.db = Factory.get('Database')()
+        self.ac = Factory.get('Account')(db)
+        self.pe = Factory.get('Person')(db)
+        self.co = Factory.get('Constants')(db)
+
     def test_omit_ou(self):
         # Not using Stedkode, so all OUs are available (there is no need to
         # look for special spreads).
@@ -31,16 +39,24 @@ class HiNeOrgLDIFMixin(OrgLDIF):
 
     def update_person_entry(self, entry, row):
         self.__super.update_person_entry(entry, row)
-        db = Factory.get('Database')()
-        ac = Factory.get('Account')(db)
-        pe = Factory.get('Person')(db)
-        co = Factory.get('Constants')(db)
-
-        ac.clear()
-        ac.find_by_name(entry['uid'])
-        pe.clear()
-        pe.find(ac.owner_id)
-        addrs = pe.get_contact_info(source=co.system_fs, type=co.contact_email)
+        self.ac.clear()
+        self.ac.find_by_name(entry['uid'])
+        self.pe.clear()
+        self.pe.find(self.ac.owner_id)
+        addrs = self.pe.get_contact_info(source=self.co.system_fs,
+                                         type=self.co.contact_email)
         if addrs and 'student' in entry['eduPersonAffiliation'] and \
                 not 'employee' in entry['eduPersonAffiliation']:
             entry['mail'] = addrs.pop()['contact_value']
+
+        # Add MD4 hash, an objectClass which allows it in the LDAP schema,
+        # and an unused dummy sambaSID which that objectClass requires.
+        try:
+            pw4 = self.ac.get_account_authentication(self.const.auth_type_md4_nt)
+        except Errors.NotFoundError:
+            pass
+        else:
+            entry['sambaNTPassword'] = (pw4,)
+            entry['sambaSID'] = ('-1',)
+            entry['objectClass'].append('sambaSamAccount')
+        
