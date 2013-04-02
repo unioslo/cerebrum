@@ -181,26 +181,26 @@ def load_acc2name():
     person2phone = load_phone_numbers(person)
     ret = {}
     for pers in person.list_persons_atype_extid():
-	# logger.debug("Loading person: %s" % pers['name'])
-	if ext2puname.has_key(pers['external_id']):
-	    ent_name = ext2puname[pers['external_id']]
-	else:
-	    # logger.debug("Person has no account: %d" % pers['person_id']) 
-	    continue
-	if person_name.has_key(int(pers['person_id'])):
-	    if len(person_name[int(pers['person_id'])]) <> 3:
-		# logger.debug("Person name fault, person_id: %s" % ent_name)
-		continue
-	    else: 
-		names = person_name[int(pers['person_id'])]
-	else:
-	    # logger.debug("Person name fault, person_id: %s" % ent_name)
-	    continue
+        # logger.debug("Loading person: %s" % pers['name'])
+        if ext2puname.has_key(pers['external_id']):
+            ent_name = ext2puname[pers['external_id']]
+        else:
+            # logger.debug("Person has no account: %d" % pers['person_id']) 
+            continue
+        if person_name.has_key(int(pers['person_id'])):
+            if len(person_name[int(pers['person_id'])]) <> 3:
+                # logger.debug("Person name fault, person_id: %s" % ent_name)
+                continue
+            else: 
+                names = person_name[int(pers['person_id'])]
+        else:
+            # logger.debug("Person name fault, person_id: %s" % ent_name)
+            continue
         if uname2mail.has_key(ent_name):
             email = uname2mail[ent_name]
         else:
             email = ""
-	ret[int(pers['account_id'])] = {
+        ret[int(pers['account_id'])] = {
             'NAME': ent_name,
             'FN': names[int(const.name_full)],
             'GIVEN': names[int(const.name_first)],
@@ -228,19 +228,19 @@ def get_ans_fak(fak_list, ent2uname):
                   ou_id=int(ou['ou_id'])):
                 person.clear()
                 try:
-		    person.find(int(pers['person_id']))
+                    person.find(int(pers['person_id']))
                     acc_id = person.get_primary_account()
                 except Errors.NotFoundError:
                     logger.debug("Person pers_id: %d , no valid account!" % \
                                  person.entity_id)
                     break
-		if acc_id and ent2uname.has_key(acc_id):
-		    uname = ent2uname[acc_id]['NAME']
-		    if uname not in ans_list:
-			ans_list.append(uname)
-		else:
-		    logger.debug("Person pers_id: %d have no account!" % \
-							person.entity_id)
+                if acc_id and ent2uname.has_key(acc_id):
+                    uname = ent2uname[acc_id]['NAME']
+                    if uname not in ans_list:
+                        ans_list.append(uname)
+                else:
+                    logger.debug("Person pers_id: %d have no account!" % \
+                                        person.entity_id)
         fak_res[int(fak)] = ans_list
     return fak_res
 
@@ -638,7 +638,7 @@ def register_group(title, id, parentid,
                       'allow_room': allow_room,
                       'allow_contact': allow_contact,
                       'CFid': id,
-		      }
+                  }
 
 def output_group_xml():
     """Generer GROUP-elementer uten forover-referanser."""
@@ -800,7 +800,7 @@ def main():
         fak_sko = "%02d0000" % faknr
         ou.clear()
         try:
-	    ou.find_stedkode(faknr, 0, 0,
+            ou.find_stedkode(faknr, 0, 0,
                              institusjon = cereconf.DEFAULT_INSTITUSJONSNR)
         except Errors.NotFoundError:
             logger.error("Finner ikke stedkode for fakultet %d", faknr)
