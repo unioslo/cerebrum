@@ -312,6 +312,10 @@ class DataEmployment(NameContainer):
 
 
     def has_leave(self, date = Date(*time.localtime()[:3])):
+        """If the employment is on leave, e.g. working somewhere else
+        temporarily.
+
+        """
         for l in self.leave:
             if l['start_date'] <= date and (date <= l['end_date']):
                 return True
