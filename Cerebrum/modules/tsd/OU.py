@@ -28,11 +28,13 @@ able to reserve the name of the project, which is stored in the acronym.
 """
 
 import re
+from mx import DateTime
 
 import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.OU import OU
+from Cerebrum.Utils import Factory
 
 class OUTSDMixin(OU):
     """Mixin of OU for TSD. Projects in TSD are stored as OUs, which then has to
@@ -139,3 +141,41 @@ class OUTSDMixin(OU):
                 raise CerebrumError('Acronym already in use')
         return self.__super.add_name_with_language(name_variant, name_language,
                                                    name)
+
+    def setup_project(self, creator_id):
+        """Setup the project after the project OU is created. 
+
+        Project groups gets set up properly. Other settings should be put here
+        in the future, as this method should be called from all imports and jobs
+        that creates TSD projects.
+
+        Note that the given OU must be set up with a proper project name, stored
+        as an acronym, before this method could be called.
+
+        @type creator_id: int
+        @param creator_id:
+            The creator of the project. Either the entity_id of the
+            administrator that created the project or a system user.
+
+        """
+        projectid = self.get_name_with_language(self.const.ou_name_acronym,
+                                                self.const.language_en)
+        gr = Factory.get("Group")(self._db)
+        for suffix, desc in getattr(cereconf, 'TSD_PROJECT_GROUPS', ()):
+            gr.clear()
+            grname = ''.join((projectid, suffix))
+            try:
+                gr.find_by_name(grname)
+            except Errors.NotFoundError:
+                gr.clear()
+                gr.populate(creator_id, self.const.group_visibility_all, grname,
+                            desc)
+                gr.write_db()
+                # Set the trait for tagging what project a group belongs to
+                gr.populate_trait(self.const.trait_project_group,
+                                  target_id=self.entity_id, date=DateTime.now())
+                gr.write_db()
+
+                # TODO: set quarantine on group?
+
+        # TODO: other settings?

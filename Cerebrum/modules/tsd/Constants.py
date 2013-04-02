@@ -36,6 +36,7 @@ from Cerebrum.Constants import _EntityExternalIdCode
 from Cerebrum.Constants import _QuarantineCode
 from Cerebrum.Constants import _AuthoritativeSystemCode
 from Cerebrum.Constants import _AuthenticationCode
+from Cerebrum.modules.EntityTrait import _EntityTraitCode
 
 class Constants(Constants.Constants):
     ## Affiliations and statuses
@@ -83,6 +84,15 @@ class Constants(Constants.Constants):
     system_nettskjema = _AuthoritativeSystemCode('Nettskjema',
                             'Information from Nettskjema, registered by anyone')
     
+    ## Traits
+
+    trait_project_group = _EntityTraitCode('project_group',
+                                Constants.Constants.entity_group,
+                                'The project a group belongs to')
+    trait_project_host = _EntityTraitCode('project_host',
+                                Constants.Constants.entity_host,
+                                'The project a host belongs to')
+
     ## Authentication codes (password types):
 
     auth_type_otp_key = _AuthenticationCode('OTP-key',

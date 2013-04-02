@@ -343,6 +343,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
         # TODO: The gateway needs to be informed!
 
+        ou.setup_project(operator.get_entity_id())
         return "New project created successfully: %s" % projectname
 
     all_commands['project_approve'] = cmd.Command(
@@ -669,7 +670,16 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             else:
                 if owner_type != self.const.entity_group:
                     raise CerebrumError("Personal account names cannot contain capital letters")
-            
+
+        # TODO: Add a check for personal accounts to have the project name as a
+        # prefix?
+        #if owner_type == self.const.entity_person:
+        #    ou_id, affiliation = affiliation['ou_id'], affiliation['aff']
+        #    ou = self._get_ou(ou_id=ou_id)
+        #    projectname = self._format_ou_name(ou, include_short_name=False)
+        #    if not uname.startswith(projectname):
+        #        raise CerebrumError('Username must have projectname as prefix')
+
         posix_user = Factory.get('PosixUser')(self.db)
         # TODO: disk?
         uid = posix_user.get_free_uid()
