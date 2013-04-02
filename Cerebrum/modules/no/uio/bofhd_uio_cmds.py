@@ -825,8 +825,7 @@ class BofhdExtension(BofhdCommonMethods):
         for row in matches:
             entity = self._get_entity(ident=row["entity_id"])
             etype = str(self.const.EntityType(entity.entity_type))
-            ename = self._get_entity_name(entity.entity_type,
-                                          entity.entity_id)
+            ename = self._get_entity_name(entity.entity_id, entity.entity_type)
             tmp = {"entity_id": row["entity_id"],
                    "entity_type": etype,
                    "entity_name": ename,}
@@ -5592,7 +5591,7 @@ Addresses and settings:
             member_type = int(item["member_type"])
             member_id = int(item["member_id"])
             tmp = item.dict()
-            tmp["member_name"] = self._get_entity_name(member_type, member_id)
+            tmp["member_name"] = self._get_entity_name(member_id, member_type)
             ret.append(tmp)
             #yield item
         return ret
@@ -5623,10 +5622,10 @@ Addresses and settings:
             member_id = member["member_id"]
             result.append({"member_id": member_id,
                            "member_type": type2str(member_type),
-                           "member_name": self._get_entity_name(member_type,
-                                                                member_id),
-                           "group_name": self._get_entity_name(self.const.entity_group,
-                                                               member["group_id"]),
+                           "member_name": self._get_entity_name(member_id,
+                                                                member_type),
+                           "group_name": self._get_entity_name(member["group_id"],
+                                                               self.const.entity_group),
                            })
         return result
     # end group_list_expanded
@@ -6481,13 +6480,13 @@ Addresses and settings:
                 disk = self._get_disk(r['destination_id'])[0]
                 dest = disk.path
             elif op in (self.const.bofh_move_give,):
-                dest = self._get_entity_name(self.const.entity_group,
-                                             r['destination_id'])
+                dest = self._get_entity_name(r['destination_id'],
+                                             self.const.entity_group)
             elif op in (self.const.bofh_email_create,
                         self.const.bofh_email_move,
                         self.const.bofh_email_delete):
-                dest = self._get_entity_name(self.const.entity_host,
-                                             r['destination_id'])
+                dest = self._get_entity_name(r['destination_id'],
+                                             self.const.entity_host)
             elif op in (self.const.bofh_mailman_create,
                         self.const.bofh_mailman_add_admin,
                         self.const.bofh_mailman_remove,
@@ -6505,13 +6504,13 @@ Addresses and settings:
                 else:
                     ent_name = ea.get_address()
             if ent_name is None:
-                ent_name = self._get_entity_name(self.const.entity_account,
-                                                 r['entity_id'])
+                ent_name = self._get_entity_name(r['entity_id'],
+                                                 self.const.entity_account)
             if r['requestee_id'] is None:
                 requestee = ''
             else:
-                requestee = self._get_entity_name(self.const.entity_account,
-                                                  r['requestee_id'])
+                requestee = self._get_entity_name(r['requestee_id'],
+                                                  self.const.entity_account)
             ret.append({'when': r['run_at'],
                         'requestee': requestee,
                         'op': str(op),
@@ -6983,11 +6982,11 @@ Addresses and settings:
             rows = aot.list(target_type=target_type, entity_id=entity_id)
         for r in rows:
             if r['target_type'] == 'group':
-                name = self._get_entity_name(self.const.entity_group, r['entity_id'])
+                name = self._get_entity_name(r['entity_id'], self.const.entity_group)
             elif r['target_type'] == 'disk':
-                name = self._get_entity_name(self.const.entity_disk, r['entity_id'])
+                name = self._get_entity_name(r['entity_id'], self.const.entity_disk)
             elif r['target_type'] == 'host':
-                name = self._get_entity_name(self.const.entity_host, r['entity_id'])
+                name = self._get_entity_name(r['entity_id'], self.const.entity_host)
             else:
                 name = "unknown"
             ret.append({'tgt_id': r['op_target_id'],
@@ -7055,7 +7054,7 @@ Addresses and settings:
         bar = BofhdAuthRole(self.db)
         ret = []
         for r in bar.list(entities):
-            ret.append({'entity_id': self._get_entity_name(None, r['entity_id']),
+            ret.append({'entity_id': self._get_entity_name(r['entity_id']),
                         'op_set_id': self.num2op_set_name[int(r['op_set_id'])],
                         'op_target_id': r['op_target_id']})
         return ret
@@ -7105,7 +7104,7 @@ Addresses and settings:
         bar = BofhdAuthRole(self.db)
         ret = []
         for r in bar.list(op_set_id=aos.op_set_id):
-            ret.append({'entity_id': self._get_entity_name(None, r['entity_id']),
+            ret.append({'entity_id': self._get_entity_name(r['entity_id']),
                         'op_set_id': self.num2op_set_name[int(r['op_set_id'])],
                         'op_target_id': r['op_target_id']})
         return ret
@@ -7154,7 +7153,7 @@ Addresses and settings:
             raise CerebrumError("No target_ids for %s" % id)
         ret = []
         for r in bar.list_owners(target_ids):
-            ret.append({'entity_id': self._get_entity_name(None, r['entity_id']),
+            ret.append({'entity_id': self._get_entity_name(r['entity_id']),
                         'op_set_id': self.num2op_set_name[int(r['op_set_id'])],
                         'op_target_id': r['op_target_id']})
         return ret
@@ -8215,7 +8214,7 @@ Addresses and settings:
             if values['target_id'] is not None:
                 target = self.util.get_target(int(values['target_id']))
                 text.append("    Target:    %s (%s)" % (
-                    target.get_names()[0][0],
+                    self._get_entity_name(target.entity_id, target.entity_type),
                     str(self.const.EntityType(target.entity_type))))
             if values['date'] is not None:
                 text.append("    Date:      %s" % values['date'])
@@ -8829,7 +8828,8 @@ Addresses and settings:
             # state_type, entity_id, state_data, set_time
             if r['state_type'] in ('new_account_passwd', 'user_passwd'):
                 ret.append({'account_id': self._get_entity_name(
-                    self.const.entity_account, r['state_data']['account_id']),
+                                                  r['state_data']['account_id'],
+                                                  self.const.entity_account),
                             'password': r['state_data']['password'],
                             'operation': r['state_type']})
         return ret
@@ -9846,58 +9846,57 @@ Password altered. Use misc list_password to print or view the new password.%s'''
             return entity.group_name
         else:
             # TODO: extend as needed for quasi entity classes like Disk
-            return self._get_entity_name(entity.entity_type, entity.entity_id)
+            return self._get_entity_name(entity.entity_id, entity.entity_type)
 
-    def _get_entity_name(self, entity_type, id):
+    def _get_entity_name(self, entity_id, entity_type=None):
+        """Fetch a human-friendly name for the specified entity.
+
+        Overridden to return names only used at UiO.
+
+        @type entity_id: int
+        @param entity_id:
+          entity_id we are looking for.
+
+        @type entity_type: const.EntityType instance (or None)
+        @param entity_type:
+          Restrict the search to the specifide entity. This parameter is
+          really a speed-up only -- entity_id in Cerebrum uniquely determines
+          the entity_type. However, should we know it, we save 1 db lookup.
+
+        @rtype: str
+        @return:
+          Entity's name, obviously :) If none is found a magic string
+          'notfound:<entity id>' is returned (it's not perfect, but it's better
+          than nothing at all).
+
+        """
         if entity_type is None:
             ety = Entity.Entity(self.db)
             try:
-                ety.find(id)
+                ety.find(entity_id)
                 entity_type = self.const.EntityType(ety.entity_type)
             except Errors.NotFoundError:
-                return "notfound:%d" % id
-        if entity_type == self.const.entity_account:
-            acc = self._get_account(id, idtype='id')
-            return acc.account_name
-        elif entity_type == self.const.entity_group:
-            group = self._get_group(id, idtype='id')
-            return group.group_name
-        elif entity_type == self.const.entity_disk:
+                return "notfound:%d" % entity_id
+
+        if entity_type == self.const.entity_disk:
             disk = Utils.Factory.get('Disk')(self.db)
-            disk.find(id)
+            disk.find(entity_id)
             return disk.path
         elif entity_type == self.const.entity_host:
             host = Utils.Factory.get('Host')(self.db)
-            host.find(id)
+            host.find(entity_id)
             return host.name
         elif entity_type == self.const.entity_person:
             person = Utils.Factory.get('Person')(self.db)
-            person.find(id)
+            person.find(entity_id)
             return person.get_name(self.const.system_cached,
                                    self.const.name_full)
         elif entity_type == self.const.entity_ou:
-            ou = self._get_ou(ou_id=id)
+            ou = self._get_ou(ou_id=entity_id)
             return self._format_ou_name(ou)
-        
-        # Okey, we've run out of good options. Let's try a sensible fallback:
-        # many entities have a generic name in entity_name. Let's use that:
-        try:
-            etname = type("entity_with_name", (Entity.EntityName,
-                                               Entity.Entity), dict())
-            etname = etname(self.db)
-            etname.find(id)
-            if etname.get_names():
-                # just grab any name. We don't really have a lot of choice.
-                return etname.get_names()[0]["name"]
-            else:
-                # ... and if it does not exist -- return the id. We are out of
-                # options at this point.
-                return "%s:%s" % (entity_type, id)    
-        except Errors.NotFoundError:
-            return "notfound:%d" % id
-
-        # NOTREACHED
-    # end _get_entity_name
+        # Use default values for types like account and group:
+        return super(BofhdExtension, self)._get_entity_name(entity_id,
+                                                            entity_type)
 
     def _get_disk(self, path, host_id=None, raise_not_found=True):
         disk = Utils.Factory.get('Disk')(self.db)
@@ -10099,7 +10098,7 @@ Password altered. Use misc list_password to print or view the new password.%s'''
         elif format == 'timestamp':
             return str(val)
         elif format == 'entity':
-            return self._get_entity_name(None, int(val))
+            return self._get_entity_name(int(val))
         elif format == 'extid':
             return str(self.const.EntityExternalId(val))
         elif format == 'homedir':
@@ -10153,12 +10152,12 @@ Password altered. Use misc list_password to print or view the new password.%s'''
         dest = row['dest_entity']
         if dest is not None:
             try:
-                dest = self._get_entity_name(None, dest)
+                dest = self._get_entity_name(dest)
             except Errors.NotFoundError:
                 pass
         this_cl_const = self.const.ChangeType(row['change_type_id'])
         msg = this_cl_const.msg_string % {
-            'subject': self._get_entity_name(None, row['subject_entity']),
+            'subject': self._get_entity_name(row['subject_entity']),
             'dest': dest}
 
         # Append information from change_params to the string.  See
@@ -10188,10 +10187,10 @@ Password altered. Use misc list_password to print or view the new password.%s'''
                     for k, v in repl.items():
                         f = f.replace(k, v)
                     msg += ", " + f
-        by = row['change_program'] or self._get_entity_name(None, row['change_by'])
+        by = row['change_program'] or self._get_entity_name(row['change_by'])
         return {'timestamp': row['tstamp'],
                 'change_by': (row['change_program'] or
-                              self._get_entity_name(None, row['change_by'])),
+                              self._get_entity_name(row['change_by'])),
                 'message': msg}
 
     def _convert_ticks_to_timestamp(self, ticks):

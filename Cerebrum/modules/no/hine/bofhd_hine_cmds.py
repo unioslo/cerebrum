@@ -376,8 +376,7 @@ class BofhdExtension(BofhdCommonMethods):
         for row in matches:
             entity = self._get_entity(id=row["entity_id"])
             etype = str(self.const.EntityType(entity.entity_type))
-            ename = self._get_entity_name(entity.entity_type,
-                                          entity.entity_id)
+            ename = self._get_entity_name(entity.entity_id, entity.entity_type)
             tmp = {"entity_id": row["entity_id"],
                    "entity_type": etype,
                    "entity_name": ename,}

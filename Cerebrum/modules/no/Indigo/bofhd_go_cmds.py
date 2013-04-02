@@ -671,13 +671,13 @@ class BofhdExtension(BofhdCommonMethods):
                 continue
 
             result = {"account_id": entity_id,
-                      "uname": self._get_entity_name(self.const.entity_account,
-                                                     entity_id),
+                      "uname": self._get_entity_name(entity_id,
+                                                     self.const.entity_account),
                       "password": row["state_data"]["password"]}
             account = self._get_entity(ident=entity_id)
             owner = self._get_entity(ident=account.owner_id)
-            result["name"] = self._get_entity_name(owner.entity_type,
-                                                   owner.entity_id)
+            result["name"] = self._get_entity_name(owner.entity_id,
+                                                   owner.entity_type)
             if owner.entity_type == self.const.entity_person:
                 result["birth_date"] = owner.birth_date
                 # Main affiliation points to school.

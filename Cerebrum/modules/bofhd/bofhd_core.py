@@ -451,8 +451,6 @@ class BofhdCommandBase(object):
 
         # NOTREACHED
         assert False
-    # end _get_entity_name
-# end BofhdCommandBase
 
 class BofhdCommonMethods(BofhdCommandBase):
     """Class with common methods that is used by most, 'normal' instances.
