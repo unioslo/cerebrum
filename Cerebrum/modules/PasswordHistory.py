@@ -24,7 +24,7 @@ setting their password to an old password.
 """
 
 import cereconf
-import md5
+import hashlib
 import base64
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 
@@ -35,7 +35,7 @@ class PasswordHistory(DatabaseAccessor):
     other things also may have passwords"""
 
     def encode_for_history(self, account, password):
-        m = md5.md5("%s%s" % (account.account_name, password))
+        m = hashlib.md5("%s%s" % (account.account_name, password))
         return base64.encodestring(m.digest())[:22]
 
     def add_history(self, account, password, _csum=None, _when=None):
