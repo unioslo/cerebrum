@@ -27,7 +27,6 @@ The updates are performed for the following sources/groups:
 
 External db	table/source				Cerebrum group
 ----------------------------------------------------------------------
-OFPROD		select user_name FROM applsys.fnd_user	ofprod
 FSPROD		select username FROM all_users		fsprod
 FSSBKURS	select username FROM all_users		fssbkurs
 AJPROD		select username FROM all_users		ajprod
@@ -483,7 +482,7 @@ def report_users(stream_name, external_dbs):
         
     #
     # Report NIS spread / owner's work record
-    for dbname in ("ofprod", "oaprd", "fsprod", "fssbkurs",
+    for dbname in ("oaprd", "fsprod", "fssbkurs",
                    "basware-users", "basware-masters"):
         logger.debug("Accessing db %s", dbname)
         item = external_dbs[dbname]
@@ -558,7 +557,6 @@ def usage():
 This script performes updates of certain groups in Cerebrum and fetches
 information about certain kind of expired accounts
 
---ofprod                    Update ofprod group
 --fsprod                    Update fsprod group
 --fssbkurs                  Update fssbkurs group
 --ajprod                    Update ajprod group
@@ -587,13 +585,7 @@ def main():
     logger = Factory.get_logger("cronjob")
     logger.info("Performing group synchronization")
 
-    external_dbs = { "ofprod" : { "dbname"    : "OFPROD.uio.no",
-                                  "dbuser"    : "ureg2000",
-                                  "class"     : OF,
-                                  "sync_accessor"  : "list_dbfg_usernames",
-                                  "report_accessor" : "list_applsys_usernames",
-                                  "ceregroup" : "ofprod" },
-                     "fsprod" : { "dbname"    : "FSPROD.uio.no",
+    external_dbs = { "fsprod" : { "dbname"    : "FSPROD.uio.no",
                                   "dbuser"    : "I0185_ureg2000",
                                   "class"     : FSvpd,
                                   "sync_accessor"  : "list_dbfg_usernames",
