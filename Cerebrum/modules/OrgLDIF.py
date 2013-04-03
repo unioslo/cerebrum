@@ -35,8 +35,8 @@ class OrgLDIF(object):
     Subclasses can also override its methods as necessary.
     Generally, each entry is built in an 'entry' dict and finally written.
 
-    By default, entires are generated with the eduPerson/eduOrg schemas
-    from EDUCAUSE: <http://www.educause.edu/eduperson/>.
+    By default, entries are generated with the eduPerson/eduOrg schemas from
+    EDUCAUSE: <http://www.educause.edu/eduperson/>.
 
     The organization gets object classes: 'top', 'organization', 'eduOrg'.
     Organizational units:  'top', 'organizationalUnit'.
@@ -423,9 +423,8 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
                                  self.const.name_last],
                 source_system = self.const.system_cached):
             person_id = int(row['person_id'])
-            if not person_names.has_key(person_id):
-                person_names[person_id] = {}
-            person_names[person_id][int(row['name_variant'])]=row['name']
+            person_names.setdefault(person_id, {})
+            person_names[person_id][int(row['name_variant'])] = row['name']
         timer("...personal names done.")
 
     def init_person_titles(self):
@@ -951,7 +950,32 @@ from None and LDAP_PERSON['dn'].""")
     select_list = staticmethod(select_list)
 
     def select_bool(selector, person_id, p_affiliations):
-        # Return True if the person is selected for some of the affiliations.
+        """Return True if the person is selected for some of the affiliations.
+
+        @type selector: dict or list
+        @param selector:
+            The selector, retrieved from config and reformatted through
+            L{self.internal_selector} for ease of use, which tells if an
+            affiliation or a status should be selected (True) or not (False).
+
+            If the selector is a list, it's second element is considered to
+            contain functions to call as selectors.
+
+        @type person_id: int
+        @param person_id: The given person's entity_id.
+
+        @type p_affiliations: list
+        @param p_affiliations: 
+            A list with the given person's affiliations. Each list element
+            is a list of at least three elements:
+
+                (int(aff), int(status), ou_id)
+
+        @rtype: bool
+        @return: True if any of the affiliations were found in the selector and
+            selected as True, otherwise False.
+
+        """
         if type(selector) is dict:
             for p_affiliation in p_affiliations:
                 try:

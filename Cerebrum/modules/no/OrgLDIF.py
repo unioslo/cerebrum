@@ -87,6 +87,11 @@ class norEduLDIFMixin(OrgLDIF):
         self.eduPPN_domain = '@' + cereconf.INSTITUTION_DOMAIN_NAME
         self.ou_uniq_id2ou_id = {}
         self.ou_id2ou_uniq_id = {}
+        self.primary_aff_traits = {}
+        # For caching strings of affiliations, int(aff) -> str(aff).
+        self.aff_cache = {}
+        # For caching strings of statuses, int(st) -> str(st).
+        self.status_cache = {}
 
     def update_org_object_entry(self, entry):
         # Changes from superclass:
@@ -221,6 +226,19 @@ class norEduLDIFMixin(OrgLDIF):
         self.update_ou_entry(entry)
         return dn, entry
 
+    def make_person_entry(self, row):
+        """Override to add Feide specific functionality."""
+        dn, entry, alias_info = self.__super.make_person_entry(row)
+        p_id = int(row['person_id'])
+        if not dn:
+            return dn, entry, alias_info
+        pri_edu_aff, pri_ou, pri_aff = self.make_eduPersonPrimaryAffiliation(p_id)
+        if pri_edu_aff:
+            entry['eduPersonPrimaryAffiliation'] = pri_edu_aff
+            entry['eduPersonPrimaryOrgUnitDN'] = self.ou2DN.get(int(pri_ou)) or self.dummy_ou_dn
+        return dn, entry, alias_info
+
+
     def make_ou_dn(self, entry, parent_dn):
         # Change from superclass:
         # If the preferred DN is already used, include
@@ -234,6 +252,95 @@ class norEduLDIFMixin(OrgLDIF):
                 dn_escape_re.sub(hex_escape_match, ldap_ou_id),
                 dn)
         return dn
+
+    def make_eduPersonPrimaryAffiliation(self, p_id):
+        """Ad hoc solution for eduPersonPrimaryAffiliation.
+
+        This function needs an element in cereconf.LDAP_PERSON that looks like:
+
+           'eduPersonPrimaryAffiliation_selector': {
+               'ANSATT': {'bilag': (250, 'employee'),
+                          'vitenskapelig': (50, 'faculty'),
+                          'tekadm' :(60, 'staff'),
+                          },
+                ...
+
+        The given person's affiliation which in the config gets the *lowest*
+        value is returned.
+
+        @rtype: tuple
+        @return: What is considered the person's primary affiliation, according
+            to config and primary_aff trait. The tuple's elements:
+
+                (<aff_str from config>, <ou_id>, (<aff>, <status>))
+
+            Example:
+
+                ('employee', 1234, ('ANSATT', 'bilag'))
+
+        """
+        def lookup_cereconf(aff, status):
+            selector = cereconf.LDAP_PERSON.get('eduPersonPrimaryAffiliation_selector')
+            if selector and aff in selector and status in selector[aff]:
+                return selector[aff][status]
+            return (None, None) 
+
+        if not self.affiliations.has_key(p_id):
+            return None
+        pri_aff = None
+        pri = None
+        pri_ou = None
+        pri_edu_aff = None
+        for aff, status, ou in self.affiliations[p_id]:
+            # populate the caches 
+            if self.aff_cache.has_key(aff):
+                aff_str = self.aff_cache[aff]
+            else:
+                aff_str = str(self.const.PersonAffiliation(aff))
+                self.aff_cache[aff] = aff_str
+            if self.status_cache.has_key(status):
+                status_str = self.status_cache[status]
+            else:
+                status_str = str(self.const.PersonAffStatus(status).str)
+                self.status_cache[status] = status_str
+            # if a trait is set to override the general rule, we return that.
+            if p_id in self.primary_aff_traits:
+                if (aff_str, status_str, ou) == self.primary_aff_traits[p_id]:
+                    p, a = lookup_cereconf(aff_str, status_str)
+                    if p:
+                        return a, ou, (aff_str, status_str)
+            p, a = lookup_cereconf(aff_str, status_str)
+            if p and (pri == None or p < pri):
+                pri = p
+                pri_aff = (aff_str, status_str)
+                pri_ou = ou
+                pri_edu_aff = a
+        if pri_aff == None:
+            self.logger.warn("Person '%s' did not get eduPersonPrimaryAffiliation. Check his/her affiliations and eduPersonPrimaryAffiliation_selector in cereconf.", p_id)
+        return pri_edu_aff, pri_ou, pri_aff 
+
+    def init_person_basic(self):
+        self.__super.init_person_basic()
+        self._get_primary_aff_traits()
+
+    def _get_primary_aff_traits(self):
+        """Fill L{self.primary_aff_traits} with override traits for selecting
+        what affiliation that should be the person's primary aff.
+
+        Used to override what should be in eduPersonPrimaryAffiliation.
+
+        """
+        if not hasattr(self.const, 'trait_primary_aff'):
+            return
+        timer = self.make_timer("Fetching primary aff traits...")
+        for row in self.person.list_traits(code=self.const.trait_primary_aff):
+            p_id = row['entity_id']
+            val = row['strval']
+            m = re.match(r"(\w+)\/(\w+)@(\w+)", val)
+            if m and m.group(3) in self.ou_uniq_id2ou_id:
+                self.primary_aff_traits[p_id] = (m.group(1), m.group(2),
+                                           self.ou_uniq_id2ou_id[m.group(3)])
+        timer("...primary aff traits done.")
 
     def init_person_dump(self, use_mail_module):
         self.__super.init_person_dump(use_mail_module)

@@ -46,27 +46,11 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         # Used by make_ou_dn() for for migration to ny-ldap.uio.no:
         self.used_new_DNs = {}
         self.ou_quarantined = {}
-        self.aff_cache = {}
-        self.pri_traits = {}
-        self.status_cache = {}
         self.dn2new_structure = {'ou=organization,dc=uio,dc=no':
                                  'cn=organization,dc=uio,dc=no',
                                  'ou=--,ou=organization,dc=uio,dc=no':
                                  'cn=organization,dc=uio,dc=no'}
 
-    def init_person_basic(self):
-        self.__super.init_person_basic()
-        self._get_primary_aff_traits()
-    
-    def _get_primary_aff_traits(self):
-        for row in self.person.list_traits(code=self.const.trait_primary_aff):
-            p_id = row['entity_id']
-            val = row['strval']
-            m = re.match(r"(\w+)\/(\w+)@(\w+)", val)
-            if m and m.group(3) in self.ou_uniq_id2ou_id:
-                self.pri_traits[p_id] = (m.group(1),m.group(2),
-                                         self.ou_uniq_id2ou_id[m.group(3)])
-      
     def init_ou_dump(self):
         self.__super.init_ou_dump()
         self.get_ou_quarantines()
@@ -181,57 +165,6 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         self.person_titles = dict([(p_id, t.items())
                                    for p_id, t in titles.items()])
         timer("...personal titles done.")
-    
-    def make_eduPersonPrimaryAffiliation(self, p_id):
-        # Ad hoc solution for eduPersonPrimaryAffiliation
-        # 
-        # This function needs a has in ccereconf that looks like this:
-        #    'eduPersonPrimaryAffiliation_selector': {
-        #        'ANSATT' : {'bilag' :(250,'employee'),
-        #                    'vitenskapelig' :(50,'faculty'),
-        #                    'tekadm' :(60,'staff'),
-        #                    },
-        #         ...
-        def lookup_cereconf(aff, status):
-            if 'eduPersonPrimaryAffiliation_selector' in cereconf.LDAP_PERSON and \
-                   aff in cereconf.LDAP_PERSON['eduPersonPrimaryAffiliation_selector'] and \
-                   status in cereconf.LDAP_PERSON['eduPersonPrimaryAffiliation_selector'][aff_str]:
-                return cereconf.LDAP_PERSON['eduPersonPrimaryAffiliation_selector'][aff][status]
-            return (None,None) 
-
-        if not self.affiliations.has_key(p_id):
-            return None
-        pri_aff = None
-        pri = None
-        pri_ou = None
-        pri_edu_aff = None
-        for aff, status, ou in self.affiliations[p_id]:
-            # populate the caches 
-            if self.aff_cache.has_key(aff):
-                aff_str = self.aff_cache[aff]
-            else:
-                aff_str = str(self.const.PersonAffiliation(aff))
-                self.aff_cache[aff] = aff_str
-            if self.status_cache.has_key(status):
-                status_str = self.status_cache[status]
-            else:
-                status_str = str(self.const.PersonAffStatus(status).str)
-                self.status_cache[status] = status_str
-            # if a trait is set to override the general rule, we return that.
-            if p_id in self.pri_traits:
-                if (aff_str, status_str, ou) == self.pri_traits[p_id]:
-                    p,a = lookup_cereconf(aff_str, status_str)
-                    if p:
-                        return a, ou, (aff_str, status_str)
-            p,a = lookup_cereconf(aff_str, status_str)
-            if p and (pri == None or p < pri):
-                pri = p
-                pri_aff = (aff_str, status_str)
-                pri_ou = ou
-                pri_edu_aff = a
-        if pri_aff == None:
-            self.logger.warn("Person '%s' did not get eduPersonPrimaryAffiliation. Check his/her affiliations and eduPersonPrimaryAffiliation_selector in cereconf.", p_id)
-        return pri_edu_aff, pri_ou, pri_aff 
 
     def make_uioPersonScopedAffiliation(self, p_id, pri_aff, pri_ou):
         # [primary|secondary]:<affiliation>@<status>/<stedkode>
@@ -271,10 +204,8 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
             # TODO: remove member and uioPersonObject after transition period
             entry['uioMemberOf'] = entry['member'] = self.person2group[p_id]
             entry['objectClass'].extend(('uioMembership', 'uioPersonObject'))
+
         pri_edu_aff, pri_ou, pri_aff = self.make_eduPersonPrimaryAffiliation(p_id)
-        if pri_edu_aff:
-            entry['eduPersonPrimaryAffiliation'] = pri_edu_aff
-            entry['eduPersonPrimaryOrgUnitDN'] = self.ou2DN.get(int(pri_ou)) or self.dummy_ou_dn
         entry['uioPersonScopedAffiliation'] = self.make_uioPersonScopedAffiliation(p_id, pri_aff, pri_ou)
         if 'uioPersonObject' not in entry['objectClass']:
             entry['objectClass'].extend(('uioPersonObject',))
