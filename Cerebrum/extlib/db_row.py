@@ -738,7 +738,7 @@ class MetaRowBase(type):
     assert '__init__' not in cls_dict
 
     def __init__(self, fields):
-      super(row_class, self).__init__(fields)
+      super(row_class, self).__init__()
       self.fields = field_class(fields)
 
     row_class.__init__ = __init__
