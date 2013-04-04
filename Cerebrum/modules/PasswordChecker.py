@@ -19,12 +19,11 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import re
-import cereconf
-import md5
-import base64
 import string
 import os
 
+import cerebrum_path
+import cereconf
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import PasswordHistory
