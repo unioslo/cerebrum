@@ -32,7 +32,7 @@ import string
 import time
 import re
 import mx
-import sha
+import hashlib
 import base64
 
 from Cerebrum import Utils, Disk
@@ -690,7 +690,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 # encodestring annoyingly adds a '\n' at the end of
                 # the string, and OpenLDAP won't accept that.
                 # b64encode does not, but it requires Python 2.4
-                return base64.encodestring(sha.new(plaintext + salt).digest() +
+                return base64.encodestring(hashlib.sha1(plaintext + salt).digest() +
                                            salt).strip()
             return crypt.crypt(plaintext, salt)
         elif method == self.const.auth_type_md4_nt:
@@ -701,10 +701,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         elif method == self.const.auth_type_plaintext:
             return plaintext
         elif method == self.const.auth_type_md5_unsalt:
-            import hashlib
             return hashlib.md5(plaintext).hexdigest()
         elif method == self.const.auth_type_ha1_md5:
-            import hashlib
             s = ":".join([self.account_name,cereconf.AUTH_HA1_REALM,plaintext])
             return hashlib.md5(s).hexdigest()
         raise Errors.NotImplementedAuthTypeError, "Unknown method " + repr(method)
