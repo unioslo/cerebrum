@@ -352,9 +352,7 @@ def get_level(level):
             result = level
         else:
             result = logging._levelNames[level]
-            assert (isinstance(result, (int, long)),
-                    "Wrong logging level: <%s>" % level)
-
+            assert isinstance(result, (int, long)), "Bad log level: %s" % level
         return int(result)
     except KeyError, obj:
         print "Undefined logging level: %s" % str(level)
