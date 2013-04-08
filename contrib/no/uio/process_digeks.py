@@ -41,7 +41,9 @@ logger = Factory.get_logger('console')
 
 
 # TODO: Add actual cereconf-var
-cereconf.DIGEKS_EXAMS = ('JUS3211', 'JUS4111', 'JUS4122', 'JUS4211')
+#cereconf.DIGEKS_EXAMS = ('JUS3211', 'JUS4111', 'JUS4122', 'JUS4211')
+cereconf.DIGEKS_PARENT_GROUP = 'deksamen-test'
+cereconf.DIGEKS_EXAMS = ('PPU3310L', )
 
 
 def usage(exitcode=0):
@@ -56,6 +58,97 @@ def usage(exitcode=0):
     """ % {'name': basename(sys.argv[0])}
 
     sys.exit(exitcode)
+
+
+# FIXME: PPU3310L specific data
+def test_get_candidate_data(db, subject, year, version=None, vurdkomb=None, vurdtid=None):
+    """ Test for PPU3310L """
+
+    # Build query
+    # TODO: Multiple subjects? Or should we use multiple queries?
+
+    additional_clauses = ""
+    if version:
+        additional_clauses += "AND vm.versjonskode=:version "
+    if vurdkomb:
+        additional_clauses += "AND vm.vurdkombkode=:vurdkomb "
+    if vurdtid:
+        additional_clauses += "AND vm.vurdtidkode=:vurdtid "
+
+    query = """SELECT DISTINCT p.brukernavn, vm.emnekode, vm.vurdtidkode,
+        vm.kandidatlopenr, vm.kommislopenr, ve.institusjonsnr, ve.versjonskode,
+        ve.vurdkombkode, 
+        to_char(ve.dato_uttak,'yyyy-mm-dd') AS dato,
+        to_char(ve.klokkeslett_uttak,'hh24:mi') AS tid,
+        to_char(ve.dato_innlevering,'yyyy-mm-dd') AS dato_innlevering,
+        to_char(ve.klokkeslett_innlevering,'hh24:mi') AS tid_innlevering
+    FROM fs.vurdkombmelding vm
+    JOIN fs.person p ON (
+            p.fodselsdato = vm.fodselsdato 
+        AND p.personnr = vm.personnr 
+        AND p.brukernavn is not null) 
+    JOIN fs.vurdkombenhet ve ON (
+            ve.emnekode = vm.emnekode 
+        AND ve.versjonskode = vm.versjonskode 
+        AND ve.vurdtidkode = vm.vurdtidkode 
+        AND ve.arstall = vm.arstall 
+        AND ve.vurdkombkode = vm.vurdkombkode) 
+    WHERE vm.emnekode LIKE UPPER(:subject)
+        AND vm.arstall = :year
+        AND vm.status_er_kandidat = 'J' 
+        %(clauses)s
+    ORDER BY 1;""" % {'clauses': additional_clauses, }
+
+    return db.query(query, {'subject': subject, 
+                            'year': year, 
+                            'vurdtid': vurdtid,
+                            'vurdkomb': vurdkomb,
+                            'version': version})
+
+
+
+# FIXME: PPU3310L specific data
+def test_get_exam_data(db, subjects, year, semester=None):
+    """ Test for PPU3310L """
+
+    #subjects = ('PPU3310L', )
+    vurdkombkode = ('1FAG-HO-H', '2FAG-HO-H')
+    #semester = 'VÅR'
+    #year = 2013
+
+    binds = {'year': year, }
+
+    subjects_clause = argument_to_sql(subjects, 've.emnekode', binds, str)
+    vurdkomb_clause = argument_to_sql(vurdkombkode, 've.vurdkombkode', binds, str)
+
+    semester_clause = ""
+    if semester:
+        semester_clause = "AND ve.vurdtidkode = :semester "
+        binds['semester'] = semester
+
+    query = """SELECT ve.emnekode, ve.versjonskode, ve.vurdkombkode,
+        ve.vurdtidkode, ve.arstall, ve.institusjonsnr AS institusjon,
+        e.faknr_kontroll AS fakultet, e.instituttnr_kontroll AS institutt,
+        e.gruppenr_kontroll AS gruppe, 
+        to_char(ve.dato_uttak,'yyyy-mm-dd') AS dato, 
+        to_char(ve.klokkeslett_uttak,'hh24:mi') AS tid,
+        to_char(ve.dato_innlevering,'yyyy-mm-dd') AS dato_innlevering,
+        to_char(ve.klokkeslett_innlevering,'hh24:mi') AS tid_innlevering
+    FROM fs.vurdkombenhet ve
+    JOIN fs.emne e ON (
+            e.emnekode = ve.emnekode 
+        AND e.institusjonsnr = ve.institusjonsnr 
+        AND e.versjonskode = ve.versjonskode)
+    WHERE %(subjects)s
+        AND %(vkk)s
+        AND ve.arstall = :year
+        %(semester)s
+    ORDER BY 1;""" % {'subjects': subjects_clause,
+                      'vkk': vurdkomb_clause,
+                      'semester': semester_clause, }
+
+    return db.query(query, binds)
+
 
 
 def get_candidate_data(db, subject, year, version=None, vurdkomb=None, vurdtid=None):
@@ -80,18 +173,17 @@ def get_candidate_data(db, subject, year, version=None, vurdkomb=None, vurdtid=N
                kandidatlopenr (int), kommislopenr (int), institusjonsnr (int),
                versjonskode (str), vurdkombkode (str), dato (str), tid (str),
     """
-    subject = str(subject).upper()
 
     # Build query
     # TODO: Multiple subjects? Or should we use multiple queries?
 
     additional_clauses = ""
-    if vurdtid:
-        additional_clauses += "AND vm.vurdtidkode=:vurdtid "
+    if version:
+        additional_clauses += "AND vm.versjonskode=:version "
     if vurdkomb:
         additional_clauses += "AND vm.vurdkombkode=:vurdkomb "
     if vurdtid:
-        additional_clauses += "AND vm.versjonskode=:version "
+        additional_clauses += "AND vm.vurdtidkode=:vurdtid "
 
     query = """SELECT DISTINCT p.brukernavn, vm.emnekode, vm.vurdtidkode, 
     vm.kandidatlopenr, vm.kommislopenr, ve.institusjonsnr, ve.versjonskode,
@@ -126,7 +218,7 @@ def get_candidate_data(db, subject, year, version=None, vurdkomb=None, vurdtid=N
         AND e.arstall = v2.arstall)
     WHERE NOT nvl(ve.dato_eksamen,v2.dato_eksamen) IS NULL
         AND vm.status_er_kandidat = 'J'
-        AND vm.emnekode like UPPER(:subject)
+        AND vm.emnekode LIKE UPPER(:subject)
         AND vm.arstall = :year
         %(clauses)s
     ORDER BY 4;""" % {'clauses': additional_clauses}
@@ -212,6 +304,8 @@ def escape_chars(string, special='', escape='\\'):
     """
     # Backslash is our escape character, so it needs to be replaced first.
     assert escape not in special
+    if not string:
+        return ''
     special = set(special)
     tmp = string.replace(escape, escape+escape)
     for char in special:
@@ -225,7 +319,10 @@ def process_exams(db, subjects, year, semester=None):
 
     exams = dict()
     candidates = dict()
-    db_exams = get_exam_data(db, subjects, year, semester=None)
+
+    # Test for PPU3310L, remove this
+    db_exams = test_get_exam_data(db, subjects, year, semester=semester)
+    #db_exams = get_exam_data(db, subjects, year, semester=None)
 
     for row in db_exams:
         try:
@@ -252,13 +349,21 @@ def process_exams(db, subjects, year, semester=None):
                 logger.warn("Unable to process exam, duplicate exam with key '%s'!" % key)
                 continue
 
-            db_candidates = get_candidate_data(
+            # Test for PPU3310L, remove this
+            db_candidates = test_get_candidate_data(
                     db, 
                     row['emnekode'], 
                     year,
                     version=row['versjonskode'], 
                     vurdkomb=row['vurdkombkode'],
                     vurdtid=row['vurdtidkode'])
+            #db_candidates = get_candidate_data(
+                    #db, 
+                    #row['emnekode'], 
+                    #year,
+                    #version=row['versjonskode'], 
+                    #vurdkomb=row['vurdkombkode'],
+                    #vurdtid=row['vurdtidkode'])
         
         except KeyError, e:
             logger.warn('Unable to process exam, no such column in FS result: ' % str(e))
@@ -304,15 +409,15 @@ def _find_or_create_group(db, group_name):
     @rtype: Cerebrum.Group.Group
     @return: A Cerebrum group object, with the specified group selected.
     """
-    #gr = Factory.get('Group')(db)
+    gr = Factory.get('Group')(db)
     
     # FIXME: This is ugly, as we bypass the test for NIS-memberships in the UIO
     # mixin. The group *could* get promoted to PosixGroup and get NIS-spreads.
     # However, the test that we bypass causes add_member() to take approx.
     # 100 ms. Adding 100 candidates to an exam group will then take ~10
     # seconds, and *that* doesn't scale very well.
-    from Cerebrum.Group import Group
-    gr = Group(db)
+    #from Cerebrum.Group import Group
+    #gr = Group(db)
 
     try:
         gr.find_by_name(group_name)
@@ -373,22 +478,37 @@ def _set_group_owner(db, owner_id, group_id):
     return False
 
 
-def get_exam_group(db, sko):
+# Temporary solution, add group to deksamen-test
+def _add_group_to_parent(db, group_id):
+    """ Temp """
+    gr = Factory.get('Group')(db)
+
+    gr.find_by_name(cereconf.DIGEKS_PARENT_GROUP)
+
+    if not gr.has_member(group_id):
+        gr.add_member(group_id)
+        gr.write_db()
+        return True
+
+    return False
+
+
+def get_exam_group(db, identity):
     """ This method will find or create the group for exam candidates. It will
     also find or create an owner group, and set up the group-owner
     relation.
 
-    @type sko: str
-    @param sko: The faculty sko for the exam
+    @type identity: str
+    @param identity: The identifying factor. Currently, this is the SKO.
 
     @rtype:  Group
     @return: The Group object that was found/created.
     """
 
-    owner_name = _gen_group_name(sko, True)
+    owner_name = _gen_group_name(identity, True)
     owner = _find_or_create_group(db, owner_name)
 
-    group_name = _gen_group_name(sko, False)
+    group_name = _gen_group_name(identity, False)
     group = _find_or_create_group(db, group_name)
 
     if _set_group_owner(db, owner.entity_id, group.entity_id):
@@ -398,13 +518,34 @@ def get_exam_group(db, sko):
     return group
 
 
-def _gen_group_name(sko, is_admin=False):
-    return "digeks-%s%s" % (('', 'adm-')[int(is_admin)], sko)
+# FIXME: PPU3310L specific, remove this
+def test_get_exam_group(db, identity):
+    """ Temp  """
+
+    owner_name = test_gen_group_name(identity, True)
+    owner = _find_or_create_group(db, owner_name)
+
+    group_name = test_gen_group_name(identity, False)
+    group = _find_or_create_group(db, group_name)
+
+    if _set_group_owner(db, owner.entity_id, group.entity_id):
+        logger.info("Group-owner relation created, %s -> %s" % 
+                (owner.group_name, group.group_name))
+
+    return group
+
+
+# FIXME: PPU3310L specific, remove this
+def test_gen_group_name(identity, is_admin=False):
+    if is_admin:
+        return "uvdig-it"
+    return "uvdig-s"
+
+def _gen_group_name(identity, is_admin=False):
+    return "digeks-%s%s" % (('', 'adm-')[int(is_admin)], identity)
 
 
 def main():
-
-    from datetime import datetime
 
     db = Factory.get('Database')()
     db.cl_init(change_program='proc-digeks')
@@ -414,81 +555,108 @@ def main():
 
     fs = Factory.get('FS')()
 
+    # Setup params
     examfile = sys.stdout
     candidatefile = sys.stdout
-
-    #subjects = None
-    year = 2013
+    dryrun = False
+    year = None
     semester = None
 
-    opts, args = getopt.getopt(sys.argv[1:], 'hd')
+    opts, args = getopt.getopt(sys.argv[1:], 'hdc:e:')
     for opt, val in opts:
         if opt in ('-h', '--help'):
             usage(0)
-        elif opt in ('-d',):
-            print 'opt', opt, 'val', val
-            raise NotImplementedError('na')
-        elif opt in ('-v'):
-            semester = 'v'
-        elif opt in ('-h'):
-            semester = 'h'
+        elif opt in ('-d','--dryrun'):
+            dryrun = True
+        elif opt in ('-c', '--candidate-file'):
+            try:
+                candidatefile = open(val, 'w')
+            except IOError:
+                logger.error('Unable to open candidate file (%s)' % val)
+                sys.exit(1)
+        elif opt in ('-e', '--exam-file'):
+            try:
+                examfile = open(val, 'w')
+            except IOError:
+                logger.error('Unable to open exam file (%s)' % val)
+                sys.exit(2)
         else:
             logger.error("Invalid argument: '%s'" % val)
-            usage(1)
+            usage(3)
 
-    logger.debug('Getting FS data')
-    exams, candidates = process_exams(fs.db, cereconf.DIGEKS_EXAMS, year)
+    # FIXME: Params override, debug
+    #dryrun = True
+    year = 2013
+    semester = 'VÅR'
+
+    if dryrun:
+        logger.info('Dryrun is enabled: No changes will be commited to Cerebrum')
+
+    logger.debug('Fetching FS data...')
+    exams, candidates = process_exams(fs.db, cereconf.DIGEKS_EXAMS, year, semester)
 
     # As this script will process an increasing number of students, we will
     # have to cache students up front to reduce DB lookups.
-    pta = datetime.now()
-
-    logger.debug('Caching candidate data')
-    all_accounts = ac.search(owner_type=co.entity_person)
-
+    # 
     # Create a set of all candidate account names, regardless of exam
     all_candidates = set([c['account_name'] for exam in candidates.values() for
         c in exam])
 
-    # Filter all_accounts by all_candidates, create a dict mapping:
-    # account_name -> (account_id, owner_id)
+    logger.debug('...got %d candidates in %d exams' % (len(all_candidates), len(exams)))
+
+    logger.debug('Caching candidate data...')
+    all_accounts = ac.search(owner_type=co.entity_person)
+
+    # Filter all_accounts by all_candidates, and store as a dict mapping:
+    #   account_name -> (account_id, owner_id)
     account_names = filter(lambda a: a['name'] in all_candidates, all_accounts)
     cand_accounts = dict((a['name'], {
         'account_id': a['account_id'],
-        'owner_id':a['owner_id']}) for a in account_names)
+        'owner_id': a['owner_id']}) for a in account_names)
     
     # Lookup the mobile number of all candidates, and create a dict mapping:
     # person_id -> mobile number
     owners = set([a['owner_id'] for a in cand_accounts.values()])
-    cand_mobiles = dict((mob['entity_id'], mob['contact_value']) for mob in
-            pe.list_contact_info(source_system=co.system_fs,
-                                 contact_type=co.contact_mobile_phone,
-                                 entity_type=co.entity_person, 
-                                 entity_id=owners))
+    if owners:
+        cand_mobiles = dict((mob['entity_id'], mob['contact_value']) for mob in
+                pe.list_contact_info(source_system=co.system_fs,
+                                     contact_type=co.contact_mobile_phone,
+                                     entity_type=co.entity_person, 
+                                     entity_id=owners))
+    else:
+        cand_mobiles = dict()
 
     def uname2account(account_name):
+        """ Cache lookup: username -> Account entity """
         account = cand_accounts.get(account_name, None)
         if not account:
             return None
         return account['account_id']
 
     def uname2mobile(account_name):
+        """ Cache lookup: username -> Mobile phone """
         account = cand_accounts.get(account_name, None)
         if not account:
             return ''
         return cand_mobiles.get(account['owner_id'], '')
 
-    ptb = datetime.now()
 
-    logger.debug('Processing results')
+    logger.debug('Processing candidates:')
     for key, exam in exams.items():
-        logger.debug('Exam %s at %s, %d candidates' % (key,
-            exam.get('datetime'), len(candidates.get(key, []))))
+        logger.debug(' - Exam %s, %d candidates' % 
+                (key, len(candidates.get(key, list()))))
 
-        exam_group = get_exam_group(db, exam.get('sko', '000000'))
+        # FIXME: PPU3310L specific function
+        #exam_group = get_exam_group(db, exam.get('sko', '000000'))
+        exam_group = test_get_exam_group(db, exam.get('sko'))
+
+        # FIXME: How should this be done in the final version? Not needed for PPU3310L
+        #if _add_group_to_parent(db, exam_group.entity_id):
+            #logger.debug('added exam group %s to %s' % (exam_group.group_name, cereconf.DIGEKS_PARENT_GROUP))
+        
 
         # Process candidates
-        for candidate in candidates.get(key, []):
+        for candidate in candidates.get(key, list()):
 
             account_id = uname2account(candidate['account_name'])
             if not account_id:
@@ -514,7 +682,7 @@ def main():
                 'komm': str(candidate['commission_no']),
                 'mob': escape_chars(mobile, special=';'),}
 
-            #candidatefile.write(line.decode('latin1').encode('utf8'))
+            candidatefile.write(line.decode('latin1').encode('utf8'))
         
         exam_group.write_db()
 
@@ -523,18 +691,37 @@ def main():
             'datetime': escape_chars(exam['datetime'], special=';'),
             'sko': escape_chars(exam['sko'], special=';'),
             'access': escape_chars(exam['access'], special=';'),}
-        #examfile.write(line.decode('latin1').encode('utf8'))
 
-    db.rollback()
+        examfile.write(line.decode('latin1').encode('utf8'))
 
-    ptc = datetime.now()
+    if dryrun:
+        db.rollback()
+    else:
+        db.commit()
 
-    print "Caching: %s, Processing: %s" % ((ptb-pta), (ptc-ptb))
+    # FIXME: Dirty hack, adding test users to the candidate file, evenly
+    # distributed over all the exams.
+    count = 0
+    for ppucand in ({'uname': 'tctest',
+                     'key': exams.keys()[count],
+                     'kand': 3001,
+                     'komm': 4,
+                     'mob': '98641270'}, 
+                    {'uname': 'kntest',
+                     'key': key,
+                     'kand': 3002,
+                     'komm': 4,
+                     'mob': '92805173'}):
+        line = '%(uname)s;%(key)s;%(kand)s;%(komm)s;%(mob)s\n' % ppucand
+        candidatefile.write(line.decode('latin1').encode('utf8'))
+        count = (count + 1) % len(exams)
 
     if not examfile is sys.stdout:
         examfile.close()
     if not candidatefile is sys.stdout:
         candidatefile.close()
+
+    logger.debug('DONE')
 
 
 if __name__ == '__main__':
