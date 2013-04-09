@@ -1574,7 +1574,9 @@ class BofhdExtension(BofhdCommonMethods):
             pass
         else:
             ret += self._email_info_spam(et)
-            ret += self._email_info_detail(acc)
+            if not et.email_target_type == self.const.email_target_deleted:
+                # No need to get details for deleted accounts
+                ret += self._email_info_detail(acc)
             ret += self._email_info_forwarding(et, addrs)
             ret += self._email_info_filters(et)
 
@@ -1655,6 +1657,7 @@ class BofhdExtension(BofhdCommonMethods):
             et.find_by_target_entity(acc.entity_id)
             es = Email.EmailServer(self.db)
             es.find(et.email_server_id)
+
             if es.email_server_type == self.const.email_server_type_cyrus:
                 pw = self.db._read_password(cereconf.CYRUS_HOST,
                                             cereconf.CYRUS_ADMIN)
