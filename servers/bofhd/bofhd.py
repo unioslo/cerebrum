@@ -29,7 +29,7 @@
 
 import sys
 import crypt
-import md5
+import hashlib
 import mx
 import re
 import socket
@@ -303,7 +303,7 @@ class BofhdSession(object):
             r = f.read(48)
         except IOError:
             r = Random().random()
-        m = md5.new("%s-ok%s" % (entity_id, r))
+        m = hashlib.md5("%s-ok%s" % (entity_id, r))
         session_id = m.hexdigest()
         self._db.execute("""
         INSERT INTO [:table schema=cerebrum name=bofhd_session]
