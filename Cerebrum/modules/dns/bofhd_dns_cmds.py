@@ -238,8 +238,7 @@ class BofhdExtension(BofhdCommandBase):
         from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as \
              UiOBofhdExtension
 
-        for func in ('_format_changelog_entry', '_format_from_cl',
-                     '_get_account', '_get_group',):
+        for func in ('_format_changelog_entry', '_format_from_cl'):
             setattr(cls, func, UiOBofhdExtension.__dict__.get(func))
         x = object.__new__(cls)
         return x
