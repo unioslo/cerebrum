@@ -239,7 +239,7 @@ class BofhdExtension(BofhdCommandBase):
              UiOBofhdExtension
 
         for func in ('_format_changelog_entry', '_format_from_cl',
-                     '_get_entity_name', '_get_account', '_get_group',):
+                     '_get_account', '_get_group',):
             setattr(cls, func, UiOBofhdExtension.__dict__.get(func))
         x = object.__new__(cls)
         return x
