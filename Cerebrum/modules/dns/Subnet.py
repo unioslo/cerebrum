@@ -36,7 +36,7 @@ from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.dns import IPNumber
 from Cerebrum.modules.dns.IPUtils import IPCalc
-from Cerebrum.modules.bofhd.auth import BofhdAuth
+from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthRole, BofhdAuthOpTarget
 
 
 
@@ -393,12 +393,31 @@ class Subnet(Entity):
             if self.has_adresses_in_use():
                 raise SubnetError, ("Subnet '%s/%s' cannot be deleted; it has addresses in use" %
                                     (self.subnet_ip, self.subnet_mask))
-        
+
+        # Revoke BofhdAuthRoles associated with subnet
+        baot = BofhdAuthOpTarget(self._db)
+        bar = BofhdAuthRole(self._db)
+        targets = [ x['op_target_id'] for x in baot.list(entity_id = 
+                                                         self.entity_id) ]
+        for x in bar.list(op_target_id = targets):
+            bar.revoke_auth(*x)
+        bar.commit()
+
+        # Remove BofhdAuthOpTarget associated wit subnet
+        for x in targets:
+            baot.clear()
+            try:
+                baot.find(x)
+                baot.delete()
+                baot.commit()
+            except NotFoundError:
+                pass
+
         self._db.log_change(self.entity_id, self.const.subnet_delete, None)
         if self.__in_db:
              self.execute("""
              DELETE FROM [:table schema=cerebrum name=dns_subnet]
-             WHERE entity_id=:e_id""", {'e_id': self.entity_id})            
+             WHERE entity_id=:e_id""", {'e_id': self.entity_id})
         self.__super.delete()
 
 
