@@ -19,14 +19,16 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-# Tildeler og oppdaterer kvoter iht. til retningslinjer-SFA.txt.
-#
-# Foreløbig kan denne kun kjøres som en større batch-jobb som
-# oppdaterer alle personer.
-#
-# Noen definisjoner:
-# - kopiavgift_fritak fritak fra å betale selve kopiavgiften
-# - betaling_fritak fritak for å betale for den enkelte utskrift
+"""Tildeler og oppdaterer kvoter iht. til retningslinjer-SFA.txt.
+
+Foreløbig kan denne kun kjøres som en større batch-jobb som oppdaterer alle
+personer.
+
+Noen definisjoner:
+- kopiavgift_fritak fritak fra å betale selve kopiavgiften
+- betaling_fritak fritak for å betale for den enkelte utskrift
+
+"""
 
 import getopt
 import mx
@@ -357,7 +359,7 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file,
 
     # Alle personer som har disse typer tilknyttet affiliation skal ha fritak
     for row in person.list_affiliations(affiliation=const.affiliation_tilknyttet,
-                                        status=(const affiliation_tilknyttet_bilag,
+                                        status=(const.affiliation_tilknyttet_bilag,
                                                 const.affiliation_tilknyttet_ekst_forsker,
                                                 const.affiliation_tilknyttet_gjesteforsker,
                                                 const.affiliation_tilknyttet_innkjoper,),
