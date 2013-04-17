@@ -350,20 +350,20 @@ def process_exams(db, subjects, year, semester=None):
                 continue
 
             # Test for PPU3310L, remove this
-            db_candidates = test_get_candidate_data(
+            #db_candidates = test_get_candidate_data(
+            #        db, 
+            #        row['emnekode'], 
+            #        year,
+            #        version=row['versjonskode'], 
+            #        vurdkomb=row['vurdkombkode'],
+            #        vurdtid=row['vurdtidkode'])
+            db_candidates = get_candidate_data(
                     db, 
                     row['emnekode'], 
                     year,
                     version=row['versjonskode'], 
                     vurdkomb=row['vurdkombkode'],
                     vurdtid=row['vurdtidkode'])
-            #db_candidates = get_candidate_data(
-                    #db, 
-                    #row['emnekode'], 
-                    #year,
-                    #version=row['versjonskode'], 
-                    #vurdkomb=row['vurdkombkode'],
-                    #vurdtid=row['vurdtidkode'])
         
         except KeyError, e:
             logger.warn('Unable to process exam, no such column in FS result: ' % str(e))
