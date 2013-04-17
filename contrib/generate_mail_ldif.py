@@ -410,7 +410,7 @@ def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], "vm:s:iha",
                                    ("verbose", "mail-file=", "spread=",
-                                    "ignore-size", "help", "no-ath-data"))
+                                    "ignore-size", "help", "no-auth-data"))
     except getopt.GetoptError, e:
         usage(str(e))
     if args:
