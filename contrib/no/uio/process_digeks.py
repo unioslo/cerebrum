@@ -22,58 +22,96 @@
 
 """
 This script generates an export of exams and exam participants for digital
-examinations. @and-more
+examinations.
+
+It will also create exam groups, and add candidates to those groups.
+
+
+Program flow:
+
+  + Fetch exams and candidates from FS, organize into dictionaries with keys
+    based on: institition, subject, version number, exam code, semester, year
+      Note: We first fetch the exams in one query (get_exam_data), then the
+            candidates for each exam in separate queries (get_candidate_data).
+      Note: Multiple exams in the same subject, same year,
+            same semester must have *different* exam codes (vurdkombkode in
+            FS). If these fields aren't unique, then two different exams will
+            be treated as one single exam by the script and export files. If
+            this occurs, a WARNING will be logged.
+  + Look up/cache account_id, owner_id, mobile number (if it exists) for every
+    candidate username fetched from FS.
+      Note: With many candidates, caching saves a *lot* of time in the
+            processing stage. This has only been tested up to ~10.000 users.
+            If the number of candidates exceeds this with an order of
+            magnitude, we could run into memory issues.
+  + Go through every exam, fetch and/or create the neccessary moderator
+    group and candidate group (get_exam_group)
+    + Go through every candidate username for that exam
+      - If not found in the cache (not in cerebrum), the candidate is omitted
+        from groups and export files. A WARNING will be logged.
+      - Look up mobile number for the username in the cache. If no mobile
+        number is found, a DEBUG message is logged.
+      - The user is added to the exam group. If already a member, a DEBUG
+        message will be logged. If unable to add candidate to group, the
+        candidate will be omitted from the candidate report as well, ans a
+        WARNING will be logged.
+      - Write the candidate data to candidate csv file.
+    - Write group changes to DB
+    - Write exam data to csv file
+      
 """
 
 import getopt
 import sys
-#import string
 from os.path import basename
 
 import cereconf
 
-from mx import DateTime
 from Cerebrum.Utils import Factory, argument_to_sql
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet, BofhdAuthOpTarget, BofhdAuthRole
 
+# FIXME: Set logger to cronjob
 logger = Factory.get_logger('console')
-
+#logger = Factory.get_logger('cronjob')
 
 # TODO: Add actual cereconf-var
-cereconf.DIGEKS_EXAMS = ('JUS3211', 'JUS4111', 'JUS4122', 'JUS4211')
 cereconf.DIGEKS_PARENT_GROUP = 'deksamen-test'
-#cereconf.DIGEKS_EXAMS = ('PPU3310L', )
-
+#cereconf.DIGEKS_EXAMS = ('JUS3211', 'JUS4111', 'JUS4122', 'JUS4211')
+cereconf.DIGEKS_EXAMS = ('PPU3310L', )
 
 def usage(exitcode=0):
     print """Usage: %(name)s [options]
 
-    @tbd-Generates an export of exams and participants as CSV-file(s?)
+    Sets up exam groups, and generates an export of exams and participants as
+    CSV-files.
 
-    Options: 
+    Options:
       -c, --candidates           Output CSV-file with the candidates
       -e, --exams                Output CSV-file with the exam data
+      -d, --dry-run              Only ouput files, don't commit membership changes
       -h, --help                 Show this help text.
     """ % {'name': basename(sys.argv[0])}
 
     sys.exit(exitcode)
 
 
-# FIXME: PPU3310L specific data
+# FIXME: PPU3310L specific data, remove
 def test_get_candidate_data(db, subject, year, version=None, vurdkomb=None, vurdtid=None):
     """ Test for PPU3310L """
 
-    # Build query
-    # TODO: Multiple subjects? Or should we use multiple queries?
+    binds = {'subject': subject, 'year': year, }
 
     additional_clauses = ""
     if version:
         additional_clauses += "AND vm.versjonskode=:version "
+        binds['version'] = version
     if vurdkomb:
         additional_clauses += "AND vm.vurdkombkode=:vurdkomb "
+        binds['vurdkomb'] = vurdkomb
     if vurdtid:
         additional_clauses += "AND vm.vurdtidkode=:vurdtid "
+        binds['vurdtid'] = vurdtid
 
     query = """SELECT DISTINCT p.brukernavn, vm.emnekode, vm.vurdtidkode,
         vm.kandidatlopenr, vm.kommislopenr, ve.institusjonsnr, ve.versjonskode,
@@ -99,27 +137,25 @@ def test_get_candidate_data(db, subject, year, version=None, vurdkomb=None, vurd
         %(clauses)s
     ORDER BY 1;""" % {'clauses': additional_clauses, }
 
-    return db.query(query, {'subject': subject, 
-                            'year': year, 
-                            'vurdtid': vurdtid,
-                            'vurdkomb': vurdkomb,
-                            'version': version})
+    return db.query(query, binds)
 
 
-
-# FIXME: PPU3310L specific data
-def test_get_exam_data(db, subjects, year, semester=None):
+# FIXME: PPU3310L specific data, remove
+def test_get_exam_data(db, subjects, year, semester=None, exam_code=None):
     """ Test for PPU3310L """
 
     #subjects = ('PPU3310L', )
-    vurdkombkode = ('1FAG-HO-H', '2FAG-HO-H')
+    exam_code = ('1FAG-HO-H', '2FAG-HO-H')
     #semester = 'VÅR'
     #year = 2013
 
     binds = {'year': year, }
 
     subjects_clause = argument_to_sql(subjects, 've.emnekode', binds, str)
-    vurdkomb_clause = argument_to_sql(vurdkombkode, 've.vurdkombkode', binds, str)
+    #vurdkomb_clause = argument_to_sql(vurdkombkode, 've.vurdkombkode', binds, str)
+    vurdkomb_clause = ""
+    if exam_code:
+        vurdkomb_clause = 'AND ' + argument_to_sql(exam_code, 've.vurdkombkode', binds, str)
 
     semester_clause = ""
     if semester:
@@ -140,8 +176,8 @@ def test_get_exam_data(db, subjects, year, semester=None):
         AND e.institusjonsnr = ve.institusjonsnr 
         AND e.versjonskode = ve.versjonskode)
     WHERE %(subjects)s
-        AND %(vkk)s
         AND ve.arstall = :year
+        %(vkk)s
         %(semester)s
     ORDER BY 1;""" % {'subjects': subjects_clause,
                       'vkk': vurdkomb_clause,
@@ -150,7 +186,7 @@ def test_get_exam_data(db, subjects, year, semester=None):
     return db.query(query, binds)
 
 
-
+# TODO: Move to uio/access_FS when we have confirmed that the selections are OK
 def get_candidate_data(db, subject, year, version=None, vurdkomb=None, vurdtid=None):
     """ Fetches exam data from FS. 
 
@@ -177,36 +213,45 @@ def get_candidate_data(db, subject, year, version=None, vurdkomb=None, vurdtid=N
     # Build query
     # TODO: Multiple subjects? Or should we use multiple queries?
 
+    binds = {'subject': subject, 'year': year, }
+
     additional_clauses = ""
     if version:
         additional_clauses += "AND vm.versjonskode=:version "
+        binds['version'] = version
     if vurdkomb:
         additional_clauses += "AND vm.vurdkombkode=:vurdkomb "
+        binds['vurdkomb'] = vurdkomb
     if vurdtid:
         additional_clauses += "AND vm.vurdtidkode=:vurdtid "
+        binds['vurdtid'] = vurdtid
 
+    # TBD: How do we properly do case insensitive searching in FS?
+    # nlssort(vm.emnekode, 'NLS_SORT = Latin_CI') = nlssort(:subject, 'NLS_SORT = Latin_CI')?
+    # Or should we not do case insensitive searching? Is the LIKE UPPER(:subject) ok? Should we just do LIKE :subject, and require correct casing?
     query = """SELECT DISTINCT p.brukernavn, vm.emnekode, vm.vurdtidkode, 
-    vm.kandidatlopenr, vm.kommislopenr, ve.institusjonsnr, ve.versjonskode,
-    ve.vurdkombkode, 
-    to_char(nvl(ve.dato_eksamen,v2.dato_eksamen),'yyyy-mm-dd') AS dato,
-    to_char(nvl(ve.klokkeslett_fremmote_tid,v2.klokkeslett_fremmote_tid),'hh24:mi') AS tid
+        vm.kandidatlopenr, vm.kommislopenr, ve.institusjonsnr, ve.versjonskode,
+        ve.vurdkombkode, 
+        to_char(nvl(ve.dato_eksamen,v2.dato_eksamen),'yyyy-mm-dd') AS dato,
+        to_char(nvl(ve.klokkeslett_fremmote_tid,v2.klokkeslett_fremmote_tid),'hh24:mi') AS tid
     FROM fs.vurdkombmelding vm
-    JOIN fs.person p ON (
-            p.fodselsdato = vm.fodselsdato
+    JOIN fs.person p 
+        ON (p.fodselsdato = vm.fodselsdato
         AND p.personnr = vm.personnr
         AND p.brukernavn IS NOT NULL)
-    JOIN fs.vurdkombenhet ve ON (
-            ve.emnekode = vm.emnekode
+    JOIN fs.vurdkombenhet ve 
+        ON (ve.emnekode = vm.emnekode
         AND ve.versjonskode = vm.versjonskode
         AND ve.vurdtidkode = vm.vurdtidkode
         AND ve.arstall = vm.arstall)
-    JOIN fs.vurderingskombinasjon v ON (
-            v.emnekode = ve.emnekode
+    JOIN fs.vurderingskombinasjon v 
+        ON (v.emnekode = ve.emnekode
         AND v.versjonskode = ve.versjonskode
         AND v.vurdkombkode = ve.vurdkombkode
         AND v.status_vurdering='J')   
-    LEFT OUTER JOIN fs.vurdkombenhet v2 CROSS JOIN fs.eksavviklingperson e ON (
-            v2.emnekode = vm.emnekode
+    LEFT OUTER JOIN fs.vurdkombenhet v2 
+    CROSS JOIN fs.eksavviklingperson e 
+        ON (v2.emnekode = vm.emnekode
         AND v2.versjonskode = vm.versjonskode
         AND v2.vurdtidkode = vm.vurdtidkode
         AND v2.arstall = vm.arstall
@@ -222,13 +267,11 @@ def get_candidate_data(db, subject, year, version=None, vurdkomb=None, vurdtid=N
         AND vm.arstall = :year
         %(clauses)s
     ORDER BY 4;""" % {'clauses': additional_clauses}
-    return db.query(query, {'subject': subject, 
-                            'year': year, 
-                            'vurdtid': vurdtid,
-                            'vurdkomb': vurdkomb,
-                            'version': version})
+    return db.query(query, binds)
 
 
+
+# TODO: Move to uio/access_FS when we have confirmed that the selections are OK
 def get_exam_data(db, subjects, year, semester=None):
     """ Fetches exam data from FS. 
 
@@ -256,22 +299,23 @@ def get_exam_data(db, subjects, year, semester=None):
         binds['semester'] = semester
 
     query = """SELECT ve.emnekode, ve.versjonskode, ve.vurdkombkode,
-    ve.vurdtidkode, ve.arstall, ve.institusjonsnr AS institusjon, e.faknr_kontroll AS fakultet,
-    e.instituttnr_kontroll AS institutt, e.gruppenr_kontroll AS gruppe,
-    to_char(nvl(ve.dato_eksamen,v2.dato_eksamen),'yyyy-mm-dd') AS dato,
-    to_char(nvl(ve.klokkeslett_fremmote_tid,v2.klokkeslett_fremmote_tid),'hh24:mi') AS tid
+        ve.vurdtidkode, ve.arstall, ve.institusjonsnr AS institusjon,
+        e.faknr_kontroll AS fakultet, e.instituttnr_kontroll AS institutt,
+        e.gruppenr_kontroll AS gruppe,
+        to_char(nvl(ve.dato_eksamen,v2.dato_eksamen),'yyyy-mm-dd') AS dato,
+        to_char(nvl(ve.klokkeslett_fremmote_tid,v2.klokkeslett_fremmote_tid),'hh24:mi') AS tid
     FROM fs.vurdkombenhet ve
-    JOIN fs.vurderingskombinasjon v ON (
-            v.emnekode = ve.emnekode
+    JOIN fs.vurderingskombinasjon v 
+        ON (v.emnekode = ve.emnekode
         AND v.versjonskode = ve.versjonskode
         AND v.vurdkombkode = ve.vurdkombkode
         AND v.status_vurdering = 'J')
-    JOIN fs.emne e ON (
-            e.emnekode = ve.emnekode 
+    JOIN fs.emne e 
+        ON (e.emnekode = ve.emnekode 
         AND e.institusjonsnr = ve.institusjonsnr
         AND e.versjonskode = ve.versjonskode)
-    LEFT OUTER JOIN fs.vurdkombenhet v2 ON (
-            v2.emnekode = ve.emnekode
+    LEFT OUTER JOIN fs.vurdkombenhet v2 
+        ON (v2.emnekode = ve.emnekode
         AND v2.versjonskode = ve.versjonskode
         AND v2.vurdtidkode = ve.vurdtidkode
         AND v2.arstall = ve.arstall)
@@ -284,23 +328,23 @@ def get_exam_data(db, subjects, year, semester=None):
     return db.query(query, binds)
 
 
+# TBD: Should this be in a util file? Is it needed elsewhere?
 def escape_chars(string, special='', escape='\\'):
-    """ Adds escape characters to a string, L{fields}. Replaces a single
-    L{escape} character, with two escape characters, and a single L{special}
-    character with an escape character and the special character.
+    """ Adds escape characters to a string, L{string}. Prepends L{escape} to
+    any occurance of L{escape} and L{special}.
 
     @type string: str
     @param string: The string to format (add escape chars to)
 
     @type special: iterable
-    @param string: String or other iterable containing characters that needs to
-                   be escaped.
+    @param string: String or other iterable containing characters that
+                   needs to be escaped (prepended with L{escape}).
 
-    @type string: str
-    @param string: The string to format (add escape chars to)
+    @type escape: str
+    @param escape: The escape character(s) to use. 
 
     @rtype: str
-    @return: A string with escape charactes added for the characters mentioned.
+    @return: A string with special and escape characters escaped.
     """
     # Backslash is our escape character, so it needs to be replaced first.
     assert escape not in special
@@ -317,28 +361,30 @@ def process_exams(db, subjects, year, semester=None):
     # Document, this is a bit messy. Used to gather, sanitize and organize
     # results.
 
+    # TODO: Decode from db.encoding to unicode objects here.
+
     exams = dict()
     candidates = dict()
 
-    # Test for PPU3310L, remove this
-    #db_exams = test_get_exam_data(db, subjects, year, semester=semester)
-    db_exams = get_exam_data(db, subjects, year, semester=None)
+    # FIXME: Test for PPU3310L, remove this
+    db_exams = test_get_exam_data(db, subjects, year, semester=semester)
+    #db_exams = get_exam_data(db, subjects, year, semester=semester)
 
-    for row in db_exams:
+    for exam_row in db_exams:
         try:
             # The key is used to identify an exam.
             key = ';'.join([
-                str(row['institusjon']),
-                escape_chars(row['emnekode'], special=';'),
-                escape_chars(row['versjonskode'], special=';'),
-                escape_chars(row['vurdkombkode'], special=';'),
-                escape_chars(row['vurdtidkode'], special=';'),
-                ])
+                str(exam_row['institusjon']),
+                escape_chars(exam_row['emnekode'], special=';'),
+                escape_chars(exam_row['versjonskode'], special=';'),
+                escape_chars(exam_row['vurdkombkode'], special=';'),
+                escape_chars(exam_row['vurdtidkode'], special=';'),
+                str(year)])
 
             if not exams.has_key(key):
-                # TODO: Sanitize datetime
-                exams[key] = {'datetime': '%s %s' % (row['dato'], row['tid']),
-                              'sko': '%02d0000' % row['fakultet'],
+                # TODO: Sanitize datetime?
+                exams[key] = {'datetime': '%s %s' % (exam_row['dato'], exam_row['tid']),
+                              'sko': '%02d0000' % exam_row['fakultet'],
                               'access': ''}
             else:
                 # There's no guarantee that the exam actually is unique from
@@ -349,44 +395,37 @@ def process_exams(db, subjects, year, semester=None):
                 logger.warn("Unable to process exam, duplicate exam with key '%s'!" % key)
                 continue
 
-            # Test for PPU3310L, remove this
-            #db_candidates = test_get_candidate_data(
-            #        db, 
-            #        row['emnekode'], 
-            #        year,
-            #        version=row['versjonskode'], 
-            #        vurdkomb=row['vurdkombkode'],
-            #        vurdtid=row['vurdtidkode'])
-            db_candidates = get_candidate_data(
+            # FIXME: Test for PPU3310L, remove this
+            db_candidates = test_get_candidate_data(
+            #db_candidates = get_candidate_data(
                     db, 
-                    row['emnekode'], 
+                    exam_row['emnekode'], 
                     year,
-                    version=row['versjonskode'], 
-                    vurdkomb=row['vurdkombkode'],
-                    vurdtid=row['vurdtidkode'])
+                    version=exam_row['versjonskode'], 
+                    vurdkomb=exam_row['vurdkombkode'],
+                    vurdtid=exam_row['vurdtidkode'])
         
         except KeyError, e:
             logger.warn('Unable to process exam, no such column in FS result: ' % str(e))
             continue
 
-        for row in db_candidates:
+        for cand_row in db_candidates:
             try:
                 key = ';'.join([
-                    str(row['institusjonsnr']),
-                    escape_chars(row['emnekode'], special=';'),
-                    escape_chars(row['versjonskode'], special=';'),
-                    escape_chars(row['vurdkombkode'], special=';'),
-                    escape_chars(row['vurdtidkode'], special=';'),
-                    ])
-                
+                    str(cand_row['institusjonsnr']),
+                    escape_chars(cand_row['emnekode'], special=';'),
+                    escape_chars(cand_row['versjonskode'], special=';'),
+                    escape_chars(cand_row['vurdkombkode'], special=';'),
+                    escape_chars(cand_row['vurdtidkode'], special=';'),
+                    str(year)])
+
                 if not candidates.has_key(key):
                     candidates[key] = list()
 
                 candidates[key].append({
-                    'account_name': row['brukernavn'],
-                    'candidate_no': row['kandidatlopenr'],
-                    'commission_no': row['kommislopenr'],
-                    })
+                    'account_name': cand_row['brukernavn'],
+                    'candidate_no': cand_row['kandidatlopenr'],
+                    'commission_no': cand_row['kommislopenr'],})
 
             except KeyError, e:
                 logger.warn('Unable to process candidate, no such column in FS result: ' % str(e))
@@ -602,9 +641,10 @@ def main():
     all_candidates = set([c['account_name'] for exam in candidates.values() for
         c in exam])
 
-    logger.debug('...got %d candidates in %d exams' % (len(all_candidates), len(exams)))
+    logger.debug('Found %d unique candidates, %d exams' % (len(all_candidates), len(exams)))
 
     logger.debug('Caching candidate data...')
+
     all_accounts = ac.search(owner_type=co.entity_person)
 
     # Filter all_accounts by all_candidates, and store as a dict mapping:
@@ -613,7 +653,7 @@ def main():
     cand_accounts = dict((a['name'], {
         'account_id': a['account_id'],
         'owner_id': a['owner_id']}) for a in account_names)
-    
+
     # Lookup the mobile number of all candidates, and create a dict mapping:
     # person_id -> mobile number
     owners = set([a['owner_id'] for a in cand_accounts.values()])
@@ -627,23 +667,22 @@ def main():
         cand_mobiles = dict()
 
     def uname2account(account_name):
-        """ Cache lookup: username -> Account entity """
+        """Cache lookup: account_name -> account_id"""
         account = cand_accounts.get(account_name, None)
         if not account:
             return None
         return account['account_id']
 
     def uname2mobile(account_name):
-        """ Cache lookup: username -> Mobile phone """
+        """Cache lookup: account_name -> cellphone number"""
         account = cand_accounts.get(account_name, None)
         if not account:
             return ''
         return cand_mobiles.get(account['owner_id'], '')
 
-
-    logger.debug('Processing candidates:')
+    logger.debug('Processing candidates...')
     for key, exam in exams.items():
-        logger.debug(' - Exam %s, %d candidates' % 
+        logger.debug('Exam %s, %d candidates' % 
                 (key, len(candidates.get(key, list()))))
 
         # FIXME: PPU3310L specific function
@@ -669,11 +708,18 @@ def main():
                 logger.debug("No mobile number for '%s'" % 
                         candidate['account_name'])
 
-            if not exam_group.has_member(account_id):
-                exam_group.add_member(account_id)
-            else:
-                logger.debug('User %s already in group %s' % 
+            if exam_group.has_member(account_id):
+                logger.debug('User %s already in group %s' %
                         (candidate['account_name'], exam_group.group_name))
+            else:
+                try:
+                    exam_group.add_member(account_id)
+                except db.IntegrityError, e:
+                    logger.warn('Unable to add user %s to group %s: %s' % (
+                        candidate['account_name'], 
+                        exam_group.group_name,
+                        str(e)))
+                    continue
 
             line = '%(uname)s;%(key)s;%(kand)s;%(komm)s;%(mob)s\n' % {
                 'uname': escape_chars(candidate['account_name'], special=';'),
@@ -695,6 +741,7 @@ def main():
         examfile.write(line.decode('latin1').encode('utf8'))
 
     if dryrun:
+        logger.debug('Dry-run, no changes commited')
         db.rollback()
     else:
         db.commit()
@@ -703,25 +750,23 @@ def main():
     # distributed over all the exams.
     #count = 0
     #for ppucand in ({'uname': 'tctest',
-    #                 'key': exams.keys()[count],
-    #                 'kand': 3001,
-    #                 'komm': 4,
-    #                 'mob': '98641270'}, 
-    #                {'uname': 'kntest',
-    #                 'key': key,
-    #                 'kand': 3002,
-    #                 'komm': 4,
-    #                 'mob': '92805173'}):
-    #    line = '%(uname)s;%(key)s;%(kand)s;%(komm)s;%(mob)s\n' % ppucand
-    #    candidatefile.write(line.decode('latin1').encode('utf8'))
-    #    count = (count + 1) % len(exams)
+                     #'key': exams.keys()[count],
+                     #'kand': 3001,
+                     #'komm': 4,
+                     #'mob': '98641270'}, 
+                    #{'uname': 'kntest',
+                     #'key': key,
+                     #'kand': 3002,
+                     #'komm': 4,
+                     #'mob': '92805173'}):
+        #line = '%(uname)s;%(key)s;%(kand)s;%(komm)s;%(mob)s\n' % ppucand
+        #candidatefile.write(line.decode('latin1').encode('utf8'))
+        #count = (count + 1) % len(exams)
 
     if not examfile is sys.stdout:
         examfile.close()
     if not candidatefile is sys.stdout:
         candidatefile.close()
-
-    logger.debug('DONE')
 
 
 if __name__ == '__main__':
