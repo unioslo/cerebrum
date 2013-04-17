@@ -41,9 +41,9 @@ logger = Factory.get_logger('console')
 
 
 # TODO: Add actual cereconf-var
-#cereconf.DIGEKS_EXAMS = ('JUS3211', 'JUS4111', 'JUS4122', 'JUS4211')
+cereconf.DIGEKS_EXAMS = ('JUS3211', 'JUS4111', 'JUS4122', 'JUS4211')
 cereconf.DIGEKS_PARENT_GROUP = 'deksamen-test'
-cereconf.DIGEKS_EXAMS = ('PPU3310L', )
+#cereconf.DIGEKS_EXAMS = ('PPU3310L', )
 
 
 def usage(exitcode=0):
@@ -321,8 +321,8 @@ def process_exams(db, subjects, year, semester=None):
     candidates = dict()
 
     # Test for PPU3310L, remove this
-    db_exams = test_get_exam_data(db, subjects, year, semester=semester)
-    #db_exams = get_exam_data(db, subjects, year, semester=None)
+    #db_exams = test_get_exam_data(db, subjects, year, semester=semester)
+    db_exams = get_exam_data(db, subjects, year, semester=None)
 
     for row in db_exams:
         try:
@@ -701,20 +701,20 @@ def main():
 
     # FIXME: Dirty hack, adding test users to the candidate file, evenly
     # distributed over all the exams.
-    count = 0
-    for ppucand in ({'uname': 'tctest',
-                     'key': exams.keys()[count],
-                     'kand': 3001,
-                     'komm': 4,
-                     'mob': '98641270'}, 
-                    {'uname': 'kntest',
-                     'key': key,
-                     'kand': 3002,
-                     'komm': 4,
-                     'mob': '92805173'}):
-        line = '%(uname)s;%(key)s;%(kand)s;%(komm)s;%(mob)s\n' % ppucand
-        candidatefile.write(line.decode('latin1').encode('utf8'))
-        count = (count + 1) % len(exams)
+    #count = 0
+    #for ppucand in ({'uname': 'tctest',
+    #                 'key': exams.keys()[count],
+    #                 'kand': 3001,
+    #                 'komm': 4,
+    #                 'mob': '98641270'}, 
+    #                {'uname': 'kntest',
+    #                 'key': key,
+    #                 'kand': 3002,
+    #                 'komm': 4,
+    #                 'mob': '92805173'}):
+    #    line = '%(uname)s;%(key)s;%(kand)s;%(komm)s;%(mob)s\n' % ppucand
+    #    candidatefile.write(line.decode('latin1').encode('utf8'))
+    #    count = (count + 1) % len(exams)
 
     if not examfile is sys.stdout:
         examfile.close()
