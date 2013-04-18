@@ -3,7 +3,7 @@
 # vim: encoding=iso-8859-1:fileencoding=iso-8859-1
 # vim: ts=4:sw=4:expandtab
 # 
-# Copyright 2012 University of Oslo, Norway
+# Copyright 2012, 2013 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -23,20 +23,23 @@
 
 """This script produces a dump of names and external ID's from a source system.
 The dump is colon-separated data with the external ID and name of the person
-tied to the ID.
+tied to the ID. Each line ends with the date and time for when the file was
+generated, as required by Datavarehus.
 
 Eg. To dump all employee-numbers from SAP:
     <scipt name> -s SAP -t NO_SAPNO
 
 will produce a file:
-    9831:Ola Normann
-    7321:Kari Normann
-    <employee_no>:<employee_name>
+    9831:Ola Normann:2013.04.15 09:01:43
+    7321:Kari Normann:2013.04.15 09:01:43
+    <employee_no>:<employee_name>:<date_time>
     ...
+
 """
 
 import sys
 import getopt
+import time
 
 import cerebrum_path
 import cereconf
@@ -141,8 +144,9 @@ def write_dump_file(output, id_names):
         return
 
     for id_name in id_names:
-        output.write("%s:%s\n" % (id_name['ext_id'], id_name['name']))
-
+        output.write("%s\n" % ':'.join((id_name['ext_id'],
+                                        id_name['name'],
+                                        time.strftime('%Y.%m.%d %H:%M:%S'))))
 
 def main(argv=None):
     """Main runtime as a function, for invoking the script from other scripts /
