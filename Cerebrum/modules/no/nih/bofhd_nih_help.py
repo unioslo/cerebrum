@@ -137,6 +137,8 @@ command_help = {
         'View information about a person',
     'person_student_info':
         'View student information for a person',
+    'person_set_id':
+        'Set a new id for a person',
     },
     'quarantine': {
     'quarantine_disable': 'Temporarily remove a quarantine',

@@ -274,6 +274,25 @@ class BofhdExtension(BofhdCommonMethods):
                         'dato_regform_endret': self._convert_ticks_to_timestamp(row['dato_regform_endret'])})
         return ret
 
+    # person set_id
+    all_commands['person_set_id'] = Command(
+        ("person", "set_id"), PersonId(help_ref="person_id:current"),
+        PersonId(help_ref="person_id:new"), SourceSystem(help_ref="source_system", optional=True))
+    def person_set_id(self, operator, current_id, new_id, source_system):
+        if source_system and not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
+        person = self._get_person(*self._map_person_id(current_id))
+        idtype, id = self._map_person_id(new_id)
+        self.ba.can_set_person_id(operator.get_entity_id(), person, idtype)
+        if not source_system:
+            ss = self.const.system_manual
+        else:
+            ss = int(self.const.AuthoritativeSystem(source_system))
+        person.affect_external_id(ss, idtype)
+        person.populate_external_id(ss, idtype, id)
+        person.write_db()
+        return "OK, set '%s' as new id for '%s'" % (new_id, current_id)
+
     # misc list_passwords
     #
     all_commands['misc_list_passwords'] = Command(
