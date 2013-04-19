@@ -1098,7 +1098,7 @@ class EntityQuarantine(Entity):
             where = " WHERE " + " AND ".join(conditions)
         return self.query("""
         SELECT eq.entity_id, eq.quarantine_type, eq.start_date,
-               eq.disable_until, eq.end_date
+               eq.disable_until, eq.end_date, eq.description
           FROM [:table schema=cerebrum name=entity_quarantine] eq""" + sel + where)
 
 
