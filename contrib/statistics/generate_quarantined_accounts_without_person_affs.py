@@ -22,6 +22,8 @@
 """This program looks for accounts that have been quarantined for over 1 year,
 not expired and owned by a person with no affiliations.
 
+Note that only one quarantine per account is included in the HTML report.
+
     The following functions are defined:
         main():
             This function initializes database connections, parses command line
@@ -105,21 +107,20 @@ def get_matching_accs(logger, ac, pe, co):
     # Map account_id to quarantines
     acc2quar = {}
     for q in ac.list_entity_quarantines(only_active=True, entity_types=co.entity_account):
-        if q['entity_id'] not in acc2quar:
-            acc2quar[q['entity_id']] = []
+        acc2quar.setdefault(q['entity_id'], [])
         acc2quar[q['entity_id']].append(q)
     logger.info("Found quarantines for %d accounts" % len(acc2quar))
 
     # Map person_id to full name
     person2name = {}
-    for n in pe.search_person_names(name_variant=co.name_full):
+    for n in pe.search_person_names(name_variant=co.name_full, source_system=co.system_cached):
         person2name[n['person_id']] = n['name']
     logger.info("Found full names for %d persons" % len(person2name))
 
     # Add person_id to the list if the person has an affiliation
-    person_has_affs = []
+    person_has_affs = set()
     for aff in pe.list_affiliations():
-        person_has_affs.append(aff['person_id'])
+        person_has_affs.add(aff['person_id'])
     logger.info("Found %d persons with affiliations" % len(person_has_affs))
 
     matches = {}
@@ -265,8 +266,7 @@ def main():
     co = Factory.get('Constants')(db)
 
     # Initialization of logger
-    logger = Factory.get_logger('console')
-    #logger = Factory.get_logger('cronjob')
+    logger = Factory.get_logger('cronjob')
 
     # Default output channel
     output = sys.stdout
