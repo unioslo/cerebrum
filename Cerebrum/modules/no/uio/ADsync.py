@@ -100,19 +100,20 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             hid2hostname[ho_row["host_id"]] = ho_row["name"]
 
         #Getting all homedrives for user with spread.
-        uname2hostname = {}
-        for u_row in self.ac.list_account_home(
-            account_spread = int(self.co.Spread(spread))):
-            if u_row[11]:
-                if hid2hostname.has_key(u_row["host_id"]):
-                    uname2hostname[u_row["entity_name"]] = \
-                        hid2hostname[u_row["host_id"]]
-            
+        uname2disk = dict((r['entity_name'], r) for r in
+                          self.ac.list_account_home(account_spread=spread)
+                          if r['host_id'] and r['host_id'] in hid2hostname)
+
         #Assigning homeDirectory to users
         for k, v in user_dict.iteritems():
-            if uname2hostname.has_key(k):
-                home_srv = uname2hostname[k]
-                v['homeDirectory'] = "\\\\%s\\%s" % (home_srv, k)
+            if k in uname2disk:
+                home_srv = hid2hostname[uname2disk[k]['host_id']]
+                # The new disks requires a somewhat longer path:
+                if home_srv in getattr(cereconf, 'AD_HOMEDIR_HITACHI_DISKS', ()):
+                    path = uname2disk[k]['path'].split('/')[-1]
+                    v['homeDirectory'] = "\\\\%s\\%s\\%s" % (home_srv, path, k)
+                else:
+                    v['homeDirectory'] = "\\\\%s\\%s" % (home_srv, k)
             else:
                 self.logger.info("Can not find home server for %s" % k)
                 v['homeDirectory'] = ""
