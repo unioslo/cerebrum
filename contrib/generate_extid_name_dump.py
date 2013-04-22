@@ -30,9 +30,9 @@ Eg. To dump all employee-numbers from SAP:
     <scipt name> -s SAP -t NO_SAPNO
 
 will produce a file:
-    9831:Ola Normann:15/04/2013 09:01:43
-    7321:Kari Normann:15/04/2013 09:01:44
-    <employee_no>:<employee_name>:<date_time>
+    9831;Ola Normann;15/04/2013 09:01:43
+    7321;Kari Normann;15/04/2013 09:01:44
+    <employee_no>;<employee_name>;<date_time>
     ...
 
 """
@@ -144,7 +144,7 @@ def write_dump_file(output, id_names):
         return
 
     for id_name in id_names:
-        output.write("%s\n" % ':'.join((id_name['ext_id'],
+        output.write("%s\n" % ';'.join((id_name['ext_id'],
                                         id_name['name'],
                                         time.strftime('%m/%d/%Y %H:%M:%S'))))
 
