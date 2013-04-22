@@ -101,7 +101,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
         #Getting all homedrives for user with spread.
         uname2disk = dict((r['entity_name'], r) for r in
-                          self.ac.list_account_home(account_spread=spread)
+                          self.ac.list_account_home(
+                                    account_spread=self.co.Spread(spread))
                           if r['host_id'] and r['host_id'] in hid2hostname)
 
         #Assigning homeDirectory to users
@@ -112,6 +113,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 if home_srv in getattr(cereconf, 'AD_HOMEDIR_HITACHI_DISKS', ()):
                     path = uname2disk[k]['path'].split('/')[-1]
                     v['homeDirectory'] = "\\\\%s\\%s\\%s" % (home_srv, path, k)
+                    self.logger.debug("Astrastore for %s: %s", k,
+                                      v['homeDirectory'])
                 else:
                     v['homeDirectory'] = "\\\\%s\\%s" % (home_srv, k)
             else:
@@ -591,16 +594,16 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                          "dry_run = %s, store_sid = %s password_sync = %s)" % 
                          (spread, delete, dry_run, store_sid, pwd_sync))     
 
+        #Fetch cerebrum data.
+        self.logger.info("Fetching cerebrum data...")
+        cerebrumdump = self.fetch_cerebrum_data(spread)
+        self.logger.info("Fetched %i cerebrum users" % len(cerebrumdump))
+
         #Fetch AD-data.     
         self.logger.info("Fetching AD data...")
         addump = self.fetch_ad_data(self.ad_ldap)       
         self.logger.info("Fetched %i ad-users" % len(addump))
 
-        #Fetch cerebrum data.
-        self.logger.info("Fetching cerebrum data...")
-        cerebrumdump = self.fetch_cerebrum_data(spread)
-        self.logger.info("Fetched %i cerebrum users" % len(cerebrumdump))
-                
         #compare cerebrum and ad-data.
         self.logger.info("Comparing Cerebrum and AD data...")
         changelist = self.compare(delete, cerebrumdump, addump)
