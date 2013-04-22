@@ -30,8 +30,8 @@ Eg. To dump all employee-numbers from SAP:
     <scipt name> -s SAP -t NO_SAPNO
 
 will produce a file:
-    9831:Ola Normann:2013.04.15 09:01:43
-    7321:Kari Normann:2013.04.15 09:01:43
+    9831:Ola Normann:15/04/2013 09:01:43
+    7321:Kari Normann:15/04/2013 09:01:44
     <employee_no>:<employee_name>:<date_time>
     ...
 
@@ -146,7 +146,7 @@ def write_dump_file(output, id_names):
     for id_name in id_names:
         output.write("%s\n" % ':'.join((id_name['ext_id'],
                                         id_name['name'],
-                                        time.strftime('%Y.%m.%d %H:%M:%S'))))
+                                        time.strftime('%m/%d/%Y %H:%M:%S'))))
 
 def main(argv=None):
     """Main runtime as a function, for invoking the script from other scripts /
