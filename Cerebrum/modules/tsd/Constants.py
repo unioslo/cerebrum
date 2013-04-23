@@ -44,6 +44,9 @@ class Constants(Constants.Constants):
     # Project
     affiliation_project = _PersonAffiliationCode('PROJECT',
                                                  'Member of a project')
+    # Project Owner
+    affiliation_status_project_owner = _PersonAffStatusCode(
+            affiliation_project, 'owner', 'Project Owner')
     # Project Administrator (PA)
     affiliation_status_project_admin = _PersonAffStatusCode(
             affiliation_project, 'admin', 'Project Administrator (PA)')
@@ -72,6 +75,13 @@ class Constants(Constants.Constants):
 
     ## Quarantines
 
+    quarantine_autopassord = _QuarantineCode('autopassord',
+                                             'Password out of date')
+    quarantine_generell = _QuarantineCode('generell',
+                                          'General block')
+    quarantine_teppe = _QuarantineCode('teppe',
+                                       'Quarantine for severe issues')
+
     quarantine_not_approved = _QuarantineCode('not_approved',
                                 'Waiting for approval from admin')
     quarantine_project_end = _QuarantineCode('project_end',
@@ -83,6 +93,7 @@ class Constants(Constants.Constants):
 
     system_nettskjema = _AuthoritativeSystemCode('Nettskjema',
                             'Information from Nettskjema, registered by anyone')
+    system_ad = _AuthoritativeSystemCode('AD', 'Information from AD')
     
     ## Traits
 
@@ -92,6 +103,19 @@ class Constants(Constants.Constants):
     trait_project_host = _EntityTraitCode('project_host',
                                 Constants.Constants.entity_host,
                                 'The project a host belongs to')
+
+    # Traits for metadata about projects:
+    trait_project_institution = _EntityTraitCode('institution', 
+                                    Constants.Constants.entity_ou,
+                                    'The institution the project belongs to')
+    trait_project_rek = _EntityTraitCode('rek_approval', 
+                                Constants.Constants.entity_ou,
+                                'The REK approval for the project')
+
+    trait_project_persons_accepted = _EntityTraitCode('accepted_persons', 
+                                Constants.Constants.entity_ou,
+                                'FNRs of non-existing persons that has been '
+                                'accepted as members of the project')
 
     ## Authentication codes (password types):
 

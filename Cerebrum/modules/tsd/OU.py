@@ -35,6 +35,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.OU import OU
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.dns import Subnet
 
 class OUTSDMixin(OU):
     """Mixin of OU for TSD. Projects in TSD are stored as OUs, which then has to
@@ -145,12 +146,17 @@ class OUTSDMixin(OU):
     def setup_project(self, creator_id):
         """Setup the project after the project OU is created. 
 
-        Project groups gets set up properly. Other settings should be put here
-        in the future, as this method should be called from all imports and jobs
-        that creates TSD projects.
+        By setting up a project we mean:
 
-        Note that the given OU must be set up with a proper project name, stored
-        as an acronym, before this method could be called.
+         - Create the required project groups, according to config.
+         - Reserve a vlan and subnet for the project.
+         - Create the required project machines.
+
+        More setup should be added here in the future, as this method should be
+        called from all imports and jobs that creates TSD projects.
+
+        Note that the given OU must have been set up with a proper project name,
+        stored as an acronym, before this method could be called.
 
         @type creator_id: int
         @param creator_id:
@@ -177,5 +183,10 @@ class OUTSDMixin(OU):
                 gr.write_db()
 
                 # TODO: set quarantine on group?
+
+        # Subnet and VLAN
+        subnet = Subnet
+
+                #
 
         # TODO: other settings?

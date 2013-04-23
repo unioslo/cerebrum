@@ -29,6 +29,41 @@ synced to AD, or do anything harmful, like changing a person's name. Projects
 and accounts must for instance start with a quarantine, to be approved by
 superusers.
 
+The survey XML files have the format:
+
+    <?xml version="1.0" encoding="UTF-8" standalone="yes">
+    <submission>
+        <answers>
+            <answer>
+                <textAnswer>TEXT INPUT</textAnswer>
+                <answerOptions>
+                    ...
+                </answerOptions>
+                <question inputType="SOME INPUT TYPE, LIKE TEXT">
+                    <externalQuestionId>EXTERNAL ID, SET BY ADMIN</externalQuestionId>
+                    ...
+                    <questionId>XXX</questionId>
+                </question>
+            </answer>
+            ...
+        </answers>
+        <respondentPersonIdNumber>FNR FOR THE AUTHENTICATED RESPONDENT</respondentPersonIdNumber>
+    </submission>
+
+Tags that are important to us:
+
+ - respondentPersonIdNumber: The FNR for the respondent. We must just trust that
+   this number is authenticated through ID-porten, as long as we get the XML
+   files from TSD's closed environment.
+
+ - externalQuestionId: An ID for the given answer that is manually set by the
+   administrators of the survey. This is used to map answers into attributes in
+   Cerebrum.
+
+ - textAnswer: Used for questions that are just simple textfields. No filtering
+   is done in Nettskjema, so we need to do all of that in here. Other question
+   types have different tags that is used instead.
+
 """
 
 import sys
@@ -36,13 +71,13 @@ import os
 import getopt
 from lxml import etree
 from mx import DateTime
-import traceback
 
 import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.no import fodselsnr
 
 logger = Factory.get_logger('cronjob')
 db = Factory.get('Database')()
@@ -91,6 +126,7 @@ def remove_file(file, dryrun, archive_dir=None):
     The given file should be successfully processed before moving it.
 
     """
+    logger.warn('File deletion is not implemented yet')
     if dryrun:
         return True
     # TODO
@@ -102,61 +138,96 @@ def process_files(locations, dryrun):
         # TODO: support directories
         try:
             if process_file(location, dryrun):
+                if dryrun:
+                    db.rollback()
+                    logger.info("Dryrun, rolled back changes")
+                else:
+                    db.commit()
+                    logger.info("Commited changes")
                 remove_file(location, dryrun)
         except BadInputError, e:
             logger.warn("Bad input in file %s: %s", location, e)
+            db.rollback()
         except Errors.CerebrumError, e:
             logger.warn("Failed processing %s: %s", location, e)
-
-# The XML files from Nettskjema only have integers refering to what question it
-# is answering. We need to map the integers into something we could understand.
-# Integers not defined here gets ignored. In the mapping we include what type of
-# survey the integer is used in, as we have no other identifier of this in the
-# XML file.
-#questionID2str = {
-#        # TODO: OLD, REMOVE THIS:
-#        'new_project': {
-#            '131473': 'project_id',
-#            '131472': 'project_name',
-#            '131474': 'project_leader_name',
-#            '131475': 'project_leader_phone',
-#            '131476': 'project_leader_mail',
-#            '131477': 'project_leader_uio_username',
-#            '131478': 'project_admin_name',
-#            '131479': 'institution_name',
-#            '131489': 'members',
-#            '131485': 'equipment',
-#            '131480': 'project_start',
-#            '159706': 'project_end',
-#            },
-#        'new_person': {
-#            },
-#        }
-
-## Input control functionality
-## All control functions should return True if input is valid, and either return
-## False or raise a BadInputError with a better explanation.
+            db.rollback()
 
 class BadInputError(Exception):
     """Exception for invalid input."""
     pass
 
-def input_projectid(name):
-    """Check that a given projectname validates."""
-    return ou._validate_project_name(name)
+class InputControl(object):
+    """Class for validating and filtering the input.
 
-def input_valid_date(date):
-    """Check that a date is parsable and valid."""
-    # TODO
-    return True
+    All control functions should return True if input is valid, or raise a
+    BadInputError with a better explanation in case of errors. It could return
+    just False, but no explanation would get logged about why the input was
+    invalid.
 
-## Input filter functions
-# TODO
-def filter_date(date):
-    """Parse a date and return a DateTime object."""
-    # TODO
-    return None
+    All the data given from the XML forms must not be trusted, as it could be
+    given by anyone with an FNR. The only data we could trust, is the FNR
+    itself, as that is authenticated by ID-porten.
 
+    """
+    def is_projectid(self, name):
+        """Check that a given projectname validates."""
+        return ou._validate_project_name(name)
+
+    def is_valid_date(self, date):
+        """Check that a date is parsable and valid."""
+        DateTime.strptime(date, '%d.%m.%Y')
+        return True
+
+    def is_nonempty(self, txt):
+        """Check that a string is not empty or only consists of whitespaces."""
+        if bool(txt.strip()):
+            return True
+        raise BadInputError('Empty string')
+
+    def is_username(self, name):
+        """Check that a given username is a valid username."""
+        self.is_nonempty(name)
+        err = ac.illegal_name(name)
+        if err:
+            raise BadInputError('Illegal username: %s' % err)
+        return True
+
+    def is_phone(self, number):
+        """Check if a phone number is valid."""
+        self.is_nonempty(number)
+        number = number.replace(' ', '')
+        number = number.replace('-', '')
+        if number.startswith('+'):
+            number = number[1:]
+        if number.isdigit():
+            return True
+        raise BadInputError('Invalid phone number: %s' % number)
+
+    def is_email(self, adr):
+        """Check if an e-mail address is valid."""
+        self.is_nonempty(adr)
+        # TODO: how much should we check here?
+        if '@' not in adr:
+            raise BadInputError('Invalid e-mail address: %s' % adr)
+        return True
+
+    def is_fnr(self, fnr):
+        """Check if input is a valid, Norwegian fnr."""
+        self.is_nonempty(fnr)
+        # TODO: bogus fnr in test, add the check back when done testing:
+        #fnr = fodselsnr.personnr_ok(fnr)
+        return True
+
+    def str(self, data):
+        """Return the data as a string, stripped."""
+        return str(data).strip()
+
+    def filter_date(self, date):
+        """Parse a date and return a DateTime object."""
+        # TODO: What date format should we use? Isn't ISO the best option?
+        return DateTime.strptime(date, '%d.%m.%Y')
+
+input = InputControl()
 
 # Settings for input data
 #
@@ -167,22 +238,24 @@ def filter_date(date):
 #
 # Tag found in submission, mapped to requirement func, filter func and name of
 # variable.
-# TODO: do we need more?
 input_settings = {
     'new_project': {
-        # tag name: input control:     format:      internal name:
-        '131473':   (input_projectid,  str,         'project_id'),
-        '131472':   (lambda x: True,   str,         'project_longname'),
-        #'#PROJSHORT':   (lambda x: True,   str,         'project_shortname'),
-        '131480':   (input_valid_date, lambda x: x, 'project_startdate'),
-        '159706':   (input_valid_date, lambda x: x, 'project_enddate'),
-        # tag name:     input control:     format:      internal name:
-        # TODO: change to a external id in Nettskjema in the future:
-        #'#PROJID':      (input_projectid,  str,         'projectid'),
-        #'#PROJLONG':    (lambda x: True,   str,         'project_longname'),
-        #'#PROJSHORT':   (lambda x: True,   str,         'project_shortname'),
-        #'#PROJSTART':   (input_valid_date, lambda x: x, 'project_startdate'),
-        #'#PROJEND':     (input_valid_date, lambda x: x, 'project_enddate'),
+        # Project info:
+        'p_id': (input.is_projectid, input.str),
+        'p_name': (input.is_nonempty, input.str),
+        'p_shortname': (input.is_nonempty, input.str),
+        'p_start': (input.is_valid_date, input.filter_date),
+        'p_end': (input.is_valid_date, input.filter_date),
+        'p_responsible': (input.is_fnr, input.str),
+        'institution': (input.is_nonempty, input.str),
+        'rek_approval': (input.is_nonempty, input.str),
+        'p_persons': (lambda x: True, input.str),
+
+        # The PA:
+        'pa_name': (input.is_nonempty, input.str),
+        'pa_phone': (input.is_phone, input.str),
+        'pa_email': (input.is_email, input.str),
+        'pa_uiousername': (input.is_username, input.str),
         },
     'new_person': {
         #TODO
@@ -194,9 +267,11 @@ input_settings = {
 
 
 def _xml2answersdict(xml):
-    """Parse XML and return a dict with all the answers.
+    """Parse the XML and return a dict with all the answers.
 
-    No and input control and filtering is performed.
+    Only the answers that has a named mapping is returned.
+
+    No input control or filtering is performed in this function.
 
     @rtype: dict
     @return: A mapping of the answers. Keys are the id of the answer, and the
@@ -205,17 +280,22 @@ def _xml2answersdict(xml):
     """
     ret = dict()
     for ans in xml.find('answers').iterfind('answer'):
-        # TODO: Change to using external id when fixed in nettskjema
-        qid = ans.find('question').find('questionId').text
+        # Find the set external ID for the question
+        extid = None
+        try:
+            extid = ans.find('question').find('externalQuestionId').text
+        except AttributeError:
+            # Ignore questions without a set external ID
+            continue
         answer = ans.find('textAnswer')
         if answer is not None:
             answer = answer.text
         else:
             # TODO: should be able to parse answers that is not text
-            logger.warn("For qid %s, got unhandled answerOption: %s", qid,
-                        etree.tostring(ans)[:100])
+            logger.warn("For question %s, got unhandled answerOption: %s",
+                        extid, etree.tostring(ans)[:100])
             continue
-        ret[qid] = answer
+        ret[extid] = answer
     return ret
 
 def _get_submission_type(id):
@@ -255,79 +335,126 @@ def xml2answers(xml):
     stypes = set()
     for id, ans in answers.iteritems():
         # Find the id from any of the submission types. This would take some
-        # time if we had a lot of submission types, but we should have three.
+        # time if we had a lot of submission types, but we only have three types
+        # initially, so it's okay.
         stype = _get_submission_type(id)
         # Ignore undefined answers:
         if not stype:
             continue
         stypes.add(stype)
-        control, filter, nametag = input_settings[stype][id]
-        if not control(ans):
-            # TODO: create a more specific exception type
-            raise BadInputError('Answer "%s" not valid: %s' % (id, ans))
-        ret[nametag] = filter(ans)
+        # Get the callbacks from the settings:
+        control, filter = input_settings[stype][id]
+        try:
+            control_ans = control(ans)
+        except BadInputError, e:
+            raise BadInputError('Answer "%s" invalid: %s. Answer: %s' % (id, e,
+                                                                         ans))
+        if not control_ans:
+            raise BadInputError('Answer "%s" invalid: %s' % (id, ans))
+        ret[id] = filter(ans)
     # Check that we don't have answers from more than one submission type.
     if len(stypes) > 1:
         raise Errors.CerebrumError('Answers from different submissiontypes: %s'
                                    % stypes)
+    # Check that we have all the answers we need:
+    if len(ret) < len(input_settings[stype]):
+        remaining = set(input_settings[stype].keys()) - set(ret.keys())
+        raise Errors.CerebrumError('Missing input: %s' % ', '.join(remaining))
     return stypes.pop(), ret
 
 def process_file(file, dryrun):
     logger.info("Processing file: %s", file)
     xml = etree.parse(file).getroot()
-    submid = xml.find('submissionId').text
-    logger.debug("SubmissionId: %s" % submid)
     stype, answers = xml2answers(xml)
-    logger.debug('Processing %s: found %d answers' % (stype, len(answers)))
+    fnr = xml.find('respondentPersonIdNumber').text
+    logger.debug('Processing %s: found %d answers from respondent: %s', stype,
+                 len(answers), fnr)
 
     # Do the Cerebrum processing:
-    p = Processing()
+    p = Processing(fnr=fnr)
     ret = getattr(p, stype)(answers)
     logger.debug("Submission processed: %s" % ret)
 
 class Processing(object):
     """Handles the processing of the parsed and validated XML data."""
 
-    def new_project(self, data):
-        """Create a given project.
+    def __init__(self, fnr):
+        self.fnr = fnr
 
-        @type data: etree.Element
-        @param data: The data about the requested project.
+    def _get_person(self, fnr=None):
+        """Return the person with the given fnr.
+
+        If the person does not exist, it gets created. Names and all other data
+        but the fnr needs to be added to the person.
 
         """
-        projectname = data['project_id']
-        logger.info('Creating new project: %s', projectname)
+        if not fnr:
+            fnr = self.fnr
+        pe = Factory.get('Person')(db)
+        try:
+            pe.find_by_external_id(id_type=co.externalid_fodselsnr,
+                                   external_id=fnr)
+        except Errors.NotFoundError:
+            pe.clear()
+            pe.populate(birth_date=None, gender=co.gender_unknown)
+            pe.write_db()
+            pe.affect_external_id(co.system_nettskjema, co.externalid_fodselsnr)
+            pe.populate_external_id(source_system=co.system_nettskjema,
+                                    id_type=co.externalid_fodselsnr,
+                                    external_id=fnr)
+            pe.write_db()
+        return pe
 
-        # Validate the name, raise errors if not valid
-        ou._validate_project_name(projectname)
+    def _update_person(self, pe, input):
+        """Update the data about a given person.
 
-        # TODO: add validation, but wait until the XML is defined properly!
+        Update names, contact info and other available data.
 
-        # Make sure it's not already in use:
+        """
+        # Full name
+        pe.affect_names(co.system_nettskjema, co.name_full)
+        pe.populate_name(co.name_full, input['pa_name'])
+        pe.write_db()
+        # Phone
+        pe.populate_contact_info(source_system=co.system_nettskjema,
+                                 type=co.contact_phone, value=input['pa_phone'])
+        pe.write_db()
+        # E-mail
+        pe.populate_contact_info(source_system=co.system_nettskjema,
+                                 type=co.contact_email, value=input['pa_email'])
+        pe.write_db()
+        # TODO: more that should be stored?
+
+    def _create_ou(self, input):
+        """Create the project OU based in given input."""
+        pid = input['p_id']
+        # Make sure the project id is not already in use:
         ou.clear()
         try:
-            ou.find_by_tsd_projectname(projectname)
-            raise Errors.CerebrumError('Project name already exists: %s' %
-                                       projectname)
+            ou.find_by_tsd_projectname(pid)
+            raise Errors.CerebrumError('ProjectId already taken: %s' %
+                                       pid)
         except Errors.NotFoundError: 
             pass
         ou.clear()
         ou.populate()
         ou.write_db()
-        gateway('project.create', projectname)
+        # TODO: should this be given after the project has been accepted
+        # instead?
+        gateway('project.create', pid)
+        #gateway('project.freeze', pid)
 
         # Storing the names:
         ou.add_name_with_language(name_variant=co.ou_name_acronym,
-                                  name_language=co.language_en, name=projectname)
-        longname = data['project_longname']
-        logger.debug("Storing long name: %s", longname)
+                                  name_language=co.language_en, name=pid)
+        longname = input['p_name']
+        logger.debug("Storing name: %s", longname)
         ou.add_name_with_language(name_variant=co.ou_name_long,
                                   name_language=co.language_en, name=longname)
-        shortname = data.get('short_title')
-        if shortname:
-            logger.debug("Storing short name: %s", shortname)
-            ou.add_name_with_language(name_variant=co.ou_name_long,
-                                      name_language=co.language_en, name=shortname)
+        shortname = input['p_shortname']
+        logger.debug("Storing short name: %s", shortname)
+        ou.add_name_with_language(name_variant=co.ou_name_long,
+                                  name_language=co.language_en, name=shortname)
         ou.write_db()
 
         # Always start projects quarantined, needs to be approved first!
@@ -338,7 +465,7 @@ class Processing(object):
         ou.write_db()
 
         # Storing the dates:
-        endtime = DateTime.strptime(data['project_enddate'], '%d.%m.%Y')
+        endtime = input['p_end']
         if endtime < DateTime.now():
             raise Errors.CerebrumError("End date of project has passed: %s" %
                                        endtime)
@@ -347,8 +474,7 @@ class Processing(object):
                                  description='Initial requested lifetime for project',
                                  start=endtime)
         ou.write_db()
-
-        starttime = DateTime.strptime(data['project_startdate'], '%d.%m.%Y')
+        starttime = input['p_start']
         if starttime > DateTime.now():
             ou.add_entity_quarantine(type=co.quarantine_project_start,
                                      creator=systemaccount_id,
@@ -356,49 +482,128 @@ class Processing(object):
                                      start=DateTime.now(), end=starttime)
             ou.write_db()
 
-        # TODO: more to store in cerebrum:
-        # institution - where to store this? what is it used for?
-        # project responsible
-        # project_admin
-        #
-        # os_first_wm
-        # new_user - create users automatically?
-
+        ou.populate_trait(co.trait_project_institution, target_id=ou.entity_id,
+                          strval=input['institution'])
+        ou.populate_trait(co.trait_project_rek, target_id=ou.entity_id,
+                          strval=input['rek_approval'])
         ou.write_db()
-        logger.debug("New project created successfully: %s", projectname)
+        logger.debug("Setting up rest of project...")
+        ou.setup_project(systemaccount_id)
+        logger.debug("New project created successfully: %s", pid)
+        return ou
+
+    def new_project(self, input):
+        """Create a given project.
+
+        @type input: etree.Element
+        @param input: The data about the requested project. Should have been
+            checked and filtered on beforehand.
+
+        """
+        pid = input['p_id']
+        logger.info('New project: %s', pid)
+        ou = self._create_ou(input)
+
+        # Update the requestee for the project:
+        pe = self._get_person()
+        self._update_person(pe, input)
+
+        # Give the requestor an affiliation to the project.
+        # If the requestor sets himself as the Project Owner (responsible), it
+        # gets status as the owner. Otherwise we give him PA status:
+        status = co.affiliation_status_project_admin
+        # TODO: do we really need to differentiate between owner and PA?
+        if self.fnr == input['p_responsible']:
+            status = co.affiliation_status_project_owner
+        pe.populate_affiliation(source_system=co.system_nettskjema,
+                                ou_id=ou.entity_id, status=status,
+                                affiliation=co.affiliation_project)
+        pe.write_db()
+
+        # Check the responsible and give access to the project by an
+        # affiliation:
+        if self.fnr != input['p_responsible']:
+            pe2 = self._get_person(input['p_responsible'])
+            pe2.populate_affiliation(source_system=co.system_nettskjema,
+                                     ou_id=ou.entity_id,
+                                     affiliation=co.affiliation_project,
+                                     status=co.affiliation_status_project_owner)
+            # Note that no name or anything else is now set for this account.
+            pe2.write_db()
+
+        # Create project account for the PA:
+        username = '%s-%s' % (pid, input['pa_uiousername'])
+        ac.create(name=username, owner_id=pe.entity_id,
+                  creator_id=systemaccount_id, expire_date=input['p_end'])
+        # Set quarantine:
+        ac.add_entity_quarantine(type=co.quarantine_not_approved,
+                                 creator=systemaccount_id,
+                                 description='User not yet approved by admin',
+                                 start=DateTime.now())
+        ac.write_db()
+        # TODO: quarantine for start and end dates?
+
+        # TODO: more to store in cerebrum:
+        not_found_persons = []
+        for person in p_persons.split(' '):
+            try:
+                fnr = fodselsnr.personnr_ok(fnr)
+            except fodselsnr.InvalidFnrError:
+                # Ignore invalid fnr
+                continue
+            ret = tuple(pe.list_external_ids(id_type=co.externalid_fodselsnr,
+                                             external_id=fnr,
+                                             entity_type=co.entity_person))
+            if len(ret) > 1:
+                raise Exception("Found more than one person with fnr: %s" % fnr)
+            elif len(ret) == 1:
+                pe.clear()
+                pe.find(ret[0]['entity_id'])
+                pe.populate_affiliation(source_system=co.system_nettskjema,
+                                        ou_id=ou.entity_id,
+                                        affiliation=co.affiliation_project,
+                                        status=co.affiliation_status_project_member)
+                pe.write_db()
+            else:
+                not_found_persons.append(fnr)
+        # TODO: Store the not found persons 
+        ou.populate_trait(co.trait_project_persons_accepted,
+                          target_id=ou.entity_id,
+                          strval=' '.join(not_found_persons))
+        ou.write_db()
         # TODO: How should we signal that a new project is waiting approval?
         return True
 
-    def new_person(self, data):
-        """Create a person object with the given data.
+    def new_person(self, input):
+        """Create a person object with the given input.
 
         Note that the given information could be filled out by anyone. The
         administratrors of TSD must therefore approve the information before the
         person could be used in Cerebrum.
 
-        @type data: etree.Element
-        @param data: The data about the requested person.
+        @type input: etree.Element
+        @param input: The data about the requested person.
 
         """
         logger.debug('Creating new person...')
 
-        projectname = data['projectid']
-        name = data['name']
-        uio_username = data['uioname']
-        fnr = data['fnr']
+        pid = input['p_id']
+        name = input['name']
+        uio_username = input['uioname']
+        fnr = input['fnr']
         # TODO: Validate the information!
 
         # The person must be registered to a project, even though it's not necessary
         # for creating the person.
         ou.clear()
-        ou.find_by_tsd_projectname(projectname)
+        ou.find_by_tsd_projectname(pid)
 
         # TODO: What to do if the person already exists? Stop importing is okay?
         if tuple(pe.list_external_ids(id_type=co.externalid_fodselsnr,
                                       external_id=fnr)):
             raise Errors.CerebrumError('Person already exists with fnr: %s' % fnr)
 
-        username = '%s-%s' % (projectname, uio_username)
+        username = '%s-%s' % (pid, uio_username)
 
         # TODO: if the UiO username is already taken, create another username?
         if tuple(ac.search(name=username)):
@@ -438,7 +643,7 @@ class Processing(object):
         # TODO: create person
         logger.info('New person created, entity_id: %s', pe.entity_id)
 
-    def approve_person(self, data):
+    def approve_person(self, input):
         """Handle the approval of a person in Cerebrum by PA."""
         pass
         #TODO

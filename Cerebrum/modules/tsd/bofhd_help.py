@@ -72,5 +72,8 @@ arg_help.update({
     'project_statusfilter':
         ['filter', 'Filter on project status',
          'Not implemented yet'],
+    'entity_type':
+        ['entity_type', 'Entity type',
+         'Possible values:\n - group\n - account\n - project'],
     })
 

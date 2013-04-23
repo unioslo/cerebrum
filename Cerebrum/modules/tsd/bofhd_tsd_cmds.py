@@ -1,4 +1,6 @@
+#!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
+#
 # Copyright 2013 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -111,6 +113,11 @@ class ProjectStatusFilter(cmd.Parameter):
     _type = 'projectStatusFilter'
     _help_ref = 'project_statusfilter'
 
+class Subnet(cmd.Parameter):
+    """A subnet, e.g. 10.0.0.0/16"""
+    _type = 'subnet'
+    _help_ref = 'subnet'
+
 class TSDBofhdExtension(BofhdCommandBase):
     """Superclass for common functionality for TSD's bofhd servers."""
 
@@ -146,15 +153,26 @@ class TSDBofhdExtension(BofhdCommandBase):
         return (bofhd_help.group_help, bofhd_help.command_help,
                 bofhd_help.arg_help)
 
+    def _get_entity(self, entity_type=None, ident=None):
+        """Return a suitable entity subclass for the specified entity_id.
+
+        Overridden to be able to return TSD projects by their projectname or
+        entity_id.
+
+        """
+        if ident and entity_type == 'project':
+            return self._get_project(ident)
+        return super(TSDBofhdExtension, self)._get_entity(entity_type, ident)
+
     def _get_project(self, projectname):
         """Return a project's OU by its name, if found. We identify project's by
         their acronym name, which is not handled uniquely in the database, so we
         could be up for integrity errors, e.g. if two projects are called the
         same. This should be handled by TSD's OU class.
 
-        @type projectname: string
-        @param projectname: The name of the project. Must match one and only one
-            OU.
+        @type projectname: string or integer
+        @param projectname: The name or the entity_id of the project. Must match
+            one and only one OU.
 
         @raise CerebrumError: If no project OU with the given acronym name was
             found, or if more than one project OU was found.
@@ -163,10 +181,16 @@ class TSDBofhdExtension(BofhdCommandBase):
         ou = self.OU_class(self.db)
         try:
             ou.find_by_tsd_projectname(projectname)
+            return ou
         except Errors.NotFoundError:
-            # TODO: check for entity_id and integers?
-            raise CerebrumError("Could not find project: %s" % projectname)
-        return ou
+            pass
+        if projectname.isdigit():
+            try:
+                ou.find(projectname)
+                return ou
+            except Errors.NotFoundError:
+                pass
+        raise CerebrumError("Could not find project: %s" % projectname)
 
     def _get_ou(self, ou_id=None, stedkode=None):
         """Override to change the use of L{stedkode} to check the acronym.
@@ -193,6 +217,7 @@ class TSDBofhdExtension(BofhdCommandBase):
         except Errors.NotFoundError:
             return str(acronym)
         return "%s (%s)" % (acronym, short_name)
+
 
 class AdministrationBofhdExtension(TSDBofhdExtension):
     """The bofhd commands for the TSD project's system administrators.
@@ -462,6 +487,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
              ('email_affiliation', 'email_domain')),
             ('Project start: %s', ('project_start',)),
             ('Project end:   %s', ('project_end',)),
+            ('Quarantine:    %s', ('q_status',)),
             ]),
         perm_filter='is_superuser')
     def project_info(self, operator, projectname):
@@ -476,6 +502,32 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             raise CerebrumError('Only superusers are allowed to do this')
         project = self._get_project(projectname)
         ret = self.ou_info(operator, 'id:%d' % project.entity_id)
+
+        # Quarantine status:
+        quarantined = None
+        for q in ou.get_entity_quarantine(only_active=False):
+            if q['start_date'] > now:
+                # Ignore quarantines in the future for now, as all projects
+                # should have an end quarantine
+                continue
+
+            if (q['end_date'] is not None and
+                q['end_date'] < now):
+                quarantined = 'expired'
+            elif (q['disable_until'] is not None and
+                q['disable_until'] > now):
+                quarantined = 'disabled'
+            else:
+                quarantined = 'active'
+                break
+        if quarantined:
+            ret.append({'q_status': quarantined})
+
+
+        for row in project.get_entity_quarantine(
+                                           self.const.quarantine_project_start):
+            pass
+        
         # Project start:
         for row in project.get_entity_quarantine(
                                            self.const.quarantine_project_start):
@@ -920,6 +972,31 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         except self.db.DatabaseError, m:
             raise CerebrumError("Database error: %s" % m)
         return "OK, removed '%s' from '%s'" % (member_name, group.group_name)
+
+    ##
+    ## Subnet commands
+
+    # subnet create
+    all_commands['subnet_create'] = cmd.Command(
+        ("subnet", "create"),
+        Subnet(), cmd.Description(), Vlan(), 
+        perm_filter='is_superuser')
+    def subnet_create(self, operator, subnet, description, vlan):
+        """Create a new subnet, if the range is not already reserved.
+
+        TODO: Should it be possible to specify a range, or should we find one
+        randomly?
+
+        """
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise CerebrumError('Only superusers are allowed to do this')
+        subnet = Subnet.Subnet(self.db)
+        subnet.populate(subnet, description=description, vlan=vlan)
+        # TODO: more checks?
+        subnet.write_db(perform_checks=True)
+        return "Subnet created: %s" % subnet
+
+def add_subnet(subnet, description, vlan, perform_checks=True):
 
 class EnduserBofhdExtension(TSDBofhdExtension):
     """The bofhd commands for the end users of TSD.
