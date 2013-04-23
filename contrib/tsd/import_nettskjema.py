@@ -379,6 +379,13 @@ class Processing(object):
     """Handles the processing of the parsed and validated XML data."""
 
     def __init__(self, fnr):
+        """Set up the processing.
+
+        @type fnr: string
+        @param fnr: The fødselsnummer for the person that sent in the survey and
+            requested some changes in TSD.
+
+        """
         self.fnr = fnr
 
     def _get_person(self, fnr=None):
@@ -395,6 +402,7 @@ class Processing(object):
             pe.find_by_external_id(id_type=co.externalid_fodselsnr,
                                    external_id=fnr)
         except Errors.NotFoundError:
+            logger.info("Creating new person, with fnr: %s", fnr)
             pe.clear()
             pe.populate(birth_date=None, gender=co.gender_unknown)
             pe.write_db()
@@ -423,7 +431,6 @@ class Processing(object):
         pe.populate_contact_info(source_system=co.system_nettskjema,
                                  type=co.contact_email, value=input['pa_email'])
         pe.write_db()
-        # TODO: more that should be stored?
 
     def _create_ou(self, input):
         """Create the project OU based in given input."""
@@ -432,8 +439,7 @@ class Processing(object):
         ou.clear()
         try:
             ou.find_by_tsd_projectname(pid)
-            raise Errors.CerebrumError('ProjectId already taken: %s' %
-                                       pid)
+            raise Errors.CerebrumError('ProjectId already taken: %s' % pid)
         except Errors.NotFoundError: 
             pass
         ou.clear()
@@ -464,7 +470,7 @@ class Processing(object):
                                  start=DateTime.now())
         ou.write_db()
 
-        # Storing the dates:
+        # Storing the start and end date:
         endtime = input['p_end']
         if endtime < DateTime.now():
             raise Errors.CerebrumError("End date of project has passed: %s" %
@@ -475,6 +481,8 @@ class Processing(object):
                                  start=endtime)
         ou.write_db()
         starttime = input['p_start']
+        # TBD: should we always set the start date, even if it is passed, for
+        # the administrators to see when the project started?
         if starttime > DateTime.now():
             ou.add_entity_quarantine(type=co.quarantine_project_start,
                                      creator=systemaccount_id,
@@ -495,6 +503,9 @@ class Processing(object):
     def new_project(self, input):
         """Create a given project.
 
+        TODO: A lot of this code should be moved into e.g. TSD's OU mixin, or
+        somewhere else to be usable both by various scripts and bofhd.
+
         @type input: etree.Element
         @param input: The data about the requested project. Should have been
             checked and filtered on beforehand.
@@ -511,8 +522,8 @@ class Processing(object):
         # Give the requestor an affiliation to the project.
         # If the requestor sets himself as the Project Owner (responsible), it
         # gets status as the owner. Otherwise we give him PA status:
+        # TBD: do we need to differentiate between owner and PA?
         status = co.affiliation_status_project_admin
-        # TODO: do we really need to differentiate between owner and PA?
         if self.fnr == input['p_responsible']:
             status = co.affiliation_status_project_owner
         pe.populate_affiliation(source_system=co.system_nettskjema,
@@ -533,8 +544,14 @@ class Processing(object):
 
         # Create project account for the PA:
         username = '%s-%s' % (pid, input['pa_uiousername'])
+        logger.info("Creating project user for person %s: %s", pe.entity_id,
+                    username)
+        ac.clear()
         ac.create(name=username, owner_id=pe.entity_id,
                   creator_id=systemaccount_id, expire_date=input['p_end'])
+        # Set affiliation:
+        ac.set_account_type(ou.entity_id, co.affiliation_project)
+        ac.write_db()
         # Set quarantine:
         ac.add_entity_quarantine(type=co.quarantine_not_approved,
                                  creator=systemaccount_id,
@@ -543,33 +560,37 @@ class Processing(object):
         ac.write_db()
         # TODO: quarantine for start and end dates?
 
-        # TODO: more to store in cerebrum:
-        not_found_persons = []
-        for person in p_persons.split(' '):
+        # Other members that should be added to the project:
+        not_found_persons = set()
+        for fnr in set(input['p_persons'].split()):
             try:
                 fnr = fodselsnr.personnr_ok(fnr)
             except fodselsnr.InvalidFnrError:
-                # Ignore invalid fnr
+                logger.debug("Ignoring invalid fnr: %s", fnr)
                 continue
             ret = tuple(pe.list_external_ids(id_type=co.externalid_fodselsnr,
                                              external_id=fnr,
                                              entity_type=co.entity_person))
             if len(ret) > 1:
-                raise Exception("Found more than one person with fnr: %s" % fnr)
+                raise Exception("Found more than one person fnr: %s" % fnr)
             elif len(ret) == 1:
                 pe.clear()
                 pe.find(ret[0]['entity_id'])
+                logger.info("Adding person %s to the project", pe.entity_id)
                 pe.populate_affiliation(source_system=co.system_nettskjema,
                                         ou_id=ou.entity_id,
                                         affiliation=co.affiliation_project,
                                         status=co.affiliation_status_project_member)
                 pe.write_db()
             else:
-                not_found_persons.append(fnr)
+                not_found_persons.add(fnr)
         # TODO: Store the not found persons 
-        ou.populate_trait(co.trait_project_persons_accepted,
-                          target_id=ou.entity_id,
-                          strval=' '.join(not_found_persons))
+        if not_found_persons:
+            logger.debug("Remaining non-existing persons: %d",
+                         len(not_found_persons))
+            ou.populate_trait(co.trait_project_persons_accepted,
+                              target_id=ou.entity_id,
+                              strval=' '.join(not_found_persons))
         ou.write_db()
         # TODO: How should we signal that a new project is waiting approval?
         return True
