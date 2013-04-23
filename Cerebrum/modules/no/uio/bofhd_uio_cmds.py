@@ -302,7 +302,7 @@ class BofhdExtension(BofhdCommonMethods):
             self._ldap_connect.ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT,
                                                ldap.OPT_X_TLS_DEMAND)
 
-            server = cereconf.LDAP_SERVERS[0]
+            server = cereconf.LDAP_MASTER
 
             con = ldapobject.ReconnectLDAPObject("ldaps://%s/" % server,
                                                  retry_max = \
