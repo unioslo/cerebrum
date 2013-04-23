@@ -539,7 +539,7 @@ class FronterXML(object):
                  fronter=None, include_password=True):
         self.xml = XMLWriter(fname)
         self.xml.startDocument(encoding='ISO-8859-1')
-        self.rootEl = 'ENTERPRISE'
+        self.rootEl = 'enterprise'
         self.DataSource = 'cerebrum@hia.no'
         self.cf_dir = cf_dir
         self.debug_file = debug_file
@@ -552,77 +552,77 @@ class FronterXML(object):
     def start_xml_head(self):
 	self.xml.comment("Eksporterer data for HiA\n")
 	self.xml.startTag(self.rootEl)
-        self.xml.startTag('PROPERTIES')
-        self.xml.dataElement('DATASOURCE', self.DataSource)
-        self.xml.dataElement('DATETIME', time.strftime("%Y-%m-%d"))
-        self.xml.endTag('PROPERTIES')
+        self.xml.startTag('properties')
+        self.xml.dataElement('datasource', self.DataSource)
+        self.xml.dataElement('datetime', time.strftime("%Y-%m-%d"))
+        self.xml.endTag('properties')
 
     def start_xml_file(self, kurs2enhet):
         self.xml.comment("Eksporterer data om følgende emner:\n  " + 
                     "\n  ".join(kurs2enhet.keys()))
         self.xml.startTag(self.rootEl)
-        self.xml.startTag('PROPERTIES')
-        self.xml.dataElement('DATASOURCE', self.DataSource)
-        self.xml.dataElement('TARGET', "ClassFronter/%s@hia.no" % self.cf_id)
+        self.xml.startTag('properties')
+        self.xml.dataElement('datasource', self.DataSource)
+        self.xml.dataElement('target', "ClassFronter/%s@hia.no" % self.cf_id)
         # :TODO: Tell Fronter (again) that they need to define the set of
         # codes for the TYPE element.
         # self.xml.dataElement('TYPE', "REFRESH")
-        self.xml.dataElement('DATETIME', time.strftime("%Y-%m-%d"))
-        self.xml.startTag('EXTENSION')
-        self.xml.emptyTag('DEBUG', {
+        self.xml.dataElement('datetime', time.strftime("%Y-%m-%d"))
+        self.xml.startTag('extension')
+        self.xml.emptyTag('debug', {
             'debugdest': 0, # File
             'logpath': self.debug_file,
             'debuglevel': self.debug_level})
-        self.xml.emptyTag('DATABASESETTINGS', {
+        self.xml.emptyTag('databasesettings', {
             'database': 0,	# Oracle
             'jdbcfilename': "%s/%s.dat" % (self.cf_dir, self.cf_id)
             })
-        self.xml.endTag('EXTENSION')
-        self.xml.endTag('PROPERTIES')
+        self.xml.endTag('extension')
+        self.xml.endTag('properties')
 
     def user_to_XML(self, id, recstatus, data):
         """Lager XML for en person"""
-        self.xml.startTag('PERSON', {'recstatus': recstatus})
-        self.xml.startTag('SOURCEDID')
-        self.xml.dataElement('SOURCE', self.DataSource)
-        self.xml.dataElement('ID', id)
-        self.xml.endTag('SOURCEDID')
+        self.xml.startTag('person', {'recstatus': recstatus})
+        self.xml.startTag('sourcedid')
+        self.xml.dataElement('source', self.DataSource)
+        self.xml.dataElement('id', id)
+        self.xml.endTag('sourcedid')
         if (recstatus == Fronter.STATUS_ADD
             or recstatus == Fronter.STATUS_UPDATE):
-            self.xml.startTag('NAME')
-            self.xml.dataElement('FN', data['FN'])
-            self.xml.startTag('N')
-            self.xml.dataElement('FAMILY', data['FAMILY'])
-            self.xml.dataElement('GIVEN', data['GIVEN'])
-            self.xml.endTag('N')
-            self.xml.endTag('NAME')
-            self.xml.dataElement('EMAIL', data['EMAIL'])
+            self.xml.startTag('name')
+            self.xml.dataElement('fn', data['FN'])
+            self.xml.startTag('n')
+            self.xml.dataElement('family', data['FAMILY'])
+            self.xml.dataElement('given', data['GIVEN'])
+            self.xml.endTag('n')
+            self.xml.endTag('name')
+            self.xml.dataElement('email', data['EMAIL'])
             if data["MOBILE"]:
-                self.xml.dataElement('TEL', data["MOBILE"],
+                self.xml.dataElement('tel', data["MOBILE"],
                                      {"teltype": "3"})
-            self.xml.startTag('EXTENSION')
+            self.xml.startTag('extension')
             if self.include_password:
-                self.xml.emptyTag('PASSWORD',
+                self.xml.emptyTag('password',
                                   {'passwordtype': data['PASSWORD']})
-            self.xml.emptyTag('EMAILCLIENT',
+            self.xml.emptyTag('emailclient',
                               {'clienttype': data['EMAILCLIENT']})
-            self.xml.emptyTag('USERACCESS', {'accesstype': data['USERACCESS']})
-            self.xml.endTag('EXTENSION')
-        self.xml.endTag('PERSON')
+            self.xml.emptyTag('useraccess', {'accesstype': data['USERACCESS']})
+            self.xml.endTag('extension')
+        self.xml.endTag('person')
 
     def group_to_XML(self, id, recstatus, data):
         # Lager XML for en gruppe
         if recstatus == Fronter.STATUS_DELETE:
             return
-        self.xml.startTag('GROUP', {'recstatus': recstatus})
-        self.xml.startTag('SOURCEDID')
-        self.xml.dataElement('SOURCE', self.DataSource)
-        self.xml.dataElement('ID', id)
-        self.xml.endTag('SOURCEDID')
+        self.xml.startTag('group', {'recstatus': recstatus})
+        self.xml.startTag('sourcedid')
+        self.xml.dataElement('source', self.DataSource)
+        self.xml.dataElement('id', id)
+        self.xml.endTag('sourcedid')
         if (recstatus == Fronter.STATUS_ADD or
             recstatus == Fronter.STATUS_UPDATE):
-            self.xml.startTag('GROUPTYPE')
-            self.xml.dataElement('SCHEME', 'FronterStructure1.0')
+            self.xml.startTag('grouptype')
+            self.xml.dataElement('scheme', 'FronterStructure1.0')
             # Unfortunately (?) allow_room/contact can have 'False' as value
             # associated with them. However, the DTD allows numbers only for
             # this attribute. 
@@ -636,24 +636,24 @@ class FronterXML(object):
                 allow_contact = 2
             else:
                 allow_contact = 0
-            self.xml.emptyTag('TYPEVALUE',
+            self.xml.emptyTag('typevalue',
                               {'level': allow_room | allow_contact})
-            self.xml.endTag('GROUPTYPE')
-            self.xml.startTag('DESCRIPTION')
+            self.xml.endTag('grouptype')
+            self.xml.startTag('description')
             if (len(data['title']) > 60):
-                self.xml.emptyTag('SHORT')
-                self.xml.dataElement('LONG', data['title'])
+                self.xml.emptyTag('short')
+                self.xml.dataElement('long', data['title'])
             else:
-                self.xml.dataElement('SHORT', data['title'])
-            self.xml.endTag('DESCRIPTION')
-            self.xml.startTag('RELATIONSHIP', {'relation': 1})
-            self.xml.startTag('SOURCEDID')
-            self.xml.dataElement('SOURCE', self.DataSource)
-            self.xml.dataElement('ID', data['parent'])
-            self.xml.endTag('SOURCEDID')
-            self.xml.emptyTag('LABEL')
-            self.xml.endTag('RELATIONSHIP')
-        self.xml.endTag('GROUP')
+                self.xml.dataElement('short', data['title'])
+            self.xml.endTag('description')
+            self.xml.startTag('relationship', {'relation': 1})
+            self.xml.startTag('sourcedid')
+            self.xml.dataElement('source', self.DataSource)
+            self.xml.dataElement('id', data['parent'])
+            self.xml.endTag('sourcedid')
+            self.xml.emptyTag('label')
+            self.xml.endTag('relationship')
+        self.xml.endTag('group')
 
     def room_to_XML(self, id, recstatus, data):
         # Lager XML for et rom
@@ -661,66 +661,66 @@ class FronterXML(object):
         # Gamle rom skal aldri slettes automatisk.
         if recstatus == Fronter.STATUS_DELETE:
             return 
-        self.xml.startTag('GROUP', {'recstatus': recstatus})
-        self.xml.startTag('SOURCEDID')
-        self.xml.dataElement('SOURCE', self.DataSource)
-        self.xml.dataElement('ID', id)
-        self.xml.endTag('SOURCEDID')
+        self.xml.startTag('group', {'recstatus': recstatus})
+        self.xml.startTag('sourcedid')
+        self.xml.dataElement('source', self.DataSource)
+        self.xml.dataElement('id', id)
+        self.xml.endTag('sourcedid')
         if (recstatus == Fronter.STATUS_ADD or
             recstatus == Fronter.STATUS_UPDATE):
-            self.xml.startTag('GROUPTYPE')
-            self.xml.dataElement('SCHEME', 'FronterStructure1.0')
-            self.xml.emptyTag('TYPEVALUE', {'level': 4})
-            self.xml.endTag('GROUPTYPE')
+            self.xml.startTag('grouptype')
+            self.xml.dataElement('scheme', 'FronterStructure1.0')
+            self.xml.emptyTag('typevalue', {'level': 4})
+            self.xml.endTag('grouptype')
             if True:
                 # (recstatus == Fronter.STATUS_ADD):
                 # Romprofil settes kun ved opprettelse av rommet, og vil
                 # aldri senere tvinges tilbake til noen bestemt profil.
-                self.xml.startTag('GROUPTYPE')
-                self.xml.dataElement('SCHEME', 'Roomprofile1.0')
-                self.xml.emptyTag('TYPEVALUE', {'level': data['profile']})
-                self.xml.endTag('GROUPTYPE')
+                self.xml.startTag('grouptype')
+                self.xml.dataElement('scheme', 'Roomprofile1.0')
+                self.xml.emptyTag('typevalue', {'level': data['profile']})
+                self.xml.endTag('grouptype')
 
-        self.xml.startTag('DESCRIPTION')
+        self.xml.startTag('description')
         if (len(data['title']) > 60):
-            self.xml.emptyTag('SHORT')
-            self.xml.dataElement('LONG', data['title'])
+            self.xml.emptyTag('short')
+            self.xml.dataElement('long', data['title'])
         else:
-            self.xml.dataElement('SHORT', data['title'])
+            self.xml.dataElement('short', data['title'])
 
-        self.xml.endTag('DESCRIPTION')
-        self.xml.startTag('RELATIONSHIP', {'relation': 1})
-        self.xml.startTag('SOURCEDID')
-        self.xml.dataElement('SOURCE', self.DataSource)
-        self.xml.dataElement('ID', data['parent'])
-        self.xml.endTag('SOURCEDID')
-        self.xml.emptyTag('LABEL')
-        self.xml.endTag('RELATIONSHIP')
-        self.xml.endTag('GROUP')
+        self.xml.endTag('description')
+        self.xml.startTag('relationship', {'relation': 1})
+        self.xml.startTag('sourcedid')
+        self.xml.dataElement('source', self.DataSource)
+        self.xml.dataElement('id', data['parent'])
+        self.xml.endTag('sourcedid')
+        self.xml.emptyTag('label')
+        self.xml.endTag('relationship')
+        self.xml.endTag('group')
 
     def personmembers_to_XML(self, gid, recstatus, members):
         # lager XML av medlemer
-        self.xml.startTag('MEMBERSHIP')
-        self.xml.startTag('SOURCEDID')
-        self.xml.dataElement('SOURCE', self.DataSource)
-        self.xml.dataElement('ID', gid)
-        self.xml.endTag('SOURCEDID')
+        self.xml.startTag('membership')
+        self.xml.startTag('sourcedid')
+        self.xml.dataElement('source', self.DataSource)
+        self.xml.dataElement('id', gid)
+        self.xml.endTag('sourcedid')
         for uname in members:
-            self.xml.startTag('MEMBER')
-            self.xml.startTag('SOURCEDID')
-            self.xml.dataElement('SOURCE', self.DataSource)
-            self.xml.dataElement('ID', uname)
-            self.xml.endTag('SOURCEDID')
-            self.xml.dataElement('IDTYPE', '1')	# The following member ids are persons.
-            self.xml.startTag('ROLE', {'recstatus': recstatus,
+            self.xml.startTag('member')
+            self.xml.startTag('sourcedid')
+            self.xml.dataElement('source', self.DataSource)
+            self.xml.dataElement('id', uname)
+            self.xml.endTag('sourcedid')
+            self.xml.dataElement('idtype', '1')	# The following member ids are persons.
+            self.xml.startTag('role', {'recstatus': recstatus,
                                        'roletype': Fronter.ROLE_READ})
-            self.xml.dataElement('STATUS', '1')
-            self.xml.startTag('EXTENSION')
-            self.xml.emptyTag('MEMBEROF', {'type': 1}) # Member of group, not room.
-            self.xml.endTag('EXTENSION')
-            self.xml.endTag('ROLE')
-            self.xml.endTag('MEMBER')
-        self.xml.endTag('MEMBERSHIP')
+            self.xml.dataElement('status', '1')
+            self.xml.startTag('extension')
+            self.xml.emptyTag('memberof', {'type': 1}) # Member of group, not room.
+            self.xml.endTag('extension')
+            self.xml.endTag('role')
+            self.xml.endTag('member')
+        self.xml.endTag('membership')
 
     def groupmembers_to_XML(self, gid, recstatus, members):
         """Export a bunch of group members to XML.
@@ -750,66 +750,66 @@ class FronterXML(object):
         if not members:
             return
 
-        self.xml.startTag('MEMBERSHIP')
-        self.xml.startTag('SOURCEDID')
-        self.xml.dataElement('SOURCE', self.DataSource)
-        self.xml.dataElement('ID', gid)
-        self.xml.endTag('SOURCEDID')
+        self.xml.startTag('membership')
+        self.xml.startTag('sourcedid')
+        self.xml.dataElement('source', self.DataSource)
+        self.xml.dataElement('id', gid)
+        self.xml.endTag('sourcedid')
         for gname in members:
-            self.xml.startTag('MEMBER')
-            self.xml.startTag('SOURCEDID')
-            self.xml.dataElement('SOURCE', self.DataSource)
-            self.xml.dataElement('ID', gname)
-            self.xml.endTag('SOURCEDID')
+            self.xml.startTag('member')
+            self.xml.startTag('sourcedid')
+            self.xml.dataElement('source', self.DataSource)
+            self.xml.dataElement('id', gname)
+            self.xml.endTag('sourcedid')
             # The following member id is a group.
-            self.xml.dataElement('IDTYPE', '2')	
-            self.xml.startTag('ROLE', {'recstatus': recstatus,
+            self.xml.dataElement('idtype', '2')	
+            self.xml.startTag('role', {'recstatus': recstatus,
                                        'roletype': Fronter.ROLE_DELETE})
-            self.xml.dataElement('STATUS', '1')
-            self.xml.startTag('EXTENSION')
+            self.xml.dataElement('status', '1')
+            self.xml.startTag('extension')
             # Member of group, not room.
-            self.xml.emptyTag('MEMBEROF', {'type': 1})
+            self.xml.emptyTag('memberof', {'type': 1})
             # 'Rapporttilgang til evaluering' permissions
-            self.xml.emptyTag('GROUPACCESS',
+            self.xml.emptyTag('groupaccess',
                               {'contactAccess': '150'})
-            self.xml.endTag('EXTENSION')
-            self.xml.endTag('ROLE')
-            self.xml.endTag('MEMBER')
-        self.xml.endTag('MEMBERSHIP')
+            self.xml.endTag('extension')
+            self.xml.endTag('role')
+            self.xml.endTag('member')
+        self.xml.endTag('membership')
     # end groupmembers_to_XML
     
     def acl_to_XML(self, node, recstatus, groups):
-        self.xml.startTag('MEMBERSHIP')
-        self.xml.startTag('SOURCEDID')
-        self.xml.dataElement('SOURCE', self.DataSource)
-        self.xml.dataElement('ID', node)
-        self.xml.endTag('SOURCEDID')
+        self.xml.startTag('membership')
+        self.xml.startTag('sourcedid')
+        self.xml.dataElement('source', self.DataSource)
+        self.xml.dataElement('id', node)
+        self.xml.endTag('sourcedid')
         for gname in groups.keys():
-            self.xml.startTag('MEMBER')
-            self.xml.startTag('SOURCEDID')
-            self.xml.dataElement('SOURCE', self.DataSource)
-            self.xml.dataElement('ID', gname)
-            self.xml.endTag('SOURCEDID')
-            self.xml.dataElement('IDTYPE', '2')	# The following member ids are groups.
+            self.xml.startTag('member')
+            self.xml.startTag('sourcedid')
+            self.xml.dataElement('source', self.DataSource)
+            self.xml.dataElement('id', gname)
+            self.xml.endTag('sourcedid')
+            self.xml.dataElement('idtype', '2')	# The following member ids are groups.
             acl = groups[gname]
             if acl.has_key('role'):
-                self.xml.startTag('ROLE', {'recstatus': recstatus,
+                self.xml.startTag('role', {'recstatus': recstatus,
                                            'roletype': acl['role']})
-                self.xml.dataElement('STATUS', '1')
-                self.xml.startTag('EXTENSION')
-                self.xml.emptyTag('MEMBEROF', {'type': 2}) # Member of room.
+                self.xml.dataElement('status', '1')
+                self.xml.startTag('extension')
+                self.xml.emptyTag('memberof', {'type': 2}) # Member of room.
             else:
-                self.xml.startTag('ROLE', {'recstatus': recstatus})
-                self.xml.dataElement('STATUS', '1')
-                self.xml.startTag('EXTENSION')
-                self.xml.emptyTag('MEMBEROF', {'type': 1}) # Member of group.
-                self.xml.emptyTag('GROUPACCESS',
+                self.xml.startTag('role', {'recstatus': recstatus})
+                self.xml.dataElement('status', '1')
+                self.xml.startTag('extension')
+                self.xml.emptyTag('memberof', {'type': 1}) # Member of group.
+                self.xml.emptyTag('groupaccess',
                                   {'contactAccess': acl['gacc'],
                                    'roomAccess': acl['racc']})
-            self.xml.endTag('EXTENSION')
-            self.xml.endTag('ROLE')
-            self.xml.endTag('MEMBER')
-        self.xml.endTag('MEMBERSHIP')
+            self.xml.endTag('extension')
+            self.xml.endTag('role')
+            self.xml.endTag('member')
+        self.xml.endTag('membership')
 
     def end(self):
         self.xml.endTag(self.rootEl)
