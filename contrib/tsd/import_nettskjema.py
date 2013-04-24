@@ -453,16 +453,12 @@ class Processing(object):
 
         """
         # Full name
-        if 'pa_name' in input:
-            logger.debug("Updating name: %s", input['pa_name'])
-            pe.affect_names(co.system_nettskjema, co.name_full)
-            pe.populate_name(co.name_full, input['pa_name'])
-            pe.write_db()
-        elif 'real_name' in input:
-            logger.debug("Updating name: %s", input['real_name'])
-            pe.affect_names(co.system_nettskjema, co.name_full)
-            pe.populate_name(co.name_full, input['real_name'])
-            pe.write_db()
+        for key in ('pa_name', 'real_name'):
+            if key in input:
+                logger.debug("Updating name: %s", input[key])
+                pe.affect_names(co.system_nettskjema, co.name_full)
+                pe.populate_name(co.name_full, input[key])
+                pe.write_db()
         # Phone
         if 'pa_phone' in input:
             logger.debug("Updating phone: %s", input['pa_phone'])
@@ -544,6 +540,40 @@ class Processing(object):
         logger.debug("New project created successfully: %s", pid)
         return ou
 
+    def _create_account(self, pe, pid, username):
+        """Create a quarantined account for a given project."""
+        ac = Factory.get('Account')(db)
+        username = '%s-%s' % (pid, username)
+        # Check if wanted username is already taken:
+        if ac.search(name=username):
+            raise Exception("Username already taken: %s" % username)
+            # TODO: implement this when we have the person's name
+            #for name in ac.suggest_unames(co.account_namespace, fname, lname,
+            #                              maxlen=cereconf.USERNAME_MAX_LENGTH,
+            #                              prefix='%s-' % pid):
+            #   if not ac.search(name=name):
+            #       username = name
+            #       break
+            #else:
+            #   raise Exception("No available username for %s in %s" % (pe.entity_id, pid))
+
+        logger.info("Creating project user for person %s: %s", pe.entity_id,
+                    username)
+        ac.create(name=username, owner_id=pe.entity_id,
+                  creator_id=systemaccount_id)
+        # Set affiliation:
+        ac.set_account_type(ou.entity_id, co.affiliation_project)
+        ac.write_db()
+        # Set quarantine:
+        ac.add_entity_quarantine(type=co.quarantine_not_approved,
+                                 creator=systemaccount_id,
+                                 description='User not yet approved by admin',
+                                 start=DateTime.now())
+        ac.write_db()
+        # TODO: quarantine for start and end dates, or is the project's
+        # quarantine enough for that?
+        return ac
+
     def new_project(self, input):
         """Create a given project.
 
@@ -585,23 +615,7 @@ class Processing(object):
             # Note that no name or anything else is now set for this account.
             pe2.write_db()
 
-        # Create project account for the PA:
-        username = '%s-%s' % (pid, input['pa_uiousername'])
-        logger.info("Creating project user for person %s: %s", pe.entity_id,
-                    username)
-        ac.clear()
-        ac.create(name=username, owner_id=pe.entity_id,
-                  creator_id=systemaccount_id, expire_date=input['p_end'])
-        # Set affiliation:
-        ac.set_account_type(ou.entity_id, co.affiliation_project)
-        ac.write_db()
-        # Set quarantine:
-        ac.add_entity_quarantine(type=co.quarantine_not_approved,
-                                 creator=systemaccount_id,
-                                 description='User not yet approved by admin',
-                                 start=DateTime.now())
-        ac.write_db()
-        # TODO: quarantine for start and end dates?
+        ac = self._create_account(pe, pid, input['pa_uiousername'])
 
         # Other members that should be added to the project:
         not_found_persons = set()
@@ -625,6 +639,7 @@ class Processing(object):
                                         affiliation=co.affiliation_project,
                                         status=co.affiliation_status_project_member)
                 pe.write_db()
+                # TODO: create a project account for the person?
             else:
                 not_found_persons.add(fnr)
         # TODO: Store the not found persons 
@@ -635,7 +650,7 @@ class Processing(object):
                               target_id=ou.entity_id,
                               strval=' '.join(not_found_persons))
         ou.write_db()
-        # TODO: How should we signal that a new project is waiting approval?
+        # TODO: How should we signal that a new project is waiting for approval?
         return True
 
     def project_access(self, input):
@@ -662,66 +677,31 @@ class Processing(object):
         pe = self._get_person()
         self._update_person(pe, input)
 
+        # Find the project:
         pid = input['p_id']
         ou.clear()
         ou.find_by_tsd_projectname(pid)
 
-
-        pid = input['p_id']
-        name = input['name']
-        uio_username = input['uioname']
-        fnr = input['fnr']
-        # TODO: Validate the information!
-
-        # The person must be registered to a project, even though it's not necessary
-        # for creating the person.
-        ou.clear()
-        ou.find_by_tsd_projectname(pid)
-
-        # TODO: What to do if the person already exists? Stop importing is okay?
-        if tuple(pe.list_external_ids(id_type=co.externalid_fodselsnr,
-                                      external_id=fnr)):
-            raise Errors.CerebrumError('Person already exists with fnr: %s' % fnr)
-
-        username = '%s-%s' % (pid, uio_username)
-
-        # TODO: if the UiO username is already taken, create another username?
-        if tuple(ac.search(name=username)):
-            raise Errors.CerebrumError('Username already taken: %s' % uio_username)
-
-        # TODO: What if the person already exists with the given ID? Use that?
-
-        # Create the person, if not already existing
-        # TODO: get birth_data from fnr?
-        pe.clear()
-        pe.populate(birth_data=None, gender=co.gender_unknown,
-                    description='TSD registered person')
-        pe.write_db()
-        pe.affect_external_id(co.system_nettskjema, co.externalid_fodselsnr)
-        pe.populate_external_id(co.system_nettskjema, co.externalid_fodselsnr, fnr)
-        pe.write_db()
-
-        # Add the PA affiliation:
+        # Affiliate the person with the project:
         pe.populate_affiliation(source_system=co.system_nettskjema,
                                 ou_id=ou.entity_id,
                                 affiliation=co.affiliation_project,
-                                status=co.affiliation_status_project_admin)
+                                status=co.affiliation_status_project_member)
+        # TODO: add a 'pending' status for those not approved to a project?
         pe.write_db()
+        logger.info("Person %s affiliated with project %s", pe.entity_id, pid)
 
-        # Create the account
-        ac.clear()
-        # TODO: expire_date, set it a few months after the project's end date?
-        ac.populate(username, owner_type=co.entity_person, owner_id=pe.entity_id,
-                    #expire_date= TODO,
-                    creator_id=systemaccount_id)
-        ac.write_db()
-        ac.add_entity_quarantine(co.quarantine_not_approved, systemaccount_id,
-                                 description='Person registered through Nettskjema',
-                                 start=DateTime.now())
-        ac.write_db()
+        # Give the man a user:
+        ac = self._create_account(pe, pid, input['uio_or_feide_username'])
+        # TODO: a different quarantine to be accepted by PAs?
+        # Add a quarantine, to let the PAs accept it:
+        #ac.add_entity_quarantine(type=co.quarantine_not_approved,
+        #                         creator=systemaccount_id,
+        #                         description='User not yet approved by admin',
+        #                         start=DateTime.now())
+        #
 
-        # TODO: create person
-        logger.info('New person created, entity_id: %s', pe.entity_id)
+        return True
 
     def approve_person(self, input):
         """Handle the approval of a person in Cerebrum by PA."""
