@@ -234,13 +234,54 @@ input = InputControl()
 # This dict contains the settings for the input control and filter. The keys are
 # the tag names that should be found in the file.
 #
-# TODO: Is all input mandatory?
-#
 # Tag found in submission, mapped to requirement func, filter func and name of
 # variable.
+input_values = {
+        # Project ID
+        'p_id': (input.is_projectid, input.str),
+        # Project full name
+        'p_name': (input.is_nonempty, input.str),
+        # Project short name
+        'p_shortname': (input.is_nonempty, input.str),
+        # Project start date
+        'p_start': (input.is_valid_date, input.filter_date),
+        # Project end date
+        'p_end': (input.is_valid_date, input.filter_date),
+        # Project owner's FNR
+        'p_responsible': (input.is_fnr, input.str),
+        # Project's institution address
+        'institution': (input.is_nonempty, input.str),
+        # Project's REK approval number
+        'rek_approval': (input.is_nonempty, input.str),
+        # Project members, identified by FNR
+        'p_persons': (lambda x: True, input.str),
+        # PA's full name
+        'pa_name': (input.is_nonempty, input.str),
+        # PA's phone number
+        'pa_phone': (input.is_phone, input.str),
+        # PA's e-mail address
+        'pa_email': (input.is_email, input.str),
+        # PA's chosen username
+        'pa_uiousername': (input.is_username, input.str),
+        # The respondent's chosen username. Not necessarily mandatory.
+        'uio_or_feide_username': (lambda x: True, input.str),
+        # The respondent's full name
+        'real_name': (input.is_nonempty, input.str),
+        }
+
+# A list of all the required input values for each defined survey type. This is
+# used to identify the survey type.
+survey_types = {
+        'new_project': ('p_id', 'p_name', 'p_shortname', 'p_start', 'p_end',
+                        'p_responsible', 'institution', 'rek_approval',
+                        'p_persons', 'pa_name', 'pa_phone', 'pa_email',
+                        'pa_uiousername'),
+        'project_access': ('p_id', 'real_name', 'uio_or_feide_username'),
+        'approve_person': ('p_id', 'TODO'),
+        }
+
 input_settings = {
     'new_project': {
-        # Project info:
         'p_id': (input.is_projectid, input.str),
         'p_name': (input.is_nonempty, input.str),
         'p_shortname': (input.is_nonempty, input.str),
@@ -257,8 +298,11 @@ input_settings = {
         'pa_email': (input.is_email, input.str),
         'pa_uiousername': (input.is_username, input.str),
         },
-    'new_person': {
-        #TODO
+    'project_access': {
+        'real_name': (input.is_nonempty, input.str),
+        'p_id': (input.is_projectid, input.str),
+        'uio_or_feide_username': (lambda x: True, input.str),
+        # TODO: more data, like contact info?
         },
     'approve_person': {
         #TODO
@@ -269,97 +313,86 @@ input_settings = {
 def _xml2answersdict(xml):
     """Parse the XML and return a dict with all the answers.
 
-    Only the answers that has a named mapping is returned.
+    No input control or filtering is performed in this function, but only input
+    values that are defined in L{input_values} by their external-ID gets
+    returned.
 
-    No input control or filtering is performed in this function.
+    @type xml: etree.Element
+    @param xml: The given submission, as an XML object.
 
     @rtype: dict
-    @return: A mapping of the answers. Keys are the id of the answer, and the
-        values are the answers.
+    @return: A mapping of the answers. Keys are the external-id of the answer,
+        and the values are the answers, most often as strings.
 
     """
     ret = dict()
     for ans in xml.find('answers').iterfind('answer'):
-        # Find the set external ID for the question
-        extid = None
         try:
             extid = ans.find('question').find('externalQuestionId').text
         except AttributeError:
             # Ignore questions without a set external ID
             continue
+        if extid not in input_values:
+            # Ignore undefined questions
+            continue
         answer = ans.find('textAnswer')
         if answer is not None:
             answer = answer.text
         else:
-            # TODO: should be able to parse answers that is not text
+            # TODO: should be able to parse answers that is not text, if needed
             logger.warn("For question %s, got unhandled answerOption: %s",
-                        extid, etree.tostring(ans)[:100])
+                        extid, etree.tostring(ans)[:200])
             continue
         ret[extid] = answer
     return ret
 
-def _get_submission_type(id):
-    """Get the submission type based on what we consider the given answer id.
-    
-    Note that an id could be reused for the different submission types, but this
-    algorithm does not support that.
-
-    @rtype: string
-    @return: Our internal id for the submission type.
-
-    """
-    for type, answers in input_settings.iteritems():
-        if id in answers:
-            return type
-
 def xml2answers(xml):
-    """Fetch the answers from the XML from Nettskjema and return them processed.
+    """Fetch and check answers from XML, and guess the submission type.
 
     The answers are processed through the input control and filter settings in
-    L{input_settings}, and the returned answers are named according to the
-    settings. Note that a file could, in theory, contain answers for different
-    submission types.
+    L{input_values}.
+    
+    Since the XML does not have an identifier of what survey it is about, we
+    need to guess it by finding the L{survey_type} that has all its questions
+    answered in the XML. The external IDs are used for this.
+
+    Note that you *could* get a file that matches more than one survey type,
+    which is an error. You then either have to fix the config of L{input_values}
+    and L{survey_types}, or you need to change the defined external IDs in the
+    form at Nettskjema.
 
     @type xml: etree.Element
     @param xml:
         The parsed content of a file from Nettskjema.
 
     @rtype: (string, dict)
-    @return: The first element contains the id of the submission type, followed
-        by a dict with the answers. The keys are from L{input_settings} and the
-        values are the filtered answers.
+    @return: The first element contains the id of the submission type, defined
+        in L{survey_types}, followed by a dict with the answers. The keys are
+        from L{input_values} and the values are the filtered answers.
 
     """
-    ret = dict()
     answers = _xml2answersdict(xml)
-    stypes = set()
-    for id, ans in answers.iteritems():
-        # Find the id from any of the submission types. This would take some
-        # time if we had a lot of submission types, but we only have three types
-        # initially, so it's okay.
-        stype = _get_submission_type(id)
-        # Ignore undefined answers:
-        if not stype:
-            continue
-        stypes.add(stype)
-        # Get the callbacks from the settings:
-        control, filter = input_settings[stype][id]
+    # Find the correct survey type:
+    stypes = []
+    for stype, requireds in survey_types.iteritems():
+        if all(req in answers for req in requireds):
+            stypes.append(stype)
+    if len(stypes) != 1:
+        raise Exception('Could not uniquely identify submission type: %s' %
+                        stypes)
+    # Do the input control and filtering:
+    ret = dict()
+    for extid in survey_types[stypes[0]]:
+        control, filter = input_values[extid]
+        answer = answers[extid]
         try:
-            control_ans = control(ans)
+            control_ans = control(answer)
         except BadInputError, e:
-            raise BadInputError('Answer "%s" invalid: %s. Answer: %s' % (id, e,
-                                                                         ans))
+            raise BadInputError('Answer "%s" invalid: %s. Answer: %s' % (extid, e,
+                                                                         answer))
         if not control_ans:
-            raise BadInputError('Answer "%s" invalid: %s' % (id, ans))
-        ret[id] = filter(ans)
-    # Check that we don't have answers from more than one submission type.
-    if len(stypes) > 1:
-        raise Errors.CerebrumError('Answers from different submissiontypes: %s'
-                                   % stypes)
-    # Check that we have all the answers we need:
-    if len(ret) < len(input_settings[stype]):
-        remaining = set(input_settings[stype].keys()) - set(ret.keys())
-        raise Errors.CerebrumError('Missing input: %s' % ', '.join(remaining))
+            raise BadInputError('Answer "%s" invalid: %s' % (extid, answer))
+        ret[extid] = filter(answer)
     return stypes.pop(), ret
 
 def process_file(file, dryrun):
@@ -420,17 +453,28 @@ class Processing(object):
 
         """
         # Full name
-        pe.affect_names(co.system_nettskjema, co.name_full)
-        pe.populate_name(co.name_full, input['pa_name'])
-        pe.write_db()
+        if 'pa_name' in input:
+            logger.debug("Updating name: %s", input['pa_name'])
+            pe.affect_names(co.system_nettskjema, co.name_full)
+            pe.populate_name(co.name_full, input['pa_name'])
+            pe.write_db()
+        elif 'real_name' in input:
+            logger.debug("Updating name: %s", input['real_name'])
+            pe.affect_names(co.system_nettskjema, co.name_full)
+            pe.populate_name(co.name_full, input['real_name'])
+            pe.write_db()
         # Phone
-        pe.populate_contact_info(source_system=co.system_nettskjema,
-                                 type=co.contact_phone, value=input['pa_phone'])
-        pe.write_db()
+        if 'pa_phone' in input:
+            logger.debug("Updating phone: %s", input['pa_phone'])
+            pe.populate_contact_info(source_system=co.system_nettskjema,
+                                     type=co.contact_phone, value=input['pa_phone'])
+            pe.write_db()
         # E-mail
-        pe.populate_contact_info(source_system=co.system_nettskjema,
-                                 type=co.contact_email, value=input['pa_email'])
-        pe.write_db()
+        if 'pa_email' in input:
+            logger.debug("Updating mail: %s", input['pa_email'])
+            pe.populate_contact_info(source_system=co.system_nettskjema,
+                                     type=co.contact_email, value=input['pa_email'])
+            pe.write_db()
 
     def _create_ou(self, input):
         """Create the project OU based in given input."""
@@ -506,9 +550,8 @@ class Processing(object):
         TODO: A lot of this code should be moved into e.g. TSD's OU mixin, or
         somewhere else to be usable both by various scripts and bofhd.
 
-        @type input: etree.Element
-        @param input: The data about the requested project. Should have been
-            checked and filtered on beforehand.
+        @type input: dict
+        @param input: The survey answers about the requested project.
 
         """
         pid = input['p_id']
@@ -519,8 +562,8 @@ class Processing(object):
         pe = self._get_person()
         self._update_person(pe, input)
 
-        # Give the requestor an affiliation to the project.
-        # If the requestor sets himself as the Project Owner (responsible), it
+        # Give the respondent an affiliation to the project.
+        # If the respondent sets himself as the Project Owner (responsible), it
         # gets status as the owner. Otherwise we give him PA status:
         # TBD: do we need to differentiate between owner and PA?
         status = co.affiliation_status_project_admin
@@ -595,18 +638,34 @@ class Processing(object):
         # TODO: How should we signal that a new project is waiting approval?
         return True
 
-    def new_person(self, input):
-        """Create a person object with the given input.
+    def project_access(self, input):
+        """Setup a request for the respondent to join a project.
+
+        This is a survey that should be filled out for when a person wants to
+        join a certain project as a project member. We create a person object
+        for the respondent, if it doesn't already exist. Next we create a
+        project account that is quarantined, and have to get accepted by PA or
+        administrators before it could start working on the project.
 
         Note that the given information could be filled out by anyone. The
-        administratrors of TSD must therefore approve the information before the
-        person could be used in Cerebrum.
+        project account must therefore be approved by PA or administrators
+        before the person could be used in Cerebrum. The only data we could
+        trust is the FNR, which we must trust is authentic and from ID-porten,
+        so we know who filled out the form.
 
-        @type input: etree.Element
-        @param input: The data about the requested person.
+        @type input: dict
+        @param input: The survey answers.
 
         """
-        logger.debug('Creating new person...')
+        logger.debug('Asking for project access')
+        # Update the requestee for the project:
+        pe = self._get_person()
+        self._update_person(pe, input)
+
+        pid = input['p_id']
+        ou.clear()
+        ou.find_by_tsd_projectname(pid)
+
 
         pid = input['p_id']
         name = input['name']
