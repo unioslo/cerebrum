@@ -23,6 +23,7 @@ group_help = {
     'email': "E-mail commands",
     'group': "Group commands",
     'misc': 'Miscellaneous commands',
+    'note': 'Entity note related commands',
     'ou': 'Organizational unit related commands',
     'person': 'Person related commands',
     'print': 'Printer quota manipulation',
@@ -113,6 +114,11 @@ command_help = {
     'misc_reload': 'Re-read server config file (use with care)',
     'misc_list_requests': 'View pending jobs the current BOFH user has requested/may confirm',
     'misc_user_passwd': 'Check whether an account has a given password',
+    },
+    'note': {
+    'note_show': 'Show notes associated with an entity',
+    'note_add': 'Add a new note to an entity',
+    'note_remove': 'Remove a note associated with an entity',
     },
     'ou': {
     'ou_search': 'Search for OUs by name or a partial stedkode',
@@ -300,6 +306,15 @@ name is entered, the type 'name' is assumed.  Other types are 'gid'
  - request
  - confirm
  - cancel"""],
+    'note_id':
+        ['note_id', 'Enter note ID', 
+        'Enter the ID of the note'],
+    'note_subject':
+        ['note_subject', 'Enter subject', 
+        'Enter the subject of the note'],
+    'note_description':
+        ['note_id', 'Enter description', 
+        'Enter the description of the note'],
     'number_size_mib':
         ['size', 'Enter size (in MiB)',
         'Enter the size of storage, in mebibytes (1024*1024 bytes)'],

@@ -21,19 +21,19 @@
 category:metainfo;
 name=note;
 category:metainfo;
-version=1.0;
+version=1.1;
 
 category:drop;
-drop TABLE note;
+drop TABLE entity_note;
 
 category:drop;
-drop SEQUENCE note_seq;
+drop SEQUENCE entity_note_seq;
 
 category:code;
-CREATE SEQUENCE note_seq;
+CREATE SEQUENCE entity_note_seq;
 
 category:main;
-CREATE TABLE note
+CREATE TABLE entity_note
 (
   note_id       NUMERIC(12,0)
                   NOT NULL

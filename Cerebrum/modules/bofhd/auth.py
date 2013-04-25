@@ -878,6 +878,30 @@ class BofhdAuth(DatabaseAccessor):
     # end can_alter_group
 
 
+    def can_add_notes(self, operator, query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied("Permission denied")
+
+    def can_remove_notes(self, operator, query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied("Permission denied")
+
+    def can_show_notes(self, operator, query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if self._has_operation_perm_somewhere(operator, self.const.auth_set_password):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied("Permission denied")
+
+
     def list_alterable_entities(self, operator, target_type):
         """Find all entities of L{target_type} that can be
         moderated/administered by L{operator}.

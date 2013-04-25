@@ -37,6 +37,7 @@ from Cerebrum import Database
 
 from Cerebrum.modules import Email
 from Cerebrum.modules import PosixUser
+from Cerebrum.modules import Note
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.no.uio import bofhd_uio_help
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
@@ -847,7 +848,9 @@ class BofhdExtension(BofhdCommonMethods):
                               ('uid', 'dfg_posix_gid', 'dfg_name', 'gecos',
                                'shell')),
                              ("Quarantined:   %s",
-                              ("quarantined",))]))
+                              ("quarantined",)),
+                             ("Note:          (#%d) %s: %s",
+                              ('note_id', 'note_subject', 'note_description'))]))
     def user_info(self, operator, accountname):
         is_posix = False
         try: 
@@ -940,6 +943,22 @@ class BofhdExtension(BofhdCommonMethods):
                 quarantined = 'pending'
         if quarantined:
             ret.append({'quarantined': quarantined})
+
+        try:
+            self.ba.can_show_notes(operator.get_entity_id())
+
+            enote = Note.EntityNote(self.db)
+            enote.find(account.entity_id)
+
+            for n in enote.get_notes():
+                ret.append({
+                    'note_id': n['note_id'],
+                    'note_subject': n['subject'] if len(n['subject']) > 0 else '<not set>',
+                    'note_description': n['description'] if len(n['description']) > 0 else '<not set>',
+                })
+        except:
+            pass
+
         return ret
 
     # user promote_posix
@@ -1002,9 +1021,9 @@ class BofhdExtension(BofhdCommonMethods):
     # misc list_passwords_prompt_func
     #
     def misc_list_passwords_prompt_func(self, session, *args):
-        """  - Går inn i "vis-info-om-oppdaterte-brukere-modus":
+        """  - GÃ¥r inn i "vis-info-om-oppdaterte-brukere-modus":
   1 Skriv ut passordark
-  1.1 Lister ut templates, ber bofh'er om å velge en
+  1.1 Lister ut templates, ber bofh'er om Ã¥ velge en
   1.1.[0] Spesifiser skriver (for template der dette tillates valgt av
           bofh'er)
   1.1.1 Lister ut alle aktuelle brukernavn, ber bofh'er velge hvilke
@@ -1680,4 +1699,99 @@ class BofhdExtension(BofhdCommonMethods):
             return 'Unknown member_type "%s"' % (member_type)
         return self._group_remove(operator, src_name, dest_group,
                                   member_type=member_type)
+
+    # note show
+    all_commands['note_show'] = Command(
+        ('note', 'show'),
+        Id(help_ref='id:target:entity'),
+        fs=FormatSuggestion([
+        ("%d note(s) found for %s:\n",
+         ("notes_total", "entity_target")),
+        ("Note #%d added by %s on %s:\n" +
+         "%s: %s\n",
+         ("note_id", "creator", "create_date", "subject", "description"))
+        ]),
+        perm_filter='can_show_notes')
+    def note_show(self, operator, entity_target):
+        self.ba.can_show_notes(operator.get_entity_id())
+
+        entity = self.util.get_target(entity_target, default_lookup="account", restrict_to=[])
+        enote = Note.EntityNote(self.db)
+        enote.find(entity.entity_id)
+
+        notes = enote.get_notes()
+        result = []
+
+        if len(notes) is 0:
+            return "No notes were found for %s" % (entity_target)
+        else:
+            result.append({
+                'notes_total': len(notes),
+                'entity_target': entity_target,
+            })
+
+        for note_row in notes:
+            note = {}
+
+            for key, value in note_row.items():
+                note[key] = value
+
+                if key in ('subject', 'description') and len(value) is 0:
+                    note[key] = '<not set>'
+
+            # translate creator_id to username
+            acc = self._get_account(note_row['creator_id'], idtype='id')
+            note['creator'] = acc.account_name
+            note['create_date'] = note['create_date'].strftime("%Y-%m-%d %H:%M:%S")
+            result.append(note)
+
+        return result    
+    
+    # note add
+    all_commands['note_add'] = Command(
+        ('note', 'add'),
+        Id(help_ref='id:target:entity'),
+        SimpleString(help_ref='note_subject'),
+        SimpleString(help_ref='note_description'),
+        perm_filter='can_add_notes')
+    def note_add(self, operator, entity_target, subject, description):
+        self.ba.can_add_notes(operator.get_entity_id())
+
+        if len(subject) > 70:
+            raise CerebrumError("Subject field cannot be longer than 70 characters")
+        if len(description) > 1024:
+            raise CerebrumError("Description field cannot be longer than 1024 characters")
+
+        entity = self.util.get_target(entity_target, restrict_to=[])
+        enote = Note.EntityNote(self.db)
+        enote.find(entity.entity_id)
+        
+        note_id = enote.add_note(operator.get_entity_id(), subject, description)
+
+        return "Note #%s was added to entity %s" % (note_id, entity_target)
+        
+    # note remove
+    all_commands['note_remove'] = Command(
+        ('note', 'remove'),
+        Id(help_ref='id:target:entity'),
+        SimpleString(help_ref='note_id'),
+        perm_filter='can_remove_notes')
+    def note_remove(self, operator, entity_target, note_id):
+        self.ba.can_remove_notes(operator.get_entity_id())
+
+        entity = self.util.get_target(entity_target, restrict_to=[])
+        enote = Note.EntityNote(self.db)
+        enote.find(entity.entity_id)
+
+        if not note_id.isdigit():
+            raise CerebrumError("Note ID must be a numeric value")
+
+        for note_row in enote.get_notes():
+            if int(note_row['note_id']) is int(note_id):
+                enote.delete_note(note_id)
+                return "Note #%s associated with entity %s was removed" % (
+                    note_id, entity_target)
+
+        raise CerebrumError("Note #%s is not associated with entity %s" % (
+            note_id, entity_target))
 
