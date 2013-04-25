@@ -277,7 +277,7 @@ survey_types = {
                         'p_persons', 'pa_name', 'pa_phone', 'pa_email',
                         'pa_uiousername'),
         'project_access': ('p_id', 'real_name', 'uio_or_feide_username'),
-        'approve_person': ('p_id', 'TODO'),
+        'approve_persons': ('p_id', 'p_persons'),
         }
 
 input_settings = {
@@ -377,12 +377,21 @@ def xml2answers(xml):
     for stype, requireds in survey_types.iteritems():
         if all(req in answers for req in requireds):
             stypes.append(stype)
-    if len(stypes) != 1:
-        raise Exception('Could not uniquely identify submission type: %s' %
-                        stypes)
+    if not stypes:
+        raise Exception('No matching survey type for answers: %s' %
+                         answers.keys())
+    if len(stypes) > 1:
+        # Find the type with the most correct answers:
+        stypes = sorted(stypes, reverse=True, key=lambda x:
+                                                    len(survey_types[x]))
+        # Check if it's a tie
+        if len(survey_types[stypes[0]]) == len(survey_types[stypes[1]]):
+            raise Exception('Could not uniquely identify submission type: '
+                            '%s, keys: %s' % ( stypes[:2], answers.keys()))
+    stype = stypes[0]
     # Do the input control and filtering:
     ret = dict()
-    for extid in survey_types[stypes[0]]:
+    for extid in survey_types[stype]:
         control, filter = input_values[extid]
         answer = answers[extid]
         try:
@@ -393,15 +402,15 @@ def xml2answers(xml):
         if not control_ans:
             raise BadInputError('Answer "%s" invalid: %s' % (extid, answer))
         ret[extid] = filter(answer)
-    return stypes.pop(), ret
+    return stype, ret
 
 def process_file(file, dryrun):
     logger.info("Processing file: %s", file)
     xml = etree.parse(file).getroot()
     stype, answers = xml2answers(xml)
     fnr = xml.find('respondentPersonIdNumber').text
-    logger.debug('Processing %s: found %d answers from respondent: %s', stype,
-                 len(answers), fnr)
+    logger.debug('Submission, type "%s", respondent: "%s", answers: %d', stype,
+                 fnr, len(answers))
 
     # Do the Cerebrum processing:
     p = Processing(fnr=fnr)
@@ -421,11 +430,21 @@ class Processing(object):
         """
         self.fnr = fnr
 
-    def _get_person(self, fnr=None):
+    def _get_person(self, fnr=None, create_nonexisting=True):
         """Return the person with the given fnr.
 
         If the person does not exist, it gets created. Names and all other data
         but the fnr needs to be added to the person.
+
+        @type fnr: string
+        @param fnr: A (valid) fødselsnummer for the person to find.
+
+        @type create_nonexisting: bool
+        @param create_nonexisting: If the person is not found in Cerebrum,
+            should we create it? If False, you will instead get a NotFoundError.
+
+        @raise NotFoundError: If the person is not found and
+            L{create_nonexisting} is False, so that we can't create the person.
 
         """
         if not fnr:
@@ -435,6 +454,8 @@ class Processing(object):
             pe.find_by_external_id(id_type=co.externalid_fodselsnr,
                                    external_id=fnr)
         except Errors.NotFoundError:
+            if not create_nonexisting:
+                raise
             logger.info("Creating new person, with fnr: %s", fnr)
             pe.clear()
             pe.populate(birth_date=None, gender=co.gender_unknown)
@@ -642,12 +663,13 @@ class Processing(object):
                 # TODO: create a project account for the person?
             else:
                 not_found_persons.add(fnr)
-        # TODO: Store the not found persons 
+        # Store the not found persons to be added to the project later:
         if not_found_persons:
             logger.debug("Remaining non-existing persons: %d",
                          len(not_found_persons))
             ou.populate_trait(co.trait_project_persons_accepted,
                               target_id=ou.entity_id,
+                              date=DateTime.now(),
                               strval=' '.join(not_found_persons))
         ou.write_db()
         # TODO: How should we signal that a new project is waiting for approval?
@@ -703,12 +725,84 @@ class Processing(object):
 
         return True
 
-    def approve_person(self, input):
-        """Handle the approval of a person in Cerebrum by PA."""
-        pass
-        #TODO
+    def approve_persons(self, input):
+        """Let project owner and PAs approve more persons to their project.
 
-if __name__=='__main__':
+        Sending this through Nettskjema is needed as we have no web gui inside
+        TSD in the beginning, and people need a way to approve people for their
+        projects.
+
+        """
+        # Find the project:
+        pid = input['p_id']
+        ou.clear()
+        ou.find_by_tsd_projectname(pid)
+        logger.info('Approve persons for project: %s', pid)
+
+        # Find the requestor
+        pe = self._get_person()
+
+        # The requestor must be owner or PA:
+        if not pe.list_affiliations(person_id=pe.entity_id,
+                                    affiliation=co.affiliation_project,
+                                    status=(co.affiliation_status_project_owner,
+                                            co.affiliation_status_project_admin),
+                                    ou_id=ou.entity_id):
+            raise Exception("Person %s is not owner or PA of project %s" %
+                            (pe.entity_id, pid))
+
+        # Try to find and add the given person to the project
+        pe2 = Factory.get('Person')(db)
+        not_found_persons = set()
+        for fnr in set(input['p_persons'].split()):
+            try:
+                fnr = fodselsnr.personnr_ok(fnr)
+            except fodselsnr.InvalidFnrError:
+                logger.debug("Ignoring invalid fnr: %s", fnr)
+                continue
+
+            try:
+                pe2 = self._get_person(fnr, create_nonexisting=False)
+            except Errors.NotFoundError:
+                logger.debug("Person not found: %s" % fnr)
+                not_found_persons.add(fnr)
+                continue
+
+            logger.info("Adding person %s to the project", pe2.entity_id)
+            # Stop if person already is PA or owner, can't have member-aff at
+            # the same time:
+            if pe2.list_affiliations(person_id=pe2.entity_id,
+                                     affiliation=co.affiliation_project,
+                                     status=(co.affiliation_status_project_owner,
+                                             co.affiliation_status_project_admin),
+                                     ou_id=ou.entity_id):
+                logger.debug("Person is already owner or PA: %s", fnr)
+                continue
+            pe2.populate_affiliation(source_system=co.system_nettskjema,
+                                     ou_id=ou.entity_id,
+                                     affiliation=co.affiliation_project,
+                                     status=co.affiliation_status_project_member)
+            pe2.write_db()
+            # TODO: The person will get an account when successfully registered
+            # with its name. This could have happened already, so might create
+            # it now already?
+
+        # Store the not found persons for later use:
+        if not_found_persons:
+            logger.debug("Remaining non-existing persons: %d",
+                         len(not_found_persons))
+            existing_approved = [row['strval'] for row in
+                              ou.list_traits(co.trait_project_persons_accepted,
+                                             target_id=ou.entity_id)]
+            existing_approved.append(' '.join(not_found_persons))
+            ou.populate_trait(co.trait_project_persons_accepted,
+                              target_id=ou.entity_id,
+                              date=DateTime.now(),
+                              strval=' '.join(existing_approved))
+        ou.write_db()
+        return True
+
+def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'hd',
                                    ['help', 'dryrun'])
@@ -740,3 +834,6 @@ if __name__=='__main__':
     else:
         db.commit()
         logger.info("Commited changes")
+
+if __name__ == '__main__':
+    main()
