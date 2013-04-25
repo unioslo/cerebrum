@@ -82,8 +82,8 @@ cereconf.DIGEKS_PARENT_GROUP = 'deksamen-test'
 # should be replaced by an automated selection of subjects, which is probably
 # another FS lookup.
 #cereconf.DIGEKS_EXAMS = ('JUS3211', 'JUS4111', 'JUS4122', 'JUS4211')
-#cereconf.DIGEKS_EXAMS = ('PPU3310L', )
-cereconf.DIGEKS_EXAMS = ('JUS4111', )
+cereconf.DIGEKS_EXAMS = ('PPU3310L', )
+#cereconf.DIGEKS_EXAMS = ('JUS4111', )
 
 # When looking up exams, we need to filter out non-digital exams and other
 # deliverables (obligatory assignments). This string will be matched with the
@@ -110,93 +110,90 @@ def usage(exitcode=0):
 
 
 # FIXME: PPU3310L specific data, remove
-#def test_get_candidate_data(db, subject, year, version=None, vurdkomb=None, vurdtid=None):
-    #""" Test for PPU3310L """
+def test_get_candidate_data(db, subject, year, version=None, vurdkomb=None, vurdtid=None):
+    """ Test for PPU3310L """
 
-    #binds = {'subject': subject, 'year': year, }
+    binds = {'subject': subject, 'year': year, }
 
-    #additional_clauses = ""
-    #if version:
-        #additional_clauses += "AND vm.versjonskode=:version "
-        #binds['version'] = version
-    #if vurdkomb:
-        #additional_clauses += "AND vm.vurdkombkode=:vurdkomb "
-        #binds['vurdkomb'] = vurdkomb
-    #if vurdtid:
-        #additional_clauses += "AND vm.vurdtidkode=:vurdtid "
-        #binds['vurdtid'] = vurdtid
+    additional_clauses = ""
+    if version:
+        additional_clauses += "AND vm.versjonskode=:version "
+        binds['version'] = version
+    if vurdkomb:
+        additional_clauses += "AND vm.vurdkombkode=:vurdkomb "
+        binds['vurdkomb'] = vurdkomb
+    if vurdtid:
+        additional_clauses += "AND vm.vurdtidkode=:vurdtid "
+        binds['vurdtid'] = vurdtid
 
-    #query = """SELECT DISTINCT p.brukernavn, vm.emnekode, vm.vurdtidkode,
-        #vm.kandidatlopenr, vm.kommislopenr, ve.institusjonsnr, ve.versjonskode,
-        #ve.vurdkombkode, 
-        #to_char(ve.dato_uttak,'yyyy-mm-dd') AS dato,
-        #to_char(ve.klokkeslett_uttak,'hh24:mi') AS tid,
-        #to_char(ve.dato_innlevering,'yyyy-mm-dd') AS dato_innlevering,
-        #to_char(ve.klokkeslett_innlevering,'hh24:mi') AS tid_innlevering
-    #FROM fs.vurdkombmelding vm
-    #JOIN fs.person p ON (
-            #p.fodselsdato = vm.fodselsdato 
-        #AND p.personnr = vm.personnr 
-        #AND p.brukernavn is not null) 
-    #JOIN fs.vurdkombenhet ve ON (
-            #ve.emnekode = vm.emnekode 
-        #AND ve.versjonskode = vm.versjonskode 
-        #AND ve.vurdtidkode = vm.vurdtidkode 
-        #AND ve.arstall = vm.arstall 
-        #AND ve.vurdkombkode = vm.vurdkombkode) 
-    #WHERE vm.emnekode LIKE UPPER(:subject)
-        #AND vm.arstall = :year
-        #AND vm.status_er_kandidat = 'J' 
-        #%(clauses)s
-    #ORDER BY 1;""" % {'clauses': additional_clauses, }
+    query = """SELECT DISTINCT p.brukernavn, vm.emnekode, vm.vurdtidkode,
+        vm.kandidatlopenr, vm.kommislopenr, ve.institusjonsnr, ve.versjonskode,
+        ve.vurdkombkode, 
+        to_char(ve.dato_uttak,'yyyy-mm-dd') AS dato,
+        to_char(ve.klokkeslett_uttak,'hh24:mi') AS tid,
+        to_char(ve.dato_innlevering,'yyyy-mm-dd') AS dato_innlevering,
+        to_char(ve.klokkeslett_innlevering,'hh24:mi') AS tid_innlevering
+    FROM fs.vurdkombmelding vm
+    JOIN fs.person p ON (
+            p.fodselsdato = vm.fodselsdato 
+        AND p.personnr = vm.personnr 
+        AND p.brukernavn is not null) 
+    JOIN fs.vurdkombenhet ve ON (
+            ve.emnekode = vm.emnekode 
+        AND ve.versjonskode = vm.versjonskode 
+        AND ve.vurdtidkode = vm.vurdtidkode 
+        AND ve.arstall = vm.arstall 
+        AND ve.vurdkombkode = vm.vurdkombkode) 
+    WHERE vm.emnekode LIKE UPPER(:subject)
+        AND vm.arstall = :year
+        AND vm.status_er_kandidat = 'J' 
+        %(clauses)s
+    ORDER BY 1;""" % {'clauses': additional_clauses, }
 
-    #return db.query(query, binds)
+    return db.query(query, binds)
 
 
 # FIXME: PPU3310L specific data, remove
-#def test_get_exam_data(db, subjects, year, semester=None, exam_code=None):
-    #""" Test for PPU3310L """
+def test_get_exam_data(db, subjects, year, semester=None, exam_code=None):
+    """ Test for PPU3310L """
 
-    ##subjects = ('PPU3310L', )
-    #exam_code = ('1FAG-HO-H', '2FAG-HO-H')
-    ##semester = 'VÅR'
-    ##year = 2013
+    exam_code = ('1FAG-HO-H', '2FAG-HO-H')
 
-    #binds = {'year': year, }
+    binds = {'year': year, }
 
-    #subjects_clause = argument_to_sql(subjects, 've.emnekode', binds, str)
-    ##vurdkomb_clause = argument_to_sql(vurdkombkode, 've.vurdkombkode', binds, str)
-    #vurdkomb_clause = ""
-    #if exam_code:
-        #vurdkomb_clause = 'AND ' + argument_to_sql(exam_code, 've.vurdkombkode', binds, str)
+    subjects_clause = argument_to_sql(subjects, 've.emnekode', binds, str)
+    #vurdkomb_clause = argument_to_sql(vurdkombkode, 've.vurdkombkode', binds, str)
+    vurdkomb_clause = ""
+    if exam_code:
+        vurdkomb_clause = 'AND ' + argument_to_sql(exam_code, 've.vurdkombkode', binds, str)
 
-    #semester_clause = ""
-    #if semester:
-        #semester_clause = "AND ve.vurdtidkode = :semester "
-        #binds['semester'] = semester
+    semester_clause = ""
+    if semester:
+        semester_clause = "AND ve.vurdtidkode = :semester "
+        binds['semester'] = semester
 
-    #query = """SELECT ve.emnekode, ve.versjonskode, ve.vurdkombkode,
-        #ve.vurdtidkode, ve.arstall, ve.institusjonsnr AS institusjon,
-        #e.faknr_kontroll AS fakultet, e.instituttnr_kontroll AS institutt,
-        #e.gruppenr_kontroll AS gruppe, 
-        #to_char(ve.dato_uttak,'yyyy-mm-dd') AS dato, 
-        #to_char(ve.klokkeslett_uttak,'hh24:mi') AS tid,
-        #to_char(ve.dato_innlevering,'yyyy-mm-dd') AS dato_innlevering,
-        #to_char(ve.klokkeslett_innlevering,'hh24:mi') AS tid_innlevering
-    #FROM fs.vurdkombenhet ve
-    #JOIN fs.emne e ON (
-            #e.emnekode = ve.emnekode 
-        #AND e.institusjonsnr = ve.institusjonsnr 
-        #AND e.versjonskode = ve.versjonskode)
-    #WHERE %(subjects)s
-        #AND ve.arstall = :year
-        #%(vkk)s
-        #%(semester)s
-    #ORDER BY 1;""" % {'subjects': subjects_clause,
-                      #'vkk': vurdkomb_clause,
-                      #'semester': semester_clause, }
+    query = """SELECT ve.emnekode, ve.versjonskode, ve.vurdkombkode,
+        ve.vurdtidkode, ve.arstall, ve.institusjonsnr AS institusjon,
+        e.faknr_kontroll AS fakultet, e.instituttnr_kontroll AS institutt,
+        e.gruppenr_kontroll AS gruppe, 
+        to_char(ve.dato_uttak,'yyyy-mm-dd') AS dato, 
+        to_char(ve.klokkeslett_uttak,'hh24:mi') AS tid,
+        to_char(ve.dato_innlevering,'yyyy-mm-dd') AS dato_innlevering,
+        to_char(ve.klokkeslett_innlevering,'hh24:mi') AS tid_innlevering
+    FROM fs.vurdkombenhet ve
+    JOIN fs.emne e ON (
+            e.emnekode = ve.emnekode 
+        AND e.institusjonsnr = ve.institusjonsnr 
+        AND e.versjonskode = ve.versjonskode)
+    WHERE %(subjects)s
+        AND ve.arstall = :year
+        %(vkk)s
+        %(semester)s
+    ORDER BY 1;""" % {'subjects': subjects_clause,
+                      'vkk': vurdkomb_clause,
+                      'semester': semester_clause, }
 
-    #return db.query(query, binds)
+    return db.query(query, binds)
 
 
 # TODO: Move to uio/access_FS when we have confirmed that the selections are OK
@@ -381,8 +378,8 @@ def process_exams(db, subjects, year, semester=None):
     candidates = dict()
 
     # FIXME: Test for PPU3310L, remove this
-    #db_exams = test_get_exam_data(db, subjects, year, semester=semester)
-    db_exams = get_exam_data(db, subjects, year, semester=semester)
+    db_exams = test_get_exam_data(db, subjects, year, semester=semester)
+    #db_exams = get_exam_data(db, subjects, year, semester=semester)
 
     for exam_row in db_exams:
         logger.debug('Exam: %s' % repr(exam_row))
@@ -411,8 +408,8 @@ def process_exams(db, subjects, year, semester=None):
                 continue
 
             # FIXME: Test for PPU3310L, remove this
-            #db_candidates = test_get_candidate_data(
-            db_candidates = get_candidate_data(
+            db_candidates = test_get_candidate_data(
+            #db_candidates = get_candidate_data(
                     db, 
                     exam_row['emnekode'], 
                     year,
@@ -570,27 +567,27 @@ def get_exam_group(db, identity):
 
 
 # FIXME: PPU3310L specific, remove this
-#def test_get_exam_group(db, identity):
-    #""" Temp  """
+def test_get_exam_group(db, identity):
+    """ Temp  """
 
-    #owner_name = test_gen_group_name(identity, True)
-    #owner = _find_or_create_group(db, owner_name)
+    owner_name = test_gen_group_name(identity, True)
+    owner = _find_or_create_group(db, owner_name)
 
-    #group_name = test_gen_group_name(identity, False)
-    #group = _find_or_create_group(db, group_name)
+    group_name = test_gen_group_name(identity, False)
+    group = _find_or_create_group(db, group_name)
 
-    #if _set_group_owner(db, owner.entity_id, group.entity_id):
-        #logger.info("Group-owner relation created, %s -> %s" % 
-                #(owner.group_name, group.group_name))
+    if _set_group_owner(db, owner.entity_id, group.entity_id):
+        logger.info("Group-owner relation created, %s -> %s" % 
+                (owner.group_name, group.group_name))
 
-    #return group
+    return group
 
 
 # FIXME: PPU3310L specific, remove this
-#def test_gen_group_name(identity, is_admin=False):
-    #if is_admin:
-        #return "uvdig-it"
-    #return "uvdig-s"
+def test_gen_group_name(identity, is_admin=False):
+    if is_admin:
+        return "uvdig-it"
+    return "uvdig-s"
 
 def _gen_group_name(identity, is_admin=False):
     return "digeks-%s%s" % (('', 'adm-')[int(is_admin)], identity)
@@ -698,7 +695,8 @@ def main():
                 (key, len(candidates.get(key, list()))))
 
         # FIXME: JUS test specific function
-        exam_group = _find_or_create_group(db, cereconf.DIGEKS_PARENT_GROUP)
+        #exam_group = _find_or_create_group(db, cereconf.DIGEKS_PARENT_GROUP)
+        exam_group = test_get_exam_group(db, exam.get('sko', '000000'))
         #exam_group = get_exam_group(db, exam.get('sko', '000000'))
 
         # FIXME: How should this be done in the final version? Not needed for PPU3310L
