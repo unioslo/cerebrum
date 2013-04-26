@@ -54,6 +54,14 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
     def init_ou_dump(self):
         self.__super.init_ou_dump()
         self.get_ou_quarantines()
+        ou2parent = dict((c,p) for p,ous in self.ou_tree.items() for c in ous)
+        class Id2ou(dict):
+            # For missing id2ous, cache and return nearest parent or None
+            def __missing__(self, key):
+                val = self[key] = self[ou2parent.get(key)]
+                return val
+        self.ou_id2ou_uniq_id = Id2ou(self.ou_id2ou_uniq_id)
+        self.ou_id2ou_uniq_id.setdefault(None, None)
 
     def test_omit_ou(self):
         return (not self.ou.has_spread(self.const.spread_ou_publishable)) or \
@@ -185,10 +193,9 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
             p = 'secondary'
             if aff_str == pri_aff_str and status_str == pri_status_str and ou == pri_ou:
                 p = 'primary'
-            if ou not in self.ou_id2ou_uniq_id:
-                # ignore OUs not resent in the org tree
-                continue
-            ret += [p +':'+aff_str+'/'+status_str+'@'+self.ou_id2ou_uniq_id[ou]]
+            ou = self.ou_id2ou_uniq_id[ou]
+            if ou:
+                ret.append(''.join((p,':',aff_str,'/',status_str,'@',ou)))
         return ret
                                     
     def make_person_entry(self, row):
