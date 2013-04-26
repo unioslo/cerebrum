@@ -26,7 +26,6 @@ group_help = {
     'group': "Group commands",
     'host': "Host related commands",
     'misc': 'Miscellaneous commands',
-    'note': 'Entity note related commands',
     'ou': 'Organizational unit related commands',
     'perm': 'Control of Privileges in Cerebrum',
     'person': 'Person related commands',
@@ -279,11 +278,6 @@ command_help = {
     "misc_verify_password":
         "Check whether an account has a given password",
     },
-    'note': {
-    'note_show': 'Show notes associated with an entity',
-    'note_add': 'Add a new note to an entity',
-    'note_remove': 'Remove a note associated with an entity',
-    },
     'ou': {
     'ou_search': 'Search for OUs by name or a partial stedkode',
     'ou_info': 'View information about an OU',
@@ -512,14 +506,6 @@ a name is entered, the type 'account' is assumed.  Other types include
 'host'.  The type name may be abbreviated.  (Some of the types may not
 make sense for this command.)
 """],
-    'id:target:entity':
-        ['entity', 'Enter an existing entity',
-         """Enter the entity as type:name, for example 'account:bob'.  If only
-a name is entered, the type 'account' is assumed.  Other types include
-'group', 'fnr' (fødselsnummer), 'id' (Cerebrum's internal id) and
-'host'.  The type name may be abbreviated.  (Some of the types may not
-make sense for this command.)
-"""],
     'id:target:group':
         ['group', 'Enter an existing entity',
          """Enter the entity as type:name, for example 'group:foo'.  If only a
@@ -587,15 +573,6 @@ Some of the types may not make sense for this command.
  - request
  - confirm
  - cancel"""],
-    'note_id':
-        ['note_id', 'Enter note ID', 
-        'Enter the ID of the note'],
-    'note_subject':
-        ['note_subject', 'Enter subject', 
-        'Enter the subject of the note'],
-    'note_description':
-        ['note_id', 'Enter description', 
-        'Enter the description of the note'],
     'number_size_mib':
         ['size', 'Enter size (in MiB)',
         'Enter the size of storage, in mebibytes (1024*1024 bytes)'],
