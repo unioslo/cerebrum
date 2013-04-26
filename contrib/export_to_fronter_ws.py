@@ -20,53 +20,75 @@
 """This script can be used for sending an export to a Fronter instance"""
 
 import sys
+import socket
 import getopt
 import httplib
-import time
 
-def export(filename, key):
+from Cerebrum.Utils import Factory
+
+logger = Factory.get_logger('cronjob')
+
+def export(filename, key, host):
     """Runs the export"""
-    t = lambda: time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())
-
-    print t() + ': Reading file'
+    logger.debug('Reading file %s' % filename)
+    
     f = open(filename)
     data = f.read()
     f.close()
-    print t() + ': Done reading file'
-
-    print t() + ': Connecting'
     
-    conn = httplib.HTTPSConnection('ws.fronter.com')
-    print t() + ': Starting request'
-    headers = {'Content-type': 'application/x-www-form-urlencoded', 'Accept': '*/*'}
-    conn.request('POST',
-                 '/es/?authkey=%s' % key,
-                 'POSTFILE\n%s\n%s' % (filename, data), headers)
+    logger.debug('Done reading file')
+    logger.info('Connecting to %s, key is %s' % (host, key))
+    
+    conn = httplib.HTTPSConnection(host)
 
-    print t() + ': Fetching response'
+    logger.info('Starting request')
+    
+    headers = {'Content-type': 'application/x-www-form-urlencoded', \
+               'Accept': '*/*'}
+    try:
+        conn.request('POST',
+                     '/es/?authkey=%s' % key,
+                     'POSTFILE\n%s\n%s' % (filename, data), headers)
+    except socket.error, err:
+        logger.info('Error during request: %s' % err[1])
+        return -8
+
+    logger.debug('Fetching response')
+
     r = conn.getresponse()
-    print r.read()
-    print r.status
-    conn.close()
 
-def status(key):
+    # Log the return message from the webservice
+    logger.info("Response: %s" % r.read())
+
+    conn.close()
+    return 0 if r.status == 200 else r.status
+
+def status(key, host):
     """Polls the WS for a status"""
-    conn = httplib.HTTPSConnection('ws.fronter.com')
-    headers = {'Content-type': 'application/x-www-form-urlencoded', 'Accept': '*/*'}
-    conn.request('POST',
-                 '/es/?authkey=%s' % key,
-                 'STATUS\n', headers)
+    conn = httplib.HTTPSConnection(host)
+    headers = {'Content-type': 'application/x-www-form-urlencoded', \
+               'Accept': '*/*'}
+    try:
+        conn.request('POST',
+                     '/es/?authkey=%s' % key,
+                     'STATUS\n', headers)
+    except socket.error, err:
+        logger.info('Error during request: %s' % err[1])
+        return -8
+
     r = conn.getresponse()
-    print r.read()
-    print r.status
+
+    logger.info("Response: %s" % r.read())
     conn.close()
+    return 0 if r.status == 200 else r.status
 
 def usage(i=0):
     """Usage information"""
-    print """Usage: %s -k <key> -f <file>
+    print """Usage: %s -k <key> -f <file> --logger-name <logger>
       -k <key> defines which Fronter-integration will receive the file.
-      -f <file> is the filename to the file.
-    
+      -f <file> defines the filename to the file.
+      --logger-name <logger> defines the logger to use (default: cronjob)
+
       If you run the export with only -k, it will tell you if the service is
       OK and running.
 
@@ -92,8 +114,13 @@ def main():
     """Arg parsing and execution"""
     file = None
     key = ''
+    host = 'ws.fronter.com'
 
-    opts, j = getopt.getopt(sys.argv[1:], 'f:k:h')
+    try:
+        opts, j = getopt.getopt(sys.argv[1:], 'f:k:hH:')
+    except getopt.GetoptError, err:
+        print 'Error: %s' % err
+        usage(-2)
     
     for opt, val in opts:
         if opt in ('-f',):
@@ -102,16 +129,18 @@ def main():
             key = val
         elif opt in ('-h',):
             usage()
+        elif opt in ('-H',):
+            host = val
         else:
             print "Error: Invalid arg"
-            usage(2)
+            usage(-2)
     
     if file and key:
-        export(file, key)
+        return export(file, key, host)
     elif key:
-        status(key)
+        return status(key, host)
     else:
-        usage(1)
+        usage(-1)
 
 if __name__ == '__main__':
     main()
