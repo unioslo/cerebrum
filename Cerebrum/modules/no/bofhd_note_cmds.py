@@ -21,21 +21,14 @@
 
 """Commands for BOFHD EntityNote functionality."""
 
-from mx import DateTime
-
-import cerebrum_path
-import cereconf
-
-from Cerebrum import Errors
 from Cerebrum.modules import Note
-from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.auth import BofhdAuth
-
-from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.cmd_param import Command, FormatSuggestion, Id, \
 		SimpleString
 
-class BofhdExtension(BofhdCommandBase):
+
+class BofhdExtension(BofhdCommonMethods):
 	all_commands = {}
 
 	def __init__(self, server):
@@ -48,8 +41,6 @@ class BofhdExtension(BofhdCommandBase):
 			'note': 'Entity note related commands',
 		}
 
-		# The texts in command_help are automatically line-wrapped, and should
-		# not contain \n
 		command_help = {
 			'note': {
 				'note_show': 'Show notes associated with an entity',
@@ -70,11 +61,13 @@ class BofhdExtension(BofhdCommandBase):
 				'Enter the description of the note'],
 			'note_target':
 				['entity', 'Enter an existing entity',
-				 """Enter the entity as type:name, for example 'account:bob'.  If only
-				a name is entered, the type 'account' is assumed.  Other types include
-				'group', 'fnr' (fødselsnummer), 'id' (Cerebrum's internal id) and
-				'host'.  The type name may be abbreviated."""],
-			}
+				"Enter the entity as type:name, for example 'account:bob'. " + \
+				"If only a name is entered, the type 'account' is assumed. " + \
+				"Other types include 'group', 'fnr' (fødselsnummer), 'id' " + \
+				"(Cerebrum's internal id), 'stedkode' (OU) and 'host'. " + \
+				"The type name may be abbreviated."],
+		}
+
 		return (group_help, command_help, arg_help)
 
 	# note show

@@ -269,11 +269,11 @@ class CLConstants(Constants.Constants):
                                       'del entity_addr for %(subject)s')
 
     entity_note_add = _ChangeTypeCode(
-        'entity_note', 'add', 'add entity note for %(subject)s',
-        'note_id=%(int:note_id)s')
+        'entity_note', 'add', 'add entity_note for %(subject)s',
+        ('note_id=%(int:note_id)s',))
     entity_note_del = _ChangeTypeCode(
-        'entity_note', 'del', 'del entity note for %(subject)s',
-        'note_id=%(int:note_id)s')
+        'entity_note', 'del', 'del entity_note for %(subject)s',
+        ('note_id=%(int:note_id)s',))
 
     # TBD: Is it correct to have posix_demote in this module?
     posix_demote =  _ChangeTypeCode(
