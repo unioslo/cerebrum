@@ -27,6 +27,7 @@ Address, Gender etc. type."""
 from Cerebrum import Constants
 from Cerebrum.Constants import _SpreadCode, \
                                _PersonAffiliationCode, \
+                               _ContactInfoCode, \
                                _PersonAffStatusCode
 from Cerebrum.modules.EntityTrait import _EntityTraitCode
 
