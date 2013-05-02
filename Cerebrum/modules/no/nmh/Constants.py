@@ -68,6 +68,10 @@ class Constants(Constants.Constants):
         'person@adgang', Constants.Constants.entity_person,
         'Person kjent i adgangssystemet til NMH')
 
+    ## Contact info
+    contact_office = _ContactInfoCode('OFFICE',
+        'Office address (building code and room number')
+
     ## Traits for fagområde
     trait_fagomrade_fagfelt = _EntityTraitCode(
             'fagfelt',
