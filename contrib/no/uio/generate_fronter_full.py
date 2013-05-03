@@ -46,7 +46,6 @@ import cerebrum_path
 getattr(cerebrum_path, 'This will shut the linters up', None)
 import cereconf
 from Cerebrum import Errors
-from Cerebrum import Database
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uio.fronter_lib \
      import XMLWriter, UE2KursID, key2fields, fields2key, host_config
@@ -694,7 +693,7 @@ kind2permissions = {
                          'student': view_contacts},
                'fagansvar': {'felles': Fronter.ROLE_CHANGE,
                              'larer': Fronter.ROLE_CHANGE,
-                             'undakt': Fronter.ROLE_CHANGE,                              
+                             'undakt': Fronter.ROLE_CHANGE,
                              'korridor': admin_lite,
                              'student': view_contacts},
                'foreleser': {'felles': Fronter.ROLE_DELETE,
@@ -1437,11 +1436,28 @@ def register_supergroups():
                          group_name)
             continue
 
+        parent = fronter._group_name2key(group_name).split(':')
+        ktype = parent[0].lower()
+
+        if ktype == fronter.EMNE_PREFIX.lower():
+            parent_struct_id = 'Emnegrupper %s %s' % (parent[4], parent[5])
+        elif ktype == fronter.EVU_PREFIX.lower():
+            parent_struct_id = 'EVUkursgrupper %s' % parent[2]
+        elif ktype == fronter.KULL_PREFIX.lower():
+            parent_struct_id = 'Kullgrupper %s' % ' '.join(parent[2:4])
+        else:
+            parent_struct_id = 'UREG2000@uio.no imported groups'
+
+        if not new_group.has_key(parent_struct_id):
+            register_group(parent_struct_id, parent_struct_id, group_struct_id,
+                    allow_room=False, allow_contact=True)
+
+        register_group(group.description, group.group_name,
+                       parent_struct_id, allow_room=False,
+                       allow_contact=True)
+
         logger.debug("Registrerer <%s>; desc <%s>; %d members",
                      group.group_name, group.description, len(members))
-        register_group(group.description, group.group_name,
-                       group_struct_id, allow_room=False,
-                       allow_contact=True)
 
         # All groups have "view contacts" on themselves.
         new_acl.setdefault(group.group_name,
@@ -1796,6 +1812,36 @@ def usage(exitcode):
     print "Usage: generate_fronter_full.py OUTPUT_FILENAME"
     sys.exit(exitcode)
 
+### This stuff can sort the groups by dependency.
+### It is terribly slow. We should not need to use this.
+#def sort_groups(groups):
+#    logger.info('Starting sort')
+#    grpkeys = groups.keys()
+#    s = []
+#
+#    # Makin' a list of groups without children
+#    for x in grpkeys:
+#        childless = True
+#        for y in grpkeys:
+#            if x == groups[y]['parent']:
+#                childless = False
+#        if childless:
+#            s.append(x)
+#    logger.info('Childless nodes collected')
+#
+#    # Sorting the groups
+#    r = []
+#    for x in s:
+#        tmp = []
+#        t = x
+#        while groups[t]['parent'] != t and t not in r:
+#            tmp.append(t)
+#            t = groups[t]['parent']
+#        if t not in r:
+#            tmp.append(t)
+#        r.extend(tmp[::-1])
+#    logger.info('Sort finished')
+#    return r
 
 def main():
     # Proper upper/lower casing of Norwegian letters.
