@@ -381,6 +381,8 @@ def process_file(file, dryrun):
     fnr = xml.find('respondentPersonIdNumber').text
     logger.debug('Submission, type "%s", respondent: "%s", answers: %d', stype,
                  fnr, len(answers))
+    for k in sorted(answers):
+        logger.debug("  %s: %s", k, answers[k])
 
     # Do the Cerebrum processing:
     p = Processing(fnr=fnr)
@@ -526,19 +528,26 @@ class Processing(object):
         ou.populate_trait(co.trait_project_rek, target_id=ou.entity_id,
                           strval=input['rek_approval'])
         ou.write_db()
-        logger.debug("Setting up rest of project...")
-        ou.setup_project(systemaccount_id)
+        # The setup should be handled in bofhd, when the project gets approved.
+        #logger.debug("Setting up rest of project...")
+        #ou.setup_project(systemaccount_id)
         logger.debug("New project created successfully: %s", pid)
         return ou
 
-    def _create_account(self, pe, pid, username):
-        """Create a quarantined account for a given project."""
+    def _create_account(self, pe, ou, username):
+        """Create a quarantined account for a given project.
+
+        The person must already be affiliated with the project for the account
+        to be created.
+
+        """
+        pid = ou.get_project_name()
         ac = Factory.get('Account')(db)
         username = '%s-%s' % (pid, username)
         # Check if wanted username is already taken:
         if ac.search(name=username):
             raise Exception("Username already taken: %s" % username)
-            # TODO: implement this when we have the person's name
+            # TODO: implement this if we have the person's name?
             #for name in ac.suggest_unames(co.account_namespace, fname, lname,
             #                              maxlen=cereconf.USERNAME_MAX_LENGTH,
             #                              prefix='%s-' % pid):
@@ -552,15 +561,29 @@ class Processing(object):
                     username)
         ac.create(name=username, owner_id=pe.entity_id,
                   creator_id=systemaccount_id)
-        # TODO: Set affiliation?
-        #ac.set_account_type(ou.entity_id, co.affiliation_project)
-        #ac.write_db()
-        # Set quarantine:
-        ac.add_entity_quarantine(type=co.quarantine_not_approved,
-                                 creator=systemaccount_id,
-                                 description='User not yet approved by admin',
-                                 start=DateTime.now())
         ac.write_db()
+
+        if pe.list_affiliations(pe.entity_id, ou_id=ou.entity_id,
+                                affiliation=co.affiliation_project):
+            # Approved account:
+            logger.debug("Account %s approved for project: %s", ac.account_name,
+                         pid)
+            ac.set_account_type(ou.entity_id, co.affiliation_project)
+        elif pe.list_affiliations(pe.entity_id, ou_id=ou.entity_id,
+                                  affiliation=co.affiliation_pending):
+            # Pending account:
+            logger.debug("Account %s pending for project: %s", ac.account_name,
+                         pid)
+            ac.set_account_type(ou.entity_id, co.affiliation_pending)
+            ac.add_entity_quarantine(type=co.quarantine_not_approved,
+                                     creator=systemaccount_id,
+                                     description='User not yet approved',
+                                     start=DateTime.now())
+        else:
+            raise Exception("Person %s not affiliated to project %s",
+                            pe.entity_id, ou.entity_id)
+        ac.write_db()
+
         # TODO: quarantine for start and end dates, or is the project's
         # quarantine enough for that?
         return ac
@@ -625,24 +648,20 @@ class Processing(object):
                             input['p_responsible'])
 
         # Give the PA an account:
-        ac = self._create_account(pe, pid, input['pa_uiousername'])
+        ac = self._create_account(pe, ou, input['pa_uiousername'])
 
-        # Adding pre approved members to the project's list:
-        not_found_persons = set()
+        # Fill the pre approve list with external ids:
+        pre_approve_list = set()
         for fnr in set(input['p_persons'].split()):
             try:
                 fnr = fodselsnr.personnr_ok(fnr)
             except fodselsnr.InvalidFnrError:
                 logger.debug("Ignoring invalid fnr: %s", fnr)
                 continue
-            not_found_persons.add(fnr)
-        if not_found_persons:
-            logger.debug("Remaining non-existing persons: %d",
-                         len(not_found_persons))
-            ou.populate_trait(co.trait_project_persons_accepted,
-                              target_id=ou.entity_id,
-                              date=DateTime.now(),
-                              strval=' '.join(not_found_persons))
+            pre_approve_list.add(fnr)
+        if pre_approve_list:
+            logger.debug("Pre approvals: %s", ', '.join(pre_approve_list))
+            ou.add_pre_approved_persons(pre_approve_list)
             ou.write_db()
         # TODO: How should we signal that a new project is waiting for approval?
         return True
@@ -705,15 +724,8 @@ class Processing(object):
             logger.info("Ignoring person %s, already has project accounts: %s",
                          self.fnr, ', '.join(a['account_id'] for a in accounts))
             return False
-        # Give the man a user:
-        ac = self._create_account(pe, pid, input['uio_or_feide_username'])
-        if approved:
-            ac.set_account_type(ou.entity_id, co.affiliation_project)
-            logger.debug("Remove not_approved quar for %s", ac.account_name)
-            ac.delete_entity_quarantine(co.quarantine_not_approved)
-            ac.write_db()
-        else:
-            ac.set_account_type(ou.entity_id, co.affiliation_pending)
+
+        ac = self._create_account(pe, ou, input['uio_or_feide_username'])
         return True
 
     def approve_persons(self, input):

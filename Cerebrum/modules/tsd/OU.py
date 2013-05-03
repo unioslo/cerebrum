@@ -120,6 +120,11 @@ class OUTSDMixin(OU):
             raise Errors.CerebrumError('Project name is too long')
         return True
 
+    def get_project_name(self):
+        """Shortcut for getting the given OU's project ID."""
+        return self.get_name_with_language(self.const.ou_name_acronym,
+                                           self.const.language_en)
+
     def add_name_with_language(self, name_variant, name_language, name):
         """Override to be able to verify project names (acronyms).
 
@@ -144,7 +149,7 @@ class OUTSDMixin(OU):
                                                    name)
 
     def setup_project(self, creator_id):
-        """Setup the project after the project OU is created. 
+        """Set up an approved project properly.
 
         By setting up a project we mean:
 
@@ -156,7 +161,8 @@ class OUTSDMixin(OU):
         called from all imports and jobs that creates TSD projects.
 
         Note that the given OU must have been set up with a proper project name,
-        stored as an acronym, before this method could be called.
+        stored as an acronym, before this method could be called. The project
+        must already be approved for this to happen.
 
         @type creator_id: int
         @param creator_id:
@@ -164,8 +170,10 @@ class OUTSDMixin(OU):
             administrator that created the project or a system user.
 
         """
-        projectid = self.get_name_with_language(self.const.ou_name_acronym,
-                                                self.const.language_en)
+        if self.get_entity_quarantine(only_active=True):
+            raise Exception("Project is quarantined, cannot setup")
+
+        projectid = self.get_project_name()
         gr = Factory.get("Group")(self._db)
         for suffix, desc in getattr(cereconf, 'TSD_PROJECT_GROUPS', ()):
             gr.clear()
