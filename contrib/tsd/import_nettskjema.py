@@ -132,6 +132,10 @@ def remove_file(file, dryrun, archive_dir=None):
     # TODO
     pass
 
+class InvalidFileError(Exception):
+    """Exception for invalid files, e.g. it can't be parsed."""
+    pass
+
 def process_files(locations, dryrun):
     """Do the process thing."""
     for location in locations:
@@ -147,6 +151,12 @@ def process_files(locations, dryrun):
                 remove_file(location, dryrun)
         except BadInputError, e:
             logger.warn("Bad input in file %s: %s", location, e)
+            db.rollback()
+        except InvalidFileError, e:
+            logger.warn("Problems with file %s: %s", location, e)
+            db.rollback()
+        except etree.XMLSyntaxError, e:
+            logger.warn("Syntax error in file %s: %s", location, e)
             db.rollback()
         except Errors.CerebrumError, e:
             logger.warn("Failed processing %s: %s", location, e)
@@ -296,6 +306,9 @@ def _xml2answersdict(xml):
 
     """
     ret = dict()
+    answers = xml.find('answers')
+    if not answers:
+        raise InvalidFileError('Missing tag <answers>')
     for ans in xml.find('answers').iterfind('answer'):
         try:
             extid = ans.find('question').find('externalQuestionId').text
@@ -348,16 +361,16 @@ def xml2answers(xml):
         if all(req in answers for req in requireds):
             stypes.append(stype)
     if not stypes:
-        raise Exception('No matching survey type for answers: %s' %
-                         answers.keys())
+        raise InvalidFileError('No matching survey type for answers: %s' %
+                               answers.keys())
     if len(stypes) > 1:
         # Find the type with the most correct answers:
         stypes = sorted(stypes, reverse=True, key=lambda x:
                                                     len(survey_types[x]))
         # Check if it's a tie
         if len(survey_types[stypes[0]]) == len(survey_types[stypes[1]]):
-            raise Exception('Could not uniquely identify submission type: '
-                            '%s, keys: %s' % ( stypes[:2], answers.keys()))
+            raise InvalidFileError('Could not uniquely identify submission '
+                    'type: %s, keys: %s' % ( stypes[:2], answers.keys()))
     stype = stypes[0]
     # Do the input control and filtering:
     ret = dict()
@@ -751,8 +764,8 @@ class Processing(object):
                                     status=(co.affiliation_status_project_owner,
                                             co.affiliation_status_project_admin),
                                     ou_id=ou.entity_id):
-            raise Exception("Person %s is not owner or PA of project %s" %
-                            (pe.entity_id, pid))
+            raise Errors.CerebrumError("Person %s is not PA of project %s" %
+                                       (pe.entity_id, pid))
 
         # Try to find and add the given person to the project
         pe2 = Factory.get('Person')(db)
