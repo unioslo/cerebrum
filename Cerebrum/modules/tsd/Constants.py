@@ -54,6 +54,14 @@ class Constants(Constants.Constants):
     affiliation_status_project_member = _PersonAffStatusCode(
             affiliation_project, 'member', 'Project Member (PM)')
 
+    # Pending
+    affiliation_pending = _PersonAffiliationCode('PENDING',
+                                        'Unapproved affiliations')
+    # Pending project member (PM)
+    affiliation_status_pending_project_member = _PersonAffStatusCode(
+                            affiliation_pending, 'member',
+                            'Waiting for getting accepted as a project member')
+
     ## Spreads
 
     # AD

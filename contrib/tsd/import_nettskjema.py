@@ -280,36 +280,6 @@ survey_types = {
         'approve_persons': ('p_id', 'p_persons'),
         }
 
-input_settings = {
-    'new_project': {
-        'p_id': (input.is_projectid, input.str),
-        'p_name': (input.is_nonempty, input.str),
-        'p_shortname': (input.is_nonempty, input.str),
-        'p_start': (input.is_valid_date, input.filter_date),
-        'p_end': (input.is_valid_date, input.filter_date),
-        'p_responsible': (input.is_fnr, input.str),
-        'institution': (input.is_nonempty, input.str),
-        'rek_approval': (input.is_nonempty, input.str),
-        'p_persons': (lambda x: True, input.str),
-
-        # The PA:
-        'pa_name': (input.is_nonempty, input.str),
-        'pa_phone': (input.is_phone, input.str),
-        'pa_email': (input.is_email, input.str),
-        'pa_uiousername': (input.is_username, input.str),
-        },
-    'project_access': {
-        'real_name': (input.is_nonempty, input.str),
-        'p_id': (input.is_projectid, input.str),
-        'uio_or_feide_username': (lambda x: True, input.str),
-        # TODO: more data, like contact info?
-        },
-    'approve_person': {
-        #TODO
-        },
-    }
-
-
 def _xml2answersdict(xml):
     """Parse the XML and return a dict with all the answers.
 
@@ -582,9 +552,9 @@ class Processing(object):
                     username)
         ac.create(name=username, owner_id=pe.entity_id,
                   creator_id=systemaccount_id)
-        # Set affiliation:
-        ac.set_account_type(ou.entity_id, co.affiliation_project)
-        ac.write_db()
+        # TODO: Set affiliation?
+        #ac.set_account_type(ou.entity_id, co.affiliation_project)
+        #ac.write_db()
         # Set quarantine:
         ac.add_entity_quarantine(type=co.quarantine_not_approved,
                                  creator=systemaccount_id,
@@ -594,6 +564,17 @@ class Processing(object):
         # TODO: quarantine for start and end dates, or is the project's
         # quarantine enough for that?
         return ac
+
+    def _get_project_account(self, pe, ou):
+        """Find a person's project accounts, if any.
+
+        Note that a person *could* have more than one account per project, even
+        if that would not make much sense.
+
+        """
+        return ac.list_accounts_by_type(ou_id=ou.entity_id,
+                                        #affiliation=co.affiliation_pending,
+                                        person_id=pe.entity_id)
 
     def new_project(self, input):
         """Create a given project.
@@ -628,17 +609,25 @@ class Processing(object):
         # Check the responsible and give access to the project by an
         # affiliation:
         if self.fnr != input['p_responsible']:
-            pe2 = self._get_person(input['p_responsible'])
-            pe2.populate_affiliation(source_system=co.system_nettskjema,
-                                     ou_id=ou.entity_id,
-                                     affiliation=co.affiliation_project,
-                                     status=co.affiliation_status_project_owner)
-            # Note that no name or anything else is now set for this account.
-            pe2.write_db()
+            # TODO: Should we create a person with this ID or not?
+            try:
+                pe2 = self._get_person(input['p_responsible'],
+                                       create_nonexisting=False)
+                pe2.populate_affiliation(source_system=co.system_nettskjema,
+                                         ou_id=ou.entity_id,
+                                         affiliation=co.affiliation_project,
+                                         status=co.affiliation_status_project_owner)
+                # Note that no name or anything else is now set, so we wait with the
+                # account.
+                pe2.write_db()
+            except Errors.NotFoundError:
+                logger.warn("Project owner not found: %s",
+                            input['p_responsible'])
 
+        # Give the PA an account:
         ac = self._create_account(pe, pid, input['pa_uiousername'])
 
-        # Other members that should be added to the project:
+        # Adding pre approved members to the project's list:
         not_found_persons = set()
         for fnr in set(input['p_persons'].split()):
             try:
@@ -646,24 +635,7 @@ class Processing(object):
             except fodselsnr.InvalidFnrError:
                 logger.debug("Ignoring invalid fnr: %s", fnr)
                 continue
-            ret = tuple(pe.list_external_ids(id_type=co.externalid_fodselsnr,
-                                             external_id=fnr,
-                                             entity_type=co.entity_person))
-            if len(ret) > 1:
-                raise Exception("Found more than one person fnr: %s" % fnr)
-            elif len(ret) == 1:
-                pe.clear()
-                pe.find(ret[0]['entity_id'])
-                logger.info("Adding person %s to the project", pe.entity_id)
-                pe.populate_affiliation(source_system=co.system_nettskjema,
-                                        ou_id=ou.entity_id,
-                                        affiliation=co.affiliation_project,
-                                        status=co.affiliation_status_project_member)
-                pe.write_db()
-                # TODO: create a project account for the person?
-            else:
-                not_found_persons.add(fnr)
-        # Store the not found persons to be added to the project later:
+            not_found_persons.add(fnr)
         if not_found_persons:
             logger.debug("Remaining non-existing persons: %d",
                          len(not_found_persons))
@@ -671,7 +643,7 @@ class Processing(object):
                               target_id=ou.entity_id,
                               date=DateTime.now(),
                               strval=' '.join(not_found_persons))
-        ou.write_db()
+            ou.write_db()
         # TODO: How should we signal that a new project is waiting for approval?
         return True
 
@@ -704,33 +676,52 @@ class Processing(object):
         ou.clear()
         ou.find_by_tsd_projectname(pid)
 
-        # Affiliate the person with the project:
-        pe.populate_affiliation(source_system=co.system_nettskjema,
-                                ou_id=ou.entity_id,
-                                affiliation=co.affiliation_project,
-                                status=co.affiliation_status_project_member)
-        # TODO: add a 'pending' status for those not approved to a project?
-        pe.write_db()
-        logger.info("Person %s affiliated with project %s", pe.entity_id, pid)
+        # Check if the person is pre approved for the project:
+        approved = False
+        if self.fnr in ou.get_pre_approved_persons():
+            logger.debug("Person %s was pre approved", self.fnr)
+            approved = True
 
+        if approved:
+            logger.info("Adding member aff to project %s for %s", pid,
+                        pe.entity_id)
+            pe.populate_affiliation(source_system=co.system_nettskjema,
+                    ou_id=int(ou.entity_id),
+                    affiliation=int(co.affiliation_project),
+                    status=co.affiliation_status_project_member)
+            pe.write_db()
+            # TODO: remove fnr from project's list of pre approved persons.
+        else:
+            logger.info("Adding pending aff to project %s for %s", pid,
+                        pe.entity_id)
+            pe.populate_affiliation(source_system=co.system_nettskjema,
+                    ou_id=ou.entity_id, affiliation=co.affiliation_pending,
+                    status=co.affiliation_status_pending_project_member)
+            pe.write_db()
+
+        # Check if the person already has an account:
+        accounts = self._get_project_account(pe, ou)
+        if accounts:
+            logger.info("Ignoring person %s, already has project accounts: %s",
+                         self.fnr, ', '.join(a['account_id'] for a in accounts))
+            return False
         # Give the man a user:
         ac = self._create_account(pe, pid, input['uio_or_feide_username'])
-        # TODO: a different quarantine to be accepted by PAs?
-        # Add a quarantine, to let the PAs accept it:
-        #ac.add_entity_quarantine(type=co.quarantine_not_approved,
-        #                         creator=systemaccount_id,
-        #                         description='User not yet approved by admin',
-        #                         start=DateTime.now())
-        #
-
+        if approved:
+            ac.set_account_type(ou.entity_id, co.affiliation_project)
+            logger.debug("Remove not_approved quar for %s", ac.account_name)
+            ac.delete_entity_quarantine(co.quarantine_not_approved)
+            ac.write_db()
+        else:
+            ac.set_account_type(ou.entity_id, co.affiliation_pending)
         return True
 
     def approve_persons(self, input):
         """Let project owner and PAs approve more persons to their project.
 
-        Sending this through Nettskjema is needed as we have no web gui inside
-        TSD in the beginning, and people need a way to approve people for their
-        projects.
+        Sending this through Nettskjema is needed as we have no web GUI inside
+        TSD in the beginning, and project admins need a way to approve people
+        for their projects.
 
         """
         # Find the project:
@@ -753,53 +744,80 @@ class Processing(object):
 
         # Try to find and add the given person to the project
         pe2 = Factory.get('Person')(db)
-        not_found_persons = set()
+        pre_approvals = set()
         for fnr in set(input['p_persons'].split()):
             try:
                 fnr = fodselsnr.personnr_ok(fnr)
             except fodselsnr.InvalidFnrError:
                 logger.debug("Ignoring invalid fnr: %s", fnr)
                 continue
-
+            # Find the person:
             try:
                 pe2 = self._get_person(fnr, create_nonexisting=False)
             except Errors.NotFoundError:
-                logger.debug("Person not found: %s" % fnr)
-                not_found_persons.add(fnr)
+                logger.info("Person %s not found, added to pre approve list",
+                             fnr)
+                pre_approvals.add(fnr)
                 continue
+            # Affiliate person to project:
+            if not pe2.list_affiliations(person_id=pe2.entity_id,
+                                         ou_id=ou.entity_id,
+                                         affiliation=co.affiliation_project):
+                logger.info("Approve person %s for project: %s", fnr, pid)
+                pe2.populate_affiliation(source_system=co.system_nettskjema,
+                                         ou_id=ou.entity_id,
+                                         affiliation=co.affiliation_project,
+                                         status=co.affiliation_status_project_member)
+            # Remove pending aff, if set:
+            pe2.delete_affiliation(ou_id=ou.entity_id,
+                                   affiliation=co.affiliation_pending)
+            # Note that this also removes any other pending statuses, if we
+            # should create more of those in the future.
+            pe2.write_db()
 
-            logger.info("Adding person %s to the project", pe2.entity_id)
+            # Find the member's project account, if it exist:
+            accounts = self._get_project_account(pe2, ou)
+            if not accounts:
+                logger.info("No project account for %s, added to approve list",
+                             fnr)
+                pre_approvals.add(fnr)
+                continue
+            ac.clear()
+            ac.find(accounts[0]['account_id'])
+            logger.info("Approving person %s PM to %s: %s ", fnr,
+                        ac.account_name, pid)
+
+            # Update the account types:
+            ac.set_account_type(ou.entity_id, co.affiliation_project)
+            # TODO: check if this works if the type is already set:
+            ac.del_account_type(ou.entity_id, co.affiliation_pending)
+            ac.del_account_type(ou.entity_id, co.affiliation_pending)
+            ac.write_db()
+
             # Stop if person already is PA or owner, can't have member-aff at
             # the same time:
-            if pe2.list_affiliations(person_id=pe2.entity_id,
-                                     affiliation=co.affiliation_project,
-                                     status=(co.affiliation_status_project_owner,
-                                             co.affiliation_status_project_admin),
-                                     ou_id=ou.entity_id):
-                logger.debug("Person is already owner or PA: %s", fnr)
-                continue
-            pe2.populate_affiliation(source_system=co.system_nettskjema,
-                                     ou_id=ou.entity_id,
-                                     affiliation=co.affiliation_project,
-                                     status=co.affiliation_status_project_member)
-            pe2.write_db()
+            #if pe2.list_affiliations(person_id=pe2.entity_id,
+            #                         affiliation=co.affiliation_project,
+            #                         status=(co.affiliation_status_project_owner,
+            #                                 co.affiliation_status_project_admin),
+            #                         ou_id=ou.entity_id):
+            #    logger.debug("Person is already owner or PA: %s", fnr)
+            #    continue
+            #pe2.populate_affiliation(source_system=co.system_nettskjema,
+            #                         ou_id=ou.entity_id,
+            #                         affiliation=co.affiliation_project,
+            #                         status=co.affiliation_status_project_member)
+            #pe2.write_db()
             # TODO: The person will get an account when successfully registered
             # with its name. This could have happened already, so might create
             # it now already?
 
-        # Store the not found persons for later use:
-        if not_found_persons:
+        # Store those not processed for later approval:
+        if pre_approvals:
             logger.debug("Remaining non-existing persons: %d",
-                         len(not_found_persons))
-            existing_approved = [row['strval'] for row in
-                              ou.list_traits(co.trait_project_persons_accepted,
-                                             target_id=ou.entity_id)]
-            existing_approved.append(' '.join(not_found_persons))
-            ou.populate_trait(co.trait_project_persons_accepted,
-                              target_id=ou.entity_id,
-                              date=DateTime.now(),
-                              strval=' '.join(existing_approved))
-        ou.write_db()
+                         len(pre_approvals))
+            ou.add_pre_approved_persons(pre_approvals)
+            ou.write_db()
         return True
 
 def main():

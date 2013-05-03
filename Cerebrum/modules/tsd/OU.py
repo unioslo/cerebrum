@@ -190,3 +190,36 @@ class OUTSDMixin(OU):
                 #
 
         # TODO: other settings?
+
+    def get_pre_approved_persons(self):
+        """Get a list of pre approved persons by their fnr.
+
+        This is a list of persons that has already been granted access to a
+        project, but have not asked for the access yet. The list is stored in a
+        trait, but is automatically split by spaces for ease of use.
+
+        @rtype: set
+        @return: A set of identifiers for each pre approved person.
+
+        """
+        tr = self.get_trait(self.const.trait_project_persons_accepted)
+        if tr is None:
+            return set()
+        return set(tr['strval'].split())
+
+    def add_pre_approved_persons(self, ids):
+        """Pre approve persons to the project by their external IDs.
+
+        The list of pre approved persons for the project gets extended with the
+        new list.
+
+        @type ids: iterator
+        @param ids: All the external IDs for all the pre approved persons.
+
+        """
+        approvals = self.get_pre_approved_persons()
+        approvals.update(ids)
+        # TODO: check if this works!
+        self.populate_trait(code=self.const.trait_project_persons_accepted,
+                            date=DateTime.now(), strval=' '.join(approvals))
+        return True
