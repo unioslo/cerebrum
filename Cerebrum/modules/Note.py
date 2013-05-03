@@ -20,6 +20,7 @@
 """Module for attaching notes to entities."""
 
 from Cerebrum.Entity import Entity
+from Cerebrum.Utils import argument_to_sql
 
 __version__ = "1.0"
 
@@ -85,23 +86,21 @@ class EntityNote(Entity):
         @return A list containing notes
         @rtype list of rows"""
 
-        e_type = ""
-        if entity_type is not None:
-            e_type = """
-            JOIN [:table schema=cerebrum name=entity_info] e
-              ON e.entity_id = enote.entity_id AND
-              e.entity_type """
-            if isinstance(entity_type, list):
-                e_type += "IN (%s)" % ", ".join(map(str,
-                                                    map(int, entity_type)))
-            else:
-                e_type += "= %s" % int(entity_type)
+        select = """SELECT enote.note_id, enote.create_date, enote.creator_id, 
+            enote.subject, enote.description"""
+        tables = ["[:table schema=cerebrum name=entity_note] enote"]
+        where = []
+        binds = {}
 
-        return self.query("""
-        SELECT enote.note_id, enote.create_date, enote.creator_id, 
-            enote.subject, enote.description
-        FROM [:table schema=cerebrum name=entity_note] enote
-        %s""" % e_type)
+        if entity_type is not None:
+            tables.append("""JOIN [:table schema=cerebrum name=entity_info] e
+            ON e.entity_id = enote.entity_id""")
+            where.append(argument_to_sql(entity_type, "e.entity_type", binds, int))
+
+        where_str = ("WHERE " + " AND ".join(where)) if where else ""
+        query_str = "%s FROM %s %s" % (select, " ".join(tables), where_str)
+
+        return self.query(query_str, binds, fetchall=True)
     
     def delete_note(self, note_id):
         """Deletes a note.
