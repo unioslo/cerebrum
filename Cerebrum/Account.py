@@ -51,7 +51,25 @@ class AccountType(object):
 
     def get_account_types(self, all_persons_types=False, owner_id=None,
                           filter_expired=True):
-        """Return dbrows of account_types for the given account"""
+        """Return dbrows of account_types for the given account.
+
+        @type all_persons_types: bool
+        @param all_persons_types: If True, returns all the account_types by the
+            owner's (person)'s accounts, and not just this account's types.
+
+        @type owner_id: int
+        @param owner_id: If set, returns all the account_types for all accounts
+            that has the given owner_id as their owner.
+
+        @type filter_expired: bool
+        @param filter_expired: If expired accounts should be ignored. Note that
+            this does not check if the affiliation or account_type is expired!
+
+        @rtype: db-rows
+        @return: Each row is an account type, containing the person_id, ou_id,
+            affiliation, account_id and priority.
+
+        """
         if all_persons_types or owner_id is not None:
             col = 'person_id'
             if owner_id is not None:
