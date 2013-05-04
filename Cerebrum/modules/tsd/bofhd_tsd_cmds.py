@@ -502,15 +502,15 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             raise CerebrumError('Only superusers are allowed to do this')
         project = self._get_project(projectname)
         ret = self.ou_info(operator, 'id:%d' % project.entity_id)
+        now = DateTime.now()
 
         # Quarantine status:
         quarantined = None
-        for q in ou.get_entity_quarantine(only_active=False):
+        for q in project.get_entity_quarantine(only_active=False):
             if q['start_date'] > now:
                 # Ignore quarantines in the future for now, as all projects
                 # should have an end quarantine
                 continue
-
             if (q['end_date'] is not None and
                 q['end_date'] < now):
                 quarantined = 'expired'
@@ -976,27 +976,29 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     ##
     ## Subnet commands
 
+    # TODO
+
     # subnet create
-    all_commands['subnet_create'] = cmd.Command(
-        ("subnet", "create"),
-        Subnet(), cmd.Description(), Vlan(), 
-        perm_filter='is_superuser')
-    def subnet_create(self, operator, subnet, description, vlan):
-        """Create a new subnet, if the range is not already reserved.
+    #all_commands['subnet_create'] = cmd.Command(
+    #    ("subnet", "create"),
+    #    Subnet(), cmd.Description(), Vlan(), 
+    #    perm_filter='is_superuser')
+    #def subnet_create(self, operator, subnet, description, vlan):
+    #    """Create a new subnet, if the range is not already reserved.
 
-        TODO: Should it be possible to specify a range, or should we find one
-        randomly?
+    #    TODO: Should it be possible to specify a range, or should we find one
+    #    randomly?
 
-        """
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise CerebrumError('Only superusers are allowed to do this')
-        subnet = Subnet.Subnet(self.db)
-        subnet.populate(subnet, description=description, vlan=vlan)
-        # TODO: more checks?
-        subnet.write_db(perform_checks=True)
-        return "Subnet created: %s" % subnet
+    #    """
+    #    if not self.ba.is_superuser(operator.get_entity_id()):
+    #        raise CerebrumError('Only superusers are allowed to do this')
+    #    subnet = Subnet.Subnet(self.db)
+    #    subnet.populate(subnet, description=description, vlan=vlan)
+    #    # TODO: more checks?
+    #    subnet.write_db(perform_checks=True)
+    #    return "Subnet created: %s" % subnet
 
-def add_subnet(subnet, description, vlan, perform_checks=True):
+    ##def add_subnet(subnet, description, vlan, perform_checks=True):
 
 class EnduserBofhdExtension(TSDBofhdExtension):
     """The bofhd commands for the end users of TSD.

@@ -75,5 +75,12 @@ arg_help.update({
     'entity_type':
         ['entity_type', 'Entity type',
          'Possible values:\n - group\n - account\n - project'],
+    'person_search_type':
+        ['search_type', 'Enter person search type',
+         """Possible values:
+  - 'fnr'
+  - 'name'
+  - 'date' of birth, on format YYYY-MM-DD
+  - 'stedkode' - Use project-ID"""],
     })
 
