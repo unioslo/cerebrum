@@ -98,7 +98,7 @@ def usage(exitcode=0):
                           If the input file is larger or smaller by this
                           percentage, output will not be overwritten.
     -l, --limit-lines <lines>
-                          If the input file is longer og shorter by this number
+                          If the input file is longer or shorter by this number
                           of lines, output will not be overwritten.
     """ % sys.argv[0] 
     sys.exit(exitcode)
@@ -130,11 +130,11 @@ def main():
         if opt in ('-l', '--limit-lines'):
             limit_lines = float(val)
 
-    if (limit_percentage is None) and (limit_lines is None):
+    if (not limit_percentage) and (not limit_lines):
         logger.error('Missing --limit-percentage or --limit-lines parameter')
         usage(1)
 
-    if not inFilePath or not outFilePath:
+    if (not inFilePath) or (not outFilePath):
         logger.error('Missing --input or --output parameter')
         usage(1)
 
