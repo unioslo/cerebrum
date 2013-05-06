@@ -91,8 +91,8 @@ class EntityNote(Entity):
         binds = {}
 
         if entity_type is not None:
-            tables.append("""JOIN [:table schema=cerebrum name=entity_info] e
-            ON e.entity_id = enote.entity_id""")
+            tables.append("""[:table schema=cerebrum name=entity_info] e""")
+            where.append("enote.entity_id = e.entity_id")
             where.append(
                 argument_to_sql(entity_type, "e.entity_type", binds, int))
 
@@ -102,7 +102,7 @@ class EntityNote(Entity):
 
         query_str = """SELECT enote.note_id, enote.create_date,
             enote.creator_id, enote.subject, enote.description
-            FROM %s %s""" % (" ".join(tables), where_str)
+            FROM %s %s""" % (", ".join(tables), where_str)
 
         return self.query(query_str, binds, fetchall=True)
     
