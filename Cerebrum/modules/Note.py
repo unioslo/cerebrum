@@ -86,8 +86,6 @@ class EntityNote(Entity):
         @return A list containing notes
         @rtype list of rows"""
 
-        select = """SELECT enote.note_id, enote.create_date, enote.creator_id, 
-            enote.subject, enote.description"""
         tables = ["[:table schema=cerebrum name=entity_note] enote"]
         where = []
         binds = {}
@@ -95,10 +93,16 @@ class EntityNote(Entity):
         if entity_type is not None:
             tables.append("""JOIN [:table schema=cerebrum name=entity_info] e
             ON e.entity_id = enote.entity_id""")
-            where.append(argument_to_sql(entity_type, "e.entity_type", binds, int))
+            where.append(
+                argument_to_sql(entity_type, "e.entity_type", binds, int))
 
-        where_str = ("WHERE " + " AND ".join(where)) if where else ""
-        query_str = "%s FROM %s %s" % (select, " ".join(tables), where_str)
+        where_str = ""
+        if where:
+            where_str = "WHERE " + " AND ".join(where)
+
+        query_str = """SELECT enote.note_id, enote.create_date,
+            enote.creator_id, enote.subject, enote.description
+            FROM %s %s""" % (" ".join(tables), where_str)
 
         return self.query(query_str, binds, fetchall=True)
     
