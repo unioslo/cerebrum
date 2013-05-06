@@ -41,3 +41,40 @@ class IPCalc(object):
         start = tmp & IPCalc.netmask_to_intrep(netmask)
         stop  =  tmp | (pow(2L, 32) - 1 - IPCalc.netmask_to_intrep(netmask))
         return start, stop
+
+class IPUtils(object):
+    """Methods for verifying (etc.) IP numbers"""
+
+    def same_subnet(s1, s2):
+        from Cerebrum.Utils import Factory
+        from Cerebrum.modules.dns.Errors import SubnetError
+        from Cerebrum.modules.dns.Subnet import Subnet
+        db = Factory.get('Database')()
+        sub = Subnet(db)
+        try:
+            sub.find(s1)
+            tmp = sub.subnet_ip
+            sub.clear()
+            sub.find(s2)
+        except SubnetError:
+            return False
+
+        if tmp == sub.subnet_ip:
+            return True
+        else:
+            return False
+    same_subnet = staticmethod(same_subnet)
+    
+    def in_subnet(ip):
+        from Cerebrum.Utils import Factory
+        from Cerebrum.modules.dns.Errors import SubnetError
+        from Cerebrum.modules.dns.Subnet import Subnet
+        db = Factory.get('Database')()
+        sub = Subnet(db)
+        try:
+            sub.find(ip)
+        except SubnetError:
+            return False
+        return True
+    in_subnet = staticmethod(in_subnet)
+

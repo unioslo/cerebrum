@@ -1,14 +1,12 @@
 # -*- coding: iso-8859-1 -*-
 
-import struct
 import socket
 import re
 
 from Cerebrum import Entity
-from Cerebrum.DatabaseAccessor import DatabaseAccessor
-from Cerebrum import Utils
 from Cerebrum.modules.dns.Errors import DNSError
 from Cerebrum.modules.bofhd.errors import CerebrumError
+from Cerebrum.modules.dns.IPv6Utils import IPv6Utils, IPv6Calc
 
 class IPv6Number(Entity.Entity):
     """``IPv6Number.IPv6Number(DatabaseAccessor)`` primarely updates the
@@ -18,27 +16,6 @@ class IPv6Number(Entity.Entity):
 
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('aaaa_ip', 'mac_adr')
-
-    def __normalize_address(self, aaaa_ip):
-        # We check if the address is valid:
-        try:
-            socket.inet_pton(socket.AF_INET6, aaaa_ip)
-            #return socket.inet_ntop(socket.AF_INET6, aaaa_ip)
-        except socket.error:
-            raise CerebrumError, 'Invalid IPv6 address'
-        # Then we'll expand it. This makes searching easier:
-        ip = aaaa_ip.split(':')
-        eip = []
-        for i in range(0, len(ip)):
-            if len(ip[i]) == 0:
-                eip += ['0000' for x in range(0, 9-len(ip))]
-            elif len(ip[i]) < 4:
-                tmp = '%4s' % ip[i]
-                tmp = tmp.replace(' ', '0')
-                eip += [tmp]
-            else:
-                eip += [ip[i]]
-        return ':'.join(eip)
 
     def clear(self):
         self.__super.clear()
@@ -73,7 +50,7 @@ class IPv6Number(Entity.Entity):
         is_new = not self.__in_db
 
         if 'aaaa_ip' in self.__updated:  # normalize the address
-            self.aaaa_ip = self.__normalize_address(self.aaaa_ip)
+            self.aaaa_ip = IPv6Utils.explode(self.aaaa_ip)
 
         if 'mac_adr' in self.__updated and self.mac_adr is not None:
             self.mac_adr = self._verify_mac_format(self.mac_adr)
@@ -128,7 +105,7 @@ class IPv6Number(Entity.Entity):
 
 
     def find_by_ip(self, aaaa_ip):
-        aaaa_ip = self.__normalize_address(aaaa_ip)
+        aaaa_ip = IPv6Utils.explode(aaaa_ip)
 
         ipv6_number_id = self.query_1("""
         SELECT ipv6_number_id
@@ -148,8 +125,16 @@ class IPv6Number(Entity.Entity):
         SELECT ipv6_number_id, aaaa_ip, mac_adr
         FROM [:table schema=cerebrum name=dns_ipv6_number]
         WHERE aaaa_ip >= :start AND aaaa_ip <= :stop""", {
-            'start': start,
-            'stop': stop})
+            'start': IPv6Utils.explode(IPv6Calc.long_to_ip(start)),
+            'stop': IPv6Utils.explode(IPv6Calc.long_to_ip(stop))})
+
+    def count_in_range(self, start, stop):
+        return self.query_1("""
+        SELECT count(ipv6_number_id)
+        FROM [:table schema=cerebrum name=dns_ipv6_number]
+        WHERE aaaa_ip >= :start AND aaaa_ip <= :stop""", {
+            'start': IPv6Utils.explode(IPv6Calc.long_to_ip(start)),
+            'stop': IPv6Utils.explode(IPv6Calc.long_to_ip(stop))})
 
     def list(self, start=None, stop=None):
         where_list = []

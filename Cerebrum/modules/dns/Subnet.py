@@ -27,7 +27,7 @@ import math
 import cereconf
 from Cerebrum import Cache
 from Cerebrum.Errors import NotFoundError
-from Cerebrum.modules.dns.Errors import DNSError
+from Cerebrum.modules.dns.Errors import DNSError, SubnetError
 from Cerebrum.Entity import Entity
 from Cerebrum.Utils import Factory, argument_to_sql
 
@@ -48,14 +48,6 @@ subnets in Cerebrum.
 
 __version__ = "$Revision$"
 # $URL$
-
-
-
-class SubnetError(DNSError):
-    """Subnet-specific errors."""
-    pass
-
-
 
 class Force(Parameter):
     _type = 'force'

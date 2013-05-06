@@ -783,6 +783,10 @@ DEFAULT_RESERVED_BY_NET_SIZE = {
     31: 0,
     32: 0,
     }
+
+DEFAULT_RESERVED_BY_IPv6_NET_SIZE = {64: 4}
+DEFAULT_IPv6_SUBNET_ALLOCATION_START = 0x256
+
 # Location of documentation concerning import of subnets for DNS.
 # Added to mails sent when errors occur.
 DNS_SUBNETIMPORT_ERRORDOC_URL = None

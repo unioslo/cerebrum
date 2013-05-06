@@ -186,9 +186,21 @@ class Updater(object):
         refs = self._find.find_referers(dns_owner_id=dns_owner_id)
         if refs:
             raise DNSError("dns_owner still refered in %s" % str(refs))
+
         dns_owner = DnsOwner.DnsOwner(self._db)
         dns_owner.find(dns_owner_id)
-        dns_owner.delete()
+
+        if not self._find.find_overrides(dns_owner_id=dns_owner_id):
+            dns_owner.delete()
+        else:
+            for t in dns_owner.get_traits().keys():
+                try:
+                    dns_owner.delete_trait(t)
+                except errors.NotFoundError:
+                    pass
+            dns_owner.mx_set_id = None
+            dns_owner.write_db()
+
 
     def full_remove_dns_owner(self, dns_owner_id):
         # fjerner alle entries der dns_owner vil være til venstre i
@@ -291,7 +303,7 @@ class Updater(object):
         if dest_host is not None:
             refs = self._find.find_referers(dns_owner_id=dest_host, 
                                             ip_type=ip_type)
-            refs += self._find.find_referers(dns_owner_id=dest_host, 
+            refs += self._find.find_referers(dns_owner_id=dest_host,
                                             ip_type=o_ip_type)
             if not refs:
                 tmp = []
@@ -301,7 +313,7 @@ class Updater(object):
                     tmp.append((dns.DNS_OWNER, row['dns_owner_id']))
                 for row in o_ipnumber.list_override(dns_owner_id=dest_host):
                     tmp.append((dns.DNS_OWNER, row['dns_owner_id']))
-                    
+
                 if not tmp:
                     dns_owner = DnsOwner.DnsOwner(self._db)
                     dns_owner.find(dest_host)

@@ -209,7 +209,16 @@ def compare_file_to_db(subnets_in_file, force):
 
         if subnet_ID in subnets_in_file:
             # Subnet is in file; nothing should be done with it
-            logger.debug("Subnet '%s' in both DB and file; leaving it alone" % subnet_ID)
+            if row['description'] != subnets_in_file[subnet_ID][1]:
+                s.clear()
+                s.find('id:' + str(row['entity_id']))
+                s.description = subnets_in_file[subnet_ID][1]
+                s.write_db(perform_checks=False)
+                logger.debug("Updating description of subnet '%s'" % subnet_ID)
+                changes.append("Updated description of subnet '%s'" %subnet_ID)
+            else:
+                logger.debug("Subnet '%s' in both DB and file; " % subnet_ID +
+                                "no description update")
             del subnets_in_file[subnet_ID]
         else:
             # Subnet is in DB, but not in file; try to remove it from DB
@@ -219,7 +228,8 @@ def compare_file_to_db(subnets_in_file, force):
                 s.find(subnet_ID)
                 description = s.description
                 s.delete(perform_checks=perform_checks)
-                changes.append("Deleted subnet '%s' (%s)" % (subnet_ID, description))
+                changes.append("Deleted subnet '%s' (%s)" % (subnet_ID,
+                                                                description))
             except CerebrumError, ce:
                 logger.error(str(ce))
                 errors.append(str(ce))

@@ -56,6 +56,9 @@ class Constants(Constants.Constants):
     entity_dns_subnet = Constants._EntityTypeCode(
         'dns_subnet',
         'dns_subnet - see table "cerebrum.dns_subnet" and friends.')
+    entity_dns_ipv6_subnet = Constants._EntityTypeCode(
+        'dns_ipv6_subnet',
+        'dns_ipv6_subnet - see table "cerebrum.dns_ipv6_subnet" and friends.')
     dns_owner_namespace = Constants._ValueDomainCode('dns_owner_ns',
                                                      'Domain for dns_owners')
 
@@ -150,6 +153,13 @@ class Constants(Constants.Constants):
         'subnet', 'subnet_mod', 'modify subnet %(subject)s')
     subnet_delete = _ChangeTypeCode(
         'subnet', 'subnet_delete', 'delete subnet %(subject)s')
+    subnet6_create = _ChangeTypeCode(
+        'subnet', 'subnet6_create', 'create IPv6 subnet %(subject)s')
+    subnet6_mod = _ChangeTypeCode(
+        'subnet', 'subnet6_mod', 'modify IPv6 subnet %(subject)s')
+    subnet6_delete = _ChangeTypeCode(
+        'subnet', 'subnet6_delete', 'delete IPv6 subnet %(subject)s')
+
     srv_record_add = _ChangeTypeCode(
         'host', 'srv_rec_add', 'add srv-record %(subject)s -> %(dest)s')
     srv_record_del = _ChangeTypeCode(

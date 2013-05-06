@@ -45,7 +45,7 @@ targets = {
     'ephorte': ('ephorte_1_1', 'ephorte_1_2'),
     'stedkode': ('stedkode_1_1', ),
     'posixuser': ('posixuser_1_0', 'posixuser_1_1', ),
-    'dns': ('dns_1_0', 'dns_1_1', 'dns_1_2', 'dns_1_3'),
+    'dns': ('dns_1_0', 'dns_1_1', 'dns_1_2', 'dns_1_3', 'dns_1_4'),
     'sap': ('sap_1_0', 'sap_1_1',),
     'printer_quota': ('printer_quota_1_1', 'printer_quota_1_2',),
     }
@@ -969,6 +969,15 @@ def migrate_to_dns_1_3():
     meta = Metainfo.Metainfo(db)
     meta.set_metainfo("sqlmodule_dns", "1.3")
     print "Migration to DNS 1.3 completed successfully"
+    db.commit()
+
+def migrate_to_dns_1_4():
+    print "\ndone."
+    assert_db_version("1.3", component='dns')
+    makedb('dns_1_4', 'pre')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_dns", "1.4")
+    print "Migration to DNS 1.4 completed successfully"
     db.commit()
 
 def migrate_to_sap_1_1():

@@ -142,6 +142,14 @@ class IPNumber(Entity.Entity):
         WHERE ipnr >= :start AND ipnr <= :stop""", {
             'start': start,
             'stop': stop})
+    
+    def count_in_range(self, start, stop):
+        return self.query_1("""
+        SELECT count(ip_number_id)
+        FROM [:table schema=cerebrum name=dns_ip_number]
+        WHERE ipnr >= :start AND ipnr <= :stop""", {
+            'start': start,
+            'stop': stop})
 
 
     def list(self, start=None, stop=None):

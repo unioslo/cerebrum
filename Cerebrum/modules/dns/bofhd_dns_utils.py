@@ -4,7 +4,6 @@ import cereconf
 
 import re
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.dns.HostInfo import HostInfo
 from Cerebrum.modules.dns import ARecord
 from Cerebrum.modules.dns import AAAARecord
 from Cerebrum.modules.dns import HostInfo
@@ -12,6 +11,7 @@ from Cerebrum.modules.dns import DnsOwner
 from Cerebrum.modules.dns import IPNumber
 from Cerebrum.modules.dns import IPv6Number
 from Cerebrum.modules.dns.IPUtils import IPCalc
+from Cerebrum.modules.dns.IPv6Utils import IPv6Calc
 from Cerebrum.modules.dns import CNameRecord
 from Cerebrum.modules.dns import IntegrityHelper
 from Cerebrum.modules.dns import Utils
@@ -70,7 +70,7 @@ class DnsBofhdUtils(object):
             self._ip_number.write_db()
         elif name_type == dns.IPv6_NUMBER:
             old_ref = self._find.find_target_by_parsing(old_id, dns.IPv6_NUMBER)
-            self._ip_number.clear()
+            self._ipv6_number.clear()
             try:
                 self._ipv6_number.find_by_ip(new_id)
                 raise CerebrumError("New IP in use")
@@ -177,7 +177,7 @@ class DnsBofhdUtils(object):
     #
     # IP-numbers
     #
-    def get_relevant_ips(self, subnet_or_ip, force=False):
+    def get_relevant_ips(self, subnet_or_ip, force=False, no_of_addrs=None):
         subnet, ip = self._parser.parse_subnet_or_ip(subnet_or_ip)
         if subnet is None and not force:
             raise CerebrumError, "Unknown subnet.  Must force"
@@ -186,9 +186,14 @@ class DnsBofhdUtils(object):
             first = subnet_or_ip.split('/')[0]
             if len(first.split('.')) == 4:
                 first = IPCalc.ip_to_long(first)
+            elif first.count(':') == 7:
+                first = IPv6Calc.ip_to_long(first)
+            elif ':' in first:
+                first = abs(IPv6Calc.ip_to_long(first) - IPv6Calc.ip_to_long(subnet))
             else:
                 first = None
-            free_ip_numbers = self._find.find_free_ip(subnet, first=first)
+            free_ip_numbers = self._find.find_free_ip(subnet, first=first,
+                    no_of_addrs=no_of_addrs)
             
         else:
             free_ip_numbers = [ ip ]
@@ -449,10 +454,25 @@ class DnsBofhdUtils(object):
         # Check for existing record with same name
         dns_owner_ref, same_type = self._validator.dns_reg_owner_ok(
             host_name, dns.A_RECORD)
+        
+        # Check to see if this has been added before
+        try:
+            self._ip_number.clear()
+            self._ip_number.find_by_ip(ip)
+            ip_i = self._ip_number.entity_id
+        except Errors.NotFoundError:
+            ip_i = -1
+        try:
+            self._arecord.clear()
+            self._arecord.find_by_owner_and_ip(ip_i, dns_owner_ref)
+        except Errors.NotFoundError:
+            pass
+        else:
+            raise CerebrumError, "host already has this A-record!"
+ 
         if dns_owner_ref and same_type and not force:
             owner_types = self._find.find_dns_owners(dns_owner_ref)
-            if [x for x in owner_types if x != dns.A_RECORD or \
-                    x != dns.AAAA_RECORD]:
+            if dns.A_RECORD in owner_types:
                 raise CerebrumError, "name already in use, must force (y)"
 
         # Check or get free IP
@@ -497,21 +517,54 @@ class DnsBofhdUtils(object):
                     ip_id, old_aaaa_records[0]['dns_owner_id'])
         return self._aaaarecord.entity_id
 
-    def alloc_aaaa_record(self, host_name, ip, force):
+    def alloc_aaaa_record(self, host_name, subnet_ip, ip, force):
         host_name = self._parser.qualify_hostname(host_name)
         # Check for existing record with same name
         dns_owner_ref, same_type = self._validator.dns_reg_owner_ok(
             host_name, dns.AAAA_RECORD)
+
+        # Check to see if this has been added before
+        try:
+            self._ipv6_number.clear()
+            self._ipv6_number.find_by_ip(ip)
+            ip_i = self._ipv6_number.entity_id
+        except Errors.NotFoundError:
+            ip_i = -1
+        try:
+            self._aaaarecord.clear()
+            self._aaaarecord.find_by_owner_and_ip(ip_i, dns_owner_ref)
+        except Errors.NotFoundError:
+            pass
+        else:
+            raise CerebrumError, "host already has this AAAA-record!"
+            
+        # We'll check if the IP is reserved
+        ip_ref = self._find.find_ip(ip)
+        if ip_ref and not force:
+            raise CerebrumError, "IP already in use or reserved, must force (y)"
+        # Catch Utils.Find.find_free_ip()s CerebrumError in case there
+        # are no free IPs. You must still force to register the a_record.
+        new_ips = []
+        try:
+            new_ips = self._find.find_free_ip(subnet_ip)
+        except CerebrumError:
+            # No IPs available
+            pass
+        if (subnet_ip and ip not in new_ips) and not force:
+            raise CerebrumError, "IP appears to be reserved, must force (y)"                
+
+        # Checking if the AAAA-record allready exists
         if dns_owner_ref and same_type and not force:
             owner_types = self._find.find_dns_owners(dns_owner_ref)
-            if [x for x in owner_types if x != dns.A_RECORD or \
-                    x != dns.AAAA_RECORD]:
+            if dns.AAAA_RECORD in owner_types:
                 raise CerebrumError, "name already in use, must force (y)"
-
+        
         ip_eid = self.alloc_ip(ip, force=force)
         if not dns_owner_ref:
-            dns_owner_ref = self.alloc_dns_owner(host_name, warn_other=True,
+            dns_owner_ref = self.alloc_dns_owner(host_name,
+                                                 warn_other=True,
                                                  force=force)
+        
         self._alloc_aaaarecord(dns_owner_ref, ip_eid)
         return ip
 
@@ -530,7 +583,7 @@ class DnsBofhdUtils(object):
 
         if dest_host:
             dns_owner_ref, same_type = self._validator.dns_reg_owner_ok(
-            dest_host, a_type)
+                                                        dest_host, a_type)
             self._dns_owner.clear()
             try:
                 self._dns_owner.find_by_name(dest_host)

@@ -1,7 +1,7 @@
 category:metainfo;
 name=dns;
 category:metainfo;
-version=1.3;
+version=1.4;
 
 category:drop;
 DROP TABLE dns_srv_record;
@@ -33,6 +33,10 @@ category:drop;
 DROP TABLE dns_entity_note;
 category:drop;
 DROP TABLE dns_entity_note_code;
+category:drop;
+DROP TABLE dns_subnet;
+category:drop;
+DROP TABLE dns_ipv6_subnet;
 category:drop;
 DROP SEQUENCE ip_number_id_seq;
 
@@ -522,7 +526,7 @@ CREATE TABLE dns_reserved_host(
 */
 
 
-category:pre;
+category:main;
 CREATE TABLE dns_subnet
 (
    entity_type        NUMERIC(6,0)
@@ -558,3 +562,48 @@ CREATE TABLE dns_subnet
    CONSTRAINT dns_subnet_entity_info FOREIGN KEY (entity_type, entity_id) 
    	      			     REFERENCES entity_info(entity_type, entity_id)
 );
+
+/* dns_ipv6_subnet
+
+Separate table to hold subnets for IPv6. This is modeled after dns_subnet.
+ 
+ */
+
+category:main;
+CREATE TABLE dns_ipv6_subnet
+(
+   entity_type        NUMERIC(6,0)
+	 	      DEFAULT [:get_constant name=entity_dns_ipv6_subnet]
+  		      NOT NULL
+		      CONSTRAINT dns_ipv6_subnet_entity_type_chk
+ 		         CHECK (entity_type = [:get_constant
+                    name=entity_dns_ipv6_subnet]),
+   entity_id          NUMERIC(12,0)
+ 		      NOT NULL
+		      CONSTRAINT dns_ipv6_subnet_pk PRIMARY KEY,
+   subnet_ip          CHAR VARYING(39)
+ 		      NOT NULL
+		      CONSTRAINT dns_ipv6_subnet_ip_uniq UNIQUE,
+   ip_min	      NUMERIC(39,0)
+   		      NOT NULL,
+   ip_max	      NUMERIC(39,0)
+   		      NOT NULL,
+   description        CHAR VARYING(512)
+ 		      NOT NULL
+   		      DEFAULT '',
+   dns_delegated      BOOLEAN
+   		      NOT NULL
+		      DEFAULT FALSE,
+   name_prefix        CHAR VARYING(128)
+   		      NOT NULL
+   		      DEFAULT '',
+   vlan_number	      NUMERIC(12,0)
+   		      DEFAULT NULL,
+   no_of_reserved_adr NUMERIC(3,0)
+		      NOT NULL
+		      DEFAULT 3,
+
+   CONSTRAINT dns_ipv6_subnet_entity_info FOREIGN KEY (entity_type, entity_id) 
+   	      			     REFERENCES entity_info(entity_type, entity_id)
+);
+
