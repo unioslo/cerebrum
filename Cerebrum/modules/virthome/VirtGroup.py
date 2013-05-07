@@ -40,11 +40,12 @@ from Cerebrum import Group
 from Cerebrum.Entity import EntityName
 from Cerebrum.Group import Group as Group_class
 from Cerebrum.Entity import EntityContactInfo
+from Cerebrum.modules.EntityTrait import EntityTrait
 
 
 
 
-class VirtGroup(Group_class, EntityContactInfo):
+class VirtGroup(Group_class, EntityContactInfo, EntityTrait):
     """VirtGroup extension of VirtHome.
 
     This class tailors Cerebrum.Group:Group to VirtHome's needs.

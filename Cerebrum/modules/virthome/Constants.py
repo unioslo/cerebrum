@@ -22,7 +22,7 @@ class VirtHomeMiscConstants(Constants):
     virtaccount_type = Constants.Account("virtaccount",
                                          "Non-federated account in VirtHome")
     
-    fedaccount_type = Constants.Account("fedaccount",
+    fedaccount_type = Constants.Account("fedaccount",   
                                         "Federated account in VirtHome")
 
     system_virthome = Constants.AuthoritativeSystem('VH', "VirtHome")
@@ -96,6 +96,10 @@ class VirtHomeMiscConstants(Constants):
     trait_user_invited = EntityTrait("user_invited",
                                      Constants.entity_account,
                                      "Account has been explicitly invited to join a group")
+
+    trait_group_forward = EntityTrait("group_forward",
+                                     Constants.entity_group,
+                                     "Redirect URL for the group, advising apps to redirect when added")
 # end VirtHomeMiscConstants
 
 

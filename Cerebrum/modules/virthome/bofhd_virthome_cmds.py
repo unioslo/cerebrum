@@ -39,9 +39,6 @@ from Cerebrum import Errors
 from Cerebrum import Entity
 
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
-from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet
-from Cerebrum.modules.bofhd.auth import BofhdAuthRole
-from Cerebrum.modules.bofhd.auth import BofhdAuthOpTarget
 
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.bofhd.cmd_param import Command
@@ -65,15 +62,22 @@ from Cerebrum.modules.virthome.PasswordChecker import PasswordGoodEnoughExceptio
 from Cerebrum.modules.virthome.PasswordChecker import PasswordChecker
 from Cerebrum.modules.virthome.bofhd_virthome_help import arg_help
 
-
-
+# TODO: Ideally, all the utility methods and 'workflows' from this file needs
+# to go into one of the generic classes in modules.virthome.base (because we
+# now have a CIS that calls some of the same methods)
+# 
+# The bofhd commands needs do to argument parsing and object db-lookups here,
+# 'bofhd-style' (i.e. be able to look up both names and entity_ids -- 'user
+# find webapp' and 'user find id:6'). The populated (found) objects can then be
+# passed as arguments to methods that have been migrated to
+# Cerebrum.modules.virthome.base
+from Cerebrum.modules.virthome.base import VirthomeBase, VirthomeUtils
 
 
 class BofhdVirthomeCommands(BofhdCommandBase):
     """Commands pertinent to user handling in VH."""
 
     all_commands = dict()
-
 
     # FIXME: Anytime *SOMETHING* from no/uio/bofhd_uio_cmds.py:BofhdExtension
     # is used here, pull that something into a separate BofhdCommon class and
@@ -86,6 +90,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         self.ba = BofhdVirtHomeAuth(self.db)
         self.virtaccount_class = VirtAccount
         self.fedaccount_class = FEDAccount
+
+        self.virthome = VirthomeBase(self.db)
+        self.vhutils = VirthomeUtils(self.db)
     # end __init__
 
 
@@ -140,7 +147,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                 account = self._get_account(account)
             except Errors.NotFoundError:
                 return None
-
+        
         owner_name = None
         if account.np_type in (self.const.fedaccount_type,
                                self.const.virtaccount_type):
@@ -195,11 +202,14 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     # end _get_email_address
 
 
-
     def __get_request(self, magic_key):
-        """Return (decoded) about a request associated with magic_key.
+        """Return decoded info about a request associated with L{magic_key}.
+        Raises an error if the request does not exist.
 
-        Raise an error if the request does not exist.
+        @type magic_key: str
+        @param magic_key: The confirmation key, or ID, of the event.
+
+        @rtype: dict
         """
         
         pcl = self.db
@@ -218,30 +228,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     # end __get_request
 
 
-
-    def __setup_request(self, issuer_id, event_type, params=None):
-        """Perform the necessary magic when creating a pending event.
-
-        Also, see __process_account_confirmation.
-
-        This method creates an entry in the pending_change_log framework to
-        represent the pending request. A number of actions in VH require an
-        explicit confirmation and this method is meant to capture the
-        creation of state to represent a pending state (change).
-        """
-
-        magic_key = self.db.log_pending_change(issuer_id,
-                                               event_type,
-                                               None,
-                                               # This will be
-                                               # pickle.dumps()-ed by the
-                                               # underlying API
-                                               change_params=params)
-        return magic_key
-    # end __setup_request
-
-
-
     def __assign_default_user_spreads(self, account):
         """Assign all the default spreads for freshly created users.
         """
@@ -252,7 +238,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                 account.add_spread(tmp)
     # end __assign_default_user_spreads
             
-
 
     def __process_new_account_request(self, issuer_id, event):
         """Perform the necessary magic associated with confirming a freshly
@@ -266,9 +251,10 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         self.__assign_default_user_spreads(account)
         self.logger.debug("Account %s confirmed", account.account_name)
-        return "OK, account %s confirmed" % account.account_name
+        #return "OK, account %s confirmed" % account.account_name
+        return {'action': event.get('change_type'),
+                'username': account.account_name, }
     # end __process_new_account_request
-        
 
 
     def __process_email_change_request(self, issuer_id, event):
@@ -291,9 +277,11 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             if row["tstamp"] < event["tstamp"]:
                 self.db.remove_log_event(row["change_id"])
         
-        return "OK, e-mail changed, %s -> %s" % (old_address, new_address)
+        #return "OK, e-mail changed, %s -> %s" % (old_address, new_address)
+        return {'action': event.get('change_type'),
+                'old_email': old_address,
+                'new_email': new_address,}
     # end __process_email_change_request
-    
 
 
     def __process_group_invitation_request(self, invitee_id, event):
@@ -305,7 +293,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         params = event["change_params"]
         group_id = int(params["group_id"])
         inviter_id = int(params["inviter_id"])
-        invitee_mail = params["invitee_mail"]
 
         group = self._get_group(group_id)
         assert group.entity_id == int(event["subject_entity"])
@@ -331,12 +318,19 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                                 (member.account_name, group.group_name))
 
         group.add_member(member.entity_id)
-        return "OK, account %s joined group %s" % (member.account_name,
-                                                   group.group_name)
+        forward = self.vhutils.get_trait_val(group, self.const.trait_group_forward)
+        return {'action': event.get('change_type'),
+                'username': member.account_name,
+                'group': group.group_name, 
+                'forward': forward, }
     # end __process_group_invitation_request
 
 
-
+    # 19.04.2013 TODO: What happens if multiple invitations are sent out for
+    #                  the same group? Apparently, the last one to confirm the
+    #                  request will end up as the owner. Is this the desired
+    #                  outcome? Or should all other invitations be invalidated
+    #                  when a request is confirmed?
     def __process_owner_swap_request(self, issuer_id, event):
         """Perform the necessary magic associated with letting another account
         take over group ownership.
@@ -364,16 +358,19 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         # Let's swap them
         # ... first add a new owner
-        self.__manipulate_group_permissions(group, new_owner, "group-owner",
-                                            self.__grant_auth)
+        self.vhutils.grant_group_auth(new_owner, 'group-owner', group)
         # ... then remove an old one
-        self.__manipulate_group_permissions(group, old_owner, "group-owner",
-                                            self.__revoke_auth)
-        return "OK, %s's owner changed (%s -> %s)" % (group.group_name,
-                                                      old_owner.account_name,
-                                                      new_owner.account_name)
+        self.vhutils.revoke_group_auth(old_owner, 'group-owner', group)
+        #self.__manipulate_group_permissions(group, old_owner, "group-owner",
+                                            #self.__revoke_auth)
+        #return "OK, %s's owner changed (%s -> %s)" % (group.group_name,
+                                                      #old_owner.account_name,
+                                                      #new_owner.account_name)
+        return {'action': event.get('change_type'),
+                'group': group.group_name,
+                'old_owner': old_owner.account_name,
+                'new_owner': new_owner.account_name,}
     # end __process_owner_swap_request
-
 
 
     def __process_moderator_add_request(self, issuer_id, event):
@@ -397,15 +394,19 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         self.ba.can_moderate_group(new_moderator.entity_id)
 
-        self.__manipulate_group_permissions(group, new_moderator, 'group-moderator',
-                                            self.__grant_auth)
+        self.vhutils.grant_group_auth(new_moderator, 'group-moderator', group)
+        #self.__manipulate_group_permissions(group, new_moderator, 'group-moderator',
+                                            #self.__grant_auth)
 
-        return "OK, added moderator %s for group %s (at %s's request)" % (
-            new_moderator.account_name,
-            group.group_name,
-            inviter.account_name)
+        #return "OK, added moderator %s for group %s (at %s's request)" % (
+            #new_moderator.account_name,
+            #group.group_name,
+            #inviter.account_name)
+        return {'action': event.get('change_type'),
+                'group': group.group_name,
+                'inviter': inviter.account_name,
+                'invitee': new_moderator.account_name, }
     # end __process_moderator_add_request
-
 
 
     def __process_password_recover_request(self, issuer_id, event, *rest):
@@ -429,9 +430,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         self.__check_password(target, new_password)
         target.set_password(new_password)
         target.write_db()
-        return "OK, password reset"
+        #return "OK, password reset"
+        return {'action': event.get('change_type'), }
     # end __process_password_recover_request
-
 
 
     def __reset_expire_date(self, issuer_id, event):
@@ -451,12 +452,15 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         target.extend_expire_date()
         target.write_db()
-        return "OK, reset expire date to %s for %s" % (
-            target.expire_date.strftime("%Y-%m-%d"),
-            target.account_name)
+        #return "OK, reset expire date to %s for %s" % (
+            #target.expire_date.strftime("%Y-%m-%d"),
+            #target.account_name)
+        return {'action': event.get('change_type'),
+                'username': target.account_name,
+                'date': target.expire_date.strftime('%Y-%m-%d'), }
+
     # end __reset_expire_date
         
-
 
     def __process_request_confirmation(self, issuer_id, magic_key, *rest):
         """Perform the necessary magic when confirming a pending event.
@@ -533,7 +537,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     # end __process_request_confirmation
 
 
-
     def __check_account_name_availability(self, account_name):
         """Check that L{account_name} is available in Cerebrum. Names are case
         sensitive, but there should not exist two accounts with same name in
@@ -554,7 +557,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         # NOTREACHED
         assert False
     # end __check_account_name_availability
-
 
 
     def __create_account(self, account_type, account_name, email, expire_date,
@@ -586,12 +588,11 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         magic_key = ""
         if with_confirmation:
-            magic_key = self.__setup_request(account.entity_id,
-                                             self.const.va_pending_create)
+            magic_key = self.vhutils.setup_event_request(account.entity_id,
+                                                         self.const.va_pending_create)
 
         return account, magic_key
     # end __create_account
-
 
 
     def __check_password(self, account, password, uname=None):
@@ -622,7 +623,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     # end __check_password
 
 
-
     all_commands["user_confirm_request"] = Command(
         ("user", "confirm_request"),
         SimpleString())
@@ -640,7 +640,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                                                    confirmation_key,
                                                    *rest)
     # end user_confirm_request
-
 
 
     all_commands["user_virtaccount_join_group"] = Command(
@@ -702,7 +701,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     # end user_virtaccount_join_group
 
 
-
     def __account_nuke_sequence(self, account_id):
         """Remove information associated with account_id before it's deleted
         from Cerebrum.
@@ -717,9 +715,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         account = self._get_account(account_id)
 
         # Drop permissions
-        self.__remove_auth_target(self.const.auth_target_type_account,
-                                  account.entity_id)
-        self.__remove_auth_role(account.entity_id)
+        self.vhutils.remove_auth_targets(account.entity_id, 
+                                         self.const.auth_target_type_account)
+        self.vhutils.remove_auth_roles(account.entity_id)
 
         # Drop memberships
         group = self.Group_class(self.db)
@@ -755,7 +753,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     # end __account_nuke_sequence
     
 
-
     all_commands["user_fedaccount_nuke"] = Command(
         ("user", "fedaccount_nuke"),
         AccountName())
@@ -781,7 +778,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     # end user_fedaccount_nuke
 
 
-
     all_commands["user_virtaccount_disable"] = Command(
         ("user", "virtaccount_disable"),
         AccountName())
@@ -800,9 +796,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         self.ba.can_nuke_virtaccount(operator.get_entity_id(), account.entity_id)
 
         # Drop permissions
-        self.__remove_auth_target(self.const.auth_target_type_account,
-                                  account.entity_id)
-        self.__remove_auth_role(account.entity_id)
+        self.vhutils.remove_auth_targets(account.entity_id, 
+                                         self.const.auth_target_type_account)
+        self.vhutils.remove_auth_roles(account.entity_id)
 
         # Drop memberships
         group = self.Group_class(self.db)
@@ -830,7 +826,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                                                              account.entity_id)
     # end user_virtaccount_disable
        
-
 
     all_commands["user_fedaccount_login"] = Command(
         ("user", "fedaccount_login"),
@@ -876,7 +871,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     # end user_fedaccount_login
 
 
-
     all_commands["user_su"] = Command(
         ("user", "su"),
         AccountName())
@@ -903,7 +897,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                target_account.account_name, target_account.entity_id)
     # end user_su
 
-
     
     # FIXME: Maybe this should be with the misc commands?
     all_commands["user_request_info"] = Command(
@@ -922,7 +915,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         self.ba.can_view_requests(operator.get_entity_id())
         return self.__get_request(magic_key)
     # end user_request_info
-
 
 
     def __quarantine_to_string(self, eq):
@@ -954,7 +946,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         return quarantined
     # end __quarantine_to_string
-
 
     
     all_commands["user_info"] = Command(
@@ -991,7 +982,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     def user_info(self, operator, user):
         """Return information about a specific VirtHome user.
         """
-
         account = self._get_account(user)
         self.ba.can_view_user(operator.get_entity_id(), account.entity_id)
 
@@ -1026,14 +1016,13 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                   "entity_id": account.entity_id,
                   "quarantine": self.__quarantine_to_string(account),
                   "confirmation": pending,
-                  "moderator": self._opset_group_lister(user, "group-moderator"),
-                  "owner": self._opset_group_lister(user, "group-owner"),
+                  "moderator": self.vhutils.list_groups_moderated(account),
+                  "owner": self.vhutils.list_groups_owned(account),
                   "user_eula": user_eula,
                   "group_eula": group_eula,
             }
         return result
     # end user_info
-
 
 
     all_commands["user_accept_eula"] = Command(
@@ -1059,7 +1048,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         return "OK, EULA %s has been accepted by %s" % (str(eula),
                                                         account.account_name)
     # end user_accept_eula
-        
 
 
     all_commands["user_change_password"] = Command(
@@ -1092,7 +1080,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         return "OK, password changed for user %s" % account.account_name
     # end user_virtaccount_password
 
-
     
     all_commands["user_change_email"] = Command(
         ("user", "change_email"),
@@ -1110,15 +1097,14 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             raise CerebrumError("Changing e-mail is possible "
                                 "for VirtAccounts/FEDAccounts only")
 
-        magic_key = self.__setup_request(account.entity_id,
-                                         self.const.va_email_change,
-                                         params={"old": account.get_email_address(),
-                                                 "new": new_email,})
+        magic_key = self.vhutils.setup_event_request(
+                        account.entity_id,
+                        self.const.va_email_change,
+                        params={'old': account.get_email_address(),
+                                'new': new_email,})
         return {"entity_id": account.entity_id,
                 "confirmation_key": magic_key}
     # end user_change_email
-
-
 
     all_commands["user_change_human_name"] = Command(
         ("user", "change_human_name"),
@@ -1145,7 +1131,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                                                              account.account_name,
                                                              new_name)
     # end user_change_human_name
-
 
 
     all_commands["user_recover_password"] = Command(
@@ -1175,12 +1160,12 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             raise CerebrumError(missing_msg)
 
         # Ok, we are good to go. Make the request.
-        magic_key = self.__setup_request(account.entity_id,
-                                         self.const.va_password_recover,
-                                         params={"account_id": account.entity_id})
+        magic_key = self.vhutils.setup_event_request(
+                        account.entity_id,
+                        self.const.va_password_recover,
+                        params={"account_id": account.entity_id})
         return {"confirmation_key": magic_key}
     # end user_recover_password
-
 
 
     all_commands["user_recover_uname"] = Command(
@@ -1225,7 +1210,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     # end user_recover_uname
 
 
-
     def __check_group_name_availability(self, group_name):
         """Check that L{group_name} is available in Cerebrum.
 
@@ -1233,198 +1217,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         atomic, but checking for availability lets us produce more meaningful
         error messages in (hopefully) most cases).
         """
-
-        group = self.Group_class(self.db)
-        try:
-            group.find_by_name(group_name)
-            return False
-        except Errors.NotFoundError:
-            return True
-
-        assert False, "NOTREACHED"
-    # end __check_group_name_availability
-
-
-
-    def _get_opset(self, opset, idtype=None):
-        aos = BofhdAuthOpSet(self.db)
-        try:
-            if idtype is None:
-                if isinstance(opset, (int, long)):
-                    idtype = "id"
-                elif opset.find(":") != -1:
-                    idtype, opset = opset.split(":", 1)
-                    if len(opset) == 0:
-                        raise CerebrumError("Must specify id in <%s>" % idtype)
-                else:
-                    idtype = "name"
-
-            if idtype == "name":
-                aos.find_by_name(opset)
-            elif idtype == "id":
-                aos.find(int(opset))
-            else:
-                raise CerebrumError("Unknown idtype: '%s'" % idtype)
-        except Errors.NotFoundError:
-            raise CerebrumError("Could not find auth_operation_set with %s=%s" %
-                                (idtype, opset))
-
-        return aos
-    # end _get_opset
-
-
-
-    def __grant_auth(self, account, op_set, op_target_id):
-        """Grant the specified op_set to account (must be a FEDAccount) on
-        target designated by op_target_id (it must 'point' to a group)
-
-        @param account: FEDaccount proxy
-
-        @param op_set: BofhdAuthOpSet proxy
-
-        @param op_target_id: op_target_id for an auth_op_target (an id, NOT a
-        proxy) 
-        """
         
-        # 
-        # Ok, we have all the tidbits, grant op_set_id to holder_id on
-        # whatever op_target_id points to.
-        ar = BofhdAuthRole(self.db)
-        aot = BofhdAuthOpTarget(self.db)
-        aot.find(op_target_id)
-        assert aot.target_type == self.const.auth_target_type_group
-        assert account.np_type == self.const.fedaccount_type
-        group_name = self._get_group(aot.entity_id).group_name
-        rows = list(ar.list(account.entity_id, op_set.op_set_id,
-                            aot.op_target_id))
-        if len(rows) == 0:
-            ar.grant_auth(account.entity_id, op_set.op_set_id,
-                          aot.op_target_id)
-            return "OK, granted %s to %s on group %s" % (op_set.name,
-                                                         account.account_name,
-                                                         group_name)
-        return "OK, %s already has %s on group %s" % (op_set.name,
-                                                      account.account_name,
-                                                      group_name)
-    # end __grant_auth
+        return not self.vhutils.group_exists(group_name)
 
-
-    def __revoke_auth(self, account, op_set, op_target_id):
-        """__grant_auth's counterpart.
-        """
-
-        ar = BofhdAuthRole(self.db)
-        aot = BofhdAuthOpTarget(self.db)
-        aot.find(op_target_id)
-        assert aot.target_type == self.const.auth_target_type_group
-        assert account.np_type == self.const.fedaccount_type
-        group_name = self._get_group(aot.entity_id).group_name
-
-        rows = list(ar.list(account.entity_id, op_set.op_set_id,
-                            aot.op_target_id))
-        if len(rows) == 0:
-            return "OK, %s does not have access %s to %s" % (
-                account.account_name,
-                op_set.name,
-                group_name)
-
-        ar.revoke_auth(account.entity_id, op_set.op_set_id, aot.op_target_id)
-        # If that was the last permission for this op_target, kill op_target
-        if len(list(ar.list(op_target_id=aot.op_target_id))) == 0:
-            aot.delete()
-
-        return "OK, removed %s from %s on %s" % (op_set.name,
-                                                 account.account_name,
-                                                 group_name)
-    # end __revoke_auth
-
-
-    def __manipulate_group_permissions(self, group, permission_holder, opset_id,
-                                       access_function):
-        """Grant/revoke a specific operation-set to/from permission_holder on
-        group. 
-
-        @param group: A VirtGroup proxy (must be associated with a group)
-
-        @param permission_holder: A FEDAccount proxy (must be associated with
-        a federated account).
-
-        @type opset: string or int
-        @param opset:
-          An id for an opset that will be granted to/revoked from
-          L{permission_holder} on L{group}.
-        """
-
-        opset = self._get_opset(opset_id)
-        target_id = group.entity_id
-        target_type = self.const.auth_target_type_group
-
-        # First, locate or create a suitable auth_op_target
-        aot = BofhdAuthOpTarget(self.db)
-        op_targets = list()
-        for row in aot.list(entity_id=target_id, target_type=target_type):
-            op_targets.append(row)
-        if not op_targets:
-            aot.populate(target_id, target_type)
-            aot.write_db()
-            op_target_id = aot.op_target_id
-        else:
-            # We never need more than 1 in *VirtHome*.
-            assert len(op_targets) == 1
-            op_target = op_targets[0]
-            assert op_target["attr"] is None
-            op_target_id = int(op_targets[0]["op_target_id"])
-
-        return access_function(permission_holder, opset, op_target_id)
-    # end __manipulate_group_permissions
-
-
-    def __remove_auth_target(self, target_type, entity_id):
-        """Delete *all* permissions granted ON target_type/target_id.
-
-        This is useful in conjunctiuon with entity_id's deletion (e.g. when a
-        group is deleted, we want to revoke *ALL* permissions granted on that
-        group. The 'leftovers' do not possess a security risk, but the data
-        in the db would become inconsistent and this is something that we
-        *really* need to avoid).
-        """
-
-        ar = BofhdAuthRole(self.db)
-        aot = BofhdAuthOpTarget(self.db)
-        for r in aot.list(entity_id=entity_id, target_type=target_type):
-            aot.clear()
-            aot.find(r['op_target_id'])
-            # We remove all auth_role entries pointing to this entity_id
-            # first.
-            for role in ar.list(op_target_id = r["op_target_id"]):
-                ar.revoke_auth(role['entity_id'], role['op_set_id'],
-                               r['op_target_id'])
-            aot.delete()
-    # end __remove_auth_target
-
-
-    def __remove_auth_role(self, entity_id):
-        """Delete *all* permissions granted TO entity_id.
-
-        This is useful in conjuction with entity_id's deletion. It does not
-        happen often, but we *must* clean up auth_op_target, since there are
-        no FKs binding entity_info and auth_op_target.entity_id (by design)
-        """
-
-        ar = BofhdAuthRole(self.db)
-        aot = BofhdAuthOpTarget(self.db)
-        for r in ar.list(entity_id):
-            ar.revoke_auth(entity_id, r['op_set_id'], r['op_target_id'])
-            # Also remove targets if this was the last reference from
-            # auth_role.
-            remaining = ar.list(op_target_id=r['op_target_id'])
-            if len(remaining) == 0:
-                aot.clear()
-                aot.find(r['op_target_id'])
-                aot.delete()
-    # end __remove_auth_role
-
-        
 
     all_commands["group_create"] = Command(
         ("group", "create"), 
@@ -1445,36 +1240,21 @@ class BofhdVirthomeCommands(BofhdCommandBase):
           A resource url associated with the group (i.e. some hint to a
           thingamabob justifying group's purpose).
         """
-
         self.ba.can_create_group(operator.get_entity_id())
-        if not self.__check_group_name_availability(group_name):
-            raise CerebrumError("Group name %s already exists" % group_name)
-
-        # FIXME: MUST owner be the same as operator?
-        account = self._get_account(owner)
-        self.ba.can_own_group(account.entity_id)
         
-        group = self.Group_class(self.db)
-        try:
-            group.populate(operator.get_entity_id(), group_name, description)
-            group.write_db()
-            group.set_group_resource(url)
-        except ValueError:
-            raise CerebrumError(str(sys.exc_info()[1]))
-        for spread in getattr(cereconf, "BOFHD_NEW_GROUP_SPREADS", ()):
-            group.add_spread(self.const.human2constant(spread,
-                                                       self.const.Spread))
+        owner_acc = self._get_account(owner)
+        self.ba.can_own_group(owner_acc.entity_id)
 
-        self.__manipulate_group_permissions(group, account, 'group-owner',
-                                            self.__grant_auth)
-        return {"group_id": int(group.entity_id)}
-    # end group_create
-
+        operator_acc = operator._fetch_account(operator.get_entity_id())
+        new = self.virthome.group_create(group_name, description,
+                                         operator_acc, owner_acc, url)
+        return {'group_id': new.entity_id}
 
 
     all_commands["group_disable"] = Command(
         ("group", "disable"),
-        GroupName())
+        GroupName(),
+        fs=FormatSuggestion("Ok, group '%s' has been disabled", ('group', )))
     def group_disable(self, operator, gname):
         """Disable group in VH.
 
@@ -1485,22 +1265,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         group = self._get_group(gname)
         self.ba.can_delete_group(operator.get_entity_id(), group.entity_id)
 
-        # Yank all the spreads
-        for row in group.get_spread():
-            group.delete_spread(row["spread"])
-
-        # Remove all members
-        for membership in group.search_members(group_id=group.entity_id):
-            group.remove_member(membership["member_id"])
-            
-        # Clean up the permissions (granted ON the group and TO the group)
-        self.__remove_auth_target(self.const.auth_target_type_group,
-                                  group.entity_id)
-        self.__remove_auth_role(group.entity_id)
-
-        return "OK, group %s has been disabled" % (group.group_name,)
-    # end group_disable
-    
+        return {'group': self.virthome.group_disable(group)}
 
 
     all_commands["group_remove_members"] = Command(
@@ -1525,79 +1290,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     # end group_remove_members
 
 
-
-    def _member_lister(self, gname, indirect_members):
-        """This is the driver function for group_list/expanded.
-        """
-
-        group = self._get_group(gname)
-        result = list()
-        for x in group.search_members(group_id=group.entity_id,
-                                      indirect_members=indirect_members):
-            tmp = {"member_id": x["member_id"],
-                   "member_type": str(self.const.EntityType(x["member_type"])),
-                   "member_name": self._get_entity_name(x["member_id"],
-                                                        x["member_type"]),
-                   "owner_name": self._get_owner_name(
-                                     x["member_id"],
-                                     self.const.human_full_name),
-                   "email_address": self._get_email_address(x["member_id"]),}
-            result.append(tmp)
-
-        result.sort(lambda x, y: cmp(x["member_name"], y["member_name"]))
-        return result
-    # end _member_lister
-
-
-
-    def _opset_account_lister(self, gname, opset_name):
-        """Return account_ids holding a specific permission on gname.
-
-        This method is meant for answering questions like 'which accounts
-        moderate this group?'.
-
-        See also L{_opset_group_lister}.
-        """
-
-        assert opset_name in ("group-owner", "group-moderator",)
-
-        opset = self._get_opset(opset_name)
-        group = self._get_group(gname)
-
-        tmp = list(self.ba.get_permission_holders_on_groups(
-            opset.op_set_id, group_id=group.entity_id))
-        for entry in tmp:
-            account_id = entry["account_id"]
-            entry["owner_name"] = self._get_owner_name(account_id,
-                                                       self.const.human_full_name)
-            entry["email_address"] = self._get_email_address(account_id)
-            
-        return tmp
-    # end _opset_account_lister
-
-
-
-    def _opset_group_lister(self, account, opset_name):
-        """Return group_ids where L{account} has a specific permission.
-
-        This is a complement to the L{_opset_account_lister}. This method is
-        meant for answering questions like 'which groups am I moderating?'
-        """
-
-        assert opset_name in ("group-owner", "group-moderator")
-
-        opset = self._get_opset(opset_name)
-        account = self._get_account(account)
-        tmp = list(self.ba.get_permission_holders_on_groups(
-            opset.op_set_id, account_id=account.entity_id))
-        for entry in tmp:
-            entry["url"] = self._get_group_resource(entry["group_id"])
-        
-        return tmp
-    # end _opset_group_lister
-
-
-
     all_commands["group_list"] = Command(
         ("group", "list"),
         GroupName())
@@ -1608,10 +1300,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         FIXME: Do we want a permission hook here? (i.e. listing only the
         groups where one is a member/moderator/owner)
         """
-
-        return self._member_lister(gname, indirect_members=False)
+        group = self._get_group(gname)
+        return self.vhutils.list_group_members(group, indirect_members=False)
     # end group_list
-
 
 
     all_commands["user_list_memberships"] = Command(
@@ -1631,7 +1322,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     # end user_list_memberships
 
 
-
     all_commands["group_change_owner"] = Command(
         ("group", "change_owner"),
         EmailAddress(),
@@ -1643,14 +1333,15 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         """
         group = self._get_group(gname)
         self.ba.can_change_owners(operator.get_entity_id(), group.entity_id)
-        owner = self._opset_account_lister(group.group_name, "group-owner"),
+        owner = self.vhutils.list_group_owners(group),
         owner = owner[0][0]['account_id']
         ret = {}
-        ret['confirmation_key'] = self.__setup_request(group.entity_id,
-                                         self.const.va_group_owner_swap,
-                                         params={"old": owner,
-                                                 "group_id": group.entity_id,
-                                                 "new": email,})
+        ret['confirmation_key'] = self.vhutils.setup_event_request(
+                                      group.entity_id,
+                                      self.const.va_group_owner_swap,
+                                      params={'old': owner,
+                                              'group_id': group.entity_id,
+                                              'new': email,})
         # check if e-mail matches a valid username
         try:
             ac = self._get_account(email)
@@ -1679,7 +1370,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     # end group_change_description
     
 
-
     all_commands["group_change_resource"] = Command(
         ("group", "change_resource"),
         GroupName(),
@@ -1700,7 +1390,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     # end group_change_resource
 
 
-    
     all_commands["group_invite_moderator"] = Command(
         ("group", "invite_moderator"),
         EmailAddress(),
@@ -1723,12 +1412,13 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             raise CerebrumError("Timeout too long")
 
         ret = {}
-        ret['confirmation_key'] = self.__setup_request(group.entity_id,
-                                         self.const.va_group_moderator_add,
-                                         params={"inviter_id": operator.get_entity_id(),
-                                                 "group_id": group.entity_id,
-                                                 "invitee_mail": email,
-                                                 "timeout": timeout,})
+        ret['confirmation_key'] = self.setup_event_request(
+                                      group.entity_id,
+                                      self.const.va_group_moderator_add,
+                                      params={'inviter_id': operator.get_entity_id(),
+                                              'group_id': group.entity_id,
+                                              'invitee_mail': email,
+                                              'timeout': timeout,})
         # check if e-mail matches a valid username
         try:
             ac = self._get_account(email)
@@ -1739,7 +1429,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         return ret
     # end group_invite_moderator
 
-        
 
     all_commands["group_remove_moderator"] = Command(
         ("group", "remove_moderator"),
@@ -1755,13 +1444,13 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         # Check that operator has permission to manipulate moderator list
         self.ba.can_change_moderators(operator.get_entity_id(), group.entity_id)
 
-        self.__manipulate_group_permissions(group, account, 'group-moderator',
-                                            self.__revoke_auth)
+        self.vhutils.revoke_group_auth(account, 'group-moderator', group)
+        #self.__manipulate_group_permissions(group, account, 'group-moderator',
+                                            #self.__revoke_auth)
 
         return "OK, removed %s as moderator of %s" % (account.account_name,
                                                       group.group_name)
     # end group_remove_moderator
-
 
 
     all_commands["group_invite_user"] = Command(
@@ -1783,34 +1472,14 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         a confirm-like action. The invites are only available for a default
         grace period, or as defined by the timeout parameter.
         """
-
         group = self._get_group(gname)
+        operator_acc = operator._fetch_account(operator.get_entity_id())
+
         # If you can't add members, you can't invite...
         self.ba.can_add_to_group(operator.get_entity_id(), group.entity_id)
 
-        timeout = int(timeout)
-        if timeout < 1:
-            raise CerebrumError('Timeout too short')
-        if (timeout is not None and 
-                           DateTimeDelta(timeout) > cereconf.MAX_INVITE_PERIOD):
-            raise CerebrumError("Timeout too long")
-
-        ret = {}
-        ret['confirmation_key'] = self.__setup_request(group.entity_id,
-                                         self.const.va_group_invitation,
-                                         {"inviter_id": operator.get_entity_id(),
-                                          "group_id": group.entity_id,
-                                          "invitee_mail": email,
-                                          "timeout": timeout,})
-        # check if e-mail matches a valid username
-        try:
-            ac = self._get_account(email)
-            ret['match_user'] = ac.account_name
-            ret['match_user_email'] = self._get_email_address(ac)
-        except CerebrumError:
-            pass
-        return ret
-    # end group_invite_user
+        return self.virthome.group_invite_user(operator_acc, group, email,
+                                               timeout)
 
 
     all_commands["group_info"] = Command(
@@ -1827,7 +1496,8 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                             "Member(s):    %s\n"
                             "Pending (mod) %s\n"
                             "Pending (mem) %s\n"
-                            "Resource:     %s",
+                            "Resource:     %s\n",
+                            "Forward:      %s",
                             ("group_name",
                              "expire",
                              "spread",
@@ -1839,7 +1509,8 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                              "member",
                              "pending_moderator",
                              "pending_member",
-                             "url",)))
+                             "url",
+                             "forward",)))
     def group_info(self, operator, gname):
         """Fetch basic info about a specific group.
 
@@ -1853,17 +1524,18 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                   "description": group.description,
                   "entity_id": group.entity_id,
                   "creator": self._get_account(group.creator_id).account_name,
-                  "moderator": self._opset_account_lister(gname,
-                                                          "group-moderator"),
-                  "owner": self._opset_account_lister(gname,
-                                                      "group-owner"),
+                  "moderator": self.vhutils.list_group_moderators(group),
+                  "owner": self.vhutils.list_group_owners(group),
                   "url": self._get_group_resource(group),
                   "pending_moderator": self.__load_group_pending_events(
                                                   group,
                                                   self.const.va_group_moderator_add),
                   "pending_member": self.__load_group_pending_events(
                                                   group,
-                                                  self.const.va_group_invitation), }
+                                                  self.const.va_group_invitation), 
+                  "forward": self.vhutils.get_trait_val(
+                                 group, 
+                                 self.const.trait_group_forward), }
         members = dict()
         for row in group.search_members(group_id=group.entity_id,
                                         indirect_members=False):
@@ -1876,7 +1548,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                                      for key in members)
         return answer
     # end group_info
-
 
 
     def __load_group_pending_events(self, group, event_types):
@@ -1907,7 +1578,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     # end __load_group_pending_events
 
     
-
     all_commands["user_virtaccount_create"] = Command(
             ("user", "virtaccount_create"),
             AccountName(),
