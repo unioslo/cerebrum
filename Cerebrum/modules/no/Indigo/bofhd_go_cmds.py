@@ -23,6 +23,7 @@ import cereconf
 import mx
 import pickle
 import re
+
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum import Constants
@@ -30,18 +31,34 @@ from Cerebrum import Utils
 from Cerebrum import Cache
 from Cerebrum import Errors
 from Cerebrum.modules import Email
-from Cerebrum.modules.bofhd.cmd_param import Parameter,Command,FormatSuggestion,GroupName
+#from Cerebrum.modules.bofhd.cmd_param import Parameter,Command,FormatSuggestion,GroupName
+from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthRole, \
                                         BofhdAuthOpSet, BofhdAuthOpTarget
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.extlib.sets import Set as set
+from Cerebrum.modules.no.Indigo import bofhd_go_help
 
 
 def format_day(field):
     fmt = "yyyy-MM-dd"                  # 10 characters wide
     return ":".join((field, "date", fmt))
+
+def date_to_string(date):
+    """Takes a DateTime-object and formats a standard ISO-datestring
+    from it.
+
+    Custom-made for our purposes, since the standard XMLRPC-libraries
+    restrict formatting to years after 1899, and we see years prior to
+    that.
+
+    """
+    if not date:
+        return "<not set>"
+    
+    return "%04i-%02i-%02i" % (date.year, date.month, date.day)
 
 """This class contains the bofh-functions needed by the indigo
 www-interface.  To avoid code-duplication we re-use a number of
@@ -65,7 +82,7 @@ class BofhdExtension(BofhdCommonMethods):
         'group_memberships', 'group_search',
         '_entity_info', 'num2str', 'group_list',
         '_fetch_member_names', 'misc_list_passwords',
-        '_get_cached_passwords', '_get_entity_name',
+        '_get_cached_passwords',
         '_get_entity_spreads',
         'group_add_entity', 'group_remove_entity', 'user_password',
         '_get_group_opcode', '_get_name_from_object',
@@ -130,14 +147,9 @@ class BofhdExtension(BofhdCommonMethods):
 
 
     def get_help_strings(self):
-        group_help = {
-            }
-        command_help = {
-            }
-        arg_help = {
-            }
-        return (group_help, command_help,
-                arg_help)
+        return (bofhd_go_help.group_help,
+                bofhd_go_help.command_help,
+                bofhd_go_help.arg_help)
     
     def get_commands(self, account_id):
         try:
@@ -171,9 +183,32 @@ class BofhdExtension(BofhdCommonMethods):
             raise CerebrumError, "Database error: %s" % m
         return "OK, removed '%s' from '%s'" % (member_name, group.group_name)
 
-    all_commands['group_info'] = None
+    # group info
+    all_commands['group_info'] = Command(
+        ("group", "info"), GroupName(help_ref="id:gid:name"),
+        fs=FormatSuggestion([("Name:         %s\n" +
+                              "Spreads:      %s\n" +
+                              "Description:  %s\n" +
+                              "Expire:       %s\n" +
+                              "Entity id:    %i""",
+                              ("name", "spread", "description",
+                               format_day("expire_date"),
+                               "entity_id")),
+                             ("Moderator:    %s %s (%s)",
+                              ('owner_type', 'owner', 'opset')),
+                             ("Gid:          %i",
+                              ('gid',)),
+                             ("Members:      %s", ("members",))]))
     def group_info(self, operator, groupname):
-        grp = self._get_group(groupname)
+        # TODO: Group visibility should probably be checked against
+        # operator for a number of commands
+        try:
+            grp = self._get_group(groupname, grtype="PosixGroup")
+        except CerebrumError:
+            if groupname.startswith('gid:'):
+                gid = groupname.split(':',1)[1]
+                raise CerebrumError("Could not find PosixGroup with gid=%s" % gid)
+            grp = self._get_group(groupname)
         co = self.const
         ret = [ self._entity_info(grp) ]
         # find owners
@@ -198,16 +233,24 @@ class BofhdExtension(BofhdCommonMethods):
                         'owner': owner,
                         'opset': aos.name})
 
-        # Count group members of different types
-        members = list(grp.search_members(group_id=grp.entity_id))
-        tmp = {}
-        for ret_pfix, entity_type in (
-            ('c_group', int(self.const.entity_group)),
-            ('c_account', int(self.const.entity_account))):
-            tmp[ret_pfix] = len([x for x in members
-                                 if int(x["member_type"]) == entity_type])
-        ret.append(tmp)
+
+        # Member stats are a bit complex, since any entity may be a
+        # member. Collect them all and sort them by members.
+        members = dict()
+        for row in grp.search_members(group_id=grp.entity_id):
+            members[row["member_type"]] = members.get(row["member_type"], 0) + 1
+
+        # Produce a list of members sorted by member type
+        ET = self.const.EntityType
+        entries = ["%d %s(s)" % (members[x], str(ET(x)))
+                   for x in sorted(members,
+                                   lambda it1, it2:
+                                     cmp(str(ET(it1)),
+                                         str(ET(it2))))]
+
+        ret.append({"members": ", ".join(entries)})
         return ret
+    # end group_info
     
     all_commands['get_auth_level'] = None
     def get_auth_level(self, operator):
@@ -264,15 +307,128 @@ class BofhdExtension(BofhdCommonMethods):
             active.append(row['person_id'])
         return active
         
-    all_commands['user_info'] = None
-    def user_info(self, operator, entity_id):
-        account = self._get_account(entity_id)
-        return {'entity_id': account.entity_id,
-                'owner_id': account.owner_id,
-                'owner_type': account.owner_type}
+    # user info
+    all_commands['user_info'] = Command(
+        ("user", "info"), AccountName(),
+        fs=FormatSuggestion([("Username:      %s\n"+
+                              "Spreads:       %s\n" +
+                              "Affiliations:  %s\n" +
+                              "Expire:        %s\n" +
+                              "Home:          %s\n" +
+                              "Entity id:     %i\n" +
+                              "Owner id:      %i (%s: %s)",
+                              ("username", "spread", "affiliations",
+                               format_day("expire"),
+                               "home", "entity_id", "owner_id",
+                               "owner_type", "owner_desc")),
+                             ("Contact:       %s: %s [from %s]",
+                              ("contact_type", "contact_value", "contact_src")),
+                             ("UID:           %i\n" +
+                              "Default fg:    %i=%s\n" +
+                              "Gecos:         %s\n" +
+                              "Shell:         %s",
+                              ('uid', 'dfg_posix_gid', 'dfg_name', 'gecos',
+                               'shell')),
+                             ("Quarantined:   %s",
+                              ("quarantined",))]))
+    def user_info(self, operator, accountname):
+        is_posix = False
+        try: 
+            account = self._get_account(accountname, actype="PosixUser")
+            is_posix = True
+        except CerebrumError:
+            account = self._get_account(accountname)
+        if account.is_deleted() and not self.ba.is_superuser(operator.get_entity_id()):
+            raise CerebrumError("User is deleted")
+        affiliations = []
+        for row in account.get_account_types(filter_expired=False):
+            ou = self._get_ou(ou_id=row['ou_id'])
+            affiliations.append("%s@%s" %
+                                (self.const.PersonAffiliation(row['affiliation']),
+                                 self._format_ou_name(ou)))
+        tmp = {'disk_id': None, 'home': None, 'status': None,
+               'homedir_id': None}
+        hm = []
+        # fixme: UiA does not user home_status as per today. this should
+        # probably be fixed
+        # home_status = None
+        home = None
+        for spread in cereconf.HOME_SPREADS:
+            try:
+                tmp = account.get_home(getattr(self.const, spread))
+                if tmp['disk_id'] or tmp['home']:
+                    tmp_home = account.resolve_homedir(disk_id=tmp['disk_id'],
+                                                       home=tmp['home'])
+                #home_status = str(self.const.AccountHomeStatus(tmp['status']))
+                hm.append("%s (%s)" % (tmp_home, str(getattr(self.const, spread))))
+            except Errors.NotFoundError:
+                pass
+        home = ("\n" + (" " * 15)).join([x for x in hm])
+        ret = [{'entity_id': account.entity_id,
+               'username': account.account_name,
+               'spread': ",".join([str(self.const.Spread(a['spread']))
+                                   for a in account.get_spread()]),
+               'affiliations': (",\n" + (" " * 15)).join(affiliations),
+               'expire': account.expire_date,
+               'home': home,
+               'owner_id': account.owner_id,
+               'owner_type': str(self.const.EntityType(account.owner_type))
+               }]
+        if account.owner_type == self.const.entity_person:
+            person = self._get_person('entity_id', account.owner_id)
+            try:
+                p_name = person.get_name(self.const.system_cached,
+                                         getattr(self.const,
+                                                 cereconf.DEFAULT_GECOS_NAME))
+            except Errors.NotFoundError:
+                p_name = '<none>'
+            ret[0]['owner_desc'] = p_name
+        else:
+            grp = self._get_group(account.owner_id, idtype='id')
+            ret[0]['owner_desc'] = grp.group_name
 
-    all_commands['person_info'] = None
-    def person_info(self, operator, person_id):
+        if is_posix:
+            group = self._get_group(account.gid_id, idtype='id', grtype='PosixGroup')
+            ret.append({
+                'uid': account.posix_uid,
+                'dfg_posix_gid': group.posix_gid,
+                'dfg_name': group.group_name,
+                'gecos': account.gecos,
+                'shell': str(self.const.PosixShell(account.shell))})
+
+        # Contact info
+        for row in account.get_contact_info():
+                                    #type=self.const.contact_mobile_phone):
+            ret.append({'contact_type': str(self.const.ContactInfo(
+                                                        row['contact_type'])),
+                        'contact_value': row['contact_value'],
+                        'contact_src': str(self.const.AuthoritativeSystem(
+                                                        row['source_system']))})
+
+        # TODO: Return more info about account
+        quarantined = None
+        now = mx.DateTime.now()
+        for q in account.get_entity_quarantine():
+            if q['start_date'] <= now:
+                if (q['end_date'] is not None and
+                    q['end_date'] < now):
+                    quarantined = 'expired'
+                elif (q['disable_until'] is not None and
+                    q['disable_until'] > now):
+                    quarantined = 'disabled'
+                else:
+                    quarantined = 'active'
+                    break
+            else:
+                quarantined = 'pending'
+        if quarantined:
+            ret.append({'quarantined': quarantined})
+
+        return ret
+    # end user_info
+
+    all_commands['person_info_nope'] = None
+    def person_info_nope(self, operator, person_id):
         try:
             person = self._get_person(*self._map_person_id(person_id))
         except Errors.TooManyRowsError:
@@ -309,6 +465,117 @@ class BofhdExtension(BofhdCommonMethods):
                     self.const.AuthoritativeSystem(row['source_system']))})
         return data
 
+    # person info
+    all_commands['person_info'] = Command(
+        ("person", "info"), PersonId(help_ref="id:target:person"),
+        fs=FormatSuggestion([
+        ("Name:          %s\n" +
+         "Entity-id:     %i\n" +
+         "Birth:         %s\n" +
+         "Spreads:       %s\n" +
+         "Affiliations:  %s [from %s]",
+         ("name", "entity_id", "birth", "spreads",
+          "affiliation_1", "source_system_1")),
+        ("               %s [from %s]",
+         ("affiliation", "source_system")),
+        ("Names:         %s[from %s]",
+         ("names", "name_src")),
+        ("Fnr:           %s [from %s]",
+         ("fnr", "fnr_src")),
+        ("Contact:       %s: %s [from %s]",
+         ("contact_type", "contact", "contact_src")),
+        ("External id:   %s [from %s]",
+         ("extid", "extid_src"))
+        ]))
+    def person_info(self, operator, person_id):
+        try:
+            person = self.util.get_target(person_id, restrict_to=['Person'])
+        except Errors.TooManyRowsError:
+            raise CerebrumError("Unexpectedly found more than one person")
+        try:
+            p_name = person.get_name(self.const.system_cached,
+                                     getattr(self.const, cereconf.DEFAULT_GECOS_NAME))
+            p_name = p_name + ' [from Cached]'
+        except Errors.NotFoundError:
+            raise CerebrumError("No name is registered for this person")
+        data = [{'name': p_name,
+                 'entity_id': person.entity_id,
+                 'birth': date_to_string(person.birth_date),
+                 'spreads': ", ".join([str(self.const.Spread(x['spread']))
+                                for x in person.get_spread()])}]
+        affiliations = []
+        sources = []
+        for row in person.get_affiliations():
+            ou = self._get_ou(ou_id=row['ou_id'])
+            affiliations.append("%s@%s" % (
+                self.const.PersonAffStatus(row['status']),
+                self._format_ou_name(ou)))
+            sources.append(str(self.const.AuthoritativeSystem(row['source_system'])))
+        for ss in cereconf.SYSTEM_LOOKUP_ORDER:
+            ss = getattr(self.const, ss)
+            person_name = ""
+            for type in [self.const.name_first, self.const.name_last]:
+                try:
+                    person_name += person.get_name(ss, type) + ' '
+                except Errors.NotFoundError:
+                    continue
+            if person_name:
+                data.append({'names': person_name,
+                             'name_src': str(
+                    self.const.AuthoritativeSystem(ss))})
+        if affiliations:
+            data[0]['affiliation_1'] = affiliations[0]
+            data[0]['source_system_1'] = sources[0]
+        else:
+            data[0]['affiliation_1'] = "<none>"
+            data[0]['source_system_1'] = "<nowhere>"
+        for i in range(1, len(affiliations)):
+            data.append({'affiliation': affiliations[i],
+                         'source_system': sources[i]})
+        account = self.Account_class(self.db)
+        account_ids = [int(r['account_id'])
+                       for r in account.list_accounts_by_owner_id(person.entity_id)]
+        ## Ugly hack: We use membership in a given group (defined in
+        ## cereconf) to enable viewing fnr in person info.
+        is_member_of_priviliged_group = False
+        if cereconf.BOFHD_FNR_ACCESS_GROUP is not None:
+            g_view_fnr =  Utils.Factory.get("Group")(self.db)
+            g_view_fnr.find_by_name(cereconf.BOFHD_FNR_ACCESS_GROUP)
+            is_member_of_priviliged_group = g_view_fnr.has_member(operator.get_entity_id())
+        if (self.ba.is_superuser(operator.get_entity_id()) or
+            operator.get_entity_id() in account_ids or
+            is_member_of_priviliged_group):
+            # Show fnr
+            for row in person.get_external_id(id_type=self.const.externalid_fodselsnr):
+                data.append({'fnr': row['external_id'],
+                             'fnr_src': str(
+                    self.const.AuthoritativeSystem(row['source_system']))})
+            # Show external id from FS and SAP
+            for extid in ('externalid_sap_ansattnr',
+                          'externalid_studentnr'):
+                extid = getattr(self.const, extid, None)
+                if extid:
+                    for row in person.get_external_id(id_type=extid):
+                        data.append({'extid': row['external_id'],
+                                     'extid_src': str(
+                            self.const.AuthoritativeSystem(row['source_system']))})
+        # Show contact info
+        for row in person.get_contact_info():
+            if row['contact_type'] not in (self.const.contact_phone,
+                                           self.const.contact_mobile_phone,
+                                           self.const.contact_phone_private,
+                                           self.const.contact_private_mobile):
+                continue
+            try:
+                if self.ba.can_get_contact_info(operator.get_entity_id(),
+                        person=person, contact_type=row['contact_type']):
+                    data.append({'contact': row['contact_value'],
+                                 'contact_src': str(self.const.AuthoritativeSystem(row['source_system'])),
+                                 'contact_type': str(self.const.ContactInfo(row['contact_type']))})
+            except PermissionDenied:
+                continue
+        return data
+    #end person_info
 
     all_commands['person_find'] = None
     def person_find(self, operator, search_type, value, filter=None):
@@ -433,6 +700,142 @@ class BofhdExtension(BofhdCommonMethods):
         ret.sort(lambda a, b: cmp(a["name"], b["name"]))
         return ret
     # end user_find
+
+
+    #
+    # trait commands
+    #
+
+    # trait info
+    all_commands['trait_info'] = Command(
+        ("trait", "info"), Id(help_ref="id:target:account"),
+        # Since the FormatSuggestion sorts by the type and not the order of the
+        # return data, we send both a string to make it pretty in jbofh, and a
+        # list to be used by brukerinfo, which is ignored by jbofh.
+        fs=FormatSuggestion("%s", ('text',)),
+        perm_filter="can_view_trait")
+    def trait_info(self, operator, ety_id):
+        ety = self.util.get_target(ety_id, restrict_to=[])
+        self.ba.can_view_trait(operator.get_entity_id(), ety=ety)
+
+        if isinstance(ety, Utils.Factory.get('Disk')):
+            ety_name = ety.path
+        elif isinstance(ety, Utils.Factory.get('Person')):
+            try:
+                ety_name = ety.get_name(self.const.system_cached,
+                                        self.const.name_full)
+            except Errors.NotFoundError:
+                ety_name = "<no name>"
+        else:
+            ety_name = ety.get_names()[0][0]
+        text = []
+        ret = []
+        for trait, values in ety.get_traits().items():
+            try:
+                self.ba.can_view_trait(operator.get_entity_id(), trait=trait,
+                                       ety=ety, target=values['target_id'])
+            except PermissionDenied:
+                continue
+
+            text.append("  Trait:       %s" % str(trait))
+            if values['numval'] is not None:
+                text.append("    Numeric:   %d" % values['numval'])
+            if values['strval'] is not None:
+                text.append("    String:    %s" % values['strval'])
+            if values['target_id'] is not None:
+                target = self.util.get_target(int(values['target_id']))
+                text.append("    Target:    %s (%s)" % (
+                    self._get_entity_name(target.entity_id, target.entity_type),
+                    str(self.const.EntityType(target.entity_type))))
+            if values['date'] is not None:
+                text.append("    Date:      %s" % values['date'])
+            values['trait_name'] = str(trait)
+            ret.append(values)
+        if text:
+            text = ["Entity:        %s (%s)" % (
+                ety_name,
+                str(self.const.EntityType(ety.entity_type)))] + text
+            return {'text': "\n".join(text), 'traits': ret}
+        return "%s has no traits" % ety_name
+
+    # trait list
+    all_commands['trait_list'] = Command(
+        ("trait", "list"), SimpleString(help_ref="trait"),
+        fs=FormatSuggestion("%-16s %-16s %s", ('trait', 'type', 'name'),
+                            hdr="%-16s %-16s %s" % ('Trait', 'Type', 'Name')),
+        perm_filter="is_superuser")
+    def trait_list(self, operator, trait_name):
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
+        trait = self._get_constant(self.const.EntityTrait, trait_name, "trait")
+        ety = self.Account_class(self.db) # exact class doesn't matter
+        ret = []
+        ety_type = str(self.const.EntityType(trait.entity_type))
+        for row in ety.list_traits(trait, return_name=True):
+            # TODO: Host, Disk and Person don't use entity_name, so name will
+            # be <not set>
+            ret.append({'trait': str(trait),
+                        'type': ety_type,
+                        'name': row['name']})
+        ret.sort(lambda x,y: cmp(x['name'], y['name']))
+        return ret
+
+    #def can_remove_trait(self, operator, trait=None, ety=None, target=None, query_run_any=False):
+    # trait remove
+    all_commands['trait_remove'] = Command(
+        ("trait", "remove"), Id(help_ref="id:target:account"),
+        SimpleString(help_ref="trait"),
+        perm_filter="can_remove_trait")
+    def trait_remove(self, operator, ety_id, trait_name):
+        ety = self.util.get_target(ety_id, restrict_to=[])
+        trait = self._get_constant(self.const.EntityTrait, trait_name, "trait")
+        self.ba.can_remove_trait(operator.get_entity_id(), ety=ety, trait=trait)
+
+        if isinstance(ety, Utils.Factory.get('Disk')):
+            ety_name = ety.path
+        elif isinstance(ety, Utils.Factory.get('Person')):
+            ety_name = ety.get_name(self.const.system_cached, self.const.name_full)
+        else:
+            ety_name = ety.get_names()[0][0]
+        if ety.get_trait(trait) is None:
+            return "%s has no %s trait" % (ety_name, trait)
+        ety.delete_trait(trait)
+        return "OK, deleted trait %s from %s" % (trait, ety_name)
+
+    # trait set -- add or update a trait
+    all_commands['trait_set'] = Command(
+        ("trait", "set"), Id(help_ref="id:target:account"),
+        SimpleString(help_ref="trait"),
+        SimpleString(help_ref="trait_val", repeat=True),
+        perm_filter="can_set_trait")
+    def trait_set(self, operator, ent_name, trait_name, *values):
+        ent = self.util.get_target(ent_name, restrict_to=[])
+        trait = self._get_constant(self.const.EntityTrait, trait_name, "trait")
+        self.ba.can_set_trait(operator.get_entity_id(), trait=trait, ety=ent)
+        params = {}
+        for v in values:
+            if v.count('='):
+                key, value = v.split('=', 1)
+            else:
+                key = v; value = ''
+            key = self.util.get_abbr_type(key, ('target_id', 'date', 'numval',
+                                                'strval'))
+            if value == '':
+                params[key] = None
+            elif key == 'target_id':
+                target = self.util.get_target(value, restrict_to=[])
+                params[key] = target.entity_id
+            elif key == 'date':
+                # TODO: _parse_date only handles dates, not hours etc.
+                params[key] = self._parse_date(value)
+            elif key == 'numval':
+                params[key] = int(value)
+            elif key == 'strval':
+                params[key] = value
+        ent.populate_trait(trait, **params)
+        ent.write_db()
+        return "Ok, set trait %s for %s" % (trait_name, ent_name)
+    #end trait remove
 
 
     def _operator_sees_person(self, operator, person_id):
