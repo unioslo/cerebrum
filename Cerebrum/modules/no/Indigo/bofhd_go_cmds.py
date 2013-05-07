@@ -292,6 +292,8 @@ class BofhdExtension(BofhdCommonMethods):
 
     all_commands['user_get_pwd'] = None
     def user_get_pwd(self, operator, id):
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         account = self._get_account(int(id),'id')
         pwd = account.get_account_authentication(self.const.auth_type_plaintext)
         return {'password': pwd,
