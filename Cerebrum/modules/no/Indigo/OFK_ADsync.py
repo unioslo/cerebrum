@@ -142,6 +142,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 # TODO: Traits should be cached in a set, to speed up the sync.
                 mdb_trait = self.ac.get_trait(self.co.trait_homedb_info)
                 if self.ac.get_trait(self.co.trait_exchange_migrated):
+                    self.logger.debug("Account %s migrated", k)
                     # User is migrated:
                     v['homeMDB'] = "CN=%s,%s" % (mdb_trait["strval"],
                                                  cereconf.AD_EX_MDB_DN_2010)
@@ -271,8 +272,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         # Find all users with relevant spread
         #
         tmp_ret = {}
-        spread_res = tuple(self.ac.search(spread=spread))
-        for row in spread_res:
+        for row in self.ac.search(spread=spread):
             # Don't sync accounts that are being migrated (exchange)
             if int(row['account_id']) in under_migration:
                 self.logger.debug("Account %s being migrated in exchange."
@@ -293,7 +293,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         self.logger.info("Fetched %i accounts with spread %s" 
                          % (len(tmp_ret),spread))
 
-        set1 = set([row['account_id'] for row in spread_res])
+        set1 = set(tmp_ret.keys())
         set2 = set([row['account_id'] for row in 
                     list(self.ac.search(spread=exchange_spread))])
         set_res = set1.intersection(set2)
