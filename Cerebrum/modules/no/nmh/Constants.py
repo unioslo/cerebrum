@@ -71,7 +71,7 @@ class Constants(Constants.Constants):
 
     ## Contact info
     contact_office = _ContactInfoCode('OFFICE',
-        'Office address (building code and room number')
+        'Office address (building code and room number)')
 
     ## Traits for fagområde
     trait_fagomrade_fagfelt = _EntityTraitCode(
