@@ -17,6 +17,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from collections import defaultdict
+
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.OrgLDIF import *
 
@@ -24,6 +26,7 @@ class nmhOrgLDIFMixin(OrgLDIF):
     def __init__(self, db, logger):
         self.__super.__init__(db, logger)
         self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
+        self.attr2syntax['roomNumber'] = (iso2utf, None, normalize_string)
         self.person = Factory.get('Person')(self.db)
         self.pe2fagomr = self.get_fagomrade()
         self.pe2fagmiljo = self.get_fagmiljo()
@@ -57,7 +60,7 @@ class nmhOrgLDIFMixin(OrgLDIF):
                     self.person.list_traits(self.const.trait_fagmiljo))
 
     def init_attr2id2contacts(self):
-        """Override to include 'mobile' data from contact info."""
+        """Override to include more, local data from contact info."""
         sap, fs = self.const.system_sap, self.const.system_fs
         c = [(a, self.get_contacts(contact_type  = t,
                                    source_system = s,
@@ -72,7 +75,38 @@ class nmhOrgLDIFMixin(OrgLDIF):
         self.id2labeledURI    = c[-1][1]
         self.attr2id2contacts = [v for v in c if v[1]]
 
-        # TODO: roomNumbers
+        # roomNumber
+        # Some employees have registered their office addresses in SAP. We store
+        # this as co.contact_office. The roomNumber is the alias.
+        attr = 'roomNumber'
+        syntax = self.attr2syntax[attr]
+        c = self.get_contact_aliases(
+            contact_type  = self.const.contact_office,
+            source_system = self.const.system_sap,
+            convert       = syntax[0],
+            verify        = syntax[1],
+            normalize     = syntax[2])
+        if c:
+            self.attr2id2contacts.append((attr, c))
+
+    def get_contact_aliases(self, contact_type=None,
+            source_system=None, convert=None, verify=None, normalize=None):
+        """Return a dict {entity_id: [list of contact aliases]}."""
+        # The code mimics a reduced modules/OrgLDIF.py:get_contacts().
+        entity = Entity.EntityContactInfo(self.db)
+        cont_tab = defaultdict(list)
+        if not convert:
+            convert = str
+        if not verify:
+            verify = bool
+        for row in entity.list_contact_info(source_system = source_system,
+                                            contact_type  = contact_type):
+            alias = convert(str(row['contact_alias']))
+            if alias and verify(alias):
+                cont_tab[int(row['entity_id'])].append(alias)
+
+        return dict((key, self.attr_unique(values, normalize=normalize))
+                    for key, values in cont_tab.iteritems())
 
     def make_person_entry(self, row):
         """Override the production of a person entry to output.
