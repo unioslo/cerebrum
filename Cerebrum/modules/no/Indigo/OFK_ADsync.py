@@ -604,7 +604,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
             else:
                 # Ignore accounts under migration:
-                if dta['account_id'] in self.under_migration:
+                if 'account_id' in dta and dta['account_id'] in self.under_migration:
                     continue
                 #Account not in Cerebrum, but in AD.                
                 if [s for s in cereconf.AD_DO_NOT_TOUCH if
