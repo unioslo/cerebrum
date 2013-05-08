@@ -264,9 +264,9 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
         # Users under migration, tagged by trait_exchange_under_migration,
         # should get ignored by the sync until the trait is removed.
-        under_migration = set(int(row['entity_id']) for row in
-                              self.ac.list_traits(code=self.co.trait_exchange_under_migration))
-        self.logger.debug("Accounts under migration: %d", len(under_migration))
+        self.under_migration = set(int(row['entity_id']) for row in
+               self.ac.list_traits(code=self.co.trait_exchange_under_migration))
+        self.logger.debug("Accounts under migration: %d", len(self.under_migration))
 
         #
         # Find all users with relevant spread
@@ -274,7 +274,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         tmp_ret = {}
         for row in self.ac.search(spread=spread):
             # Don't sync accounts that are being migrated (exchange)
-            if int(row['account_id']) in under_migration:
+            if int(row['account_id']) in self.under_migration:
                 self.logger.debug("Account %s being migrated in exchange."
                                   " Not syncing. ", row['account_id'])
                 continue
@@ -351,6 +351,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         userdict_ret= {}
         for k, v in tmp_ret.iteritems():
             userdict_ret[v['TEMPuname']] = v
+            v['account_id'] = k
             del(v['TEMPuname'])
             del(v['TEMPownerId'])        
 
@@ -602,6 +603,9 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 del cerebrumusrs[usr]
 
             else:
+                # Ignore accounts under migration:
+                if dta['account_id'] in self.under_migration:
+                    continue
                 #Account not in Cerebrum, but in AD.                
                 if [s for s in cereconf.AD_DO_NOT_TOUCH if
                     adusrs[usr]['distinguishedName'].upper().find(s.upper()) >= 0]:
