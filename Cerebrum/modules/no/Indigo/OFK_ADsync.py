@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2006, 2007 University of Oslo, Norway
+# Copyright 2006, 2007, 2013 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -135,9 +135,19 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 if x500_trait and x500_trait["strval"]:
                     v['proxyAddresses'].append(("X500:" + x500_trait["strval"]))                        
 
-                #Set homeMDB for Exchange users
+                # Set homeMDB for Exchange users.
+                # We need to differ between those migrated to a newer version of
+                # Exchange and not, as Exchange' attribute format changes from
+                # version to version.
+                # TODO: Traits should be cached in a set, to speed up the sync.
                 mdb_trait = self.ac.get_trait(self.co.trait_homedb_info)
-                if mdb_trait and mdb_trait["strval"]:
+                if self.ac.get_trait(self.co.trait_exchange_migrated):
+                    # User is migrated:
+                    v['homeMDB'] = "CN=%s,%s" % (mdb_trait["strval"],
+                                                 cereconf.AD_EX_MDB_DN_2010)
+                    # TODO: v['msExchHomeServerName'] = cereconf.AD_EXC_HOME_SERVER
+                elif mdb_trait and mdb_trait["strval"]:
+                    # Non-migrated user:
                     exchangeserver = ""
                     for servername in cereconf.AD_EX_MDB_SERVER:
                         if mdb_trait["strval"] in cereconf.AD_EX_MDB_SERVER[servername]:
@@ -151,7 +161,6 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     self.logger.warning("Error getting homeMDB"
                                       " for account %s (id: %i)" % (k,int(k)))  
 
-    
     def _update_contact_info(self, user_dict):
         """
         Get contact info: phonenumber.
@@ -250,15 +259,26 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
           'extensionAttribute2' : String  # Om brukeren er tilknyttet affiliation
           'extensionAttribute3' : String  # Om brukeren har elev affiliation
         """
-
         self.person = Utils.Factory.get('Person')(self.db)
+
+        # Users under migration, tagged by trait_exchange_under_migration,
+        # should get ignored by the sync until the trait is removed.
+        under_migration = set(int(row['entity_id']) for row in
+                              self.ac.list_traits(code=self.co.trait_exchange_under_migration))
+        self.logger.debug("Accounts under migration: %d", len(under_migration))
 
         #
         # Find all users with relevant spread
         #
         tmp_ret = {}
-        spread_res = list(self.ac.search(spread=spread))
+        spread_res = tuple(self.ac.search(spread=spread))
         for row in spread_res:
+            # Don't sync accounts that are being migrated (exchange)
+            if int(row['account_id']) in under_migration:
+                self.logger.debug("Account %s being migrated in exchange."
+                                  " Not syncing. ", row['account_id'])
+                continue
+
             tmp_ret[int(row['account_id'])] = {
                 'Exchange' : False,
                 'msExchPoliciesExcluded' : cereconf.AD_EX_POLICIES_EXCLUDED,
