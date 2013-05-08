@@ -543,11 +543,11 @@ class BofhdExtension(BofhdCommonMethods):
         school. This means that the list of users and people returned to
         him/her has to be filtered. 
 
-        operator	operator (person_id)
-        results		a sequency of dictionary-like objects where each object
-                        represents a database row. These are to be filtered.
-        person_key	name of the key in each element of results that
-                        designates the owner.
+        operator    operator (person_id)
+        results     a sequency of dictionary-like objects where each object
+                    represents a database row. These are to be filtered.
+        person_key  name of the key in each element of results that
+                    designates the owner.
 
         Caveats:
         * This method is quite costly. It gets more so, the larger the schools are.
@@ -909,4 +909,51 @@ class BofhdExtension(BofhdCommonMethods):
             addrs.sort(lambda x,y: cmp(x[1], y[1]) or cmp(x[0],y[0]))
         return ["%s@%s" % a for a in addrs]
 
-# arch-tag: d1ad56e6-7155-11da-87dd-ea237fa9df60
+
+    # Commands for Exchange migration:
+
+    all_commands['user_migrate_exchange'] = Command(
+        ("user", "migrate_exchange"), 
+        AccountName(help_ref="account_name", repeat=False),
+        SimpleString(help_ref='string_mdb'),        
+        perm_filter='is_superuser')
+    def user_migrate_exchange(self, operator, uname, mdb):
+        """Tagging a user as under migration, and setting the new MDB.
+
+        The new MDB value should not be used until the user is tagged as
+        successfully migrated.
+
+        """
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
+        account = self._get_account(uname)
+        if account.is_expired():
+            raise CerebrumError("Account %s is expired" % uname)
+        # TODO: check the new MDB value?
+
+        # Set new mdb value
+        account.populate_trait(self.const.trait_homedb_info, strval=mdb)
+        # Mark that account is being migrated
+        account.populate_trait(self.const.trait_exchange_under_migration)        
+        account.write_db()
+        return "OK, mdb stored for user %s" % uname
+
+    all_commands['user_migrate_exchange_finished'] = Command(
+        ("user", "migrate_exchange_finished"), 
+        AccountName(help_ref="account_name", repeat=True),
+        perm_filter='is_superuser')
+    def user_migrate_exchange_finished(self, operator, uname):
+        """Tagging a user as migrated to a newer Exchange version."""
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
+        account = self._get_account(uname)
+        if account.is_expired():
+            raise CerebrumError("Account %s is expired" % uname)
+        # Mark that account is successfully migrated to new exchange server
+        account.populate_trait(self.const.trait_exchange_migrated)
+        account.write_db()
+        # Remove trait for being under migration
+        account.delete_trait(self.const.trait_exchange_under_migration)
+        account.write_db()
+        return "OK, deleted trait for user %s" % uname
+
