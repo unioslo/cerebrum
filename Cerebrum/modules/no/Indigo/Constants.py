@@ -180,6 +180,21 @@ class Constants(Constants.Constants):
     trait_x500_addr = _EntityTraitCode(
         'x500address', Constants.Constants.entity_account,
         'Register old addresses for e-mail accounts')    
+
+    # Traits for migrating between versions of Exchange:
+
+    # Marking accounts that are being migrated. Such accounts should not be
+    # updated in AD until the migration is done.
+    trait_exchange_under_migration = _EntityTraitCode(
+        'under_migration',
+        Constants.Constants.entity_account,
+        "Accounts that is under migrationt to another Exchange version.")
+   # Need to differ between migrated and non-migrated accounts
+    trait_exchange_migrated = _EntityTraitCode(
+        'exch_migrated',
+        Constants.Constants.entity_account,
+        "Account that has been migrated to a newer Exchange version.")
+
 ## Group traits
     trait_group_imported = _EntityTraitCode(
         'imported_group', Constants.Constants.entity_group,
