@@ -949,6 +949,8 @@ class BofhdExtension(BofhdCommonMethods):
         account = self._get_account(uname)
         if account.is_expired():
             raise CerebrumError("Account %s is expired" % uname)
+        if not account.get_trait(self.const.trait_exchange_under_migration):
+            raise CerebrumError("Account %s not under migration" % uname)
         # Mark that account is successfully migrated to new exchange server
         account.populate_trait(self.const.trait_exchange_migrated)
         account.write_db()
