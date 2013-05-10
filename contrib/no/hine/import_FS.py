@@ -191,6 +191,8 @@ def register_contact(person, person_info):
                         int(person_info["personnr"]))
     # These should be column names from FS
     phone_selector = "telefonnr_mobil"
+    phone_country  = "telefonlandnr_mobil"
+    phone_region   = "telefonretnnr_mobil"
     email_selector = "emailadresse_privat"
     # Variables for storage
     numbers = set()
@@ -200,7 +202,10 @@ def register_contact(person, person_info):
     for key in person_info:
         for dct in person_info[key]:
             if phone_selector in dct:
-                numbers.add(dct[phone_selector].strip())
+                if phone_country in dct or phone_region in dct:
+                    logger.debug('Phone country/region is set, skipping phone for %s', fnr)
+                else:
+                    numbers.add(dct[phone_selector].strip())
             if email_selector in dct:
                 email_addresses.add(dct[email_selector].strip())
    
@@ -230,7 +235,7 @@ def register_contact(person, person_info):
 
     # No number recieved
     elif len(numbers) < 1:
-        logger.debug("No tlf. number registred for %s", fnr)
+        logger.debug("No cell phone number registered for %s", fnr)
     # We don't know which number to store..
     else:
         logger.warn("Person %s has several cell phone numbers. Ignoring them all", fnr)
@@ -244,7 +249,7 @@ def register_contact(person, person_info):
                      email, fnr)
     # No addresses, skipping
     elif len(email_addresses) < 1:
-        logger.debug("No e-mail address registred for %s", fnr)
+        logger.debug("No e-mail address registered for %s", fnr)
     # We don't know what to choose
     else:
         logger.warn("Person %s has several email addresses. Ignoring them all", fnr)
