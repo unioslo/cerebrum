@@ -78,6 +78,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
+from Cerebrum.modules.tsd import Gateway
 
 logger = Factory.get_logger('cronjob')
 db = Factory.get('Database')()
@@ -85,6 +86,8 @@ co = Factory.get('Constants')(db)
 ou = Factory.get('OU')(db)
 pe = Factory.get('Person')(db)
 ac = Factory.get('Account')(db)
+
+_gw = Gateway.GatewayClient()
 
 ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
 systemaccount_id = ac.entity_id
@@ -107,18 +110,20 @@ def usage(exitcode=0):
            'file': os.path.basename(sys.argv[0])}
     sys.exit(exitcode)
 
-def gateway(command, *args):
+def gateway(command, **kwargs):
     """Send commands to the gateway
     
     The gateway needs to be informed about changes that are useful for it. This
     should only happen when not in dryrun.
 
+    TODO: Do we really need this? Can't we just implement this in the gw class
+    directly instead?
+
     """
-    logger.debug("Gateway call: %s(%s)", command, ', '.join(args))
+    logger.debug("Gateway call: %s(%s)", command, kwargs)
     if dryrun:
         return True
-    # TODO: not implemented yet
-    return True
+    return getattr(_gw, command)(**kwargs)
 
 def remove_file(file, dryrun, archive_dir=None):
     """Remove a file by either moving it to a archive directory, or delete it.
@@ -307,7 +312,7 @@ def _xml2answersdict(xml):
     """
     ret = dict()
     answers = xml.find('answers')
-    if not answers:
+    if answers is None:
         raise InvalidFileError('Missing tag <answers>')
     for ans in xml.find('answers').iterfind('answer'):
         try:
@@ -479,7 +484,7 @@ class Processing(object):
             pe.write_db()
 
     def _create_ou(self, input):
-        """Create the project OU based in given input."""
+        """Create the project OU based on given input."""
         pid = input['p_id']
         # Make sure the project id is not already in use:
         ou.clear()
@@ -491,9 +496,8 @@ class Processing(object):
         ou.clear()
         ou.populate()
         ou.write_db()
-        # TODO: should this be given after the project has been accepted
-        # instead?
-        gateway('project.create', pid)
+        # The gateway should not be informed about new projects before they're
+        # approved:
         #gateway('project.freeze', pid)
 
         # Storing the names:
@@ -541,17 +545,16 @@ class Processing(object):
         ou.populate_trait(co.trait_project_rek, target_id=ou.entity_id,
                           strval=input['rek_approval'])
         ou.write_db()
-        # The setup should be handled in bofhd, when the project gets approved.
-        #logger.debug("Setting up rest of project...")
-        #ou.setup_project(systemaccount_id)
+        # The project should be properly set up after it gets approved.
         logger.debug("New project created successfully: %s", pid)
         return ou
 
     def _create_account(self, pe, ou, username):
-        """Create a quarantined account for a given project.
+        """Create an account for a given project.
 
         The person must already be affiliated with the project for the account
-        to be created.
+        to be created. If the person only has a pending affiliation, the account
+        gets quarantined.
 
         """
         pid = ou.get_project_name()

@@ -37,9 +37,13 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 
-class GatewayClient(xmlrpclib.Server):
+class GatewayClient(xmlrpclib.Server, object):
     """The client for communicating with TSD's gateway."""
 
-    def __init__(self, uri=cereconf.TSD_GATEWAY_URL):
+    def __init__(self, uri=cereconf.TSD_GATEWAY_URL, dryrun=False):
         """Sets the proper URL."""
         super(GatewayClient, self).__init__(uri=uri)
+        # TODO: make use of the dryrun!
+        self.dryrun = dryrun
+
+    # TODO: Should we add the commands explicitly here?
