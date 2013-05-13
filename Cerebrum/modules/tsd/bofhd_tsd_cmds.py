@@ -146,7 +146,7 @@ class TSDBofhdExtension(BofhdCommandBase):
         self.util = server.util
 
         # The client talking with the TSD gateway
-        self.gateway = None # TODO
+        self.gateway = Gateway.GatewayClient() # TODO
 
     def get_help_strings(self):
         """Return all help messages for TSD."""
@@ -367,9 +367,28 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ou.write_db()
 
         # TODO: The gateway needs to be informed!
+        # self.gateway.project.create(pid, TODO)
 
         ou.setup_project(operator.get_entity_id())
         return "New project created successfully: %s" % projectname
+
+    all_commands['project_terminate'] = cmd.Command(
+        ('project', 'terminate'), ProjectName(),
+        perm_filter='is_superuser')
+    def project_terminate(self, operator, project_name):
+        """Terminate a project by removed almost all of it.
+
+        All information about the project gets deleted except its acronym, to
+        avoid reuse of the ID.
+
+        """
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise CerebrumError('Only superusers are allowed to do this')
+        project = self._get_project(project_name)
+        # TODO: delete person affiliations?
+        # TODO: delete accounts
+        project.terminate()
+        return "Project terminated: %s" % project_name
 
     all_commands['project_approve'] = cmd.Command(
         ('project', 'approve'), ProjectName(),
@@ -389,11 +408,31 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             raise CerebrumError('Project already approved')
         project.delete_entity_quarantine(type=self.const.quarantine_not_approved)
         project.write_db()
-
-        # TODO: Send a message to the gateway about the new project
+        project.setup_project(operator.get_entity_id())
         #self.gateway.project.create(project_name)
-
+        self.logger.info("Project approved: %s", project_name)
         return "Project approved: %s" % project_name
+
+    all_commands['project_reject'] = cmd.Command(
+        ('project', 'reject'), ProjectName(),
+        perm_filter='is_superuser')
+    def project_reject(self, operator, project_name):
+        """Reject a project that is not approved yet.
+        
+        All information about the project gets deleted, since it hasn't been
+        exported out of Cerebrum yet.
+
+        """
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise CerebrumError('Only superusers are allowed to do this')
+        project = self._get_project(project_name)
+        if not project.get_entity_quarantine(only_active=True,
+                                    type=self.const.quarantine_not_approved):
+            raise CerebrumError('Project already approved, see project terminate')
+        # TODO: delete person affiliations?
+        # TODO: delete accounts
+        project.delete()
+        return "Project deleted: %s" % project_name
 
     all_commands['project_set_enddate'] = cmd.Command(
         ('project', 'set_enddate'), ProjectName(), cmd.Date(),
@@ -407,8 +446,9 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         project = self._get_project(project_name)
         qtype = self.const.quarantine_project_end
         end = self._parse_date(enddate)
-        if end < DateTime.now():
-            raise CerebrumError("Can't set end dates in the past")
+        #if end < DateTime.now():
+        #    raise CerebrumError("Can't set end dates in the past")
+        # The quarantine needs to be removed before it could be added again
         for row in project.get_entity_quarantine(qtype):
             project.delete_entity_quarantine(qtype)
             project.write_db()
@@ -417,8 +457,36 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                                       description='Reset lifetime for project',
                                       start=end)
         project.write_db()
+        # If set in the past, the project is now frozen
+        if end < DateTime.now():
+            #TODO
+            #self.gateway.project.freeze(project_name)
+            pass
         return "Project %s updated to end: %s" % (project_name,
                                                   date_to_string(end))
+
+    all_commands['project_freeze'] = cmd.Command(
+        ('project', 'freeze'), ProjectName(),
+        perm_filter='is_superuser')
+    def project_freeze(self, operator, project_name):
+        """Freeze a project."""
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise CerebrumError('Only superusers are allowed to do this')
+        project = self._get_project(project_name)
+        qtype = self.const.quarantine_project_end
+        end = DateTime.now()
+        # The quarantine needs to be removed before it could be added again
+        for row in project.get_entity_quarantine(qtype):
+            project.delete_entity_quarantine(qtype)
+            project.write_db()
+        project.add_entity_quarantine(type=qtype,
+                                      creator=operator.get_entity_id(),
+                                      description='Project freeze',
+                                      start=end)
+        project.write_db()
+        #TODO:
+        #self.gateway.project.freeze(project_name)
+        return "Project %s is now frozen" % project_name
 
     all_commands['project_list'] = cmd.Command(
         ('project', 'list'), ProjectStatusFilter(optional=True),
