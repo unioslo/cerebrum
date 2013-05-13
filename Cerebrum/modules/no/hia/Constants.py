@@ -215,7 +215,7 @@ class Constants(Constants.Constants):
         'User in Radius domain "sia"')
 
     spread_uia_ad_account_ehelse_nhn = _SpreadCode(
-        'account@ehelse-nhn', Constants.Constants.entity_account,
+        'acc@ehelse-nhn', Constants.Constants.entity_account,
         'Account included in AD: eHelse NHN')
     spread_uia_ad_group_ehelse_nhn = _SpreadCode(
         'group@ehelse-nhn', Constants.Constants.entity_group,
