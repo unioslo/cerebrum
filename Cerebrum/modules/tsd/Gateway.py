@@ -31,8 +31,15 @@ therefor just raise exceptions instead.
 
 """
 
-# TODO!
+import xmlrpclib
 
 import cerebrum_path
 import cereconf
 from Cerebrum import Errors
+
+class GatewayClient(xmlrpclib.Server):
+    """The client for communicating with TSD's gateway."""
+
+    def __init__(self, uri=cereconf.TSD_GATEWAY_URL):
+        """Sets the proper URL."""
+        super(GatewayClient, self).__init__(uri=uri)
