@@ -258,13 +258,16 @@ def send_email(requests, dryrun, database):
                 logger.debug("Message for %s/%s (request key: %s) sent",
                              uname, email, magic_key)
             except smtplib.SMTPRecipientsRefused, e:
-                error = "SMTP %d: %s" % e.recipients.get(email)
-                logger.warn("Expire notification to %s not sent, "
-                            "will not try again (%s)" % (email, error))
-                # The request will not be cancelled. This will prevent future retries.
+                error = e.recipients.get(email)
+                logger.warn("Failed to send message to %s/%s (SMTP %d: %s)",
+                            uname, email, error[0], error[1])
+                if error[0] == 550:
+                    continue
+                else:
+                    cancel_request(attrs, database)
             except smtplib.SMTPException:
-                logger.exception("Failed to send message to %s/%s",
-                                 uname, email)
+                logger.exception("Failed to send message to %s/%s", uname,
+                        email)
                 cancel_request(attrs, database)
         else:
             logger.debug("Message for %s/%s (request key: %s) will not be sent"
