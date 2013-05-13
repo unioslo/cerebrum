@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
-
-# Copyright 2009 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+#
+# Copyright 2009, 2013 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,8 +18,10 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""This module contains all functionality relating to information about subnets
+in Cerebrum.
 
-# $Id$
+"""
 
 import re
 import math
@@ -37,17 +39,6 @@ from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.dns import IPNumber
 from Cerebrum.modules.dns.IPUtils import IPCalc
 from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthRole, BofhdAuthOpTarget
-
-
-
-__doc__ = """
-This module contains all functionality relating to information about
-subnets in Cerebrum.
-
-"""
-
-__version__ = "$Revision$"
-# $URL$
 
 class Force(Parameter):
     _type = 'force'
@@ -136,7 +127,22 @@ class Subnet(Entity):
 
 
     def populate(self, subnet, description, vlan=None):
-        """Populate subnet instance's attributes."""
+        """Populate subnet instance's attributes.
+
+        @type subnet: string
+        @param subnet: A string that represents the subnet. Example:
+            10.0.0.0/16. The last '.0' is not required, e.g. 10.0.0/16.
+
+        @type description: string
+        @param description: Something that describes the given subnet. It is
+            free text, but local policies might use this in a parsable format to
+            describe the usage of the given subnet.
+
+        @type vlan: int
+        @param vlan: A number that represents what VLAN the subnet corresponds
+            to.
+
+        """
         Entity.populate(self, self.const.entity_dns_subnet)
         # If __in_db is present, it must be True; calling populate on
         # an object where __in_db is present and False is very likely
