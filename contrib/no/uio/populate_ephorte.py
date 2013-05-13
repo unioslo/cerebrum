@@ -1,5 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
+"""This script adds ephorte_roles and ephorte-spreads to persons (employees) in
+Cerebrum according to the rules in ephorte-sync-spec.rst
+
+Usage: populate_ephorte.py [options]
+  -p fname : stedinfo
+
+"""
 
 import getopt
 import sys
@@ -13,17 +20,6 @@ from Cerebrum.Utils import Factory, XMLHelper, SimilarSizeWriter
 from Cerebrum.modules import CLHandler
 from Cerebrum.modules.no.uio.Ephorte import EphorteRole
 from Cerebrum.modules.no.uio.Ephorte import EphortePermission, _EphortePermTypeCode
-
-progname = __file__.split("/")[-1]
-__doc__ = """
-This script adds ephorte_roles and ephorte-spreads to persons
-(employees) in Cerebrum according to the rules in
-ephorte-sync-spec.rst
-
-Usage: %s [options]
-  -p fname : stedinfo
-
-""" % progname
 
 db = Factory.get('Database')()
 db.cl_init(change_program="populate_ephorte")
