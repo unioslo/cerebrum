@@ -568,7 +568,7 @@ class Digeks(object):
                 
                 mobile = self.cache.uname2mobile(candidate.username)
                 if not mobile:
-                    logger.debug("No mobile number for '%s'" % 
+                    logger.info("No mobile number for '%s'" % 
                             candidate.username)
                 candidate.set_mobile(mobile)
 
