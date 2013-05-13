@@ -177,29 +177,66 @@ class OUTSDMixin(OU):
 
         projectid = self.get_project_name()
         gr = Factory.get("Group")(self._db)
-        for suffix, desc in getattr(cereconf, 'TSD_PROJECT_GROUPS', ()):
+
+        def _create_group(groupname, desc, trait):
+            """Helper function for creating a group.
+            
+            @type groupname: string
+            @param groupname: The name of the new group. Gets prefixed by the
+                project-ID.
+
+            @type desc: string
+            @param desc: The description that should get stored at the new
+                group.
+
+            @type trait: TraitConstant
+            @param trait: The type of trait that should be stored at the group,
+                to affiliate the group with the current project. The
+                L{target_id} gets set to the project, i.e. L{self}.
+
+            """
+            groupname = ''.join((projectid, groupname))
             gr.clear()
-            grname = ''.join((projectid, suffix))
             try:
-                gr.find_by_name(grname)
+                gr.find_by_name(groupname)
             except Errors.NotFoundError:
                 gr.clear()
                 gr.populate(creator_id, self.const.group_visibility_all, grname,
                             desc)
                 gr.write_db()
-                # Set the trait for tagging what project a group belongs to
-                gr.populate_trait(self.const.trait_project_group,
-                                  target_id=self.entity_id, date=DateTime.now())
+                # Each group is linked to the project by a project trait:
+                gr.populate_trait(trait, target_id=self.entity_id,
+                                  date=DateTime.now())
                 gr.write_db()
+            else:
+                self.logger.warn("Project group already existed: %s", grname)
+                return False
+            return True
 
-                # TODO: set quarantine on group?
+        # Create project groups
+        for suffix, desc in getattr(cereconf, 'TSD_PROJECT_ROLEGROUPS', ()):
+            _create_group(suffix, desc, self.const.trait_project_group)
+
+        # TODO: Create action groups
+
+        # TODO: Create resource groups
 
         # Subnet and VLAN
-        subnet = Subnet
+        subnet = Subnet.Subnet(self._db)
+        #TODO
 
-                #
+        # Machines:
+        #TODO
 
-        # TODO: other settings?
+        # Disks:
+        #TODO
+
+        # TODO: Add accounts to the various groups:
+        ac = Factory.get('Account')(self._db)
+        gr.clear()
+        #gr.find_by_name('%s_member' % projectid)
+        #for row in ac.list_accounts_by_type(ou_id=self.entity_id):
+        #    pass
 
     def get_pre_approved_persons(self):
         """Get a list of pre approved persons by their fnr.
@@ -233,3 +270,14 @@ class OUTSDMixin(OU):
         self.populate_trait(code=self.const.trait_project_persons_accepted,
                             date=DateTime.now(), strval=' '.join(approvals))
         return True
+
+    def terminate(self):
+        """Remove all of a project, except its acronym.
+        
+        Note that you would have to delete accounts and other project entitites
+        as well.
+
+        """
+        # TODO
+        self.write_db()
+        pass
