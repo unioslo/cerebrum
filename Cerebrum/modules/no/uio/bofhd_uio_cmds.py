@@ -6561,7 +6561,7 @@ Addresses and settings:
         hdr="Stedkode   Organizational unit"))
     def ou_search(self, operator, pattern, language='nb', spread_filter=None):
         if len(pattern) == 0:
-            raise CerebrumError, 'Please specify a search pattern.'
+            pattern = '%' # No search pattern? Get everything!
 
         try:
             language = int(self.const.LanguageCode(language))
