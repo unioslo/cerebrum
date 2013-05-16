@@ -124,12 +124,9 @@ def process_utvalg(filename, use_fok):
             populate_fagmiljo(e_id, fag)
 
     # Remove traits for persons that are no longer included in the file
-    for sap_id, e_id in sapid2pe.items():
+    for sap_id, e_id in sapid2pe.iteritems():
         if not sap_id in sapid2fag_sap and e_id in pe2fag_cb:
-            logger.info(
-                'Employee sap_id=%s e_id=%s is ' % (sap_id, e_id) + \
-                'no longer included, removing trait'
-            )
+            logger.info('Removing old utvalg from person %s', e_id)
             pe.clear()
             pe.find(e_id)
             pe.delete_trait(code=co.trait_fagmiljo)
