@@ -97,8 +97,8 @@ class GroupUiOMixin(Group.Group):
         from Cerebrum.modules import PosixGroup
 
         if isinstance(self, PosixGroup.PosixGroup):
-            if len(name) > 8:
-                return "name too long (%s characters; 8 is max)" % len(name)
+            if len(name) > 32:
+                return "name too long (%s characters; 32 is max)" % len(name)
             if re.search("^[^a-z]", name):
                 return "name must start with a character (%s)" % name
             if re.search("[^a-z0-9\-_]", name):
