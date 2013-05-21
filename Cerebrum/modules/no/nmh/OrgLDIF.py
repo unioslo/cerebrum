@@ -42,9 +42,9 @@ class nmhOrgLDIFMixin(OrgLDIF):
         'instrument'. Both fields are stored in traits for each person.
 
         """
-        fagfelts = dict((row['entity_id'], iso2utf(row['strval'])) for row in
+        fagfelts = dict((row['entity_id'], iso2utf(row['strval'] or '')) for row in
                     self.person.list_traits(self.const.trait_fagomrade_fagfelt))
-        instr = dict((row['entity_id'], iso2utf(row['strval'])) for row in
+        instr = dict((row['entity_id'], iso2utf(row['strval'] or '')) for row in
                  self.person.list_traits(self.const.trait_fagomrade_instrument))
         return fagfelts, instr
 
