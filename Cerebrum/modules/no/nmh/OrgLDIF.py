@@ -67,7 +67,7 @@ class nmhOrgLDIFMixin(OrgLDIF):
                                    convert       = self.attr2syntax[a][0],
                                    verify        = self.attr2syntax[a][1],
                                    normalize     = self.attr2syntax[a][2]))
-             for a,s,t in (('telephoneNumber', fs, self.const.contact_phone),
+             for a,s,t in (('telephoneNumber', sap, self.const.contact_phone),
                            ('mobile', sap, self.const.contact_mobile_phone),
                            ('facsimileTelephoneNumber', sap,
                                                         self.const.contact_fax),
