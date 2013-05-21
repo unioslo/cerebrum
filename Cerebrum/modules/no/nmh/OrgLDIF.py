@@ -120,12 +120,12 @@ class nmhOrgLDIFMixin(OrgLDIF):
             fagf = self.pe2fagomr[0].get(p_id, '')
             inst = self.pe2fagomr[1].get(p_id, '')
             if fagf or inst:
-                urn = 'urn:mace:uio.no:nmh.no:fagomrade:%s;%s' % (fagf, inst)
+                urn = 'urn:mace:feide.no:nmh.no:fagomrade:%s;%s' % (fagf, inst)
                 entry.setdefault('eduPersonEntitlement', []).append(urn)
             # Add fagmiljø:
             fagm = self.pe2fagmiljo.get(p_id)
             if fagm:
-                urn = 'urn:mace:uio.no:nmh.no:fagmiljo:%s' % fagm
+                urn = 'urn:mace:feide.no:nmh.no:fagmiljo:%s' % fagm
                 entry.setdefault('eduPersonEntitlement', []).append(urn)
         return dn, entry, alias_info
 
