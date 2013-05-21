@@ -264,9 +264,14 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
         # Users under migration, tagged by trait_exchange_under_migration,
         # should get ignored by the sync until the trait is removed.
-        self.under_migration = set(int(row['entity_id']) for row in
-               self.ac.list_traits(code=self.co.trait_exchange_under_migration))
-        self.logger.debug("Accounts under migration: %d", len(self.under_migration))
+        self.accountid2name = dict((r['account_id'], r['name']) for r in
+                                                self.ac.search(spread=spread))
+        self.under_migration = set()
+        for row in self.ac.list_traits(code=self.co.trait_exchange_under_migration):
+            if row['entity_id'] in self.accountid2name:
+                self.under_migration.add(self.accountid2name[row['entity_id']])
+        self.logger.debug("Accounts under migration: %d",
+                          len(self.under_migration))
 
         #
         # Find all users with relevant spread
@@ -274,9 +279,9 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         tmp_ret = {}
         for row in self.ac.search(spread=spread):
             # Don't sync accounts that are being migrated (exchange)
-            if int(row['account_id']) in self.under_migration:
+            if row['name'] in self.under_migration:
                 self.logger.debug("Account %s being migrated in exchange."
-                                  " Not syncing. ", row['account_id'])
+                                  " Not syncing. ", row['name'])
                 continue
 
             tmp_ret[int(row['account_id'])] = {
@@ -501,6 +506,11 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         changelist = []     
 
         for usr, dta in adusrs.iteritems():
+            # Ignore accounts under migration:
+            if usr in self.under_migration:
+                self.logger.debug("Not comparing user under migration: %s", usr)
+                continue
+
             changes = {}        
             if cerebrumusrs.has_key(usr):
                 #User is both places, we want to check correct data.
@@ -603,9 +613,6 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 del cerebrumusrs[usr]
 
             else:
-                # Ignore accounts under migration:
-                if 'account_id' in dta and dta['account_id'] in self.under_migration:
-                    continue
                 #Account not in Cerebrum, but in AD.                
                 if [s for s in cereconf.AD_DO_NOT_TOUCH if
                     adusrs[usr]['distinguishedName'].upper().find(s.upper()) >= 0]:
