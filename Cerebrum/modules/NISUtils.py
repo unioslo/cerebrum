@@ -438,16 +438,12 @@ class FileGroup(NISGroupUtil):
         for group_name, gid, users in filegroups:
             # Special treatment for the groups "ucore" and "hh"
             # related to testing stuff for the new HNAS storage
-            # system.  Use different ordering for the two groups to
-            # have better coverage of possibilities
-            if group_name == 'hh':
-                f.write(self._wrap_line('hh-gruppe', ",".join(users),
+            # system.
+            if group_name in ('hh', 'ucore'):
+                f.write(self._wrap_line(group_name + '-gruppe', ",".join(users),
                                         ':*:%i:' % gid))
             f.write(self._wrap_line(group_name, ",".join(users),
                                   ':*:%i:' % gid))
-            if group_name == 'ucore':
-                f.write(self._wrap_line('ucore-gruppe', ",".join(users),
-                                        ':*:%i:' % gid))
         if e_o_f:
             f.write('E_O_F\n')
         f.close()
