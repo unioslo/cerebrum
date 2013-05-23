@@ -90,6 +90,7 @@ ac = Factory.get('Account')(db)
 _gw = Gateway.GatewayClient()
 
 ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
+db.cl_init(change_by=ac.entity_id)
 systemaccount_id = ac.entity_id
 
 def usage(exitcode=0):
@@ -163,9 +164,9 @@ def process_files(locations, dryrun):
         except etree.XMLSyntaxError, e:
             logger.warn("Syntax error in file %s: %s", location, e)
             db.rollback()
-        except Errors.CerebrumError, e:
-            logger.warn("Failed processing %s: %s", location, e)
-            db.rollback()
+        #except Errors.CerebrumError, e:
+        #    logger.warn("Failed processing %s: %s", location, e)
+        #    db.rollback()
 
 class BadInputError(Exception):
     """Exception for invalid input."""
@@ -470,6 +471,7 @@ class Processing(object):
                 pe.affect_names(co.system_nettskjema, co.name_full)
                 pe.populate_name(co.name_full, input[key])
                 pe.write_db()
+                # TODO: gateway('user.rename', project?, username?, input[key])
         # Phone
         if 'pa_phone' in input:
             logger.debug("Updating phone: %s", input['pa_phone'])
@@ -497,8 +499,8 @@ class Processing(object):
         ou.populate()
         ou.write_db()
         # The gateway should not be informed about new projects before they're
-        # approved:
-        #gateway('project.freeze', pid)
+        # approved, so if we should create the project in the GW, we must also
+        # execute: gateway('project.freeze', pid)
 
         # Storing the names:
         ou.add_name_with_language(name_variant=co.ou_name_acronym,
@@ -523,8 +525,7 @@ class Processing(object):
         # Storing the start and end date:
         endtime = input['p_end']
         if endtime < DateTime.now():
-            raise Errors.CerebrumError("End date of project has passed: %s" %
-                                       endtime)
+            raise BadInputError("End date of project has passed: %s" % endtime)
         ou.add_entity_quarantine(type=co.quarantine_project_end,
                                  creator=systemaccount_id,
                                  description='Initial requested lifetime for project',
@@ -585,6 +586,7 @@ class Processing(object):
             logger.debug("Account %s approved for project: %s", ac.account_name,
                          pid)
             ac.set_account_type(ou.entity_id, co.affiliation_project)
+            gateway('user.create', pid, username, None, ac.entity_id)
         elif pe.list_affiliations(pe.entity_id, ou_id=ou.entity_id,
                                   affiliation=co.affiliation_pending):
             # Pending account:
@@ -596,8 +598,9 @@ class Processing(object):
                                      description='User not yet approved',
                                      start=DateTime.now())
         else:
-            raise Exception("Person %s not affiliated to project %s",
-                            pe.entity_id, ou.entity_id)
+            # TODO: Should the XML file now be deleted automatically?
+            raise BadInputError("Person %s not affiliated to project %s",
+                                pe.entity_id, ou.entity_id)
         ac.write_db()
 
         # TODO: quarantine for start and end dates, or is the project's
@@ -767,7 +770,8 @@ class Processing(object):
                                     status=(co.affiliation_status_project_owner,
                                             co.affiliation_status_project_admin),
                                     ou_id=ou.entity_id):
-            raise Errors.CerebrumError("Person %s is not PA of project %s" %
+            # TODO: Delete the XML file?
+            raise BadInputError("Person %s is not PA of project %s" %
                                        (pe.entity_id, pid))
 
         # Try to find and add the given person to the project
@@ -820,6 +824,8 @@ class Processing(object):
             # TODO: check if this works if the type is already set:
             ac.del_account_type(ou.entity_id, co.affiliation_pending)
             ac.del_account_type(ou.entity_id, co.affiliation_pending)
+            # Remove quarantine:
+            ac.delete_entity_quarantine(co.quarantine_not_approved)
             ac.write_db()
 
             # Stop if person already is PA or owner, can't have member-aff at
