@@ -917,7 +917,7 @@ def main():
     year = None
     semester = None
     subjects = list()
-    examcodes = list()
+    #examcodes = list()
 
     opts, args = getopt.getopt(sys.argv[1:], 'hdc:e:s:y:t:')
     for opt, val in opts:
@@ -926,9 +926,7 @@ def main():
         elif opt in ('-d','--dryrun'):
             dryrun = True
         elif opt in ('-s','--subject'):
-            #subjects.append(val)
-            # FIXME:
-            subjects = (val,)
+            subjects.extend(val.split(','))
         elif opt in ('-y', '--year'):
             year = val
         elif opt in ('-t', '--semester'):
@@ -950,6 +948,7 @@ def main():
             usage(3)
 
     if not subjects:
+        logger.info('No subjects given, defaulting to %s' % ', '.join(cereconf.DIGEKS_EXAMS))
         subjects = cereconf.DIGEKS_EXAMS
 
     if not year:
@@ -966,11 +965,15 @@ def main():
 
     # TODO: This could be better... 
     if 'PPU' in ','.join(subjects):
-        digeks = UVDigeks(subjects, year, timecode=semester)
+        logger.debug('Found PPU* in subjects, only processing PPU-exams')
+        ppu_subs = [sub for sub in subjects if 'PPU' in sub]
+        digeks = UVDigeks(ppu_subs, year, timecode=semester)
     elif 'JUS' in ','.join(subjects):
-        digeks = JUSDigeks(subjects, year, timecode=semester)
+        logger.debug('Found JUS* in subjects, only processing JUS-exams')
+        jus_subs = [sub for sub in subjects if 'JUS' in sub]
+        digeks = JUSDigeks(jus_subs, year, timecode=semester)
     else:
-        "No valid exams"
+        logger.error("No valid subjects given, exiting")
         sys.exit(4)
 
     logger.debug('Processing candidates...')
