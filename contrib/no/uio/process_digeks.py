@@ -144,6 +144,14 @@ class Exam(object):
 
         def __init__(self, exam, username, candidate, commision):
             """ Create a new candidate object. Should not be created outside of a Exam object. """
+
+            # Check the argument types, and throw error if not as expected
+            for (arg, typ) in (('candidate', int), 
+                               ('commision', int),
+                               ('username', (str, unicode))):
+                val = locals().get(arg)
+                assert isinstance(val, typ), "%s must be %s, was %s" % (arg, repr(typ), type(val))
+
             self.exam = exam
             self.username = unicode(username)
             self.candidate = int(candidate)
@@ -169,9 +177,23 @@ class Exam(object):
     def __init__(self, institution, subject, year, timecode, typecode, version,
             datetime, place, access):
         """ Create a new exam object. """
+
+        # Check the argument types, and throw error if not as expected
+        for (arg, typ) in (('institution', int), 
+                           ('year', int),
+                           ('version', (str, unicode)),
+                           ('subject', (str, unicode)),
+                           ('timecode', (str, unicode)),
+                           ('typecode', (str, unicode)),
+                           ('place', (str, unicode)),
+                           ('access', (str, unicode)),
+                           ('datetime', (str, unicode, DateTime)),):
+            val = locals().get(arg)
+            assert isinstance(val, typ), "%s must be %s, was %s" % (arg, repr(typ), type(val))
+
         self.institution = int(institution)
         self.year = int(year)
-        self.version = int(version)
+        self.version = unicode(version)
         self.subject = unicode(subject)
         self.timecode = unicode(timecode)
         self.typecode = unicode(typecode)
@@ -187,7 +209,7 @@ class Exam(object):
         return self.separator.join([
             str(self.institution),
             escape_chars(self.subject, special=self.separator),
-            str(self.version), 
+            escape_chars(self.version,  special=self.separator),
             escape_chars(self.typecode, special=self.separator),
             escape_chars(self.timecode, special=self.separator),
             str(self.year), ])
@@ -206,7 +228,7 @@ class Exam(object):
         return True
 
     def __hash__(self):
-        return hash(self.key())
+        return hash((self.key(), str(self.datetime)))
 
     def __str__(self):
         return self.separator.join([
@@ -512,13 +534,13 @@ class Digeks(object):
                         exam.year,
                         timecode=exam.timecode.encode(self.fs.db.encoding),
                         typecode=exam.typecode.encode(self.fs.db.encoding),
-                        version=exam.version, )
+                        version=exam.version.encode(self.fs.db.encoding), )
             
             except KeyError, e:
                 logger.warn('Unable to process exam, no such column in FS result: %s' % str(e))
                 continue
-            except TypeError, e:
-                logger.warn('Unable to process exam, invalid column value : %s' % str(e))
+            except AssertionError, e:
+                logger.warn('Unable to process exam, invalid value from FS: %s' % str(e))
                 continue
 
             for cand_row in db_candidates:
@@ -532,8 +554,8 @@ class Digeks(object):
                 except KeyError, e:
                     logger.warn('Unable to process candidate, no such column in FS result: %s' % str(e))
                     continue
-                except TypeError, e:
-                    logger.warn('Unable to process candidate, invalid column value: %s' % str(e))
+                except AssertionError, e:
+                    logger.warn('Unable to process candidate, invalid value from FS: %s' % str(e))
                     continue
             
             self.exams.add(exam)
@@ -646,21 +668,21 @@ class JUSDigeks(Digeks):
 
         additional_clauses = ""
         if timecode:
-            additional_clauses += "AND ve.vurdtidkode=:timecode "
+            additional_clauses += "AND v2.vurdtidkode=:timecode "
             binds['timecode'] = timecode
         if typecode:
-            additional_clauses += "AND ve.vurdkombkode=:typecode "
+            additional_clauses += "AND v2.vurdkombkode=:typecode "
             binds['typecode'] = typecode
         if version:
-            additional_clauses += "AND ve.versjonskode=:version "
+            additional_clauses += "AND v2.versjonskode=:version "
             binds['version'] = version
 
         # TBD: How do we properly do case insensitive searching in FS?
         # nlssort(vm.emnekode, 'NLS_SORT = Latin_CI') = nlssort(:subject, 'NLS_SORT = Latin_CI')?
         # Or should we not do case insensitive searching? Is the LIKE UPPER(:subject) ok? Should we just do LIKE :subject, and require correct casing?
         query = """SELECT DISTINCT p.brukernavn, vm.emnekode, vm.vurdtidkode, 
-            vm.kandidatlopenr, vm.kommislopenr, ve.institusjonsnr, ve.versjonskode,
-            ve.vurdkombkode, 
+            vm.kandidatlopenr, vm.kommislopenr, v2.institusjonsnr, v2.versjonskode,
+            v2.vurdkombkode, 
             to_char(nvl(ve.dato_eksamen,v2.dato_eksamen),'yyyy-mm-dd') AS dato,
             to_char(nvl(ve.klokkeslett_fremmote_tid,v2.klokkeslett_fremmote_tid),'hh24:mi') AS tid
         FROM fs.vurdkombmelding vm
@@ -719,15 +741,15 @@ class JUSDigeks(Digeks):
         """
         binds = {'year': year, 'typecode': cereconf.DIGEKS_TYPECODE}
 
-        subjects_clause = argument_to_sql(subjects, 've.emnekode', binds, str)
+        subjects_clause = argument_to_sql(subjects, 'v2.emnekode', binds, str)
 
         time_clause = ""
         if timecode:
-            time_clause = "AND ve.vurdtidkode = :timecode "
+            time_clause = "AND v2.vurdtidkode = :timecode "
             binds['timecode'] = timecode
 
-        query = """SELECT DISTINCT ve.emnekode, ve.versjonskode, ve.vurdkombkode,
-            ve.vurdtidkode, ve.arstall, ve.institusjonsnr AS institusjon,
+        query = """SELECT DISTINCT v2.emnekode, v2.versjonskode, v2.vurdkombkode,
+            v2.vurdtidkode, v2.arstall, v2.institusjonsnr AS institusjon,
             e.faknr_kontroll AS fakultet, e.instituttnr_kontroll AS institutt,
             e.gruppenr_kontroll AS gruppe,
             to_char(nvl(ve.dato_eksamen,v2.dato_eksamen),'yyyy-mm-dd') AS dato,
@@ -749,8 +771,8 @@ class JUSDigeks(Digeks):
             AND v2.arstall = ve.arstall)
         WHERE NOT nvl(ve.dato_eksamen,v2.dato_eksamen) IS NULL
             AND %(subjects)s
-            AND ve.vurdkombkode LIKE :typecode
-            AND ve.arstall = :year
+            AND v2.vurdkombkode LIKE :typecode
+            AND v2.arstall = :year
             %(timecode)s
         ORDER BY 1;""" % {'subjects': subjects_clause,
                           'timecode': time_clause, }
