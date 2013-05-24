@@ -17,8 +17,40 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""This script will copy the input file to the output file if the changes are
-within than the specified limits."""
+"""USAGE
+    ./copy_with_size_check.py [options]
+
+    This script will replace the output file with the input file if the changes
+    are within the specified limits. This is done by reading one line at a time
+    from input and writing to a temporary output file using SimilarSizeWriter.
+
+    If the changes are too big:
+        - the path to the temporary output file is logged/written to console
+        - a FileChangeTooBigError exception is thrown
+
+    If the changes are within the limits:
+        - the temporary output file is replaced by the output file
+
+    This script should not be used for binary files.
+
+EXAMPLES
+    Replace outFile with inFile if inFile is not 10% bigger/smaller in bytes
+        [script] --input inFile --output outFile --limit-percentage 10
+
+    Replace outFile with inFile if inFile is not 50% bigger/smaller in bytes,
+    and is not 100 lines longer/shorter
+        [script] -i inFile -o outFile -p 50 -l 100
+
+OPTIONS
+    -i, --input  <file>   File to read from.
+    -o, --output <file>   This file will be overwritten by the input file if the 
+                          changes aren't too big.
+    -p, --limit-percentage <percentage>
+                          If the input file size is bigger or smaller by this
+                          percentage, output will not be overwritten.
+    -l, --limit-lines <lines>
+                          If the input file is longer or shorter by this number
+                          of lines, output will not be overwritten."""
 
 import os
 import sys
@@ -84,23 +116,7 @@ def write_and_check_size(logger, inFilePath, outFilePath,
 def usage(exitcode=0):
     """Prints usage information."""
 
-    print """Usage:
-    %s [options]
-
-    This script will copy the input file to the output file if the changes are
-    within than the specified limits.
-
-    Options:
-    -i, --input  <file>   File to read from.
-    -o, --output <file>   This file will be overwritten by the input file if the 
-                          changes aren't too big.
-    -p, --limit-percentage <percentage>
-                          If the input file is larger or smaller by this
-                          percentage, output will not be overwritten.
-    -l, --limit-lines <lines>
-                          If the input file is longer or shorter by this number
-                          of lines, output will not be overwritten.
-    """ % sys.argv[0] 
+    print __doc__
     sys.exit(exitcode)
 
 def main():
@@ -130,11 +146,11 @@ def main():
         if opt in ('-l', '--limit-lines'):
             limit_lines = float(val)
 
-    if (not limit_percentage) and (not limit_lines):
+    if not limit_percentage and not limit_lines:
         logger.error('Missing --limit-percentage or --limit-lines parameter')
         usage(1)
 
-    if (not inFilePath) or (not outFilePath):
+    if not inFilePath or not outFilePath:
         logger.error('Missing --input or --output parameter')
         usage(1)
 
