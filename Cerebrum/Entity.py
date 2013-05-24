@@ -585,10 +585,36 @@ class EntityNameWithLanguage(Entity):
 
         Without filters, return all names with languages for everything.
 
+        @type entity_id: int or list of int
+        @param entity_id: If set, only the names of the given entities are
+            returned.
+
+        @type entity_type: CerebrumConstant, int or list of such
+        @param entity_type: If set, only the names for the given entity types
+            are returned.
+
+        @type name_variant: CerebrumConstant, int or list of such
+        @param name_variant: Filter result by given name types, like full name,
+            given name and/or family name.
+
+        @type name_language: CerebrumConstant, int or list of such
+        @param name_language: Filter result by given languages.
+
+        @type name: string
+        @param name: Filter by given name. Could contain wildcards, like % or ?.
+            The character * gets swapped out with %. Note that L{exact_match}
+            affects this string.
+
+        @type exact_match: bool
         @param exact_match:
-          Controls whether name matching is to be exact (foo = 'bar') or
-          approximate (foo LIKE '%bar%'). In the latter case, if name has no
-          SQL-wildcards, they will be supplied automatically. 
+            Controls whether name matching is to be exact (foo = 'bar') or
+            approximate (foo LIKE '%bar%'). In the latter case, if name has no
+            SQL-wildcards, they will be supplied automatically. 
+
+        @rtype: db-rows
+        @return: Each row contains the element L{entity_id}, L{entity_type},
+            L{name_variant}, L{name_language}, L{name}.
+
         """
         where = ["ei.entity_id = eln.entity_id",]
         where2, binds = self._query_builder(entity_id, name_variant,
