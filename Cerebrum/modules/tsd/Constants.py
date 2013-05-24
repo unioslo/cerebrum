@@ -77,9 +77,10 @@ class Constants(Constants.Constants):
         'account@gw', Constants.Constants.entity_account,
         'Account to be synced to the gateway')
 
-    spread_gateway_group = _SpreadCode(
-        'group@gw', Constants.Constants.entity_group,
-        'Group to be synced to the gateway')
+    # The gateway doesn't care about groups
+    #spread_gateway_group = _SpreadCode(
+    #    'group@gw', Constants.Constants.entity_group,
+    #    'Group to be synced to the gateway')
 
     ## Quarantines
 

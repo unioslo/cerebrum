@@ -124,7 +124,7 @@ def gateway(command, **kwargs):
     logger.debug("Gateway call: %s(%s)", command, kwargs)
     if dryrun:
         return True
-    return getattr(_gw, command)(**kwargs)
+    return getattr(_gw, command)(kwargs)
 
 def remove_file(file, dryrun, archive_dir=None):
     """Remove a file by either moving it to a archive directory, or delete it.
@@ -471,7 +471,7 @@ class Processing(object):
                 pe.affect_names(co.system_nettskjema, co.name_full)
                 pe.populate_name(co.name_full, input[key])
                 pe.write_db()
-                # TODO: gateway('user.rename', project?, username?, input[key])
+                # TODO: gateway('user.rename', project=?, username=?, realname=input[key])
         # Phone
         if 'pa_phone' in input:
             logger.debug("Updating phone: %s", input['pa_phone'])
@@ -500,7 +500,7 @@ class Processing(object):
         ou.write_db()
         # The gateway should not be informed about new projects before they're
         # approved, so if we should create the project in the GW, we must also
-        # execute: gateway('project.freeze', pid)
+        # execute: gateway('project.freeze', project=pid)
 
         # Storing the names:
         ou.add_name_with_language(name_variant=co.ou_name_acronym,
@@ -586,7 +586,9 @@ class Processing(object):
             logger.debug("Account %s approved for project: %s", ac.account_name,
                          pid)
             ac.set_account_type(ou.entity_id, co.affiliation_project)
-            gateway('user.create', pid, username, None, ac.entity_id)
+            gateway('user.create', project=pid, username=username,
+                    # TODO: uid=posix_UID!)
+                    uid=ac.entity_id)
         elif pe.list_affiliations(pe.entity_id, ou_id=ou.entity_id,
                                   affiliation=co.affiliation_pending):
             # Pending account:

@@ -201,15 +201,15 @@ class OUTSDMixin(OU):
                 gr.find_by_name(groupname)
             except Errors.NotFoundError:
                 gr.clear()
-                gr.populate(creator_id, self.const.group_visibility_all, grname,
-                            desc)
+                gr.populate(creator_id, self.const.group_visibility_all,
+                            groupname, desc)
                 gr.write_db()
                 # Each group is linked to the project by a project trait:
                 gr.populate_trait(trait, target_id=self.entity_id,
                                   date=DateTime.now())
                 gr.write_db()
             else:
-                self.logger.warn("Project group already existed: %s", grname)
+                self.logger.warn("Project group already existed: %s", groupname)
                 return False
             return True
 
