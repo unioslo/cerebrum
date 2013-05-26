@@ -654,7 +654,7 @@ def setup_logger(debug_log):
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'u:qd', [
-            'help', 'url=', 'set='])
+            'help', 'url=', 'username=', 'set='])
     except getopt.GetoptError:
         usage(1)
 
@@ -669,6 +669,8 @@ def main():
             usage()
         elif opt in ('-q',):
             user, password = 'bootstrap_account', 'test'
+        elif opt in ('--username',):
+            user = val
         elif opt in ('--set',):
             k, v = val.split('=', 1)
             props_override[k] = v
@@ -694,6 +696,7 @@ def usage(exitcode=0):
         cacert_file : file containing servers ca cert
         rand_cmd : provides random-seed when /dev/random doesn't exist
                    (example: .../openssh/libexec/ssh-rand-helper)
+    --username NAME: Override username.
     """
     sys.exit(exitcode)
 
