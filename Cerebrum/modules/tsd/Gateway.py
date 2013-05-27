@@ -212,30 +212,49 @@ class GatewayClient(xmlrpclib.Server, object):
 
         @rtype: dict
         @return: The keys of the dict are the project-IDs, and each element
-            contains lists with information about the project's users, hosts and
-            other data.
+            contains a dict with information about the project. Each project
+            contains information about the project's users, hosts, subnets and
+            vlans. Each element's keys:
 
-            TODO: Describe the format.
+                - name (string): The project ID
+                - frozen (DateTime): If set, the start time for when the project
+                  got, or is going to be, frozen.
+                - expires (DateTime): If set, the start time for when the
+                  project expires.
+                - created (DateTime): The time for when the project got
+                  registered in the Gateway.
+                - users (list of dict with user info): The users registered for
+                  the given project. See L{list_users} for the keys.
+                - hosts (list of dict with host info): The hosts registered for
+                  the given project. See L{list_hosts} for the keys.
+                - subnets (list of dict with subnet info): The subnets
+                  registered for the given project. See L{list_subnets} for the
+                  keys.
+                - vlans (list of dict with vlan info): The vlans registered for
+                  the given project. See L{list_vlans} for the keys.
 
         """
         ret = dict()
         # Fetch project info:
         for proj in self.list_projects():
+            # Adding empty lists of elements to make later code easier:
+            proj.update({'users': [], 'hosts': [], 'subnets': [], 'vlans': []})
             ret[proj['name']] = proj
+
         # Fetch user info:
         for user in self.list_users():
             # TODO: what if the user belongs to a non-existing project?
-            ret[user['project']].setdefault('users', []).append(user)
+            ret[user['project']]['users'].append(user)
         # Fetch host info:
         for host in self.list_hosts():
-            ret[host['project']].setdefault('hosts', []).append(host)
+            ret[host['project']]['hosts'].append(host)
         # TODO: Add these when the Gateway does not raise Faults:
         # Fetch subnet info:
         #for subn in self.list_subnets():
-        #    ret[subn['project']].setdefault('subnets', []).append(subn)
+        #    ret[subn['project']]['subnets'].append(subn)
         # Fetch vlan info:
         #for vlan in self.list_vlans():
-        #    ret[vlan['project']].setdefault('vlans', []).append(vlan)
+        #    ret[vlan['project']]['vlans'].append(vlan)
         return ret
 
     def create_project(self, pid):
