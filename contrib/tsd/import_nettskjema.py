@@ -87,7 +87,7 @@ ou = Factory.get('OU')(db)
 pe = Factory.get('Person')(db)
 ac = Factory.get('Account')(db)
 
-_gw = Gateway.GatewayClient()
+gateway = Gateway.GatewayClient(logger)
 
 ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
 db.cl_init(change_by=ac.entity_id)
@@ -110,21 +110,6 @@ def usage(exitcode=0):
     """ % {'doc': __doc__,
            'file': os.path.basename(sys.argv[0])}
     sys.exit(exitcode)
-
-def gateway(command, **kwargs):
-    """Send commands to the gateway
-    
-    The gateway needs to be informed about changes that are useful for it. This
-    should only happen when not in dryrun.
-
-    TODO: Do we really need this? Can't we just implement this in the gw class
-    directly instead?
-
-    """
-    logger.debug("Gateway call: %s(%s)", command, kwargs)
-    if dryrun:
-        return True
-    return getattr(_gw, command)(kwargs)
 
 def remove_file(file, dryrun, archive_dir=None):
     """Remove a file by either moving it to a archive directory, or delete it.
@@ -471,7 +456,7 @@ class Processing(object):
                 pe.affect_names(co.system_nettskjema, co.name_full)
                 pe.populate_name(co.name_full, input[key])
                 pe.write_db()
-                # TODO: gateway('user.rename', project=?, username=?, realname=input[key])
+                # TODO: gateway.rename_user(project=?, username=?, realname=input[key])
         # Phone
         if 'pa_phone' in input:
             logger.debug("Updating phone: %s", input['pa_phone'])
@@ -500,7 +485,7 @@ class Processing(object):
         ou.write_db()
         # The gateway should not be informed about new projects before they're
         # approved, so if we should create the project in the GW, we must also
-        # execute: gateway('project.freeze', project=pid)
+        # execute: gateway.freeze_project(pid)
 
         # Storing the names:
         ou.add_name_with_language(name_variant=co.ou_name_acronym,
@@ -546,6 +531,8 @@ class Processing(object):
         ou.populate_trait(co.trait_project_rek, target_id=ou.entity_id,
                           strval=input['rek_approval'])
         ou.write_db()
+        # TODO: Send it to the gateway?
+
         # The project should be properly set up after it gets approved.
         logger.debug("New project created successfully: %s", pid)
         return ou
@@ -586,9 +573,10 @@ class Processing(object):
             logger.debug("Account %s approved for project: %s", ac.account_name,
                          pid)
             ac.set_account_type(ou.entity_id, co.affiliation_project)
-            gateway('user.create', project=pid, username=username,
-                    # TODO: uid=posix_UID!)
-                    uid=ac.entity_id)
+            realname = pe.get_name(co.system_cached, co.name_full)
+            # TODO: uid=posix_UID and not entity_id!!!
+            # TODO: Send it to the gateway? If the OU is not in quarantine maybe
+            #gateway.create_user(pid, username, realname, ac.entity_id) # TODO
         elif pe.list_affiliations(pe.entity_id, ou_id=ou.entity_id,
                                   affiliation=co.affiliation_pending):
             # Pending account:

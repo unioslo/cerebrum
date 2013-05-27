@@ -29,6 +29,10 @@ The gateway has an xmlrpc daemon running, which we communicates with. If the
 gateway returns exceptions, we can not continue our processes and should
 therefor just raise exceptions instead.
 
+See
+https://www.usit.uio.no/prosjekter/tsd20/workflows/provisioning%20-%20Cerebrum/gateway-rpc.html
+for the available commands at the Gateway.
+
 """
 
 import xmlrpclib
@@ -37,6 +41,15 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 
+class GatewayException(Exception):
+    """Exception raised by the Gateway.
+
+    This is normally xmlrpclib.Fault. The Gateway doesn't give much feedback,
+    unfortunately.
+
+    """
+    pass
+
 class GatewayClient(xmlrpclib.Server, object):
     """The client for communicating with TSD's gateway."""
 
@@ -44,10 +57,57 @@ class GatewayClient(xmlrpclib.Server, object):
         """Sets the proper URL."""
         self.logger = logger
         self.dryrun = dryrun
-        super(GatewayClient, self).__init__(uri=uri, allow_none=True)
+        super(GatewayClient, self).__init__(uri=uri,
+                                            allow_none=True)
 
-    # TBD: Adding explicit commands here, to know what methods we should be
-    # calling, but we still have the option to send them in raw.
+    def __getattr__(self, name):
+        """"magic method dispatcher" overrider.
+        
+        This is added to log and handle Faults, and since __request is
+        "private", it needed to be overridden in this subclass.
+
+        """
+        return xmlrpclib._Method(self.__request, name)
+
+    def _prettify_dict(self, data):
+        """Return a "prettified", human-readable string representation of data.
+
+        This purpose of this was to make the log easier to watch.
+
+        """
+        if len(data) == 0:
+            return ''
+        def prettify(d):
+            return ', '.join('%s=%s' % (k, d[k]) for k in d)
+        if len(data) == 1:
+            return prettify(data[0])
+        # Expects the data to be a tuple/list and not a dict, while the
+        # elements are dicts. This is only for this Gateway, and is not the
+        # behaviour of all xmlrpc servers.
+        return ', '.join('(%s)' % prettify(d) for d in data)
+
+    def __request(self, methodname, params):
+        """Overriding "magic method dispatcher" for log and handling Faults.
+
+        The gateway needs to get all its data from the first param, so it's used
+        a bit special in this project.
+
+        TODO: Might want to fix this behaviour in here? Would make it easier to
+        communicate with the gateway.
+
+        """
+        # Prettify each call's log message:
+        self.logger.info("Gateway call: %s(%s)", methodname,
+                         self._prettify_dict(params))
+        try:
+            # Note that we here call a "private" method in
+            # xmlrpclib.ServerProxy. Not the best behaviour, but the alternative
+            # was to make an almost complete copy of ServerProxy in here, since
+            # it has too many private methods and variables...
+            return super(GatewayClient, self)._ServerProxy__request(methodname,
+                                                                    params)
+        except xmlrpclib.Fault, e:
+            raise GatewayException(e)
 
     def list_projects(self):
         """Ask GW for a list of all its projects.
@@ -65,7 +125,6 @@ class GatewayClient(xmlrpclib.Server, object):
             - L{expires}: A DateTime for when the project expires.
 
         """
-        self.logger.debug("Gateway: project.list")
         return self.project.list()
 
     def list_users(self):
@@ -86,7 +145,6 @@ class GatewayClient(xmlrpclib.Server, object):
             - L{expires}: A DateTime for when the user expires.
 
         """
-        self.logger.debug("Gateway: user.list")
         return self.user.list()
 
     def list_hosts(self):
@@ -107,8 +165,43 @@ class GatewayClient(xmlrpclib.Server, object):
             - L{expires}: A DateTime for when the host expires.
 
         """
-        self.logger.debug("Gateway: host.list")
         return self.host.list()
+
+    def list_subnets(self):
+        """Ask GW for a list of all its defined subnets.
+
+        This call is not affected by the L{dryrun} option as it makes no changes
+        to the GW.
+
+        @rtype: list
+        @return: Each element in the list is a dict from the server, at the time
+            containing the elements:
+
+                TODO
+            - L{name}: The hostname
+            - L{project}: What project the host belongs to.
+              ???
+
+        """
+        return self.subnet.list()
+
+    def list_vlans(self):
+        """Ask GW for a list of all its defined VLANs.
+
+        This call is not affected by the L{dryrun} option as it makes no changes
+        to the GW.
+
+        @rtype: list
+        @return: Each element in the list is a dict from the server, at the time
+            containing the elements:
+
+                TODO
+            - L{name}: The hostname
+            - L{project}: What project the host belongs to.
+              ???
+
+        """
+        return self.vlan.list()
 
     def get_projects(self):
         """Get all info about all projects from the GW.
@@ -136,11 +229,26 @@ class GatewayClient(xmlrpclib.Server, object):
         # Fetch host info:
         for host in self.list_hosts():
             ret[host['project']].setdefault('hosts', []).append(host)
+        # TODO: Add these when the Gateway does not raise Faults:
         # Fetch subnet info:
-        # TODO
+        #for subn in self.list_subnets():
+        #    ret[subn['project']].setdefault('subnets', []).append(subn)
         # Fetch vlan info:
-        # TODO
+        #for vlan in self.list_vlans():
+        #    ret[vlan['project']].setdefault('vlans', []).append(vlan)
         return ret
+
+    def create_project(self, pid):
+        """Create a new project in the GW.
+
+        @type pid: string
+        @param pid: The project ID.
+
+        """
+        self.logger.info("Creating project: %s", pid)
+        if self.dryrun:
+            return True
+        return self.project.create({'project': pid})
 
     def delete_project(self, pid):
         """Delete a given project from the GW.
@@ -151,7 +259,61 @@ class GatewayClient(xmlrpclib.Server, object):
         @param pid: The project-ID that should be deleted.
 
         """
-        self.logger.info("Gateway: project.delete(%s)", pid)
+        self.logger.info("Deleting project: %s", pid)
         if self.dryrun:
             return True
         return self.project.delete({'project': pid})
+
+    def freeze_project(self, pid, when=None):
+        """Freeze a project in the GW.
+
+        @type pid: string
+        @param pid: The project ID.
+
+        @type when: DateTime
+        @param when: When the freeze should happen. Defaults to now if not set.
+
+        """
+        self.logger.info("Freezing project: %s", pid)
+        if self.dryrun:
+            return True
+        params = {'project': pid}
+        # TODO: 'when' not implemented yet!
+        return self.project.freeze({'project': pid})
+
+    def thaw_project(self, pid):
+        """Unfreeze a project in the GW.
+
+        @type pid: string
+        @param pid: The project ID.
+
+        """
+        self.logger.info("Thawing project: %s", pid)
+        if self.dryrun:
+            return True
+        return self.project.thaw({'project': pid})
+
+    def create_user(self, pid, username, realname, uid):
+        """Create a user in the GW.
+
+        @type pid: string
+        @param pid: The project ID.
+
+        @type username: string
+        @param username: The username of the user.
+
+        @type realname: string
+        @param realname: The name of the user. It has no practical significance
+            for the gateway.
+
+        @type uid: int
+        @param uid: The posix UID of the user.
+
+        """
+        self.logger.info("Creating user: %s", username)
+        if self.dryrun:
+            return True
+        return self.user.create({'project': pid, 'username': username,
+                                 'realname': realname, 'uid': uid})
+
+

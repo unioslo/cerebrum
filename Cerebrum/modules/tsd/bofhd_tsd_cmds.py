@@ -142,11 +142,9 @@ class TSDBofhdExtension(BofhdCommandBase):
         for key, cmd in super(TSDBofhdExtension, self).all_commands.iteritems():
             if not self.all_commands.has_key(key):
                 self.all_commands[key] = cmd
-
         self.util = server.util
-
         # The client talking with the TSD gateway
-        self.gateway = Gateway.GatewayClient() # TODO
+        self.gateway = Gateway.GatewayClient(logger=self.logger) # TODO: dryrun?
 
     def get_help_strings(self):
         """Return all help messages for TSD."""
@@ -365,11 +363,11 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                 creator=operator.get_entity_id(), start=end,
                 description='Initial end set by superuser')
         ou.write_db()
-
-        # TODO: The gateway needs to be informed!
-        # self.gateway.project.create(pid, TODO)
-
         ou.setup_project(operator.get_entity_id())
+        if not ou.get_entity_quarantine(only_active=True):
+            self.gateway.create_project(projectname)
+        # TODO: inform the gateway about the resources from here too, or wait
+        # for the gateway sync to do that?
         return "New project created successfully: %s" % projectname
 
     all_commands['project_terminate'] = cmd.Command(
@@ -388,6 +386,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         # TODO: delete person affiliations?
         # TODO: delete accounts
         project.terminate()
+        self.gateway.delete_project(project_name)
         return "Project terminated: %s" % project_name
 
     all_commands['project_approve'] = cmd.Command(
@@ -409,7 +408,9 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         project.delete_entity_quarantine(type=self.const.quarantine_not_approved)
         project.write_db()
         project.setup_project(operator.get_entity_id())
-        #self.gateway.project.create(project_name)
+        if not project.get_entity_quarantine(only_active=True):
+            # Active project only if not other quarantines
+            self.gateway.create_project(project_name)
         self.logger.info("Project approved: %s", project_name)
         return "Project approved: %s" % project_name
 
@@ -432,6 +433,12 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         # TODO: delete person affiliations?
         # TODO: delete accounts
         project.delete()
+        try:
+            # Double check that project doesn't exist in Gateway. Will raise
+            # exception if it's okay.
+            self.gateway.delete_project(project_name)
+        except Exception:
+            pass
         return "Project deleted: %s" % project_name
 
     all_commands['project_set_enddate'] = cmd.Command(
@@ -460,7 +467,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         # If set in the past, the project is now frozen
         if end < DateTime.now():
             #TODO
-            #self.gateway.project.freeze(project_name)
+            self.gateway.freeze_project(project_name)
             pass
         return "Project %s updated to end: %s" % (project_name,
                                                   date_to_string(end))
@@ -484,8 +491,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                                       description='Project freeze',
                                       start=end)
         project.write_db()
-        #TODO:
-        #self.gateway.project.freeze(project_name)
+        self.gateway.freeze_project(project_name)
         return "Project %s is now frozen" % project_name
 
     all_commands['project_list'] = cmd.Command(

@@ -79,10 +79,8 @@ class Project(object):
     """
     def __init__(self, entity_id):
         self.entity_id = entity_id
-        self.pid = TODO # ?
+        #self.pid = TODO # ?
         # TODO: add more data
-        pass
-    # TODO
 
 def process_projects(gw, dryrun):
     """Go through all projects in Cerebrum and compare them with the Gateway.
@@ -90,24 +88,73 @@ def process_projects(gw, dryrun):
     If the Gateway contains mismatches, it should be updated.
 
     """
+    # The list of OUs that was found at the GW. Used to be able to create those
+    # that doesn't exist.
+    processed_ous = set()
+
+    # Since we should not have that many projects, maybe up to a few thousand,
+    # it loops through each OU by find() and clear(). If TSD would grow larger
+    # in size, this script might take too long to finish, so we then might have
+    # to cache it.
+    gw_projects = gw.get_projects()
+    logger.debug("Got %d projects from GW", len(gw_projects))
+    for pid, proj in gw_projects.iteritems():
+        try:
+            process_project(gw, pid, proj)
+        except Gateway.GatewayException:
+            continue
+        processed_ous.add(ou.entity_id)
+
+    # Add active OUs that exists in Cerebrum but not in the GW:
+    for row in ou.search(filter_quarantined=True):
+        if row['ou_id'] in processed_ous:
+            continue
+        logger.info("Unprocessed project: %s", row['ou_id'])
+        ou.clear()
+        ou.find(row['ou_id'])
+        gw.create_project(ou.get_project_name())
+
+def process_project(gw, pid, proj):
+    """Process a given project retrieved from the GW.
+
+    The information should be retrieved from the gateway, and is then matched
+    against what exist in Cerebrum.
+
+    """
+    logger.debug("Processing project %s: %s", pid, proj)
+    ou.clear()
+    try:
+        ou.find_by_tsd_projectname(pid)
+    except Errors.NotFoundError:
+        gw.delete_project(pid)
+        return
+
+    # Quarantines
+    if ou.get_entity_quarantine(only_active=True):
+        if not proj['frozen']:
+            gw.freeze_project(pid)
+    else:
+        if proj['frozen']:
+            gw.thaw_project(pid)
+
+    print "Project: %s" % (pid,)
+    # TODO: fix the data for each project
+
+
+    return
+
+    #
     # Cache Cerebrum-projects:
     pro2name = dict((row['name'], row['entity_id'])
                     for row in ou.search_tsd_projects())
     ous = []
-    for row in ou.search(filter_quarantined=True):
+    for row in ou.search(filter_quarantined=False):
         ous.append(Project(row['ou_id']))
-        print row
+        #print row
     # TODO: cache project-IDs:
     #for row in ou.search_name_with_language(TODO)
     logger.debug("Cached %d projects from Cerebrum", len(pro2name))
 
-    gw_projects = gw.get_projects()
-    logger.debug("Got %d projects from GW", len(gw_projects))
-    for pid, proj in gw_projects.iteritems():
-        if pid not in pro2name:
-            gw.delete_project(pid)
-        print "Project: %s" % (pid,)
-        # TODO: fix the data for each project
 
 
 
