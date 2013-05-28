@@ -29,7 +29,7 @@
         - a FileChangeTooBigError exception is thrown
 
     If the changes are within the limits:
-        - the temporary output file is replaced by the output file
+        - the temporary output file replaces the output file
 
     This script should not be used for binary files.
 
