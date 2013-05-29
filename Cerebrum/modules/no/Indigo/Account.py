@@ -276,29 +276,32 @@ class AccountOfkMixin (Account.Account):
             return None
 
     def _autopick_homeMDB(self):
-        # Check if account had homeMDB earlier. If so use that
+        """Return a valid homeMDB value to be used for the account.
+
+        If the account has previously had a HomeMDB, this is reused, but only as
+        long the MDB value is valid today, see
+        L{cereconf.EXCHANGE_HOMEMDB_VALID}. Otherwise a random HomeMDB is
+        selected. We don't care about the weight of the MDBs, ØFK wants everyone
+        to be equally assigned.
+
+        @rtype: string
+        @return: One of the HomeMDB values from
+            L{cereconf.EXCHANGE_HOMEMDB_VALID}.
+
+        """
+        mdb_candidates = cereconf.EXCHANGE_HOMEMDB_VALID
+        # Check if account had homeMDB earlier. If so use that, as long as it is
+        # in one of today's valid MDBs.
         mdb_choice = self._get_old_homeMDB()
-        if mdb_choice:
+        if mdb_choice and mdb_choice in mdb_candidates:
             return mdb_choice
-        affiliation = 'ELEV'
-        if self.is_employee(self.account_name):
-            affiliation = 'ANSATT'
-        elif self.is_affiliate(self.account_name):
-            affiliation = 'TILKNYTTET'
-        mdb_candidates = set(cereconf.EXCHANGE_HOMEMDB_PER_AFFILIATION[affiliation])
-        mdb_count = dict()
-        for candidate in mdb_candidates:
-            mdb_count[candidate] = len(self.list_traits(code=self.const.trait_homedb_info,
-                                                        strval=candidate, fetchall=True))
-        mdb_choice, smallest_mdb_weight = None, 1.0
-        for m in mdb_candidates:
-            m_weight = (mdb_count.get(m, 0)*1.0)/cereconf.EXCHANGE_HOMEMDB_VALID[m]
-            if m_weight < smallest_mdb_weight:
-                mdb_choice, smallest_mdb_weight = m, m_weight
+        # Choose a random HomeMDB, and don't care about weights:
+        mdb_choice = random.choice(mdb_candidates.keys())
         if mdb_choice is None:
-            raise Errors.CerebrumError("Cannot assign mdb")
+            raise Errors.CerebrumError("Couldn't assign mdb for %s" %
+                                       self.entity_id)
         return mdb_choice
-    
+
     #
     # TBD: Should we change this method globally?
     # see argum. below, Jazz 2009-05-10
