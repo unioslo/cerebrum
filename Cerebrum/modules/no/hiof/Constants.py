@@ -79,6 +79,9 @@ class Constants(Constants.Constants):
     spread_email_account = _SpreadCode(
         'account@imap', Constants.Constants.entity_account,
         'Email account at HiOf')
+    spread_ad_account = _SpreadCode(
+        'account@ad', Constants.Constants.entity_account,
+        'Account included in domain in Active Directory')
     spread_ad_account_fag = _SpreadCode(
         'account@ad_fag', Constants.Constants.entity_account,
         'Account included in domain FAG in Active Directory')
@@ -105,6 +108,9 @@ class Constants(Constants.Constants):
     spread_nis_ans_ng = _SpreadCode(
         'netgroup@nisans', ConstantsUniversityColleges.entity_group,
         'Net group in NIS')
+    spread_ad_group = _SpreadCode(
+        'group@ad', Constants.Constants.entity_group,
+        'Group included in domain in Active Directory')
     spread_ad_group_fag = _SpreadCode(
         'group@ad_fag', Constants.Constants.entity_group,
         'Group included in domain FAG in Active Directory')
