@@ -111,15 +111,6 @@ class Constants(Constants.Constants):
     spread_ad_group = _SpreadCode(
         'group@ad', Constants.Constants.entity_group,
         'Group included in domain in Active Directory')
-    spread_ad_group_fag = _SpreadCode(
-        'group@ad_fag', Constants.Constants.entity_group,
-        'Group included in domain FAG in Active Directory')
-    spread_ad_group_adm = _SpreadCode(
-        'group@ad_adm', Constants.Constants.entity_group,
-        'Group included in domain ADM in Active Directory')
-    spread_ad_group_stud = _SpreadCode(
-        'group@ad_stud', Constants.Constants.entity_group,
-        'Group included in domain STUD in Active Directory')        
 
     ## Traits
     trait_ad_homedir = _EntityTraitCode(
