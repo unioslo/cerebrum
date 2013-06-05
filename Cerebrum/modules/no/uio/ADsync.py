@@ -38,6 +38,11 @@ from Cerebrum.modules import CLHandler
 
 class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
+    def __init__(self, *args, **kwargs):
+        super(ADFullUserSync, self).__init__(*args, **kwargs)
+        self.pg = Utils.Factory.get('PosixGroup')(self.db)
+        self.pu = Utils.Factory.get('PosixUser')(self.db)
+
     def _filter_quarantines(self, user_dict):
         """Filter quarantined accounts
 
@@ -199,6 +204,29 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         self.logger.info("Fetched %i person names" % len(pid2names))
 
         #
+        # Posix attributes
+        #
+        # This requires that the domain is first set up with the UNIX attributes
+        # schema (msSFU30).
+        self.logger.debug("..setting posix info..")
+        groupid2gid = dict((row['group_id'], row['posix_gid']) for row in
+                                                self.pg.list_posix_groups())
+        posixusers = dict((row['account_id'], row) for row in
+                          self.pu.list_posix_users(spread=self.co.Spread(spread),
+                                                   filter_expired=True))
+        i = 0
+        for k, v in tmp_ret.iteritems():
+            if k in posixusers:
+                v['uidNumber'] = posixusers[k]['posix_uid']
+                v['gidNumber'] = groupid2gid[posixusers[k]['gid']]
+                v['gecos'] = posixusers[k]['gecos']
+                v['uid'] = v['TEMPuname']
+                v['mssfu30name'] = v['TEMPuname']
+                v['msSFU30NisDomain'] = 'uio'
+                i += 1
+        self.logger.debug("Number of users with posix-data: %d", i)
+
+        #
         # Indexing user dict on username instead of entity id
         #
         userdict_ret= {}
@@ -226,10 +254,9 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             #TODO: derive domain part from LDAP DC components
             v['userPrincipalName'] = k + "@uio.no"
             v['homeDrive'] = "M:"
- 
+
         return userdict_ret
 
-    
     def fetch_ad_data(self, search_ou):
         """
         Returns full LDAP path to AD objects of type 'user' in search_ou and 
@@ -639,6 +666,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
     def __init__(self, *args, **kwargs):
         super(ADFullGroupSync, self).__init__(*args, **kwargs)
         self.ac = Utils.Factory.get('Account')(self.db)
+        self.pg = Utils.Factory.get('PosixGroup')(self.db)
 
     def fetch_cerebrum_data(self, spread):
         """
@@ -667,6 +695,22 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                 'displayName' : gname,
                 'displayNamePrintable' : gname,
                 }
+
+        #
+        # Posix attributes
+        #
+        self.logger.debug("..setting posix info..")
+        groupid2gid = dict((row['group_id'], row['posix_gid']) for row in
+                                                self.pg.list_posix_groups())
+        i = 0
+        for gname, gdata in grp_dict.iteritems():
+            if gdata['grp_id'] in groupid2gid:
+                gdata['gidNumber'] = groupid2gid[gdata['grp_id']]
+                gdata['msSFU30Name'] = gname
+                gdata['msSFU30NisDomain'] = 'uio'
+                i += 1
+        self.logger.debug("Number of groups with posix GID: %d", i)
+
         return grp_dict
 
 
