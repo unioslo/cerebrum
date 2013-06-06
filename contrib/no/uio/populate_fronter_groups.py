@@ -1535,14 +1535,11 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
 
     # Finally fixup fronter spreads, if we have to.
     if auto_spread is not NotSet:
-        logger.debug("Group %s changes fronter spreads", gname)
-        for spread in (co.spread_fronter_kladdebok,
-                       co.spread_fronter_blyant,
-                       co.spread_fronter_petra):
-            if auto_spread:
-                add_spread_to_group(gname, spread)
-            else:
-                remove_spread_from_group(gname, spread)
+        logger.debug("Group %s changes fronter spreads", gname)               
+        if auto_spread:
+            add_spread_to_group(gname, co.spread_fronter_dotcom)
+        else:
+            remove_spread_from_group(gname, co.spread_fronter_dotcom)
     else:
         logger.debug("Spreads for group %s are unchanged", gname)
 # end sync_group

@@ -331,6 +331,12 @@ automatically generated from FS.''')
 that should be exported to the ClassFronter instance on \
 petra.uio.no.  Should only be given to groups that have been \
 automatically generated from FS.''')
+    spread_fronter_dotcom = _SpreadCode('CF@fronter.com',
+                                           Constants.Constants.entity_group,
+                                           '''Group representing a course \
+that should be exported to the ClassFronter instance on \
+fronter.com.  Should only be given to groups that have been \
+automatically generated from FS.''')
 
     # LDAP: Brukere, grupper
 
