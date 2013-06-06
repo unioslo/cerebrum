@@ -61,7 +61,8 @@ class VoipAddress(EntityAuthentication, EntityTrait):
     _required_voip_attributes = ("uid", "mail", "cn", "voipSipUri",
                                  "voipSipPrimaryUri", "voipE164Uri",
                                  "voipExtensionUri", "voipAddressType",
-                                 "voipPinCode", "voipVoiceMailBox",)
+                                 "voipPinCode", "voipVoiceMailBox",
+                                 "voipSKO",)
 
     def clear(self):
         """Reset VoipAddress."""
@@ -302,6 +303,8 @@ class VoipAddress(EntityAuthentication, EntityTrait):
           e.g. sip:52426@uio.no
 
         * voipAddressType (whether an address is voip or nortel)
+
+        * voipSKO (6 digit "stedkode") e.g. 112233
         """
 
         voipify = self._voipify
@@ -546,8 +549,14 @@ class VoipAddress(EntityAuthentication, EntityTrait):
         with multiple database lookups per voipAddress.
         """
 
-        owner_data = self._cache_owner_voip_service_attrs()
-        owner_data.update(self._cache_owner_person_attrs())
+        # ou_id -> stedkode
+        # Will pass it to the cache functions so we can get stedkode and not OUs back
+        ou = Factory.get("OU")(self._db)
+        ou2sko = dict((x["ou_id"], "%02d%02d%02d" % (x["fakultet"], x["institutt"], x["avdeling"]))
+                      for x in ou.get_stedkoder())
+
+        owner_data = self._cache_owner_voip_service_attrs(ou2sko)
+        owner_data.update(self._cache_owner_person_attrs(ou2sko))
         voipify = self._voipify
         voipify_short = self._voipify_short
         
@@ -627,16 +636,18 @@ class VoipAddress(EntityAuthentication, EntityTrait):
 
 
 
-    def _cache_owner_voip_service_attrs(self):
+    def _cache_owner_voip_service_attrs(self, ou2sko):
         # First the voipServices...
         vp = VoipService(self._db)
         owner_data = dict()
         for row in vp.search():
             uid = str(row["entity_id"])
+            ou = row["ou_id"]
             owner_data[row["entity_id"]] = {"uid": uid,
                                             "mail": uid + "@usit.uio.no",
                                             "cn": row["description"],
-                                            "voipOwnerType": "service"}
+                                            "voipOwnerType": "service",
+                                            "voipSKO": (ou2sko[ou],)}
         return owner_data
     # end _cache_owner_voip_service_attrs
 
@@ -648,7 +659,7 @@ class VoipAddress(EntityAuthentication, EntityTrait):
     
 
     
-    def _cache_owner_person_attrs(self):
+    def _cache_owner_person_attrs(self, ou2sko):
         """Preload the person owner attributes (i.e. the ones specific to people)."""
 
         owner_data = dict()
@@ -662,7 +673,8 @@ class VoipAddress(EntityAuthentication, EntityTrait):
                                               self.const.name_full),
                          source_system=self.const.system_cached):
             owner_data[row["person_id"]] = {"cn": row["name"],
-                                            "voipOwnerType": "person"}
+                                            "voipOwnerType": "person",
+                                            "voipSKO": set(),}
 
         # Fill out 'uid', 'mail'
         account = Factory.get("Account")(self._db)
@@ -674,6 +686,12 @@ class VoipAddress(EntityAuthentication, EntityTrait):
                                  for r in
                                  et.list_email_target_primary_addresses(
                                      target_type=self.const.email_target_account))
+
+        # person -> stedkode
+        for row in p.list_affiliations(source_system=(self.const.system_sap,
+                                                      self.const.system_manual,)):
+            owner_data[row["person_id"]]["voipSKO"].add(ou2sko[row["ou_id"]])
+
         person2unames = dict()
         for row in account.search(owner_type=self.const.entity_person):
             aid = row["account_id"]
