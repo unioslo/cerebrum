@@ -667,6 +667,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         super(ADFullGroupSync, self).__init__(*args, **kwargs)
         self.ac = Utils.Factory.get('Account')(self.db)
         self.pg = Utils.Factory.get('PosixGroup')(self.db)
+        self.pu = Utils.Factory.get('PosixUser')(self.db)
 
     def fetch_cerebrum_data(self, spread):
         """
@@ -702,12 +703,16 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         self.logger.debug("..setting posix info..")
         groupid2gid = dict((row['group_id'], row['posix_gid']) for row in
                                                 self.pg.list_posix_groups())
+        groupid2uids = dict()
+        for row in self.pu.list_posix_users(filter_expired=True):
+            groupid2uids.setdefault(row['gid'], []).append(row['posix_uid'])
         i = 0
         for gname, gdata in grp_dict.iteritems():
             if gdata['grp_id'] in groupid2gid:
                 gdata['gidNumber'] = groupid2gid[gdata['grp_id']]
                 gdata['msSFU30Name'] = gname
                 gdata['msSFU30NisDomain'] = 'uio'
+                gdata['memberUID'] = groupid2uids.get(gdata['grp_id'], ())
                 i += 1
         self.logger.debug("Number of groups with posix GID: %d", i)
 
@@ -729,6 +734,8 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
 
         self.server.setGroupAttributes(cereconf.AD_GRP_ATTRIBUTES)
         search_ou = self.ad_ldap
+        self.logger.debug("Search OU %s for groups, fetch: %s", search_ou,
+                          cereconf.AD_GRP_ATTRIBUTES)
         ad_dict = self.server.listObjects('group', True, search_ou)
         if ad_dict:
             for grp in ad_dict:
@@ -821,7 +828,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
             changes = {}   
             if ad_dict.has_key(grp):
                 #group in both places, we want to check correct data
-                
+
                 #Checking for correct OU.
                 ou = self.get_default_ou()
                 if ad_dict[grp]['OU'] != ou:
@@ -1220,9 +1227,8 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                 #others do not. They generate errors when not in AD. We still
                 #want to update group membership if in AD.
                 members = list()
-                for usr in (self.group.search_members(
-                    group_id=grp_id,
-                    member_spread=int(self.co.Spread(user_spread)))):
+                for usr in self.group.search_members(group_id=grp_id,
+                                member_spread=int(self.co.Spread(user_spread))):
                     user_id = usr["member_id"]
                     if user_id not in entity2name:
                         self.logger.debug("Missing name for account id=%s",
@@ -1237,9 +1243,8 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                         "Try to sync member account id=%s, name=%s",
                         user_id, entity2name[user_id])
 
-                for grp in (self.group.search_members(
-                        group_id=grp_id,
-                        member_spread=int(self.co.Spread(group_spread)))):
+                for grp in self.group.search_members(group_id=grp_id,
+                               member_spread=int(self.co.Spread(group_spread))):
                     group_id = grp["member_id"]
                     if group_id not in entity2name:
                         self.logger.debug("Missing name for group id=%s", 
