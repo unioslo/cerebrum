@@ -214,15 +214,20 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         posixusers = dict((row['account_id'], row) for row in
                           self.pu.list_posix_users(spread=self.co.Spread(spread),
                                                    filter_expired=True))
+        groupspread = self.co.Spread(cereconf.AD_GROUP_SPREAD)
+        groupid2name = dict((row['group_id'],
+                             ''.join((row['name'], cereconf.AD_GROUP_POSTFIX)))
+                            for row in self.pg.search(spread=groupspread)))
         i = 0
         for k, v in tmp_ret.iteritems():
             if k in posixusers:
-                v['uidNumber'] = posixusers[k]['posix_uid']
-                v['gidNumber'] = groupid2gid[posixusers[k]['gid']]
-                v['gecos'] = posixusers[k]['gecos']
+                v['uidNumber'] = posixusers[k]['posix_uid'] or ''
+                v['gidNumber'] = groupid2gid[posixusers[k]['gid']] or ''
+                v['gecos'] = unicode(posixusers[k]['gecos'] or '', 'iso-8859-1')
                 v['uid'] = v['TEMPuname']
                 v['mssfu30name'] = v['TEMPuname']
                 v['msSFU30NisDomain'] = 'uio'
+                v['primaryGroup_groupname'] = groupid2name.get(posixusers[k]['gid'])
                 i += 1
         self.logger.debug("Number of users with posix-data: %d", i)
 
@@ -265,11 +270,24 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         @param search_ou: LDAP path to base ou for search
         @type search_ou: String
         """
+        # Find a list of all groups' SID, to be used when populating the posix
+        # attribute for primary group for the user, as it reuquires the last
+        # part of the SID.
+        self.logger.debug("Fetching group SIDs for posix, OU: %s", self.ad_ldap)
+        self.groupsids = self.server.getObjectID(True, False, self.ad_ldap,
+                                                 'group')
+        # groupsids is a dict, with groupname as key, and each value is a dict
+        # with values. We are interested in the value 'Sid', but other values
+        # might be useful too.
+        if not self.groupsids:
+            self.logger.warn("No group SIDs returned from AD")
+        self.logger.debug("Fetched %d SIDs from AD", len(self.groupsids))
+
         #Setting the userattributes to be fetched.
+        self.logger.debug("Fetching AD users from: %s", search_ou)
         self.server.setUserAttributes(cereconf.AD_ATTRIBUTES,
                                       cereconf.AD_ACCOUNT_CONTROL)
         return self.server.listObjects('user', True, search_ou)
-
     
     def write_sid(self, objtype, name, sid, dry_run):
         """Store AD object SID to cerebrum database for given user
@@ -293,7 +311,6 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             self.ac.populate_external_id(self.co.system_ad, 
                                          self.co.externalid_accountsid, sid)
             self.ac.write_db()
-
 
     def perform_changes(self, changelist, dry_run, store_sid):
         """
@@ -445,6 +462,24 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                         if adusrs[usr].has_key('homeDrive'):
                             if adusrs[usr]['homeDrive'] != home_drive:
                                 changes['homeDrive'] = home_drive
+                    elif attr == 'primaryGroupID':
+                        # PrimaryGroupID must contain the last part of the SID,
+                        # which we had to retrieve from AD on beforehand. The
+                        # primaryGroup_groupname contains the AD name of the
+                        # group that is the dfg, and all the group SIDs are
+                        # located in self.groupsids. Do the mapping.
+                        self.logger.debug("primaryGroupID: %s", cerebrumusrs[usr])
+                        sid = self.groupsids.get(cerebrumusrs[usr].get('primaryGroup_groupname'))
+                        self.logger.debug("Comparing sid for user %s: %s", usr,
+                                sid)
+                        # We should not set the primaryGroup to None, so we're
+                        # only updating it if we have something proper to set:
+                        if sid:
+                            sid = sid['Sid'].split('-')[-1]
+                            self.logger.debug("result sid: %s", sid)
+                            if adusrs[usr]['primaryGroupID'] != sid:
+                                self.logger.debug("changing primaryGroupID")
+                                changes['primaryGroupID'] = sid
                     #Treating general cases
                     else:
                         if cerebrumusrs[usr].has_key(attr) and \
