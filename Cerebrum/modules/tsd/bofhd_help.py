@@ -32,7 +32,7 @@ group_help['project'] = 'Project related commands'
 command_help['user'].update({
     'user_approve': 
         'Activate a user in the systems, after checking',
-    'user_set_otpkey':
+    'user_generate_otpkey':
         'Regenerate a One Time Password (OTP) key for an account',
     })
 

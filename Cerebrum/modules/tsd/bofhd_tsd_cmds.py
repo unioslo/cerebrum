@@ -856,11 +856,11 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         return self.user_password(operator, accountname, password)
 
     # user password
-    all_commands['user_set_otpkey'] = cmd.Command(
-        ('user', 'set_otpkey'), cmd.AccountName())
-    def user_set_otpkey(self, operator, accountname):
+    all_commands['user_generate_otpkey'] = cmd.Command(
+        ('user', 'generate_otpkey'), cmd.AccountName())
+    def user_generate_otpkey(self, operator, accountname):
         account = self._get_account(accountname)
-        self.ba.can_set_otpkey(operator.get_entity_id(), account)
+        self.ba.can_generate_otpkey(operator.get_entity_id(), account)
         account.regenerate_otpkey()
         try:
             account.write_db()
