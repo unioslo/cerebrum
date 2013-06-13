@@ -85,6 +85,11 @@ host_config = {
                        'admins': get_member_names('classfronter-blyant-drift'),
                        'export': ['FS', 'All_users'],
                        'spread': 'spread_fronter_blyant',
+                       },
+    'fronter.com': { 'DBinst': 'DLOPROD.uio.no',
+                       'admins': get_member_names('classfronter-fronterdotcom-drift'),
+                       'export': ['FS', 'All_users'],
+                       'spread': 'spread_fronter_dotcom',
                        }
     }
 

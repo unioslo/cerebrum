@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2004, 2005 University of Oslo, Norway
+# Copyright 2004, 2005, 2013 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -64,7 +64,6 @@ db = const = logger = None
 fronter = fxml = None
 include_this_sem = True
 new_users = None
-
 
 class Fronter(object):
     STATUS_ADD = 1
@@ -784,7 +783,7 @@ kind2permissions = {
 
 
 def process_undakt_permissions(template, korridor, fellesrom,
-                               larerrom, studentnode, undakt_node):
+                               studentnode, undakt_node):
     """Assign fronter permissions to undakt/evu-kursakt roles.
 
     Works much like L{process_undenh_permissions}, except for
@@ -803,9 +802,6 @@ def process_undakt_permissions(template, korridor, fellesrom,
       Same as in L{process_undenh_permissions}.
 
     @param fellesrom:
-      Same as in L{process_undenh_permissions}.
-
-    @param larerrom:
       Same as in L{process_undenh_permissions}.
 
     @param studentnode:
@@ -846,10 +842,6 @@ def process_undakt_permissions(template, korridor, fellesrom,
         if "felles" in role_permissions:
             new_acl.setdefault(fellesrom, {})[xml_name] = {
                 'role': role_permissions["felles"]}
-        # ... lærerrommet
-        if "larer" in role_permissions:
-            new_acl.setdefault(larerrom, {})[xml_name] = {
-                'role': role_permissions["larer"]}
         # ... ann finally undakt/kursakt room
         new_acl.setdefault(undakt_node, {})[xml_name] = {
             'role': role_permissions["undakt"]}
@@ -865,7 +857,7 @@ def process_undakt_permissions(template, korridor, fellesrom,
 
 
 def process_undenh_permissions(template, korridor, fellesrom,
-                               larerrom, studentnode):
+                               studentnode):
     """Assign fronter permissions to undenh/kurs roles.
 
     This function is called for both undenh and EVU-kurs. The IDs are a bit
@@ -890,12 +882,6 @@ def process_undenh_permissions(template, korridor, fellesrom,
 
           ROOM/Felles:KURS:185:NOR4160:1:HØST:2007:1
     @type fellesrom: basestring
-
-    @param larerrom:
-      Lærerromid for the given undenh/EVU-kurs. E.g.:
-
-          ROOM/Larer:KURS:185:CAENFRA1301:1:HØST:2007:1
-    @type larerrom: basestring
 
     @param studentnode:
       Student group id for the given undenh/EVU-kurs. E.g.:
@@ -922,10 +908,6 @@ def process_undenh_permissions(template, korridor, fellesrom,
         if "felles" in role_permissions:
             new_acl.setdefault(fellesrom, {})[xml_name] = {
                 'role': role_permissions["felles"]}
-        # ... lærerrommet
-        if "larer" in role_permissions:
-            new_acl.setdefault(larerrom, {})[xml_name] = {
-                'role': role_permissions["larer"]}
 
         # Role holders have special permissions wrt the student group.
         new_acl.setdefault(
@@ -1184,9 +1166,15 @@ class FronterXML(object):
                 self.xml.dataElement('status', '1')
                 self.xml.startTag('extension')
                 self.xml.emptyTag('memberof', {'type': 1}) # Member of group.
-                self.xml.emptyTag('groupaccess',
-                                  {'contactAccess': acl['gacc'],
-                                   'roomAccess': acl['racc']})
+                # Fronter says that this tag should be ommited if the target is
+                # a corridor.
+                if not (new_group.has_key(node) and \
+                        new_group[node]['allow_room'] == True and \
+                        new_group[node]['allow_contact'] == False):
+                    self.xml.emptyTag('groupaccess',
+                                      {'contactAccess': acl['gacc'],
+                                       'roomAccess': acl['racc']})
+
             self.xml.endTag('extension')
             self.xml.endTag('role')
             self.xml.endTag('member')
@@ -1469,6 +1457,7 @@ def register_supergroups():
                 logger.warn("Member id=%s of group name=%s id=%s has no name",
                             member_id, group.group_name, group.entity_id)
                 continue
+            
             if new_users.has_key(uname):
                 if new_users[uname]['USERACCESS'] != 'administrator':
                     new_users[uname]['USERACCESS'] = 'allowlogin'
@@ -1587,10 +1576,8 @@ def process_single_enhet_id(enhet_id, struct_id, emnekode,
         template_id = "uio.no:fs:%s:%s:%s" % (enhet_id.lower(), "%s",
                                               aktkode.lower())
         fellesrom_id = "ROOM/Felles:%s" % struct_id
-        larerrom_id = "ROOM/Larer:%s" % struct_id
         process_undakt_permissions(template_id, undervisning_node,
-                                   fellesrom_id, larerrom_id,
-                                   aktstud, akt_rom_id)
+                                   fellesrom_id, aktstud, akt_rom_id)
                                    
         # Hvis denne enheten har blitt flagget med "process_akt_data",
         # så er det nokså mulig at tilhørende aktiviteter kommer fra
@@ -1647,8 +1634,7 @@ def process_kurs2enhet():
             # Create structure nodes that allow to have rooms right "under"
             # them.
             sko_node = build_structure(fronter.enhet2sko[enh_id])
-            enhet_node = "STRUCTURE/Enhet:%s" % struct_id
-            undervisning_node = "STRUCTURE/Studentkorridor:%s" % struct_id
+            sko_part = sko_node.split('/')[1]
 
             multi_enhet = []
             multi_id = ":".join((Instnr, emnekode, termk, aar))
@@ -1704,23 +1690,22 @@ def process_kurs2enhet():
                 multi_enhet.append("v%s" % versjon)
             if multi_enhet:
                 tittel += ", " + ", ".join(multi_enhet)
+                
+            # We register a corridor for them rooms
+            sem, aar = struct_id.lower().split(":")[4:6]
+            korr_name = "Kurs %s %s" % (sem, aar)
+            korr_node = "STRUCTURE/Kurs:%s:%s:%s" % (sem, aar, sko_part)
+            register_group(korr_name, korr_node, sko_node, allow_room=True)
 
-            register_group(tittel, enhet_node, sko_node, allow_room=True)
-            register_group("%s - Undervisningsrom" % emnekode.upper(),
-                           undervisning_node, enhet_node, allow_room=True);
-
-            # All exported undenhs have one 'fellesrom' and one 'lærerrom'.
+            # All exported undenhs have one 'fellesrom'.
             if multi_termin:
                 term_title = "%s-%s-%s" % (aar, termk, termnr)
             else:
                 term_title = "%s-%s" % (aar, termk)
 
             fellesrom_id = "ROOM/Felles:%s" % struct_id
-            larerrom_id = "ROOM/Larer:%s" % struct_id
             register_room("%s - Fellesrom %s" % (emnekode.upper(), term_title),
-                          fellesrom_id, enhet_node, make_profile(enh_id))
-            register_room("%s - Lærerrom %s" % (emnekode.upper(), term_title),
-                          larerrom_id, enhet_node)
+                          fellesrom_id, korr_node, make_profile(enh_id))
 
             for enhet_id in fronter.kurs2enhet[kurs_id]:
                 termin_suffix = ""
@@ -1729,11 +1714,10 @@ def process_kurs2enhet():
 
                 enhstud = "uio.no:fs:%s:student" % enhet_id.lower()
                 template_id = "uio.no:fs:%s:%s" % (enhet_id.lower(), "%s")
-                process_undenh_permissions(template_id, undervisning_node,
-                                           fellesrom_id, larerrom_id, enhstud)
-                # process the associated undakts
+                process_undenh_permissions(template_id, korr_node,
+                                           fellesrom_id, enhstud)
                 process_single_enhet_id(enhet_id, struct_id,
-                                        emnekode, enhet_node, undervisning_node,
+                                        emnekode, korr_node, korr_node,
                                         " %s%s" % (term_title, termin_suffix),
                                         process_akt_data)
         elif ktype == fronter.EVU_PREFIX.lower():
@@ -1741,32 +1725,31 @@ def process_kurs2enhet():
                 kurskode, tidskode = enhet_id.split(":")[1:3]
                 # Create structure nodes that allow rooms associated with them.
                 sko_node = build_structure(fronter.enhet2sko[enhet_id])
+                sko_part = sko_node.split('/')[1]
                 struct_id = enhet_id.upper()
-                enhet_node = "STRUCTURE/Enhet:%s" % struct_id
-                undervisning_node = "STRUCTURE/Studentkorridor:%s" % struct_id
                 tittel = "%s - %s, %s" % (kurskode.upper(),
                                           fronter.kurs2navn[kurs_id],
                                           tidskode.upper())
-                register_group(tittel, enhet_node, sko_node, allow_room=True)
-                register_group("%s  - Undervisningsrom" % kurskode.upper(),
-                               undervisning_node, enhet_node, allow_room=True)
                 enhstud = "uio.no:fs:%s:student" % enhet_id.lower()
 
                 # EVU-kurs and undenh are alike when it comes to permissions
                 template_id = "uio.no:fs:%s:%s" % (enhet_id.lower(), "%s")
                 fellesrom_id = "ROOM/Felles:%s" % struct_id
-                larerrom_id = "ROOM/Larer:%s" % struct_id
-                process_undenh_permissions(template_id, undervisning_node,
-                                           fellesrom_id, larerrom_id,
-                                           enhstud)
+
+                # We register a corridor for them rooms
+                tid = enhet_id.upper().split(":")[2]
+                korr_name = "Evu kurs %s" % tid
+                korr_node = "STRUCTURE/Kurs:%s:%s" % (tid, sko_part)
+                register_group(korr_name, korr_node, sko_node, allow_room=True)
+
+                process_undenh_permissions(template_id, korr_node,
+                                           fellesrom_id, enhstud)
 
                 # Just like undenh, EVU-kurs have one fellesrom and one lærerrom.
                 register_room("%s - Fellesrom" % kurskode.upper(),
-                              fellesrom_id, enhet_node, make_profile(enhet_id))
-                register_room("%s - Lærerrom" % kurskode.upper(),
-                              "ROOM/Larer:%s" % struct_id, enhet_node)
+                              fellesrom_id, korr_node, make_profile(enhet_id))
                 process_single_enhet_id(enhet_id, struct_id,
-                                        kurskode, enhet_node, undervisning_node)
+                                        kurskode, korr_node, korr_node)
 
         elif ktype == fronter.KULL_PREFIX.lower():
             for enhet_id in fronter.kurs2enhet[kurs_id]:
@@ -1774,8 +1757,13 @@ def process_kurs2enhet():
 
                 sko_node = build_structure(fronter.enhet2sko[enhet_id])
                 struct_id = enhet_id.upper()
-                stprog_node = "STRUCTURE/Studieprogramkorridor:%s" % struct_id
+                # We'll only make one corridor for each studieprogram
+                stprog_node = "STRUCTURE/Studieprogramkorridor:%s" % \
+                                    stprog.upper()
                 kull_node = "ROOM/Studieprogram:%s" % struct_id
+                
+                # TODO: Should we test if it is allready created? Will we
+                # achieve better performance?
                 register_group("Studieprogramkorridor for %s" % (stprog,),
                                stprog_node, sko_node, allow_room=True)
 

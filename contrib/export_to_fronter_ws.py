@@ -50,7 +50,7 @@ def export(filename, key, host):
                      '/es/?authkey=%s' % key,
                      'POSTFILE\n%s\n%s' % (filename, data), headers)
     except socket.error, err:
-        logger.info('Error during request: %s' % err[1])
+        logger.error('Error during request: %s' % err[1])
         return -8
 
     logger.debug('Fetching response')
@@ -73,7 +73,7 @@ def status(key, host):
                      '/es/?authkey=%s' % key,
                      'STATUS\n', headers)
     except socket.error, err:
-        logger.info('Error during request: %s' % err[1])
+        logger.error('Error during request: %s' % err[1])
         return -8
 
     r = conn.getresponse()
