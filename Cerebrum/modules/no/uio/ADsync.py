@@ -217,7 +217,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         groupspread = self.co.Spread(cereconf.AD_GROUP_SPREAD)
         groupid2name = dict((row['group_id'],
                              ''.join((row['name'], cereconf.AD_GROUP_POSTFIX)))
-                            for row in self.pg.search(spread=groupspread)))
+                            for row in self.pg.search(spread=groupspread))
         i = 0
         for k, v in tmp_ret.iteritems():
             if k in posixusers:
@@ -226,10 +226,41 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 v['gecos'] = unicode(posixusers[k]['gecos'] or '', 'iso-8859-1')
                 v['uid'] = v['TEMPuname']
                 v['mssfu30name'] = v['TEMPuname']
-                v['msSFU30NisDomain'] = 'uio'
+                v['msSFU30NisDomain'] = 'kaos'
                 v['primaryGroup_groupname'] = groupid2name.get(posixusers[k]['gid'])
                 i += 1
         self.logger.debug("Number of users with posix-data: %d", i)
+
+        ### Getting some posix statistics, could be removed later:
+
+        # Sort by users' DFG:
+        bydfg = dict()
+        for k, v in tmp_ret.iteritems():
+            gname = v.get('primaryGroup_groupname')
+            bydfg.setdefault(gname, set()).add(v['TEMPuname'])
+        self.logger.debug("Users spread around %d DFGs", len(bydfg))
+        # Print out largest DFG groups:
+        max = 10
+        for k in sorted(bydfg, key=lambda x: len(bydfg[x]), reverse=True):
+            self.logger.debug("DFG: %20s : %6d", k, len(bydfg[k]))
+            max -= 1
+            if max < 1:
+                break
+        self.logger.debug("Number of users without DFG: %d", len(bydfg.get(None, ())))
+        max = 10
+        for n in bydfg.get(None, ()):
+            self.logger.debug("No dfg for %s", n)
+            max -= 1
+            if max < 1:
+                break
+        # Find the number of users with a personal dfg:
+        personal_dfg = 0
+        for k, v in tmp_ret.iteritems():
+            gname = '%s-gruppe' % v['TEMPuname']
+            if gname == v.get('primaryGroup_groupname'):
+                personal_dfg += 1
+        self.logger.debug("Users with personal dfg: %d", personal_dfg)
+        ### statistics done, the code above could be removed
 
         #
         # Indexing user dict on username instead of entity id
@@ -746,7 +777,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
             if gdata['grp_id'] in groupid2gid:
                 gdata['gidNumber'] = groupid2gid[gdata['grp_id']]
                 gdata['msSFU30Name'] = gname
-                gdata['msSFU30NisDomain'] = 'uio'
+                gdata['msSFU30NisDomain'] = 'kaos'
                 gdata['memberUID'] = groupid2uids.get(gdata['grp_id'], ())
                 i += 1
         self.logger.debug("Number of groups with posix GID: %d", i)
