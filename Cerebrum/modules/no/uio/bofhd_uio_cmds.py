@@ -5379,7 +5379,8 @@ Addresses and settings:
 
         if member_type not in ('group', 'account', 'person', ):
             return 'Unknown member_type "%s"' % (member_type)
-
+        self.ba.can_alter_group(operator.get_entity_id(),
+                                self._get_group(dest_group))
         return self._group_remove(operator, src_name, dest_group,
                                   member_type=member_type)
 
@@ -5391,9 +5392,19 @@ Addresses and settings:
     # group remove
     all_commands['group_remove'] = Command(
         ("group", "remove"), AccountName(help_ref="account_name_member", repeat=True),
-        GroupName(help_ref="group_name_dest", repeat=True),
-        perm_filter='can_alter_group')
+        GroupName(help_ref="group_name_dest", repeat=True))
     def group_remove(self, operator, src_name, dest_group):
+        try:
+            # First, check if this is a user we can set the password
+            # for; if so, we should be allowed to remove this user
+            # from groups, e.g. if we have LITA rights for the account
+            account = self._get_account(src_name)
+            self.ba.can_set_password(operator.get_entity_id(), account)
+        except PermissionDenied, pd:
+            # If that fails; check if we have rights pertaining to the
+            # group in question
+            group = self._get_group(dest_group)
+            self.ba.can_alter_group(operator.get_entity_id(), group)
         return self._group_remove(operator, src_name, dest_group,
                                   member_type="account")
 
@@ -5403,6 +5414,8 @@ Addresses and settings:
         GroupName(help_ref="group_name_dest", repeat=True),
         perm_filter='can_alter_group')
     def group_gremove(self, operator, src_name, dest_group):
+        self.ba.can_alter_group(operator.get_entity_id(),
+                                self._get_group(dest_group))
         return self._group_remove(operator, src_name, dest_group,
                                   member_type="group")
 
@@ -5434,7 +5447,6 @@ Addresses and settings:
         return self._group_remove_entity(operator, src_entity, group_d)
 
     def _group_remove_entity(self, operator, member, group):
-        self.ba.can_alter_group(operator.get_entity_id(), group)
         member_name = self._get_name_from_object(member)
         if not group.has_member(member.entity_id):
             return ("%s isn't a member of %s" %
