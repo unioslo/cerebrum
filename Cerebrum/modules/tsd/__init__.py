@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-#
+# 
 # Copyright 2013 University of Oslo, Norway
 #
 # This file is part of Cerebrum.

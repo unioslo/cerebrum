@@ -26,8 +26,8 @@ Cerebrum's common configuration is mostly put into a local file named:
 
     cereconf.py
 
-To avoid putting too much settings into cereconf, the various Cerebrum modules
-should have their own config files, if they require more than just a few
+To avoid putting too much settings into L{cereconf}, the various Cerebrum
+modules should have their own config files, if they require more than just a few
 configuration variables. Examples are adconf.py and cisconf. Modules with their
 own config settings should then also have their own default config file, which
 should exist in this directory.

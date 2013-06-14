@@ -1,0 +1,2482 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# 
+# Copyright 2011-2013 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+"""Generic module for basic synchronisation with Active Directory.
+
+A synchronisation script must create an instance of such a sync class from this
+file, or an instance' subclass. It should then feed it with configuration
+variables before the synchronisation should start. Example::
+
+  sync = BaseSync.get_class(sync_type)(db, logger)
+  sync.configure(config_args)
+  sync.fullsync() # or: sync.quicksync(change_key)
+
+Subclasses should be made when:
+
+- Active Directory for the instance has extra functionality which requires more
+  than just new attributes. Examples: Exchange, home directories and maybe Lync.
+
+- An instance has special needs which the base sync is not flexible enough to
+  support.
+
+The classes should be designed so that they're easy to subclass and change most
+of its behaviour.
+
+Some terms:
+
+- entity is an account/group/OU or anything else in Cerebrum - this corresponds
+  to an object in AD.
+
+- Entities in quarantine are often referred to as deactivated. In AD is this
+  called disabled.
+
+"""
+
+import time
+import pickle
+
+import cerebrum_path
+import adconf
+
+from Cerebrum.Utils import unicode2str, Factory, dyn_import, sendmail
+from Cerebrum import Entity, Errors
+from Cerebrum.modules import CLHandler
+
+from Cerebrum.modules.ad2.CerebrumData import CerebrumEntity
+from Cerebrum.modules.ad2.CerebrumData import CerebrumUser
+from Cerebrum.modules.ad2.CerebrumData import CerebrumGroup
+from Cerebrum.modules.ad2.CerebrumData import CerebrumDistGroup
+from Cerebrum.modules.ad2 import ADUtils
+from Cerebrum.modules.ad2.winrm import PowershellException
+
+class BaseSync(object):
+    """Class for the generic AD synchronisation functionality.
+
+    All the AD-synchronisation classes should subclass this one.
+
+    The sync's behaviour:
+
+    1. Configuration:
+        - All config is set - subclasses could add more settings.
+        - The config is checked - subclasses could override this.
+    2. At fullsync:
+        - AD is asked to start generating a list of objects
+        - Data from Cerebrum gets cached:
+            - All entities in Cerebrum to sync is listed. Each entity is
+              represented as an instance of L{CerebrumEntity}.
+            - Quarantined entities gets marked as deactive.
+            - Attributes as stored in Cerebrum.
+            - Subclasses could cache more.
+        - Each entity's AD-attributes get calculated.
+        - Process each object retrieved from AD:
+            - Gets ignored if in an OU we should not touch.
+            - Gets removed/disabled in AD if no entity match the object.
+            - If not active in Cerebrum, disable/move object in AD, according to
+              what the config says.
+            - Gets moved to correct OU if put somewhere else, but only if config
+              says so.
+            - Attributes gets compared. Those in AD not equal to Cerebrum gets
+              updated.
+            - Subclasses could add more functionality.
+        - Remaining entities that was not found in AD gets created in AD.
+    3. At quicksync:
+        - TODO
+
+    Subclasses could of course make changes to this behaviour.
+
+    """
+
+    # What class to make an instance of for talking with the AD server:
+    server_class = ADUtils.ADclient
+
+    # List of messages that should be given to the administrators of the AD
+    # domain. Such messages are errors that could not be fixed by Cerebrum's
+    # sysadmins, unless they have admin privileges in the AD domain.
+    _ad_admin_messages = []
+
+    # The required settings. If any of these settings does not exist in the
+    # config for the given AD-sync, an error will be triggered. Note that
+    # subclasses must define their own list for their own settings.
+    settings_required = ('domain', 'server', 'target_type', 'target_ou',
+                         'search_ou')
+
+    # Settings with default values. If any of these settings are not defined in
+    # the config for the given AD-sync, they will instead get their default
+    # value. Note that subclasses must define their own list for their own
+    # values.
+    settings_with_default = (('dryrun', False),
+                             ('target_spread', None),
+                             ('encrypted', True),
+                             ('auth_user', 'cereauth'),
+                             ('domain_admin', 'cerebrum_sync'),
+                             ('move_objects', False),
+                             ('subset', None),
+                             ('ad_admin_message', ()),
+                             ('name_format', '%s'),
+                             ('ignore_ou', ()),
+                             ('create_ous', False),
+                             ('attributes', {}),
+                             ('useraccountcontrol', {}),
+                             # ('first_run', False), # should we support this?
+                             ('encrypted', True),
+                             ('store_sid', False),
+                             ('handle_unknown_objects', ('disable', None)),
+                             ('handle_deactivated_objects', ('disable', None)),
+                             ('language', ('nb', 'nn', 'en')),
+                             # TODO: move these to GroupSync when we have a
+                             # solution for it.
+                             ('group_type', 'security'),
+                             ('group_scope', 'global'),
+                             ('script', {}),
+            )
+
+    # A mapping from the entity_type to the correct externalid_type. Note that
+    # the mapping gets converted to CerebrumConstants at startup.
+    sidtype_map = {'account': 'AD_ACCSID',
+                   'group':   'AD_GRPSID'}
+
+    def __init__(self, db, logger):
+        """Initialize the sync.
+
+        A superclass is connecting to the given AD agent. TODO: or should we
+        only use ADclient directly in this class instead? Depends on how
+        complicated things are getting.
+
+        @type db: Cerebrum.CLDatabase.CLDatabase
+        @param db: The Cerebrum database connection that should be used.
+
+        @type logger: Cerebrum.modules.cerelog.CerebrumLogger
+        @param logger: The Cerebrum logger to use.
+
+        """
+        super(BaseSync, self).__init__()
+
+        self.db = db
+        self.logger = logger
+        self.co = Factory.get("Constants")(self.db)
+        self.ent = Factory.get('Entity')(self.db)
+        self._ent_extid = Entity.EntityExternalId(self.db)
+
+        # Where the sync configuration should go:
+        self.config = dict()
+        # Where the entities to work on should go. Keys should be entity_names:
+        self.entities = dict()
+        # A mapping from entity_id to the entities.
+        self.id2entity = dict()
+        # A mapping from AD-id to the entities. AD-id is per default
+        # SamAccountName.
+        self.adid2entity = dict()
+
+    @classmethod
+    def get_class(cls, sync_type='', classes=None):
+        """Build a synchronisation class out of given class names.
+
+        This works like Factory.get() but you could specify the list of class
+        names yourself. The point of this is to be able to dynamically create a
+        synchronisation class with the features that is needed without having to
+        hardcode it.
+
+        All the given class names gets imported before a new class is created
+        out of them. Note that this class is automatically inherited in the
+        list.
+
+        Note that the order of the classes are important if they are related to
+        each others by subclassing. You can not list class A before subclasses
+        of the class A, as that would mean the subclass won't override any of
+        A's methods. The method would then raise an exception.
+
+        @type sync_type: string
+        @param sync_type: The name of a AD-sync type which should be defined in the
+            AD configuration. If given, the classes defined for the given type
+            will be used for setting up the sync class. This parameter gets
+            ignored if L{classes} is set.
+
+        @type classes: list or tuple
+        @param classes: The names of all the classes that should be used in the
+            sync class. If this is specified, the L{sync_type} parameter gets
+            ignored. Example on classes:
+
+                Cerebrum.modules.ad2.ADSync/UserSync
+                Cerebrum.modules.no.uio.ADSync/UiOUserSync
+
+        """
+        assert classes or sync_type, "Either sync_type or classes needed"
+        if not classes:
+            if sync_type not in adconf.SYNCS:
+                raise Exception('Undefined AD-sync type: %s' % sync_type)
+            conf = adconf.SYNCS[sync_type]
+            classes = conf.get('sync_classes')
+            if not classes:
+                raise Exception('No sync class defined for sync type %s' %
+                                sync_type)
+        bases = []
+        for c in classes:
+            mod_name, class_name = c.split("/", 1)
+            mod = dyn_import(mod_name)
+            claz = getattr(mod, class_name)
+            for override in bases:
+                if issubclass(claz, override):
+                    raise RuntimeError("Class %r should appear earlier in the "
+                            "list, as it's a subclass of class %r." % (claz,
+                                                                      override))
+            bases.append(claz)
+        bases.append(cls)
+        if len(bases) == 1:
+            return bases[0]
+        else:
+            # Dynamically construct a new class that inherits from all the
+            # specified classes:
+            return type('_dynamic_adsync_%s' % sync_type, tuple(bases), {})
+
+    def configure(self, config_args):
+        """Read configuration options from given arguments and config file.
+
+        The configuration is for how the ADsync should behave and work. Could be
+        subclassed to support more settings for subclass functionality.
+
+        Defined basic configuration settings:
+
+        - target_spread: Either a Spread constant or a list of Spread constants.
+          Used to find what entities from Cerebrum to sync with AD.
+
+        - root_ou (string): The root OU that should be searched for objects in
+          AD.
+
+        - target_ou (string): What OU in AD that should be set as the default OU
+          for the objects.
+
+        - handle_unknown_objects: What to do with objects that are not found in
+          Cerebrum. Could either be missing spread, that they're deleted, or if
+          they have never existed in Cerebrum. Entities in quarantine but with
+          the correct target_spread are not affected by this.
+          Values:
+            ('deactivate, None) # Deactivate object. This is the default.
+            ('move', OU)        # Deactivate object and move to a given OU.
+            ('delete', None)    # Delete the object. Can't be restored.
+            # TODO: more alternatives?
+
+        - move_objects (bool): If objects in the wrong OU should be moved to the
+          target_ou, or being left where it is. Other attributes are still
+          updated for the object. Defaults to False.
+
+        - attributes: The attributes to sync. Must be a dict with the name of
+          the attributes as keys and the values is further config for the given
+          attribute. The configuration is different per attribute.
+
+        @type config_args: dict
+        @param config_args: Configuration data that should be set. Overrides any
+            settings that is found from config file (adconf). Unknown keys in
+            the dict is not warned about, as it could be targeted at subclass
+            configuration.
+
+        """
+        # Required settings. Will fail if not defined in the config:
+        for key in self.settings_required:
+            try:
+                self.config[key] = config_args[key]
+            except KeyError, e:
+                raise Exception('Missing required config variable: %s' % key)
+        # Settings which have default values if not set:
+        for key, default in self.settings_with_default:
+            self.config[key] = config_args.get(key, default)
+        # The name of the sync:
+        self.config['sync_type'] = config_args['sync_type']
+        # Spread is changed into the spread constant, if set
+        if self.config['target_spread']:
+            self.config['target_spread'] = self.co.Spread(
+                                                   config_args['target_spread'])
+        # Convert the entity_type into the type constant
+        self.config['target_type'] = self.co.EntityType(
+                                                     self.config['target_type'])
+        # Languages are changed into the integer of their constants
+        self.config['language'] = tuple(int(self.co.LanguageCode(l)) for l in
+                                        self.config['language'])
+        # Change-types are changed into their constants
+        self.config['change_types'] = tuple(self.co.ChangeType(*t) for t in
+                                            config_args.get('change_types', ()))
+        # Set the correct port
+        if config_args.has_key('port'):
+            self.config['port'] = config_args['port']
+        else:
+            self.config['port'] = 5986
+            if not self.config['encrypted']:
+                self.config['port'] = 5985
+
+        # Log if subset is set
+        if self.config['subset']:
+            self.logger.info("Sync will only be run for subset: %s",
+                             self.config['subset'])
+        # Log if in dryrun
+        if self.config['dryrun']:
+            self.logger.info('In dryrun mode, AD will not be updated')
+
+        # Messages for AD-administrators should be logged if the config says so,
+        # or if there are no other options set:
+        self.config['log_ad_admin_messages'] = False
+        if (not self.config['ad_admin_message'] or
+                any(o in (None, 'log') for o in
+                    self.config['ad_admin_message'])):
+            self.config['log_ad_admin_messages'] = True
+
+        if self.config['store_sid']:
+            converted = dict()
+            for e_type, sid_type in self.sidtype_map.iteritems():
+                converted[self.co.EntityType(e_type)] = self.co.EntityExternalId(sid_type)
+            self.sidtype_map = converted
+
+        # Check the config
+        self.config_check()
+        return
+
+        # TODO: move old code to subclasses, or remove it
+
+        # Sync settings for this module
+        for k in ("user_exchange_spread", "forward_sync",
+                  "exchange_sync", 
+                  "create_homedir", "first_run"):
+            if k in config_args:
+                setattr(self, k, config_args.pop(k))
+
+        # Set which attrs that are to be compared with AD
+        if self.exchange_sync:
+            self.sync_attrs += cereconf.AD_EXCHANGE_ATTRIBUTES
+        self.logger.info("Configuration done. Will compare attributes: %s" %
+                         ", ".join(self.sync_attrs))
+
+    def config_check(self):
+        """Check that the basic configuration is okay."""
+        if not isinstance(self.config['ignore_ou'], (tuple, list)):
+            raise Exception("ignore_ou must be list/tuple")
+        if not self.config['target_ou'].endswith(self.config['search_ou']):
+            self.logger.warn('target_ou should be under the search_ou')
+
+        # Check the attributes:
+
+        # Attributes that shouldn't be defined:
+        for n in ('dn', 'Dn', 'sn', 'Sn'):
+            if n in self.config['attributes']:
+                self.logger.warn('Bad attribute defined in config: %s' % n)
+        # Check the case of the attributes. They should all start with an
+        # uppercased letter, to match how the names are returned from AD.
+        for a in self.config['attributes']:
+            if a[0] != a[0].upper():
+                self.logger.warn('Attribute not capitalized: %s' % a)
+            # TODO: match with ADAttributeConstants?
+
+        # The admin message config:
+        for opt in self.config['ad_admin_message']:
+            if opt[0] not in ('mail', 'file', 'log', None):
+                self.logger.warn("Unknown option in ad_admin_message: %s", opt)
+            if opt[1] not in ('error', 'warning', 'info', 'debug'):
+                self.logger.warn("Unknown level in ad_admin_message: %s", opt)
+            # some ways 
+            if opt[0] in ('mail', 'file'):
+                if len(opt) <= 2:
+                    self.logger.warn("Missing setting in ad_admin_message: %s",
+                                     opt)
+
+        # The name_format must include the %s for the entity_name to be put in:
+        if '%s' not in self.config.get('name_format', '%s'):
+            self.logger.warn("Missing '%s' in name_format, name not included")
+
+        for handl in ('handle_unknown_objects', 'handle_deactivated_objects'):
+            var = self.config[handl]
+            if var[0] not in ('ignore', 'disable', 'move', 'delete'):
+                raise Exception("Bad configuration of %s - set to: %s" % (handl,
+                                                                          var))
+
+        # Check that all the defined change_types exists:
+        for change_type in self.config.get('change_types', ()):
+            int(change_type)
+
+        # TODO: add more checks here
+
+        # TODO: move the instantiation of the server to somewhere else!
+        self.setup_server()
+
+    def setup_server(self):
+        """Instantiate the server class to use for WinRM."""
+        self.server = self.server_class(logger=self.logger,
+                              host=self.config['server'], 
+                              port=self.config.get('port'),
+                              auth_user=self.config.get('auth_user'),
+                              domain_admin=self.config.get('domain_admin'),
+                              encrypted=self.config.get('encrypted', True),
+                              dryrun=self.config['dryrun'])
+
+    def add_admin_message(self, level, msg):
+        """Add a message to be given to the administrators of the AD domain.
+
+        The messages should at the end be given to the administrators according
+        to what the confiuration says.
+
+        @type level: string
+        # TODO: make use of log constants instead?
+        @param level: The level of the given message to log. Used to separate
+            out what messages that should be given to the AD-administrators and
+            not.
+
+        @type msg: string
+        @param msg: The message that should be logged. Must not contain
+            sensitive data, like passwords, as it could be sent by mail.
+
+        """
+        self.logger.info("AD-message: %s: %s", level, msg)
+        self._ad_admin_messages.append((level, msg))
+        if self.config['log_ad_admin_messages']:
+            func = getattr(self.logger, level)
+            func(msg)
+
+    def send_ad_admin_messages(self):
+        """Send the messages for the AD-administrators, if any.
+
+        The way the messages should be sent is decided by the configuration.
+
+        """
+        if not self._ad_admin_messages:
+            self.logger.debug("No AD-admin messages to send")
+            return
+        self.logger.debug('Found %d AD-admin messages to send',
+                          len(self._ad_admin_messages))
+        txt = '\n'.join('%s: %s' % (x[0].upper(), unicode2str(x[1])) for x in
+                        self._ad_admin_messages)
+        for opt in self.config['ad_admin_message']:
+            if opt[0] in (None, 'log'):
+                # Messages already logged when added.
+                pass
+            elif opt[0] == 'mail':
+                for address in opt[2:]:
+                    self.logger.info("Sending %d messages to %s",
+                                     len(self._ad_admin_messages), address)
+                    try:
+                        sendmail(address, 'cerebrum@usit.uio.no',
+                                 'AD-sync messages for %s at %s' % (
+                                     self.config['sync_type'],
+                                     self.config['domain']),
+                                 txt, charset='utf-8',
+                                 debug=self.config['dryrun'])
+                    except Exception, e:
+                        self.logger.warn("Error sending AD-messages to %s: %s",
+                                         address, e)
+            elif opt[0] == 'file':
+                self.logger.warn("Sending AD-admin messages to file not implemented")
+                # TODO
+            else:
+                self.logger.warn("Unknown way to send AD-messages: %s" % opt)
+        self._ad_admin_messages = []
+        self.logger.debug('Sending AD-admin messages done...')
+
+    def fullsync(self):
+        """Do the fullsync by comparing AD with Cerebrum and then update AD.
+
+        In subclasses, you should rather override the methods that this method
+        calls instead of overriding all of this method, unless you of course
+        want to do the fullsync completely different.
+
+        """
+        self.logger.info("Fullsync started")
+        ad_cmdid = self.start_fetch_ad_data()
+        self.logger.debug("Fetching cerebrum data...")
+        self.fetch_cerebrum_data()
+        self.logger.debug("Calculate AD values...")
+        self.calculate_ad_values()
+        self.logger.debug("Process AD data...")
+        self.process_ad_data(ad_cmdid)
+        self.logger.debug("Process entities not in AD...")
+        self.process_entities_not_in_ad()
+        self.logger.debug("Post-sync processing...")
+        self.post_process()
+        self.logger.info('Fullsync done')
+        self.send_ad_admin_messages()
+        # TODO: not sure if this is the place to put this, but we must close
+        # down connections on the server side:
+        self.server.close()
+
+    def quicksync(self, changekey):
+        """Do a quicksync, by sending the latest changes to AD.
+
+        Subclasses should rather override the methods that this method calls
+        instead of overring all of this method, as that is easier. Unless, of
+        course, you want to completely rewrite the behaviour of the quicksync.
+
+        The quicksync is going through L{change_log} for new events that has not
+        been marked as commited by the given L{changekey}. The list is processed
+        in reverse, so that equeal events are only processed once.
+
+        @type changekey: string
+        @param changekey: The change-log key to mark the events as commited or
+            not. Must be unique per job, unless you're in for race conditions
+            and skipped events.
+
+        """
+        self.logger.info("Quicksync started")
+        cl = CLHandler.CLHandler(self.db)
+        changetypes = self.config['change_types']
+        already_handled = set()
+        # TODO: for debugging only, remove hardcoded date when done testing!
+        too_old = int(time.mktime(time.strptime('20120301', '%Y%m%d')))
+        #for row in reversed(cl.get_events(changekey, changetypes)):
+        # TODO: change to reverse when done testing - it's quicker
+        for row in cl.get_events(changekey, changetypes):
+            if int(row['change_type_id']) not in changetypes:
+                # TODO: Shouldn't happen - remove this check?
+                self.logger.warn("Unknown change_type_id %i" %
+                                   row['change_type_id'])
+                cl.confirm_event(row)
+                continue
+
+            # TODO: check if row['tstamp'] is too old - ignore old ones when in
+            # test
+            # TODO: remove when done testing - or set as an input setting?
+            if int(row['tstamp']) < too_old:
+                # skip too old changes
+                continue
+
+
+            tag = '%d:%d' % (row['subject_entity'], row['change_type_id'])
+            if tag in already_handled:
+                # TODO: should this be up to the handlers instead? There might
+                # be some changes that we want to be able to rerun.
+                self.logger.debug("Entity %s already handled (change_type %s)",
+                                  row['subject_entity'], row['change_type_id'])
+                cl.confirm_event(row)
+                continue
+            already_handled.add(tag)
+            # TODO: split up the input variables?
+            if self.process_cl_event(row):
+                cl.confirm_event(row)
+            # TODO: put it inside on a try..except later, when done testing -
+            # would then avoid that a small problem blocks for all changes!
+            if not self.config['dryrun']:
+                cl.commit_confirmations()
+        if not self.config['dryrun']:
+            cl.commit_confirmations()
+            self.logger.info("Commited events for changekey: %s", changekey)
+        self.logger.info("Quicksync done")
+        self.send_ad_admin_messages()
+
+    def process_cl_event(self, row):
+        """Process a given event by calling the change type's handler. The
+        handlers must be methods in the class with the name format:
+
+            changelog_handle_<category>(self, changetype, db-row)
+
+        If such a method exists, it gets called. If it doesn't exist, it's
+        logged as a warning and it returns False, so it could be redone when the
+        error is fixed. Log changes that shouldn't be handled should not be put
+        in adconf.SYNCS[<sync_type>][change_types].
+
+        @type row: dict of db-row
+        @param row: A db-row, as returned from L{changelog.get_events()}. This
+            is the row that should be processed.
+
+        @rtype: bool
+        @return: The result from the handler. Should be True if the sync
+            succeeded or there was no need for the change to be synced, i.e. the
+            log change could be confirmed. Should only return False if the
+            change needs to be redone.
+
+        """
+        ctype = self.co.ChangeType(int(row['change_type_id']))
+        func_name = 'changelog_handle_%s' % (ctype.category,)
+        method = getattr(self, func_name, None)
+        # TODO: if want to get entity and print out name, use
+        # cereconf.ENTITY_TYPE_NAMESPACE.
+        if not method:
+            self.logger.warn("No handler for changelog category: %s", func_name)
+            return False
+        self.logger.debug("Processing log change %s:%s for entity %s",
+                          ctype.category, ctype.type, row['subject_entity'])
+        return method(ctype, row)
+
+    def fetch_cerebrum_data(self):
+        """Get basic data from Cerebrum.
+
+        Subclasses could extend this by getting more information from Cerebrum.
+
+        should first populate L{self.entitites} with the entities
+        data, before calling this method from this superclass. This is because
+        this class does not populate the dict, but updates only the existing
+        entities with basic data, like quarantines.
+
+        """
+        self.fetch_cerebrum_entities()
+        self.logger.debug("Fetched %d cerebrum entities" % len(self.entities))
+        # Make a mapping from entity_id to the entity:
+        self.id2entity = dict((self.entities[e].entity_id, self.entities[e])
+                              for e in self.entities)
+        # Make a mapping from entity_name to the entity:
+        self.name2entity = dict((self.entities[e].entity_name, self.entities[e])
+                              for e in self.entities)
+        # Make a mapping from ad_id to the entity:
+        self.adid2entity = dict((self.entities[e].ad_id, self.entities[e])
+                                for e in self.entities)
+        if len(self.entities) != len(self.adid2entity):
+            self.logger.warn("Mismatch in mapping of ad_id -> entity_id")
+        self.fetch_quarantines()
+        self.fetch_attributes()
+        if self.config['store_sid']:
+            self.fetch_sids()
+
+    def fetch_cerebrum_entities(self):
+        """Get and cache all the entities from Cerebrum.
+
+        This method MUST be created by the subclasses, to get the proper
+        entities to synchronize with AD.
+
+        """
+        raise Exception('Must be defined in the proper subclass')
+
+    def fetch_quarantines(self):
+        """Get all quarantines from Cerebrum and update L{self.entities} with
+        this. Called after the entities should have been retrieved from
+        Cerebrum, so all in quarantine gets tagged as deactivated.
+
+        """
+        self.logger.debug("...fetch quarantines")
+        # TODO: is it okay to make use of the EntityQuarantine class like this?
+        # Or is it okay to add EntityQuarantine to cereconf.CLASS_ENTITY, so we
+        # could get it from Factory.get('Entity') instead? We could then ignore
+        # deactivation for those instances which doesn't use quarantines.
+        ent = Entity.EntityQuarantine(self.db)
+
+        # Limit the search to the entity_type the target_spread is meant for:
+        target_type = self.config['target_type']
+
+        i = 0
+        for row in ent.list_entity_quarantines(only_active=True,
+                                               entity_types=target_type):
+            found = self.id2entity.get(int(row['entity_id']))
+            if found:
+                found.active = False
+                i += 1
+        self.logger.debug("Flagged %d entities as deactivated" % i)
+
+    def fetch_attributes(self):
+        """Get all AD attributes stored in Cerebrum and add them to the cached
+        entities.
+
+        """
+        self.logger.debug("...fetch attributes")
+        i = 0
+        # TODO: fetch only the attributes defined in config - would be faster
+        for row in self.ent.list_ad_attributes(spread=self.config['target_spread']):
+            # TODO: is co caching such attributes? if not, we should prefetch
+            # it, or make the new list method support fetching it:
+            attr = self.co.ADAttribute(int(row['attr_code']))
+            if str(attr) not in self.config['attributes']:
+                continue
+            e = self.id2entity.get(row['entity_id'], None)
+            if e:
+                if attr.multivalued:
+                    e.attribues.setdefault(str(attr), []).append(row['value'])
+                else:
+                    e.attributes[str(attr)] = row['value']
+                i += 1
+        self.logger.debug("Fetched %d attributes from Cerebrum" % i)
+
+    def fetch_sids(self):
+        """Get all SIDs stored in Cerebrum and add them to the cached entities.
+
+        Security ID, or SID, is the identifier for objects in AD with
+        privileges. Privileges could be set for Users, Groups, Computers and
+        probably other object types. The SID is readonly, and is automatically
+        set when the object is created. At some instances, we want to store the
+        SID for security reasons (auditing).
+
+        A SID can not be reused, so when an object is deleted and recreated, it
+        gets a new SID, and thus also all its presiously set privileges.
+
+        TODO: how should SID be stored? We should connect it to spreads, as the
+        object could have a different SID in the different AD domains, so we
+        can't just be able to store one. It looks we have to store it in the
+        table with other AD attributes and don't write it back to AD, as it's
+        readonly.
+
+        """
+        self.logger.debug("...fetch SIDs")
+        en = Entity.EntityExternalId(self.db)
+        id_type = self.co.EntityExternalId(
+                            self.sidtype_map[self.config['target_type']])
+        i = 0
+        for row in en.list_external_ids(source_system=self.co.system_ad,
+                                        id_type=id_type):
+            # TODO: how should we get it per spread?
+            e = self.id2entity.get(row['entity_id'], None)
+            if e:
+                e.sid = row['external_id']
+                i += 1
+        self.logger.debug("Fetched %d SIDs from Cerebrum" % i)
+
+    def calculate_ad_values(self):
+        """Use Cerebrum data to calculate the needed attributes.
+
+        """
+        for ent in self.entities.itervalues():
+            ent.calculate_ad_values() # exchange=self.exchange_sync)
+
+    def cache_entity(self, entity_id, entity_name):
+        """Wrapper method for creating a cache object for an entity. 
+        
+        You should call this method for new cache objects instead of creating it
+        directly, for easier subclassing.
+
+        """
+        return CerebrumEntity(self.logger, self.config, entity_id, entity_name)
+
+    def start_fetch_ad_data(self, object_type=None, attributes=dict()):
+        """Send request(s) to AD to start generating the data we need.
+
+        Could be subclassed to get more/other data.
+
+        @type object_type: Constant of EntityTypeCode
+        @param object_type: The type of objects that should be returned from AD.
+            If not set, the value in L{config['target_type']} is used.
+
+        @type attributes: list
+        @param attributes: Extra attributes that should be retrieved from AD.
+            The attributes defined in the config is already set.
+
+        @rtype: string
+        @return: A CommandId that is the servere reference to later get the data
+            that has been generated.
+
+        """
+        if not object_type:
+            object_type = self.config['target_type']
+        attrs = self.config['attributes'].copy()
+        self.logger.debug2("Want to fetch the AD-attrs: %s", ', '.join(attrs))
+        if attributes:
+            attrs.update(attributes)
+        # Some attributes are readonly, so they shouldn't be put in the list,
+        # but we still need to receive them if they are used, like the SID.
+        if self.config['store_sid'] and 'SID' not in attrs:
+            attrs['SID'] = None
+        return self.server.start_list_objects(ou = self.config['search_ou'],
+                                              attributes = attrs,
+                                              object_type = object_type)
+
+    def process_ad_data(self, commandid):
+        """Start processing the data from AD. Each object from AD is sent
+        through L{process_ad_object} for further processing.
+
+        @type commandid: tuple
+        @param commandid: The CommandId for the command that has been executed
+            on the server to generate a list of objects.
+
+        @raise PowershellException: For instance OUUnknownException if the given
+            OU to search in does not exist.
+
+        """
+        i = 0
+        for ad_object in self.server.get_list_objects(commandid):
+            if i == 0:
+                self.logger.debug2("Retrieved attributes: %s", ad_object.keys())
+            try:
+                self.process_ad_object(ad_object)
+            except ADUtils.NoAccessException, e:
+                # Access errors could be given to the AD administrators, as
+                # Cerebrum are not allowed to fix such issues.
+                self.add_admin_message('warning',
+                                       'Missing access rights for %s: %s' % (
+                                       ad_object['DistinguishedName'], e))
+                # TODO: do we need to strip out data from the exceptions? Could
+                # it for instance contain passwords?
+            except PowershellException, e:
+                self.logger.warn("PowershellException for %s: %s",
+                                 ad_object['DistinguishedName'], e)
+            else:
+                i += 1
+        self.logger.debug("Received and processed %d objects from AD" % i)
+        return i
+
+    def process_ad_object(self, ad_object):
+        """Compare an AD-object with Cerebrum and update AD with differences.
+
+        Basic functionality for what to do with an object, compared to what is
+        stored in Cerebrum. Could be subclassed to add more functionality. This
+        command is called both when updating existing objects, but also if an
+        entity didn't exist in AD and just got created.
+
+        @type ad_object: dict
+        @param ad_object: A dict with information about the AD object from AD.
+            The dict contains mostly the object's attributes.
+
+        """
+        name = ad_object['SamAccountName']
+        dn = ad_object['DistinguishedName']
+
+        # TODO: remove when done debugging UAC
+        # TODO XXX
+        #if 'UserAccountControl' in ad_object:
+        #    self.logger.debug("For %s UAC: %s" % (name,
+        #                      ad_object['UserAccountControl']))
+
+        ent = self.adid2entity.get(name)
+        if ent:
+            ent.in_ad = True
+            ent.ad_data['dn'] = dn
+
+        # Don't touch others than from the subset, if set:
+        if self.config.get('subset'):
+            # Convert names to comply with 'name_format':
+            format = self.config.get('name_format', '%s')
+            if name not in (format % s for s in self.config['subset']):
+                #self.logger.debug("Ignoring due to subset: %s", name)
+                return
+
+        # Don't touch those in OUs we should ignore:
+        if any(dn.endswith(ou) for ou in self.config.get('ignore_ou', ())):
+            self.logger.debug('Object in ignore_ou: %s' % dn)
+            return
+
+        # If not found in Cerebrum, remove the object (according to config):
+        if not ent:
+            self.logger.debug2("Unknown object %s - %s" % (name, ad_object))
+            self.downgrade_object(ad_object,
+                                       self.config.get('handle_unknown_objects',
+                                                       ('disable', None)))
+            return
+
+        # If not active in Cerebrum, do something (according to config):
+        if not ent.active:
+            self.downgrade_object(ad_object,
+                                  self.config['handle_deactivated_objects'])
+        else:
+            if not ad_object.get('Enabled', True):
+                # TODO: move this to its own method in this class, to be able to
+                # modify the behaviour in subclasses.
+                self.server.enable_object(dn)
+        if self.config['move_objects']:
+            self.move_object(ad_object, ent.ou)
+            # TODO: Update the DistinguishedName in the dict?
+            # obj['DistinguishedName'] = '%s,%s' % (obj['DistinguishedName'].split(',')[0],
+            #                                       ent.ou)
+
+        # Compare attributes:
+        self.compare_attributes(ent, ad_object)
+        if ent.changes:
+            self.server.update_attributes(dn, ent.changes['attributes'],
+                                          ad_object)
+        # Store SID in Cerebrum
+        self.store_sid(ent, ad_object['SID'])
+
+    def compare_attributes(self, ent, ad_object):
+        """Compare entity's attributes between Cerebrum and AD.
+
+        If the attributes exists in both places, it should be updated if it
+        doesn't match. If it only exists
+
+        The changes gets appended to the entity's change list for further
+        processing.
+
+        """
+        for atr in self.config['attributes']:
+            self.compare_attribute(ent, atr,
+                                   ent.attributes.get(atr, None),
+                                   ad_object.get(atr, None))
+
+    def compare_attribute(self, ent, atr, c, a):
+        """Compare an attribute between Cerebrum and AD and mark for update.
+        """
+        # TODO: Some attributes are special, should they be checked for and
+        #       ignored here?
+        # TODO: Multivalued attributes, how should we compare them?
+        # TODO: Should we care about case sensitivity?
+
+        # We can't get None values from AD (yet), so ignore the cases where an
+        # attribute is None in Cerebrum and an empty string in AD:
+        if c is None and a == '':
+            return
+        # TODO: Should we ignore attributes with extra spaces? AD converts
+        # double spaces into single spaces, e.g. GivenName='First  Last' becomes
+        # in AD 'First Last'. This is issues that should be fixed in the source
+        # system, but the error will make the sync update the attribute
+        # constantly and make the sync slower.
+        if c != a:
+            self.logger.debug("Attr %s doesn't match for %s: %s -> %s", atr,
+                              ent.entity_name, a, c)
+            ent.changes.setdefault('attributes', {})[atr] = c
+
+        #else:
+        #    if c and a:
+        #        # value both in ad and cerebrum => compare
+        #        result = self.attr_cmp(cb_attr, ad_attr)
+        #        # Special case: Change name of AD user object?
+        #        if attr == "cn" and result:
+        #            cb_cn = "CN=" + cb_attrs["cn"] 
+        #            self.rename_object(dn, self.get_ou(dn), cb_cn)
+        #            dn = "%s,%s" % (cb_cn, self.get_ou(dn))
+        #        # Normal cases
+        #        elif result: 
+        #            self.logger.debug("Changing attr %s from %s to %s",
+        #                              attr, unicode2str(ad_attr),
+        #                              unicode2str(cb_attr))
+        #            cb_user.add_change(attr, result)
+        #    elif cb_attr:
+        #        # attribute is not in AD and cerebrum value is set => update AD
+        #        cb_user.add_change(attr, cb_attr)
+        #    elif ad_attr:
+        #        # value only in ad => delete value in ad
+        #        # TBD: is this correct behavior?
+        #        cb_user.add_change(attr,"")
+
+    #def attr_cmp(self, cb_attr, ad_attr):
+    #    """
+    #    Compare new (attribute calculated from Cerebrum data) and old
+    #    ad attribute. 
+
+    #    @param cb_attr: attribute calculated from Cerebrum data
+    #    @type cb_attr: unicode, list or tuple
+    #    @param ad_attr: Attribute fetched from AD
+    #    @type ad_attr: list || unicode || str
+    #    
+    #    @rtype: cb_attr or None
+    #    @return: cb_attr if attributes differ. None if no difference or
+    #    comparison cannot be made.
+    #    """
+    #    # Sometimes attrs from ad are put in a list
+    #    if isinstance(ad_attr, (list, tuple)) and len(ad_attr) == 1:
+    #        ad_attr = ad_attr[0]
+    #    
+    #    # Handle list, tuples and (unicode) strings
+    #    if isinstance(cb_attr, (list, tuple)):
+    #        cb_attr = list(cb_attr)
+    #        # if cb_attr is a list, make sure ad_attr is a list 
+    #        if not isinstance(ad_attr, (list, tuple)):
+    #            ad_attr = [ad_attr]
+    #        cb_attr.sort()
+    #        ad_attr.sort()
+
+    #    # Now we can compare the attrs
+    #    if isinstance(ad_attr, (str, unicode)) and isinstance(cb_attr, (str, unicode)):
+    #        # Don't care about case
+    #        if cb_attr.lower() != ad_attr.lower():
+    #            return cb_attr
+    #    else:
+    #        if cb_attr != ad_attr:
+    #            return cb_attr
+
+    def changelog_handle_spread(self, ctype, row):
+        """Handler for changelog events of category 'spread'.
+
+        Syncs new changes that affects the spread and its entity. Example on
+        change types in this category: add and delete. Not all types might be
+        respected, but subclasses could override this.
+
+        """
+        en = Entity.EntityName(self.db)
+        #self.ent.clear()
+        try:
+            en.find(row['subject_entity'])
+            #self.ent.find(row['subject_entity'])
+        except Errors.NotFoundError, e:
+            self.logger.warn("Could not find entity: %s. Check if entity is nuked." %
+                             row['subject_entity'])
+            # TODO: ignore this? Are there other reasons than race conditions
+            # when the entity is nuked from the database?
+
+            # TODO: send a downgrade request about the object? Or should we
+            # trust the fullsync to do this?
+            return False
+
+        # TODO: check the spread type - all other spreads than the target spread
+        # gets ignored.
+
+        if ctype == 'add':
+            # TODO: create or recreate the object
+            pass
+        elif ctype == 'delete':
+            # TODO: downgrade the object
+            pass
+        else:
+            raise Exception('Unknown spread changetype %s for entity %s' % (
+                            ctype, row['subject_entity']))
+        return False
+
+    def changelog_handle_quarantine(self, ctype, row):
+        """Handler for changelog events of category 'quarantine'.
+
+        Syncs new changes that affects the quarantine's entity. Example on
+        change types in this category: add, refresh, mod and del. Not all types
+        might be respected, but subclasses could override this.
+
+        """
+        en = Entity.EntityName(self.db)
+        try:
+            en.find(row['subject_entity'])
+        except Errors.NotFoundError, e:
+            self.logger.warn("Could not find entity: %s. Check if entity is nuked." %
+                             row['subject_entity'])
+            # TODO: ignore this? Are there other reasons than race conditions
+            # when the entity is nuked from the database?
+
+            # TODO: send a downgrade request about the object? Or should we
+            # trust the fullsync to do this?
+            return False
+
+        # TODO: Check if entity is still in quarantine or not.
+        is_quarantined = True
+        if ctype == 'add' and is_quarantined:
+            # TODO: downgrade object
+            return False
+        elif ctype == 'del' and not is_quarantined:
+            # TODO: activate object
+            return False
+        # Other change types doesn't say if the entity got quarantined or not,
+        # so have to update it in AD anyway.
+        if is_quarantined:
+            # TODO: downgrade object
+            return False
+        else:
+            # TODO: activate object
+            return False
+        return False
+
+    def changelog_handle_ad_attr(self, ctype, row):
+        """Handler for changelog events of category 'ad_attr'.
+
+        Syncs new changes that affects the attribute and its entity. Example on
+        change types in this category: add and del. Not all types might be
+        respected, but subclasses could override this.
+
+        """
+        # TODO: check if the updated attribute is defined in the config. Ignore
+        # if not.
+
+        en = Entity.EntityName(self.db)
+        try:
+            en.find(row['subject_entity'])
+        except Errors.NotFoundError, e:
+            self.logger.warn("Could not find entity: %s. Check if entity is nuked." %
+                             row['subject_entity'])
+            # TODO: ignore this? Are there other reasons than race conditions
+            # when the entity is nuked from the database?
+
+            # TODO: send a downgrade request about the object? Or should we
+            # trust the fullsync to do this?
+            return False
+
+        # TODO: update attribute(s)
+
+        # TODO
+        self.logger.warn("change log ad_attr handle not implemented")
+        return False
+
+    def process_entities_not_in_ad(self):
+        """Go through entities that wasn't processed while going through AD.
+
+        This could mean that either the entity doesn't exist in AD and should be
+        created, or that the object is in an OU that we are not processing.
+
+        The entities should probably be created in AD, but that is up to a
+        subclass to decide.
+
+        """
+        # Do a count of how many it is, for debuggin
+        self.logger.debug("Found %d entities not found in AD",
+                          len(filter(lambda x: not x.in_ad,
+                                     self.entities.itervalues())))
+        i = 0
+        for ent in self.entities.itervalues():
+            if ent.in_ad:
+                continue
+            try:
+                self.process_entity_not_in_ad(ent)
+            except ADUtils.NoAccessException, e:
+                # Access errors should be sent to the AD administrators, as
+                # Cerebrum can not fix this.
+                self.add_admin_message('warning',
+                                       'Missing access rights for %s: %s' % (
+                                       ent.ad_id, e))
+            except PowershellException, e:
+                self.logger.warn("PowershellException for %s: %s",
+                                 ent.entity_name, e)
+            else:
+                i += 1
+        self.logger.debug('Successfully processed %d entities not in AD' % i)
+
+    def process_entity_not_in_ad(self, ent):
+        """Process an entity that doesn't exist in AD, yet.
+
+        The entity should be created in AD if active, and should then be updated
+        as other, already existing objects.
+        
+        @type: CerebrumEntity
+        @param: An object representing an entity in Cerebrum.
+
+        """
+        if not ent.active:
+            if self.config['handle_deactivated_objects'][0] == 'delete':
+                self.logger.debug("Inactive entity ignored: %s",
+                                  ent.entity_name)
+                return
+            else:
+                self.logger.debug("Not in AD, and also not active: %s",
+                                  ent.entity_name)
+        try:
+            obj = self.create_object(ent)
+            ent.ad_new = True
+        except ADUtils.OUUnknownException, e:
+            self.logger.info("OU was not found: %s", self.config['target_ou'])
+            if not self.config['create_ous']:
+                raise e
+            ou_name, path = self.config['target_ou'].split(',', 1)
+            # TODO: we should probably have helper method for getting data out
+            # of paths and OUs
+            ou_name = ou_name.replace('OU=', '')
+            ou_obj = self.server.create_object(ou_name, path,
+                                               object_type=self.co.entity_ou)
+            # Then retry creating the object:
+            obj = self.create_object(ent)
+            ent.ad_new = True
+        except ADUtils.ObjectAlreadyExistsException, e:
+            # It exists in AD, but is probably somewhere out of our search_base.
+            # Will try to get it, so we could still update it, and maybe even
+            # move it to the correct OU.
+            self.logger.info("Entity already exists: %s", ent.entity_name)
+            attrs = self.config['attributes'].copy()
+            if self.config['store_sid'] and 'SID' not in attrs:
+                attrs['SID'] = None
+            obj = self.server.get_object(ent.ad_id,
+                                         object_type=self.config['target_type'],
+                                         attributes=attrs)
+        # TODO: if commands should be executed for the new object now, we should
+        # control what DC we connect to. The alternative is to sleep 5 seconds
+        # before continuing, which slow the sync too much!
+
+        if ent.ad_new:
+            #if ent.ad_new and not self.config['dryrun']:
+            #    self.logger.info("Sleeping, wait for AD to sync the controllers...")
+            #    time.sleep(5)
+            self.script('new_object', obj, ent)
+        return obj
+
+    def create_object(self, ent, **parameters):
+        """Create a given entity in AD.
+
+        This is talking with the AD client to create the object properly. You
+        should subclass this to e.g. add extra parameters to the creation.
+
+        @type ent: CerebrumEntity
+        @param ent: The entity that should be created in AD.
+
+        @type **parameters: mixed
+        @param **parameters: Extra data that should be sent to AD when creating
+            the object.
+
+        @raise ObjectAlreadyExistsException: If an object with the same name or
+            id existed in AD already.
+
+        """
+        # TODO: check if users get "Enabled" when this happens?
+        return self.server.create_object(ent.ad_id,
+                                         ent.ou,
+                                         object_type=self.config['target_type'],
+                                         attributes=ent.attributes,
+                                         parameters=parameters)
+
+    def downgrade_object(self, ad_object, action):
+        """Do a downgrade of an object in AD. 
+        
+        The object could for instance be unknown in Cerebrum, or be inactive.
+        The AD-object could then be disabled, moved and/or deleted, depending on
+        the setting. The configuration says what should be done with such
+        objects, as it could be disabled, moved, deleted or something else.
+
+        @type ad_object: dict
+        @param: The data about the AD-object to downgrade.
+
+        @type action: tuple
+        @param action: A two-element tuple, where the first element is a string,
+            e.g. 'ignore', 'delete', 'move' or 'disable'. The second element
+            contains extra information, e.g. to what OU the object should be
+            moved to.
+
+        """
+        dn = ad_object['DistinguishedName']
+        #conf = self.config.get('handle_unknown_objects', ('disable', None))
+        if action[0] == 'ignore':
+            # Do nothing
+            return
+        elif action[0] == 'disable':
+            # TODO: note that this only works for accounts!
+            if ad_object.get('Enabled') == 'False':
+                return # already disabled
+            self.server.disable_object(dn)
+            self.script('disable_object', ad_object)
+        elif action[0] == 'move':
+            if ad_object.get('Enabled') != 'False':
+                self.server.disable_object(dn)
+                self.script('disable_object', ad_object)
+            if not dn.endswith(action[1]):
+                # TODO: test if this works as expected!
+                self.move_object(ad_object, action[1])
+            return True
+        elif action[0] == 'delete':
+            # TODO: danger, this should be tested more carefully!
+            self.server.delete_object(dn)
+            self.script('delete_object', ad_object)
+        else:
+            raise Exception("Unknown config for downgrading object %s: %s",
+                            ad_object.get('Name'), action)
+
+    def move_object(self, ad_object, ou):
+        """Move a given object to the given OU.
+
+        It is first checked for if it's already in the correct OU.
+
+        @type ad_object: dict
+        @param ad_object: The object as retrieved from AD.
+
+        @type ou: string
+        @param ou: The full DN of the OU the object should be moved to.
+
+        """
+        dn = ad_object['DistinguishedName']
+        if dn.endswith(ou):
+            return # Already in the correct location
+        try:
+            self.server.move_object(dn, ou)
+        except ADUtils.OUUnknownException:
+            if self.config['create_ous']:
+                ou_name, path = ou.split(',', 1)
+                ou_name = ou_name.replace('OU=', '')
+                self.server.create_object(ou_name, path,
+                                          object_type=self.co.entity_ou)
+                self.server.move_object(dn, ou)
+            else:
+                raise
+        self.script('move_object', ad_object, move_from=dn, move_to=ou)
+        # TODO: update the ad_object with the new dn?
+
+    def post_process(self):
+        """Hock for things to do after the sync has finished.
+
+        This could be used by subclasses to add more functionality to the sync.
+        For example could a subclass run commands for objects that got updated.
+
+        """
+        pass
+
+    def _old_compare_forwards(self, ad_contacts):
+        # TODO: Move this to somewhere else?
+        """
+        Compare forward objects from AD with forward info in Cerebrum.
+
+        @param ad_contacts: a dict of dicts wich maps contact obects
+                            name to that objects properties (dict)
+        @type ad_contacts: dict
+        """
+        for acc in self.accounts.itervalues():
+            for contact in acc.contact_objects:
+                cb_fwd = contact.forward_attrs
+                ad_fwd = ad_contacts.pop(cb_fwd['sAMAccountName'], None)
+                if not ad_fwd:
+                    # Create AD contact object
+                    self.create_ad_contact(cb_fwd, self.default_ou)
+                    continue
+                # contact object is in AD and Cerebrum -> compare OU
+                # TBD: should OU's be compared?
+                ou = cereconf.AD_CONTACT_OU
+                cb_dn = 'CN=%s,%s' % (cb_fwd['sAMAccountName'], ou)
+                if ad_fwd['distinguishedName'] != cb_dn:
+                    self.move_contact(cb_dn, ou)
+
+                # Compare other attributes
+                for attr_type, cb_fwd_attr in fwd.iteritems():
+                    ad_fwd_attr = ad_fwd.get(attr_type)
+                    if cb_fwd_attr and ad_fwd_attr:
+                        # value both in ad and cerebrum => compare
+                        result = self.attr_cmp(cb_fwd_attr, ad_fwd_attr)
+                        if result: 
+                            self.logger.debug("Changing attr %s from %s to %s",
+                                              attr, unicode2str(ad_fwd_attr),
+                                              unicode2str(cb_fwd_attr))
+                            cb_user.add_change(attr, result)
+                    elif cb_fwd_attr:
+                        # attribute is not in AD and cerebrum value is set => update AD
+                        cb_user.add_change(attr, cb_fwd_attr)
+                    elif ad_fwd_attr:
+                        # value only in ad => delete value in ad
+                        # TBD: is this correct behavior?
+                        cb_user.add_change(attr,"")
+
+            # Remaining contacts in AD should be deleted
+            for ad_fwd in ad_contacts.itervalues():
+                self.delete_contact()
+
+    def store_sid(self, ent, sid):
+        """Store the SID for an entity as an external ID in Cerebrum.
+        
+        @type ent: CerebrumEntity
+        @param ent: The object of the Cerebrum entity for which the SID should
+            be stored.
+
+        @type sid: string
+        @param sid: The SID from AD which should be stored.
+
+        """
+        if not self.config['store_sid']:
+            return
+        if getattr(ent, 'sid', '') == sid:
+            return
+        self.logger.info("Storing SID for entity %s: %s", ent.entity_id, sid)
+        en = self._ent_extid
+        en.clear()
+        en.find(ent.entity_id)
+        # Since external_id only works for one type of entities, we need to find
+        # out which external_id type to store the SID as:
+        sid_type = self.sidtype_map[en.entity_type]
+        en.affect_external_id(self.co.system_ad, sid_type)
+        en.populate_external_id(self.co.system_ad, sid_type, sid)
+        en.write_db()
+
+    def script(self, action, ad_object=None, ent=None, **extra):
+        """Check if a script of a given type is defined and execute it.
+
+        The scripts have to be set up by the AD administrators, Cerebrum has
+        only the responsibility to fire them up.
+
+        @type action: string
+        @param action: The type of event that has occured, and which could be
+            triggering a script to be executed. The script location is found in
+            the config.
+
+        @type ad_object: dict
+        @param ad_object: The data about the object to be targeted by the
+            script.
+
+        @type ent: CerebrumEntity
+        @param ent: The entity that is targeted by the script. Not always
+            needed.
+
+        @type **extra: mixed
+        @param **extra: Extra arguments for the script, the arguments are
+            transformed into:
+
+                -key1 value1
+
+        """
+        if action not in self.config['script']:
+            return
+        params = {'Identity': ad_object.get('DistinguishedName',
+                                            ad_object['Name'])}
+        if extra:
+            params.update(extra)
+        try:
+            return self.server.execute_script(self.config['script'][action],
+                                              **params)
+        except PowershellException, e:
+            self.logger.warn("Script failed for %s of %s: %s", action,
+                             ad_object['Name'], e)
+            return False
+
+class UserSync(BaseSync):
+    """Sync for Cerebrum accounts in AD.
+
+    This contains generic functionality for handling accounts for AD, to add
+    more functionality you need to subclass this.
+
+    A mapping is added by this class: L{owner2ent}, which is a dict with the
+    owner's owner_id as key, and the values are lists of entity instances.
+
+    """
+
+    # A mapping of what the different UserAccountControl settings map to,
+    # bitwise. The UserAccountControl attribute is returned as a integer, where
+    # each bit gives us one setting. This setting should be expanded if new
+    # settings are added to AD. Note that the config tells us what settings we
+    # should care about and not. The position in this list maps to the bit
+    # position, starting from the right. Each string corresponds to the
+    # setting's name in the powershell command Set-ADAccountControl.
+    # For more info about the UAC settings, see
+    # http://msdn.microsoft.com/en-us/library/ms680832(v=vs.85).aspx
+    _useraccountcontrol_settings = (
+            # 1. If the logon script will be run. Not implemented.
+            None, # 'Script',
+            # 2. If the account is disabled. Set by Disable-ADAccount instead.
+            None, # 'AccountDisabled',
+            # 3. The home directory is required.
+            'HomedirRequired',
+            # 4. The account is currently locked out, e.g. by too many failed
+            #    password attempts. Gets set and reset automatically by AD DS.
+            None, # 'LockOut',
+            # 5. No password is required to log on with the given account.
+            'PasswordNotRequired',
+            # 6. The user can't change its password.
+            'CannotChangePassword',
+            # 7. The user can send an encrypted password. Updates the value
+            #    which in AD is named ADS_UF_ENCRYPTED_TEXT_PASSWORD_ALLOWED.
+            'AllowReversiblePasswordEncryption', 
+            # 8. The account is for users whose primary account is in another
+            #    domain. This account provides local domain access. Also called
+            #    "Local user account". Not implemented.
+            None, # 'TempDuplicateAccount',
+            # 9. A normal account. This is the default type of an account. Not
+            #    implemented.
+            None, # 'NormalAccount',
+            # 10. Trusts the account for other domains. Not implemented.
+            None, # 'InterdomainTrustAccount', 
+            # 11. If set, this is a computer account. Not implemented. Needs to
+            #     be set in other ways.
+            None, # 'WorkstationTrustAccount',
+            # 12. If set, this is a computer account for a system backup domain
+            #     controller that is a member of this domain.
+            None, # 'ServerTrustAccount',
+            # 13. Not used
+            None,
+            # 14. Not used
+            None,
+            # 15. The password for the account will never expire.
+            'PasswordNeverExpires',
+            # 16. If set, this is an MNS logon account.
+            'MNSLogonAccount',
+            # 17. Force user to log on by smart card. Not implemented.
+            None, # 'SmartcardRequired', 
+            # 18. The service account is trusted for Kerberos delegation. Any
+            #     such service can impersonate a client requesting the service.
+            'TrustedForDelegation',
+            # 19. The service account's security context will not be delegated
+            #     to any service.
+            'AccountNotDelegated',
+            # 20. Restrict account to only use DES encryption types for keys.
+            'UseDESKeyOnly',
+            # 21. Account does not require Kerberos pre-authentication for
+            #     logon.
+            'DoesNotRequirePreAuth', 
+            # 22. The account's password is expired. Automatically set by AD.
+            'PasswordExpired',
+            # 23. Enabled for delegation of authentication of others.
+            #     Warning: This setting enables the account and services running
+            #     as the account to authenticate as other users!
+            'TrustedToAuthForDelegation',
+            # 24. Account is used for read-only DCs, and needs protection.
+            None, # 'PartialSecretsAccount', 
+            )
+
+    def __init__(self, *args, **kwargs):
+        """Instantiate user specific functionality."""
+        super(UserSync, self).__init__(*args, **kwargs)
+        self.ac = Factory.get("Account")(self.db)
+        self.pe = Factory.get("Person")(self.db)
+
+    def configure(self, config_args):
+        """Override the configuration for setting user specific variables.
+
+        """
+        super(UserSync, self).configure(config_args)
+
+        titles = self.config['attributes'].get('Title')
+        if titles:
+            self.config['attributes']['Title'] = tuple(
+                                int(self.co.EntityNameCode(t)) for t in titles)
+
+        # Check that the UserAccountControl settings are valid:
+        for setting in self.config['useraccountcontrol']:
+            if setting not in self._useraccountcontrol_settings:
+                raise Exception('Unknown UserAccountControl: %s' % setting)
+
+    def start_fetch_ad_data(self, object_type=None, attributes=dict()):
+        """Ask AD to start generating the data we need about groups.
+
+        Could be subclassed to get more/other data.
+
+        @rtype: string
+        @return: A CommandId that is the servere reference to later get the data
+            that has been generated.
+
+        """
+        # TODO: some extra attributes to add?
+        if self.config['useraccountcontrol']:
+            attributes['UserAccountControl'] = None
+        return super(UserSync, self).start_fetch_ad_data(
+                                                object_type=object_type,
+                                                attributes=attributes)
+
+    def fetch_cerebrum_data(self):
+        """Fetch data from Cerebrum that is needed for syncing accounts.
+
+        What kind of data that should be gathered is up to what attributes are
+        set in the config to be exported. There's for instance no need to fetch
+        titles if the attribute Title is not used. Subclasses could however
+        override this, if they need such data for other usage.
+
+        """
+        super(UserSync, self).fetch_cerebrum_data()
+        # Create a mapping of owner id to user objects
+        self.owner2ent = dict()
+        for ent in self.entities.itervalues():
+            self.owner2ent.setdefault(ent.owner_id, []).append(ent)
+        self.logger.debug("Mapped %d entity owners", len(self.owner2ent))
+
+        # Get the rest of the needed data, depending on the config:
+        if any(v in self.config['attributes'] for v in
+               ('Surname', 'DisplayName', 'GivenName')):
+            self.fetch_names()
+        if 'Title' in self.config['attributes']:
+            self.fetch_titles(self.config['attributes']['Title'])
+        # We fetch the Mail attribute both as contact_info and from the Email
+        # module, since various instances store e-mail addresses differently
+        if any(v in self.config['attributes'] for v in 
+               ('TelephoneNumber', 'Mobile', 'Mail')):
+            self.fetch_contact_info()
+        if 'Mail' in self.config['attributes']:
+            self.fetch_mail()
+        # Addresses:
+        if any(v in self.config['attributes'] for v in 
+               ('StreetAddress', 'PostalCode', 'L', 'Co')):
+            self.fetch_address_info()
+
+
+    def fetch_cerebrum_entities(self):
+        """Fetch the entities from Cerebrum that should be compared against AD.
+
+        The configuration is used to know what to cache. All data is put in a
+        list, and each entity is put into an object from
+        L{Cerebrum.modules.ad2.CerebrumData} or a subclass, to make it easier to
+        later compare them with AD objects.
+
+        Could be subclassed to fetch more data about each entity to support
+        extra functionality from AD and to override settings, e.g. what contact
+        info that should be used.
+
+        @rtype: list
+        @return: A list of targeted entities from Cerebrum, wrapped into
+            L{CerebrumData} objects.
+
+        """
+        # Find all users with defined spread(s):
+        self.logger.debug("Fetching users with spread %s" %
+                          (self.config['target_spread'],))
+        subset = self.config.get('subset')
+        for row in self.ac.search(spread=self.config['target_spread']):
+            uname = row["name"].strip()
+            # For testing or special cases where we only want to sync a subset
+            # of entities. The subset should contain the entity names, e.g.
+            # usernames or group names.
+            if subset and uname not in subset:
+                continue
+            self.entities[uname] = self.cache_entity(int(row["account_id"]),
+                                         uname, owner_id=int(row["owner_id"]),
+                                         owner_type=int(row['owner_type']))
+        return
+        # TODO: the rest of the code should go into subclasses!
+
+        # If exchange sync, get all users with exchange spread
+        if self.exchange_sync:
+            for row in self.ac.search(spread=self.user_exchange_spread):
+                uname = row["name"].strip()
+                if self.subset and uname not in self.subset:
+                    continue
+                acc = self.accounts.get(uname)
+                if acc:
+                    acc.to_exchange = True
+            self.logger.info("Fetched %i cerebrum users with both %s and %s spreads" % (
+                len([1 for a in self.accounts.itervalues() if a.to_exchange is True]),
+                self.user_spread, self.user_exchange_spread))
+
+        # fetch email info
+        self.fetch_email_info()
+
+    def cache_entity(self, entity_id, entity_name, owner_id, owner_type):
+        """Cache an Account entity."""
+        # TODO: should we really subclass the CerebrumEntity? Why not just set
+        # attributes onto the CerebrumEntity object?
+        return CerebrumUser(self.logger, self.config, entity_id, entity_name,
+                            owner_id=owner_id, owner_type=owner_type)
+        #ret = CerebrumEntity(self.logger, entity_id, entity_name,
+        #                     self.config['domain'], self.config['target_ou'])
+        #ret.owner_id = owner_id
+        #ret.owner_type = owner_type
+
+    def fetch_names(self):
+        """Fetch all the persons' names and store them for the accounts.
+
+        The names that is retrieved are first and last names. Titles are
+        retrieved in L{fetch_titles}, even though they're stored as names too.
+        TODO: change this, and put all in a dict of names instead?
+
+        If there exist personal accounts without first and last names, it gets
+        logged.
+
+        """
+        self.logger.debug("..fetch name information..")
+        for row in self.pe.search_person_names(
+                                    source_system = self.co.system_cached,
+                                    name_variant  = [self.co.name_first,
+                                                     self.co.name_last]):
+            for ent in self.owner2ent.get(row['person_id'], ()):
+                if int(row['name_variant']) == int(self.co.name_first):
+                    ent.name_first = row['name']
+                elif int(row['name_variant']) == int(self.co.name_last):
+                    ent.name_last = row['name']
+
+        # Log nameless, personal accounts:
+        for ent in self.entities.itervalues():
+            if (not getattr(ent, 'name_first', None) and 
+                            ent.owner_type == int(self.co.entity_person)):
+                self.logger.warn('No name for account: %s' % ent.entity_name)
+
+    def fetch_titles(self, name_types):
+        """Fetch titles for users.
+
+        @type name_types: list or tuple
+        @param name_types: What name types to cache. Could be personal title
+            and/or work title.
+
+        """
+        self.logger.debug("..fetch titles..")
+        for row in self.pe.search_name_with_language(
+                            name_language = self.config['language'],
+                            name_variant  = name_types):
+            for ent in self.owner2ent.get(row['entity_id'], ()):
+                if not hasattr(ent, 'titles'):
+                    ent.titles = dict()
+                ent.titles[str(row['name_variant'])] = row['name']
+
+    def fetch_contact_info(self):
+        """Fetch all contact information for users, e.g. mobile and telephone.
+
+        """
+        self.logger.debug("..fetch contact info..")
+        # What to get:
+        # TODO: Need to define how this should be fetched, e.g. from what
+        # source_system!
+        types = []
+        if 'TelephoneNumber' in self.config['attributes']:
+            types.append(int(self.co.contact_phone))
+        if 'Mobile' in self.config['attributes']:
+            types.append(int(self.co.contact_mobile))
+        if 'Mail' in self.config['attributes']:
+            types.append(int(self.co.contact_email))
+
+        if not types:
+            # Nothing to be retrieved
+            return
+
+        # Contact info stored on the person:
+        for row in self.pe.list_contact_info(source_system=self.co.system_sap,
+                                             # TODO: source_system should be
+                                             # from config!
+                                             entity_type=self.co.entity_person,
+                                             contact_type=types):
+            for ent in self.owner2ent.get(row['entity_id'], ()):
+                ent.contact_info[str(co.ContactType(row['contact_type']))] = row['contact_value']
+        # Contact info stored on the account:
+        for row in self.ac.list_contact_info(source_system=self.co.system_sap,
+                                             entity_type=self.co.entity_account,
+                                             contact_type=types):
+            ent = self.id2entity.get(row['entity_id'], None)
+            self.logger.debug2("Found contact for %s: %s", ent, row['contact_value'])
+            if ent:
+                ent.contact_info[str(co.ContactType(row['contact_type']))] = row['contact_value']
+
+    def fetch_address_info(self):
+        """Fetch addresses for users.
+
+        """
+        self.logger.debug("..fetch address info..")
+        # TODO: Need more configuration! What source_system and what address
+        # type for what attribute?
+
+        return # TODO: implement!
+
+        types = []
+        if 'Street' in self.config['attributes']:
+            types.append(self.co.address_street)
+        if 'TODO' in self.config['attributes']:
+            types.append(self.co.address_street)
+
+        types = (self.co.address_post,)
+
+        # Addresses stored on the person:
+        for row in self.pe.list_entity_addresses(address_type=types,
+                                            entity_type=self.co.entity_person):
+            for ent in self.owner2ent.get(row['entity_id'], ()):
+                ent.addresses[str(co.Address(row['address_type']))] = row
+
+        # TODO: Addresses stored on the account:
+        for row in self.pe.list_entity_addresses(address_type=types,
+                                            entity_type=self.co.entity_account):
+            ent = self.id2entity.get(row['entity_id'], None)
+            if ent:
+                ent.addresses[str(co.Address(row['address_type']))] = row
+
+    def fetch_mail(self):
+        """Fetch all e-mail address for the users.
+
+        This method only fetches the primary addresses. Subclass me if more
+        e-mail data is needed, e.g. aliases.
+
+        TODO: We have a problem here, since we store primary mail addresses
+        differently for those that uses the Email module and those without it,
+        which instead stores it as contact_info. Now we check if methods from
+        the email module exists to check how we should fetch it, but we should
+        fix this in a better way later.
+
+        """
+        # TODO: A better check if the Email module is in use?
+        if not hasattr(self.ac, 'getdict_uname2mailaddr'):
+            return
+        self.logger.debug("..fetch mail..")
+        for uname, prim_mail in self.ac.getdict_uname2mailaddr(
+                                                filter_expired=True,
+                                                primary_only=True).iteritems():
+            ent = self.name2entity.get(uname)
+            if ent:
+                ent.contact_info['EMAIL'] = prim_mail
+        # Subclasses should fetch all adresses if that is needed, e.g. for
+        # Exchange.
+
+    def process_entity_not_in_ad(self, ent):
+        """Process an account that doesn't exist in AD, yet.
+
+        We should create and update a User object in AD for those who are not in
+        AD yet. The object should then be updated as normal objects.
+
+        @type: CerebrumEntity
+        @param: An object representing an entity in Cerebrum.
+
+        """
+        ret = super(UserSync, self).process_entity_not_in_ad(ent)
+        if not ret:
+            self.logger.warn("What to do? Got None from super for: %s" %
+                             ent.entity_name)
+            return
+        # TODO: Move this to create_object() instead! Could then add the
+        #       password in the creating call - would be faster.
+        if ent.ad_new:
+            # TODO: Get the plaintext password from the db when done testing:
+            password = 'test3ep_as!soTrd' # TODO: This is only for testing purposes, for now
+            # TODO: What if the password doesn't exists? Send a random one, or
+            #       does AD block the account by default?
+            if self.server.set_password(ret['DistinguishedName'], password):
+                # As a security feature, you have to explicitly enable the
+                # account after a valid password has been set.
+                if ent.active:
+                    self.server.enable_object(ret['DistinguishedName'])
+        # If more functionality gets put here, you should check if the entity is
+        # active, and not update it if the config says so (downgrade).
+        return ret
+
+    def changelog_handle_e_account(self, ctype, row):
+        """Handler for changelog events of category 'e_account'.
+
+        Syncs new changes that affects the account. Example on change types in
+        this category: create, delete, mod, password, passwordtoken, destroy,
+        home_added, home_removed, move, home_updated. Not all types might be
+        respected, but subclasses could override this.
+
+        Accounts without the target spread gets ignored.
+
+        @type ctype: ChangeType constant
+        @param ctype: The change log type.
+
+        @type row: dict (db-row)
+        @param row: The row as returned from the database, e.g. from
+            L{get_change_log}.
+
+        @rtype: bool
+        @return: True if the change should be marked as finished. False only if
+            it failed and should be reprocessed later.
+        """
+        self.ac.clear()
+        # TODO: handle NotFoundError here, in case the entity has been nuked.
+        try:
+            self.ac.find(row['subject_entity'])
+        except Errors.NotFoundError, e:
+            self.logger.warn("Not found account: %s" % row['subject_entity'])
+            # TODO: this might be okay in some cases, e.g. if the change type is
+            # 'delete'? Should we always try to remove the entity from AD? We
+            # don't have the account name, but the 'change_params' might have
+            # something?
+            self.logger.debug("Change_params: %s" % (row['change_params'],))
+            if row['change_params']:
+                self.logger.debug("Change_params: %s" %
+                                  (pickle.loads(row['change_params']),))
+            return False
+
+        if not self.ac.has_spread(self.config['target_spread']):
+            self.logger.debug("Account %s without spread, ignoring",
+                              self.ac.account_name)
+            return True
+        name = self.config.get('name_format', '%s') % self.ac.account_name
+
+        if ctype.type == 'password':
+            try:
+                pw = pickle.loads(row['change_params'])['password']
+            except (KeyError, TypeError):
+                self.logger.warn("No plaintext password found for: %s", name)
+                return False
+            # TODO: do we need to unicodify it here, or do we handle it in the
+            # ADclient instead?
+            #pwUnicode = unicode(pw, 'iso-8859-1')
+            return self.server.set_password(name, 'testepassord')
+        elif ctype.type == 'create':
+            try:
+                return self.server.create_object(name, self.config['target_ou'],
+                                         object_type=self.config['target_type'])
+            except Exception, e:
+                self.logger.warn(e)
+                # TODO: check if it is because the object already exists! If so,
+                # return True, as our job is done.
+                return False
+        elif ctype.type in ('delete', 'destroy'):
+            # TODO: downgrade object after what config says
+            ad_object = {'Enabled': True, # assume user is active
+                         'Name': name,
+                         'DistinguishedName': '%s%s' % (name,
+                                                      self.config['target_ou'])}
+            try:
+                return self.downgrade_object(ad_object,
+                                          self.config['handle_unknown_objects'])
+            except Exception, e:
+                self.logger.warn(e)
+                # TODO: check if the object is already deleted or deactivated.
+                # If so, our job is done.
+                return False
+        else:
+        # TODO: handle type == 'mod'? What is then changed? Should we just
+        # resync all of the account, i.e. calculate and sync its attributes,
+        # check its location and so on?
+            self.logger.warn("Unknown log change of type %s:%s",
+                             ctype.category, ctype.type)
+        # TODO: change this to True when done with this method? Depending on how
+        # we want this to work...
+        return False
+
+    # TODO: the rest must be cleaned up first! Old code.
+
+    def fetch_email_info(self):
+        # TODO: move this to somewhere else?
+        """Get email addresses from Cerebrum"""
+        self.logger.debug("..fetch email info..")
+        # Get primary email addr
+        for uname, prim_mail in self.ac.getdict_uname2mailaddr(
+            filter_expired=True, primary_only=True).iteritems():
+            acc = self.accounts.get(uname)
+            if acc:
+                acc.email_addrs.append(prim_mail)
+
+        if self.exchange_sync:
+            # Get all email addrs
+            for uname, all_mail in self.ac.getdict_uname2mailaddr(
+                filter_expired=True, primary_only=False).iteritems():
+                acc = self.accounts.get(uname)
+                if acc:
+                    acc.email_addrs.extend(all_mail)
+
+    def fullsync_forward(self):
+        # TODO: move this to somewhere else?
+        #
+        #Fetch ad data
+        self.logger.debug("Fetching ad data about contact objects...")
+        ad_contacts = self.fetch_ad_data_contacts()
+        self.logger.info("Fetched %i ad forwards" % len(ad_contacts))
+
+        # Fetch forward_info
+        self.logger.debug("Fetching forwardinfo from cerebrum...")
+        self.fetch_forward_info()
+        for acc in self.accounts.itervalues():
+            for fwd in acc.contact_objects:
+                fwd.calc_forward_attrs()
+        # Compare forward info 
+        self.compare_forwards(ad_contacts)
+        
+        # Fetch ad dist group data
+        self.logger.debug("Fetching ad data about distrubution groups...")
+        ad_dist_groups = self.fetch_ad_data_distribution_groups()
+        # create a distribution group for each cerebrum user with
+        # forward addresses
+        for acc in self.accounts.itervalues():
+            if acc.contact_objects:
+                acc.create_dist_group()
+        # Compare dist group info
+        # TBD: dist group sync should perhaps be a sub class of group
+        # sync?
+        #self.compare_dist_groups(ad_dist_groups)
+        #self.sync_dist_group_members()
+
+    def fetch_forward_info(self):
+        # TODO: move this to somewhere else?
+        """
+        Fetch forward info for all users with both AD and exchange spread.
+        """ 
+        from Cerebrum.modules.Email import EmailDomain, EmailTarget, EmailForward
+        etarget = EmailTarget(self.db)
+        rewrite = EmailDomain(self.db).rewrite_special_domains
+        eforward = EmailForward(self.db)
+
+        # We need a email target -> entity_id mapping
+        target_id2target_entity_id = {}
+        for row in etarget.list_email_targets_ext():
+            if row['target_entity_id']:
+                te_id = int(row['target_entity_id'])
+                target_id2target_entity_id[int(row['target_id'])] = te_id
+
+        # Check all email forwards
+        for row in eforward.list_email_forwards():
+            te_id = target_id2target_entity_id.get(int(row['target_id']))
+            acc = self.get_account(account_id=te_id)
+            # We're only interested in those with AD and exchange spread
+            if acc.to_exchange:
+                acc.add_forward(row['forward_to'])
+
+    def fetch_ad_data_contacts(self):
+        # TODO: Move this to somewhere else?
+        """
+        Returns full LDAP path to AD objects of type 'contact' and prefix
+        indicating it is used for forwarding.
+
+        @return: a dict of dicts wich maps contact obects name to that
+                 objects properties (dict)
+        @rtype: dict
+        """
+        ret = dict()
+        self.server.setContactAttributes(cereconf.AD_CONTACT_FORWARD_ATTRIBUTES)
+        ad_contacts = self.server.listObjects('contact', True, self.ad_ldap)
+        if ad_contacts:
+            # Only deal with forwarding contact objects. 
+            for object_name, properties in ad_contacts.iteritems():
+                # TBD: cereconf-var?
+                if object_name.startswith("Forward_for_"):
+                    ret[object_name] = properties
+        return ret
+
+    def fetch_ad_data_distribution_groups(self):
+        # TODO: Move this to somewhere else?
+        """
+        Returns full LDAP path to AD objects of type 'group' and prefix
+        indicating it is to hold forward contact objects.
+
+        @rtype: dict
+        @return: a dict of dict wich maps distribution group names to
+                 distribution groupproperties (dict)
+        """        
+        ret = dict()
+        self.server.setGroupAttributes(cereconf.AD_DIST_GRP_ATTRIBUTES)
+        ad_dist_grps = self.server.listObjects('group', True, self.ad_ldap)
+        if ad_dist_grps:
+            # Only deal with forwarding groups. Groupsync deals with other groups.
+            for grp_name, properties in ad_dist_grps.iteritems():
+                if grp_name.startswith(cereconf.AD_FORWARD_GROUP_PREFIX):
+                    ret[grp_name] = properties
+        return ret
+
+class GroupSync(BaseSync):
+    """Sync for Cerebrum groups in AD.
+
+    This contains generic functionality for handling groups for AD, to add more
+    functionality you need to subclass this.
+
+    TODO: Should subclasses handle distribution and security groups? How should
+    we treat those? Need to describe it better the specifications!
+
+    """
+    def __init__(self, *args, **kwargs):
+        """Instantiate group specific functionality."""
+        super(GroupSync, self).__init__(*args, **kwargs)
+        self.gr = Factory.get("Group")(self.db)
+        self.pe = Factory.get("Person")(self.db)
+        self.ac = Factory.get("Account")(self.db)
+
+    def configure(self, config_args):
+        """Add extra configuration that is specific for groups.
+
+        @type config_args: dict
+        @param config_args: Configuration data from cereconf and/or command line
+            options.
+
+        """
+        super(GroupSync, self).configure(config_args)
+
+        if 'member_spreads' in config_args:
+            # Convert the member spread names to spread constants:
+            self.config['member_spreads'] = tuple(self.co.Spread(s) for s in
+                                                  config_args['member_spreads'])
+            # Check if the member spreads have their own sync:
+            for s in self.config['member_spreads']:
+                if str(s) not in adconf.SYNCS:
+                    self.logger.warn("Member_spread without its own AD-sync: %s", s)
+
+        # Check if the group type is a valid type:
+        if self.config['group_type'] not in ('security', 'distribution'):
+            raise Exception('Invalid group type: %s' %
+                            self.config['group_type'])
+        # Check if the group scope is a valid scope:
+        if self.config['group_scope'] not in ('global', 'universal'):
+            raise Exception('Invalid group scope: %s' %
+                            self.config['group_scope'])
+
+        return
+        # TODO: remove the rest:
+
+        # Sync settings for this module
+        for k in ("sec_group_spread", "dist_group_spread", "user_spread"):
+            # Group.search() must have spread constant or int to work,
+            # unlike Account.search()
+            if k in config_args:
+                setattr(self, k, self.co.Spread(config_args[k]))
+        for k in ("exchange_sync", "ad_ldap", "ad_domain", "first_run"):
+            setattr(self, k, config_args[k])
+
+    def process_ad_object(self, ad_object):
+        """Process a Group object retrieved from AD.
+
+        Do the basic sync and update the member list for the group.
+
+        """
+        super(GroupSync, self).process_ad_object(ad_object)
+        ent = self.adid2entity.get(ad_object['SamAccountName'])
+        if not ent:
+            # Already taken care of in the super class
+            return
+        dn = ad_object['DistinguishedName'] # TBD: or 'Name'?
+        if any(dn.endswith(ou) for ou in self.config.get('ignore_ou', ())):
+            return
+        # TODO: more functionality for groups?
+
+    def post_process(self):
+        """Extra sync functionality for groups: syncing members.
+
+        """
+        super(GroupSync, self).post_process()
+        self.logger.debug("Start syncing members")
+        for ent in self.entities.itervalues():
+            if ent.active and ent.in_ad:
+                try:
+                    self.sync_group_members(ent)
+                except ADUtils.NoAccessException, e:
+                    self.add_admin_message('warning',
+                                           'No access to members of %s: %s' %
+                                           (ent.ad_id, e))
+                    # TODO: do we need to strip out data from the exceptions? Could
+                    # it for instance contain passwords?
+                except PowershellException, e:
+                    self.logger.warn("Trouble with member-sync of %s: %s",
+                                     ent.ad_id, e)
+
+    def fetch_cerebrum_data(self):
+        """Fetch data from Cerebrum that is needed for syncing groups.
+
+        What kind of data that should be gathered is up to what attributes are
+        set in the config to be exported. There's for instance no need to fetch
+        titles if the attribute Title is not used. Subclasses could however
+        override this, if they need such data for other usage.
+
+        """
+        super(GroupSync, self).fetch_cerebrum_data()
+        # TODO: More data that is needed?
+        # For instance what groups are dist groups and sec groups?
+
+    def fetch_cerebrum_entities(self):
+        """Fetch the entities from Cerebrum that should be compared against AD.
+
+        The configuration is used to know what to cache. All data is put in a
+        list, and each entity is put into an object from
+        L{Cerebrum.modules.ad2.CerebrumData} or a subclass, to make it easier to
+        later compare with AD objects.
+
+        Could be subclassed to fetch more data about each entity to support
+        extra functionality from AD and to override settings.
+
+        """
+        self.logger.debug("Fetching groups with spread %s" %
+                          (self.config['target_spread'],))
+        subset = self.config.get('subset')
+        for row in self.gr.search(spread=self.config['target_spread']):
+            name = row["name"].strip()
+            # For testing or special cases where we only want to sync a subset
+            # of entities. The subset should contain the entity names, e.g.
+            # usernames or group names.
+            if subset and name not in subset:
+                continue
+            self.entities[name] = self.cache_entity(int(row["group_id"]), name,
+                                                    row['description'])
+
+    def cache_entity(self, entity_id, entity_name, description, members=None):
+        """Cache a Group entity."""
+        # TODO: should we really subclass the CerebrumEntity? Why not just set
+        # attributes onto the CerebrumEntity object?
+        return CerebrumGroup(self.logger, self.config, entity_id, entity_name,
+                             description=description)
+        # TODO: members?
+
+        #ret = CerebrumEntity(self.logger, entity_id, entity_name,
+        #                     self.config['domain'], self.config['target_ou'])
+        #ret.owner_id = owner_id
+        #ret.owner_type = owner_type
+
+    def start_fetch_ad_data(self, object_type=None, attributes=dict()):
+        """Ask AD to start generating the data we need about groups.
+
+        Could be subclassed to get more/other data.
+
+        TODO: add attributes and object_type and maybe other settings as input
+        parameters.
+
+        @rtype: string
+        @return: A CommandId that is the servere reference to later get the data
+            that has been generated.
+
+        """
+        # TODO: some extra attributes to add?
+        return super(GroupSync, self).start_fetch_ad_data(
+                                                object_type=object_type,
+                                                attributes=attributes)
+
+    def _sync_group_members(self, ent, members, cmdid):
+        """Sync the given members to the given AD-object.
+
+        This method handles the member sync with AD and works by getting the
+        member list from AD and comparing it with Cerebrum's list. If the group
+        contains more members than AD could return (defaults to 1500), the group
+        in AD is drained and refilled. TODO: This should in the future be
+        changed to refilling a sub group instead, to avoid that the members lose
+        access in a minute or so.
+
+        @type ent: CerebrumEntity
+        @param ent: The targetet entity to sync the members for.
+
+        @type members: set
+        @param members: The list of members that should be the result in AD
+            after the sync has finished.
+
+        @type cmdid: tuple
+        @param cmdid: The CommanId for a previous call to AD for generating a
+            list of all the members. This is to speed things up, by making AD
+            generate its list while we are generating ours.
+
+        @rtype: boolean
+        @return: If the sync succeeded or not.
+
+        @raise PowershellException: If a sync command to AD failed and were not
+            handled by the method. Could for instance be due to limited access
+            privileges.
+
+        """
+        dn = ent.ad_data['dn']
+        # Shortcut for empty groups - faster to just drain the group of members.
+        if not members:
+            # Tell AD to stop fetching members:
+            self.server.wsman_signal(cmdid[0], cmdid[1])
+            return self.server.empty_group(dn)
+        # Get the list of members from AD and compare:
+        try:
+            # Use SamAccountName if it exists, or the Name. Name could sometimes
+            # be something else, but the username should not be changed.
+            ad_members = set(mem.get('SamAccountName', mem['name']) for mem in
+                             self.server.get_list_members(cmdid))
+        except ADUtils.SizeLimitException, e:
+            self.logger.debug("Too many group members of %s: %s", ent.ad_id,
+                                                              len(members))
+            # TODO: change how this works! Could create sub group and add
+            # members to instead, and then remove the old sub group afterwards.
+            self.server.empty_group(dn)
+            return self.server.add_members(dn, members)
+        self.logger.debug("Group had %d members in AD" % len(ad_members))
+        mem_add = members - ad_members
+        if mem_add:
+            self.server.add_members(dn, mem_add)
+        mem_remove = ad_members - members
+        if mem_remove:
+            self.server.remove_members(dn, mem_remove)
+        return True
+
+    def sync_group_members(self, ent):
+        """Update the group members for a given group.
+
+        TODO: Distribution groups are allowed to be members of security groups,
+        but not the other way around. This is not checked for, yet.
+
+        @type ent: CerebrumEntity
+        @param ent: An instance with information from Cerebrum about the group.
+
+        """
+        self.logger.debug("Syncing members for group %s" % ent.ad_id)
+        dn = ent.ad_data['dn']
+        # Start fetching the member list from AD:
+        cmdid = self.server.start_list_members(dn)
+
+        mem_spreads = self.config.get('member_spreads', None)
+
+        # Create a mapping from entity_type to name_format, so the names are as
+        # in ad_id, e.g. groupnames which ends with '-group'. Default, unknown
+        # entity types, are defaulted to '%s'. TBD: Is this an okay behaviour?
+        type2name = dict()
+        if mem_spreads:
+            for spr in mem_spreads:
+                if spr not in adconf.SYNCS:
+                    continue
+                format = adconf.SYNCS[spr].get('name_format')
+                if not format:
+                    continue
+                sp = self.co.Spread(spr)
+                int(sp)
+                type2name[int(sp.entity_type)] = format
+        else:
+            # TODO: Need to find all defined spreads' name format!
+            for spr, data in adconf.SYNCS.iteritems():
+                sp = self.co.Spread(spr)
+                try:
+                    int(sp)
+                except Exception:
+                    continue
+                type2name[int(sp.entity_type)] = data.get('name_format', '%s')
+
+        # Get the list of members in Cerebrum:
+        # TODO: Find out if the search flattens out the member list if sub
+        # groups exists in the group. We need to fetch all indirect members of
+        # the group too, as subgroups without the AD spread must be flattened.
+        cere_members = set()
+        for mem in self.gr.search_members(group_id=ent.entity_id,
+                                          member_spread=mem_spreads,
+                                          include_member_entity_name=True):
+            format = type2name.get(mem['member_type'], '%s')
+            name = mem['member_name']
+
+            if mem['member_type'] == self.co.entity_group:
+                # Special treatment of groups. We want to flatten groups
+                # that are members of groups that does not have a spread
+                # to AD.
+
+                # TODO: This only works for first level? Is that OK?
+                self.gr.clear()
+                self.gr.find(mem['member_id'])
+                
+                if self.gr.has_spread(self.config['target_spread']):
+                    name = self.gr.group_name
+                else:
+                    name = None
+                    for submem in self.gr.search_members(
+                                            group_id=self.gr.entity_id,
+                                            member_spread=mem_spreads,
+                                            include_member_entity_name=True,
+                                            indirect_members=True):
+                        cere_members.add(format % (self.gr.group_name,))
+
+            elif mem['member_type'] == self.co.entity_person:
+                # TODO: Should we cache person-id → primary account name?
+                # Fetching person
+                self.pe.clear()
+                self.pe.find(mem['member_id'])
+
+                # Getting the primary account, skip if not defined
+                a_id = self.pe.get_primary_account()
+                if not a_id:
+                    self.logger.warn("Person (%d) has no primary account, " \
+                                        "skipping" % self.pe.entity_id)
+                    continue
+
+                # Fetch account, and retrieve account name
+                self.ac.clear()
+                self.ac.find(a_id)
+                name = self.ac.account_name
+            if name:
+                cere_members.add(format % (name,))
+        return self._sync_group_members(ent, cere_members, cmdid)
+# Gruppa ad_ind590 og ad_dat208 er eksempler hvor det må flates ut
+
+class HostSync(BaseSync):
+    """Sync for Cerebrum hosts to 'computer' objects in AD.
+
+    This contains simple functionality for adding hosts to AD. Note that this
+    only creates the Computer object in AD, without connecting it to a real
+    host. That normally happens by manually authenticating the computer in the
+    domain.
+
+    """
+    def __init__(self, *args, **kwargs):
+        """Instantiate host specific functionality."""
+        super(HostSync, self).__init__(*args, **kwargs)
+        self.host = Factory.get("Host")(self.db)
+
+    def fetch_cerebrum_entities(self):
+        """Fetch the entities from Cerebrum that should be compared against AD.
+
+        The configuration is used to know what to cache. All data is put in a
+        list, and each entity is put into an object from
+        L{Cerebrum.modules.ad2.CerebrumData} or a subclass, to make it easier to
+        later compare with AD objects.
+
+        Could be subclassed to fetch more data about each entity to support
+        extra functionality from AD and to override settings.
+
+        """
+        self.logger.debug("Fetching hosts with spread %s" %
+                          (self.config['target_spread'],))
+        subset = self.config.get('subset')
+        for row in self.host.search(): # TODO: should specify spread, now we push all!
+            name = row["name"].strip()
+            if subset and name not in subset:
+                continue
+            self.entities[name] = self.cache_entity(int(row["host_id"]), name,
+                                                    row['description'])
+
+    def cache_entity(self, entity_id, entity_name, description):
+        """Cache a Host entity."""
+        # TODO: subclass CerebrumEntity for hosts?
+        ent = CerebrumEntity(self.logger, self.config, entity_id, entity_name)
+        ent.description = description
+        return ent
+
+class DistGroupSync(GroupSync):
+    """
+    Methods for dist group sync
+    """
+    def _old_configure(self, config_args):
+        """
+        Read configuration options from args and cereconf to decide
+        which data to sync.
+
+        @param config_args: Configuration data from cereconf and/or
+                            command line options.
+        @type config_args: dict
+        """
+        self.logger.info("Starting group-sync")
+        # Sync settings for this module
+        for k in ("sec_group_spread", "dist_group_spread", "user_spread"):
+            # Group.search() must have spread constant or int to work,
+            # unlike Account.search()
+            if k in config_args:
+                setattr(self, k, self.co.Spread(config_args[k]))
+        for k in ("exchange_sync", "delete_groups", "dryrun", "store_sid",
+                  "ad_ldap", "ad_domain", "subset", "name_prefix", "first_run"):
+            setattr(self, k, config_args[k])
+
+        # Set which attrs that are to be compared with AD
+        self.sync_attrs = cereconf.AD_DIST_GRP_ATTRIBUTES
+        self.logger.info("Configuration done. Will compare attributes: %s" %
+                         str(self.sync_attrs))
+
+
+    def _old_fullsync(self):
+        """
+        This method defines what will be done in the sync.
+        """
+        # Fetch AD-data 
+        self.logger.debug("Fetching AD group data...")
+        addump = self.fetch_ad_data()
+        if addump is None or addump is False:
+            self.logger.critical("No data from AD. Something's wrong!")
+            return
+        self.logger.info("Fetched %i AD groups" % len(addump))
+
+        #Fetch cerebrum data.
+        self.logger.debug("Fetching cerebrum data...")
+        self.fetch_cerebrum_data()
+
+        # Compare AD data with Cerebrum data (not members)
+        for gname, ad_group in addump.iteritems():
+            if gname in self.groups:
+                self.groups[gname].ad_dn = ad_group["distinguishedName"]
+                self.groups[gname].in_ad = True
+                self.compare(ad_group, self.groups[gname])
+            else:
+                self.logger.debug("Group %s in AD, but not in Cerebrum" % gname)
+                # Group in AD, but not in Cerebrum:
+                if self.delete_groups:
+                    self.delete_group(ad_group["distinguishedName"])
+
+        # Create group if it exists in Cerebrum but is not in AD
+        for grp in self.groups.itervalues():
+            if grp.in_ad is False and grp.quarantined is False:
+                sid = self.create_ad_group(grp.ad_attrs,
+                                           self.get_default_ou())
+                if sid and self.store_sid:
+                    self.store_ext_sid(grp.group_id, sid)
+            
+        # Update Exchange if needed
+        #self.logger.debug("Sleeping for 5 seconds to give ad-ldap time to update") 
+        #time.sleep(5)
+        for grp in self.groups.itervalues():
+            if grp.update_recipient:
+                self.update_Exchange(grp.gname)
+
+        #Syncing group members
+        self.logger.info("Starting sync of group members")
+        self.sync_group_members()
+        
+        #Commiting changes to DB (SID external ID) or not.
+        if self.store_sid:
+            if self.dryrun:
+                self.db.rollback()
+            else:
+                self.db.commit()
+            
+        self.logger.info("Finished group-sync")
+
+
+    def fetch_ad_data(self):
+        """
+        Returns full LDAP path to AD objects of type 'group' and prefix
+        indicating it is to hold forward contact objects.
+
+        @rtype: dict
+        @return: a dict of dict wich maps distribution group names to
+                 distribution groupproperties (dict)
+        """        
+        ret = dict()
+        attrs = cereconf.AD_DIST_GRP_ATTRIBUTES + tuple(cereconf.AD_DIST_GRP_DEFAULTS.keys())
+        self.server.setGroupAttributes(attrs)
+        ad_dist_grps = self.server.listObjects('group', True, self.ad_ldap)
+        # Check if we get any dat from AD. If no data the AD service
+        # returns None. If we actually expect no data (the option
+        # first_run is given), then we want an empty dict rather than
+        # None
+        if ad_dist_grps is None and self.first_run:
+            return ret
+        if ad_dist_grps:
+            # Only deal with distribution groups. Groupsync deals with security groups.
+            dist_group_types = ('2', # Global distribution group
+                                '8', # Universal distribution group
+                                '2147483656') # Universal distribution group,
+                                              # security enabled
+            for grp_name, properties in ad_dist_grps.iteritems():
+                if not 'groupType' in properties:
+                    continue
+                if str(properties['groupType']) in dist_group_types:
+                    ret[grp_name] = properties
+        return ret
+
+
+    def fetch_cerebrum_data(self):
+        """
+        Fetch relevant cerebrum data for groups with the given spread.
+        Create CerebrumGroup instances and store in self.groups.
+        """
+        # Fetch name, id and description for security groups
+        for row in self.group.search(spread=self.dist_group_spread):
+            gname = unicode(row["name"], cereconf.ENCODING)
+            self.groups[gname] = self.cb_group(gname, row["group_id"],
+                                               row["description"])
+        self.logger.info("Fetched %i groups with spread %s",
+                         len(self.groups), self.dist_group_spread)
+        # Set attr values for comparison with AD
+        for g in self.groups.itervalues():
+            g.calc_ad_attrs()
+
+
+    def cb_group(self, gname, group_id, description):
+        "wrapper func for easier subclassing"
+        return CerebrumDistGroup(gname, group_id, description, self.ad_domain,
+                                 self.get_default_ou())

@@ -39,6 +39,8 @@ from Cerebrum.modules.EntityTrait import \
      _EntityTraitCode
 
 class ConstantsActiveDirectory(Constants.Constants):
+    """AD constants for the old AD-sync. Should be removed when everyone has
+    migrated to the AD sync from 2013."""
     # FIXME: This Constants-class will eventually be moved to an AD-modul. Jazz, 2009-03-18
     system_ad = _AuthoritativeSystemCode('AD', 'Information from Active Directory')
     externalid_groupsid = _EntityExternalIdCode('AD_GRPSID',

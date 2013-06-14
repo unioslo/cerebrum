@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2003-2008 University of Oslo, Norway
+# Copyright 2003-2008, 2013 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -137,11 +137,11 @@ class AccountHiOfMixin(Account.Account):
         # Figure out which domain(s) the user should have addresses
         # in.  Primary domain should be at the front of the resulting
         # list.
-	# if the only address found is in EMAIL_DEFAULT_DOMAIN
+        # if the only address found is in EMAIL_DEFAULT_DOMAIN
         # don't set default address. This is done in order to prevent
         # adresses in default domain being sat as primary 
-	# TODO: account_types affiliated to OU's  without connected
-	# email domain don't get a default address
+        # TODO: account_types affiliated to OU's  without connected
+        # email domain don't get a default address
         primary_set = False
         ed = Email.EmailDomain(self._db)
         ed.find(self.get_primary_maildomain())
@@ -155,7 +155,7 @@ class AccountHiOfMixin(Account.Account):
             self.get_primary_mailaddress()
         except Errors.NotFoundError:
             pass
-	epat = Email.EmailPrimaryAddressTarget(self._db)
+        epat = Email.EmailPrimaryAddressTarget(self._db)
         for domain in domains:
             if ed.email_domain_name <> domain:
                 ed.clear()
@@ -170,23 +170,23 @@ class AccountHiOfMixin(Account.Account):
                 local_parts.append(self.account_name)
             elif int(self.const.email_domain_category_uidaddr) in ctgs:
                 local_parts.append(self.account_name)
-	    for lp in local_parts:
-		lp = self.wash_email_local_part(lp)
-		# Is the address taken?
- 		ea.clear()
-		try:
-		   ea.find_by_local_part_and_domain(lp, ed.entity_id)
-		   if ea.email_addr_target_id <> et.entity_id:
+            for lp in local_parts:
+                lp = self.wash_email_local_part(lp)
+                # Is the address taken?
+                ea.clear()
+                try:
+                   ea.find_by_local_part_and_domain(lp, ed.entity_id)
+                   if ea.email_addr_target_id <> et.entity_id:
                        # Address already exists, and points to a
                        # target not owned by this Account.
                        continue
                    # Address belongs to this account; make sure
                    # there's no expire_date set on it.
                    ea.email_addr_expire_date = None
-		except Errors.NotFoundError:
-		    # Address doesn't exist; create it.
-		    ea.populate(lp, ed.entity_id, et.entity_id, expire=None)
-		ea.write_db()
+                except Errors.NotFoundError:
+                    # Address doesn't exist; create it.
+                    ea.populate(lp, ed.entity_id, et.entity_id, expire=None)
+                ea.write_db()
                 if not primary_set:
                     epat.clear()
                     try:

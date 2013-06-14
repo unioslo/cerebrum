@@ -184,6 +184,19 @@ SIMILARSIZE_CHECK_DISABLED = False
 # Default is to use the values from clients without modifications.
 SIMILARSIZE_LIMIT_MULTIPLIER = 1.0
 
+# What encoding the database data is encoded in. This must be set to be able to
+# decode the data to Unicode, which is needed in some exports. If the database
+# contains data in other encodings, an attempt of unicodifying it would raise
+# exceptions when special characters occur, like זרו. Note that this is not used
+# everywhere - It started with the AD sync, but should be expanded to other jobs
+# too.
+#
+# If you want to change the encoding, you would need to:
+# 1. Make sure that all functionality that puts data into the database respects
+#    the set encoding.
+# 2. Migrate the database by re-encode the data to the new encoding, if it's not
+#    automatically taken care of by the database.
+ENCODING = 'ISO-8859-1'
 
 # Active directory specific settings.
 
