@@ -102,7 +102,7 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         group_help = {
             'policy': 'Commands for handling host policies',
             # don't know if the group 'host' is required here, but it's defined
-            # in bofhd_uio_help and bofhd_dns_cmds, and it works without it.
+            # in bofhd_core_help and bofhd_dns_cmds, and it works without it.
             }
 
         command_help = {

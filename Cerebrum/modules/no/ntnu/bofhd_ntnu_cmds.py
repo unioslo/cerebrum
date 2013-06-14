@@ -56,7 +56,6 @@ from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthOpSet, \
      AuthConstants, BofhdAuthOpTarget, BofhdAuthRole
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import PrinterQuotas
-from Cerebrum.modules.no.uio import bofhd_uio_help
 from Cerebrum.modules.no.uio import bofhd_uio_cmds
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.templates.letters import TemplateHandler

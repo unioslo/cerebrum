@@ -52,7 +52,7 @@ from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet, \
      AuthConstants, BofhdAuthOpTarget, BofhdAuthRole
 from Cerebrum.modules.no import fodselsnr
-from Cerebrum.modules.no.uio import bofhd_uio_help
+from Cerebrum.modules.bofhd import bofhd_core_help
 from Cerebrum.modules.no.uio.bofhd_auth import BofhdAuth
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uio.DiskQuota import DiskQuota
@@ -258,8 +258,8 @@ class BofhdExtension(BofhdCommonMethods):
 
 
     def get_help_strings(self):
-        return (bofhd_uio_help.group_help, bofhd_uio_help.command_help,
-                bofhd_uio_help.arg_help)
+        """Return the group_help, command_help and arg_help dictionaries."""
+        return bofhd_core_help.get_help_strings()
 
     def _ldap_unbind(self):
         ld = self._ldap_connect.connection

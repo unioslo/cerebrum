@@ -39,7 +39,7 @@ from Cerebrum.modules import Email
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules import Note
 from Cerebrum.modules.bofhd.cmd_param import *
-from Cerebrum.modules.no.uio import bofhd_uio_help
+from Cerebrum.modules.no.hia import bofhd_hia_help
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.Constants import _CerebrumCode, _SpreadCode
@@ -72,7 +72,7 @@ def date_to_string(date):
 
 
 # Parameter class for mobile phone number
-# FIXME: Refers help text in bofhd_uio_help
+# FIXME: Refers help text in bofhd_core_help
 class Mobile(Parameter):
     _type = 'mobilePhone'
     _help_ref = 'mobile_phone'
@@ -252,9 +252,9 @@ class BofhdExtension(BofhdCommonMethods):
 
 
     def get_help_strings(self):
-        return (bofhd_uio_help.group_help,
-                bofhd_uio_help.command_help,
-                bofhd_uio_help.arg_help)
+        return (bofhd_core_help.group_help,
+                bofhd_core_help.command_help,
+                bofhd_core_help.arg_help)
     
 
     # helpers needed for spread_add, cannot be copied in the usual way
