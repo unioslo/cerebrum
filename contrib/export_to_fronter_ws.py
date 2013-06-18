@@ -86,6 +86,7 @@ def usage(i=0):
     """Usage information"""
     print """Usage: %s -k <key> -f <file> --logger-name <logger>
       -k <key> defines which Fronter-integration will receive the file.
+      -i <instance> the instance to export to, i.e. 'prod'.
       -f <file> defines the filename to the file.
       --logger-name <logger> defines the logger to use (default: cronjob)
 
@@ -114,10 +115,11 @@ def main():
     """Arg parsing and execution"""
     file = None
     key = ''
+    instance = ''
     host = 'ws.fronter.com'
 
     try:
-        opts, j = getopt.getopt(sys.argv[1:], 'f:k:hH:')
+        opts, j = getopt.getopt(sys.argv[1:], 'f:k:hH:i:')
     except getopt.GetoptError, err:
         print 'Error: %s' % err
         usage(-2)
@@ -127,6 +129,8 @@ def main():
             file = val
         elif opt in ('-k',):
             key = val
+        elif opt in ('-i',):
+            instance = val
         elif opt in ('-h',):
             usage()
         elif opt in ('-H',):
@@ -134,7 +138,15 @@ def main():
         else:
             print "Error: Invalid arg"
             usage(-2)
-    
+
+    if not key:
+        from Cerebrum.Utils import read_password
+        try:
+            key = read_password(instance, host)
+        except Exception, e:
+            logger.error("Error: %s" % e)
+            sys.exit(-3)
+
     if file and key:
         return export(file, key, host)
     elif key:
