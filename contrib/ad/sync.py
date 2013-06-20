@@ -230,10 +230,13 @@ def main():
                                                       type.mro(sync_class)))
     sync = sync_class(db=db, logger=logger)
     sync.configure(configuration)
-    if quicksync:
-        sync.quicksync(quicksync)
-    else:
-        sync.fullsync()
+    try:
+        if quicksync:
+            sync.quicksync(quicksync)
+        else:
+            sync.fullsync()
+    finally:
+        sync.server.close()
 
     # TODO: Print out memory usage. Remove when done debugging:
     if debug:
