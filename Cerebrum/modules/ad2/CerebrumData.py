@@ -354,7 +354,7 @@ class PosixCerebrumUser(CerebrumUser):
     """
     def __init__(self, *args, **kwargs):
         """Making the object ready for posix data."""
-        super(PosixCerebrumUser, self).__init__()
+        super(PosixCerebrumUser, self).__init__(*args, **kwargs)
         self.posix = dict()
 
     def calc_ad_attrs(self):

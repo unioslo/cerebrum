@@ -316,13 +316,13 @@ class BaseSync(object):
                                                                       override))
             bases.append(claz)
         if len(bases) == 1:
-            self.config['object_class'] = bases[0]
+            self._object_class = bases[0]
         else:
             # Dynamically construct a new class that inherits from all the
             # specified classes:
-            self.config['object_class'] = type('_dynamic_adobject_%s' %
-                                               self.config['sync_type'],
-                                               tuple(bases), {})
+            self._object_class = type('_dynamic_adobject_%s' %
+                                            self.config['sync_type'],
+                                      tuple(bases), {})
 
         # Spread is changed into the spread constant, if set
         if self.config['target_spread']:
@@ -637,7 +637,7 @@ class BaseSync(object):
 
         Subclasses could extend this by getting more information from Cerebrum.
 
-        should first populate L{self.entitites} with the entities
+        should first populate L{self.entities} with the entities
         data, before calling this method from this superclass. This is because
         this class does not populate the dict, but updates only the existing
         entities with basic data, like quarantines.
@@ -758,14 +758,36 @@ class BaseSync(object):
         for ent in self.entities.itervalues():
             ent.calculate_ad_values() # exchange=self.exchange_sync)
 
-    def cache_entity(self, entity_id, entity_name):
+    def cache_entity(self, entity_id, entity_name, *args, **kwargs):
         """Wrapper method for creating a cache object for an entity. 
         
+        The object class is created dynamically, depending on the config and
+        what subclasses of the sync is in use. This method returns an object
+        out of the correct classes.
+
         You should call this method for new cache objects instead of creating it
         directly, for easier subclassing.
 
+        @type entity_id: int
+        @param entity_id: The entity's entity_id
+
+        @type entity_name: str
+        @param entity_name: The entity's name, normally the entity_name.
+
+        @type *args: mixed
+        @param *args: More arguments that should be passed on to the object at
+            instantiation.
+
+        @type *kwargs: mixed
+        @param *kwargs: More arguments that should be passed on to the object at
+            instantiation.
+
+        @rtype: Cerebrum.modules.ad2.CerebrumData.CerebrumEntity
+        @return: A proper instantiated subclass for L{CerebrumEntity}.
+
         """
-        return CerebrumEntity(self.logger, self.config, entity_id, entity_name)
+        return self._object_class(self.logger, self.config, entity_id,
+                                  entity_name, *args, **kwargs)
 
     def start_fetch_ad_data(self, object_type=None, attributes=dict()):
         """Send request(s) to AD to start generating the data we need.
@@ -1638,17 +1660,6 @@ class UserSync(BaseSync):
         # fetch email info
         self.fetch_email_info()
 
-    def cache_entity(self, entity_id, entity_name, owner_id, owner_type):
-        """Cache an Account entity."""
-        # TODO: should we really subclass the CerebrumEntity? Why not just set
-        # attributes onto the CerebrumEntity object?
-        return CerebrumUser(self.logger, self.config, entity_id, entity_name,
-                            owner_id=owner_id, owner_type=owner_type)
-        #ret = CerebrumEntity(self.logger, entity_id, entity_name,
-        #                     self.config['domain'], self.config['target_ou'])
-        #ret.owner_id = owner_id
-        #ret.owner_type = owner_type
-
     def fetch_names(self):
         """Fetch all the persons' names and store them for the accounts.
 
@@ -2205,20 +2216,7 @@ class GroupSync(BaseSync):
             if subset and name not in subset:
                 continue
             self.entities[name] = self.cache_entity(int(row["group_id"]), name,
-                                                    row['description'])
-
-    def cache_entity(self, entity_id, entity_name, description, members=None):
-        """Cache a Group entity."""
-        # TODO: should we really subclass the CerebrumEntity? Why not just set
-        # attributes onto the CerebrumEntity object?
-        return CerebrumGroup(self.logger, self.config, entity_id, entity_name,
-                             description=description)
-        # TODO: members?
-
-        #ret = CerebrumEntity(self.logger, entity_id, entity_name,
-        #                     self.config['domain'], self.config['target_ou'])
-        #ret.owner_id = owner_id
-        #ret.owner_type = owner_type
+                                                    description=row['description'])
 
     def start_fetch_ad_data(self, object_type=None, attributes=dict()):
         """Ask AD to start generating the data we need about groups.
@@ -2426,13 +2424,6 @@ class HostSync(BaseSync):
             self.entities[name] = self.cache_entity(int(row["host_id"]), name,
                                                     row['description'])
 
-    def cache_entity(self, entity_id, entity_name, description):
-        """Cache a Host entity."""
-        # TODO: subclass CerebrumEntity for hosts?
-        ent = CerebrumEntity(self.logger, self.config, entity_id, entity_name)
-        ent.description = description
-        return ent
-
 class DistGroupSync(GroupSync):
     """
     Methods for dist group sync
@@ -2595,23 +2586,23 @@ class PosixUserSync(UserSync):
         """Fetch the posix data from Cerebrum."""
         super(PosixUserSync, self).fetch_cerebrum_data()
 
-        if any(v in self.config['attributes'] for v in 
-               ('UidNumber', 'GidNumber')):
-            self.fetch_posix_data()
-
-
-    def fetch_posix_data(self):
-        """Fetch POSIX data, like UID and GID, for the users."""
-        self.logger.debug("..fetch posix data..")
+        # Then fetch POSIX data for the user
 
         # First, we need a mapping between group_id to GID:
         self.posix_group_id2gid = dict((eid, gid) for eid, gid in
                                        self.pg.list_posix_groups())
-        # Then we could map account_id to UID and GID:
+        self.logger.debug("Number of POSIX groups: %d",
+                          len(self.posix_group_id2gid))
+        # Then we give each account UID and GID
+        # TODO: Should be extended in the future with more attributes. UiO would
+        # for instance like to populate "gecos" and primary group.
         for row in self.pu.list_posix_users():
             ent = self.id2entity.get(row['account_id'], None)
             if ent:
                 ent.posix['uid'] = int(row['posix_uid']) or ''
                 ent.posix['gid'] = self.posix_group_id2gid.get(row['gid'], '')
+        self.logger.debug("Number of POSIX users: %d",
+                          len(filter(lambda x: len(x.posix) > 0,
+                              self.entities.itervalues())))
 
     # TODO: make use of the posix data in a subclass of CerebrumUsers.
