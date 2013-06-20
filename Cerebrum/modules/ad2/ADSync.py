@@ -116,7 +116,7 @@ class BaseSync(object):
     # config for the given AD-sync, an error will be triggered. Note that
     # subclasses must define their own list for their own settings.
     settings_required = ('domain', 'server', 'target_type', 'target_ou',
-                         'search_ou')
+                         'search_ou', 'object_classes')
 
     # Settings with default values. If any of these settings are not defined in
     # the config for the given AD-sync, they will instead get their default
@@ -299,6 +299,31 @@ class BaseSync(object):
             self.config[key] = config_args.get(key, default)
         # The name of the sync:
         self.config['sync_type'] = config_args['sync_type']
+
+        # The object class is generated dynamically, depending on the given list
+        # of classes:
+        self.logger.debug("Using object classes: %s",
+                          ', '.join(config_args['object_classes']))
+        bases = []
+        for c in config_args['object_classes']:
+            mod_name, class_name = c.split("/", 1)
+            mod = dyn_import(mod_name)
+            claz = getattr(mod, class_name)
+            for override in bases:
+                if issubclass(claz, override):
+                    raise RuntimeError("Class %r should appear earlier in the "
+                            "list, as it's a subclass of class %r." % (claz,
+                                                                      override))
+            bases.append(claz)
+        if len(bases) == 1:
+            self.config['object_class'] = bases[0]
+        else:
+            # Dynamically construct a new class that inherits from all the
+            # specified classes:
+            self.config['object_class'] = type('_dynamic_adobject_%s' %
+                                               self.config['sync_type'],
+                                               tuple(bases), {})
+
         # Spread is changed into the spread constant, if set
         if self.config['target_spread']:
             self.config['target_spread'] = self.co.Spread(
@@ -1526,6 +1551,19 @@ class UserSync(BaseSync):
 
         """
         super(UserSync, self).fetch_cerebrum_data()
+
+        def any_in_config(*attrs):
+            """Helper function for checking if any of the given attributes is
+            defined as an attribute we should sync.
+
+            @rtype: bool
+            @return: True if any of the given attributes are defined in
+                L{self.config['attributes']}.
+
+            """
+            return any(v in self.config['attributes'] for v in attrs)
+
+
         # Create a mapping of owner id to user objects
         self.owner2ent = dict()
         for ent in self.entities.itervalues():
@@ -1533,21 +1571,21 @@ class UserSync(BaseSync):
         self.logger.debug("Mapped %d entity owners", len(self.owner2ent))
 
         # Get the rest of the needed data, depending on the config:
-        if any(v in self.config['attributes'] for v in
-               ('Surname', 'DisplayName', 'GivenName')):
+        if any_in_config('Surname', 'DisplayName', 'GivenName'):
             self.fetch_names()
-        if 'Title' in self.config['attributes']:
+        if any_in_config('Title'):
             self.fetch_titles(self.config['attributes']['Title'])
         # We fetch the Mail attribute both as contact_info and from the Email
         # module, since various instances store e-mail addresses differently
-        if any(v in self.config['attributes'] for v in 
-               ('TelephoneNumber', 'Mobile', 'Mail')):
+        if any_in_config('TelephoneNumber', 'Mobile', 'Mail'):
             self.fetch_contact_info()
-        if 'Mail' in self.config['attributes']:
+        if any_in_config('Mail'):
             self.fetch_mail()
+        # External IDs:
+        if any_in_config('EmployeeNumber'):
+            self.fetch_external_ids()
         # Addresses:
-        if any(v in self.config['attributes'] for v in 
-               ('StreetAddress', 'PostalCode', 'L', 'Co')):
+        if any_in_config('StreetAddress', 'PostalCode', 'L', 'Co'):
             self.fetch_address_info()
 
     def fetch_cerebrum_entities(self):
@@ -1692,6 +1730,26 @@ class UserSync(BaseSync):
             self.logger.debug2("Found contact for %s: %s", ent, row['contact_value'])
             if ent:
                 ent.contact_info[str(co.ContactType(row['contact_type']))] = row['contact_value']
+
+    def fetch_external_ids(self):
+        """Fetch all external IDs for the users that could be needed."""
+        self.logger.debug("..fetch external ids..")
+        types = []
+        if 'EmployeeNumber' in self.config['attributes']:
+            types.append(int(self.co.externalid_sap_ansattnr))
+        # TODO: Need a better way of defining theese...
+
+        if not types:
+            # Nothing to be retrieved
+            return
+
+        # External IDs stored on the person:
+        for row in self.pe.list_external_ids(id_type=types,
+                                             entity_type=self.co.entity_person):
+                                             # TODO: source_system?
+            for ent in self.owner2ent.get(row['entity_id'], ()):
+                ent.external_ids[str(co.EntityExternalId(row['id_type']))] = row['external_id']
+        #TODO: missing external ids stored on the user...
 
     def fetch_address_info(self):
         """Fetch addresses for users.
@@ -2516,3 +2574,44 @@ class DistGroupSync(GroupSync):
         "wrapper func for easier subclassing"
         return CerebrumDistGroup(gname, group_id, description, self.ad_domain,
                                  self.get_default_ou())
+
+class PosixUserSync(UserSync):
+    """Extra sync functionality for posix data about users.
+
+    It is possible to sync posix data, like UID and GID, with AD, for
+    environments that should support both environments where both UNIX and AD is
+    used. Note, however, that AD needs to include an extra schema before the
+    pposix attributes could be populated.
+
+    """
+
+    def __init__(self, *args, **kwargs):
+        """Instantiate posix specific functionality."""
+        super(PosixUserSync, self).__init__(*args, **kwargs)
+        self.pu = Factory.get('PosixUser')(self.db)
+        self.pg = Factory.get('PosixGroup')(self.db)
+
+    def fetch_cerebrum_data(self):
+        """Fetch the posix data from Cerebrum."""
+        super(PosixUserSync, self).fetch_cerebrum_data()
+
+        if any(v in self.config['attributes'] for v in 
+               ('UidNumber', 'GidNumber')):
+            self.fetch_posix_data()
+
+
+    def fetch_posix_data(self):
+        """Fetch POSIX data, like UID and GID, for the users."""
+        self.logger.debug("..fetch posix data..")
+
+        # First, we need a mapping between group_id to GID:
+        self.posix_group_id2gid = dict((eid, gid) for eid, gid in
+                                       self.pg.list_posix_groups())
+        # Then we could map account_id to UID and GID:
+        for row in self.pu.list_posix_users():
+            ent = self.id2entity.get(row['account_id'], None)
+            if ent:
+                ent.posix['uid'] = int(row['posix_uid']) or ''
+                ent.posix['gid'] = self.posix_group_id2gid.get(row['gid'], '')
+
+    # TODO: make use of the posix data in a subclass of CerebrumUsers.
