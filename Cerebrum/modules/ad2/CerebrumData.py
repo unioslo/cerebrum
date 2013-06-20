@@ -197,6 +197,10 @@ class CerebrumEntity(object):
         # Skip if attribute is already set
         if not force and key in self.attributes:
             return False
+        # Remove whitespace before and after data. AD is stripping this out when
+        # saving the value, so if we strip too, the comparing gets easier.
+        if isinstance(value, basestring):
+            value = value.strip()
         self.attributes[key] = value
         return True
 
@@ -224,6 +228,7 @@ class CerebrumUser(CerebrumEntity):
         self.owner_id = owner_id
         self.owner_type = owner_type
         self.contact_info = {}
+        self.external_ids = {}
 
         # TODO: Make use of self.email_addresses = {}, or should this be in a
         # subclass? Now we use contact_info['EMAIL'] for the primary address,
@@ -263,8 +268,15 @@ class CerebrumUser(CerebrumEntity):
             try:
                 self.set_attribute(contact2attr[type], value)
             except KeyError, e:
-                if type not in contact2attr:
-                    self.logger.warn("Contact type not mapped for attr: %s", e)
+                self.logger.warn("Contact type not mapped for attr: %s", e)
+
+        # TODO: move the mapping to somewhere more global
+        extid2attr = {'NO_SAPNO': 'EmployeeNumber'}
+        for type, value in self.external_ids.iteritems():
+            try:
+                self.set_attribute(extid2attr[type], value)
+            except KeyError, e:
+                self.logger.warn("ExternalID type not mapped for attr: %s", e)
 
         self.set_attribute('Enabled', bool(self.active))
 
@@ -333,6 +345,26 @@ class CerebrumUser(CerebrumEntity):
         if not self.update_recipient and attr_type in cereconf.AD_EXCHANGE_ATTRIBUTES:
             self.update_recipient = True
 
+class PosixCerebrumUser(CerebrumUser):
+    """A posix user from Cerebrum, implementing extra attributes for POSIX data.
+
+    This is a simple class, only for updating the correct attributes by given
+    data. The object must be fed with data inside the object variable L{posix}.
+
+    """
+    def __init__(self, *args, **kwargs):
+        """Making the object ready for posix data."""
+        super(PosixCerebrumUser, self).__init__()
+        self.posix = dict()
+
+    def calc_ad_attrs(self):
+        """Calculate POSIX attributes."""
+        super(PosixCerebrumUser, self).calc_ad_attrs()
+        if self.posix.has_key('uid'):
+            self.set_attribute('UidNumber', self.posix['uid'])
+        if self.posix.has_key('gid'):
+            self.set_attribute('GidNumber', self.posix['gid'])
+        # TODO: extra attributes, like primary group. At least used at UiO.
 
 class CerebrumContact(CerebrumEntity):
     """
