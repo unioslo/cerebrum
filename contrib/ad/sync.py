@@ -236,7 +236,11 @@ def main():
         else:
             sync.fullsync()
     finally:
-        sync.server.close()
+        try:
+            sync.server.close()
+        except Exception:
+            # It's probably already closed
+            pass
 
     # TODO: Print out memory usage. Remove when done debugging:
     if debug:
