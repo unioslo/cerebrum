@@ -357,9 +357,9 @@ class PosixCerebrumUser(CerebrumUser):
         super(PosixCerebrumUser, self).__init__(*args, **kwargs)
         self.posix = dict()
 
-    def calc_ad_attrs(self):
+    def calculate_ad_values(self):
         """Calculate POSIX attributes."""
-        super(PosixCerebrumUser, self).calc_ad_attrs()
+        super(PosixCerebrumUser, self).calculate_ad_values()
         if self.posix.has_key('uid'):
             self.set_attribute('UidNumber', self.posix['uid'])
         if self.posix.has_key('gid'):

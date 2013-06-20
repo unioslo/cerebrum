@@ -1899,7 +1899,7 @@ class PowershellClient(WinRMClient):
                 return '$true'
             else:
                 return '$false'
-        if isinstance(data, int):
+        if isinstance(data, (int, long)):
             return data
         if isinstance(data, float):
             return "'%f'" % data
