@@ -1142,9 +1142,9 @@ class BaseSync(object):
         self.logger.debug("Found %d entities not found in AD",
                           len(filter(lambda x: not x.in_ad,
                                      self.entities.itervalues())))
-
-        # Cache the passwords for the entities not in AD:
-        self.fetch_passwords()
+        ## TODO JSAMA: ADD this when not testing
+        ## Cache the passwords for the entities not in AD:
+        #self.fetch_passwords()
         
         i = 0
         for ent in self.entities.itervalues():
@@ -1610,6 +1610,10 @@ class UserSync(BaseSync):
         if any_in_config('StreetAddress', 'PostalCode', 'L', 'Co'):
             self.fetch_address_info()
 
+        ## TODO JSAMA: REMOVE this when not testing
+        ## Cache the passwords for the entities not in AD:
+        self.fetch_passwords()
+
     def fetch_cerebrum_entities(self):
         """Fetch the entities from Cerebrum that should be compared against AD.
 
@@ -1825,10 +1829,13 @@ class UserSync(BaseSync):
         Only caches the newest password set. Only caches password for entities
         that does not exist in AD"""
         self.uname2pass = {}
+        # TODO JSAMA: Do we want to do this? Does this give us more speed?
+        # We can't do this while testing
         ent_ids = filter(lambda x: not x.in_ad, self.entities.values())
+        #ent_ids = self.entities.values()
         ent_ids = [x.entity_id for x in ent_ids]
-        cl = CLHandler.CLHandler(self.db)
-        answer = reversed(cl.get_events('ad', (self.co.account_password,)))
+        answer = reversed([ x for x in self.db.get_log_events(
+                                        types=(self.co.account_password,))])
         for ans in answer:
             try:
                 ent = self.id2entity[ans['subject_entity']]
@@ -1836,15 +1843,26 @@ class UserSync(BaseSync):
                 # We continye past this event. Since account is not in the
                 # list of users who should get their password set.
                 continue
-            if not self.uname2pass.has_key(ent.entity_name) and \
-                    ans['change_type_id'] == self.co.account_password and \
-                    ans['subject_entity'] in ent_ids:
+            if (not self.uname2pass.has_key(ent.entity_name) and
+                    ans['change_type_id'] == self.co.account_password and
+                    ans['subject_entity'] in ent_ids):
                 try:
                     self.uname2pass[ent.entity_name] = \
                         pickle.loads(ans['change_params'])['password']
+                    self.logger.debug('Loaded pt for %s' % ent.entity_name)
+                # TODO JSAMA: Revise error-list and log.
                 except (KeyError, TypeError):
-                    # If we arrive here, there is no plaintext accessible
-                    pass
+                    self.logger.debug('No plaintext loadable for %s' %
+                                        ent.entity_name)
+            elif self.uname2pass.has_key(ent.entity_name):
+                self.logger.debug('Plaintext already loaded for %s' %
+                                    ent.entity_name)
+
+            else:
+                self.logger.debug('No plaintext available for %s' %
+                                    ent.entity_name)
+#        import interact
+#        interact.Interact(local=locals())
 
     def process_entity_not_in_ad(self, ent):
         """Process an account that doesn't exist in AD, yet.
@@ -1874,6 +1892,7 @@ class UserSync(BaseSync):
                 self.logger.warn('No password set for %s' % ent.entity_name)
                 return ret
 
+            self.logger.debug('Trying to set pw for %s', ent.entity_name)
             if self.server.set_password(ret['DistinguishedName'], password):
                 # As a security feature, you have to explicitly enable the
                 # account after a valid password has been set.
@@ -1882,6 +1901,41 @@ class UserSync(BaseSync):
         # If more functionality gets put here, you should check if the entity is
         # active, and not update it if the config says so (downgrade).
         return ret
+
+# TODO JSAMA HACK FOR SETTING PASSWORD ON ALL USERS FROM CHANGELOG
+    def process_ad_object(self, ad_object):
+        """Compare an AD-object with Cerebrum and update AD with differences.
+
+        Basic functionality for what to do with an object, compared to what is
+        stored in Cerebrum. Could be subclassed to add more functionality. This
+        command is called both when updating existing objects, but also if an
+        entity didn't exist in AD and just got created.
+
+        @type ad_object: dict
+        @param ad_object: A dict with information about the AD object from AD.
+            The dict contains mostly the object's attributes.
+
+        """
+        # Call the superclass
+        ret = super(UserSync, self).process_ad_object(ad_object)
+
+        name = ad_object['SamAccountName']
+        ent = self.adid2entity.get(name)
+
+        # Set password on object and enable
+        try:
+            password = self.uname2pass[name]
+        except KeyError:
+            password = ''
+            self.logger.warn('No password for existing user %s' % name)
+            return ret
+        if self.server.set_password(ad_object['DistinguishedName'], password):
+            # As a security feature, you have to explicitly enable the
+            # account after a valid password has been set.
+            if ent.active:
+                self.server.enable_object(ad_object['DistinguishedName'])
+        return ret
+# END TODO JSAMA HACK FOR SETTING PASSWORD ON ALL USERS FROM CHANGELOG
 
     def changelog_handle_e_account(self, ctype, row):
         """Handler for changelog events of category 'e_account'.
