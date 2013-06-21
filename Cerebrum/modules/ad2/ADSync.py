@@ -1831,8 +1831,8 @@ class UserSync(BaseSync):
         self.uname2pass = {}
         # TODO JSAMA: Do we want to do this? Does this give us more speed?
         # We can't do this while testing
-        ent_ids = filter(lambda x: not x.in_ad, self.entities.values())
-        #ent_ids = self.entities.values()
+        #ent_ids = filter(lambda x: not x.in_ad, self.entities.values())
+        ent_ids = self.entities.values()
         ent_ids = [x.entity_id for x in ent_ids]
         answer = reversed([ x for x in self.db.get_log_events(
                                         types=(self.co.account_password,))])
@@ -1843,26 +1843,23 @@ class UserSync(BaseSync):
                 # We continye past this event. Since account is not in the
                 # list of users who should get their password set.
                 continue
-            if (not self.uname2pass.has_key(ent.entity_name) and
-                    ans['change_type_id'] == self.co.account_password and
+
+            if self.uname2pass.has_key(ent.entity_name):
+                self.logger.debug('Plaintext already loaded for %s' %
+                                    ent.entity_name)
+            elif (ans['change_type_id'] == self.co.account_password and
                     ans['subject_entity'] in ent_ids):
                 try:
                     self.uname2pass[ent.entity_name] = \
-                        pickle.loads(ans['change_params'])['password']
+                        pickle.loads(str(ans['change_params']))['password']
                     self.logger.debug('Loaded pt for %s' % ent.entity_name)
                 # TODO JSAMA: Revise error-list and log.
                 except (KeyError, TypeError):
                     self.logger.debug('No plaintext loadable for %s' %
                                         ent.entity_name)
-            elif self.uname2pass.has_key(ent.entity_name):
-                self.logger.debug('Plaintext already loaded for %s' %
-                                    ent.entity_name)
-
             else:
                 self.logger.debug('No plaintext available for %s' %
                                     ent.entity_name)
-#        import interact
-#        interact.Interact(local=locals())
 
     def process_entity_not_in_ad(self, ent):
         """Process an account that doesn't exist in AD, yet.
