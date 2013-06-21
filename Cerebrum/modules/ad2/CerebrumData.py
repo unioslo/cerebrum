@@ -366,6 +366,23 @@ class PosixCerebrumUser(CerebrumUser):
             self.set_attribute('GidNumber', self.posix['gid'])
         # TODO: extra attributes, like primary group. At least used at UiO.
 
+class MailTargetEntity(object):
+    """An entity/object with a Mailtarget connected.
+
+    This is where the generic mail data from Cerebrum is put.
+
+    """
+    def __init__(self, *args, **kwargs):
+        """Making the object ready for the mailtarget."""
+        super(MailTargetEntity, self).__init__(*args, **kwargs)
+        self.mailtarget = None
+
+    def calculate_ad_values(self):
+        """Calculate POSIX attributes."""
+        super(MailTargetEntity, self).calculate_ad_values()
+        # TODO
+
+
 class CerebrumContact(CerebrumEntity):
     """
     This class contains forward info for a Cerebrum account.
