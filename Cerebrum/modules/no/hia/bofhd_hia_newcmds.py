@@ -252,7 +252,7 @@ class BofhdExtension(BofhdCommonMethods):
 
 
     def get_help_strings(self):
-	return bofhd_hia_help.get_help_strings()
+	   return bofhd_hia_help.get_help_strings(self)
     
 
     # helpers needed for spread_add, cannot be copied in the usual way
