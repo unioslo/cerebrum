@@ -499,10 +499,9 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                         # primaryGroup_groupname contains the AD name of the
                         # group that is the dfg, and all the group SIDs are
                         # located in self.groupsids. Do the mapping.
-                        self.logger.debug("primaryGroupID: %s", cerebrumusrs[usr])
+                        #self.logger.debug("primaryGroupID: %s", cerebrumusrs[usr])
                         sid = self.groupsids.get(cerebrumusrs[usr].get('primaryGroup_groupname'))
-                        self.logger.debug("Comparing sid for user %s: %s", usr,
-                                sid)
+                        #self.logger.debug("Comparing sid for user %s: %s", usr, sid)
                         # We should not set the primaryGroup to None, so we're
                         # only updating it if we have something proper to set:
                         if sid:
@@ -771,7 +770,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                                                 self.pg.list_posix_groups())
         groupid2uids = dict()
         for row in self.pu.list_posix_users(filter_expired=True):
-            groupid2uids.setdefault(row['gid'], []).append(row['posix_uid'])
+            groupid2uids.setdefault(row['gid'], []).append(str(row['posix_uid']))
         i = 0
         for gname, gdata in grp_dict.iteritems():
             if gdata['grp_id'] in groupid2gid:
@@ -908,6 +907,10 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
 
                 #Comparing group info 
                 for attr in cereconf.AD_GRP_ATTRIBUTES:
+                    if attr == 'memberUID':
+                        self.logger.debug("Compare memberUID c='%s', ad='%s'",
+                                          cerebrum_dict[grp].get(attr, None),
+                                          ad_dict[grp].get(attr, None))
                     if attr == 'member':
                         pass
                     elif cerebrum_dict[grp].has_key(attr) and \
@@ -917,7 +920,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                             # multivalue in cerebrumusrs always is
                             # represented as a list.
                             Mchange = False
-                            
+
                             if (isinstance(ad_dict[grp][attr],
                                            (str,int,long,unicode))):
                                 #Transform single-value to a list for comp.
