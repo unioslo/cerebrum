@@ -21,6 +21,9 @@
 #import pprint
 from Cerebrum.modules.bofhd.bofhd_core_help import *
 
+def get_help_strings(self):
+        return (group_help, command_help, arg_help)
+
 def _group_help_modifications():
     """Updates the global group_help dictionary."""
     removekeys = ['disk', 'entity', 'host', 'pquota']
