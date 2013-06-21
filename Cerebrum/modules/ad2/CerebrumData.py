@@ -406,21 +406,6 @@ class CerebrumContact(CerebrumEntity):
         self.forward_attrs["msExchHideFromAddressLists"] = True
         self.forward_attrs["targetAddress"] = self.forward_addr
 
-
-    def add_change(self, attr_type, value):
-        """
-        Add attribute type and value that is to be synced to AD. Some
-        attributes changes must be sent to Exchange also. If that is
-        the case set update_recipient to True
-
-        @param attr_type: AD attribute type
-        @type attr_type: str
-        @param value: AD attribute value
-        @type value: varies
-        """
-        self.changes[attr_type] = value
-
-
 class CerebrumGroup(CerebrumEntity):
     """A representation of a Cerebrum group which may be exported to AD.
 
@@ -449,31 +434,16 @@ class CerebrumGroup(CerebrumEntity):
         """
         super(CerebrumGroup, self).calculate_ad_values()
         self.set_attribute('Description', getattr(self, 'description', 'N/A'))
-
         self.set_attribute('DisplayName', self.ad_id)
         # TODO: any changes to this? Should it be formatted else than
         # DisplayName?
         self.set_attribute('DisplayNamePrintable', self.ad_id)
-        return
-
-        # Read which attrs to calculate from cereconf
-        ad_attrs = dict().fromkeys(cereconf.AD_GRP_ATTRIBUTES, None)
-        ad_attrs.update(cereconf.AD_GRP_DEFAULTS)
-        
-        # Do the hardcoding for this sync.
-        self.ad_attrs.update(ad_attrs)
-
-    def add_change(self, attr_type, value):
-        """
-        The attributes stored in self.changes will be synced to AD.
-
-        @param attr_type: AD attribute type
-        @type attr_type: str
-        @param value: AD attribute value
-        @type value: varies
-        """
-        self.changes[attr_type] = value
-
+        self.set_attribute('MailNickname', self.ad_id)
+        # These could be overridden by a Mailtarget subclass:
+        self.set_attribute('Mail', '@'.join((self.ad_id,
+                                             self.config['domain'])))
+        self.set_attribute('ProxyAddresses', ('SMTP:%s@%s' % (self.ad_id,
+                                                       self.config['domain']),))
 
 class CerebrumDistGroup(CerebrumGroup):
     """
