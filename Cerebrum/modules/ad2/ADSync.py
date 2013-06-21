@@ -1968,7 +1968,7 @@ class UserSync(BaseSync):
             self.logger.debug("Change_params: %s" % (row['change_params'],))
             if row['change_params']:
                 self.logger.debug("Change_params: %s" %
-                                  (pickle.loads(row['change_params']),))
+                                  (pickle.loads(str(row['change_params'])),))
             return False
 
         if not self.ac.has_spread(self.config['target_spread']):
@@ -1979,14 +1979,14 @@ class UserSync(BaseSync):
 
         if ctype.type == 'password':
             try:
-                pw = pickle.loads(row['change_params'])['password']
+                pw = pickle.loads(str(row['change_params']))['password']
             except (KeyError, TypeError):
                 self.logger.warn("No plaintext password found for: %s", name)
                 return False
             # TODO: do we need to unicodify it here, or do we handle it in the
             # ADclient instead?
             #pwUnicode = unicode(pw, 'iso-8859-1')
-            return self.server.set_password(name, 'testepassord')
+            return self.server.set_password(name, pw)
         elif ctype.type == 'create':
             try:
                 return self.server.create_object(name, self.config['target_ou'],
