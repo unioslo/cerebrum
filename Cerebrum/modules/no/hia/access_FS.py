@@ -300,7 +300,7 @@ class FS(access_FS.FS):
         self.mndnr = t[1]
         self.dday = t[2]
         
-        # Override with uia-spesific classes
+        # Override with hia-spesific classes
         self.student = HiAStudent(self.db)
         self.undervisning = HiAUndervisning(self.db)
 
