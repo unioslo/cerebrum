@@ -39,17 +39,17 @@ from Cerebrum.modules import Email
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules import Note
 from Cerebrum.modules.bofhd.cmd_param import *
-from Cerebrum.modules.no.hia import bofhd_hia_help
+from Cerebrum.modules.no.uia import bofhd_uia_help
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.Constants import _CerebrumCode, _SpreadCode
 from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthOpSet
 from Cerebrum.modules.bofhd.auth import BofhdAuthOpTarget, BofhdAuthRole
-from Cerebrum.modules.no.hia.bofhd_uia_auth import BofhdAuth
+from Cerebrum.modules.no.uia.bofhd_uia_auth import BofhdAuth
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
 from Cerebrum.modules.no import fodselsnr
 from mx import DateTime
-from Cerebrum.modules.no.hia.access_FS import FS
+from Cerebrum.modules.no.uia.access_FS import FS
 from Cerebrum.modules.templates.letters import TemplateHandler
 
 def format_day(field):
@@ -252,7 +252,7 @@ class BofhdExtension(BofhdCommonMethods):
 
 
     def get_help_strings(self):
-	   return bofhd_hia_help.get_help_strings(self)
+	   return bofhd_uia_help.get_help_strings(self)
     
 
     # helpers needed for spread_add, cannot be copied in the usual way
