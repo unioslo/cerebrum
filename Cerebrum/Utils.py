@@ -27,6 +27,7 @@ import inspect
 import new
 import os
 import popen2
+from subprocess import Popen, PIPE
 import re
 import smtplib
 import string
@@ -363,6 +364,7 @@ def read_password(user, system, host=None):
         f.close()
 
 
+# TODO: Replace the popen2 module with Popen for this function as well
 def spawn_and_log_output(cmd, log_exit_status=True, connect_to=[]):
     """Run command and copy stdout to logger.debug and stderr to
     logger.error.  cmd may be a sequence.  connect_to is a list of
@@ -422,41 +424,72 @@ def spawn_and_log_output(cmd, log_exit_status=True, connect_to=[]):
                          pid, status, cmd)
     return status
 
+def filtercmd(cmd, input):
+    """Send input on stdin to a command and collect the output from stdout.
+    
+    Keyword arguments:
+    cmd -- arg list, where the first element is the full path to the command
+    input -- data to be sent on stdin to the executable
+
+    Returns the stdout that is returned from the command. May throw an IOError.
+
+    Example use:
+    
+    >>> filtercmd(["sed", "s/kak/ost/"], "kakekake")
+    'ostekake'
+    
+    """
+
+    p = Popen(cmd, stdin=PIPE, stdout=PIPE, close_fds=False)
+    p.stdin.write(input)
+    p.stdin.close()
+
+    output = p.stdout.read()
+    exit_code = p.wait()
+    p.stdout.close()
+
+    if exit_code:
+        raise IOError, "%r exited with %i" % (cmd, exit_code)
+
+    return output
+
 
 def pgp_encrypt(message, keyid):
-    cmd = [cereconf.PGPPROG]
-    cmd.extend(cereconf.PGP_ENC_OPTS)
-    cmd.extend(('--recipient', keyid, '--default-key', keyid))
+    """Encrypts a message using PGP.
+    
+    Keyword arguments:
+    message -- the message that is to be decrypted
+    keyid -- the private key
 
-    child = popen2.Popen3(cmd)
-    child.tochild.write(message)
-    child.tochild.close()
-    msg = child.fromchild.read()
-    exit_code = child.wait()
-    if exit_code:
-        raise IOError, "%r exited with %i" % (cmd, exit_code)
-    return msg
+    Returns the encrypted message. May throw an IOError.
+
+    """
+
+    cmd = [cereconf.PGPPROG] + cereconf.PGP_ENC_OPTS + \
+	  ['--recipient', keyid, '--default-key', keyid]
+
+    return filtercmd(cmd, message)
+
 
 def pgp_decrypt(message, keyid, passphrase):
-    """Decrypt message using the private key with ID keyid.  """
+    """Decrypts a message using PGP.
     
-    cmd = [cereconf.PGPPROG]
-    cmd.extend(cereconf.PGP_DEC_OPTS)
-    cmd.extend(('--default-key', keyid))
-    if passphrase != "":
-        cmd.extend(cereconf.PGP_DEC_OPTS_PASSPHRASE)
+    Keyword arguments:
+    message -- the message that is to be decrypted
+    keyid -- the private key
+    passphrase - the password
 
-    child = popen2.Popen3(cmd)
+    Returns the decrypted message. May throw an IOError.
+
+    """
+    
+    cmd = [cereconf.PGPPROG] + cereconf.PGP_DEC_OPTS + ['--default-key', keyid]
 
     if passphrase != "":
-        child.tochild.write(passphrase + "\n")
-    child.tochild.write(message)
-    child.tochild.close()
-    msg = child.fromchild.read()
-    exit_code = child.wait()
-    if exit_code:
-        raise IOError, "%r exited with %i" % (cmd, exit_code)
-    return msg
+        cmd += cereconf.PGP_DEC_OPTS_PASSPHRASE
+	message = passphrase + "\n" + message
+
+    return filtercmd(cmd, message)
 
 
 def format_as_int(i):
@@ -467,9 +500,7 @@ def format_as_int(i):
 
 
 def to_unicode(obj, encoding='utf-8'):
-    """
-    Decode obj to unicode if it is a basestring.
-    """
+    """Decode obj to unicode if it is a basestring."""
     if isinstance(obj, basestring):
         if not isinstance(obj, unicode):
             obj = unicode(obj, encoding)
@@ -477,9 +508,7 @@ def to_unicode(obj, encoding='utf-8'):
 
 
 def unicode2str(obj, encoding='utf-8'):
-    """
-    Encode unicode object to a str with the given encoding
-    """
+    """Encode unicode object to a str with the given encoding."""
     if isinstance(obj, unicode):
         return obj.encode(encoding)
     return obj
