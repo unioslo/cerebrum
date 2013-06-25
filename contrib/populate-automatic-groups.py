@@ -909,6 +909,10 @@ def perform_sync(select_criteria, perspective, source_system, spreads):
     selecting_affiliations = [x
                               for x in select_criteria
                               if isinstance(x, constants.PersonAffiliation)]
+    # TBD: If the select list is empty, should the script abort, or just go for
+    # all affiliations?
+    if not selecting_affiliations:
+        selecting_affiliations = None
 
     # Rules that decide which groups to build.
     # Each rule is a tuple. The first object is a callable that generates a
