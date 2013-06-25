@@ -603,14 +603,12 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
     def __eq__(self, other):
         assert isinstance(other, Account)
 
-        if (self.account_name != other.account_name or
-            int(self.owner_type) != int(other.owner_type) or
-            self.owner_id != other.owner_id or
-            self.np_type != other.np_type or
-            self.creator_id != other.creator_id or
-            self.expire_date != other.expire_date):
-            return False
-        return True
+        return (self.account_name == other.account_name and
+            int(self.owner_type) == int(other.owner_type) and
+            self.owner_id == other.owner_id and
+            self.np_type == other.np_type and
+            self.creator_id == other.creator_id and
+            self.expire_date == other.expire_date)
 
     def populate(self, name, owner_type, owner_id, np_type, creator_id,
                  expire_date, parent=None):
