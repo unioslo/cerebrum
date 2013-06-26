@@ -2,6 +2,11 @@
 Cerebrum / BOFH / BOFHD startup scripts and configuration system
 ================================================================
 
+Rationale
+=========
+
+The idea is to keep all the configuration in only one place, if possible.
+
 Installation instructions
 =========================
 
