@@ -10,10 +10,11 @@ The idea is to keep all the configuration in only one place, if possible.
 Installation instructions
 =========================
 
-Put cerebrumrc.sh in ~/.cerebrumrc
-Put bofhd.sh and bofh.sh somewhere in the path
+* Put cerebrumrc in your home folder as ~/.cerebrumrc.
 
-Edit ~/.cerebrumrc and set your preferred configuration values.
+* Put bofhd.sh and bofh.sh somewhere in the path.
+
+* Edit ~/.cerebrumrc and set your preferred configuration values.
 
 You can now start bofh and bofhd, without relating to cerepath.py, unless you want to.
 
