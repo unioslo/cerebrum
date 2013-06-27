@@ -10,7 +10,7 @@
 
 source ~/.cerebrumrc
 
-bofh \
+"$BOFH_BIN" \
   -u "$BOFH_USER" \
   --url "https://cere-utv01.uio.no:$BOFHD_PORT" \
   --set "console_prompt=$BOFH_PROMPT> " \

@@ -26,7 +26,7 @@ CEREBRUM_DATABASE_NAME_uio=cerebrum_uio_rw
 # UIA
 CEREBRUM_DATABASE_USER_uia=cerebrum
 CEREBRUM_DATABASE_HOST_uia=dbpg-cere-utv.uio.no
-CEREBRUM_DATABASE_NAME_uia=cerebrum_uio_rw
+CEREBRUM_DATABASE_NAME_uia=cerebrum_uia_rw
 
 # For cereconf.py
 export CERECONF_GLOBAL="/cerebrum/$CEREBRUM_INST/etc/cerebrum"
@@ -43,6 +43,7 @@ BOFHD_PORT=1337
 BOFH_PROMPT=bofhtest
 #BOFH_USER=bootstrap_account
 BOFH_USER="$USER"
+BOFH_BIN=/local/bin/bofh
 
 # PYTHON
 PYTHON_BIN=/local/bin/python
