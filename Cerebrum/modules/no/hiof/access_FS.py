@@ -22,6 +22,55 @@ import time
 from Cerebrum.modules.no import access_FS
 
 class HiOfStudent(access_FS.Student):
+    # We redefine this, as HiOf uses other dates for semesters 
+    def _get_termin_aar(self, only_current=0):
+        """Generate an SQL query part for limiting registerkort to the current
+        term and maybe also the previous term. The output from this method
+        should be a part of an SQL query, and must have a reference to
+        L{fs.registerkort} by the character 'r'.
+
+        FS is working in terms and not with proper dates, so the query is
+        generated differently depending on the current date:
+
+        - From 1st of January to 15th of February: This year's 'VÅR' is
+          returned. If L{only_current} is False, also last year's 'HØST' is
+          included.
+
+        - From 15th of February to 31st of July: Only this year's 'VÅR' is
+          returned.
+
+        - From 1st of August to 15th of September: This year's 'HØST' is returned.
+          If L{only_current} is False, also this year's 'VÅR' is included.
+
+        - From 15th of September to 31st of December: Only this year's 'HØST' is
+          returned.
+
+        @type only_current: bool
+        @param only_current: If set to True, the query is limiting to only the
+            current term. If False, the previous term is also included if we are
+            early in the current term. This has no effect if the current date is
+            more than halfway into the current term.
+
+        @rtype: string
+        @return: An SQL formatted string that should be put in a larger query.
+            Example:
+                (r.terminkode = 'HØST' and r.arstall = 2013)
+            where 'r' refers to 'fs.registerkort r'.
+
+        """
+        if self.mndnr <= 7:
+            # Months January - July == Spring semester
+            current = "(r.terminkode = 'VÅR' AND r.arstall=%s)\n" % self.year;
+            if only_current or self.mndnr >= 3 or (self.mndnr == 2 and self.dday > 15):
+                return current
+            return "(%s OR (r.terminkode = 'HØST' AND r.arstall=%d))\n" % (
+                current, self.year-1)
+        # Months August - December == Autumn semester
+        current = "(r.terminkode = 'HØST' AND r.arstall=%d)\n" % self.year
+        if only_current or self.mndnr >= 10 or (self.mndnr == 9 and self.dday > 15):
+            return current
+        return "(%s OR (r.terminkode = 'VÅR' AND r.arstall=%d))\n" % (current, self.year)
+    
     ## Vi bruker list_privatist, og list_tilbud fra no/access_FS
     def list_aktiv(self, fodselsdato=None, personnr=None):
         """ Hent opplysninger om studenter definert som aktive 
