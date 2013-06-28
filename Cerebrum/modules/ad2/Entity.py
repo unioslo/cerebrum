@@ -97,6 +97,10 @@ class ConstantsActiveDirectory(Constants):
                                        'Mobile number for an object in AD',
                                        True) # multivalued, yes
 
+    ad_attribute_scriptpath = _ADAttrCode('ScriptPath',
+                                          'ScriptPath for an account in AD',
+                                          False)
+
     # Titles should by default be stored in person_name.
     #ad_attribute_title = _ADAttrCode('Title', 'Title for an account in AD',
     #                                 False)

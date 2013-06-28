@@ -44,6 +44,14 @@ SYNCS = dict()
 #       ('Cerebrum.modules.ad2.ADSync/UserSync',
 #        'Cerebrum.modules.instance/ADSyncmixin',)
 #
+# - object_classes (list):
+#   Contains all the classes that should be used as the representation of the
+#   Cerebrum entity and AD object. The classes gest dynamically merged as a new
+#   class.
+#   Example:
+#       ('Cerebrum.modules.ad2.CerebrumData/PosixCerebrumUser',
+#        'Cerebrum.modules.ad2.CerebrumData/CerebrumUser',)
+#
 # - target_spread (str or list):
 #   What spread(s) to use to retrieve entities from Cerebrum. If not set, and
 #   the key of the sync matches a spread, that is used instead.

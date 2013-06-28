@@ -1718,7 +1718,7 @@ class UserSync(BaseSync):
         if 'TelephoneNumber' in self.config['attributes']:
             types.append(int(self.co.contact_phone))
         if 'Mobile' in self.config['attributes']:
-            types.append(int(self.co.contact_mobile))
+            types.append(int(self.co.contact_mobile_phone))
         if 'Mail' in self.config['attributes']:
             types.append(int(self.co.contact_email))
 
@@ -1733,7 +1733,7 @@ class UserSync(BaseSync):
                                              entity_type=self.co.entity_person,
                                              contact_type=types):
             for ent in self.owner2ent.get(row['entity_id'], ()):
-                ent.contact_info[str(co.ContactType(row['contact_type']))] = row['contact_value']
+                ent.contact_info[str(self.co.ContactInfo(row['contact_type']))] = row['contact_value']
         # Contact info stored on the account:
         for row in self.ac.list_contact_info(source_system=self.co.system_sap,
                                              entity_type=self.co.entity_account,
@@ -1741,7 +1741,7 @@ class UserSync(BaseSync):
             ent = self.id2entity.get(row['entity_id'], None)
             self.logger.debug2("Found contact for %s: %s", ent, row['contact_value'])
             if ent:
-                ent.contact_info[str(co.ContactType(row['contact_type']))] = row['contact_value']
+                ent.contact_info[str(self.co.ContactInfo(row['contact_type']))] = row['contact_value']
 
     def fetch_external_ids(self):
         """Fetch all external IDs for the users that could be needed."""
@@ -1822,9 +1822,11 @@ class UserSync(BaseSync):
 
     def fetch_passwords(self):
         """Fetch passwords for accounts from changelog.
-        
+
         Only caches the newest password set. Only caches password for entities
-        that does not exist in AD"""
+        that does not exist in AD.
+
+        """
         self.uname2pass = {}
         # This should save a small amount of memory, but also slow us down.
         ent_ids = [x.entity_id for x in filter(
@@ -1836,7 +1838,7 @@ class UserSync(BaseSync):
             try:
                 ent = self.id2entity[ans['subject_entity']]
             except KeyError:
-                # We continye past this event. Since account is not in the
+                # We continue past this event. Since account is not in the
                 # list of users who should get their password set.
                 continue
 
