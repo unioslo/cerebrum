@@ -266,6 +266,79 @@ class AccountHiOfMixin(Account.Account):
                 return True
         return False            
 
+    def _calculate_homedir(self):
+        """Calculate what a user should get as its HomeDirectory in AD,
+        according to the specifications. Note that this only returns what
+        _would_ be set, but the specification also says that it should not be
+        changed after first set.
+
+        The rules are:
+
+        - Employees and affiliated should get \\LS01.hiof.no\HomeA\USERNAME
+        - Students should get \\LS02.hiof.no\HomeS\USERNAME
+        - The rest should not get anything.
+
+        """
+        is_student = False
+        for r in self.get_account_types():
+            if r['affiliation'] in (self.const.affiliation_ansatt,
+                                    self.const.affiliation_tilknyttet):
+                # Highest priority, could be returned at once
+                return '\\LS01.hiof.no\HomeA\%s' % self.account_name
+            elif r['affiliation'] == self.const.affiliation_student:
+                is_student = True
+        if is_student:
+            return '\\LS02.hiof.no\HomeS\%s' % self.account_name
+
+    def _calculate_scriptpath(self):
+        """Calculate what a user should get as its ScriptPath in AD, according
+        to the specifications. Note that this only returns what _would_ be set,
+        but the specification also says that it should not be changed after
+        first set.
+
+        The rules are:
+
+        - Employees and affiliated should get "ansatt-LS01.bat"
+        - Students should get "student-LS02.bat"
+        - The rest should not get anything.
+
+        """
+        is_student = False
+        for r in self.get_account_types():
+            if r['affiliation'] in (self.const.affiliation_ansatt,
+                                    self.const.affiliation_tilknyttet):
+                # Highest priority, could be returned at once
+                return 'ansatt-LS01.bat'
+            elif r['affiliation'] == self.const.affiliation_student:
+                is_student = True
+        if is_student:
+            return 'student-LS02.bat'
+
+    def update_ad_attributes(self):
+        """Check and update the AD attributes for the account."""
+        spread = self.const.spread_ad_account
+        # No need to set if user does not have an AD spread:
+        if int(spread) not in (int(r['spread']) for r in self.get_spread()):
+            return
+
+        for atr, func in ((self.const.ad_attribute_homedir,
+                              self._calculate_homedir),
+                          (self.const.ad_attribute_scriptpath,
+                              self._calculate_scriptpath)):
+            val = func()
+            if val is None:
+                continue
+            # Not change if already set:
+            if not self.list_ad_attributes(self.entity_id, spread, atr):
+                self.set_ad_attribute(spread, atr, func())
+
+    def add_spread(self, spread):
+        """Update AD attributes when an AD-spread is set."""
+        ret = self.__super.add_spread(spread)
+        if spread == self.const.spread_ad_account:
+            self.update_ad_attributes()
+        return ret
+
     def delete_spread(self, spread):
         """
         If the spread that is deleted is an AD account spread, any AD
@@ -277,10 +350,25 @@ class AccountHiOfMixin(Account.Account):
         ret = self.__super.delete_spread(spread)
         return ret
 
+    def set_account_type(self, *args, **kwargs):
+        """Update AD attributes when an account type is set.
+
+        This is in case the user had no account types to begin with, in which it
+        could have blank attribute values.
+
+        """
+        ret = self.__super.set_account_type(*args, **kwargs)
+        self.update_ad_attributes()
+        return ret
+
     ## Methods for manipulation accounts AD-attributes.
     ## AD attributes OU, Homedir and Profile Path are stored in
     ## entity_traits. The methods make it easier to get and set
     ## these attributes.
+
+    # TODO: The methods for updating traits for old AD-attributes should be
+    # removed after the new AD sync is in production and the old ones are
+    # removed.
 
     def get_ad_attrs(self):
         """
@@ -376,4 +464,4 @@ class AccountHiOfMixin(Account.Account):
                     del tmp[spread]
                     # Populate the remaining mapping
                     self.populate_ad_attrs(trait_type, tmp)
-                    
+
