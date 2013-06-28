@@ -335,6 +335,22 @@ Normally only union is used."""],
     'id':
         ['id', 'Enter id',
          "Enter a group's internal id"],
+    'id:target:entity':
+    ['entity', 'Enter an existing entity',
+     """Enter the entity as type:name, for example: 'account:bob'
+
+If only a name is entered, it will be assumed to be either an account or a fnr.
+
+Valid types are
+ - 'account' (name of user => Account or PosixUser)
+ - 'person' (name of user => Person)
+ - 'fnr' (external ID, Norwegian SSN => Person)
+ - 'group' (name of group => Group or PosixGroup)
+ - 'host' (name of host => Host)
+ - 'id' (entity ID => any)
+ - 'external_id' (i.e. employee or studentnr)
+ - 'stedkode' (stedkode => OU)
+"""],
     'id:entity_ext':
         ['entity_id', 'Enter entity_id, example: group:foo',
          'Enter an entity_id either as number or as group:name / account:name'],
