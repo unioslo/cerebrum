@@ -27,7 +27,7 @@ def get_help_strings(self):
 def _group_help_modifications():
     """Updates the global group_help dictionary."""
     removekeys = ['disk', 'entity', 'host', 'pquota']
-    remove_keys(group_help, removekeys)
+    #remove_keys(group_help, removekeys)
     # Add elements
     group_help['print'] = 'Printer quota manipulation'
 
@@ -47,13 +47,13 @@ def _command_help_modifications():
     # misc/misc_check_passw instead of misc/misc_check_password ?
 
     removekeys = ['disk', 'entity', 'host']
-    remove_keys(command_help, removekeys)
+    #remove_keys(command_help, removekeys)
 
     # Remove all but some subkeys for some keys
     keep = {'access':['access_grant', 'access_group', 'access_host', 'access_revoke'],
             'email':['email_add_address', 'email_add_domain_affiliation', 'email_add_forward', 'email_add_tripnote', 'email_create_archive', 'email_create_domain', 'email_create_forward', 'email_create_list', 'email_create_multi', 'email_delete_archive', 'email_delete_list', 'email_delete_multi', 'email_domain_configuration', 'email_domain_info', 'email_forward', 'email_info', 'email_list_tripnotes', 'email_migrate', 'email_move', 'email_quota', 'email_remove_address', 'email_remove_domain_affiliation', 'email_remove_forward', 'email_remove_tripnote', 'email_spam_action', 'email_spam_level', 'email_tripnote', 'email_update']
             }
-    remove_not_kept_subkeys(command_help, keep)
+    #remove_not_kept_subkeys(command_help, keep)
 
     # Remove subkeys
     remove = {'group':['group_memberships', 'group_multi_add', 'group_multi_remove', 'group_padd', 'group_search', 'group_set_description'],
@@ -61,7 +61,7 @@ def _command_help_modifications():
              'person': ['person_clear_address', 'person_clear_id', 'person_clear_name', 'person_set_bdate', 'person_set_name'],
              'perm': ['perm_who_has_perm'],
              'user': ['user_find', 'user_restore', 'user_send_welcome_sms', 'user_set_disk_quota', 'user_set_disk_status']}
-    remove_keys_subkeys(command_help, remove)
+    #remove_keys_subkeys(command_help, remove)
 
     # Add Keys
     command_help['print'] = {}
@@ -95,14 +95,14 @@ def _arg_help_modifications():
     """Updates the global arg_help dictionary."""
 
     removekeys = ['address_type', 'affiliation_optional', 'command_line', 'disk_quota_expire_date', 'disk_quota_set', 'disk_quota_size', 'email_failure_message',
-                  'email_forward_address', 'entity_contact_type', 'entity_contact_value', 'entity_id', 'external_id_type', 'id:target:group', 'id:target:person',
+                  'email_forward_address', 'entity_id', 'external_id_type', 'id:target:group', 'id:target:person',
                   'id:request_id', 'id:target:account',
                   'limit_number_of_results', 'mailing_admins', 'mailing_list', 'mailing_list_alias',
                   'mailing_list_description', 'mailing_list_exist', 'mailing_list_profile', 'member_name_src', 'member_type', 'mobile_phone', 'rt_queue', 'show_policy', 'spread_filter',
                   'string_bofh_request_search_by', 'string_bofh_request_target', 'string_disk_status', 'string_email_delivery_host', 'string_email_filter', 'string_email_move_type',
                   'string_email_on_off', 'string_email_target_name', 'string_exec_host', 'yes_no_all_op', 'yes_no_extrainfo', 'yes_no_include_expired', 'yes_no_with_request',
                   'user_search_type']
-    remove_keys(arg_help, removekeys)
+    #remove_keys(arg_help, removekeys)
 
     # Add subkeys
     arg_help['mailman_admins'] = ['addresses', 'Enter comma separated list of administrators for the Mailman list']

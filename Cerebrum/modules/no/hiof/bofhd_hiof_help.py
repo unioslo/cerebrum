@@ -92,6 +92,10 @@ command_help = {
     'entity': {
     'entity_history':
         "List the changes made to entity.",
+    'entity_contactinfo_add':
+        "Add contact information to an entity.",
+    'entity_contactinfo_remove':
+        "Remove contact information from an entity.",
     },
     'group': {
     'group_add': 'Let an account join a group',
@@ -135,8 +139,6 @@ command_help = {
         'Add an affiliation to a person',
     'person_affiliation_remove':
         'Remove an affiliation from a person',
-    'person_clear_contact_info':
-        "Remove a person's contact info coming from a given source system",
     'person_create':
         'Register a new person in Cerebrum',
     'person_find':
@@ -310,6 +312,22 @@ a fnr.  If an account is given, the person owning the account will be
 used.  Other types include 'account', 'fnr' (fødselsnummer), 'id'
 (Cerebrum's internal id) and 'host'.  The type name may be
 abbreviated.  (Some of the types may not make sense for this command.)
+"""],
+    'id:target:entity':
+    ['entity', 'Enter an existing entity',
+     """Enter the entity as type:name, for example: 'account:bob'
+
+If only a name is entered, it will be assumed to be either an account or a fnr.
+
+Valid types are
+ - 'account' (name of user => Account or PosixUser)
+ - 'person' (name of user => Person)
+ - 'fnr' (external ID, Norwegian SSN => Person)
+ - 'group' (name of group => Group or PosixGroup)
+ - 'host' (name of host => Host)
+ - 'id' (entity ID => any)
+ - 'external_id' (i.e. employee or studentnr)
+ - 'stedkode' (stedkode => OU)
 """],
     'id:op_target':
         ['op_target_id', 'Enter op_target_id'],

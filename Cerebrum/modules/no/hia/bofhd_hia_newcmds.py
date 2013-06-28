@@ -184,7 +184,7 @@ class BofhdExtension(BofhdCommonMethods):
         # UiA needs a local version of 'trait_set' 
         #
         # copy entity-functions
-        'entity_history', 'entity_contactinfo_add',
+        'entity_history', 
         #
         # copy relevant helper-functions
         #
@@ -535,6 +535,8 @@ class BofhdExtension(BofhdCommonMethods):
          ("address_country", 'address_source')),
         ("Office:        %s Room: %s [from %s]",
          ("office_code", "office_room", "office_source")),
+        ("Contact:       %s: %s [from %s]",
+         ("contact_type", "contact", "contact_src")),
         ]))
     def person_info(self, operator, person_id):
         try:
@@ -642,20 +644,34 @@ class BofhdExtension(BofhdCommonMethods):
                     data.append({'extid': row['external_id'],
                                  'extid_src': str(
                         self.const.AuthoritativeSystem(row['source_system']))})
+
             # mobile number
-            systems = getattr(cereconf, 'INDIVIDUATION_PHONE_TYPES', {})
-            for sys in systems:
-                for type in systems[sys]['types']:
-                    for row in person.get_contact_info(source=getattr(self.const, sys),
-                                                       type=getattr(self.const, type)):
-                        data.append({
-                            'mobile': row['contact_value'],
-                            'mobile_src': str(self.const.AuthoritativeSystem(row['source_system']))})
+            #systems = getattr(cereconf, 'INDIVIDUATION_PHONE_TYPES', {})
+            #for sys in systems:
+            #    for type in systems[sys]['types']:
+            #        for row in person.get_contact_info(source=getattr(self.const, sys),
+            #                                           type=getattr(self.const, type)):
+            #            data.append({
+            #                'mobile': row['contact_value'],
+            #                'mobile_src': str(self.const.AuthoritativeSystem(row['source_system']))})
             # Telephone numbers
-            for row in person.get_contact_info(type=self.const.contact_phone,
-                                               source=self.const.system_pbx):
-                data.append({'phone': row['contact_value'],
-                             'phone_src': str(self.const.AuthoritativeSystem(row['source_system']))})
+            #for row in person.get_contact_info(type=self.const.contact_phone,
+            #                                   source=self.const.system_pbx):
+            #    data.append({'phone': row['contact_value'],
+            #                 'phone_src': str(self.const.AuthoritativeSystem(row['source_system']))})
+
+            # Show telephone numbers
+            for row in person.get_contact_info():
+                self.logger.debug('aaaa')
+                if row['contact_type'] not in (self.const.contact_phone,
+                                               self.const.contact_mobile_phone,
+                                               self.const.contact_phone_private,
+                                               self.const.contact_private_mobile):
+                    continue
+                data.append({'contact': row['contact_value'],
+                             'contact_src': str(self.const.AuthoritativeSystem(row['source_system'])),
+                             'contact_type': str(self.const.ContactInfo(row['contact_type']))})
+
             # Office addresses
             for row in person.get_contact_info(self.const.system_sap,
                                                self.const.contact_office):
@@ -663,6 +679,7 @@ class BofhdExtension(BofhdCommonMethods):
                 data.append({'office_code': row['contact_value'],
                              'office_room': row['contact_alias'],
                              'office_source': str(self.const.AuthoritativeSystem(row['source_system']))})
+
         return data
 
 

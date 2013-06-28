@@ -210,9 +210,11 @@ command_help = {
     'entity_accounts':
     "List information about accounts associated with given entities",
     'entity_history':
-    "List the changes made to entity.",
+    "List the changes made to an entity.",
     'entity_contactinfo_add':
-    "Add contact information to entity.",
+    "Add contact information to an entity.",
+    'entity_contactinfo_remove':
+    "Remove contact information from an entity.",
 },
 'group': {
     'group_multi_add': 'Let an account, person or group join a group',
@@ -310,8 +312,6 @@ command_help = {
     'Remove an affiliation from a person',
     'person_clear_address':
     "Remove a person's address coming from a given source system",
-    'person_clear_contact_info':
-    "Remove a person's contact info coming from a given source system",
     'person_clear_name':
     'Remove the names coming from a source system from a person',
     'person_clear_id':
@@ -539,6 +539,22 @@ Other types:
 The type name may be abbreviated.
 
 Some of the types may not make sense for this command.
+"""],
+    'id:target:entity':
+    ['entity', 'Enter an existing entity',
+     """Enter the entity as type:name, for example: 'account:bob'
+
+If only a name is entered, it will be assumed to be either an account or a fnr.
+
+Valid types are
+ - 'account' (name of user => Account or PosixUser)
+ - 'person' (name of user => Person)
+ - 'fnr' (external ID, Norwegian SSN => Person)
+ - 'group' (name of group => Group or PosixGroup)
+ - 'host' (name of host => Host)
+ - 'id' (entity ID => any)
+ - 'external_id' (i.e. employee or studentnr)
+ - 'stedkode' (stedkode => OU)
 """],
     'id:op_target':
     ['op_target_id', 'Enter op_target_id'],

@@ -688,6 +688,30 @@ class BofhdAuth(DatabaseAccessor):
             return True
         raise PermissionDenied("Not allowed to see contact info")
 
+    def can_add_contact_info(self, operator, entity_id=None, 
+                             contact_type=None, query_run_any=False):
+        """Checks if an operator is allowed to manually add contact information
+        to an entity."""
+        # Superusers can see and run command
+        if self.is_superuser(operator):
+            return True
+        # Hide command if not in the above groups
+        if query_run_any:
+            return False
+        raise PermissionDenied("Not allowed to add contact info")
+
+    def can_remove_contact_info(self, operator, entity_id=None, 
+                                contact_type=None, source_system=None,
+                                query_run_any=False):
+        """Checks if an operator is allowed to remove contact information."""
+        # Superusers can see and run command
+        if self.is_superuser(operator):
+            return True
+        # Hide command if not in the above groups
+        if query_run_any:
+            return False
+        raise PermissionDenied("Not allowed to remove contact info")
+
     def can_create_person(self, operator, ou=None, affiliation=None,
                           query_run_any=False):
         if (self.is_superuser(operator) or

@@ -79,6 +79,10 @@ class Constants(Constants.Constants):
         'view_studinfo', 'View student information')
     auth_view_contactinfo = _AuthRoleOpCode(
         'view_contactinfo', 'View contact information')
+    auth_add_contactinfo = _AuthRoleOpCode(
+        'add_contactinfo', "Add contact information")
+    auth_remove_contactinfo = _AuthRoleOpCode(
+        'rem_contactinfo', "Remove contact information")
     auth_alter_printerquota = _AuthRoleOpCode(
         'alter_printerquo', 'Alter printer quota')
     auth_modify_spread = _AuthRoleOpCode(
@@ -428,6 +432,7 @@ class BofhdUtils(object):
 
         Valid lookup types are
              'account' (name of user => Account or PosixUser)
+             'person' (name of user => Person)
              'fnr' (external ID, Norwegian SSN => Person)
              'group' (name of group => Group or PosixGroup)
              'host' (name of host => Host)
@@ -460,6 +465,7 @@ class BofhdUtils(object):
                                 "host": ("Host",),
                                 "disk": ("Disk",),
                                 "stedkode": ("OU",),
+                                "person": ("Person",),
                                 "entity_id": None,
                                 "id": None,
                                 "external_id": None,}
@@ -495,6 +501,8 @@ class BofhdUtils(object):
                 return get_target_by_external_id(name)
             elif ltype == 'stedkode':
                 return get_target_ou_by_stedkode(name)
+            elif ltype == 'person':
+                return get_target_person_by_account_name(name)
             else:
                 raise CerebrumError, "Lookup type %s not implemented yet" % ltype
 
@@ -512,7 +520,15 @@ class BofhdUtils(object):
                                     "[entity_ids=%s]", only_ids)
             return get_target_entity(only_ids.pop())
         # end get_target_by_external_id
-         
+        
+        def get_target_person_by_account_name(name):
+            account = get_target_posix_by_name(name)
+            if isinstance(account, Factory.get("Account")):
+                if account.owner_type == self.co.entity_person:
+                    return get_target_entity(account.owner_id)
+                else:
+                    raise CerebrumError("Account %s is not owned by a person" % name)
+
         def get_target_entity(ety_id):
             try:
                 ety_id = int(ety_id)

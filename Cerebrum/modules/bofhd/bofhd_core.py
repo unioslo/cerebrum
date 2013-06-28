@@ -27,6 +27,8 @@ generic functionality. Push institution-specific extensions to
 modules/no/<institution>/bofhd_<institution>_cmds.py.
 """
 
+import re
+
 import cerebrum_path
 import cereconf
 
@@ -535,66 +537,163 @@ class BofhdCommonMethods(BofhdCommandBase):
             g.write_db()
         return {'group_id': int(g.entity_id)}
 
-    # person clear_contact_info
-    all_commands['person_clear_contact_info'] = cmd.Command(
-        ("person", "clear_contact_info"),
-        cmd.PersonId(),
+    ##
+    ## Entity methods
+
+    # entity contactinfo_add <entity> <contact type> <contact value>
+    all_commands['entity_contactinfo_add'] = cmd.Command(
+        ('entity', 'contactinfo_add'),
+        cmd.SimpleString(help_ref='id:target:entity'),
+        cmd.SimpleString(help_ref='entity_contact_type'),
+        cmd.SimpleString(help_ref='entity_contact_value'),
+        perm_filter='can_add_contact_info')
+    def entity_contactinfo_add(self, operator, entity_target,
+                            contact_type, contact_value):
+        """Manually add contact info to an entity."""
+        co = self.const
+
+        # default values
+        contact_pref = 50
+        source_system = co.system_manual
+
+        # get entity object
+        entity = self.util.get_target(entity_target, restrict_to=[])
+
+        # validate contact info type
+        contact_type_code = co.human2constant(contact_type, co.ContactInfo)
+        if not contact_type_code:
+            raise CerebrumError('Invalid contact info type "%s", try one of %s' % (
+                contact_info_type, 
+                ", ".join(str(x) for x in co.fetch_constants(co.ContactInfo))
+            ))
+
+        # check permissions
+        self.ba.can_add_contact_info(operator.get_entity_id(),
+                                     entity.entity_id,
+                                     contact_type_code)
+
+        # validate email
+        if contact_type_code is co.contact_email:
+            # validate localpart and extract domain.
+            localpart, domain = self._split_email_address(contact_value)
+            ed = Email.EmailDomain(self.db)
+            try:
+                ed._validate_domain_name(domain)
+            except AttributeError, e:
+                raise CerebrumError(e)
+
+        # validate phone numbers
+        if contact_type_code in (co.contact_phone,
+                                co.contact_phone_private,
+                                co.contact_mobile_phone,
+                                co.contact_private_mobile):
+            # match an 8-digit phone number
+            if not re.match(r"^\d{8}$", contact_value):
+                raise CerebrumError("Invalid phone number: %s. Expected an 8 digit number."
+                    % contact_value)
+
+        # get existing contact info for this entity and contact type
+        try:
+            contacts = entity.get_contact_info(source=source_system,
+                                                type=contact_type_code)
+        except AttributeError:
+            # entity has no contact info attributes
+            raise CerebrumError("Cannot add contact info to a %s."
+                    % (co.EntityType(entity.entity_type)))
+
+        existing_prefs = [int(row["contact_pref"]) for row in contacts]
+
+        for row in contacts:
+            # if the same value already exists, don't add it
+            if str(contact_value) == str(row["contact_value"]):
+                raise CerebrumError("Contact value already exists")
+            # if the value is different, add it with a lower (=greater number)
+            # preference for the new value
+            if str(contact_pref) == str(row["contact_pref"]):
+                contact_pref = max(existing_prefs) + 1
+                self.logger.debug(
+                    'Incremented preference, new value = %s' % contact_pref)
+
+        self.logger.debug('Adding contact info: %s, %s, %s, %s. ' % (
+            entity.entity_id, contact_type_code, contact_value, contact_pref))
+
+        entity.add_contact_info(source_system,
+                                type=contact_type_code,
+                                value=contact_value,
+                                pref=int(contact_pref),
+                                description=None,
+                                alias=None)
+        
+        return "Added contact info %s:%s %s to entity %s" % (
+            source_system, contact_type, contact_value, entity_target)
+
+    # entity contactinfo_remove <entity> <source system> <contact type>
+    all_commands['entity_contactinfo_remove'] = cmd.Command(
+        ("entity", "contactinfo_remove"),
+        cmd.SimpleString(help_ref='id:target:entity'),
         cmd.SourceSystem(help_ref='source_system'),
         cmd.SimpleString(help_ref='entity_contact_type'),
-        perm_filter='is_superuser'
-        )
-    def person_clear_contact_info(self, operator, person_id, source_system, citype):
-        """Deleting a person's contact info from a given source system. Useful in
-        cases where the person has old contact information from a source system 
+        perm_filter='can_remove_contact_info')
+    def entity_contactinfo_remove(self, operator, entity_target, source_system, 
+            contact_type):
+        """Deleting an entity's contact info from a given source system. Useful in
+        cases where the entity has old contact information from a source system 
         he no longer is exported from, i.e. no affiliations."""
 
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
+        co = self.const
 
-        if not person_id:
-            raise CerebrumError('Empty value given')
+        # get entity object
+        entity = self.util.get_target(entity_target, restrict_to=[])
 
-        person = self.util.get_target(person_id, restrict_to="Person")
+        # check that the specified source system exists
+        source_system_code = co.human2constant(source_system, co.AuthoritativeSystem)
+        if not source_system_code:
+            raise CerebrumError('No such source system "%s", try one of %s' % (
+                source_system,
+                ", ".join(str(x) for x in co.fetch_constants(co.AuthoritativeSystem))
+            ))
 
-        ss = self.const.AuthoritativeSystem(source_system)
-        try:
-            int(ss)
-        except Errors.NotFoundError:
-            raise CerebrumError('No such source system "%s"' % source_system)
-
-        citype = self.const.ContactInfo(citype)
-        try:
-            int(citype)
-        except Errors.NotFoundError:
+        # check that the specified contact info type exists
+        contact_type_code = co.human2constant(contact_type, co.ContactInfo)
+        if not contact_type_code:
             raise CerebrumError('Invalid contact info type "%s", try one of %s' % (
-                    citype, 
-                    ", ".join(str(x) for x in self.const.fetch_constants(self.const.ContactInfo))
-                ))
+                contact_type, 
+                ", ".join(str(x) for x in co.fetch_constants(co.ContactInfo))
+            ))
 
-        # check if person is still affiliated with the given source system
-        for a in person.get_affiliations():
-            if self.const.AuthoritativeSystem(a['source_system']) is ss:
-                raise CerebrumError('Person is still affiliated with source system %s' % source_system)            
+        # check permissions
+        self.ba.can_remove_contact_info(operator.get_entity_id(),
+                                        entity.entity_id,
+                                        contact_type_code,
+                                        source_system_code)
 
-        # check if given contact info type exists for this person
-        if not person.get_contact_info(source=ss, type=citype):
-            raise CerebrumError("Person does not have contact info type %s in %s" % 
-                (citype, source_system))
+        # if the entity is a person...
+        if int(entity.entity_type) is int(co.entity_person):
+            # check if person is still affiliated with the given source system
+            for a in entity.get_affiliations():
+                # allow contact info added manually to be removed
+                if co.AuthoritativeSystem(a['source_system']) is co.system_manual:
+                    continue
+                if co.AuthoritativeSystem(a['source_system']) is source_system_code:
+                    raise CerebrumError(
+                        'Person has an affiliation from source system ' + \
+                        '%s, cannot remove' % source_system)
 
+        # check if given contact info type exists for this entity
+        if not entity.get_contact_info(source=source_system_code,
+                                       type=contact_type_code):
+            raise CerebrumError("Entity does not have contact info type %s in %s" % 
+                (contact_type_code, source_system))
+
+        # all is well, now actually delete the contact info
         try:
-            person.delete_contact_info(source=ss, contact_type=citype)
-            self.db.log_change(
-                subject_entity=person.entity_id,
-                change_type_id=self.const.entity_cinfo_del,
-                destination_entity=None,
-                change_params={'subject': person.entity_id}
-            )
-            person.write_db()
+            entity.delete_contact_info(source=source_system_code,
+                                       contact_type=contact_type_code)
+            entity.write_db()
         except:
-            raise CerebrumError("Could not delete contact info %s:%s for %s" %
-                                (source_system, citype, person_id))
+            raise CerebrumError("Could not remove contact info %s:%s from %s" %
+                            (source_system, contact_type_code, entity_target))
 
-        return "Contact info %s:%s for %s has been deleted" % (
-            source_system, citype, person_id
-        )
+        return "Removed contact info %s:%s from entity %s" % (
+            source_system, contact_type_code, entity_target)
 
