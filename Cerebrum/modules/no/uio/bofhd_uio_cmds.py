@@ -5063,7 +5063,6 @@ Addresses and settings:
         # 5. validate contact_value
         if contact_type == str(self.const.contact_email):
             # Validate localpart and extract domain.
-            contact_value = contact_value
             localpart, domain = self._split_email_address(contact_value)
             ed = Email.EmailDomain(self.db)
             try:
