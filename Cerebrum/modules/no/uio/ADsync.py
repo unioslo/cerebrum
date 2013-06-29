@@ -226,8 +226,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 v['gecos'] = unicode(posixusers[k]['gecos'] or '', 'iso-8859-1')
                 v['uid'] = v['TEMPuname']
                 v['mssfu30name'] = v['TEMPuname']
-                v['msSFU30NisDomain'] = 'kaos'
-                v['primaryGroup_groupname'] = groupid2name.get(posixusers[k]['gid'])
+                v['msSFU30NisDomain'] = 'uio'
+                v['primaryGroup_groupname'] = groupid2name.get(posixusers[k]['gid']) or ''
                 i += 1
         self.logger.debug("Number of users with posix-data: %d", i)
 
@@ -401,6 +401,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 if chg.has_key('sAMAccountName'):
                     uname = chg['sAMAccountName']       
                     del chg['sAMAccountName']               
+                if chg.has_key('primaryGroup_groupname'):
+                    del chg['primaryGroup_groupname']               
                 #Setting default for undefined AD_ACCOUNT_CONTROL values.
                 for acc, value in cereconf.AD_ACCOUNT_CONTROL.items():
                     if not chg.has_key(acc):
@@ -510,6 +512,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                             if adusrs[usr]['primaryGroupID'] != sid:
                                 self.logger.debug("changing primaryGroupID")
                                 changes['primaryGroupID'] = sid
+                        if 'primaryGroup_groupname' in cerebrumusrs[usr]:
+                            del cerebrumusrs[usr]['primaryGroup_groupname']
                     #Treating general cases
                     else:
                         if cerebrumusrs[usr].has_key(attr) and \
@@ -776,7 +780,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
             if gdata['grp_id'] in groupid2gid:
                 gdata['gidNumber'] = groupid2gid[gdata['grp_id']]
                 gdata['msSFU30Name'] = gname
-                gdata['msSFU30NisDomain'] = 'kaos'
+                gdata['msSFU30NisDomain'] = 'uio'
                 gdata['memberUID'] = groupid2uids.get(gdata['grp_id'], ())
                 i += 1
         self.logger.debug("Number of groups with posix GID: %d", i)
