@@ -148,6 +148,15 @@ class HiOfUndervisning(access_FS.Undervisning):
             return current
         return "(%s OR (r.terminkode = 'VÅR' AND r.arstall=%d))\n" % (current, self.year)
 
+    def _get_next_termin_aar(self):
+        """henter neste semesters terminkode og årstal."""
+        if self.mndnr <= 7:
+            next = "(r.terminkode LIKE 'H_ST' AND r.arstall=%s)\n" % self.year
+        else:
+            next = "(r.terminkode LIKE 'V_R' AND r.arstall=%s)\n" % (self.year + 1)
+        return next
+
+
     def list_undervisningenheter(self, sem="current"):
         """Metoden som henter data om undervisningsenheter
         i nåverende (current) eller neste (next) semester. Default
