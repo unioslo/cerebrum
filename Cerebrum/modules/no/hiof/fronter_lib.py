@@ -105,7 +105,7 @@ def timeslot_is_valid(attributes):
 
     year, month = time.localtime()[:2]
 
-    if 1 <= month <= 6:
+    if 1 <= month <= 7:
         semester = "vår"
     else:
         semester = "høst"
