@@ -27,22 +27,19 @@ make_employment_iterator. The rest is meant for internal usage only.
 SAPTupleBase and its descendants provide a tuple/dict-like interface to SSØ
 SAP data.
 
-2010-03-31 FIXME: This module MUST be profiled. 
+2010-03-31 FIXME: This module MUST be profiled.
 """
 
 import re
 import sys
 import types
+import cerebrum_path
+import cereconf
 from mx.DateTime import strptime
 from mx.DateTime import now
 
-import cerebrum_path, cereconf
 
-
-
-
-
-########################################################################
+#
 # Public interface for this module
 #
 def make_person_iterator(source, fok, logger=None):
@@ -52,7 +49,7 @@ def make_person_iterator(source, fok, logger=None):
       Any iterable yielding successive lines with person data.
 
     @param fok:
-      boolean determining whether to respect forretningsområdekode field. 
+      boolean determining whether to respect forretningsområdekode field.
     """
 
     if getattr(cereconf, 'SAP_MG_MU_CODES', None):
@@ -67,7 +64,6 @@ def make_person_iterator(source, fok, logger=None):
         tpl = _sap_row_to_tuple(line)
         yield kls(tpl, logger)
 # end make_person_iterator
-
 
 
 def make_employment_iterator(source, fok, logger=None):
@@ -108,6 +104,7 @@ def make_utvalg_iterator(source, fok, logger=None):
         tpl = _sap_row_to_tuple(line)
         yield kls(tpl, logger)
 
+
 def load_expired_employees(source, fok, logger=None):
     """Collect SAP IDs for all expired employees from source."""
 
@@ -119,7 +116,8 @@ def load_expired_employees(source, fok, logger=None):
 
     return result
 # end load_expired_employees
-    
+
+
 def load_invalid_employees(source, fok, logger=None):
     """Collect SAP IDs for all invalid employees from source."""
     return set(tpl.sap_ansattnr for tpl in make_person_iterator(source, fok, logger)
@@ -127,7 +125,7 @@ def load_invalid_employees(source, fok, logger=None):
 # end load_invalid_employees
 
 
-########################################################################
+#
 # Private implementation details
 #
 def _make_sequence(something):
@@ -136,7 +134,7 @@ def _make_sequence(something):
     If something *is* a sequence (list, tuple or set), leave it as
     is. Otherwise return a tuple with 1 element -- something.
     """
-    
+
     if isinstance(something, (list, tuple, set)):
         return something
     return (something,)
@@ -152,9 +150,8 @@ def _with_strip(index):
 # end with_strip
 
 
-
-
 class _MetaTupleBase(type):
+
     """Metaclass for SAP rule manipulation.
 
     This metaclass is useful for creating rules for processing tuples made out
@@ -201,7 +198,8 @@ class _MetaTupleBase(type):
     def __new__(cls, name, bases, dct):
         kls = type.__new__(cls, name, bases, dct)
 
-        def identity(x): return x
+        def identity(x):
+            return x
 
         # Load the superclasses' rules...
         tmp = dict()
@@ -214,7 +212,7 @@ class _MetaTupleBase(type):
         # baseclass' version
         if (not hasattr(kls, "_field_count") and
             len(kls.__bases__) == 1 and
-            hasattr(kls.__bases__[0], "_field_count")):
+                hasattr(kls.__bases__[0], "_field_count")):
             kls._field_count = kls.__bases__[0]._field_count
 
         # Now fix up our own. Note that if the superclass has already defined
@@ -241,9 +239,9 @@ class _MetaTupleBase(type):
 # end _MetaTupleBase
 
 
-
 class _SAPTupleBase(object):
-    """A tuple/dict-like class for abstracting away SAP-data. 
+
+    """A tuple/dict-like class for abstracting away SAP-data.
 
     This class presents and abstraction layer to deal with SAP-data. The main
     goal is to abstract away the storage details for SAP files. Ideally, we
@@ -283,7 +281,7 @@ class _SAPTupleBase(object):
     Should the transformation fail, the slot will be set to None and a
     suitable warning issued.
     """
-    
+
     #
     # Make sure everyone's _field_count/_field_rules are processed properly on
     # loading.
@@ -291,7 +289,7 @@ class _SAPTupleBase(object):
 
     # _field_count = 0
     # _field_rules = {}
-    
+
     def __init__(self, tpl, logger=None):
         if len(tpl) != self._field_count:
             raise RuntimeError("Wrong # of fields: wanted %s got %s" %
@@ -315,7 +313,6 @@ class _SAPTupleBase(object):
         self._tuple = tuple(tpl)
     # end __init__
 
-
     def __str__(self):
         name = "%s instance" % (self.__class__.__name__,)
         field_count = "%s field(s)" % (self._field_count,)
@@ -323,7 +320,6 @@ class _SAPTupleBase(object):
                            for k in self._field_rules)
         return "%s: %s, %s" % (name, field_count, values)
     # end __str__
-
 
     def __getitem__(self, idx):
         """Allow tuple and dict-like access."""
@@ -335,8 +331,8 @@ class _SAPTupleBase(object):
 # end _SAPTupleBase
 
 
-
 class _SAPPersonDataTuple(_SAPTupleBase):
+
     """Adaptor class for feide_persondata.txt.
 
     The field split looks like this:
@@ -368,15 +364,16 @@ class _SAPPersonDataTuple(_SAPTupleBase):
     """
 
     _field_count = 39
-    _field_rules = {'sap_ansattnr':    0,
+    _field_rules = {'sap_ansattnr': 0,
                     'sap_termination_date': (2, lambda x: x and strptime(x, "%Y%m%d")
                                              or None),
-                    'sap_fnr':         4,               # <- defer fnr check to later
-                    'sap_birth_date':  (5, lambda x: strptime(x, "%Y%m%d")),
+                    'sap_fnr': 4,
+                    # <- defer fnr check to later
+                    'sap_birth_date': (5, lambda x: strptime(x, "%Y%m%d")),
                     'sap_middle_name': _with_strip(7),
                     'sap_first_name': ((6, 7),
                                        lambda x, y: y and x.strip() + " " + y.strip() or
-                                                    x.strip()),
+                                       x.strip()),
                     'sap_last_name': _with_strip(8),
                     'sap_initials': _with_strip(3),
                     'sap_work_title': _with_strip(28),
@@ -387,8 +384,9 @@ class _SAPPersonDataTuple(_SAPTupleBase):
                     'sap_fax': _with_strip(29),
                     'sap_address': (range(18, 22),
                                     lambda *rest:
-                                        (", ".join(x.strip() for x in rest)).strip()
-                                        or None),
+                                    (", ".join(x.strip()
+                                               for x in rest)).strip()
+                                    or None),
                     'sap_zip': _with_strip(23),
                     'sap_city': _with_strip(22),
                     'sap_country': _with_strip(24),
@@ -396,14 +394,12 @@ class _SAPPersonDataTuple(_SAPTupleBase):
                     'sap_roomnumber': _with_strip(27),
                     'sap_publish_tag': _with_strip(36), }
 
-
     def expired(self):
         """Is this entry expired?"""
 
-        return (self.sap_termination_date and 
+        return (self.sap_termination_date and
                 self.sap_termination_date < now())
     # end expired
-
 
     def valid(self):
         """Is this entry to be ignored?"""
@@ -411,12 +407,11 @@ class _SAPPersonDataTuple(_SAPTupleBase):
         return True
     # end valid
 
-
     def reserved_for_export(self):
         """Whether this person is reserved from export to catalogue services."""
-        
+
         if (not self.sap_publish_tag or
-            self.sap_publish_tag == "Kan publiseres"):
+                self.sap_publish_tag == "Kan publiseres"):
             return False
 
         return True
@@ -424,12 +419,11 @@ class _SAPPersonDataTuple(_SAPTupleBase):
 # end _SAPPersonDataTuple
 
 
-
 class _SAPPersonDataTupleFok(_SAPPersonDataTuple):
+
     """This one has forretningsområdekode."""
 
-    _field_rules = {'sap_fokode': 25,}
-
+    _field_rules = {'sap_fokode': 25, }
 
     def valid(self):
         """Everything tagged with fok"""
@@ -438,20 +432,23 @@ class _SAPPersonDataTupleFok(_SAPPersonDataTuple):
 
 
 class _SAPPersonDataTupleMGMU(_SAPPersonDataTuple):
+
     """This one makes use of medarbeidergrupper (MG) and medarbeiderundergrupper
     (MU) to filter out persons."""
 
-    _field_rules = {'sap_mg': (37, int), 
+    _field_rules = {'sap_mg': (37, int),
                     'sap_mu': (38, int), }
 
     def valid(self):
         """The MG-MU combination must be set in cereconf for the person to be
         valid."""
         return (cereconf.SAP_MG_MU_CODES.has_key(self.sap_mg) and
-               self.sap_mu in cereconf.SAP_MG_MU_CODES[self.sap_mg])
+                self.sap_mu in cereconf.SAP_MG_MU_CODES[self.sap_mg])
 # end _SAPPersonDataTupleMGMU
 
+
 class _SAPEmploymentTuple(_SAPTupleBase):
+
     """Adaptor class for feide_persti.txt.
 
     The field split looks like this:
@@ -470,14 +467,14 @@ class _SAPEmploymentTuple(_SAPTupleBase):
     """
 
     _field_count = 9
-    _field_rules = {'sap_ansattnr':    0,
+    _field_rules = {'sap_ansattnr': 0,
                     'funksjonstittel': 2,
-                    'lonnstittel':     3,
-                    'start_date':      (5, lambda x: strptime(x, "%Y%m%d")), 
-                    'end_date':        (6, lambda x: strptime(x, "%Y%m%d")),
-                    'stillingstype':   7,
-                    'percentage':      (8, float),
-                    'sap_ou_id':       1,}
+                    'lonnstittel': 3,
+                    'start_date': (5, lambda x: strptime(x, "%Y%m%d")),
+                    'end_date': (6, lambda x: strptime(x, "%Y%m%d")),
+                    'stillingstype': 7,
+                    'percentage': (8, float),
+                    'sap_ou_id': 1, }
 
     def valid(self):
         return self.funksjonstittel != '99999999'
@@ -485,11 +482,11 @@ class _SAPEmploymentTuple(_SAPTupleBase):
 # end SAPEmploymentTuple
 
 
-
 class _SAPEmploymentTupleFok(_SAPEmploymentTuple):
+
     """This time with forretningsområdekode."""
 
-    _field_rules = {'sap_fokode':      4,
+    _field_rules = {'sap_fokode': 4,
                     'sap_ou_id': ((1, 4), lambda x, y: "%s-%s" % (x, y))}
 
     def valid(self):
@@ -502,6 +499,7 @@ class _SAPEmploymentTupleFok(_SAPEmploymentTuple):
 
 
 class _SAPUtvalgTuple(_SAPTupleBase):
+
     """Abstracting away 'utvalg' data from SAP, from feide_perutvalg.txt.
 
     The field split looks like this:
@@ -518,26 +516,27 @@ class _SAPUtvalgTuple(_SAPTupleBase):
     """
 
     _field_count = 7
-    _field_rules = {'sap_ansattnr':    0,
+    _field_rules = {'sap_ansattnr': 0,
                     'sap_orgeh': 1,
                     'sap_unknown': 2,
                     'sap_fagmiljo': 3,
                     'sap_start_date': (4, lambda x: x and strptime(x, "%Y%m%d")
-                                                    or None),
+                                       or None),
                     'sap_termination_date': (5, lambda x: x and strptime(x, "%Y%m%d")
-                                                          or None),
+                                             or None),
                     'sap_role': 6, }
 
     def expired(self):
         """Is this entry expired?"""
 
-        return (self.sap_termination_date and 
+        return (self.sap_termination_date and
                 self.sap_termination_date < now())
 
     def valid(self):
         """Is this entry to be ignored?"""
 
         return not self.sap_start_date or self.sap_start_date < now()
+
 
 def _sap_row_to_tuple(sap_row):
     """Split a line into fields delimited by ';'.
@@ -554,7 +553,7 @@ def _sap_row_to_tuple(sap_row):
     #
     # In our case we split by ";", unless it is escaped. The absurd
     # number of backslashes is because backslashes have a special
-    # meaning in python strings and in regexes. 
+    # meaning in python strings and in regexes.
     for field in re.split('(?<!\\\);', sap_row.strip()):
         # Also, we have to perform the actual replacement of \; by ;
         # (clients are not interested in seeing the escaped values).
@@ -564,17 +563,15 @@ def _sap_row_to_tuple(sap_row):
 # end _sap_row_to_tuple
 
 
-
 def _tuple_to_sap_row(tpl):
     """This is the converse of sap_row_to_tuple.
     """
 
-    
     tmp = list()
     for field in tpl:
         # escaping, as in the sister function.
         field = str(field).replace(";", "\\;")
         tmp.append(field)
-    
+
     return ";".join(tmp)
 # end _tuple_to_sap_row

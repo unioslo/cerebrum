@@ -23,26 +23,31 @@ Constants common for higher education institutions in Norway.
 
 from Cerebrum import Constants
 from Cerebrum.Constants import _EntityExternalIdCode, \
-                               _AuthoritativeSystemCode, \
-                               _OUPerspectiveCode, \
-                               _AccountCode, \
-                               _PersonNameCode, \
-                               _ContactInfoCode, \
-                               _CountryCode, \
-                               _QuarantineCode, \
-                               _SpreadCode,\
-                               _PersonAffiliationCode,\
-                               _PersonAffStatusCode
+    _AuthoritativeSystemCode, \
+    _OUPerspectiveCode, \
+    _AccountCode, \
+    _PersonNameCode, \
+    _ContactInfoCode, \
+    _CountryCode, \
+    _QuarantineCode, \
+    _SpreadCode,\
+    _PersonAffiliationCode,\
+    _PersonAffStatusCode
 from Cerebrum.modules.bofhd.utils import \
-          _AuthRoleOpCode
+    _AuthRoleOpCode
 from Cerebrum.modules.EntityTrait import \
-     _EntityTraitCode
+    _EntityTraitCode
+
 
 class ConstantsActiveDirectory(Constants.Constants):
+
     """AD constants for the old AD-sync. Should be removed when everyone has
     migrated to the AD sync from 2013."""
-    # FIXME: This Constants-class will eventually be moved to an AD-modul. Jazz, 2009-03-18
-    system_ad = _AuthoritativeSystemCode('AD', 'Information from Active Directory')
+    # FIXME: This Constants-class will eventually be moved to an AD-modul.
+    # Jazz, 2009-03-18
+    system_ad = _AuthoritativeSystemCode(
+        'AD',
+        'Information from Active Directory')
     externalid_groupsid = _EntityExternalIdCode('AD_GRPSID',
                                                 Constants.Constants.entity_group,
                                                 "Group's SID, fetched from Active Directory")
@@ -52,6 +57,7 @@ class ConstantsActiveDirectory(Constants.Constants):
     trait_exchange_mdb = _EntityTraitCode(
         'exchange_mdb', Constants.Constants.entity_account,
         "The assigned mailbox-database in Exchange for the given account.")
+
 
 class ConstantsCommon(Constants.Constants):
 
@@ -63,8 +69,8 @@ class ConstantsCommon(Constants.Constants):
                                                'Override information fetched from authoritative systems')
 
     spread_ou_publishable = _SpreadCode('publishable_ou',
-                       Constants.Constants.entity_ou,
-                       'OUs publishable in online directories')
+                                        Constants.Constants.entity_ou,
+                                        'OUs publishable in online directories')
 
     quarantine_autopassord = _QuarantineCode('autopassord',
                                              'Passord ikke skiftet trass pålegg')
@@ -97,12 +103,12 @@ class ConstantsCommon(Constants.Constants):
     trait_password_failed_attempts = _EntityTraitCode(
         "passw_attempts", Constants.Constants.entity_account,
         "Number of times an account has tried to use sms password service")
-    
+
     # Trait for reservation from the new password service
     # TODO: should be replaced by a reservation table later
     trait_reservation_sms_password = _EntityTraitCode(
         'reserve_passw', Constants.Constants.entity_account,
-        "Reserving account from using the forgotten password service (SMS)") 
+        "Reserving account from using the forgotten password service (SMS)")
     # Trait for reservation from being published at the web
     # TODO: should be replaced by a reservation table later
     trait_public_reservation = _EntityTraitCode(
@@ -136,9 +142,19 @@ class ConstantsCommon(Constants.Constants):
         'guest_name', Constants.Constants.entity_account,
         "The full name of the guest that should have the guest accounts.")
 
+    # Traits for SAP medarbeidergrupper
+    trait_sap_mg = _EntityTraitCode(
+        'sap_mg', Constants.Constants.entity_account,
+        "MG from SAP - medarbeidergruppe")
+    trait_sap_mug = _EntityTraitCode(
+        'sap_mug', Constants.Constants.entity_account,
+        "MUG from SAP - medarbeiderundergruppe")
+
+
 class ConstantsHigherEdu(Constants.Constants):
 
-    # authoritative source systems (FS = student registry, SAP = common HR-system)
+    # authoritative source systems (FS = student registry, SAP = common
+    # HR-system)
     system_fs = _AuthoritativeSystemCode('FS', 'FS')
     system_sap = _AuthoritativeSystemCode('SAP', 'SAP')
 
@@ -153,7 +169,7 @@ class ConstantsHigherEdu(Constants.Constants):
     externalid_sap_ou = _EntityExternalIdCode("SAP_OU_ID",
                                               Constants.Constants.entity_ou,
                                               'SAP OU identification')
-    
+
     externalid_uname = _EntityExternalIdCode('UNAME',
                                              Constants.Constants.entity_person,
                                              'User name (external system)')
@@ -165,7 +181,7 @@ class ConstantsHigherEdu(Constants.Constants):
     perspective_fs = _OUPerspectiveCode('FS', 'FS')
     perspective_sap = _OUPerspectiveCode('SAP', 'SAP')
 
-    ## Affiliations for students
+    # Affiliations for students
     affiliation_student = _PersonAffiliationCode('STUDENT', 'Student')
     affiliation_status_student_evu = _PersonAffStatusCode(
         affiliation_student, 'evu', 'Student, etter og videre utdanning')
@@ -176,9 +192,9 @@ class ConstantsHigherEdu(Constants.Constants):
     affiliation_status_student_drgrad = _PersonAffStatusCode(
         affiliation_student, 'drgrad', 'Student, drgrad')
     affiliation_status_student_ekstern = _PersonAffStatusCode(
-        affiliation_student, 'ekstern', 'Student, ekstern')    
+        affiliation_student, 'ekstern', 'Student, ekstern')
 
-    ## Affiliations for employees
+    # Affiliations for employees
     affiliation_ansatt = _PersonAffiliationCode('ANSATT', 'Ansatt')
     affiliation_status_ansatt_vitenskapelig = _PersonAffStatusCode(
         affiliation_ansatt, 'vitenskapelig', 'Ansatt, vitenskapelig')
@@ -200,85 +216,95 @@ class ConstantsHigherEdu(Constants.Constants):
     auth_rt_addr_add = _AuthRoleOpCode(
         'rt_addr_add', 'Add e-mail address to Request Tracker target')
 
+
 class ConstantsUniversityColleges(Constants.Constants):
 
-    ## Source systems
+    # Source systems
     system_migrate = _AuthoritativeSystemCode('MIGRATE', 'Migrate from files')
-    system_manual =  _AuthoritativeSystemCode('MANUELL',
-                                              'Manually added information')
+    system_manual = _AuthoritativeSystemCode('MANUELL',
+                                             'Manually added information')
 
-
-    ## Affiliation for associated people
+    # Affiliation for associated people
     affiliation_tilknyttet = _PersonAffiliationCode('TILKNYTTET',
                                                     'Assosiert, reg. i kildesystem')
-    affiliation_status_tilknyttet_fagperson = _PersonAffStatusCode(affiliation_tilknyttet,
-                                                                   'fagperson',
-                                                                   'Registrert i FS, fagperson')
-    affiliation_status_tilknyttet_pensjonist = _PersonAffStatusCode(affiliation_tilknyttet,
-                                                                    'pensjonist',
-                                                                    'Registrert i HR, pensjonist')
-    affiliation_status_tilknyttet_bilag = _PersonAffStatusCode(affiliation_tilknyttet,
-                                                               'bilag',
-                                                               'Registrert i HR, bilagslønnet')
-    affiliation_status_tilknyttet_time = _PersonAffStatusCode(affiliation_tilknyttet,
-                                                               'timelønnet',
-                                                               'Registrert i HR, timelønnet')
-    affiliation_status_tilknyttet_gjest = _PersonAffStatusCode(affiliation_tilknyttet,
-                                                               'gjest',
-                                                               'Registrert i HR, gjest')
-    affiliation_status_tilknyttet_gjestefors = _PersonAffStatusCode(affiliation_tilknyttet,
-                                                                    'gjesteforsker',
-                                                                    'Registrert i HR, gjesteforsker')
+    affiliation_status_tilknyttet_fagperson = _PersonAffStatusCode(
+        affiliation_tilknyttet,
+        'fagperson',
+        'Registrert i FS, fagperson')
+    affiliation_status_tilknyttet_pensjonist = _PersonAffStatusCode(
+        affiliation_tilknyttet,
+        'pensjonist',
+        'Registrert i HR, pensjonist')
+    affiliation_status_tilknyttet_bilag = _PersonAffStatusCode(
+        affiliation_tilknyttet,
+        'bilag',
+        'Registrert i HR, bilagslønnet')
+    affiliation_status_tilknyttet_time = _PersonAffStatusCode(
+        affiliation_tilknyttet,
+        'timelønnet',
+        'Registrert i HR, timelønnet')
+    affiliation_status_tilknyttet_gjest = _PersonAffStatusCode(
+        affiliation_tilknyttet,
+        'gjest',
+        'Registrert i HR, gjest')
+    affiliation_status_tilknyttet_gjestefors = _PersonAffStatusCode(
+        affiliation_tilknyttet,
+        'gjesteforsker',
+        'Registrert i HR, gjesteforsker')
 
-    affiliation_status_tilknyttet_nosrc = _PersonAffStatusCode(affiliation_tilknyttet,
-                                                               'nosource',
-                                                               'Ekstern person, ltilknyttet uten rgistrering')    
-    affiliation_tilknyttet_fagperson = _PersonAffStatusCode(affiliation_tilknyttet,
-                                                            'fperson',
-                                                            'Dummy, do not use')
-    ## quarantine definitions
+    affiliation_status_tilknyttet_nosrc = _PersonAffStatusCode(
+        affiliation_tilknyttet,
+        'nosource',
+        'Ekstern person, ltilknyttet uten rgistrering')
+    affiliation_tilknyttet_fagperson = _PersonAffStatusCode(
+        affiliation_tilknyttet,
+        'fperson',
+        'Dummy, do not use')
+    # quarantine definitions
     quarantine_generell = _QuarantineCode('generell',
                                           'Generell sperring')
     quarantine_teppe = _QuarantineCode('teppe',
                                        'Kalt inn til samtale')
     quarantine_auto_emailonly = _QuarantineCode('kunepost',
                                                 'Ikke ordinær student, tilgang til bare e-post')
-    
+
     quarantine_system = _QuarantineCode('system',
                                         'Systembruker som ikke skal logge inn')
-    ## Cerebrum (internal), used by automagic only
+    # Cerebrum (internal), used by automagic only
     quarantine_auto_inaktiv = _QuarantineCode('auto_inaktiv',
                                               'Ikke aktiv student, utestengt')
     quarantine_autoemailonly = _QuarantineCode('auto_kunepost',
                                                'Privatist, kun tilgang til e-post')
     quarantine_ou_notvalid = _QuarantineCode('ou_notvalid',
-                                             'Sted ugyldig i autoritativ kildesystem')    
+                                             'Sted ugyldig i autoritativ kildesystem')
     quarantine_ou_remove = _QuarantineCode('ou_remove',
                                            'Sted fjernet fra autoritativ kildesystem')
     quarantine_guest_old = _QuarantineCode('guest_old',
-                           'Old guest accounts are automatically quarantined')
+                                           'Old guest accounts are automatically quarantined')
     quarantine_auto_no_aff = _QuarantineCode('auto_no_aff',
-                                              'Ikke tilknyttet person, utestengt')
-    
-    ## Non-personal account codes
+                                             'Ikke tilknyttet person, utestengt')
+
+    # Non-personal account codes
     account_test = _AccountCode('testbruker', 'Testkonto')
     account_kurs = _AccountCode('kursbruker', 'Kurskonto')
-    account_studorg = _AccountCode('studorgbruker','Studentorganisasjonsbruker')
-    account_felles  = _AccountCode('fellesbruker','Fellesbruker')
-    account_system  = _AccountCode('systembruker', 'Systembruker') 
-    account_guest = _AccountCode('gjestebruker','Gjestekonto')
+    account_studorg = _AccountCode(
+        'studorgbruker',
+        'Studentorganisasjonsbruker')
+    account_felles = _AccountCode('fellesbruker', 'Fellesbruker')
+    account_system = _AccountCode('systembruker', 'Systembruker')
+    account_guest = _AccountCode('gjestebruker', 'Gjestekonto')
 
-    ## SAP name constants
+    # SAP name constants
     name_middle = _PersonNameCode('MIDDLE', 'Mellomnavn')
     name_initials = _PersonNameCode('INITIALS', 'Initialer')
 
-    ## SAP comm. constants
+    # SAP comm. constants
     contact_phone_cellular = _ContactInfoCode("CELLPHONE",
                                               "Mobiltelefonnr")
     contact_phone_cellular_private = _ContactInfoCode(
-                                       "PRIVCELLPHONE",
-                                       "Privat mobiltefonnr")
-    ## SAP country constants
+        "PRIVCELLPHONE",
+        "Privat mobiltefonnr")
+    # SAP country constants
     country_no = _CountryCode("NO", "Norway", "47", "Norway")
     country_gb = _CountryCode("GB", "Great Britain", "44", "Great Britain")
     country_fi = _CountryCode("FI", "Finland", "358", "Finland")
@@ -292,18 +318,26 @@ class ConstantsUniversityColleges(Constants.Constants):
     country_sg = _CountryCode("SG", "Singapore", "65", "Singapore")
     country_at = _CountryCode("AT", "Austria", "43", "Austria")
     country_ca = _CountryCode("CA", "Canada", "1", "Canada")
-    country_ba = _CountryCode("BA", "Bosnia-Herzegovina", "387", "Bosnia and Herzegovina")
-    country_is = _CountryCode("IS", "Island", "345", "Iceland")    
+    country_ba = _CountryCode(
+        "BA",
+        "Bosnia-Herzegovina",
+        "387",
+        "Bosnia and Herzegovina")
+    country_is = _CountryCode("IS", "Island", "345", "Iceland")
     country_fr = _CountryCode("FR", "France", "33", "France")
     country_ch = _CountryCode("CH", "Switzerland", "41", "Switzerland")
     country_mx = _CountryCode("MX", "Mexico", "52", "Mexico")
     country_id = _CountryCode("ID", "Indonesia", "62", "Republic of Indonesia")
-    country_cn = _CountryCode("CN", "China", "86", "People's Republic of China")
+    country_cn = _CountryCode(
+        "CN",
+        "China",
+        "86",
+        "People's Republic of China")
     country_be = _CountryCode("BE", "Belgium", "32", "Kingdom of Belgium")
     country_ru = _CountryCode("RU", "Russia", "7", "Russian Federation")
     country_es = _CountryCode("ES", "Spain", "34", "Spain")
-    
-    ## Spread definitions - user related
+
+    # Spread definitions - user related
     spread_ldap_account = _SpreadCode(
         'account@ldap', Constants.Constants.entity_account,
         'Brukeren kjent i LDAP (FEIDE)')
@@ -311,34 +345,37 @@ class ConstantsUniversityColleges(Constants.Constants):
         'account@lms', Constants.Constants.entity_account,
         'Brukeren kjent i LMSen')
 
-    ## Spread definitions - guest user related
+    # Spread definitions - guest user related
     spread_ad_guest = _SpreadCode(
         'guest_account@ad', Constants.Constants.entity_account,
         'Guest account included in Active Directory')
 
-    ## Spread definitions - person related
+    # Spread definitions - person related
     spread_ldap_person = _SpreadCode(
         'person@ldap', Constants.Constants.entity_person,
         'Person kjent i organisasjonstreet (FEIDE-person)')
     spread_lms_person = _SpreadCode(
         'person@lms', Constants.Constants.entity_person,
-        'Person kjent i organisasjonens LMS')    
+        'Person kjent i organisasjonens LMS')
 
-    ## Spread definitions - group related
+    # Spread definitions - group related
     spread_lms_group = _SpreadCode(
         'group@lms', Constants.Constants.entity_group,
         'Gruppen kjent i LMS')
 
-    ## Spread definitions - ou related
-    spread_ou_to_cristin = _SpreadCode('CRIS_OU', Constants.Constants.entity_ou,
-                                       'OU to be exported to Cristin') 
+    # Spread definitions - ou related
+    spread_ou_to_cristin = _SpreadCode(
+        'CRIS_OU', Constants.Constants.entity_ou,
+        'OU to be exported to Cristin')
 #
 #  SAP magic below
-#  
+#
 #  stillingstype        - hoved/bistilling
 #  lønnstittel          - work title (sendemann, ekspedisjonssjef, etc)
 
+
 class SAPStillingsTypeKode(Constants._CerebrumCode):
+
     "This class represents HOVEDSTILLING, BISTILLING codes."
 
     _lookup_table = "[:table schema=cerebrum name=sap_stillingstype]"
@@ -346,18 +383,17 @@ class SAPStillingsTypeKode(Constants._CerebrumCode):
 
 
 class SAPLonnsTittelKode(Constants._CerebrumCode):
+
     """
     This class represents lonnstittel (SAP.STELL) codes.
     """
 
     _lookup_table = "[:table schema=cerebrum name=sap_lonnstittel]"
 
-
     def __init__(self, code, description=None, kategori=None):
         super(SAPLonnsTittelKode, self).__init__(code, description)
         self.kategori = kategori
     # end __init__
-
 
     def insert(self):
         self.sql.execute("""
@@ -365,18 +401,17 @@ class SAPLonnsTittelKode(Constants._CerebrumCode):
             (%(code_col)s, %(str_col)s, %(desc_col)s, kategori)
           VALUES
             (%(code_seq)s, :str, :desc, :kategori) """ % {
-              "code_table" : self._lookup_table,
-              "code_col"   : self._lookup_code_column,
-              "str_col"    : self._lookup_str_column,
-              "desc_col"   : self._lookup_desc_column,
-              "code_seq"   : self._code_sequence
-              },
-              { 'str'      : self.str,
-                'desc'     : self._desc,
-                'kategori' : self.kategori,
-              })  
+                         "code_table": self._lookup_table,
+                         "code_col": self._lookup_code_column,
+                         "str_col": self._lookup_str_column,
+                         "desc_col": self._lookup_desc_column,
+                         "code_seq": self._code_sequence
+                         },
+                         {'str': self.str,
+                          'desc': self._desc,
+                          'kategori': self.kategori,
+                          })
     # end insert
-
 
     def get_kategori(self):
         if self.kategori is not None:
@@ -384,19 +419,17 @@ class SAPLonnsTittelKode(Constants._CerebrumCode):
         # fi
 
         return self.sql.query_1("""
-                                SELECT 
+                                SELECT
                                   kategori
                                 FROM
                                   %s
                                 WHERE
                                   code = :code""" % self._lookup_table,
                                 {'code': int(self)})
-    # end get_kategori
-# end SAPLonnsTittelKode
-
 
 
 class SAPCommonConstants(Constants.Constants):
+
     """This class embodies all constants common to Cerebrum installations with
     SAP"""
 
@@ -409,6 +442,3 @@ class SAPCommonConstants(Constants.Constants):
         "B",
         "Bistilling"
     )
-
-# end SAPCommonConstants
-
