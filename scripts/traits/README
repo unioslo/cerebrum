@@ -1,0 +1,3 @@
+Script for calling makedb.py for updating traits.
+
+Uses the "easyconf" setup.
