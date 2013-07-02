@@ -387,8 +387,8 @@ class _SAPPersonDataTuple(_SAPTupleBase):
 
     def reserved_for_export(self):
         """Whether this person is reserved from export to catalogue services."""
-        return self.sap_publish_tag and \
-            (self.sap_publish_tag != "Kan publiseres")
+        return (self.sap_publish_tag and
+            (self.sap_publish_tag != "Kan publiseres"))
 
 
 class _SAPPersonDataTupleFok(_SAPPersonDataTuple):
@@ -413,8 +413,8 @@ class _SAPPersonDataTupleMGMU(_SAPPersonDataTuple):
     def valid(self):
         """The MG-MU combination must be set in cereconf for the person to be
         valid."""
-        return cereconf.SAP_MG_MU_CODES.has_key(self.sap_mg) and \
-            (self.sap_mu in cereconf.SAP_MG_MU_CODES[self.sap_mg])
+        return (cereconf.SAP_MG_MU_CODES.has_key(self.sap_mg) and
+            (self.sap_mu in cereconf.SAP_MG_MU_CODES[self.sap_mg]))
 
 
 class _SAPEmploymentTuple(_SAPTupleBase):
@@ -446,8 +446,8 @@ class _SAPEmploymentTuple(_SAPTupleBase):
                     'percentage': (8, float),
                     'sap_ou_id': 1, }
 
-    # TODO: Document why this is different from just returning False
     def valid(self):
+        # '99999999' comes from SAP / "Stillnum"
         return self.funksjonstittel != '99999999'
 
 
@@ -459,7 +459,7 @@ class _SAPEmploymentTupleFok(_SAPEmploymentTuple):
                     'sap_ou_id': ((1, 4), lambda x, y: "%s-%s" % (x, y))}
 
     def valid(self):
-        # TODO: Document why "9999" has been used
+        # "9999" comes from SAP
         if self.sap_fokode == "9999":
             return False
 
@@ -521,4 +521,4 @@ def _sap_row_to_tuple(sap_row):
 
 def _tuple_to_sap_row(tpl):
     """This is the converse of sap_row_to_tuple."""
-    return ";".join([field.replace(';', r'\;') for field in tpl])
+    return ";".join(field.replace(';', r'\;') for field in tpl)
