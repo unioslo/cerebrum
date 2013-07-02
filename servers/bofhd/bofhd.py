@@ -30,13 +30,11 @@
 import sys
 import crypt
 import hashlib
-import mx
 import re
 import socket
 import struct
 import types
 
-import cerebrum_path
 import cereconf
 if sys.version_info < (2, 3):
     from Cerebrum.extlib import timeoutsocket
@@ -565,7 +563,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
                 response = self._dispatch(method, params)
                 # wrap response in a singleton tuple
                 response = (response,)
-            except CerebrumError, e:
+            except CerebrumError:
                 # Due to the primitive XML-RPC support for exceptions,
                 # we want to report any subclass of CerebrumError as
                 # CerebrumError so that the client can recognize this
@@ -632,7 +630,6 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
 
         # Check quarantines
         quarantines = []      # TBD: Should the quarantine-check have a utility-API function?
-        now = mx.DateTime.now()
         for qrow in account.get_entity_quarantine(only_active=True):
                 # The quarantine found in this row is currently
                 # active. Some quarantine types may not restrict
