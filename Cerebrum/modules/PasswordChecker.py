@@ -639,6 +639,7 @@ def test_nul_byte_fails():
         pass
 # end test_nul_byte_fails
 
+# TODO: Deprecate when switching over to Python 3.x
 def test_pure_latin1_fails():
     """Chars outside of ascii range may be problematic, and we disallow them.
     """

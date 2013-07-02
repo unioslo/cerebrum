@@ -2169,6 +2169,7 @@ class AccountEmailMixin(Account.Account):
                 ret.setdefault(uname, set()).add(address)
         return ret
 
+    # Rewrite when converting to Python 3.x
     def wash_email_local_part(self, local_part):
         lp = Utils.latin1_to_iso646_60(local_part)
         # Translate ISO 646-60 representation of Norwegian characters
