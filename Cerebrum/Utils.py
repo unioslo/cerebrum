@@ -26,27 +26,23 @@ import filecmp
 import inspect
 import new
 import os
-import popen2
-from subprocess import Popen, PIPE
 import re
 import smtplib
-import string
 import sys
 import time
 import traceback
 import socket
-import urllib2, urllib, urlparse
+import urllib2
+import urllib
+import urlparse
+import random
+import popen2
+from string import maketrans
+from subprocess import Popen, PIPE
 
-# 2.2 and 2.3 compatibility cruft
-try:
-    set()
-except NameError:
-    try:
-        from sets import Set as set
-    except ImportError:    
-        from Cerebrum.extlib.sets import Set as set
 
 class _NotSet(object):
+
     """This class shouldn't be referred to directly, import the
     singleton, 'NotSet', instead.  It should be used as the default
     value of keyword arguments which need to distinguish between the
@@ -74,7 +70,8 @@ def dyn_import(name):
             mod = getattr(mod, comp)
         return mod
     except AttributeError, mesg:
-        raise ImportError, mesg
+        raise ImportError(mesg)
+
 
 def this_module():
     """Return module object of the caller."""
@@ -92,6 +89,8 @@ def this_module():
     assert correct_mod is not None
     return correct_mod
 
+
+# TODO: Use UTF-8 instead by default?
 def sendmail(toaddr, fromaddr, subject, body, cc=None,
              charset='iso-8859-1', debug=False):
     """Sends e-mail, mime-encoding the subject.  If debug is set,
@@ -118,6 +117,7 @@ def sendmail(toaddr, fromaddr, subject, body, cc=None,
     smtp.quit()
 
 
+# TODO: Use UTF-8 instead by default?
 def mail_template(recipient, template_file, sender=None, cc=None,
                   substitute={}, charset='iso-8859-1', debug=False):
     """Read template from file, perform substitutions based on the
@@ -146,7 +146,8 @@ def mail_template(recipient, template_file, sender=None, cc=None,
     message = "".join(f.readlines())
     f.close()
     substitute['RECIPIENT'] = recipient
-    if sender: substitute['SENDER'] = sender
+    if sender:
+        substitute['SENDER'] = sender
     for key in substitute:
         message = message.replace("${%s}" % key, substitute[key])
 
@@ -158,9 +159,8 @@ def mail_template(recipient, template_file, sender=None, cc=None,
                      'to': recipient,
                      'subject': '<none>'}
     for header in headers.split('\n'):
-        field, value = header.split(':', 1)
-        field = field.strip().lower()
-        value = value.strip()
+        field, value = map(str.strip, header.split(':', 1))
+        field = field.lower()
         if field in preset_fields:
             preset_fields[field] = value
         else:
@@ -216,123 +216,158 @@ def separate_entries(rows, *predicates):
             reject.append(row)
     return (keep, reject)
 
+
 def keep_entries(rows, *predicates):
     """Return the 'keep' part of separate_entries() return value."""
     return separate_entries(rows, *predicates)[0]
+
 
 def reject_entries(rows, *predicates):
     """Return the 'reject' part of separate_entries() return value."""
     return separate_entries(rows, *predicates)[1]
 
-def mangle_name(classname, attr):
+
+# TODO: Deprecate when switching over to Python 3.x
+def is_str(x):
+    """Checks if a given variable is a string, but not a unicode string."""
+    return isinstance(x, str)
+
+
+# TODO: Deprecate when switching over to Python 3.x
+def is_str_or_unicode(x):
+    """Checks if a given variable is a string (str or unicode)."""
+    return isinstance(x, basestring)
+
+
+# TODO: Deprecate when switching over to Python 3.x
+def is_unicode(x):
+    """Checks if a given variable is a unicode string."""
+    return isinstance(x, unicode)
+
+
+# TODO: Deprecate: needlessly complex in terms of readability and end result
+def _mangle_name(classname, attr):
     """Do 'name mangling' for attribute ``attr`` in class ``classname``."""
-    if not classname or not isinstance(classname, str):
-        raise ValueError, "Not a valid class name: '%s'" % classname
-    if attr.startswith("__") and not attr.endswith("__"):
-        # Attribute name starts with at least two underscores, and
-        # ends with at most one underscore.
-        #
+    if not (classname and is_str(classname)):
+        raise ValueError("Invalid class name string: '%s'" % classname)
+    # Attribute name starts with at least two underscores, and
+    # ends with at most one underscore and is not all underscores
+    if (attr.startswith("__") and not attr.endswith("__")) and (classname.count("_") != len(classname)):
         # Strip leading underscores from classname.
-        for i in range(len(classname)):
-            if classname[i] != "_":
-                classname = classname[i:]
-                break
-        if classname and classname[0] == "_":
-            # classname is all underscores.  No mangling.
-            return attr
-        return '_' + classname + attr
+        return "_" + classname.lstrip("_") + attr
     return attr
 
+
+# TODO: Use Python standard library functions instead
+# TODO: Don't redefined the "dir" built-in
+# TODO: Add docstring
 def make_temp_file(dir="/tmp", only_name=0, ext="", prefix="cerebrum_tmp"):
-    # TODO: Assert unique filename, and avoid potential security risks
     name = "%s/%s.%s%s" % (dir, prefix, time.time(), ext)
     if only_name:
         return name
     f = open(name, "w")
     return f, name
 
+
+# TODO: Use Python standard library functions instead
+# TODO: Don't redefined the "dir" built-in
+# TODO: Add docstring
 def make_temp_dir(dir="/tmp", prefix="cerebrum_tmp"):
-    # TODO: Assert unique filename, and avoid potential security risks
     name = make_temp_file(dir=dir, only_name=1, ext="", prefix=prefix)
     os.mkdir(name)
     return name
 
-# U-umlaut is treated specially and is therefore defined in
-# latin1_specials to be transcribed to 'ue' instead of the single
-# character 'u'. The reason for this is a wish for email addresses to
-# reflect the common transcribation choice for this
-# character. O-umlaut and a-umlaut are not getting such special
-# treatment.
-_latin1_specials = {'Ð': 'Dh',  'ð': 'dh',
-                    'Þ': 'Th',  'þ': 'th',
-                    'ß': 'ss',  'Ü': 'Ue',
-                    'ü': 'ue'}
-_latin1_wash_cache = {}
 
-def latin1_wash(data, target_charset, expand_chars=False, substitute=''):
-    # TBD: The code in this function is rather messy, as it tries to
-    # deal with multiple combinations of target charsets etc.  It
-    # *might* be worth it to reimplement this stuff as a few proper
-    # Python codecs, i.e. registered via codecs.register() and hence
-    # usable via the Python builtin str.encode().  On the other hand,
-    # that might be seen as involving excess amounts of magic for such
-    # an apparently simple task.
-    key = (target_charset, bool(expand_chars), substitute)
-    try:
-        (tr, xlate_subst, xlate_match) = _latin1_wash_cache[key]
-    except KeyError:
-        tr_from = ('ÆØÅæøå[\\]{|}¦¿'
-                   'ÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÝàáâãäçèéêëìíîïñòóôõöùúûýÿ'
-                   '¨­¯´')
-        xlate = _latin1_specials.copy()
-        if target_charset == 'iso646-60':
-            tr_to = ('[\\]{|}[\\]{|}||'
-                     'AAAAACEEEEIIIINOOOOOUUUYaaaaaceeeeiiiinooooouuuyy'
-                     '"--\'')
-            xlate_re = '[^\x1f-\x7e\xff]'  # Should be [^\x20-\x7e].
-        elif target_charset == 'POSIXname':
-            tr_to = ('AOAaoaAOAaoaoo'
-                     'AAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuyy'
-                     '"--\'')
-            if expand_chars:
-                xlate.update({'Æ': 'Ae', 'æ': 'ae',  'Å': 'Aa', 'å': 'aa',
-                              'Ü': 'Ue', 'ü': 'ue'})
-            xlate_re = r'[^a-zA-Z0-9 -]'
-        else:
-            raise ValueError, "Unknown target charset: %r" % (target_charset,)
+# TODO: Deprecate when switching over to Python 3.x
+# TODO: Make it possible to put this class in a utf-8 encoded .py file
+class _Latin1:
 
-        tr = dict(zip(tr_from, tr_to))
-        for ch in filter(xlate.has_key, tr_from):
-            del tr[ch]
-        tr = string.maketrans("".join(tr.keys()), "".join(tr.values()))
+    def __init__(self):
+        self.lat1_646_tr = maketrans(
+            'ÆØÅæø¦¿åÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÝàáâãäçèéêëìíîïñòóôõöùúûýÿ¨­¯´',
+            '[\\]{|||}AAAAACEEEEIIIINOOOOOUUUYaaaaaceeeeiiiinooooouuuyy"--\'')
+        self.lat1_646_subst = re.compile(
+            '[^\x1f-\x7e\xff]').sub  # Should be [^\x20-\x7e].
+        self.lat1_646_cache = {}
 
-        xlate_re = re.compile(xlate_re)
-        for ch in filter(xlate_re.match, tr):
-            xlate.setdefault(ch, substitute)
+        # U-umlaut is treated specially and is therefore defined in
+        # latin1_specials to be transcribed to 'ue' instead of the single
+        # character 'u'. The reason for this is a wish for email addresses to
+        # reflect the common transcribation choice for this
+        # character. O-umlaut and a-umlaut are not getting such special
+        # treatment.
+        self.latin1_specials = {'Ð': 'Dh', 'ð': 'dh',
+                                'Þ': 'Th', 'þ': 'th',
+                                'ß': 'ss', 'Ü': 'Ue',
+                                'ü': 'ue'}
+        self.latin1_wash_cache = {}
 
-        (tr, xlate_subst, xlate_match) = _latin1_wash_cache[key] = (
-            tr, xlate_re.sub, lambda match: xlate[match.group()])
+    def to_iso646_60(self, s, substitute=''):
+        """Wash known accented letters and some common charset confusions."""
+        try:
+            xlate_match = self.lat1_646_cache[substitute]
+        except KeyError:
+            xlate = self.latin1_specials.copy()
+            for ch in filter(self.lat1_646_subst.__self__.match, self.lat1_646_tr):
+                xlate.setdefault(ch, substitute)
+            xlate_match = self.lat1_646_cache[
+                substitute] = lambda m: xlate[m.group()]
+        return self.lat1_646_subst(xlate_match, str(s).translate(self.lat1_646_tr))
 
-    return xlate_subst(xlate_match, str(data).translate(tr))
+    def wash(self, data, target_charset, expand_chars=False, substitute=''):
+        # TBD: The code in this function is rather messy, as it tries to
+        # deal with multiple combinations of target charsets etc.  It
+        # *might* be worth it to reimplement this stuff as a few proper
+        # Python codecs, i.e. registered via codecs.register() and hence
+        # usable via the Python builtin str.encode().  On the other hand,
+        # that might be seen as involving excess amounts of magic for such
+        # an apparently simple task.
+        key = (target_charset, bool(expand_chars), substitute)
+        try:
+            (tr, xlate_subst, xlate_match) = self.latin1_wash_cache[key]
+        except KeyError:
+            tr_from = ('ÆØÅæøå[\\]{|}¦¿'
+                       'ÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÝàáâãäçèéêëìíîïñòóôõöùúûýÿ'
+                       '¨­¯´')
+            xlate = self.latin1_specials.copy()
+            if target_charset == 'iso646-60':
+                tr_to = ('[\\]{|}[\\]{|}||'
+                         'AAAAACEEEEIIIINOOOOOUUUYaaaaaceeeeiiiinooooouuuyy'
+                         '"--\'')
+                xlate_re = '[^\x1f-\x7e\xff]'  # Should be [^\x20-\x7e].
+            elif target_charset == 'POSIXname':
+                tr_to = ('AOAaoaAOAaoaoo'
+                         'AAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuyy'
+                         '"--\'')
+                if expand_chars:
+                    xlate.update({'Æ': 'Ae', 'æ': 'ae', 'Å': 'Aa', 'å': 'aa',
+                                  'Ü': 'Ue', 'ü': 'ue'})
+                xlate_re = r'[^a-zA-Z0-9 -]'
+            else:
+                raise ValueError(
+                    "Unknown target charset: %r" %
+                    (target_charset,))
 
-_lat1_646_tr = string.maketrans(
-    'ÆØÅæø¦¿åÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÝàáâãäçèéêëìíîïñòóôõöùúûýÿ¨­¯´',
-    '[\\]{|||}AAAAACEEEEIIIINOOOOOUUUYaaaaaceeeeiiiinooooouuuyy"--\'')
-_lat1_646_subst = re.compile('[^\x1f-\x7e\xff]').sub  # Should be [^\x20-\x7e].
-_lat1_646_cache = {}
+            tr = dict(zip(tr_from, tr_to))
+            for ch in filter(xlate.has_key, tr_from):
+                del tr[ch]
+            tr = maketrans("".join(tr.keys()), "".join(tr.values()))
 
-def latin1_to_iso646_60(s, substitute=''):
-    #
-    # Wash known accented letters and some common charset confusions.
-    try:
-        xlate_match = _lat1_646_cache[substitute]
-    except KeyError:
-        xlate = _latin1_specials.copy()
-        for ch in filter(_lat1_646_subst.__self__.match, _lat1_646_tr):
-            xlate.setdefault(ch, substitute)
-        xlate_match = _lat1_646_cache[substitute] = lambda m: xlate[m.group()]
+            xlate_re = re.compile(xlate_re)
+            for ch in filter(xlate_re.match, tr):
+                xlate.setdefault(ch, substitute)
 
-    return _lat1_646_subst(xlate_match, str(s).translate(_lat1_646_tr))
+            (tr, xlate_subst, xlate_match) = self.latin1_wash_cache[key] = (
+                tr, xlate_re.sub, lambda match: xlate[match.group()])
+
+        return xlate_subst(xlate_match, str(data).translate(tr))
+
+
+# For global caching
+_latin1 = _Latin1()
+latin1_to_iso646_60 = _latin1.to_iso646_60
+latin1_wash = _latin1.wash
+
 
 def read_password(user, system, host=None):
     """Read the password 'user' needs to authenticate with 'system'.
@@ -399,7 +434,7 @@ def spawn_and_log_output(cmd, log_exit_status=True, connect_to=[]):
         # the buffering in Python's file object.  This works OK since
         # select() will return "readable" for an unread EOF, and
         # Python won't read the EOF until the buffers are exhausted.
-        ready, x, x = select(descriptor.keys(), [], [])
+        ready, _, _ = select(descriptor.keys(), [], [])
         for fd in ready:
             line = fd.readline()
             if line == '':
@@ -411,7 +446,7 @@ def spawn_and_log_output(cmd, log_exit_status=True, connect_to=[]):
     if status == EXIT_SUCCESS and log_exit_status:
         logger.debug("[%d] Completed successfully", pid)
     elif os.WIFSIGNALED(status):
-        # The process was killed by a signal.        
+        # The process was killed by a signal.
         status = os.WTERMSIG(status)
         if log_exit_status:
             logger.error('[%d] Command "%r" was killed by signal %d',
@@ -424,9 +459,10 @@ def spawn_and_log_output(cmd, log_exit_status=True, connect_to=[]):
                          pid, status, cmd)
     return status
 
+
 def filtercmd(cmd, input):
     """Send input on stdin to a command and collect the output from stdout.
-    
+
     Keyword arguments:
     cmd -- arg list, where the first element is the full path to the command
     input -- data to be sent on stdin to the executable
@@ -434,10 +470,10 @@ def filtercmd(cmd, input):
     Returns the stdout that is returned from the command. May throw an IOError.
 
     Example use:
-    
+
     >>> filtercmd(["sed", "s/kak/ost/"], "kakekake")
     'ostekake'
-    
+
     """
 
     p = Popen(cmd, stdin=PIPE, stdout=PIPE, close_fds=False)
@@ -449,14 +485,14 @@ def filtercmd(cmd, input):
     p.stdout.close()
 
     if exit_code:
-        raise IOError, "%r exited with %i" % (cmd, exit_code)
+        raise IOError("%r exited with %i" % (cmd, exit_code))
 
     return output
 
 
 def pgp_encrypt(message, keyid):
     """Encrypts a message using PGP.
-    
+
     Keyword arguments:
     message -- the message that is to be decrypted
     keyid -- the private key
@@ -466,14 +502,14 @@ def pgp_encrypt(message, keyid):
     """
 
     cmd = [cereconf.PGPPROG] + cereconf.PGP_ENC_OPTS + \
-	  ['--recipient', keyid, '--default-key', keyid]
+          ['--recipient', keyid, '--default-key', keyid]
 
     return filtercmd(cmd, message)
 
 
 def pgp_decrypt(message, keyid, passphrase):
     """Decrypts a message using PGP.
-    
+
     Keyword arguments:
     message -- the message that is to be decrypted
     keyid -- the private key
@@ -482,12 +518,12 @@ def pgp_decrypt(message, keyid, passphrase):
     Returns the decrypted message. May throw an IOError.
 
     """
-    
+
     cmd = [cereconf.PGPPROG] + cereconf.PGP_DEC_OPTS + ['--default-key', keyid]
 
     if passphrase != "":
         cmd += cereconf.PGP_DEC_OPTS_PASSPHRASE
-	message = passphrase + "\n" + message
+        message = passphrase + "\n" + message
 
     return filtercmd(cmd, message)
 
@@ -499,21 +535,23 @@ def format_as_int(i):
     return int(i)
 
 
+# TODO: Deprecate when switching over to Python 3.x
 def to_unicode(obj, encoding='utf-8'):
-    """Decode obj to unicode if it is a basestring."""
-    if isinstance(obj, basestring):
-        if not isinstance(obj, unicode):
-            obj = unicode(obj, encoding)
+    """Decode obj to unicode if it is a str (basestring is either str or unicode)."""
+    if is_str(obj):
+        return unicode(obj, encoding)
     return obj
 
 
+# TODO: Deprecate when switching over to Python 3.x
 def unicode2str(obj, encoding='utf-8'):
     """Encode unicode object to a str with the given encoding."""
-    if isinstance(obj, unicode):
+    if is_unicode(obj):
         return obj.encode(encoding)
     return obj
 
 
+# TODO: Rewrite when switching over to Python 3.x
 def shorten_name(name, max_length=30, method='initials', encoding='utf-8'):
     """
     Shorten a name by a given or default method if it's too long.
@@ -541,7 +579,7 @@ def shorten_name(name, max_length=30, method='initials', encoding='utf-8'):
         ret = get_initials(name_uni)
         if len(ret) > max_length:
             # If intitials doesn't work, truncate
-             return shorten_name(name, max_length=max_length, method='truncate')
+            return shorten_name(name, max_length=max_length, method='truncate')
     elif method == 'truncate':
         ret = name_uni[:max_length].strip()
     else:
@@ -551,9 +589,10 @@ def shorten_name(name, max_length=30, method='initials', encoding='utf-8'):
         return ret.encode(encoding)
     else:
         return ret
-    
+
 
 class auto_super(type):
+
     """Metaclass adding a private class variable __super, set to super(cls).
 
     Any class C of this metaclass can use the shortcut
@@ -576,18 +615,19 @@ class auto_super(type):
     """
     def __init__(cls, name, bases, dict):
         super(auto_super, cls).__init__(name, bases, dict)
-        attr = mangle_name(name, '__super')
+        attr = _mangle_name(name, '__super')
         if hasattr(cls, attr):
             # The class-private attribute slot is already taken; the
             # most likely cause for this is a base class with the same
             # name as the subclass we're trying to create.
-            raise ValueError, \
-                  "Found '%s' in class '%s'; name clash with base class?" % \
-                  (attr, name)
+            raise ValueError("Found '%s' in class '%s'; name clash with base class?" %
+                            (attr, name))
         setattr(cls, attr, super(cls))
 
 
+# TODO: Deprecate: needlessly complex in terms of readability and end result
 class mark_update(auto_super):
+
     """Metaclass marking objects as 'updated' per superclass.
 
     This metaclass looks in the class attributes ``__read_attr__`` and
@@ -696,25 +736,24 @@ class mark_update(auto_super):
 
     """
     def __new__(cls, name, bases, dict):
-        read = [mangle_name(name, x) for x in
+        read = [_mangle_name(name, x) for x in
                 dict.get('__read_attr__', ())]
         dict['__read_attr__'] = read
-        write = [mangle_name(name, x) for x in
+        write = [_mangle_name(name, x) for x in
                  dict.get('__write_attr__', ())]
         dict['__write_attr__'] = write
-        mupdated = mangle_name(name, '__updated')
-        msuper = mangle_name(name, '__super')
+        mupdated = _mangle_name(name, '__updated')
+        msuper = _mangle_name(name, '__super')
 
         # Define the __setattr__ method that should be used in the
         # class we're creating.
         def __setattr__(self, attr, val):
-##            print "%s.__setattr__:" % name, self, attr, val
+# print "%s.__setattr__:" % name, self, attr, val
             if attr in read:
                 # Only allow setting if attr has no previous
                 # value.
                 if hasattr(self, attr):
-                    raise AttributeError, \
-                          "Attribute '%s' is read-only." % attr
+                    raise AttributeError("Attribute '%s' is read-only." % attr)
             elif attr in write:
                 if hasattr(self, attr) and val == getattr(self, attr):
                     # No change, don't set __updated.
@@ -727,7 +766,7 @@ class mark_update(auto_super):
             # it's OK to set the attribute.  Short circuit directly to
             # object's __setattr__, as that's where the attribute
             # actually gets its new value set.
-##            print "%s.__setattr__: setting %s = %s" % (self, attr, val)
+# print "%s.__setattr__: setting %s = %s" % (self, attr, val)
             object.__setattr__(self, attr, val)
             if attr in write:
                 getattr(self, mupdated).append(attr)
@@ -745,6 +784,7 @@ class mark_update(auto_super):
         dict.setdefault('__new__', __new__)
 
         dont_clear = dict.get('dontclear', ())
+
         def clear(self):
             getattr(self, msuper).clear()
             for attr in read:
@@ -792,11 +832,13 @@ class mark_update(auto_super):
 
         return super(mark_update, cls).__new__(cls, name, bases, dict)
 
+
+# TODO: Use UTF-8 instead of ISO-8859-1?
 class XMLHelper(object):
     xml_hdr = '<?xml version="1.0" encoding="ISO-8859-1"?>\n'
 
     def conv_colnames(self, cols):
-        "Strip tablename prefix from column name"
+        """Strip tablename prefix from column name."""
         prefix = re.compile(r"[^.]*\.")
         for i in range(len(cols)):
             cols[i] = re.sub(prefix, "", cols[i]).lower()
@@ -819,8 +861,9 @@ class XMLHelper(object):
                       for x in cols if row[x] is not None]) +
             "%s%s>" % (extra_attr, close_tag))
 
+    # TODO: Use UTF-8 instead?
     def escape_xml_attr(self, a):
-        """Escapes XML attributes.  Expected input format is iso-8859-1"""
+        """Escapes XML attributes. Expected input format is iso-8859-1."""
         a = str(a).replace('&', "&amp;")
         a = a.replace('"', "&quot;")
         a = a.replace('<', "&lt;")
@@ -832,9 +875,12 @@ class XMLHelper(object):
         a = re.sub('[^\x09\x0a\x0d\x20-\xff]', '.', a)
         return '"%s"' % a
 
+
 class Factory(object):
+
     class_cache = {}
     module_cache = {}
+
     # mapping between entity type codes and Factory.get() components
     # (user by Entity.object_by_entityid)
     type_component_map = {
@@ -863,20 +909,23 @@ class Factory(object):
                       'OrgLDIF': 'CLASS_ORGLDIF',
                       'PosixExport': 'CLASS_POSIXEXPORT',
                       'PosixLDIF': 'CLASS_POSIXLDIF',
-                      'PosixUser' : 'CLASS_POSIX_USER',
-                      'PosixGroup' : 'CLASS_POSIX_GROUP',
+                      'PosixUser': 'CLASS_POSIX_USER',
+                      'PosixGroup': 'CLASS_POSIX_GROUP',
                       'Project': 'CLASS_PROJECT',
                       'Allocation': 'CLASS_ALLOCATION',
                       'AllocationPeriod': 'CLASS_ALLOCATION_PERIOD',
                       'FS': 'CLASS_FS',
                       'LMSImport': 'CLASS_LMS_IMPORT',
-                      'LMSExport': 'CLASS_LMS_EXPORT',}
-        if Factory.class_cache.has_key(comp):
+                      'LMSExport': 'CLASS_LMS_EXPORT', }
+
+        if comp in Factory.class_cache:
             return Factory.class_cache[comp]
+
         try:
             conf_var = components[comp]
         except KeyError:
-            raise ValueError, "Unknown component %r" % comp
+            raise ValueError("Unknown component %r" % comp)
+
         import_spec = getattr(cereconf, conf_var)
         if isinstance(import_spec, (tuple, list)):
             bases = []
@@ -898,10 +947,9 @@ class Factory(object):
                 # misconfiguration won't be used.
                 for override in bases:
                     if issubclass(cls, override):
-                        raise RuntimeError, \
-                              ("Class %r should appear earlier in"
-                               " cereconf.%s, as it's a subclass of"
-                               " class %r." % (cls, conf_var, override))
+                        raise RuntimeError("Class %r should appear earlier in"
+                                           " cereconf.%s, as it's a subclass of"
+                                           " class %r." % (cls, conf_var, override))
                 bases.append(cls)
             if len(bases) == 1:
                 comp_class = bases[0]
@@ -916,14 +964,10 @@ class Factory(object):
             Factory.class_cache[comp] = comp_class
             return comp_class
         else:
-            raise ValueError, \
-                  "Invalid import spec for component %s: %r" % (comp,
-                                                                import_spec)
-    get = staticmethod(get)
+            raise ValueError("Invalid import spec for component %s: %r" %
+                            (comp, import_spec))
 
-
-
-    def get_logger(name = None):
+    def get_logger(name=None):
         """Return THE cerebrum logger.
 
         Although this method does very little now, we should keep our
@@ -932,20 +976,18 @@ class Factory(object):
         from Cerebrum.modules import cerelog
 
         return cerelog.get_logger(cereconf.LOGGING_CONFIGFILE, name)
-    get_logger = staticmethod(get_logger)
-    
-
 
     def get_module(comp):
-        components = {
-            'ClientAPI': 'MODULE_CLIENTAPI',
-        }
-        if Factory.class_cache.has_key(comp):
+        components = {'ClientAPI': 'MODULE_CLIENTAPI'}
+
+        if comp in Factory.class_cache:
             return Factory.class_cache[comp]
+
         try:
             conf_var = components[comp]
         except KeyError:
-            raise ValueError, "Unknown component %r" % comp
+            raise ValueError("Unknown component %r" % comp)
+
         import_spec = getattr(cereconf, conf_var)
         if isinstance(import_spec, (tuple, list)):
             bases = []
@@ -969,30 +1011,37 @@ class Factory(object):
             Factory.class_cache[comp] = comp_module
             return comp_module
         else:
-            raise ValueError, \
-                  "Invalid import spec for component %s: %r" % (comp,
-                                                                import_spec)
-    get_module = staticmethod(get_module)          
-        
+            raise ValueError("Invalid import spec for component %s: %r" %
+                            (comp, import_spec))
 
+    # static methods
+    get = staticmethod(get)
+    get_logger = staticmethod(get_logger)
+    get_module = staticmethod(get_module)
+
+
+# TODO: Track down the author, ask what the comment means and update it
 class fool_auto_super(object):
+
+    """auto_super's .__super attribute should never continue beyond this class.
+    self.__super = fool_auto_super()
+    """
+
     def __getattr__(self, attr):
         def no_op(*args, **kws):
             pass
         return no_op
 
-##         # auto_super's .__super attribute should never continue beyond
-##         # this class.
-##         self.__super = fool_auto_super()
 
-
-def random_string(length, population='abcdefghijklmnopqrstuvwxyz0123456789'):
-    import random
+def random_string(length, characters='abcdefghijklmnopqrstuvwxyz0123456789'):
+    """Generate a random string of a given length using the given characters."""
     random.seed()
-    return ''.join([random.choice(population) for i in range(length)])
+    # pick "length" number of letters, then combine them to a string
+    return ''.join([random.choice(characters) for _ in range(length)])
 
 
 class AtomicFileWriter(object):
+
     def __init__(self, name, mode='w', buffering=-1, replace_equal=False):
         self._name = name
         self._tmpname = self.make_tmpname(name)
@@ -1002,7 +1051,8 @@ class AtomicFileWriter(object):
         self._replace_equal = replace_equal
 
     def close(self, dont_rename=False):
-        if self.closed: return
+        if self.closed:
+            return
         ret = self.__file.close()
         self.closed = True
         if ret is None:
@@ -1012,7 +1062,7 @@ class AtomicFileWriter(object):
             self.validate_output()
             if not self._replace_equal:
                 if (os.path.exists(self._name) and
-                    filecmp.cmp(self._tmpname, self._name, shallow=0)):
+                        filecmp.cmp(self._tmpname, self._name, shallow=0)):
                     os.unlink(self._tmpname)
                 else:
                     if not dont_rename:
@@ -1034,13 +1084,14 @@ class AtomicFileWriter(object):
         """
         pass
 
+    # TODO: Use the temp file functions provided by the standard library!
     def make_tmpname(self, realname):
-        for i in range(10):
+        for _ in range(10):
             name = realname + '.' + random_string(5)
             if not os.path.exists(name):
                 break
         else:
-            raise IOError, "Unable to find available temporary filename"
+            raise IOError("Unable to find available temporary filename")
         return name
 
     def flush(self):
@@ -1050,22 +1101,24 @@ class AtomicFileWriter(object):
         return self.__file.write(data)
 
 
-
 class FileSizeChangeError(RuntimeError):
+
     """Indicates a problem related to change in file size for files
     updated by the *SizeWriter classes.
-
     """
+    pass
 
 
 class FileChangeTooBigError(FileSizeChangeError):
+
     """Indicates that a file has either grown or been reduced beyond
     acceptable limits.
-
     """
+    pass
 
 
 class SimilarSizeWriter(AtomicFileWriter):
+
     """This file writer will fail if the file size has changed by more
     than a certain percentage (if using 'set_size_change_limit')
     and/or by a certain number of lines (if using
@@ -1094,15 +1147,12 @@ class SimilarSizeWriter(AtomicFileWriter):
 
     """
 
-    
     __checks_enabled = True
-
 
     def __init__(self, *args, **kwargs):
         super(SimilarSizeWriter, self).__init__(*args, **kwargs)
         self.__percentage = self.__line_count = None
         self._logger = Factory.get_logger("cronjob")
-
 
     def set_checks_enabled(self, new_enabled_status):
         """Method for activating (new_enabled_status is 'True') or
@@ -1117,7 +1167,6 @@ class SimilarSizeWriter(AtomicFileWriter):
                            % new_enabled_status)
         SimilarSizeWriter.__checks_enabled = new_enabled_status
 
-
     def set_size_change_limit(self, percentage):
         """Method for setting a limit based on percentage change in
         file size (bytes). The exact percentage can be centrally
@@ -1126,7 +1175,7 @@ class SimilarSizeWriter(AtomicFileWriter):
 
         """
         self.__percentage = percentage * cereconf.SIMILARSIZE_LIMIT_MULTIPLIER
-        if cereconf.SIMILARSIZE_LIMIT_MULTIPLIER != 1.0:            
+        if cereconf.SIMILARSIZE_LIMIT_MULTIPLIER != 1.0:
             self._logger.warning("SIMILARSIZE_LIMIT_MULTIPLIER is set to "
                                  "a value other than 1.0; change limit "
                                  "will be %s%% rather than client's explicit "
@@ -1134,7 +1183,6 @@ class SimilarSizeWriter(AtomicFileWriter):
                                  self.__percentage, percentage)
         self._logger.debug("SimilarSize size change limit set to '%d'",
                            self.__percentage)
-
 
     def set_line_count_change_limit(self, num):
         """Method for setting a limit based on change in number of
@@ -1144,7 +1192,7 @@ class SimilarSizeWriter(AtomicFileWriter):
 
         """
         self.__line_count = num * cereconf.SIMILARSIZE_LIMIT_MULTIPLIER
-        if cereconf.SIMILARSIZE_LIMIT_MULTIPLIER != 1.0:            
+        if cereconf.SIMILARSIZE_LIMIT_MULTIPLIER != 1.0:
             self._logger.warning(("SIMILARSIZE_LIMIT_MULTIPLIER is set to " +
                                  "a value other than 1.0; change limit " +
                                  "will be %s lines rather than client's "
@@ -1154,13 +1202,9 @@ class SimilarSizeWriter(AtomicFileWriter):
         self._logger.debug("SimilarSize line count change limit set to '%d'"
                            % self.__line_count)
 
-
     def __count_lines(self, fname):
-        count = 0
-        for line in open(fname):
-            count = count + 1
-        return count
-
+        """Return the number of lines in a file"""
+        return open(fname).read().count(os.linesep)
 
     def validate_output(self):
         """Checks if the new file's size change (compared to the old
@@ -1174,7 +1218,7 @@ class SimilarSizeWriter(AtomicFileWriter):
         If SIMILARSIZE_CHECK_DISABLED is set to 'True' in cereconf,
         validation will always succeed, no matter what, as is the case
         if 'set_checks_enabled(False)' has been called.
-    
+
         """
         if cereconf.SIMILARSIZE_CHECK_DISABLED:
             # Having the check globally disabled is not A Good Thing(tm),
@@ -1188,7 +1232,7 @@ class SimilarSizeWriter(AtomicFileWriter):
             # realize it
             self._logger.info("Client has disabled similarsize checks for now;"
                               "no 'similar filesize' comparisons will be done.")
-            return            
+            return
         if not os.path.exists(self._name):
             return
         old = os.path.getsize(self._name)
@@ -1200,53 +1244,56 @@ class SimilarSizeWriter(AtomicFileWriter):
         new = os.path.getsize(self._tmpname)
         assert self.__percentage or self.__line_count
         if self.__percentage:
-            change_percentage = 100 * (float(new)/old) - 100
+            change_percentage = 100 * (float(new) / old) - 100
             if abs(change_percentage) > self.__percentage:
                 raise FileChangeTooBigError(
-                      "%s: File size changed more than %d%%: "
-                      "%d -> %d (%+.1f)" % (self._name, self.__percentage,
-                                            old, new, change_percentage))
+                    "%s: File size changed more than %d%%: "
+                    "%d -> %d (%+.1f)" % (self._name, self.__percentage,
+                                          old, new, change_percentage))
         if self.__line_count:
             old = self.__count_lines(self._name)
             new = self.__count_lines(self._tmpname)
             if abs(old - new) > self.__line_count:
                 raise FileChangeTooBigError(
-                      "%s: File changed more than %d lines: "
-                      "%d -> %d (%i)" % (self._name, self.__line_count,
-                                         old, new, abs(old-new)))
-
+                    "%s: File changed more than %d lines: "
+                    "%d -> %d (%i)" % (self._name, self.__line_count,
+                                       old, new, abs(old - new)))
 
 
 class FileTooSmallError(FileSizeChangeError):
+
     """Indicates that the new version of the file in question is below
     acceptable size.
-
     """
+    pass
 
 
 class MinimumSizeWriter(AtomicFileWriter):
+
     """This file writer would fail, if the new file size is less than
     a certain number of bytes. All other file size changes are
     permitted, regardless of the original file's size.
     """
 
-    def set_minimum_size_limit(self, bytes):
-        self.__minimum_size = bytes
+    def set_minimum_size_limit(self, size):
+        self.__minimum_size = size
 
     def validate_output(self):
         super(MinimumSizeWriter, self).validate_output()
 
         new_size = os.path.getsize(self._tmpname)
         if new_size < self.__minimum_size:
-            raise FileTooSmallError, \
-                  "%s: File is too small: current: %d, minimum allowed: %d" % \
-                  (self._name, new_size, self.__minimum_size)
-
+            raise FileTooSmallError("%s: File is too small: current: %d, minimum allowed: %d" %
+                                   (self._name, new_size, self.__minimum_size))
 
 
 class RecursiveDict(dict):
-    """A variant of dict supporting recursive updates"""
-    # This dict is useful for combining complex configuration dicts
+
+    """A variant of dict supporting recursive updates.
+    Useful for combining complex configuration dicts.
+    """
+
+    # TODO: dict.__init__ should probably be called?
     def __init__(self, values={}):
         # Make sure our __setitem__ is called.
         for (key, value) in values.items():
@@ -1259,9 +1306,9 @@ class RecursiveDict(dict):
         are UserDicts are not updated recursively.
         """
         for (key, value) in other.items():
-            if (key in self and 
-                isinstance(self[key], RecursiveDict) and 
-                isinstance(value, dict)):
+            if (key in self and
+                isinstance(self[key], RecursiveDict) and
+                    isinstance(value, dict)):
                 self[key].update(value)
             else:
                 self[key] = value
@@ -1277,7 +1324,7 @@ def simple_memoize(callobj):
     """Memoize[1] a callable.
 
     [1] <http://en.wikipedia.org/wiki/Memoize>.
-    
+
     The idea is to memoize a callable object supporting rest/optional
     arguments without placing a limit on the amount of cached pairs. This is
     useful for mapping ou_id to names and such (i.e. situations where the
@@ -1295,17 +1342,15 @@ def simple_memoize(callobj):
     @return:
       A wrapper that caches the results of previous invocations of callobj.
     """
-    
-    cache = dict()
+
+    cache = {}
+
     def wrapper(*rest):
         if rest not in cache:
             cache[rest] = callobj(*rest)
         return cache[rest]
-    # end wrapper
 
     return wrapper
-# end simple_memoize
-
 
 
 def exception_wrapper(functor, exc_list=None, return_on_exc=None, logger=None):
@@ -1364,10 +1409,10 @@ def exception_wrapper(functor, exc_list=None, return_on_exc=None, logger=None):
     # exceptions actually *are* derived from BaseException. But it is a good
     # sanity check.
     # assert all(issubclass(x, BaseException) for x in exc_list)
-    
+
     def wrapper(*rest, **kw_args):
         "Small wrapper that calls L{functor} while ignoring exceptions."
-        
+
         # None means trap all exceptions. Use with care!
         if exc_list is None:
             try:
@@ -1382,11 +1427,8 @@ def exception_wrapper(functor, exc_list=None, return_on_exc=None, logger=None):
                 if logger:
                     logger.warn(format_exception_context(*sys.exc_info()))
         return return_on_exc
-    # end wrapper
- 
-    return wrapper
-# end exception_wrapper
 
+    return wrapper
 
 
 def format_exception_context(etype, evalue, etraceback):
@@ -1402,19 +1444,17 @@ def format_exception_context(etype, evalue, etraceback):
       no exception is specified (i.e. (None, None, None) is given), return an
       empty string.
     """
-    
+
     tmp = traceback.extract_tb(etraceback)
     if not tmp:
         return ""
-    
-    filename, line, funcname, text = tmp[-1]
+
+    filename, line, funcname, _ = tmp[-1]
     filename = os.path.basename(filename)
 
     return ("Exception %s occured (in context %s): %s" %
             (etype, "%s/%s() @line %s" % (filename, funcname, line),
              evalue))
-# end _format_exc_context
-
 
 
 def argument_to_sql(argument, sql_attr_name, binds,
@@ -1495,13 +1535,11 @@ def argument_to_sql(argument, sql_attr_name, binds,
         binds.update(tmp)
         return ("(%s IN (%s))" % (sql_attr_name,
                                   ", ".join([":" + x for x in tmp.iterkeys()])))
-    else:
-        assert binds_name not in binds
-        binds[binds_name] = transformation(argument)
-        return "(%s = :%s)" % (sql_attr_name, binds_name)
 
-    return ""
-# end argument_to_sql
+    assert binds_name not in binds
+    binds[binds_name] = transformation(argument)
+    return "(%s = :%s)" % (sql_attr_name, binds_name)
+
 
 def prepare_string(value, transform=str.lower):
     """
@@ -1523,11 +1561,13 @@ def prepare_string(value, transform=str.lower):
         value = transform(value)
     return value
 
+
 class Messages(dict):
-    """
-    Class for handling text in different languages. Should be filled with
-    messages in different languages, and the message in either the set language
-    or the fallback language is returned.
+
+    """Class for handling text in different languages.
+
+    Should be filled with messages in different languages, and the message in
+    either the set language or the fallback language is returned.
 
         msgs = Messages(lang='no', fallback='en')
 
@@ -1549,6 +1589,7 @@ class Messages(dict):
         'This is a test'
 
     """
+
     def __init__(self, text=None, lang='en', fallback='en', logger=None):
         self.logger = logger or Factory.get_logger()
         self.lang = lang
@@ -1567,7 +1608,7 @@ class Messages(dict):
         """
         Returns a text string by given key in either the set language, or the
         fallback language if it didn't exist.
-        
+
         Throws out a KeyError if the text doesn't exist for the fallback
         language either. TODO: or should it return something else instead, e.g.
         the key, and log it?
@@ -1575,11 +1616,14 @@ class Messages(dict):
         try:
             return dict.__getitem__(self, key)[self.lang]
         except KeyError:
-            self.logger.warn("Message for key '%s' doesn't exist for lang '%s'",
-                             key, self.lang)
+            self.logger.warn(
+                "Message for key '%s' doesn't exist for lang '%s'",
+                key, self.lang)
         return dict.__getitem__(self, key)[self.fallback]
 
+
 class SMSSender():
+
     """Communicates with a Short Messages Service (SMS) gateway for sending
     out SMS messages.
 
@@ -1589,11 +1633,12 @@ class SMSSender():
     use if they have their own gateway.
 
     """
-    def __init__(self, logger = None, url = None, user = None, system = None):
+
+    def __init__(self, logger=None, url=None, user=None, system=None):
         self._logger = logger or Factory.get_logger("cronjob")
-        self._url    = url    or cereconf.SMS_URL
+        self._url = url or cereconf.SMS_URL
         self._system = system or cereconf.SMS_SYSTEM
-        self._user   = user   or cereconf.SMS_USER
+        self._user = user or cereconf.SMS_USER
 
     def _validate_response(self, ret):
         """Check that the response from an SMS gateway says that the message
@@ -1614,8 +1659,9 @@ class SMSSender():
         # We're only interested in the first line:
         line = ret.readline()
         try:
-            msg_id, status, to, timestamp, message = line.split('\xa4', 4)
-        except ValueError, e:
+            # msg_id, status, to, timestamp, message
+            msg_id, status, to, _, _ = line.split('\xa4', 4)
+        except ValueError:
             self._logger.warning("SMS: bad response from server: %s" % line)
             return False
 
@@ -1625,9 +1671,8 @@ class SMSSender():
                              % (status, to, msg_id))
         return False
 
-    def __call__(self, phone_to, message, confirm = False):
-        """
-        Sends an SMS message to the given phone number.
+    def __call__(self, phone_to, message, confirm=False):
+        """Sends an SMS message to the given phone number.
 
         @type phone_to: basestring
         @param phone_to:
@@ -1643,7 +1688,7 @@ class SMSSender():
           confirms it being sent.
         """
         hostname = urlparse.urlparse(self._url).hostname
-        password = read_password(user = self._user, system = hostname)
+        password = read_password(user=self._user, system=hostname)
         postdata = urllib.urlencode({'b': self._user,
                                      'p': password,
                                      's': self._system,
@@ -1653,10 +1698,12 @@ class SMSSender():
                            % (phone_to, self._user, self._system))
 
         old_timeout = socket.getdefaulttimeout()
-        socket.setdefaulttimeout(60) # in seconds
+        socket.setdefaulttimeout(60)  # in seconds
 
         try:
-            ret = urllib2.urlopen(self._url, postdata) #, self.timeout) in urllib2 v2.6
+            ret = urllib2.urlopen(
+                self._url,
+                postdata)
         except urllib2.URLError, e:
             self._logger.warning('SMS gateway error: %s' % e)
             return False
@@ -1668,10 +1715,9 @@ class SMSSender():
                                  "%s - %s" % (ret.code, ret.msg))
             return False
 
-        if self._validate_response(ret):
+        resp = self._validate_response(ret)
+        if resp:
             self._logger.debug("SMS to %s sent ok" % (phone_to))
-            return True
         else:
             self._logger.warning("SMS to %s could not be sent" % phone_to)
-            return False
-
+        return bool(resp)
