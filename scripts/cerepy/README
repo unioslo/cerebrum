@@ -1,0 +1,6 @@
+cereconf.py sets up the python interpreter, imports a few modules and initializes a few objects.
+
+Original author unknown.
+
+cereconf.sh uses the "easyconf" setup (requires ~/.cerebrumrc).
+
