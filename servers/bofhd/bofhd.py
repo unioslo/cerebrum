@@ -35,6 +35,7 @@ import socket
 import struct
 import types
 
+import cerebrum_path
 import cereconf
 if sys.version_info < (2, 3):
     from Cerebrum.extlib import timeoutsocket
