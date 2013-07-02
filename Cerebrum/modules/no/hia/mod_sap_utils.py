@@ -32,7 +32,6 @@ SAP data.
 
 import re
 import sys
-import types
 import cerebrum_path
 import cereconf
 from mx.DateTime import strptime
@@ -63,7 +62,6 @@ def make_person_iterator(source, fok, logger=None):
     for line in source:
         tpl = _sap_row_to_tuple(line)
         yield kls(tpl, logger)
-# end make_person_iterator
 
 
 def make_employment_iterator(source, fok, logger=None):
@@ -84,7 +82,6 @@ def make_employment_iterator(source, fok, logger=None):
     for line in source:
         tpl = _sap_row_to_tuple(line)
         yield kls(tpl, logger)
-# end make_employment_iterator
 
 
 def make_utvalg_iterator(source, fok, logger=None):
@@ -115,19 +112,14 @@ def load_expired_employees(source, fok, logger=None):
             result.add(tpl.sap_ansattnr)
 
     return result
-# end load_expired_employees
 
 
 def load_invalid_employees(source, fok, logger=None):
     """Collect SAP IDs for all invalid employees from source."""
-    return set(tpl.sap_ansattnr for tpl in make_person_iterator(source, fok, logger)
-               if not tpl.valid())
-# end load_invalid_employees
+    return set(tpl.sap_ansattnr for tpl in
+               make_person_iterator(source, fok, logger) if not tpl.valid())
 
 
-#
-# Private implementation details
-#
 def _make_sequence(something):
     """Create a sequence out of something.
 
@@ -138,7 +130,6 @@ def _make_sequence(something):
     if isinstance(something, (list, tuple, set)):
         return something
     return (something,)
-# end _make_sequence
 
 
 def _with_strip(index):
@@ -147,7 +138,6 @@ def _with_strip(index):
     Return a pair -- index and a lambda strip()ing the value at that index.
     """
     return (index, lambda value: value.strip() or None)
-# end with_strip
 
 
 class _MetaTupleBase(type):
@@ -235,8 +225,6 @@ class _MetaTupleBase(type):
 
         kls._field_rules = tmp
         return kls
-    # __new__
-# end _MetaTupleBase
 
 
 class _SAPTupleBase(object):
@@ -287,9 +275,6 @@ class _SAPTupleBase(object):
     # loading.
     __metaclass__ = _MetaTupleBase
 
-    # _field_count = 0
-    # _field_rules = {}
-
     def __init__(self, tpl, logger=None):
         if len(tpl) != self._field_count:
             raise RuntimeError("Wrong # of fields: wanted %s got %s" %
@@ -311,7 +296,6 @@ class _SAPTupleBase(object):
                 setattr(self, slot_name, None)
 
         self._tuple = tuple(tpl)
-    # end __init__
 
     def __str__(self):
         name = "%s instance" % (self.__class__.__name__,)
@@ -319,16 +303,15 @@ class _SAPTupleBase(object):
         values = ", ".join("%s=%s" % (k, getattr(self, k))
                            for k in self._field_rules)
         return "%s: %s, %s" % (name, field_count, values)
-    # end __str__
 
     def __getitem__(self, idx):
         """Allow tuple and dict-like access."""
 
         return self._tuple[idx]
-    # end __getitem__
 
     # TBD: __setitem__ ?
-# end _SAPTupleBase
+    # def __setitem__(self, key, value):
+    #    pass
 
 
 class _SAPPersonDataTuple(_SAPTupleBase):
@@ -365,15 +348,15 @@ class _SAPPersonDataTuple(_SAPTupleBase):
 
     _field_count = 39
     _field_rules = {'sap_ansattnr': 0,
-                    'sap_termination_date': (2, lambda x: x and strptime(x, "%Y%m%d")
-                                             or None),
+                    'sap_termination_date': (2, lambda x: x and
+                                             strptime(x, "%Y%m%d") or None),
                     'sap_fnr': 4,
                     # <- defer fnr check to later
                     'sap_birth_date': (5, lambda x: strptime(x, "%Y%m%d")),
                     'sap_middle_name': _with_strip(7),
                     'sap_first_name': ((6, 7),
-                                       lambda x, y: y and x.strip() + " " + y.strip() or
-                                       x.strip()),
+                                       lambda x, y: y and x.strip() + " " +
+                                       y.strip() or x.strip()),
                     'sap_last_name': _with_strip(8),
                     'sap_initials': _with_strip(3),
                     'sap_work_title': _with_strip(28),
@@ -383,9 +366,8 @@ class _SAPPersonDataTuple(_SAPTupleBase):
                     'sap_phone_mobile_private': _with_strip(15),
                     'sap_fax': _with_strip(29),
                     'sap_address': (range(18, 22),
-                                    lambda *rest:
-                                    (", ".join(x.strip()
-                                               for x in rest)).strip()
+                                    lambda *rest: ", ".join(x.strip()
+                                                            for x in rest)
                                     or None),
                     'sap_zip': _with_strip(23),
                     'sap_city': _with_strip(22),
@@ -396,27 +378,17 @@ class _SAPPersonDataTuple(_SAPTupleBase):
 
     def expired(self):
         """Is this entry expired?"""
+        return self.sap_termination_date and (self.sap_termination_date < now())
 
-        return (self.sap_termination_date and
-                self.sap_termination_date < now())
-    # end expired
-
+    # TODO: Should this really just return True?
     def valid(self):
         """Is this entry to be ignored?"""
-
         return True
-    # end valid
 
     def reserved_for_export(self):
         """Whether this person is reserved from export to catalogue services."""
-
-        if (not self.sap_publish_tag or
-                self.sap_publish_tag == "Kan publiseres"):
-            return False
-
-        return True
-    # end reserved_for_export
-# end _SAPPersonDataTuple
+        return self.sap_publish_tag and \
+            (self.sap_publish_tag != "Kan publiseres")
 
 
 class _SAPPersonDataTupleFok(_SAPPersonDataTuple):
@@ -428,7 +400,6 @@ class _SAPPersonDataTupleFok(_SAPPersonDataTuple):
     def valid(self):
         """Everything tagged with fok"""
         return self.sap_fokode != '9999'
-# end _SAPPersonDataTupleFok
 
 
 class _SAPPersonDataTupleMGMU(_SAPPersonDataTuple):
@@ -442,9 +413,8 @@ class _SAPPersonDataTupleMGMU(_SAPPersonDataTuple):
     def valid(self):
         """The MG-MU combination must be set in cereconf for the person to be
         valid."""
-        return (cereconf.SAP_MG_MU_CODES.has_key(self.sap_mg) and
-                self.sap_mu in cereconf.SAP_MG_MU_CODES[self.sap_mg])
-# end _SAPPersonDataTupleMGMU
+        return cereconf.SAP_MG_MU_CODES.has_key(self.sap_mg) and \
+            (self.sap_mu in cereconf.SAP_MG_MU_CODES[self.sap_mg])
 
 
 class _SAPEmploymentTuple(_SAPTupleBase):
@@ -476,10 +446,9 @@ class _SAPEmploymentTuple(_SAPTupleBase):
                     'percentage': (8, float),
                     'sap_ou_id': 1, }
 
+    # TODO: Document why this is different from just returning False
     def valid(self):
         return self.funksjonstittel != '99999999'
-    # end valid
-# end SAPEmploymentTuple
 
 
 class _SAPEmploymentTupleFok(_SAPEmploymentTuple):
@@ -490,12 +459,11 @@ class _SAPEmploymentTupleFok(_SAPEmploymentTuple):
                     'sap_ou_id': ((1, 4), lambda x, y: "%s-%s" % (x, y))}
 
     def valid(self):
+        # TODO: Document why "9999" has been used
         if self.sap_fokode == "9999":
             return False
 
         return super(_SAPEmploymentTupleFok, self).valid()
-    # end valid
-# end SAPEmploymentTuple
 
 
 class _SAPUtvalgTuple(_SAPTupleBase):
@@ -520,22 +488,19 @@ class _SAPUtvalgTuple(_SAPTupleBase):
                     'sap_orgeh': 1,
                     'sap_unknown': 2,
                     'sap_fagmiljo': 3,
-                    'sap_start_date': (4, lambda x: x and strptime(x, "%Y%m%d")
-                                       or None),
-                    'sap_termination_date': (5, lambda x: x and strptime(x, "%Y%m%d")
-                                             or None),
+                    'sap_start_date': (4, lambda x: x and
+                                       strptime(x, "%Y%m%d") or None),
+                    'sap_termination_date': (5, lambda x: x and
+                                             strptime(x, "%Y%m%d") or None),
                     'sap_role': 6, }
 
     def expired(self):
         """Is this entry expired?"""
-
-        return (self.sap_termination_date and
-                self.sap_termination_date < now())
+        return self.sap_termination_date and (self.sap_termination_date < now())
 
     def valid(self):
         """Is this entry to be ignored?"""
-
-        return not self.sap_start_date or self.sap_start_date < now()
+        return (not self.sap_start_date) or (self.sap_start_date < now())
 
 
 def _sap_row_to_tuple(sap_row):
@@ -546,32 +511,14 @@ def _sap_row_to_tuple(sap_row):
     value returned to the caller.
     """
 
-    result = list()
-
     # (?<!...) is negative lookbehind assertion. It matches, if the
     # current position is not preceded by ...
-    #
-    # In our case we split by ";", unless it is escaped. The absurd
-    # number of backslashes is because backslashes have a special
-    # meaning in python strings and in regexes.
-    for field in re.split('(?<!\\\);', sap_row.strip()):
-        # Also, we have to perform the actual replacement of \; by ;
-        # (clients are not interested in seeing the escaped values).
-        result.append(field.replace("\\;", ";"))
+    fields = re.split(r'(?<!\\);', sap_row.strip())
 
-    return tuple(result)
-# end _sap_row_to_tuple
+    # We split by ";", unless it is escaped, in which case it is kept
+    return tuple(field.replace(r'\;', ';') for field in fields)
 
 
 def _tuple_to_sap_row(tpl):
-    """This is the converse of sap_row_to_tuple.
-    """
-
-    tmp = list()
-    for field in tpl:
-        # escaping, as in the sister function.
-        field = str(field).replace(";", "\\;")
-        tmp.append(field)
-
-    return ";".join(tmp)
-# end _tuple_to_sap_row
+    """This is the converse of sap_row_to_tuple."""
+    return ";".join([field.replace(';', r'\;') for field in tpl])
