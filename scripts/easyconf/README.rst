@@ -47,3 +47,4 @@ Examples:
     CEREBRUM_INST=uia bofhd.sh
 
 Create aliases for additional comfort.
+
