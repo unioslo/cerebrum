@@ -1,0 +1,4 @@
+Script for running Bofhd with Python 2.6 on cere-utv01
+
+Uses the "easyconf" configuration (sources ~/.cerebrumrc).
+
