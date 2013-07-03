@@ -37,7 +37,7 @@ import urllib
 import urlparse
 import random
 import popen2
-from string import maketrans
+from string import maketrans, ascii_lowercase, digits
 from subprocess import Popen, PIPE
 
 
@@ -1033,7 +1033,7 @@ class fool_auto_super(object):
         return no_op
 
 
-def random_string(length, characters='abcdefghijklmnopqrstuvwxyz0123456789'):
+def random_string(length, characters=ascii_lowercase + digits):
     """Generate a random string of a given length using the given characters."""
     random.seed()
     # pick "length" number of letters, then combine them to a string

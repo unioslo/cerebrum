@@ -26,7 +26,9 @@ from Cerebrum.modules import ADutilMixIn
 from Cerebrum.Utils import Factory
 import cPickle
 
+
 class ADFullUserSync(ADutilMixIn.ADuserUtil):
+
     """
     Hiof specific AD user sync mixin.
     """
@@ -63,7 +65,6 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             if user_rows:
                 apply_quarantines(prev_user, user_rows)
 
-
     def _fetch_primary_mail_addresses(self, user_dict):
         """
         Fetch primary email addresses for users in user_dict.
@@ -77,7 +78,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         rewrite = EmailDomain(self.db).rewrite_special_domains
 
         for row in etarget.list_email_target_primary_addresses(
-                target_type = self.co.email_target_account):
+                target_type=self.co.email_target_account):
             v = user_dict.get(int(row['target_entity_id']))
             if not v:
                 continue
@@ -86,7 +87,6 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     (row['local_part'], rewrite(row['domain'])))
             except TypeError:
                 pass  # Silently ignore
-
 
     def fetch_cerebrum_data(self, spread):
         """
@@ -98,7 +98,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
         @return: a dict {uname: {'adAttrib': 'value'}} for all users
         of relevant spread. Typical attributes::
-        
+
           # canonicalName er et 'constructed attribute' (fra dn)
           'displayName': '',   # Fullt navn
           'givenName': '',     # fornavn
@@ -120,8 +120,9 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 'homeDrive': 'N:',
                 'TEMPownerId': row['owner_id'],
                 'TEMPuname': row['name'],
-                'ACCOUNTDISABLE': False   # if ADutilMixIn used get we could remove this
-                }
+                'ACCOUNTDISABLE':
+                False   # if ADutilMixIn used get we could remove this
+            }
         #
         # Remove/mark quarantined users
         #
@@ -131,16 +132,18 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         #
         pid2names = {}
         for row in self.person.search_person_names(
-                source_system = self.co.system_cached,
-                name_variant  = [self.co.name_first,
-                                 self.co.name_last]):
+                source_system=self.co.system_cached,
+                name_variant=[self.co.name_first,
+                              self.co.name_last]):
             pid2names.setdefault(int(row['person_id']), {})[
                 int(row['name_variant'])] = row['name']
         for v in tmp_ret.values():
             names = pid2names.get(v['TEMPownerId'])
             if names:
-                firstName = unicode(names.get(int(self.co.name_first), ''), 'ISO-8859-1')
-                lastName = unicode(names.get(int(self.co.name_last), ''), 'ISO-8859-1')
+                firstName = unicode(
+                    names.get(int(self.co.name_first), ''), 'ISO-8859-1')
+                lastName = unicode(
+                    names.get(int(self.co.name_last), ''), 'ISO-8859-1')
                 v['givenName'] = firstName
                 v['sn'] = lastName
                 v['displayName'] = "%s %s" % (firstName, lastName)
@@ -160,8 +163,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                         tmp = cPickle.loads(row['strval'])
                         if int(spread) in tmp:
                             v[key] = unicode(tmp[int(spread)], 'ISO-8859-1')
-                            if key == 'OU':                            
-                                v[key] += "," + self.ad_ldap                        
+                            if key == 'OU':
+                                v[key] += "," + self.ad_ldap
                     except KeyError:
                         self.logger.warn("No %s -> %s mapping for user %i" % (
                             spread, key, row['entity_id']))
@@ -189,8 +192,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         self._make_ou_if_missing(required_ous.keys())
         return ret
 
-
-    def _make_ou_if_missing(self, required_ous, object_list=None, dryrun=False):
+    def _make_ou_if_missing(
+            self, required_ous, object_list=None, dryrun=False):
         """
         If an accounts OU doesn't exist in AD, create it (and if
         neccessary the parent OUs) before syncing the account.
@@ -198,7 +201,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         if object_list is None:
             object_list = self.server.listObjects('organizationalUnit')
             if not object_list:
-                self.logger.warn("Problems getting OUs from server.listObjects")
+                self.logger.warn(
+                    "Problems getting OUs from server.listObjects")
             object_list.append(self.ad_ldap)
         for ou in required_ous:
             if ou not in object_list:
@@ -208,25 +212,22 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     self._make_ou_if_missing([parent_ou],
                                              object_list=object_list,
                                              dryrun=dryrun)
-                name = name[name.find("=")+1:]
+                name = name[name.find("=") + 1:]
                 self.logger.debug("Creating missing OU: %s" % ou)
                 self.create_ou(parent_ou, name, dryrun)
                 object_list.append(ou)
-
 
     def create_ou(self, ou, name, dryrun):
         ret = self.run_cmd('createObject', dryrun,
                            "organizationalUnit", ou, name)
         if not ret[0]:
             self.logger.warn(ret[1])
-        
 
     def get_default_ou(self, change=None):
         """
         Return default OU for hiof.no
         """
         return "%s,%s" % (cereconf.AD_DEFAULT_OU, self.ad_ldap)
-
 
     def perform_changes(self, changelist, dry_run):
         """
@@ -243,10 +244,11 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             if 'type' not in chg:
                 self.logger.warn("This shouldn't happen. chg = %s" % str(chg))
                 continue
-            if ('OU' in chg and chg['OU'] == '' and 
-                chg['type'] in ('create_object', 'move_object', 'alter_object')):
+            if ('OU' in chg and chg['OU'] == '' and
+                    chg['type'] in ('create_object', 'move_object', 'alter_object')):
                 try:
-                    user = chg.get('distinguishedName').split(',')[0].split('=')[1]
+                    user = chg.get('distinguishedName').split(
+                        ',')[0].split('=')[1]
                 except:
                     user = ''
                 msg = "No OU was calculated for %s. Not syncing %s operation" % (
@@ -260,11 +262,10 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 ret = self.run_cmd('bindObject', dry_run,
                                    chg['distinguishedName'])
                 if not ret[0]:
-                    self.logger.warning("bindObject on %s failed: %r" % \
-                                   (chg['distinguishedName'], ret))
+                    self.logger.warning("bindObject on %s failed: %r" %
+                                       (chg['distinguishedName'], ret))
                 else:
                     exec('self.' + chg['type'] + '(chg, dry_run)')
-
 
     def create_object(self, chg, dry_run):
         """
@@ -284,7 +285,10 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         ret = self.run_cmd('createObject', dry_run,
                            'User', ou, chg['sAMAccountName'])
         if not ret[0]:
-            self.logger.error("create user %s failed: %r", chg['sAMAccountName'], ret)
+            self.logger.error(
+                "create user %s failed: %r",
+                chg['sAMAccountName'],
+                ret)
         else:
             if not dry_run:
                 self.logger.info("created user %s", ret)
@@ -293,10 +297,13 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                          'iso-8859-1')
             ret = self.run_cmd('setPassword', dry_run, pw)
             if not ret[0]:
-                self.logger.warning("setPassword on %s failed: %s", chg['sAMAccountName'], ret)
+                self.logger.warning(
+                    "setPassword on %s failed: %s",
+                    chg['sAMAccountName'],
+                    ret)
             else:
-                #Important not to enable a new account if setPassword
-                #fail, it will have a blank password.
+                # Important not to enable a new account if setPassword
+                # fail, it will have a blank password.
                 uname = ""
                 del chg['type']
                 # OU is not needed anymore. Delete from chg before sending dict
@@ -307,16 +314,22 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 if chg.has_key('sAMAccountName'):
                     uname = chg['sAMAccountName']
                     del chg['sAMAccountName']
-                #Setting default for undefined AD_ACCOUNT_CONTROL values.
+                # Setting default for undefined AD_ACCOUNT_CONTROL values.
                 for acc, value in cereconf.AD_ACCOUNT_CONTROL.items():
                     if not chg.has_key(acc):
                         chg[acc] = value
                 ret = self.run_cmd('putProperties', dry_run, chg)
                 if not ret[0]:
-                    self.logger.warning("putproperties on %s failed: %r", uname, ret)
+                    self.logger.warning(
+                        "putproperties on %s failed: %r",
+                        uname,
+                        ret)
                 ret = self.run_cmd('setObject', dry_run)
                 if not ret[0]:
-                    self.logger.warning("setObject on %s failed: %r", uname, ret)
+                    self.logger.warning(
+                        "setObject on %s failed: %r",
+                        uname,
+                        ret)
                     return
                 if ret[0]:
                     # Wait a few seconds before creating the homedir
@@ -324,152 +337,168 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     time.sleep(5)
                     ret = self.run_cmd('createDir', dry_run, 'homeDirectory')
                     if not ret[0]:
-                        self.logger.error('createDir on %s failed: %r', uname, ret)
+                        self.logger.error(
+                            'createDir on %s failed: %r',
+                            uname,
+                            ret)
                     ret = self.run_cmd('createDir', dry_run, 'profilePath')
                     if not ret[0]:
-                        self.logger.error("createDir on %s failed: %r", uname, ret)
+                        self.logger.error(
+                            "createDir on %s failed: %r",
+                            uname,
+                            ret)
 
     # Had to import this incredibly ugly method from ADutilMixin,
     # because of one small change.
     # FIXME: Rewrite this mess. This is just ... ugly :(
-    def compare(self, delete_users,cerebrumusrs,adusrs):
-        #Keys in dict from cerebrum must match fields to be populated in AD.
+    def compare(self, delete_users, cerebrumusrs, adusrs):
+        # Keys in dict from cerebrum must match fields to be populated in AD.
 
-        changelist = []     
+        changelist = []
 
         for usr, dta in adusrs.items():
-            changes = {}        
+            changes = {}
             if cerebrumusrs.has_key(usr):
-                #User is both places, we want to check correct data.
+                # User is both places, we want to check correct data.
 
-                #Checking for correct OU.
+                # Checking for correct OU.
                 if cerebrumusrs[usr].has_key('OU'):
                     ou = cerebrumusrs[usr]['OU']
                 else:
                     self.logger.debug("No OU in cerebrum for user %s" % usr)
                     # This is ugly
                     ou = ''
-                if adusrs[usr]['distinguishedName'] != 'CN=%s,%s' % (usr,ou):
+                if adusrs[usr]['distinguishedName'] != 'CN=%s,%s' % (usr, ou):
                     changes['type'] = 'move_object'
                     changes['OU'] = ou
                     changes['distinguishedName'] = \
-                                adusrs[usr]['distinguishedName']
-                    #Submit list and clean.
+                        adusrs[usr]['distinguishedName']
+                    # Submit list and clean.
                     changelist.append(changes)
                     changes = {}
-                    
-                for attr in cereconf.AD_ATTRIBUTES:            
-                    #Catching special cases.
-                    #Check against home drive.
+
+                for attr in cereconf.AD_ATTRIBUTES:
+                    # Catching special cases.
+                    # Check against home drive.
                     if attr == 'homeDrive':
-                        home_drive = self.get_home_drive(cerebrumusrs[usr])         
+                        home_drive = self.get_home_drive(cerebrumusrs[usr])
                         if adusrs[usr].has_key('homeDrive'):
                             if adusrs[usr]['homeDrive'] != home_drive:
                                 changes['homeDrive'] = home_drive
-                            
-                    #Treating general cases
+
+                    # Treating general cases
                     else:
                         if cerebrumusrs[usr].has_key(attr) and \
-                               adusrs[usr].has_key(attr):
+                                adusrs[usr].has_key(attr):
                             if isinstance(cerebrumusrs[usr][attr], (list)):
                                 # Multivalued, it is assumed that a
                                 # multivalue in cerebrumusrs always is
                                 # represented as a list.
                                 Mchange = False
-                                                                
-                                if isinstance(adusrs[usr][attr],(str,int,long,unicode)):
-                                    #Transform single-value to a list for comparison.
+
+                                if isinstance(adusrs[usr][attr], (str, int, long, unicode)):
+                                    # Transform single-value to a list for
+                                    # comparison.
                                     val2list = []
                                     val2list.append(adusrs[usr][attr])
                                     adusrs[usr][attr] = val2list
-                                                                        
+
                                 for val in cerebrumusrs[usr][attr]:
                                     if val not in adusrs[usr][attr]:
                                         Mchange = True
-                                                                                
+
                                 if Mchange:
                                     changes[attr] = cerebrumusrs[usr][attr]
                             else:
                                 if adusrs[usr][attr] != cerebrumusrs[usr][attr]:
-                                    changes[attr] = cerebrumusrs[usr][attr] 
+                                    changes[attr] = cerebrumusrs[usr][attr]
                         else:
                             if cerebrumusrs[usr].has_key(attr):
                                 # A blank value in cerebrum and <not
                                 # set> in AD -> do nothing.
-                                if cerebrumusrs[usr][attr] != "": 
-                                    changes[attr] = cerebrumusrs[usr][attr] 
+                                if cerebrumusrs[usr][attr] != "":
+                                    changes[attr] = cerebrumusrs[usr][attr]
                             elif adusrs[usr].has_key(attr):
-                                #Delete value
-                                changes[attr] = ''      
+                                # Delete value
+                                changes[attr] = ''
 
                 for acc, value in cereconf.AD_ACCOUNT_CONTROL.items():
                     if cerebrumusrs[usr].has_key(acc):
                         if adusrs[usr].has_key(acc) and \
-                               adusrs[usr][acc] == cerebrumusrs[usr][acc]:
+                                adusrs[usr][acc] == cerebrumusrs[usr][acc]:
                             pass
                         else:
-                            changes[acc] = cerebrumusrs[usr][acc]   
+                            changes[acc] = cerebrumusrs[usr][acc]
 
-                    else: 
+                    else:
                         if adusrs[usr].has_key(acc) and adusrs[usr][acc] == \
-                               value:
+                                value:
                             pass
                         else:
                             changes[acc] = value
-                        
-                #Submit if any changes.
+
+                # Submit if any changes.
                 if len(changes) and ou:
-                    changes['distinguishedName'] = 'CN=%s,%s' % (usr,ou)
+                    changes['distinguishedName'] = 'CN=%s,%s' % (usr, ou)
                     changes['type'] = 'alter_object'
 
-                #after processing we delete from array.
+                # after processing we delete from array.
                 del cerebrumusrs[usr]
 
             else:
-                #Account not in Cerebrum, but in AD.                
+                # Account not in Cerebrum, but in AD.
                 if [s for s in cereconf.AD_DO_NOT_TOUCH if
-                    adusrs[usr]['distinguishedName'].find(s) >= 0]:
+                        adusrs[usr]['distinguishedName'].find(s) >= 0]:
                     pass
                 elif adusrs[usr]['distinguishedName'].find(cereconf.AD_PW_EXCEPTION_OU) >= 0:
-                    #Account do not have AD_spread, but is in AD to 
-                    #register password changes, do nothing.
+                    # Account do not have AD_spread, but is in AD to
+                    # register password changes, do nothing.
                     pass
                 else:
-                    #ac.is_deleted() or ac.is_expired() pluss a small rest of 
-                    #accounts created in AD, but that do not have AD_spread. 
-                    if delete_users == True:
+                    # ac.is_deleted() or ac.is_expired() pluss a small rest of
+                    # accounts created in AD, but that do not have AD_spread.
+                    if bool(delete_users):
                         changes['type'] = 'delete_object'
-                        changes['distinguishedName'] = adusrs[usr]['distinguishedName']
+                        changes[
+                            'distinguishedName'] = adusrs[
+                                usr][
+                                    'distinguishedName']
                     else:
-                        #Disable account.
-                        if adusrs[usr]['ACCOUNTDISABLE'] == False:
-                            changes['distinguishedName'] = adusrs[usr]['distinguishedName']
+                        # Disable account.
+                        if not bool(adusrs[usr]['ACCOUNTDISABLE']):
+                            changes[
+                                'distinguishedName'] = adusrs[
+                                    usr][
+                                        'distinguishedName']
                             changes['type'] = 'alter_object'
                             changes['ACCOUNTDISABLE'] = True
-                            #commit changes
+                            # commit changes
                             changelist.append(changes)
-                            changes = {} 
-                        #Moving account.
+                            changes = {}
+                        # Moving account.
                         if adusrs[usr]['distinguishedName'] != "CN=%s,OU=%s,%s" % \
-                               (usr, cereconf.AD_LOST_AND_FOUND, self.ad_ldap):
+                                (usr, cereconf.AD_LOST_AND_FOUND, self.ad_ldap):
                             changes['type'] = 'move_object'
-                            changes['distinguishedName'] = adusrs[usr]['distinguishedName']
+                            changes[
+                                'distinguishedName'] = adusrs[
+                                    usr][
+                                        'distinguishedName']
                             changes['OU'] = "OU=%s,%s" % \
-                                (cereconf.AD_LOST_AND_FOUND,self.ad_ldap)
+                                (cereconf.AD_LOST_AND_FOUND, self.ad_ldap)
 
-            #Finished processing user, register changes if any.
+            # Finished processing user, register changes if any.
             if len(changes):
                 changelist.append(changes)
 
-        #The remaining items in cerebrumusrs is not in AD, create user.
+        # The remaining items in cerebrumusrs is not in AD, create user.
         for cusr, cdta in cerebrumusrs.items():
-            changes={}
-            #TBD: Should quarantined users be created?
+            changes = {}
+            # TBD: Should quarantined users be created?
             if cerebrumusrs[cusr]['ACCOUNTDISABLE']:
-                #Quarantined, do not create.
-                pass    
+                # Quarantined, do not create.
+                pass
             else:
-                #New user, create.
+                # New user, create.
                 changes = cdta
                 changes['type'] = 'create_object'
                 changes['sAMAccountName'] = cusr
@@ -478,8 +507,9 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
         return changelist
 
-                     
+
 class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
+
     """
     Hiof specific AD group sync mixin.
     """
@@ -488,15 +518,15 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         """
         Return default OU for hiof.no.
         """
-        #Returns default OU in AD.
-        return "OU=Grupper,%s" %  self.ad_ldap
-    
+        # Returns default OU in AD.
+        return "OU=Grupper,%s" % self.ad_ldap
+
     def fetch_ad_data(self):
         """
         Fetch relevant data from AD
 
-        @rtype: dict 
-        @return: dict of ad user data. 
+        @rtype: dict
+        @return: dict of ad user data.
         """
         ret = self.server.listObjects('group', True, self.get_default_ou())
         if ret is False:
@@ -504,4 +534,3 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
             # TODO: raise an exception, don't quit.
             sys.exit(1)
         return ret
-

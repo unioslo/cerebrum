@@ -17,18 +17,21 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import re, time
+import re
+import time
 import mx
 
 import cereconf
-from Cerebrum                   import Entity
-from Cerebrum.Utils             import Factory, auto_super
+from Cerebrum import Entity
+from Cerebrum.Utils import Factory, auto_super
 from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.modules.LDIFutils import *
 
 postal_escape_re = re.compile(r'[$\\]')
 
+
 class OrgLDIF(object):
+
     """Factory-class to generate the organization and person trees for LDAP.
 
     A number of cereconf.LDAP* variables control the output.
@@ -57,28 +60,28 @@ class OrgLDIF(object):
 
     def __init__(self, db, logger):
         cereconf.make_timer = self.make_timer
-        self.db            = db
-        self.logger        = logger
-        self.const         = Factory.get('Constants')(db)
-        self.ou            = Factory.get('OU')(db)
-        self.org_dn        = ldapconf('ORG', 'dn', None)
-        self.ou_dn         = ldapconf('OU', 'dn', None)
-        self.person_dn     = ldapconf('PERSON', 'dn', None)
+        self.db = db
+        self.logger = logger
+        self.const = Factory.get('Constants')(db)
+        self.ou = Factory.get('OU')(db)
+        self.org_dn = ldapconf('ORG', 'dn', None)
+        self.ou_dn = ldapconf('OU', 'dn', None)
+        self.person_dn = ldapconf('PERSON', 'dn', None)
         self.init_languages()
-        self.dummy_ou_dn   = None  # Set if generate_dummy_ou() made a dummy OU
-        self.aliases       = bool(cereconf.LDAP_PERSON['aliases'])
-        self.ou2DN         = {None: None}  # {ou_id:      DN or None(root)}
-        self.used_DNs      = {}            # {used DN:    True}
+        self.dummy_ou_dn = None  # Set if generate_dummy_ou() made a dummy OU
+        self.aliases = bool(cereconf.LDAP_PERSON['aliases'])
+        self.ou2DN = {None: None}  # {ou_id:      DN or None(root)}
+        self.used_DNs = {}            # {used DN:    True}
         self.person_groups = {}            # {group name: {member ID: True}}
         self.system_lookup_order = [int(getattr(self.const, s))
                                     for s in cereconf.SYSTEM_LOOKUP_ORDER]
-        self.attr2syntax   = {
+        self.attr2syntax = {
             'telephoneNumber': (None, verify_printableString, normalize_phone),
             'facsimileTelephoneNumber': (None, verify_printableString,
                                          normalize_phone),
-            'ou':              (iso2utf, None, normalize_string),
-            'labeledURI':      (iso2utf, None, normalize_caseExactString),
-            'mail':            (None, verify_IA5String, normalize_IA5String)}
+            'ou': (iso2utf, None, normalize_string),
+            'labeledURI': (iso2utf, None, normalize_caseExactString),
+            'mail': (None, verify_IA5String, normalize_IA5String)}
 
     def init_languages(self):
         self.languages, self.lang2opt, self.lang2pref, pref = [], {}, {}, -1
@@ -87,7 +90,7 @@ class OrgLDIF(object):
             if code is not None:
                 code = int(code)
                 assert code not in self.lang2opt, (lang, code)
-                self.lang2opt[code]  = ';lang-' + lang
+                self.lang2opt[code] = ';lang-' + lang
                 self.lang2pref[code] = pref = pref + 1
                 self.languages.append(code)
         assert self.languages
@@ -101,9 +104,12 @@ class OrgLDIF(object):
 
     def init_ou_dump(self):
         # Set variables for the org.unit dump.
-        if not hasattr(self, 'root_ou_id'):       self.init_ou_root()
-        if not hasattr(self, 'ou_tree'):          self.init_ou_structure()
-        if not hasattr(self, 'attr2id2contacts'): self.init_attr2id2contacts()
+        if not hasattr(self, 'root_ou_id'):
+            self.init_ou_root()
+        if not hasattr(self, 'ou_tree'):
+            self.init_ou_structure()
+        if not hasattr(self, 'attr2id2contacts'):
+            self.init_attr2id2contacts()
 
     def uninit_ou_dump(self):
         del self.ou, self.ou_tree
@@ -116,7 +122,7 @@ class OrgLDIF(object):
         ou_list = self.ou.get_structure_mappings(
             self.const.OUPerspective(cereconf.LDAP_OU['perspective']))
         self.logger.debug("OU-list length: %d", len(ou_list))
-        self.ou_tree = {None: []} # {parent ou_id or None: [child ou_id...]}
+        self.ou_tree = {None: []}  # {parent ou_id or None: [child ou_id...]}
         for ou_id, parent_id in ou_list:
             if parent_id is not None:
                 parent_id = int(parent_id)
@@ -153,16 +159,16 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         # self.attr2id2contacts = {attr.type: {entity id: [attr.value, ...]}}
         # self.id2labeledURI    = self.attr2id2contacts['labeledURI'].
         s = getattr(self.const, cereconf.LDAP['contact_source_system'])
-        c = [(a, self.get_contacts(contact_type  = t,
-                                   source_system = s,
-                                   convert       = self.attr2syntax[a][0],
-                                   verify        = self.attr2syntax[a][1],
-                                   normalize     = self.attr2syntax[a][2]))
-             for a,s,t in (('telephoneNumber', s, self.const.contact_phone),
-                           ('facsimileTelephoneNumber',
-                            s, self.const.contact_fax),
-                           ('labeledURI', None, self.const.contact_url))]
-        self.id2labeledURI    = c[-1][1]
+        c = [(a, self.get_contacts(contact_type=t,
+                                   source_system=s,
+                                   convert=self.attr2syntax[a][0],
+                                   verify=self.attr2syntax[a][1],
+                                   normalize=self.attr2syntax[a][2]))
+             for a, s, t in (('telephoneNumber', s, self.const.contact_phone),
+                             ('facsimileTelephoneNumber',
+                              s, self.const.contact_fax),
+                             ('labeledURI', None, self.const.contact_url))]
+        self.id2labeledURI = c[-1][1]
         self.attr2id2contacts = [v for v in c if v[1]]
 
     def generate_org_object(self, outfile):
@@ -184,7 +190,8 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         if self.org_dn.lower().startswith('dc='):
             entry['objectClass'].append('dcObject')
         self.update_org_object_entry(entry)
-        entry['objectClass'] = self.attr_unique(entry['objectClass'],str.lower)
+        entry['objectClass'] = self.attr_unique(
+            entry['objectClass'], str.lower)
         outfile.write(entry_string(self.org_dn, entry))
 
     def update_org_object_entry(self, entry):
@@ -281,7 +288,7 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
                 name_variant=name_variants):
             name = iso2utf(row["name"].strip())
             if name:
-                pref   = var2pref[int(row['name_variant'])]
+                pref = var2pref[int(row['name_variant'])]
                 lnames = ou_names.setdefault(pref, [])
                 lnames.append((int(row['name_language']), name))
         if not ou_names:
@@ -293,7 +300,7 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         ou_names = [names for pref, names in sorted(ou_names.items())]
         for names in ou_names:
             self.add_lang_names(entry, 'ou', names)
-        self.add_lang_names(entry, 'cn',               ou_names[-1])
+        self.add_lang_names(entry, 'cn', ou_names[-1])
         dn = self.make_ou_dn(entry, parent_dn or self.ou_dn)
         if not dn:
             return parent_dn, None
@@ -322,7 +329,7 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         # If an attribute value can match LDIFutils.dn_escape_re, escape
         # it in the DN: dn_escape_re.sub(hex_escape_match, <value>).
         return "ou=%s,%s" % (
-            dn_escape_re.sub(hex_escape_match,entry['ou'][0]), parent_dn)
+            dn_escape_re.sub(hex_escape_match, entry['ou'][0]), parent_dn)
     make_ou_dn = staticmethod(make_ou_dn)
 
     def fill_ou_entry_contacts(self, entry):
@@ -354,7 +361,8 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         self.init_person_aliases()
         self.init_account_info()
         self.init_account_mail(use_mail_module)
-        if not hasattr(self, 'attr2id2contacts'): self.init_attr2id2contacts()
+        if not hasattr(self, 'attr2id2contacts'):
+            self.init_attr2id2contacts()
 
     def init_eduPersonAffiliation_lookup(self):
         # Used to look up eduPersonAffiliation for another program
@@ -379,14 +387,14 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         # which persons to print, affiliations to consider, and
         # eduPersonAffiliation values for the relevant affiliations.
         self.person_spread = map_spreads(cereconf.LDAP_PERSON.get('spread'))
-        self.person_aff_selector     = self.internal_selector(
+        self.person_aff_selector = self.internal_selector(
             bool, cereconf.LDAP_PERSON['affiliation_selector'])
-        self.eduPersonAff_selector   = self.internal_selector(
-            list, ldapconf('PERSON','eduPersonAffiliation_selector',utf8=list))
+        self.eduPersonAff_selector = self.internal_selector(
+            list, ldapconf('PERSON', 'eduPersonAffiliation_selector', utf8=list))
         if not affiliation_only:
             self.visible_person_selector = self.internal_selector(
                 bool, cereconf.LDAP_PERSON['visible_selector'])
-            self.contact_selector        = self.internal_selector(
+            self.contact_selector = self.internal_selector(
                 bool, cereconf.LDAP_PERSON['contact_selector'])
 
     def init_person_affiliations(self):
@@ -399,11 +407,11 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
                 source = [getattr(self.const, s) for s in source]
             else:
                 source = getattr(self.const, source)
-        for row in self.person.list_affiliations(source_system = source):
-            person_id   = int(row['person_id'])
-            status      = row['status']
+        for row in self.person.list_affiliations(source_system=source):
+            person_id = int(row['person_id'])
+            status = row['status']
             if status is not None:
-                status  = int(status)
+                status = int(status)
             affiliation = (int(row['affiliation']), status, int(row['ou_id']))
             if self.select_bool(self.person_aff_selector,
                                 person_id, (affiliation,)):
@@ -418,10 +426,10 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         timer = self.make_timer("Fetching personal names...")
         self.person_names = person_names = {}
         for row in self.person.search_person_names(
-                name_variant  = [self.const.name_full,
-                                 self.const.name_first,
-                                 self.const.name_last],
-                source_system = self.const.system_cached):
+                name_variant=[self.const.name_full,
+                              self.const.name_first,
+                              self.const.name_last],
+                source_system=self.const.system_cached):
             person_id = int(row['person_id'])
             person_names.setdefault(person_id, {})
             person_names[person_id][int(row['name_variant'])] = row['name']
@@ -433,7 +441,7 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         titles = {}
         fill = {
             int(self.const.personal_title): dict.__setitem__,
-            int(self.const.work_title):     dict.setdefault }
+            int(self.const.work_title): dict.setdefault}
         for row in self.person.search_name_with_language(
                 entity_type=self.const.entity_person,
                 name_variant=fill.keys(),
@@ -455,15 +463,16 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         self.account = Factory.get('Account')(self.db)
         self.acc_name = acc_name = {}
         self.acc_passwd = {}
-        self.acc_locked_quarantines= self.acc_quarantines= acc_quarantines = {}
+        self.acc_locked_quarantines = self.acc_quarantines = acc_quarantines = {
+        }
         fill_passwd = {
-            int(self.const.auth_type_md5_crypt):  self.acc_passwd.__setitem__,
-            int(self.const.auth_type_crypt3_des): self.acc_passwd.setdefault }
+            int(self.const.auth_type_md5_crypt): self.acc_passwd.__setitem__,
+            int(self.const.auth_type_crypt3_des): self.acc_passwd.setdefault}
         for row in self.account.list_account_authentication(
-                auth_type = fill_passwd.keys()):
-            account_id           = int(row['account_id'])
+                auth_type=fill_passwd.keys()):
+            account_id = int(row['account_id'])
             acc_name[account_id] = row['entity_name']
-            method               = row['method']
+            method = row['method']
             if method:
                 fill_passwd[int(method)](account_id, row['auth_data'])
 
@@ -475,7 +484,7 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
             self.acc_locked_quarantines = acc_locked_quarantines = {}
         now = mx.DateTime.now()
         for row in self.account.list_entity_quarantines(
-                entity_types = self.const.entity_account):
+                entity_types=self.const.entity_account):
             if (row['start_date'] <= now
                 and (row['end_date'] is None or row['end_date'] >= now)
                 and (row['disable_until'] is None
@@ -503,9 +512,9 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
             from Cerebrum.modules.Email import EmailDomain, EmailTarget
             etarget = EmailTarget(self.db)
             rewrite = EmailDomain(self.db).rewrite_special_domains
-            mail    = {}
+            mail = {}
             for row in etarget.list_email_target_primary_addresses(
-                    target_type = self.const.email_target_account):
+                    target_type=self.const.email_target_account):
                 # TBD: Should we check for multiple values for primary
                 #      addresses?
                 try:
@@ -525,10 +534,10 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         self.addr_info = addr_info = {}
         addr_types = cereconf.LDAP_PERSON['address_types']
         for row in self.person.list_entity_addresses(
-                entity_type  = self.const.entity_person,
-                source_system= getattr(self.const,
-                                       cereconf.LDAP['contact_source_system']),
-                address_type = map_constants('_AddressCode', addr_types)):
+                entity_type=self.const.entity_person,
+                source_system=getattr(self.const,
+                                      cereconf.LDAP['contact_source_system']),
+                address_type=map_constants('_AddressCode', addr_types)):
             entity_id = int(row['entity_id'])
             if not addr_info.has_key(entity_id):
                 addr_info[entity_id] = {}
@@ -559,9 +568,9 @@ from None and LDAP_PERSON['dn'].""")
         self.init_person_dump(use_mail_module)
         if self.person_parent_dn not in (None, self.org_dn):
             outfile.write(container_entry_string('PERSON'))
-        timer       = self.make_timer("Processing persons...")
+        timer = self.make_timer("Processing persons...")
         round_timer = self.make_timer()
-        round       = 0
+        round = 0
         for row in self.list_persons():
             if round % 10000 == 0:
                 round_timer("...rounded %d rows..." % round)
@@ -582,8 +591,8 @@ from None and LDAP_PERSON['dn'].""")
     def list_persons(self):
         # Return a list or iterator of persons to consider for output.
         return self.account.list_accounts_by_type(
-            primary_only  = True,
-            person_spread = self.person_spread)
+            primary_only=True,
+            person_spread=self.person_spread)
 
     def _calculate_edu_OUs(self, p_ou, s_ous):
         # FIXME
@@ -596,7 +605,7 @@ from None and LDAP_PERSON['dn'].""")
         # Receives a row from list_persons() as a parameter.
         # The row must have keys 'person_id', 'account_id',
         # and if person_dn_primaryOU() is not overridden: 'ou_id'.
-        person_id  = int(row['person_id'])
+        person_id = int(row['person_id'])
         account_id = int(row['account_id'])
 
         p_affiliations = self.affiliations.get(person_id)
@@ -607,9 +616,9 @@ from None and LDAP_PERSON['dn'].""")
         if not names:
             self.logger.warn("Person %s got no names. Skipping.", person_id)
             return None, None, None
-        name      = iso2utf(names.get(int(self.const.name_full),  '').strip())
+        name = iso2utf(names.get(int(self.const.name_full), '').strip())
         givenname = iso2utf(names.get(int(self.const.name_first), '').strip())
-        lastname  = iso2utf(names.get(int(self.const.name_last),  '').strip())
+        lastname = iso2utf(names.get(int(self.const.name_last), '').strip())
         if not (lastname and givenname):
             givenname, lastname = self.split_name(name, givenname, lastname)
             if not lastname:
@@ -656,10 +665,12 @@ from None and LDAP_PERSON['dn'].""")
             entry['eduPersonOrgDN'] = (self.org_dn,)
         if primary_ou_dn:
             entry['eduPersonPrimaryOrgUnitDN'] = (primary_ou_dn,)
-        #edu_OUs = [primary_ou_dn] + [self.ou2DN.get(aff[2])
+        # edu_OUs = [primary_ou_dn] + [self.ou2DN.get(aff[2])
         #                             for aff in p_affiliations]
-        edu_OUs = self._calculate_edu_OUs(primary_ou_dn, [self.ou2DN.get(aff[2]) for aff in p_affiliations])
-        entry['eduPersonOrgUnitDN']   = self.attr_unique(filter(None, edu_OUs))
+        edu_OUs = self._calculate_edu_OUs(
+            primary_ou_dn,
+            [self.ou2DN.get(aff[2]) for aff in p_affiliations])
+        entry['eduPersonOrgUnitDN'] = self.attr_unique(filter(None, edu_OUs))
         entry['eduPersonAffiliation'] = self.attr_unique(self.select_list(
             self.eduPersonAff_selector, person_id, p_affiliations))
 
@@ -674,16 +685,28 @@ from None and LDAP_PERSON['dn'].""")
                     entry[attr] = contact
             # addresses:
             addrs = self.addr_info.get(person_id)
-            post  = addrs and addrs.get(int(self.const.address_post))
+            post = addrs and addrs.get(int(self.const.address_post))
             if post:
                 a_txt, p_o_box, p_num, city, country = post
-                post = self.make_address("$", p_o_box,a_txt,p_num,city,country)
+                post = self.make_address(
+                    "$",
+                    p_o_box,
+                    a_txt,
+                    p_num,
+                    city,
+                    country)
                 if post:
                     entry['postalAddress'] = (post,)
             street = addrs and addrs.get(int(self.const.address_street))
             if street:
                 a_txt, p_o_box, p_num, city, country = street
-                street = self.make_address(", ", None,a_txt,p_num,city,country)
+                street = self.make_address(
+                    ", ",
+                    None,
+                    a_txt,
+                    p_num,
+                    city,
+                    country)
                 if street:
                     entry['street'] = (street,)
         else:
@@ -702,10 +725,10 @@ from None and LDAP_PERSON['dn'].""")
             else:
                 mail_source_id = account_id
             mail = self.get_contacts(
-                entity_id    = mail_source_id,
-                contact_type = self.const.contact_email,
-                verify       = verify_IA5String,
-                normalize    = normalize_IA5String)
+                entity_id=mail_source_id,
+                contact_type=self.const.contact_email,
+                verify=verify_IA5String,
+                normalize=normalize_IA5String)
             if mail:
                 entry['mail'] = mail
 
@@ -769,10 +792,10 @@ from None and LDAP_PERSON['dn'].""")
         outfile.write(entry_string(
             ",".join((dn.split(',', 1)[0],
                       (alias_info[0] or self.alias_default_parent_dn))),
-            {'objectClass':       ('top', 'alias', 'extensibleObject'),
+            {'objectClass': ('top', 'alias', 'extensibleObject'),
              'aliasedObjectName': (dn,),
-             'cn':                entry['cn'],
-             'sn':                entry['sn']}))
+             'cn': entry['cn'],
+             'sn': entry['sn']}))
 
     def add_lang_names(self, entry, attr, l2values):
         if l2values:
@@ -805,11 +828,12 @@ from None and LDAP_PERSON['dn'].""")
             val = postal_escape_re.sub(hex_escape_match, val)
         return iso2utf(val.replace("\n", sep))
 
-    def make_entity_addresses(self, entity, lookup_order = (None,)):
+    def make_entity_addresses(self, entity, lookup_order=(None,)):
         # Return [postal address, street address] for the given entity.
         result = []
-        for addr_type,box,separator in ((self.const.address_post,  True,"$"),
-                                        (self.const.address_street,None,", ")):
+        for addr_type, box, separator in (
+            (self.const.address_post, True, "$"),
+                (self.const.address_street, None, ", ")):
             value = None
             for source in lookup_order:
                 addr = entity.get_entity_address(source, addr_type)
@@ -834,9 +858,9 @@ from None and LDAP_PERSON['dn'].""")
         cont_tab = {}
         if not convert:
             convert = str
-        for row in entity.list_contact_info(entity_id     = entity_id,
-                                            source_system = source_system,
-                                            contact_type  = contact_type):
+        for row in entity.list_contact_info(entity_id=entity_id,
+                                            source_system=source_system,
+                                            contact_type=contact_type):
             c_list = [convert(str(row['contact_value']))]
             if '$' in c_list[0]:
                 c_list = c_list[0].split('$')
@@ -850,7 +874,7 @@ from None and LDAP_PERSON['dn'].""")
         for key, c_list in cont_tab.iteritems():
             cont_tab[key] = self.attr_unique(
                 filter(verify, [c for c in c_list if c not in ('', '0')]),
-                normalize = normalize)
+                normalize=normalize)
         if entity_id is None:
             return cont_tab
         else:
@@ -862,28 +886,31 @@ from None and LDAP_PERSON['dn'].""")
         #
         # This is either an internal simple selector (below), or a dict:
         # {(aff, status): simple selector,  # tried first
-        #  aff:           simple selector,  # tried if (aff, status) is not set
-        #  None:          simple selector } # default
+        # aff:           simple selector,  # tried if (aff, status) is not set
+        # None:          simple selector } # default
         if type(selector) is not dict:
             return self.internal_simple_selector(selector_type, selector)
         mapping = {}
         for affiliations, aff_info in selector.iteritems():
-            if type(affiliations) is not tuple: affiliations = (affiliations,)
-            if type(aff_info)     is not dict:  aff_info = {(True,): aff_info}
+            if type(affiliations) is not tuple:
+                affiliations = (affiliations,)
+            if type(aff_info) is not dict:
+                aff_info = {(True,): aff_info}
             status_ssels = []
             for statuses, ssel in aff_info.iteritems():
-                if type(statuses) is not tuple: statuses = (statuses,)
+                if type(statuses) is not tuple:
+                    statuses = (statuses,)
                 ssel = self.internal_simple_selector(selector_type, ssel)
                 status_ssels.extend([(status, ssel) for status in statuses])
             for affiliation in affiliations:
-                if affiliation == True:  # wildcard
+                if bool(affiliation):  # wildcard
                     aff_id = None
                 else:
                     aff_id = self.const.PersonAffiliation(affiliation)
                 for status, ssel in status_ssels:
-                    if status == True:   # wildcard
+                    if bool(status):   # wildcard
                         key = int(aff_id)
-                    elif affiliation == True:
+                    elif bool(affiliation):
                         raise ValueError("Selector[True][not True: %s] illegal"
                                          % repr(status))
                     else:
@@ -893,7 +920,7 @@ from None and LDAP_PERSON['dn'].""")
                         key = (int(aff_id), status_id)
                     if mapping.has_key(key):
                         raise ValueError("Duplicate selector[%s][%s]" % tuple(
-                            [val == True and "True" or repr(val)
+                            [bool(val) and "True" or repr(val)
                              for val in (affiliation, status)]))
                     mapping[key] = ssel
         return mapping
@@ -904,12 +931,12 @@ from None and LDAP_PERSON['dn'].""")
         result = self.person_groups.get(name)
         if result is None:
             result = self.person_groups[name] = {}
-            group  = Factory.get('Group')(self.db)
+            group = Factory.get('Group')(self.db)
             group.find_by_name(name)
             for e in group.search_members(group_id=group.entity_id,
                                           member_type=self.const.entity_person):
                 result[int(e["member_id"])] = True
-            
+
         return result
 
     def internal_simple_selector(self, selector_type, ssel):
@@ -942,7 +969,7 @@ from None and LDAP_PERSON['dn'].""")
                     ssel = selector[p_affiliation[:2]]
                 except KeyError:
                     ssel = selector[p_affiliation[:2]] = \
-                           selector.get(p_affiliation[0]) or selector.get(None)
+                        selector.get(p_affiliation[0]) or selector.get(None)
                 if ssel:
                     result.extend(ssel[0])
             return result
@@ -965,7 +992,7 @@ from None and LDAP_PERSON['dn'].""")
         @param person_id: The given person's entity_id.
 
         @type p_affiliations: list
-        @param p_affiliations: 
+        @param p_affiliations:
             A list with the given person's affiliations. Each list element
             is a list of at least three elements:
 
@@ -982,7 +1009,7 @@ from None and LDAP_PERSON['dn'].""")
                     ssel = selector[p_affiliation[:2]]
                 except KeyError:
                     ssel = selector[p_affiliation[:2]] = \
-                           selector.get(p_affiliation[0]) or selector.get(None)
+                        selector.get(p_affiliation[0]) or selector.get(None)
                 if ssel and ssel[ssel[2](person_id)]:
                     return True
             return False
@@ -1014,12 +1041,12 @@ from None and LDAP_PERSON['dn'].""")
 
     def split_name(self, fullname=None, givenname=None, lastname=None):
         """Return (UTF-8 given name, UTF-8 last name)."""
-        full,given,last = [self._unicode_space_split(unicode(n or '', 'utf-8'))
-                           for n in (fullname, givenname, lastname)]
+        full, given, last = [self._unicode_space_split(unicode(n or '', 'utf-8'))
+                             for n in (fullname, givenname, lastname)]
         if full and not (given and last):
             if last:
                 rest_l = last
-                while full and rest_l and rest_l[-1].lower()==full[-1].lower():
+                while full and rest_l and rest_l[-1].lower() == full[-1].lower():
                     rest_l.pop()
                     full.pop()
                 if full and rest_l:
@@ -1057,7 +1084,7 @@ from None and LDAP_PERSON['dn'].""")
         # t = make_timer(message) logs the message and starts a stop watch.
         # t(message) logs that message and #seconds since last message.
         def timer(msg):
-            prev        = timer.start
+            prev = timer.start
             timer.start = time.time()
             self.logger.debug("%s (%d seconds)", msg, timer.start - prev)
         if msg:

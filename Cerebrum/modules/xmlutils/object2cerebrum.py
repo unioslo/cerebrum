@@ -38,19 +38,16 @@ from Cerebrum.modules.xmlutils.xml2object import HRDataPerson
 from Cerebrum.modules.xmlutils.sapxml2object import SAPPerson
 
 
-
-
-
 class XML2Cerebrum:
 
-    def __init__(self, db, source_system, logger, ou_ldap_visible = True):
+    def __init__(self, db, source_system, logger, ou_ldap_visible=True):
         self.db = db
         # IVR 2007-01-22 TBD: Do we really want this here? Should db
         # not have this set already?
         self.db.cl_init(change_program="XML->Cerebrum")
         self.source_system = source_system
         self.ou_ldap_visible = ou_ldap_visible
-        
+
         self.stedkode = Factory.get("OU")(db)
         self.person = Factory.get("Person")(db)
         self.constants = Factory.get("Constants")(db)
@@ -64,22 +61,23 @@ class XML2Cerebrum:
                               DataContact.CONTACT_URL: const.contact_url,
                               DataContact.CONTACT_EMAIL: const.contact_email,
                               DataContact.CONTACT_PRIVPHONE:
-                                const.contact_phone_private,
+                              const.contact_phone_private,
                               DataContact.CONTACT_MOBILE:
-                                const.contact_mobile_phone,}
+                              const.contact_mobile_phone, }
         self.xmladdr2db = {DataAddress.ADDRESS_BESOK: const.address_street,
                            DataAddress.ADDRESS_POST: const.address_post,
-                           DataAddress.ADDRESS_PRIVATE: 
-                             const.address_post_private}
+                           DataAddress.ADDRESS_PRIVATE:
+                           const.address_post_private}
         if hasattr(const, 'address_other_post'):
-            self.xmladdr2db[DataAddress.ADDRESS_OTHER_POST] = const.address_other_post
+            self.xmladdr2db[
+                DataAddress.ADDRESS_OTHER_POST] = const.address_other_post
         if hasattr(const, 'address_other_street'):
-            self.xmladdr2db[DataAddress.ADDRESS_OTHER_BESOK] = const.address_other_street
+            self.xmladdr2db[
+                DataAddress.ADDRESS_OTHER_BESOK] = const.address_other_street
 
         self.idxml2db = {HRDataPerson.NO_SSN: const.externalid_fodselsnr,
                          SAPPerson.SAP_NR: const.externalid_sap_ansattnr, }
     # end __init__
-
 
     def locate_or_create_person(self, xmlperson, dbperson):
         """Locate (or indeed create) the proper person entity in the db.
@@ -171,21 +169,20 @@ class XML2Cerebrum:
                               list(xmlperson.iterids()), id_collection)
             dbperson.find(id_collection[0])
 
-            # IVR 2007-08-21 We cannot allow automatic ansatt# changes 
+            # IVR 2007-08-21 We cannot allow automatic ansatt# changes
             if not self.match_sap_ids(xmlperson, dbperson):
                 self.logger.error("SAP ID on file does not match SAP ID in "
-                  "Cerebrum for file ids %s. This is an error. Person is "
-                  "ignored. This has to be corrected manually.",
+                                  "Cerebrum for file ids %s. This is an error. Person is "
+                                  "ignored. This has to be corrected manually.",
                                   list(xmlperson.iterids()))
                 return False
         else:
-            self.logger.debug("No person in cerebrum located for XML element with IDs: %s",
-                              list(xmlperson.iterids()))
+            self.logger.debug(
+                "No person in cerebrum located for XML element with IDs: %s",
+                list(xmlperson.iterids()))
 
         return True
     # end locate_or_create_person
-
-
 
     def match_sap_ids(self, xmlperson, dbperson):
         "Check if SAP IDs (ansatt#) on file matches the value in Cerebrum."
@@ -200,8 +197,6 @@ class XML2Cerebrum:
         # Either the DB is empty (a new ID is allowed) or they *MUST* match
         return (sap_id_in_db == "") or (sap_id_on_file == sap_id_in_db)
     # end match_sap_ids
-
-
 
     def store_person(self, xmlperson, work_titles, affiliations, traits):
         """Store all information we can from xmlperson.
@@ -225,7 +220,7 @@ class XML2Cerebrum:
           information available in L{xmlperson}.
 
           The structure of the set is described in
-          L{import_HR_person.py:determine_affiliations}. 
+          L{import_HR_person.py:determine_affiliations}.
 
         @type traits: sequence (of triples)
         @param traits:
@@ -250,16 +245,16 @@ class XML2Cerebrum:
           entity or a no-op respectively. The p_id is the person_id of the
           person affected by the operation.
         """
-        
+
         person = self.person
         const = self.constants
         source_system = self.source_system
-        
-        gender2db = { xmlperson.GENDER_MALE : const.gender_male,
-                      xmlperson.GENDER_FEMALE : const.gender_female, }
-        name2db = { xmlperson.NAME_FIRST : const.name_first,
-                    xmlperson.NAME_LAST  : const.name_last, }
-        
+
+        gender2db = {xmlperson.GENDER_MALE: const.gender_male,
+                     xmlperson.GENDER_FEMALE: const.gender_female, }
+        name2db = {xmlperson.NAME_FIRST: const.name_first,
+                   xmlperson.NAME_LAST: const.name_last, }
+
         idxml2db = self.idxml2db
         xmlcontact2db = self.xmlcontact2db
 
@@ -270,7 +265,7 @@ class XML2Cerebrum:
 
         person.populate(xmlperson.birth_date, gender2db[xmlperson.gender])
         person.affect_names(source_system, *name2db.values())
-        # TBD: This may be too permissive 
+        # TBD: This may be too permissive
         person.affect_external_id(source_system, *idxml2db.values())
 
         # We *require* certain names
@@ -284,22 +279,27 @@ class XML2Cerebrum:
         # TBD: The implicit assumption here is that idxml2db contains all the
         # mappings
         for xmlkind, value in xmlperson.iterids():
-            person.populate_external_id(source_system, idxml2db[xmlkind], value)
+            person.populate_external_id(
+                source_system,
+                idxml2db[xmlkind],
+                value)
         op = person.write_db()
 
         # remove existing personal titles to make sure that personal
         # titles removed from SAP are removed from Cerebrum as well
-        # all such titles are removed for each run, this may be very 
+        # all such titles are removed for each run, this may be very
         # slightly inefficient
         if xmlperson.get_name(xmlperson.NAME_TITLE, ()) == ():
             person.delete_name_with_language(name_variant=const.personal_title)
             # updating op2 here is void as we remove every title every run
             person.write_db()
-            self.logger.debug("Dropped all personal titles for person %s", person.entity_id) 
+            self.logger.debug(
+                "Dropped all personal titles for person %s",
+                person.entity_id)
 
         # add personal titles if any are found in the file
         for personal_title in xmlperson.get_name(xmlperson.NAME_TITLE, ()):
-            #self.logger.debug('personal_title %s, lang %s', personal_title.value, 
+            # self.logger.debug('personal_title %s, lang %s', personal_title.value,
             #                  personal_title.language)
             language = int(const.LanguageCode(personal_title.language))
             person.add_name_with_language(name_variant=const.personal_title,
@@ -313,13 +313,13 @@ class XML2Cerebrum:
                                           name=work_title.value)
         #
         # FIXME: LT data.
-        # 
+        #
         # This one isn't pretty. The problem is that in LT some of the
         # addresses (e.g. ADDRESS_POST) have to be derived from the addresses
         # of the "corresponding" OUs. This breaks quite a few abstractions in
         # this code.
         #
-        
+
         for addr_kind in (DataAddress.ADDRESS_BESOK, DataAddress.ADDRESS_POST,
                           DataAddress.ADDRESS_PRIVATE,
                           DataAddress.ADDRESS_OTHER_POST,
@@ -332,11 +332,11 @@ class XML2Cerebrum:
             # write anything to the country-slot, until that table is
             # populated.
             person.populate_address(source_system,
-                                    type = self.xmladdr2db[addr_kind],
-                                    address_text = addr.street or None,
-                                    postal_number = addr.zip or None,
-                                    city = addr.city or None,)
-        # od 
+                                    type=self.xmladdr2db[addr_kind],
+                                    address_text=addr.street or None,
+                                    postal_number=addr.zip or None,
+                                    city=addr.city or None,)
+        # od
 
         self._assign_person_affiliations(person, source_system, affiliations)
         self._assign_person_traits(person, traits)
@@ -350,14 +350,13 @@ class XML2Cerebrum:
 
         if op is None and op2 is None:
             status = "EQUAL"
-        elif op == True:
+        elif bool(op):
             status = "NEW"
         else:
             status = "UPDATE"
 
         return status, person.entity_id
     # end store_person
-
 
     def _assign_person_affiliations(self, person, source_system, affiliations):
         """Assign affiliations to person.
@@ -374,14 +373,14 @@ class XML2Cerebrum:
         @type affiliations: set (of triples)
         @param affiliations:
           See L{import_HR_person.py:determine_affiliations} for the
-          description. 
+          description.
 
         @return: Nothing
         """
 
         person.populate_affiliation(source_system)
         for ou_id, aff, aff_stat in affiliations:
-            person.populate_affiliation(source_system, ou_id, 
+            person.populate_affiliation(source_system, ou_id,
                                         int(aff), int(aff_stat))
             self.logger.info("Person id=%s acquires affiliation "
                              "aff=%s status=%s ou_id=%s",
@@ -390,15 +389,13 @@ class XML2Cerebrum:
                              self.constants.PersonAffStatus(aff_stat),
                              ou_id)
     # end _assign_person_affiliations
-        
-
 
     def _assign_person_traits(self, person, traits):
         """Assign HR-data originated traits to a person.
 
         HR source data contains some information which we want to mirror in
         Cerebrum as traits. The traits pertinent to each person are collected
-        elsewhere and passed to this method for registering in Cerebrum. 
+        elsewhere and passed to this method for registering in Cerebrum.
 
         @type person: an instance of Factory.get('Person')
         @param person:
@@ -424,14 +421,11 @@ class XML2Cerebrum:
                              ou_id, roleid)
     # end _assign_person_traits
 
-
-
     def __ou_is_expired(self, xmlou):
         """Check if OU is expired compared to today's date."""
 
         return xmlou.end_date and xmlou.end_date < DateTime.now()
     # end __ou_is_expired
-        
 
     def store_ou(self, xmlou, old_ou_cache=None):
         """Store all information we can from xmlou.
@@ -469,9 +463,8 @@ class XML2Cerebrum:
                 del old_ou_cache[int(ou.entity_id)]
                 for r in ou.get_entity_quarantine():
                     if (r['quarantine_type'] == const.quarantine_ou_notvalid or
-                        r['quarantine_type'] == const.quarantine_ou_remove):
+                            r['quarantine_type'] == const.quarantine_ou_remove):
                         ou.delete_entity_quarantine(r['quarantine_type'])
-
 
         # Do not touch name information for an OU that has been expired. It
         # may not conform to all of our requirements.
@@ -498,8 +491,6 @@ class XML2Cerebrum:
         return status, ou.entity_id
     # end store_ou
 
-
-
     def _sync_all_ou_contacts(self, ou, xmlou):
         """Register all contact information for ou from xmlou."""
 
@@ -507,25 +498,21 @@ class XML2Cerebrum:
             ou.populate_contact_info(self.source_system,
                                      self.xmlcontact2db[contact.kind],
                                      contact.value,
-                                     contact_pref = contact.priority)
+                                     contact_pref=contact.priority)
     # end _sync_all_ou_contacts
-    
-
 
     def _sync_all_ou_addresses(self, ou, xmlou):
         """Register all addresses for ou from xmlou."""
-        
+
         for addr_kind, addr in xmlou.iteraddress():
             ou.populate_address(self.source_system,
                                 self.xmladdr2db[addr_kind],
-                                address_text = addr.street,
-                                postal_number = addr.zip,
-                                city = addr.city,
+                                address_text=addr.street,
+                                postal_number=addr.zip,
+                                city=addr.city,
                                 # TBD: country code table i Cerebrum is empty
-                                country = None)
+                                country=None)
     # end _sync_all_ou_addresses
-
-    
 
     def _sync_all_ou_names(self, ou, xmlou):
         """Synchronise name data in all languages for the specified OU.
@@ -537,7 +524,7 @@ class XML2Cerebrum:
         co = self.constants
         name_map = {xmlou.NAME_ACRONYM: (co.ou_name_acronym,),
                     xmlou.NAME_SHORT: (co.ou_name_short,),
-                    xmlou.NAME_LONG: (co.ou_name, co.ou_name_display,),}
+                    xmlou.NAME_LONG: (co.ou_name, co.ou_name_display,), }
         for (name_kind, names) in xmlou.iternames():
             db_keys = name_map.get(name_kind, ())
             if not db_keys:
@@ -559,9 +546,7 @@ class XML2Cerebrum:
                                               name=xml_name.value)
         return ou
     # end _sync_all_ou_names
-    
-    
-    
+
     def _sync_all_ou_spreads(self, ou, xmlou):
         """Synchronise all spreads for a specified OU.
 
@@ -572,7 +557,7 @@ class XML2Cerebrum:
         # 'publishable' -> spread_ou_publishable
         if ((getattr(xmlou, "publishable", False) or self.ou_ldap_visible) and
             not self.__ou_is_expired(xmlou) and
-            not ou.has_spread(const.spread_ou_publishable)):
+                not ou.has_spread(const.spread_ou_publishable)):
             ou.add_spread(const.spread_ou_publishable)
 
         # Before we can give a spread, we need an entity_id. Thus, this
@@ -593,7 +578,6 @@ class XML2Cerebrum:
 
         return op
     # end _sync_all_ou_spreads
-
 
     def _sync_auto_ou_spreads(self, ou, usage_codes):
         """Synchronise auto-assigned OU spreads for ou.
@@ -629,9 +613,9 @@ class XML2Cerebrum:
         all_usage_spreads = self._load_usage_spreads(tmp.itervalues(),
                                                      self.constants.entity_ou)
         ou_usage_spreads = self._load_usage_spreads(
-                      # select those usage codes, that are actually 'mappable'
-                      [tmp[x] for x in usage_codes if x in tmp],
-                      self.constants.entity_ou)
+            # select those usage codes, that are actually 'mappable'
+            [tmp[x] for x in usage_codes if x in tmp],
+            self.constants.entity_ou)
 
         to_remove = all_usage_spreads.difference(ou_usage_spreads)
         for spread in ou_usage_spreads:
@@ -654,7 +638,6 @@ class XML2Cerebrum:
 
         return status
     # end _sync_ou_spreads
-
 
     def _load_usage_spreads(self, iterable, desired_entity_type):
         """Convert a sequence of string codes to spread constants.

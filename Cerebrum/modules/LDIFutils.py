@@ -28,7 +28,7 @@ import re
 import string
 import os.path
 from binascii import \
-     b2a_hex as _str2hex, a2b_hex as _hex2str, b2a_base64 as _base64encode
+    b2a_hex as _str2hex, a2b_hex as _hex2str, b2a_base64 as _base64encode
 try:
     set
 except NameError:
@@ -42,7 +42,7 @@ from Cerebrum import Errors as _Errors, Utils as _Utils
 base64_attrs = {'userPassword': 0, 'authPassword': 0}
 
 needs_base64_readable = re.compile('\\A[\\s:<]|[\0-\37\177]|\\s\\Z').search
-needs_base64_safe     = re.compile('\\A[ :<]|[\0-\37\177-\377]| \\Z').search
+needs_base64_safe = re.compile('\\A[ :<]|[\0-\37\177-\377]| \\Z').search
 
 # Return true if the attr.value parameter must be base64-encoded in LDIF.
 # May be modified by the applications.  Possible values:
@@ -75,8 +75,9 @@ def ldapconf(tree, attr, default=_dummy, utf8=True, module=cereconf):
         val = _deep_text2utf(val, utf8)
     return val
 
+
 def _deep_text2utf(obj, utf8):
-    if utf8 == True:
+    if bool(utf8):
         if isinstance(obj, str):
             return iso2utf(obj)
         if isinstance(obj, unicode):
@@ -93,6 +94,7 @@ def _deep_text2utf(obj, utf8):
 # Match an escaped character in a DN; group 1 will match the character.
 dn_escaped_re = re.compile('\\\\([0-9a-fA-F]{2}|[<>,;+"#\\\\=\\s])')
 
+
 def unescape_match(match):
     """Unescape the hex-escaped character in <match object>.group(1).
 
@@ -106,6 +108,7 @@ def unescape_match(match):
 # Match a character which must be escaped in a DN.
 dn_escape_re = re.compile('\\A[\\s#]|["+,;<>\\\\=\0\r\n]|\\s\\Z')
 
+
 def hex_escape_match(match):
     """Return the '\\hex' representation of a match object for a character.
 
@@ -113,7 +116,7 @@ def hex_escape_match(match):
     return '\\' + _str2hex(match.group())
 
 
-def entry_string(dn, attrs, add_rdn = True):
+def entry_string(dn, attrs, add_rdn=True):
     """Return a string with an LDIF entry with the specified DN and ATTRS.
 
     DN is the entry name: A string 'rdn (i.e. relative DN),parent DN'.
@@ -166,14 +169,15 @@ def entry_string(dn, attrs, add_rdn = True):
 # For entry_string() attrs: map {type: function producing sequence/iterator}
 _attrval_seqtypes = (tuple, list, set, frozenset, type(None))
 _attrval2iter = {
-    tuple:      tuple,
-    list:       iter,
-    set:        sorted, # sorting but minimizes changes in the output file
-    frozenset:  sorted,
-    str:        (lambda *args: args),
+    tuple: tuple,
+    list: iter,
+    set: sorted,  # sorting but minimizes changes in the output file
+    frozenset: sorted,
+    str: (lambda *args: args),
     type(None): (lambda arg: ())}
 
-def container_entry_string(tree_name, attrs = {}, module=cereconf):
+
+def container_entry_string(tree_name, attrs={}, module=cereconf):
     """Return a string with an LDIF entry for the specified container entry."""
     entry = dict(ldapconf(None, 'container_attrs', {}, module=module))
     entry.update(attrs)
@@ -182,6 +186,7 @@ def container_entry_string(tree_name, attrs = {}, module=cereconf):
 
 
 class LDIFWriter(object):
+
     """Wrapper around ldif_outfile with a minimal but sane API."""
 
     def __init__(self, tree, filename, module=cereconf):
@@ -194,16 +199,20 @@ class LDIFWriter(object):
         """ldapconf() wrapper for this LDIF file's LDAP tree"""
         return ldapconf(self.tree, attr, default, utf8, self.module)
 
-    #def write(): This is (currently) implemented via an attribute.
+    # def write(): This is (currently) implemented via an attribute.
 
     def write_container(self, tree=None):
-        self.write(container_entry_string(tree or self.tree,module=self.module))
+        self.write(
+            container_entry_string(
+                tree or self.tree,
+                module=self.module))
 
     def write_entry(self, dn, attrs, add_rdn=True):
         self.write(entry_string(dn, attrs, add_rdn))
 
     def close(self):
         end_ldif_outfile(self.tree, self.f, module=self.module)
+
 
 def ldif_outfile(tree, filename=None, default=None, explicit_default=False,
                  max_change=None, module=cereconf):
@@ -228,7 +237,7 @@ def ldif_outfile(tree, filename=None, default=None, explicit_default=False,
         if max_change is None:
             max_change = ldapconf(tree, 'max_change', default=ldapconf(
                 None, 'max_change', default=100, module=module),
-                                  module=module)
+                module=module)
         if max_change < 100:
             f = _Utils.SimilarSizeWriter(filename, 'w')
             f.set_size_change_limit(max_change)
@@ -239,6 +248,7 @@ def ldif_outfile(tree, filename=None, default=None, explicit_default=False,
         return default
     raise _Errors.PoliteException(
         "Outfile not specified and LDAP_%s['file'] not set" % (tree,))
+
 
 def end_ldif_outfile(tree, outfile, default_file=None, module=cereconf):
     """Finish the <tree> part of <outfile>.  Close it if != <default_file>."""
@@ -261,6 +271,7 @@ def map_spreads(spreads, return_type=None):
     """
     return map_constants('_SpreadCode', spreads, return_type)
 
+
 def map_constants(constname, values, return_type=None):
     """Convert a constant-name/code or sequence of such to an int or list.
 
@@ -282,6 +293,7 @@ def map_constants(constname, values, return_type=None):
     return values
 
 _const = _Constants = None
+
 
 def _decode_const(constname, value):
     global _const, _Constants
@@ -306,8 +318,8 @@ def _decode_const(constname, value):
 _is_eightbit = re.compile('[\200-\377]').search
 
 _normalize_trans = string.maketrans(
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ" + string.whitespace.replace(" ", ""),
-    "abcdefghijklmnopqrstuvwxyz" + " " * (len(string.whitespace) - 1))
+    string.ascii_uppercase + string.whitespace.replace(" ", ""),
+    string.ascii_lowercase + " " * (len(string.whitespace) - 1))
 
 # Match multiple spaces
 _multi_space_re = re.compile('[%s]{2,}' % string.whitespace)
@@ -327,6 +339,7 @@ def normalize_phone(phone):
     """Normalize phone/fax numbers for comparison of LDAP values."""
     return phone.translate(_normalize_trans, " -")
 
+
 def normalize_string(s):
     """Normalize strings for comparison of LDAP values."""
     s = _multi_space_re.sub(' ', s.translate(_normalize_trans)).strip()
@@ -335,9 +348,11 @@ def normalize_string(s):
         s = unicode(s, 'utf-8').lower().encode('utf-8')
     return s
 
+
 def normalize_caseExactString(s):
     """Normalize case-sensitive strings for comparison of LDAP values."""
     return _space_re.sub(' ', s).strip()
+
 
 def normalize_IA5String(s):
     """Normalize case-sensitive ASCII strings for comparison of LDAP values."""
@@ -352,30 +367,33 @@ verify_printableString = re.compile(r"[-a-zA-Z0-9'()+,.=/:? ]+\Z").match
 # mail, dc, gecos, homeDirectory, loginShell, memberUid, memberNisNetgroup.
 verify_IA5String = re.compile("[\0-\x7e]*\\Z").match
 
+
 class ldif_parser(object):
+
     """
     Use the python-ldap's ldif.LDIFParser(). Redirect handle routine
-    to local routine. Input is file and following parameter are optionals: 
-    ignored_attr_types(=None), max_entries(=0), process_url_schemes(=None), 
+    to local routine. Input is file and following parameter are optionals:
+    ignored_attr_types(=None), max_entries(=0), process_url_schemes(=None),
     line_sep(='\n').
     """
 
-    def __init__(self,inputfile,
-                ignored_attr_types=None,
-                max_entries=0,
-                process_url_schemes=None,
-                line_sep='\n'):
+    def __init__(self, inputfile,
+                 ignored_attr_types=None,
+                 max_entries=0,
+                 process_url_schemes=None,
+                 line_sep='\n'):
         try:
             import ldif
         except ImportError, e:
-            raise _Errors.PoliteException((str(e) + '\n' + \
-                                "python-ldap module probably not installed."))
-        self._ldif = ldif.LDIFParser(inputfile,ignored_attr_types,max_entries,
-                                        process_url_schemes,line_sep)
+            raise _Errors.PoliteException((str(e) + '\n' +
+                                           "python-ldap module probably not installed."))
+        self._ldif = ldif.LDIFParser(
+            inputfile, ignored_attr_types, max_entries,
+            process_url_schemes, line_sep)
         self._ldif.handle = self.handle
         self.res_dict = {}
 
-    def handle(self,dn,entry):
+    def handle(self, dn, entry):
         """ Load into a dict"""
         self.res_dict[dn] = entry
 
