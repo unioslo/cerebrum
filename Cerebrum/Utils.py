@@ -1293,8 +1293,10 @@ class RecursiveDict(dict):
     Useful for combining complex configuration dicts.
     """
 
-    # TODO: dict.__init__ should probably be called?
-    def __init__(self, values={}):
+    def __init__(self, values=None):
+        if values == None:
+            values = {}
+        dict.__init__(self)
         # Make sure our __setitem__ is called.
         for (key, value) in values.items():
             self[key] = value
