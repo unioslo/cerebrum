@@ -1,6 +1,10 @@
 #!/bin/sh
-
+#
 # BOFH with Python 2.6
+#
+# Put the mx and psycopg2 packages for Python 2.6 in ~/.cerebrum/common
+# Remember to remove them when running with Python 2.5
+#
 
 source ~/.cerebrumrc
 
