@@ -21,7 +21,9 @@ from Cerebrum.Utils import Factory
 db = Factory.get('DBDriver')
 cl = Factory.get('ChangeLog')
 
+
 class CLDatabase(db, cl):
+
     def __init__(self, *args, **kwd):
         self.cl_init()
         super(CLDatabase, self).__init__(*args, **kwd)

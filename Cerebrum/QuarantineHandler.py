@@ -24,7 +24,7 @@ is reported to have.  This is done by providing methods that can be
 queried for the requested operation.
 
 The format of cereconf.QUARANTINE_RULES is
-  { <quarantine_code_str>: [ {  
+  { <quarantine_code_str>: [ {
          'lock': <0|1>,  'shell': <shell>, ....,
          'spread': spread_code|[spread_codes]
          'sort_num': unique_number
@@ -58,12 +58,13 @@ from Cerebrum.Utils import Factory
 
 const = Factory.get("Constants")
 
+
 class QuarantineHandler(object):
 #    __slots__ = 'quarantines'
 
     qc2rules = {}
     _explicit_sort = False
-    
+
     def __init__(self, database, quarantines, spreads=None):
         """Constructs a QuarantineHandler.  quarantines should point
         to the quarantines that the user currently has.  Spreads is
@@ -138,7 +139,7 @@ class QuarantineHandler(object):
             if shell is not None:
                 return shell
         return None
-    
+
     def should_skip(self):
         for m in self._get_matches():
             if m.get('skip', 0):
@@ -165,14 +166,15 @@ class QuarantineHandler(object):
             spreads)
     check_entity_quarantines = staticmethod(check_entity_quarantines)
 
+
 def _test():
     # TODO: This should use the unit-testing framework, and use common
-    # constants (which we currently don't have for spreads)    
+    # constants (which we currently don't have for spreads)
     cereconf.QUARANTINE_RULES = {
         'nologin': {'lock': 1, 'shell': 'nologin-shell', 'sort_num': 10},
         'system': [{'lock': 1, 'shell': 'nologin-shell2', 'sort_num': 2},
                    {'spread': 'AD_account', 'shell': 'ad-shell', 'sort_num': 3}]
-        }
+    }
     from Cerebrum.Utils import Factory
     db = Factory.get('Database')()
     co = Factory.get('Constants')(db)

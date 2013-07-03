@@ -32,8 +32,8 @@ from Cerebrum.Utils import NotSet
 from Cerebrum.Utils import to_unicode
 
 
-
 class Entity(DatabaseAccessor):
+
     """Class for generic access to Cerebrum entities.
 
     An instance of this class (or any of its subclasses) can associate
@@ -86,9 +86,9 @@ class Entity(DatabaseAccessor):
         self.clear_class(Entity)
         self.__updated = []
 
-    ###
-    ###   Methods dealing with the `cerebrum.entity_info' table
-    ###
+    #
+    # Methods dealing with the `cerebrum.entity_info' table
+    #
 
     def populate(self, entity_type):
         "Set instance's attributes without referring to the Cerebrum DB."
@@ -115,7 +115,7 @@ class Entity(DatabaseAccessor):
         assert isinstance(other, Entity)
         identical = (self.entity_type == other.entity_type)
         if (identical and
-            hasattr(self, 'entity_id') and hasattr(other, 'entity_id')):
+                hasattr(self, 'entity_id') and hasattr(other, 'entity_id')):
             identical = (self.entity_id == other.entity_id)
         return identical
 
@@ -205,7 +205,7 @@ class Entity(DatabaseAccessor):
         "Completely remove an entity."
         if self.entity_id is None:
             raise Errors.NoEntityAssociationError, \
-                  "Unable to determine which entity to delete."
+                "Unable to determine which entity to delete."
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=entity_info]
         WHERE entity_id=:e_id""", {'e_id': self.entity_id})
@@ -234,6 +234,7 @@ class Entity(DatabaseAccessor):
 
 
 class EntitySpread(Entity):
+
     "Mixin class, usable alongside Entity for entities having spreads."
 
     def delete(self):
@@ -286,7 +287,7 @@ class EntitySpread(Entity):
         """Return entities and their spreads, optionally filtered by entity
         type. If entity type is None, all entities with all spreads will be
         returned.
-        
+
         See also list_spreads."""
         sel = ""
         if entity_types:
@@ -309,8 +310,8 @@ class EntitySpread(Entity):
         See also list_entity_spreads.
 
         @type  entity_types: EntityType constant, an int or a sequence thereof.
-        @param entity_types: When not None, this parameter filters the result 
-            set by the entity types the spreads are valid for. When None, all 
+        @param entity_types: When not None, this parameter filters the result
+            set by the entity types the spreads are valid for. When None, all
             spreads are returned."""
         binds = dict()
         where = ['(sc.entity_type = et.code)']
@@ -318,42 +319,42 @@ class EntitySpread(Entity):
             where.append(argument_to_sql(entity_types, "sc.entity_type", binds,
                                          int))
         return self.query("""
-            SELECT sc.code as spread_code, sc.code_str as spread, 
-                   sc.description as description, sc.entity_type as entity_type, 
+            SELECT sc.code as spread_code, sc.code_str as spread,
+                   sc.description as description, sc.entity_type as entity_type,
                    et.code_str as entity_type_str
               FROM [:table schema=cerebrum name=spread_code] sc,
                    [:table schema=cerebrum name=entity_type_code] et
              WHERE """ + " AND ".join(where) + " ORDER BY entity_type", binds)
 
     def has_spread(self, spread):
-        """Return true if entity has spread.""" 
+        """Return true if entity has spread."""
         ent_spread = self.get_spread()
         for row in ent_spread:
             if spread in row:
                 return 1
-        return 0    
+        return 0
 
 
 class EntityName(Entity):
+
     "Mixin class, usable alongside Entity for entities having names."
 
     def delete(self):
         """Remove name traces of this entity from the database"""
-        
+
         for n in self.get_names():
             self.delete_entity_name(n['domain_code'])
 
         self.__super.delete()
     # end delete
 
-
     def get_name(self, domain):
         return self.query_1("""
         SELECT entity_name FROM [:table schema=cerebrum name=entity_name]
         WHERE entity_id=:e_id AND value_domain=:domain""",
-                          {'e_id': self.entity_id,
-                           'domain': int(domain)})
-    
+                            {'e_id': self.entity_id,
+                             'domain': int(domain)})
+
     def get_names(self):
         return self.query("""
         SELECT en.entity_name AS name, en.value_domain AS domain_code
@@ -389,7 +390,7 @@ class EntityName(Entity):
         if int(domain) in [int(self.const.ValueDomain(code_str))
                            for code_str in cereconf.NAME_DOMAINS_THAT_DENY_CHANGE]:
             raise self._db.IntegrityError, \
-                  "Name change illegal for the domain: %s" % domain
+                "Name change illegal for the domain: %s" % domain
         self.execute("""
         UPDATE [:table schema=cerebrum name=entity_name]
         SET entity_name=:name
@@ -414,10 +415,11 @@ class EntityName(Entity):
         SELECT entity_id, value_domain, entity_name
         FROM [:table schema=cerebrum name=entity_name]
         WHERE value_domain=:value_domain""",
-                            {'value_domain': int(value_domain)})
+                          {'value_domain': int(value_domain)})
 
 
 class EntityNameWithLanguage(Entity):
+
     """Mixin class for dealing with name-with-language data in Cerebrum.
 
     This mixin adds support for adorning entities with (potentially) non-unique
@@ -447,13 +449,20 @@ class EntityNameWithLanguage(Entity):
         binds = {}
         where = list()
         if entity_id is not None:
-            where.append(argument_to_sql(entity_id, "eln.entity_id", binds, int))
+            where.append(
+                argument_to_sql(
+                    entity_id,
+                    "eln.entity_id",
+                    binds,
+                    int))
         if name_variant is not None:
-            where.append(argument_to_sql(name_variant, "eln.name_variant", binds, 
-                                         int))
+            where.append(
+                argument_to_sql(name_variant, "eln.name_variant", binds,
+                                int))
         if name_language is not None:
-            where.append(argument_to_sql(name_language, "eln.name_language", binds,
-                                         int))
+            where.append(
+                argument_to_sql(name_language, "eln.name_language", binds,
+                                int))
         if name is not None:
             if exact_match:
                 where.append(argument_to_sql(name, "eln.name", binds, str))
@@ -471,7 +480,6 @@ class EntityNameWithLanguage(Entity):
         return where, binds
     # end _query_builder
 
-    
     def find_by_name_with_language(self, name_variant=None, name_language=None,
                                    name=None):
         """Locate the one entity matching the language name filters."""
@@ -483,8 +491,7 @@ class EntityNameWithLanguage(Entity):
         %s""" % where, binds)
         return self.find(entity_id)
     # end find_by_name_with_language
-    
-    
+
     def add_name_with_language(self, name_variant, name_language, name):
         """Add or update a specific language name."""
 
@@ -492,14 +499,15 @@ class EntityNameWithLanguage(Entity):
                  "name_language": int(name_language),
                  "name": name,
                  "entity_id": self.entity_id}
-        change_params={'name_variant': int(name_variant),
-                       'name_language': int(self.const.LanguageCode(name_language)),
-                       'name': name}
+        change_params = {'name_variant': int(name_variant),
+                         'name_language':
+                         int(self.const.LanguageCode(name_language)),
+                         'name': name}
         existing = self.search_name_with_language(entity_id=self.entity_id,
-                                             name_variant=name_variant,
-                                             name_language=name_language)
+                                                  name_variant=name_variant,
+                                                  name_language=name_language)
         if existing:
-            # If the names are equal, stop now and do NOT flood the change log. 
+            # If the names are equal, stop now and do NOT flood the change log.
             m = existing[0]
             if to_unicode(m["name"], "latin-1") == to_unicode(name, "latin-1"):
                 return
@@ -511,19 +519,20 @@ class EntityNameWithLanguage(Entity):
                   name_variant = :name_variant AND
                   name_language = :name_language
             """, binds)
-            self._db.log_change(self.entity_id, self.const.entity_name_mod, None,
-                                change_params)
+            self._db.log_change(
+                self.entity_id, self.const.entity_name_mod, None,
+                change_params)
         else:
             rv = self.execute("""
             INSERT INTO [:table schema=cerebrum name=entity_language_name]
             VALUES (:entity_id, :name_variant, :name_language, :name)
             """, binds)
-            self._db.log_change(self.entity_id, self.const.entity_name_add, None,
-                                change_params)
+            self._db.log_change(
+                self.entity_id, self.const.entity_name_add, None,
+                change_params)
             return rv
     # end add_name_with_language
 
-        
     def delete_name_with_language(self, name_variant=None, name_language=None,
                                   name=None):
         """Delete specific language name entries for self.
@@ -543,9 +552,9 @@ class EntityNameWithLanguage(Entity):
         # change_log will be slapped with 20'000x<#name types>x<#langs>
         # superfluous entries per run. This cannot be allowed.
         existing = self.search_name_with_language(entity_id=self.entity_id,
-                                             name_variant=name_variant,
-                                             name_language=name_language,
-                                             name=name)
+                                                  name_variant=name_variant,
+                                                  name_language=name_language,
+                                                  name=name)
         rv = self.execute("""
         DELETE FROM [:table schema=cerebrum name=entity_language_name] eln
         """ + where, binds)
@@ -554,15 +563,13 @@ class EntityNameWithLanguage(Entity):
             # Why not a specific constant? Well, because
             # name_variant/name_language/name could all be a sequence or an
             # iterable. It should work regardless.
-            change_params={'name_variant': str(name_variant),
-                           'name_language': str(name_language),
-                           'name': name}
+            change_params = {'name_variant': str(name_variant),
+                             'name_language': str(name_language),
+                             'name': name}
             self._db.log_change(self.entity_id, self.const.entity_name_del,
                                 None, change_params=change_params)
         return rv
     # end delete_name_with_language
-        
-
 
     def delete(self):
         """Remove all known names for self from the database."""
@@ -577,7 +584,6 @@ class EntityNameWithLanguage(Entity):
         return self.__super.delete()
     # end delete
 
-    
     def search_name_with_language(self, entity_id=None, entity_type=None,
                                   name_variant=None, name_language=None,
                                   name=None, exact_match=True):
@@ -609,63 +615,70 @@ class EntityNameWithLanguage(Entity):
         @param exact_match:
             Controls whether name matching is to be exact (foo = 'bar') or
             approximate (foo LIKE '%bar%'). In the latter case, if name has no
-            SQL-wildcards, they will be supplied automatically. 
+            SQL-wildcards, they will be supplied automatically.
 
         @rtype: db-rows
         @return: Each row contains the element L{entity_id}, L{entity_type},
             L{name_variant}, L{name_language}, L{name}.
 
         """
-        where = ["ei.entity_id = eln.entity_id",]
+        where = ["ei.entity_id = eln.entity_id", ]
         where2, binds = self._query_builder(entity_id, name_variant,
                                             name_language, name, exact_match,
                                             include_where=False)
         if where2:
             where.append(where2)
         if entity_type is not None:
-            where.append(argument_to_sql(entity_type, "ei.entity_type", binds, int))
+            where.append(
+                argument_to_sql(
+                    entity_type,
+                    "ei.entity_type",
+                    binds,
+                    int))
 
         return self.query("""
-        SELECT eln.entity_id, ei.entity_type, 
+        SELECT eln.entity_id, ei.entity_type,
                eln.name_variant, eln.name_language, eln.name
         FROM [:table schema=cerebrum name=entity_language_name] eln,
              [:table schema=cerebrum name=entity_info] ei
         WHERE """ + " AND ".join(where), binds)
     # end search_name_with_language
 
-
-
-    def get_name_with_language(self, name_variant, name_language, default=NotSet):
+    def get_name_with_language(
+            self, name_variant, name_language, default=NotSet):
         """Retrieve a specific name for self.
 
         A short-hand for search_name_with_language + raise NotFoundError
         """
 
         names = self.search_name_with_language(entity_id=self.entity_id,
-                                          name_variant=name_variant,
-                                          name_language=name_language)
+                                               name_variant=name_variant,
+                                               name_language=name_language)
         if len(names) == 1:
             return names[0]["name"]
         elif default != NotSet:
             return default
         elif not names:
-            raise Errors.NotFoundError("Entity id=%s has no name %s in lang=%s"%
+            raise Errors.NotFoundError("Entity id=%s has no name %s in lang=%s" %
                                        (self.entity_id,
-                                        self.const.EntityNameCode(name_variant),
+                                        self.const.EntityNameCode(
+                                            name_variant),
                                         self.const.LanguageCode(name_language)))
         elif len(names) > 1:
             raise Errors.TooManyRowsError("Too many rows id=%s (%s, %s): %d" %
                                           (self.entity_id,
-                                           self.const.EntityNameCode(name_variant),
-                                           self.const.LanguageCode(name_language),
-                                           len(names)))
+                                           self.const.EntityNameCode(
+                                           name_variant),
+                                              self.const.LanguageCode(
+                                                  name_language),
+                                              len(names)))
         assert False, "NOTREACHED"
     # end get_name_with_language
 # end EntityNameWithLanguage
 
-    
 
 class EntityContactInfo(Entity):
+
     "Mixin class, usable alongside Entity for entities having contact info."
 
     __read_attr__ = ('__data',)
@@ -748,7 +761,7 @@ class EntityContactInfo(Entity):
         self.__data[idx] = {'value': str(value),
                             'alias': alias and str(alias) or None,
                             'description': description}
-        
+
     def write_db(self):
         self.__super.write_db()
         if not hasattr(self, '_src_sys'):
@@ -764,7 +777,7 @@ class EntityContactInfo(Entity):
                 tmp = data[row_idx]
                 if (tmp['value'] == row['contact_value'] and
                     tmp['alias'] == row['contact_alias'] and
-                    tmp['description'] == row['description']):
+                        tmp['description'] == row['description']):
                     del data[row_idx]
                     do_del = False
             if do_del:
@@ -784,7 +797,7 @@ class EntityContactInfo(Entity):
                                   data[idx]['description'],
                                   data[idx]['alias'])
     # end write_db
-    
+
     def delete_contact_info(self, source, contact_type, pref='ALL'):
         sql = """
         DELETE FROM [:table schema=cerebrum name=entity_contact_info]
@@ -796,13 +809,13 @@ class EntityContactInfo(Entity):
             sql += """ AND contact_pref=:pref"""
         self._db.log_change(self.entity_id, self.const.entity_cinfo_del, None,
                             change_params={'type': int(contact_type),
-                                           'src': int(source)})        
+                                           'src': int(source)})
         return self.execute(sql, {'e_id': self.entity_id,
                                   'src': int(source),
                                   'c_type': int(contact_type),
                                   'pref': pref})
     # end delete_contact_info
-    
+
     def list_contact_info(self, entity_id=None, source_system=None,
                           contact_type=None, entity_type=None,
                           contact_value=None, contact_alias=None):
@@ -865,8 +878,8 @@ class EntityContactInfo(Entity):
 # end EntityContactInfo
 
 
-
 class EntityAddress(Entity):
+
     "Mixin class, usable alongside Entity for entities having addresses."
 
     __write_attr__ = ()
@@ -890,7 +903,7 @@ class EntityAddress(Entity):
             self._src_sys = source_system
         elif self._src_sys <> source_system:
             raise ValueError, \
-                  "Can't populate multiple `source_system`s w/o write_db()."
+                "Can't populate multiple `source_system`s w/o write_db()."
         try:
             foo = self.__data
         except AttributeError:
@@ -987,7 +1000,7 @@ class EntityAddress(Entity):
     def list_entity_addresses(self, entity_type=None, source_system=None,
                               address_type=None):
         e_type = ""
-        if entity_type == None:
+        if entity_type is None:
             pass  # Ok. No type to filter on.
         else:
             e_type = """
@@ -996,7 +1009,7 @@ class EntityAddress(Entity):
               e.entity_type """
             if isinstance(entity_type, list):
                 e_type += "IN (%s)" % ", ".join(map(str,
-                                                    map(int,entity_type)))
+                                                    map(int, entity_type)))
             else:
                 e_type += "= %s" % int(entity_type)
 
@@ -1004,25 +1017,25 @@ class EntityAddress(Entity):
         if source_system or address_type:
             where = "WHERE "
 
-        if source_system == None:
-            pass # No source_system to filter on.
+        if source_system is None:
+            pass  # No source_system to filter on.
         elif isinstance(source_system, list):
             where += "ea.source_system IN (%s)" %\
-                      ", ".join(map(str, map(int, source_system)))
+                ", ".join(map(str, map(int, source_system)))
         else:
             where += "ea.source_system=%s" % int(source_system)
 
         if source_system and address_type:
             where += " AND "
 
-        if address_type == None:
-            pass # No address_type to filter on.
+        if address_type is None:
+            pass  # No address_type to filter on.
         elif isinstance(address_type, list):
             where += "ea.address_type IN (%s)" %\
-                      ", ".join(map(str, map(int, address_type)))
+                ", ".join(map(str, map(int, address_type)))
         else:
             where += "ea.address_type=%s" % int(address_type)
-            
+
         return self.query("""
         SELECT ea.entity_id, ea.source_system, ea.address_type,
                ea.address_text, ea.p_o_box, ea.postal_number, ea.city,
@@ -1032,6 +1045,7 @@ class EntityAddress(Entity):
 
 
 class EntityQuarantine(Entity):
+
     "Mixin class, usable alongside Entity for entities we can quarantine."
 
     def delete(self):
@@ -1124,13 +1138,14 @@ class EntityQuarantine(Entity):
                 sel += "= %d" % entity_types
         if quarantine_types:
             if isinstance(quarantine_types, (list, tuple)):
-                qtypes = "IN (%s)" % ", ".join(map(str, map(int, quarantine_types)))
+                qtypes = "IN (%s)" % ", ".join(
+                    map(str, map(int, quarantine_types)))
             else:
                 qtypes = "= %d" % quarantine_types
             conditions.append("quarantine_type %s" % qtypes)
         if only_active:
-            conditions.append("""start_date <= [:now] AND  
-            (end_date IS NULL OR end_date > [:now]) AND 
+            conditions.append("""start_date <= [:now] AND
+            (end_date IS NULL OR end_date > [:now]) AND
             (disable_until IS NULL OR disable_until <= [:now])""")
         if conditions:
             where = " WHERE " + " AND ".join(conditions)
@@ -1141,16 +1156,17 @@ class EntityQuarantine(Entity):
 
 
 class EntityExternalId(Entity):
+
     "Mixin class, usable alongside Entity for ExternalIds."
     __read_attr__ = ('_extid_source', '_extid_types')
     __write_attr__ = ()
 
     def clear(self):
         self.__super.clear()
-        self._external_id= {}
+        self._external_id = {}
         self.clear_class(EntityExternalId)
         self.__updated = []
-    
+
     def delete(self):
         # Entities cannot be both Persons and OUs with the same entity_id
         # so not joining on entity_type should be safe.
@@ -1161,7 +1177,7 @@ class EntityExternalId(Entity):
 
     def write_db(self):
         self.__super.write_db()
-        
+
         if hasattr(self, '_extid_source'):
             dbvalues = {}
             for row in self.get_external_id(source_system=self._extid_source):
@@ -1177,8 +1193,11 @@ class EntityExternalId(Entity):
                     elif dbval is None:
                         self._set_external_id(self._extid_source, type, val)
                     else:
-                        self._set_external_id(self._extid_source, type, val, update=True)
-    
+                        self._set_external_id(
+                            self._extid_source,
+                            type,
+                            val,
+                            update=True)
 
     def affect_external_id(self, source, *types):
         self._extid_source = source
@@ -1187,10 +1206,10 @@ class EntityExternalId(Entity):
     def populate_external_id(self, source_system, id_type, external_id):
         if not hasattr(self, '_extid_source'):
             raise ValueError, \
-                  "Must call affect_external_id"
+                "Must call affect_external_id"
         elif self._extid_source != source_system:
             raise ValueError, \
-                  "Can't populate multiple `source_system`s w/o write_db()."
+                "Can't populate multiple `source_system`s w/o write_db()."
         self._external_id[int(id_type)] = external_id
 
     def _delete_external_id(self, source_system, id_type):
@@ -1209,18 +1228,20 @@ class EntityExternalId(Entity):
             sql = """UPDATE [:table schema=cerebrum name=entity_external_id]
             SET external_id=:ext_id
             WHERE entity_id=:e_id AND id_type=:id_type AND source_system=:src"""
-            self._db.log_change(self.entity_id, self.const.entity_ext_id_mod, None,
-                                change_params={'id_type': int(id_type),
-                                               'src': int(source_system),
-                                               'value': external_id})
+            self._db.log_change(
+                self.entity_id, self.const.entity_ext_id_mod, None,
+                change_params={'id_type': int(id_type),
+                               'src': int(source_system),
+                               'value': external_id})
         else:
             sql = """INSERT INTO [:table schema=cerebrum name=entity_external_id]
             (entity_id, entity_type, id_type, source_system, external_id)
             VALUES (:e_id, :e_type, :id_type, :src, :ext_id)"""
-            self._db.log_change(self.entity_id, self.const.entity_ext_id_add, None,
-                                change_params={'id_type': int(id_type),
-                                               'src': int(source_system),
-                                               'value': external_id})
+            self._db.log_change(
+                self.entity_id, self.const.entity_ext_id_add, None,
+                change_params={'id_type': int(id_type),
+                               'src': int(source_system),
+                               'value': external_id})
         self.execute(sql, {'e_id': self.entity_id,
                            'e_type': int(self.entity_type),
                            'id_type': int(id_type),
@@ -1244,13 +1265,13 @@ class EntityExternalId(Entity):
                           external_id=None, entity_type=None, entity_id=None):
         """We trust id_type's entity_type more than a supplemented
         attribute, hence we try that first.
-        
-        @param source_system: 
+
+        @param source_system:
           Source system for the external ID (SAP, LT, FS, etc.)
         @param id_type:
           Specific external ID type (like externalid_fodselsnr)
         @param external_id:
-          Value for the external ID (useful for looking up the owner of a particular external ID). 
+          Value for the external ID (useful for looking up the owner of a particular external ID).
         @param entity_type:
           Looks for a specific entity type (i.e. Person, OU).
         @param entity_id:
@@ -1277,12 +1298,12 @@ class EntityExternalId(Entity):
         SELECT entity_id, id_type, source_system, external_id
         FROM [:table schema=cerebrum name=entity_external_id]
         %s""" % where, cols, fetchall=False)
-    
+
     # The following method will have the argument "entity_type"
     # removed. The reason is that entity_type can be found in
     # id_type. To do this a lot of code has to be looked into.
     def find_by_external_id(self, id_type, external_id, source_system=None,
-                             entity_type=None):
+                            entity_type=None):
         binds = {'id_type': int(id_type),
                  'ext_id': external_id,
                  'entity_type': int(id_type.entity_type)}
@@ -1311,12 +1332,12 @@ class EntityExternalId(Entity):
 
 
 # TODO: OBSOLETE.  use Entity.get_subclassed_object()
-def object_by_entityid(id, database): 
+def object_by_entityid(id, database):
     """Instanciates and returns a object of the proper class
        based on the entity's type."""
-    entity = Entity(database)   
+    entity = Entity(database)
     entity.find(id)
-    # nice - convert from almost-int to int to EntityTypeCode to str 
+    # nice - convert from almost-int to int to EntityTypeCode to str
     type = str(_EntityTypeCode(int(entity.entity_type)))
     try:
         component = Factory.type_component_map.get(type)
@@ -1325,6 +1346,6 @@ def object_by_entityid(id, database):
     Class = Factory.get(component)
     object = Class(database)
     object.find(id)
-    return object        
+    return object
 
 # arch-tag: 49f3e35b-09b5-4e4a-8d53-cd98df5b1d10

@@ -20,7 +20,7 @@
 from Cerebrum.extlib.Plex import *
 
 
-### Define names of tokens returned by the scanner.
+# Define names of tokens returned by the scanner.
 
 # SQL keyword or object name.  Text returned: The word that was found,
 # e.g. 'select' or 'employee'.
@@ -72,7 +72,7 @@ class SqlScanner(Scanner):
 
     def __init__(self, file):
         # TBD: Plex doesn't use new-style classes, can't use super().
-        ## super(SqlScanner, self).__init__(self.lexicon, file)
+        # super(SqlScanner, self).__init__(self.lexicon, file)
         Scanner.__init__(self, self.lexicon, file)
         self.paren_nesting_level = 0
 
@@ -117,7 +117,7 @@ class SqlScanner(Scanner):
     statement_end = Any(";")
     operator = Str("+", "-", "*", "/", "||",
                    "=", "<", "<=", ">", ">=", "<>", "!=")
-    
+
     lexicon = Lexicon([
         (name, SQL_WORD),
         (integer, SQL_INTEGER_LITERAL),
@@ -141,7 +141,7 @@ class SqlScanner(Scanner):
                (name, SQL_PORTABILITY_FUNCTION),
                (spaces, IGNORE)
                ])
-        ])
+    ])
 
     def __iter__(self):
         return self

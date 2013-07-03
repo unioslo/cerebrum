@@ -19,9 +19,11 @@
 
 """Generic and specific exception classes for Cerebrum."""
 
+
 class DocstringException(Exception):
+
     """Makes it easy to define more descriptive error messages.
-       
+
        >>> class RealityError(DocstringException):
        ...     '''Unreachable point'''
 
@@ -30,46 +32,49 @@ class DocstringException(Exception):
          File "<stdin>", line 1, in ?
        RealityError: Unreachable point
 
-       With argument: 
-       
+       With argument:
+
        >>> raise RealityError, "Outside handler"
        Traceback (most recent call last):
          File "<stdin>", line 1, in ?
        RealityError: Unreachable point: Outside handler
 
-       Without docstring: 
-       
+       Without docstring:
+
        >>> class SomeError(RealityError):
-       ...     pass    
+       ...     pass
        >>> raise SomeError
        Traceback (most recent call last):
          File "<stdin>", line 1, in ?
        SomeError
-       
+
        Without docstring, with argument:
-       
+
        >>> raise SomeError, 129
        Traceback (most recent call last):
          File "<stdin>", line 1, in ?
        SomeError: 129
        """
+
     def __str__(self):
-        args = Exception.__str__(self) # Get our arguments
+        args = Exception.__str__(self)  # Get our arguments
 
         # We'll only include the docstring if it has been defined in
         # our direct class. This avoids printing "General Error" when
         # a class SpecificError(GeneralError) just forgot to specify a
-        # docstring. 
-        doc = self.__class__.__doc__ 
+        # docstring.
+        doc = self.__class__.__doc__
         if args and doc:
             return doc + ': ' + args
         elif args:
             # don't worry, our class name will be printed
-            return args    
+            return args
         else:
             return doc or ""
 
+
 class PoliteException(SystemExit):
+
     """Exception used to exit with an error message but no traceback.
 
     The argument should be a complete explanation of the error, so no
@@ -78,63 +83,87 @@ class PoliteException(SystemExit):
     It is a subclass of the SystemExit exception, used by sys.exit()."""
 
 
-class CerebrumError(DocstringException):           
+class CerebrumError(DocstringException):
+
     """Generic Cerebrum error"""
 
+
 class RealityError(CerebrumError):
+
     """This should never happen"""
-    ## example:
-    ##     if 0:
-    ##         raise RealityError, "Not 0"
+    # example:
+    # if 0:
+    # raise RealityError, "Not 0"
+
 
 class UnreachableCodeError(RealityError):
+
     """Unreachable code"""
 
 
 class ProgrammingError(CerebrumError):
+
     """Programming error"""
-    ## example:
-    ##     def function(arg1=None, arg2=None):
-    ##         if (arg1 and arg2) or not (arg1 or arg2):
-    ##             raise ProgrammingError, "Must specify arg1 OR arg2"
+    # example:
+    # def function(arg1=None, arg2=None):
+    # if (arg1 and arg2) or not (arg1 or arg2):
+    # raise ProgrammingError, "Must specify arg1 OR arg2"
+
 
 class DatabaseException(CerebrumError):
+
     """Database error"""
 
+
 class DatabaseConnectionError(DatabaseException, PoliteException):
+
     """Database connection error"""
 
+
 class NotFoundError(DatabaseException):
+
     """Could not find"""
 
+
 class TooManyRowsError(DatabaseException):
+
     """Too many rows"""
+
 
 class NoEntityAssociationError(CerebrumError):
     # What does this mean?
     pass
 
+
 class RequiresPosixError(CerebrumError):
+
     """Posix object required"""
 
+
 class NotImplementedAuthTypeError(NotImplementedError):
+
     """Auth type not implemented"""
 
+
 class PolicyException(CerebrumError):
+
     """This action violates a policy.
-    
+
     The argument should be a complete explanation of
     what policy is broken."""
+
 
 class CerebrumRPCException(CerebrumError):
     # The message should be a text code, to be used by a Message object.
     pass
 
+
 def _test():
-    import doctest,Errors 
+    import doctest
+    import Errors
     return doctest.testmod(Errors)
-            
+
 if __name__ == "__main__":
-    _test()    
+    _test()
 
 # arch-tag: 6918977f-ef13-4a6d-9e9b-3457e7730023

@@ -69,13 +69,14 @@ from Cerebrum.extlib import db_row
 # ours in the MRO, and we cannot always re-arrange the base classes to
 # compensate (as of 2.5, CommonExceptionBase.__str__ will always be called)
 class CommonExceptionBase(Exception):
+
     def __str__(self):
         # Call superclass' method to get the error message
         main_message = super(CommonExceptionBase, self).__str__()
-        
+
         # Occasionally, we need to know what the offending sql is. This is
         # particularily practical in that case.
-        body = [main_message,]
+        body = [main_message, ]
         for attr in ("operation", "sql", "parameters", "binds",):
             if hasattr(self, attr):
                 body.append("%s=%s" % (attr, getattr(self, attr)))
@@ -83,44 +84,57 @@ class CommonExceptionBase(Exception):
         return "\n".join(body)
     # end __str__
 # end CommonExceptionBase
-    
+
+
 class Warning(CommonExceptionBase):
+
     """Driver-independent base class of DB-API Warning exceptions.
 
     Exception raised for important warnings like data truncations while
     inserting, etc."""
     pass
 
+
 class Error(CommonExceptionBase):
+
     """Driver-independent base class of DB-API Error exceptions.
-    
+
     Exception that is the base class of all other error exceptions. You
     can use this to catch all errors with one single 'except'
     statement. Warnings are not considered errors and thus should not use
     this class as base."""
     pass
 
+
 class InterfaceError(Error):
+
     """Driver-independent base class of DB-API InterfaceError exceptions.
 
     Exception raised for errors that are related to the database
     interface rather than the database itself."""
     pass
 
+
 class DatabaseError(Error):
+
     """Driver-independent base class of DB-API DatabaseError exceptions.
 
     Exception raised for errors that are related to the database."""
 # end class DatabaseError
 
+
 class DataError(DatabaseError):
+
     """Driver-independent base class of DB-API DataError exceptions.
 
     Exception raised for errors that are due to problems with the
     processed data like division by zero, numeric value out of range,
     etc."""
     pass
+
+
 class OperationalError(DatabaseError):
+
     """Driver-independent base class of DB-API OperationalError exceptions.
 
     Exception raised for errors that are related to the database's
@@ -129,27 +143,39 @@ class OperationalError(DatabaseError):
     found, a transaction could not be processed, a memory allocation
     error occurred during processing, etc."""
     pass
+
+
 class IntegrityError(DatabaseError):
+
     """Driver-independent base class of DB-API IntegrityError exceptions.
 
     Exception raised when the relational integrity of the database is
     affected, e.g. a foreign key check fails."""
     pass
+
+
 class InternalError(DatabaseError):
+
     """Driver-independent base class of DB-API InternalError exceptions.
 
     Exception raised when the database encounters an internal error,
     e.g. the cursor is not valid anymore, the transaction is out of
     sync, etc."""
     pass
+
+
 class ProgrammingError(DatabaseError):
+
     """Driver-independent base class of DB-API ProgrammingError exceptions.
 
     Exception raised for programming errors, e.g. table not found or
     already exists, syntax error in the SQL statement, wrong number of
     parameters specified, etc."""
     pass
+
+
 class NotSupportedError(DatabaseError):
+
     """Driver-independent base class of DB-API NotSupportedError exceptions.
 
     Exception raised in case a method or database API was used which
@@ -173,7 +199,9 @@ API_TYPE_CTOR_NAMES = (
     "TimeFromTicks", "TimestampFromTicks", "Binary")
 """Tuple holding the names of the standard DB-API type constructors."""
 
+
 class Cursor(object):
+
     """Driver-independent cursor wrapper class.
 
     Instances are created by calling the .cursor() method of an object
@@ -195,7 +223,7 @@ class Cursor(object):
         for exc_name in API_EXCEPTION_NAMES:
             setattr(self, exc_name, getattr(db, exc_name))
 
-    ####################################################################
+    #
     #
     #   Methods corresponding to DB-API 2.0 cursor object methods.
     #
@@ -203,14 +231,21 @@ class Cursor(object):
     # Use the `property' type (new in Python 2.2) for easy access to
     # the default cursor's attributes.
 
-    def _get_description(self): return self._cursor.description
+    def _get_description(self):
+        return self._cursor.description
     description = property(_get_description, None, None,
                            "DB-API 2.0 .read-only attribute 'description'.")
-    def _get_rowcount(self): return self._cursor.rowcount
+
+    def _get_rowcount(self):
+        return self._cursor.rowcount
     rowcount = property(_get_rowcount, None, None,
                         "DB-API 2.0 read-only attribute 'rowcount'.")
-    def _get_arraysize(self): return self._cursor.arraysize
-    def _set_arraysize(self, size): self._cursor.arraysize = size
+
+    def _get_arraysize(self):
+        return self._cursor.arraysize
+
+    def _set_arraysize(self, size):
+        self._cursor.arraysize = size
     arraysize = property(_get_arraysize, _set_arraysize, None,
                          "DB-API 2.0 read-write attribute 'arraysize'.")
 
@@ -234,7 +269,7 @@ class Cursor(object):
             finally:
                 if self.description:
                     # Retrieve the column names involved in the query.
-                    fields = [ d[0].lower() for d in self.description ]
+                    fields = [d[0].lower() for d in self.description]
                     # Make a db_row class that corresponds to this set of
                     # column names.
                     self._row_class = db_row.make_row_class(fields)
@@ -284,7 +319,7 @@ class Cursor(object):
                 # an error.  It's the caller's responsibility to feed
                 # us one statement at a time.
                 raise self.ProgrammingError, \
-                      "Token '%s' found after end of SQL statement." % text
+                    "Token '%s' found after end of SQL statement." % text
             elif p_item:
                 #
                 # We're in the middle of parsing an SQL portability
@@ -315,7 +350,7 @@ class Cursor(object):
                 name = text[1:]
                 if not params.has_key(name):
                     raise self.ProgrammingError, \
-                          "Bind parameter %s has no value." % text
+                        "Bind parameter %s has no value." % text
                 translation.append(pconv.register(name))
             else:
                 translation.append(text)
@@ -342,9 +377,9 @@ class Cursor(object):
                 # The operation created a result set; this constitutes
                 # undefined behaviour for .executemany().
                 raise self.ProgrammingError, \
-                      ".executemany() produced result set."
+                    ".executemany() produced result set."
         return ret
-##        return self._cursor.executemany(operation, seq_of_parameters)
+# return self._cursor.executemany(operation, seq_of_parameters)
 
     def fetchone(self):
         """Do DB-API 2.0 .fetchone()."""
@@ -402,9 +437,9 @@ class Cursor(object):
 
         """
 
-##         query = query.strip()
-##         assert query.lower().startswith("select")
-        
+# query = query.strip()
+# assert query.lower().startswith("select")
+
         if not fetchall:
             # If the cursor to iterate over is used for other queries
             # before the iteration is finished, things won't work.
@@ -420,7 +455,7 @@ class Cursor(object):
         if fetchall:
             # Return all rows, wrapped up in db_row instances.
             R = self._row_class
-            return [ R(row) for row in self.fetchall() ]
+            return [R(row) for row in self.fetchall()]
         else:
             return iter(self)
 
@@ -458,7 +493,7 @@ class Cursor(object):
         object.  The no-op should result in an exception being raised
         if the cursor is no longer able to communicate with the
         database.
-        
+
         Caveat: note that a SELECT sent to the database at this point will
         start a new transaction. If autocommit is off, this new transaction
         will remain idle until another query is sent. Be careful about the
@@ -468,10 +503,10 @@ class Cursor(object):
         self.execute("""SELECT 1 AS foo [:from_dual]""")
     # end ping
 # end class Cursor
-        
 
 
 class RowIterator(object):
+
     def __init__(self, cursor):
         self._csr = cursor
         self._queue = []
@@ -493,6 +528,7 @@ class RowIterator(object):
 # styles.
 #
 class convert_param_base(object):
+
     """Convert bind parameters to appropriate paramstyle."""
 
     __slots__ = ('map',)
@@ -516,13 +552,16 @@ class convert_param_base(object):
 
 class convert_param_nonrepeat(convert_param_base):
     __slots__ = ()
+
     def register(self, name):
         self.map.append(name)
         return super(convert_param_nonrepeat, self).register(name)
 
+
 class convert_param_qmark(convert_param_nonrepeat):
     __slots__ = ()
     param_format = '?'
+
 
 class convert_param_format(convert_param_nonrepeat):
     __slots__ = ()
@@ -531,6 +570,7 @@ class convert_param_format(convert_param_nonrepeat):
 
 class convert_param_numeric(convert_param_base):
     __slots__ = ()
+
     def register(self, name):
         if name not in self.map:
             self.map.append(name)
@@ -541,6 +581,7 @@ class convert_param_numeric(convert_param_base):
 
 class convert_param_to_dict(convert_param_base):
     __slots__ = ()
+
     def __init__(self):
         # Override to avoid creating self.map; that's not needed here.
         pass
@@ -549,9 +590,11 @@ class convert_param_to_dict(convert_param_base):
         # Simply return `param_dict` as is.
         return param_dict
 
+
 class convert_param_named(convert_param_to_dict):
     __slots__ = ()
     param_format = ':%(name)s'
+
 
 class convert_param_pyformat(convert_param_to_dict):
     __slots__ = ()
@@ -559,6 +602,7 @@ class convert_param_pyformat(convert_param_to_dict):
 
 
 class Database(object):
+
     """Abstract superclass for database driver classes."""
 
     _db_mod = None
@@ -586,7 +630,7 @@ class Database(object):
             # The 'Database' class itself is purely virtual; no
             # instantiation is allowed.
             raise NotImplementedError, \
-                  "Can't instantiate abstract class <Database>."
+                "Can't instantiate abstract class <Database>."
         # Figure out if we need to import the driver module.
         mod = self._db_mod or self.__class__.__name__
         if type(mod) == StringType:
@@ -608,7 +652,7 @@ class Database(object):
     def _kickstart(self, module_name):
         """Perform necessary magic after importing a new driver module."""
         self_class = self.__class__
-        # 
+        #
         # We're in the process of instantiating this subclass for the first
         # time; we need to import the DB-API 2.0 compliant module.
         self_class._db_mod = Utils.dyn_import(module_name)
@@ -640,8 +684,8 @@ class Database(object):
                 # particular ctor in this class, probably for a good
                 # reason (e.g. the driver module doesn't supply this
                 # type ctor); skip to next ctor.
-##                 print "Skipping copy of type ctor %s to class %s." % \
-##                       (ctor_name, self_class.__name__)
+# print "Skipping copy of type ctor %s to class %s." % \
+# (ctor_name, self_class.__name__)
                 continue
             f = getattr(self._db_mod, ctor_name)
             setattr(self_class, ctor_name, staticmethod(f))
@@ -651,8 +695,8 @@ class Database(object):
         for type_name in API_TYPE_NAMES:
             if hasattr(self_class, type_name):
                 # Already present as attribute; skip.
-##                 print "Skipping copy of type %s to class %s." % \
-##                       (type_name, self_class.__name__)
+# print "Skipping copy of type %s to class %s." % \
+# (type_name, self_class.__name__)
                 continue
             type_obj = getattr(self._db_mod, type_name)
             setattr(self_class, type_name, type_obj)
@@ -664,7 +708,7 @@ class Database(object):
             cls = getattr(Utils.this_module(), converter_name)
             self_class.param_converter = cls
 
-    ####################################################################
+    #
     #
     #   Methods corresponding to DB-API 2.0 module-level interface.
     #
@@ -681,7 +725,7 @@ class Database(object):
             # here.
             raise Errors.DatabaseConnectionError
 
-    ####################################################################
+    #
     #
     #   Methods corresponding to DB-API 2.0 connection object methods.
     #
@@ -702,20 +746,27 @@ class Database(object):
         """Generate and return a fresh cursor object."""
         return Cursor(self)
 
-    ####################################################################
+    #
     #
     #   Methods corresponding to DB-API 2.0 cursor object methods.
     #
     #   These methods operate via this object default cursor.
     #
-    def _get_description(self): return self._cursor.description
+    def _get_description(self):
+        return self._cursor.description
     description = property(_get_description, None, None,
                            "DB-API 2.0 .description for default cursor.")
-    def _get_rowcount(self): return self._cursor.rowcount
+
+    def _get_rowcount(self):
+        return self._cursor.rowcount
     rowcount = property(_get_rowcount, None, None,
                         "DB-API 2.0 .rowcount for default cursor.")
-    def _get_arraysize(self): return self._cursor.arraysize
-    def _set_arraysize(self, size): self._cursor.arraysize = size
+
+    def _get_arraysize(self):
+        return self._cursor.arraysize
+
+    def _set_arraysize(self, size):
+        self._cursor.arraysize = size
     arraysize = property(_get_arraysize, _set_arraysize, None,
                          "DB-API 2.0 .arraysize for default cursor.")
 
@@ -750,7 +801,7 @@ class Database(object):
         else:
             return self._cursor.setoutputsize(size, column)
 
-    ####################################################################
+    #
     #
     #   Methods that does not directly correspond to anything in the
     #   DB-API 2.0 spec.
@@ -836,7 +887,7 @@ class Database(object):
 
         @type seq_name : string
         @param seq_name: The name of the sequence to update
-        
+
         @type val: int
         @param val: The integer we want to set
 
@@ -846,7 +897,7 @@ class Database(object):
         """
         return self.query_1("""
         SELECT [:sequence schema=cerebrum name=%s op=set val=%d]""" %
-        (seq_name, int(val)))
+                           (seq_name, int(val)))
 
     def ping(self):
         """Check that communication with the database works.
@@ -869,8 +920,8 @@ class Database(object):
         for k, v in [x.split("=", 1) for x in args]:
             if k in kw_args:
                 raise self.ProgrammingError, \
-                      "Keyword argument '%s' use multiple times in '%s' op." \
-                      % (k, op)
+                    "Keyword argument '%s' use multiple times in '%s' op." \
+                    % (k, op)
             kw_args[k] = v
         return method(**kw_args)
 
@@ -927,7 +978,6 @@ class Database(object):
 # end class Database
 
 
-
 def get_pg_savepoint_id():
     """Return a unique identifier suitable for savepoints.
 
@@ -951,8 +1001,8 @@ def get_pg_savepoint_id():
 # end get_pg_savepoint_id
 
 
-
 class PostgreSQLBase(Database):
+
     """PostgreSQL driver base class."""
 
     rdbms_id = "PostgreSQL"
@@ -962,7 +1012,7 @@ class PostgreSQLBase(Database):
             if issubclass(cls, PostgreSQLBase):
                 return super(PostgreSQLBase, self).__init__(*args, **kws)
         raise NotImplementedError, \
-              "Can't instantiate abstract class <PostgreSQLBase>."
+            "Can't instantiate abstract class <PostgreSQLBase>."
 
     def _sql_port_table(self, schema, name):
         return [name]
@@ -972,7 +1022,7 @@ class PostgreSQLBase(Database):
             return ["nextval('%s')" % name]
         elif op == 'curr':
             return ["currval('%s')" % name]
-        elif op == 'set' and val != None:
+        elif op == 'set' and val is not None:
             return ["setval('%s', %s)" % (name, val)]
         else:
             raise ValueError, 'Invalid sequnce operation: %s' % op
@@ -987,7 +1037,9 @@ class PostgreSQLBase(Database):
         return ['NOW()']
 # end PostgreSQLBase
 
+
 class PgSQL(PostgreSQLBase):
+
     """PostgreSQL driver class."""
 
     _db_mod = "pyPgSQL.PgSQL"
@@ -1045,7 +1097,8 @@ class PgSQL(PostgreSQLBase):
     # However, as it turns out, the connection object of this driver
     # doesn't really have a Binary constructor, either.  Thus, the
     # best we can do is to raise a NotImplementedError. :-(
-    def Binary(string): raise NotImplementedError
+    def Binary(string):
+        raise NotImplementedError
     Binary = staticmethod(Binary)
 
     def pythonify_data(self, data):
@@ -1063,12 +1116,13 @@ class PgSQL(PostgreSQLBase):
 
 
 class PsycoPGBase(PostgreSQLBase):
+
     """PostgreSQL driver class using psycopg."""
 
     # This is a base class for psycopg-driver family. Set to the appropriate
     # value in the subclasses.
     # _db_mod = None
-    
+
     def connect(self, user=None, password=None, service=None,
                 client_encoding=None, host=None, port=None):
         dsn = []
@@ -1082,7 +1136,7 @@ class PsycoPGBase(PostgreSQLBase):
             port = cereconf.CEREBRUM_DATABASE_CONNECT_DATA.get('port')
         if password is None and user is not None:
             password = read_password(user, service, host)
-        
+
         if service is not None:
             dsn.append('dbname=' + service)
         if user is not None:
@@ -1118,7 +1172,6 @@ class PsycoPG(PsycoPGBase):
 class PsycoPG2(PsycoPGBase):
     _db_mod = "psycopg2"
 
-
     def ping(self):
         """psycopg2-specific version of ping.
 
@@ -1143,7 +1196,7 @@ class PsycoPG2(PsycoPGBase):
 
     def cursor(self):
         return PsycoPG2Cursor(self)
-# end class PsycoPG2            
+# end class PsycoPG2
 
 
 class PsycoPGCursor(Cursor):
@@ -1164,8 +1217,7 @@ class PsycoPGCursor(Cursor):
         finally:
             channel.execute("ROLLBACK TO SAVEPOINT %s" % identifier)
     # end ping
-    
-    
+
     def execute(self, operation, parameters=()):
         # IVR 2008-10-30 TBD: This is not really how the psycopg framework
         # is supposed to be used. There is an adapter mechanism, and we should
@@ -1181,7 +1233,7 @@ class PsycoPGCursor(Cursor):
                 parameters[k] = parameters[k].encode(self._db.encoding)
         if (type(operation) is unicode and
                 self._db.encoding != 'UTF-8'):
-                operation = operation.encode(self._db.encoding)
+            operation = operation.encode(self._db.encoding)
 
         # A static method is slightly faster than a lambda.
         def utf8_decode(s):
@@ -1194,7 +1246,7 @@ class PsycoPGCursor(Cursor):
         if self.description is not None:
             for n in range(len(self.description)):
                 if (self.description[n][1] == self._db.NUMBER and
-                    self.description[n][5] <= 0):  # pos 5 = scale in DB-API spec
+                        self.description[n][5] <= 0):  # pos 5 = scale in DB-API spec
                     self._convert_cols[n] = long
                 elif (self._db.encoding == 'UTF-8' and
                       self.description[n][1] == self._db.STRING):
@@ -1225,12 +1277,14 @@ class PsycoPGCursor(Cursor):
 
 
 class PsycoPG2Cursor(PsycoPGCursor):
+
     def execute(self, operation, parameters=()):
         ret = super(PsycoPG2Cursor, self).execute(operation, parameters)
         db_mod = self._db._db_mod
 
         def date_to_mxdatetime(dt):
             return DateTime.DateTime(dt.year, dt.month, dt.day)
+
         def datetime_to_mxdatetime(dt):
             return DateTime.DateTime(dt.year, dt.month, dt.day,
                                      dt.hour, dt.minute, dt.second)
@@ -1250,10 +1304,10 @@ class PsycoPG2Cursor(PsycoPGCursor):
         return ret
     # end execute
 # end PsycoPG2Cursor
-    
 
 
 class OracleBase(Database):
+
     """Oracle database driver class."""
 
     rdbms_id = "Oracle"
@@ -1261,9 +1315,9 @@ class OracleBase(Database):
     def __init__(self, *args, **kws):
         for cls in self.__class__.__mro__:
             if issubclass(cls, OracleBase):
-               return super(OracleBase, self).__init__(*args, **kws)
+                return super(OracleBase, self).__init__(*args, **kws)
         raise NotImplementedError, \
-              "Can't instantiate abstract class <OracleBase>."
+            "Can't instantiate abstract class <OracleBase>."
 
     def _sql_port_table(self, schema, name):
         return ['%(schema)s.%(name)s' % locals()]
@@ -1309,11 +1363,11 @@ class DCOracle2(OracleBase):
             client_encoding = self.encoding
         else:
             self.encoding = client_encoding
-        
+
         # The encoding names in Oracle don't look like PostgreSQL's,
         # so we translate them into a single standard.
-        encoding_names = { 'ISO_8859_1': "american_america.we8iso8859p1",
-                           'UTF-8': "american_america.utf8" }
+        encoding_names = {'ISO_8859_1': "american_america.we8iso8859p1",
+                          'UTF-8': "american_america.utf8"}
         os.environ['NLS_LANG'] = encoding_names.get(client_encoding,
                                                     client_encoding)
         #
@@ -1351,11 +1405,11 @@ class cx_Oracle(OracleBase):
             client_encoding = self.encoding
         else:
             self.encoding = client_encoding
-        
+
         # The encoding names in Oracle don't look like PostgreSQL's,
         # so we translate them into a single standard.
-        encoding_names = { 'ISO_8859_1': "american_america.we8iso8859p1",
-                           'UTF-8': "american_america.utf8" }
+        encoding_names = {'ISO_8859_1': "american_america.we8iso8859p1",
+                          'UTF-8': "american_america.utf8"}
         os.environ['NLS_LANG'] = encoding_names.get(client_encoding,
                                                     client_encoding)
 
@@ -1364,12 +1418,10 @@ class cx_Oracle(OracleBase):
         # cx_Oracle module.
         super(cx_Oracle, self).connect(conn_str)
     # end connect
-    
 
     def cursor(self):
         return cx_OracleCursor(self)
     # end cursor
-
 
     def pythonify_data(self, data):
         """Convert type of value(s) in data to native Python types."""
@@ -1385,8 +1437,8 @@ class cx_Oracle(OracleBase):
 # end cx_Oracle
 
 
-
 class cx_OracleCursor(Cursor):
+
     """A special cursor subclass to handle cx_Oracle's quirks.
 
     This class is a workaround for cx_Oracle's feature where it refuses to
@@ -1412,7 +1464,7 @@ class cx_OracleCursor(Cursor):
         # Now that we have raw sql, we need to check if binds contains some
         # superfluous identifiers. If it does, we have to purge them, since
         # cx_Oracle bails with an error when there are more binds than free
-        # variables.  
+        # variables.
 
         # 1. Prepare the statement (so that the backend can report some useful
         #    information about this.) This costs extra time, but it is
@@ -1440,10 +1492,9 @@ class cx_OracleCursor(Cursor):
         return retval
     # end execute
 
-
     def query(self, query, params=(), fetchall=True):
         raw_result = list(super(cx_OracleCursor, self).query(
-                         query, params=params, fetchall=fetchall))
+                          query, params=params, fetchall=fetchall))
 
         # IVR 2009-02-12 FIXME: respect fetchall while making conversions.
         for item in raw_result:
@@ -1458,8 +1509,8 @@ class cx_OracleCursor(Cursor):
 # end cx_OracleCursor
 
 
-
 class SQLite(Database):
+
     """This class defines an abstraction for the SQLite backend.
 
     The class is a hairy monstrosity of an enormous hack. SQLite does NOT
@@ -1523,7 +1574,7 @@ class SQLite(Database):
     # end cursor
 
     def _sql_port_now(self):
-        return ["CURRENT_TIMESTAMP"] # self._mx2sqlite(DateTime.now())]
+        return ["CURRENT_TIMESTAMP"]  # self._mx2sqlite(DateTime.now())]
 
     def _sql_port_table(self, schema, name):
         return [name]
@@ -1569,13 +1620,15 @@ class SQLite(Database):
         # it's SQLite -- we are always on!
         pass
     # end ping
-    
+
 # end SQLite
 
+
 class SQLiteCursor(Cursor):
+
     """SQLite-specific cursor hacks.
-    
-    This class tries to hide some of the shortcomings of the SQLite backend. 
+
+    This class tries to hide some of the shortcomings of the SQLite backend.
     """
     identifier_start = '[a-zA-Z]'
     identifier_body = '[a-zA-Z0-9_]'
@@ -1592,7 +1645,6 @@ class SQLiteCursor(Cursor):
         return retval
     # end _translate
 
-
     def _parameter_fixup(self, parameters):
         """We want to force utf-8 for our parameters."""
 
@@ -1604,7 +1656,6 @@ class SQLiteCursor(Cursor):
 
         return parameters
     # end _parameter_fixup
-
 
     def _sequence_initial_fixup(self, operation):
         """Deep magic to compensate for SQLite's lack of sequences.
@@ -1629,8 +1680,9 @@ class SQLiteCursor(Cursor):
                                    self.regular_identifier),
                                   re.IGNORECASE)
         # rex for initial value in create sequence statements
-        sequence_initial = re.compile("\[:sequence_start\s+value\s*=\s*(\d+)\]",
-                                      re.IGNORECASE)
+        sequence_initial = re.compile(
+            "\[:sequence_start\s+value\s*=\s*(\d+)\]",
+            re.IGNORECASE)
 
         # Since sequences are not supported, we have to hack around them
         create_sequence = sequence_rex.search(operation)
@@ -1655,7 +1707,6 @@ class SQLiteCursor(Cursor):
 
         return operation, sequence_name, sequence_start_value
     # end _sequence_initial_fixup
-        
 
     def _sequence_final_fixup(self, sequence_name, start_value):
         """Insert the initial value into specified sequence."""
@@ -1663,24 +1714,22 @@ class SQLiteCursor(Cursor):
         super(SQLiteCursor, self).execute("INSERT INTO %s VALUES (%d)" %
                                           (sequence_name, start_value))
     # end _sequence_final_fixup
-        
 
     def _date_fixup(self, operation):
         """Remap DATE in table creation to TEXT.
 
         SQLite does not support the date datatype. Thus we remap all
-        occurrences of DATE to TEXT. 
+        occurrences of DATE to TEXT.
         """
 
         if re.search("create table", operation,
-                     re.IGNORECASE|re.MULTILINE|re.DOTALL):
+                     re.IGNORECASE | re.MULTILINE | re.DOTALL):
             # Swap all DATE uncritically to TEXT. This is hairy, this is
-            # scary, but I don't see any other way out :( 
+            # scary, but I don't see any other way out :(
             operation = re.sub("\s+DATE(\s+|,)", " TEXT\\1", operation)
 
         return operation
     # end _date_fixup
-
 
     def _constraint_fixup(self, operation):
         """Remap some ADD CONSTRAINT statements.
@@ -1701,7 +1750,6 @@ class SQLiteCursor(Cursor):
         return operation
     # end _constraint_fixup
 
-
     def execute(self, operation, parameters=()):
         """Execute the specified operation.
 
@@ -1712,8 +1760,9 @@ class SQLiteCursor(Cursor):
 
         parameters = self._parameter_fixup(parameters)
 
-        operation, seq_name, seq_start = self._sequence_initial_fixup(operation)
-        
+        operation, seq_name, seq_start = self._sequence_initial_fixup(
+            operation)
+
         operation = self._date_fixup(operation)
 
         operation = self._constraint_fixup(operation)
@@ -1737,6 +1786,7 @@ class SQLiteCursor(Cursor):
 # Define some aliases for driver class names that are already in use.
 PostgreSQL = PgSQL
 Oracle = DCOracle2
+
 
 def connect(*args, **kws):
     """Return a new instance of this installation's Database subclass."""

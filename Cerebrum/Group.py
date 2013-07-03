@@ -32,18 +32,20 @@ import cereconf
 from Cerebrum import Utils
 from Cerebrum import Errors
 from Cerebrum.Entity import EntityName, EntityQuarantine, \
-     EntityExternalId, EntitySpread
+    EntityExternalId, EntitySpread
 from Cerebrum.Utils import argument_to_sql, prepare_string
 try:
     set()
 except NameError:
     try:
         from sets import Set as set
-    except ImportError:    
+    except ImportError:
         from Cerebrum.extlib.sets import Set as set
 
 
 Entity_class = Utils.Factory.get("Entity")
+
+
 class Group(EntityQuarantine, EntityExternalId, EntityName,
             EntitySpread, Entity_class):
 
@@ -83,7 +85,8 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             # If the previous operation was find, self.create_date will
             # have a value, while populate usually is not called with
             # a create_date argument.  This check avoids a group_mod
-            # change-log entry caused when this is the only change to the entity
+            # change-log entry caused when this is the only change to the
+            # entity
             self.create_date = create_date
         self.expire_date = expire_date
         # TBD: Should this live in EntityName, and not here?  If yes,
@@ -163,20 +166,22 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             SET %(defs)s
             WHERE group_id=:g_id""" % {'defs': ", ".join(
                 ["%s=%s" % x for x in cols if x[0] <> 'group_id'])},
-                         {'g_id': self.entity_id,
-                          'desc': self.description,
-                          'visib': int(self.visibility),
-                          'creator_id': self.creator_id,
-                          # Even though the following two bind
-                          # variables will only be used in the query
-                          # when their values aren't None, there's no
-                          # reason we should take extra steps to avoid
-                          # including them here.
-                          'create_date': self.create_date,
-                          'exp_date': self.expire_date})
+                {'g_id': self.entity_id,
+                 'desc': self.description,
+                 'visib': int(self.visibility),
+                 'creator_id': self.creator_id,
+                 # Even though the following two bind
+                 # variables will only be used in the query
+                 # when their values aren't None, there's no
+                 # reason we should take extra steps to avoid
+                 # including them here.
+                 'create_date': self.create_date,
+                 'exp_date': self.expire_date})
             self._db.log_change(self.entity_id, self.const.group_mod, None)
-            self.update_entity_name(self.const.group_namespace, self.group_name)
-        ## EntityName.write_db(self, as_object)
+            self.update_entity_name(
+                self.const.group_namespace,
+                self.group_name)
+        # EntityName.write_db(self, as_object)
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -195,7 +200,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             self.execute("""
             DELETE FROM [:table schema=cerebrum name=group_member]
             WHERE member_id=:g_id""", {'g_id': self.entity_id})
-            
+
             # Remove name of group from the group namespace.
             try:
                 self.delete_entity_name(self.const.group_namespace)
@@ -212,8 +217,8 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         # called, the underlying Entity object is also removed.
         self.__super.delete()
 
-    ## TBD: Do we really need __eq__ methods once all Entity subclass
-    ## instances properly keep track of their __updated attributes?
+    # TBD: Do we really need __eq__ methods once all Entity subclass
+    # instances properly keep track of their __updated attributes?
     def __eq__(self, other):
         assert isinstance(other, Group)
         if (self.creator_id == other.creator_id
@@ -244,7 +249,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         self.__super.find(group_id)
         (self.description, self.visibility, self.creator_id,
          self.create_date, self.expire_date, self.group_name) = \
-         self.query_1("""
+            self.query_1("""
         SELECT gi.description, gi.visibility, gi.creator_id,
                gi.create_date, gi.expire_date, en.entity_name
         FROM [:table schema=cerebrum name=group_info] gi
@@ -255,8 +260,8 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
           en.value_domain = :domain
         WHERE
           gi.group_id=:g_id""",
-                      {'g_id': group_id,
-                       'domain': int(self.const.group_namespace)})
+                         {'g_id': group_id,
+                          'domain': int(self.const.group_namespace)})
         try:
             del self.__in_db
         except AttributeError:
@@ -270,7 +275,6 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         if domain is None:
             domain = self.const.group_namespace
         EntityName.find_by_name(self, name, domain)
-
 
     def add_member(self, member_id):
         """Add L{member_id} to this group.
@@ -289,7 +293,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             FROM [:table schema=cerebrum name=entity_info]
             WHERE entity_id = :member_id""", {"member_id": member_id})
 
-        # Then insert the data into the table. 
+        # Then insert the data into the table.
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=group_member]
           (group_id, member_type, member_id)
@@ -299,7 +303,6 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                       'm_id': member_id})
         self._db.log_change(member_id, self.const.group_add, self.entity_id)
     # end add_member
-
 
     def has_member(self, member_id):
         """Check whether L{member_id} is a member of this group.
@@ -326,7 +329,6 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             return False
     # end has_member
 
-
     def remove_member(self, member_id):
         """Remove L{member_id}'s membership from this group.
 
@@ -334,7 +336,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         @param member_id:
           Member (id) to remove from this group.
         """
-        
+
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=group_member]
         WHERE
@@ -343,7 +345,6 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                                'm_id': member_id})
         self._db.log_change(member_id, self.clconst.group_rem, self.entity_id)
     # end remove_member
-    
 
     def search(self, group_id=None,
                member_id=None, indirect_members=False,
@@ -393,7 +394,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         @param spread:
           Filter the resulting group list by spread. I.e. only groups with
           specified spread(s) will be returned.
-          
+
         @type name: basestring
         @param name:
           Filter the resulting group list by name. The name may contain SQL
@@ -429,7 +430,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
 
         # Sanity check: it is probably a bad idea to allow specifying both.
         assert not (member_id and group_id)
-        
+
         def search_transitive_closure(member_id):
             """Return all groups where member_id is/are indirect member(s).
 
@@ -479,12 +480,12 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                                     gi.expire_date AS expire_date
                  """
         tables = ["""[:table schema=cerebrum name=group_info] gi
-                     LEFT OUTER JOIN 
+                     LEFT OUTER JOIN
                          [:table schema=cerebrum name=entity_name] en
-                     ON 
+                     ON
                         en.entity_id = gi.group_id AND
                         en.value_domain = :vdomain
-                  """,]
+                  """, ]
         where = list()
         binds = {"vdomain": int(self.const.group_namespace)}
 
@@ -502,15 +503,20 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                 if not group_ids:
                     return []
 
-                where.append(argument_to_sql(group_ids, "gi.group_id", binds, int))
+                where.append(
+                    argument_to_sql(
+                        group_ids,
+                        "gi.group_id",
+                        binds,
+                        int))
             else:
                 tables.append("[:table schema=cerebrum name=group_member] gm")
                 where.append("(gi.group_id = gm.group_id)")
                 where.append(argument_to_sql(member_id, "gm.member_id",
                                              binds, int))
 
-        # 
-        # spread filter 
+        #
+        # spread filter
         if spread is not None:
             tables.append("[:table schema=cerebrum name=entity_spread] es")
             where.append("(gi.group_id = es.entity_id)")
@@ -537,7 +543,12 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         #
         # creator_id filter
         if creator_id is not None:
-            where.append(argument_to_sql(creator_id, "gi.creator_id", binds, int))
+            where.append(
+                argument_to_sql(
+                    creator_id,
+                    "gi.creator_id",
+                    binds,
+                    int))
 
         where_str = ""
         if where:
@@ -547,13 +558,12 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         # IVR 2008-07-09 Originally the idea was to use a generator to avoid
         # caching all rows in memory. Unfortunately, setting fetchall=False
         # causes an ungodly amount of sql statement reparsing, which leads to
-        # an abysmal perfomance penalty. 
+        # an abysmal perfomance penalty.
         return self.query(query_str, binds, fetchall=True)
     # end search
 
-
     def search_members(self, group_id=None,
-                       member_id=None, member_type=None, 
+                       member_id=None, member_type=None,
                        indirect_members=False,
                        member_spread=None,
                        member_filter_expired=True,
@@ -599,7 +609,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
           member entities of the specified type will be returned. This is
           useful for answering questions like 'give me a list of *group*
           members of group <bla>'.
-          
+
         @type indirect_members: bool
         @param indirect_members:
           This parameter controls how 'deep' a search is performed. If True,
@@ -647,11 +657,11 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             - member_type
             - member_id
             - expire_date
-            
+
           There *may* be other keys, but the caller cannot rely on that; nor
           can the caller assume that any other key will not be revoked at any
           time. expire_date may be None, the rest is always set.
-          
+
           Note that if L{indirect_members} is specified, the answer may
           contain member_ids that were NOT part of the initial filters. The
           client code invoking search_members() this way should be prepared
@@ -722,19 +732,19 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                            en.entity_name as entity_name,
                            ai.expire_date as expire1
                        FROM [:table schema=cerebrum name=group_member] gm
-                       LEFT OUTER JOIN 
+                       LEFT OUTER JOIN
                           [:table schema=cerebrum name=entity_name] en
-                       ON 
+                       ON
                           (en.entity_id = gm.group_id AND
                            en.value_domain = :vdomain)
-                       LEFT OUTER JOIN 
+                       LEFT OUTER JOIN
                              [:table schema=cerebrum name=account_info] ai
                        ON ai.account_id = gm.member_id
                   ) AS tmp1
                   LEFT OUTER JOIN
                      [:table schema=cerebrum name=group_info] gi
                   ON gi.group_id = tmp1.member_id
-                  """,]
+                  """, ]
 
         binds = {"vdomain": int(self.const.group_namespace)}
         where = list()
@@ -745,29 +755,41 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                 # members of the initial set of group ids. This way we get
                 # *all* indirect non-group members
                 group_id = search_transitive_closure(group_id,
-                              lambda ids: self.search_members(group_id=ids,
-                                 indirect_members=False,
-                                 member_type=self.const.entity_group,
-                                 member_filter_expired=False),
-                              "member_id")
+                                                     lambda ids: self.search_members(
+                                                         group_id=ids,
+                                                     indirect_members=False,
+                                                     member_type=self.const.entity_group,
+                                                     member_filter_expired=False),
+                                                     "member_id")
                 indirect_members = False
 
-            where.append(argument_to_sql(group_id, "tmp1.group_id", binds, int))
+            where.append(
+                argument_to_sql(
+                    group_id,
+                    "tmp1.group_id",
+                    binds,
+                    int))
 
         if member_id is not None:
             if indirect_members:
                 # expand member_id to include all direct and indirect *parent*
                 # groups of the initial set of member ids. This way, we reach
                 # *all* parent groups starting from a given set of direct
-                # members. 
+                # members.
                 member_id = search_transitive_closure(member_id,
-                               lambda ids: self.search(member_id=ids,
-                                  indirect_members=False,
-                                  filter_expired=False),
-                               "group_id")
+                                                      lambda ids: self.search(
+                                                          member_id=ids,
+                                                      indirect_members=False,
+                                                      filter_expired=False),
+                                                      "group_id")
                 indirect_members = False
 
-            where.append(argument_to_sql(member_id, "tmp1.member_id", binds, int))
+            where.append(
+                argument_to_sql(
+                    member_id,
+                    "tmp1.member_id",
+                    binds,
+                    int))
 
         if member_type is not None:
             where.append(argument_to_sql(member_type, "tmp1.member_type",
@@ -778,7 +800,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                                ON tmp1.member_id = es.entity_id
                                   AND %s""" %
                           argument_to_sql(member_spread, "es.spread", binds, int))
-            
+
         if member_filter_expired:
             where.append("""(tmp1.expire1 IS NULL OR tmp1.expire1 > [:now]) AND
                             (gi.expire_date IS NULL OR gi.expire_date > [:now])
@@ -786,28 +808,30 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
 
         if include_member_entity_name:
             if isinstance(include_member_entity_name, dict):
-                member_name_dict=include_member_entity_name
+                member_name_dict = include_member_entity_name
             else:
-                member_name_dict={}
-                for k,v in cereconf.ENTITY_TYPE_NAMESPACE.items():
-                    member_name_dict[self.const.EntityType(k)]=self.const.ValueDomain(v)
-            case=[]
-            i=0
-            for e_type,vdomain in member_name_dict.items():
-                e_type_name="e_type%d" % i
-                vdomain_name="vdomain%d" % i
+                member_name_dict = {}
+                for k, v in cereconf.ENTITY_TYPE_NAMESPACE.items():
+                    member_name_dict[
+                        self.const.EntityType(
+                            k)] = self.const.ValueDomain(
+                                v)
+            case = []
+            i = 0
+            for e_type, vdomain in member_name_dict.items():
+                e_type_name = "e_type%d" % i
+                vdomain_name = "vdomain%d" % i
                 case.append("WHEN tmp1.member_type=:%s THEN :%s"
                             % (e_type_name, vdomain_name))
-                binds[e_type_name]=e_type
-                binds[vdomain_name]=vdomain
-                i+=1
+                binds[e_type_name] = e_type
+                binds[vdomain_name] = vdomain
+                i += 1
             select.append("mn.entity_name AS member_name")
             tables.append(
                 """LEFT OUTER JOIN [:table schema=cerebrum name=entity_name] mn
                      ON tmp1.member_id = mn.entity_id
                         AND mn.value_domain = CASE %s
                           END""" % "\n".join(case))
-                
 
         where_str = ""
         if where:
@@ -824,7 +848,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                 entry["expire_date"] = entry["expire1"]
             elif entry["expire2"] is not None:
                 entry["expire_date"] = entry["expire2"]
-        
+
             yield entry
     # end search_members
 

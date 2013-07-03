@@ -33,10 +33,13 @@ from Cerebrum.Utils import Factory
 
 
 class CodeValuePresentError(RuntimeError):
+
     """Error raised when an already existing code value is inserted."""
     pass
 
 Database_class = Factory.get("Database")
+
+
 class SynchronizedDatabase(Database_class):
     _db_proxy_lock = threading.RLock()
 
@@ -87,8 +90,8 @@ class SynchronizedDatabase(Database_class):
 # end SynchronizedDatabase
 
 
-
 class _CerebrumCode(DatabaseAccessor):
+
     """Abstract base class for accessing code tables in Cerebrum.
 
     The class needs a connection to the database (to enable constant
@@ -109,6 +112,7 @@ class _CerebrumCode(DatabaseAccessor):
     # need to be protected.
     _db_proxy_lock = threading.Lock()
     _private_db_proxy = None
+
     def get_sql(self):
         try:
             _CerebrumCode._db_proxy_lock.acquire()
@@ -131,7 +135,7 @@ class _CerebrumCode(DatabaseAccessor):
         finally:
             _CerebrumCode._db_proxy_lock.release()
     sql = property(get_sql, set_sql, doc="private db connection")
-    
+
     _lookup_table = None                # Abstract class.
     _lookup_code_column = 'code'
     _lookup_str_column = 'code_str'
@@ -150,7 +154,7 @@ class _CerebrumCode(DatabaseAccessor):
     #
     # The implementation is a bit tricky, since we need to avoid
     # lookup the integer code value of objects while initialising.
-    
+
     def __new__(cls, *args, **kwargs):
         # Each instance is stored in the class variable _cache using
         # two keys: the integer value (code) and the string value
@@ -242,7 +246,6 @@ class _CerebrumCode(DatabaseAccessor):
         self._lang = self._build_language_mappings(lang)
     # end __init__
 
-
     def _build_language_mappings(self, lang):
         "Build a dictionary holding this self's names in various languages."
 
@@ -255,14 +258,13 @@ class _CerebrumCode(DatabaseAccessor):
         return copy.deepcopy(lang)
     # end _build_language_mappings
 
-
     def lang(self, language):
         """Return self's name in the specified language.
 
         @type language: str, int or _LanguageCode instance.
         @param language:
           Language designation for which we are to retrieve the name.
-        
+
         When no suitable name exists, return description (i.e. this method does
         not fail).
         """
@@ -279,7 +281,7 @@ class _CerebrumCode(DatabaseAccessor):
         elif isinstance(language, (str, unicode)):
             # Make sure that a string refers to a valid language code
             key = lang_kls(int(lang_kls(language))).str
-            
+
         if key in self._lang:
             self._lang[language] = self._lang[key]
             return self._lang[language]
@@ -288,7 +290,6 @@ class _CerebrumCode(DatabaseAccessor):
         # key? (so as to speed up subsequent 'misses'?)
         return self.description
     # end lang
-    
 
     def __str__(self):
         return self.str
@@ -301,7 +302,7 @@ class _CerebrumCode(DatabaseAccessor):
             'class': self.__class__.__name__,
             'str': self.str,
             'int': int,
-            'id': hex(id(self) & 2**32-1)} # Avoid FutureWarning in hex conversion
+            'id': hex(id(self) & 2 ** 32 - 1)}  # Avoid FutureWarning in hex conversion
 
     def _get_description(self):
         if self._desc is None:
@@ -329,7 +330,6 @@ class _CerebrumCode(DatabaseAccessor):
     def __hash__(self):
         "Help method to be able to hash constants directly."
         return hash(self.__int__())
-    
 
     def __eq__(self, other):
         if other is None:
@@ -345,7 +345,7 @@ class _CerebrumCode(DatabaseAccessor):
             # want to support comparison with e.g. PgNumeric instances
             # without introducing a dependency on whatever database
             # driver module is being used.
-            or hasattr(other, '__int__')):
+                or hasattr(other, '__int__')):
             return self.__int__() == other.__int__()
         # This allows reflexive comparison (other.__eq__)
         return NotImplemented
@@ -400,9 +400,8 @@ class _CerebrumCode(DatabaseAccessor):
             'str_col': self._lookup_str_column,
             'desc_col': self._lookup_desc_column,
             'code_seq': self._code_sequence},
-                         {'str': self.str,
-                          'desc': self._desc})
-
+            {'str': self.str,
+             'desc': self._desc})
 
     def delete(self):
         self.sql.execute("""
@@ -413,18 +412,22 @@ class _CerebrumCode(DatabaseAccessor):
 
 
 class _LanguageCode(_CerebrumCode):
+
     "Language codes for Cerebrum."
     _lookup_table = '[:table schema=cerebrum name=language_code]'
     pass
 # end _LanguageCode
 
-        
+
 class _EntityTypeCode(_CerebrumCode):
+
     "Mappings stored in the entity_type_code table"
     _lookup_table = '[:table schema=cerebrum name=entity_type_code]'
     pass
 
+
 class _CerebrumCodeWithEntityType(_CerebrumCode):
+
     """Auxilliary class for code tables with an additional entity_type
     column.  Should not and can not be instantiated directly."""
     _insert_dependency = _EntityTypeCode
@@ -434,7 +437,11 @@ class _CerebrumCodeWithEntityType(_CerebrumCode):
             if not isinstance(entity_type, _EntityTypeCode):
                 entity_type = _EntityTypeCode(entity_type)
             self._entity_type = entity_type
-        super(_CerebrumCodeWithEntityType, self).__init__(code, description, lang)
+        super(
+            _CerebrumCodeWithEntityType,
+            self).__init__(code,
+                           description,
+                           lang)
 
     def insert(self):
         self.sql.execute("""
@@ -447,9 +454,9 @@ class _CerebrumCodeWithEntityType(_CerebrumCode):
             'str_col': self._lookup_str_column,
             'desc_col': self._lookup_desc_column,
             'code_seq': self._code_sequence},
-                         {'entity_type': int(self.entity_type),
-                          'str': self.str,
-                          'desc': self._desc})
+            {'entity_type': int(self.entity_type),
+             'str': self.str,
+             'desc': self._desc})
 
     def _get_entity_type(self):
         if not hasattr(self, '_entity_type'):
@@ -464,17 +471,23 @@ class _CerebrumCodeWithEntityType(_CerebrumCode):
         return self._entity_type
     entity_type = property(_get_entity_type)
 
+
 class _SpreadCode(_CerebrumCodeWithEntityType):
+
     """Code values for entity `spread`; table `entity_spread`."""
     _lookup_table = '[:table schema=cerebrum name=spread_code]'
     pass
 
+
 class _ContactInfoCode(_CerebrumCode):
+
     "Mappings stored in the contact_info_code table"
     _lookup_table = '[:table schema=cerebrum name=contact_info_code]'
     pass
 
+
 class _CountryCode(_CerebrumCode):
+
     """Interface to code values in the `country_code' table."""
     _lookup_table = '[:table schema=cerebrum name=country_code]'
 
@@ -496,10 +509,10 @@ class _CountryCode(_CerebrumCode):
             'str_col': self._lookup_str_column,
             'desc_col': self._lookup_desc_column,
             'code_seq': self._code_sequence},
-                         {'str': self.str,
-                          'country': self._country,
-                          'phone': self._phone_prefix,
-                          'desc': self.description})
+            {'str': self.str,
+             'country': self._country,
+             'phone': self._phone_prefix,
+             'desc': self.description})
 
     def _fetch_column(self, col_name):
         attr_name = "_" + col_name
@@ -520,26 +533,35 @@ class _CountryCode(_CerebrumCode):
 
 
 class _AddressCode(_CerebrumCode):
+
     "Mappings stored in the address_code table"
     _lookup_table = '[:table schema=cerebrum name=address_code]'
     pass
 
+
 class _GenderCode(_CerebrumCode):
+
     "Mappings stored in the gender_code table"
     _lookup_table = '[:table schema=cerebrum name=gender_code]'
     pass
 
+
 class _EntityExternalIdCode(_CerebrumCodeWithEntityType):
+
     "Mappings stored in the entity_external_id_code table"
     _lookup_table = '[:table schema=cerebrum name=entity_external_id_code]'
     pass
 
+
 class _PersonAffiliationCode(_CerebrumCode):
+
     "Mappings stored in the person_affiliation_code table"
     _lookup_table = '[:table schema=cerebrum name=person_affiliation_code]'
     pass
 
+
 class _PersonAffStatusCode(_CerebrumCode):
+
     "Mappings stored in the person_aff_status_code table"
     # TODO: tror ikke dette er riktig?  I.E, pk=affiliation+status?
     _lookup_code_column = 'status'
@@ -560,13 +582,13 @@ class _PersonAffStatusCode(_CerebrumCode):
 
             self.int = code
             (affiliation, status, description) = \
-                         self.sql.query_1("""
+                self.sql.query_1("""
                          SELECT affiliation, %s, %s FROM %s
                          WHERE %s=:status""" % (self._lookup_str_column,
                                                 self._lookup_desc_column,
                                                 self._lookup_table,
                                                 self._lookup_code_column),
-                                          {'status': code})
+                                 {'status': code})
         if isinstance(affiliation, _PersonAffiliationCode):
             self.affiliation = affiliation
         else:
@@ -581,7 +603,7 @@ class _PersonAffStatusCode(_CerebrumCode):
                                              self._lookup_table,
                                              self._lookup_str_column),
                                             {'str': self.str,
-                                             'aff' : int(self.affiliation)}))
+                                             'aff': int(self.affiliation)}))
         return self.int
 
     def __str__(self):
@@ -603,59 +625,80 @@ class _PersonAffStatusCode(_CerebrumCode):
             'str_col': self._lookup_str_column,
             'desc_col': self._lookup_desc_column,
             'code_seq': self._code_sequence},
-                         {'affiliation': int(self.affiliation),
-                          'str': self.str,
-                          'desc': self._desc})
+            {'affiliation': int(self.affiliation),
+             'str': self.str,
+             'desc': self._desc})
+
 
 class _AuthoritativeSystemCode(_CerebrumCode):
+
     "Mappings stored in the authoritative_system_code table"
     _lookup_table = '[:table schema=cerebrum name=authoritative_system_code]'
     pass
 
+
 class _OUPerspectiveCode(_CerebrumCode):
+
     "Mappings stored in the ou_perspective_code table"
     _lookup_table = '[:table schema=cerebrum name=ou_perspective_code]'
     pass
 
+
 class _AccountCode(_CerebrumCode):
+
     "Mappings stored in the account_code table"
     _lookup_table = '[:table schema=cerebrum name=account_code]'
     pass
 
+
 class _AccountHomeStatusCode(_CerebrumCode):
+
     "Mappings stored in the home_status_code table"
     _lookup_table = '[:table schema=cerebrum name=home_status_code]'
     pass
 
+
 class _ValueDomainCode(_CerebrumCode):
+
     "Mappings stored in the value_domain_code table"
     _lookup_table = '[:table schema=cerebrum name=value_domain_code]'
     pass
+
 
 class _EntityNameCode(_CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=entity_name_code]'
     pass
 
+
 class _PersonNameCode(_CerebrumCode):
+
     "Mappings stored in the person_name_code table"
     _lookup_table = '[:table schema=cerebrum name=person_name_code]'
     pass
 
+
 class _AuthenticationCode(_CerebrumCode):
+
     "Mappings stored in the value_domain_code table"
     _lookup_table = '[:table schema=cerebrum name=authentication_code]'
     pass
 
+
 class _GroupMembershipOpCode(_CerebrumCode):
+
     "Mappings stored in the group_membership_op_code table"
     _lookup_table = '[:table schema=cerebrum name=group_membership_op_code]'
     pass
 
+
 class _GroupVisibilityCode(_CerebrumCode):
+
     "Code values for groups' visibilities."
     _lookup_table = '[:table schema=cerebrum name=group_visibility_code]'
 
+
 class _QuarantineCode(_CerebrumCode):
+
     "Mappings stored in quarantine_code table"
     _lookup_table = '[:table schema=cerebrum name=quarantine_code]'
 
@@ -674,9 +717,10 @@ class _QuarantineCode(_CerebrumCode):
             'str_col': self._lookup_str_column,
             'desc_col': self._lookup_desc_column,
             'code_seq': self._code_sequence},
-                         {'duration': self.duration,
-                          'str': self.str,
-                          'desc': self._desc})
+            {'duration': self.duration,
+             'str': self.str,
+             'desc': self._desc})
+
 
 class ConstantsBase(DatabaseAccessor):
 
@@ -698,13 +742,12 @@ class ConstantsBase(DatabaseAccessor):
 
         if const_type is None:
             const_type = _CerebrumCode
-        
+
         for name in dir(self):
             attribute = getattr(self, name)
             if isinstance(attribute, const_type):
                 yield attribute
     # end __iterate_constants
-        
 
     def map_const(self, code):
         """Returns the Constant object as a reverse lookup on integer code.
@@ -723,7 +766,6 @@ class ConstantsBase(DatabaseAccessor):
                 return const_obj
         return None
     # end map_const
-            
 
     def initialize(self, update=True, delete=False):
         # {dependency1: {class: [object1, ...]},
@@ -738,7 +780,7 @@ class ConstantsBase(DatabaseAccessor):
                 cls = type(attr)
                 if not order[dep].has_key(cls):
                     order[dep][cls] = {}
-                order[dep][cls][str(attr)]=attr
+                order[dep][cls][str(attr)] = attr
         if not order.has_key(None):
             raise ValueError, "All code values have circular dependencies."
         stats = {'total': 0, 'inserted': 0, 'updated': 0, 'details': []}
@@ -762,11 +804,14 @@ class ConstantsBase(DatabaseAccessor):
                         raise
                     code.insert()
                     stats['inserted'] += 1
-                    stats['details'].append("Inserted code: %s ('%s')" % (code, cls))
+                    stats['details'].append(
+                        "Inserted code: %s ('%s')" %
+                        (code, cls))
                 rows = self._db.query(
                     """SELECT * FROM %s""" % cls._lookup_table)
                 if cls_code_count != len(rows):
-                    table_vals = [int(r[cls._lookup_code_column]) for r in rows]
+                    table_vals = [int(r[cls._lookup_code_column])
+                                  for r in rows]
                     code_vals = [int(x) for x in order[root][cls].values()]
                     table_vals.sort()
                     code_vals.sort()
@@ -775,15 +820,19 @@ class ConstantsBase(DatabaseAccessor):
                             if delete:
                                 cls(c).delete()
                                 stats['deleted'] += 1
-                                stats['details'].append("Deleted code: %s ('%s')" % (cls(c), cls))
+                                stats['details'].append(
+                                    "Deleted code: %s ('%s')" %
+                                    (cls(c), cls))
                             else:
                                 stats['superfluous'] += 1
-                                stats['details'].append("Superfluous code: %s ('%s')" % (cls(c), cls))
+                                stats['details'].append(
+                                    "Superfluous code: %s ('%s')" %
+                                    (cls(c), cls))
                 del order[root][cls]
                 if order.has_key(cls):
                     insert(cls, update)
             del order[root]
-            
+
         insert(None, update)
         if order:
             raise ValueError, "Some code values have circular dependencies."
@@ -795,9 +844,8 @@ class ConstantsBase(DatabaseAccessor):
 
         # initialize myself with the CerebrumCode db.connection
         # This makes Constants.commit() and such possible.
-        
-        super(ConstantsBase, self).__init__(_CerebrumCode.sql.fget(None))
 
+        super(ConstantsBase, self).__init__(_CerebrumCode.sql.fget(None))
 
     def fetch_constants(self, wanted_class, prefix_match=""):
         """Return all constant instances of wanted_class.  The list is
@@ -812,10 +860,9 @@ class ConstantsBase(DatabaseAccessor):
 
         return clist
     # end fetch_constants
-    
 
     def human2constant(self, human_repr, const_type=None):
-        """Map human representation of a const to _CerebrumCode. 
+        """Map human representation of a const to _CerebrumCode.
 
         This method maps a human representation of a constant to the proper
         constant object (an instance of _CerebrumCode).
@@ -837,7 +884,7 @@ class ConstantsBase(DatabaseAccessor):
 
         @type const_type:
           One of the _CerebrumCode's subclasses or a sequence thereof.
-        @param const_type: 
+        @param const_type:
           Permissible constant types.
 
         @rtype: an object that is a (sub)type of _CerebrumCode.
@@ -917,12 +964,12 @@ class CoreConstants(ConstantsBase):
     language_sv = _LanguageCode("sv", "Svenska")
     language_sv = _LanguageCode("fr", "Français")
     language_ru = _LanguageCode("ru", "Russian")
-    
+
     system_cached = _AuthoritativeSystemCode(
         'Cached',
         'Internally cached data',
         {"nb": "Internt cachede data",
-         "en": "Internally cached data",})
+         "en": "Internally cached data", })
 
 
 class CommonConstants(ConstantsBase):
@@ -950,7 +997,7 @@ class CommonConstants(ConstantsBase):
         "PGP-encrypt the password so that we later can get at the plaintext "
         "password if we want to populate new backends.  The secret key "
         "should be stored offline.")
-    auth_type_md4_nt =  _AuthenticationCode(
+    auth_type_md4_nt = _AuthenticationCode(
         'MD4-NT',
         "MD4-derived password hash with Microsoft-added security.  "
         "Requires the smbpasswd module to be installed.")
@@ -970,7 +1017,7 @@ class CommonConstants(ConstantsBase):
     auth_type_md5_unsalt = _AuthenticationCode(
         'md5-unsalted',
         "Unsalted MD5-crypt. Use with care!")
- 
+
     contact_phone = _ContactInfoCode('PHONE', 'Phone')
     contact_phone_private = _ContactInfoCode('PRIVPHONE',
                                              "Person's private phone number")
@@ -978,7 +1025,8 @@ class CommonConstants(ConstantsBase):
     contact_email = _ContactInfoCode('EMAIL', 'Email')
     contact_url = _ContactInfoCode('URL', 'URL')
     contact_mobile_phone = _ContactInfoCode('MOBILE', 'Mobile phone')
-    contact_private_mobile = _ContactInfoCode('PRIVATEMOBILE', 'Private mobile phone')
+    contact_private_mobile = _ContactInfoCode(
+        'PRIVATEMOBILE', 'Private mobile phone')
 
     address_post = _AddressCode('POST', 'Post address')
     address_post_private = _AddressCode('PRIVPOST',
@@ -997,42 +1045,44 @@ class CommonConstants(ConstantsBase):
     name_last = _PersonNameCode('LAST', 'Last name')
     name_full = _PersonNameCode('FULL', 'Full name')
 
-    name_personal_title = _PersonNameCode('PERSONALTITLE', 'Persons personal title',
-                                          {"nb": "Personlig tittel",
-                                           "en": "Personal title",},)
+    name_personal_title = _PersonNameCode(
+        'PERSONALTITLE', 'Persons personal title',
+        {"nb": "Personlig tittel",
+         "en": "Personal title", },)
     name_work_title = _PersonNameCode('WORKTITLE', 'Persons work title',
-                                          {"nb": "Arbeidstittel",
-                                           "en": "Work title",},)
+                                      {"nb": "Arbeidstittel",
+                                       "en": "Work title", },)
 
-
-    personal_title = _EntityNameCode('PERSONALTITLE', "Person's personal title",
-                                     {"nb": "Personlig tittel",
-                                      "en": "Personal title",},)
+    personal_title = _EntityNameCode(
+        'PERSONALTITLE', "Person's personal title",
+        {"nb": "Personlig tittel",
+         "en": "Personal title", },)
     work_title = _EntityNameCode('WORKTITLE', "Person's work title",
                                  {"nb": "Arbeidstittel",
-                                  "en": "Work title",},)
+                                  "en": "Work title", },)
 
     ou_name = _EntityNameCode("OU name", "OU name",
-                              {"nb": "Stedsnavn", 
-                               "en": "OU name",})
+                              {"nb": "Stedsnavn",
+                               "en": "OU name", })
     ou_name_acronym = _EntityNameCode("OU acronym", "OU acronym",
-                              {"nb": "Akronym", 
-                               "en": "Acronym",})
+                                      {"nb": "Akronym",
+                                       "en": "Acronym", })
     ou_name_short = _EntityNameCode("OU short", "OU short name",
-                              {"nb": "Kortnavn", 
-                               "en": "Short name",})
+                                    {"nb": "Kortnavn",
+                                     "en": "Short name", })
     ou_name_long = _EntityNameCode("OU long", "OU long name",
-                              {"nb": "Navn", 
-                               "en": "Full name",})
+                                   {"nb": "Navn",
+                                    "en": "Full name", })
     ou_name_display = _EntityNameCode("OU display", "OU display name",
-                              {"nb": "Fremvisningsnavn", 
-                               "en": "Display name",})
-    
+                                      {"nb": "Fremvisningsnavn",
+                                       "en": "Display name", })
+
     system_manual = _AuthoritativeSystemCode('Manual', 'Manual registration')
 
     # bootstrap_account is of this type:
     account_program = _AccountCode('programvare', 'Programvarekonto')
-    home_status_not_created = _AccountHomeStatusCode('not_created', 'Not created')
+    home_status_not_created = _AccountHomeStatusCode(
+        'not_created', 'Not created')
     home_status_create_failed = _AccountHomeStatusCode(
         'create_failed', 'Creation failed')
     home_status_on_disk = _AccountHomeStatusCode(
@@ -1041,6 +1091,7 @@ class CommonConstants(ConstantsBase):
         'archived', 'Has been archived')
     home_status_pending_restore = _AccountHomeStatusCode(
         'pending_restore', 'Pending restore')
+
 
 class Constants(CoreConstants, CommonConstants):
 
@@ -1066,8 +1117,10 @@ class Constants(CoreConstants, CommonConstants):
     Quarantine = _QuarantineCode
     LanguageCode = _LanguageCode
     EntityNameCode = _EntityNameCode
-    
+
+
 class ExampleConstants(Constants):
+
     """Singleton whose members make up all needed coding values.
 
     Defines a number of variables that are used to get access to the
@@ -1080,6 +1133,7 @@ class ExampleConstants(Constants):
     affiliation_student = _PersonAffiliationCode('STUDENT', 'Student')
     affiliation_status_student_valid = _PersonAffStatusCode(
         affiliation_student, 'VALID', 'Valid')
+
 
 def main():
     from Cerebrum.Utils import Factory

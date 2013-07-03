@@ -27,6 +27,7 @@ from Cerebrum.Entity import EntityName, EntitySpread
 
 Entity_class = Factory.get("Entity")
 
+
 class Disk(EntitySpread, Entity_class):
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('host_id', 'path', 'description')
@@ -153,7 +154,7 @@ class Disk(EntitySpread, Entity_class):
             spread_where = "AND ah.spread=:spread"
             spread = int(spread)
         if where:
-            where = "WHERE "+" AND ".join(where)
+            where = "WHERE " + " AND ".join(where)
         else:
             where = ""
         # Note: This syntax requires Oracle >= 9
@@ -184,9 +185,9 @@ class Disk(EntitySpread, Entity_class):
 
     def search(self, spread=None, host_id=None, path=None, description=None):
         """Retrives a list of Disks filtered by the given criterias.
-        
+
         Returns a list of tuples with the info (disk_id, path, description).
-        If no criteria is given, all persons are returned. ``path`` and 
+        If no criteria is given, all persons are returned. ``path`` and
         ``description`` should be strings if given. ``host_id`` should be int.
         ``spread`` can be either string or int. Wildcards * and ? are expanded
         for "any chars" and "one char"."""
@@ -211,7 +212,7 @@ class Disk(EntitySpread, Entity_class):
 
         if host_id is not None:
             where.append("di.host_id=:host_id")
-            
+
         if path is not None:
             path = prepare_string(path)
             where.append("LOWER(di.path) LIKE :path")
@@ -219,7 +220,7 @@ class Disk(EntitySpread, Entity_class):
         if description is not None:
             description = prepare_string(description)
             where.append("LOWER(di.description) LIKE :description")
-        
+
         where_str = ""
         if where:
             where_str = "WHERE " + " AND ".join(where)
@@ -230,7 +231,8 @@ class Disk(EntitySpread, Entity_class):
         FROM %s %s""" % (','.join(tables), where_str),
             {'spread': spread, 'entity_type': int(self.const.entity_disk),
              'host_id': host_id, 'path': path, 'description': description})
-        
+
+
 class Host(EntityName, EntitySpread, Entity_class):
     # TODO: Move into it's own Host.py
     __read_attr__ = ('__in_db',)
@@ -370,7 +372,7 @@ class Host(EntityName, EntitySpread, Entity_class):
 
         if host_id is not None:
             if isinstance(host_id, (list, tuple, set)):
-                where.append("host_id IN (%s)" % \
+                where.append("host_id IN (%s)" %
                              ", ".join(map(str, map(int, host_id))))
             else:
                 where.append("host_id = %d" % int(host_id))
@@ -394,6 +396,6 @@ class Host(EntityName, EntitySpread, Entity_class):
           ON hi.host_id = en.entity_id AND
              en.value_domain = [:get_constant name=host_namespace]
         %s""" % where_str,
-                          {'name': name, 'description': description })
+                          {'name': name, 'description': description})
 
 # arch-tag: 6a63bc5c-14aa-48f2-9e98-1c8f45ab3e47

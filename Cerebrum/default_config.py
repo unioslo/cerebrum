@@ -48,7 +48,7 @@ SYSTEM_LOOKUP_ORDER = ("system_manual",)
 #  Generate a full-name to display in this order
 NAME_LOOKUP_ORDER = (("name_full",),
                      ("name_first", "name_last"))
-DEFAULT_GECOS_NAME="name_full"
+DEFAULT_GECOS_NAME = "name_full"
 
 ENTITY_TYPE_NAMESPACE = {'account': 'account_names',
                          'group': 'group_names',
@@ -66,7 +66,7 @@ DEBUG_HOSTLIST = None
 during debugging."""
 
 # Used by run_privileged_command.py:
-CREATE_USER_SCRIPT= '/local/etc/reguser/mkhomedir'
+CREATE_USER_SCRIPT = '/local/etc/reguser/mkhomedir'
 MVUSER_SCRIPT = '/cerebrum/sbin/mvuser'
 RMUSER_SCRIPT = '/cerebrum/sbin/aruser'
 ARCHIVE_MAIL_SCRIPT = '/cerebrum/sbin/archivemail'
@@ -82,10 +82,10 @@ RSH_CMD = '/local/bin/ssh'
 # Temporary switch until someone can figure out why mktime won't work
 # with year < 1970 on some systems.  Must NOT be set on production
 # systems.
-ENABLE_MKTIME_WORKAROUND=0
+ENABLE_MKTIME_WORKAROUND = 0
 
 # If m2crypto is installed, set this to 1 to use ssl
-ENABLE_BOFHD_CRYPTO=0
+ENABLE_BOFHD_CRYPTO = 0
 
 # Makedb will create an initial Group and an Account.  These are
 # needed for initial population of the database, as the database model
@@ -108,14 +108,16 @@ CLASS_ACCOUNT = ['Cerebrum.Account/Account']
 CLASS_GROUP = ['Cerebrum.Group/Group']
 CLASS_HOST = ['Cerebrum.Disk/Host']
 CLASS_DISK = ['Cerebrum.Disk/Disk']
-CLASS_CONSTANTS = ['Cerebrum.Constants/Constants', 'Cerebrum.Constants/ExampleConstants']
+CLASS_CONSTANTS = [
+    'Cerebrum.Constants/Constants',
+    'Cerebrum.Constants/ExampleConstants']
 
 CLASS_CL_CONSTANTS = ['Cerebrum.modules.CLConstants/CLConstants']
 
 CLASS_DBDRIVER = ['Cerebrum.Database/PostgreSQL']
 CLASS_DATABASE = ['Cerebrum.CLDatabase/CLDatabase']
 # To enable logging, use this:
-#CLASS_CHANGELOG = ['Cerebrum.modules.ChangeLog/ChangeLog']
+# CLASS_CHANGELOG = ['Cerebrum.modules.ChangeLog/ChangeLog']
 CLASS_CHANGELOG = ['Cerebrum.ChangeLog/ChangeLog']
 
 # Plain Email-backend generation.
@@ -143,7 +145,7 @@ OUS_WITHOUT_PARENT = []
 MODULE_CLIENTAPI = ['Cerebrum.client.BofhModel']
 
 # URL to bofh server
-BOFH_URL='http://127.0.0.1:8000'
+BOFH_URL = 'http://127.0.0.1:8000'
 
 # Toggle debugging various parts of the code.
 # Comparing two Entity (or subclass) instances:
@@ -157,7 +159,7 @@ NIS_SPREADS = ()
 # become a posix-user
 POSIX_SPREAD_CODES = ()
 
-# if an account is given spread to a spesific target system, try to synchronize 
+# if an account is given spread to a spesific target system, try to synchronize
 # group memberships in that system (used by bofhd)
 GROUP_SYNC_SPREADS = ()
 
@@ -203,11 +205,15 @@ ENCODING = 'ISO-8859-1'
 AD_SERVER_HOST = 'bastard'
 AD_SERVER_PORT = 1681
 AD_DOMAIN = 'WinNT://WINTEST'
-AD_LDAP= 'DC=wintest,DC=uio,DC=no'
-AD_SOURCE_SEARCH_ORDER = ('system_ureg','system_sap','system_fs','system_lt')
+AD_LDAP = 'DC=wintest,DC=uio,DC=no'
+AD_SOURCE_SEARCH_ORDER = (
+    'system_ureg',
+    'system_sap',
+    'system_fs',
+    'system_lt')
 AD_PASSWORD = 'hallo\n'
 AD_LOST_AND_FOUND = 'lost-n-found'
-#A value og '0' represents cn=Users,value -1 uses OU in AD_LDAP_PATH.
+# A value og '0' represents cn=Users,value -1 uses OU in AD_LDAP_PATH.
 AD_DEFAULT_OU = '0'
 AD_DEFAULT_GROUP_OU = 'OU=grupper'
 AD_DEFAULT_USER_OU = 'OU=brukere'
@@ -228,16 +234,16 @@ AD_DONT_TOUCH = ('Group Policy Creator Owners',
                  'TsInternetUser')
 # Necessary if groups and users have different namespaces in Cerebrum.
 AD_GROUP_POSTFIX = '-gruppe'
-#Default values is sAMAccountName, distinguishedName
-AD_ATTRIBUTES = ("displayName","homeDrive","homeDirectory")
-#Must always have ACCOUNTDISABLE.
-AD_ACCOUNT_CONTROL = {'ACCOUNTDISABLE':True, 'DONT_EXPIRE_PASSWORD':True}
+# Default values is sAMAccountName, distinguishedName
+AD_ATTRIBUTES = ("displayName", "homeDrive", "homeDirectory")
+# Must always have ACCOUNTDISABLE.
+AD_ACCOUNT_CONTROL = {'ACCOUNTDISABLE': True, 'DONT_EXPIRE_PASSWORD': True}
 AD_HOME_DRIVE = 'M:'
 AD_PASSWORD_EXPIRE = '0'
 AD_CANT_CHANGE_PW = '0'
 AD_PW_EXCEPTION = 'process_students'
 AD_PW_EXCEPTION_OU = 'cerebrum_pw_exception'
-AD_DO_NOT_TOUCH = 'Cerebrum_dont_touch' 
+AD_DO_NOT_TOUCH = 'Cerebrum_dont_touch'
 AD_STUNNEL = False
 AD_STUNNEL_CONF = '/local/sbin/stunnel.conf'
 AD_DEFAULT_SYNC = ''
@@ -264,7 +270,7 @@ AD_STUDENT_FILEGROUPS = []
 NW_LDAPHOST = 'www.nldap.com'
 NW_LDAPPORT = 389
 # Every letter in NW_LDAP_ROOT is case-sensitive
-NW_LDAP_ROOT= 'ou=HiST,ou=user,o=NOVELL'
+NW_LDAP_ROOT = 'ou=HiST,ou=user,o=NOVELL'
 NW_SOURCE_SEARCH_ORDER = ('system_fs',)
 NW_CERE_ROOT_OU_ID = 6
 NW_DEFAULT_OU_ID = 13
@@ -287,7 +293,7 @@ NOTES_PASSWORD = 'test\n'
 NOTES_DEFAULT_OU = 'andre'
 NOTES_OU_SUFFIX = []
 
-#UA spesific variables
+# UA spesific variables
 UA_FTP_HOST = 'uaftp.uio.no'
 UA_FTP_UNAME = 'uname'
 
@@ -314,24 +320,24 @@ QUARANTINE_AUTOMATIC = ()
 # List of quarantine-rule names where LDAP Person/FEIDE should ignore 'lock'
 QUARANTINE_FEIDE_NONLOCK = ()
 
-CEREBRUM_DDL_DIR="../share/cerebrum/design"
-BOFHD_SUPERUSER_GROUP=INITIAL_GROUPNAME
-BOFHD_STUDADM_GROUP=BOFHD_SUPERUSER_GROUP
-BOFHD_FNR_ACCESS_GROUP=None
-BOFHD_SU_CAN_SPECIFY_PASSWORDS=False
+CEREBRUM_DDL_DIR = "../share/cerebrum/design"
+BOFHD_SUPERUSER_GROUP = INITIAL_GROUPNAME
+BOFHD_STUDADM_GROUP = BOFHD_SUPERUSER_GROUP
+BOFHD_FNR_ACCESS_GROUP = None
+BOFHD_SU_CAN_SPECIFY_PASSWORDS = False
 # Should contain mapping lang: [('template-prefix', 'tpl-type)...]
-BOFHD_TEMPLATES={}
-BOFHD_MOTD_FILE=None
-BOFHD_NEW_USER_SPREADS=[]
-BOFHD_NEW_GROUP_SPREADS=[]
+BOFHD_TEMPLATES = {}
+BOFHD_MOTD_FILE = None
+BOFHD_NEW_USER_SPREADS = []
+BOFHD_NEW_GROUP_SPREADS = []
 # maximum number of rows returned from person_find and group_list_expanded
 BOFHD_MAX_MATCHES = 250
 # maximum number of rows returned from access_list_alterable
 BOFHD_MAX_MATCHES_ACCESS = 250
-BOFHD_CHECK_DISK_SPREAD=None
+BOFHD_CHECK_DISK_SPREAD = None
 BOFHD_CLIENTS = {'jbofh': '0.0.3'}
 # Max number of seconds a client can have a socket stuck in recv/send
-BOFHD_CLIENT_SOCKET_TIMEOUT=None
+BOFHD_CLIENT_SOCKET_TIMEOUT = None
 # authoritative source system (typically administrative
 # systems/registers used by an organization)
 BOFHD_AUTH_SYSTEMS = ("system_manual",)
@@ -339,12 +345,12 @@ BOFHD_AUTH_SYSTEMS = ("system_manual",)
 # 'Group-owner' or 'groupmod-priv'.
 BOFHD_AUTH_GROUPMODERATOR = None
 # Directory for templates
-TEMPLATE_DIR=None
+TEMPLATE_DIR = None
 # Location of locks used by bofhd-request processing system
-BOFHD_REQUEST_LOCK_DIR='/cerebrum/var/log/cerebrum/.lock-%d'
+BOFHD_REQUEST_LOCK_DIR = '/cerebrum/var/log/cerebrum/.lock-%d'
 # Quarantines that do not lead to denial of access to bofhd
 BOFHD_NONLOCK_QUARANTINES = ()
-BOFHD_QUARANTINE_DISABLE_LIMIT = None # days a quarantine can be disabled
+BOFHD_QUARANTINE_DISABLE_LIMIT = None  # days a quarantine can be disabled
 
 # What spreads which should be tagged as 'auto' in bofhds spread_list
 GROUP_REQUESTS_AUTOSPREADS = ()
@@ -354,49 +360,50 @@ GROUP_REQUESTS_AUTOSPREADS = ()
 VALID_DISK_TOPLEVELS = None
 
 # Configure commands needed to send processed templates to printer
-PRINT_LATEX_CMD=None
-PRINT_DVIPS_CMD=None
-PRINT_DVIPDF_CMD=None
-PRINT_LPR_CMD=None
-PRINT_PRINTER=None
-PRINT_BARCODE=None
+PRINT_LATEX_CMD = None
+PRINT_DVIPS_CMD = None
+PRINT_DVIPDF_CMD = None
+PRINT_LPR_CMD = None
+PRINT_PRINTER = None
+PRINT_BARCODE = None
 
 # Used for sending e-mail
-SMTP_HOST='localhost'
+SMTP_HOST = 'localhost'
 
 # Logdir for Cweb app.
-CWEB_LOG_DIR='.' 
+CWEB_LOG_DIR = '.'
 # Templates for Cweb app
-CWEB_TPL_DIR='.'
+CWEB_TPL_DIR = '.'
 
 # Logdir for AutoStud jobs
-AUTOADMIN_LOG_DIR='.'     # Set to a place where only 'cerebrum' has write access
+AUTOADMIN_LOG_DIR = '.'     # Set to a place where only 'cerebrum' has write access
 
 # decide whether autostud should produce letters for students with address
 # registered (if =True letters are produced)
-AUTOADMIN_MAKE_ABROAD_LETTERS=False
+AUTOADMIN_MAKE_ABROAD_LETTERS = False
 
 # directory where the letter templates used by proc_stud are found
-AUTOADMIN_PRINT_LETTER_DIRECTORY='no_NO/letter'
+AUTOADMIN_PRINT_LETTER_DIRECTORY = 'no_NO/letter'
 
-# Default message for 
+# Default message for
 AUTOADMIN_WELCOME_SMS = 'Welcome\nYour username is: %(username)s'
 
 # The default directory for where the data from FS is put.
 FS_DATADIR = None
 
 # make autostud use studentnr as uname
-USE_STUDENTNR_AS_UNAME=False
-# Socket used to query the job-runner server, should not be writeable by untrusted users
-JOB_RUNNER_SOCKET="/tmp/jr-socket"
+USE_STUDENTNR_AS_UNAME = False
+# Socket used to query the job-runner server, should not be writeable by
+# untrusted users
+JOB_RUNNER_SOCKET = "/tmp/jr-socket"
 
-JOB_RUNNER_LOG_DIR='.'   # Set to a place where only 'cerebrum' has write access
+JOB_RUNNER_LOG_DIR = '.'   # Set to a place where only 'cerebrum' has write access
 JOB_RUNNER_MAX_PARALELL_JOBS = 3
 # Warn if job-runner has been paused for more than N seconds, every N second
-JOB_RUNNER_PAUSE_WARN = 3600*12
+JOB_RUNNER_PAUSE_WARN = 3600 * 12
 
 # Used by Cerebrum/no/Stedkode.py
-DEFAULT_INSTITUSJONSNR=None
+DEFAULT_INSTITUSJONSNR = None
 
 # INSTITUTION_DOMAIN_NAME: The DNS domain name your institution
 # prefers to use for identifying itself on the internet.
@@ -446,13 +453,13 @@ EMAIL_ADD_QUOTA_REQUEST = False
 # registered. Keys must be _EmailTargetCode code strings.
 # example:
 # EMAIL_DEFAULT_SPAM_SETTINGS = {'account':
-#                                ('standard_spam', 'spamfolder'),} 
+#                                ('standard_spam', 'spamfolder'),}
 EMAIL_DEFAULT_SPAM_SETTINGS = {}
 
 # When an email_target is created default filters should be
 # registered. Keys must be _EmailTargetCode code strings.
 # example:
-# EMAIL_DEFAULT_FILTERS = {'account': ('greylist',),} 
+# EMAIL_DEFAULT_FILTERS = {'account': ('greylist',),}
 EMAIL_DEFAULT_FILTERS = {}
 
 
@@ -475,7 +482,7 @@ WEBROOT = "/"
 PGPPROG = '/usr/bin/gpg'
 PGPID = "enter your string here"
 PGP_DEC_OPTS = ['--batch', '--decrypt', '--quiet']
-PGP_DEC_OPTS_PASSPHRASE = [ '--passphrase-fd', "0" ]
+PGP_DEC_OPTS_PASSPHRASE = ['--passphrase-fd', "0"]
 # ['--recipient', id, '--default-key', id] is appended to PGP_ENC_OPTS
 PGP_ENC_OPTS = ['--encrypt', '--armor', '--batch', '--quiet']
 
@@ -531,8 +538,8 @@ LDAP = {
     # To support future formats of userPassword (smd5, glibc etc)
     # and authPassword. Support priority of hash'es inside list.
     # Example with "libc" md5 hash "{crypt}$1$salt$digest
-    'auth_attr':{'userPassword':[('MD5-crypt','{crypt}%s'),]},
-    
+    'auth_attr': {'userPassword': [('MD5-crypt', '{crypt}%s'), ]},
+
     # Whether to insert 'ou/title;lang-<language>' attributes in org.dump.
     # False with multiple 'pref_languages' likely makes little sense, since
     # each attr only gets values from its 1st found preferred language.
@@ -543,7 +550,7 @@ LDAP = {
 
     # Default 'max_change' for the LDAP_<tree>s
     'max_change': 10,
-    }
+}
 
 # The following LDAP_<tree name> dicts describe LDAP dumps for <tree name>,
 # or dumps rooted at that name.
@@ -591,7 +598,7 @@ LDAP_ORG = {                            # Top object and common settings
     # instead phone numbers etc. from it are included in the LDAP_ORG['dn']
     # object.  Other root OUs, if any, are put below LDAP_OU['dn'] as usual.
     'ou_id': None,
-    }
+}
 
 # Tree with org.units, from generate_org_ldif.py.
 LDAP_OU = {
@@ -607,7 +614,7 @@ LDAP_OU = {
 
     # Name of source system with perspective of org.unit structure.
     #'ou_perspective': "FOOBAR",
-    }
+}
 
 # Tree with people, from generate_org_ldif.py.
 LDAP_PERSON = {
@@ -634,7 +641,7 @@ LDAP_PERSON = {
     # so a person without OpenLDAPaci only will be visible to that person,
     # and then give this ACI to persons who should be visible:
     #   "attrs_visible": {
-    #       "OpenLDAPaci": ("1.1#entry#grant;c,r,s,x;[all],[entry]#public#",)},
+    # "OpenLDAPaci": ("1.1#entry#grant;c,r,s,x;[all],[entry]#public#",)},
     # A simpler variant is to use "access to ... filter=(foo=bar) ..."
     # in slapd.conf, and set attrs_(in)visible to {'foo': ('bar',)}.
     'attrs_visible': {},
@@ -650,9 +657,9 @@ LDAP_PERSON = {
     # Each selector is evaluated for a person with some (affiliation,status)es.
     # A selector can be a simple-selector (below), or a dict
     #   {"affiliation": {"status": simple-selector,
-    #                    True:     simple-selector, ...}, # True means wildcard
-    #    True:   {True:            simple-selector, ...}, # True means wildcard
-    #    # Shorthand for ' "affiliation": {True: simple-selector} ':
+    # True:     simple-selector, ...}, # True means wildcard
+    # True:   {True:            simple-selector, ...}, # True means wildcard
+    # Shorthand for ' "affiliation": {True: simple-selector} ':
     #    "affiliation": simple-selector}.
     # For each (aff., status), the first existing simple-selector is used of
     # selector[aff.][status], selector[aff.][True] and selector[True][True].
@@ -667,9 +674,9 @@ LDAP_PERSON = {
     #
     # Example:
     # 'affiliation_selector': {
-    #     # Select all employees and affiliates:
+    # Select all employees and affiliates:
     #     ("EMPLOYEE", "AFFILIATE"): True,
-    #     # Select active students except members of group 'no-LDAP-student':
+    # Select active students except members of group 'no-LDAP-student':
     #     "STUDENT": {"active": ('not', ('group', "no-LDAP-student"))}},
     #
     # Boolean selector: Persons and their affiliations to include in LDAP.
@@ -697,7 +704,7 @@ LDAP_PERSON = {
     # Note that only the affiliations set to True in 'affiliation_selector'
     # needs to be defined in eduPersonPrimaryAffiliation.
     'eduPersonPrimaryAffiliation_selector': {},
-    }
+}
 
 # Generated by generate_posix_ldif.py:  Posix users, filegroups and netgroups.
 
@@ -707,7 +714,7 @@ LDAP_POSIX = {                          # Top object and common settings
     # Note: LDAP_POSIX['dn'] should not be set if it is == LDAP_ORG['dn']
     # and one uses generate_org_ldif.py to make that entry.
     #'dn': "cn=system," + LDAP_ORG['dn'],
-    }
+}
 
 # Suggested DNs: "cn=<users,filegroups,netgroups>," + LDAP_POSIX['dn']
 LDAP_USER = {}
@@ -717,7 +724,7 @@ LDAP_NETGROUP = {}
 # Generated by generate_subnet_ldif.py: Subnet ranges.
 # Note: Reads Python comments in cereconf_dns.py for LDAP description fields.
 LDAP_SUBNETS = {
-    'file':  'subnets.ldif',
+    'file': 'subnets.ldif',
 
     # Extra attribute types and object classes to allow IP address ranges
     # converted to integers (as with inet_addr). Not defined in RFC 2307.
@@ -729,7 +736,7 @@ LDAP_SUBNETS = {
     # Default = no extra classes and just write a range as comments:
     #'rangeSchema': (startType, endType, (object classes,)):
     'rangeSchema': ("#addrRangeStart", "#addrRangeEnd", ()),
-    }
+}
 
 # Generated by generate_mail_ldif.py:
 # E-mail information, to be used by the mail system.
@@ -737,7 +744,7 @@ LDAP_MAIL = {
     'file': "mail-db.ldif",
 
     #'dn': "cn=mail," + LDAP_ORG['dn'],
-    }
+}
 
 # Generated by generate_mail_dns_ldif.py:
 # Host and domain names, to be used for e-mail delivery.
@@ -759,19 +766,19 @@ LDAP_MAIL_DNS = {
     # Sequence of sequence of arguments to LDAP_MAIL_DNS['dig_cmd'].  The
     # command is run once for each argument sequence. The results are combined.
     #'dig_args': ((domain, name server), (domain, name server), ...),
-    }
+}
 
 # Default settings of the previous names of these variables;
 # retained for the time being for backwards compatibility.
-LDAP_DUMP_DIR   = '/cerebrum/dumps/LDAP/'
-LDAP_ORG_FILE   = 'organization.ldif'
+LDAP_DUMP_DIR = '/cerebrum/dumps/LDAP/'
+LDAP_ORG_FILE = 'organization.ldif'
 LDAP_POSIX_FILE = 'posix.ldif'
-LDAP_ALIASES         = False
-LDAP_ORG_ROOT        = None
-LDAP_DUMMY_OU_ATTRS  = {'description': ('Other organizational units',)}
-LDAP_PERSON_SPREAD     = None
+LDAP_ALIASES = False
+LDAP_ORG_ROOT = None
+LDAP_DUMMY_OU_ATTRS = {'description': ('Other organizational units',)}
+LDAP_PERSON_SPREAD = None
 LDAP_PERSON_AFFILIATION_SOURCE_SYSTEM = None
-LDAP_VISIBLE_PERSON_SELECTOR       = True
+LDAP_VISIBLE_PERSON_SELECTOR = True
 LDAP_EDUPERSONAFFILIATION_SELECTOR = []
 LDAP_VISIBLE_PERSON_ATTRS = {}
 LDAP_REWRITE_EMAIL_DOMAIN = {}
@@ -781,7 +788,7 @@ LDAP_MAIL_DNS_DIG_CMD = "/usr/bin/dig %s. @%s. axfr"
 LDAP_MAIL_DNS_MAX_CHANGE = 10
 
 # DNS
-DNS_EMAIL_REGEXP=r'^[-+=a-z0-9_.]+@[a-z0-9_-]+[-a-z0-9_.]*\.[a-z]{2,3}$'
+DNS_EMAIL_REGEXP = r'^[-+=a-z0-9_.]+@[a-z0-9_-]+[-a-z0-9_.]*\.[a-z]{2,3}$'
 # Default number of adresses to reserve at start of a
 # subnet. Additionally, if any addresses are reserved, broadcast
 # (last) address is reserved too. If no entry, max value from
@@ -795,7 +802,7 @@ DEFAULT_RESERVED_BY_NET_SIZE = {
     30: 0,
     31: 0,
     32: 0,
-    }
+}
 
 DEFAULT_RESERVED_BY_IPv6_NET_SIZE = {64: 4}
 DEFAULT_IPv6_SUBNET_ALLOCATION_START = 0x256
@@ -824,14 +831,14 @@ CACHE_CONSTANTS = True
 DELETE_FILES = []
 ARCHIVE_FILES = []
 
-## Vars needed by Ephorte module 
-EPHORTE_ADMINS = "" 
+# Vars needed by Ephorte module
+EPHORTE_ADMINS = ""
 EPHORTE_SO_SKO = []
 EPHORTE_NIKK_SKO = []
 EPHORTE_UIO_ROOT_SKO = ''
 EPHORTE_MAIL_WARNINGS = ""
 EPHORTE_MAIL_WARNINGS2 = ""
-EPHORTE_MAIL_TIME = []  
+EPHORTE_MAIL_TIME = []
 EPHORTE_DEFAULT_PERM = ''
 EPHORTE_DEFAULT_OLD_PERM = ''
 EPHORTE_EGNE_SAKER_SKO = ''
@@ -849,11 +856,11 @@ DB_DRIVER_ORACLE = "cx_Oracle"
 # group-prefix is a string which will be the prefix of the auto-generated
 # groups.
 # E.g. {'affiliation_status_ansatt_tekadm': 'ansatt-tekadm'}
-# 
+#
 AUTOMATIC_GROUPS = {}
 
 
-# Mapping of affiliations and groups, used for automatic group membership 
+# Mapping of affiliations and groups, used for automatic group membership
 # based on person affiliations.
 # Syntax: 'AFFILIATION': 'group'
 # The variable is overwritten by local cereconf.py and used by
@@ -862,28 +869,28 @@ AUTOMATIC_GROUPS = {}
 AFFILIATION_GROUPS = {}
 
 
-###
-### SMS gateway
-###
-SMS_URL    = ''
+#
+# SMS gateway
+#
+SMS_URL = ''
 # The "system", used by the gateway at logon
 SMS_SYSTEM = ''
 # The username for authentication at the gateway
-SMS_USER   = ''
+SMS_USER = ''
 
-###
-### Certificates
-###
+#
+# Certificates
+#
 
 # The private key used by Cerebrum's server(s).
 SSL_PRIVATE_KEY_FILE = '/cerebrum/var/password/cerebrum_key.priv'
 # Cerebrum's server(s) x509 certificate.
 SSL_CERTIFICATE_FILE = '/cerebrum/var/certs/cerebrum.pem'
 
-###
-### The Individuation daemon
-### A soap-daemon for users to change password, e.g. by SMS.
-###
+#
+# The Individuation daemon
+# A soap-daemon for users to change password, e.g. by SMS.
+#
 
 # The port number where an Individuation daemon should run
 INDIVIDUATION_SERVICE_PORT = 0
@@ -895,10 +902,10 @@ INDIVIDUATION_INSTANCE = 'Cerebrum.modules.cis.Individuation/Individuation'
 # The number of attempts before a user gets blocked from the service
 INDIVIDUATION_ATTEMPTS = 10
 # For how long a blocked user will stay blocked
-INDIVIDUATION_ATTEMPTS_BLOCK_PERIOD = 3600 # in seconds
+INDIVIDUATION_ATTEMPTS_BLOCK_PERIOD = 3600  # in seconds
 # The lifetime of one time passwords sent by SMS
 # Remember that some countries have slow mobile networks
-INDIVIDUATION_TOKEN_LIFETIME = 60 # Minutes
+INDIVIDUATION_TOKEN_LIFETIME = 60  # Minutes
 # The number of characters in a one time passwords sent by SMS
 INDIVIDUATION_TOKEN_LENGTH = 8
 # The format of the message
@@ -921,9 +928,9 @@ INDIVIDUATION_CLIENT_CA = SSL_CERTIFICATE_FILE
 # certificate that is used in a certificate chain has to be whitelisted, which
 # includes the CAs certificates. To get the sha1 fingerprint of a certificate,
 # one can use the command:
-# 
+#
 #   openssl x509 -in certificate.pem -noout -fingerprint -sha1
-# 
+#
 # Fingerprints can, in theory, be hacked through collision attacks. Use sha256
 # in the future to minimize this risk.
 INDIVIDUATION_CLIENT_FINGERPRINTS = ()
@@ -935,7 +942,7 @@ INDIVIDUATION_ACCEPTED_QUARANTINES = ('quarantine_svakt_passord',
 # The number of days a deleted affiliation will still be considered active for
 # the password service. This is to let people that has just quit, or is wrongly
 # registered, to be able to use the service a short time after.
-INDIVIDUATION_AFF_GRACE_PERIOD = 7 # in days
+INDIVIDUATION_AFF_GRACE_PERIOD = 7  # in days
 
 # Configuration for each source system and its phone types that is accepted for
 # sending SMS. The keys are the name of the source system, the values are:
@@ -985,9 +992,9 @@ INDIVIDUATION_PASW_RESERVED = (INITIAL_GROUPNAME,)
 # A mapping of building codes to their addresses. Used by the ldif export.
 BUILDING_CODES = {}
 
-###
-### Guest accounts
-###
+#
+# Guest accounts
+#
 
 # Note that these configuration variables should be put in their own file,
 # guestconfig.py, in the same location as cereconf.py.
@@ -1031,9 +1038,9 @@ GUEST_MAX_PER_PERSON = 100
 # mobile phone number. Some input variables are needed, like 'username',
 # 'password' and 'expire' with the expire date, formated like YYYY-MM-DD.
 GUEST_WELCOME_SMS = ('Welcome.\n'
-        'Your username is: %(username)s\n'
-        'Your password is: %(password)s\n'
-        'The account will expire at %(expire)s')
+                     'Your username is: %(username)s\n'
+                     'Your password is: %(password)s\n'
+                     'The account will expire at %(expire)s')
 
 # The maximum length of the username of guest accounts. Used to restrict the
 # length of usernames when generating them, to conform with limits of some
@@ -1042,7 +1049,7 @@ GUEST_MAX_LENGTH_USERNAME = 20
 
 
 # This switch decides if users are allowed to supply a phone number to send SMS
-# to, in bofhd commands that sends SMS-es. 
+# to, in bofhd commands that sends SMS-es.
 # At its current state, it's a kill switch for the mobile number-parameter
 # of UiA's bofhd-command 'user send_welcome_sms'.
 BOFHD_ALLOW_MANUAL_MOBILE = False
@@ -1053,7 +1060,7 @@ BOFHD_ALLOW_MANUAL_MOBILE = False
 # look something like:
 # UID_RESERVED_RANGE = ((5, 10), (20, 25), (30, 35),)
 # GID_RESERVED_RANGE = ((40, 42), (89, 92),)
-#In the example above, UIDs 5,6,7,8,9,10,20,21,22,23,24,25,30,31,32,33,34,35
-#will not be alloced. For the GIDs, 40,41,42,89,90,91,92 will not be alloced.
+# In the example above, UIDs 5,6,7,8,9,10,20,21,22,23,24,25,30,31,32,33,34,35
+# will not be alloced. For the GIDs, 40,41,42,89,90,91,92 will not be alloced.
 UID_RESERVED_RANGE = tuple()
 GID_RESERVED_RANGE = tuple()

@@ -23,17 +23,23 @@
 
 import cereconf
 from Cerebrum.Entity import \
-     EntityContactInfo, EntityAddress, EntityQuarantine, \
-     EntityExternalId, EntitySpread, EntityNameWithLanguage
+    EntityContactInfo, EntityAddress, EntityQuarantine, \
+    EntityExternalId, EntitySpread, EntityNameWithLanguage
 from Cerebrum import Utils
 from Cerebrum.Utils import argument_to_sql, prepare_string
 from Cerebrum import Errors
 
 
-class MissingOtherException(Exception): pass
-class MissingSelfException(Exception): pass
+class MissingOtherException(Exception):
+    pass
+
+
+class MissingSelfException(Exception):
+    pass
 
 Entity_class = Utils.Factory.get("Entity")
+
+
 class Person(EntityContactInfo, EntityExternalId, EntityAddress,
              EntityQuarantine, EntitySpread, EntityNameWithLanguage,
              Entity_class):
@@ -69,8 +75,9 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         WHERE person_id=:e_id""", {'e_id': self.entity_id})
         self.__super.delete()
 
-    def populate(self, birth_date, gender, description=None, deceased_date=None,
-                 parent=None):
+    def populate(
+        self, birth_date, gender, description=None, deceased_date=None,
+            parent=None):
         """Set instance's attributes without referring to the Cerebrum DB."""
         if parent is not None:
             self.__xerox__(parent)
@@ -147,25 +154,31 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                   (:e_type, :p_id, :exp_id, :b_date, :gender, :deceased_date, :desc)""",
                              {'e_type': int(self.const.entity_person),
                               'p_id': self.entity_id,
-                              'exp_id': 'exp-'+str(self.entity_id),
+                              'exp_id': 'exp-' + str(self.entity_id),
                               'b_date': self.birth_date,
                               'gender': int(self.gender),
                               'deceased_date': self.deceased_date,
                               'desc': self.description})
-                self._db.log_change(self.entity_id, self.const.person_create, None)
+                self._db.log_change(
+                    self.entity_id,
+                    self.const.person_create,
+                    None)
             else:
                 self.execute("""
                 UPDATE [:table schema=cerebrum name=person_info]
                 SET export_id=:exp_id, birth_date=:b_date, gender=:gender,
                     deceased_date=:deceased_date, description=:desc
                 WHERE person_id=:p_id""",
-                             {'exp_id': 'exp-'+str(self.entity_id),
+                             {'exp_id': 'exp-' + str(self.entity_id),
                               'b_date': self.birth_date,
                               'gender': int(self.gender),
                               'deceased_date': self.deceased_date,
                               'desc': self.description,
                               'p_id': self.entity_id})
-                self._db.log_change(self.entity_id, self.const.person_update, None)
+                self._db.log_change(
+                    self.entity_id,
+                    self.const.person_update,
+                    None)
         else:
             is_new = None
 
@@ -178,9 +191,12 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             # db_prim is used to see if a row with that primary key
             # exists.
             db_prim = {}
-            for row in self.get_affiliations(include_deleted = True):
+            for row in self.get_affiliations(include_deleted=True):
                 if source == row['source_system']:
-                    idx = "%d:%d:%d" % (row['ou_id'], row['affiliation'], row['status'])
+                    idx = "%d:%d:%d" % (
+                        row['ou_id'],
+                        row['affiliation'],
+                        row['status'])
                     db_affil[idx] = row['deleted_date']
                     db_prim['%s:%s' % (row['ou_id'], row['affiliation'])] = idx
             pop_affil = self.__affil_data
@@ -222,7 +238,10 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                 try:
                     if not self._compare_names(variant, self):
                         n = self._name_info.get(variant)
-                        self._update_name(self._pn_affect_source, variant, self._name_info[variant])
+                        self._update_name(
+                            self._pn_affect_source,
+                            variant,
+                            self._name_info[variant])
                         is_new = False
                         updated_name = True
                 except MissingOtherException:
@@ -264,7 +283,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         self.__super.find(person_id)
         (self.export_id, self.birth_date, self.gender,
          self.deceased_date, self.description) = self.query_1(
-            """SELECT export_id, birth_date, gender,
+             """SELECT export_id, birth_date, gender,
                       deceased_date, description
                FROM [:table schema=cerebrum name=person_info]
                WHERE person_id=:p_id""", {'p_id': person_id})
@@ -280,7 +299,6 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         return self.query("""
         SELECT person_id FROM [:table schema=cerebrum name=person_info]
         WHERE birth_date = :bdate""", locals())
-
 
     def find_by_export_id(self, export_id):
         person_id = self.query_1("""
@@ -299,7 +317,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             if len(tmp) == 0:
                 raise KeyError
         except:
-            raise MissingOtherException 
+            raise MissingOtherException
         try:
             myname = self._name_info[type]
         except:
@@ -399,7 +417,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             'name_first': None,
             'name_last': None,
             'name_full': None
-            }
+        }
         for ss in cereconf.SYSTEM_LOOKUP_ORDER:
             source = getattr(self.const, ss)
             names = {}
@@ -417,7 +435,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                 if names['name_first'] == '':
                     gen_full = names['name_last']
                 else:
-                    gen_full = names['name_first']+' '+names['name_last']
+                    gen_full = names['name_first'] + ' ' + names['name_last']
             if cached_name['name_full'] is None:
                 if 'name_full' in names:
                     cached_name['name_full'] = names['name_full']
@@ -506,7 +524,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         SELECT *
         FROM [:table schema=cerebrum name=person_name]
         WHERE person_id=:p_id""",
-                            {'p_id': self.entity_id})
+                          {'p_id': self.entity_id})
 
     def affect_names(self, source, *variants):
         self._pn_affect_source = source
@@ -516,7 +534,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
 
     def populate_name(self, variant, name):
         if (not self._pn_affect_source or
-            str(variant) not in ["%s" % v for v in self._pn_affect_variants]):
+                str(variant) not in ["%s" % v for v in self._pn_affect_variants]):
             raise ValueError, "Improper API usage, must call affect_names()"
         self._name_info[variant] = name
 
@@ -527,7 +545,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             self.__affil_data = {}
         elif self._affil_source <> source_system:
             raise ValueError, \
-                  "Can't populate multiple `source_system`s w/o write_db()."
+                "Can't populate multiple `source_system`s w/o write_db()."
         if ou_id is None:
             return
         idx = "%d:%d" % (ou_id, affiliation)
@@ -535,11 +553,11 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
 
     def get_affiliations(self, include_deleted=False):
         return self.list_affiliations(self.entity_id,
-                                      include_deleted = include_deleted)
+                                      include_deleted=include_deleted)
 
     def list_affiliations(self, person_id=None, source_system=None,
                           affiliation=None, status=None, ou_id=None,
-                          include_deleted=False, fetchall = True):
+                          include_deleted=False, fetchall=True):
         where = []
         for t in ('person_id', 'affiliation', 'source_system', 'status',
                   'ou_id'):
@@ -560,7 +578,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         SELECT person_id, ou_id, affiliation, source_system, status,
           deleted_date, create_date, last_date
         FROM [:table schema=cerebrum name=person_affiliation_source]
-        %s""" % where, fetchall = fetchall)
+        %s""" % where, fetchall=fetchall)
 
     def add_affiliation(self, ou_id, affiliation, source, status):
         binds = {'ou_id': int(ou_id),
@@ -685,7 +703,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         """
         Returns a dictionary mapping all existing external ids of given
         ID_TYPE to the corresponding primary account.
-        
+
         This is a *convenience* function. The very same thing can be
         accomplished with get_primary_account() + Account.find() and a
         suitable number of database lookups
@@ -707,7 +725,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             WHERE
               -- make sure the external id is of the right kind
               eei.id_type = :id_type AND
-              -- ... and it applies to a person 
+              -- ... and it applies to a person
               eei.entity_type = [:get_constant name=entity_person] AND
               -- ... and the external id belongs to the account owner
               eei.entity_id = at.person_id AND
@@ -732,13 +750,11 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         return result
     # end getdict_external_id2primary_account
 
-
     def list_persons(self):
         """Return all persons' person_id and birth_date."""
         return self.query("""
         SELECT person_id, birth_date
         FROM [:table schema=cerebrum name=person_info]""")
-
 
     def getdict_persons_names(self, source_system=None, name_types=None):
         if name_types is None:
@@ -754,7 +770,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         SELECT DISTINCT person_id, name_variant, name
         FROM [:table schema=cerebrum name=person_name]
         WHERE name_variant %s""" % selection):
-            id   = int(id)
+            id = int(id)
             info = result.get(id)
             if info is None:
                 result[id] = {int(variant): name}
@@ -762,8 +778,8 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                 info[int(variant)] = name
         return result
 
-
-    def list_persons_atype_extid(self, spread=None, include_quarantines=False,idtype=None):
+    def list_persons_atype_extid(
+            self, spread=None, include_quarantines=False, idtype=None):
         """Multiple join to increase performance on LDAP-dump.
 
         TBD: Maybe this should be nuked in favor of pure dumps like
@@ -787,7 +803,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             efrom += """
             JOIN [:table schema=cerebrum name=entity_external_id] eei
             ON pi.person_id = eei.entity_id AND
-               eei.entity_type = [:get_constant name=entity_person]""" 
+               eei.entity_type = [:get_constant name=entity_person]"""
 
         return self.query("""
         SELECT DISTINCT pi.person_id, pi.birth_date, at.account_id, eei.external_id,
@@ -801,9 +817,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                  FROM [:table schema=cerebrum name=account_type] at2
                  WHERE at2.person_id = pi.person_id)
           %(efrom)s
-          """ % locals(), {'spread': spread,'idtype': idtype}, fetchall=False)
-
-
+          """ % locals(), {'spread': spread, 'idtype': idtype}, fetchall=False)
 
     def search_person_names(self, person_id=None, name_variant=None,
                             source_system=None, name=None, exact_match=True,
@@ -811,11 +825,11 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         """Collect person names from the db matching the specified criteria.
 
         The goal of this method is to search for names, rather than person_ids,
-        although both are returned in the result set. 
+        although both are returned in the result set.
 
         person_id, name_variant and source_system can be sequences. The rest are
         scalars only.
-        
+
         @param person_id:
           Collect names for these person_ids.
 
@@ -841,10 +855,16 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         binds = dict()
         where = list()
         if person_id is not None:
-            where.append(argument_to_sql(person_id, "pn.person_id", binds, int))
+            where.append(
+                argument_to_sql(
+                    person_id,
+                    "pn.person_id",
+                    binds,
+                    int))
         if name_variant is not None:
-            where.append(argument_to_sql(name_variant, "pn.name_variant", binds,
-                                         int))
+            where.append(
+                argument_to_sql(name_variant, "pn.name_variant", binds,
+                                int))
         if source_system is not None:
             where.append(argument_to_sql(source_system, "pn.source_system",
                                          binds, int))
@@ -861,7 +881,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             equality_func = "="
             if not exact_match:
                 equality_func = "LIKE"
-                if name_pattern.find('%') == -1 :
+                if name_pattern.find('%') == -1:
                     name_pattern = '%' + name_pattern + '%'
 
             # Now, putting it all together
@@ -878,8 +898,6 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         """ + where, binds)
     # end search_names
 
-
-    
     def search(self, spread=None, name=None, description=None, birth_date=None,
                entity_id=None, exclude_deceased=False, name_variants=[],
                first_name=None, last_name=None):
@@ -890,7 +908,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         ``description`` and ``birth_date`` should be strings if given.
         ``spread`` can be either string or int, ``entity_id`` can be an int or
         a list of ints.
-        
+
         Wildcards * and ? are expanded for "any chars" and "one char".
 
         Returns a list of tuples with the info (person_id, name, description).
@@ -919,16 +937,18 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                 vid = int(v)
                 vname = "%s_name" % str(v).lower()
                 selects.append("pn_%s.name AS %s" % (vid, vname))
-                tables.append("[:table schema=cerebrum name=person_name] pn_%s" % vid)
+                tables.append(
+                    "[:table schema=cerebrum name=person_name] pn_%s" %
+                    vid)
                 where.append("pn_%s.name_variant = %i" % (vid, vid))
                 where.append("pi.person_id=pn_%s.person_id" % vid)
-                
+
                 # restrict search based on first name (if given)
                 if first_name is not None and vname == "first_name":
                     first_name = prepare_string(first_name)
                     where.append("LOWER(pn_%s.name) LIKE :first_name" % (vid,))
                     binds['first_name'] = first_name
-                
+
                 # restrict search based on last name (if given)
                 if last_name is not None and vname == "last_name":
                     last_name = prepare_string(last_name)
@@ -964,12 +984,17 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             description = prepare_string(description)
             where.append("LOWER(pi.description) LIKE :description")
             binds['description'] = description
-        
+
         if exclude_deceased:
             where.append("pi.deceased_date IS NULL")
 
         if entity_id is not None:
-            where.append(argument_to_sql(entity_id, "pi.person_id", binds, int))
+            where.append(
+                argument_to_sql(
+                    entity_id,
+                    "pi.person_id",
+                    binds,
+                    int))
 
         where_str = ""
         if where:

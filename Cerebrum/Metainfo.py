@@ -26,7 +26,9 @@ from Cerebrum.Database import Errors
 
 SCHEMA_VERSION_KEY = 'cerebrum_database_schema_version'
 
+
 class Metainfo(object):
+
     def __init__(self, database):
         self.db = database
 
@@ -50,10 +52,10 @@ class Metainfo(object):
             self.db.execute("""
             UPDATE [:table schema=cerebrum name=cerebrum_metainfo]
             SET value=:value
-            WHERE name=:name""", {'name': name, 'value': value}) 
+            WHERE name=:name""", {'name': name, 'value': value})
         except Errors.NotFoundError:
             self.db.execute("""
             INSERT INTO [:table schema=cerebrum name=cerebrum_metainfo]
               (name, value)
-            VALUES (:name, :value)""", {'name': name, 'value': value}) 
+            VALUES (:name, :value)""", {'name': name, 'value': value})
 # end class Metainfo

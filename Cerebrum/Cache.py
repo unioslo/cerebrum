@@ -52,7 +52,9 @@ cache holding data:
 import time
 from threading import Lock
 
+
 class Cache(dict):
+
     """Constructor class for cache instances."""
     def __new__(cls, mixins=(), **kwargs):
         bases = [cache_base]
@@ -64,10 +66,13 @@ class Cache(dict):
         # same arguments we received in this __new__() call.
         return dict.__new__(cache_class)
 
+
 class cache_base(Cache):
+
     """Minimal base class of 'cache' types."""
+
     def __init__(self, mixins=(), **kwargs):
-        self._lock=Lock()
+        self._lock = Lock()
         dict.__init__(self)
         # if self._lock.acquire is called when we already have the
         # lock, a deadlock occours.  A number of mix-ins for
@@ -117,8 +122,11 @@ class cache_base(Cache):
 #    __getitem__ methods of a mixin class with a `key` that is present
 #    in the cache.
 
+
 class cache_mru(Cache):
+
     """Mixin class that gives a cache Most-Recently-Used behaviour."""
+
     def __getitem__(self, key):
         ret = super(cache_mru, self).__getitem__(key)
         if self.registry[0] <> key:
@@ -133,8 +141,11 @@ class cache_mru(Cache):
             self.registry.insert(0, key)
         return ret
 
+
 class cache_slots(Cache):
+
     """Mixin class that restricts the maximum number of slots in a cache."""
+
     def setup(self, **kwargs):
         self.size = kwargs.get('size', 100)
 
@@ -147,12 +158,15 @@ class cache_slots(Cache):
             self._dont_lock = False
         return ret
 
+
 class cache_timeout(Cache):
+
     """Mixin class that implements a timeout on cached elements."""
+
     def setup(self, **kwargs):
         import time
         self.timestamps = {}
-        self.timeout = kwargs.get('timeout', 60*5)
+        self.timeout = kwargs.get('timeout', 60 * 5)
 
     def __setitem__(self, key, value):
         ret = super(cache_timeout, self).__setitem__(key, value)
@@ -174,6 +188,7 @@ class cache_timeout(Cache):
             self._dont_lock = False
             raise KeyError, "Timed out"
         return val
+
 
 def memoize_function(function, cache_type=Cache, **kwargs):
     """

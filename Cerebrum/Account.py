@@ -37,7 +37,7 @@ import base64
 
 from Cerebrum import Utils, Disk
 from Cerebrum.Entity import EntityName, EntityQuarantine, \
-     EntityContactInfo, EntityExternalId, EntitySpread
+    EntityContactInfo, EntityExternalId, EntitySpread
 from Cerebrum.modules import PasswordChecker, PasswordHistory
 from Cerebrum import Errors
 from Cerebrum.Utils import NotSet
@@ -45,7 +45,9 @@ from Cerebrum.Utils import argument_to_sql, prepare_string
 
 import cereconf
 
+
 class AccountType(object):
+
     """The AccountType class does not use populate logic as the only
     data stored represent a PK in the database"""
 
@@ -112,7 +114,8 @@ class AccountType(object):
             priority = max_pri + 5
         if orig_pri is None:
             if all_pris.has_key(priority):
-                self._set_account_type_priority(all_pris, priority, priority+1)
+                self._set_account_type_priority(
+                    all_pris, priority, priority + 1)
             cols = {'person_id': int(self.owner_id),
                     'ou_id': int(ou_id),
                     'affiliation': int(affiliation),
@@ -125,8 +128,9 @@ class AccountType(object):
                          cols)
             self._db.log_change(self.entity_id, self.const.account_type_add,
                                 None, change_params={'ou_id': int(ou_id),
-                                                     'affiliation': int(affiliation),
-                                                     'priority': int(priority)})
+                                                     'affiliation':
+                                                     int(affiliation),
+                                'priority': int(priority)})
         else:
             if orig_pri <> priority:
                 self._set_account_type_priority(all_pris, orig_pri, priority)
@@ -231,8 +235,8 @@ class AccountType(object):
         ORDER BY at.person_id, at.priority""" % (join, extra),
                           {'ou_id': ou_id,
                            'status': status,
-                           'account_id' : account_id,
-                           'person_id': person_id}, fetchall = fetchall)
+                           'account_id': account_id,
+                           'person_id': person_id}, fetchall=fetchall)
         if primary_only:
             ret = []
             prev = None
@@ -247,9 +251,10 @@ class AccountType(object):
 
 
 class AccountHome(object):
-    """AccountHome keeps track of where the users home dir is. 
-    A different home dir for each defined home spread may exist.  
-    A home is identified either by a disk_id, or by the string 
+
+    """AccountHome keeps track of where the users home dir is.
+    A different home dir for each defined home spread may exist.
+    A home is identified either by a disk_id, or by the string
     represented by home
 
     Whenever a users account_home or homedir is modified, we changelog
@@ -260,7 +265,7 @@ class AccountHome(object):
                         disk_path=None, home=None, spread=None):
         """Constructs and returns the users homedir-path.  Subclasses
         should override with spread spesific behaviour."""
-        path_separator='/'
+        path_separator = '/'
         if not account_name:
             account_name = self.account_name
         if disk_id:
@@ -270,10 +275,10 @@ class AccountHome(object):
         if home:
             if not disk_path:
                 return home
-            return disk_path+path_separator+home
+            return disk_path + path_separator + home
         if not disk_path:
             return None
-        return disk_path+path_separator+account_name
+        return disk_path + path_separator + account_name
 
     def delete(self):
         """Removes all homedirs for an account"""
@@ -376,7 +381,7 @@ class AccountHome(object):
             tmp['status'] = binds['status']
         self._db.log_change(self.entity_id, change_type,
                             None, change_params=tmp)
-        
+
         return binds['homedir_id']
 
     def _clear_homedir(self, homedir_id):
@@ -387,7 +392,7 @@ class AccountHome(object):
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=homedir]
         WHERE homedir_id=:homedir_id""",
-                     {'homedir_id' : homedir_id})
+                     {'homedir_id': homedir_id})
         self._db.log_change(
             self.entity_id, self.const.homedir_remove, None,
             change_params={'homedir_id': homedir_id,
@@ -401,7 +406,7 @@ class AccountHome(object):
                             {'homedir_id': homedir_id})
 
     def get_homepath(self, spread):
-        tmp=self.get_home(spread)
+        tmp = self.get_home(spread)
         return self.resolve_homedir(disk_id=tmp["disk_id"], home=tmp["home"])
 
     def set_home(self, spread, homedir_id):
@@ -411,7 +416,7 @@ class AccountHome(object):
         binds = {'account_id': self.entity_id,
                  'spread': int(spread),
                  'homedir_id': homedir_id
-            }
+                 }
         tmp = self.get_homedir(homedir_id)
         tmp = self.resolve_homedir(disk_id=tmp['disk_id'],
                                    home=tmp['home'],
@@ -425,13 +430,13 @@ class AccountHome(object):
             self._db.log_change(
                 self.entity_id, self.const.account_home_updated, None,
                 change_params={
-                'spread': int(spread),
-                'home': tmp,
-                'homedir_id': homedir_id
+                    'spread': int(spread),
+                    'home': tmp,
+                    'homedir_id': homedir_id
                 })
             # Remove old homedir entry if no account_home points to it anymore
             if int(old['homedir_id']) not in [
-                int(row['homedir_id']) for row in self.get_homes()]:
+                    int(row['homedir_id']) for row in self.get_homes()]:
                 self._clear_homedir(old['homedir_id'])
         except Errors.NotFoundError:
             self.execute("""
@@ -442,7 +447,7 @@ class AccountHome(object):
             self._db.log_change(
                 self.entity_id, self.const.account_home_added, None,
                 change_params={'spread': int(spread),
-                               'home' : tmp,
+                               'home': tmp,
                                'homedir_id': homedir_id})
 
     def get_home(self, spread):
@@ -461,9 +466,11 @@ class AccountHome(object):
         FROM [:table schema=cerebrum name=account_home] ah,
              [:table schema=cerebrum name=homedir] ahd
         WHERE ah.homedir_id=ahd.homedir_id AND ah.account_id=:account_id""",
-                            {'account_id': self.entity_id})
+                          {'account_id': self.entity_id})
 
 Entity_class = Utils.Factory.get("Entity")
+
+
 class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
               EntityExternalId, EntityContactInfo, EntitySpread, Entity_class):
 
@@ -474,7 +481,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                       'np_type', 'creator_id', 'expire_date', 'create_date',
                       '_auth_info', '_acc_affect_auth_types')
 
-    def create(self, name, owner_id, creator_id, expire_date=None, parent=None):
+    def create(self, name, owner_id,
+               creator_id, expire_date=None, parent=None):
         """Method for creating a new, regular account. Should be subclassed for
         instance specific behaviour, e.g. setting default spreads, creating home
         disks, fixing group memberships etc.
@@ -525,7 +533,9 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             self.delete_ac_types()
 
             # Remove password history
-            PasswordHistory.PasswordHistory(self._db).del_history(self.entity_id)
+            PasswordHistory.PasswordHistory(
+                self._db).del_history(
+                    self.entity_id)
 
             self.execute("""
             DELETE FROM [:table schema=cerebrum name=account_authentication]
@@ -536,13 +546,16 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
 
             # Remove name of account from the account namespace.
             self.delete_entity_name(self.const.account_namespace)
-            self._db.log_change(self.entity_id, self.const.account_destroy, None)
+            self._db.log_change(
+                self.entity_id,
+                self.const.account_destroy,
+                None)
 
         # AccountHome is the class "breaking" the MRO-delete() "chain".
         # self.__super.delete()
         # ... call will stop right at AccountHome. I.e. EntityName, etc won't
         # have their respective delete()s called with __super/super() in this
-        # particular case. 
+        # particular case.
         super(AccountHome, self).delete()
     # end delete
 
@@ -578,7 +591,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             self._db.remove_log_event(int(row['change_id']))
 
         # Add this if we put it in Entity as well:
-        #self.__super.terminate()
+        # self.__super.terminate()
         self.delete()
         self.clear()
 
@@ -604,11 +617,11 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         assert isinstance(other, Account)
 
         return (self.account_name == other.account_name and
-            int(self.owner_type) == int(other.owner_type) and
-            self.owner_id == other.owner_id and
-            self.np_type == other.np_type and
-            self.creator_id == other.creator_id and
-            self.expire_date == other.expire_date)
+                int(self.owner_type) == int(other.owner_type) and
+                self.owner_id == other.owner_id and
+                self.np_type == other.np_type and
+                self.creator_id == other.creator_id and
+                self.expire_date == other.expire_date)
 
     def populate(self, name, owner_type, owner_id, np_type, creator_id,
                  expire_date, parent=None):
@@ -653,7 +666,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         Note: affect_auth_types is automatically extended to contain
         these methods.
         """
-        notimplemented=[]
+        notimplemented = []
         for method_name in cereconf.AUTH_CRYPT_METHODS:
             method = self.const.Authentication(method_name)
             if not method in self._acc_affect_auth_types:
@@ -719,9 +732,13 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         elif method == self.const.auth_type_md5_unsalt:
             return hashlib.md5(plaintext).hexdigest()
         elif method == self.const.auth_type_ha1_md5:
-            s = ":".join([self.account_name,cereconf.AUTH_HA1_REALM,plaintext])
+            s = ":".join(
+                [self.account_name,
+                 cereconf.AUTH_HA1_REALM,
+                 plaintext])
             return hashlib.md5(s).hexdigest()
-        raise Errors.NotImplementedAuthTypeError, "Unknown method " + repr(method)
+        raise Errors.NotImplementedAuthTypeError, "Unknown method " + \
+            repr(method)
 
     def decrypt_password(self, method, cryptstring):
         """Returns the decrypted plaintext according to the specified
@@ -767,7 +784,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         authentication methods which are able to confirm a plaintext,
         do.  If no methods are able to confirm, or one method reports
         a mismatch, return False.
-        
+
         """
         success = []
         failed = []
@@ -825,7 +842,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             # should not be logged.
             # TBD: Why are they in __updated?
             if key == 'np_type':
-                newvalues[key] = int(getattr(self, key))                
+                newvalues[key] = int(getattr(self, key))
             elif key not in ['_auth_info', '_acc_affect_auth_types', 'password']:
                 newvalues[key] = getattr(self, key)
 
@@ -852,22 +869,24 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             INSERT INTO [:table schema=cerebrum name=account_info] (%(tcols)s)
             VALUES (%(binds)s)""" % {'tcols': ", ".join([x[0] for x in cols]),
                                      'binds': ", ".join([x[1] for x in cols])},
-                         {'e_type' : int(self.const.entity_account),
-                          'acc_id' : self.entity_id,
-                          'o_type' : int(self.owner_type),
-                          'c_id' : self.creator_id,
-                          'o_id' : self.owner_id,
-                          'np_type' : np_type,
-                          'exp_date' : self.expire_date,
+                         {'e_type': int(self.const.entity_account),
+                          'acc_id': self.entity_id,
+                          'o_type': int(self.owner_type),
+                          'c_id': self.creator_id,
+                          'o_id': self.owner_id,
+                          'np_type': np_type,
+                          'exp_date': self.expire_date,
                           'create_date': self.create_date})
             self._db.log_change(self.entity_id, self.const.account_create,
                                 None, change_params=newvalues)
-            self.add_entity_name(self.const.account_namespace, self.account_name)
+            self.add_entity_name(
+                self.const.account_namespace,
+                self.account_name)
         else:
-            cols = [('owner_type',':o_type'),
-                    ('owner_id',':o_id'),
-                    ('np_type',':np_type'),
-                    ('creator_id',':c_id'),
+            cols = [('owner_type', ':o_type'),
+                    ('owner_id', ':o_id'),
+                    ('np_type', ':np_type'),
+                    ('creator_id', ':c_id'),
                     ('expire_date', ':exp_date')]
 
             self.execute("""
@@ -875,12 +894,12 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             SET %(defs)s
             WHERE account_id=:acc_id""" % {'defs': ", ".join(
                 ["%s=%s" % x for x in cols])},
-                         {'o_type' : int(self.owner_type),
-                          'c_id' : self.creator_id,
-                          'o_id' : self.owner_id,
-                          'np_type' : np_type,
-                          'exp_date' : self.expire_date,
-                          'acc_id' : self.entity_id})
+                {'o_type': int(self.owner_type),
+                 'c_id': self.creator_id,
+                 'o_id': self.owner_id,
+                 'np_type': np_type,
+                 'exp_date': self.expire_date,
+                 'acc_id': self.entity_id})
             self._db.log_change(self.entity_id, self.const.account_mod,
                                 None, change_params=newvalues)
             if 'account_name' in self.__updated:
@@ -894,7 +913,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         try:
             plain = self.__plaintext_password
         except AttributeError:
-            # TODO: this is meant to catch that self.__plaintext_password is unset
+            # TODO: this is meant to catch that self.__plaintext_password is
+            # unset
             pass
         else:
             # self.__plaintext_password is set.  Put the value in the
@@ -914,8 +934,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                     else:
                         what = 'nothing'
                 except Errors.NotFoundError:
-                     # insert
-                     pass
+                    # insert
+                    pass
             if self._auth_info.get(k, None) is not None:
                 if what == 'insert':
                     self.execute("""
@@ -923,20 +943,20 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                       [:table schema=cerebrum name=account_authentication]
                       (account_id, method, auth_data)
                     VALUES (:acc_id, :method, :auth_data)""",
-                                 {'acc_id' : self.entity_id, 'method' : k,
-                                  'auth_data' : self._auth_info[k]})
+                                 {'acc_id': self.entity_id, 'method': k,
+                                  'auth_data': self._auth_info[k]})
                 elif what == 'update':
                     self.execute("""
                     UPDATE [:table schema=cerebrum name=account_authentication]
                     SET auth_data=:auth_data
                     WHERE account_id=:acc_id AND method=:method""",
-                                 {'acc_id' : self.entity_id, 'method' : k,
-                                  'auth_data' : self._auth_info[k]})
+                                 {'acc_id': self.entity_id, 'method': k,
+                                  'auth_data': self._auth_info[k]})
             elif self.__in_db and what == 'update':
-                    self.execute("""
+                self.execute("""
                     DELETE FROM [:table schema=cerebrum name=account_authentication]
                     WHERE account_id=:acc_id AND method=:method""",
-                                 {'acc_id' : self.entity_id, 'method' : k})
+                             {'acc_id': self.entity_id, 'method': k})
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -975,7 +995,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
     def get_account_authentication_methods(self):
         """Return a list of the authentication methods the account has."""
         binds = {'a_id': self.entity_id}
-        
+
         return self.query("""
         SELECT method
         FROM [:table schema=cerebrum name=account_authentication]
@@ -1013,7 +1033,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         return False
 
     def is_deleted(self):
-        """We define a deleted account as an account with 
+        """We define a deleted account as an account with
         expire_date < now() and no spreads"""
         if self.is_expired() and not self.get_spread():
             return True
@@ -1037,7 +1057,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         return self.query("""
         SELECT *
         FROM [:table schema=cerebrum name=account_info] ai %s""" % where,
-                          fetchall = fetchall)
+                          fetchall=fetchall)
 
     def list_account_home(self, home_spread=None, account_spread=None,
                           disk_id=None, host_id=None, include_nohome=False,
@@ -1074,14 +1094,14 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                     '  ON ah.account_id=ai.account_id')
             tables.append(
                 'LEFT JOIN ([:table schema=cerebrum name=homedir] hd' +
-                '           LEFT JOIN [:table schema=cerebrum name=disk_info] d'+
-                '           ON d.disk_id = hd.disk_id)'+
+                '           LEFT JOIN [:table schema=cerebrum name=disk_info] d' +
+                '           ON d.disk_id = hd.disk_id)' +
                 'ON hd.homedir_id=ah.homedir_id')
         else:
             tables.extend([
                 ', [:table schema=cerebrum name=account_home] ah ',
-                ', [:table schema=cerebrum name=homedir] hd '+
-                '    LEFT JOIN [:table schema=cerebrum name=disk_info] d '+
+                ', [:table schema=cerebrum name=homedir] hd ' +
+                '    LEFT JOIN [:table schema=cerebrum name=disk_info] d ' +
                 '         ON d.disk_id = hd.disk_id'])
             where.extend(["ai.account_id=ah.account_id",
                           "ah.homedir_id=hd.homedir_id"])
@@ -1105,8 +1125,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             'account_spread': int(account_spread or 0),
             'disk_id': disk_id,
             'host_id': host_id
-            })
-    
+        })
+
     def list_reserved_users(self, fetchall=True):
         """Return all reserved users"""
         return self.query("""
@@ -1115,7 +1135,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         WHERE ai.expire_date IS NULL AND NOT EXISTS (
           SELECT 'foo' FROM [:table schema=cerebrum name=entity_spread] es
           WHERE es.entity_id=ai.account_id)""",
-                          fetchall = fetchall)
+                          fetchall=fetchall)
 
     def list_deleted_users(self):
         """Return all deleted users"""
@@ -1141,7 +1161,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                                 'o_type': int(owner_type)})
 
     def list_account_authentication(self, auth_type=None, filter_expired=True):
-        if auth_type == None:
+        if auth_type is None:
             type_str = "= %d" % int(self.const.auth_type_md5_crypt)
         elif isinstance(auth_type, (list, tuple)):
             type_str = ("IN (" +
@@ -1172,7 +1192,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         while True:
             r = ''
             while len(r) < 8:
-                r += pot[random.randint(0, len(pot)-1)]
+                r += pot[random.randint(0, len(pot) - 1)]
             try:
                 pc.goodenough(None, r, uname=uname)
                 return r
@@ -1200,7 +1220,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         lastname = self.simplify_name(lname, alt=1)
         if lastname == "":
             raise ValueError(
-                  "Must supply last name, got '%s', '%s'" % (fname, lname))
+                "Must supply last name, got '%s', '%s'" % (fname, lname))
 
         fname = self.simplify_name(fname, alt=1)
         lname = lastname
@@ -1222,7 +1242,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         # firstinit is set to the initials of the first two names if
         # the person has three or more first names, so firstinit and
         # initial never overlap.
-        firstinit = ""; initial = None
+        firstinit = ""
+        initial = None
         if len(initials) >= 3:
             firstinit = "".join(initials[:2])
         # initial is taken from the last first name.
@@ -1282,7 +1303,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 if initial:
                     # Is there room for an initial?
                     if j < llim:
-                        un = prefix + fname[0:i] + initial + lname[0:j] + suffix
+                        un = prefix + \
+                            fname[0:i] + initial + lname[0:j] + suffix
                         if self.validate_new_uname(domain, un):
                             potuname += (un, )
                 un = prefix + fname[0:i] + lname[0:j] + suffix
@@ -1296,7 +1318,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         # _first_ name.
         #
         # geirove, geirov, geiro, geir, gei, ge
-        
+
         flen = min(len(fname), maxlen)
         for i in range(flen, 1, -1):
             un = prefix + fname[0:i] + suffix
@@ -1340,13 +1362,14 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         try:
             (tr, xlate_subst, xlate_match) = self._simplify_name_cache[key]
         except TypeError:
-            xlate = {'Ð': 'Dh',  'ð': 'dh',
-                     'Þ': 'Th',  'þ': 'th',
+            xlate = {'Ð': 'Dh', 'ð': 'dh',
+                     'Þ': 'Th', 'þ': 'th',
                      'ß': 'ss'}
             if alt:
-                xlate.update({'Æ': 'ae',  'æ': 'ae',
-                              'Å': 'aa',  'å': 'aa'})
+                xlate.update({'Æ': 'ae', 'æ': 'ae',
+                              'Å': 'aa', 'å': 'aa'})
             xlate_subst = re.compile(r'[^a-zA-Z0-9 -]').sub
+
             def xlate_match(match):
                 return xlate.get(match.group(), "")
             tr = dict(zip(map(chr, xrange(0200, 0400)), ('x',) * 0200))
@@ -1365,7 +1388,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             self._simplify_name_cache[key] = (tr, xlate_subst, xlate_match)
 
         xlated = xlate_subst(xlate_match, s.translate(tr))
-        
+
         # normalise whitespace and hyphens: only ordinary SPC, only
         # one of them between words, and none leading or trailing.
         xlated = re.sub(r'\s+', " ", xlated)
@@ -1376,38 +1399,38 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                expire_start='[:now]', expire_stop=None):
         """Retrieves a list of Accounts filtered by the given criterias.
         If no criteria is given, all non-expired accounts are returned.
-        
-        If expire_start and expire_stop is used, accounts with expire_date 
-        between expire_start and expire_stop is returned. 
-       
+
+        If expire_start and expire_stop is used, accounts with expire_date
+        between expire_start and expire_stop is returned.
+
         @param spread: Return entities that has this spread
-        @type spread: Either be integer or string. A string with wildcards * 
+        @type spread: Either be integer or string. A string with wildcards *
         and ? are expanded for "any chars" and "one char".
-        
+
         @param name: Return only entities that matches name
-        @type name: String. Wildcards * and ? are expanded for "any chars" and 
+        @type name: String. Wildcards * and ? are expanded for "any chars" and
         "one char".
-        
+
         @param owner_id: Return entities that is owned by this owner_id
         @type owner_id: Integer
 
         @param owner_type: Return entities where owners type is of owner_type
         @type owner_type: Integer
-        
+
         @param expire_start: Filter on expire_date. If not specified use current
         time. If specified then filter on expire_date>=expire_start.
         If expire_start is None, don't apply a start_date filter.
-        @type expire_start: Date. Either a string on format 'YYYY-mm-dd' or a 
+        @type expire_start: Date. Either a string on format 'YYYY-mm-dd' or a
         mx.DateTime object
-        
-        @param expire_stop: Filter on expire_date. If None, don't apply a 
-        stop filter on expire_date. If other than None, filter on 
+
+        @param expire_stop: Filter on expire_date. If None, don't apply a
+        stop filter on expire_date. If other than None, filter on
         expire_date<expire_stop.
-        @type expire_stop: Date. Either a string on format 'YYYY-mm-dd' or a 
+        @type expire_stop: Date. Either a string on format 'YYYY-mm-dd' or a
         mx.DateTime object
-       
+
         @return a list of tuples with the info (account_id,name,owner_id,
-        owner_type,expire_date).        
+        owner_type,expire_date).
         """
 
         tables = []
@@ -1447,16 +1470,18 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             binds['owner_type'] = owner_type
 
         if expire_start and expire_stop:
-            where.append("(ai.expire_date>=:expire_start and ai.expire_date<:expire_stop)")
+            where.append(
+                "(ai.expire_date>=:expire_start and ai.expire_date<:expire_stop)")
             binds['expire_start'] = expire_start
             binds['expire_stop'] = expire_stop
         elif expire_start and expire_stop is None:
-            where.append("(ai.expire_date>=:expire_start or ai.expire_date IS NULL)")
+            where.append(
+                "(ai.expire_date>=:expire_start or ai.expire_date IS NULL)")
             binds['expire_start'] = expire_start
         elif expire_start is None and expire_stop:
             where.append("ai.expire_date<:expire_stop")
             binds['expire_stop'] = expire_stop
-  
+
         where_str = ""
         if where:
             where_str = "WHERE " + " AND ".join(where)
