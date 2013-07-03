@@ -19,7 +19,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""This Module ads expire_date and notification features to entity spreads. 
+"""This Module ads expire_date and notification features to entity spreads.
 """
 
 
@@ -39,10 +39,12 @@ from Cerebrum import Errors
 
 from Cerebrum.modules.no.uit.MailQ import MailQ
 
+
 class UitEntitySpreadMixin(EntitySpread):
+
     """
     Mixin class that will extend EntitySpread funcionality.
-    
+
     """
 
     def __init__(self, database):
@@ -75,7 +77,7 @@ class UitEntitySpreadMixin(EntitySpread):
         if expire_policy is not None and len(expire_policy) > 0:
             templates = []
             for (policy_days, policy_template) in expire_policy:
-               templates.append("'" + policy_template + "'")
+                templates.append("'" + policy_template + "'")
             templates = '(' + ','.join(templates) + ')'
 
             self.execute("""
@@ -83,7 +85,6 @@ class UitEntitySpreadMixin(EntitySpread):
                WHERE entity_id=:e_id AND notify_template in %s""" % templates, {'e_id': self.entity_id})
 
         super(UitEntitySpreadMixin, self).delete_spread(spread)
-
 
     def set_spread_expire(self, spread, expire_date=None, entity_id=None):
 
@@ -118,7 +119,7 @@ class UitEntitySpreadMixin(EntitySpread):
         SET expire_date=:expire_date
         WHERE entity_id=:entity_id AND spread=:spread_code
         """
-        upd_binds = {'entity_id' : entity_id,
+        upd_binds = {'entity_id': entity_id,
                      'spread_code': spread,
                      'expire_date': expire_date}
 
@@ -126,14 +127,21 @@ class UitEntitySpreadMixin(EntitySpread):
             res = self.query_1(sel_query, sel_binds)
             if res == '1':
                 res = self.execute(upd_query, upd_binds)
-                self.logger.info("Updated expire_date on spread %s for account %s to %s" % (spread, entity_id, expire_date))
-                self.notify_spread_expire_reset(spread, expire_date, entity_id=entity_id)
+                self.logger.info(
+                    "Updated expire_date on spread %s for account %s to %s" %
+                    (spread, entity_id, expire_date))
+                self.notify_spread_expire_reset(
+                    spread,
+                    expire_date,
+                    entity_id=entity_id)
         except Errors.NotFoundError:
             res = self.execute(ins_query, ins_binds)
-            self.logger.info("Set expire_date on spread %s for account %s to %s" % (spread, entity_id, expire_date))
+            self.logger.info(
+                "Set expire_date on spread %s for account %s to %s" %
+                (spread, entity_id, expire_date))
 
-
-    def search_spread_expire(self, spread=None, expire_date=None, entity_id=None):
+    def search_spread_expire(
+            self, spread=None, expire_date=None, entity_id=None):
         where = []
         where_str = ''
         if expire_date is not None:
@@ -146,12 +154,12 @@ class UitEntitySpreadMixin(EntitySpread):
             where_str = "WHERE " + " AND ".join(where)
 
         # Returns search result
-        return self.query("""SELECT entity_id, spread, expire_date FROM [:table schema=cerebrum name=spread_expire] %s""" % (where_str),
-                          {'entity_id' : entity_id,
-                           'spread_code' : spread,
-                           'expire_date' : expire_date})
-
-
+        return self.query(
+            """SELECT entity_id, spread, expire_date FROM [:table schema=cerebrum name=spread_expire] %s""" % (
+                where_str),
+            {'entity_id': entity_id,
+             'spread_code': spread,
+             'expire_date': expire_date})
 
     def notify_spread_expire_reset(self, spread, expire_date, entity_id=None):
 
@@ -165,12 +173,13 @@ class UitEntitySpreadMixin(EntitySpread):
         if expire_policy is None or len(expire_policy) == 0:
             return
 
-        # Check if user has a pending spread expire notification for current set of possible templates
+        # Check if user has a pending spread expire notification for current
+        # set of possible templates
         templates = []
         for (policy_days, policy_template) in expire_policy:
-           templates.append("'" + policy_template + "'")
+            templates.append("'" + policy_template + "'")
         templates = '(' + ','.join(templates) + ')'
-        
+
         sel_query = """
             SELECT notify_date, notify_template FROM [:table schema=cerebrum name=spread_expire_notification]
             WHERE entity_id=:entity_id AND notify_template IN %s
@@ -180,7 +189,9 @@ class UitEntitySpreadMixin(EntitySpread):
         try:
             res = self.query_1(sel_query, sel_binds)
         except Errors.NotFoundError:
-            self.logger.info("User %s has no pending spread %s expire notifications within templates %s to reset" % (entity_id, spread, templates))
+            self.logger.info(
+                "User %s has no pending spread %s expire notifications within templates %s to reset" %
+                (entity_id, spread, templates))
             return
 
         (notify_date, notify_template) = res
@@ -189,25 +200,29 @@ class UitEntitySpreadMixin(EntitySpread):
         today = mx.DateTime.today()
         expire_date = mx.DateTime.DateFrom(expire_date)
         if expire_policy is not None and len(expire_policy) > 0:
-            # Check if the longest expiry notification perios (always the first) will catch up with new expire date immediately
+            # Check if the longest expiry notification perios (always the
+            # first) will catch up with new expire date immediately
             (policy_days, policy_template) = expire_policy[0]
             if expire_date <= today + mx.DateTime.DateTimeDelta(policy_days):
-                self.logger.error("Expire date extended too little to avoid new expiry notification. entity_id: %s. spread: %s. Reset notification NOT sent." % (entity_id, spread))
+                self.logger.error(
+                    "Expire date extended too little to avoid new expiry notification. entity_id: %s. spread: %s. Reset notification NOT sent." %
+                    (entity_id, spread))
                 return
 
         # If sending successful, delete pending notifications
-        self.logger.info("Spread notification reset message being sent. acc: %s  expire_date: %s  spread: %s  template: %s" % (entity_id, expire_date, spread, reset_template))
+        self.logger.info(
+            "Spread notification reset message being sent. acc: %s  expire_date: %s  spread: %s  template: %s" %
+            (entity_id, expire_date, spread, reset_template))
         template_params = {}
         if self.mailq.add(entity_id, reset_template, template_params):
             del_query = """
                  DELETE FROM [:table schema=cerebrum name=spread_expire_notification]
                  WHERE entity_id=:entity_id AND notify_template=:template
                  """
-            del_binds = {'entity_id' : entity_id,
+            del_binds = {'entity_id': entity_id,
                          'template': notify_template}
             self.execute(del_query, del_binds)
         return
-
 
     def notify_spread_expire(self, spread, expire_date, entity_id):
 
@@ -216,13 +231,14 @@ class UitEntitySpreadMixin(EntitySpread):
         if expire_policy is None or len(expire_policy) == 0:
             return
 
-        # Check if user has a pending spread expire notification for current set of possible templates
+        # Check if user has a pending spread expire notification for current
+        # set of possible templates
         notify_date = None
         notify_template = None
 
         templates = []
         for (policy_days, policy_template) in expire_policy:
-           templates.append("'" + policy_template + "'")
+            templates.append("'" + policy_template + "'")
         templates = '(' + ','.join(templates) + ')'
 
         sel_query = """
@@ -235,9 +251,12 @@ class UitEntitySpreadMixin(EntitySpread):
             res = self.query_1(sel_query, sel_binds)
             (notify_date, notify_template) = res
         except Errors.NotFoundError:
-            self.logger.info("User %s has no pending spread %s expire notifications within templates %s to update" % (entity_id, spread, templates))
+            self.logger.info(
+                "User %s has no pending spread %s expire notifications within templates %s to update" %
+                (entity_id, spread, templates))
 
-        # Decide what would be the next template to send out, and how many days before expiry it should be sent
+        # Decide what would be the next template to send out, and how many days
+        # before expiry it should be sent
         policy_days = None
         policy_template = None
         found_match = False
@@ -252,16 +271,20 @@ class UitEntitySpreadMixin(EntitySpread):
                     break
                 if aux_policy_template == notify_template:
                     found_match = True
-        
+
         if policy_days is None or policy_template is None:
-            if found_match == False:
-                self.logger.error("Inconsistent spread_expire content vs existing policies: entity_id: %s spread: %s" % (entity_id, spread))
+            if not found_match:
+                self.logger.error(
+                    "Inconsistent spread_expire content vs existing policies: entity_id: %s spread: %s" %
+                    (entity_id, spread))
                 return
             else:
-                self.logger.info("Last spread notification policy already processed for spread %s for user %s. User is now awaiting spread deletion when due." % (spread, entity_id))
+                self.logger.info(
+                    "Last spread notification policy already processed for spread %s for user %s. User is now awaiting spread deletion when due." %
+                    (spread, entity_id))
                 return
         elif mx.DateTime.DateFrom(expire_date) <= mx.DateTime.today() + mx.DateTime.DateTimeDelta(policy_days):
-            
+
             account_expire_date = None
             # Instantiate entity and check that it is an account object.
             try:
@@ -272,37 +295,50 @@ class UitEntitySpreadMixin(EntitySpread):
                 valid_entity_types = [co.entity_account, ]
 
                 if en.const.EntityType(en.entity_type) not in valid_entity_types:
-                    self.logger.error("Invalid entity_type (%s) chosen for spread expire. entity_id: %s" % (str(en.const.EntityType(en.entity_type)), entity_id))
+                    self.logger.error(
+                        "Invalid entity_type (%s) chosen for spread expire. entity_id: %s" %
+                        (str(en.const.EntityType(en.entity_type)), entity_id))
                     raise
 
                 ac = Factory.get('Account')(self.db)
                 ac.find(entity_id)
                 account_expire_date = ac.expire_date
             except Exception, e:
-                self.logger.error("Failed setting expire date for entity_id %s. Error: %s" % (entity_id, e))
+                self.logger.error(
+                    "Failed setting expire date for entity_id %s. Error: %s" %
+                    (entity_id, e))
 
-            # If account expiry date equals spread expire date, don't send notification. A general notification will be sent by a different script.
+            # If account expiry date equals spread expire date, don't send
+            # notification. A general notification will be sent by a different
+            # script.
             if expire_date is not None and account_expire_date is not None and mx.DateTime.DateFrom(account_expire_date) <= mx.DateTime.DateFrom(expire_date):
-                self.logger.info("Will not send notification about spread expire for spread %s because the account %s expires the same day or before the spread." % (spread, entity_id))
+                self.logger.info(
+                    "Will not send notification about spread expire for spread %s because the account %s expires the same day or before the spread." %
+                    (spread, entity_id))
                 return
 
-            # Don't send two notifications the same day - it looks like spamming. Instead let it pass, and it will be caught the next day
+            # Don't send two notifications the same day - it looks like
+            # spamming. Instead let it pass, and it will be caught the next day
             if notify_date is not None and mx.DateTime.today() == mx.DateTime.DateFrom(notify_date):
-                self.logger.info("Will not send notification about spread expire for spread %s because a similar template has already been sent to %s before today" % (spread, entity_id))
+                self.logger.info(
+                    "Will not send notification about spread expire for spread %s because a similar template has already been sent to %s before today" %
+                    (spread, entity_id))
                 return
 
-            self.logger.info("Will send notification to user. acc: %s  expire_date: %s  spread: %s  template: %s" % (entity_id, expire_date, spread, policy_template))
+            self.logger.info(
+                "Will send notification to user. acc: %s  expire_date: %s  spread: %s  template: %s" %
+                (entity_id, expire_date, spread, policy_template))
 
             # If sending succeeded, update notification information
             template_params = {'expire_date': str(expire_date)[0:10]}
             if self.mailq.add(entity_id, policy_template, template_params):
-                
+
                 if notify_template is None:
                     # New notification
                     query = """
                       INSERT INTO [:table schema=cerebrum name=spread_expire_notification]
                           (entity_id, notify_date, notify_template) VALUES (:entity_id, now(), :template)"""
-                    binds = {'entity_id' : entity_id,
+                    binds = {'entity_id': entity_id,
                              'template': policy_template}
                 else:
                     # Updates notification (next level notification)
@@ -310,9 +346,8 @@ class UitEntitySpreadMixin(EntitySpread):
                       UPDATE [:table schema=cerebrum name=spread_expire_notification]
                       SET notify_template = :new_template, notify_date = now()
                       WHERE entity_id=:entity_id AND notify_template=:old_template"""
-                    binds = {'entity_id' : entity_id,
+                    binds = {'entity_id': entity_id,
                              'old_template': notify_template,
                              'new_template': policy_template}
 
                 self.execute(query, binds)
-
