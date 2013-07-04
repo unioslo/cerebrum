@@ -130,7 +130,7 @@ class AccountType(object):
                                 None, change_params={'ou_id': int(ou_id),
                                                      'affiliation':
                                                      int(affiliation),
-                                'priority': int(priority)})
+                                                     'priority': int(priority)})
         else:
             if orig_pri <> priority:
                 self._set_account_type_priority(all_pris, orig_pri, priority)
@@ -535,7 +535,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             # Remove password history
             PasswordHistory.PasswordHistory(
                 self._db).del_history(
-                    self.entity_id)
+                self.entity_id)
 
             self.execute("""
             DELETE FROM [:table schema=cerebrum name=account_authentication]

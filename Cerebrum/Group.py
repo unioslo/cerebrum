@@ -815,7 +815,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                     member_name_dict[
                         self.const.EntityType(
                             k)] = self.const.ValueDomain(
-                                v)
+                        v)
             case = []
             i = 0
             for e_type, vdomain in member_name_dict.items():

@@ -354,7 +354,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         self._db.log_change(self.entity_id,
                             self.const.person_name_del, None,
                             change_params={'src': int(source),
-                            'name_variant': int(variant)})
+                                           'name_variant': int(variant)})
 
     def _update_name(self, source_system, variant, name):
         # Class-internal use only
