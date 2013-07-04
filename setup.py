@@ -135,8 +135,10 @@ except Exception, e:
 #
 cerebrum_user = "cerebrum"
 
+
 class my_install_data (install_data.install_data, object):
-    def finalize_options (self):
+
+    def finalize_options(self):
         """Add wildcard support for filenames.  Generate cerebrum_path.py"""
         super(my_install_data, self).finalize_options()
         for f in self.data_files:
@@ -154,7 +156,9 @@ class my_install_data (install_data.install_data, object):
             print "Warning, uid!=0, not writing cerebrum_path.py"
             return
         f_in = open("cerebrum_path.py.in", "r")
-        cere_path = os.path.join(sysconfig.get_python_lib(), "cerebrum_path.py")
+        cere_path = os.path.join(
+            sysconfig.get_python_lib(),
+            "cerebrum_path.py")
         if self.root:
             cere_path = os.path.normpath(cere_path)
             if os.path.isabs(cere_path):
@@ -169,7 +173,7 @@ class my_install_data (install_data.install_data, object):
         f_in.close()
         f_out.close()
 
-    def run (self):
+    def run(self):
         self.mkpath(self.install_dir)
         for f in self.data_files:
             # it's a tuple with dict to install to and a list of files
@@ -204,25 +208,31 @@ class my_install_data (install_data.install_data, object):
                     if(os.geteuid() == 0):
                         os.chown(out, uid, gid)
 
+
 class test(Command):
     user_options = [('check', None, 'Run check'),
                     ('dbcheck', None, 'Run db-check')]
-    def initialize_options (self):
+
+    def initialize_options(self):
         self.check = None
         self.dbcheck = None
 
-    def finalize_options (self):
+    def finalize_options(self):
         if self.check is None and self.dbcheck is None:
             raise RuntimeError, "Must specify test option"
-    
-    def run (self):
+
+    def run(self):
         if self.dbcheck is not None:
-            os.system('%s testsuite/Run.py -v Cerebrum.tests.SQLDriverTestCase.suite' % sys.executable)
+            os.system(
+                '%s testsuite/Run.py -v Cerebrum.tests.SQLDriverTestCase.suite' %
+                sys.executable)
         if self.check is not None:
             os.system('%s testsuite/Run.py -v' % sys.executable)
 
+
 class my_sdist(sdist, object):
-    def finalize_options (self):
+
+    def finalize_options(self):
         super(my_sdist, self).finalize_options()
         if bofh and os.system('cd clients/jbofh && ant dist') != 0:
             raise RuntimeError, "Error running ant"
@@ -238,16 +248,17 @@ def wsdl2py(name):
         reader = WSDLTools.WSDLReader()
         wsdl = reader.loadFromFile(name)
         dir = os.path.dirname(name)
-        
+
         wsm = WriteServiceModule(wsdl, addressing=True)
-        fd = open(os.path.join(dir, '%s.py' %wsm.getClientModuleName()), 'w+')
-        print os.path.join(dir, '%s.py' %wsm.getClientModuleName())
+        fd = open(os.path.join(dir, '%s.py' % wsm.getClientModuleName()), 'w+')
+        print os.path.join(dir, '%s.py' % wsm.getClientModuleName())
         wsm.writeClient(fd)
         fd.close()
 
-        fd = open(os.path.join(dir, '%s.py' %wsm.getTypesModuleName()), 'w+')
+        fd = open(os.path.join(dir, '%s.py' % wsm.getTypesModuleName()), 'w+')
         wsm.writeTypes(fd)
         fd.close()
+
 
 def wsdl2dispatch(name):
     try:
@@ -268,7 +279,7 @@ def wsdl2dispatch(name):
         ss = ServiceDescription(do_extended=False)
         ss.fromWSDL(wsdl)
 
-        fd = open(os.path.join(dir, ss.getServiceModuleName()+'.py'), 'w+')
+        fd = open(os.path.join(dir, ss.getServiceModuleName() + '.py'), 'w+')
         print os.path.join(dir, ss.getServiceModuleName() + '.py')
         ss.write(fd)
         fd.close()
@@ -278,8 +289,10 @@ def wsdl2dispatch(name):
 vars = locals()
 try:
     for line in open('Makefile'):
-        if line.find(':') != -1: break # Only scan until the first target.
-        if line.find('$') != -1: continue # Don't read in variable names.
+        if line.find(':') != -1:
+            break  # Only scan until the first target.
+        if line.find('$') != -1:
+            continue  # Don't read in variable names.
         try:
             name, value = line.split('=')
             name = name.strip()
@@ -294,12 +307,18 @@ except IOError, e:
 
 # Then we set the default value of these variables.  If they are already
 # set, we keep the original value.
-vars.setdefault('prefix', ".")  # Should preferably be initialized from the command-line argument
+vars.setdefault('prefix', ".")
+                # Should preferably be initialized from the command-line
+                # argument
 vars.setdefault('sharedir', "%s/share" % prefix)
 vars.setdefault('sbindir', "%s/sbin" % prefix)
 vars.setdefault('bindir', "%s/bin" % prefix)
-vars.setdefault('sysconfdir', "%s/etc/cerebrum" % prefix) # Should be /etc/cerebrum/
-vars.setdefault('logdir', "%s/var/log/cerebrum" % prefix) # Should be /var/log/cerebrum/
+vars.setdefault(
+    'sysconfdir', "%s/etc/cerebrum" %
+    prefix)  # Should be /etc/cerebrum/
+vars.setdefault(
+    'logdir', "%s/var/log/cerebrum" %
+    prefix)  # Should be /var/log/cerebrum/
 # End ugly hack
 
 sbin_files = [
@@ -314,8 +333,8 @@ if (bofh):
 
 if (bofh):
     bin_files = [
-       ('clients/examples/bofh.py', 0755),
-       ('clients/jbofh/fix_jbofh_jar.py', 0755)
+        ('clients/examples/bofh.py', 0755),
+        ('clients/jbofh/fix_jbofh_jar.py', 0755)
     ]
 else:
     bin_files = []
@@ -331,7 +350,7 @@ if (bofh):
         open(jar_file)
         share_files.append((jar_file, 0644))
     except IOError, e:
-        print "'%s': not found. Skipping." % jar_file 
+        print "'%s': not found. Skipping." % jar_file
 
 data_files = [
     ({'path': "%s/cerebrum/design" % sharedir,
@@ -349,8 +368,8 @@ data_files = [
       ('COPYING', 0644)
       # 'doc/*'
       ]),
-    ## ("%s/samples" % sharedir,
-    ##  ['doc/*.cron']),
+    # ("%s/samples" % sharedir,
+    # ['doc/*.cron']),
     ({'path': sbindir,
       'owner': cerebrum_user,
       'mode': 0755}, sbin_files),
@@ -369,7 +388,7 @@ data_files = [
     ({'path': "%s/cerebrum/contrib/migrate" % sharedir,
       'owner': cerebrum_user,
       'mode': 0755},
-     [('contrib/migrate/*.py', 0755)]),                     
+     [('contrib/migrate/*.py', 0755)]),
     ({'path': "%s/cerebrum/contrib/no" % sharedir,
       'owner': cerebrum_user,
       'mode': 0755},
@@ -379,7 +398,7 @@ data_files = [
       'owner': cerebrum_user,
       'mode': 0755},
      [('contrib/virthome/*.py', 0755)]),
-   
+
     # Indigo.  A recurse-like option would be great...
     ({'path': "%s/cerebrum/contrib/no/Indigo" % sharedir,
       'owner': cerebrum_user,
@@ -415,12 +434,12 @@ data_files = [
       'owner': cerebrum_user,
       'mode': 0755},
      [('contrib/no/Indigo/web/templates/default/macro/*.zpl', 0644)]),
-   
+
     ({'path': "%s/cerebrum/contrib/statistics" % sharedir,
       'owner': cerebrum_user,
       'mode': 0755},
      [('contrib/statistics/*.py', 0755)]),
-   
+
     ({'path': "%s/cerebrum/contrib/no/uio" % sharedir,
       'owner': cerebrum_user,
       'mode': 0755},
@@ -440,7 +459,7 @@ data_files = [
     ({'path': "%s/cerebrum/contrib/no/hih" % sharedir,
       'owner': cerebrum_user,
       'mode': 0755},
-     [('contrib/no/hih/*.py', 0755)]),    
+     [('contrib/no/hih/*.py', 0755)]),
     ({'path': "%s/cerebrum/contrib/no/hiof" % sharedir,
       'owner': cerebrum_user,
       'mode': 0755},
@@ -508,65 +527,66 @@ wsdl2py('servers/cerews/lib/cerews.wsdl')
 wsdl2dispatch('servers/cerews/lib/cerews.wsdl')
 
 
-setup (name = "Cerebrum", version = Cerebrum.__version__,
-       url = "http://cerebrum.sourceforge.net",
-       maintainer = "Cerebrum Developers",
-       maintainer_email = "do.we@want.this.here",
-       description = "Cerebrum is a user-administration system",
-       license = "GPL",
-       long_description = ("System for user semi-automatic user "+
-                           "administration in a heterogenous "+
-                           "environment"),
-       platforms = "UNIX",
-       # NOTE: all scripts ends up in the same dir!
-       # scripts = ['contrib/no/uio/import_FS.py', 'contrib/generate_nismaps.py'],
-       packages = ['Cerebrum',
-                   'Cerebrum/extlib',
-                   'Cerebrum/extlib/Plex',
-                   'Cerebrum/modules',
-                   'Cerebrum/modules/ad',
-                   'Cerebrum/modules/ad2',
-                   'Cerebrum/modules/dns',
-                   'Cerebrum/modules/hostpolicy',
-                   'Cerebrum/modules/bofhd',
-                   'Cerebrum/modules/job_runner',
-                   'Cerebrum/modules/no',
-                   'Cerebrum/modules/no/Indigo',
-                   'Cerebrum/modules/no/Indigo/Cweb',
-                   'Cerebrum/modules/no/uio',
-                   'Cerebrum/modules/no/uio/printer_quota',
-                   'Cerebrum/modules/no/uio/voip',
-                   'Cerebrum/modules/no/uio/AutoStud',
-                   'Cerebrum/modules/no/hia',
-                   'Cerebrum/modules/no/hih',
-                   'Cerebrum/modules/no/hiof',
-                   'Cerebrum/modules/no/nmh',
-                   'Cerebrum/modules/no/nih',
-                   'Cerebrum/modules/no/hine',
-                   'Cerebrum/modules/no/notur',
-                   'Cerebrum/modules/no/nvh',
-                   'Cerebrum/modules/no/tsd',
-                   'Cerebrum/modules/templates',
-                   'Cerebrum/modules/xmlutils',
-                   'Cerebrum/modules/abcenterprise',
-                   'Cerebrum/modules/process_entity',
-                   'Cerebrum/modules/no/uit',
-                   'Cerebrum/modules/no/uit/AutoStud',
-                   'Cerebrum/lib',
-                   'Cerebrum/client',
-                   'Cerebrum/modules/LMS',
-                   'Cerebrum/modules/virthome',
-                   'Cerebrum/modules/cis',
-                   ],
+setup(name="Cerebrum", version=Cerebrum.__version__,
+      url="http://cerebrum.sourceforge.net",
+      maintainer="Cerebrum Developers",
+      maintainer_email="do.we@want.this.here",
+      description="Cerebrum is a user-administration system",
+      license="GPL",
+      long_description=("System for user semi-automatic user " +
+                        "administration in a heterogenous " +
+                        "environment"),
+      platforms = "UNIX",
+      # NOTE: all scripts ends up in the same dir!
+      # scripts = ['contrib/no/uio/import_FS.py',
+      # 'contrib/generate_nismaps.py'],
+      packages = ['Cerebrum',
+                  'Cerebrum/extlib',
+                  'Cerebrum/extlib/Plex',
+                  'Cerebrum/modules',
+                  'Cerebrum/modules/ad',
+                  'Cerebrum/modules/ad2',
+                  'Cerebrum/modules/dns',
+                  'Cerebrum/modules/hostpolicy',
+                  'Cerebrum/modules/bofhd',
+                  'Cerebrum/modules/job_runner',
+                  'Cerebrum/modules/no',
+                  'Cerebrum/modules/no/Indigo',
+                  'Cerebrum/modules/no/Indigo/Cweb',
+                  'Cerebrum/modules/no/uio',
+                  'Cerebrum/modules/no/uio/printer_quota',
+                  'Cerebrum/modules/no/uio/voip',
+                  'Cerebrum/modules/no/uio/AutoStud',
+                  'Cerebrum/modules/no/hia',
+                  'Cerebrum/modules/no/hih',
+                  'Cerebrum/modules/no/hiof',
+                  'Cerebrum/modules/no/nmh',
+                  'Cerebrum/modules/no/nih',
+                  'Cerebrum/modules/no/hine',
+                  'Cerebrum/modules/no/notur',
+                  'Cerebrum/modules/no/nvh',
+                  'Cerebrum/modules/no/tsd',
+                  'Cerebrum/modules/templates',
+                  'Cerebrum/modules/xmlutils',
+                  'Cerebrum/modules/abcenterprise',
+                  'Cerebrum/modules/process_entity',
+                  'Cerebrum/modules/no/uit',
+                  'Cerebrum/modules/no/uit/AutoStud',
+                  'Cerebrum/lib',
+                  'Cerebrum/client',
+                  'Cerebrum/modules/LMS',
+                  'Cerebrum/modules/virthome',
+                  'Cerebrum/modules/cis',
+                  ],
 
-       # options override --prefix
-       #options = {'install_data': {'root' : '/foo/bar',  # prefix on slash
-       #                            'install_dir': '/dddddddd' # prefix on no-slash
-       #                            }},
-       # data_files doesn't seem to handle wildcards
-       data_files = data_files,
-       # Overridden command classes
-       cmdclass = {'install_data': my_install_data,
-                   'sdist': my_sdist,
-                   'test': test}
+      # options override --prefix
+      # options = {'install_data': {'root' : '/foo/bar',  # prefix on slash
+      # 'install_dir': '/dddddddd' # prefix on no-slash
+      #                            }},
+      # data_files doesn't seem to handle wildcards
+      data_files = data_files,
+      # Overridden command classes
+      cmdclass = {'install_data': my_install_data,
+                  'sdist': my_sdist,
+                  'test': test}
       )

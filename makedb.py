@@ -33,6 +33,8 @@ from Cerebrum import Errors
 import Cerebrum
 
 all_ok = True
+
+
 def usage(exitcode=0):
     print """makedb.py [options] [sql-file ...]
 
@@ -65,6 +67,7 @@ won't be included.
 """
     sys.exit(exitcode)
 
+
 def main():
     global meta
     try:
@@ -87,7 +90,6 @@ def main():
             print "Will use regular 'user' (%s) instead." % db_user
     db = Factory.get('Database')(user=db_user)
     db.cl_init(change_program="makedb")
-
 
     # Force all Constants-writing to use the same db-connection
     # as CREATE TABLE++
@@ -167,6 +169,7 @@ def main():
     if not all_ok:
         sys.exit(1)
 
+
 def read_country_file(fname):
     const = Factory.get('Constants')()
     f = file(fname, "r")
@@ -181,6 +184,7 @@ def read_country_file(fname):
             code_obj.insert()
     const.commit()
 
+
 def insert_code_values(db, delete_extra_codes=False, debug=False):
     const = Factory.get('Constants')()
     print "Inserting code values."
@@ -188,7 +192,7 @@ def insert_code_values(db, delete_extra_codes=False, debug=False):
         stats = const.initialize(delete=delete_extra_codes)
     except db.DatabaseError:
         traceback.print_exc(file=sys.stdout)
-        print "Error initializing constants, check that you include "+\
+        print "Error initializing constants, check that you include " +\
               "the sql files referenced by CLASS_CONSTANTS"
         sys.exit(1)
     if delete_extra_codes:
@@ -200,6 +204,7 @@ def insert_code_values(db, delete_extra_codes=False, debug=False):
     if debug and stats['details']:
         print "  Details:\n    %s" % "\n    ".join(stats['details'])
     const.commit()
+
 
 def makeInitialUsers(db):
     print "Creating initial entities."
@@ -218,7 +223,7 @@ def makeInitialUsers(db):
 
     def false(*args):
         return False
-    
+
     # TODO:  These should have a permanent quarantine and be non-visible
 
     # Use Account.Account to avoid getting the wrong Account Mixins
@@ -227,7 +232,7 @@ def makeInitialUsers(db):
     # manually afterwards. makedb an account that can be created with
     # a fully populated cereconf, but an empty database(which may
     # break a lot of Mixins).
-    
+
     a = Account.Account(db)
     a.illegal_name = false
     a.populate(cereconf.INITIAL_ACCOUNTNAME, co.entity_group,
@@ -235,7 +240,7 @@ def makeInitialUsers(db):
                None, parent=ea)
     # Get rid of errors because of missing prerequisites for password
     # mechanisms not needed for initial setup.
-    # 
+    #
     # TBD: implement cereconf.INITIAL_PASSWORD_MECHANISM?
     method = co.auth_type_md5_crypt
     a.affect_auth_types(method)
@@ -251,6 +256,7 @@ def makeInitialUsers(db):
     g.add_member(a.entity_id)
     db.commit()
 
+
 def check_schema_versions(db, strict=False):
     modules = {
         'ad': 'Cerebrum.modules.ADObject',
@@ -262,7 +268,7 @@ def check_schema_versions(db, strict=False):
         'password_history': 'Cerebrum.modules.PasswordHistory',
         'posixuser': 'Cerebrum.modules.PosixUser',
         'stedkode': 'Cerebrum.modules.no.Stedkode',
-        }
+    }
     meta = Metainfo.Metainfo(db)
     for name, value in meta.list():
         if name == Metainfo.SCHEMA_VERSION_KEY:
@@ -270,12 +276,13 @@ def check_schema_versions(db, strict=False):
                 print "WARNING: cerebrum version %s does not match schema version %s" % (
                     "%d.%d.%d" % Cerebrum._version,
                     "%d.%d.%d" % value)
-                if strict: exit(1)
+                if strict:
+                    exit(1)
         elif name[:10] == 'sqlmodule_':
-            name=name[10:]
+            name = name[10:]
             if not modules.has_key(name):
-                #print "WARNING: unknown module %s" % name
-                #if strict: exit(1)
+                # print "WARNING: unknown module %s" % name
+                # if strict: exit(1)
                 continue
             try:
                 module = dyn_import(modules[name])
@@ -287,11 +294,14 @@ def check_schema_versions(db, strict=False):
             if not module.__version__ == value:
                 print "WARNING: module %s version %s does not match schema version %s" % (
                     name, module.__version__, value)
-                if strict: exit(1)
+                if strict:
+                    exit(1)
         else:
             print "ERROR: unknown metainfo %s: %s" % (
                 name, value)
-            if strict: exit(1)
+            if strict:
+                exit(1)
+
 
 def get_filelist(db, extra_files=[]):
     core_files = ['core_tables.sql']
@@ -304,7 +314,7 @@ def get_filelist(db, extra_files=[]):
         ddl_dir = os.path.dirname(sys.argv[0])
         if ddl_dir == '':
             ddl_dir = '.'
-        ddl_dir += "/"+cereconf.CEREBRUM_DDL_DIR
+        ddl_dir += "/" + cereconf.CEREBRUM_DDL_DIR
     for f in files:
         if '/' in f:
             ret.append(f)
@@ -314,6 +324,7 @@ def get_filelist(db, extra_files=[]):
             else:
                 ret.append(f)
     return ret
+
 
 def runfile(fname, db, debug, phase):
     global all_ok
@@ -339,7 +350,7 @@ def runfile(fname, db, debug, phase):
             (type_id, for_phase) = stmt.split(":", 1)
             if type_id <> 'category':
                 raise ValueError, \
-                      "Illegal type_id in file %s: %s" % (fname, type_id)
+                    "Illegal type_id in file %s: %s" % (fname, type_id)
             for_rdbms = None
             if for_phase == 'metainfo':
                 state = SET_METAINFO
@@ -398,7 +409,7 @@ def runfile(fname, db, debug, phase):
         db.commit()
     if state <> NO_CATEGORY:
         raise ValueError, \
-              "Found more category specs than statements in file %s." % fname
+            "Found more category specs than statements in file %s." % fname
     if output_col is not None:
         print
 
