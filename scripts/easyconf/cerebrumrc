@@ -15,6 +15,9 @@
 CEREBRUM_PATH=~/checkout/cerebrum
 CERECONF_PATH=~/.cerebrum
 
+# If CI is set, use that as CEREBRUM_INST
+[ -z "$CI" ] || CEREBRUM_INST="$CI"
+
 # Set CEREBRUM_INST to uio if it's not already set
 [ -z "$CEREBRUM_INST" ] && CEREBRUM_INST=uio
 
