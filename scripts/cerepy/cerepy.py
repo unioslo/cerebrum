@@ -1,17 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Original author unknown (but it's someone in Cerebrum)
+# Changelog:
+#     Original author unknown (but it's someone in Cerebrum), before July 2013
+#     Alexander Rødseth <rodseth@usit.uio.no>, July 2013
 #
 
-# Generelt oppsett
+# General imports
 import rlcompleter
 import readline
 import code
-
 from mx import DateTime
 
-# Cerebrumoppsett
+# Cerebrum-related imports
 import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
@@ -20,25 +21,29 @@ from Cerebrum.modules import CLHandler
 
 readline.parse_and_bind('tab:complete')
 
-# Skriv ut litt info om hva som skjer
-print """\033[92mCurrent config:\033[37m
-\033[94mimport cerebrum_path, cereconf
-from Cerebrum.Utils import Factory
-from Cerebrum import Errors
-from Cerebrum.modules import CLHandler
-db = Factory.get('Database')()
-cl = CLHandler.CLHandler(db)
-db.cl_init(change_program='cereutvsh')\033[37m"""
+# Write some information about what's happening
+keywordcolor = "\033[94m"
+textcolor = "\033[37m"
+msg = """\033[92mCurrent session:\n\033[0m
+    import cerebrum_path, cereconf
+    from Cerebrum.Utils import Factory
+    from Cerebrum import Errors
+    from Cerebrum.modules import CLHandler
+    db = Factory.get('Database')()
+    cl = CLHandler.CLHandler(db)
+    db.cl_init(change_program='cereutvsh')\n"""
+msg = msg.replace("import", keywordcolor + "import" + textcolor)
+msg = msg.replace("from", keywordcolor + "from" + textcolor)
+print(textcolor + msg + "\033[0m")
 
-# Hent db og init cl
+# Get db and init cl
 db = Factory.get('Database')()
 cl = CLHandler.CLHandler(db)
 db.cl_init(change_program='cereutvsh')
 
-# Definererer variabelnavn og klasser.
-# Dette kan potensielt sett brukes til å
-# autopuppulere variable, som en del av en
-# auto-test-config-miljø-sak
+# Define variablenames and classes
+# This can potentially be used to autopopulate a
+# variable, as part of an auto-text-config-environment thing
 attrs = {'en': 'Entity',
          'pe': 'Person',
          'di': 'Disk',
@@ -49,28 +54,38 @@ attrs = {'en': 'Entity',
          'pu': 'PosixUser',
          'pg': 'PosixGroup'}
 inited = {}
+shortvarcolor = "\033[95m"
+textcolor = "\033[94m"
+classnamecolor = "\033[97m"
 for x in attrs:
     try:
         inited[x] = Factory.get(attrs[x])(db)
     except ValueError, e:
-        print "\033[1;31m%s\033[0;37m" % e
+        print("\033[1;31m    %s\033[0;37m" % e)
     except ImportError, e:
-        print "\033[1;31m%s\033[0;37m" % e
+        print("\033[1;31m    %s\033[0;37m" % e)
     finally:
-        print "\033[1;94m%s = Factory.get('%s')(db)\033[0;37m" % (x, attrs[x])
+        msg = textcolor + "    %s = Factory.get(%s)(db)\033[0m" % (
+            x, attrs[x])
+        msg = msg.replace(
+            attrs[x],
+            classnamecolor + "'" + attrs[x] + "'" + "\033[0m", 1)
+        msg = msg.replace(x, shortvarcolor + x + "\033[0m", 1)
+        print(msg)
+
 locals().update(inited)
 del inited
 del attrs
 
-# Disse linjene kan gi deg fine farger på promt.
-# Her er det verdt å merke seg at kontrollkarakterene for å
-# sette farger på promptet er lagt inn mellom \001 og \002.
-# \001 og \002 angir at karakterene mellom disse to karakterene
-# ikke skal telles av readline. Uten disse blir ikke readline
-# mindre hyggelig å bruke.
+# Color of the Python information text that follows
+print("\033[90m")
+
+# This lines are for getting a colored prompt.
+# Note that the control characters for changing the colors are
+# between \001 and \002. \001 and \002 lets readline ignore
+# the characters that are in between. 
 code.sys.ps1 = '\001\033[1;95m\002>>>\001\033[0;37m\002 '
 code.sys.ps2 = '\001\033[1;93m\002...\001\033[0;37m\002 '
 
-# Start den interaktive sesjonen
+# Start the interactive session
 code.interact(local=locals())
-

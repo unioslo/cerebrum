@@ -64,19 +64,24 @@ fi
 CERECONF_COMMON=$CERECONF_PATH/common
 PYTHON_SITE_PACKAGES=/site/lib/python2.5/site-packages
 PYTHON_CEREBRUM_MODULES="$CEREBRUM_PATH"
-CERECONF_CUSTOM=$CERECONF_PATH/"$CEREBRUM_INST/"
+CERECONF_CUSTOM=$CERECONF_PATH/"$CEREBRUM_INST"
 export PYTHONPATH="$PYTHON_SITE_PACKAGES:$CERECONF_CUSTOM:$CERECONF_COMMON:$CERECONF_GLOBAL:$PYTHON_CEREBRUM_MODULES:$PYTHON_EXTERNAL"
 
 # Output various settings
 echo
-echo "Cerebrum configuration:"
+echo -e "\e[92mCerebrum configuration:\e[0m"
 echo
-echo -e "\tInstitution:\t$CEREBRUM_INST"
-echo -e "\tDB user:\t$CEREBRUM_DATABASE_USER"
-echo -e "\tDB host:\t$CEREBRUM_DATABASE_HOST"
-echo -e "\tDB name:\t$CEREBRUM_DATABASE_NAME"
-echo -e "\tPYTHONPATH:\t$PYTHONPATH"
-echo -e "\tUsing Python:\t$PYTHON_BIN"
+echo -e "\t\e[94mInstitution:\e[0m\t\t\e[91m$CEREBRUM_INST\e[0m"
+echo -e "\t\e[94mDB user:\e[0m\t\t\e[97m$CEREBRUM_DATABASE_USER\e[0m"
+echo -e "\t\e[94mDB host:\e[0m\t\t\e[97m$CEREBRUM_DATABASE_HOST\e[0m"
+echo -e "\t\e[94mDB name:\e[0m\t\t\e[97m$CEREBRUM_DATABASE_NAME\e[0m"
+echo -e -n "\t\e[94mPython version:\e[0m\t\t\e[96m"
+"$PYTHON_BIN" -c "import sys;print(sys.version.split(' ')[0])"
+echo -e -n '\e[0m'
+echo -e "\t\e[94mPython executable:\e[0m\t\e[93m$PYTHON_BIN\e[0m"
+echo -e "\t\e[94mPYTHONPATH:\e[0m\e[90m"
+"$PYTHON_BIN" -c "import os;print(os.linesep.join(['\t\t' + x for x in os.getenv('PYTHONPATH').split(':')])[:-3])"
+echo -e -n '\e[0m'
 echo
 
 # Write config.dat for BOFHD if it doesn't exist
