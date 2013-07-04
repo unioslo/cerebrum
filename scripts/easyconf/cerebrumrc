@@ -46,24 +46,34 @@ BOFH_USER="$USER"
 BOFH_BIN=/local/bin/bofh
 
 # PYTHON
-PYTHON_BIN=/local/bin/python
+if [ "$PY" == "26" ]; then
+	# Use Python 2.6 if PY=26
+	PYTHON_BIN=/usr/bin/python2.6
+	PYTHON_LIBRARY_PATH=/local/lib
+	PYTHON_EXTERNAL=$CEREBRUM_PATH/scripts/easyconf/external/python2.6
+	export LD_LIBRARY_PATH=$PYTHON_LIBRARY_PATH:$LD_LIBRARY_PATH
+else
+	# Use Python 2.5 by default
+	PYTHON_BIN=/local/bin/python
+fi
 
 # PYTHONPATH
+CERECONF_COMMON=$CERECONF_PATH/common
 PYTHON_SITE_PACKAGES=/site/lib/python2.5/site-packages
 PYTHON_CEREBRUM_MODULES="$CEREBRUM_PATH"
-CERECONF_COMMON=$CERECONF_PATH/common
 CERECONF_CUSTOM=$CERECONF_PATH/"$CEREBRUM_INST/"
-export PYTHONPATH="$PYTHON_SITE_PACKAGES:$CERECONF_CUSTOM:$CERECONF_COMMON:$CERECONF_GLOBAL:$PYTHON_CEREBRUM_MODULES"
+export PYTHONPATH="$PYTHON_SITE_PACKAGES:$CERECONF_CUSTOM:$CERECONF_COMMON:$CERECONF_GLOBAL:$PYTHON_CEREBRUM_MODULES:$PYTHON_EXTERNAL"
 
 # Output various settings
 echo
 echo "Cerebrum configuration:"
 echo
-echo -e "\tinstitution:\t$CEREBRUM_INST"
-echo -e "\tdb user:\t$CEREBRUM_DATABASE_USER"
-echo -e "\tdb host:\t$CEREBRUM_DATABASE_HOST"
-echo -e "\tdb name:\t$CEREBRUM_DATABASE_NAME"
+echo -e "\tInstitution:\t$CEREBRUM_INST"
+echo -e "\tDB user:\t$CEREBRUM_DATABASE_USER"
+echo -e "\tDB host:\t$CEREBRUM_DATABASE_HOST"
+echo -e "\tDB name:\t$CEREBRUM_DATABASE_NAME"
 echo -e "\tPYTHONPATH:\t$PYTHONPATH"
+echo -e "\tUsing Python:\t$PYTHON_BIN"
 echo
 
 # Write config.dat for BOFHD if it doesn't exist
@@ -91,4 +101,3 @@ CEREBRUM_DATABASE_CONNECT_DATA['host'] = os.getenv('CEREBRUM_DATABASE_HOST', "db
 CEREBRUM_DATABASE_NAME = os.getenv('CEREBRUM_DATABASE_NAME', "cerebrum_uio_rw")
 EOF
 fi
-
