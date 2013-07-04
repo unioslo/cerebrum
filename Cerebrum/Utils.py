@@ -729,14 +729,14 @@ class mark_update(auto_super):
     ...     __write_attr__ = ('breakfast',)
     ...     def print_updated(self):
     ...         if self.__updated:
-    ...             print  'A'
+    ...             print('A')
     ...
     >>> class B(A):
     ...     __write_attr__ = ('egg', 'sausage', 'bacon')
     ...     __read_attr__ = ('spam',)
     ...     def print_updated(self):
     ...         if self.__updated:
-    ...             print  'B'
+    ...             print('B')
     ...         self.__super.print_updated()
     ...
     >>> b = B()
@@ -757,7 +757,7 @@ class mark_update(auto_super):
     >>> del b.spam
     >>> b.spam = True
     >>> b.spam
-    1
+    True
     >>> b.egg
     7
     >>> b.sausage
@@ -809,7 +809,7 @@ class mark_update(auto_super):
             sup = getattr(cls, msuper).__get__(cls)
             # Call base class's __new__() to perform initialization
             # and get an instance of this class.
-            obj = sup.__new__(cls, *args, **kws)
+            obj = sup.__new__(cls)
             # Add a default for this class's __updated attribute.
             setattr(obj, mupdated, [])
             return obj
