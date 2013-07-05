@@ -19,7 +19,22 @@ from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 from Cerebrum.modules import CLHandler
 
-readline.parse_and_bind('tab:complete')
+# Make Tab support both indentation and completion
+readline.parse_and_bind("tab: complete")
+readline.parse_and_bind('bind ^I rl_complete')
+
+class MyCompleter(rlcompleter.Completer):
+
+    def complete(self, text, state):
+        if text.lstrip() == '':
+            if state == 0:
+                return text + '\t'
+            else:
+                return None
+        else:
+            return rlcompleter.Completer.complete(self, text, state)
+
+readline.set_completer(MyCompleter().complete)
 
 # Write some information about what's happening
 keywordcolor = "\033[94m"
@@ -84,8 +99,8 @@ print("\033[90m")
 # Note that the control characters for changing the colors are
 # between \001 and \002. \001 and \002 lets readline ignore
 # the characters that are in between. 
-code.sys.ps1 = '\001\033[1;95m\002>>>\001\033[0;37m\002 '
-code.sys.ps2 = '\001\033[1;93m\002...\001\033[0;37m\002 '
+code.sys.ps1 = '\001\033[1;93m\002>>>\001\033[0;37m\002 '
+code.sys.ps2 = '\001\033[1;95m\002...\001\033[0;37m\002 '
 
 # Start the interactive session
 code.interact(local=locals())
