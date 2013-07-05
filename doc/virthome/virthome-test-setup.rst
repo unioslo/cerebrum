@@ -30,7 +30,7 @@ Så, i rekkefølge:
 
        $ hostname
        cere-utv01.uio.no
-       $ psql -h dbpg-cereutv.uio.no -U cerebrum  
+       $ psql -h dbpg-cere-utv.uio.no -U cerebrum  
        Password for user cerebrum: 
        <...>
        cerebrum=> create database cerebrum_virthome with encoding 'unicode' ;
