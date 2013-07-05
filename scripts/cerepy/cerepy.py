@@ -89,8 +89,16 @@ for x in attrs:
         print(msg)
 
 locals().update(inited)
+
+# TODO: Use a loop or filter that only keeps some values instead
 del inited
 del attrs
+del shortvarcolor
+del textcolor
+del classnamecolor
+del msg
+del keywordcolor
+del x
 
 # Color of the Python information text that follows
 print("\033[90m")
