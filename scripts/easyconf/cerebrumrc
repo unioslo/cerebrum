@@ -37,6 +37,11 @@ eval export CEREBRUM_DATABASE_USER=\$CEREBRUM_DATABASE_USER_$CEREBRUM_INST
 eval export CEREBRUM_DATABASE_HOST=\$CEREBRUM_DATABASE_HOST_$CEREBRUM_INST
 eval export CEREBRUM_DATABASE_NAME=\$CEREBRUM_DATABASE_NAME_$CEREBRUM_INST
 
+# CEREBRUM
+# Don't set this to your home directory, preferrably get a dedicated directory
+# on cere-utv01 just to store the logs.
+LOGGING_ROOT_DIR=/tmp
+
 # BOFHD
 BOFHD_CONFIG_DAT="$CERECONF_PATH/bofhd/config.dat"
 BOFHD_PY="$CEREBRUM_PATH/servers/bofhd/bofhd.py"
