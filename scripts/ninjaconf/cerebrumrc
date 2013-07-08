@@ -27,17 +27,20 @@ CERECONF_PATH=~/.cerebrum
 CEREBRUM_DATABASE_USER_uio=cerebrum
 CEREBRUM_DATABASE_HOST_uio=dbpg-cere-utv.uio.no
 CEREBRUM_DATABASE_NAME_uio="cerebrum_uio_$USER"
+CEREBRUM_DATABASE_TABLE_OWNER_uio=cerebrum
 
 # UIA
 CEREBRUM_DATABASE_USER_uia=cerebrum
 CEREBRUM_DATABASE_HOST_uia=dbpg-cere-utv.uio.no
 CEREBRUM_DATABASE_NAME_uia="cerebrum_uia_$USER"
+CEREBRUM_DATABASE_TABLE_OWNER_uia=cerebrum
 
 # For cereconf.py
 export CERECONF_GLOBAL="/cerebrum/$CEREBRUM_INST/etc/cerebrum"
 eval export CEREBRUM_DATABASE_USER=\$CEREBRUM_DATABASE_USER_$CEREBRUM_INST
 eval export CEREBRUM_DATABASE_HOST=\$CEREBRUM_DATABASE_HOST_$CEREBRUM_INST
 eval export CEREBRUM_DATABASE_NAME=\$CEREBRUM_DATABASE_NAME_$CEREBRUM_INST
+eval export CEREBRUM_DATABASE_TABLE_OWNER=\$CEREBRUM_DATABASE_TABLE_OWNER_$CEREBRUM_INST
 
 # CEREBRUM
 # Don't set this to your home directory, preferrably get a dedicated directory
@@ -94,6 +97,7 @@ echo -e "\t\e[94mInstitution:\e[0m\t\t\e[91m$CEREBRUM_INST\e[0m"
 echo -e "\t\e[94mDB user:\e[0m\t\t\e[97m$CEREBRUM_DATABASE_USER\e[0m"
 echo -e "\t\e[94mDB host:\e[0m\t\t\e[97m$CEREBRUM_DATABASE_HOST\e[0m"
 echo -e "\t\e[94mDB name:\e[0m\t\t\e[97m$CEREBRUM_DATABASE_NAME\e[0m"
+echo -e "\t\e[94mDB table owner:\e[0m\t\t\e[97m$CEREBRUM_DATABASE_TABLE_OWNER\e[0m"
 echo -e -n "\t\e[94mPython version:\e[0m\t\t\e[96m"
 "$PYTHON_BIN" -c "import sys;print(sys.version.split(' ')[0])"
 echo -e -n '\e[0m'
@@ -126,5 +130,6 @@ execfile(os.path.join(os.getenv('CERECONF_GLOBAL'), 'cereconf.py'))
 CEREBRUM_DATABASE_CONNECT_DATA['user'] = os.getenv('CEREBRUM_DATABASE_USER', "DATABASE USER NOT SET")
 CEREBRUM_DATABASE_CONNECT_DATA['host'] = os.getenv('CEREBRUM_DATABASE_HOST', "DATABASE HOST NOT SET")
 CEREBRUM_DATABASE_NAME = os.getenv('CEREBRUM_DATABASE_NAME', "DATABASE NAME NOT SET")
+CEREBRUM_DATABASE_CONNECT_DATA['table_owner'] = os.getenv('CEREBRUM_DATABASE_TABLE_OWNER', "DATABASE TABLE OWNER NOT SET")
 EOF
 fi
