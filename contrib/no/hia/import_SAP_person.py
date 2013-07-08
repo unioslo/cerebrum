@@ -29,14 +29,18 @@ way, should an update process (touching IDs) run concurrently with this
 import.
 """
 
-import cerebrum_path, cereconf
+import cerebrum_path
+import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.hia.mod_sap_utils import make_person_iterator
 from Cerebrum.modules.no import fodselsnr
 
-import getopt, sys, re
+import getopt
+import sys
+import re
+
 
 def usage(exitcode=0):
     print __doc__
@@ -52,11 +56,14 @@ def usage(exitcode=0):
     --without-fok       Do not use forretningsområdekode for checking if a
                         person should be imported.
 
+    --with-mgmu         Import medarbeider- and medarbeiderundergrupper
+
     -d --dryrun         Do not commit changes.
 
     -h --help           Show this and quit.
     """
     sys.exit(exitcode)
+
 
 def locate_person(sap_id, fnr):
     """Locate a person who owns both SAP_ID and FNR.
@@ -103,7 +110,7 @@ def locate_person(sap_id, fnr):
     # should also allow the possibility of only one ID being set.
     if (person_id_from_sap is not None and
         person_id_from_fnr is not None and
-        person_id_from_sap != person_id_from_fnr):
+            person_id_from_sap != person_id_from_fnr):
         logger.error("Aiee! IDs for logically the same person differ: "
                      "(SAP id => person_id %s; FNR => person_id %s)",
                      person_id_from_sap, person_id_from_fnr)
@@ -115,14 +122,13 @@ def locate_person(sap_id, fnr):
     if already_exists:
         person.clear()
         pid = person_id_from_sap
-        if pid is None: 
+        if pid is None:
             pid = person_id_from_fnr
         person.find(pid)
         return False, person
 
     return False, None
 # end locate_person
-
 
 
 def match_external_ids(person, sap_id, fnr):
@@ -133,7 +139,7 @@ def match_external_ids(person, sap_id, fnr):
     cerebrum_sap_id = person.get_external_id(const.system_sap,
                                              const.externalid_sap_ansattnr)
     cerebrum_fnr = person.get_external_id(const.system_sap,
-                                             const.externalid_fodselsnr)
+                                          const.externalid_fodselsnr)
 
     # There is at most one such ID, get_external_id returns a sequence, though
     if cerebrum_sap_id:
@@ -158,8 +164,12 @@ def match_external_ids(person, sap_id, fnr):
         # before, person_id_cerebrum would be None (and different from
         # person.entity_id). Both branches of the test are necessary.
         if ((person_id_cerebrum is not None) and
-            person.entity_id != person_id_cerebrum):
-            logger.error("Should update FNR for %s, but another person (%s) with FNR (%s) exists in Cerebrum", person_id_cerebrum, sap_id, fnr)
+                person.entity_id != person_id_cerebrum):
+            logger.error(
+                "Should update FNR for %s, but another person (%s) with FNR (%s) exists in Cerebrum",
+                person_id_cerebrum,
+                sap_id,
+                fnr)
             return False
         logger.info("FNR in Cerebrum != FNR in datafile. Updating "
                     "«%s» -> «%s»", cerebrum_fnr, fnr)
@@ -173,7 +183,7 @@ def fnr2person_id(fnr):
 
     We need to be able to remap a fnr (from file) to a person_id.
     """
-    
+
     person = Factory.get("Person")(database)
     try:
         person.find_by_external_id(const.externalid_fodselsnr, fnr)
@@ -200,7 +210,7 @@ def populate_external_ids(tpl):
     (11-siffret personnummer, fnr) and the SAP employee id (sap_id). SAP IDs
     are (allegedly) permanent and unique, fnr can change.
     """
-    
+
     error, person = locate_person(tpl.sap_ansattnr, tpl.sap_fnr)
     if error:
         logger.error("Lookup for (sap_id; fnr) == (%s; %s) failed",
@@ -240,7 +250,7 @@ def populate_external_ids(tpl):
     person.populate(tpl.sap_birth_date, gender)
     person.affect_external_id(const.system_sap,
                               const.externalid_fodselsnr,
-                              const.externalid_sap_ansattnr) 
+                              const.externalid_sap_ansattnr)
     person.populate_external_id(const.system_sap,
                                 const.externalid_sap_ansattnr,
                                 tpl.sap_ansattnr)
@@ -252,7 +262,6 @@ def populate_external_ids(tpl):
 # end populate_external_ids
 
 
-
 def populate_names(person, fields):
     """
     Extract all name forms from FIELDS and populate PERSON with these.
@@ -261,9 +270,9 @@ def populate_names(person, fields):
     name_types = ((const.name_first, fields.sap_first_name),
                   (const.name_last, fields.sap_last_name),
                   (const.name_initials, fields.sap_initials),)
-    
+
     person.affect_names(const.system_sap,
-                        *[x[0] for x in name_types]) 
+                        *[x[0] for x in name_types])
 
     for name_type, name_value in name_types:
         if name_type in (const.name_first,):
@@ -276,8 +285,6 @@ def populate_names(person, fields):
         logger.debug("Populated name type %s with «%s»", name_type, name_value)
 
     person.populate_name(const.name_first, fields.sap_first_name)
-# end populate_names
-    
 
 
 def populate_title(person, fields):
@@ -295,13 +302,49 @@ def populate_title(person, fields):
                                       name=source_title)
         logger.debug("Added %s '%s' for person id=%s",
                      str(const.work_title), source_title, person.entity_id)
-# end populate_title        
+
+
+def populate_medarbeidergruppe(person, fields):
+    """Register medarbeidergruppe (mg) and medarbeiderunderguppe (mu) for a person."""
+
+    source_mg = fields.sap_mg
+    if source_mg:
+        person.add_mg_with_language(name_variant=const.trait_sap_mg,
+                                    name_language=const.language_mb,
+                                    mg=source_mg)
+        logger.debug(
+            "Added %s '%s' for person id=%s",
+            str(const.trait_sap_mg),
+            source_mg,
+            person.entity_id)
+    else:
+        person.delete_with_language(name_variant=const.trait_sap_mg,
+                                    name_language=const.language_nb)
+        logger.debug("Removed %s for person id=%s",
+                     str(const.trait_sap_mg), person.entity_id)
+
+    source_mu = fields.sap_mu
+    if source_mu:
+        person.add_mu_with_language(name_variant=const.trait_sap_mu,
+                                    name_language=const.language_mb,
+                                    mg=source_mu)
+        logger.debug(
+            "Added %s '%s' for person id=%s",
+            str(const.trait_sap_mu),
+            source_mg,
+            person.entity_id)
+    else:
+        person.delete_with_language(name_variant=const.trait_sap_mu,
+                                    name_language=const.language_nb)
+        logger.debug("Removed %s for person id=%s",
+                     str(const.trait_sap_mu), person.entity_id)
 
 
 def _remove_communication(person, comm_type):
     """Delete a person's given communication type."""
     logger.debug("Removing comm type %s", comm_type)
     person.delete_contact_info(const.system_sap, comm_type)
+
 
 def populate_communication(person, fields):
     """
@@ -331,6 +374,7 @@ def populate_communication(person, fields):
 
 # end populate_communication
 
+
 def _remove_office(person):
     """Remove a person's office address and the corresponding contact info."""
     logger.debug("Removing office address and contact info for person=%s",
@@ -339,11 +383,12 @@ def _remove_office(person):
                                contact_type=const.contact_office)
     person.delete_entity_address(const.system_sap, const.address_street)
 
+
 def populate_office(person, fields):
     """Extract the person's office address from FIELDS and populate the database
     with it, if it is defined. Both a building code and a room number should be
     present to be stored.
-    
+
     Note that we are not importing the office address if the given building
     codes doesn't exist in cereconf."""
     if not fields.sap_building_code or not fields.sap_roomnumber:
@@ -363,10 +408,10 @@ def populate_office(person, fields):
         _remove_office(person)
         return
 
-    person.populate_contact_info(source_system = const.system_sap, 
-                                 type = const.contact_office,
-                                 value = fields.sap_building_code,
-                                 alias = fields.sap_roomnumber or None)
+    person.populate_contact_info(source_system=const.system_sap,
+                                 type=const.contact_office,
+                                 value=fields.sap_building_code,
+                                 alias=fields.sap_roomnumber or None)
 
     country = None
     if address.has_key('country_street'):
@@ -379,19 +424,20 @@ def populate_office(person, fields):
         # TBD: should we return here if country is not correct, or is it okay to
         # just set it to None?
     try:
-        person.populate_address(source_system = const.system_sap,
-                                type = const.address_street,
-                                address_text = address['street'],
-                                postal_number = address['postnr_street'],
-                                city = address['city_street'],
-                                country = country)
+        person.populate_address(source_system=const.system_sap,
+                                type=const.address_street,
+                                address_text=address['street'],
+                                postal_number=address['postnr_street'],
+                                city=address['city_street'],
+                                country=country)
     except KeyError, e:
         logger.warn('Building code translation error for code %s: %s',
                     fields.sap_building_code, e)
         return
     logger.debug('Populated office address for %s: building="%s", room="%s"',
-            person.entity_id, fields.sap_building_code, fields.sap_roomnumber)
+                 person.entity_id, fields.sap_building_code, fields.sap_roomnumber)
 # end populate_office
+
 
 def populate_address(person, fields):
     """Extract the person's address from FIELDS and populate the database with
@@ -412,7 +458,7 @@ def populate_address(person, fields):
                         fields.sap_country)
 
     postal_number = fields.sap_zip
-    if postal_number != None and len(postal_number) > 32:
+    if postal_number is not None and len(postal_number) > 32:
         logger.warn("Cannot register zip code for %s (%s): len(%s) > 32",
                     person.entity_id, person.get_all_names(),
                     postal_number)
@@ -420,24 +466,25 @@ def populate_address(person, fields):
 
     person.populate_address(const.system_sap,
                             const.address_post,
-                            address_text = fields.sap_address,
-                            postal_number = postal_number,
-                            city = fields.sap_city,
-                            country = country)
+                            address_text=fields.sap_address,
+                            postal_number=postal_number,
+                            city=fields.sap_city,
+                            country=country)
 # end populate_address
+
 
 def add_person_to_group(person, fields):
     """
     Check if person should be visible in catalogs like LDAP or not. If
-    latter, add the person to a group specified in cereconf.    
+    latter, add the person to a group specified in cereconf.
     """
-    
+
     # Test if person should be visible in catalogs like LDAP
     if not fields.reserved_for_export():
-        return 
-    
+        return
+
     group = Factory.get("Group")(database)
-    # person should not be visible. Add person to group 
+    # person should not be visible. Add person to group
     try:
         group_name = cereconf.HIDDEN_PERSONS_GROUP
         group.find_by_name(group_name)
@@ -448,10 +495,10 @@ def add_person_to_group(person, fields):
     except Errors.NotFoundError:
         logger.warn("Could not find group with name %s" % group_name)
         return
-        
+
     if group.has_member(person.entity_id):
         logger.info("Person %s is already member of group %s" % (
-            person.get_name(const.system_cached, const.name_full) , group_name))
+            person.get_name(const.system_cached, const.name_full), group_name))
         return
     try:
         group.add_member(person.entity_id)
@@ -463,6 +510,7 @@ def add_person_to_group(person, fields):
     logger.info("OK, added %s to group %s" % (
         person.get_name(const.system_cached, const.name_full), group_name))
 # end add_person_to_group
+
 
 def process_people(filename, use_fok):
     """Scan filename and perform all the necessary imports.
@@ -476,7 +524,7 @@ def process_people(filename, use_fok):
                         p.sap_ansattnr, p.sap_fnr)
             # TODO: remove some person data?
             continue
-        
+
         if p.expired():
             logger.info("Ignoring person sap_id=%s, fnr=%s (expired data)",
                         p.sap_ansattnr, p.sap_fnr)
@@ -491,7 +539,7 @@ def process_people(filename, use_fok):
         populate_names(person, p)
 
         populate_communication(person, p)
-        
+
         if hasattr(const, 'contact_office'):
             populate_office(person, p)
 
@@ -500,13 +548,16 @@ def process_people(filename, use_fok):
         add_person_to_group(person, p)
 
         populate_title(person, p)
-        
+
+        populate_medarbeidergruppe(person, p)
+
         # Sync person object with the database
         person.write_db()
 # end process_people
 
+
 def main():
-        
+
     global logger
     logger = Factory.get_logger("cronjob")
 
@@ -520,7 +571,8 @@ def main():
                                       ["sap-file=",
                                        "dryrun",
                                        "with-fok",
-                                       "without-fok",])
+                                       "without-fok",
+                                       "with-mgmu"])
     except getopt.GetoptError, e:
         print e
         usage(1)
@@ -528,6 +580,7 @@ def main():
     input_name = None
     dryrun = False
     use_fok = None
+    with_mgmu = False
     for option, value in options:
         if option in ("-s", "--sap-file"):
             input_name = value
@@ -539,6 +592,8 @@ def main():
             use_fok = True
         elif option in ("--without-fok",):
             use_fok = False
+        elif option in ("--with-mgmu",):
+            use_mgmu = True
         else:
             print "Unknown argument: %s" % option
             usage(1)
@@ -562,9 +617,6 @@ def main():
         database.commit()
         logger.info("Committed all changes")
 # end main
-
-
-
 
 
 if __name__ == "__main__":

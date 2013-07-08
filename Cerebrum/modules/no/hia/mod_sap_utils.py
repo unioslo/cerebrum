@@ -388,7 +388,7 @@ class _SAPPersonDataTuple(_SAPTupleBase):
     def reserved_for_export(self):
         """Whether this person is reserved from export to catalogue services."""
         return (self.sap_publish_tag and
-            (self.sap_publish_tag != "Kan publiseres"))
+               (self.sap_publish_tag != "Kan publiseres"))
 
 
 class _SAPPersonDataTupleFok(_SAPPersonDataTuple):
@@ -414,7 +414,7 @@ class _SAPPersonDataTupleMGMU(_SAPPersonDataTuple):
         """The MG-MU combination must be set in cereconf for the person to be
         valid."""
         return (cereconf.SAP_MG_MU_CODES.has_key(self.sap_mg) and
-            (self.sap_mu in cereconf.SAP_MG_MU_CODES[self.sap_mg]))
+               (self.sap_mu in cereconf.SAP_MG_MU_CODES[self.sap_mg]))
 
 
 class _SAPEmploymentTuple(_SAPTupleBase):
