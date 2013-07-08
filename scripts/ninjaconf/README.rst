@@ -12,7 +12,7 @@ Installation instructions
 
 * Put cerebrumrc in your home folder as ~/.cerebrumrc.
 
-* Put bofhd.sh and bofh.sh somewhere in the path.
+* Put bofhd.sh, bofh.sh and cereconf.sh somewhere in the path.
 
 * Edit ~/.cerebrumrc and set your preferred configuration values.
 
@@ -44,7 +44,11 @@ Examples:
 
 * Start BOFHD with the "uia" settings::
 
-    CEREBRUM_INST=uia bofhd.sh
+    CI=uia bofhd.sh
+
+* View the contents of all involved cereconf.py files::
+
+    CI=uio cereconf.sh
 
 Create aliases for additional comfort.
 
