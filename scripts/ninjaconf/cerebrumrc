@@ -6,10 +6,12 @@
 #
 # Save this file as ~/.cerebrumrc.
 #
-# A file like ~/.cereconf/uio/cerepath.py will override the common configuration.
+# A file like ~/.cereconf/uio/cerepath.py will override
+# the common configuration.
 #
 # Changelog:
-#   2013-06-26, Alexander Rødseth <rodseth@usit.uio.no>
+#   June 2013, Alexander Rødseth <rodseth@usit.uio.no>
+#   July 2013
 #
 
 CEREBRUM_PATH=~/checkout/cerebrum
@@ -24,12 +26,12 @@ CERECONF_PATH=~/.cerebrum
 # UIO
 CEREBRUM_DATABASE_USER_uio=cerebrum
 CEREBRUM_DATABASE_HOST_uio=dbpg-cere-utv.uio.no
-CEREBRUM_DATABASE_NAME_uio=cerebrum_uio_rw
+CEREBRUM_DATABASE_NAME_uio="cerebrum_uio_$USER"
 
 # UIA
 CEREBRUM_DATABASE_USER_uia=cerebrum
 CEREBRUM_DATABASE_HOST_uia=dbpg-cere-utv.uio.no
-CEREBRUM_DATABASE_NAME_uia=cerebrum_uia_rw
+CEREBRUM_DATABASE_NAME_uia="cerebrum_uia_$USER"
 
 # For cereconf.py
 export CERECONF_GLOBAL="/cerebrum/$CEREBRUM_INST/etc/cerebrum"
@@ -63,6 +65,18 @@ if [[ "$PY" == "26" ]]; then
 else
   # Use Python 2.5 by default
   PYTHON_BIN=/local/bin/python
+fi
+
+# Check if the Python interpreter can be found
+if [[ ! -e "$PYTHON_BIN" ]]; then
+  echo -e "\e[97mCould not find: \e[91m$PYTHON_BIN\e[0m"
+  exit 1
+fi
+
+# Check if /cerebrum exists
+if [[ ! -d /cerebrum ]]; then
+  echo -e "\e[97mNo such directory: \e[91m/cerebrum\e[0m"
+  exit 1
 fi
 
 # PYTHONPATH
@@ -109,8 +123,8 @@ if [ ! -e "$CERECONF_PATH/common/cereconf.py" ]; then
   cat << 'EOF' > "$CERECONF_PATH/common/cereconf.py"
 import sys, os, os.path
 execfile(os.path.join(os.getenv('CERECONF_GLOBAL'), 'cereconf.py'))
-CEREBRUM_DATABASE_CONNECT_DATA['user'] = os.getenv('CEREBRUM_DATABASE_USER', "cerebrum")
-CEREBRUM_DATABASE_CONNECT_DATA['host'] = os.getenv('CEREBRUM_DATABASE_HOST', "dbpg-cere-utv.uio.no")
-CEREBRUM_DATABASE_NAME = os.getenv('CEREBRUM_DATABASE_NAME', "cerebrum_uio_rw")
+CEREBRUM_DATABASE_CONNECT_DATA['user'] = os.getenv('CEREBRUM_DATABASE_USER', "DATABASE USER NOT SET")
+CEREBRUM_DATABASE_CONNECT_DATA['host'] = os.getenv('CEREBRUM_DATABASE_HOST', "DATABASE HOST NOT SET")
+CEREBRUM_DATABASE_NAME = os.getenv('CEREBRUM_DATABASE_NAME', "DATABASE NAME NOT SET")
 EOF
 fi
