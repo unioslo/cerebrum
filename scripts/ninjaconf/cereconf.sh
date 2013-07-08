@@ -10,19 +10,23 @@ CERECONF_COMMON_PY="$CERECONF_PATH/common/cereconf.py"
 CERECONF_GLOBAL_PY="$CERECONF_GLOBAL/cereconf.py"
 
 if [[ -e "$CERECONF_CUSTOM_PY" ]]; then
-  echo -e "\e[92m----------------------- $CERECONF_CUSTOM_PY --------------\e[0m\n"
+  echo -e "\e[92m---------------- $CERECONF_CUSTOM_PY -----------\e[0m\n"
   cat "$CERECONF_CUSTOM_PY"
   echo
 fi
 
 if [[ -e "$CERECONF_COMMON_PY" ]]; then
-  echo -e "\e[92m----------------------- $CERECONF_COMMON_PY --------------\e[0m\n"
+  echo -e "\e[92m---------------- $CERECONF_COMMON_PY -----------\e[0m\n"
   cat "$CERECONF_COMMON_PY"
   echo
 fi
 
 if [[ -e "$CERECONF_GLOBAL_PY" ]]; then
-  echo -e "\e[92m----------------------- $CERECONF_GLOBAL_PY --------------\e[0m\n"
+  echo -e "\e[92m---------------- $CERECONF_GLOBAL_PY -----------\e[0m\n"
   cat "$CERECONF_GLOBAL_PY"
   echo
+  echo
+  echo -n -e "\e[92mSee also:\e[0m "
+  grep execfile "$CERECONF_GLOBAL_PY" | cut -d'"' -f2
 fi
+
