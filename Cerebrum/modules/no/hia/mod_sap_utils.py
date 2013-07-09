@@ -41,7 +41,7 @@ from mx.DateTime import now
 #
 # Public interface for this module
 #
-def make_person_iterator(source, fok, logger=None):
+def make_person_iterator(source, fok=False, mgmu=False, logger=None):
     """Iterator for grokking SSØ-SAP person data.
 
     @param source:
@@ -51,8 +51,11 @@ def make_person_iterator(source, fok, logger=None):
       boolean determining whether to respect forretningsområdekode field.
     """
 
-    if getattr(cereconf, 'SAP_MG_MU_CODES', None):
+    if mgmu and fok:
         # TODO: should it be possible to use both MG/MU and fok?
+        # getattr(cereconf, 'SAP_MG_MU_CODES', None):
+        kls = _SAPPersonDataTupleMGMU
+    elif mgmu:
         kls = _SAPPersonDataTupleMGMU
     elif fok:
         kls = _SAPPersonDataTupleFok
@@ -102,10 +105,10 @@ def make_utvalg_iterator(source, fok, logger=None):
         yield kls(tpl, logger)
 
 
-def load_expired_employees(source, fok, logger=None):
+def load_expired_employees(source, fok, mgmu=False, logger=None):
     """Collect SAP IDs for all expired employees from source."""
 
-    it = make_person_iterator(source, fok, logger)
+    it = make_person_iterator(source, fok, mgmu, logger)
     result = set()
     for tpl in it:
         if tpl.expired():
@@ -411,10 +414,12 @@ class _SAPPersonDataTupleMGMU(_SAPPersonDataTuple):
                     'sap_mu': (38, int), }
 
     def valid(self):
-        """The MG-MU combination must be set in cereconf for the person to be
-        valid."""
-        return (cereconf.SAP_MG_MU_CODES.has_key(self.sap_mg) and
-               (self.sap_mu in cereconf.SAP_MG_MU_CODES[self.sap_mg]))
+        # TODO: Put the validation of the sap codes here
+        return True
+        #"""The MG-MU combination must be set in cereconf for the person to be
+        # valid."""
+        # return (cereconf.SAP_MG_MU_CODES.has_key(self.sap_mg) and
+        #       (self.sap_mu in cereconf.SAP_MG_MU_CODES[self.sap_mg]))
 
 
 class _SAPEmploymentTuple(_SAPTupleBase):

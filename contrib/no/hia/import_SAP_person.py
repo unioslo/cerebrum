@@ -128,7 +128,6 @@ def locate_person(sap_id, fnr):
         return False, person
 
     return False, None
-# end locate_person
 
 
 def match_external_ids(person, sap_id, fnr):
@@ -175,7 +174,6 @@ def match_external_ids(person, sap_id, fnr):
                     "«%s» -> «%s»", cerebrum_fnr, fnr)
 
     return True
-# end match_external_ids
 
 
 def fnr2person_id(fnr):
@@ -193,7 +191,6 @@ def fnr2person_id(fnr):
 
     # NOTREACHED
     assert False
-# end fnr2person_id
 
 
 def populate_external_ids(tpl):
@@ -259,7 +256,6 @@ def populate_external_ids(tpl):
                                 tpl.sap_fnr)
     person.write_db()
     return person
-# end populate_external_ids
 
 
 def populate_names(person, fields):
@@ -275,10 +271,7 @@ def populate_names(person, fields):
                         *[x[0] for x in name_types])
 
     for name_type, name_value in name_types:
-        if name_type in (const.name_first,):
-            continue
-
-        if not name_value:
+        if (not name_value) or (name_type in (const.name_first,)):
             continue
 
         person.populate_name(name_type, name_value)
@@ -291,53 +284,59 @@ def populate_title(person, fields):
     """Register work title for person."""
 
     source_title = fields.sap_work_title
-    if not source_title:
-        person.delete_name_with_language(name_variant=const.work_title,
-                                         name_language=const.language_nb)
-        logger.debug("Removed %s for person id=%s",
-                     str(const.work_title), person.entity_id)
-    else:
+    if source_title:
         person.add_name_with_language(name_variant=const.work_title,
                                       name_language=const.language_nb,
                                       name=source_title)
         logger.debug("Added %s '%s' for person id=%s",
                      str(const.work_title), source_title, person.entity_id)
+    else:
+        person.delete_name_with_language(name_variant=const.work_title,
+                                         name_language=const.language_nb)
+        logger.debug("Removed %s for person id=%s",
+                     str(const.work_title), person.entity_id)
 
 
 def populate_medarbeidergruppe(person, fields):
     """Register medarbeidergruppe (mg) and medarbeiderunderguppe (mu) for a person."""
 
-    source_mg = fields.sap_mg
-    if source_mg:
-        person.add_mg_with_language(name_variant=const.trait_sap_mg,
-                                    name_language=const.language_mb,
-                                    mg=source_mg)
-        logger.debug(
-            "Added %s '%s' for person id=%s",
-            str(const.trait_sap_mg),
-            source_mg,
-            person.entity_id)
-    else:
-        person.delete_with_language(name_variant=const.trait_sap_mg,
-                                    name_language=const.language_nb)
-        logger.debug("Removed %s for person id=%s",
-                     str(const.trait_sap_mg), person.entity_id)
+    # TODO: Add support for mg/mu in the Cerebrum/Entity.py or Cerebrum/Person.py module?
 
-    source_mu = fields.sap_mu
-    if source_mu:
-        person.add_mu_with_language(name_variant=const.trait_sap_mu,
-                                    name_language=const.language_mb,
-                                    mg=source_mu)
-        logger.debug(
-            "Added %s '%s' for person id=%s",
-            str(const.trait_sap_mu),
-            source_mg,
-            person.entity_id)
-    else:
-        person.delete_with_language(name_variant=const.trait_sap_mu,
-                                    name_language=const.language_nb)
-        logger.debug("Removed %s for person id=%s",
-                     str(const.trait_sap_mu), person.entity_id)
+    pass
+
+    #import pdb; pdb.set_trace()
+
+    #source_mg = fields.sap_mg
+    #if source_mg:
+    #    person.add_mg_with_language(name_variant=const.trait_sap_mg,
+    #                                name_language=const.language_mb,
+    #                                mg=source_mg)
+    #    logger.debug(
+    #        "Added %s '%s' for person id=%s",
+    #        str(const.trait_sap_mg),
+    #        source_mg,
+    #        person.entity_id)
+    #else:
+    #    person.delete_with_language(name_variant=const.trait_sap_mg,
+    #                                name_language=const.language_nb)
+    #    logger.debug("Removed %s for person id=%s",
+    #                 str(const.trait_sap_mg), person.entity_id)
+
+    #source_mu = fields.sap_mu
+    #if source_mu:
+    #    person.add_mu_with_language(name_variant=const.trait_sap_mu,
+    #                                name_language=const.language_mb,
+    #                                mg=source_mu)
+    #    logger.debug(
+    #        "Added %s '%s' for person id=%s",
+    #        str(const.trait_sap_mu),
+    #        source_mg,
+    #        person.entity_id)
+    #else:
+    #    person.delete_with_language(name_variant=const.trait_sap_mu,
+    #                                name_language=const.language_nb)
+    #    logger.debug("Removed %s for person id=%s",
+    #                 str(const.trait_sap_mu), person.entity_id)
 
 
 def _remove_communication(person, comm_type):
@@ -371,8 +370,6 @@ def populate_communication(person, fields):
             continue
         person.populate_contact_info(const.system_sap, comm_type, comm_value)
         logger.debug("Populated comm type %s with «%s»", comm_type, comm_value)
-
-# end populate_communication
 
 
 def _remove_office(person):
@@ -436,7 +433,6 @@ def populate_office(person, fields):
         return
     logger.debug('Populated office address for %s: building="%s", room="%s"',
                  person.entity_id, fields.sap_building_code, fields.sap_roomnumber)
-# end populate_office
 
 
 def populate_address(person, fields):
@@ -470,7 +466,6 @@ def populate_address(person, fields):
                             postal_number=postal_number,
                             city=fields.sap_city,
                             country=country)
-# end populate_address
 
 
 def add_person_to_group(person, fields):
@@ -509,16 +504,15 @@ def add_person_to_group(person, fields):
 
     logger.info("OK, added %s to group %s" % (
         person.get_name(const.system_cached, const.name_full), group_name))
-# end add_person_to_group
 
 
-def process_people(filename, use_fok):
+def process_people(filename, use_fok, use_mgmu=False):
     """Scan filename and perform all the necessary imports.
 
     Each line in filename contains SAP information about one person.
     """
 
-    for p in make_person_iterator(file(filename, "r"), use_fok, logger):
+    for p in make_person_iterator(file(filename, "r"), use_fok, use_mgmu, logger):
         if not p.valid():
             logger.info("Ignoring person sap_id=%s, fnr=%s (invalid entry)",
                         p.sap_ansattnr, p.sap_fnr)
@@ -553,7 +547,6 @@ def process_people(filename, use_fok):
 
         # Sync person object with the database
         person.write_db()
-# end process_people
 
 
 def main():
@@ -580,7 +573,7 @@ def main():
     input_name = None
     dryrun = False
     use_fok = None
-    with_mgmu = False
+    use_mgmu = False
     for option, value in options:
         if option in ("-s", "--sap-file"):
             input_name = value
@@ -608,7 +601,7 @@ def main():
     database = Factory.get("Database")()
     database.cl_init(change_program='import_SAP')
 
-    process_people(input_name, use_fok)
+    process_people(input_name, use_fok, use_mgmu)
 
     if dryrun:
         database.rollback()
@@ -616,7 +609,6 @@ def main():
     else:
         database.commit()
         logger.info("Committed all changes")
-# end main
 
 
 if __name__ == "__main__":
