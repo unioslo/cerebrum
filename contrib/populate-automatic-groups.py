@@ -75,6 +75,8 @@ populate-automatic-groups.py -p SAP -o -f '^13' -f '^3315'
 FIXME: Profile this baby.
 """
 
+#from __future__ import print_function
+
 import collections
 import getopt
 import re
@@ -87,8 +89,8 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory, NotSet, simple_memoize
 
 
-logger = Factory.get_logger("cronjob")
-#logger = Factory.get_logger("console")
+#logger = Factory.get_logger("cronjob")
+logger = Factory.get_logger("console")
 database = Factory.get("Database")()
 database.cl_init(change_program="pop-auto-groups")
 constants = Factory.get("Constants")(database)
@@ -1246,21 +1248,23 @@ def build_complete_group_forest():
 # end build_complete_forest
 
 
+# TODO: Better descriptions of the various options
 def usage(exitcode):
     """Help text for the commandline options."""
+    print
     print("The \"populate automatic groups\" script")
-    print("")
+    print
     print("Options:")
-    print("")
-    print(" -p or --perspective\t\t.")
-    print(" -d or --dryrun\t\t.")
-    print(" -s or --source_system\t\t.")
-    print(" --remove-all-auto-groups\t\t.")
-    print(" -c or --collect\t\t.")
-    print(" -f or --filters\t\t.")
-    print(" -o or --output-groups\t\t.")
-    print(" -r or --spread\t\t.")
-    print("")
+    print
+    print(" -p or --perspective\t\tPerspective")
+    print(" -d or --dryrun\t\t\tPerform a dry run")
+    print(" -s or --source_system\t\tSource system")
+    print(" --remove-all-auto-groups\tRemove all auto groups")
+    print(" -c or --collect\t\tCollect")
+    print(" -f or --filters\t\tFilters")
+    print(" -o or --output-groups\t\tOutput groups")
+    print(" -r or --spread\t\t\tSpread")
+    print
     sys.exit(exitcode)
 
 
