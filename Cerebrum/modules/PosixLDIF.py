@@ -232,6 +232,12 @@ class PosixLDIF(object):
                 disk_path = None
             home = self.posuser.resolve_homedir(account_name=uname, home=row['home'],
                                                 disk_path=disk_path)
+            # 22.07.2013: Jira, CRB-98
+            # Quick fix, treat empty "home" as an error, to make
+            # generate_posix_ldif complete
+            if not home:
+                self.logger.warn("User %s has an empty home-directory value" % uname)
+                return None,None
         except:
             self.logger.warn("User %s has no home-directory!" % uname)
             return None,None
