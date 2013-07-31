@@ -903,14 +903,14 @@ from None and LDAP_PERSON['dn'].""")
                 ssel = self.internal_simple_selector(selector_type, ssel)
                 status_ssels.extend([(status, ssel) for status in statuses])
             for affiliation in affiliations:
-                if bool(affiliation):  # wildcard
+                if affiliation is True:  # wildcard
                     aff_id = None
                 else:
                     aff_id = self.const.PersonAffiliation(affiliation)
                 for status, ssel in status_ssels:
-                    if bool(status):   # wildcard
+                    if status is True:   # wildcard
                         key = int(aff_id)
-                    elif bool(affiliation):
+                    elif affiliation is True:
                         raise ValueError("Selector[True][not True: %s] illegal"
                                          % repr(status))
                     else:
@@ -920,7 +920,7 @@ from None and LDAP_PERSON['dn'].""")
                         key = (int(aff_id), status_id)
                     if mapping.has_key(key):
                         raise ValueError("Duplicate selector[%s][%s]" % tuple(
-                            [bool(val) and "True" or repr(val)
+                            [val is True and "True" or repr(val)
                              for val in (affiliation, status)]))
                     mapping[key] = ssel
         return mapping
