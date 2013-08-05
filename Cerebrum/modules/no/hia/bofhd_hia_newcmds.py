@@ -662,7 +662,6 @@ class BofhdExtension(BofhdCommonMethods):
 
             # Show telephone numbers
             for row in person.get_contact_info():
-                self.logger.debug('aaaa')
                 if row['contact_type'] not in (self.const.contact_phone,
                                                self.const.contact_mobile_phone,
                                                self.const.contact_phone_private,
