@@ -67,7 +67,7 @@ class PosixLDIF(object):
             if spread:
                 self.spread_d[x.lower()] = spread
         if not self.spread_d.has_key('user'):
-            raise ProgrammingError, "Must specify spread-value as 'arg' or in cereconf"
+            raise Errors.ProgrammingError, "Must specify spread-value as 'arg' or in cereconf"
         self.id2uname        = {}
 
         # preload id->name mapping for later. This is potentially somewhat
@@ -236,9 +236,12 @@ class PosixLDIF(object):
             # Quick fix, treat empty "home" as an error, to make
             # generate_posix_ldif complete
             if not home:
-                self.logger.warn("User %s has an empty home-directory value" % uname)
-                return None,None
-        except:
+                # This event should be treated the same way as a disk_id
+                # NotFoundError -- it means that a PosixUser has no home
+                # directory set.
+                raise Exception()
+
+        except (Errors.NotFoundError, Exception):
             self.logger.warn("User %s has no home-directory!" % uname)
             return None,None
         cn = row['name'] or row['gecos'] or uname
@@ -277,7 +280,7 @@ class PosixLDIF(object):
         f = LDIFutils.ldif_outfile('FILEGROUP', filename, self.fd)
         self.init_filegroup()
         if not self.spread_d.has_key('filegroup'):
-            logger.warn("No spread is given for filegroup!")
+            self.logger.warn("No spread is given for filegroup!")
         else:
             f.write(LDIFutils.container_entry_string('FILEGROUP'))
             for row in self.posgrp.search(spread=self.spread_d['filegroup'],
