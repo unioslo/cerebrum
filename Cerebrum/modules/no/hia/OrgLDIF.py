@@ -33,18 +33,18 @@ class OrgLDIFHiAMixin(norEduLDIFMixin):
 
     def init_attr2id2contacts(self):
         # Changes from the original:
-        # - Get phone and fax from system_pbx, others from system_sap.
+        # - Get phone and fax from system_manual, others from system_sap.
         # - Add mobile and roomNumber.
-        sap, pbx = self.const.system_sap, self.const.system_pbx
+        sap, manual = self.const.system_sap, self.const.system_manual
 
         c = [(a, self.get_contacts(contact_type  = t,
                                    source_system = s,
                                    convert       = self.attr2syntax[a][0],
                                    verify        = self.attr2syntax[a][1],
                                    normalize     = self.attr2syntax[a][2]))
-             for a,s,t in (('telephoneNumber', pbx, self.const.contact_phone),
+             for a,s,t in (('telephoneNumber', manual, self.const.contact_phone),
                            ('facsimileTelephoneNumber',
-                            pbx, self.const.contact_fax),
+                            manual, self.const.contact_fax),
                            ('mobile', sap, self.const.contact_mobile_phone),
                            ('labeledURI', None, self.const.contact_url))]
         self.id2labeledURI    = c[-1][1]
