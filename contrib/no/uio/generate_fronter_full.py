@@ -1285,24 +1285,7 @@ def list_users_for_fronter_export():  # TODO: rewrite this
     email_addrs = posix_user.getdict_uname2mailaddr()
     logger.debug("list_users_for_fronter_export got %d emailaddrs",
                  len(email_addrs))
-####
-    ac = Factory.get('Account')(db)
-    pe = Factory.get('Person')(db)
-####
     for row in posix_user.list_extended_posix_users(const.auth_type_md5_crypt):
-####
-        ac.clear()
-        ac.find(row['account_id'])
-        pe.clear()
-        try:
-            pe.find(ac.owner_id)
-        except:
-            continue
-        if not const.affiliation_ansatt in  map(lambda x: \
-                const.PersonAffiliation(x['affiliation']), \
-                pe.get_affiliations()):
-            continue
-####
         tmp = {'email': email_addrs.get(row['entity_name'],
                                         '@'.join((row['entity_name'],
                                                   'ulrik.uio.no'))),
