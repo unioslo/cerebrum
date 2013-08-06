@@ -1143,10 +1143,6 @@ class BaseSync(object):
         self.logger.debug("Found %d entities not found in AD",
                           len(filter(lambda x: not x.in_ad,
                                      self.entities.itervalues())))
-
-        ## Cache the passwords for the entities not in AD:
-        self.fetch_passwords()
-        
         i = 0
         for ent in self.entities.itervalues():
             if ent.in_ad:
@@ -1858,6 +1854,16 @@ class UserSync(BaseSync):
             else:
                 self.logger.debug('No plaintext available for %s' %
                                     ent.entity_name)
+
+    def process_entities_not_in_ad(self):
+        """Start processing users not in AD.
+
+        Depends on the generic superclass' functionality.
+
+        """
+        # Cache the passwords for the entities not in AD:
+        self.fetch_passwords()
+        return super(UserSync, self).process_entities_not_in_ad()
 
     def process_entity_not_in_ad(self, ent):
         """Process an account that doesn't exist in AD, yet.
