@@ -143,9 +143,14 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 # We need to differ between those migrated to a newer version of
                 # Exchange and not, as Exchange' attribute format changes from
                 # version to version.
-                # TODO: Traits should be cached in a set, to speed up the sync.
+                # 
+                # TODO: We are here expecting that all the MDB values listed in
+                # cereconf.EXCHANGE_HOMEMDB_VALID is for Exchange 2010. All
+                # values that is not in the cereconf list is expected to be from
+                # Exchange 2007. This might change in the future.
                 mdb_trait = self.ac.get_trait(self.co.trait_homedb_info)
-                if self.ac.get_trait(self.co.trait_exchange_migrated):
+                # Migrated users:
+                if mdb_trait in cereconf.EXCHANGE_HOMEMDB_VALID:
                     self.logger.debug("Account %s migrated", k)
                     # User is migrated:
                     v['homeMDB'] = "CN=%s,%s" % (mdb_trait["strval"],
