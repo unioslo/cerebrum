@@ -88,36 +88,6 @@ class BofhdVoipAuth(auth.BofhdAuth):
     # end can_alter_voip_address
 
 
-    def can_alter_voip_address_pin(self, operator_id, address_owner_id):
-        """Whether operator_id can change owner_id's address' pin code.
-
-        A person can alter pin code of his/her own voip_address.
-
-        A voip admin can alter anything.
-
-        A superuser can alter anything.
-        """
-
-        if self.is_superuser(operator_id):
-            return True
-
-        if self._is_voip_admin(operator_id):
-            return True
-
-        #
-        # Is operator_id one of address_owner_id's accounts?
-        accs = Factory.get("Account")(self._db).list_accounts_by_owner_id(
-            address_owner_id)
-        accs = [x["account_id"] for x in accs]
-        if operator_id in accs:
-            return True
-
-        raise PermissionDenied("Account id=%s cannot change pin of "
-                               "person/voip_service id=%s" %
-                               str(operator_id), str(address_owner_id))
-    # end can_alter_voip_address_pin
-    
-
     ########################################################################
     # voip_client related permissions
     #
@@ -184,7 +154,7 @@ class BofhdVoipAuth(auth.BofhdAuth):
         if self._is_voip_admin(account_id):
             return True
 
-        # We allow resetting a pin to the owner of client_id.
+        # We allow resetting a secret to the owner of client_id.
         # 
         # The test goes like this: find voip_address to which client_id is
         # bound. Compare it to account_id's owner_id. For non-personal

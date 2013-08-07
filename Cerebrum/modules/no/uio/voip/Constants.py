@@ -237,12 +237,6 @@ class VoipConstants(Constants.Constants):
         'voipAddress - see module mod_voip.sql and friends'
         )
 
-    trait_voip_object = _EntityTraitCode(
-        "voip_migrated", entity_voip_address,
-        "Trait marking entities which have been migrated to voip "
-        "(from Nortel)."
-        )
-
     contact_voip_extension = Constants.Constants.ContactInfo(
         'EXTENSION',
         'Extension number for voip (full and suffix)'

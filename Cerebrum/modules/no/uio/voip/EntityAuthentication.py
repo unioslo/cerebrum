@@ -60,17 +60,9 @@ class VoipAuthConstants(Constants.Constants):
 
     EntityAuthenticationCode = _EntityAuthenticationCode
 
-    voip_auth_pincode = _EntityAuthenticationCode(
-        'voip-pin',
-        'Pin code for voip_address')
-
     voip_auth_sip_secret = _EntityAuthenticationCode(
         'voip-sipsecret',
         'sipSecret value for voip clients')
-
-    voip_auth_sip_old_secret = _EntityAuthenticationCode(
-        'voip-sipoldsecret',
-        'sipOldSecret value for voip clients')
 # end VoipAuthConstants
     
 

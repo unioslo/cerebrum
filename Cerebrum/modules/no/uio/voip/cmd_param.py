@@ -50,16 +50,10 @@ class VoipClientTypeCode(Parameter):
 
 
 class VoipServiceTypeCode(Parameter):
-    _type = "voipSercvice"
+    _type = "voipService"
     _help_ref = "voip_service_type"
 # VoipServiceTypeCode
 
-
-class PinCode(Parameter):
-    _type = "pinCode"
-    _help_ref = "voip_pin"
-# end PinCode
-    
 
 class VoipAddressParameter(Parameter):
     _type = "voipAddress"

@@ -60,9 +60,7 @@ class VoipAddress(EntityAuthentication, EntityTrait):
     __write_attr__ = ("owner_entity_id",)
     _required_voip_attributes = ("uid", "mail", "cn", "voipSipUri",
                                  "voipSipPrimaryUri", "voipE164Uri",
-                                 "voipExtensionUri", "voipAddressType",
-                                 "voipPinCode", "voipVoiceMailBox",
-                                 "voipSKO",)
+                                 "voipExtensionUri", "voipSKO",)
 
     def clear(self):
         """Reset VoipAddress."""
@@ -220,29 +218,6 @@ class VoipAddress(EntityAuthentication, EntityTrait):
 
     
 
-    def is_migrated(self):
-        """Is this voip_address migrated to voip (from Nortel)?
-        """
-
-        return bool(self.get_trait(self.const.trait_voip_object))
-    # end is_migrated
-
-    
-
-    def toggle_migration(self, status):
-        """Change entity's migration status to voip.
-
-        Caveat! You *must* call write_db() to commit changes.
-        """
-
-        if not status:
-            self.delete_trait(self.const.trait_voip_object)
-        else:
-            self.populate_trait(self.const.trait_voip_object)
-    # end toggle_migration
-    
-
-
     def get_owner(self):
         """Return the owner object of the proper type."""
 
@@ -302,8 +277,6 @@ class VoipAddress(EntityAuthentication, EntityTrait):
         * voipExtensionUri (sip uri generert fra 5-sifret uio-nummer)
           e.g. sip:52426@uio.no
 
-        * voipAddressType (whether an address is voip or nortel)
-
         * voipSKO (6 digit "stedkode") e.g. 112233
         """
 
@@ -315,11 +288,6 @@ class VoipAddress(EntityAuthentication, EntityTrait):
         result.update(self._get_owner_voip_attributes(owner))
         result["owner_type"] = self.const.EntityType(owner.entity_type)
         
-        if self.is_migrated():
-            result["voipAddressType"] = "account"
-        else:
-            result["voipAddressType"] = "nortelaccount"
-
         uris = result.get("voipSipUri") or list()
         for row in owner.get_contact_info(source=self.const.system_voip):
             uris.append(voipify(row["contact_value"]))
@@ -340,9 +308,7 @@ class VoipAddress(EntityAuthentication, EntityTrait):
             if e164[0]["contact_alias"]:
                 result["voipExtensionUri"] = voipify_short(
                     e164[0]["contact_alias"])
-                result["voipVoiceMailBox"] = e164[0]["contact_alias"]
 
-        result["voipPinCode"] = self.get_auth_data(self.const.voip_auth_pincode)
         return result
     # end get_voip_attributes
 
@@ -437,55 +403,6 @@ class VoipAddress(EntityAuthentication, EntityTrait):
     # end _get_person_owner_attributes
 
 
-
-    def get_auth_data(self, auth_method):
-        """Retrieve the corresponding pin code.
-
-        Only pin codes are allowed auth type for voipAddress objects.
-        """
-        
-        assert auth_method == self.const.voip_auth_pincode
-        return self.__super.get_auth_data(auth_method)
-    # end get_auth_data
-
-
-
-    def set_auth_data(self, auth_method, auth_data):
-        assert auth_method == self.const.voip_auth_pincode
-        self.__super.set_auth_data(auth_method, auth_data)
-    # end set_auth_data
-
-
-
-    def validate_auth_data(self, auth_method, auth_data):
-        """Validate authentication data.
-
-        We only check pin codes here.
-        """
-
-        if auth_method != self.const.voip_auth_pincode:
-            return self.__super.validate_auth_data(auth_method, auth_data)
-
-        # Pin code -- sync with generate_pincode()
-        if not (auth_data.isdigit() and len(auth_data)):
-            raise CerebrumError("Invalid auth_data '%s' for auth_method %s" %
-                                (auth_data, str(self.const.voip_auth_pincode)))
-        return True
-    # end validate_auth_data
-
-
-
-    def generate_pincode(self):
-        """Generate a new pin code."""
-
-        result = list()
-        for i in range(4):
-            result.append(random.randint(0, 9))
-        return "".join(str(x) for x in result)
-    # end generate_pincode
-
-
-
     def contact_is_valid(self, contact_type, value, alias=None):
         """Check if contact value is legal.
 
@@ -560,9 +477,6 @@ class VoipAddress(EntityAuthentication, EntityTrait):
         voipify = self._voipify
         voipify_short = self._voipify_short
         
-        migrated = set(r["entity_id"] for r in
-                       self.list_traits(code=self.const.trait_voip_object))
-        
         # owner_id -> sequence of contact info (value, alias)-pairs
         owner2contact_info = dict()
         eci = EntityContactInfo(self._db)
@@ -580,10 +494,6 @@ class VoipAddress(EntityAuthentication, EntityTrait):
             owner2mobiles.setdefault(row["entity_id"], list()).append(
                 row["contact_value"])
 
-        # owner_id -> voip pin code
-        va2auth = dict((x["entity_id"], x["auth_data"])
-                       for x in self.list_auth_data(self.const.voip_auth_pincode))
-
         for row in self.search():
             entry = dict((key, None) for key in self._required_voip_attributes)
             entry["voipSipUri"] = list()
@@ -600,11 +510,6 @@ class VoipAddress(EntityAuthentication, EntityTrait):
                 continue
 
             entry.update(owner_data[owner_id])
-            # voipAddressType
-            if address_id in migrated:
-                entry["voipAddressType"] = "account"
-            else:
-                entry["voipAddressType"] = "nortelaccount"
 
             # voipSipUri
             for item in owner2contact_info.get(owner_id, list()):
@@ -620,17 +525,13 @@ class VoipAddress(EntityAuthentication, EntityTrait):
 
             entry["mobile"] = owner2mobiles.get(owner_id, list())
 
-            # voipE164Uri + voipVoiceMailBox + voipExtensionUri
+            # voipE164Uri + voipExtensionUri
             if owner2contact_info.get(owner_id):
                 full, alias = owner2contact_info[owner_id][0]
                 entry["voipE164Uri"] = voipify(full)
                 if alias:
                     entry["voipExtensionUri"] = voipify_short(alias)
-                    entry["voipVoiceMailBox"] = alias
 
-            if address_id in va2auth:
-                entry["voipPinCode"] = va2auth[address_id]
-                    
             yield entry
     # end list_voip_attributes
 

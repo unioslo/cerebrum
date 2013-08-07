@@ -48,14 +48,12 @@ command_help = {
         "voip_client_new_secret": "Set a new sipSecret for a voip_client.",
         "voip_client_set_info_code": "Set a new info code for a voip_client.",
 
-        "voip_address_change_pin": "Change pin code for a voip address.",
         "voip_address_list_contact_codes":
             "List all available contact info codes.",
         "voip_address_add_number":
             "Register an additional voip number for an owner.",
         "voip_address_delete_number":
             "Remove a voip number from all associated owners.",
-        "voip_address_migration": "Change voip_address' voip migration status.",
         "voip_address_info": "Display information about a voip address.",
         "voip_address_delete": "Delete a voip_address from Cerebrum.",
         "voip_address_find": "Display all voip_addresses matching a key.",
@@ -86,16 +84,10 @@ arg_help = {
     "yes_no_sip_enabled": ["sip_enabled",
                            "sip enabled?",],
 
-    "yes_no_voip_migrated": ["migrated?",
-                             "Migrated to voip?",
-                             "Migrated to voip from Nortel (yes/no)?"],
     "yesNo": ["yes/no",
               "Enter 'yes' or 'no'",
               "Enter 'yes' or 'no'",],
    
-    "voip_pin": ["pin",
-                 "Enter pin code",
-                 "Enter pin code for the voip address."],
     "voip_address": ["voip_address",
                      "Enter a voip address identifier",
                      "Enter a voip address identifier (id, owner id, etc.)"],

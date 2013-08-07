@@ -42,7 +42,6 @@ from Cerebrum.modules.no.uio.voip.cmd_param import MacAddress
 from Cerebrum.modules.no.uio.voip.cmd_param import VoipClientInfoCode
 from Cerebrum.modules.no.uio.voip.cmd_param import VoipClientTypeCode
 from Cerebrum.modules.no.uio.voip.cmd_param import VoipServiceTypeCode
-from Cerebrum.modules.no.uio.voip.cmd_param import PinCode
 from Cerebrum.modules.no.uio.voip.cmd_param import VoipAddressParameter
 from Cerebrum.modules.no.uio.voip.cmd_param import VoipOwnerParameter
 from Cerebrum.modules.no.uio.voip.cmd_param import VoipServiceParameter
@@ -336,8 +335,6 @@ class BofhdVoipCommands(BofhdCommandBase):
             address.clear()
             address.populate(owner_id)
             address.write_db()
-            address.set_auth_data(self.const.voip_auth_pincode,
-                                  address.generate_pincode())
             address.write_db()
 
             if with_softphone:
@@ -997,8 +994,7 @@ class BofhdVoipCommands(BofhdCommandBase):
         client = self._get_voip_client(designation)
         self.ba.can_reset_client_secrets(operator.get_entity_id(),
                                          client.entity_id)
-        for secret_kind in (self.const.voip_auth_sip_secret,
-                            self.const.voip_auth_sip_old_secret,):
+        for secret_kind in (self.const.voip_auth_sip_secret,):
             secret = client.generate_sip_secret()
             client.set_auth_data(secret_kind, secret)
 
@@ -1028,10 +1024,6 @@ class BofhdVoipCommands(BofhdCommandBase):
 
         # Register new_secret
         client.set_auth_data(self.const.voip_auth_sip_secret, new_secret)
-        # Push current_secret to old_secret
-        if current_secret:
-            client.set_auth_data(self.const.voip_auth_sip_old_secret,
-                                 current_secret)
 
         return "OK (set new sip secret for voip_client id=%s)" % (
             client.entity_id,)
@@ -1042,28 +1034,6 @@ class BofhdVoipCommands(BofhdCommandBase):
     ########################################################################
     # voip_address related commands
     #
-    all_commands["voip_address_change_pin"] = Command(
-        ("voip", "address_change_pin"),
-        VoipAddressParameter(),
-        PinCode())
-    def voip_address_change_pin(self, operator, designation, new_pin):
-        """Change the pin code associated with owner's voip_address.
-
-        Owner is located by L{owner_designation}. It does NOT have to be the
-        same as operator!
-        """
-
-        address = self._get_voip_address(designation)
-        owner = address.get_owner()
-        self.ba.can_alter_voip_address_pin(operator.get_entity_id(),
-                                           owner.entity_id)
-        address.set_auth_data(self.const.voip_auth_pincode, new_pin)
-        return "OK, pin code changed for voip_address id=%s" % (
-            address.entity_id,)
-    # end voip_address_change_pin
-        
-
-
     all_commands["voip_address_list_contact_codes"] = Command(
         ("voip", "address_list_contact_codes"),
         fs = FormatSuggestion("%-25s  %s",
@@ -1216,30 +1186,6 @@ class BofhdVoipCommands(BofhdCommandBase):
     # end voip_address_delete_number
 
 
-    
-    all_commands["voip_address_migration"] = Command(
-        ("voip", "address_migration"),
-        VoipAddressParameter(),
-        YesNo(help_ref="yes_no_voip_migrated"))
-    def voip_address_migration(self, operator, designation, is_migrated):
-        """Mark a person/voip_service as migrated to voip (from Nortel).
-
-        The mark is attached to the voip_address associated with the entity
-        designated by L{owner_designation}.
-        """
-
-        self.ba.can_alter_voip_address(operator.get_entity_id())
-
-        address = self._get_voip_address(designation)
-        flag = self._get_boolean(is_migrated)
-        address.toggle_migration(flag)
-        address.write_db()
-        return "OK, changed %s voip migration status to %s" % (
-            str(designation), self._typeset_bool(flag))
-    # end voip_address_migration
-
-
-
     all_commands["voip_address_info"] = Command(
         ("voip", "address_info"),
         VoipAddressParameter(),
@@ -1247,8 +1193,6 @@ class BofhdVoipCommands(BofhdCommandBase):
                               "Owner entity id:        %d\n"
                               "Owner type:             %s\n"
                               "cn:                     %s\n"
-                              "Pin code:               %s\n"
-                              "Migrated from Nortel?   %s\n"
                               "sipURI:                 %s\n"
                               "sipPrimaryURI:          %s\n"
                               "e164URI:                %s\n"
@@ -1259,8 +1203,6 @@ class BofhdVoipCommands(BofhdCommandBase):
                                "owner_entity_id",
                                "owner_entity_type",
                                "cn",
-                               "pin",
-                               "is_migrated",
                                "sip_uri",
                                "sip_primary_uri",
                                "e164_uri",
@@ -1293,8 +1235,6 @@ class BofhdVoipCommands(BofhdCommandBase):
                   "owner_entity_type":
                       str(self.const.EntityType(owner.entity_type)),
                   "cn": attrs["cn"],
-                  "pin": attrs["voipPinCode"] and "Registered" or None,
-                  "is_migrated": self._typeset_bool(address.is_migrated()),
                   "sip_uri": attrs["voipSipUri"],
                   "sip_primary_uri": attrs["voipSipPrimaryUri"],
                   "e164_uri": attrs["voipE164Uri"],

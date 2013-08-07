@@ -72,8 +72,7 @@ class VoipClient(EntityAuthentication, EntityTrait):
     def __init__(self, *rest, **kw):
         super(VoipClient, self).__init__(*rest, **kw)
 
-        self.valid_auth_methods = (self.const.voip_auth_sip_secret,
-                                   self.const.voip_auth_sip_old_secret,)
+        self.valid_auth_methods = (self.const.voip_auth_sip_secret,)
         self.sip_secret_alphabet = (string.letters + string.digits +
                                     ",.;:-_/!#{}[]+?")
         self.sip_secret_length = 15
@@ -251,7 +250,7 @@ class VoipClient(EntityAuthentication, EntityTrait):
     def get_auth_data(self, auth_method):
         """Retrieve the corresponding sip secret.
 
-        Only two secret types are allowed: sip_secret and sip_old_secret.
+        Only one type is allowed: sip_secret
         """
 
         assert auth_method in self.valid_auth_methods
@@ -323,14 +322,13 @@ class VoipClient(EntityAuthentication, EntityTrait):
 
         result = dict()
         for required_key in ("uid", "sipEnabled",
-                             "sipMacAddress", "sipSecret", "sipOldSecret",
+                             "sipMacAddress", "sipSecret",
                              "sipClientInfo", "sipClientType",
                              "voip_address_id",):
             result[required_key] = None
 
         result["sipClientType"] = str(self.const.VoipClientTypeCode(self.client_type))
         result["sipClientInfo"] = str(self.const.VoipClientInfoCode(self.client_info))
-        result["sipOldSecret"] = self.get_auth_data(self.const.voip_auth_sip_old_secret)
         result["sipSecret"] = self.get_auth_data(self.const.voip_auth_sip_secret)
         if self.mac_address:
             result["sipMacAddress"] = self.mac_address.replace(":", "")
@@ -362,8 +360,7 @@ class VoipClient(EntityAuthentication, EntityTrait):
 
         # entity_id -> {<auth type>: <auth_data>}
         client2auth = dict()
-        for row in self.list_auth_data((self.const.voip_auth_sip_secret,
-                                        self.const.voip_auth_sip_old_secret)):
+        for row in self.list_auth_data(self.const.voip_auth_sip_secret):
             client2auth.setdefault(row['entity_id'],
                                    {})[row['auth_method']] = row['auth_data']
 
@@ -393,9 +390,6 @@ class VoipClient(EntityAuthentication, EntityTrait):
             mac = mac.replace(":", "") if mac else None
             entry = {"sipClientType": const2str[row["client_type"]],
                      "sipClientInfo": const2str[row["client_info"]],
-                     "sipOldSecret":
-                       client2auth.get(row["entity_id"],
-                         {}).get(self.const.voip_auth_sip_old_secret),
                      "sipSecret": 
                        client2auth.get(row["entity_id"],
                          {}).get(self.const.voip_auth_sip_secret),
