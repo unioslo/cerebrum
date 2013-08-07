@@ -150,7 +150,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 # Exchange 2007. This might change in the future.
                 mdb_trait = self.ac.get_trait(self.co.trait_homedb_info)
                 # Migrated users:
-                if mdb_trait in cereconf.EXCHANGE_HOMEMDB_VALID:
+                if (mdb_trait and mdb_trait['strval'] in
+                                            cereconf.EXCHANGE_HOMEMDB_VALID):
                     self.logger.debug("Account %s migrated", k)
                     # User is migrated:
                     v['homeMDB'] = "CN=%s,%s" % (mdb_trait["strval"],
