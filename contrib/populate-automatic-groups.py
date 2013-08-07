@@ -1254,6 +1254,7 @@ def usage(exitcode):
     print
     print("The \"populate automatic groups\" script")
     print
+    print __doc__
     print("Options:")
     print
     print(" -p or --perspective\t\tPerspective")
@@ -1271,7 +1272,7 @@ def usage(exitcode):
 def main():
 
     options, junk = getopt.getopt(sys.argv[1:],
-                                  "p:ds:c:of:r:h:",
+                                  "p:ds:c:of:r:h",
                                   ("perspective=",
                                    "dryrun",
                                    "source_system=",
