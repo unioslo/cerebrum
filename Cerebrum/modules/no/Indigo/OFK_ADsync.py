@@ -152,6 +152,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 # Migrated users:
                 if (mdb_trait and mdb_trait['strval'] in
                                             cereconf.EXCHANGE_HOMEMDB_VALID):
+                    # TODO: remove this log msg later, or lower to DEBUG2, when
+                    # been in production for some time:
                     self.logger.debug("Account %s migrated", k)
                     # User is migrated:
                     v['homeMDB'] = "CN=%s,%s" % (mdb_trait["strval"],
