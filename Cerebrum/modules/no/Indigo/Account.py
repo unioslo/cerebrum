@@ -151,6 +151,10 @@ class AccountOfkMixin (Account.Account):
             mdb = self._autopick_homeMDB()
             self.populate_trait(self.const.trait_homedb_info, strval=mdb)
             self.write_db()
+            # This should be removed after the migration to Exchange 2010 is
+            # done:
+            self.populate_trait(self.const.trait_exchange_migrated)
+            self.write_db()
         #
         # (Try to) perform the actual spread addition.
         ret = self.__super.add_spread(spread)
