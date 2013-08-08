@@ -59,13 +59,6 @@ class BofhdExtension(BofhdCommonMethods):
 			'note_description':
 				['note_id', 'Enter description', 
 				'Enter the description of the note'],
-			'note_target':
-				['entity', 'Enter an existing entity',
-				"Enter the entity as type:name, for example 'account:bob'. " + \
-				"If only a name is entered, the type 'account' is assumed. " + \
-				"Other types include 'group', 'fnr' (fødselsnummer), 'id' " + \
-				"(Cerebrum's internal id), 'stedkode' (OU) and 'host'. " + \
-				"The type name may be abbreviated."],
 		}
 
 		return (group_help, command_help, arg_help)
@@ -73,7 +66,7 @@ class BofhdExtension(BofhdCommonMethods):
 	# note show
 	all_commands['note_show'] = Command(
 		('note', 'show'),
-		Id(help_ref='note_target'),
+		Id(help_ref='id:target:entity'),
 		fs=FormatSuggestion([
 		("%d note(s) found for %s:\n",
 		 ("notes_total", "entity_target")),
@@ -122,7 +115,7 @@ class BofhdExtension(BofhdCommonMethods):
 	# note add
 	all_commands['note_add'] = Command(
 		('note', 'add'),
-		Id(help_ref='note_target'),
+		Id(help_ref='id:target:entity'),
 		SimpleString(help_ref='note_subject'),
 		SimpleString(help_ref='note_description'),
 		perm_filter='can_add_notes')
@@ -145,7 +138,7 @@ class BofhdExtension(BofhdCommonMethods):
 	# note remove
 	all_commands['note_remove'] = Command(
 		('note', 'remove'),
-		Id(help_ref='note_target'),
+		Id(help_ref='id:target:entity'),
 		SimpleString(help_ref='note_id'),
 		perm_filter='can_remove_notes')
 	def note_remove(self, operator, entity_target, note_id):
