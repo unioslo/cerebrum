@@ -245,15 +245,15 @@ input_values = {
         # Project short name
         'p_shortname': (input.is_nonempty, input.str),
         # Project start date
-        'p_start': (input.is_valid_date, input.filter_date),
+        'project_start': (input.is_valid_date, input.filter_date),
         # Project end date
-        'p_end': (input.is_valid_date, input.filter_date),
+        'project_end': (input.is_valid_date, input.filter_date),
         # Project owner's FNR
-        'p_responsible': (input.is_fnr, input.str),
+        'rek_owner': (input.is_fnr, input.str),
         # Project's institution address
         'institution': (input.is_nonempty, input.str),
         # Project's REK approval number
-        'rek_approval': (input.is_nonempty, input.str),
+        'legal_notice': (input.is_nonempty, input.str),
         # Project members, identified by FNR
         'p_persons': (lambda x: True, input.str),
         # PA's full name
@@ -263,20 +263,22 @@ input_values = {
         # PA's e-mail address
         'pa_email': (input.is_email, input.str),
         # PA's chosen username
-        'pa_uiousername': (input.is_username, input.str),
+        'pa_username': (input.is_username, input.str),
         # The respondent's chosen username. Not necessarily mandatory.
         'uio_or_feide_username': (lambda x: True, input.str),
         # The respondent's full name
         'real_name': (input.is_nonempty, input.str),
+        # What resources that should be used in a given project:
+        'vm_descr': (input.is_nonempty, input.str),
         }
 
 # A list of all the required input values for each defined survey type. This is
 # used to identify the survey type.
 survey_types = {
-        'new_project': ('p_id', 'p_name', 'p_shortname', 'p_start', 'p_end',
-                        'p_responsible', 'institution', 'rek_approval',
-                        'p_persons', 'pa_name', 'pa_phone', 'pa_email',
-                        'pa_uiousername'),
+        'new_project': ('p_id', 'p_name', 'p_shortname', 'project_start',
+                        'project_end', 'rek_owner', 'institution',
+                        'legal_notice', 'p_persons', 'pa_name', 'pa_phone',
+                        'pa_email', 'pa_username'),
         'project_access': ('p_id', 'real_name', 'uio_or_feide_username'),
         'approve_persons': ('p_id', 'p_persons'),
         }
@@ -346,6 +348,7 @@ def xml2answers(xml):
 
     """
     answers = _xml2answersdict(xml)
+    logger.debug2("Answers: %s", answers)
     # Find the correct survey type:
     stypes = []
     for stype, requireds in survey_types.iteritems():
@@ -508,7 +511,7 @@ class Processing(object):
         ou.write_db()
 
         # Storing the start and end date:
-        endtime = input['p_end']
+        endtime = input['project_end']
         if endtime < DateTime.now():
             raise BadInputError("End date of project has passed: %s" % endtime)
         ou.add_entity_quarantine(type=co.quarantine_project_end,
@@ -516,7 +519,7 @@ class Processing(object):
                                  description='Initial requested lifetime for project',
                                  start=endtime)
         ou.write_db()
-        starttime = input['p_start']
+        starttime = input['project_start']
         # TBD: should we always set the start date, even if it is passed, for
         # the administrators to see when the project started?
         if starttime > DateTime.now():
@@ -529,7 +532,7 @@ class Processing(object):
         ou.populate_trait(co.trait_project_institution, target_id=ou.entity_id,
                           strval=input['institution'])
         ou.populate_trait(co.trait_project_rek, target_id=ou.entity_id,
-                          strval=input['rek_approval'])
+                          strval=input['legal_notice'])
         ou.write_db()
         # TODO: Send it to the gateway?
 
@@ -544,46 +547,57 @@ class Processing(object):
         to be created. If the person only has a pending affiliation, the account
         gets quarantined.
 
+        If the project has been approved and is set up properly, the account
+        could become a posix user. Otherwize, the account is only a regular
+        account, e.g. without a DFG, as no such group is created before the
+        project approval.
+
         """
         pid = ou.get_project_name()
-        ac = Factory.get('Account')(db)
+        pu = Factory.get('PosixUser')(db)
         username = '%s-%s' % (pid, username)
         # Check if wanted username is already taken:
-        if ac.search(name=username):
+        if pu.search(name=username):
             raise Exception("Username already taken: %s" % username)
             # TODO: implement this if we have the person's name?
-            #for name in ac.suggest_unames(co.account_namespace, fname, lname,
+            #for name in pu.suggest_unames(co.account_namespace, fname, lname,
             #                              maxlen=cereconf.USERNAME_MAX_LENGTH,
             #                              prefix='%s-' % pid):
-            #   if not ac.search(name=name):
+            #   if not pu.search(name=name):
             #       username = name
             #       break
             #else:
             #   raise Exception("No available username for %s in %s" % (pe.entity_id, pid))
 
+        # TODO: find the project's dfg's GID:
+        pg = Factory.get('PosixGroup')(db)
+        pg.find_by_name('%s%s' % (pid, '-dfg'))
+
         logger.info("Creating project user for person %s: %s", pe.entity_id,
                     username)
-        ac.create(name=username, owner_id=pe.entity_id,
-                  creator_id=systemaccount_id)
-        ac.write_db()
+        pu.populate(posix_uid=pu.get_free_uid(), gid_id=pg.gid_id, gecos=None,
+                    shell=co.posix_shell_bash, name=username,
+                    owner_type=pe.entity_type, owner_id=pe.entity_id,
+                    np_type=None, creator_id=systemaccount_id, expire_date=None)
+        pu.write_db()
 
         if pe.list_affiliations(pe.entity_id, ou_id=ou.entity_id,
                                 affiliation=co.affiliation_project):
             # Approved account:
-            logger.debug("Account %s approved for project: %s", ac.account_name,
+            logger.debug("Account %s approved for project: %s", pu.account_name,
                          pid)
-            ac.set_account_type(ou.entity_id, co.affiliation_project)
+            pu.set_account_type(ou.entity_id, co.affiliation_project)
             realname = pe.get_name(co.system_cached, co.name_full)
             # TODO: uid=posix_UID and not entity_id!!!
             # TODO: Send it to the gateway? If the OU is not in quarantine maybe
-            #gateway.create_user(pid, username, realname, ac.entity_id) # TODO
+            #gateway.create_user(pid, username, realname, pu.entity_id) # TODO
         elif pe.list_affiliations(pe.entity_id, ou_id=ou.entity_id,
                                   affiliation=co.affiliation_pending):
             # Pending account:
-            logger.debug("Account %s pending for project: %s", ac.account_name,
+            logger.debug("Account %s pending for project: %s", pu.account_name,
                          pid)
-            ac.set_account_type(ou.entity_id, co.affiliation_pending)
-            ac.add_entity_quarantine(type=co.quarantine_not_approved,
+            pu.set_account_type(ou.entity_id, co.affiliation_pending)
+            pu.add_entity_quarantine(type=co.quarantine_not_approved,
                                      creator=systemaccount_id,
                                      description='User not yet approved',
                                      start=DateTime.now())
@@ -591,11 +605,11 @@ class Processing(object):
             # TODO: Should the XML file now be deleted automatically?
             raise BadInputError("Person %s not affiliated to project %s",
                                 pe.entity_id, ou.entity_id)
-        ac.write_db()
+        pu.write_db()
 
         # TODO: quarantine for start and end dates, or is the project's
         # quarantine enough for that?
-        return ac
+        return pu
 
     def _get_project_account(self, pe, ou):
         """Find a person's project accounts, if any.
@@ -631,7 +645,7 @@ class Processing(object):
         # gets status as the owner. Otherwise we give him PA status:
         # TBD: do we need to differentiate between owner and PA?
         status = co.affiliation_status_project_admin
-        if self.fnr == input['p_responsible']:
+        if self.fnr == input['rek_owner']:
             status = co.affiliation_status_project_owner
         pe.populate_affiliation(source_system=co.system_nettskjema,
                                 ou_id=ou.entity_id, status=status,
@@ -640,10 +654,10 @@ class Processing(object):
 
         # Check the responsible and give access to the project by an
         # affiliation:
-        if self.fnr != input['p_responsible']:
+        if self.fnr != input['rek_owner']:
             # TODO: Should we create a person with this ID or not?
             try:
-                pe2 = self._get_person(input['p_responsible'],
+                pe2 = self._get_person(input['rek_owner'],
                                        create_nonexisting=False)
                 pe2.populate_affiliation(source_system=co.system_nettskjema,
                                          ou_id=ou.entity_id,
@@ -654,10 +668,10 @@ class Processing(object):
                 pe2.write_db()
             except Errors.NotFoundError:
                 logger.warn("Project owner not found: %s",
-                            input['p_responsible'])
+                            input['rek_owner'])
 
         # Give the PA an account:
-        ac = self._create_account(pe, ou, input['pa_uiousername'])
+        ac = self._create_account(pe, ou, input['pa_username'])
 
         # Fill the pre approve list with external ids:
         pre_approve_list = set()
