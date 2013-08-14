@@ -2,6 +2,9 @@
 #
 # Easily view the contents of all the involved cereconf.py files
 #
+# Use -a or --all to also view the final configuration file
+# (usually /cerebrum/uio/etcprod/cerebrum/cereconf.py)
+#
 
 source ~/.cerebrumrc
 
@@ -25,8 +28,12 @@ if [[ -e "$CERECONF_GLOBAL_PY" ]]; then
   echo -e "\e[92m---------------- $CERECONF_GLOBAL_PY -----------\e[0m\n"
   cat "$CERECONF_GLOBAL_PY"
   echo
-  echo
-  echo -n -e "\e[92mSee also:\e[0m "
-  grep execfile "$CERECONF_GLOBAL_PY" | cut -d'"' -f2
+  if [[ "$1" == '-a' ]] || [[ "$1" == '--all' ]]; then
+    CERECONF_SYSTEM_PY=`grep execfile "$CERECONF_GLOBAL_PY" | cut -d'"' -f2`
+    if [[ -e "$CERECONF_SYSTEM_PY" ]]; then
+      echo -e "\e[92m---------------- $CERECONF_SYSTEM_PY -----------\e[0m\n"
+      cat "$CERECONF_SYSTEM_PY"
+      echo
+    fi
+  fi
 fi
-
