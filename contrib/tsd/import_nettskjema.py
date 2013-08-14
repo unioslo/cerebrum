@@ -68,6 +68,7 @@ Tags that are important to us:
 
 import sys
 import os
+import time
 import getopt
 from lxml import etree
 from mx import DateTime
@@ -103,43 +104,80 @@ def usage(exitcode=0):
     the XML files should be imported from. You could specify several directories
     and/or files.
 
-    TODO:
-    --backup DIR        A directory to move successfully processed files. 
+    --archive DIR       A directory to move successfully processed files. The
+                        archived files will get the format:
+
+                            YYYY-MM-DD-BASENAME-COUNT.xml
+
+                        where BASENAME is the originalt name of the file, and
+                        COUNT starts at 0 and goes upwards if there exists
+                        more files.
 
     -h --help           Show this and quit.
+
     """ % {'doc': __doc__,
            'file': os.path.basename(sys.argv[0])}
     sys.exit(exitcode)
 
-def remove_file(file, dryrun, archive_dir=None):
-    """Remove a file by either moving it to a archive directory, or delete it.
+def archive_file(file, dryrun, directory):
+    """Archive a file by moving it to a archive directory.
 
-    The given file should be successfully processed before moving it.
+    The given file should be successfully processed before archiving it.
+
+    @type file: string
+    @param file: The file to archive.
+
+    @type dryrun: bool
+    @param dryrun: If the archival should actually happen or not.
+
+    @type directory: string
+    @param directory: The directory to where the file should be moved.
+
+    @rtype: bool
+    @return: If the file got successfully moved or not.
 
     """
-    logger.warn('File deletion is not implemented yet')
+    def getfilename(count = 0):
+        return '%s/%s-%s-%s.xml' % (directory, time.strftime('%Y%m%d'),
+                                    os.path.basename(file), count)
+    count = 0
+    new_file = getfilename(count)
+    while os.path.exists(new_file):
+        count += 1
+        new_file = getfilename(count)
+    logger.info("Archiving file to: %s", new_file)
     if dryrun:
         return True
-    # TODO
-    pass
+    return os.rename(file, new_file)
 
 class InvalidFileError(Exception):
     """Exception for invalid files, e.g. it can't be parsed."""
     pass
 
-def process_files(locations, dryrun):
+def process_files(locations, dryrun, archive=None):
     """Do the process thing."""
+    # Get all the files:
+    files = set()
     for location in locations:
-        # TODO: support directories
+        if os.path.isdir(location):
+            files.update(os.listdir(location))
+        elif os.path.exists(location):
+            files.add(location)
+        else:
+            logger.warn("Ignoring unknown path: %s", location)
+
+    # Process the files:
+    for file in files:
         try:
-            if process_file(location, dryrun):
+            if process_file(file, dryrun):
                 if dryrun:
                     db.rollback()
                     logger.info("Dryrun, rolled back changes")
                 else:
                     db.commit()
                     logger.info("Commited changes")
-                remove_file(location, dryrun)
+                if archive:
+                    archive_file(location, dryrun, archive)
         except BadInputError, e:
             logger.warn("Bad input in file %s: %s", location, e)
             db.rollback()
@@ -311,14 +349,19 @@ def _xml2answersdict(xml):
         if extid not in input_values:
             # Ignore undefined questions
             continue
+        # Answers could either be put in a <textAnswer/> tag, which is then a
+        # simple string or integer, or it could be an <answerOption/>.
         answer = ans.find('textAnswer')
         if answer is not None:
             answer = answer.text
         else:
-            # TODO: should be able to parse answers that is not text, if needed
-            logger.warn("For question %s, got unhandled answerOption: %s",
-                        extid, etree.tostring(ans)[:200])
-            continue
+            for r in ans.iterfind('answerOptions/answerOption/externalAnswerOptionId'):
+                answer = r.text
+
+            if answer is None:
+                logger.warn("For question %s, got unhandled answerOption: %s",
+                            extid, etree.tostring(ans)[:1000])
+                continue
         ret[extid] = answer
     return ret
 
@@ -861,19 +904,25 @@ class Processing(object):
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'hd',
-                                   ['help', 'dryrun'])
+                                   ['help', 'dryrun',
+                                    'archive=',])
     except getopt.GetoptError, e:
         print e
         usage(1)
 
     global dryrun
     dryrun = False
+    archive = None
 
     for opt, val in opts:
         if opt in ('-h', '--help'):
             usage()
         elif opt in ('-d', '--dryrun'):
             dryrun = True
+        elif opt == '--archive':
+            if not os.path.isdir(val):
+                raise Exception("Archive dir doesn't exist: %s" % val)
+            archive = val
         else:
             print "Unknown argument: %s" % opt
             usage(1)
@@ -882,7 +931,7 @@ def main():
         print "No input file given"
         usage(1)
 
-    process_files(args, dryrun)
+    process_files(args, dryrun, archive)
 
     if dryrun:
         db.rollback()
