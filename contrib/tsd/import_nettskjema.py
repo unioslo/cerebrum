@@ -316,7 +316,7 @@ survey_types = {
         'new_project': ('p_id', 'p_name', 'p_shortname', 'project_start',
                         'project_end', 'rek_owner', 'institution',
                         'legal_notice', 'p_persons', 'pa_name', 'pa_phone',
-                        'pa_email', 'pa_username'),
+                        'pa_email', 'pa_username', 'vm_descr'),
         'project_access': ('p_id', 'real_name', 'uio_or_feide_username'),
         'approve_persons': ('p_id', 'p_persons'),
         }
