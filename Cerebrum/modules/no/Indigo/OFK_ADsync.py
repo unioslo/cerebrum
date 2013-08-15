@@ -149,23 +149,28 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 # values that is not in the cereconf list is expected to be from
                 # Exchange 2007. This might change in the future.
                 mdb_trait = self.ac.get_trait(self.co.trait_homedb_info)
+
+                # Find the server name of where the MDB is put:
+                exchangeserver = ""
+                for servername in cereconf.AD_EX_MDB_SERVER:
+                    if mdb_trait["strval"] in cereconf.AD_EX_MDB_SERVER[servername]:
+                        exchangeserver = servername
+
                 # Migrated users:
                 if (mdb_trait and mdb_trait['strval'] in
                                             cereconf.EXCHANGE_HOMEMDB_VALID):
-                    # TODO: remove this log msg later, or lower to DEBUG2, when
-                    # been in production for some time:
-                    self.logger.debug("Account %s migrated", k)
+                    self.logger.debug2("Account %s migrated", k)
                     # User is migrated:
                     v['homeMDB'] = "CN=%s,%s" % (mdb_trait["strval"],
                                                  cereconf.AD_EX_MDB_DN_2010)
-                    # TODO: v['msExchHomeServerName'] =
-                    # cereconf.AD_EXC_HOME_SERVER
+                    #v['msExchHomeServerName'] = cereconf.AD_EXC_HOME_SERVER
+
+                    # The homeMTA value, just to be able to make the sync work
+                    # with both 2007 and 2010. Might be removed in the future.
+                    v['homeMTA'] = cereconf.EXCHANGE_HOMEMTA % {'server': exchangeserver}
+                    self.logger.debug2('HomeMTA: %s', v['homeMTA'])
                 elif mdb_trait and mdb_trait["strval"]:
                     # Non-migrated user:
-                    exchangeserver = ""
-                    for servername in cereconf.AD_EX_MDB_SERVER:
-                        if mdb_trait["strval"] in cereconf.AD_EX_MDB_SERVER[servername]:
-                            exchangeserver = servername
                     v['homeMDB'] = "CN=%s,CN=SG_%s,CN=InformationStore,CN=%s,%s" % (mdb_trait["strval"],
                                                                                     mdb_trait[
                                                                                     "strval"],
@@ -529,9 +534,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         for usr, dta in adusrs.iteritems():
             # Ignore accounts under migration:
             if usr in self.under_migration:
-                self.logger.debug(
-                    "Not comparing user under migration: %s",
-                    usr)
+                self.logger.debug2("Ignoring migration user: %s", usr)
                 continue
 
             changes = {}
