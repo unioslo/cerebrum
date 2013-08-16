@@ -167,8 +167,9 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
                     # The homeMTA value, just to be able to make the sync work
                     # with both 2007 and 2010. Might be removed in the future.
-                    v['homeMTA'] = cereconf.EXCHANGE_HOMEMTA % {'server': exchangeserver}
-                    self.logger.debug2('HomeMTA: %s', v['homeMTA'])
+                    if exchangeserver:
+                        v['homeMTA'] = cereconf.EXCHANGE_HOMEMTA % {'server': exchangeserver}
+                        self.logger.debug2('HomeMTA: %s', v['homeMTA'])
                 elif mdb_trait and mdb_trait["strval"]:
                     # Non-migrated user:
                     v['homeMDB'] = "CN=%s,CN=SG_%s,CN=InformationStore,CN=%s,%s" % (mdb_trait["strval"],
@@ -598,7 +599,9 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                             else:
                                 if adusrs[usr][attr] != cerebrumusrs[usr][attr]:
                                     changes[attr] = cerebrumusrs[usr][attr]
-
+                                    self.logger.debug2("Change %s: '%s'->'%s'",
+                                                       adusrs[usr][attr],
+                                                       cerebrumusrs[usr][attr])
                         else:
                             if cerebrumusrs[usr].has_key(attr):
                                 # A blank value in cerebrum and <not
@@ -606,8 +609,14 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                                 if cerebrumusrs[usr][attr] != "":
                                     changes[attr] = cerebrumusrs[usr][attr]
                             elif adusrs[usr].has_key(attr):
-                                # Delete value
-                                changes[attr] = ''
+                                # HomeMTA should not be removed for those we
+                                # don't know about, as they are most likely
+                                # under Exchange 2007 is about to be migrated.
+                                if attr == 'homeMTA':
+                                    pass # Do nothing
+                                else:
+                                    # Delete value
+                                    changes[attr] = ''
 
                 for acc, value in cereconf.AD_ACCOUNT_CONTROL.items():
 
