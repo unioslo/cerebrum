@@ -16,6 +16,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from Cerebrum.modules.no.uio.bofhd_uio_help import group_help
-from Cerebrum.modules.no.uio.bofhd_uio_help import command_help
-from Cerebrum.modules.no.uio.bofhd_uio_help import arg_help
+from Cerebrum.modules.bofhd.bofhd_core_help import group_help
+from Cerebrum.modules.bofhd.bofhd_core_help import command_help
+from Cerebrum.modules.bofhd.bofhd_core_help import arg_help

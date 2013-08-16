@@ -19,9 +19,9 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Help text for NIH's bofhd."""
 
-from Cerebrum.modules.no.uio.bofhd_uio_help import group_help
-from Cerebrum.modules.no.uio.bofhd_uio_help import command_help
-from Cerebrum.modules.no.uio.bofhd_uio_help import arg_help
+from Cerebrum.modules.bofhd.bofhd_core_help import group_help
+from Cerebrum.modules.bofhd.bofhd_core_help import command_help
+from Cerebrum.modules.bofhd.bofhd_core_help import arg_help
 
 # Overrides of the default help text follows:
 
