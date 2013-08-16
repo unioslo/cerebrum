@@ -600,6 +600,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                                 if adusrs[usr][attr] != cerebrumusrs[usr][attr]:
                                     changes[attr] = cerebrumusrs[usr][attr]
                                     self.logger.debug2("Change %s: '%s'->'%s'",
+                                                       attr,
                                                        adusrs[usr][attr],
                                                        cerebrumusrs[usr][attr])
                         else:
