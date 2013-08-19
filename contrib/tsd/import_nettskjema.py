@@ -303,9 +303,13 @@ input_values = {
         # PA's chosen username
         'pa_username': (input.is_username, input.str),
         # The respondent's chosen username. Not necessarily mandatory.
-        'uio_or_feide_username': (lambda x: True, input.str),
+        'username': (lambda x: True, input.str),
         # The respondent's full name
         'real_name': (input.is_nonempty, input.str),
+        # The respondent's e-mail address
+        'email': (input.is_email, input.str),
+        # The respondent's phone number
+        'phone': (input.is_phone, input.str),
         # What resources that should be used in a given project:
         'vm_descr': (input.is_nonempty, input.str),
         }
@@ -317,7 +321,7 @@ survey_types = {
                         'project_end', 'rek_owner', 'inst_address',
                         'legal_notice', 'p_persons', 'pa_name', 'pa_phone',
                         'pa_email', 'pa_username', 'vm_descr'),
-        'project_access': ('p_id', 'real_name', 'uio_or_feide_username'),
+        'project_access': ('p_id', 'real_name', 'username', 'email', 'phone'),
         'approve_persons': ('p_id', 'p_persons'),
         }
 
@@ -504,17 +508,21 @@ class Processing(object):
                 pe.write_db()
                 # TODO: gateway.rename_user(project=?, username=?, realname=input[key])
         # Phone
-        if 'pa_phone' in input:
-            logger.debug("Updating phone: %s", input['pa_phone'])
-            pe.populate_contact_info(source_system=co.system_nettskjema,
-                                     type=co.contact_phone, value=input['pa_phone'])
-            pe.write_db()
+        for key in ('pa_phone', 'phone'):
+            if key in input:
+                logger.debug("Updating phone: %s", input[key])
+                pe.populate_contact_info(source_system=co.system_nettskjema,
+                                         type=co.contact_phone,
+                                         value=input[key])
+                pe.write_db()
         # E-mail
-        if 'pa_email' in input:
-            logger.debug("Updating mail: %s", input['pa_email'])
-            pe.populate_contact_info(source_system=co.system_nettskjema,
-                                     type=co.contact_email, value=input['pa_email'])
-            pe.write_db()
+        for key in ('pa_email', 'email'):
+            if key in input:
+                logger.debug("Updating mail: %s", input[key])
+                pe.populate_contact_info(source_system=co.system_nettskjema,
+                                         type=co.contact_email,
+                                         value=input[key])
+                pe.write_db()
 
     def _create_ou(self, input):
         """Create the project OU based on given input."""
@@ -801,10 +809,11 @@ class Processing(object):
         accounts = self._get_project_account(pe, ou)
         if accounts:
             logger.info("Ignoring person %s, already has project accounts: %s",
-                         self.fnr, ', '.join(a['account_id'] for a in accounts))
+                        self.fnr,
+                        ', '.join(str(a['account_id']) for a in accounts))
             return False
 
-        ac = self._create_account(pe, ou, input['uio_or_feide_username'])
+        ac = self._create_account(pe, ou, input['username'])
         return True
 
     def approve_persons(self, input):
@@ -825,11 +834,11 @@ class Processing(object):
         pe = self._get_person()
 
         # The requestor must be owner or PA:
-        if not pe.list_affiliations(person_id=pe.entity_id,
-                                    affiliation=co.affiliation_project,
-                                    status=(co.affiliation_status_project_owner,
-                                            co.affiliation_status_project_admin),
-                                    ou_id=ou.entity_id):
+        if not list(pe.list_affiliations(person_id=pe.entity_id,
+                        affiliation=co.affiliation_project,
+                        status=(co.affiliation_status_project_owner,
+                                co.affiliation_status_project_admin),
+                        ou_id=ou.entity_id)):
             # TODO: Delete the XML file?
             raise BadInputError("Person %s is not PA of project %s" %
                                        (pe.entity_id, pid))
