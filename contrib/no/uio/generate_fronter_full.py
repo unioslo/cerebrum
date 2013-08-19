@@ -1849,15 +1849,15 @@ def main():
     process_kurs2enhet()
 
     for gname, data in new_group.iteritems():
-        fxml.group_to_XML(gname, fronter.STATUS_UPDATE, data)
+        fxml.group_to_XML(gname, fronter.STATUS_ADD, data)
     for room_id, data in new_rooms.iteritems():
-        fxml.room_to_XML(room_id, fronter.STATUS_UPDATE, data)
+        fxml.room_to_XML(room_id, fronter.STATUS_ADD, data)
 
     for gname, members_as_dict in new_groupmembers.iteritems():
-        fxml.personmembers_to_XML(gname, fronter.STATUS_UPDATE,
+        fxml.personmembers_to_XML(gname, fronter.STATUS_ADD,
                                   members_as_dict.keys())
     for struct_id, data in new_acl.iteritems():
-        fxml.acl_to_XML(struct_id, fronter.STATUS_UPDATE, data)
+        fxml.acl_to_XML(struct_id, fronter.STATUS_ADD, data)
     fxml.end()
 
     logger.info("generate_fronter_full is done")
