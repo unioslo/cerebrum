@@ -834,6 +834,9 @@ class Processing(object):
             raise BadInputError("Person %s is not PA of project %s" %
                                        (pe.entity_id, pid))
 
+        # Update contact info for PA:
+        self._update_person(pe, input)
+
         # Try to find and add the given person to the project
         pe2 = Factory.get('Person')(db)
         pre_approvals = set()
