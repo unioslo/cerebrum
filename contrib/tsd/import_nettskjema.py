@@ -537,16 +537,17 @@ class Processing(object):
         ou.add_name_with_language(name_variant=co.ou_name_acronym,
                                   name_language=co.language_en, name=pid)
         longname = input['p_name']
-        logger.debug("Storing name: %s", longname)
+        logger.debug("Storing project name: %s", longname)
         ou.add_name_with_language(name_variant=co.ou_name_long,
                                   name_language=co.language_en, name=longname)
         shortname = input['p_shortname']
-        logger.debug("Storing short name: %s", shortname)
+        logger.debug("Storing project short name: %s", shortname)
         ou.add_name_with_language(name_variant=co.ou_name_long,
                                   name_language=co.language_en, name=shortname)
         ou.write_db()
 
         # Always start projects quarantined, needs to be approved first!
+        logger.debug("Project %s starting in quarantine 'not_approved'", pid)
         ou.add_entity_quarantine(type=co.quarantine_not_approved,
                                  creator=systemaccount_id,
                                  description='Project not approved yet',
@@ -566,6 +567,7 @@ class Processing(object):
         # TBD: should we always set the start date, even if it is passed, for
         # the administrators to see when the project started?
         if starttime > DateTime.now():
+            logger.debug("Project %s gets start-time quarantine")
             ou.add_entity_quarantine(type=co.quarantine_project_start,
                                      creator=systemaccount_id,
                                      description='Initial requested starttime for project',
@@ -577,18 +579,17 @@ class Processing(object):
         ou.populate_trait(co.trait_project_rek, target_id=ou.entity_id,
                           strval=input['legal_notice'])
         ou.write_db()
-        # TODO: Send it to the gateway?
-
-        # The project should be properly set up after it gets approved.
         logger.debug("New project created successfully: %s", pid)
+        # The project will not be properly set up before it gets approved. The
+        # gateway will for instance not hear about it before it's approved.
         return ou
 
     def _create_account(self, pe, ou, username):
         """Create an account for a given project.
 
         The person must already be affiliated with the project for the account
-        to be created. If the person only has a pending affiliation, the account
-        gets quarantined.
+        to be created. If the person only has a pending affiliation, the
+        account gets quarantined.
 
         If the project has been approved and is set up properly, the account
         could become a posix user. Otherwise, the account is only a regular
@@ -596,56 +597,63 @@ class Processing(object):
         project approval.
 
         """
+        ou_is_quarantined = bool(ou.get_entity_quarantine(only_active=True))
         pid = ou.get_project_name()
-        pu = Factory.get('PosixUser')(db)
+        ac = Factory.get('Account')(db)
         username = '%s-%s' % (pid, username)
         # Check if wanted username is already taken:
-        if pu.search(name=username):
+        if ac.search(name=username):
             raise Exception("Username already taken: %s" % username)
             # TODO: generate username if we have the person's name
-            #for name in pu.suggest_unames(co.account_namespace, fname, lname,
+            #for name in ac.suggest_unames(co.account_namespace, fname, lname,
             #                              maxlen=cereconf.USERNAME_MAX_LENGTH,
             #                              prefix='%s-' % pid):
-            #   if not pu.search(name=name):
+            #   if not ac.search(name=name):
             #       username = name
             #       break
             #else:
             #   raise Exception("No available username for %s in %s" % (pe.entity_id, pid))
 
-        if ou.get_entity_quarantine(only_active=True):
-            # TODO
-            pass
-
-
-        # TODO: find the project's dfg's GID:
-        pg = Factory.get('PosixGroup')(db)
-        pg.find_by_name('%s%s' % (pid, '-dfg'))
-
         logger.info("Creating project user for person %s: %s", pe.entity_id,
                     username)
-        pu.populate(posix_uid=pu.get_free_uid(), gid_id=pg.gid_id, gecos=None,
-                    shell=co.posix_shell_bash, name=username,
-                    owner_type=pe.entity_type, owner_id=pe.entity_id,
-                    np_type=None, creator_id=systemaccount_id, expire_date=None)
-        pu.write_db()
+        # Check if the project has been accepted, i.e. is active:
+        if ou_is_quarantined:
+            # The project is in quarantine, probably due to not accepted.
+            # Should not start handing out posix data yet, then.
+            ac.populate(name=username, owner_type=pe.entity_type,
+                        owner_id=pe.entity_id, np_type=None,
+                        creator_id=systemaccount_id, expire_date=None)
+        else:
+            # Project is active, creating posix user instead:
+            ac = Factory.get('PosixUser')(db)
 
+            pg = Factory.get('PosixGroup')(db)
+            pg.find_by_name('%s%s' % (pid, '-dfg'))
+
+            ac.populate(posix_uid=ac.get_free_uid(), gid_id=pg.gid_id, gecos=None,
+                        shell=co.posix_shell_bash, name=username,
+                        owner_type=pe.entity_type, owner_id=pe.entity_id,
+                        np_type=None, creator_id=systemaccount_id, expire_date=None)
+        ac.write_db()
+
+        # Check if the person is already accepted and affiliated with the
+        # project, or only pending:
         if pe.list_affiliations(pe.entity_id, ou_id=ou.entity_id,
                                 affiliation=co.affiliation_project):
             # Approved account:
-            logger.debug("Account %s approved for project: %s", pu.account_name,
+            logger.debug("Account %s approved for project: %s", ac.account_name,
                          pid)
-            pu.set_account_type(ou.entity_id, co.affiliation_project)
+            ac.set_account_type(ou.entity_id, co.affiliation_project)
             realname = pe.get_name(co.system_cached, co.name_full)
-            # TODO: uid=posix_UID and not entity_id!!!
-            # TODO: Send it to the gateway? If the OU is not in quarantine maybe
-            #gateway.create_user(pid, username, realname, pu.entity_id) # TODO
+            if not ou_is_quarantined:
+                gateway.create_user(pid, username, realname, ac.posix_uid)
         elif pe.list_affiliations(pe.entity_id, ou_id=ou.entity_id,
                                   affiliation=co.affiliation_pending):
             # Pending account:
-            logger.debug("Account %s pending for project: %s", pu.account_name,
+            logger.debug("Account %s pending for project: %s", ac.account_name,
                          pid)
-            pu.set_account_type(ou.entity_id, co.affiliation_pending)
-            pu.add_entity_quarantine(type=co.quarantine_not_approved,
+            ac.set_account_type(ou.entity_id, co.affiliation_pending)
+            ac.add_entity_quarantine(type=co.quarantine_not_approved,
                                      creator=systemaccount_id,
                                      description='User not yet approved',
                                      start=DateTime.now())
@@ -653,11 +661,11 @@ class Processing(object):
             # TODO: Should the XML file now be deleted automatically?
             raise BadInputError("Person %s not affiliated to project %s",
                                 pe.entity_id, ou.entity_id)
-        pu.write_db()
+        ac.write_db()
 
         # TODO: quarantine for start and end dates, or is the project's
         # quarantine enough for that?
-        return pu
+        return ac
 
     def _get_project_account(self, pe, ou):
         """Find a person's project accounts, if any.
