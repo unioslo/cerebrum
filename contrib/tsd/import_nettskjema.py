@@ -288,8 +288,8 @@ input_values = {
         'project_end': (input.is_valid_date, input.filter_date),
         # Project owner's FNR
         'rek_owner': (input.is_fnr, input.str),
-        # Project's institution address
-        'institution': (input.is_nonempty, input.str),
+        # Project's institution's address
+        'inst_address': (input.is_nonempty, input.str),
         # Project's REK approval number
         'legal_notice': (input.is_nonempty, input.str),
         # Project members, identified by FNR
@@ -314,7 +314,7 @@ input_values = {
 # used to identify the survey type.
 survey_types = {
         'new_project': ('p_id', 'p_name', 'p_shortname', 'project_start',
-                        'project_end', 'rek_owner', 'institution',
+                        'project_end', 'rek_owner', 'inst_address',
                         'legal_notice', 'p_persons', 'pa_name', 'pa_phone',
                         'pa_email', 'pa_username', 'vm_descr'),
         'project_access': ('p_id', 'real_name', 'uio_or_feide_username'),
@@ -573,7 +573,7 @@ class Processing(object):
             ou.write_db()
 
         ou.populate_trait(co.trait_project_institution, target_id=ou.entity_id,
-                          strval=input['institution'])
+                          strval=input['inst_address'])
         ou.populate_trait(co.trait_project_rek, target_id=ou.entity_id,
                           strval=input['legal_notice'])
         ou.write_db()
@@ -591,7 +591,7 @@ class Processing(object):
         gets quarantined.
 
         If the project has been approved and is set up properly, the account
-        could become a posix user. Otherwize, the account is only a regular
+        could become a posix user. Otherwise, the account is only a regular
         account, e.g. without a DFG, as no such group is created before the
         project approval.
 
@@ -602,7 +602,7 @@ class Processing(object):
         # Check if wanted username is already taken:
         if pu.search(name=username):
             raise Exception("Username already taken: %s" % username)
-            # TODO: implement this if we have the person's name?
+            # TODO: generate username if we have the person's name
             #for name in pu.suggest_unames(co.account_namespace, fname, lname,
             #                              maxlen=cereconf.USERNAME_MAX_LENGTH,
             #                              prefix='%s-' % pid):
@@ -611,6 +611,11 @@ class Processing(object):
             #       break
             #else:
             #   raise Exception("No available username for %s in %s" % (pe.entity_id, pid))
+
+        if ou.get_entity_quarantine(only_active=True):
+            # TODO
+            pass
+
 
         # TODO: find the project's dfg's GID:
         pg = Factory.get('PosixGroup')(db)
