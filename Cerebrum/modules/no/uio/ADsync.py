@@ -224,7 +224,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 v['uidNumber'] = posixusers[k]['posix_uid'] or ''
                 v['gidNumber'] = groupid2gid[posixusers[k]['gid']] or ''
                 v['gecos'] = unicode(posixusers[k]['gecos'] or '', 'iso-8859-1')
-                v['uid'] = v['TEMPuname']
+                v['uid'] = [v['TEMPuname']] # UID is a list/array in AD
                 v['mssfu30name'] = v['TEMPuname']
                 v['msSFU30NisDomain'] = 'uio'
                 v['primaryGroup_groupname'] = groupid2name.get(posixusers[k]['gid']) or ''
@@ -508,9 +508,10 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                         # only updating it if we have something proper to set:
                         if sid:
                             sid = sid['Sid'].split('-')[-1]
-                            self.logger.debug("result sid: %s", sid)
-                            if adusrs[usr]['primaryGroupID'] != sid:
-                                self.logger.debug("changing primaryGroupID")
+                            if int(adusrs[usr]['primaryGroupID']) != int(sid):
+                                self.logger.debug("changing primaryGroupID from '%s' to '%s'",
+                                                  adusrs[usr]['primaryGroupID'],
+                                                  sid)
                                 changes['primaryGroupID'] = sid
                         if 'primaryGroup_groupname' in cerebrumusrs[usr]:
                             del cerebrumusrs[usr]['primaryGroup_groupname']
