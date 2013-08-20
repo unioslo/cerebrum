@@ -312,6 +312,8 @@ input_values = {
         'phone': (input.is_phone, input.str),
         # What resources that should be used in a given project:
         'vm_descr': (input.is_nonempty, input.str),
+        # If the person should use OTP through smartphone or yubikey:
+        'smartphone': (lambda x: True, input.str),
         }
 
 # A list of all the required input values for each defined survey type. This is
@@ -321,7 +323,8 @@ survey_types = {
                         'project_end', 'rek_owner', 'inst_address',
                         'legal_notice', 'p_persons', 'pa_name', 'pa_phone',
                         'pa_email', 'pa_username', 'vm_descr'),
-        'project_access': ('p_id', 'real_name', 'username', 'email', 'phone'),
+        'project_access': ('p_id', 'real_name', 'username', 'email', 'phone',
+                           'smartphone',),
         'approve_persons': ('p_id', 'p_persons'),
         }
 
@@ -522,6 +525,13 @@ class Processing(object):
                 pe.populate_contact_info(source_system=co.system_nettskjema,
                                          type=co.contact_email,
                                          value=input[key])
+                pe.write_db()
+        # Smartphone or yubikey
+        for key in ('smartphone',):
+            if key in input:
+                logger.debug("Updating otp-device: %s", input[key])
+                pe.populate_trait(trait_otp_device, date=DateTime.now(),
+                                  strval=str(input[key]))
                 pe.write_db()
 
     def _create_ou(self, input):
