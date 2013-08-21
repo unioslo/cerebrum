@@ -1310,8 +1310,7 @@ class BofhdVoipCommands(BofhdCommandBase):
             answer.append({"entity_id": va.entity_id,
                            "owner_entity_id": va.owner_entity_id,
                            "owner_type": str(voip_attrs["owner_type"]),
-                           "cn": voip_attrs["cn"],
-                           "address_type": voip_attrs["voipAddressType"],})
+                           "cn": voip_attrs["cn"],})
         return answer
     # end voip_service_find
    
