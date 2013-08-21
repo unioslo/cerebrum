@@ -505,7 +505,7 @@ class BofhdVoipCommands(BofhdCommandBase):
             result.append({"code": int(cnst),
                            "code_str": str(cnst),
                            "description": cnst.description})
-        return result
+        return sorted(result, key=lambda r: r["code_str"])
     # end _collect_constants
     
 

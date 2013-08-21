@@ -135,6 +135,11 @@ class VoipConstants(Constants.Constants):
         "voip_service_upersonlig_kontor",
         "upersonlig kontor",
     )
+
+    voip_service_video = VoipServiceTypeCode(
+        "voip_service_video",
+        "videoenhet",
+    )
     
     ########################################################################
     # voip-client
@@ -228,6 +233,26 @@ class VoipConstants(Constants.Constants):
     voip_client_pap2t = VoipClientInfoCode(
         "002008",
         "Linksys PAP2T"
+    )
+
+    voip_client_sx20 = VoipClientInfoCode(
+        "004001",
+        "Cisco SX-20"
+    )
+
+    voip_client_c40 = VoipClientInfoCode(
+        "004002",
+        "Cisco C40"
+    )
+
+    voip_client_c60 = VoipClientInfoCode(
+        "004003",
+        "Cisco C60"
+    )
+
+    voip_client_c90 = VoipClientInfoCode(
+        "004004",
+        "Cisco C90"
     )
 
     ########################################################################
