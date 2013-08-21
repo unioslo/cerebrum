@@ -24,7 +24,10 @@ if [[ -f "$CERECONF_PATH/$AUTOGEN_MARKER_FILE" ]]; then
   rm -rf "$CERECONF_PATH"'/*'
 fi
 
-# If CI is set, use that as CEREBRUM_INST
+# If INST is set, use that as CEREBRUM_INST (overrides CEREBRUM_INST)
+[ -z "$INST" ] || CEREBRUM_INST="$INST"
+
+# If CI is set, use that as CEREBRUM_INST (overrides INST and CEREBRUM_INST)
 [ -z "$CI" ] || CEREBRUM_INST="$CI"
 
 # Set CEREBRUM_INST to uio if it's not already set
@@ -136,7 +139,15 @@ echo
 
 # --- $CERECONF_PATH/bofhd/config.dat ---
 mkdir -p "$CERECONF_PATH/bofhd"
-cat << 'EOF' > "$CERECONF_PATH/bofhd/config.dat"
+if [[ "$CEREBRUM_INST" == "tsd" ]]; then
+  cat << 'EOF' > "$CERECONF_PATH/bofhd/config.dat"
+# Config file for bofhd for TSD
+Cerebrum.modules.dns.bofhd_dns_cmds/BofhdExtension
+Cerebrum.modules.dns.Subnet/BofhdExtension
+Cerebrum.modules.tsd.bofhd_tsd_cmds/AdministrationBofhdExtension
+EOF
+else
+  cat << 'EOF' > "$CERECONF_PATH/bofhd/config.dat"
 # Config file for bofhd
 Cerebrum.modules.no.uio.bofhd_uio_cmds/BofhdExtension
 Cerebrum.modules.no.uio.bofhd_guestaccounts_cmds/BofhdExtension
@@ -145,8 +156,6 @@ Cerebrum.modules.no.uio.bofhd_ephorte_cmds/BofhdExtension
 #Cerebrum.modules.dns.bofhd_dns_cmds/BofhdExtension
 #Cerebrum.modules.dns.Subnet/BofhdExtension
 EOF
-if [[ "$CEREBRUM_INST" == "tsd" ]]; then
-  echo 'Cerebrum.modules.tsd.bofhd_tsd_cmds/AdministrationBofhdExtension' >> "$CERECONF_PATH/bofhd/config.dat"
 fi
 
 # --- $CERECONF_PATH/common/cereconf.py ---
@@ -163,6 +172,7 @@ if os.getenv('CEREBRUM_INST') == "tsd":
         CLASS_OU += ('Cerebrum.modules.tsd.OU/OUTSDMixin', )
     BOFHD_SUPERUSER_GROUP = "usit"
     DB_AUTH_DIR = '/cerebrum/uio/etc/passwords'
+    BOFHD_MOTD_FILE = '/cerebrum/uio/etc/cerebrum/bofhd_motd.txt'
 else:
     execfile(os.path.join(os.getenv('CERECONF_GLOBAL'), 'cereconf.py'))
 

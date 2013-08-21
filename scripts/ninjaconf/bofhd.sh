@@ -14,6 +14,9 @@ source ~/.cerebrumrc
 
 echo "Starting BOFHD for institution: $CEREBRUM_INST"
 
+# Save the prompt
+echo "BOFH_PROMPT='$BOFH_PROMPT'" > ~/.bofhd_prompt
+
 "$PYTHON_BIN" "$BOFHD_PY" \
   -c "$BOFHD_CONFIG_DAT" \
   --logger-name=console \
@@ -21,3 +24,5 @@ echo "Starting BOFHD for institution: $CEREBRUM_INST"
   --port "$BOFHD_PORT" \
   "$@"
 
+# Clear the saved prompt
+rm -f ~/.bofhd_prompt

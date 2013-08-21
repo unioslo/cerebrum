@@ -10,6 +10,11 @@
 
 source ~/.cerebrumrc
 
+# Load the prompt as stored when starting bofhd
+if [ -f ~/.bofhd_prompt ]; then
+  source ~/.bofhd_prompt
+fi
+
 "$BOFH_BIN" \
   -u "$BOFH_USER" \
   --url "https://cere-utv01.uio.no:$BOFHD_PORT" \
