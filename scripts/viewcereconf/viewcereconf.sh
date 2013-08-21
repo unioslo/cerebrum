@@ -37,3 +37,14 @@ if [[ -e "$CERECONF_GLOBAL_PY" ]]; then
     fi
   fi
 fi
+
+if [[ "$CEREBRUM_INST" == 'tsd' ]]; then
+  echo -e "\e[92m---------------- /cerebrum/uio/etc/cerebrum/cereconf.py -----------\e[0m\n"
+  cat /cerebrum/uio/etc/cerebrum/cereconf.py
+  echo
+
+  echo -e "\e[92m---------------- $CEREBRUM_PATH/../cerebrum_sites/etc/tsd/cereconf.py -----------\e[0m\n"
+  cat "$CEREBRUM_PATH/../cerebrum_sites/etc/tsd/cereconf.py"
+  echo
+fi
+
