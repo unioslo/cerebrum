@@ -176,7 +176,7 @@ class OUTSDMixin(OU):
             administrator that created the project or a system user.
 
         """
-        if self.get_entity_quarantine(only_active=True):
+        if self.get_entity_quarantine(type=self.const.quarantine_not_approved, only_active=True):
             raise Errors.CerebrumError("Project is quarantined, cannot setup")
 
         projectid = self.get_project_name()
