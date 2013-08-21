@@ -59,7 +59,7 @@ class OUTSDMixin(OU):
             raise Errors.TooManyRowsError("Found more than one OU with given name")
         return self.find(matched[0]['entity_id'])
 
-    def search_tsd_projects(self, name=None):
+    def search_tsd_projects(self, name=None, exact_match=False):
         """Search method for finding projects by given input.
 
         TODO: Only project name is in use for now. Fix it if we need more
@@ -67,6 +67,10 @@ class OUTSDMixin(OU):
 
         @type name: string
         @param name: The project name.
+
+        @type exact_match: bool
+        @param exact_match: If it should search for the exact name, or through
+            an sql query with LIKE.
 
         @rtype: db-rows
         @return: TODO: what db elements do we need?
@@ -76,7 +80,7 @@ class OUTSDMixin(OU):
         return self.search_name_with_language(entity_type=self.const.entity_ou,
                                     name_variant=self.const.ou_name_acronym,
                                     # TODO: name_language=self.const.language_en
-                                    name=name, exact_match=True)
+                                    name=name, exact_match=exact_match)
 
     def _validate_project_name(self, name):
         """Check if a given project name is valid.
@@ -173,10 +177,10 @@ class OUTSDMixin(OU):
 
         """
         if self.get_entity_quarantine(only_active=True):
-            raise Exception("Project is quarantined, cannot setup")
+            raise Errors.CerebrumError("Project is quarantined, cannot setup")
 
         projectid = self.get_project_name()
-        gr = Factory.get("Group")(self._db)
+        gr = Factory.get("PosixGroup")(self._db)
 
         def _create_group(groupname, desc, trait):
             """Helper function for creating a group.
