@@ -1,9 +1,9 @@
 Traits
 ------
 
-Script for calling makedb.py for updating traits.
+Script for calling makedb.py for updating traits (--only-insert-codes).
 
-Uses the ninjaconf setup.
+Uses the joint configuration setup.
 
 Changelog:
-	Alexander Rødseth <rodseth@usit.uio.no>, July 2013
+	Alexander Rødseth <rodseth@usit.uio.no>, August 2013

@@ -73,7 +73,7 @@ if [[ "$PY" == "26" ]]; then
   # Use Python 2.6 if PY=26
   PYTHON_BIN=/usr/bin/python2.6
   PYTHON_LIBRARY_PATH=/local/lib
-  PYTHON_EXTERNAL=$CEREBRUM_PATH/scripts/ninjaconf/external/python2.6
+  PYTHON_EXTERNAL=$CEREBRUM_PATH/scripts/jointconfig/external/python2.6
   export LD_LIBRARY_PATH=$PYTHON_LIBRARY_PATH:$LD_LIBRARY_PATH
 else
   # Use Python 2.5 by default
