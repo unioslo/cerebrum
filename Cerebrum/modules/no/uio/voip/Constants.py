@@ -235,6 +235,11 @@ class VoipConstants(Constants.Constants):
         "Linksys PAP2T"
     )
 
+    voip_client_tcis6 = VoipClientInfoCode(
+        "003001",
+        "Zenitel TCIS-6"
+    )
+
     voip_client_sx20 = VoipClientInfoCode(
         "004001",
         "Cisco SX-20"
