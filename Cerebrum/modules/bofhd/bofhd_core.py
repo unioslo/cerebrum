@@ -37,6 +37,7 @@ from Cerebrum import Errors
 from Cerebrum import Entity
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.errors import CerebrumError
+from Cerebrum.modules import Email
 
 from Cerebrum.modules.bofhd import cmd_param as cmd
 

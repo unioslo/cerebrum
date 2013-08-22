@@ -111,6 +111,10 @@ class BofhdExtension(BofhdCommonMethods):
         #
         'spread_list', 'spread_add', 'spread_remove',
         #
+        # copy relevant mail-cmds and util methods
+        #
+        '_split_email_address',
+        #
         # copy relevant helper-functions
         #
          '_find_persons', '_get_account', '_format_ou_name',
