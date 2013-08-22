@@ -356,7 +356,7 @@ class BofhdExtension(BofhdCommandBase):
             ['subnet_or_ip', 'Enter subnet or ip',
              'Enter subnet or ip for this operation.  129.240.x.y = IP. '
              '129.240.x or 129.240.x.y/ indicates a subnet.'],
-            'numer_or_range':
+            'number_or_range':
             ['number_or_range', 'Enter a number or range',
              'Enter a number (ex. 5) or a range (ex. 5-10).'],
             'hinfo':
