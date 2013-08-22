@@ -72,8 +72,7 @@ from Cerebrum.modules.tsd import bofhd_help
 from Cerebrum.modules.tsd import Gateway
 
 def format_day(field):
-    fmt = "yyyy-MM-dd"                  # 10 characters wide
-    return ":".join((field, "date", fmt))
+	return field + "date:yyyy-MM-dd"
 
 def date_to_string(date):
     """Takes a DateTime-object and formats a standard ISO-datestring
@@ -217,6 +216,26 @@ class TSDBofhdExtension(BofhdCommandBase):
         return "%s (%s)" % (acronym, short_name)
 
 
+def superuser(fn):
+    """Decorator for checking that methods are being executed as operator.
+    The first argument of the decorated function must be "self" and the second must be "operator".
+    If operator is not superuser a CerebrumError will be raised.
+    """
+    def wrapper(*args, **kwargs):
+        if len(args) < 2:
+            raise CerebrumError('Decorated functions must have self and operator as the first '
+                'arguments')
+        self = args[0]
+        operator = args[1]
+        userid = operator.get_entity_id()
+        if not self.ba.is_superuser(userid):
+            raise CerebrumError('Only superusers are allowed to do this')
+        else:
+            self.logger.debug2("Checked that %s is in fact superuser." % (userid))
+            return fn(*args, **kwargs)
+    return wrapper
+
+
 class AdministrationBofhdExtension(TSDBofhdExtension):
     """The bofhd commands for the TSD project's system administrators.
     
@@ -310,6 +329,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             if not self.all_commands.has_key(key):
                 self.all_commands[key] = cmd
 
+
+
     ##
     ## Project commands
 
@@ -318,11 +339,10 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ProjectShortName(), cmd.Date(help_ref='project_start_date'),
         cmd.Date(help_ref='project_end_date'),
         perm_filter='is_superuser')
+    @superuser
     def project_create(self, operator, projectname, longname, shortname,
                        startdate, enddate):
         """Create a new project."""
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise CerebrumError('Only superusers are allowed to do this')
         try:
             self._get_project(projectname)
         except CerebrumError:
@@ -373,6 +393,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     all_commands['project_terminate'] = cmd.Command(
         ('project', 'terminate'), ProjectName(),
         perm_filter='is_superuser')
+    @superuser    
     def project_terminate(self, operator, project_name):
         """Terminate a project by removed almost all of it.
 
@@ -380,8 +401,6 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         avoid reuse of the ID.
 
         """
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise CerebrumError('Only superusers are allowed to do this')
         project = self._get_project(project_name)
         # TODO: delete person affiliations?
         # TODO: delete accounts
@@ -392,6 +411,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     all_commands['project_approve'] = cmd.Command(
         ('project', 'approve'), ProjectName(),
         perm_filter='is_superuser')
+    @superuser    
     def project_approve(self, operator, project_name):
         """Approve an existing project that is not already approved. A project
         is created after we get metadata for it from the outside world, but is
@@ -399,8 +419,6 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         it gets spread to AD and gets set up properly.
 
         """
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise CerebrumError('Only superusers are allowed to do this')
         project = self._get_project(project_name)
         if not project.get_entity_quarantine(only_active=True,
                                     type=self.const.quarantine_not_approved):
@@ -412,11 +430,13 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             # Active project only if not other quarantines
             self.gateway.create_project(project_name)
         self.logger.info("Project approved: %s", project_name)
+        
         return "Project approved: %s" % project_name
 
     all_commands['project_reject'] = cmd.Command(
         ('project', 'reject'), ProjectName(),
         perm_filter='is_superuser')
+    @superuser    
     def project_reject(self, operator, project_name):
         """Reject a project that is not approved yet.
         
@@ -424,8 +444,6 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         exported out of Cerebrum yet.
 
         """
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise CerebrumError('Only superusers are allowed to do this')
         project = self._get_project(project_name)
         if not project.get_entity_quarantine(only_active=True,
                                     type=self.const.quarantine_not_approved):
@@ -444,12 +462,11 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     all_commands['project_set_enddate'] = cmd.Command(
         ('project', 'set_enddate'), ProjectName(), cmd.Date(),
         perm_filter='is_superuser')
+    @superuser    
     def project_set_enddate(self, operator, project_name, enddate):
         """Set the end date for a project.
 
         """
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise CerebrumError('Only superusers are allowed to do this')
         project = self._get_project(project_name)
         qtype = self.const.quarantine_project_end
         end = self._parse_date(enddate)
@@ -468,17 +485,15 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         if end < DateTime.now():
             #TODO
             self.gateway.freeze_project(project_name)
-            pass
         return "Project %s updated to end: %s" % (project_name,
                                                   date_to_string(end))
 
     all_commands['project_freeze'] = cmd.Command(
         ('project', 'freeze'), ProjectName(),
         perm_filter='is_superuser')
+    @superuser    
     def project_freeze(self, operator, project_name):
         """Freeze a project."""
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise CerebrumError('Only superusers are allowed to do this')
         project = self._get_project(project_name)
         qtype = self.const.quarantine_project_end
         end = DateTime.now()
@@ -500,6 +515,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             '%-16s %-10s %s', ('name', 'entity_id', 'quars'),
             hdr='%-16s %-10s %s' % ('Name', 'Entity-Id', 'Quarantines')),
         perm_filter='is_superuser')
+    @superuser
     def project_list(self, operator, filter=None):
         """List out all projects by their acronym and status.
 
@@ -507,8 +523,6 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         listed.
 
         """
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise CerebrumError('Only superusers are allowed to do this')
         ou = self.OU_class(self.db)
         projects = dict()
 
@@ -564,6 +578,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             ('Quarantine:    %s', ('q_status',)),
             ]),
         perm_filter='is_superuser')
+    @superuser    
     def project_info(self, operator, projectname):
         """Display information about a specified project using ou_info.
 
@@ -571,9 +586,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         the projectname instead of entity_id. This could probably be handled in
         a much better way.
 
-        """
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise CerebrumError('Only superusers are allowed to do this')
+        """        
         project = self._get_project(projectname)
         ret = self.ou_info(operator, 'id:%d' % project.entity_id)
         now = DateTime.now()
@@ -597,7 +610,6 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         if quarantined:
             ret.append({'q_status': quarantined})
 
-
         for row in project.get_entity_quarantine(
                                            self.const.quarantine_project_start):
             pass
@@ -614,7 +626,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
     ##
     ## Person commands
-
+    @superuser
     def _person_affiliation_add_helper(self, operator, person, ou, aff, aff_status):
         """Helper-function for adding an affiliation to a person with permission
         checking. Person is expected to be a person object, while ou, aff and
