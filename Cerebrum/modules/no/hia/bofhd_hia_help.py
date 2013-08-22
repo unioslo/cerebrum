@@ -18,11 +18,10 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#import pprint
 from Cerebrum.modules.bofhd.bofhd_core_help import *
 
 def get_help_strings(self):
-        return (group_help, command_help, arg_help)
+    return (group_help, command_help, arg_help)
 
 def _group_help_modifications():
     """Updates the global group_help dictionary."""
@@ -643,5 +642,3 @@ def _init():
 
 if __name__ != "__main__":
     _init()
-
-# arch-tag: e438828e-958d-4d94-a579-51395dddf5fa
