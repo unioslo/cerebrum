@@ -118,8 +118,6 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 if home_srv in getattr(cereconf, 'AD_HOMEDIR_HITACHI_DISKS', ()):
                     path = uname2disk[k]['path'].split('/')[-1]
                     v['homeDirectory'] = "\\\\%s\\%s\\%s" % (home_srv, path, k)
-                    self.logger.debug("Astrastore for %s: %s", k,
-                                      v['homeDirectory'])
                 else:
                     v['homeDirectory'] = "\\\\%s\\%s" % (home_srv, k)
             else:
@@ -179,6 +177,11 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         self._filter_quarantines(tmp_ret)
         self.logger.info("%i accounts with spread %s after filter" 
                          % (len(tmp_ret),spread))
+        a = 0
+        for u in tmp_ret.itervalues():
+            if u['ACCOUNTDISABLE']:
+                a += 1
+        self.logger.info("Number of disabled accounts: %s" % a)
 
         #
         # Set person names
