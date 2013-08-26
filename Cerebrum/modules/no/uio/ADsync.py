@@ -249,13 +249,9 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             max -= 1
             if max < 1:
                 break
-        self.logger.debug("Number of users without DFG: %d", len(bydfg.get(None, ())))
-        max = 10
-        for n in bydfg.get(None, ()):
-            self.logger.debug("No dfg for %s", n)
-            max -= 1
-            if max < 1:
-                break
+        self.logger.debug("Number of users without DFG: %d (%s)",
+                          len(bydfg.get(None, ())),
+                          bydfg.get(None, ()))
         # Find the number of users with a personal dfg:
         personal_dfg = 0
         for k, v in tmp_ret.iteritems():
@@ -789,6 +785,12 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                 i += 1
         self.logger.debug("Number of groups with posix GID: %d", i)
 
+        i = 0
+        for gdata in grp_dict.itervalues():
+            if not gdata.has_key('gidNumber'):
+                i += 1
+        self.logger.debug("Number of groups without posix GID: %d", i)
+
         return grp_dict
 
 
@@ -1227,7 +1229,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                             res = self.server.syncMembers(members, False, False)
                             #res = self.server.replaceMembers(members, False)
                         if not res[0]:
-                            self.logger.warning("syncMembers %s failed for:%r",
+                            self.logger.warning("syncMembers %s failed for: %r",
                                                 dn, res[1:])
                     continue
 
