@@ -301,20 +301,41 @@ def ordered_uniq(input):
     return output
 # end ordered_uniq
 
+# Somehow a set of users who should not get exported to Fronter appears in
+# Fronter. We wanna filter 'em out. It's a hack, but it is faster to
+# implement ;)
+# Maybee I should have used some other API functions.
+def find_accounts_and_persons_to_exclude():
+    pe = Factory.get('Person')(db)
+    ac = Factory.get('Account')(db)
 
+    r = {'persons': [], 'users': []}
+    for x in cereconf.REMOVE_USERS:
+        ac.clear()
+        ac.find_by_name(x)
+        pe.clear()
+        pe.find(ac.owner_id)
+        r['persons'].append(pe.entity_id)
+        for y in pe.get_accounts():
+            r['users'].append(y['account_id'])
+    return r
 
 def prefetch_primaryusers():
-    global fnr2account_id, fnr2stud_account_id
+    global fnr2account_id, fnr2stud_account_id, exclude
     # TBD: This code is used to get account_id for both students and
     # fagansv.  Should we look at affiliation here?
     logger.debug("Getting all primaryusers")
-
+    
+    exclude = find_accounts_and_persons_to_exclude()
     account = Factory.get('Account')(db)
     personid2accountid = {}
     personid2student = {}
     for a in account.list_accounts_by_type():
         p_id = int(a['person_id'])
         a_id = int(a['account_id'])
+        # It's a bad hack
+        if a_id in exclude['users'] or p_id in exclude['persons']:
+            continue
         if a['affiliation'] == co.affiliation_student:
             personid2student.setdefault(p_id, []).append(a_id)
         personid2accountid.setdefault(p_id, []).append(a_id)
@@ -323,6 +344,9 @@ def prefetch_primaryusers():
     fnr_source = {}
     for row in person.list_external_ids(id_type=co.externalid_fodselsnr):
         p_id = int(row['entity_id'])
+        # It's a bad hack
+        if p_id in exclude['persons']:
+            continue
         fnr = row['external_id']
         src_sys = int(row['source_system'])
         if fnr_source.has_key(fnr) and fnr_source[fnr][0] <> p_id:
@@ -432,7 +456,6 @@ def prefetch_all_data(role_file, undenh_file, undakt_file,
     edu_info.update(get_kull(kull_file, edu_file))
 
     role_mapping = parse_xml_roles(role_file)
-
     return edu_info, role_mapping
 # end prefetch_all_data
 
@@ -1509,7 +1532,8 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
                                         member_type=mtype,
                                         member_filter_expired=False):
             member = int(row["member_id"])
-            if members.has_key(member):
+            # make sure to filter 'em out
+            if members.has_key(member) and member not in exclude['users']:
                 del members[member]
             else:
                 logger.debug("sync_group(): Deleting member %d" % member)
@@ -1531,7 +1555,9 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
                     pass
 
     for member in members.keys():
-        group.add_member(member)
+        # We don't wanna add some users
+        if member not in exclude['users']:
+            group.add_member(member)
 
     # Finally fixup fronter spreads, if we have to.
     if auto_spread is not NotSet:

@@ -1294,13 +1294,35 @@ def list_users_for_fronter_export():  # TODO: rewrite this
         ret.append(tmp)
     return ret
 
+# Somehow a set of users who should not get exported to Fronter appears in
+# Fronter. We wanna filter 'em out. It's a hack, but it is faster to
+# implement ;)
+# Maybee I should have used some other API functions.
+def find_accounts_to_exclude():
+    pe = Factory.get('Person')(db)
+    ac = Factory.get('Account')(db)
+
+    r = []
+    for x in cereconf.REMOVE_USERS:
+        ac.clear()
+        ac.find_by_name(x)
+        pe.clear()
+        pe.find(ac.owner_id)
+        for y in pe.get_accounts():
+            ac.clear()
+            ac.find(y['account_id'])
+            r.append(ac.account_name)
+    return r
 
 def get_new_users():
     # Fetch userinfo in Cerebrum.
+    exclude = find_accounts_to_exclude()
     users = {}
     for user in list_users_for_fronter_export():
         # This script will fail otherwise. Perhaps a better solution is
         # possible?
+        if user['uname'] in exclude:
+            continue
         if user['fullname'] is None:
             continue
         names = re.split('\s+', user['fullname'].strip())
