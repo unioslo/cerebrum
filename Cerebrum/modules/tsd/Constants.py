@@ -38,31 +38,32 @@ from Cerebrum.Constants import _AuthoritativeSystemCode
 from Cerebrum.Constants import _AuthenticationCode
 from Cerebrum.modules.EntityTrait import _EntityTraitCode
 
+
 class Constants(Constants.Constants):
-    ## Affiliations and statuses
+    # Affiliations and statuses
 
     # Project
     affiliation_project = _PersonAffiliationCode('PROJECT',
                                                  'Member of a project')
     # Project Owner
     affiliation_status_project_owner = _PersonAffStatusCode(
-            affiliation_project, 'owner', 'Project Owner')
+        affiliation_project, 'owner', 'Project Owner')
     # Project Administrator (PA)
     affiliation_status_project_admin = _PersonAffStatusCode(
-            affiliation_project, 'admin', 'Project Administrator (PA)')
+        affiliation_project, 'admin', 'Project Administrator (PA)')
     # Project Member (PM)
     affiliation_status_project_member = _PersonAffStatusCode(
-            affiliation_project, 'member', 'Project Member (PM)')
+        affiliation_project, 'member', 'Project Member (PM)')
 
     # Pending
     affiliation_pending = _PersonAffiliationCode('PENDING',
-                                        'Unapproved affiliations')
+                                                 'Unapproved affiliations')
     # Pending project member (PM)
     affiliation_status_pending_project_member = _PersonAffStatusCode(
-                            affiliation_pending, 'member',
-                            'Waiting for getting accepted as a project member')
+        affiliation_pending, 'member',
+        'Waiting for getting accepted as a project member')
 
-    ## Spreads
+    # Spreads
 
     # AD
     spread_ad_account = _SpreadCode(
@@ -78,11 +79,11 @@ class Constants(Constants.Constants):
         'Account to be synced to the gateway')
 
     # The gateway doesn't care about groups
-    #spread_gateway_group = _SpreadCode(
+    # spread_gateway_group = _SpreadCode(
     #    'group@gw', Constants.Constants.entity_group,
     #    'Group to be synced to the gateway')
 
-    ## Quarantines
+    # Quarantines
 
     quarantine_autopassord = _QuarantineCode('autopassord',
                                              'Password out of date')
@@ -92,49 +93,47 @@ class Constants(Constants.Constants):
                                        'Quarantine for severe issues')
 
     quarantine_not_approved = _QuarantineCode('not_approved',
-                                'Waiting for approval from admin')
+                                              'Waiting for approval from admin')
     quarantine_project_end = _QuarantineCode('project_end',
-                                'Blocking projects when end date is reached')
+                                             'Blocking projects when end date is reached')
     quarantine_project_start = _QuarantineCode('not_started_yet',
-                          "Project haven't started yet, waiting for start date")
+                                               "Project haven't started yet, waiting for start date")
 
-    ## Source systems
+    quarantine_frozen = _QuarantineCode('frozen', 'Project is frozen')
 
+    # Source systems
     system_nettskjema = _AuthoritativeSystemCode('Nettskjema',
-                            'Information from Nettskjema, registered by anyone')
+                                                 'Information from Nettskjema, registered by anyone')
     system_ad = _AuthoritativeSystemCode('AD', 'Information from AD')
-    
-    ## Traits
+
+    # Traits
 
     trait_project_group = _EntityTraitCode('project_group',
-                                Constants.Constants.entity_group,
-                                'The project a group belongs to')
+                                           Constants.Constants.entity_group,
+                                           'The project a group belongs to')
     trait_project_host = _EntityTraitCode('project_host',
-                                Constants.Constants.entity_host,
-                                'The project a host belongs to')
+                                          Constants.Constants.entity_host,
+                                          'The project a host belongs to')
 
     # Traits for metadata about projects:
-    trait_project_institution = _EntityTraitCode('institution', 
-                                    Constants.Constants.entity_ou,
-                                    'The institution the project belongs to')
-    trait_project_rek = _EntityTraitCode('rek_approval', 
-                                Constants.Constants.entity_ou,
-                                'The REK approval for the project')
+    trait_project_institution = _EntityTraitCode('institution',
+                                                 Constants.Constants.entity_ou,
+                                                 'The institution the project belongs to')
+    trait_project_rek = _EntityTraitCode('rek_approval',
+                                         Constants.Constants.entity_ou,
+                                         'The REK approval for the project')
 
-    trait_project_persons_accepted = _EntityTraitCode('accepted_persons', 
-                                Constants.Constants.entity_ou,
-                                'FNRs of non-existing persons that has been '
-                                'accepted as members of the project')
+    trait_project_persons_accepted = _EntityTraitCode('accepted_persons',
+                                                      Constants.Constants.entity_ou,
+                                                      'FNRs of non-existing persons that has been '
+                                                      'accepted as members of the project')
 
-    ## Authentication codes (password types):
+    # Authentication codes (password types):
 
     trait_otp_device = _EntityTraitCode('otp_device',
-            Constants.Constants.entity_person,
-            'The device for handling the OTP keys, e.g. yubikey or smartphone')
+                                        Constants.Constants.entity_person,
+                                        'The device for handling the OTP keys, e.g. yubikey or smartphone')
 
     auth_type_otp_key = _AuthenticationCode('OTP-key',
-            'One-Time Password key, used to be able to generate one-time'
-            'passwords')
-
-
-
+                                            'One-Time Password key, used to be able to generate one-time'
+                                            'passwords')
