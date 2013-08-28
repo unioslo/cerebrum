@@ -539,7 +539,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         end = DateTime.now()
 
         # The quarantine needs to be removed before it could be added again
-        qtype = self.const.quarantine_project_end
+        qtype = self.const.quarantine_project_freeze
         for row in project.get_entity_quarantine(qtype):
             project.delete_entity_quarantine(qtype)
             project.write_db()
@@ -562,11 +562,14 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         end = DateTime.now()
 
         # Remove the quarantine
-        qtype = self.const.quarantine_project_end
+        qtype = self.const.quarantine_frozen
         for row in project.get_entity_quarantine(qtype):
             project.delete_entity_quarantine(qtype)
             project.write_db()
-        self.gateway.thaw_project(project_name)
+
+        # Only unthaw projects without quarantines
+        if not project.get_entity_quarantine(only_active=True):
+            self.gateway.thaw_project(project_name)
         return "Project %s is now unfrozen" % project_name
 
     all_commands['project_list'] = cmd.Command(
@@ -580,16 +583,31 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     def project_list(self, operator, filter=None):
         """List out all projects by their acronym and status.
 
-        "project list �" will list all projects starting with � or �
-
+        "project list ø*" and "project list Ø*" does not currently work, unless the code
+        below that is commented out is used for filtering, instead of the last two arguments
+        to the search_name_with_language function.
         """
         ou = self.OU_class(self.db)
         projects = {}
 
+        # This makes it possible to search with lowercase æøå as well.
+        # The searches are case-insensitive.
+        try:
+            if filter:
+                filter.encode('ascii')
+        except UnicodeDecodeError:
+            if filter:
+                filter = filter.decode("iso-8859-1").upper().encode("iso-8859-1")
+
+        # List everything if no filter is specified
+        if not filter:
+            filter = "*"
+
+        # TODO: Search_name_with_language currently doesn't work with lowercase æøå
         # Get all OUs with acronym. OUs without an acronym will not be listed here.
         for row in ou.search_name_with_language(
             entity_type=self.const.entity_ou,
-                name_variant=self.const.ou_name_acronym):
+                name_variant=self.const.ou_name_acronym, exact_match=False, name=str(filter)):
             project = projects.setdefault(row['entity_id'], dict())
             project['entity_id'] = str(row['entity_id'])
             project['name'] = row['name']
@@ -603,24 +621,6 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             if projects.has_key(row['entity_id']):
                 q = self.const.Quarantine(row['quarantine_type'])
                 projects[row['entity_id']]['quars'].append(str(q))
-
-        # .lower() doesn't work as expected on str in Python 2.5, unless decoded first
-        def lowercase_startswith(a, b):
-            """Checks if the lowecase version of a string a startswith the lowercase
-            version of a string b.
-            """
-            return a.decode("iso-8859-1").lower().startswith(b.decode("iso-8859-1").lower())
-
-        # Searching for the beginning of the name by default is comfortable
-        if filter and filter.count("*") == 0:
-            filter += "*"
-
-        # Simple filtering, allowing only one "*" at the end. Case insensitive.
-        if filter and filter.count("*") == 1 and filter.endswith("*"):
-            for key, valuedict in projects.items():
-                if not lowercase_startswith(valuedict['name'], filter[:-1]):
-                    # Adding to another list instead of deleting may be faster
-                    del projects[key]
 
         # Turn lists of quarantines into strings:
         for p in projects.itervalues():
@@ -638,6 +638,68 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
         # Return values from the projects dictionary, in sorted order
         return [projects[key] for key in keys_sorted_by_name]
+
+    all_commands['project_unapproved'] = cmd.Command(
+        ('project', 'unapproved'),
+        fs=cmd.FormatSuggestion(
+            '%-16s %-10s', ('name', 'entity_id'),
+            hdr='%-16s %-10s' % ('Name', 'Entity-Id')),
+        perm_filter='is_superuser')
+
+    @superuser
+    def project_unapproved(self, operator, filter=None):
+        """List all projecs with the 'not_approved' quarantine."""
+
+        ou = self.OU_class(self.db)
+
+        # Both of these has entity_id as the identifier.
+        # These objects can be used both as dictionaries and as lists.
+        project_structs = ou.search_name_with_language(entity_type=self.const.entity_ou,
+                                                       name_variant=self.const.ou_name_acronym)
+        quarantine_structs = ou.list_entity_quarantines(entity_types=self.const.entity_ou,
+                                                        only_active=True)
+
+        # WORK IN PROGRESS, WILL LOOK MORE AT THIS TOMORROW ########
+
+        class Project:
+
+            def __init__(self, entity_id, name):
+                # The entity_id, as a number
+                self.id = entity_id
+                # The project name, as a string
+                self.name = name
+                # Quarantines, stores as id's to quarantine types
+                self.quarantines = []
+
+            def add_quarantine(self, quarantine_type):
+                self.quarantines.append(quarantine_type)
+
+            def has_quarantine(self, quarantine_type):
+                return quarantine_type in self.quarantines
+
+            def as_tuple(self):
+                # A list of these can be combined to a dictionary with the dict() function
+                return (str(self.id), {'entity_id': str(self.id), 'name': self.name})
+
+        # Fill in a dictionary of Project objects.
+        # Projects is a dictionary on the form {entity_id: project_object}
+        projects = dict([(p['entity_id'], Project(p['entity_id'], p['name']))
+                        for p in project_structs])
+
+        # Fill in the quarantine information into the Project objects
+        for quarantine in quarantine_structs:
+            try:
+                projects[quarantine['entity_id']].add_quarantine(quarantine['qurantine_type'])
+            except KeyError:
+                continue
+
+        # Get all the projects with a given quarantine type
+        q = self.const.quarantine_not_approved
+        filtered_projects = [project for project in projects.values() if project.has_quarantine(q)]
+        # filtered_projects = [project for project in projects.values()]
+
+        # Return the projects on the form {entity_id: {'entity_id':..., 'name':...}}
+        return dict([project.as_tuple() for project in filtered_projects])
 
     all_commands['project_info'] = cmd.Command(
         ('project', 'info'), ProjectName(),
