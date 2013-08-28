@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 # Copyright 2002-2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -39,6 +39,7 @@ import random
 import shlex
 from string import maketrans, ascii_lowercase, digits, rstrip
 from subprocess import Popen, PIPE
+from Cerebrum.UtilsHelper import Latin1
 
 
 class _NotSet(object):
@@ -278,93 +279,10 @@ def make_temp_dir(dir="/tmp", prefix="cerebrum_tmp"):
     return name
 
 
-# TODO: Deprecate when switching over to Python 3.x
-# TODO: Make it possible to put this class in a utf-8 encoded .py file
-class _Latin1:
-
-    def __init__(self):
-        self.lat1_646_tr = maketrans(
-            'ÆØÅæø¦¿åÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛİàáâãäçèéêëìíîïñòóôõöùúûıÿ¨­¯´',
-            '[\\]{|||}AAAAACEEEEIIIINOOOOOUUUYaaaaaceeeeiiiinooooouuuyy"--\'')
-        self.lat1_646_subst = re.compile(
-            '[^\x1f-\x7e\xff]').sub  # Should be [^\x20-\x7e].
-        self.lat1_646_cache = {}
-
-        # U-umlaut is treated specially and is therefore defined in
-        # latin1_specials to be transcribed to 'ue' instead of the single
-        # character 'u'. The reason for this is a wish for email addresses to
-        # reflect the common transcribation choice for this
-        # character. O-umlaut and a-umlaut are not getting such special
-        # treatment.
-        self.latin1_specials = {'Ğ': 'Dh', 'ğ': 'dh',
-                                'Ş': 'Th', 'ş': 'th',
-                                'ß': 'ss', 'Ü': 'Ue',
-                                'ü': 'ue'}
-        self.latin1_wash_cache = {}
-
-    def to_iso646_60(self, s, substitute=''):
-        """Wash known accented letters and some common charset confusions."""
-        try:
-            xlate_match = self.lat1_646_cache[substitute]
-        except KeyError:
-            xlate = self.latin1_specials.copy()
-            for ch in filter(self.lat1_646_subst.__self__.match, self.lat1_646_tr):
-                xlate.setdefault(ch, substitute)
-            xlate_match = self.lat1_646_cache[
-                substitute] = lambda m: xlate[m.group()]
-        return self.lat1_646_subst(xlate_match, str(s).translate(self.lat1_646_tr))
-
-    def wash(self, data, target_charset, expand_chars=False, substitute=''):
-        # TBD: The code in this function is rather messy, as it tries to
-        # deal with multiple combinations of target charsets etc.  It
-        # *might* be worth it to reimplement this stuff as a few proper
-        # Python codecs, i.e. registered via codecs.register() and hence
-        # usable via the Python builtin str.encode().  On the other hand,
-        # that might be seen as involving excess amounts of magic for such
-        # an apparently simple task.
-        key = (target_charset, bool(expand_chars), substitute)
-        try:
-            (tr, xlate_subst, xlate_match) = self.latin1_wash_cache[key]
-        except KeyError:
-            tr_from = ('ÆØÅæøå[\\]{|}¦¿'
-                       'ÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛİàáâãäçèéêëìíîïñòóôõöùúûıÿ'
-                       '¨­¯´')
-            xlate = self.latin1_specials.copy()
-            if target_charset == 'iso646-60':
-                tr_to = ('[\\]{|}[\\]{|}||'
-                         'AAAAACEEEEIIIINOOOOOUUUYaaaaaceeeeiiiinooooouuuyy'
-                         '"--\'')
-                xlate_re = '[^\x1f-\x7e\xff]'  # Should be [^\x20-\x7e].
-            elif target_charset == 'POSIXname':
-                tr_to = ('AOAaoaAOAaoaoo'
-                         'AAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuyy'
-                         '"--\'')
-                if expand_chars:
-                    xlate.update({'Æ': 'Ae', 'æ': 'ae', 'Å': 'Aa', 'å': 'aa',
-                                  'Ü': 'Ue', 'ü': 'ue'})
-                xlate_re = r'[^a-zA-Z0-9 -]'
-            else:
-                raise ValueError(
-                    "Unknown target charset: %r" %
-                    (target_charset,))
-
-            tr = dict(zip(tr_from, tr_to))
-            for ch in filter(xlate.has_key, tr_from):
-                del tr[ch]
-            tr = maketrans("".join(tr.keys()), "".join(tr.values()))
-
-            xlate_re = re.compile(xlate_re)
-            for ch in filter(xlate_re.match, tr):
-                xlate.setdefault(ch, substitute)
-
-            (tr, xlate_subst, xlate_match) = self.latin1_wash_cache[key] = (
-                tr, xlate_re.sub, lambda match: xlate[match.group()])
-
-        return xlate_subst(xlate_match, str(data).translate(tr))
-
-
 # For global caching
-_latin1 = _Latin1()
+_latin1 = Latin1()
+
+# For global access (these names are used by other modules)
 latin1_to_iso646_60 = _latin1.to_iso646_60
 latin1_wash = _latin1.wash
 
@@ -1575,7 +1493,7 @@ def argument_to_sql(argument, sql_attr_name, binds,
     return "(%s = :%s)" % (sql_attr_name, binds_name)
 
 
-def prepare_string(value, transform=str.lower):
+def prepare_string(value, transform=None):
     """
     @type value: basestring
     @param value:
@@ -1589,10 +1507,22 @@ def prepare_string(value, transform=str.lower):
 
       Send in None or some other callable to override this behaviour.
     """
+    if not transform:
+        if type(value) == type(str()):
+            transform = str.lower
+        elif type(value) == type(unicode()):
+            transform = unicode.lower
+        else:
+            # This should not happen since the given string should be either
+            # str or unicode, but if it does, this function just returns the same value
+            transform = lambda x: x
+
     value = value.replace("*", "%")
     value = value.replace("?", "_")
-    if transform is not None:
-        value = transform(value)
+
+    if transform:
+        return transform(value)
+
     return value
 
 
@@ -1679,11 +1609,11 @@ class SMSSender():
         was sent or not. The SMS gateway we use should respond with a line
         formatted as:
 
-         <msg_id>¤<status>¤<phone_to>¤<timestamp>¤¤¤<message>
+         <msg_id>Â¤<status>Â¤<phone_to>Â¤<timestamp>Â¤Â¤Â¤<message>
 
         An example:
 
-         UT_19611¤SENDES¤87654321¤20120322-15:36:35¤¤¤Welcome to UiO. Your
+         UT_19611Â¤SENDESÂ¤87654321Â¤20120322-15:36:35Â¤Â¤Â¤Welcome to UiO. Your
 
         ...followed by the rest of the lines with the message that was sent.
 
