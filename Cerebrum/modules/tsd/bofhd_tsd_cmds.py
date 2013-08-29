@@ -581,63 +581,14 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
     @superuser
     def project_list(self, operator, filter=None):
-        """List out all projects by their acronym and status.
+        """List out all projects by their acronym and status."""
 
-        "project list ø*" and "project list Ø*" does not currently work, unless the code
-        below that is commented out is used for filtering, instead of the last two arguments
-        to the search_name_with_language function.
-        """
-        ou = self.OU_class(self.db)
-        projects = {}
-
-        # This makes it possible to search with lowercase æøå as well.
-        # The searches are case-insensitive.
-        try:
-            if filter:
-                filter.encode('ascii')
-        except UnicodeDecodeError:
-            if filter:
-                filter = filter.decode("iso-8859-1").upper().encode("iso-8859-1")
-
-        # List everything if no filter is specified
-        if not filter:
-            filter = "*"
-
-        # TODO: Search_name_with_language currently doesn't work with lowercase æøå
-        # Get all OUs with acronym. OUs without an acronym will not be listed here.
-        for row in ou.search_name_with_language(
-            entity_type=self.const.entity_ou,
-                name_variant=self.const.ou_name_acronym, exact_match=False, name=str(filter)):
-            project = projects.setdefault(row['entity_id'], dict())
-            project['entity_id'] = str(row['entity_id'])
-            project['name'] = row['name']
-            project['quars'] = []
-
-        # TODO: figure out which quarantine types are relevant and only check for those
-
-        # Get all quarantine types
-        for row in ou.list_entity_quarantines(entity_types=self.const.entity_ou,
-                                              only_active=True):
-            if projects.has_key(row['entity_id']):
-                q = self.const.Quarantine(row['quarantine_type'])
-                projects[row['entity_id']]['quars'].append(str(q))
-
-        # Turn lists of quarantines into strings:
-        for p in projects.itervalues():
-            p['quars'] = ', '.join(p['quars'])
-
-        # The projects variable looks a bit like this:
-        # projects[id] = {'entity_id': '...', 'name':'...', 'quars': ''}
-        # Names are unique.
-
-        # Create a list of names and keys, sorted by names: [(name, key), (name, key), ...]
-        sorted_names_with_keys = sorted([(value['name'], key) for key, value in projects.items()])
-
-        # Discard names, but keep the keys in sorted order
-        keys_sorted_by_name = [name_and_key[1] for name_and_key in sorted_names_with_keys]
-
-        # Return values from the projects dictionary, in sorted order
-        return [projects[key] for key in keys_sorted_by_name]
+        projects = _Projects(self.logger,
+                             self.const,
+                             self.OU_class(self.db),
+                             exact_match=False,
+                             filter=filter)
+        return projects.results_sorted_by_name(['name', 'entity_id', 'quars'])
 
     all_commands['project_unapproved'] = cmd.Command(
         ('project', 'unapproved'),
@@ -650,56 +601,13 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     def project_unapproved(self, operator, filter=None):
         """List all projecs with the 'not_approved' quarantine."""
 
-        ou = self.OU_class(self.db)
-
-        # Both of these has entity_id as the identifier.
-        # These objects can be used both as dictionaries and as lists.
-        project_structs = ou.search_name_with_language(entity_type=self.const.entity_ou,
-                                                       name_variant=self.const.ou_name_acronym)
-        quarantine_structs = ou.list_entity_quarantines(entity_types=self.const.entity_ou,
-                                                        only_active=True)
-
-        # WORK IN PROGRESS, WILL LOOK MORE AT THIS TOMORROW ########
-
-        class Project:
-
-            def __init__(self, entity_id, name):
-                # The entity_id, as a number
-                self.id = entity_id
-                # The project name, as a string
-                self.name = name
-                # Quarantines, stores as id's to quarantine types
-                self.quarantines = []
-
-            def add_quarantine(self, quarantine_type):
-                self.quarantines.append(quarantine_type)
-
-            def has_quarantine(self, quarantine_type):
-                return quarantine_type in self.quarantines
-
-            def as_tuple(self):
-                # A list of these can be combined to a dictionary with the dict() function
-                return (str(self.id), {'entity_id': str(self.id), 'name': self.name})
-
-        # Fill in a dictionary of Project objects.
-        # Projects is a dictionary on the form {entity_id: project_object}
-        projects = dict([(p['entity_id'], Project(p['entity_id'], p['name']))
-                        for p in project_structs])
-
-        # Fill in the quarantine information into the Project objects
-        for quarantine in quarantine_structs:
-            try:
-                projects[quarantine['entity_id']].add_quarantine(quarantine['qurantine_type'])
-            except KeyError:
-                continue
-
-        # Get all the projects with a given quarantine type
-        q = self.const.quarantine_not_approved
-        filtered_projects = [project for project in projects.values() if project.has_quarantine(q)]
-        # filtered_projects = [project for project in projects.values()]
-
-        # Return the projects on the form {entity_id: {'entity_id':..., 'name':...}}
-        return dict([project.as_tuple() for project in filtered_projects])
+        projects = _Projects(self.logger,
+                             self.const,
+                             self.OU_class(self.db),
+                             exact_match=False,
+                             filter=filter)
+        projects.filter_by_quarantine(self.const.quarantine_not_approved)
+        return projects.results_sorted_by_name(['name', 'entity_id'])
 
     all_commands['project_info'] = cmd.Command(
         ('project', 'info'), ProjectName(),
@@ -1253,3 +1161,143 @@ class EnduserBofhdExtension(TSDBofhdExtension):
 
     all_commands = {}
     hidden_commands = {}
+
+
+class _Project:
+
+    """Helper class for project information that has an entity_id, name and a list of
+    quarantine types.
+
+    With this class, the code becomes clearer, there is less duplication of code,
+    filtering is easier, sorting by name is easier and it's easier to return data at the end of
+    bofh-command functions, using the as_tuple() method.
+
+    Since the coupling of projects and quarantines are encapsulated here, there is less to keep
+    track of and less room for bugs
+
+    First and foremost it avoids code duplication for functions that list projects.
+
+    Examples:
+
+    Filtering by certain quarantines can look a bit like this:
+
+        filtered_projects = [project for project in project_list if project.has_quarantine(q)]
+
+
+    Returning the filtered/sorted data can look a bit like this:
+
+        return [project.as_dict(['entity_id', 'name']) for project in filtered_projects]
+
+    """
+
+    def __init__(self, const, entity_id, name):
+        """Initialize the _Project object with an entity_id and a name.
+        Quarantines are added with the add_quarantine method.
+        """
+        # The const object, used for converting quaratines to strings
+        self.const = const
+        # The entity_id, as a number
+        self.id = entity_id
+        # The project name, as a string
+        self.name = name
+        # Quarantines, stores as id's to quarantine types
+        self.quarantines = []
+
+    def add_quarantine(self, quarantine_type):
+        """Add a quarantine to the list of quarantines."""
+        self.quarantines.append(int(quarantine_type))
+
+    def has_quarantine(self, quarantine_type):
+        """Check if this project has the given quarantine type."""
+        return int(quarantine_type) in self.quarantines
+
+    def quarantine_string(self):
+        """Convert the list of quarantine identifiers to a string using const.Quarantine."""
+        return ", ".join(map(str, map(self.const.Quarantine, self.quarantines)))
+
+    def as_dict(self, keynames):
+        """Takes a list of key names, like ['entity_id', 'names'] and returns a dictionary."""
+        # A list of these can be combined to a dictionary with the dict() function
+        d = {}
+        for key in keynames:
+            if key in ["id", "entity_id"]:
+                d[key] = str(self.id)
+            elif key == "quars":
+                d['quars'] = self.quarantine_string()
+            else:
+                d[key] = str(getattr(self, key))
+        return d
+
+
+class _Projects:
+
+    """Helper class for making it easy to search, filter, sort and return project data."""
+
+    def __init__(self, logger, const, ou, exact_match=False, filter=None):
+        """Make self.projects a list of _Project objects which each contain
+        entity_id, name and a list of quarantine types.
+        """
+        # A dictionary that maps entity_ids to _Project objects
+        self.projects = {}
+
+        self.filter = filter
+        self._fix_filter()
+
+        # Perform the queries
+        project_structs = ou.search_name_with_language(entity_type=const.entity_ou,
+                                                       name_variant=const.ou_name_acronym,
+                                                       exact_match=exact_match,
+                                                       name=self.filter)
+        quarantine_structs = ou.list_entity_quarantines(entity_types=const.entity_ou,
+                                                        only_active=True)
+
+        # Fill in a dictionary of Project objects.
+        # Projects is a dictionary on the form {entity_id: project_object}
+        self.projects = dict([(p['entity_id'], _Project(const, p['entity_id'], p['name']))
+                              for p in project_structs])
+
+        # Fill in the quarantine information into the Project objects
+        for quarantine_struct in quarantine_structs:
+            quarantine_entity_id = quarantine_struct['entity_id']
+            if quarantine_entity_id in self.projects:
+                project = self.projects[quarantine_entity_id]
+                quarantine_type = quarantine_struct['quarantine_type']
+                project.add_quarantine(quarantine_type)
+            else:
+                continue
+
+    def _fix_filter(self):
+        """Massage the filter string so that also searches for 'ø*' is possible.
+        Also uses * instead of an empty filter.
+        """
+        try:
+            if self.filter:
+                self.filter.encode('ascii')
+        except UnicodeDecodeError:
+            if self.filter:
+                self.filter = self.filter.decode("iso-8859-1").upper().encode("iso-8859-1")
+        if not self.filter:
+            # List everything if no filter is specified
+            self.filter = "*"
+        self.filter = str(self.filter)
+
+    def set_project_list(self, project_list):
+        """Takes a list of _project objects and returns a dictionary on the form
+        {'entity_id':_project_object}.
+        """
+        self.projects = dict([(project.id, project) for project in project_list])
+
+    def filter_by_quarantine(self, quarantine_type):
+        """Remove projects that does not have the given quarantine_type."""
+        filtered = [p for p in self.projects.values() if p.has_quarantine(quarantine_type)]
+        self.set_project_list(filtered)
+
+    def results_sorted_by_name(self, names):
+        """Returns the results as a dictionary, where the projects are sorted by name."""
+        names_and_keys = [(project.name, project.id) for project in self.projects.values()]
+        sorted_keys = [name_and_key[1] for name_and_key in sorted(names_and_keys)]
+        return [self.projects[key].as_dict(names) for key in sorted_keys]
+
+    def results(self, names):
+        """Return the results as a dictionary."""
+        return [project.as_dict(names) for project in self.projects.values()]
