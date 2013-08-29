@@ -257,9 +257,9 @@ def superuser(fn):
         operator = args[1]
         userid = operator.get_entity_id()
         if not self.ba.is_superuser(userid):
-            raise CerebrumError('Only superusers are allowed to do this')
+            raise CerebrumError('Only superusers are allowed to do this!')
         else:
-            self.logger.debug2("Confirmed that %s is in fact superuser." % (userid))
+            self.logger.debug2("Confirmed that the current user is superuser.")
             return fn(*args, **kwargs)
     return wrapper
 
