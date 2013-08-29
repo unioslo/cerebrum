@@ -66,4 +66,32 @@ class AccountTSDMixin(Account.Account):
                                                'project OUs')
         return self.__super.set_account_type(ou_id, affiliation, priority)
 
+    def _generate_otpkey(self, length=192):
+        """Return a randomly generated OTP key.
+
+        @type length: int
+        @param length: The number of bits that should be generated.
+
+        @rtype: str
+        @return: The OTP key, formed as a string of the hexadecimal values.
+
+        """
+        l = int(length / 8) # to support if a float sneaks in
+        f = open('/dev/urandom', 'rb')
+        return ''.join('%x' % ord(o) for o in f.read(l))
+
+    def regenerate_otpkey(self):
+        """Create a new OTP key and store it for the account.
+        
+        @rtype: string
+        @return: TODO: Only the key, or in a formatted URI, as defined in
+            https://code.google.com/p/google-authenticator/wiki/KeyUriFormat?
+
+        """
+        key = self._generate_otpkey(getattr(cereconf, 'OTP_KEY_LENGTH', 192))
+        # TODO: should be stored for later use if the gateway fails to get
+        # updated
+
+        return key
+
 
