@@ -1493,7 +1493,7 @@ def argument_to_sql(argument, sql_attr_name, binds,
     return "(%s = :%s)" % (sql_attr_name, binds_name)
 
 
-def prepare_string(value, transform=None):
+def prepare_string(value, transform=str.lower):
     """
     @type value: basestring
     @param value:
@@ -1507,15 +1507,9 @@ def prepare_string(value, transform=None):
 
       Send in None or some other callable to override this behaviour.
     """
-    if not transform:
-        if type(value) == type(str()):
-            transform = str.lower
-        elif type(value) == type(unicode()):
-            transform = unicode.lower
-        else:
-            # This should not happen since the given string should be either
-            # str or unicode, but if it does, this function just returns the same value
-            transform = lambda x: x
+
+    if (type(value) == type(unicode())) and (transform == str.lower):
+        transform = unicode.lower
 
     value = value.replace("*", "%")
     value = value.replace("?", "_")
