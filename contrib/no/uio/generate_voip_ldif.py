@@ -115,7 +115,7 @@ def generate_voip_addresses(sink, encoding):
     addr_id2dn = dict()
     for entry in va.list_voip_attributes():
         entry['objectClass'] = ['top','voipAddress']
-        dn = "uid=%s,%s" % (entry['uid'], 
+        dn = "voipOwnerId=%s,%s" % (entry['voipOwnerId'], 
                             ldapconf('VOIP_ADDRESS', 'dn', None))
         entity_id = entry.pop("entity_id")
         addr_id2dn[entity_id] = dn

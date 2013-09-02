@@ -58,9 +58,10 @@ class VoipAddress(EntityAuthentication, EntityTrait):
 
     __read_attr__ = ("__in_db",)
     __write_attr__ = ("owner_entity_id",)
-    _required_voip_attributes = ("uid", "mail", "cn", "voipSipUri",
-                                 "voipSipPrimaryUri", "voipE164Uri",
-                                 "voipExtensionUri", "voipSKO",)
+    _required_voip_attributes = ("voipOwnerId", "uid", "mail", "cn",
+                                 "voipSipUri", "voipSipPrimaryUri",
+                                 "voipE164Uri", "voipExtensionUri",
+                                 "voipSKO",)
 
     def clear(self):
         """Reset VoipAddress."""
@@ -496,6 +497,7 @@ class VoipAddress(EntityAuthentication, EntityTrait):
 
         for row in self.search():
             entry = dict((key, None) for key in self._required_voip_attributes)
+            entry["voipOwnerId"] = str(row["owner_entity_id"])
             entry["voipSipUri"] = list()
             entry["entity_id"] = row["entity_id"]
             owner_id = row["owner_entity_id"]
@@ -538,7 +540,12 @@ class VoipAddress(EntityAuthentication, EntityTrait):
 
 
     def _cache_owner_voip_service_attrs(self, ou2sko):
-        # First the voipServices...
+        # First cache the constants
+        const2str = dict()
+        for cnst in self.const.fetch_constants(self.const.VoipServiceTypeCode):
+            assert int(cnst) not in const2str
+            const2str[int(cnst)] = str(cnst)
+        # Second the voipServices...
         vp = VoipService(self._db)
         owner_data = dict()
         for row in vp.search():
@@ -548,6 +555,7 @@ class VoipAddress(EntityAuthentication, EntityTrait):
                                             "mail": uid + "@usit.uio.no",
                                             "cn": row["description"],
                                             "voipOwnerType": "service",
+                                            "voipServiceType": const2str[row["service_type"]],
                                             "voipSKO": (ou2sko[ou],)}
         return owner_data
     # end _cache_owner_voip_service_attrs
@@ -574,6 +582,7 @@ class VoipAddress(EntityAuthentication, EntityTrait):
                                               self.const.name_full),
                          source_system=self.const.system_cached):
             owner_data[row["person_id"]] = {"cn": row["name"],
+                                            "uid": list(),
                                             "voipOwnerType": "person",
                                             "voipSKO": set(),}
 
@@ -596,7 +605,7 @@ class VoipAddress(EntityAuthentication, EntityTrait):
         person2unames = dict()
         for row in account.search(owner_type=self.const.entity_person):
             aid = row["account_id"]
-            person2unames.setdefault(row["owner_id"], list()).append(row["name"])
+            owner_data[row["owner_id"]]["uid"].append(row["name"])
             if aid not in primary2pid:
                 continue
             pid = primary2pid[aid]
@@ -611,17 +620,16 @@ class VoipAddress(EntityAuthentication, EntityTrait):
                 # the proper data.
                 # Ideally, there should be a message here somewhere...
                 continue
-            owner_data.setdefault(pid, {})["uid"] = row["name"]
             owner_data[pid]["mail"] = a_id2primary_mail.get(aid)
 
         del primary2pid
         del a_id2primary_mail
-        return self._cache_owner_person_sip_uris(owner_data, person2unames)
+        return self._cache_owner_person_sip_uris(owner_data)
     # end _cache_owner_person_attrs
 
 
 
-    def _cache_owner_person_sip_uris(self, owner_data, person2unames):
+    def _cache_owner_person_sip_uris(self, owner_data):
         """Preload the person owner sipURI attributes for all voipAddresses."""
 
         account = Factory.get("Account")(self._db)
@@ -630,7 +638,7 @@ class VoipAddress(EntityAuthentication, EntityTrait):
         key = 'voipSipUri'
         for person_id in owner_data:
             chunk = owner_data[person_id]
-            for uname in person2unames.get(person_id, ()):
+            for uname in chunk["uid"]:
                 chunk.setdefault(key, list()).append(self._voipify(uname, None))
                 for address in uname2mails.get(uname, ()):
                     chunk[key].append(self._voipify(address, None))
