@@ -22,6 +22,7 @@
 """Commands for BOFHD EntityNote functionality."""
 
 from Cerebrum.modules import Note
+from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.cmd_param import Command, FormatSuggestion, Id, \
