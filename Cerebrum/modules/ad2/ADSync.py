@@ -59,6 +59,7 @@ import adconf
 from Cerebrum.Utils import unicode2str, Factory, dyn_import, sendmail
 from Cerebrum import Entity, Errors
 from Cerebrum.modules import CLHandler
+from Cerebrum.modules import Email
 
 from Cerebrum.modules.ad2.CerebrumData import CerebrumEntity
 from Cerebrum.modules.ad2.CerebrumData import CerebrumUser
@@ -1745,19 +1746,23 @@ class UserSync(BaseSync):
         self.logger.debug("..fetch external ids..")
         types = []
         if 'EmployeeNumber' in self.config['attributes']:
-            types.append(int(self.co.externalid_sap_ansattnr))
-        # TODO: Need a better way of defining theese...
+            types.append(self.co.externalid_sap_ansattnr)
+        # TODO: Need a better way of defining these...
 
         if not types:
             # Nothing to be retrieved
             return
 
         # External IDs stored on the person:
-        for row in self.pe.list_external_ids(id_type=types,
-                                             entity_type=self.co.entity_person):
-                                             # TODO: source_system?
-            for ent in self.owner2ent.get(row['entity_id'], ()):
-                ent.external_ids[str(co.EntityExternalId(row['id_type']))] = row['external_id']
+        for t in types:
+            # TODO: list_external_ids should be extended to support list of
+            # id_types, like for instance the group.search() method.
+            for row in self.pe.list_external_ids(id_type=t,
+                                entity_type=self.co.entity_person):
+                                # TODO: source_system?
+                idtype = str(self.co.EntityExternalId(row['id_type']))
+                for ent in self.owner2ent.get(row['entity_id'], ()):
+                    ent.external_ids[str(idtype)] = row['external_id']
         #TODO: missing external ids stored on the user...
 
     def fetch_address_info(self):
@@ -2628,3 +2633,44 @@ class PosixUserSync(UserSync):
                               self.entities.itervalues())))
 
     # TODO: make use of the posix data in a subclass of CerebrumUsers.
+
+class MailTargetSync(BaseSync):
+    """Extra sync functionality for getting MailTarget data.
+
+    Entities could be connected to mailtargets in Cerebrum, e.g. with e-mail
+    addresses, e-mail quota and spam settings. The retrievement of this data
+    should be done in this class.
+
+    """
+    def __init__(self, *args, **kwargs):
+        """Instantiate the MailTarget objects."""
+        super(MailTargetSync, self).__init__(*args, **kwargs)
+        self.mailtarget = Email.EmailTarget(self.db)
+        self.mailquota = Email.EmailQuota(self.db)
+
+    def fetch_cerebrum_data(self):
+        """Fetch the needed mail data for the entities."""
+        super(MailTargetSync, self).fetch_cerebrum_data()
+
+        # Map from target_id to entity_id:
+        targetid2entityid = dict((r['target_id'], r['target_entity_id']) for r
+                                 in self.mailtarget.list_email_targets_ext())
+        for target_id, entity_id in targetid2entityid.iteritems():
+            ent = self.entities.get(entity_id)
+            if ent:
+                ent.maildata['target_id'] = target_id
+
+        # E-mail quotas:
+        for row in self.mailquota.list_email_quota_ext():
+            ent = self.id2entity.get(targetid2entityid[row['target_id']])
+            if ent:
+                ent.maildata['quota_soft'] = row['quota_soft']
+                ent.maildata['quota_hard'] = row['quota_hard']
+
+        # Find out what is primary accounts, e.g. for hiding others from address
+        # lists:
+        # TODO: This might be moved up to UserSync, since it's of generic use.
+        for row in self.ac.list_accounts_by_type(primary_only=True):
+            ent = self.entities.get(row['account_id'])
+            if ent:
+                ent.maildata['is_primary_account'] = True
