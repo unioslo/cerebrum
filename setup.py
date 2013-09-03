@@ -582,6 +582,7 @@ setup(name="Cerebrum", version=Cerebrum.__version__,
                   'Cerebrum/modules/LMS',
                   'Cerebrum/modules/virthome',
                   'Cerebrum/modules/cis',
+                  'Cerebrum/config',
                   ],
 
       # options override --prefix
