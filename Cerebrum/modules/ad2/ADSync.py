@@ -141,6 +141,7 @@ class BaseSync(object):
                              ('handle_unknown_objects', ('disable', None)),
                              ('handle_deactivated_objects', ('disable', None)),
                              ('language', ('nb', 'nn', 'en')),
+                             ('changes_too_old_seconds', 60*60*24*365*2), # 2 years
                              # TODO: move these to GroupSync when we have a
                              # solution for it.
                              ('group_type', 'security'),
@@ -539,6 +540,9 @@ class BaseSync(object):
     def quicksync(self, changekey):
         """Do a quicksync, by sending the latest changes to AD.
 
+        All events of the given change_types are processed generically, and in
+        chronologically order.
+
         Subclasses should rather override the methods that this method calls
         instead of overring all of this method, as that is easier. Unless, of
         course, you want to completely rewrite the behaviour of the quicksync.
@@ -557,11 +561,18 @@ class BaseSync(object):
         cl = CLHandler.CLHandler(self.db)
         changetypes = self.config['change_types']
         already_handled = set()
-        # TODO: for debugging only, remove hardcoded date when done testing!
-        too_old = int(time.mktime(time.strptime('20120301', '%Y%m%d')))
-        #for row in reversed(cl.get_events(changekey, changetypes)):
-        # TODO: change to reverse when done testing - it's quicker
-        for row in cl.get_events(changekey, changetypes):
+
+        # Avoid changes that are too old:
+        too_old = time.time() - self.config['changes_too_old_seconds']
+
+        int(time.mktime(time.strptime('20120301', '%Y%m%d')))
+
+        # We do it in the correct order, as the changes could be dependend of
+        # each other.
+        events = cl.get_events(changekey, changetypes)
+        self.logger.debug("Found %d of changes to process", len(events))
+        nr_processed = 0
+        for row in events:
             if int(row['change_type_id']) not in changetypes:
                 # TODO: Shouldn't happen - remove this check?
                 self.logger.warn("Unknown change_type_id %i" %
@@ -569,25 +580,14 @@ class BaseSync(object):
                 cl.confirm_event(row)
                 continue
 
-            # TODO: check if row['tstamp'] is too old - ignore old ones when in
-            # test
-            # TODO: remove when done testing - or set as an input setting?
+            # Skip too old changes:
             if int(row['tstamp']) < too_old:
-                # skip too old changes
-                continue
-
-
-            tag = '%d:%d' % (row['subject_entity'], row['change_type_id'])
-            if tag in already_handled:
-                # TODO: should this be up to the handlers instead? There might
-                # be some changes that we want to be able to rerun.
-                self.logger.debug("Entity %s already handled (change_type %s)",
-                                  row['subject_entity'], row['change_type_id'])
                 cl.confirm_event(row)
                 continue
-            already_handled.add(tag)
+
             # TODO: split up the input variables?
             if self.process_cl_event(row):
+                nr_processed += 1
                 cl.confirm_event(row)
             # TODO: put it inside on a try..except later, when done testing -
             # would then avoid that a small problem blocks for all changes!
@@ -596,6 +596,7 @@ class BaseSync(object):
         if not self.config['dryrun']:
             cl.commit_confirmations()
             self.logger.info("Commited events for changekey: %s", changekey)
+        self.logger.debug("Successfully processed %d events", nr_processed)
         self.logger.info("Quicksync done")
         self.send_ad_admin_messages()
 
@@ -2275,7 +2276,7 @@ class GroupSync(BaseSync):
             after the sync has finished.
 
         @type cmdid: tuple
-        @param cmdid: The CommanId for a previous call to AD for generating a
+        @param cmdid: The CommandId for a previous call to AD for generating a
             list of all the members. This is to speed things up, by making AD
             generate its list while we are generating ours.
 
