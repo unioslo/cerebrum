@@ -40,7 +40,6 @@ from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 from Cerebrum.modules.ad2.ADSync import BaseSync
 
-logger = Factory.get_logger('ad_sync')
 db = Factory.get('Database')(client_encoding='UTF-8')
 db.cl_init(change_program="ad_sync")
 co = Factory.get('Constants')(db)
@@ -148,7 +147,8 @@ def main():
                                     "type=",
                                     "sync_class=",
                                     "host=",
-                                    "port="])
+                                    "port=",
+                                    "logger-name="])
             # TODO: Check what of the old settings to use
             # "forward-sync", "sec-group-sync", "dist-group-sync",
             # "exchange-sync", "user-spread=", "sec-group-spread=",
@@ -212,6 +212,8 @@ def main():
             quicksync = val
         elif opt == '--debug':
             debug = True
+        elif opt == 'logger-name':
+            logger_name = val
         else:
             print "Unknown option: %s" % opt
             usage(1)
@@ -219,6 +221,11 @@ def main():
     if not sync_type:
         print "Need to specify what sync type to perform"
         usage(1)
+
+    if not logger_name:
+        logger_name = 'ad_sync'
+
+    logger = Utils.Factory.get_logger(logger_name)
 
     # Make use of config file settings, if not set otherwise by arguments
     for key, value in adconf.SYNCS[sync_type].iteritems():
