@@ -399,6 +399,11 @@ data_files = [
       'mode': 0755},
      [('contrib/virthome/*.py', 0755)]),
 
+    ({'path': "%s/cerebrum/contrib/ad" % sharedir,
+      'owner': cerebrum_user,
+      'mode': 0755},
+     [('contrib/ad/*.py', 0755)]),
+
     # Indigo.  A recurse-like option would be great...
     ({'path': "%s/cerebrum/contrib/no/Indigo" % sharedir,
       'owner': cerebrum_user,
