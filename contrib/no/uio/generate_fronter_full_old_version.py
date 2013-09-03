@@ -1529,8 +1529,11 @@ def build_structure(sko, allow_room=False, allow_contact=False):
             # returning None.
             return None
         try:
-            parent_sted = get_sted(
-                entity_id=sted.get_parent(const.perspective_sap))
+            parent_sted = None
+            p = sted.get_parent(const.perspective_sap)
+            if p:
+                parent_sted = get_sted(entity_id=p)
+
             if parent_sted is None:
                 if sted.get_parent(const.perspective_sap) != root_ou_id:
                     logger.warn("Stedkode <%s> er uten foreldre; bruker %s" %
