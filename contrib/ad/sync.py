@@ -192,13 +192,11 @@ def main():
 
             # Check if it is a spread: 
             # TODO: move this to the sync's configure()
-            spread = co.Spread(sync_type)
-            try:
+            if not configuration.has_key('target_spread'):
+                spread = co.Spread(sync_type)
                 int(spread) # test that it exists
                 configuration['target_spread'] = str(spread)
                 configuration['target_type'] = spread.entity_type
-            except Errors.NotFoundError:
-                pass
         elif opt == '--host':
             configuration['server'] = val
         elif opt == '--port':
