@@ -228,6 +228,12 @@ SYNCS = dict()
 #        ('ad_attr', 'del')),       # an AD-attribute is removed
 #        )
 #
+# - changes_too_old_seconds (int):
+#
+#   The number of seconds before the quick sync would ignore the given change.
+#   Defaults to 2 years, i.e. 60*60*24*365*2. This could be used to avoid that
+#   the quicksync would take forever the first time.
+#
 # - attributes (dict):
 #   What AD attributes the sync should update in AD. Attributes not in this list
 #   will not be modified by the sync, except of attributes indirectly modified
