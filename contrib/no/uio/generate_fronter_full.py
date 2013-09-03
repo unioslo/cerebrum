@@ -1389,7 +1389,13 @@ def _get_ou(identification):
 
 
 def get_sted(stedkode=None, entity_id=None):
-    sted = _get_ou(stedkode is None and entity_id or stedkode)
+    """Return an OU by SKO or ou_id.
+
+    If the OU is not marked as publishable, the first parent OU marked as
+    publishable is returned.
+
+    """
+    sted = _get_ou(stedkode or entity_id)
     # Only publishable OUs should be returned; if no such OU can be found by
     # moving towards the root of the OU tree, return None.
     if sted.has_spread(const.spread_ou_publishable):
@@ -1398,6 +1404,7 @@ def get_sted(stedkode=None, entity_id=None):
         # Special treatment of UNIK; even though 15-0-30 is not publishable,
         # return it anyway, so that they get their own corridor.
         return sted
+    # Not publishable, move one step up in the OU structure:
     parent_id = sted.get_parent(const.perspective_sap)
     if parent_id is not None and parent_id != sted.entity_id:
         return get_sted(entity_id = parent_id)
@@ -1534,8 +1541,11 @@ def build_structure(sko, allow_room=False, allow_contact=False):
             # returning None.
             return None
         try:
-            parent_sted = get_sted(
-                entity_id=sted.get_parent(const.perspective_sap))
+            parent_sted = None
+            p = sted.get_parent(const.perspective_sap)
+            if p:
+                parent_sted = get_sted(entity_id=p)
+
             if parent_sted is None:
                 if sted.get_parent(const.perspective_sap) != root_ou_id:
                     logger.warn("Stedkode <%s> er uten foreldre; bruker %s" %
