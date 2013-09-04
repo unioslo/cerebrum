@@ -917,9 +917,9 @@ class BaseSync(object):
                 self.server.enable_object(dn)
         if self.config['move_objects']:
             self.move_object(ad_object, ent.ou)
-            # TODO: Update the DistinguishedName in the dict?
-            # obj['DistinguishedName'] = '%s,%s' % (obj['DistinguishedName'].split(',')[0],
-            #                                       ent.ou)
+            # Updating the DN, for later updates in the process:
+            dn = ','.join((obj['DistinguishedName'].split(',')[0], ent.ou))
+            ad_object['DistinguishedName'] = dn
 
         # Compare attributes:
         self.compare_attributes(ent, ad_object)
