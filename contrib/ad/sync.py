@@ -192,7 +192,7 @@ def main():
 
             # Check if it is a spread: 
             # TODO: move this to the sync's configure()
-            if not configuration.has_key('target_spread'):
+            if not adconf.SYNCS[val].has_key('target_spread'):
                 spread = co.Spread(sync_type)
                 int(spread) # test that it exists
                 configuration['target_spread'] = str(spread)
