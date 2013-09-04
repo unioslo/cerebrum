@@ -719,7 +719,7 @@ class BaseSync(object):
                 else:
                     e.attributes[str(attr)] = row['value']
                 i += 1
-        self.logger.debug("Fetched %d attributes from Cerebrum" % i)
+        self.logger.debug("Fetched %d AD attributes from Cerebrum" % i)
 
     def fetch_sids(self):
         """Get all SIDs stored in Cerebrum and add them to the cached entities.

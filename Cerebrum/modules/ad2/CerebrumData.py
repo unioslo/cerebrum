@@ -364,24 +364,49 @@ class PosixCerebrumUser(CerebrumUser):
             self.set_attribute('UidNumber', self.posix['uid'])
         if self.posix.has_key('gid'):
             self.set_attribute('GidNumber', self.posix['gid'])
-        # TODO: extra attributes, like primary group. At least used at UiO.
+        # TODO: extra attributes, like primary group?
 
-class MailTargetEntity(object):
-    """An entity/object with a Mailtarget connected.
+class MailTargetEntity(CerebrumUser):
+    """An entity with Mailtarget, which becomes a Mail-object in Exchange.
 
-    This is where the generic mail data from Cerebrum is put.
+    This is where the generic mail data from Cerebrum is treated to generate
+    Exchange attributes.
+
+    Note that the object's L{spread_to_exchange} must be set to True for the
+    Exchange attributes to be set and generated. This is since entities could
+    have a mailtarget, but not an Exchange spread.
 
     """
     def __init__(self, *args, **kwargs):
         """Making the object ready for the mailtarget."""
         super(MailTargetEntity, self).__init__(*args, **kwargs)
-        self.mailtarget = None
+        self.maildata = dict()
+        self.spread_to_exchange = False
 
     def calculate_ad_values(self):
         """Calculate POSIX attributes."""
         super(MailTargetEntity, self).calculate_ad_values()
-        # TODO
+        # It no Exchange-spread, we're done:
+        if not self.spread_to_exchange:
+            return
 
+        # Quota:
+        q_hard = self.maildata.get('quota_hard')
+        q_soft = self.maildata.get('quota_soft')
+
+        if q_hard:
+            # TODO: need to check if these settings are sane for everyone, or
+            # just UiA...
+            hardquotalimit = q_hard * 1024
+            overquotalimit = hardquotalimit * q_soft // 100
+            storagequota = overquotalimit * 90 // 100
+            self.set_attribute('mDBOverHardQuotaLimit', hardquotalimit)
+            self.set_attribute('mDBOverQuotaLimit', overquotalimit)
+            self.set_attribute('mDBStorageQuota', storagequota)
+
+        # Set that Exchange should not decide default quotas:
+        self.set_attribute('mDBUseDefaults', False)
+        # TODO: make these settings configurable
 
 class CerebrumContact(CerebrumEntity):
     """
