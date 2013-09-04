@@ -58,7 +58,7 @@ class BofhdExtension(BofhdCommonMethods):
 				['note_subject', 'Enter subject', 
 				'Enter the subject of the note'],
 			'note_description':
-				['note_id', 'Enter description', 
+				['note_description', 'Enter description', 
 				'Enter the description of the note'],
 		}
 
