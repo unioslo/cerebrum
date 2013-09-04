@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 # Changelog:
-#     Original author unknown (but it's someone in Cerebrum), before July 2013
+#     Jo Sama <jo.sama@usit.uio.no>, before July 2013
 #     Alexander Rødseth <rodseth@usit.uio.no>, July 2013
 #
 
@@ -51,7 +51,7 @@ msg = msg.replace("from", keywordcolor + "from" + textcolor)
 print(textcolor + msg + "\033[0m")
 
 # Get db and init cl
-db = Factory.get('Database')()
+db = Factory.get('Database')(client_encoding='utf-8')
 cl = CLHandler.CLHandler(db)
 db.cl_init(change_program='cereutvsh')
 
