@@ -151,7 +151,6 @@ class CerebrumEntity(object):
         self.spreads = []
 
         # TODO: Move extra settings to subclasses. This should not be here!
-        self.to_exchange = False      # entity has exchange spread?
         self.update_recipient = False # run update_Recipients?
 
     def __str__(self):
@@ -410,12 +409,12 @@ class MailTargetEntity(CerebrumUser):
             hardquotalimit = q_hard * 1024
             overquotalimit = hardquotalimit * q_soft // 100
             storagequota = overquotalimit * 90 // 100
-            self.set_attribute('mDBOverHardQuotaLimit', hardquotalimit)
-            self.set_attribute('mDBOverQuotaLimit', overquotalimit)
-            self.set_attribute('mDBStorageQuota', storagequota)
+            self.set_attribute('MDBOverHardQuotaLimit', hardquotalimit)
+            self.set_attribute('MDBOverQuotaLimit', overquotalimit)
+            self.set_attribute('MDBStorageQuota', storagequota)
 
         # Set that Exchange should not decide default quotas:
-        self.set_attribute('mDBUseDefaults', False)
+        self.set_attribute('MDBUseDefaults', False)
         # TODO: make these settings configurable
 
 class CerebrumContact(CerebrumEntity):

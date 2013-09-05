@@ -42,6 +42,12 @@ from Cerebrum.modules.ad2.CerebrumData import CerebrumUser, CerebrumGroup
 class UiAUserSync(UserSync):
     """UiA specific behaviour for the sync of users."""
 
+    def configure(self, config_args):
+        """Override the configuration for UiA specific options."""
+        super(UiAUserSync, self).configure(config_args)
+        if config_args.has_key('exchange_spread'):
+            self.config['exchange_spread'] = config_args['exchange_spread']
+
     def fetch_cerebrum_data(self):
         """Fetch Cerebrum data specific for UiA."""
         super(UiAUserSync, self).fetch_cerebrum_data()
@@ -49,17 +55,21 @@ class UiAUserSync(UserSync):
         # Find out who has the exchange spread, if defined:
         # TODO: need a config variable for this:
         if self.config.get('exchange_spread'):
+            i = 0
             for row in self.ac.search(spread=self.config['exchange_spread']):
-                self.entities.get(row['account_id'])
+                ent = self.id2entity.get(row['account_id'])
                 if ent:
                     ent.spread_to_exchange = True
+                    i += 1
+            self.logger.debug("Found %d entities for Exchange", i)
 
+        i = 0
         for row in self.ac.list_traits(self.co.trait_exchange_mdb):
             ent = self.id2entity.get(row['entity_id'])
             if ent:
                 ent.homeMDB = row['strval']
-
-        # TODO:
+                i += 1
+        self.logger.debug("Found %d homeMDB values", i)
 
 class UiACerebrumUser(CerebrumUser):
     """UiA specific behaviour and attributes for a user object."""
@@ -67,17 +77,15 @@ class UiACerebrumUser(CerebrumUser):
     def calculate_ad_values(self):
         """Adding UiA specific attributes."""
         super(UiACerebrumUser, self).calculate_ad_values()
-
+        self.set_attribute('HomeDrive', cereconf.AD_HOME_DRIVE)
+        self.set_attribute('DeliverAndRedirect',
+                           cereconf.AD_DELIVER_AND_REDIRECT)
         # ipPhone: SIP phones - only last 4 digits in phone numbers, if the
         # phone number is in a defined SIP serie:
         tlf = self.attributes.get('TelephoneNumber')
         if tlf and any(tlf.startswith(pre) for pre in ('37233', '38141',
                                                        '38142')):
-            self.set_attribute('ipPhone', tlf[-4:])
-
-        self.set_attribute('deliverAndRedirect',
-                           cereconf.AD_DELIVER_AND_REDIRECT)
-
+            self.set_attribute('IpPhone', tlf[-4:])
         # If no Exchange-spread, we're done
         if not self.spread_to_exchange:
             return
@@ -92,5 +100,5 @@ class UiACerebrumUser(CerebrumUser):
 
         # Hide all accounts that are not primary accounts:
         self.set_attribute('msExchHideFromAddressLists',
-                           not self.maildata['is_primary_account'])
+                           not self.maildata.get('is_primary_account'))
 

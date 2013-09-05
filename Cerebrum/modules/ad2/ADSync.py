@@ -660,6 +660,7 @@ class BaseSync(object):
         if len(self.entities) != len(self.adid2entity):
             self.logger.warn("Mismatch in mapping of ad_id -> entity_id")
         self.fetch_quarantines()
+        self.fetch_spreads()
         self.fetch_attributes()
         if self.config['store_sid']:
             self.fetch_sids()
@@ -679,7 +680,7 @@ class BaseSync(object):
         Cerebrum, so all in quarantine gets tagged as deactivated.
 
         """
-        self.logger.debug("...fetch quarantines")
+        self.logger.debug("Fetch quarantines...")
         # TODO: is it okay to make use of the EntityQuarantine class like this?
         # Or is it okay to add EntityQuarantine to cereconf.CLASS_ENTITY, so we
         # could get it from Factory.get('Entity') instead? We could then ignore
@@ -698,12 +699,29 @@ class BaseSync(object):
                 i += 1
         self.logger.debug("Flagged %d entities as deactivated" % i)
 
+    def fetch_spreads(self):
+        """Get all spreads from Cerebrum and update L{self.entities} with this.
+
+        The spreads could then be used for updating various attributes, e.g. for
+        exchange and lync.
+
+        """
+        self.logger.debug("Fetch spreads...")
+        i = 0
+        es = Entity.EntitySpread(self.db)
+        for row in es.list_entity_spreads(self.config['target_type']):
+            ent = self.id2entity.get(int(row['entity_id']))
+            if ent:
+                ent.spreads.append(row['spread'])
+                i += 1
+        self.logger.debug("Fetched %d entity spreads", i)
+
     def fetch_attributes(self):
         """Get all AD attributes stored in Cerebrum and add them to the cached
         entities.
 
         """
-        self.logger.debug("...fetch attributes")
+        self.logger.debug("Fetch attributes...")
         i = 0
         # TODO: fetch only the attributes defined in config - would be faster
         for row in self.ent.list_ad_attributes(spread=self.config['target_spread']):
@@ -740,7 +758,7 @@ class BaseSync(object):
         readonly.
 
         """
-        self.logger.debug("...fetch SIDs")
+        self.logger.debug("Fetch SIDs...")
         en = Entity.EntityExternalId(self.db)
         id_type = self.co.EntityExternalId(
                             self.sidtype_map[self.config['target_type']])
@@ -918,7 +936,8 @@ class BaseSync(object):
         if self.config['move_objects']:
             self.move_object(ad_object, ent.ou)
             # Updating the DN, for later updates in the process:
-            dn = ','.join((obj['DistinguishedName'].split(',')[0], ent.ou))
+            dn = ','.join((ad_object['DistinguishedName'].split(',')[0],
+                           ent.ou))
             ad_object['DistinguishedName'] = dn
 
         # Compare attributes:
@@ -1584,8 +1603,8 @@ class UserSync(BaseSync):
             """
             return any(v in self.config['attributes'] for v in attrs)
 
-
         # Create a mapping of owner id to user objects
+        self.logger.debug("Fetch owner information...")
         self.owner2ent = dict()
         for ent in self.entities.itervalues():
             self.owner2ent.setdefault(ent.owner_id, []).append(ent)
@@ -1606,7 +1625,7 @@ class UserSync(BaseSync):
         if any_in_config('EmployeeNumber'):
             self.fetch_external_ids()
         # Addresses:
-        if any_in_config('StreetAddress', 'PostalCode', 'L', 'Co'):
+        if any_in_config('Street', 'StreetAddress', 'PostalCode', 'L', 'Co'):
             self.fetch_address_info()
 
     def fetch_cerebrum_entities(self):
@@ -1640,24 +1659,6 @@ class UserSync(BaseSync):
             self.entities[uname] = self.cache_entity(int(row["account_id"]),
                                          uname, owner_id=int(row["owner_id"]),
                                          owner_type=int(row['owner_type']))
-        return
-        # TODO: the rest of the code should go into subclasses!
-
-        # If exchange sync, get all users with exchange spread
-        if self.exchange_sync:
-            for row in self.ac.search(spread=self.user_exchange_spread):
-                uname = row["name"].strip()
-                if self.subset and uname not in self.subset:
-                    continue
-                acc = self.accounts.get(uname)
-                if acc:
-                    acc.to_exchange = True
-            self.logger.info("Fetched %i cerebrum users with both %s and %s spreads" % (
-                len([1 for a in self.accounts.itervalues() if a.to_exchange is True]),
-                self.user_spread, self.user_exchange_spread))
-
-        # fetch email info
-        self.fetch_email_info()
 
     def fetch_names(self):
         """Fetch all the persons' names and store them for the accounts.
@@ -1670,7 +1671,7 @@ class UserSync(BaseSync):
         logged.
 
         """
-        self.logger.debug("..fetch name information..")
+        self.logger.debug("Fetch name information...")
         for row in self.pe.search_person_names(
                                     source_system = self.co.system_cached,
                                     name_variant  = [self.co.name_first,
@@ -1695,7 +1696,7 @@ class UserSync(BaseSync):
             and/or work title.
 
         """
-        self.logger.debug("..fetch titles..")
+        self.logger.debug("Fetch titles...")
         for row in self.pe.search_name_with_language(
                             name_language = self.config['language'],
                             name_variant  = name_types):
@@ -1708,10 +1709,11 @@ class UserSync(BaseSync):
         """Fetch all contact information for users, e.g. mobile and telephone.
 
         """
-        self.logger.debug("..fetch contact info..")
+        self.logger.debug("Fetch contact info...")
         # What to get:
         # TODO: Need to define how this should be fetched, e.g. from what
-        # source_system!
+        # source_system, and the mapping of what contact type to use. Should be
+        # doable in the config, for easier changes later.
         types = []
         if 'TelephoneNumber' in self.config['attributes']:
             types.append(int(self.co.contact_phone))
@@ -1743,7 +1745,7 @@ class UserSync(BaseSync):
 
     def fetch_external_ids(self):
         """Fetch all external IDs for the users that could be needed."""
-        self.logger.debug("..fetch external ids..")
+        self.logger.debug("Fetch external ids...")
         types = []
         if 'EmployeeNumber' in self.config['attributes']:
             types.append(self.co.externalid_sap_ansattnr)
@@ -1769,7 +1771,7 @@ class UserSync(BaseSync):
         """Fetch addresses for users.
 
         """
-        self.logger.debug("..fetch address info..")
+        self.logger.debug("Fetch address info...")
         # TODO: Need more configuration! What source_system and what address
         # type for what attribute?
 
@@ -1812,7 +1814,7 @@ class UserSync(BaseSync):
         # TODO: A better check if the Email module is in use?
         if not hasattr(self.ac, 'getdict_uname2mailaddr'):
             return
-        self.logger.debug("..fetch mail..")
+        self.logger.debug("Fetch mail...")
         for uname, prim_mail in self.ac.getdict_uname2mailaddr(
                                                 filter_expired=True,
                                                 primary_only=True).iteritems():
@@ -2001,7 +2003,7 @@ class UserSync(BaseSync):
     def fetch_email_info(self):
         # TODO: move this to somewhere else?
         """Get email addresses from Cerebrum"""
-        self.logger.debug("..fetch email info..")
+        self.logger.debug("Fetch email info...")
         # Get primary email addr
         for uname, prim_mail in self.ac.getdict_uname2mailaddr(
             filter_expired=True, primary_only=True).iteritems():
