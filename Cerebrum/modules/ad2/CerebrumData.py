@@ -145,6 +145,11 @@ class CerebrumEntity(object):
         # different objects are put in various AD OUs.
         self.ou = self.config['target_ou']
 
+        # A list of spreads registered on the entity. Could be used to e.g. give
+        # users with spread to Exchange or Lync extra attributes. Might not be
+        # filled with spreads if not needed, according to the configuration.
+        self.spreads = []
+
         # TODO: Move extra settings to subclasses. This should not be here!
         self.to_exchange = False      # entity has exchange spread?
         self.update_recipient = False # run update_Recipients?
@@ -262,7 +267,12 @@ class CerebrumUser(CerebrumEntity):
 
         # TODO: how to control the attr name?
         # Should set values like "TelephoneNumber" and "Mobile"
-        contact2attr = {'EMAIL': 'Mail',}
+        # TODO: This should be set in the config.
+        contact2attr = {
+                'EMAIL': 'Mail',
+                'MOBILE': 'Mobile',
+                'PHONE': 'TelephoneNumber',
+                }
 
         for type, value in self.contact_info.iteritems():
             try:
