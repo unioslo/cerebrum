@@ -917,10 +917,18 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
 
                 #Comparing group info 
                 for attr in cereconf.AD_GRP_ATTRIBUTES:
+                    cere_attr = cerebrum_dict[grp].get(attr, None)
+                    ad_attr = ad_dict[grp].get(attr, None)
+
                     if attr == 'memberUID':
-                        self.logger.debug("Compare memberUID c='%s', ad='%s'",
-                                          cerebrum_dict[grp].get(attr, None),
-                                          ad_dict[grp].get(attr, None))
+                        # Ignore updating when Cerebrum has an empty list and AD
+                        # has None. TODO: Find out if this could be used for all
+                        # attributes.
+                        if (not cere_attr and not ad_attr):
+                            continue
+                        if cere_attr != ad_attr:
+                            self.logger.debug("Compare memberUID c='%s', ad='%s'",
+                                              cere_attr, ad_attr)
                     if attr == 'member':
                         pass
                     elif cerebrum_dict[grp].has_key(attr) and \
