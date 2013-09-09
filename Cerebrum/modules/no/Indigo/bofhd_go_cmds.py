@@ -408,6 +408,8 @@ class BofhdExtension(BofhdCommonMethods):
     # end person_accounts
 
     all_commands['user_create'] = None
+        # TODO: Consider if they should have this command through jbofh too:
+        # Command( ("user", "create"), AccountName(), PersonId('entity_id'))
     def user_create(self, operator, uname, owner_id):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
@@ -927,8 +929,6 @@ class BofhdExtension(BofhdCommonMethods):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
         account = self._get_account(uname)
-        if account.is_expired():
-            raise CerebrumError("Account %s is expired" % uname)
         # TODO: check the new MDB value?
 
         # Set new mdb value
@@ -947,8 +947,6 @@ class BofhdExtension(BofhdCommonMethods):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
         account = self._get_account(uname)
-        if account.is_expired():
-            raise CerebrumError("Account %s is expired" % uname)
         if not account.get_trait(self.const.trait_exchange_under_migration):
             raise CerebrumError("Account %s not under migration" % uname)
         # Mark that account is successfully migrated to new exchange server
