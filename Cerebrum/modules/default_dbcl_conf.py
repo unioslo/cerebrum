@@ -137,6 +137,8 @@ class CLCleanDefConf:
 
       try:
         max_ages[int(co.guest_create)] = AGE_FOREVER
+        max_ages[int(co.entity_note_add)] = AGE_FOREVER
+        max_ages[int(co.entity_note_del)] = AGE_FOREVER
       except:
         pass
 
@@ -380,5 +382,9 @@ class CLCleanDefConf:
         keep_togglers.extend([
         {'columns': ('subject_entity', ),
          'triggers': (co.guest_create, )},])
+       if max_ages[int(co.entity_note_add)] and max_ages[int(co.entity_note_del)]:
+        keep_togglers.extend([
+        {'columns': ('subject_entity', ),
+         'triggers': (co.entity_note_add, co.entity_note_del, )},])
       except:
        pass
