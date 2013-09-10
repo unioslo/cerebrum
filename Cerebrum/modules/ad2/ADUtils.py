@@ -634,7 +634,7 @@ class ADclient(PowershellClient):
         # We should NOT get here if all is okay
         e_msg = "Missing server response - was '%s' created?" % name
         self.logger.warn(e_msg)
-        self.logger.warn("Output from server: %s", other_out)
+        self.logger.warn("Output from server: %s" % (other_out,))
         print "Other output: %s" % (other_out,)
         raise Exception(e_msg)
 
@@ -1127,11 +1127,11 @@ class ADUtils(object):
                                  (xpe.errcode, xpe.errmsg))
             return False,
         except xmlrpclib.Fault, msg:
-            self.logger.warn("Exception from AD service: %s", msg)
+            self.logger.warn("Exception from AD service: %s" % (msg,))
             return False
         except Exception, e:
             self.logger.warn("Unexpected exception", exc_info=1)
-            self.logger.debug("Failed to run cmd: %s%s", command, str(args))
+            self.logger.debug("Failed to run cmd: %s%s" % (command, str(args)))
             return False
             
         # ret is a list in the form [bool, msg] where the first
