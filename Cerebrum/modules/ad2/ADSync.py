@@ -502,8 +502,8 @@ class BaseSync(object):
                                  txt, charset='utf-8',
                                  debug=self.config['dryrun'])
                     except Exception, e:
-                        self.logger.warn("Error sending AD-messages to %s: %s",
-                                         address, e)
+                        self.logger.warn("Error sending AD-messages to %s: %s" %
+                                         (address, e))
             elif opt[0] == 'file':
                 self.logger.warn("Sending AD-admin messages to file not implemented")
                 # TODO
@@ -869,8 +869,8 @@ class BaseSync(object):
                 # TODO: do we need to strip out data from the exceptions? Could
                 # it for instance contain passwords?
             except PowershellException, e:
-                self.logger.warn("PowershellException for %s: %s",
-                                 ad_object['DistinguishedName'], e)
+                self.logger.warn("PowershellException for %s: %s" %
+                                 (ad_object['DistinguishedName'], e))
             else:
                 i += 1
         self.logger.debug("Received and processed %d objects from AD" % i)
@@ -1177,8 +1177,8 @@ class BaseSync(object):
                                        'Missing access rights for %s: %s' % (
                                        ent.ad_id, e))
             except PowershellException, e:
-                self.logger.warn("PowershellException for %s: %s",
-                                 ent.entity_name, e)
+                self.logger.warn("PowershellException for %s: %s" %
+                                 (ent.entity_name, e))
             else:
                 i += 1
         self.logger.debug('Successfully processed %d entities not in AD' % i)
@@ -1305,8 +1305,8 @@ class BaseSync(object):
             self.server.delete_object(dn)
             self.script('delete_object', ad_object)
         else:
-            raise Exception("Unknown config for downgrading object %s: %s",
-                            ad_object.get('Name'), action)
+            raise Exception("Unknown config for downgrading object %s: %s" %
+                            (ad_object.get('Name'), action))
 
     def move_object(self, ad_object, ou):
         """Move a given object to the given OU.
@@ -1455,8 +1455,8 @@ class BaseSync(object):
             return self.server.execute_script(self.config['script'][action],
                                               **params)
         except PowershellException, e:
-            self.logger.warn("Script failed for %s of %s: %s", action,
-                             ad_object['Name'], e)
+            self.logger.warn("Script failed for %s of %s: %s" % (action,
+                             ad_object['Name'], e))
             return False
 
 class UserSync(BaseSync):
@@ -2206,8 +2206,8 @@ class GroupSync(BaseSync):
                     # TODO: do we need to strip out data from the exceptions? Could
                     # it for instance contain passwords?
                 except PowershellException, e:
-                    self.logger.warn("Trouble with member-sync of %s: %s",
-                                     ent.ad_id, e)
+                    self.logger.warn("Trouble with member-sync of %s: %s" %
+                                     (ent.ad_id, e))
 
     def fetch_cerebrum_data(self):
         """Fetch data from Cerebrum that is needed for syncing groups.
