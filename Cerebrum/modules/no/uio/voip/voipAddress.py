@@ -575,16 +575,23 @@ class VoipAddress(EntityAuthentication, EntityTrait):
 
         # Now the tough part -- people
         p = Factory.get("Person")(self._db)
-        # Fill out 'cn' and 'type'
+
+        voippersons = list()
+        for row in self.search(owner_entity_type=self.const.entity_person):
+            person = row['owner_entity_id']
+            voippersons.append(person)
+            owner_data[person] = {"uid": list(),
+                                  "voipOwnerType": "person",
+                                  "voipSKO": set(),}
+
+        # Fill out 'cn'
         for row in p.search_person_names(
+                         person_id=voippersons,
                          name_variant=getattr(self.const,
                                               cereconf.DEFAULT_GECOS_NAME,
                                               self.const.name_full),
                          source_system=self.const.system_cached):
-            owner_data[row["person_id"]] = {"cn": row["name"],
-                                            "uid": list(),
-                                            "voipOwnerType": "person",
-                                            "voipSKO": set(),}
+            owner_data[row["person_id"]]["cn"] = row["name"]
 
         # Fill out 'uid', 'mail'
         account = Factory.get("Account")(self._db)
@@ -598,12 +605,14 @@ class VoipAddress(EntityAuthentication, EntityTrait):
                                      target_type=self.const.email_target_account))
 
         # person -> stedkode
-        for row in p.list_affiliations(source_system=(self.const.system_sap,
+        for row in p.list_affiliations(person_id=voippersons,
+                                       source_system=(self.const.system_sap,
                                                       self.const.system_manual,)):
             owner_data[row["person_id"]]["voipSKO"].add(ou2sko[row["ou_id"]])
 
-        person2unames = dict()
         for row in account.search(owner_type=self.const.entity_person):
+            if row["owner_id"] not in owner_data:
+                continue
             aid = row["account_id"]
             owner_data[row["owner_id"]]["uid"].append(row["name"])
             if aid not in primary2pid:
