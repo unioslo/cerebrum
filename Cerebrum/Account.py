@@ -1160,7 +1160,9 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             WHERE """ + where, {'o_id': int(owner_id),
                                 'o_type': int(owner_type)})
 
-    def list_account_authentication(self, auth_type=None, filter_expired=True):
+    def list_account_authentication(self, auth_type=None, filter_expired=True,
+                                    account_id=None):
+        binds = dict()
         if auth_type is None:
             type_str = "= %d" % int(self.const.auth_type_md5_crypt)
         elif isinstance(auth_type, (list, tuple)):
@@ -1169,16 +1171,20 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                         ")")
         else:
             type_str = "= %d" % int(auth_type)
-        where = "ai.account_id=en.entity_id"
+        where = []
+        where.append("ai.account_id=en.entity_id")
         if filter_expired:
-            where += " AND (ai.expire_date IS NULL OR ai.expire_date > [:now])"
+            where.append("(ai.expire_date IS NULL OR ai.expire_date > [:now])")
+        if account_id:
+            where.append(argument_to_sql(account_id,"ai.account_id",binds,int))
+        where = " AND ".join(where)
         return self.query("""
         SELECT ai.account_id, en.entity_name, aa.method, aa.auth_data
         FROM [:table schema=cerebrum name=entity_name] en,
              [:table schema=cerebrum name=account_info] ai
              LEFT JOIN [:table schema=cerebrum name=account_authentication] aa
                ON ai.account_id=aa.account_id AND aa.method %s
-        WHERE %s""" % (type_str, where))
+        WHERE %s""" % (type_str, where), binds)
 
     def get_account_name(self):
         return self.account_name
