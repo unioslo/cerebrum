@@ -631,13 +631,13 @@ class Digeks(object):
 class JUSDigeks(Digeks):
 
     def gen_group_name(self, identity, is_admin=False):
-        return "digeks-%s%s" % (('', 'adm-')[int(is_admin)], identity)
+        return "digital-eksamen-%s%s" % (('', 'adm-')[int(is_admin)], identity)
 
     def get_exam_group(self, identity):
-        group = self.find_or_create_group(cereconf.DIGEKS_PARENT_GROUP)
+        #group = self.find_or_create_group(cereconf.DIGEKS_PARENT_GROUP)
 
         # Fixme: Directory structure
-        #group = super(JUSDigeks, self).get_exam_group(identity)
+        group = super(JUSDigeks, self).get_exam_group(identity)
         #self.add_group_to_parent(group)
         
         return group
@@ -955,7 +955,7 @@ def main():
         year = 2013
 
     if not semester:
-        semester = 'VÅR'
+        semester = 'HØST'
 
     # FIXME: Params override, debug
     #dryrun = True
