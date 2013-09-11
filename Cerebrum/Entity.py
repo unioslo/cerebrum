@@ -1124,35 +1124,30 @@ class EntityQuarantine(Entity):
                             None, change_params={'q_type': int(type)})
 
     def list_entity_quarantines(self, entity_types=None, quarantine_types=None,
-                                only_active=False):
+                                only_active=False, entity_ids=None):
         sel = ""
         where = ""
+        binds = dict()
         conditions = []
         if entity_types:
             sel = """
             JOIN [:table schema=cerebrum name=entity_info] ei
-              ON ei.entity_id = eq.entity_id AND ei.entity_type """
-            if isinstance(entity_types, (list, tuple)):
-                sel += "IN (%s)" % ", ".join(map(str, map(int, entity_types)))
-            else:
-                sel += "= %d" % entity_types
+              ON ei.entity_id = eq.entity_id AND """
+            sel += argument_to_sql(entity_types, "ei.entity_type", binds, int)
         if quarantine_types:
-            if isinstance(quarantine_types, (list, tuple)):
-                qtypes = "IN (%s)" % ", ".join(
-                    map(str, map(int, quarantine_types)))
-            else:
-                qtypes = "= %d" % quarantine_types
-            conditions.append("quarantine_type %s" % qtypes)
+            conditions.append(argument_to_sql(quarantine_types, "quarantine_type", binds, int))
         if only_active:
             conditions.append("""start_date <= [:now] AND
             (end_date IS NULL OR end_date > [:now]) AND
             (disable_until IS NULL OR disable_until <= [:now])""")
+        if entity_ids:
+            conditions.append(argument_to_sql(entity_ids, "eq.entity_id", binds, int))
         if conditions:
             where = " WHERE " + " AND ".join(conditions)
         return self.query("""
         SELECT eq.entity_id, eq.quarantine_type, eq.start_date,
                eq.disable_until, eq.end_date, eq.description
-          FROM [:table schema=cerebrum name=entity_quarantine] eq""" + sel + where)
+          FROM [:table schema=cerebrum name=entity_quarantine] eq""" + sel + where, binds)
 
 
 class EntityExternalId(Entity):

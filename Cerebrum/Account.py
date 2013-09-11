@@ -181,6 +181,9 @@ class AccountType(object):
                               primary_only=False, person_spread=None,
                               account_spread=None, fetchall=True):
         """Return information about the matching accounts."""
+        binds = {'ou_id': ou_id,
+                 'status': status,
+                 'account_id': account_id}
         join = extra = ""
         if affiliation is not None:
             if isinstance(affiliation, (list, tuple)):
@@ -194,7 +197,7 @@ class AccountType(object):
         if ou_id is not None:
             extra += " AND at.ou_id=:ou_id"
         if person_id is not None:
-            extra += " AND at.person_id=:person_id"
+            extra += " AND " + argument_to_sql(person_id, "at.person_id", binds, int)
         if filter_expired:
             extra += " AND (ai.expire_date IS NULL OR ai.expire_date > [:now])"
         if account_id:
@@ -233,10 +236,7 @@ class AccountType(object):
               ai.account_id=at.account_id
               %s
         ORDER BY at.person_id, at.priority""" % (join, extra),
-                          {'ou_id': ou_id,
-                           'status': status,
-                           'account_id': account_id,
-                           'person_id': person_id}, fetchall=fetchall)
+                                                binds, fetchall=fetchall)
         if primary_only:
             ret = []
             prev = None
@@ -1411,8 +1411,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         @type name: String. Wildcards * and ? are expanded for "any chars" and
         "one char".
 
-        @param owner_id: Return entities that is owned by this owner_id
-        @type owner_id: Integer
+        @param owner_id: Return entities that is owned by the owner_id(s)
+        @type owner_id: Integer, list, tuple, set
 
         @param owner_type: Return entities where owners type is of owner_type
         @type owner_type: Integer

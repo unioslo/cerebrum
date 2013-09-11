@@ -750,7 +750,7 @@ class EmailTarget(Entity_class):
         FROM [:table schema=cerebrum name=email_target]%s
         """ % where_str, binds, fetchall=False)
     
-    def list_email_target_primary_addresses(self, target_type=None):
+    def list_email_target_primary_addresses(self, target_type=None, target_entity_id=None):
         # conv
         """Return an iterator over primary email-addresses belonging
         to email_target.
@@ -759,9 +759,17 @@ class EmailTarget(Entity_class):
         target_type decides which email_target to filter on.
         """
 
-        where = ""
+        where = list()
+        binds = dict()
         if target_type:
-            where = "WHERE et.target_type = %d" % int(target_type)
+            where.append("et.target_type = %d" % int(target_type))
+
+        if target_entity_id is not None:
+            where.append(argument_to_sql(target_entity_id,"et.target_entity_id",
+                                         binds, int))
+
+        if where:
+            where = "WHERE " + " AND ".join(where)
  
         return self.query("""
         SELECT et.target_id, et.target_entity_id, ea.local_part, ed.domain,
@@ -773,7 +781,7 @@ class EmailTarget(Entity_class):
             ON epa.address_id=ea.address_id
           JOIN [:table schema=cerebrum name=email_domain] ed
             ON ea.domain_id=ed.domain_id
-        %s""" % where)
+        %s""" % where, binds)
         
     def get_target_type(self):
         # NA
