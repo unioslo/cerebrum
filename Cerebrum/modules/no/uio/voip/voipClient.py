@@ -341,7 +341,7 @@ class VoipClient(EntityAuthentication, EntityTrait):
 
 
 
-    def list_voip_attributes(self):
+    def list_voip_attributes(self, voippersons, primary2pid):
         """Fast version of search() + get_voip_attributes().
 
         Simply put, with tens of thousands of objects, find() +
@@ -360,11 +360,6 @@ class VoipClient(EntityAuthentication, EntityTrait):
             assert int(cnst) not in const2str
             const2str[int(cnst)] = str(cnst)
 
-        # cache persons
-        voippersons = list()
-        for row in self.search(owner_entity_type=self.const.entity_person):
-            voippersons.append(row['owner_entity_id'])
-
         # entity_id -> {<auth type>: <auth_data>}
         client2auth = dict()
         for row in self.list_auth_data(self.const.voip_auth_sip_secret):
@@ -374,34 +369,48 @@ class VoipClient(EntityAuthentication, EntityTrait):
 
         # person_id -> uname, also cache user ids
         owner2uname = defaultdict(list)
+        aid2owner = dict()
         useraccountids = list()
         account = Factory.get("Account")(self._db)
         for r in account.search(owner_type=self.const.entity_person,
                                 owner_id=voippersons):
             owner2uname[r["owner_id"]].append(r["name"])
-            useraccountids.append(r['account_id'])
+            aid2owner[r["account_id"]] = r["owner_id"]
+            useraccountids.append(r["account_id"])
 
-        # entity_id -> quarantine
-        entity2quarantine = dict()
+        # account_id -> quarantine
+        aid2quarantine = dict()
         for row in account.list_entity_quarantines(entity_types=self.const.entity_account,
                                                    only_active=True,
                                                    entity_ids=useraccountids):
-             entity2quarantine[row['entity_id']] = 'locked'
+             aid2quarantine[row["entity_id"]] = "quarantined"
 
-
+        # Make a owner2quarantine, to block hardphone is if primary users is blocked
+        owner2quarantine = list()
+        for aid in aid2quarantine:
+            # Of course some users have missing affiliations, thus no primaryid.
+            # Check if they at least have less than two accounts, then the aid
+            # is the primaryid.
+            if aid in primary2pid or len(owner2uname[aid2owner[aid]]) < 2:
+                owner2quarantine.append(aid2owner[aid])
+        
         # uname -> HA1 hashes, only for softphone for Account users aka persons.
         uname2ha1 = dict()
-        for row in account.list_account_authentication(self.const.auth_type_ha1_md5):
-            uname2ha1[row['entity_name']] = entity2quarantine.get(row['account_id']) or row['auth_data']
+        for row in account.list_account_authentication(self.const.auth_type_ha1_md5,
+                                                       account_id=useraccountids):
+            uname2ha1[row['entity_name']] = aid2quarantine.get(row['account_id']) or row['auth_data']
 
         for row in self.search():
             entry = {"sipClientType": const2str[row["client_type"]],
                      "sipClientInfo": const2str[row["client_info"]],
-                     "sipEnabled": bool(row["sip_enabled"] == 'T'),
                      "voip_address_id": row["voip_address_id"],}
 
             owner_id = row["owner_entity_id"]
             client_type = row["client_type"]
+            if bool(row["sip_enabled"] == 'T'):
+                entry["sipEnabled"] = "TRUE"
+            else:
+                entry["sipEnabled"] = "FALSE"
 
             # Create an extra softphone entry for each account
             if client_type == self.const.voip_client_type_softphone and \
@@ -424,6 +433,9 @@ class VoipClient(EntityAuthentication, EntityTrait):
                 #mac = mac.replace(":", "") if mac else None
                 mac = mac.replace(":", "")
                 entry["sipMacAddress"] = mac
+                if row["owner_entity_type"] == self.const.entity_person and \
+                  owner_id in owner2quarantine:
+                    entry["sipEnabled"] = "quarantined"
 
             yield entry
     # end list_voip_attributes

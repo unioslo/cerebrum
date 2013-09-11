@@ -458,9 +458,12 @@ class VoipAddress(EntityAuthentication, EntityTrait):
     # end contact_is_valid
 
 
-    def list_voip_attributes(self):
+    def list_voip_attributes(self, *args):
         """Return a generator over what looks like get_voip_attributes() return
         value.
+
+        *args passes cached look ups from generate_voip_ldif.py to
+        _cache_owner_person_attrs.
 
         This is a speed up function for LDAP export. The idea is to cache all
         the attributes up front, so we don't have to pay a penalty associated
@@ -474,7 +477,7 @@ class VoipAddress(EntityAuthentication, EntityTrait):
                       for x in ou.get_stedkoder())
 
         owner_data = self._cache_owner_voip_service_attrs(ou2sko)
-        owner_data.update(self._cache_owner_person_attrs(ou2sko))
+        owner_data.update(self._cache_owner_person_attrs(ou2sko, *args))
         voipify = self._voipify
         voipify_short = self._voipify_short
         
@@ -566,9 +569,7 @@ class VoipAddress(EntityAuthentication, EntityTrait):
         return "@".join((local_part, domain))
     # end _join_address
     
-
-    
-    def _cache_owner_person_attrs(self, ou2sko):
+    def _cache_owner_person_attrs(self, ou2sko, voippersons, primary2pid):
         """Preload the person owner attributes (i.e. the ones specific to people)."""
 
         owner_data = dict()
@@ -576,10 +577,7 @@ class VoipAddress(EntityAuthentication, EntityTrait):
         # Now the tough part -- people
         p = Factory.get("Person")(self._db)
 
-        voippersons = list()
-        for row in self.search(owner_entity_type=self.const.entity_person):
-            person = row['owner_entity_id']
-            voippersons.append(person)
+        for person in voippersons:
             owner_data[person] = {"uid": list(),
                                   "voipOwnerType": "person",
                                   "voipSKO": set(),}
@@ -595,9 +593,6 @@ class VoipAddress(EntityAuthentication, EntityTrait):
 
         # Fill out 'uid', 'mail'
         account = Factory.get("Account")(self._db)
-        primary2pid = dict((r["account_id"], r["person_id"])
-                           for r in account.list_accounts_by_type(primary_only=True,
-                                                                  person_id=voippersons))
         et = Email.EmailTarget(self._db)
         a_id2primary_mail = dict((r["target_entity_id"],
                                   self._join_address(r["local_part"], r["domain"]))
@@ -634,7 +629,6 @@ class VoipAddress(EntityAuthentication, EntityTrait):
                 continue
             owner_data[pid]["mail"] = a_id2primary_mail.get(aid)
 
-        del primary2pid
         del a_id2primary_mail
         return self._cache_owner_person_sip_uris(owner_data)
     # end _cache_owner_person_attrs

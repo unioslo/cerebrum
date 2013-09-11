@@ -70,12 +70,12 @@ def object2encoding(obj, encoding="utf-8"):
 
 
 
-def generate_voip_clients(sink, addr_id2dn, encoding):
+def generate_voip_clients(sink, addr_id2dn, encoding, *args):
     db = Factory.get("Database")()
     vc = VoipClient(db)
     const = Factory.get("Constants")()
     sink.write(container_entry_string('VOIP_CLIENT'))
-    for entry in vc.list_voip_attributes():
+    for entry in vc.list_voip_attributes(*args):
         voip_address_id = entry.pop("voip_address_id")
 
         if voip_address_id not in addr_id2dn:
@@ -86,7 +86,6 @@ def generate_voip_clients(sink, addr_id2dn, encoding):
             continue
         
         entry['objectClass'] = ['top', 'sipClient']
-        entry['sipEnabled'] = 'TRUE' if entry["sipEnabled"] else 'FALSE',
         entry['sipVoipAddressDN'] = addr_id2dn[voip_address_id]
 
         if entry["sipClientType"] == str(const.voip_client_type_softphone):
@@ -106,14 +105,12 @@ def generate_voip_clients(sink, addr_id2dn, encoding):
                                 object2encoding(entry, encoding)))
 # end generate_voip_clients
 
-
-
-def generate_voip_addresses(sink, encoding):
+def generate_voip_addresses(sink, encoding, *args):
     db = Factory.get("Database")()
     va = VoipAddress(db)
     sink.write(container_entry_string('VOIP_ADDRESS'))
     addr_id2dn = dict()
-    for entry in va.list_voip_attributes():
+    for entry in va.list_voip_attributes(*args):
         entry['objectClass'] = ['top','voipAddress']
         dn = "voipOwnerId=%s,%s" % (entry['voipOwnerId'], 
                             ldapconf('VOIP_ADDRESS', 'dn', None))
@@ -127,7 +124,21 @@ def generate_voip_addresses(sink, encoding):
     return addr_id2dn
 # end generate_voip_addresses
 
-        
+def get_voip_persons_and_primary_accounts():
+    db = Factory.get("Database")()
+    va = VoipAddress(db)
+    ac = Factory.get("Account")(db)
+    const = Factory.get("Constants")()
+
+    voippersons = list()
+    for row in va.search(owner_entity_type=const.entity_person):
+        voippersons.append(row["owner_entity_id"])
+
+    primary2pid = dict((r["account_id"], r["person_id"])
+       for r in ac.list_accounts_by_type(primary_only=True,
+                                         person_id=voippersons))
+    return voippersons, primary2pid
+
 def main():
     global logger
     logger = Factory.get_logger("cronjob")
@@ -148,8 +159,9 @@ def main():
     output_encoding = "utf-8"
     f = ldif_outfile('VOIP', ofile)
     f.write(container_entry_string('VOIP'))
-    addr_id2dn = generate_voip_addresses(f, output_encoding)
-    generate_voip_clients(f, addr_id2dn, output_encoding)
+    voippersons, primary2pid = get_voip_persons_and_primary_accounts()
+    addr_id2dn = generate_voip_addresses(f, output_encoding, voippersons, primary2pid)
+    generate_voip_clients(f, addr_id2dn, output_encoding, voippersons, primary2pid)
     f.close()
 # end main
 
