@@ -596,12 +596,14 @@ class VoipAddress(EntityAuthentication, EntityTrait):
         # Fill out 'uid', 'mail'
         account = Factory.get("Account")(self._db)
         primary2pid = dict((r["account_id"], r["person_id"])
-                           for r in account.list_accounts_by_type(primary_only=True))
+                           for r in account.list_accounts_by_type(primary_only=True,
+                                                                  person_id=voippersons))
         et = Email.EmailTarget(self._db)
         a_id2primary_mail = dict((r["target_entity_id"],
                                   self._join_address(r["local_part"], r["domain"]))
                                  for r in
                                  et.list_email_target_primary_addresses(
+                                     target_entity_id=primary2pid.keys(),
                                      target_type=self.const.email_target_account))
 
         # person -> stedkode
@@ -610,7 +612,8 @@ class VoipAddress(EntityAuthentication, EntityTrait):
                                                       self.const.system_manual,)):
             owner_data[row["person_id"]]["voipSKO"].add(ou2sko[row["ou_id"]])
 
-        for row in account.search(owner_type=self.const.entity_person):
+        for row in account.search(owner_type=self.const.entity_person,
+                                  owner_id=voippersons):
             if row["owner_id"] not in owner_data:
                 continue
             aid = row["account_id"]

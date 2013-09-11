@@ -360,6 +360,11 @@ class VoipClient(EntityAuthentication, EntityTrait):
             assert int(cnst) not in const2str
             const2str[int(cnst)] = str(cnst)
 
+        # cache persons
+        voippersons = list()
+        for row in self.search(owner_entity_type=self.const.entity_person):
+            voippersons.append(row['owner_entity_id'])
+
         # entity_id -> {<auth type>: <auth_data>}
         client2auth = dict()
         for row in self.list_auth_data(self.const.voip_auth_sip_secret):
@@ -367,17 +372,22 @@ class VoipClient(EntityAuthentication, EntityTrait):
                                    {})[row['auth_method']] = row['auth_data']
 
 
-        # entity_id -> quarantine
+        # person_id -> uname, also cache user ids
+        owner2uname = defaultdict(list)
+        useraccountids = list()
         account = Factory.get("Account")(self._db)
+        for r in account.search(owner_type=self.const.entity_person,
+                                owner_id=voippersons):
+            owner2uname[r["owner_id"]].append(r["name"])
+            useraccountids.append(r['account_id'])
+
+        # entity_id -> quarantine
         entity2quarantine = dict()
         for row in account.list_entity_quarantines(entity_types=self.const.entity_account,
-                                                   only_active=True):
+                                                   only_active=True,
+                                                   entity_ids=useraccountids):
              entity2quarantine[row['entity_id']] = 'locked'
 
-        # person_id -> uname
-        owner2uname = defaultdict(list)
-        for r in account.search(owner_type=self.const.entity_person):
-            owner2uname[r["owner_id"]].append(r["name"])
 
         # uname -> HA1 hashes, only for softphone for Account users aka persons.
         uname2ha1 = dict()
@@ -421,7 +431,8 @@ class VoipClient(EntityAuthentication, EntityTrait):
 
 
     def search(self, entity_id=None, voip_address_id=None, voip_owner_id=None,
-               client_type=None, mac_address=None, client_info=None):
+               client_type=None, mac_address=None, client_info=None,
+               owner_entity_type=None):
         """Search for voip_clients subject to certain filter rules.
 
         All filters are None, scalars, or sequences thereof. None means that
@@ -460,6 +471,12 @@ class VoipClient(EntityAuthentication, EntityTrait):
             where.append(argument_to_sql(voip_owner_id,
                                          "va.owner_entity_id",
                                          binds, int))
+
+        if owner_entity_type is not None:
+                    where.append(argument_to_sql(owner_entity_type,
+                                                 "ei.entity_type",
+                                                  binds, int))
+
         if where:
             where = " AND " + " AND ".join(where)
         else:
