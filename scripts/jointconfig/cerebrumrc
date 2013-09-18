@@ -108,6 +108,11 @@ PYTHON_CEREBRUM_MODULES="$CEREBRUM_PATH"
 CERECONF_CUSTOM=$CERECONF_PATH/"$CEREBRUM_INST"
 export PYTHONPATH="$PYTHON_SITE_PACKAGES:$CERECONF_CUSTOM:$CERECONF_COMMON:$CERECONF_GLOBAL:$PYTHON_CEREBRUM_MODULES:$PYTHON_EXTERNAL"
 
+if [[ "$XPAND" == "yes" ]]; then
+  export BRANCH='js_xpand'
+  export PYTHONPATH=$PYTHONPATH:/usit/cere-utv01/u1/jsama/pylib/suds-0.4-py2.4.egg
+fi
+
 # For xpand and others (ie BRANCH=js_expand for using ~/checkout/js_expand first in PYTHONPATH)
 if [[ "$BRANCH" != "" ]]; then
   export PYTHONPATH=~/checkout/$BRANCH:$PYTHONPATH
@@ -137,8 +142,9 @@ echo -e -n "\t\e[94mPython version:\e[0m\t\t\e[96m"
 "$PYTHON_BIN" -c "import sys;print(sys.version.split(' ')[0])"
 echo -e -n '\e[0m'
 echo -e "\t\e[94mPython executable:\e[0m\t\e[93m$PYTHON_BIN\e[0m"
-echo -e "\t\e[94mPYTHONPATH:\e[0m\e[90m"
-"$PYTHON_BIN" -c "import os;print(os.linesep.join(['\t\t' + x for x in os.getenv('PYTHONPATH').split(':')])[:-3])"
+echo -e "\t\e[94mPython path:\e[0m\e[90m"
+#"$PYTHON_BIN" -c "import os;print(os.linesep.join(['\t\t' + x for x in os.getenv('PYTHONPATH').split(':')])[:-3])"
+echo $PYTHONPATH
 echo -e -n '\e[0m'
 echo
 

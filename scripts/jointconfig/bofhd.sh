@@ -20,7 +20,7 @@ echo "BOFH_PROMPT='$BOFH_PROMPT'" > ~/.bofhd_prompt
 "$PYTHON_BIN" "$BOFHD_PY" \
   -c "$BOFHD_CONFIG_DAT" \
   --logger-name=console \
-  --logger-level=DEBUG \
+  --logger-level=DEBUG2 \
   --port "$BOFHD_PORT" \
   "$@"
 
