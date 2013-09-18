@@ -192,6 +192,7 @@ def set_quarantine(pids, quar, offset):
             if filter(lambda x: x['start_date'] <= date,
                     ac.get_entity_quarantine(type=quar)) or \
                             ac.get_entity_quarantine(only_active=True):
+                # Already quarantined, skipping
                 logger.info('%s is already quarantined' % ac.account_name)
                 continue
 
@@ -240,9 +241,10 @@ def remove_quarantine(pids, quar):
             ac.clear()
             ac.find(y['account_id'])
 
-            if not dryrun and ac.get_entity_quarantine(type=quar):
-                ac.delete_entity_quarantine(type=quar)
+            if ac.get_entity_quarantine(type=quar):
                 logger.info('Deleting quarantine on %s' % ac.account_name)
+                ac.delete_entity_quarantine(type=quar)
+                ac.write_db()
                 dequarantined.append(ac.account_name)
     logger.debug('RQ checked %d accounts' % accounts)
     return {'dequarantined': dequarantined}
@@ -275,9 +277,10 @@ def parse_affs(affs):
 
 def usage():
     print """ %s
+
 -q    quarantine to set (default 'auto_no_aff')
 -r    remove quarantines
--d    drydrun
+-d    dryrun
 -o    quarantine offset in days (default 7)
         If a quarantine of the same type exists, and is longer away in
         the future than the offset defines, it will be removed and a new
