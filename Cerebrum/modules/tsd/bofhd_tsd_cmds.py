@@ -122,6 +122,17 @@ class ProjectShortName(cmd.Parameter):
     _help_ref = 'project_shortname'
 
 
+class GroupDescription(cmd.SimpleString):  # SimpleString inherits from cmd.Parameter
+
+    """Bofhd Parameter for specifying a group description."""
+
+    _type_ = 'groupDescription'
+    _help_ref_ = 'group_description'
+
+    def __init__(self, help_ref="string_description"):
+        super(GroupDescription, self).__init__(help_ref=help_ref)
+
+
 class ProjectStatusFilter(cmd.Parameter):
 
     """Bofhd Parameter for filtering on projects' status.
@@ -1107,18 +1118,47 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     #
     # Group commands
 
-    # ----------- WORK IN PROGRESS --------------------
-    #
-    # all_commands['group_create'] = cmd.Command(
-    #    ("project", "groupname", "description"),
-    #    cmd.ProjectName() cmd.GroupName(), cmd.GroupDescription(),
-    #    perm_filter='is_superuser')
-    #
-    #@superuser
-    # def create_group(self, operator, project, group, description):
-    #    pass
-    #
-    # --------------------------
+    all_commands['group_create'] = cmd.Command(
+        ("group", "create"),
+        ProjectName(), cmd.GroupName(), GroupDescription(),
+        perm_filter='is_superuser')
+
+    @superuser
+    def group_create(self, operator, project, group, description):
+        """Method for creating a new group"""
+
+        self.logger.debug2("group create start")
+
+        ac = self.Account_class(self.db)
+
+        try:
+            ac.find_by_name(groupname)
+        except Errors.NotFoundError:
+            pass
+        else:
+            # Necessary because of AD
+            raise CerebrumError('An account exists with name: %s' % groupname)
+
+        self.ba.can_create_group(operator.get_entity_id())
+        g = self.Group_class(self.db)
+        g.populate(creator_id=operator.get_entity_id(),
+                   visibility=self.const.group_visibility_all,
+                   name=groupname, description=description)
+
+        # TODO: Figure out how populate_trait works
+        # g.populate_trait(co.
+
+        try:
+            g.write_db()
+        except self.db.DatabaseError, m:
+            raise CerebrumError("Database error: %s" % m)
+        for spread in cereconf.BOFHD_NEW_GROUP_SPREADS:
+            g.add_spread(self.const.Spread(spread))
+            g.write_db()
+
+        self.logger.debug2("group create stop")
+
+        return {'group_id': int(g.entity_id)}
 
     # group add_member
     all_commands['group_add_member'] = cmd.Command(
