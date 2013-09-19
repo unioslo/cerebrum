@@ -674,6 +674,18 @@ class ADclient(PowershellClient):
         It takes time to update each attribute, so you should not update
         attributes that is already set correctly.
 
+        There are different ways we could update an object's attributes. The
+        Set-ADObject have the options:
+
+          -Clear    Remove the whole attribute.
+          -Replace  Replace a specific value - you need to specify the old
+                    value.
+          -Add      Add an extra value to the attribute.
+          -Remove   Remove a given value from the attribute.
+
+        This method only uses -Clear first and then -Add to avoid getting a too
+        complicated method that is still generic.
+
         @type ad_id: string
         @param ad_id: The Id of the object to update. Normally the
             DistinguishedName. A SamAccountName is often not enough to find it.
@@ -684,27 +696,31 @@ class ADclient(PowershellClient):
 
         @type old_attributes: dict
         @param old_attributes: The existing attribute set for the object in AD.
-            This might be needed for making the sync go faster.
+            This is needed to know how the attribute should be modified in AD,
+            e.g. replaced or added.
 
         """
-        # TODO: does double spaces create errors for the powershell command?
         self.logger.info(u'Updating attributes for %s: %s' % (ad_id,
                                                               attributes))
+        # What attributes needs to be cleared before adding the correct attr:
+        clears = set(self.attribute_write_map.get(x, x) for x in attributes
+                     if x in old_attributes and old_attributes[x] is not None)
+
         # Some attributes are named differently when reading and writing, so we
         # need to map them properly:
         attrs = dict((self.attribute_write_map.get(k, k), v) for k, v in
                      attributes.iteritems())
-        cmd1 = self._generate_ad_command('Set-ADObject',
-                                         {'Identity': ad_id,
-                                          'Clear': attrs.keys()})
-        cmd2 = self._generate_ad_command('Set-ADObject',
-                                         {'Identity': ad_id,
-                                          'Add': attrs})
-        cmd = 'if (%s) {%s}' % (cmd1, cmd2)
+
+        cmd_params = {'Identity': ad_id}
+        if clears:
+            cmd_params['Clear'] = clears
+        cmd = '%s | %s' % (self._generate_ad_command('Set-ADObject', cmd_params, ['PassThru']),
+                           self._generate_ad_command('Set-ADObject', {'Add': attrs}))
+        self.logger.debug3("Command: %s" % (cmd,))
         if self.dryrun:
             return True
         out = self.run(cmd)
-        # TODO: Should we check stdout?
+        # TODO: check stdout too?
         return not out.get('stderr')
 
     def start_list_members(self, groupid):

@@ -27,6 +27,9 @@ sysadmin about the usage and consequences of the setting.
 
 """
 
+# Import the basic configuration helpers:
+from Cerebrum.modules.ad2.ConfigUtils import AttrConfig, ContactAttr
+
 # The SYNCS dict contains settings that are specific to a given sync type. The
 # key is normally the name of a spread that should be used for sync with AD, but
 # it could also be just an identifier if the sync can't match against one

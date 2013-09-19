@@ -61,11 +61,11 @@ from Cerebrum import Entity, Errors
 from Cerebrum.modules import CLHandler
 from Cerebrum.modules import Email
 
+from Cerebrum.modules.ad2 import ADUtils, ConfigUtils
 from Cerebrum.modules.ad2.CerebrumData import CerebrumEntity
 from Cerebrum.modules.ad2.CerebrumData import CerebrumUser
 from Cerebrum.modules.ad2.CerebrumData import CerebrumGroup
 from Cerebrum.modules.ad2.CerebrumData import CerebrumDistGroup
-from Cerebrum.modules.ad2 import ADUtils
 from Cerebrum.modules.ad2.winrm import PowershellException
 
 class BaseSync(object):
@@ -347,7 +347,16 @@ class BaseSync(object):
             if not self.config['encrypted']:
                 self.config['port'] = 5985
 
-        # Log if subset is set
+        # Check for constants in the attribute config, and swap them out with
+        # the cerebrum constants.
+        for atr in self.config['attributes'].itervalues():
+            if isinstance(atr, ConfigUtils.AttrConfig):
+                for typ, func in (('source_systems', self.co.AuthoritativeSystem),
+                                  ('contact_types', self.co.ContactInfo),
+                                  ):
+                    if getattr(atr, typ, None):
+                        setattr(atr, typ, [func(s) for s in getattr(atr, typ)])
+
         if self.config['subset']:
             self.logger.info("Sync will only be run for subset: %s",
                              self.config['subset'])
@@ -372,22 +381,6 @@ class BaseSync(object):
 
         # Check the config
         self.config_check()
-        return
-
-        # TODO: move old code to subclasses, or remove it
-
-        # Sync settings for this module
-        for k in ("user_exchange_spread", "forward_sync",
-                  "exchange_sync", 
-                  "create_homedir", "first_run"):
-            if k in config_args:
-                setattr(self, k, config_args.pop(k))
-
-        # Set which attrs that are to be compared with AD
-        if self.exchange_sync:
-            self.sync_attrs += cereconf.AD_EXCHANGE_ATTRIBUTES
-        self.logger.info("Configuration done. Will compare attributes: %s" %
-                         ", ".join(self.sync_attrs))
 
     def config_check(self):
         """Check that the basic configuration is okay."""
@@ -1601,7 +1594,7 @@ class UserSync(BaseSync):
                 L{self.config['attributes']}.
 
             """
-            return any(v in self.config['attributes'] for v in attrs)
+            return any(k in self.config['attributes'] for k in attrs)
 
         # Create a mapping of owner id to user objects
         self.logger.debug("Fetch owner information...")
@@ -1610,6 +1603,8 @@ class UserSync(BaseSync):
             self.owner2ent.setdefault(ent.owner_id, []).append(ent)
         self.logger.debug("Mapped %d entity owners", len(self.owner2ent))
 
+        self.fetch_contact_info()
+
         # Get the rest of the needed data, depending on the config:
         if any_in_config('Surname', 'DisplayName', 'GivenName'):
             self.fetch_names()
@@ -1617,8 +1612,6 @@ class UserSync(BaseSync):
             self.fetch_titles(self.config['attributes']['Title'])
         # We fetch the Mail attribute both as contact_info and from the Email
         # module, since various instances store e-mail addresses differently
-        if any_in_config('TelephoneNumber', 'Mobile', 'Mail'):
-            self.fetch_contact_info()
         if any_in_config('Mail'):
             self.fetch_mail()
         # External IDs:
@@ -1710,38 +1703,47 @@ class UserSync(BaseSync):
 
         """
         self.logger.debug("Fetch contact info...")
-        # What to get:
-        # TODO: Need to define how this should be fetched, e.g. from what
-        # source_system, and the mapping of what contact type to use. Should be
-        # doable in the config, for easier changes later.
-        types = []
-        if 'TelephoneNumber' in self.config['attributes']:
-            types.append(int(self.co.contact_phone))
-        if 'Mobile' in self.config['attributes']:
-            types.append(int(self.co.contact_mobile_phone))
-        if 'Mail' in self.config['attributes']:
-            types.append(int(self.co.contact_email))
-
+        types = set()
+        systems = set()
+        all_systems = False
+        # Go through config and see what info needs to be fetched:
+        for atr in self.config['attributes'].itervalues():
+            if isinstance(atr, ConfigUtils.ContactAttr):
+                types.update(atr.contact_types)
+                if atr.source_systems is None:
+                    all_systems = True
+                else:
+                    systems.update(atr.source_systems)
+        self.logger.debug2("Fetching contact-types: %s" % (types,))
+        self.logger.debug2("Fetching contactinfo from sources: %s" % (systems,))
         if not types:
-            # Nothing to be retrieved
             return
+        if all_systems or not systems:
+            # By setting to None we fetch from all source_systems.
+            systems = None
 
         # Contact info stored on the person:
-        for row in self.pe.list_contact_info(source_system=self.co.system_sap,
-                                             # TODO: source_system should be
-                                             # from config!
+        i = 0
+        for row in self.pe.list_contact_info(source_system=systems,
                                              entity_type=self.co.entity_person,
                                              contact_type=types):
             for ent in self.owner2ent.get(row['entity_id'], ()):
-                ent.contact_info[str(self.co.ContactInfo(row['contact_type']))] = row['contact_value']
+                ctype = str(self.co.ContactInfo(row['contact_type']))
+                ssys = str(self.co.AuthoritativeSystem(row['source_system']))
+                ent.contact_info.setdefault(ctype, {})[ssys] = row['contact_value']
+                i += 1
         # Contact info stored on the account:
-        for row in self.ac.list_contact_info(source_system=self.co.system_sap,
+        for row in self.ac.list_contact_info(source_system=systems,
                                              entity_type=self.co.entity_account,
                                              contact_type=types):
             ent = self.id2entity.get(row['entity_id'], None)
             self.logger.debug2("Found contact for %s: %s", ent, row['contact_value'])
             if ent:
-                ent.contact_info[str(self.co.ContactInfo(row['contact_type']))] = row['contact_value']
+                ctype = str(self.co.ContactInfo(row['contact_type']))
+                ssys = str(self.co.AuthoritativeSystem(row['source_system']))
+                ent.contact_info[ctype][ssys] = row['contact_value']
+                i += 1
+        self.logger.debug("Found %d contact data" % i)
 
     def fetch_external_ids(self):
         """Fetch all external IDs for the users that could be needed."""

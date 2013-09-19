@@ -1893,7 +1893,7 @@ class PowershellClient(WinRMClient):
 
         """
         if data is None:
-            data = '$false'
+            return '$false'
         if isinstance(data, bool):
             if data:
                 return '$true'
@@ -1913,11 +1913,8 @@ class PowershellClient(WinRMClient):
             # Dicts are returned as "Hash Tables" for powershell
             ret = []
             for k, v in data.iteritems():
-                if not v:
-                    val = '$false'
-                else:
-                    val = self.escape_to_string(v)
-                ret.append('%s=%s' % (self.escape_to_string(k), val))
+                ret.append('%s=%s' % (self.escape_to_string(k),
+                                      self.escape_to_string(v)))
             return '@{%s}' % ';'.join(ret)
         raise Exception('Unknown data type %s for: %s' % (type(data), data))
 

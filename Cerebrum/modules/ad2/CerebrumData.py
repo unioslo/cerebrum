@@ -60,6 +60,8 @@ be compared with attributes from data objects from AD.
 import cerebrum_path
 import cereconf
 
+from Cerebrum.modules.ad2 import ConfigUtils
+
 class CerebrumEntity(object):
     """A representation for a Cerebrum Entity which may be exported to AD.
 
@@ -176,10 +178,39 @@ class CerebrumEntity(object):
                                                          self.config['domain']))
         self.set_attribute('MailNickname', self.ad_id)
 
+        # Set the attributes that are defined in the config:
+
+        # Contact Info:
+        for atrname, atr in self.config['attributes'].iteritems():
+            if isinstance(atr, ConfigUtils.ContactAttr):
+                for c in atr.contact_types:
+                    cinfo = self.contact_info.get(str(c))
+                    if cinfo is None:
+                        continue
+                    if getattr(atr, 'source_systems', None):
+                        for s in atr.source_systems:
+                            sys = cinfo.get(str(s))
+                            if sys:
+                                self.set_attribute(atrname, sys)
+                                break
+                    else:
+                        # TODO: now it's not sorted, need to make use of the
+                        # default order from cereconf!
+                        for s in cinfo.itervalues():
+                            self.set_attribute(atrname, s)
+                            break
+
     def set_attribute(self, key, value, force=False):
-        """Helper method for setting an attribute for the entity.
+        """Setting an attribute for the entity.
+        
+        Only the first setter of the same key is stored, the rest is ignored -
+        unless L{force} is True. This is so that you could start with setting
+        special values, and end with less important values, like default values.
 
         The attribute is not set if already set or if not defined in the config.
+
+        Note that if the attribute is defined with a L{transform} function, this
+        is called when setting the attribute.
 
         @type key: string
         @param key: The name of the attribute that wants to be set.
@@ -205,6 +236,10 @@ class CerebrumEntity(object):
         # saving the value, so if we strip too, the comparing gets easier.
         if isinstance(value, basestring):
             value = value.strip()
+        elif isinstance(self.config['attributes'][key], ConfigUtils.AttrConfig):
+            # The config might want to transform the value:
+            if hasattr(self.config['attributes'][key], 'transform'):
+                value = transform(value)
         self.attributes[key] = value
         return True
 
