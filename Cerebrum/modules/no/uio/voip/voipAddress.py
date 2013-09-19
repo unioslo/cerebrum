@@ -615,6 +615,7 @@ class VoipAddress(EntityAuthentication, EntityTrait):
             owner_data[row["owner_id"]]["uid"].append(row["name"])
             if aid not in primary2pid:
                 continue
+            owner_data[row["owner_id"]]["voipPrimaryUid"] = row["name"]
             pid = primary2pid[aid]
             if pid != row["owner_id"]:
                 # This could happen if somebody yanks a person object out of the
