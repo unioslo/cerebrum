@@ -140,6 +140,11 @@ class VoipConstants(Constants.Constants):
         "voip_service_video",
         "videoenhet",
     )
+
+    voip_service_viderekoblet = VoipServiceTypeCode(
+        "voip_service_viderekoblet",
+        "viderekoblet",
+    )
     
     ########################################################################
     # voip-client
