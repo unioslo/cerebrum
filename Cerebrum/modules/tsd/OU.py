@@ -42,6 +42,17 @@ class OUTSDMixin(OU):
     be unique.
 
     """
+    def find_by_tsd_projectid(self, project_id):
+        """TSD specific helper method for finding an OU by the project's ID.
+
+        In TSD, each project is stored as an OU, with the project ID stored as
+        an external ID.
+
+        """
+        return self.find_by_external_id(entity_type=self.const.entity_ou,
+                id_type=self.const.externalid_project_id, 
+                external_id=project_id)
+
     def find_by_tsd_projectname(self, project_name):
         """TSD specific helper method for finding an OU by the project's name.
 
@@ -127,9 +138,17 @@ class OUTSDMixin(OU):
         return True
 
     def get_project_name(self):
-        """Shortcut for getting the given OU's project ID."""
+        """Shortcut for getting the given OU's project name."""
         return self.get_name_with_language(self.const.ou_name_acronym,
                                            self.const.language_en)
+
+    def get_project_id(self):
+        """Shortcut for getting the given OU's project ID."""
+        ret = self.get_external_id(id_type=self.const.externalid_project_id)
+        if ret:
+            return ret[0]['external_id']
+        raise Errors.NotFoundError('Mandatory project ID not found for %s',
+                self.entity_id)
 
     def add_name_with_language(self, name_variant, name_language, name):
         """Override to be able to verify project names (acronyms).
@@ -153,6 +172,22 @@ class OUTSDMixin(OU):
                 raise CerebrumError('Acronym already in use')
         return self.__super.add_name_with_language(name_variant, name_language,
                                                    name)
+    def get_next_free_project_id(self):
+        """Return the next project ID that is not in use.
+
+        The proper way to do this would be to create a db sequence, but this
+        goes only from p01 to p99. After this, we need to find a new sequence
+        to use, e.g. q01 to q99. Not the best algorithm, but it is due to the
+        number of available VLANs, which are only at 99.
+
+        """
+        all_ids = set(r['external_id'] for r in 
+                      self.list_external_ids(id_type=self.const.externalid_project_id))
+        for i in xrange(1, 99):
+            pid = 'p%02d' % i
+            if pid not in all_ids:
+                return pid
+        raise Errors.CerebrumError('No more available project IDs!')
 
     def setup_project(self, creator_id):
         """Set up an approved project properly.
