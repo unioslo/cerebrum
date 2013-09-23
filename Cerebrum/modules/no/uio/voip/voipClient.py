@@ -426,6 +426,10 @@ class VoipClient(EntityAuthentication, EntityTrait):
 
             entry["sipSecret"] = client2auth.get(row["entity_id"],
                                     {}).get(self.const.voip_auth_sip_secret)
+
+            if row["owner_entity_type"] == self.const.entity_person and \
+              owner_id in owner2quarantine:
+                entry["sipEnabled"] = "quarantined"
             if client_type == self.const.voip_client_type_softphone:
                 entry["uid"] = str(owner_id)
             elif client_type == self.const.voip_client_type_hardphone:
@@ -433,9 +437,6 @@ class VoipClient(EntityAuthentication, EntityTrait):
                 #mac = mac.replace(":", "") if mac else None
                 mac = mac.replace(":", "")
                 entry["sipMacAddress"] = mac
-                if row["owner_entity_type"] == self.const.entity_person and \
-                  owner_id in owner2quarantine:
-                    entry["sipEnabled"] = "quarantined"
 
             yield entry
     # end list_voip_attributes
