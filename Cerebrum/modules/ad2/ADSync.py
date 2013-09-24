@@ -785,7 +785,7 @@ class BaseSync(object):
         @type entity_id: int
         @param entity_id: The entity's entity_id
 
-        @type entity_name: str
+        @type entity_name: str or unicode
         @param entity_name: The entity's name, normally the entity_name.
 
         @type *args: mixed
@@ -973,9 +973,15 @@ class BaseSync(object):
         # in AD 'First Last'. This is issues that should be fixed in the source
         # system, but the error will make the sync update the attribute
         # constantly and make the sync slower.
+
+        # Integers are retrieved from AD as strings, so need to compare with
+        # Cerebrum as strings:
+        if isinstance(c, (int, long, float)) and not isinstance(c, bool):
+            c = unicode(c)
+
         if c != a:
-            self.logger.debug("Attr %s doesn't match for %s: %s -> %s", atr,
-                              ent.entity_name, a, c)
+            self.logger.debug("Mismatch attr for %s: %s: '%s' (%s) -> '%s' (%s)"
+                              % (ent.entity_name, atr, a, type(a), c, type(c)))
             ent.changes.setdefault('attributes', {})[atr] = c
 
         #else:

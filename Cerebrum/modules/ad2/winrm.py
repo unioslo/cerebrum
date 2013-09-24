@@ -51,6 +51,7 @@ import base64
 import socket
 import urllib2
 import httplib
+import csv
 
 # TODO: remove the exception when ssl is up and running in production:
 try:

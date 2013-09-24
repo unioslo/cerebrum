@@ -42,7 +42,7 @@ class AttrConfig(object):
     criterias.
 
     """
-    def __init__(self, default=NotSet, transform=NotSet):
+    def __init__(self, default=NotSet, transform=NotSet, spreads=NotSet):
         """Setting the basic, most used config variables.
 
         @type default: mixed
@@ -56,6 +56,11 @@ class AttrConfig(object):
 
                 lambda x: x[1:].lower()
 
+        @type spreads: str of Cerebrum constants or list thereof
+        @param spreads: If set, defines what spreads the user must have for the
+            value to be set. Entitites without the spread would get an empty
+            (blank) value.
+
         # TODO: Should attributes behave differently when multiple values are
         # accepted? For instance with the contact types.
 
@@ -65,6 +70,10 @@ class AttrConfig(object):
             self.default = default
         if transform is not NotSet:
             self.transform = transform
+        if spreads is not NotSet:
+            if not isinstance(spreads, (list, tuple, set)):
+                spreads = [spreads]
+            self.spreads = spreads
 
 class ContactAttr(AttrConfig):
     """Configuration for an attribute containing contact info.

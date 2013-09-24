@@ -703,19 +703,27 @@ class ADclient(PowershellClient):
         self.logger.info(u'Updating attributes for %s: %s' % (ad_id,
                                                               attributes))
         # What attributes needs to be cleared before adding the correct attr:
-        clears = set(self.attribute_write_map.get(x, x) for x in attributes
-                     if x in old_attributes and old_attributes[x] is not None)
+        clears = set(self.attribute_write_map.get(k, k) for k in attributes
+                     if k in old_attributes and old_attributes[k] is not None)
 
         # Some attributes are named differently when reading and writing, so we
-        # need to map them properly:
+        # need to map them properly. Also avoids setting attributes that is set
+        # to None.
         attrs = dict((self.attribute_write_map.get(k, k), v) for k, v in
-                     attributes.iteritems())
+                     attributes.iteritems() if v is not None)
+        if not clears and not attrs:
+            # TODO: Remove this when checked
+            self.logger.warn("No changes - check if this is an error or not")
+            return
 
         cmd_params = {'Identity': ad_id}
         if clears:
             cmd_params['Clear'] = clears
-        cmd = '%s | %s' % (self._generate_ad_command('Set-ADObject', cmd_params, ['PassThru']),
-                           self._generate_ad_command('Set-ADObject', {'Add': attrs}))
+        cmds = [self._generate_ad_command('Set-ADObject', cmd_params,
+                                          ['PassThru'])]
+        if attrs:
+            cmds.append(self._generate_ad_command('Set-ADObject', {'Add': attrs}))
+        cmd = ' | '.join(cmds)
         self.logger.debug3("Command: %s" % (cmd,))
         if self.dryrun:
             return True

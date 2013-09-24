@@ -184,19 +184,19 @@ class CerebrumEntity(object):
         for atrname, atr in self.config['attributes'].iteritems():
             if isinstance(atr, ConfigUtils.ContactAttr):
                 for c in atr.contact_types:
-                    cinfo = self.contact_info.get(str(c))
-                    if cinfo is None:
+                    cinfos = self.contact_info.get(str(c))
+                    if cinfos is None:
                         continue
                     if getattr(atr, 'source_systems', None):
                         for s in atr.source_systems:
-                            sys = cinfo.get(str(s))
+                            sys = cinfos.get(str(s))
                             if sys:
                                 self.set_attribute(atrname, sys)
                                 break
                     else:
                         # TODO: now it's not sorted, need to make use of the
                         # default order from cereconf!
-                        for s in cinfo.itervalues():
+                        for s in cinfos.itervalues():
                             self.set_attribute(atrname, s)
                             break
 
@@ -215,8 +215,9 @@ class CerebrumEntity(object):
         @type key: string
         @param key: The name of the attribute that wants to be set.
 
-        @type value: string, tuple or list
-        @param value: The value of the attribute that wants to be set.
+        @type value: str, unicode, tuple or list
+        @param value: The value of the attribute that wants to be set. Note that
+            str gets converted to unicode, to make it easier to compare with AD.
 
         @type force: bool
         @param force: If the attribute should be set even though it has already
@@ -232,10 +233,24 @@ class CerebrumEntity(object):
         # Skip if attribute is already set
         if not force and key in self.attributes:
             return False
+        attrconf = self.config['attributes'][key]
+        # Skip if entity does not have the required spread:
+        if getattr(attrconf, 'spreads', None):
+            if not any(s in attrconf.spreads for s in self.spreads):
+                return False
+
+        if isinstance(value, str):
+            # This will fail if str contains special characters. Input should
+            # rather be in unicode by default, but that is not always as easy to
+            # do everywhere. Should rather be using from __future__ import
+            # unicode_literals.
+            value = unicode(value)
+
         # Remove whitespace before and after data. AD is stripping this out when
         # saving the value, so if we strip too, the comparing gets easier.
         if isinstance(value, basestring):
             value = value.strip()
+            # TODO: also remove double white spaces from all attributes?
         elif isinstance(self.config['attributes'][key], ConfigUtils.AttrConfig):
             # The config might want to transform the value:
             if hasattr(self.config['attributes'][key], 'transform'):
@@ -299,22 +314,7 @@ class CerebrumUser(CerebrumEntity):
         if hasattr(self, 'title'):
             self.set_attribute('Title', self.title)
 
-        # TODO: how to control the attr name?
-        # Should set values like "TelephoneNumber" and "Mobile"
-        # TODO: This should be set in the config.
-        contact2attr = {
-                'EMAIL': 'Mail',
-                'MOBILE': 'Mobile',
-                'PHONE': 'TelephoneNumber',
-                }
-
-        for type, value in self.contact_info.iteritems():
-            try:
-                self.set_attribute(contact2attr[type], value)
-            except KeyError, e:
-                self.logger.warn("Contact type not mapped for attr: %s", e)
-
-        # TODO: move the mapping to somewhere more global
+        # TODO: Move the mapping to the config!
         extid2attr = {'NO_SAPNO': 'EmployeeNumber'}
         for type, value in self.external_ids.iteritems():
             try:
