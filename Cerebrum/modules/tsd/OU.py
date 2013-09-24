@@ -229,6 +229,7 @@ class OUTSDMixin(OU):
         self.add_name_with_language(name_variant=self.const.ou_name_acronym,
                                     name_language=self.const.language_en,
                                     name=project_name)
+        self.write_db()
         return pid
 
     def setup_project(self, creator_id):
