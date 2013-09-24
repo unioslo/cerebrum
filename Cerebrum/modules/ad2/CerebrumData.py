@@ -251,10 +251,10 @@ class CerebrumEntity(object):
         if isinstance(value, basestring):
             value = value.strip()
             # TODO: also remove double white spaces from all attributes?
-        elif isinstance(self.config['attributes'][key], ConfigUtils.AttrConfig):
-            # The config might want to transform the value:
-            if hasattr(self.config['attributes'][key], 'transform'):
-                value = transform(value)
+
+        # The config might want to transform the value:
+        if hasattr(attrconf, 'transform'):
+            value = attrconf.transform(value)
         self.attributes[key] = value
         return True
 

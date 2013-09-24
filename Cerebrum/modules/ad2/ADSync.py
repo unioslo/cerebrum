@@ -961,7 +961,8 @@ class BaseSync(object):
         """
         # TODO: Some attributes are special, should they be checked for and
         #       ignored here?
-        # TODO: Multivalued attributes, how should we compare them?
+        # TODO: Multivalued attributes, how should we compare them? This is not
+        # implemented yet.
         # TODO: Should we care about case sensitivity?
 
         # We can't get None values from AD (yet), so ignore the cases where an
@@ -983,65 +984,6 @@ class BaseSync(object):
             self.logger.debug("Mismatch attr for %s: %s: '%s' (%s) -> '%s' (%s)"
                               % (ent.entity_name, atr, a, type(a), c, type(c)))
             ent.changes.setdefault('attributes', {})[atr] = c
-
-        #else:
-        #    if c and a:
-        #        # value both in ad and cerebrum => compare
-        #        result = self.attr_cmp(cb_attr, ad_attr)
-        #        # Special case: Change name of AD user object?
-        #        if attr == "cn" and result:
-        #            cb_cn = "CN=" + cb_attrs["cn"] 
-        #            self.rename_object(dn, self.get_ou(dn), cb_cn)
-        #            dn = "%s,%s" % (cb_cn, self.get_ou(dn))
-        #        # Normal cases
-        #        elif result: 
-        #            self.logger.debug("Changing attr %s from %s to %s",
-        #                              attr, unicode2str(ad_attr),
-        #                              unicode2str(cb_attr))
-        #            cb_user.add_change(attr, result)
-        #    elif cb_attr:
-        #        # attribute is not in AD and cerebrum value is set => update AD
-        #        cb_user.add_change(attr, cb_attr)
-        #    elif ad_attr:
-        #        # value only in ad => delete value in ad
-        #        # TBD: is this correct behavior?
-        #        cb_user.add_change(attr,"")
-
-    #def attr_cmp(self, cb_attr, ad_attr):
-    #    """
-    #    Compare new (attribute calculated from Cerebrum data) and old
-    #    ad attribute. 
-
-    #    @param cb_attr: attribute calculated from Cerebrum data
-    #    @type cb_attr: unicode, list or tuple
-    #    @param ad_attr: Attribute fetched from AD
-    #    @type ad_attr: list || unicode || str
-    #    
-    #    @rtype: cb_attr or None
-    #    @return: cb_attr if attributes differ. None if no difference or
-    #    comparison cannot be made.
-    #    """
-    #    # Sometimes attrs from ad are put in a list
-    #    if isinstance(ad_attr, (list, tuple)) and len(ad_attr) == 1:
-    #        ad_attr = ad_attr[0]
-    #    
-    #    # Handle list, tuples and (unicode) strings
-    #    if isinstance(cb_attr, (list, tuple)):
-    #        cb_attr = list(cb_attr)
-    #        # if cb_attr is a list, make sure ad_attr is a list 
-    #        if not isinstance(ad_attr, (list, tuple)):
-    #            ad_attr = [ad_attr]
-    #        cb_attr.sort()
-    #        ad_attr.sort()
-
-    #    # Now we can compare the attrs
-    #    if isinstance(ad_attr, (str, unicode)) and isinstance(cb_attr, (str, unicode)):
-    #        # Don't care about case
-    #        if cb_attr.lower() != ad_attr.lower():
-    #            return cb_attr
-    #    else:
-    #        if cb_attr != ad_attr:
-    #            return cb_attr
 
     def changelog_handle_spread(self, ctype, row):
         """Handler for changelog events of category 'spread'.
