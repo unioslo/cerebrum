@@ -362,6 +362,6 @@ class OUTSDMixin(OU):
         as well.
 
         """
-        # TODO
         self.write_db()
-        pass
+        # TODO
+        raise Errors.CerebrumError('Not implemented yet')
