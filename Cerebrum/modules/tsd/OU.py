@@ -169,7 +169,7 @@ class OUTSDMixin(OU):
                                     # TODO: name_language
                                     name=name)
             if any(r['name'] == name for r in matched):
-                raise CerebrumError('Acronym already in use')
+                raise Errors.CerebrumError('Acronym already in use')
         return self.__super.add_name_with_language(name_variant, name_language,
                                                    name)
     def get_next_free_project_id(self):
@@ -189,6 +189,16 @@ class OUTSDMixin(OU):
                 return pid
         raise Errors.CerebrumError('No more available project IDs!')
 
+    def populate_external_id(self, source_system, id_type, external_id):
+        """Subclass to avoid changing the project IDs and reuse them."""
+        # Check that the ID is not in use:
+        if id_type == self.const.externalid_project_id:
+            for row in self.list_external_ids(id_type=id_type,
+                    external_id=external_id):
+                raise Errors.CerebrumError("Project ID already in use")
+        return self.__super.populate_external_id(source_system, id_type,
+                external_id)
+
     def setup_project(self, creator_id):
         """Set up an approved project properly.
 
@@ -201,9 +211,10 @@ class OUTSDMixin(OU):
         More setup should be added here in the future, as this method should be
         called from all imports and jobs that creates TSD projects.
 
-        Note that the given OU must have been set up with a proper project name,
-        stored as an acronym, before this method could be called. The project
-        must already be approved for this to happen.
+        Note that the given OU must have been set up with a proper project ID,
+        stored as an external_id, and a project name, stored as an acronym,
+        before this method could be called. The project must already be
+        approved for this to happen, i.e. not in quarantine.
 
         @type creator_id: int
         @param creator_id:
@@ -214,7 +225,7 @@ class OUTSDMixin(OU):
         if self.get_entity_quarantine(type=self.const.quarantine_not_approved, only_active=True):
             raise Errors.CerebrumError("Project is quarantined, cannot setup")
 
-        projectid = self.get_project_name()
+        projectid = self.get_project_id()
         gr = Factory.get("PosixGroup")(self._db)
 
         def _create_group(groupname, desc, trait):
@@ -234,7 +245,7 @@ class OUTSDMixin(OU):
                 L{target_id} gets set to the project, i.e. L{self}.
 
             """
-            groupname = ''.join((projectid, groupname))
+            groupname = '-'.join((projectid, groupname))
             gr.clear()
             try:
                 gr.find_by_name(groupname)
@@ -248,8 +259,9 @@ class OUTSDMixin(OU):
                                   date=DateTime.now())
                 gr.write_db()
             else:
-                self.logger.warn("Project group already existed: %s", groupname)
-                return False
+                # TODO: or should this be an accepted behaviour?
+                raise Errors.CerebrumError("Project group already exists: %s"
+                        % groupname)
             return True
 
         # Create project groups
