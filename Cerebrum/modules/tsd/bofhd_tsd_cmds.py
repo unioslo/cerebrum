@@ -522,13 +522,6 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     def project_create(self, operator, projectname, longname, shortname,
                        startdate, enddate):
         """Create a new project."""
-        try:
-            self._get_project(projectname)
-        except CerebrumError:
-            pass
-        else:
-            raise CerebrumError('Projectname already taken: %s' % projectname)
-
         start = self._parse_date(startdate)
         end = self._parse_date(enddate)
         if end < DateTime.now():
@@ -539,18 +532,9 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                 (str(start).split()[0], str(end).split()[0]))
 
         ou = self.OU_class(self.db)
-        ou.populate()
-        ou.write_db()
-        pid = ou.get_next_free_project_id()
-        ou.affect_external_id(co.system_cached, co.externalid_project_id)
-        ou.populate_external_id(co.system_cached, co.externalid_project_id,
-                pid)
-        ou.write_db()
+        pid = ou.create_project(projectname)
 
         # Storing the names:
-        ou.add_name_with_language(name_variant=self.const.ou_name_acronym,
-                                  name_language=self.const.language_en,
-                                  name=projectname)
         ou.add_name_with_language(name_variant=self.const.ou_name_long,
                                   name_language=self.const.language_en,
                                   name=longname)

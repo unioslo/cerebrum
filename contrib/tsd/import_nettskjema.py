@@ -536,24 +536,13 @@ class Processing(object):
 
     def _create_ou(self, input):
         """Create the project OU based on given input."""
-        pid = input['p_id']
-        # Make sure the project id is not already in use:
-        ou.clear()
-        try:
-            ou.find_by_tsd_projectname(pid)
-            raise Errors.CerebrumError('ProjectId already taken: %s' % pid)
-        except Errors.NotFoundError: 
-            pass
-        ou.clear()
-        ou.populate()
-        ou.write_db()
+        pname = input['p_id']
+        pid = ou.create_project(pname)
+
         # The gateway should not be informed about new projects before they're
         # approved, so if we should create the project in the GW, we must also
         # execute: gateway.freeze_project(pid)
 
-        # Storing the names:
-        ou.add_name_with_language(name_variant=co.ou_name_acronym,
-                                  name_language=co.language_en, name=pid)
         longname = input['p_name']
         logger.debug("Storing project name: %s", longname)
         ou.add_name_with_language(name_variant=co.ou_name_long,
@@ -616,7 +605,7 @@ class Processing(object):
 
         """
         ou_is_quarantined = bool(ou.get_entity_quarantine(only_active=True))
-        pid = ou.get_project_name()
+        pid = ou.get_project_id()
         ac = Factory.get('Account')(db)
         username = '%s-%s' % (pid, username)
         # Check if wanted username is already taken:
@@ -706,8 +695,8 @@ class Processing(object):
         @param input: The survey answers about the requested project.
 
         """
-        pid = input['p_id']
-        logger.info('New project: %s', pid)
+        pname = input['p_id']
+        logger.info('New project: %s', pname)
         ou = self._create_ou(input)
 
         # Update the requestee for the project:
@@ -788,9 +777,10 @@ class Processing(object):
         self._update_person(pe, input)
 
         # Find the project:
-        pid = input['p_id']
+        pname = input['p_id']
         ou.clear()
-        ou.find_by_tsd_projectname(pid)
+        ou.find_by_tsd_projectname(pname)
+        pid = ou.get_project_id()
 
         # Check if the person is pre approved for the project:
         approved = False
@@ -835,9 +825,10 @@ class Processing(object):
 
         """
         # Find the project:
-        pid = input['p_id']
+        pname = input['p_id']
         ou.clear()
-        ou.find_by_tsd_projectname(pid)
+        ou.find_by_tsd_projectname(pname)
+        pid = ou.get_project_id()
         logger.info('Approve persons for project: %s', pid)
 
         # Find the requestor

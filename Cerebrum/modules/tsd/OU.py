@@ -199,6 +199,38 @@ class OUTSDMixin(OU):
         return self.__super.populate_external_id(source_system, id_type,
                 external_id)
 
+    def create_project(self, project_name):
+        """Shortcut for creating a project in TSD with necessary data.
+
+        Note that this method calls L{write_db}.
+
+        @type project_name: str
+        @param project_name: A unique, short project name to use to identify
+            the project.
+
+        @rtype: str
+        @return: The generated project ID for the new project.
+
+        """
+        # Check if given project name is already in use:
+        if tuple(self.search_tsd_projects(self, name=project_name)):
+            raise Errors.CerebrumError('Project name already taken: %s' %
+                    project_name)
+        self.populate()
+        self.write_db()
+        # Generate a project ID:
+        self.affect_external_id(self.const.system_cached,
+                                self.const.externalid_project_id)
+        pid = self.get_next_free_project_id()
+        self.populate_external_id(self.const.system_cached,
+                                  self.const.externalid_project_id, pid)
+        self.write_db()
+        # Store the project name:
+        self.add_name_with_language(name_variant=self.const.ou_name_acronym,
+                                    name_language=self.const.language_en,
+                                    name=project_name)
+        return pid
+
     def setup_project(self, creator_id):
         """Set up an approved project properly.
 
