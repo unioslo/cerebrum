@@ -101,8 +101,12 @@ def date_to_string(date):
     return "%04i-%02i-%02i" % (date.year, date.month, date.day)
 
 
-class ProjectName(cmd.Parameter):
+class ProjectID(cmd.Parameter):
+    """Bofhd Parameter for specifying a project ID."""
+    _type = 'projectID'
+    _help_ref = 'project_name'
 
+class ProjectName(cmd.Parameter):
     """Bofhd Parameter for specifying a project name."""
     _type = 'projectName'
     _help_ref = 'project_name'
@@ -537,6 +541,11 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ou = self.OU_class(self.db)
         ou.populate()
         ou.write_db()
+        pid = ou.get_next_free_project_id()
+        ou.affect_external_id(co.system_cached, co.externalid_project_id)
+        ou.populate_external_id(co.system_cached, co.externalid_project_id,
+                pid)
+        ou.write_db()
 
         # Storing the names:
         ou.add_name_with_language(name_variant=self.const.ou_name_acronym,
@@ -567,7 +576,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             self.gateway.create_project(projectname)
         # TODO: inform the gateway about the resources from here too, or wait
         # for the gateway sync to do that?
-        return "New project created successfully: %s" % projectname
+        return "New project created: %s" % pid
 
     all_commands['project_terminate'] = cmd.Command(
         ('project', 'terminate'), ProjectName(),
