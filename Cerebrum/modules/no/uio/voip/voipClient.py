@@ -370,19 +370,17 @@ class VoipClient(EntityAuthentication, EntityTrait):
         # person_id -> uname, also cache user ids
         owner2uname = defaultdict(list)
         aid2owner = dict()
-        useraccountids = list()
         account = Factory.get("Account")(self._db)
         for r in account.search(owner_type=self.const.entity_person,
                                 owner_id=voippersons):
             owner2uname[r["owner_id"]].append(r["name"])
             aid2owner[r["account_id"]] = r["owner_id"]
-            useraccountids.append(r["account_id"])
 
         # account_id -> quarantine
         aid2quarantine = dict()
         for row in account.list_entity_quarantines(entity_types=self.const.entity_account,
                                                    only_active=True,
-                                                   entity_ids=useraccountids):
+                                                   entity_ids=aid2owner.keys()):
              aid2quarantine[row["entity_id"]] = "quarantined"
 
         # Make a owner2quarantine, to block hardphone is if primary users is blocked
@@ -397,7 +395,7 @@ class VoipClient(EntityAuthentication, EntityTrait):
         # uname -> HA1 hashes, only for softphone for Account users aka persons.
         uname2ha1 = dict()
         for row in account.list_account_authentication(self.const.auth_type_ha1_md5,
-                                                       account_id=useraccountids):
+                                                       account_id=aid2owner.keys()):
             uname2ha1[row['entity_name']] = aid2quarantine.get(row['account_id']) or row['auth_data']
 
         for row in self.search():
@@ -427,9 +425,14 @@ class VoipClient(EntityAuthentication, EntityTrait):
             entry["sipSecret"] = client2auth.get(row["entity_id"],
                                     {}).get(self.const.voip_auth_sip_secret)
 
-            if row["owner_entity_type"] == self.const.entity_person and \
-              owner_id in owner2quarantine:
+            if row["owner_entity_type"] == self.const.entity_person:
+              # Block if primary user is quarantined
+              if owner_id in owner2quarantine:
                 entry["sipEnabled"] = "quarantined"
+              # Block if the person has no valid account
+              elif not owner2uname[owner_id]:
+                entry["sipEnabled"] = "noaccount"
+
             if client_type == self.const.voip_client_type_softphone:
                 entry["uid"] = str(owner_id)
             elif client_type == self.const.voip_client_type_hardphone:
