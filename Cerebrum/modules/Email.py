@@ -1938,6 +1938,8 @@ class AccountEmailMixin(Account.Account):
            "John Ronald Reuel Doe" -> "john.r.doe"
         """
 
+        # NOTE: This needs some more work. It will now fail for certain names,
+        # See CRB-131  - fhl, 2013-09-26
         def compress_preposition_surname(n):
             v = ['de', 'van', 'von']
             i = None
@@ -1956,7 +1958,7 @@ class AccountEmailMixin(Account.Account):
         assert(max_initials is None or max_initials >= 0)
 
         names = [x.lower() for x in re.split(r'\s+', full_name)]
-        names = compress_preposition_surname(names)
+        #names = compress_preposition_surname(names) # CRB-131, see above
         last = names.pop(-1)
         names = [x for x in '-'.join(names).split('-') if x]
 
