@@ -1027,23 +1027,8 @@ class FronterXML(object):
         self.xml.emptyTag('systemrole',
                           {'systemroletype':
                            fronter.useraccess(data['USERACCESS'])})
-        self.xml.startTag('extension')
-        self.xml.emptyTag('emailsettings',
-                          {'mail_username': id,
-                           'mail_password': 'FRONTERLOGIN',
-                           'description': 'UiO-email',
-                           'mailserver': 'imap.uio.no',
-                           'mailtype': 'imap',
-                           'imap_serverdirectory': 'INBOX.',
-                           'imap_sentfolder': 'Sent',
-                           'imap_draftfolder': 'Drafts',
-                           'imap_trashfolder': 'Trash',
-                           'use_ssl': 1,
-                           'defaultmailbox': 'INBOX',
-                           'on_delete_action': 'trash',
-                           'is_primary': 1,
-                           })
-        self.xml.endTag('extension')
+        #self.xml.startTag('extension')
+        #self.xml.endTag('extension')
         self.xml.endTag('person')
 
     def group_to_XML(self, id, recstatus, data):
