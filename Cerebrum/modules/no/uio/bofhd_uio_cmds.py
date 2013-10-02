@@ -9671,6 +9671,8 @@ Password altered. Use misc list_password to print or view the new password.%s'''
             return self._get_group(ident)
         if idtype == 'stedkode':
             return self._get_ou(stedkode=ident)
+        if idtype == 'host':
+            return self._get_host(ident)
         if idtype is None:
             try:
                 int(ident)
