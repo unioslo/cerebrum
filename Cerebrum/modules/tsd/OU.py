@@ -335,11 +335,11 @@ class OUTSDMixin(OU):
         # Check that the VLAN is not already in use. TBD: Or is this acceptable
         # in TSD?
         for row in subnet.search():
-            if int(row['vlan_number']) == vlan:
+            if row['vlan_number'] and int(row['vlan_number']) == vlan:
                 raise Error.CerebrumError('VLAN %s already in use: %s/%s' %
                         (vlan, row['subnet_ip'], row['subnet_mask']))
         for row in subnet6.search():
-            if int(row['vlan_number']) == vlan:
+            if row['vlan_number'] and int(row['vlan_number']) == vlan:
                 raise Error.CerebrumError('VLAN %s already in use: %s/%s' %
                         (vlan, row['subnet_ip'], row['subnet_mask']))
         subnetstart = cereconf.SUBNET_START % intpid
