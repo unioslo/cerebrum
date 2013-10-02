@@ -21,9 +21,10 @@
 """OU mixin for the TSD project.
 
 A TSD project is stored as an OU, which then needs some extra functionality,
-e.g. by using the acronym as a unique identifier. When a project has finished,
-we will delete all details about the project, except the project's OU, to be
-able to reserve the name of the project, which is stored in the acronym.
+e.g. by using the acronym as a unique identifier - the project name - and the
+project ID stored as an external ID. When a project has finished, we will delete
+all details about the project, except the project's OU and its external ID and
+acronym, to avoid reuse of the project ID and name for later projects.
 
 """
 
@@ -35,7 +36,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.OU import OU
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.dns import Subnet
+from Cerebrum.modules.dns import Subnet, IPv6Subnet
 
 class OUTSDMixin(OU):
     """Mixin of OU for TSD. Projects in TSD are stored as OUs, which then has to
@@ -213,7 +214,7 @@ class OUTSDMixin(OU):
 
         """
         # Check if given project name is already in use:
-        if tuple(self.search_tsd_projects(self, name=project_name)):
+        if tuple(self.search_tsd_projects(name=project_name)):
             raise Errors.CerebrumError('Project name already taken: %s' %
                     project_name)
         self.populate()
@@ -255,10 +256,12 @@ class OUTSDMixin(OU):
             administrator that created the project or a system user.
 
         """
-        if self.get_entity_quarantine(type=self.const.quarantine_not_approved, only_active=True):
+        if self.get_entity_quarantine(type=self.const.quarantine_not_approved,
+                only_active=True):
             raise Errors.CerebrumError("Project is quarantined, cannot setup")
-
         projectid = self.get_project_id()
+        self._setup_project_dns(creator_id)
+
         gr = Factory.get("PosixGroup")(self._db)
 
         def _create_group(groupname, desc, trait):
@@ -305,15 +308,10 @@ class OUTSDMixin(OU):
 
         # TODO: Create resource groups
 
-        # Subnet and VLAN
-        subnet = Subnet.Subnet(self._db)
-        #TODO
-
         # Machines:
         #TODO
 
-        # Disks:
-        #TODO
+        # TODO: Disks?
 
         # TODO: Add accounts to the various groups:
         ac = Factory.get('Account')(self._db)
@@ -321,6 +319,35 @@ class OUTSDMixin(OU):
         #gr.find_by_name('%s_member' % projectid)
         #for row in ac.list_accounts_by_type(ou_id=self.entity_id):
         #    pass
+
+    def _setup_project_dns(self, creator_id):
+        """Setup a new project's DNS info, like subnet and VLAN."""
+        projectid = self.get_project_id()
+        subnet = Subnet.Subnet(self._db)
+        subnet6 = IPv6Subnet.IPv6Subnet(self._db)
+
+        # TODO: Find a better way for mapping between project ID and VLAN. Now I
+        # only cut out the first character, which is normally 'p', and the rest
+        # _should_ be digits:
+        intpid = int(projectid[1:])
+        vlan = intpid + cereconf.VLAN_START
+
+        # Check that the VLAN is not already in use. TBD: Or is this acceptable
+        # in TSD?
+        for row in subnet.search():
+            if int(row['vlan_number']) == vlan:
+                raise Error.CerebrumError('VLAN %s already in use: %s/%s' %
+                        (vlan, row['subnet_ip'], row['subnet_mask']))
+        for row in subnet6.search():
+            if int(row['vlan_number']) == vlan:
+                raise Error.CerebrumError('VLAN %s already in use: %s/%s' %
+                        (vlan, row['subnet_ip'], row['subnet_mask']))
+        subnetstart = cereconf.SUBNET_START % intpid
+        subnet.populate(subnetstart, "Subnet for project %s" % projectid, vlan)
+        subnet.write_db()
+        subnetstart = cereconf.SUBNET_START_6 % intpid
+        subnet6.populate(subnetstart, "Subnet for project %s" % projectid, vlan)
+        subnet6.write_db()
 
     def get_pre_approved_persons(self):
         """Get a list of pre approved persons by their fnr.
@@ -356,12 +383,30 @@ class OUTSDMixin(OU):
         return True
 
     def terminate(self):
-        """Remove all of a project, except its acronym.
+        """Remove all of a project, except its project id and name (acronym).
         
         Note that you would have to delete accounts and other project entitites
         as well.
 
         """
         self.write_db()
-        # TODO
-        raise Errors.CerebrumError('Not implemented yet')
+        # Remove all data from the OU except for the project ID and project name
+        for tr in self.get_traits():
+            self.delete_trait(tr)
+        for row in self.get_spread():
+            self.delete_spread(row['spread'])
+        for row in self.get_contact_info():
+            self.delete_contact_info(row['source_system'], row['contact_type'])
+        for row in self.get_entity_address():
+            self.delete_entity_address(row['source_system'],
+                    row['address_type'])
+        for row in self.search_name_with_language(entity_id=self.entity_id):
+            # The project name must not be removed, to avoid reuse
+            if row['name_variant'] == self.const.ou_name_acronym:
+                continue
+            self.delete_name_with_language(row['name_variant'])
+        self.write_db()
+
+        # TODO: Also remove all related entities...
+
+        raise Errors.CerebrumError('Not fully implemented yet')
