@@ -482,7 +482,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         '_get_constant', '_is_yes', '_remove_auth_target', '_remove_auth_role',
         '_get_cached_passwords', '_parse_date_from_to',
         '_convert_ticks_to_timestamp', '_fetch_member_names',
-        '_person_create_externalid_helper', '_format_ou_name',
+        '_person_create_externalid_helper',
     )
 
     def __new__(cls, *arg, **karg):
@@ -954,10 +954,11 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                     fname, lname = [
                         person.get_name(self.const.system_cached, v)
                         for v in (self.const.name_first, self.const.name_last)]
+                    ou = self._get_ou(ou_id=affiliation['ou_id'])
                     sugg = posix_user.suggest_unames(
                         self.const.account_namespace, fname, lname,
                         maxlen=cereconf.USERNAME_MAX_LENGTH,
-                        prefix='projectname_')
+                        prefix='%s-' % ou.get_project_id())
                     if sugg:
                         ret['default'] = sugg[0]
                 except ValueError:
