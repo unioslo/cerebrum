@@ -569,17 +569,22 @@ class BofhdExtension(BofhdCommandBase):
 
         if len(free_ip_numbers) < len(hostnames):
             raise CerebrumError("Not enough free ips")
-        
-        # If user don't want mx_set, it must be removed with "ip mx_set"
-        mx_set=self._find.find_mx_set(cereconf.DNS_DEFAULT_MX_SET)
+
+        # If user don't want mx_set, it must be removed with "host mx_set"
+        if hasattr(cereconf, 'DNS_DEFAULT_MX_SET'):
+            mx_set=self._find.find_mx_set(cereconf.DNS_DEFAULT_MX_SET)
+            mx_set_id = mx_set.mx_set_id
+        else:
+            mx_set_id = None
+
         ret = []
         for name in hostnames:
             # TODO: bruk hinfo ++ for å se etter passende sekvens uten
             # hull (i en passende klasse)
             ip = a_alloc(
                 name, subnet_ip, free_ip_numbers.pop(0), force)
-            self.mb_utils.alloc_host(
-                name, hinfo, mx_set.mx_set_id, comment, contact)
+            self.b_utils.alloc_host(
+                name, hinfo, mx_set_id, comment, contact)
             ret.append({'name': name, 'ip': ip})
         return ret
 
