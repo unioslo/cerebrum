@@ -1030,7 +1030,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             ou_id, affiliation = affiliation['ou_id'], affiliation['aff']
             ou = self._get_ou(ou_id=ou_id)
             projectname = self._format_ou_name(ou, include_short_name=False)
-            gr = self._get_group('%s_dfg' % projectname, grtype='PosixGroup')
+            gr = self._get_group('%s-group' % uname, grtype='PosixGroup')
 
         posix_user.populate(uid, gr.entity_id, None, shell, name=uname,
                             owner_type=owner_type, owner_id=owner_id,
