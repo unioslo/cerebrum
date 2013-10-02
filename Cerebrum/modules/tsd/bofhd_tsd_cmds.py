@@ -482,6 +482,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         '_get_constant', '_is_yes', '_remove_auth_target', '_remove_auth_role',
         '_get_cached_passwords', '_parse_date_from_to',
         '_convert_ticks_to_timestamp', '_fetch_member_names',
+        '_person_create_externalid_helper', '_person_affiliation_add_helper',
+        '_format_ou_name',
     )
 
     def __new__(cls, *arg, **karg):
