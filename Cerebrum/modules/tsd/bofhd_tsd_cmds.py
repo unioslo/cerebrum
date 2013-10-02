@@ -217,7 +217,7 @@ class TSDBofhdExtension(BofhdCommandBase):
         """
         ou = self.OU_class(self.db)
         try:
-            ou.find_by_tsd_projectname(projectname)
+            ou.find_by_tsd_projectid(projectname)
             return ou
         except Errors.NotFoundError:
             pass
@@ -226,7 +226,7 @@ class TSDBofhdExtension(BofhdCommandBase):
                 ou.find(projectname)
                 return ou
             except Errors.NotFoundError:
-                pass
+                pas
         raise CerebrumError("Could not find project: %s" % projectname)
 
     def _get_ou(self, ou_id=None, stedkode=None):
