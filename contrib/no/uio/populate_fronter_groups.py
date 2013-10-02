@@ -527,6 +527,9 @@ def process_kursdata(role_file, undenh_file, undakt_file,
         # with AffiliatedGroups gets easier later.
         del AffiliatedGroups[kurs_id]
     logger.info(" ... done")
+    if not dryrun:
+        logger.debug("Commit changes")
+        db.commit()
 
     # Oppdaterer gruppene på nivå 1.
     #
@@ -543,6 +546,9 @@ def process_kursdata(role_file, undenh_file, undakt_file,
                    " knyttet til %s." % gname,
                    co.entity_group, AffiliatedGroups[gname]);
     logger.info(" ... done")
+    if not dryrun:
+        logger.debug("Commit changes")
+        db.commit()
 
     # All supergroups (i.e. containers for other groups) must be members of
     # auto_supergroup, specific to this import. This makes it easier to track
@@ -1421,6 +1427,9 @@ def populate_enhet_groups(enhet_id, role_mapping):
                        evu_akt_stud,
                        auto_spread=aktivitet["fronter_spreads"])
     logger.debug(" done")
+    if not dryrun:
+        logger.debug("Commit changes")
+        db.commit()
 # end populate_enhet_groups
 
 
@@ -1567,7 +1576,7 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
         else:
             remove_spread_from_group(gname, co.spread_fronter_dotcom)
     else:
-        logger.debug("Spreads for group %s are unchanged", gname)
+        logger.debug2("Spreads for group %s are unchanged", gname)
 # end sync_group
     
 
@@ -1819,7 +1828,7 @@ def main():
            fnr2account_id, fnr2stud_account_id, AffiliatedGroups, \
            known_FS_groups, fs_supergroup, auto_supergroup, \
            group_creator, UndervEnhet, \
-           ifi_netgr_g, ifi_netgr_lkurs
+           ifi_netgr_g, ifi_netgr_lkurs, dryrun
 
     logger = Factory.get_logger("cronjob")
     logger.debug("populating fronter groups")
