@@ -2151,12 +2151,12 @@ class GroupSync(BaseSync):
                     self.sync_group_members(ent)
                 except ADUtils.NoAccessException, e:
                     self.add_admin_message('warning',
-                                           'No access to members of %s: %s' %
+                                           u'No access to members of %s: %s' %
                                            (ent.ad_id, e))
                     # TODO: do we need to strip out data from the exceptions? Could
                     # it for instance contain passwords?
                 except PowershellException, e:
-                    self.logger.warn("Trouble with member-sync of %s: %s" %
+                    self.logger.warn(u"Trouble with member-sync of %s: %s" %
                                      (ent.ad_id, e))
 
     def fetch_cerebrum_data(self):
