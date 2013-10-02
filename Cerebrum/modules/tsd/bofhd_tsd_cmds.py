@@ -102,11 +102,14 @@ def date_to_string(date):
 
 
 class ProjectID(cmd.Parameter):
+
     """Bofhd Parameter for specifying a project ID."""
     _type = 'projectID'
     _help_ref = 'project_name'
 
+
 class ProjectName(cmd.Parameter):
+
     """Bofhd Parameter for specifying a project name."""
     _type = 'projectName'
     _help_ref = 'project_name'
@@ -272,7 +275,7 @@ def superuser(fn):
         operator = args[1]
         userid = operator.get_entity_id()
         if not self.ba.is_superuser(userid):
-            raise CerebrumError('Only superusers are allowed to do this!')
+            raise CerebrumError('Only superuser is allowed to do this!')
         else:
             self.logger.debug2("OK, current user is superuser.")
             return fn(*args, **kwargs)
@@ -401,7 +404,7 @@ class _Projects:
         self.projects = dict([(project.id, project) for project in project_list])
 
     def filter_by_quarantine(self, quarantine_type):
-        """Remove projects that does not have the given quarantine_type."""
+        """Filter out projects that does not have the given quarantine_type."""
         filtered = [p for p in self.projects.values() if p.has_quarantine(quarantine_type)]
         self.set_project_list(filtered)
 
@@ -412,7 +415,7 @@ class _Projects:
         return [self.projects[key].as_dict(names) for key in sorted_keys]
 
     def results(self, names):
-        """Return the results as a dictionary."""
+        """Return the results as a list of dictionaries, which is what bofhd expects."""
         return [project.as_dict(names) for project in self.projects.values()]
 
 
