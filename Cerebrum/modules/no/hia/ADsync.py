@@ -626,6 +626,11 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     changes = {}
 
                 for attr in cereconf.AD_ATTRIBUTES:
+                    if attr == 'proxyAddresses':
+                        self.logger.debug("proxyAddresses for %s: AD: '%s', Cerebrum: '%s'" % (usr, 
+                            ad_user.get(attr, '<Not Set>'),
+                            cere_user.get(attr, '<Not Set>')))
+
                     # Catching special cases.
                     if attr == 'msExchPoliciesExcluded':
                         # xmlrpclib appends chars [' and '] to
