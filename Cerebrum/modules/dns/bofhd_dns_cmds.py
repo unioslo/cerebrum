@@ -583,7 +583,7 @@ class BofhdExtension(BofhdCommandBase):
             # hull (i en passende klasse)
             ip = a_alloc(
                 name, subnet_ip, free_ip_numbers.pop(0), force)
-            self.b_utils.alloc_host(
+            self.mb_utils.alloc_host(
                 name, hinfo, mx_set_id, comment, contact)
             ret.append({'name': name, 'ip': ip})
         return ret
