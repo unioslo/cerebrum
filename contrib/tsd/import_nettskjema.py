@@ -167,7 +167,9 @@ def process_files(locations, dryrun, archive=None):
             logger.warn("Ignoring unknown path: %s", location)
 
     # Process the files:
-    for file in files:
+    # TODO: Might want to sort in a numeric fashion, depending on the file names
+    # given from Nettskjema.
+    for file in sorted(files):
         try:
             if process_file(file, dryrun):
                 if dryrun:
@@ -538,6 +540,7 @@ class Processing(object):
         """Create the project OU based on given input."""
         pname = input['p_id']
         pid = ou.create_project(pname)
+        logger.debug("New project %s named: %s" (pid, pname))
 
         # The gateway should not be informed about new projects before they're
         # approved, so if we should create the project in the GW, we must also
@@ -574,7 +577,7 @@ class Processing(object):
         # TBD: should we always set the start date, even if it is passed, for
         # the administrators to see when the project started?
         if starttime > DateTime.now():
-            logger.debug("Project %s gets start-time quarantine")
+            logger.debug("Project %s gets start-time quarantine" % pid)
             ou.add_entity_quarantine(type=co.quarantine_project_start,
                                      creator=systemaccount_id,
                                      description='Initial requested starttime for project',
