@@ -441,7 +441,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         'person_affiliation_add', 'person_affiliation_remove',
         # User
         'user_history', 'user_info', 'user_find', 'user_set_expire',
-        '_user_create_set_account_type',
+        'user_password', '_user_create_set_account_type',
         # Group
         'group_info', 'group_list', 'group_list_expanded', 'group_memberships',
         'group_delete', 'group_set_description', 'group_set_expire',
