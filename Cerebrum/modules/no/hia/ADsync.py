@@ -626,6 +626,9 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     changes = {}
 
                 for attr in cereconf.AD_ATTRIBUTES:
+                    if attr == 'employeenumber':
+                        self.logger.debug("For %s, employeenumber from AD: %s",
+                                usr, ad_user.get(attr, '<Not Found>'))
 
                     # Special case for UiA, probably others too - proxyAddresses
                     # would sometimes contain x500 addresses that Cerebrum
