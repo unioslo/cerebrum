@@ -626,10 +626,20 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     changes = {}
 
                 for attr in cereconf.AD_ATTRIBUTES:
+
+                    # Special case for UiA, probably others too - proxyAddresses
+                    # would sometimes contain x500 addresses that Cerebrum
+                    # hasn't set, and will be added back in when Cerebrum
+                    # removes them. Such addresses will therefore be ignored
+                    # from the sync. Idealistically, Cerebrum should have either
+                    # full control of an attribute, or not sync it at all, so
+                    # this is only a compromise. Example on x500 addresses:
+                    # 
+                    #   x500:/o=ExchangeLabs/ou=Exchange Administrative Group (FYDIBOHF23SPDLT)/cn=Recipients/cn=ff65cb19e68d447eb89a3c0f357359e2-lpbrov10
                     if attr == 'proxyAddresses':
-                        self.logger.debug("proxyAddresses for %s: AD: '%s', Cerebrum: '%s'" % (usr, 
-                            ad_user.get(attr, '<Not Set>'),
-                            cere_user.get(attr, '<Not Set>')))
+                        if attr in ad_user:
+                            ad_user[attr] = [x for x in ad_user[attr] if not
+                                    x.startswith('x500:/')]
 
                     # Catching special cases.
                     if attr == 'msExchPoliciesExcluded':
