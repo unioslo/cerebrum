@@ -37,6 +37,7 @@ from Cerebrum.Constants import _QuarantineCode
 from Cerebrum.Constants import _AuthoritativeSystemCode
 from Cerebrum.Constants import _AuthenticationCode
 from Cerebrum.modules.EntityTrait import _EntityTraitCode
+from Cerebrum.modules.dns.DnsConstants import _DnsZoneCode
 
 
 class Constants(Constants.Constants):
@@ -142,3 +143,8 @@ class Constants(Constants.Constants):
     auth_type_otp_key = _AuthenticationCode('OTP-key',
                                             'One-Time Password key, used to be able to generate one-time'
                                             'passwords')
+
+    # DNS zone
+    tsd_zone = _DnsZoneCode("tsd", "tsd.usit.no.")
+    tsd_zone = _DnsZoneCode("tsdipv4", None)
+    tsd_zone = _DnsZoneCode("tsdipv6", None)
