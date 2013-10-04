@@ -43,7 +43,7 @@ from Cerebrum.modules.bofhd.auth import BofhdAuth
 class TSDBofhdAuth(BofhdAuth):
     """The BofhdAuth class for TSD."""
 
-    def can_set_otpkey(self, operator, account, query_run_any=False):
+    def can_generate_otpkey(self, operator, account, query_run_any=False):
         """If the operator is allowed to generate a new OTP key for a given
         account."""
         if self.is_superuser(operator):

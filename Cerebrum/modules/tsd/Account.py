@@ -26,6 +26,7 @@ should refuse account_types from different OUs for a single account.
 
 """
 
+import base64
 #from mx import DateTime
 
 import cerebrum_path
@@ -88,10 +89,12 @@ class AccountTSDMixin(Account.Account):
             https://code.google.com/p/google-authenticator/wiki/KeyUriFormat?
 
         """
-        key = self._generate_otpkey(getattr(cereconf, 'OTP_KEY_LENGTH', 192))
-        # TODO: should be stored for later use if the gateway fails to get
-        # updated
+        key = self._generate_otpkey(getattr(cereconf, 'OTP_KEY_LENGTH', 160))
+        secret = base64.b32encode(key)
+        # TODO: token type, totp or hotp, found in a user's trait
 
-        return key
-
-
+        uri = cereconf.OTP_URI_FORMAT % {'secret': secret,
+                'user': '%s@%s' % (self.account_name,
+                    cereconf.INSTITUTION_DOMAIN_NAME),
+                'type': 'totp'}
+        return uri

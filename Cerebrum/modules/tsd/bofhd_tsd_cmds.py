@@ -1134,20 +1134,22 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     def user_generate_otpkey(self, operator, accountname):
         account = self._get_account(accountname)
         self.ba.can_generate_otpkey(operator.get_entity_id(), account)
-        account.regenerate_otpkey()
+        uri = account.regenerate_otpkey()
         try:
             account.write_db()
         except self.db.DatabaseError, m:
             raise CerebrumError("Database error: %s" % m)
-        # TODO: put the key in the session?
-        # Remove "weak password" quarantine
+        # TODO: Send to gateway
+
+
+        # TODO: Remove some "weak password" quarantine?
         if account.is_deleted():
-            return "OK.  Warning: user is deleted"
+            return "Warning: user is deleted\n%s" % uri
         elif account.is_expired():
-            return "OK.  Warning: user is expired"
+            return "Warning: user is expired\n%s" % uri
         elif account.get_entity_quarantine(only_active=True):
-            return "Warning: user has an active quarantine"
-        return "OTP-key regenerated."
+            return "Warning: user has an active quarantine\n%s" % uri
+        return uri
 
     # user approve
     all_commands['user_approve'] = cmd.Command(
