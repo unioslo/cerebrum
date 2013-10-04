@@ -153,7 +153,7 @@ class ProjectStatusFilter(cmd.Parameter):
     _help_ref = 'project_statusfilter'
 
 
-class Subnet(cmd.Parameter):
+class SubnetParam(cmd.Parameter):
 
     """A subnet, e.g. 10.0.0.0/16"""
     _type = 'subnet'
@@ -1370,12 +1370,40 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     #
     # Subnet commands
 
+    all_commands['subnet_list'] = cmd.Command(
+            ('subnet', 'list'),
+            fs=cmd.FormatSuggestion([(
+                '%-30s %6s %s', ('subnet', 'vlan_number', 'description',),)],
+                hdr='%-30s %6s %s' % ('Subnet', 'VLAN', 'Description')),
+            perm_filter='is_superuser')
+
+    @superuser
+    def subnet_list(self, operator):
+        """Return a list of all subnets."""
+        ret = []
+        # IPv6:
+        subnet6 = IPv6Subnet.IPv6Subnet(self.db)
+        for row in subnet6.search():
+            ret.append({
+                'subnet': '%s/%s' % (row['subnet_ip'], row['subnet_mask']),
+                'vlan_number': str(row['vlan_number']),
+                'description': row['description']})
+        # IPv4:
+        subnet = Subnet.Subnet(self.db)
+        for row in subnet.search():
+            ret.append({
+                'subnet': '%s/%s' % (row['subnet_ip'], row['subnet_mask']),
+                'vlan_number': str(row['vlan_number']),
+                'description': row['description']})
+        self.logger.debug("Found %d subnets", len(ret))
+        # Sort by subnet
+        return sorted(ret, key=lambda x: x['subnet'])
+
     # subnet create
     #all_commands['subnet_create'] = cmd.Command(
     #   ("subnet", "create"),
-    #   Subnet(), cmd.Description(), Vlan(),
+    #   SubnetParam(), cmd.Description(), Vlan(),
     #   perm_filter='is_superuser')
-
     @superuser
     def subnet_create(self, operator, subnet, description, vlan):
        """Create a new subnet, if the range is not already reserved.
