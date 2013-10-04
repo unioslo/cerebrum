@@ -1207,7 +1207,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         # Connect group to project:
         g.populate_trait(self.const.trait_project_group, target_id=ou.entity_id,
                          date=DateTime.now())
-        # TODO: Add spreads if project is active
+        g.write_db()
+
         if not tuple(ou.get_entity_quarantine(only_active=True)):
             for spread in cereconf.BOFHD_NEW_GROUP_SPREADS:
                 g.add_spread(self.const.Spread(spread))
