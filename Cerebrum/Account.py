@@ -483,12 +483,20 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
 
     def create(self, name, owner_id,
                creator_id, expire_date=None, parent=None):
-        """Method for creating a new, regular account. Should be subclassed for
-        instance specific behaviour, e.g. setting default spreads, creating home
-        disks, fixing group memberships etc.
+        """Method for creating a new, regular account with default settings.
+
+        Creates a standard account with the spreads defined in
+        L{cereconf.BOFHD_NEW_USER_SPREADS}, a password gets set for the
+        account, and the account is written to the db.
+
+        The method should be subclassed for extra functionality specific to a
+        given Cerebrum-instance, e.g. for setting default spreads, creating
+        home disks, fixing group memberships etc.
 
         If you don't want to create a normal account, please use L{populate}
-        as before.
+        as before. This is a shortcut method for creating regular accounts
+        easier and with the benefit of modifying it by subclasses instead of
+        for example create instance-specific bofhd commands.
 
         TODO: This is work in progress, expect changes.
 
