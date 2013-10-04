@@ -146,5 +146,5 @@ class Constants(Constants.Constants):
 
     # DNS zone
     tsd_zone = _DnsZoneCode("tsd", "tsd.usit.no.")
-    tsd_zone = _DnsZoneCode("tsdipv4", None)
-    tsd_zone = _DnsZoneCode("tsdipv6", None)
+    tsdv4_zone = _DnsZoneCode("tsdipv4", None)
+    tsdv6_zone = _DnsZoneCode("tsdipv6", None)
