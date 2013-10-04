@@ -67,8 +67,9 @@ from Cerebrum.modules.dns import HostInfo
 from Cerebrum.modules.dns import IPNumber
 from Cerebrum.modules.dns import IPv6Number
 from Cerebrum.modules.dns import Subnet
-from Cerebrum.modules.dns.Subnet import SubnetError
-from Cerebrum.modules.dns.IPUtils import IPCalc
+from Cerebrum.modules.dns import IPv6Subnet
+from Cerebrum.modules.dns import IPUtils
+from Cerebrum.modules.dns import IPv6Utils
 from Cerebrum.modules.dns import CNameRecord
 from Cerebrum.modules.dns import Utils
 from Cerebrum.modules.hostpolicy.PolicyComponent import PolicyComponent
@@ -1181,17 +1182,17 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     @superuser
     def group_create(self, operator, project, group, description):
         """Method for creating a new group"""
-
         self.logger.debug2("group create start")
+        ou = self._get_project(project)
+        groupname = '%s-%s' % (project, group)
 
+        # Check that no account exists with the same name. Necessary for AD: 
         ac = self.Account_class(self.db)
-
         try:
             ac.find_by_name(groupname)
         except Errors.NotFoundError:
             pass
         else:
-            # Necessary because of AD
             raise CerebrumError('An account exists with name: %s' % groupname)
 
         self.ba.can_create_group(operator.get_entity_id())
@@ -1199,21 +1200,19 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         g.populate(creator_id=operator.get_entity_id(),
                    visibility=self.const.group_visibility_all,
                    name=groupname, description=description)
-
-        # TODO: Figure out how populate_trait works
-        # g.populate_trait(co.
-
         try:
             g.write_db()
         except self.db.DatabaseError, m:
             raise CerebrumError("Database error: %s" % m)
-        for spread in cereconf.BOFHD_NEW_GROUP_SPREADS:
-            g.add_spread(self.const.Spread(spread))
-            g.write_db()
-
-        self.logger.debug2("group create stop")
-
-        return {'group_id': int(g.entity_id)}
+        # Connect group to project:
+        g.populate_trait(self.const.trait_project_group, target_id=ou.entity_id,
+                         date=DateTime.now())
+        # TODO: Add spreads if project is active
+        if not tuple(ou.get_entity_quarantine(only_active=True)):
+            for spread in cereconf.BOFHD_NEW_GROUP_SPREADS:
+                g.add_spread(self.const.Spread(spread))
+                g.write_db()
+        return "Group %s created, group_id=%s" % (g.group_name, g.entity_id)
 
     # group add_member
     all_commands['group_add_member'] = cmd.Command(
@@ -1370,29 +1369,29 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     #
     # Subnet commands
 
-    # TODO
-
     # subnet create
-    # all_commands['subnet_create'] = cmd.Command(
-    #    ("subnet", "create"),
-    #    Subnet(), cmd.Description(), Vlan(),
-    #    perm_filter='is_superuser')
-    # def subnet_create(self, operator, subnet, description, vlan):
-    #    """Create a new subnet, if the range is not already reserved.
+    #all_commands['subnet_create'] = cmd.Command(
+    #   ("subnet", "create"),
+    #   Subnet(), cmd.Description(), Vlan(),
+    #   perm_filter='is_superuser')
 
-    #    TODO: Should it be possible to specify a range, or should we find one
-    #    randomly?
+    @superuser
+    def subnet_create(self, operator, subnet, description, vlan):
+       """Create a new subnet, if the range is not already reserved.
 
-    #    """
-    #    if not self.ba.is_superuser(operator.get_entity_id()):
-    #        raise CerebrumError('Only superusers are allowed to do this')
-    #    subnet = Subnet.Subnet(self.db)
-    #    subnet.populate(subnet, description=description, vlan=vlan)
-    # TODO: more checks?
-    #    subnet.write_db(perform_checks=True)
-    #    return "Subnet created: %s" % subnet
+       TODO: Should it be possible to specify a range, or should we find one
+       randomly?
 
-    # def add_subnet(subnet, description, vlan, perform_checks=True):
+       """
+       subnet = Subnet.Subnet(self.db)
+       subnet.populate(subnet, description=description, vlan=vlan)
+
+       #TODO: more checks?
+       subnet.write_db(perform_checks=True)
+       return "Subnet created: %s" % subnet
+
+    def add_subnet(subnet, description, vlan, perform_checks=True):
+        pass
 
 
 class EnduserBofhdExtension(TSDBofhdExtension):
