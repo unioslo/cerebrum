@@ -229,7 +229,7 @@ class TSDBofhdExtension(BofhdCommandBase):
                 ou.find(projectname)
                 return ou
             except Errors.NotFoundError:
-                pas
+                pass
         raise CerebrumError("Could not find project: %s" % projectname)
 
     def _get_ou(self, ou_id=None, stedkode=None):
@@ -258,6 +258,62 @@ class TSDBofhdExtension(BofhdCommandBase):
             return str(acronym)
         return "%s (%s)" % (acronym, short_name)
 
+    # misc list_passwords
+    def misc_list_passwords_prompt_func(self, session, *args):
+        """  - Går inn i "vis-info-om-oppdaterte-brukere-modus":
+  1 Skriv ut passordark
+  1.1 Lister ut templates, ber bofh'er om å velge en
+  1.1.[0] Spesifiser skriver (for template der dette tillates valgt av
+          bofh'er)
+  1.1.1 Lister ut alle aktuelle brukernavn, ber bofh'er velge hvilke
+        som skal skrives ut ('*' for alle).
+  1.1.2 (skriv ut ark/brev)
+  2 List brukernavn/passord til skjerm
+  """
+        all_args = list(args[:])
+        if not all_args:
+            return {'prompt': "Velg#",
+                    'map': [(("Alternativer",), None),
+                            (("List brukernavn/passord til skjerm",), "skjerm")]}
+        arg = all_args.pop(0)
+        if(arg == "skjerm"):
+            return {'last_arg': True}
+        if not all_args:
+            map = [(("Alternativer",), None)]
+            n = 1
+            for t in self._map_template():
+                map.append(((t,), n))
+                n += 1
+            return {'prompt': "Velg template #", 'map': map,
+                    'help_ref': 'print_select_template'}
+        arg = all_args.pop(0)
+        tpl_lang, tpl_name, tpl_type = self._map_template(arg)
+        if not tpl_lang.endswith("letter"):
+            default_printer = session.get_state(state_type='default_printer')
+            if default_printer:
+                default_printer = default_printer[0]['state_data']
+            if not all_args:
+                ret = {'prompt': 'Oppgi skrivernavn'}
+                if default_printer:
+                    ret['default'] = default_printer
+                return ret
+            skriver = all_args.pop(0)
+            if skriver != default_printer:
+                session.clear_state(state_types=['default_printer'])
+                session.store_state('default_printer', skriver)
+                self.db.commit()
+        if not all_args:
+            n = 1
+            map = [(("%8s %s", "uname", "operation"), None)]
+            for row in self._get_cached_passwords(session):
+                map.append((("%-12s %s", row['account_id'], row['operation']), n))
+                n += 1
+            if n == 1:
+                raise CerebrumError, "no users"
+            return {'prompt': 'Velg bruker(e)', 'last_arg': True,
+                    'map': map, 'raw': True,
+                    'help_ref': 'print_select_range',
+                    'default': str(n-1)}
 
 def superuser(fn):
     """Decorator for checking that methods are being executed as operator.
@@ -470,6 +526,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         #
         # Misc
         'misc_affiliations', 'misc_clear_passwords', 'misc_verify_password',
+        'misc_list_passwords',
         # Trait
         'trait_info', 'trait_list', 'trait_remove', 'trait_set',
         # Spread
@@ -478,7 +535,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         'entity_history',
         # Helper functions
         '_find_persons', '_get_person', '_get_disk', '_get_group', '_get_shell',
-        '_get_account', '_get_entity_name',
+        '_get_account', 
         '_map_person_id', '_entity_info', 'num2str', '_get_affiliationid',
         '_get_affiliation_statusid', '_parse_date', '_today',
         '_format_changelog_entry', '_format_from_cl', '_get_name_from_object',

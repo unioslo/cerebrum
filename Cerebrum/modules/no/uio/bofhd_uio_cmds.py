@@ -9800,33 +9800,12 @@ Password altered. Use misc list_password to print or view the new password.%s'''
           than nothing at all).
 
         """
-        if entity_type is None:
-            ety = Entity.Entity(self.db)
-            try:
-                ety.find(entity_id)
-                entity_type = self.const.EntityType(ety.entity_type)
-            except Errors.NotFoundError:
-                return "notfound:%d" % entity_id
-
-        if entity_type == self.const.entity_disk:
-            disk = Utils.Factory.get('Disk')(self.db)
-            disk.find(entity_id)
-            return disk.path
-        elif entity_type == self.const.entity_host:
-            host = Utils.Factory.get('Host')(self.db)
-            host.find(entity_id)
-            return host.name
-        elif entity_type == self.const.entity_person:
-            person = Utils.Factory.get('Person')(self.db)
-            person.find(entity_id)
-            return person.get_name(self.const.system_cached,
-                                   self.const.name_full)
-        elif entity_type == self.const.entity_ou:
+        if entity_type == self.const.entity_ou:
             ou = self._get_ou(ou_id=entity_id)
             return self._format_ou_name(ou)
         # Use default values for types like account and group:
-        return super(BofhdExtension, self)._get_entity_name(entity_id,
-                                                            entity_type)
+        return super(BofhdExtension, self)._get_entity_name(entity_id=entity_id,
+                entity_type=entity_type)
 
     def _get_disk(self, path, host_id=None, raise_not_found=True):
         disk = Utils.Factory.get('Disk')(self.db)
