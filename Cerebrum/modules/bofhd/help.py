@@ -448,10 +448,10 @@ class Help(object):
         for k in used_arg_help.keys():
             if used_arg_help[k]:
                 del(used_arg_help[k])
-        self.logger.info("Unused arg_help: %s" % used_arg_help.keys())
+        self.logger.debug2("Unused arg_help: %s" % used_arg_help.keys())
         for k in ch.keys():
             if ch[k]:
-                self.logger.debug("Unused help for %s" % ch[k].keys())
+                self.logger.debug2("Unused help for %s" % ch[k].keys())
 
 if __name__ == '__main__':
     import getopt
