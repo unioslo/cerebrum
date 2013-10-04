@@ -614,7 +614,8 @@ def main():
         opts, args = getopt.getopt(sys.argv[1:], 'b:hr:s:Z:m:n:Rd:', [
             'help', 'build=', 'reverse=', 'reverse6=', 'hosts=', 'head=',
             'zone=', 'mask=', 'mask6=', 'dir=', 'comments'])
-    except getopt.GetoptError:
+    except getopt.GetoptError, e:
+        print e
         usage(1)
 
     heads = []
@@ -638,6 +639,7 @@ def main():
             with_comments = True
         elif opt in ('--build', '-b'):
             if not heads:
+                print "Missing --head, required before build"
                 usage(1)
             fm = ForwardMap(zone)
             if data_dir:
@@ -646,6 +648,7 @@ def main():
                 fm.generate_zone_file(val, heads, os.path.dirname(val))
         elif opt in ('--reverse', '-r'):
             if not (heads and mask):
+                print "Missing --head and --mask, required before reverse build"
                 usage(1)
             rm = ReverseMap(mask)
             if data_dir:
@@ -654,6 +657,7 @@ def main():
                 rm.generate_reverse_file(val, heads, os.path.dirname(val))
         elif opt in ('--reverse6', '-s'):
             if not (heads and mask6):
+                print "Missing --head and --mask6, required before reverse build"
                 usage(1)
             rm = IPv6ReverseMap(mask6)
             if data_dir:
