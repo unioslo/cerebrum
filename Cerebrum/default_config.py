@@ -804,6 +804,10 @@ DEFAULT_RESERVED_BY_NET_SIZE = {
     32: 0,
 }
 
+# The default DNS zone to use for bofhd commands and others. Must reference to a
+# Cerebrum constant of type DnsZoneCode:
+DNS_DEFAULT_ZONE = 'uio'
+
 DEFAULT_RESERVED_BY_IPv6_NET_SIZE = {64: 4}
 DEFAULT_IPv6_SUBNET_ALLOCATION_START = 0x256
 

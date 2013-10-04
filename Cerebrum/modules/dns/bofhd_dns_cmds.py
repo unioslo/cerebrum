@@ -251,7 +251,8 @@ class BofhdExtension(BofhdCommandBase):
     def __init__(self, server, default_zone='uio'):
         super(BofhdExtension, self).__init__(server)
         
-        self.default_zone = self.const.DnsZone(default_zone)
+        self.default_zone = self.const.DnsZone(
+                getattr(cereconf, 'DNS_DEFAULT_ZONE', default_zone))
         self.mb_utils = DnsBofhdUtils(server, self.default_zone)
         self.dns_parser = Utils.DnsParser(server.db, self.default_zone)
         self._find = Utils.Find(server.db, self.default_zone)

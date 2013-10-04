@@ -191,7 +191,7 @@ class IPv6Subnet(Entity):
         # Need to import Utils here, since Utils imports this module,
         # and we cannot have circular module dependencies.
         from Cerebrum.modules.dns.Utils import Find
-        default_zone = self.const.DnsZone("uio")
+        default_zone = self.const.DnsZone(getattr(cereconf, 'DNS_DEFAULT_ZONE', 'uio'))
         find = Find(self._db, default_zone)
         
         if find.find_used_ips(self.subnet_ip):

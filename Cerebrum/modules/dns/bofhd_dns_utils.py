@@ -30,7 +30,6 @@ class DnsBofhdUtils(object):
     # non-jbofh clients to communicate with dns.  This is a long-term
     # goal, however, and it has not been determined how to approach
     # the problem.
-    
 
     def __init__(self, server, default_zone):
         self.server = server

@@ -164,7 +164,7 @@ class TSDBofhdExtension(BofhdCommandBase):
 
     """Superclass for common functionality for TSD's bofhd servers."""
 
-    def __init__(self, server, default_zone='tsd.usit.no.'):
+    def __init__(self, server):
         super(TSDBofhdExtension, self).__init__(server)
         self.ba = TSDBofhdAuth(self.db)
         # From uio
@@ -563,7 +563,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         x = object.__new__(cls)
         return x
 
-    def __init__(self, server, default_zone='tsdutv.usit.no.'):
+    def __init__(self, server):
         super(AdministrationBofhdExtension, self).__init__(server)
 
         # Copy in all defined commands from the superclass that is not defined

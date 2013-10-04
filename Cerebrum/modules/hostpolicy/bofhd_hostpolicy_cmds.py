@@ -92,7 +92,8 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         super(HostPolicyBofhdExtension, self).__init__(server)
         self.ba = HostPolicyBofhdAuth(self.db)
         # TODO: don't know where to get the zone setting from
-        self.default_zone = self.const.DnsZone('uio')
+        self.default_zone = self.const.DnsZone(
+                getattr(cereconf, 'DNS_DEFAULT_ZONE', 'uio'))
 
     def get_help_strings(self):
         """Help strings are used by jbofh to give users explanations for groups
