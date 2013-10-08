@@ -529,7 +529,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         'misc_affiliations', 'misc_clear_passwords', 'misc_verify_password',
         'misc_list_passwords',
         # Trait
-        'trait_info', 'trait_list', 'trait_remove', 'trait_set',
+        'trait_info', 'trait_list', 'trait_remove', 'trait_set', 'trait_types',
         # Spread
         'spread_list', 'spread_add', 'spread_remove',
         # Entity
