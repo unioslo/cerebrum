@@ -173,6 +173,7 @@ class OUTSDMixin(OU):
                 raise Errors.CerebrumError('Acronym already in use')
         return self.__super.add_name_with_language(name_variant, name_language,
                                                    name)
+
     def get_next_free_project_id(self):
         """Return the next project ID that is not in use.
 
@@ -184,7 +185,7 @@ class OUTSDMixin(OU):
         """
         all_ids = set(r['external_id'] for r in 
                       self.list_external_ids(id_type=self.const.externalid_project_id))
-        for i in xrange(1, 99):
+        for i in xrange(0, 99):
             pid = 'p%02d' % i
             if pid not in all_ids:
                 return pid
