@@ -618,8 +618,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                                  description='Initial end set by superuser')
         ou.write_db()
         ou.setup_project(operator.get_entity_id())
-        if not ou.get_entity_quarantine(only_active=True):
-            self.gateway.create_project(projectname)
+        #if not ou.get_entity_quarantine(only_active=True):
+        #    self.gateway.create_project(projectname)
         # TODO: inform the gateway about the resources from here too, or wait
         # for the gateway sync to do that?
         return "New project created: %s" % pid
@@ -640,7 +640,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         # TODO: delete person affiliations?
         # TODO: delete accounts
         project.terminate()
-        self.gateway.delete_project(project_name)
+        #self.gateway.delete_project(project_name)
         return "Project terminated: %s" % project_name
 
     all_commands['project_approve'] = cmd.Command(
@@ -669,7 +669,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         project.setup_project(operator.get_entity_id())
         if not project.get_entity_quarantine(only_active=True):
             # Active project only if no other quarantines
-            self.gateway.create_project(project_name)
+            #self.gateway.create_project(project_name)
+            pass
 
         self.logger.info(success_msg)
         return success_msg
@@ -698,7 +699,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         try:
             # Double check that project doesn't exist in Gateway.
             # Will raise exception if it's okay.
-            self.gateway.delete_project(project_name)
+            #self.gateway.delete_project(project_name)
+            pass
         except Exception:
             pass
         return "Project deleted: %s" % project_name
@@ -727,7 +729,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         # If set in the past, the project is now frozen
         if end < DateTime.now():
             # TODO
-            self.gateway.freeze_project(project_name)
+            #self.gateway.freeze_project(project_name)
+            pass
         return "Project %s updated to end: %s" % (project_name,
                                                   date_to_string(end))
 
@@ -751,7 +754,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                                       description='Project freeze',
                                       start=end)
         project.write_db()
-        self.gateway.freeze_project(project_name)
+        #self.gateway.freeze_project(project_name)
         return "Project %s is now frozen" % project_name
 
     all_commands['project_unfreeze'] = cmd.Command(
@@ -772,7 +775,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
         # Only unthaw projects without quarantines
         if not project.get_entity_quarantine(only_active=True):
-            self.gateway.thaw_project(project_name)
+            #self.gateway.thaw_project(project_name)
+            pass
         return "Project %s is now unfrozen" % project_name
 
     all_commands['project_list'] = cmd.Command(
