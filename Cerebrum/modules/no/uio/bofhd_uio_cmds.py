@@ -8233,6 +8233,18 @@ Addresses and settings:
         ent.write_db()
         return "Ok, set trait %s for %s" % (trait_name, ent_name)
 
+    # trait types -- list out the defined trait types
+    all_commands['trait_types'] = Command(
+        ("trait", "types"),
+        fs=FormatSuggestion("%-25s %s", ('trait', 'description'),
+                            hdr="%-25s %s" % ('Trait', 'Description')),
+        perm_filter="can_set_trait")
+    def trait_types(self, operator):
+        self.ba.can_set_trait(operator.get_entity_id())
+        ret = [{"trait": str(x),
+                 "description": x.description}
+                for x in self.const.fetch_constants(self.const.EntityTrait)]
+        return sorted(ret, key=lambda x: x['trait'])
 
     #
     # user commands
