@@ -1383,9 +1383,11 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ret = []
         # IPv6:
         subnet6 = IPv6Subnet.IPv6Subnet(self.db)
+        compress = IPv6Utils.IPv6Utils.compress
         for row in subnet6.search():
             ret.append({
-                'subnet': '%s/%s' % (row['subnet_ip'], row['subnet_mask']),
+                'subnet': '%s/%s' % (compress(row['subnet_ip']),
+                                     row['subnet_mask']),
                 'vlan_number': str(row['vlan_number']),
                 'description': row['description']})
         # IPv4:
