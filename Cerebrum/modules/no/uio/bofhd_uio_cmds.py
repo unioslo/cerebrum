@@ -7709,6 +7709,8 @@ Addresses and settings:
           format_day("dato_regform_endret"))),
         ("Semesterbetaling: %s - %s, betalt: %s",
          ("betstatus", "betformkode", format_day('dato_betaling'))),
+        ("Registrert med status_dod: %s",
+         ("status_dod",)),
         ]),
         perm_filter='can_get_student_info')
     def person_student_info(self, operator, person_id):
@@ -7806,6 +7808,10 @@ Addresses and settings:
                 ret.append({'betstatus': 'Nei',
                             'betformkode': None,
                             'dato_betaling': None})
+
+        # Check is alive
+        if fs.person.is_dead(fodselsdato, pnum):
+            ret.append({'status_dod': 'Ja'})
         db.close()
         return ret
 

@@ -210,6 +210,16 @@ class Person(FSObject):
     # end update_fagperson
                                
 
+    def is_dead(self, fodselsdato, personnr):
+        """Check if a given person is registered as dead (status_dod) in FS."""
+        ret = self.db.query("""
+            SELECT p.status_dod as dod
+            FROM fs.person p
+            WHERE p.fodselsdato = :fodselsdato AND p.personnr = :personnr""",
+            {'fodselsdato': fodselsdato, 'personnr': personnr})
+        if ret:
+            return ret[0]['dod'] == 'J'
+        return False
 
     def list_dead_persons(self): # GetDod
         """Henter en liste med de personer som ligger i FS og som er
