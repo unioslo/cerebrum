@@ -451,7 +451,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 source_system=self.co.system_sap,
                 id_type=self.co.externalid_sap_ansattnr,
                 entity_type=self.co.entity_person):
-            pid2employee[row['entity_id']] = int(row['external_id'])
+            pid2employee[row['entity_id']] = str(row['external_id'])
 
         for v in tmp_ret.values():
             if pid2employee.has_key(v['TEMPownerId']):
@@ -626,9 +626,6 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     changes = {}
 
                 for attr in cereconf.AD_ATTRIBUTES:
-                    if attr == 'employeenumber':
-                        self.logger.debug("For %s, employeenumber from AD: %s",
-                                usr, ad_user.get(attr, '<Not Found>'))
 
                     # Special case for UiA, probably others too - proxyAddresses
                     # would sometimes contain x500 addresses that Cerebrum
