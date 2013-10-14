@@ -420,13 +420,18 @@ Imports OU data from systems that use 'stedkoder' (e.g. SAP, FS or LT)
 def main():
     global verbose, clean_obsolete_ous, def_kat_merke
 
-    opts, args = getopt.getopt(sys.argv[1:], 'vcf:lt:e:',
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 'hvcf:lt:e:',
                                ['verbose',
+                                'help',
                                 'clean',
                                 'file=',
                                 'ldap-visibility',
                                 'target-system=',
                                 'email='])
+    except getopt.GetoptError, e:
+        print e
+        usage(1)
     
     verbose = 0
     sources = []
@@ -439,7 +444,9 @@ def main():
     old_cere_ous = dict()
 
     for opt, val in opts:
-        if opt in ('-v', '--verbose'):
+        if opt in ('-h', '--help'):
+            usage()
+        elif opt in ('-v', '--verbose'):
             verbose += 1
         elif opt in ('-c','--clean'):
             clean_obsolete_ous = True
@@ -454,7 +461,9 @@ def main():
         elif opt in ('-e', '--email'):
             email_notify.extend(val.split(','))
 
-    assert target_system
+    if not target_system:
+        print "Missing target-system"
+        usage(1)
 
     if email_notify:
         old_cere_ous = get_cere_ou_table()
