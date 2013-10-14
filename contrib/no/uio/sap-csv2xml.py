@@ -1117,20 +1117,40 @@ def process_file(in_name, out_name, logger):
     logger.debug("Conversion complete")
 # end process_file
 
+def usage(exitcode=0):
+    print __doc__
+    print """Usage: sap-csv2xml.py -f FROMFILE -t TOFILE
+
+    -f --from IMPORTFILE    The CSV file to read from.
+
+    -t --to EXPORTFILE      The XML file to write to. 
+
+    -h --help               Show this and quit.
+    """
+    sys.exit(exitcode)
 
 def main():
     logger = Factory.get_logger("cronjob")
-    options, junk = getopt.getopt(sys.argv[1:], "f:t:", ("from=", "to=",))
+    try:
+        options, junk = getopt.getopt(sys.argv[1:], "f:t:", ("from=", "to=",))
+    except getopt.GetoptError, e:
+        print e
+        usage(1)
 
     from_file = None
     to_file = None
     for option, value in options:
+        if option in ('-h', '--help'):
+            usage()
         if option in ("-f", "--from",):
             from_file = value
         elif option in ("-t", "--to",):
             to_file = value
 
-    assert from_file and to_file
+    if not from_file and to_file:
+        print "Missing from or to file"
+        usage(1)
+
     try:
         process_file(from_file, to_file, logger)
     except AssertionError:
