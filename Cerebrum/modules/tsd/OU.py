@@ -259,7 +259,7 @@ class OUTSDMixin(OU):
         """
         if self.get_entity_quarantine(type=self.const.quarantine_not_approved,
                 only_active=True):
-            raise Errors.CerebrumError("Project is quarantined, cannot setup")
+            raise Errors.CerebrumError("Project is not approved, cannot setup")
         projectid = self.get_project_id()
         self._setup_project_dns(creator_id)
 
@@ -286,33 +286,29 @@ class OUTSDMixin(OU):
             gr.clear()
             try:
                 gr.find_by_name(groupname)
+                # If group already exists, we skip creating it.
             except Errors.NotFoundError:
                 gr.clear()
                 gr.populate(creator_id, self.const.group_visibility_all,
                             groupname, desc)
                 gr.write_db()
-                # Each group is linked to the project by a project trait:
-                gr.populate_trait(trait, target_id=self.entity_id,
-                                  date=DateTime.now())
-                gr.write_db()
-            else:
-                # TODO: or should this be an accepted behaviour?
-                raise Errors.CerebrumError("Project group already exists: %s"
-                        % groupname)
+
+            # Each group is linked to the project by a project trait:
+            gr.populate_trait(code=trait, target_id=self.entity_id,
+                              date=DateTime.now())
+            gr.write_db()
             return True
 
         # Create project groups
-        for suffix, desc in getattr(cereconf, 'TSD_PROJECT_ROLEGROUPS', ()):
+        for suffix, desc in getattr(cereconf, 'TSD_PROJECT_GROUPS', ()):
             _create_group(suffix, desc, self.const.trait_project_group)
-
-        # TODO: Create action groups
-
-        # TODO: Create resource groups
+        # TODO: Create action groups - how, what?
+        # TODO: Create resource groups - how, what?
 
         # Machines:
         #TODO
 
-        # TODO: Disks?
+        # TODO: Disks? How?
 
         # TODO: Add accounts to the various groups:
         ac = Factory.get('Account')(self._db)

@@ -71,7 +71,6 @@ from Cerebrum.modules.dns import IPv6Subnet
 from Cerebrum.modules.dns import IPUtils
 from Cerebrum.modules.dns import IPv6Utils
 from Cerebrum.modules.dns import CNameRecord
-from Cerebrum.modules.dns import Utils
 from Cerebrum.modules.hostpolicy.PolicyComponent import PolicyComponent
 from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.modules import dns
@@ -505,7 +504,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         # Group
         'group_info', 'group_list', 'group_list_expanded', 'group_memberships',
         'group_delete', 'group_set_description', 'group_set_expire',
-        'group_search',  # 'group_create',
+        'group_search', 'group_promote_posix', # 'group_create',
         # Quarantine
         'quarantine_disable', 'quarantine_list', 'quarantine_remove',
         'quarantine_set', 'quarantine_show',
@@ -1094,7 +1093,6 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         if owner_type == self.const.entity_person:
             ou_id, affiliation = affiliation['ou_id'], affiliation['aff']
             ou = self._get_ou(ou_id=ou_id)
-            projectname = self._format_ou_name(ou, include_short_name=False)
 
         posix_user.populate(uid, None, None, shell, name=uname,
                             owner_type=owner_type, owner_id=owner_id,
@@ -1122,7 +1120,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             raise CerebrumError("Database error: %s" % m)
         operator.store_state("new_account_passwd", {'account_id': int(posix_user.entity_id),
                                                     'password': passwd})
-        return "Ok, created %s (entity_id:%s)" % (posix_user.account_name, uid)
+        return "Ok, created %s, UID: %s" % (posix_user.account_name, uid)
 
     # user password
     all_commands['user_set_password'] = cmd.Command(
@@ -1200,24 +1198,25 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             raise CerebrumError('An account exists with name: %s' % groupname)
 
         self.ba.can_create_group(operator.get_entity_id())
-        g = self.Group_class(self.db)
-        g.populate(creator_id=operator.get_entity_id(),
+        gr = Utils.Factory.get('PosixGroup')(self.db)
+        gr.populate(creator_id=operator.get_entity_id(),
                    visibility=self.const.group_visibility_all,
                    name=groupname, description=description)
         try:
-            g.write_db()
+            gr.write_db()
         except self.db.DatabaseError, m:
             raise CerebrumError("Database error: %s" % m)
         # Connect group to project:
-        g.populate_trait(self.const.trait_project_group, target_id=ou.entity_id,
+        gr.populate_trait(self.const.trait_project_group, target_id=ou.entity_id,
                          date=DateTime.now())
-        g.write_db()
+        gr.write_db()
 
         if not tuple(ou.get_entity_quarantine(only_active=True)):
             for spread in cereconf.BOFHD_NEW_GROUP_SPREADS:
-                g.add_spread(self.const.Spread(spread))
-                g.write_db()
-        return "Group %s created, group_id=%s" % (g.group_name, g.entity_id)
+                gr.add_spread(self.const.Spread(spread))
+                gr.write_db()
+        return "Group %s created, group_id=%s, GID=%s" % (gr.group_name,
+                gr.entity_id, gr.posix_gid)
 
     # group add_member
     all_commands['group_add_member'] = cmd.Command(
