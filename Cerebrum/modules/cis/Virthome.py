@@ -1,6 +1,7 @@
-from Cerebrum.Errors import NotFoundError, CerebrumRPCException
+from Cerebrum.Errors import NotFoundError, CerebrumRPCException, CerebrumError
 from Cerebrum.modules.cis.Utils import CisModule, commit_handler
 from Cerebrum.modules.virthome.base import VirthomeBase, VirthomeUtils
+from Cerebrum.Utils import Factory
 
 class Virthome(CisModule):
     """ This is the cis interface with Cerebrum for all virthome-related
@@ -25,6 +26,67 @@ class Virthome(CisModule):
 
         if dryrun is not None:
             self.dryrun = dryrun
+
+
+    @commit_handler(dryrun=dryrun)
+    def fedaccount_assert(self, account_name, email, expire_date=None,
+            human_first_name=None, human_last_name=None):
+        """ This should be called whenever a FEDAccount logs in in external
+        applications. It ensures that the fedaccount also exists in WebID, so
+        that we have an entity ID to bind events to.
+
+        This is the equivalent to bofhd_virthome_cmds/user_fedaccount_login
+        NOTE: This method does no authentication check, WE NEED TO BE CERTAIN
+        THAT THE CALLER HAS AUTHENTICATED THE USER AND USER DATA.
+
+        @type account_name: str
+        @param account_name: Desired FEDAccount name. If unavailable, we'll
+                             encounter an error.
+
+        @type email: str
+        @param email: The FEDAccount owner's e-mail address.
+
+        @type expire_date: mx.DateTime.DateTime 
+        @param expire_date: Expiration date for the FEDAccount we are about to
+                            create.
+
+        @type human_first_name: str
+        @param human_first_name: The first name(s) of the account owner
+
+        @type human_last_name: str
+        @param human_last_name: The last name(s) of the account owner
+
+        @rtype: bool
+        @return: True if the account already existed, False if the account just
+                 got created
+        """
+        # TODO: This method should be moved to modules/virthome/base.py
+        if not self.vhutils.account_exists(account_name):
+            self.vhutils.create_fedaccount(account_name, email, expire_date,
+                    human_first_name, human_last_name)
+            self.log.info("FEDAccount %s created" % account_name)
+            return False
+
+        ac = Factory.get('Account')(self.db)
+        co = Factory.get('Constants')(self.db)
+        try:
+            ac.find_by_name(account_name)
+        except NotFoundError:
+            raise CerebrumRPCException(
+                    "Could not find account (%s), should exist!" % account_name)
+
+        # Account exists, check if email / name has changed
+        if email and ac.get_email_address() != email:
+            ac.set_email_address(email)
+        if human_first_name and ac.get_owner_name(co.human_first_name) != human_first_name:
+            ac.set_owner_name(co.human_first_name, human_first_name)
+        if human_last_name and ac.get_owner_name(co.human_last_name) != human_last_name:
+            ac.set_owner_name(co.human_last_name, human_last_name)
+
+        ac.extend_expire_date()
+        ac.write_db()
+
+        return True
     
 
     @commit_handler(dryrun=dryrun)
@@ -47,11 +109,14 @@ class Virthome(CisModule):
         # behaviour.
         #
         
+        if self.vhutils.group_exists(group_name):
+            raise CerebrumRPCException("Group name '%s' already exists" % group_name)
+
         # FIXME: Move to config?
         creator_name = 'webapp'
 
         try:
-            creator.find(creator_name)
+            creator.find_by_name(creator_name)
         except NotFoundError:
             raise CerebrumRPCException(
                 "Could not find creator account (%s)" % creator_name)
@@ -62,30 +127,40 @@ class Virthome(CisModule):
         #except NotFoundError:
             #raise CerebrumRPCException(
                 #"Could not find account with name (%s)" % owner_name)
+        try:
+            new_group = self.virthome.group_create(group_name, description,
+                                                   creator, owner, url,
+                                                   forward)
+        except CerebrumError, e:
+            raise CerebrumRPCException(
+                "Could not create group '%s' - %s" % (group_name, str(e)))
 
-        new_group = self.virthome.group_create(group_name, description, creator,
-                                               owner, url, forward)
         self.log.info('Group (%s) created by (%s)' % (group_name, owner_name))
         return {'group_id': new_group.entity_id, 
                 'group_name': new_group.group_name}
 
 
     @commit_handler(dryrun=dryrun)
-    def group_invite_user(self, group_name, email, timeout=3):
+    def group_invite_user(self, group_name, inviter_name, email, timeout=3):
         """ This is a wrapper for the method of the same name in
         VirthomeBase. This method looks up the C{group_name} and handles
         commit/rollback.
 
         See L{Cerebrum.modules.virthome.base.VirthomeBase} for more.
         """
-        group = self.virthome.group_class(self.db)
+        inviter = self.virthome.account_class(self.db)
+        try:
+            inviter.find_by_name(inviter_name)
+        except NotFoundError:
+            raise CerebrumRPCException("Could not find account (%s)" % inviter_name)
 
+        group = self.virthome.group_class(self.db)
         try:
             group.find_by_name(group_name)
         except NotFoundError:
             raise CerebrumRPCException("Could not find group (%s)" % group_name)
         
-        return self.virthome.group_invite_user(group, email, timeout)
+        return self.virthome.group_invite_user(inviter, group, email, timeout)
 
 
     @commit_handler(dryrun=dryrun)

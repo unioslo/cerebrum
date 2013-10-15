@@ -334,8 +334,9 @@ class TwistedSoapStarter(BasicSoapStarter):
         """Setting up the reactor, without encryption."""
         self.port = reactor.listenTCP(int(port), self.site,
                                       interface=self.interface)
-        url = "http://%s:%d/SOAP/" % (socket.gethostname(),
-                                      self.port.getHost().port)
+        url = "http://%s:%d/%s/" % (socket.gethostname(),
+                                    self.port.getHost().port,
+                                    self.soapchildpath)
         log.msg("DEBUG: Server set up at %s" % url)
         log.msg("DEBUG: WSDL definition at %s?wsdl" % url)
 
