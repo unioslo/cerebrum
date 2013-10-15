@@ -23,14 +23,13 @@
 accounts and groups. It's a generalization of some of the bofhd-commands, so
 that they can be used by other applications.
 
-NOTICE: The classes here won't check permissions, that needs to be done from
+NOTICE: The classes here won't check permissions, that needs to be done by the
 the caller!
 
 TODO: This is the new home for all virthome-related bofh-commands. All changes
 should be done here, and called from bofhd_virthome_cmds. This class should
 stay genereic enough to be used outside of bofhd.
 """
-
 import sys
 import re
 import cereconf
@@ -40,17 +39,11 @@ from Cerebrum.Errors import CerebrumError, NotFoundError
 from mx.DateTime import DateTimeDelta
 from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet, BofhdAuthOpTarget, BofhdAuthRole
 from Cerebrum.modules.virthome.bofhd_auth import BofhdVirtHomeAuth
+from Cerebrum.modules.virthome.VirtAccount import BaseVirtHomeAccount, FEDAccount, VirtAccount
 
-
-# TODO: Theres should be moved to cereconf, better than to have these hardcoded here, no?
-cereconf.BOFHD_OPSETS = ('group-owner', 'group-moderator', )
-
-# TODO: Should we rather have a more restrictive, proper whitelist?
-cereconf.ALLOWED_URL_REGEXP = ('^http(s)?://([a-zA-Z0-9\-]+\.)+?uio\.no', # ONLY http(s)://uio.no or http(s)://*.uio.no 
-                               '^http(s)?://(?!folk)', # NOT http(s)://folk
-                               '^http(s)?://(?!heim\.ifi)', # NOT http(s)://heim.ifi
-                               '^http(s)?://(?![a-zA-Z0-9\-]+\.at\.ifi)', # NOT http(s)://*.at.ifi
-                              ) # The URLs must pass ALL of the rules here
+# For convenience: This is a list of all the possible group auth opsets we can
+# add to a group.
+GROUP_AUTH_OPSETS = ('group-owner', 'group-moderator', )
 
 # TODO: Is this okay? Should we just have one class in stead? There's no real
 #       reason to keep two classes... 
@@ -86,6 +79,8 @@ class VirthomeBase:
     # Webapp-account, or other su accs?
     def group_create(self, group_name, description, creator, owner, url=None, forward=None):
         """ This method creates a new VirtHome group.
+        NOTE: Some group name formats are reserved for specific applications!
+        This method WILL allow creation of reserved group names.
 
         @type group_name: str
         @param group_name: The name of the new group
@@ -116,12 +111,12 @@ class VirthomeBase:
             gr.populate(creator.entity_id, group_name, description)
             gr.write_db()
             gr.set_group_resource(url)
-        except ValueError:
+        except (ValueError, AssertionError):
             raise CerebrumError(str(sys.exc_info()[1]))
 
-        #forward = self.vhutils.whitelist_url(forward)
-        #if forward:
-            #self.gr.populate_trait(self.co.trait_group_forward, strval=forward)
+        forward = self.vhutils.whitelist_url(forward)
+        if forward:
+            gr.populate_trait(self.co.trait_group_forward, strval=forward)
 
         for spread in getattr(cereconf, "BOFHD_NEW_GROUP_SPREADS", ()):
             gr.add_spread(self.co.human2constant(spread, self.co.Spread))
@@ -167,10 +162,11 @@ class VirthomeBase:
         ret = {'confirmation_key': self.vhutils.setup_event_request(
                                        group.entity_id,
                                        self.co.va_group_invitation,
-                                       {"inviter_id": inviter.entity_id,
-                                        "group_id": group.entity_id,
-                                        "invitee_mail": email,
-                                        "timeout": timeout.day,})}
+                                       params={'inviter_id': inviter.entity_id,
+                                               'group_id': group.entity_id,
+                                               'invitee_mail': email,
+                                               'timeout': timeout.day,},
+                                       change_by=inviter.entity_id)}
 
         # check if e-mail matches a valid username
         try:
@@ -211,15 +207,6 @@ class VirthomeBase:
         self.vhutils.remove_auth_roles(group.entity_id)
         return group.group_name
 
-    def list_members(self, group):
-        members = self.vhutils.list_group_members(group)
-        return set([m['member_name'] for m in members if m['member_name']])
-
-    def list_memberships(self, account):
-        groups = self.vhutils.list_group_memberships(account)
-        return set([g['name'] for g in groups])
-
-
 
 class VirthomeUtils:
     """ Helper methods related to virthome """
@@ -232,7 +219,7 @@ class VirthomeUtils:
         self.account_class = Factory.get('Account')
 
         # Or compile on each call to 
-        self.url_whitelist = [re.compile(r) for r in cereconf.ALLOWED_URL_REGEXP]
+        self.url_whitelist = [re.compile(r) for r in cereconf.FORWARD_URL_WHITELIST]
 
 
 
@@ -294,13 +281,6 @@ class VirthomeUtils:
                            'owner_name': owner_name,
                            'email_address': email_address,})
 
-        #eids = set([x['member_id'] for x in result])
-        #contact_raw = ac.list_contact_info(entity_ids=eids)
-        #ac_email_cache = dict((x['entity_id'], x['contact_value']) for x
-            #in contact_raw if x['contact_type'] == co.virthome_contact_email)
-        #ac_owner_cache = dict((x['entity_id'], x['contact_value']) for x
-            #in contact_raw if x['contact_type'] == co.virthome_contact_email)
-
         result.sort(lambda x, y: cmp(x['member_name'], y['member_name']))
         return result
         
@@ -341,7 +321,7 @@ class VirthomeUtils:
                  doesn't have a trait of type L{trait_const}, or the trait
                  doesn't have a value L{val}
         """
-        assert hasattr(entity, 'entity_id')
+        assert hasattr(entity, 'entity_id') and hasattr(entity, 'get_trait')
         try:
             trait = entity.get_trait(trait_const)
             return trait.get(val, None)
@@ -350,10 +330,10 @@ class VirthomeUtils:
         return None
 
 
-    # TODO: This method should only return urls that passes a whitelist check.
-    #       Should we throw an error if the url fails?
     def whitelist_url(self, url):
-        """ TODO
+        """ This is a 'last stand' for forward urls. The URL must match at
+        least one of the whitelist regular expressions if we're to store it as
+        a forward url.
 
         @type url: str
         @param url: The URL to whitelist
@@ -361,19 +341,16 @@ class VirthomeUtils:
         @rtype: str
         @return: The whitelisted url, or None if the L{url} didn't pass.
         """
-        #raise NotImplementedError('TODO')
-        # TODO: Prepend http, https if missing?
-        
         for r in self.url_whitelist:
-            if not r.match(url):
-                return None
+            if r.match(url):
+                return url
 
-        return url
+        return None
     
 
     # Changelog/event/invitation related methods
 
-    def setup_event_request(self, issuer_id, event_type, params=None):
+    def setup_event_request(self, issuer_id, event_type, params=None, change_by=None ):
         """ Perform the necessary magic when creating a pending confirmation
         event (i.e. create a changelog entry with the event).
 
@@ -394,8 +371,142 @@ class VirthomeUtils:
         return self.db.log_pending_change(issuer_id, event_type, None,
                                           # This will be pickle.dumps()-ed by
                                           # the underlying API
-                                          change_params=params)
+                                          change_params=params,
+                                          # From CIS, we don't have the
+                                          # change_by parameter set up, should
+                                          # set this in the request
+                                          change_by=change_by)
 
+
+    # Account related methods
+
+    def account_exists(self, account_name):
+        """Check that L{account_name} is available in Cerebrum/Virthome. Names
+        are case sensitive, but there should not exist two accounts with same
+        name in lowercase, due to LDAP, so we have to check this too.
+
+        (The combination if this call and account.write_db() is in no way
+        atomic, but checking for availability lets us produce more meaningful
+        error messages in (hopefully) most cases).
+
+        @type account_name: str
+        @param account_name: The account name to check
+
+        @rtype: bool
+        @return: True if account_name is available for use, False otherwise.
+        """
+        # Does not matter which one.
+        ac = self.account_class(self.db)
+        return not ac.uname_is_available(account_name)
+
+
+    def assign_default_user_spreads(self, account):
+        """Assign all the default spreads for freshly created users.  
+
+        @type account: Cerebrum.Account
+        @param account: The account object that should receive default spreads
+        """
+
+        for spread in getattr(cereconf, "BOFHD_NEW_USER_SPREADS", ()):
+            tmp = self.co.human2constant(spread, self.co.Spread)
+            if not account.has_spread(tmp):
+                account.add_spread(tmp)
+
+
+    def create_account(self, account_type, account_name, email, expire_date,
+            human_first_name, human_last_name, with_confirmation=True):
+        """Create an account of the specified type.
+
+        This is a convenience function to avoid duplicating some of the work.
+
+        @type account_type: subclass of BaseVirtHomeAccount
+        @param account_type: The account class type to use.
+
+        @type account_name: str
+        @param account_name: Account name to give the new account
+
+        @type email: str
+        @param email: The email address of the account owner
+
+        @type expire_date: mx.DateTime.DateTime
+        @param expire_date: The expire date for the account
+
+        @type human_first_name: str
+        @param human_first_name: The first name(s) of the account owner
+
+        @type human_last_name: str
+        @param human_last_name: The last name(s) of the account owner
+
+        @type with_confirmation: bool
+        @param with_confirmation: Controls whether a confirmation request
+                                  should be issued for this account. In some
+                                  situations it makes no sense to confirm
+                                  anything.
+                                  NOTE: The caller must dispatch any
+                                  confirmation mail. This controls whether a
+                                  confirmation event/code should be created and
+                                  returned.
+        @rtype: list [ BaseVirtHomeAccount, str ]
+        @return: The newly created account, and the confirmation key needed to
+                 confirm the given email address. 
+                 NOTE: If with_confirmation was False, the confirmation key
+                 will be empty.
+        """
+
+        assert issubclass(account_type, BaseVirtHomeAccount)
+
+        # Creation can still fail later, but hopefully this captures most
+        # situations and produces a sensible account_name.
+        if self.account_exists(account_name):
+            raise CerebrumError("Account '%s' already exists" % account_name)
+
+        account = account_type(self.db)
+        account.populate(email, account_name, human_first_name,
+                human_last_name, expire_date)
+        account.write_db()
+        account.populate_trait(self.co.trait_user_retained, numval=0) # Never exported to ldap
+        account.write_db()
+
+        self.assign_default_user_spreads(account)
+
+        magic_key = ""
+        if with_confirmation:
+            magic_key = self.setup_event_request(account.entity_id, self.co.va_pending_create)
+
+        return account, magic_key
+
+
+    def create_fedaccount(self, account_name, email, expire_date=None,
+            human_first_name=None, human_last_name=None):
+        """Simple shortcut to create a FEDAccount. This is create_account with
+        default values:
+            account_type=FEDAccount
+            with_confirmation=False
+
+        @type account_name: str
+        @param account_name: Desired FEDAccount name. If unavailable, we'll
+                             encounter an error.
+
+        @type email: str
+        @param email: The FEDAccount owner's e-mail address.
+
+        @type expire_date: mx.DateTime.DateTime 
+        @param expire_date: Expiration date for the FEDAccount we are about to
+                            create.
+
+        @type human_first_name: str
+        @param human_first_name: The first name(s) of the account owner
+
+        @type human_last_name: str
+        @param human_last_name: The last name(s) of the account owner
+
+        @rtype: int
+        @return: The entity id of the new account
+        """
+        account, confirmation_key = self.create_account(
+                FEDAccount, account_name, email, expire_date,
+                human_first_name, human_last_name, with_confirmation=False)
+        return account.entity_id
 
 
     # BofhdAuth-related methods
@@ -441,7 +552,7 @@ class VirthomeUtils:
         @rtype: bool
         @return: True if access was granted, False if access already exists
         """
-        assert opset_name in cereconf.BOFHD_OPSETS
+        assert opset_name in GROUP_AUTH_OPSETS
         assert hasattr(account, 'entity_id')
         assert hasattr(group, 'entity_id')
         
@@ -451,7 +562,7 @@ class VirthomeUtils:
                                             self.co.auth_target_type_group)
         aos.find_by_name(opset_name)
 
-        assert account.np_type == self.co.fedaccount_type
+        assert account.np_type in (self.co.fedaccount_type, self.co.account_program)
         assert hasattr(aot, 'op_target_id') # Must be populated
 
         roles = list(ar.list(account.entity_id, aos.op_set_id, aot.op_target_id))
@@ -481,7 +592,7 @@ class VirthomeUtils:
         @rtype: bool
         @return: True if access was revoked, False if access didn't exist.
         """
-        assert opset_name in cereconf.BOFHD_OPSETS
+        assert opset_name in GROUP_AUTH_OPSETS
         assert hasattr(account, 'entity_id')
         assert hasattr(group, 'entity_id')
 
@@ -491,7 +602,7 @@ class VirthomeUtils:
         aos.find_by_name(opset_name)
         aot = self.find_or_create_op_target(group.entity_id, self.co.auth_target_type_group)
 
-        assert account.np_type == self.co.fedaccount_type
+        assert account.np_type in (self.co.fedaccount_type, self.co.account_program)
         assert aot.target_type == self.co.auth_target_type_group
 
         roles = list(ar.list(account.entity_id, aos.op_set_id, aot.op_target_id))
@@ -601,7 +712,7 @@ class VirthomeUtils:
 
         See also L{list_opset_groups}.
         """
-        assert opset_name in cereconf.BOFHD_OPSETS
+        assert opset_name in GROUP_AUTH_OPSETS
         assert hasattr(group, 'entity_id')
 
         ac = self.account_class(self.db)
@@ -638,7 +749,7 @@ class VirthomeUtils:
                  ['group_id', 'group_name', 'url', 'description', 
                   'account_id', 'account_name']
         """
-        assert opset_name in cereconf.BOFHD_OPSETS
+        assert opset_name in GROUP_AUTH_OPSETS
         assert hasattr(account, 'entity_id')
 
         gr = self.group_class(self.db)

@@ -100,6 +100,10 @@ class VirtHomeMiscConstants(Constants):
     trait_group_forward = EntityTrait("group_forward",
                                      Constants.entity_group,
                                      "Redirect URL for the group, advising apps to redirect when added")
+
+    trait_user_retained = EntityTrait("user_retained",
+                                      Constants.entity_account,
+                                      "All users that are retained from an export (e.g. because of missing group memberships) have this trait")
 # end VirtHomeMiscConstants
 
 

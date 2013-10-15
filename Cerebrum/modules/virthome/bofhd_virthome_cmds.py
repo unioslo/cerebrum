@@ -31,6 +31,7 @@ from mx.DateTime import now, DateTimeDelta
 from mx.DateTime import strptime
 import pickle
 import sys
+import re
 
 import cerebrum_path
 import cereconf
@@ -228,15 +229,15 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     # end __get_request
 
 
-    def __assign_default_user_spreads(self, account):
-        """Assign all the default spreads for freshly created users.
-        """
+    #def __assign_default_user_spreads(self, account):
+        #"""Assign all the default spreads for freshly created users.
+        #"""
 
-        for spread in getattr(cereconf, "BOFHD_NEW_USER_SPREADS", ()):
-            tmp = self.const.human2constant(spread, self.const.Spread)
-            if not account.has_spread(tmp):
-                account.add_spread(tmp)
-    # end __assign_default_user_spreads
+        #for spread in getattr(cereconf, "BOFHD_NEW_USER_SPREADS", ()):
+            #tmp = self.const.human2constant(spread, self.const.Spread)
+            #if not account.has_spread(tmp):
+                #account.add_spread(tmp)
+    ## end __assign_default_user_spreads
             
 
     def __process_new_account_request(self, issuer_id, event):
@@ -249,7 +250,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         account = self._get_account(event["subject_entity"])
         account.delete_entity_quarantine(self.const.quarantine_pending)
 
-        self.__assign_default_user_spreads(account)
+        self.vhutils.assign_default_user_spreads(account)
         self.logger.debug("Account %s confirmed", account.account_name)
         #return "OK, account %s confirmed" % account.account_name
         return {'action': event.get('change_type'),
@@ -537,62 +538,62 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     # end __process_request_confirmation
 
 
-    def __check_account_name_availability(self, account_name):
-        """Check that L{account_name} is available in Cerebrum. Names are case
-        sensitive, but there should not exist two accounts with same name in
-        lowercase, due to LDAP, so we have to check this too.
+    #def __check_account_name_availability(self, account_name):
+        #"""Check that L{account_name} is available in Cerebrum. Names are case
+        #sensitive, but there should not exist two accounts with same name in
+        #lowercase, due to LDAP, so we have to check this too.
 
-        (The combination if this call and account.write_db() is in no way
-        atomic, but checking for availability lets us produce more meaningful
-        error messages in (hopefully) most cases).
+        #(The combination if this call and account.write_db() is in no way
+        #atomic, but checking for availability lets us produce more meaningful
+        #error messages in (hopefully) most cases).
 
-        @return:
-          True if account_name is available for use, False otherwise.
-        """
+        #@return:
+          #True if account_name is available for use, False otherwise.
+        #"""
 
-        # Does not matter which one.
-        account = self.virtaccount_class(self.db)
-        return account.uname_is_available(account_name)
+        ## Does not matter which one.
+        #account = self.virtaccount_class(self.db)
+        #return account.uname_is_available(account_name)
 
-        # NOTREACHED
-        assert False
-    # end __check_account_name_availability
+        ## NOTREACHED
+        #assert False
+    ## end __check_account_name_availability
 
 
-    def __create_account(self, account_type, account_name, email, expire_date,
-                         human_first_name, human_last_name,
-                         with_confirmation=True):
-        """Create an account of the specified type.
+    #def __create_account(self, account_type, account_name, email, expire_date,
+                         #human_first_name, human_last_name,
+                         #with_confirmation=True):
+        #"""Create an account of the specified type.
 
-        This is a convenience function to avoid duplicating some of the work.
+        #This is a convenience function to avoid duplicating some of the work.
 
-        @param with_confirmation:
-          Controls whether a confirmation request should be issued for this
-          account. In some situations it makes no sense to confirm anything.
-        """
+        #@param with_confirmation:
+          #Controls whether a confirmation request should be issued for this
+          #account. In some situations it makes no sense to confirm anything.
+        #"""
 
-        assert issubclass(account_type, (self.fedaccount_class,
-                                         self.virtaccount_class))
+        #assert issubclass(account_type, (self.fedaccount_class,
+                                         #self.virtaccount_class))
 
-        # Creation can still fail later, but hopefully this captures most
-        # situations and produces a sensible account_name.
-        if not self.__check_account_name_availability(account_name):
-            raise CerebrumError("Account '%s' already exists" % account_name)
+        ## Creation can still fail later, but hopefully this captures most
+        ## situations and produces a sensible account_name.
+        #if not self.vhutils.check_account_name_availability(account_name):
+            #raise CerebrumError("Account '%s' already exists" % account_name)
 
-        account = account_type(self.db)
-        account.populate(email, account_name, human_first_name,
-                         human_last_name, expire_date)
-        account.write_db()
+        #account = account_type(self.db)
+        #account.populate(email, account_name, human_first_name,
+                         #human_last_name, expire_date)
+        #account.write_db()
 
-        self.__assign_default_user_spreads(account)
+        #self.vhutils.assign_default_user_spreads(account)
 
-        magic_key = ""
-        if with_confirmation:
-            magic_key = self.vhutils.setup_event_request(account.entity_id,
-                                                         self.const.va_pending_create)
+        #magic_key = ""
+        #if with_confirmation:
+            #magic_key = self.vhutils.setup_event_request(account.entity_id,
+                                                         #self.const.va_pending_create)
 
-        return account, magic_key
-    # end __create_account
+        #return account, magic_key
+    ## end __create_account
 
 
     def __check_password(self, account, password, uname=None):
@@ -685,13 +686,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             raise CerebrumError("A VirtAccount must have a password")
 
         # Create account without confirmation
-        account, junk = self.__create_account(self.virtaccount_class,
-                                              account_name,
-                                              email,
-                                              expire_date,
-                                              human_first_name,
-                                              human_last_name,
-                                              False)
+        account, junk = self.vhutils.create_account(
+                self.virtaccount_class, account_name, email, expire_date,
+                human_first_name, human_last_name, False)
         account.set_password(password)
         account.write_db()
 
@@ -845,7 +842,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         """
         self.ba.can_create_fedaccount(operator.get_entity_id())
         
-        if self.__check_account_name_availability(account_name):
+        if not self.vhutils.account_exists(account_name):
             self.logger.debug("New FA logging in for the 1st time: %s",
                               account_name)
             self.user_fedaccount_create(operator, account_name, email,
@@ -1246,6 +1243,15 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         self.ba.can_own_group(owner_acc.entity_id)
 
         operator_acc = operator._fetch_account(operator.get_entity_id())
+
+        # Check that the group name is not reserved
+        # This is a crude check, just to make sure no illegal groups are
+        # created. The UI should also enforce this!
+        reserved = [re.compile(expr) for expr in cereconf.RESERVED_GROUPS]
+        for regex in reserved:
+            if regex.match(group_name):
+                raise CerebrumError("Illegal group name %s", group_name)
+
         new = self.virthome.group_create(group_name, description,
                                          operator_acc, owner_acc, url)
         return {'group_id': new.entity_id}
@@ -1313,10 +1319,20 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         group = self.Group_class(self.db)
         result = list()
+        reserved = [re.compile(expr) for expr in cereconf.RESERVED_GROUPS]
+
         for row in group.search(member_id=operator.get_entity_id()):
             tmp = row.dict()
             tmp["url"] = self._get_group_resource(tmp["group_id"])
-            result.append(tmp)
+
+            # Check that the group name is not reserved, and should not appear
+            # in a membership listing.
+            # This may belong in the UI, and not here?
+            for regex in reserved:
+                if not regex.match(tmp["name"]):
+                    result.append(tmp)
+                else:
+                    self.logger.debug("Group '%s' reserved, not listed" % tmp["name"])
 
         return result
     # end user_list_memberships
@@ -1630,12 +1646,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             raise CerebrumError("A VirtAccount must have a password")
 
         account = self.virtaccount_class(self.db)
-        account, confirmation_key = self.__create_account(self.virtaccount_class,
-                                                          account_name,
-                                                          email,
-                                                          expire_date,
-                                                          human_first_name,
-                                                          human_last_name)
+        account, confirmation_key = self.vhutils.create_account(
+                self.virtaccount_class, account_name, email, expire_date,
+                human_first_name, human_last_name)
         account.set_password(password)
         account.write_db()
 
@@ -1695,17 +1708,12 @@ class BofhdVirthomeCommands(BofhdCommandBase):
           (Optional) clear text password for this user to be used on login to
           VirtHome/Cerebrum.
         """
-
         self.ba.can_create_fedaccount(operator.get_entity_id())
-        account, confirmation_key = self.__create_account(self.fedaccount_class,
-                                                          account_name,
-                                                          email,
-                                                          expire_date,
-                                                          human_first_name,
-                                                          human_last_name,
-                                                          with_confirmation=False)
-        return {"entity_id": account.entity_id,
-                "confirmation_key": confirmation_key}
+        account_id = self.vhutils.create_fedaccount(
+                account_name, email, expire_date, human_first_name,
+                human_last_name)
+        return {"entity_id": account_id,
+                "confirmation_key": ""}
     # end user_fedaccount_create
 
 

@@ -62,7 +62,7 @@ class VirtGroup(Group_class, EntityContactInfo, EntityTrait):
     def __init__(self, *rest, **kw):
         self.__super.__init__(*rest, **kw)
 
-        self.legal_chars = set(string.letters + string.digits + " .@")
+        self.legal_chars = set(string.letters + string.digits + " .@-")
     # end __init__
     
     
