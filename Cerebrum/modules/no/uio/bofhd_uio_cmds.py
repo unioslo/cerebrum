@@ -43,7 +43,6 @@ from Cerebrum.modules import Email
 from Cerebrum.modules.Email import _EmailDomainCategoryCode
 from Cerebrum.modules import PasswordChecker
 from Cerebrum.modules import PasswordHistory
-from Cerebrum.modules import PosixGroup
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.cmd_param import *
@@ -5215,7 +5214,7 @@ Addresses and settings:
             if spr and (self._get_constant(self.const.Spread, spr) in
                 [self.const.spread_uio_nis_fg, self.const.spread_ifi_nis_fg,
                  self.const.spread_hpc_nis_fg]):
-                pg = PosixGroup.PosixGroup(self.db)
+                pg = Utils.Factory.get('PosixGroup')(self.db)
                 if not pg.illegal_name(groupname):
                     body.append("group promote_posix %s" % groupname)
                 else:
@@ -5586,7 +5585,7 @@ Addresses and settings:
                            description=('Personal file group for %s' % uname))
             group.write_db()
         # 2. Promote to PosixGroup
-        pg = PosixGroup.PosixGroup(self.db)
+        pg = Utils.Factory.get('PosixGroup')(self.db)
         pg.populate(parent=group)
         try:
             pg.write_db()
@@ -5632,7 +5631,7 @@ Addresses and settings:
             raise CerebrumError("%s is already a PosixGroup" % group)
 
         group=self._get_group(group)
-        pg = PosixGroup.PosixGroup(self.db)
+        pg = Utils.Factory.get('PosixGroup')(self.db)
         pg.populate(parent=group)
         try:
             pg.write_db()
@@ -9620,7 +9619,7 @@ Password altered. Use misc list_password to print or view the new password.%s'''
         if grtype == "Group":
             group = self.Group_class(self.db)
         elif grtype == "PosixGroup":
-            group = PosixGroup.PosixGroup(self.db)
+            group = Utils.Factory.get('PosixGroup')(self.db)
         try:
             group.clear()
             if idtype is None:

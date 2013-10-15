@@ -365,6 +365,8 @@ command_help = {
             "Remove a trait from an entity",
         'trait_set':
             "Add or update an entity's trait",
+        'trait_types':
+            "List all defined trait types (not all are editable)",
     },
     'user': {
         'user_affiliation_add': 'Add affiliation for an account',
