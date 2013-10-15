@@ -13,8 +13,7 @@ class Virthome(CisModule):
     """
     dryrun = False
 
-    # FIXME: We don't authenticate pr. user, no operator_id
-    def __init__(self, operator_id=None, dryrun=None):
+    def __init__(self, dryrun=None):
         """Constructor. Since we are using access control, we need the
         authenticated entity's ID as a parameter.
         """
@@ -22,7 +21,6 @@ class Virthome(CisModule):
 
         self.virthome = VirthomeBase(self.db)
         self.vhutils = VirthomeUtils(self.db)
-        self.operator_id = operator_id
 
         if dryrun is not None:
             self.dryrun = dryrun
