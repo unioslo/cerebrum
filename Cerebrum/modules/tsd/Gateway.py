@@ -139,12 +139,11 @@ class GatewayClient(xmlrpclib.Server, object):
         @return: Each element in the list is a dict from the server, at the time
             containing the elements:
 
-                TODO
-            - L{name}: The username
-            - L{project}: What project the user belongs to.
-            - L{frozen}: If the user is frozen (quarantined)
-            - L{created}: A DateTime for when the user got created.
-            - L{expires}: A DateTime for when the user expires.
+            - L{username} (string): The username
+            - L{project} (string): The project ID the user belongs to.
+            - L{frozen} (DateTime): If, and when, the user gets quarantined.
+            - L{created} (DateTime): When the user got created.
+            - L{expires} (DateTime): When the user expires.
 
         """
         return self.user.list()
@@ -159,12 +158,11 @@ class GatewayClient(xmlrpclib.Server, object):
         @return: Each element in the list is a dict from the server, at the time
             containing the elements:
 
-                TODO
-            - L{name}: The hostname
-            - L{project}: What project the host belongs to.
-            - L{frozen}: If the host is frozen (quarantined)
-            - L{created}: A DateTime for when the host got created.
-            - L{expires}: A DateTime for when the host expires.
+            - L{name} (string): The hostname, in FQDN format.
+            - L{project} (string): What project the host belongs to.
+            - L{frozen} (DateTime): If the host is frozen (quarantined)
+            - L{created} (DateTime): A DateTime for when the host got created.
+            - L{expires} (DateTime): A DateTime for when the host expires.
 
         """
         return self.host.list()
@@ -179,13 +177,40 @@ class GatewayClient(xmlrpclib.Server, object):
         @return: Each element in the list is a dict from the server, at the time
             containing the elements:
 
-                TODO
-            - L{name}: The hostname
-            - L{project}: What project the host belongs to.
-              ???
+            - L{project} (string): What project the host belongs to.
+            - L{netaddr} (string): The subnet address.
+            - L{prefixlen} (int): The prefix length for the subnet.
+            - L{vlantag} (int): The VLAN tag for the subnet.
+            - L{created} (DateTime): When the subnet was created.
+
+            Note that the addresses could both be returned in compact and
+            verbose format, you must handle both kinds! TODO: Compact the
+            addresses here, before they get returned!
 
         """
         return self.subnet.list()
+
+    def list_ips(self):
+        """Ask GW for a list of all defined IP addresses.
+
+        This call is not affected by the L{dryrun} option as it makes no changes
+        to the GW.
+
+        @rtype: list
+        @return: Each element in the list is a dict from the server, at the time
+            containing the elements:
+
+            - L{host} (string): The hostname, in FQDN format.
+            - L{project} (string): What project the host belongs to.
+            - L{addr} (string): The network address, in IPv4 or IPv6 format. You
+                                must expect both full and compact format of IPv6
+                                addresses.
+
+            Note that the addresses could both be returned in compact and
+            verbose format, expect both types.
+
+        """
+        return self.ip.list()
 
     def list_vlans(self):
         """Ask GW for a list of all its defined VLANs.
@@ -197,10 +222,9 @@ class GatewayClient(xmlrpclib.Server, object):
         @return: Each element in the list is a dict from the server, at the time
             containing the elements:
 
-                TODO
-            - L{name}: The hostname
-            - L{project}: What project the host belongs to.
-              ???
+            - L{vlantag} (int): The VLAN tag.
+            - L{project} (string): The project ID the vlan belongs to.
+            - L{created} (DateTime): When the VLAN was created.
 
         """
         return self.vlan.list()
@@ -245,7 +269,6 @@ class GatewayClient(xmlrpclib.Server, object):
 
         # Fetch user info:
         for user in self.list_users():
-            # TODO: what if the user belongs to a non-existing project?
             ret[user['project']]['users'].append(user)
         # Fetch host info:
         for host in self.list_hosts():
@@ -275,7 +298,8 @@ class GatewayClient(xmlrpclib.Server, object):
     def delete_project(self, pid):
         """Delete a given project from the GW.
 
-        TODO: Do we have to delete all its elements explicitly? Find out.
+        By deleting a given project, the GW will automatically delete the
+        corresponding data, like users, hosts and subnets.
 
         @type pid: string
         @param pid: The project-ID that should be deleted.
@@ -464,10 +488,12 @@ class GatewayClient(xmlrpclib.Server, object):
 
         @type netaddr: str
         @param netaddr: The network address for the subnet. Both IPv4 and IPv6
-            is accepted.
+            is accepted. Note: Do not compact IPv6 addresses, the full, verbose
+            address must be given.
 
         @type prefixlen: str or int
-        @param prefixlen: The prefix length of the subnet.
+        @param prefixlen: The prefix length of the subnet. Must be more than 0
+            and lower than max of the IP version (32 for IPv4).
 
         @type vlan: str or int
         @param vlan: The VLAN number for the project.
@@ -481,7 +507,7 @@ class GatewayClient(xmlrpclib.Server, object):
             return True
         return self.subnet.create(params)
 
-    def delete_subnet(self, pid, netaddr):
+    def delete_subnet(self, pid, netaddr, vlan):
         """Remove a VLAN from the GW.
 
         @type pid: str
@@ -491,9 +517,12 @@ class GatewayClient(xmlrpclib.Server, object):
         @param netaddr: The network address for the subnet. Both IPv4 and IPv6
             is accepted.
 
+        @type vlan: str or int
+        @param vlan: The VLAN tag for the subnet.
+
         """
         self.logger.info("Delete subnet for %s: %s", pid, netaddr)
-        params = {'netaddr': netaddr, 'project': pid}
+        params = {'netaddr': netaddr, 'project': pid, 'vlantag': vlan}
         if self.dryrun:
             return True
         return self.subnet.delete(params)
