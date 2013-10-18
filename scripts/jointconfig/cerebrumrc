@@ -2,7 +2,7 @@
 # Configuration file for Cerebrum, bofh.sh and bofhd.sh.
 # The idea is to keep all the configuration in one place.
 #
-# For Cerebrum/USIT.
+# Use "cerepyrun" to run python scripts with these settings.
 #
 # Save this file as ~/.cerebrumrc.
 #
@@ -10,10 +10,14 @@
 # the common configuration.
 #
 # Changelog:
-#   June   2013, Alexander Rødseth <rodseth@usit.uio.no>
-#   July   2013
-#   August 2013
 #
+#   June    2013, Alexander Rødseth <rodseth@usit.uio.no>
+#   July    2013
+#   August  2013
+#   October 2013
+#
+# For Cerebrum/USIT.
+# 
 
 CEREBRUM_PATH=~/checkout/cerebrum
 CERECONF_PATH=~/.cerebrum
@@ -46,8 +50,19 @@ CEREBRUM_DATABASE_TABLE_OWNER_uio=cerebrum
 # TSD
 CEREBRUM_DATABASE_USER_tsd=cerebrum
 CEREBRUM_DATABASE_HOST_tsd=dbpg-cere-utv.uio.no
-CEREBRUM_DATABASE_NAME_tsd="cerebrum_uio_$USER"
+#CEREBRUM_DATABASE_NAME_tsd="cerebrum_uio_$USER"
+CEREBRUM_DATABASE_NAME_tsd="cerebrum_tsd_jokim"
 CEREBRUM_DATABASE_TABLE_OWNER_tsd=cerebrum
+
+# CIS
+CISCONF="/cerebrum/$CEREBRUM_INST/etcprod/cerebrum"
+if [[ -e $CISCONF ]]; then
+  mkdir -p "$CERECONF_PATH/cisconf"
+  cp -r "$CISCONF/cisconf" "$CERECONF_PATH/"
+  echo 'INTERFACE ="129.240.2.136"' >> "$CERECONF_PATH/cisconf/postmaster.py"
+  echo 'PORT = 8999' >> "$CERECONF_PATH/cisconf/postmaster.py"
+  CISCONF="$CERECONF_PATH"
+fi
 
 # UIA
 CEREBRUM_DATABASE_USER_uia=cerebrum
@@ -106,7 +121,7 @@ CERECONF_COMMON=$CERECONF_PATH/common
 PYTHON_SITE_PACKAGES=/site/lib/python2.5/site-packages
 PYTHON_CEREBRUM_MODULES="$CEREBRUM_PATH"
 CERECONF_CUSTOM=$CERECONF_PATH/"$CEREBRUM_INST"
-export PYTHONPATH="$PYTHON_SITE_PACKAGES:$CERECONF_CUSTOM:$CERECONF_COMMON:$CERECONF_GLOBAL:$PYTHON_CEREBRUM_MODULES:$PYTHON_EXTERNAL"
+export PYTHONPATH="$PYTHON_SITE_PACKAGES:$CERECONF_CUSTOM:$CERECONF_COMMON:$CERECONF_GLOBAL:$PYTHON_CEREBRUM_MODULES:$PYTHON_EXTERNAL:$CISCONF"
 
 if [[ "$XPAND" == "yes" ]]; then
   export BRANCH='js_xpand'
@@ -127,7 +142,7 @@ BOFH_BIN=/local/bin/bofh
 # BOFHD
 BOFHD_CONFIG_DAT="$CERECONF_PATH/bofhd/config.dat"
 BOFHD_PY="$CEREBRUM_PATH/servers/bofhd/bofhd.py"
-BOFHD_PORT=1337
+BOFHD_PORT=1338
 
 # Show various settings, with colors
 echo
@@ -143,7 +158,6 @@ echo -e -n "\t\e[94mPython version:\e[0m\t\t\e[96m"
 echo -e -n '\e[0m'
 echo -e "\t\e[94mPython executable:\e[0m\t\e[93m$PYTHON_BIN\e[0m"
 echo -e "\t\e[94mPython path:\e[0m\e[90m"
-#"$PYTHON_BIN" -c "import os;print(os.linesep.join(['\t\t' + x for x in os.getenv('PYTHONPATH').split(':')])[:-3])"
 echo $PYTHONPATH
 echo -e -n '\e[0m'
 echo
