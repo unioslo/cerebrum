@@ -593,7 +593,10 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                 (str(start).split()[0], str(end).split()[0]))
 
         ou = self.OU_class(self.db)
-        pid = ou.create_project(projectname)
+        try:
+            pid = ou.create_project(projectname)
+        except Errors.CerebrumError, e:
+            raise CerebrumError(e)
 
         # Storing the names:
         ou.add_name_with_language(name_variant=self.const.ou_name_long,
@@ -828,6 +831,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
              "Spreads:       %s",
              ('stedkode', 'entity_id', 'name_nb', 'name_en', 'quarantines',
               'spreads')),
+            ("Project ID:    %s", ('project_id',)),
             ("Contact:       (%s) %s: %s",
              ('contact_source', 'contact_type', 'contact_value')),
             ("Address:       (%s) %s: %s%s%s %s %s",
@@ -852,6 +856,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         """
         project = self._get_project(projectname)
         ret = self.ou_info(operator, 'id:%d' % project.entity_id)
+        ret.append({'project_id': project.get_project_id()})
         now = DateTime.now()
 
         # Quarantine status:
@@ -1063,15 +1068,10 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             owner_id = self._get_person("entity_id", person_id).entity_id
             np_type = None
 
-        # Only superusers should be allowed to create users with
-        # capital letters in their ids, and even then, just for system
-        # users
+        # Systems in TSD does not accept accounts in uppercase - would get in
+        # huge trouble!
         if uname != uname.lower():
-            if not self.ba.is_superuser(operator.get_entity_id()):
-                raise CerebrumError("Account names cannot contain capital letters")
-            else:
-                if owner_type != self.const.entity_group:
-                    raise CerebrumError("Personal account names cannot contain capital letters")
+            raise CerebrumError("Account names cannot contain capital letters")
 
         # TODO: Add a check for personal accounts to have the project name as a
         # prefix?
