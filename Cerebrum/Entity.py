@@ -1007,7 +1007,7 @@ class EntityAddress(Entity):
             JOIN [:table schema=cerebrum name=entity_info] e
               ON e.entity_id = ea.entity_id AND
               e.entity_type """
-            if isinstance(entity_type, list):
+            if isinstance(entity_type, (list, tuple, set)):
                 e_type += "IN (%s)" % ", ".join(map(str,
                                                     map(int, entity_type)))
             else:
@@ -1030,7 +1030,7 @@ class EntityAddress(Entity):
 
         if address_type is None:
             pass  # No address_type to filter on.
-        elif isinstance(address_type, list):
+        elif isinstance(address_type, (list, tuple, set)):
             where += "ea.address_type IN (%s)" %\
                 ", ".join(map(str, map(int, address_type)))
         else:
@@ -1261,6 +1261,8 @@ class EntityExternalId(Entity):
         """We trust id_type's entity_type more than a supplemented
         attribute, hence we try that first.
 
+        TODO: Migrate over to L{search_external_ids}?
+
         @param source_system:
           Source system for the external ID (SAP, LT, FS, etc.)
         @param id_type:
@@ -1293,6 +1295,69 @@ class EntityExternalId(Entity):
         SELECT entity_id, id_type, source_system, external_id
         FROM [:table schema=cerebrum name=entity_external_id]
         %s""" % where, cols, fetchall=False)
+
+    def search_external_ids(self, source_system=None, id_type=None,
+                            external_id=None, entity_type=None, entity_id=None):
+        """Search for external IDs matching specified criteria.
+
+        @type source_system: int or AuthoritativeSystemCode or sequence thereof
+        @param source_system:
+            Filter resulting IDs by given source system(s).
+        
+        @type id_type: int or EntityExternalId or sequence thereof
+        @param id_type:
+            Filter resulting IDs by ID type(s).
+
+        @type external_id: basestring
+        @param external_id:
+            Filter resulting IDs by external ID, case insensitively. The ID may
+            contain SQL wildcard characters. Useful for finding the entity a
+            given external ID belongs to.
+
+        @type entity_type: int or EntityType or sequence thereof
+        @param entity_type:
+            Filter resulting IDs by entity type. Note that external IDs are
+            already limited by entity_type - you can only set a given id type
+            for a certain entity type.
+
+        @type entity_id: int or sequence therof
+        @param entity_id:
+            Filter resulting IDs by given entitites. Useful for looking up (all)
+            external ids belonging to a specific entity).
+
+        @rtype: iterable (yielding db-rows)
+        @return:
+            An iterable (sequence or a generator) that yields all db-rows that
+            matches the given criterias. The values of each db-row are:
+            entity_id, entity_type, id_type, source_system, external_id.
+
+        """
+        binds = dict()
+        where = list()
+        if source_system is not None:
+            where.append(argument_to_sql(source_system, "source_system", binds,
+                                         int))
+        if id_type is not None:
+            where.append(argument_to_sql(id_type, "id_type", binds, int))
+        if entity_type is not None:
+            where.append(argument_to_sql(entity_type, "entity_type", binds,
+                                         int))
+        if entity_id is not None:
+            where.append(argument_to_sql(entity_id, "entity_id", binds, int))
+        if external_id is not None:
+            external_id = prepare_string(external_id)
+            where.append("(LOWER(external_id) LIKE :external_id)")
+            binds['external_id'] = external_id
+
+        where_str = ''
+        if where:
+            where_str = 'WHERE %s' % ' AND '.join(where)
+        return self.query("""
+            SELECT entity_id, entity_type, id_type, source_system, external_id
+            FROM [:table schema=cerebrum name=entity_external_id]
+            %s""" % where_str, binds)
+        # TODO: might want to look at setting fetchall, but need to figure out
+        # what the ups and downs are. Speed versus memory?
 
     # The following method will have the argument "entity_type"
     # removed. The reason is that entity_type can be found in
