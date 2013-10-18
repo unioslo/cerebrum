@@ -41,35 +41,7 @@ from Cerebrum.modules.ad2.CerebrumData import CerebrumUser, CerebrumGroup
 
 class UiAUserSync(UserSync):
     """UiA specific behaviour for the sync of users."""
-
-    def configure(self, config_args):
-        """Override the configuration for UiA specific options."""
-        super(UiAUserSync, self).configure(config_args)
-        if config_args.has_key('exchange_spread'):
-            self.config['exchange_spread'] = config_args['exchange_spread']
-
-    def fetch_cerebrum_data(self):
-        """Fetch Cerebrum data specific for UiA."""
-        super(UiAUserSync, self).fetch_cerebrum_data()
-
-        # Find out who has the exchange spread, if defined:
-        # TODO: need a config variable for this:
-        if self.config.get('exchange_spread'):
-            i = 0
-            for row in self.ac.search(spread=self.config['exchange_spread']):
-                ent = self.id2entity.get(row['account_id'])
-                if ent:
-                    ent.spread_to_exchange = True
-                    i += 1
-            self.logger.debug("Found %d entities for Exchange", i)
-
-        i = 0
-        for row in self.ac.list_traits(self.co.trait_exchange_mdb):
-            ent = self.id2entity.get(row['entity_id'])
-            if ent:
-                ent.homeMDB = row['strval']
-                i += 1
-        self.logger.debug("Found %d homeMDB values", i)
+    pass
 
 class UiACerebrumUser(CerebrumUser):
     """UiA specific behaviour and attributes for a user object."""
@@ -77,28 +49,9 @@ class UiACerebrumUser(CerebrumUser):
     def calculate_ad_values(self):
         """Adding UiA specific attributes."""
         super(UiACerebrumUser, self).calculate_ad_values()
-        self.set_attribute('HomeDrive', cereconf.AD_HOME_DRIVE)
-        self.set_attribute('DeliverAndRedirect',
-                           cereconf.AD_DELIVER_AND_REDIRECT)
-        # ipPhone: SIP phones - only last 4 digits in phone numbers, if the
-        # phone number is in a defined SIP serie:
-        tlf = self.attributes.get('TelephoneNumber')
-        if tlf and any(tlf.startswith(pre) for pre in ('37233', '38141',
-                                                       '38142')):
-            self.set_attribute('IpPhone', tlf[-4:])
         # If no Exchange-spread, we're done
-        if not self.spread_to_exchange:
+        if co.spread_exchange_account not in self.spreads:
             return
-
-        self.set_attribute("MsExchPoliciesExcluded",
-                           "{26491cfc-9e50-4857-861b-0cb8df22b5d7}")
-        if hasattr(self, 'homeMDB'):
-            self.set_attribute('MsExchHomeServerName',
-                               cereconf.AD_EX_HOME_SERVER)
-            self.set_attribute('HomeMDB', "CN=%s,%s" % (self.homeMDB,
-                                                        cereconf.AD_EX_HOME_MDB))
-
         # Hide all accounts that are not primary accounts:
         self.set_attribute('msExchHideFromAddressLists',
                            not self.maildata.get('is_primary_account'))
-

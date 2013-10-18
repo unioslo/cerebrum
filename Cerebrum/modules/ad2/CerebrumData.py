@@ -152,6 +152,12 @@ class CerebrumEntity(object):
         # filled with spreads if not needed, according to the configuration.
         self.spreads = []
 
+        # Other information that _could_ get registered for the entity:
+        self.entity_name_with_language = dict()
+        self.addresses = dict()
+        self.external_ids = dict()
+        self.traits = dict()
+
         # TODO: Move extra settings to subclasses. This should not be here!
         self.update_recipient = False # run update_Recipients?
 
@@ -167,22 +173,15 @@ class CerebrumEntity(object):
         calling this method.
 
         """
+        # Some standard attributes that we don't support setting otherwise:
         self.set_attribute('SamAccountName', self.ad_id)
-        # TODO: Name might need to be formatted properly first, e.g. with pre-
-        # and/or suffix.
         self.set_attribute('Name', self.ad_id)
         self.set_attribute('DistinguishedName', 'CN=%s,%s' % (self.ad_id,
                                                               self.ou))
-        # TODO: should we use the entity_name instead for some of these?
-        self.set_attribute('UserPrincipalName', '%s@%s' % (self.ad_id,
-                                                         self.config['domain']))
-        self.set_attribute('MailNickname', self.ad_id)
-
-        # Set the attributes that are defined in the config:
-
-        # Contact Info:
+        # Attributes defined by the config:
         for atrname, atr in self.config['attributes'].iteritems():
             if isinstance(atr, ConfigUtils.ContactAttr):
+                # ContactInfo
                 for c in atr.contact_types:
                     cinfos = self.contact_info.get(str(c))
                     if cinfos is None:
@@ -199,6 +198,78 @@ class CerebrumEntity(object):
                         for s in cinfos.itervalues():
                             self.set_attribute(atrname, s)
                             break
+            elif isinstance(atr, ConfigUtils.NameAttr):
+                # EntityName or PersonName
+                for vari in atr.name_variants:
+                    vinfos = self.entity_name_with_language.get(str(vari))
+                    if vinfos is None:
+                        continue
+                    if getattr(atr, 'languages', None):
+                        for l in atr.languages:
+                            name = vinfos.get(str(l))
+                            if lang:
+                                self.set_attribute(atrname, name)
+                                break
+                    else:
+                        # Not sorted by language, fetch first.
+                        # TODO: Need to use a default order for this!
+                        for name in vinfos.itervalues():
+                            self.set_attribute(atrname, name)
+                            break
+            elif isinstance(atr, ConfigUtils.ExternalIdAttr):
+                # External IDs
+                for itype in atr.id_types:
+                    infos = self.external_ids.get(str(itype))
+                    if infos is None:
+                        continue
+                    if getattr(atr, 'source_systems', None):
+                        for s in atr.source_systems:
+                            sys = infos.get(str(s))
+                            if sys:
+                                self.set_attribute(atrname, sys)
+                                break
+                    else:
+                        # TODO: use default sort order from config!
+                        for s in infos.itervalues():
+                            self.set_attribute(atrname, s)
+                            break
+            elif isinstance(atr, ConfigUtils.AddressAttr):
+                # Addresses
+                for adrtype in atr.address_types:
+                    ainfos = self.addresses.get(str(adrtype))
+                    if ainfos is None:
+                        continue
+                    if getattr(atr, 'source_systems', None):
+                        for s in atr.source_systems:
+                            sys = ainfos.get(str(s))
+                            if sys:
+                                self.set_attribute(atrname, sys)
+                                break
+                    else:
+                        # TODO: now it's not sorted, need to make use of the
+                        # default order from cereconf!
+                        for s in ainfos.itervalues():
+                            self.set_attribute(atrname, s)
+                            break
+            elif isinstance(atr, ConfigUtils.TraitAttr):
+                # Traits
+                for code in atr.traitcodes:
+                    tr = self.traits.get(str(code))
+                    if tr:
+                        self.set_attribute(atrname, tr)
+                        break
+            elif isinstance(atr, ConfigUtils.AttrConfig):
+                # Default attributes. Those that only contains a standard value
+                # that could be generated by the basic info.
+                if atr.default:
+                    if isinstance(atr.default, basestring):
+                        self.set_attribute(atrname, atr.default %
+                                {'entity_name': self.entity_name,
+                                 'entity_id': self.entity_id,
+                                 'ad_id': self.ad_id,
+                                 'ou': self.ou,})
+                    else:
+                        self.set_attribute(atrname, atr.default)
 
     def set_attribute(self, key, value, force=False):
         """Setting an attribute for the entity.
@@ -283,6 +354,8 @@ class CerebrumUser(CerebrumEntity):
         self.owner_type = owner_type
         self.contact_info = {}
         self.external_ids = {}
+        self.person_names = {}
+        self.primary_mail = None # Only used if needed
 
         # TODO: Make use of self.email_addresses = {}, or should this be in a
         # subclass? Now we use contact_info['EMAIL'] for the primary address,
@@ -303,7 +376,9 @@ class CerebrumUser(CerebrumEntity):
 
         """
         super(CerebrumUser, self).calculate_ad_values()
+        self.set_attribute('Enabled', bool(self.active))
 
+        # TODO: use ConfigAttr.NameAttr instead of hardcoded attributes:
         if hasattr(self, 'name_first') and hasattr(self, 'name_last'):
             # TBD: handle if only one of the names are set?
             self.set_attribute('DisplayName', '%s %s' % (self.name_first,
@@ -311,18 +386,8 @@ class CerebrumUser(CerebrumEntity):
             self.set_attribute('GivenName', self.name_first)
             self.set_attribute('Surname', self.name_last) # No need to set 'Sn'
 
-        if hasattr(self, 'title'):
-            self.set_attribute('Title', self.title)
-
-        # TODO: Move the mapping to the config!
-        extid2attr = {'NO_SAPNO': 'EmployeeNumber'}
-        for type, value in self.external_ids.iteritems():
-            try:
-                self.set_attribute(extid2attr[type], value)
-            except KeyError, e:
-                self.logger.warn("ExternalID type not mapped for attr: %s", e)
-
-        self.set_attribute('Enabled', bool(self.active))
+        if self.primary_mail:
+            self.set_attribute('Mail', self.primary_mail)
 
         # TODO: how to store ACCOUNT_CONTROL?
         return

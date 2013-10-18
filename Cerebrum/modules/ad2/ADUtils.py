@@ -161,10 +161,14 @@ class ADclient(PowershellClient):
         self.connect()
         # Choose one of the Domain Controllers for the sync with AD. This is to
         # avoid that we have to wait inbetween the updates for the DCs to have
-        # synced.
-        dc = self.get_domain_controller()
-        self._chosen_dc = dc['Name']
-        self.logger.debug("Preferred DC: %s", self._chosen_dc)
+        # synced. We could still go without this, but then we could get race
+        # conditions.
+        try:
+            dc = self.get_domain_controller()
+            self._chosen_dc = dc['Name']
+            self.logger.debug("Preferred DC: %s", self._chosen_dc)
+        except Exception, e:
+            self.logger.warn("Error finding default DC: %s" % e)
 
     def _split_domain_username(self, name):
         """Separate the domain and username from a full domain username.

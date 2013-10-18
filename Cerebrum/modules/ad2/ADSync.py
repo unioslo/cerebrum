@@ -347,22 +347,14 @@ class BaseSync(object):
             if not self.config['encrypted']:
                 self.config['port'] = 5985
 
-        # Check for constants in the attribute config, and swap them out with
-        # the cerebrum constants.
-        for atr in self.config['attributes'].itervalues():
-            if isinstance(atr, ConfigUtils.AttrConfig):
-                for typ, func in (('source_systems', self.co.AuthoritativeSystem),
-                                  ('contact_types', self.co.ContactInfo),
-                                  ):
-                    if getattr(atr, typ, None):
-                        setattr(atr, typ, [func(s) for s in getattr(atr, typ)])
-
         if self.config['subset']:
             self.logger.info("Sync will only be run for subset: %s",
                              self.config['subset'])
         # Log if in dryrun
         if self.config['dryrun']:
             self.logger.info('In dryrun mode, AD will not be updated')
+
+        # TODO: Check the attributes?
 
         # Messages for AD-administrators should be logged if the config says so,
         # or if there are no other options set:
@@ -397,6 +389,7 @@ class BaseSync(object):
                 self.logger.warn('Bad attribute defined in config: %s' % n)
         # Check the case of the attributes. They should all start with an
         # uppercased letter, to match how the names are returned from AD.
+        # TODO: This might not be correct for all attributes, unfortunately...
         for a in self.config['attributes']:
             if a[0] != a[0].upper():
                 self.logger.warn('Attribute not capitalized: %s' % a)
@@ -520,6 +513,20 @@ class BaseSync(object):
         self.logger.debug("Calculate AD values...")
         self.calculate_ad_values()
         self.logger.debug("Process AD data...")
+
+        #for ent in self.entities.itervalues():
+        #    print u"Entity: %s" % ent.ad_id
+        #    for atr in sorted(self.config['attributes']):
+        #        if ent.attributes.has_key(atr):
+        #            try:
+        #                print u"  %30s: %s" % (atr, ent.attributes[atr])
+        #            except UnicodeEncodeError:
+        #                try:
+        #                    print u'  %30s: %s' % (atr, unicode(ent.attributes[atr]))
+        #                except UnicodeEncodeError:
+        #                    print u'  %30s: <unicodeerror>' % atr
+        #    print
+
         self.process_ad_data(ad_cmdid)
         self.logger.debug("Process entities not in AD...")
         self.process_entities_not_in_ad()
@@ -764,6 +771,44 @@ class BaseSync(object):
                 e.sid = row['external_id']
                 i += 1
         self.logger.debug("Fetched %d SIDs from Cerebrum" % i)
+
+    def fetch_names(self):
+        """Get all the entity names for the entitites from Cerebrum.
+
+        """
+        self.logger.debug("Fetch name information...")
+        variants = set()
+        systems = set()
+        languages = set()
+        all_systems = False
+        # Go through config and see what info needs to be fetched:
+        for atr in self.config['attributes'].itervalues():
+            if isinstance(atr, ConfigUtils.NameAttr):
+                variants.update(atr.name_variants)
+                if atr.source_systems is None:
+                    all_systems = True
+                else:
+                    systems.update(atr.source_systems)
+                if atr.languages:
+                    languages.update(atr.languages)
+        if not variants:
+            return
+        if all_systems or not systems:
+            # By setting to None we fetch from all source_systems.
+            systems = None
+        if not languages:
+            # By setting to None we fetch all languages:
+            languages = None
+        i = 0
+        for row in self.ent.search_name_with_language(name_variant=variants,
+                    entity_type=self.config['entity_type'],
+                    name_language=languages):
+            for ent in self.owner2ent.get(row['entity_id'], ()):
+                vari = str(self.co.EntityNameCode(row['name_variant']))
+                lang = str(self.co.LanguageCode(row['name_language']))
+                ent.entity_name_with_language.setdefault(vari, {})[lang] = row['name']
+                i += 1
+        self.logger.debug("Found %d names" % i)
 
     def calculate_ad_values(self):
         """Use Cerebrum data to calculate the needed attributes.
@@ -1495,11 +1540,6 @@ class UserSync(BaseSync):
         """
         super(UserSync, self).configure(config_args)
 
-        titles = self.config['attributes'].get('Title')
-        if titles:
-            self.config['attributes']['Title'] = tuple(
-                                int(self.co.EntityNameCode(t)) for t in titles)
-
         # Check that the UserAccountControl settings are valid:
         for setting in self.config['useraccountcontrol']:
             if setting not in self._useraccountcontrol_settings:
@@ -1511,8 +1551,9 @@ class UserSync(BaseSync):
         Could be subclassed to get more/other data.
 
         @rtype: string
-        @return: A CommandId that is the servere reference to later get the data
-            that has been generated.
+        @return: A CommandId that is the reference from the AD service to later
+            get the data that has been generated. Could be used for e.g.
+            L{process_ad_data}.
 
         """
         # TODO: some extra attributes to add?
@@ -1525,9 +1566,9 @@ class UserSync(BaseSync):
     def fetch_cerebrum_data(self):
         """Fetch data from Cerebrum that is needed for syncing accounts.
 
-        What kind of data that should be gathered is up to what attributes are
-        set in the config to be exported. There's for instance no need to fetch
-        titles if the attribute Title is not used. Subclasses could however
+        What kind of data that will be gathered is up to the attribute
+        configuration. Contact info will for instance not be retrieved from
+        Cerebrum if it's set for any attributes. Subclasses could however
         override this, if they need such data for other usage.
 
         """
@@ -1552,19 +1593,14 @@ class UserSync(BaseSync):
         self.logger.debug("Mapped %d entity owners", len(self.owner2ent))
 
         self.fetch_contact_info()
+        self.fetch_names()
+        self.fetch_external_ids()
+        self.fetch_traits()
 
-        # Get the rest of the needed data, depending on the config:
-        if any_in_config('Surname', 'DisplayName', 'GivenName'):
-            self.fetch_names()
-        if any_in_config('Title'):
-            self.fetch_titles(self.config['attributes']['Title'])
         # We fetch the Mail attribute both as contact_info and from the Email
         # module, since various instances store e-mail addresses differently
         if any_in_config('Mail'):
             self.fetch_mail()
-        # External IDs:
-        if any_in_config('EmployeeNumber'):
-            self.fetch_external_ids()
         # Addresses:
         if any_in_config('Street', 'StreetAddress', 'PostalCode', 'L', 'Co'):
             self.fetch_address_info()
@@ -1604,6 +1640,10 @@ class UserSync(BaseSync):
     def fetch_names(self):
         """Fetch all the persons' names and store them for the accounts.
 
+        This overrides the default behaviour of fetching the names registered
+        for the given entities, but instead fetches the owner's (person's)
+        names.
+
         The names that is retrieved are first and last names. Titles are
         retrieved in L{fetch_titles}, even though they're stored as names too.
         TODO: change this, and put all in a dict of names instead?
@@ -1613,6 +1653,10 @@ class UserSync(BaseSync):
 
         """
         self.logger.debug("Fetch name information...")
+
+        # TODO: this first block should be removed when ent.name_first,
+        # ent.name_last and ent.name_full is not used anymore, but is instead
+        # using the more generic ConfigUtils.NameAttr.
         for row in self.pe.search_person_names(
                                     source_system = self.co.system_cached,
                                     name_variant  = [self.co.name_first,
@@ -1623,28 +1667,53 @@ class UserSync(BaseSync):
                 elif int(row['name_variant']) == int(self.co.name_last):
                     ent.name_last = row['name']
 
-        # Log nameless, personal accounts:
-        for ent in self.entities.itervalues():
-            if (not getattr(ent, 'name_first', None) and 
-                            ent.owner_type == int(self.co.entity_person)):
-                self.logger.warn('No name for account: %s' % ent.entity_name)
 
-    def fetch_titles(self, name_types):
-        """Fetch titles for users.
+        variants = set()
+        systems = set()
+        languages = set()
+        all_systems = False
+        # Go through config and see what info needs to be fetched:
+        for atr in self.config['attributes'].itervalues():
+            if isinstance(atr, ConfigUtils.NameAttr):
+                variants.update(atr.name_variants)
+                if atr.source_systems is None:
+                    all_systems = True
+                else:
+                    systems.update(atr.source_systems)
+                if atr.languages:
+                    languages.update(atr.languages)
+        self.logger.debug2("Fetching person name variants: %s" % (variants,))
+        self.logger.debug2("Fetching names by languages: %s" % (languages,))
+        self.logger.debug2("Fetching names from sources: %s" % (systems,))
+        if not variants:
+            return
+        if all_systems or not systems:
+            # By setting to None we fetch from all source_systems.
+            systems = None
+        if not languages:
+            languages = None
+            # TODO: Or make use of self.config['language'] to get the priority
+            # right?
+            pass
 
-        @type name_types: list or tuple
-        @param name_types: What name types to cache. Could be personal title
-            and/or work title.
-
-        """
-        self.logger.debug("Fetch titles...")
-        for row in self.pe.search_name_with_language(
-                            name_language = self.config['language'],
-                            name_variant  = name_types):
+        # Names stored in person table:
+        i = 0
+        for row in self.pe.search_person_names(source_system=systems,
+                                               name_variant=variants):
+            for ent in self.owner2ent.get(row['person_id'], ()):
+                vari = str(self.co.PersonName(row['name_variant']))
+                ssys = str(self.co.AuthoritativeSystem(row['source_system']))
+                ent.person_names.setdefault(vari, {})[ssys] = row['name']
+                i += 1
+        # Names stored in the entity table (with languages):
+        for row in self.pe.search_name_with_language(name_variant=variants,
+                entity_type=self.co.entity_person, name_language=languages):
             for ent in self.owner2ent.get(row['entity_id'], ()):
-                if not hasattr(ent, 'titles'):
-                    ent.titles = dict()
-                ent.titles[str(row['name_variant'])] = row['name']
+                vari = str(self.co.EntityNameCode(row['name_variant']))
+                lang = str(self.co.LanguageCode(row['name_language']))
+                ent.entity_name_with_language.setdefault(vari, {})[lang] = row['name']
+                i += 1
+        self.logger.debug("Found %d person names" % i)
 
     def fetch_contact_info(self):
         """Fetch all contact information for users, e.g. mobile and telephone.
@@ -1678,7 +1747,7 @@ class UserSync(BaseSync):
             for ent in self.owner2ent.get(row['entity_id'], ()):
                 ctype = str(self.co.ContactInfo(row['contact_type']))
                 ssys = str(self.co.AuthoritativeSystem(row['source_system']))
-                ent.contact_info.setdefault(ctype, {})[ssys] = row['contact_value']
+                ent.contact_info.setdefault(ctype, {})[ssys] = row
                 i += 1
         # Contact info stored on the account:
         for row in self.ac.list_contact_info(source_system=systems,
@@ -1689,64 +1758,122 @@ class UserSync(BaseSync):
             if ent:
                 ctype = str(self.co.ContactInfo(row['contact_type']))
                 ssys = str(self.co.AuthoritativeSystem(row['source_system']))
-                ent.contact_info[ctype][ssys] = row['contact_value']
+                ent.contact_info[ctype][ssys] = row
                 i += 1
         self.logger.debug("Found %d contact data" % i)
 
     def fetch_external_ids(self):
-        """Fetch all external IDs for the users that could be needed."""
+        """Fetch all external IDs for entities according to config.
+
+        TODO: this should be moved upwards, as it's not only for users.
+
+        """
         self.logger.debug("Fetch external ids...")
-        types = []
-        if 'EmployeeNumber' in self.config['attributes']:
-            types.append(self.co.externalid_sap_ansattnr)
-        # TODO: Need a better way of defining these...
-
+        types = set()
+        systems = set()
+        all_systems = False
+        # Go through config and see what info needs to be fetched:
+        for atr in self.config['attributes'].itervalues():
+            if isinstance(atr, ConfigUtils.ExternalIdAttr):
+                types.update(atr.id_types)
+                if atr.source_systems is None:
+                    all_systems = True
+                else:
+                    systems.update(atr.source_systems)
         if not types:
-            # Nothing to be retrieved
             return
+        if all_systems or not systems:
+            # By setting to None we fetch from all source_systems.
+            systems = None
+        i = 0
+        # Search person:
+        for row in self.pe.search_external_ids(source_system=systems,
+                id_type=types, entity_type=self.co.entity_person):
+            for ent in self.owner2ent.get(row['entity_id'], ()):
+                itype = str(self.co.EntityExternalId(row['id_type']))
+                ssys = str(self.co.AuthoritativeSystem(row['source_system']))
+                ent.external_ids.setdefault(itype, {})[ssys] = row['external_id']
+                i += 1
+        # Search account:
+        for row in self.ac.search_external_ids(source_system=systems,
+                id_type=types, entity_type=self.co.entity_account):
+            ent = self.id2entity.get(row['entity_id'], None)
+            if ent:
+                itype = str(self.co.EntityExternalId(row['id_type']))
+                ssys = str(self.co.AuthoritativeSystem(row['source_system']))
+                ent.external_ids.setdefault(itype, {})[ssys] = row['external_id']
+                i += 1
+        self.logger.debug("Found %d external IDs" % i)
 
-        # External IDs stored on the person:
-        for t in types:
-            # TODO: list_external_ids should be extended to support list of
-            # id_types, like for instance the group.search() method.
-            for row in self.pe.list_external_ids(id_type=t,
-                                entity_type=self.co.entity_person):
-                                # TODO: source_system?
-                idtype = str(self.co.EntityExternalId(row['id_type']))
-                for ent in self.owner2ent.get(row['entity_id'], ()):
-                    ent.external_ids[str(idtype)] = row['external_id']
-        #TODO: missing external ids stored on the user...
+    def fetch_traits(self):
+        """Fetch all traits for entities according to config.
+
+        TODO: this should be moved upwards, as it's not only for users.
+
+        """
+        self.logger.debug("Fetch traits...")
+        types = set()
+        # Go through config and see what info needs to be fetched:
+        for atr in self.config['attributes'].itervalues():
+            if isinstance(atr, ConfigUtils.TraitAttr):
+                types.update(atr.traitcodes)
+        if not types:
+            return
+        i = 0
+        for row in self.ent.list_traits(code=types):
+            ent = self.id2entity.get(row['entity_id'], None)
+            if ent:
+                code = str(self.co.EntityTrait(row['code']))
+                ent.traits[code] = row
+                i += 1
+        self.logger.debug("Found %d traits" % i)
+        # TODO: Fetch from person too? Is that needed?
 
     def fetch_address_info(self):
         """Fetch addresses for users.
 
         """
         self.logger.debug("Fetch address info...")
-        # TODO: Need more configuration! What source_system and what address
-        # type for what attribute?
+        adrtypes = set()
+        systems = set()
+        all_systems = False
+        # Go through config and see what info needs to be fetched:
+        for atr in self.config['attributes'].itervalues():
+            if isinstance(atr, ConfigUtils.AddressAttr):
+                adrtypes.update(atr.address_types)
+                if atr.source_systems is None:
+                    all_systems = True
+                else:
+                    systems.update(atr.source_systems)
+        if not adrtypes:
+            return
+        if all_systems or not systems:
+            # By setting to None we fetch from all source_systems.
+            systems = None
 
-        return # TODO: implement!
-
-        types = []
-        if 'Street' in self.config['attributes']:
-            types.append(self.co.address_street)
-        if 'TODO' in self.config['attributes']:
-            types.append(self.co.address_street)
-
-        types = (self.co.address_post,)
-
+        i = 0
         # Addresses stored on the person:
-        for row in self.pe.list_entity_addresses(address_type=types,
-                                            entity_type=self.co.entity_person):
-            for ent in self.owner2ent.get(row['entity_id'], ()):
-                ent.addresses[str(co.Address(row['address_type']))] = row
-
-        # TODO: Addresses stored on the account:
-        for row in self.pe.list_entity_addresses(address_type=types,
-                                            entity_type=self.co.entity_account):
-            ent = self.id2entity.get(row['entity_id'], None)
-            if ent:
-                ent.addresses[str(co.Address(row['address_type']))] = row
+        if hasattr(self.pe, 'list_entity_addresses'):
+            for row in self.pe.list_entity_addresses(source_system=systems,
+                                        entity_type=self.co.entity_person,
+                                        address_type=adrtypes):
+                for ent in self.owner2ent.get(row['entity_id'], ()):
+                    atype = str(self.co.Address(row['address_type']))
+                    ssys = str(self.co.AuthoritativeSystem(row['source_system']))
+                    ent.addresses.setdefault(atype, {})[ssys] = row
+                    i += 1
+        # Contact info stored on the account:
+        if hasattr(self.ac, 'list_entity_addresses'):
+            for row in self.ac.list_entity_addresses(source_system=systems,
+                                         entity_type=self.co.entity_account,
+                                         address_type=adrtypes):
+                ent = self.id2entity.get(row['entity_id'], None)
+                if ent:
+                    atype = str(self.co.Address(row['address_type']))
+                    ssys = str(self.co.AuthoritativeSystem(row['source_system']))
+                    ent.addresses.setdefault(ctype, {})[ssys] = row
+                    i += 1
+        self.logger.debug("Found %d addresses" % i)
 
     def fetch_mail(self):
         """Fetch all e-mail address for the users.
@@ -1770,7 +1897,8 @@ class UserSync(BaseSync):
                                                 primary_only=True).iteritems():
             ent = self.name2entity.get(uname)
             if ent:
-                ent.contact_info['EMAIL'] = prim_mail
+                ent.primary_mail = prim_mail
+                #contact_info['EMAIL'] = prim_mail
         # Subclasses should fetch all adresses if that is needed, e.g. for
         # Exchange.
 
