@@ -18,7 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Gateway functionality.
+"""Functionality for communicating with the TSD gateway.
 
 TSD needs to communicate with the gateway, to tell it to open and close access
 to project and project members. We do for example need to give project members
@@ -108,6 +108,8 @@ class GatewayClient(xmlrpclib.Server, object):
                                                                     params)
         except xmlrpclib.Fault, e:
             raise GatewayException(e)
+
+    # List methods
 
     def list_projects(self):
         """Ask GW for a list of all its projects.
@@ -248,14 +250,15 @@ class GatewayClient(xmlrpclib.Server, object):
         # Fetch host info:
         for host in self.list_hosts():
             ret[host['project']]['hosts'].append(host)
-        # TODO: Add these when the Gateway does not raise Faults:
         # Fetch subnet info:
-        #for subn in self.list_subnets():
-        #    ret[subn['project']]['subnets'].append(subn)
+        for subn in self.list_subnets():
+            ret[subn['project']]['subnets'].append(subn)
         # Fetch vlan info:
-        #for vlan in self.list_vlans():
-        #    ret[vlan['project']]['vlans'].append(vlan)
+        for vlan in self.list_vlans():
+            ret[vlan['project']]['vlans'].append(vlan)
         return ret
+
+    # Project methods
 
     def create_project(self, pid):
         """Create a new project in the GW.
@@ -298,7 +301,7 @@ class GatewayClient(xmlrpclib.Server, object):
             return True
         params = {'project': pid}
         # TODO: 'when' not implemented yet!
-        return self.project.freeze({'project': pid})
+        return self.project.freeze(params)
 
     def thaw_project(self, pid):
         """Unfreeze a project in the GW.
@@ -312,7 +315,9 @@ class GatewayClient(xmlrpclib.Server, object):
             return True
         return self.project.thaw({'project': pid})
 
-    def create_user(self, pid, username, realname, uid):
+    # User methods
+
+    def create_user(self, pid, username, uid, realname=None):
         """Create a user in the GW.
 
         @type pid: string
@@ -321,18 +326,209 @@ class GatewayClient(xmlrpclib.Server, object):
         @type username: string
         @param username: The username of the user.
 
-        @type realname: string
-        @param realname: The name of the user. It has no practical significance
-            for the gateway.
-
         @type uid: int
         @param uid: The posix UID of the user.
 
+        @type realname: string
+        @param realname: The name of the user. It has no practical significance
+            for the gateway. Must not contain colons!
+
         """
         self.logger.info("Creating user: %s", username)
+        params = {'project': pid, 'username': username, 'uid': uid}
+        if realname:
+            if ':' in realname:
+                self.logger.warn("Realname for %s contains colons!", username)
+            else:
+                params['realname'] = realname
         if self.dryrun:
             return True
-        return self.user.create({'project': pid, 'username': username,
-                                 'realname': realname, 'uid': uid})
+        return self.user.create(params)
 
+    def delete_user(self, pid, username):
+        """Delete a user from the GW.
+
+        @type pid: string
+        @param pid: The project ID.
+
+        @type username: string
+        @param username: The username of the user.
+
+        """
+        self.logger.info("Deleting user: %s", username)
+        params = {'project': pid, 'username': username}
+        if self.dryrun:
+            return True
+        return self.user.delete(params)
+
+    def freeze_user(self, pid, username, when=None):
+        """Freeze an existing user in the GW.
+
+        @type pid: string
+        @param pid: The project ID.
+
+        @type username: string
+        @param username: The username of the account
+
+        @type when: DateTime
+        @param when: When the freeze should happen. Defaults to now if not set.
+            Not implemented yet.
+
+        @rtype: bool
+        @return: If the GW accepted the call.
+
+        """
+        self.logger.info("Freezing account: %s", username)
+        params = {'project': pid, 'username': username}
+        # TODO: 'when' not implemented yet!
+        if self.dryrun:
+            return True
+        return self.user.freeze(params)
+
+    def thaw_user(self, pid, username):
+        """Unfreeze (thaw) a user in the GW.
+
+        @type pid: string
+        @param pid: The project ID.
+
+        @type username: string
+        @param username: The username of the account
+
+        """
+        self.logger.info("Thawing user: %s", username)
+        params = {'project': pid, 'username': username}
+        if self.dryrun:
+            return True
+        return self.user.thaw(params)
+
+    def user_otp(self, pid, username, otpuri):
+        """Send a new OTP key for an account to the GW.
+
+        @type pid: string
+        @param pid: The project ID.
+
+        @type username: string
+        @param username: The username of the account
+
+        @type otpuri: string
+        @param otpuri: The OTP key to send, formatted in the proper URI format.
+        
+        """
+        self.logger.info("New OTP key for user: %s", username)
+        params = {'project': pid, 'username': username, 'otpuri': otpuri}
+        if self.dryrun:
+            return True
+        return self.user.otp.setkey(params)
+
+    # Host methods
+
+    def create_host(self, pid, fqdn):
+        """Create a new host in the GW.
+
+        @type pid: string
+        @param pid: The project ID.
+
+        @type fqdn: string
+        @param fqdn: The fully qualified domain name, and not the cname.
+
+        """
+        self.logger.info("Create host: %s", fqdn)
+        params = {'project': pid, 'hostname': fqdn}
+        if self.dryrun:
+            return True
+        return self.host.create(params)
+
+    def delete_host(self, pid, fqdn):
+        """Delete the given host from the GW.
+
+        @type pid: string
+        @param pid: The project ID.
+
+        @type fqdn: string
+        @param fqdn: The fully qualified domain name, not the cname.
+
+        """
+        self.logger.info("Delete host: %s", fqdn)
+        params = {'project': pid, 'hostname': fqdn}
+        if self.dryrun:
+            return True
+        return self.host.delete(params)
+
+    # Subnet methods
+
+    def create_subnet(self, pid, netaddr, prefixlen, vlan):
+        """Send a subnet to the GW.
+
+        @type pid: str
+        @param pid: The project ID.
+
+        @type netaddr: str
+        @param netaddr: The network address for the subnet. Both IPv4 and IPv6
+            is accepted.
+
+        @type prefixlen: str or int
+        @param prefixlen: The prefix length of the subnet.
+
+        @type vlan: str or int
+        @param vlan: The VLAN number for the project.
+
+        """
+        self.logger.info("Creating subnet for %s: %s/%s, vlan: %s", pid,
+                netaddr, prefixlen, vlan)
+        params = {'netaddr': netaddr, 'prefixlen': prefixlen,
+                  'vlantag': str(vlan), 'project': pid}
+        if self.dryrun:
+            return True
+        return self.subnet.create(params)
+
+    def delete_subnet(self, pid, netaddr):
+        """Remove a VLAN from the GW.
+
+        @type pid: str
+        @param pid: The project ID.
+
+        @type netaddr: str
+        @param netaddr: The network address for the subnet. Both IPv4 and IPv6
+            is accepted.
+
+        """
+        self.logger.info("Delete subnet for %s: %s", pid, netaddr)
+        params = {'netaddr': netaddr, 'project': pid}
+        if self.dryrun:
+            return True
+        return self.subnet.delete(params)
+
+    # VLAN methods
+
+    def create_vlan(self, pid, vlan):
+        """Send a VLAN to the GW.
+
+        @type pid: string
+        @param pid: The project ID.
+
+        @type vlan: string or int
+        @param vlan: The VLAN number for the project.
+
+        """
+        self.logger.info("Creating vlan for %s: %s", pid, vlan)
+        params = {'vlantag': str(vlan), 'project': pid}
+        if self.dryrun:
+            return True
+        return self.vlan.create(params)
+
+    def delete_vlan(SELF, pid, vlan):
+        """Remove a VLAN from the GW.
+
+        @type pid: string
+        @param pid: The project ID.
+
+        @type vlan: string or int
+        @param vlan: The VLAN number for the project.
+
+        """
+        self.logger.info("Delete vlan for %s: %s", pid, vlan)
+        params = {'vlantag': str(vlan), 'project': pid}
+        if self.dryrun:
+            return True
+        return self.vlan.delete(params)
 

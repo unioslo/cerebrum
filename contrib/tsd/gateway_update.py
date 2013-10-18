@@ -18,7 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Job for syncing Cerebrum data with TSD's Gateway.
+"""Job for syncing Cerebrum data with TSD's Gateway (GW).
 
 The Gateway needs information about all projects, accounts, hosts, subnets and
 VLANs, to be able to let users in to the correct project. This information comes
@@ -57,7 +57,8 @@ def usage(exitcode=0):
                         Default: cereconf.TSD_GATEWAY_URL
 
     -d --dryrun         Run the sync in dryrun. Data is retrieved from the
-                        Gateway, but no data is given to it.
+                        Gateway and compared, but changes are not sent back to
+                        the gateway. Default is to commit the changes.
 
     -h --help           Show this and quit.
 
@@ -87,6 +88,7 @@ class Processor:
         self.ou = Factory.get('OU')(self.db)
         self.pe = Factory.get('Person')(self.db)
         self.ac = Factory.get('Account')(self.db)
+        self.pu = Factory.get('PosixUser')(self.db)
 
         # Map persons' full names (realname)
         self.peid2name = dict((row['person_id'], row['name']) for row in
@@ -119,27 +121,37 @@ class Processor:
                 self.process_project(pid, proj, processed_ous)
             except Gateway.GatewayException:
                 continue
-
-        # Add active OUs that exists in Cerebrum but not in the self.gw:
+        # Add active OUs that exists in Cerebrum but not in the GW:
         for row in self.ou.search(filter_quarantined=True):
             if row['ou_id'] in processed_ous:
                 continue
-            logger.info("Unprocessed project: %s", row['ou_id'])
+            logger.info("New project: %s", row['ou_id'])
             self.ou.clear()
             self.ou.find(row['ou_id'])
-            self.gw.create_project(self.ou.get_project_name())
+            self.gw.create_project(self.ou.get_project_id())
+            # TODO: process the project, but need to get the info first
+            #self.process_project(self.ou.get_project_id(), 
+        # Sync all hosts:
+        self.process_dns(gw_projects)
 
     def process_project(self, pid, proj, processed_ous):
-        """Process a given project retrieved from the self.gw.
+        """Process a given project retrieved from the GW.
 
-        The information should be retrieved from the gateway, and is then matched
-        against what exist in Cerebrum.
+        The information should be retrieved from the gateway, and is then
+        matched against what exist in Cerebrum.
+
+        @type pid: string
+        @param pid: The project ID.
+
+        @type proj: dict
+        @param proj: Contains the information about a project and all its
+            elements.
 
         """
         logger.debug("Processing project %s: %s", pid, proj)
         self.ou.clear()
         try:
-            self.ou.find_by_tsd_projectname(pid)
+            self.ou.find_by_tsd_projectid(pid)
         except Errors.NotFoundError:
             self.gw.delete_project(pid)
             return
@@ -164,34 +176,79 @@ class Processor:
                 self.gw.delete_project(pid)
 
         self.process_project_members(self.ou, proj)
+        self.process_project_hosts(self.ou, proj)
         processed_ous.add(self.ou.entity_id)
 
     def process_project_members(self, ou, proj):
         """Sync the members of a project."""
-
+        pid = ou.get_project_id()
         ce_users = dict((self.acid2acname[row['account_id']], row) for row in
-                        self.ac.list_accounts_by_type(ou_id=ou.entity_id,
-                                                      filter_expired=True,
+                        self.pu.list_accounts_by_type(ou_id=ou.entity_id,
+                                                      filter_expired=False,
                                 account_spread=self.co.spread_gateway_account))
+        # Remove accounts not registered in Cerebrum:
         for user in proj['users']:
             username = user['name']
-            logger.debug("Process account %s: %s", username, user)
             if username not in ce_users:
+                logger.debug("Removing account %s: %s", username, user)
                 self.gw.delete_user(username)
-            # TODO: check quarantines and freeze/thaw
-
-            # TODO: update info, like realname
-
-            del ce_users[username]
-
-        # Create the remaining, unprocessed users:
+        # Update the rest of the accounts:
         for username, userdata in ce_users.iteritems():
+            self.pu.clear()
+            self.pu.find(userdata['account_id'])
+            is_frozen = bool(tuple(self.pu.get_entity_quarantine(
+                only_active=True)))
 
-            # TODO: check quarantines first!
-            self.gw.create_user(ou.get_project_name(), username, 
-                                self.peid2name[userdata['person_id']],
-                                # TODO: account_id != posix_UID!
-                                userdata['account_id'])
+            if username not in proj['users']:
+                if is_frozen:
+                    logger.info("Skipping unregistered but frozen account: %s",
+                            username)
+                    continue
+                self.gw.create_user(ou.get_project_id(), username, pu.posix_uid)
+            gwuserdata = proj['users'][username]
+            if is_frozen:
+                if not gwuserdata['frozen']:
+                    self.gw.freeze_user(pid, username)
+            else:
+                if gwuserdata['frozen']:
+                    self.gw.thaw_user(pid, username)
+            # Updating realname not implemented, as it's not used.
+
+    def process_dns(self, gw_projects):
+        """Sync all hosts to the gateway.
+
+        @type gw_projects: dict
+        @param gw_projects: All info about the projects, from the GW.
+
+        """
+        # Hosts:
+        #
+        # TODO
+        # Subnets and vlans
+        gw_subnets = dict()
+        #for proj in gw_projects.itervalues():
+        #    gw_subnets[
+
+        #ret = []
+        ## IPv6:
+        #subnet6 = IPv6Subnet.IPv6Subnet(self.db)
+        #compress = IPv6Utils.IPv6Utils.compress
+        #for row in subnet6.search():
+        #    ret.append({
+        #        'subnet': '%s/%s' % (compress(row['subnet_ip']),
+        #                             row['subnet_mask']),
+        #        'vlan_number': str(row['vlan_number']),
+        #        'description': row['description']})
+        ## IPv4:
+        #subnet = Subnet.Subnet(self.db)
+        #for row in subnet.search():
+        #    ret.append({
+        #        'subnet': '%s/%s' % (row['subnet_ip'], row['subnet_mask']),
+        #        'vlan_number': str(row['vlan_number']),
+        #        'description': row['description']})
+        #self.logger.debug("Found %d subnets", len(ret))
+        ## Sort by subnet
+        #return sorted(ret, key=lambda x: x['subnet'])
 
 def main():
     try:
