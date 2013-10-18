@@ -1494,7 +1494,8 @@ def argument_to_sql(argument, sql_attr_name, binds,
 
 
 def prepare_string(value, transform=str.lower):
-    """
+    """Prepare a string for being used in SQL.
+
     @type value: basestring
     @param value:
       The value we want to transform from regular glob search syntax to

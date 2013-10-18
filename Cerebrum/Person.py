@@ -855,12 +855,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         binds = dict()
         where = list()
         if person_id is not None:
-            where.append(
-                argument_to_sql(
-                    person_id,
-                    "pn.person_id",
-                    binds,
-                    int))
+            where.append(argument_to_sql(person_id, "pn.person_id", binds, int))
         if name_variant is not None:
             where.append(
                 argument_to_sql(name_variant, "pn.name_variant", binds,
