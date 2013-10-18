@@ -503,12 +503,8 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                 if not group_ids:
                     return []
 
-                where.append(
-                    argument_to_sql(
-                        group_ids,
-                        "gi.group_id",
-                        binds,
-                        int))
+                where.append(argument_to_sql(group_ids, "gi.group_id", binds,
+                                             int))
             else:
                 tables.append("[:table schema=cerebrum name=group_member] gm")
                 where.append("(gi.group_id = gm.group_id)")
@@ -543,12 +539,8 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         #
         # creator_id filter
         if creator_id is not None:
-            where.append(
-                argument_to_sql(
-                    creator_id,
-                    "gi.creator_id",
-                    binds,
-                    int))
+            where.append(argument_to_sql(creator_id, "gi.creator_id", binds,
+                                         int))
 
         where_str = ""
         if where:
