@@ -43,7 +43,6 @@ from Cerebrum.modules.tsd import Gateway
 
 logger = Factory.get_logger('cronjob')
 
-
 def usage(exitcode=0):
     print """
     %(doc)s 
@@ -59,6 +58,10 @@ def usage(exitcode=0):
     -d --dryrun         Run the sync in dryrun. Data is retrieved from the
                         Gateway and compared, but changes are not sent back to
                         the gateway. Default is to commit the changes.
+
+    --mock              Mock the gateway by returning empty lists instead of
+                        talking with the GW. Usable for testing the
+                        functionality locally.
 
     -h --help           Show this and quit.
 
@@ -90,15 +93,10 @@ class Processor:
         self.ac = Factory.get('Account')(self.db)
         self.pu = Factory.get('PosixUser')(self.db)
 
-        # Map persons' full names (realname)
-        self.peid2name = dict((row['person_id'], row['name']) for row in
-                              self.pe.search_person_names(name_variant=self.co.name_full,
-                                                     source_system=self.co.system_cached))
         # Map account_id to account_name:
         self.acid2acname = dict((row['account_id'], row['name']) for row in
                                 self.ac.search(spread=self.co.spread_gateway_account))
-
-        # TODO: cache some data for efficiency
+        logger.debug2("Found %d accounts" % len(self.acid2acname))
 
     def process_projects(self):
         """Go through all projects in Cerebrum and compare them with the Gateway.
@@ -119,16 +117,17 @@ class Processor:
         for pid, proj in gw_projects.iteritems():
             try:
                 self.process_project(pid, proj, processed_ous)
-            except Gateway.GatewayException:
-                continue
+            except Gateway.GatewayException, e:
+                logger.warn("GatewayException for %s: %s" % (pid, proj))
         # Add active OUs that exists in Cerebrum but not in the GW:
         for row in self.ou.search(filter_quarantined=True):
             if row['ou_id'] in processed_ous:
                 continue
-            logger.info("New project: %s", row['ou_id'])
             self.ou.clear()
             self.ou.find(row['ou_id'])
-            self.gw.create_project(self.ou.get_project_id())
+            pid = self.ou.get_project_id()
+            self.gw.create_project(pid)
+            logger.info("New project: %s", pid)
             # TODO: process the project, but need to get the info first
             #self.process_project(self.ou.get_project_id(), 
         # Sync all hosts:
@@ -253,18 +252,22 @@ class Processor:
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'hd',
-                                   ['help', 'url=', 'dryrun'])
+                                   ['help', 'url=', 'dryrun', 'mock'])
     except getopt.GetoptError, e:
         print e
         usage(1)
 
     dryrun = False
+    mock = False
     url = None
 
     for opt, val in opts:
         if opt in ('-h', '--help'):
             usage()
         elif opt in ('-d', '--dryrun'):
+            dryrun = True
+        elif opt in ('--mock'):
+            mock = True
             dryrun = True
         elif opt in ('--url',):
             url = val
@@ -276,6 +279,15 @@ def main():
         gw = Gateway.GatewayClient(logger, uri=url, dryrun=dryrun)
     else:
         gw = Gateway.GatewayClient(logger, dryrun=dryrun)
+
+    if mock:
+        #gw.get_projects = lambda: dict()
+        logger.debug("Mocking GW")
+        for t in gw.__class__.__dict__:
+            if t.startswith('list_'):
+                setattr(gw, t, lambda: list())
+            elif t.startswith('get_'):
+                setattr(gw, t, lambda: dict())
 
     logger.debug("Gateway: %s", gw)
     logger.info("Start gw-sync")
