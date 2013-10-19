@@ -34,6 +34,7 @@ testing all the subclasses.
 import cerebrum_path
 import cereconf
 
+from Cerebrum.Utils import Factory
 from Cerebrum.modules.Email import EmailTarget, EmailQuota
 
 from Cerebrum.modules.ad2.ADSync import UserSync, GroupSync
@@ -49,9 +50,9 @@ class UiACerebrumUser(CerebrumUser):
     def calculate_ad_values(self):
         """Adding UiA specific attributes."""
         super(UiACerebrumUser, self).calculate_ad_values()
-        is_exchange = any(str(s) == 'account@exchange' for s in self.spreads)
+        co = Factory.get('Constants')(Factory.get('Database'))
+        has_exchange = co.spread_exchange_account in self.spreads
 
         # Hide all accounts that are not primary accounts:
         self.set_attribute('MsExchHideFromAddressLists',
-                #not is_exchange or not self.is_primary_account)
-                not self.is_primary_account)
+                not has_exchange or not self.is_primary_account)
