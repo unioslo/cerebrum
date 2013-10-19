@@ -103,6 +103,32 @@ def usage(exitcode=0):
                     be used for testing! We should e.g. not send passwords in
                     plaintext unencrypted.
 
+    Debug options:
+
+    --debug         Print debug information, mostly for developers.
+
+    --dump-cerebrum-data Instead of syncing, just dump out how Cerebrum wants
+                    the AD side to look like, to be able to debug the Cerebrum
+                    functionality. The output is independent of how AD looks
+                    like. The output is meant to be easy to search and compare,
+                    so the format is:
+
+                        ad-id;attribute-name;value
+
+                    For example:
+
+                        emplyoees;GidNumber;1002
+                        bob;GivenName;Bob
+                        bob;EmployeeNumber;0123456
+
+                    The output is sorted by entity name and the attribute names.
+
+    --dump-diff     Instead of syncing, the Cerebrum data is compared with AD
+                    and all the changes that is supposed to happen is dumped
+                    out. AD will not be updated.
+
+                    TODO: This is not implemented.
+
     Other options:
 
     --logger-level LEVEL What log level should it start logging. This is handled
@@ -114,8 +140,6 @@ def usage(exitcode=0):
                          Cerebrum's logger.
 
                          Note that the logname must be defined in logging.ini.
-
-    --debug         Print debug information, mainly for developers.
 
     -h, --help      Show this and quit.
 
@@ -144,6 +168,8 @@ def main():
                                     "quick=",
                                     "set=",
                                     "unencrypted",
+                                    "dump-cerebrum-data",
+                                    "dump-diff",
                                     "subset=",
                                     "type=",
                                     "sync_class=",
@@ -166,7 +192,7 @@ def main():
     sync_classes = []
     # If we should do the quicksync instead of fullsync:
     quicksync = False
-    debug = False
+    debug = dump_cerebrum_data = dump_diff = False
 
     # The configuration for the sync
     configuration = dict()
@@ -210,6 +236,10 @@ def main():
             quicksync = val
         elif opt == '--debug':
             debug = True
+        elif opt == '--dump-diff':
+            raise Exception('Dumping diff is not implemented yet')
+        elif opt == '--dump-cerebrum-data':
+            dump_cerebrum_data = True
         else:
             print "Unknown option: %s" % opt
             usage(1)
@@ -228,6 +258,22 @@ def main():
                                                       type.mro(sync_class)))
     sync = sync_class(db=db, logger=logger)
     sync.configure(configuration)
+
+    # If debugging instead of syncing:
+    if dump_cerebrum_data:
+        # TODO: How to avoid fetching the get-dc call at init? Maybe it
+        # shouldn't be started somewhere else?
+        sync.fetch_cerebrum_data()
+        sync.calculate_ad_values()
+        atrnames = sorted(sync.config['attributes'])
+        for entname in sorted(sync.entities):
+            ent = sync.entities[entname]
+            print u';'.join((ent.ad_id, u'OU', ent.ou))
+            for atrname in atrnames:
+                print u';'.join((ent.ad_id, atrname,
+                    unicode(ent.attributes.get(atrname, '<Not Set>'))))
+        return
+
     try:
         if quicksync:
             sync.quicksync(quicksync)

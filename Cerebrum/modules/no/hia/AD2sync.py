@@ -49,9 +49,9 @@ class UiACerebrumUser(CerebrumUser):
     def calculate_ad_values(self):
         """Adding UiA specific attributes."""
         super(UiACerebrumUser, self).calculate_ad_values()
-        # If no Exchange-spread, we're done
-        if co.spread_exchange_account not in self.spreads:
-            return
+        is_exchange = any(str(s) == 'account@exchange' for s in self.spreads)
+
         # Hide all accounts that are not primary accounts:
-        self.set_attribute('msExchHideFromAddressLists',
-                           not self.maildata.get('is_primary_account'))
+        self.set_attribute('MsExchHideFromAddressLists',
+                #not is_exchange or not self.is_primary_account)
+                not self.is_primary_account)

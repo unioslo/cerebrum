@@ -164,6 +164,8 @@ class ADclient(PowershellClient):
         # synced. We could still go without this, but then we could get race
         # conditions.
         try:
+            # TODO: Maybe this should get called from somewhere else, and not
+            # init? We don't always want to ask for this.
             dc = self.get_domain_controller()
             self._chosen_dc = dc['Name']
             self.logger.debug("Preferred DC: %s", self._chosen_dc)

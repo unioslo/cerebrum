@@ -62,6 +62,10 @@ import cereconf
 
 from Cerebrum.modules.ad2 import ConfigUtils
 
+class AttrNotFound(Exception):
+    """Local exception for attributes that are not found."""
+    pass
+
 class CerebrumEntity(object):
     """A representation for a Cerebrum Entity which may be exported to AD.
 
@@ -131,7 +135,7 @@ class CerebrumEntity(object):
         self.attributes = dict()
 
         # Default states
-        self.active = True      # if quarantined in Cerebrum
+        self.active = True      # if not quarantined in Cerebrum
         self.in_ad = False      # if entity exists in AD
         self.ad_new = False     # if entity was just created in AD
 
@@ -149,7 +153,7 @@ class CerebrumEntity(object):
 
         # A list of spreads registered on the entity. Could be used to e.g. give
         # users with spread to Exchange or Lync extra attributes. Might not be
-        # filled with spreads if not needed, according to the configuration.
+        # filled with spreads if not needed, this depends on the configuration.
         self.spreads = []
 
         # Other information that _could_ get registered for the entity:
@@ -174,104 +178,138 @@ class CerebrumEntity(object):
 
         """
         # Some standard attributes that we don't support setting otherwise:
-        self.set_attribute('SamAccountName', self.ad_id)
         self.set_attribute('Name', self.ad_id)
         self.set_attribute('DistinguishedName', 'CN=%s,%s' % (self.ad_id,
                                                               self.ou))
         # Attributes defined by the config:
-        for atrname, atr in self.config['attributes'].iteritems():
-            if isinstance(atr, ConfigUtils.ContactAttr):
-                # ContactInfo
-                for c in atr.contact_types:
-                    cinfos = self.contact_info.get(str(c))
-                    if cinfos is None:
-                        continue
-                    if getattr(atr, 'source_systems', None):
-                        for s in atr.source_systems:
-                            sys = cinfos.get(str(s))
-                            if sys:
-                                self.set_attribute(atrname, sys)
-                                break
-                    else:
-                        # TODO: now it's not sorted, need to make use of the
-                        # default order from cereconf!
-                        for s in cinfos.itervalues():
-                            self.set_attribute(atrname, s)
-                            break
-            elif isinstance(atr, ConfigUtils.NameAttr):
-                # EntityName or PersonName
-                for vari in atr.name_variants:
-                    vinfos = self.entity_name_with_language.get(str(vari))
-                    if vinfos is None:
-                        continue
-                    if getattr(atr, 'languages', None):
-                        for l in atr.languages:
-                            name = vinfos.get(str(l))
-                            if lang:
-                                self.set_attribute(atrname, name)
-                                break
-                    else:
-                        # Not sorted by language, fetch first.
-                        # TODO: Need to use a default order for this!
-                        for name in vinfos.itervalues():
-                            self.set_attribute(atrname, name)
-                            break
-            elif isinstance(atr, ConfigUtils.ExternalIdAttr):
-                # External IDs
-                for itype in atr.id_types:
-                    infos = self.external_ids.get(str(itype))
-                    if infos is None:
-                        continue
-                    if getattr(atr, 'source_systems', None):
-                        for s in atr.source_systems:
-                            sys = infos.get(str(s))
-                            if sys:
-                                self.set_attribute(atrname, sys)
-                                break
-                    else:
-                        # TODO: use default sort order from config!
-                        for s in infos.itervalues():
-                            self.set_attribute(atrname, s)
-                            break
-            elif isinstance(atr, ConfigUtils.AddressAttr):
-                # Addresses
-                for adrtype in atr.address_types:
-                    ainfos = self.addresses.get(str(adrtype))
-                    if ainfos is None:
-                        continue
-                    if getattr(atr, 'source_systems', None):
-                        for s in atr.source_systems:
-                            sys = ainfos.get(str(s))
-                            if sys:
-                                self.set_attribute(atrname, sys)
-                                break
-                    else:
-                        # TODO: now it's not sorted, need to make use of the
-                        # default order from cereconf!
-                        for s in ainfos.itervalues():
-                            self.set_attribute(atrname, s)
-                            break
-            elif isinstance(atr, ConfigUtils.TraitAttr):
-                # Traits
-                for code in atr.traitcodes:
-                    tr = self.traits.get(str(code))
-                    if tr:
-                        self.set_attribute(atrname, tr)
-                        break
-            elif isinstance(atr, ConfigUtils.AttrConfig):
-                # Default attributes. Those that only contains a standard value
-                # that could be generated by the basic info.
-                if atr.default:
-                    if isinstance(atr.default, basestring):
-                        self.set_attribute(atrname, atr.default %
-                                {'entity_name': self.entity_name,
-                                 'entity_id': self.entity_id,
-                                 'ad_id': self.ad_id,
-                                 'ou': self.ou,})
-                    else:
-                        self.set_attribute(atrname, atr.default)
+        for atrname, config in self.config['attributes'].iteritems():
+            # Some attributes are not configured, but defined as None in the
+            # config. We expect those to be handled by subclasses.
+            if not isinstance(config, ConfigUtils.AttrConfig):
+                continue
+            try:
+                value = self.find_ad_attribute(config)
+                self.set_attribute(atrname, value)
+            except AttrNotFound:
+                # Use the default attributes. Those that only contains a
+                # standard value that could be generated by the basic info.
 
-    def set_attribute(self, key, value, force=False):
+                # Add some substitution data to use for strings:
+                if isinstance(config.default, basestring):
+                    self.set_attribute(atrname, config.default %
+                            {'entity_name': self.entity_name,
+                             'entity_id': self.entity_id,
+                             'ad_id': self.ad_id,
+                             'ou': self.ou},
+                            transform=False)
+                else:
+                    self.set_attribute(atrname, config.default,
+                            transform=False)
+
+    def find_ad_attribute(self, config):
+        """Find a given AD attribute in its raw format from the Cerebrum data.
+
+        The configuration says where to find the attribute value, and by what
+        filtering, e.g. the prioritised order of source system that should be
+        searched first.
+
+        @type config: mixed
+        @param config:
+            The configuration for the given attribute, if set.
+
+        @rtype: mixed
+        @return:
+            The attribute, if found. Note that None could also be found for an
+            attribute.
+
+        @raise AttrNotFound:
+            Raised in cases where the attribute was not set for the entity.
+
+        """
+        # TODO: This could be cleaned up, e.g. by one or more helper methods.
+
+        if isinstance(config, ConfigUtils.ContactAttr):
+            # ContactInfo
+            for c in config.contact_types:
+                cinfos = self.contact_info.get(str(c))
+                if cinfos is None:
+                    continue
+                if getattr(config, 'source_systems', None):
+                    for s in config.source_systems:
+                        sys = cinfos.get(str(s))
+                        if sys:
+                            return sys
+                else:
+                    # TODO: now it's not sorted, need to make use of the
+                    # default order from cereconf!
+                    for s in cinfos.itervalues():
+                        return s
+        elif isinstance(config, ConfigUtils.NameAttr):
+            # EntityName or PersonName
+            for vari in config.name_variants:
+                vinfos = self.entity_name_with_language.get(str(vari))
+                if vinfos is None:
+                    continue
+                if getattr(config, 'languages', None):
+                    for l in config.languages:
+                        name = vinfos.get(str(l))
+                        if name:
+                            return name
+                else:
+                    # Not sorted by language, fetch first.
+                    # TODO: Need to use a default order for this!
+                    for name in vinfos.itervalues():
+                        return name
+        elif isinstance(config, ConfigUtils.ExternalIdAttr):
+            # External IDs
+            for itype in config.id_types:
+                infos = self.external_ids.get(str(itype))
+                if infos is None:
+                    continue
+                if getattr(config, 'source_systems', None):
+                    for s in config.source_systems:
+                        sys = infos.get(str(s))
+                        if sys:
+                            return sys
+                else:
+                    # TODO: use default sort order from config!
+                    for s in infos.itervalues():
+                        return s
+        elif isinstance(config, ConfigUtils.AddressAttr):
+            # Addresses
+            for adrtype in config.address_types:
+                ainfos = self.addresses.get(str(adrtype))
+                if ainfos is None:
+                    continue
+                if getattr(config, 'source_systems', None):
+                    for s in config.source_systems:
+                        sys = ainfos.get(str(s))
+                        if sys:
+                            return sys
+                else:
+                    # TODO: now it's not sorted, need to make use of the
+                    # default order from cereconf!
+                    for s in ainfos.itervalues():
+                        return s
+        elif isinstance(config, ConfigUtils.TraitAttr):
+            # Traits
+            for code in config.traitcodes:
+                tr = self.traits.get(str(code))
+                if tr:
+                    return tr
+        elif isinstance(config, ConfigUtils.EmailAddrAttr):
+            # Email Addresses
+            adr = self.maildata.get('alias')
+            prim = self.maildata.get('primary')
+            if adr:
+                return {'alias': adr, 'primary': prim}
+        elif isinstance(config, ConfigUtils.EmailQuotaAttr):
+            # Email Quota
+            if self.maildata.has_key('quota'):
+                return self.maildata['quota']
+        raise AttrNotFound('No attribute found after attr config')
+
+    def set_attribute(self, key, value, force=False, transform=True):
         """Setting an attribute for the entity.
         
         Only the first setter of the same key is stored, the rest is ignored -
@@ -294,11 +332,17 @@ class CerebrumEntity(object):
         @param force: If the attribute should be set even though it has already
             been set. Should be False if values are calculated.
 
+        @type transform: bool
+        @param transform: If the transform should be called for the input value
+            or not, if it is defined in the configuration for the attribute.
+
         @rtype: bool
         @return: True only if the attribute got set.
 
         """
         # Skip if attribute is not defined
+        # TODO: compare with lowercase only? Not sure how, and when, AD compare
+        # with or without case sensitivity, so haven't done so yet.
         if key not in self.config['attributes']:
             return False
         # Skip if attribute is already set
@@ -324,7 +368,7 @@ class CerebrumEntity(object):
             # TODO: also remove double white spaces from all attributes?
 
         # The config might want to transform the value:
-        if hasattr(attrconf, 'transform'):
+        if transform and hasattr(attrconf, 'transform'):
             value = attrconf.transform(value)
         self.attributes[key] = value
         return True
@@ -355,16 +399,12 @@ class CerebrumUser(CerebrumEntity):
         self.contact_info = {}
         self.external_ids = {}
         self.person_names = {}
-        self.primary_mail = None # Only used if needed
+        self.is_primary_account = False
 
         # TODO: Make use of self.email_addresses = {}, or should this be in a
-        # subclass? Now we use contact_info['EMAIL'] for the primary address,
-        # which might be wrong in some cases, but okay for others...
-
+        # subclass?
 
         # default values
-        #self.title = ""
-        #self.contact_phone = ""
         #self.email_addrs = list()
         #self.contact_objects = list()
 
@@ -386,43 +426,7 @@ class CerebrumUser(CerebrumEntity):
             self.set_attribute('GivenName', self.name_first)
             self.set_attribute('Surname', self.name_last) # No need to set 'Sn'
 
-        if self.primary_mail:
-            self.set_attribute('Mail', self.primary_mail)
-
         # TODO: how to store ACCOUNT_CONTROL?
-        return
-
-        # Read which attrs to calculate from cereconf
-        #ad_attrs = dict().fromkeys(cereconf.AD_ATTRIBUTES, None)
-
-        # Set predefined default values
-        ad_attrs.update(cereconf.AD_ACCOUNT_CONTROL)
-        ad_attrs.update(cereconf.AD_DEFAULTS)
-
-        ad_attrs["ACCOUNTDISABLE"] = self.quarantined
-        if self.email_addrs:
-            ad_attrs["mail"] = self.email_addrs[0]
-
-        # Calculate Exchange attributes?
-        if exchange:
-            # Set exchange flag
-            self.to_exchange = True
-            # Set defaults
-            for k in cereconf.AD_EXCHANGE_ATTRIBUTES:
-                ad_attrs[k] = None
-            ad_attrs.update(cereconf.AD_EXCHANGE_DEFAULTS)
-            
-            # Do the hardcoding for this sync. 
-            ad_attrs["mailNickname"] = self.uname
-            # set proxyAddresses attr
-            if self.email_addrs:
-                tmp = ["SMTP:" + self.email_addrs[0]]
-                for alias_addr in self.email_addrs[1:]:
-                    if alias_addr != ad_attrs["mail"]:
-                        tmp.append(("smtp:" + alias_addr))
-                ad_attrs["proxyAddresses"] = tmp
-
-        self.ad_attrs.update(ad_attrs)
 
     def add_forward(self, forward_addr):
         contact = CerebrumContact(self.ad_attrs["displayName"], forward_addr,
@@ -490,32 +494,6 @@ class MailTargetEntity(CerebrumUser):
         """Making the object ready for the mailtarget."""
         super(MailTargetEntity, self).__init__(*args, **kwargs)
         self.maildata = dict()
-        self.spread_to_exchange = False
-
-    def calculate_ad_values(self):
-        """Calculate POSIX attributes."""
-        super(MailTargetEntity, self).calculate_ad_values()
-        # It no Exchange-spread, we're done:
-        if not self.spread_to_exchange:
-            return
-
-        # Quota:
-        q_hard = self.maildata.get('quota_hard')
-        q_soft = self.maildata.get('quota_soft')
-
-        if q_hard:
-            # TODO: need to check if these settings are sane for everyone, or
-            # just UiA...
-            hardquotalimit = q_hard * 1024
-            overquotalimit = hardquotalimit * q_soft // 100
-            storagequota = overquotalimit * 90 // 100
-            self.set_attribute('MDBOverHardQuotaLimit', hardquotalimit)
-            self.set_attribute('MDBOverQuotaLimit', overquotalimit)
-            self.set_attribute('MDBStorageQuota', storagequota)
-
-        # Set that Exchange should not decide default quotas:
-        self.set_attribute('MDBUseDefaults', False)
-        # TODO: make these settings configurable
 
 class CerebrumContact(CerebrumEntity):
     """
@@ -571,9 +549,6 @@ class CerebrumGroup(CerebrumEntity):
         super(CerebrumGroup, self).__init__(logger, config, entity_id,
                                             entity_name)
         self.description = description
-
-        # TODO: The SamAccountName could differ from the CN in the object's DN.
-        # How should we check and update this?
         self.ad_dn = None
 
     def calculate_ad_values(self):

@@ -184,7 +184,7 @@ class BaseSync(object):
         # A mapping from entity_id to the entities.
         self.id2entity = dict()
         # A mapping from AD-id to the entities. AD-id is per default
-        # SamAccountName.
+        # SamAccountName, but could be set otherwise in the config.
         self.adid2entity = dict()
 
     @classmethod
@@ -513,20 +513,6 @@ class BaseSync(object):
         self.logger.debug("Calculate AD values...")
         self.calculate_ad_values()
         self.logger.debug("Process AD data...")
-
-        #for ent in self.entities.itervalues():
-        #    print u"Entity: %s" % ent.ad_id
-        #    for atr in sorted(self.config['attributes']):
-        #        if ent.attributes.has_key(atr):
-        #            try:
-        #                print u"  %30s: %s" % (atr, ent.attributes[atr])
-        #            except UnicodeEncodeError:
-        #                try:
-        #                    print u'  %30s: %s' % (atr, unicode(ent.attributes[atr]))
-        #                except UnicodeEncodeError:
-        #                    print u'  %30s: <unicodeerror>' % atr
-        #    print
-
         self.process_ad_data(ad_cmdid)
         self.logger.debug("Process entities not in AD...")
         self.process_entities_not_in_ad()
@@ -702,8 +688,9 @@ class BaseSync(object):
     def fetch_spreads(self):
         """Get all spreads from Cerebrum and update L{self.entities} with this.
 
-        The spreads could then be used for updating various attributes, e.g. for
-        exchange and lync.
+        The spreads _could_ be used for updating various attributes or not
+        depending on if an entity should be available in different AD systems,
+        e.g. Exchange, Lync and Sharepoint.
 
         """
         self.logger.debug("Fetch spreads...")
@@ -927,7 +914,7 @@ class BaseSync(object):
             The dict contains mostly the object's attributes.
 
         """
-        name = ad_object['SamAccountName']
+        name = ad_object['Name']
         dn = ad_object['DistinguishedName']
 
         # TODO: remove when done debugging UAC
@@ -1574,17 +1561,6 @@ class UserSync(BaseSync):
         """
         super(UserSync, self).fetch_cerebrum_data()
 
-        def any_in_config(*attrs):
-            """Helper function for checking if any of the given attributes is
-            defined as an attribute we should sync.
-
-            @rtype: bool
-            @return: True if any of the given attributes are defined in
-                L{self.config['attributes']}.
-
-            """
-            return any(k in self.config['attributes'] for k in attrs)
-
         # Create a mapping of owner id to user objects
         self.logger.debug("Fetch owner information...")
         self.owner2ent = dict()
@@ -1592,18 +1568,23 @@ class UserSync(BaseSync):
             self.owner2ent.setdefault(ent.owner_id, []).append(ent)
         self.logger.debug("Mapped %d entity owners", len(self.owner2ent))
 
+        # Set what is primary accounts.
+        # TODO: We don't want to fetch this unless we really need the data,
+        # since it takes some time to finish. How could be find its usage from
+        # the config?
+        for row in self.ac.list_accounts_by_type(primary_only=True):
+            ent = self.id2entity.get(row['account_id'])
+            if ent:
+                ent.is_primary_account = True
+
+        # The different methods decides if their data should be fetched or not,
+        # depending on the attribute configuration.
         self.fetch_contact_info()
         self.fetch_names()
         self.fetch_external_ids()
         self.fetch_traits()
-
-        # We fetch the Mail attribute both as contact_info and from the Email
-        # module, since various instances store e-mail addresses differently
-        if any_in_config('Mail'):
-            self.fetch_mail()
-        # Addresses:
-        if any_in_config('Street', 'StreetAddress', 'PostalCode', 'L', 'Co'):
-            self.fetch_address_info()
+        self.fetch_address_info()
+        self.fetch_mail()
 
     def fetch_cerebrum_entities(self):
         """Fetch the entities from Cerebrum that should be compared against AD.
@@ -1627,7 +1608,7 @@ class UserSync(BaseSync):
                           (self.config['target_spread'],))
         subset = self.config.get('subset')
         for row in self.ac.search(spread=self.config['target_spread']):
-            uname = row["name"].strip()
+            uname = row["name"]
             # For testing or special cases where we only want to sync a subset
             # of entities. The subset should contain the entity names, e.g.
             # usernames or group names.
@@ -1888,19 +1869,60 @@ class UserSync(BaseSync):
         fix this in a better way later.
 
         """
-        # TODO: A better check if the Email module is in use?
-        if not hasattr(self.ac, 'getdict_uname2mailaddr'):
+        mailconf = (ConfigUtils.EmailQuotaAttr, ConfigUtils.EmailAddrAttr)
+        if not any(isinstance(a, mailconf) for a in
+                self.config['attributes'].itervalues()):
+            # No mail data needed, skipping
             return
-        self.logger.debug("Fetch mail...")
-        for uname, prim_mail in self.ac.getdict_uname2mailaddr(
-                                                filter_expired=True,
-                                                primary_only=True).iteritems():
-            ent = self.name2entity.get(uname)
+        self.logger.debug("Fetch mail data...")
+
+        # Need a map from EmailTarget's target_id to entity_id:
+        targetid2entityid = dict((r['target_id'], r['target_entity_id']) for r
+                                 in self.mailtarget.list_email_targets_ext())
+        for target_id, entity_id in targetid2entityid.iteritems():
+            ent = self.entities.get(entity_id)
             if ent:
-                ent.primary_mail = prim_mail
-                #contact_info['EMAIL'] = prim_mail
-        # Subclasses should fetch all adresses if that is needed, e.g. for
-        # Exchange.
+                ent.maildata['target_id'] = target_id
+
+        # Email quotas
+        if any(isinstance(a, ConfigUtils.EmailQuotaAttr) for a in
+                self.config['attributes'].itervalues()):
+            mailquota = Email.EmailQuota(self.db)
+            i = 0
+            for row in mailquota.list_email_quota_ext():
+                ent = self.id2entity.get(targetid2entityid[row['target_id']])
+                if ent:
+                    ent.maildata['quota'] = row
+                    i += 1
+            self.logger.debug("Found %d email quotas" % i)
+
+        # Email addresses
+        if any(isinstance(a, ConfigUtils.EmailAddrAttr) for a in
+                self.config['attributes'].itervalues()):
+            ea = Email.EmailAddress(self.db)
+            # Need a mapping from address_id for the primary addresses:
+            adrid2email = dict()
+            i = 0
+            for row in ea.search():
+                ent = self.id2entity.get(targetid2entityid[row['target_id']])
+                if ent:
+                    adr = '@'.join((row['local_part'], row['domain']))
+                    adrid2email[row['address_id']] = adr
+                    ent.maildata.setdefault('alias', []).append(adr)
+                    i += 1
+            self.logger.debug("Found %d email addresses", i)
+
+            epat = Email.EmailPrimaryAddressTarget(self.db)
+            i = 0
+            for row in epat.list_email_primary_address_targets():
+                if row['address_id'] not in adrid2email:
+                    # Probably expired addresses
+                    continue
+                ent = self.id2entity.get(targetid2entityid[row['target_id']])
+                if ent:
+                    ent.maildata['primary'] = adrid2email[row['address_id']]
+                    i += 1
+            self.logger.debug("Found %d primary email addresses" % i)
 
     def fetch_passwords(self):
         """Fetch passwords for accounts from changelog.
@@ -1911,11 +1933,10 @@ class UserSync(BaseSync):
         """
         self.uname2pass = {}
         # This should save a small amount of memory, but also slow us down.
-        ent_ids = [x.entity_id for x in filter(
-                            lambda x: not x.in_ad, self.entities.values())]
-
-        answer = reversed([ x for x in self.db.get_log_events(
-                                        types=(self.co.account_password,))])
+        ent_ids = set(x.entity_id for x in self.entities.itervalues()
+                      if not x.in_ad)
+        answer = reversed(self.db.get_log_events(
+                                        types=self.co.account_password))
         for ans in answer:
             try:
                 ent = self.id2entity[ans['subject_entity']]
@@ -2078,25 +2099,6 @@ class UserSync(BaseSync):
 
     # TODO: the rest must be cleaned up first! Old code.
 
-    def fetch_email_info(self):
-        # TODO: move this to somewhere else?
-        """Get email addresses from Cerebrum"""
-        self.logger.debug("Fetch email info...")
-        # Get primary email addr
-        for uname, prim_mail in self.ac.getdict_uname2mailaddr(
-            filter_expired=True, primary_only=True).iteritems():
-            acc = self.accounts.get(uname)
-            if acc:
-                acc.email_addrs.append(prim_mail)
-
-        if self.exchange_sync:
-            # Get all email addrs
-            for uname, all_mail in self.ac.getdict_uname2mailaddr(
-                filter_expired=True, primary_only=False).iteritems():
-                acc = self.accounts.get(uname)
-                if acc:
-                    acc.email_addrs.extend(all_mail)
-
     def fullsync_forward(self):
         # TODO: move this to somewhere else?
         #
@@ -2248,8 +2250,6 @@ class GroupSync(BaseSync):
             # unlike Account.search()
             if k in config_args:
                 setattr(self, k, self.co.Spread(config_args[k]))
-        for k in ("exchange_sync", "ad_ldap", "ad_domain", "first_run"):
-            setattr(self, k, config_args[k])
 
     def process_ad_object(self, ad_object):
         """Process a Group object retrieved from AD.
@@ -2258,7 +2258,7 @@ class GroupSync(BaseSync):
 
         """
         super(GroupSync, self).process_ad_object(ad_object)
-        ent = self.adid2entity.get(ad_object['SamAccountName'])
+        ent = self.adid2entity.get(ad_object['Name'])
         if not ent:
             # Already taken care of in the super class
             return
@@ -2301,7 +2301,7 @@ class GroupSync(BaseSync):
         # For instance what groups are dist groups and sec groups?
 
     def fetch_cerebrum_entities(self):
-        """Fetch the entities from Cerebrum that should be compared against AD.
+        """Fetch the groups from Cerebrum that should be compared against AD.
 
         The configuration is used to know what to cache. All data is put in a
         list, and each entity is put into an object from
@@ -2316,7 +2316,7 @@ class GroupSync(BaseSync):
                           (self.config['target_spread'],))
         subset = self.config.get('subset')
         for row in self.gr.search(spread=self.config['target_spread']):
-            name = row["name"].strip()
+            name = row["name"]
             # For testing or special cases where we only want to sync a subset
             # of entities. The subset should contain the entity names, e.g.
             # usernames or group names.
@@ -2362,8 +2362,8 @@ class GroupSync(BaseSync):
 
         @type cmdid: tuple
         @param cmdid: The CommandId for a previous call to AD for generating a
-            list of all the members. This is to speed things up, by making AD
-            generate its list while we are generating ours.
+            list of all the members of the given group. This is to speed things
+            up, by making AD generate its list while we are generating ours.
 
         @rtype: boolean
         @return: If the sync succeeded or not.
@@ -2383,7 +2383,7 @@ class GroupSync(BaseSync):
         try:
             # Use SamAccountName if it exists, or the Name. Name could sometimes
             # be something else, but the username should not be changed.
-            ad_members = set(mem.get('SamAccountName', mem['name']) for mem in
+            ad_members = set(mem.get('Name', mem['name']) for mem in
                              self.server.get_list_members(cmdid))
         except ADUtils.SizeLimitException, e:
             self.logger.debug("Too many group members of %s: %s", ent.ad_id,
@@ -2525,15 +2525,18 @@ class HostSync(BaseSync):
                           (self.config['target_spread'],))
         subset = self.config.get('subset')
         for row in self.host.search(): # TODO: should specify spread, now we push all!
-            name = row["name"].strip()
+            name = row["name"]
             if subset and name not in subset:
                 continue
             self.entities[name] = self.cache_entity(int(row["host_id"]), name,
                                                     row['description'])
 
 class DistGroupSync(GroupSync):
-    """
-    Methods for dist group sync
+    """Methods for distribution group sync.
+
+    TODO: Note that this is from the old sync and is not working. It is kept
+    here until we know how to solve the sync of distribution groups.
+
     """
     def _old_configure(self, config_args):
         """
@@ -2559,7 +2562,6 @@ class DistGroupSync(GroupSync):
         self.sync_attrs = cereconf.AD_DIST_GRP_ATTRIBUTES
         self.logger.info("Configuration done. Will compare attributes: %s" %
                          str(self.sync_attrs))
-
 
     def _old_fullsync(self):
         """
@@ -2617,7 +2619,6 @@ class DistGroupSync(GroupSync):
             
         self.logger.info("Finished group-sync")
 
-
     def fetch_ad_data(self):
         """
         Returns full LDAP path to AD objects of type 'group' and prefix
@@ -2650,7 +2651,6 @@ class DistGroupSync(GroupSync):
                     ret[grp_name] = properties
         return ret
 
-
     def fetch_cerebrum_data(self):
         """
         Fetch relevant cerebrum data for groups with the given spread.
@@ -2667,7 +2667,6 @@ class DistGroupSync(GroupSync):
         for g in self.groups.itervalues():
             g.calc_ad_attrs()
 
-
     def cb_group(self, gname, group_id, description):
         "wrapper func for easier subclassing"
         return CerebrumDistGroup(gname, group_id, description, self.ad_domain,
@@ -2682,7 +2681,6 @@ class PosixUserSync(UserSync):
     pposix attributes could be populated.
 
     """
-
     def __init__(self, *args, **kwargs):
         """Instantiate posix specific functionality."""
         super(PosixUserSync, self).__init__(*args, **kwargs)
@@ -2711,8 +2709,6 @@ class PosixUserSync(UserSync):
         self.logger.debug("Number of POSIX users: %d",
                           len(filter(lambda x: len(x.posix) > 0,
                               self.entities.itervalues())))
-
-    # TODO: make use of the posix data in a subclass of CerebrumUsers.
 
 class MailTargetSync(BaseSync):
     """Extra sync functionality for getting MailTarget data.
@@ -2747,10 +2743,3 @@ class MailTargetSync(BaseSync):
                 ent.maildata['quota_soft'] = row['quota_soft']
                 ent.maildata['quota_hard'] = row['quota_hard']
 
-        # Find out what is primary accounts, e.g. for hiding others from address
-        # lists:
-        # TODO: This might be moved up to UserSync, since it's of generic use.
-        for row in self.ac.list_accounts_by_type(primary_only=True):
-            ent = self.entities.get(row['account_id'])
-            if ent:
-                ent.maildata['is_primary_account'] = True

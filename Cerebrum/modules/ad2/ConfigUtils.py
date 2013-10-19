@@ -16,16 +16,14 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Default Cerebrum settings for Active Directory and the AD synchronisations.
+"""Configuration functionality for the Active Directory synchronisation.
 
-Overrides should go in a local, instance specific file named:
-
-    adconf.py
+The AD sync is a bit configurable, to be able to fulfill many needs without
+having to develop for each instance. It tries to be flexible, at the cost of a
+bit more thorough configuration.
 
 Each setting should be well commented in this file, to inform developers and
 sysadmin about the usage and consequences of the setting.
-
-TODO: Should the check for valid config be here, or in the sync instead?
 
 """
 
@@ -50,8 +48,8 @@ class AttrConfig(object):
     criterias.
 
     """
-    def __init__(self, default=None, transform=None, spreads=None,
-            source_systems=None):
+    def __init__(self, default=None, transform=None, spread=None,
+                 source_systems=None):
         """Setting the basic, most used config variables.
 
         @type default: mixed
@@ -60,6 +58,10 @@ class AttrConfig(object):
             found, based on other criterias, e.g. in the subclasses. Note that
             if this is a string, it is able to use some of the basic variables
             for the entities, like entity_name, entity_id, ad_id and ou.
+
+            Also note that default values will not be using the L{transform}
+            function for its data. TODO: Or not? Need to find out what is most
+            suitable and intuitive for sysadmins.
 
         @type transform: function
         @param transform:
@@ -73,14 +75,18 @@ class AttrConfig(object):
 
                 string.lower
 
-        @type spreads: SpreadCode or sequence thereof
-        @param spreads:
-            If set, defines what spreads the user must have for the value to be
-            set. Entitites without the spread would get an empty (blank) value.
+        @type spread: SpreadCode or sequence thereof
+        @param spread:
+            If set, defines what spread the entity must have for the value to be
+            set. If a sequence is given, the entity must have at least one of
+            the spreads. Entitites without any of the given spreads would get
+            this attribute blanked out.
+
             Note that spreads were originally meant to control what systems
             information should get spread to - here we use it for modifying what
-            information goes over to a system, which is wrong use of the spread
-            definition. Use therefore with care.
+            information goes over to a system, which could be discussed if is
+            wrong use of the spread definition. Therefore, use with care, to
+            avoid complications in the other parts of the business logic.
 
         @type source_systems: AuthoritativeSystemCode or sequence thereof
         @param source_systems:
@@ -97,7 +103,7 @@ class AttrConfig(object):
             self.transform = transform
         self.source_systems = self._prepare_constants(source_systems,
                 const.AuthoritativeSystem)
-        self.spreads = self._prepare_constants(spreads, const.Spread)
+        self.spread = self._prepare_constants(spread, const.Spread)
 
     def _prepare_constants(self, input, const_class):
         """Prepare and validate given constant(s).
@@ -265,3 +271,44 @@ class TraitAttr(AttrConfig):
         """
         super(TraitAttr, self).__init__(*args, **kwargs)
         self.traitcodes = self._prepare_constants(traitcodes, const.EntityTrait)
+
+# TODO: Need to figure out how to implement different config classes for various
+# settings that is not related to Cerebrum constants. Should we create one class
+# for all small things, e.g. one for UidAttr, and one for GidAttr?
+
+# TODO: Would we be in need of attributes that combines data from different
+# elements? E.g. a join of two different traits, the person name and a spread?
+# The config does not handles such needs now, would then have to code it into a
+# subclass of the AD sync instead.
+
+# Config for the Mail module
+
+class EmailAddrAttr(AttrConfig):
+    """Config for all e-mail addresses for an entity from the Email module.
+
+    Note that each given value contains the elements:
+    
+        - primary (string): The primary e-mail address for the entity.
+        - alias (list of strings): A list of all the e-mail aliases for the
+          entity.
+
+    You would like to use L{transform} or other methods to set what you want for
+    the given attribute.
+
+    """
+    # No extra settings needed, got all we need from AttrConfig.
+    pass
+
+class EmailQuotaAttr(AttrConfig):
+    """Config for e-mail quota, using the Email module in Cerebrum.
+
+    Note that the mailquota consists of the elements:
+
+        - quota_soft
+        - quota_hard
+
+    You would therefore need to e.g. use L{transform}.
+
+    """
+    # No extra settings needed, got all we need from AttrConfig.
+    pass
