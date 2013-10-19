@@ -268,12 +268,12 @@ def main():
         atrnames = sorted(sync.config['attributes'])
         for entname in sorted(sync.entities):
             ent = sync.entities[entname]
-            print u';'.join((ent.ad_id, u'OU', ent.ou))
+            print ';'.join((ent.ad_id, u'OU', ent.ou)).encode('utf-8')
             for atrname in atrnames:
-                print u';'.join((ent.ad_id, atrname,
-                    unicode(ent.attributes.get(atrname, '<Not Set>'))))
+                print ';'.join((ent.ad_id, atrname,
+                    unicode(ent.attributes.get(atrname,
+                                '<Not Set>')))).encode('utf-8')
         return
-
     try:
         if quicksync:
             sync.quicksync(quicksync)
