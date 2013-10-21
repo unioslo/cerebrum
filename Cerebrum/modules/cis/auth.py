@@ -201,8 +201,12 @@ class AuthenticationService(SoapListener.BasicSoapServer):
             log.msg("DEBUG: deauthenticating: %s" % auth.id)
             auth.expire()
             del ctx.udc['session']['authenticated']
+
 AuthenticationService.event_manager.add_listener('method_call',
                                         SoapListener.on_method_call_session)
+
+AuthenticationService.event_manager.add_listener('method_return_object',
+                                        SoapListener.on_method_exit_session)
 
 class PasswordAuthenticationService(AuthenticationService):
     """Authentication Service where the auth is handled by username and
@@ -324,6 +328,65 @@ class PasswordAuthenticationService(AuthenticationService):
 
         """
         ctx.service_class._deauthenticate(ctx)
+
+class UsernameAuthenticationService(AuthenticationService):
+    """Authentication Service where the auth is handled by username only.
+    """
+    # Standard message to return in case of errors:
+    error_msg = 'Unknown username'
+
+    @rpc(String, _returns=String, _throws=AuthenticationError)
+    def authenticate(ctx, username):
+        """The authentication method, as some methods require you to be
+        authenticated before use.
+
+        @type username: String
+        @param username: Your username. The user must exist in Cerebrum.
+
+        @rtype: String
+        @return:
+            The new authenticated session ID. It is also available in the
+            returned SOAP headers, as session_id.
+        """
+        if not username:
+            raise AuthenticationError(ctx.service_class.error_msg)
+
+        db = Factory.get('Database')()
+        account = Factory.get('Account')(db)
+        constant = Factory.get('Constants')(db)
+        try:
+            account.find_by_name(username)
+        except Errors.NotFoundError:
+            log.msg("INFO: auth: no such user: %s" % username)
+            raise AuthenticationError(ctx.service_class.error_msg)
+
+        # Check quarantines
+        quarantines = []  
+        now = DateTime.now()
+        for qrow in account.get_entity_quarantine(only_active=True):
+                if not str(constant.Quarantine(qrow['quarantine_type'])) \
+                       in cereconf.BOFHD_NONLOCK_QUARANTINES:
+                    quarantines.append(qrow['quarantine_type'])            
+        qh = QuarantineHandler.QuarantineHandler(db, quarantines)
+        if qh.should_skip() or qh.is_locked():
+            qua_repr = ", ".join(constant.Quarantine(q).description
+                                 for q in quarantines)
+            log.msg("INFO: user has active quarantine. Access denied: %s" 
+                    %qua_repr)
+            raise AuthenticationError(ctx.service_class.error_msg)
+
+        # User exists, let's authenticate it
+        ses = ctx.service_class._authenticate(ctx, account.entity_id)
+        return ses.uid
+
+    @rpc()
+    def deauthenticate(ctx):
+        """Logs out of the service. No input is needed, makes use of the
+        session id in the SOAP headers.
+
+        """
+        ctx.service_class._deauthenticate(ctx)
+
 
 ###
 ### Events
