@@ -1428,7 +1428,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             raise CerebrumError("Timeout too long")
 
         ret = {}
-        ret['confirmation_key'] = self.setup_event_request(
+        ret['confirmation_key'] = self.vhutils.setup_event_request(
                                       group.entity_id,
                                       self.const.va_group_moderator_add,
                                       params={'inviter_id': operator.get_entity_id(),
