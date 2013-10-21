@@ -64,7 +64,7 @@ class OUTSDMixin(OU):
         other OUs than project OUs.
 
         """
-        matched = self.search_tsd_projects(name=project_name)
+        matched = self.search_tsd_projects(name=project_name, exact_match=True)
         if not matched:
             raise Errors.NotFoundError("Unknown project: %s" % project_name)
         if len(matched) != 1:
@@ -208,10 +208,12 @@ class OUTSDMixin(OU):
 
         @type project_name: str
         @param project_name: A unique, short project name to use to identify
-            the project.
+            the project. This is not the project ID, that is created
+            automatically.
 
         @rtype: str
-        @return: The generated project ID for the new project.
+        @return: The generated project ID for the new project. Also, the project
+            is created and written to database.
 
         """
         # Check if given project name is already in use:
