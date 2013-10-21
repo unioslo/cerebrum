@@ -178,7 +178,7 @@ class ADUtils(object):
         # element tells if the command was succesful or not
         if not ret[0]:
             self.logger.warn("Server couldn't execute %s(%s): %s" %
-                             (command, args, ret[1]))
+                             (command, args, ret[1:]))
             return False
         # cmd was run successfully on the server.
         # If command is create_object and an additional sid is
