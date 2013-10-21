@@ -38,7 +38,7 @@ import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.no import fodselsnr
+from Cerebrum.modules.dns import Subnet, IPv6Subnet
 from Cerebrum.modules.tsd import Gateway
 
 logger = Factory.get_logger('cronjob')
@@ -97,43 +97,62 @@ class Processor:
         self.acid2acname = dict((row['account_id'], row['name']) for row in
                                 self.ac.search(spread=self.co.spread_gateway_account))
         logger.debug2("Found %d accounts" % len(self.acid2acname))
+        # Map ou_id to project id:
+        self.ouid2pid = dict((row['entity_id'], row['external_id']) for row in
+                self.ou.search_external_ids(entity_type=self.co.entity_ou,
+                    id_type=self.co.externalid_project_id))
+        logger.debug2("Found %d project IDs" % len(self.ouid2pid))
 
-    def process_projects(self):
+    def process(self):
         """Go through all projects in Cerebrum and compare them with the Gateway.
 
         If the Gateway contains mismatches, it should be updated.
 
         """
-        # The list of OUs that was found at the GW. Used to be able to create those
-        # that doesn't exist.
-        processed_ous = set()
+        gw_data = dict()
+        for key, meth in (('projects', self.gw.list_projects), 
+                          ('users', self.gw.list_users),
+                          ('hosts', self.gw.list_hosts),
+                          ('subnets', self.gw.list_subnets),
+                          ('vlans', self.gw.list_vlans)):
+            logger.debug("Getting %s from GW...", key)
+            gw_data[key] = meth()
+            logger.debug("Got %d entities in %s", len(gw_data[key]), key)
 
-        # Since we should not have that many projects, maybe up to a few thousand,
-        # it loops through each OU by find() and clear(). If TSD would grow larger
-        # in size, this script might take too long to finish, so we then might have
-        # to cache it.
-        gw_projects = self.gw.get_projects()
-        logger.debug("Got %d projects from self.gw", len(gw_projects))
-        for pid, proj in gw_projects.iteritems():
-            try:
-                self.process_project(pid, proj, processed_ous)
-            except Gateway.GatewayException, e:
-                logger.warn("GatewayException for %s: %s" % (pid, proj))
-        # Add active OUs that exists in Cerebrum but not in the GW:
-        for row in self.ou.search(filter_quarantined=True):
-            if row['ou_id'] in processed_ous:
-                continue
-            self.ou.clear()
-            self.ou.find(row['ou_id'])
-            pid = self.ou.get_project_id()
-            self.gw.create_project(pid)
-            logger.info("New project: %s", pid)
-            # TODO: process the project, but need to get the info first
-            #self.process_project(self.ou.get_project_id(), 
+        self.process_projects(gw_data['projects'])
+        self.process_users(gw_data['users'])
+
         # Sync all hosts:
         self.process_dns(gw_projects)
 
-    def process_project(self, pid, proj, processed_ous):
+    def process_projects(self, gw_projects):
+        """Go through and update the projects from the GW.
+
+        Since we should not have that many projects, maybe up to a few hundreds,
+        it loops through each OU by find() and clear(). If TSD would grow larger
+        in size, this script might take too long to finish, so we then might
+        have to cache it.
+
+        """
+        processed = set()
+        # Update existing projects:
+        for proj in gw_projects:
+            pid = proj['name']
+            try:
+                self.process_project(pid, proj)
+            except Gateway.GatewayException, e:
+                logger.warn("GatewayException for %s: %s" % (pid, e))
+            processed.add(pid)
+        # Add new OUs:
+        for row in self.ou.search(filter_quarantined=True):
+            self.ou.clear()
+            self.ou.find(row['ou_id'])
+            pid = self.ou.get_project_id()
+            if pid in processed:
+                continue
+            self.gw.create_project(pid)
+
+    def process_project(self, pid, proj):
         """Process a given project retrieved from the GW.
 
         The information should be retrieved from the gateway, and is then
@@ -152,6 +171,9 @@ class Processor:
         try:
             self.ou.find_by_tsd_projectid(pid)
         except Errors.NotFoundError:
+            # TODO: check if the project is marked as 'expired', so we don't
+            # send this to the gw every time.
+            # if proj['expires'] and proj['expires'] < DateTime.now():
             self.gw.delete_project(pid)
             return
 
@@ -160,7 +182,10 @@ class Processor:
         active_quars = dict((row['quarantine_type'], row) for row in
                             self.ou.get_entity_quarantine(only_active=True))
 
-        # Quarantines
+        # Quarantines - delete, freeze and thaw
+        if (quars.has_key(self.co.quarantine_project_end) and
+                quars[self.co.quarantine_project_end]['start_date'] < DateTime.now()):
+            self.gw.delete_project(pid)
         if len(active_quars) > 0:
             if not proj['frozen']:
                 self.gw.freeze_project(pid)
@@ -168,50 +193,87 @@ class Processor:
             if proj['frozen']:
                 self.gw.thaw_project(pid)
 
-        # Delete expired projects. TODO: or just freeze them, waiting for the
-        # permanent deletion?
-        if quars.has_key(self.co.quarantine_project_end):
-            if quars[self.co.quarantine_project_end]['start_date'] < DateTime.now():
-                self.gw.delete_project(pid)
+    def process_users(self, gw_users):
+        """Sync all users with the GW."""
+        processed = set()
+        # Get the mapping to each project. Each user can only be part of one
+        # project.
+        ac2proj = dict()
+        for row in self.pu.list_accounts_by_type(
+                            affiliation=self.co.affiliation_project,
+                            filter_expired=True,
+                            account_spread=self.co.spread_ad_account):
+            if ac2proj.has_key(row['account_id']):
+                logger.warn("Account %s affiliated with more than one project",
+                            row['account_id'])
+                continue
+            ac2proj[row['account_id']] = row['ou_id']
 
-        self.process_project_members(self.ou, proj)
-        #self.process_project_hosts(self.ou, proj)
-        processed_ous.add(self.ou.entity_id)
+        # Update existing projects:
+        for usr in gw_users:
+            username = usr['username']
+            pid = usr['project']
+            processed.add(username)
 
-    def process_project_members(self, ou, proj):
-        """Sync the members of a project."""
-        pid = ou.get_project_id()
-        ce_users = dict((self.acid2acname[row['account_id']], row) for row in
-                        self.pu.list_accounts_by_type(ou_id=ou.entity_id,
-                                                      filter_expired=False,
-                                account_spread=self.co.spread_gateway_account))
-        # Remove accounts not registered in Cerebrum:
-        for user in proj['users']:
-            username = user['username']
-            if username not in ce_users:
-                logger.debug("Removing account %s: %s", username, user)
-                self.gw.delete_user(pid, username)
-        # Update the rest of the accounts:
-        for username, userdata in ce_users.iteritems():
             self.pu.clear()
-            self.pu.find(userdata['account_id'])
+            try:
+                self.pu.find_by_name(username)
+            except Errors.NotFoundError:
+                self.gw.delete_user(pid, username)
+                continue
+            # TODO: freeze and thaw...
             is_frozen = bool(tuple(self.pu.get_entity_quarantine(
                 only_active=True)))
 
-            if username not in proj['users']:
-                if is_frozen:
-                    logger.info("Skipping unregistered but frozen account: %s",
-                            username)
-                    continue
-                self.gw.create_user(ou.get_project_id(), username, pu.posix_uid)
-            gwuserdata = proj['users'][username]
+
+            if not ac2proj.get(self.pu.entity_id):
+                self.gw.delete_user(pid, username)
+                continue
+            if pid != self.ouid2pid.get(ac2proj[self.pu.entity_id]):
+                logger.error("Danger! Project mismatch in Cerebrum and GW for account %s" % self.pu.entity_id)
+                raise Exception("Project mismatch with GW and Cerebrum")
             if is_frozen:
-                if not gwuserdata['frozen']:
+                if not usr['frozen']:
                     self.gw.freeze_user(pid, username)
             else:
-                if gwuserdata['frozen']:
+                if usr['frozen']:
                     self.gw.thaw_user(pid, username)
-            # Updating realname not implemented, as it's not used.
+        # Add new users:
+        for row in self.pu.search(spread=self.co.spread_gateway_account):
+            if row['name'] in processed:
+                continue
+            self.pu.clear()
+            self.pu.find(row['account_id'])
+            # Skip all quarantined accounts:
+            if tuple(self.pu.get_entity_quarantine(only_active=True)):
+                continue
+            # Skip accounts not affiliated with a project.
+            pid = self.ouid2pid.get(ac2proj.get(self.pu.entity_id))
+            if not pid:
+                logger.debug("Skipping unaffiliated account: %s",
+                        self.pu.entity_id)
+                continue
+            self.gw.create_user(pid, row['name'])
+
+    #def process_project_members(self, ou, proj):
+    #    """Sync the members of a project."""
+    #    pid = ou.get_project_id()
+    #    ce_users = dict((self.acid2acname[row['account_id']], row) for row in
+    #                    self.pu.list_accounts_by_type(ou_id=ou.entity_id,
+    #                                                  filter_expired=False,
+    #                            account_spread=self.co.spread_gateway_account))
+    #    # Remove accounts not registered in Cerebrum:
+    #    for user in proj['users']:
+    #        username = user['username']
+    #        if username not in ce_users:
+    #            if not user['expires'] or user['expires'] > DateTime.now():
+    #                logger.debug("Removing account %s: %s", username, user)
+    #                self.gw.delete_user(pid, username)
+    #    # Update the rest of the accounts:
+    #    for username, userdata in ce_users.iteritems():
+    #        self.pu.clear()
+    #        self.pu.find(userdata['account_id'])
+    #        # Updating realname not implemented, as it's not used.
 
     def process_dns(self, gw_projects):
         """Sync all hosts to the gateway.
@@ -230,15 +292,15 @@ class Processor:
 
         #ret = []
         ## IPv6:
-        #subnet6 = IPv6Subnet.IPv6Subnet(self.db)
-        #compress = IPv6Utils.IPv6Utils.compress
-        #for row in subnet6.search():
-        #    ret.append({
-        #        'subnet': '%s/%s' % (compress(row['subnet_ip']),
-        #                             row['subnet_mask']),
-        #        'vlan_number': str(row['vlan_number']),
-        #        'description': row['description']})
-        ## IPv4:
+        subnet6 = IPv6Subnet.IPv6Subnet(self.db)
+        compress = IPv6Utils.IPv6Utils.compress
+        for row in subnet6.search():
+            ret.append({
+                'subnet': '%s/%s' % (compress(row['subnet_ip']),
+                                     row['subnet_mask']),
+                'vlan_number': str(row['vlan_number']),
+                'description': row['description']})
+        # IPv4:
         #subnet = Subnet.Subnet(self.db)
         #for row in subnet.search():
         #    ret.append({
@@ -285,14 +347,15 @@ def main():
         logger.debug("Mocking GW")
         for t in gw.__class__.__dict__:
             if t.startswith('list_'):
+                logger.debug("Mocking: %s", t)
                 setattr(gw, t, lambda: list())
             elif t.startswith('get_'):
+                logger.debug("Mocking: %s", t)
                 setattr(gw, t, lambda: dict())
 
-    logger.debug("Gateway: %s", gw)
-    logger.info("Start gw-sync")
+    logger.debug("Start gw-sync against URL: %s", gw)
     p = Processor(gw, dryrun)
-    p.process_projects()
+    p.process()
     logger.info("Finished gw-sync")
 
 if __name__ == '__main__':
