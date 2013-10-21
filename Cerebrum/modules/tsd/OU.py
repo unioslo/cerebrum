@@ -37,6 +37,7 @@ from Cerebrum import Errors
 from Cerebrum.OU import OU
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.dns import Subnet, IPv6Subnet
+from Cerebrum.modules import EntityTrait
 
 class OUTSDMixin(OU):
     """Mixin of OU for TSD. Projects in TSD are stored as OUs, which then has to
@@ -71,7 +72,7 @@ class OUTSDMixin(OU):
             raise Errors.TooManyRowsError("Found more than one OU with given name")
         return self.find(matched[0]['entity_id'])
 
-    def search_tsd_projects(self, name=None, exact_match=False):
+    def search_tsd_projects(self, name=None, exact_match=True):
         """Search method for finding projects by given input.
 
         TODO: Only project name is in use for now. Fix it if we need more
@@ -217,7 +218,7 @@ class OUTSDMixin(OU):
 
         """
         # Check if given project name is already in use:
-        if tuple(self.search_tsd_projects(name=project_name)):
+        if tuple(self.search_tsd_projects(name=project_name, exact_match=True)):
             raise Errors.CerebrumError('Project name already taken: %s' %
                     project_name)
         self.populate()
@@ -324,6 +325,7 @@ class OUTSDMixin(OU):
         projectid = self.get_project_id()
         subnet = Subnet.Subnet(self._db)
         subnet6 = IPv6Subnet.IPv6Subnet(self._db)
+        etrait = EntityTrait.EntityTrait(self._db)
 
         # TODO: Find a better way for mapping between project ID and VLAN. Now I
         # only cut out the first character, which is normally 'p', and the rest
@@ -344,9 +346,20 @@ class OUTSDMixin(OU):
         subnetstart = cereconf.SUBNET_START % intpid
         subnet.populate(subnetstart, "Subnet for project %s" % projectid, vlan)
         subnet.write_db()
+        etrait.clear()
+        etrait.find(subnet.entity_id)
+        etrait.populate_trait(self.const.trait_project_subnet, date=DateTime.now(),
+                              target_id=self.entity_id)
+        etrait.write_db()
+
         subnetstart = cereconf.SUBNET_START_6 % intpid
         subnet6.populate(subnetstart, "Subnet for project %s" % projectid, vlan)
         subnet6.write_db()
+        etrait.clear()
+        etrait.find(subnet6.entity_id)
+        etrait.populate_trait(self.const.trait_project_subnet6, date=DateTime.now(),
+                               target_id=self.entity_id)
+        etrait.write_db()
 
     def get_pre_approved_persons(self):
         """Get a list of pre approved persons by their fnr.
@@ -362,7 +375,7 @@ class OUTSDMixin(OU):
         tr = self.get_trait(self.const.trait_project_persons_accepted)
         if tr is None:
             return set()
-        return set(tr['strval'].split())
+        return set(tr['strval'].split(','))
 
     def add_pre_approved_persons(self, ids):
         """Pre approve persons to the project by their external IDs.
@@ -378,7 +391,7 @@ class OUTSDMixin(OU):
         approvals.update(ids)
         # TODO: check if this works!
         self.populate_trait(code=self.const.trait_project_persons_accepted,
-                            date=DateTime.now(), strval=' '.join(approvals))
+                            date=DateTime.now(), strval=','.join(approvals))
         return True
 
     def terminate(self):

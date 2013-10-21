@@ -37,6 +37,7 @@ from Cerebrum.Constants import _QuarantineCode
 from Cerebrum.Constants import _AuthoritativeSystemCode
 from Cerebrum.Constants import _AuthenticationCode
 from Cerebrum.modules.EntityTrait import _EntityTraitCode
+from Cerebrum.modules.dns.DnsConstants import Constants as DnsConstants
 from Cerebrum.modules.dns.DnsConstants import _DnsZoneCode
 
 
@@ -115,11 +116,17 @@ class Constants(Constants.Constants):
     # Traits
 
     trait_project_group = _EntityTraitCode('project_group',
-                                           Constants.Constants.entity_group,
-                                           'The project a group belongs to')
+            Constants.Constants.entity_group,
+            'The project a group belongs to')
     trait_project_host = _EntityTraitCode('project_host',
-                                          Constants.Constants.entity_host,
-                                          'The project a host belongs to')
+            Constants.Constants.entity_host,
+            'The project a host belongs to')
+    trait_project_subnet = _EntityTraitCode('project_subnet',
+            DnsConstants.entity_dns_subnet,
+            'The project a IPv4 subnet belongs to')
+    trait_project_subnet6 = _EntityTraitCode('project_subnet6',
+            DnsConstants.entity_dns_ipv6_subnet,
+            'The project a IPv6 subnet belongs to')
 
     # Traits for metadata about projects:
     trait_project_institution = _EntityTraitCode('institution',

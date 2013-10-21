@@ -175,7 +175,7 @@ class Processor:
                 self.gw.delete_project(pid)
 
         self.process_project_members(self.ou, proj)
-        self.process_project_hosts(self.ou, proj)
+        #self.process_project_hosts(self.ou, proj)
         processed_ous.add(self.ou.entity_id)
 
     def process_project_members(self, ou, proj):
