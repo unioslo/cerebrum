@@ -190,7 +190,7 @@ class Processor:
             username = user['username']
             if username not in ce_users:
                 logger.debug("Removing account %s: %s", username, user)
-                self.gw.delete_user(username)
+                self.gw.delete_user(pid, username)
         # Update the rest of the accounts:
         for username, userdata in ce_users.iteritems():
             self.pu.clear()
