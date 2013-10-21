@@ -341,6 +341,9 @@ class VirthomeUtils:
         @rtype: str
         @return: The whitelisted url, or None if the L{url} didn't pass.
         """
+        if not url:
+            return None
+
         for r in self.url_whitelist:
             if r.match(url):
                 return url
