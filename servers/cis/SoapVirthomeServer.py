@@ -1,3 +1,36 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Copyright 2013 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""A SOAP server for the WebID functionality.
+
+TODO: more info about the server here.
+
+TODO: Add docstring for each command, for generating help text for clients.
+
+
+Note that the logger is twisted's own logger and not Cerebrum's. Since twisted
+works in parallell the logger should not be blocked. Due to this, the format of
+the logs is not equal to the rest of Cerebrum. This might be something to work
+on later.
+
+"""
 import sys
 import getopt
 from rpclib.model.complex import ComplexModel, Iterable
@@ -63,6 +96,7 @@ class VirthomeService(SoapListener.BasicSoapServer):
 
     @rpc(Unicode, _returns=Unicode, _throws=faults.EndUserFault)
     def echo(ctx, text):
+        """Test command, for testing that the connection works."""
         return text
 
 
