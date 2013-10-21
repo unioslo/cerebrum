@@ -187,7 +187,7 @@ class Processor:
                                 account_spread=self.co.spread_gateway_account))
         # Remove accounts not registered in Cerebrum:
         for user in proj['users']:
-            username = user['name']
+            username = user['username']
             if username not in ce_users:
                 logger.debug("Removing account %s: %s", username, user)
                 self.gw.delete_user(username)
