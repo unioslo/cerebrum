@@ -335,8 +335,9 @@ class Processor:
                         sub2ouid[row['entity_id']], row['entity_id'])
                 continue
             vlans.setdefault(pid, []).append(row['vlan_number'])
-            subnets[explode(row['subnet_ip'])] = (pid, row['subnet_mask'],
-                                         row['vlan_number'])
+            ident = '%s/%s' % (explode(row['subnet_ip']), row['subnet_mask'])
+            subnets[ident] = (pid, explode(row['subnet_ip']),
+                              row['subnet_mask'], row['vlan_number'])
         for row in self.subnet.search():
             if row['entity_id'] not in sub2ouid:
                 # Skipping non-affiliated subnets
@@ -347,8 +348,9 @@ class Processor:
                         sub2ouid[row['entity_id']], row['entity_id'])
                 continue
             vlans.setdefault(pid, []).append(row['vlan_number'])
-            subnets[row['subnet_ip']] = (pid, row['subnet_mask'],
-                                         row['vlan_number'])
+            ident = '%s/%s' % (row['subnet_ip'], row['subnet_mask'])
+            subnets[ident] = (pid, row['subnet_ip'], row['subnet_mask'],
+                              row['vlan_number'])
 
         self._process_vlans(gw_vlans, vlans)
         self._process_subnets(gw_subnets, subnets)
@@ -396,36 +398,34 @@ class Processor:
         for sub in gw_subnets:
             adr = sub['netaddr']
             pid = sub['project']
-            processed.add(adr)
+            ident = '%s/%s' % (adr, sub['prefixlen'])
+            processed.add(ident)
             try:
                 if ':' in adr:
                     self.subnet6.clear()
-                    self.subnet6.find(adr)
+                    self.subnet6.find(ident)
                     s_id = self.subnet6.entity_id
                 else:
                     self.subnet.clear()
-                    self.subnet.find(adr)
+                    self.subnet.find(ident)
                     s_id = self.subnet.entity_id
             except SubnetError:
-                logger.info("Unknown subnet: %s/%s", adr, sub['prefixlen'])
+                logger.info("Unknown subnet: %s", ident)
                 self.gw.delete_subnet(pid, adr, sub['vlantag'])
                 continue
-            if adr not in subnets:
+            if ident not in subnets:
                 logger.warn("Subnet flaw, probably wrong ip: %s/%s", adr,
                             sub['prefixlen'])
                 continue
-            subn = subn
-
             if s_id not in sub2ouid:
                 logger.info("No mapping of subnet to project: %s", adr)
                 self.gw.delete_subnet(pid, adr, sub['vlantag'])
                 continue
-
             # TODO: check that netaddr and prefixlen is correct
-        for adr, sub in subnets.iteritems():
-            if adr in processed:
+        for ident, sub in subnets.iteritems():
+            if ident in processed:
                 continue
-            self.gw.create_subnet(sub[0], adr, sub[1], sub[2])
+            self.gw.create_subnet(*sub)
 
 def main():
     try:
