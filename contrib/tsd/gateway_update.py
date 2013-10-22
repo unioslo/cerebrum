@@ -220,7 +220,7 @@ class Processor:
             try:
                 self.process_user(usr, ac2proj)
             except Gateway.GatewayException, e:
-                logger.warn("GW exception for %s: %e" % (usr, e))
+                logger.warn("GW exception for %s: %s" % (usr, e))
             processed.add(usr['username'])
         # Add new users:
         for row in self.pu.search(spread=self.co.spread_gateway_account):
