@@ -54,27 +54,12 @@ from Cerebrum import Constants
 from Cerebrum import Utils
 from Cerebrum import Cache
 from Cerebrum import Errors
-# from Cerebrum.modules import Host
-from Cerebrum.modules import PasswordChecker
 from Cerebrum.modules.bofhd import cmd_param as cmd
-from Cerebrum.modules.dns.bofhd_dns_utils import DnsBofhdUtils
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
-from Cerebrum.modules.dns import ARecord
-from Cerebrum.modules.dns import AAAARecord
-from Cerebrum.modules.dns import DnsOwner
-from Cerebrum.modules.dns import CNameRecord
-from Cerebrum.modules.dns import HostInfo
-from Cerebrum.modules.dns import IPNumber
-from Cerebrum.modules.dns import IPv6Number
 from Cerebrum.modules.dns import Subnet
 from Cerebrum.modules.dns import IPv6Subnet
-from Cerebrum.modules.dns import IPUtils
 from Cerebrum.modules.dns import IPv6Utils
-from Cerebrum.modules.dns import CNameRecord
-from Cerebrum.modules.hostpolicy.PolicyComponent import PolicyComponent
 from Cerebrum.Constants import _CerebrumCode
-from Cerebrum.modules import dns
-from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
 
 from Cerebrum.modules.tsd.bofhd_auth import TSDBofhdAuth
 from Cerebrum.modules.tsd import bofhd_help

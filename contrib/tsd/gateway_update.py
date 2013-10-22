@@ -36,9 +36,13 @@ from mx import DateTime
 import cerebrum_path
 import cereconf
 
-from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.dns import Subnet, IPv6Subnet
+from Cerebrum import Errors
+from Cerebrum.modules.dns.Errors import SubnetError
+# Parts of the DNS module raises bofhd exceptions. Need to handle this:
+from Cerebrum.modules.bofhd.errors import CerebrumError as BofhdCerebrumError
+from Cerebrum.modules import dns 
+
 from Cerebrum.modules.tsd import Gateway
 
 logger = Factory.get_logger('cronjob')
@@ -88,10 +92,13 @@ class Processor:
         self.dryrun = dryrun
         self.db = Factory.get('Database')()
         self.co = Factory.get('Constants')(self.db)
+        self.ent = Factory.get('Entity')(self.db)
         self.ou = Factory.get('OU')(self.db)
         self.pe = Factory.get('Person')(self.db)
         self.ac = Factory.get('Account')(self.db)
         self.pu = Factory.get('PosixUser')(self.db)
+        self.subnet6 = dns.IPv6Subnet.IPv6Subnet(self.db)
+        self.subnet = dns.Subnet.Subnet(self.db)
 
         # Map account_id to account_name:
         self.acid2acname = dict((row['account_id'], row['name']) for row in
@@ -118,12 +125,9 @@ class Processor:
             logger.debug("Getting %s from GW...", key)
             gw_data[key] = meth()
             logger.debug("Got %d entities in %s", len(gw_data[key]), key)
-
         self.process_projects(gw_data['projects'])
         self.process_users(gw_data['users'])
-
-        # Sync all hosts:
-        self.process_dns(gw_projects)
+        self.process_dns(gw_data['hosts'], gw_data['subnets'], gw_data['vlans'])
 
     def process_projects(self, gw_projects):
         """Go through and update the projects from the GW.
@@ -221,18 +225,15 @@ class Processor:
             except Errors.NotFoundError:
                 self.gw.delete_user(pid, username)
                 continue
-            # TODO: freeze and thaw...
-            is_frozen = bool(tuple(self.pu.get_entity_quarantine(
-                only_active=True)))
-
-
+            # Skip accounts not affiliated with a project.
             if not ac2proj.get(self.pu.entity_id):
                 self.gw.delete_user(pid, username)
                 continue
             if pid != self.ouid2pid.get(ac2proj[self.pu.entity_id]):
                 logger.error("Danger! Project mismatch in Cerebrum and GW for account %s" % self.pu.entity_id)
                 raise Exception("Project mismatch with GW and Cerebrum")
-            if is_frozen:
+            # TODO: freeze and thaw...
+            if self.pu.get_entity_quarantine(only_active=True):
                 if not usr['frozen']:
                     self.gw.freeze_user(pid, username)
             else:
@@ -255,61 +256,176 @@ class Processor:
                 continue
             self.gw.create_user(pid, row['name'])
 
-    #def process_project_members(self, ou, proj):
-    #    """Sync the members of a project."""
-    #    pid = ou.get_project_id()
-    #    ce_users = dict((self.acid2acname[row['account_id']], row) for row in
-    #                    self.pu.list_accounts_by_type(ou_id=ou.entity_id,
-    #                                                  filter_expired=False,
-    #                            account_spread=self.co.spread_gateway_account))
-    #    # Remove accounts not registered in Cerebrum:
-    #    for user in proj['users']:
-    #        username = user['username']
-    #        if username not in ce_users:
-    #            if not user['expires'] or user['expires'] > DateTime.now():
-    #                logger.debug("Removing account %s: %s", username, user)
-    #                self.gw.delete_user(pid, username)
-    #    # Update the rest of the accounts:
-    #    for username, userdata in ce_users.iteritems():
-    #        self.pu.clear()
-    #        self.pu.find(userdata['account_id'])
-    #        # Updating realname not implemented, as it's not used.
+    def process_hosts(self, gw_hosts):
+        """Sync all hosts with the GW."""
+        owner2ouid = dict((row['entity_id'], row['target_id']) for row in 
+                          self.ent.list_traits(code=self.co.trait_project_host))
+        processed = set()
+        for hst in gw_hosts:
+            hostname = hst['name']
+            pid = hst['project']
+            processed.add(hostname)
 
-    def process_dns(self, gw_projects):
-        """Sync all hosts to the gateway.
+            try:
+                owner_id = finder.find_target_by_parsing(hostname,
+                                                         dns.DNS_OWNER)
+            except BofhdCerebrumError, e:
+                # The DNS modules raises same exception type for all, so we are
+                # not sure about what went wrong. Logging it for now, to be able
+                # to debug later, if it should go wrong.
+                logger.debug("DNS exception for %s: %s", hostname, e)
+                self.gw.delete_host(pid, hostname)
+                continue
 
-        @type gw_projects: dict
-        @param gw_projects: All info about the projects, from the GW.
+            if owner_id not in owner2ouid:
+                logger.debug("Host %s not affiliated with project", hostname)
+                self.gw.delete_host(pid, hostname)
+                continue
+
+        # Add new hosts:
+        for row in dns_owner.search():
+            # Skip unaffiliated hosts:
+            if row['owner_id'] not in owner2ouid:
+                continue
+            # TODO: Check for quarantines?
+
+            dns_owner.clear()
+            dns_owner.find(row['owner_id'])
+            # Find the fqdn
+
+
+    def process_dns(self, gw_hosts, gw_subnets, gw_vlans):
+        """Sync DNS data with the gateway.
+
+        @type gw_hosts: list
+        @param gw_hosts: All given hosts from the GW.
+
+        @type gw_subnets: list
+        @param gw_projects: All given subnets from the GW.
+
+        @type gw_vlans: list
+        @param gw_vlans: All given VLANS from the GW.
 
         """
-        # Hosts:
-        #
-        # TODO
-        # Subnets and vlans
-        gw_subnets = dict()
-        #for proj in gw_projects.itervalues():
-        #    gw_subnets[
+        # TODO: This method could be split into logical parts - getting too big
+        dns_owner = dns.DnsOwner.DnsOwner(self.db)
+        ar = dns.ARecord.ARecord(self.db)
+        aaaar = dns.AAAARecord.AAAARecord(self.db)
+        finder = dns.Utils.Find(self.db, cereconf.DNS_DEFAULT_ZONE)
+        compress = dns.IPv6Utils.IPv6Utils.compress
+        explode = dns.IPv6Utils.IPv6Utils.explode
 
-        #ret = []
-        ## IPv6:
-        subnet6 = IPv6Subnet.IPv6Subnet(self.db)
-        compress = IPv6Utils.IPv6Utils.compress
-        for row in subnet6.search():
-            ret.append({
-                'subnet': '%s/%s' % (compress(row['subnet_ip']),
-                                     row['subnet_mask']),
-                'vlan_number': str(row['vlan_number']),
-                'description': row['description']})
-        # IPv4:
-        #subnet = Subnet.Subnet(self.db)
-        #for row in subnet.search():
-        #    ret.append({
-        #        'subnet': '%s/%s' % (row['subnet_ip'], row['subnet_mask']),
-        #        'vlan_number': str(row['vlan_number']),
-        #        'description': row['description']})
-        #self.logger.debug("Found %d subnets", len(ret))
-        ## Sort by subnet
-        #return sorted(ret, key=lambda x: x['subnet'])
+        # Map subnets to projects:
+        sub2ouid = dict((row['entity_id'], row['target_id']) for row in
+            self.ent.list_traits(code=self.co.trait_project_subnet))
+        sub2ouid.update(dict((row['entity_id'], row['target_id']) for row in
+            self.ent.list_traits(code=self.co.trait_project_subnet6)))
+        logger.debug("Mapped %d subnets to projects", len(sub2ouid))
+
+        # Cache subnets and VLANs:
+        vlans = dict()
+        subnets = dict()
+        for row in self.subnet6.search():
+            if row['entity_id'] not in sub2ouid:
+                # Skipping non-affiliated subnets
+                continue
+            pid = self.ouid2pid.get(sub2ouid[row['entity_id']])
+            if not pid:
+                logger.warn("Unknown project for ou_id: %s (subnet: %s)",
+                        sub2ouid[row['entity_id']], row['entity_id'])
+                continue
+            vlans.setdefault(pid, []).append(row['vlan_number'])
+            subnets[explode(row['subnet_ip'])] = (pid, row['subnet_mask'],
+                                         row['vlan_number'])
+        for row in self.subnet.search():
+            if row['entity_id'] not in sub2ouid:
+                # Skipping non-affiliated subnets
+                continue
+            pid = self.ouid2pid.get(sub2ouid[row['entity_id']])
+            if not pid:
+                logger.warn("Unknown project for ou_id: %s (subnet: %s)",
+                        sub2ouid[row['entity_id']], row['entity_id'])
+                continue
+            vlans.setdefault(pid, []).append(row['vlan_number'])
+            subnets[row['subnet_ip']] = (pid, row['subnet_mask'],
+                                         row['vlan_number'])
+
+        self._process_vlans(gw_vlans, vlans)
+        self._process_subnets(gw_subnets, subnets)
+
+    def _process_vlans(self, gw_vlans, vlans):
+        """Sync given VLANs with the GW.
+
+        @type gw_vlans: list
+        @param gw_vlans: The list of registered VLANs from the GW.
+
+        @type vlans: list
+        @param vlans: The list of registered VLANs in Cerebrum.
+
+        """
+        processed = set()
+        for gw_vlan in gw_vlans:
+            pid = gw_vlan['project']
+            vlan = gw_vlan['vlantag']
+            processed.add(':'.join((pid, vlan)))
+            if pid not in vlans or vlan not in vlans[pid]:
+                self.gw.delete_vlan(pid, vlan)
+                continue
+        for pid, vlns in vlans.iteritems():
+            for vln in vlns:
+                if '%s:%s' % (pid, vln) in processed:
+                    continue
+                self.gw.create_vlan(pid, vln)
+
+    def _process_subnets(self, gw_subnets, subnets):
+        """Sync given subnets with the GW.
+
+        @type gw_subnets: list
+        @param gw_subnets: The list of registered subnets from the GW.
+
+        @type subnets: dict
+        @param subnets: The list of registered subnets from the GW, where the
+            subnet_ip is the key. For IPv6, the IP address must not be in
+            compact format, to easier compare with the GW.
+
+            Note that this comparement does not always work, as you are able to
+            save
+
+        """
+        processed = set()
+        for sub in gw_subnets:
+            adr = sub['netaddr']
+            pid = sub['project']
+            processed.add(adr)
+            try:
+                if ':' in adr:
+                    self.subnet6.clear()
+                    self.subnet6.find(adr)
+                    s_id = self.subnet6.entity_id
+                else:
+                    self.subnet.clear()
+                    self.subnet.find(adr)
+                    s_id = self.subnet.entity_id
+            except SubnetError:
+                logger.info("Unknown subnet: %s/%s", adr, sub['prefixlen'])
+                self.gw.delete_subnet(pid, adr, sub['vlantag'])
+                continue
+            if adr not in subnets:
+                logger.warn("Subnet flaw, probably wrong ip: %s/%s", adr,
+                            sub['prefixlen'])
+                continue
+            subn = subn
+
+            if s_id not in sub2ouid:
+                logger.info("No mapping of subnet to project: %s", adr)
+                self.gw.delete_subnet(pid, adr, sub['vlantag'])
+                continue
+
+            # TODO: check that netaddr and prefixlen is correct
+        for adr, sub in subnets.iteritems():
+            if adr in processed:
+                continue
+            self.gw.create_subnet(sub[0], adr, sub[1], sub[2])
 
 def main():
     try:
