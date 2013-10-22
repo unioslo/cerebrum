@@ -405,7 +405,7 @@ class Processor:
         for gw_vlan in gw_vlans:
             pid = gw_vlan['project']
             vlan = gw_vlan['vlantag']
-            processed.add(':'.join((pid, vlan)))
+            processed.add(':'.join((pid, str(vlan))))
             if pid not in vlans or vlan not in vlans[pid]:
                 self.gw.delete_vlan(pid, vlan)
                 continue
