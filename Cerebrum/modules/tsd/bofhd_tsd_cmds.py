@@ -1231,11 +1231,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         elif member_type in ("account", self.const.entity_account):
             src_entity = self._get_account(src_name)
         elif member_type in ("person", self.const.entity_person):
-            try:
-                src_entity = self.util.get_target(src_name,
-                                                  restrict_to=['Person'])
-            except Errors.TooManyRowsError:
-                raise CerebrumError("Unexpectedly found more than one person")
+            raise CerebrumError("Can't handle persons in project groups")
         else:
             raise CerebrumError('Unknown entity type: %s' % member_type)
         dest_group = self._get_group(dest_group)
@@ -1281,7 +1277,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         # TODO: If using older versions of NIS, a user could only be a member of
         # 16 group. You might want to be warned about this - Or is this only
         # valid for UiO?
-        return "OK, added %s to %s" % (src_name, dest_group)
+        return "OK, added %s to %s" % (src_name, dest_group.group_name)
 
     # group remove_member
     all_commands['group_remove_member'] = cmd.Command(
