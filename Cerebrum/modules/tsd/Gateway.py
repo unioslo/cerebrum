@@ -478,6 +478,47 @@ class GatewayClient(xmlrpclib.Server, object):
             return True
         return self.host.delete(params)
 
+    def create_ip(self, pid, fqdn, ipadr, mac=None):
+        """Give a host an IP address in the GW.
+
+        @type pid: string
+        @param pid: The project ID.
+
+        @type fqdn: string
+        @param fqdn: The fully qualified domain name, not the cname.
+
+        @type ipadr: string
+        @param ipadr: The IP address to add.
+
+        @type mac: string
+        @param mac: The MAC address for the IP address.
+
+        """
+        self.logger.info("Add IP addr for %s: %s", fqdn, ipadr)
+        params = {'project': pid, 'hostname': fqdn, 'ip': ipadr, 'mac': mac}
+        if self.dryrun:
+            return True
+        return self.host.ip.add(params)
+
+    def delete_ip(self, pid, fqdn, ipadr):
+        """Delete the given IP address from the host in the GW.
+
+        @type pid: string
+        @param pid: The project ID.
+
+        @type fqdn: string
+        @param fqdn: The fully qualified domain name, not the cname.
+
+        @type ipadr: string
+        @param ipadr: The IP address to remove.
+
+        """
+        self.logger.info("Delete IP addr for %s: %s", fqdn, ipadr)
+        params = {'project': pid, 'hostname': fqdn, 'ip': ipadr}
+        if self.dryrun:
+            return True
+        return self.host.ip.delete(params)
+
     # Subnet methods
 
     def create_subnet(self, pid, netaddr, prefixlen, vlan):
