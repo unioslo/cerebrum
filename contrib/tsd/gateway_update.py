@@ -126,6 +126,8 @@ class Processor:
             logger.debug("Getting %s from GW...", key)
             gw_data[key] = meth()
             logger.debug("Got %d entities in %s", len(gw_data[key]), key)
+            for d in gw_data[key]:
+                logger.debug3(d)
         self.process_projects(gw_data['projects'])
         self.process_users(gw_data['users'])
         self.process_dns(gw_data['hosts'], gw_data['subnets'], gw_data['vlans'],
@@ -177,6 +179,7 @@ class Processor:
         try:
             self.ou.find_by_tsd_projectid(pid)
         except Errors.NotFoundError:
+            logger.debug("Project %s not found in Cerebrum", pid)
             # TODO: check if the project is marked as 'expired', so we don't
             # send this to the gw every time.
             # if proj['expires'] and proj['expires'] < DateTime.now():
@@ -184,15 +187,19 @@ class Processor:
             return
 
         quars = dict((row['quarantine_type'], row) for row in
-                     self.ou.get_entity_quarantine(only_active=False))
-        active_quars = dict((row['quarantine_type'], row) for row in
                             self.ou.get_entity_quarantine(only_active=True))
 
-        # Quarantines - delete, freeze and thaw
-        if (quars.has_key(self.co.quarantine_project_end) and
-                quars[self.co.quarantine_project_end]['start_date'] < DateTime.now()):
-            self.gw.delete_project(pid)
-        if len(active_quars) > 0:
+        # TBD: Delete project when put in end quarantine, or wait for the
+        # project to have really been removed? Remember that we must not remove
+        # the OU completely, to avoid reuse of the project ID and project name,
+        # so we will then never be able to delete it from the GW, unless we find
+        # a way to delete it.
+
+        #if self.co.quarantine_project_end in quars:
+        #    logger.debug("Project %s has ended" % pid)
+        #    self.gw.delete_project(pid)
+        if len(quars) > 0:
+            logger.debug("Project %s has active quarantines: %s", pid, quars)
             if not proj['frozen']:
                 self.gw.freeze_project(pid)
         else:
@@ -214,6 +221,7 @@ class Processor:
                             row['account_id'])
                 continue
             ac2proj[row['account_id']] = row['ou_id']
+        logger.debug2("Found %d accounts connected with projects", len(ac2proj))
 
         # Update existing projects:
         for usr in gw_users:
@@ -226,14 +234,17 @@ class Processor:
         for row in self.pu.search(spread=self.co.spread_gateway_account):
             if row['name'] in processed:
                 continue
+            logger.debug2("User not known by GW: %s" % row['name'])
             self.pu.clear()
             try:
                 self.pu.find(row['account_id'])
             except Errors.NotFoundError:
-                logger.debug("Skipping non-posix user: %s", row['account_id'])
+                logger.debug("Skipping non-posix user: %s", row['name'])
                 continue
             # Skip quarantined accounts:
             if tuple(self.pu.get_entity_quarantine(only_active=True)):
+                logger.debug2("Skipping unknown, quarantined account: %s",
+                        row['name'])
                 continue
             # Skip accounts not affiliated with a project.
             pid = self.ouid2pid.get(ac2proj.get(self.pu.entity_id))
@@ -254,21 +265,27 @@ class Processor:
 
         """
         username = gw_user['username']
+        logger.debug2("Process user %s: %s" % (username, gw_user))
         pid = gw_user['project']
         self.pu.clear()
         try:
             self.pu.find_by_name(username)
         except Errors.NotFoundError:
+            logger.info("User %s not found in Cerebrum" % username)
             self.gw.delete_user(pid, username)
             return
         # Skip accounts not affiliated with a project.
         if not ac2proj.get(self.pu.entity_id):
+            logger.info("User %s not affiliated with any project" % username)
             self.gw.delete_user(pid, username)
             return
         if pid != self.ouid2pid.get(ac2proj[self.pu.entity_id]):
             logger.error("Danger! Project mismatch in Cerebrum and GW for account %s" % self.pu.entity_id)
             raise Exception("Project mismatch with GW and Cerebrum")
-        if self.pu.get_entity_quarantine(only_active=True):
+        quars = [r['quarantine_type'] for r in
+                 self.pu.get_entity_quarantine(only_active=True)]
+        if quars:
+            logger.debug2("User %s has quarantines: %s" % (username, quars))
             if not gw_user['frozen']:
                 self.gw.freeze_user(pid, username)
         else:
@@ -291,7 +308,7 @@ class Processor:
         @param gw_ips: All given IP addresses from the GW.
 
         """
-        # TODO: This method could be split into logical parts - getting too big
+        logger.debug("Processing DNS")
         dns_owner = dns.DnsOwner.DnsOwner(self.db)
         ar = dns.ARecord.ARecord(self.db)
         aaaar = dns.AAAARecord.AAAARecord(self.db)
@@ -315,6 +332,7 @@ class Processor:
 
         owner2hostname = dict((r['dns_owner_id'], r['name']) for r in
                               dns_owner.search())
+        logger.debug2("Mapped %d dns_owners to hosts" % len(owner2hostname))
         # Mapping hosts to projects by what subnet they're on:
         host2project = dict()
         host2ips = dict()
@@ -350,7 +368,9 @@ class Processor:
                 continue
             host2project[adr] = pid
             host2ips.setdefault(owner2hostname['dns_owner_id'], set()).add(adr)
-
+        logger.debug2("Mapped %d hosts to projects", len(host2project))
+        logger.debug2("Mapped %d hosts with at least one IP address",
+                len(host2ips))
         self._process_hosts(gw_hosts, host2project)
         self._process_ips(gw_ips, host2project, host2ips)
 
@@ -389,6 +409,8 @@ class Processor:
             ident = '%s/%s' % (row['subnet_ip'], row['subnet_mask'])
             subnets[ident] = (pid, row['subnet_ip'], row['subnet_mask'],
                               row['vlan_number'])
+        logger.debug2("Found %s subnets for projects", len(subnets))
+        logger.debug2("Found %s VLANs for projects", len(vlans))
         return subnets, vlans
 
     def _process_vlans(self, gw_vlans, vlans):
@@ -405,14 +427,17 @@ class Processor:
         for gw_vlan in gw_vlans:
             pid = gw_vlan['project']
             vlan = gw_vlan['vlantag']
-            processed.add(':'.join((pid, str(vlan))))
+            processed.add('%s:%s' % (pid, vlan))
             if pid not in vlans or vlan not in vlans[pid]:
                 self.gw.delete_vlan(pid, vlan)
                 continue
         for pid, vlns in vlans.iteritems():
+            logger.debug3("Processing VLANs for project %s: %d found", pid,
+                    len(vlns))
             for vln in vlns:
                 if '%s:%s' % (pid, vln) in processed:
                     continue
+                logger.debug3("New VLAN for %s: %s" % (pid, vln))
                 self.gw.create_vlan(pid, vln)
 
     def _process_subnets(self, gw_subnets, subnets):
