@@ -586,7 +586,7 @@ class GatewayClient(xmlrpclib.Server, object):
             return True
         return self.vlan.create(params)
 
-    def delete_vlan(SELF, pid, vlan):
+    def delete_vlan(self, pid, vlan):
         """Remove a VLAN from the GW.
 
         @type pid: string
