@@ -72,9 +72,17 @@ class Constants(Constants.Constants):
         'account@ad', Constants.Constants.entity_account,
         'Account should be synced with AD')
 
-    spread_ad_group = _SpreadCode(
-        'group@ad', Constants.Constants.entity_group,
-        'Group should be synced with AD')
+    #spread_ad_group = _SpreadCode(
+    #    'group@ad', Constants.Constants.entity_group,
+    #    'Group should be synced with AD')
+
+    spread_file_group = _SpreadCode(
+        'filegroup', Constants.Constants.entity_group,
+        'File group')
+
+    spread_net_group = _SpreadCode(
+        'netgroup', Constants.Constants.entity_group,
+        'Net group')
 
     spread_gateway_account = _SpreadCode(
         'account@gw', Constants.Constants.entity_account,
