@@ -125,7 +125,7 @@ class Processor:
                           ('vlans', self.gw.list_vlans)):
             logger.debug("Getting %s from GW...", key)
             gw_data[key] = meth()
-            logger.debug("Got %d entities in %s", len(gw_data[key]), key)
+            logger.debug("Got %d %s from GW", len(gw_data[key]), key)
             for d in gw_data[key]:
                 logger.debug3(d)
         self.process_projects(gw_data['projects'])

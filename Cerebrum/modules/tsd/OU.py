@@ -69,7 +69,8 @@ class OUTSDMixin(OU):
         if not matched:
             raise Errors.NotFoundError("Unknown project: %s" % project_name)
         if len(matched) != 1:
-            raise Errors.TooManyRowsError("Found more than one OU with given name")
+            raise Errors.TooManyRowsError("Found several OUs with given name: %s"
+                    % project_name)
         return self.find(matched[0]['entity_id'])
 
     def search_tsd_projects(self, name=None, exact_match=True):
@@ -149,7 +150,7 @@ class OUTSDMixin(OU):
         ret = self.get_external_id(id_type=self.const.externalid_project_id)
         if ret:
             return ret[0]['external_id']
-        raise Errors.NotFoundError('Mandatory project ID not found for %s',
+        raise Errors.NotFoundError('Mandatory project ID not found for %s' %
                 self.entity_id)
 
     def add_name_with_language(self, name_variant, name_language, name):
@@ -171,7 +172,7 @@ class OUTSDMixin(OU):
                                     # TODO: name_language
                                     name=name)
             if any(r['name'] == name for r in matched):
-                raise Errors.CerebrumError('Acronym already in use')
+                raise Errors.CerebrumError('Acronym already in use: %s' % name)
         return self.__super.add_name_with_language(name_variant, name_language,
                                                    name)
 
@@ -337,11 +338,11 @@ class OUTSDMixin(OU):
         # in TSD?
         for row in subnet.search():
             if row['vlan_number'] and int(row['vlan_number']) == vlan:
-                raise Error.CerebrumError('VLAN %s already in use: %s/%s' %
+                raise Errors.CerebrumError('VLAN %s already in use: %s/%s' %
                         (vlan, row['subnet_ip'], row['subnet_mask']))
         for row in subnet6.search():
             if row['vlan_number'] and int(row['vlan_number']) == vlan:
-                raise Error.CerebrumError('VLAN %s already in use: %s/%s' %
+                raise Errors.CerebrumError('VLAN %s already in use: %s/%s' %
                         (vlan, row['subnet_ip'], row['subnet_mask']))
         subnetstart = cereconf.SUBNET_START % intpid
         subnet.populate(subnetstart, "Subnet for project %s" % projectid, vlan)
