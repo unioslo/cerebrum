@@ -226,6 +226,13 @@ class HTTPSAuthConnection(httplib.HTTPSConnection, object):
     # instantiated.
     ca_certs = None
 
+    # The private and public key, used in the connections. TBD: Note that this
+    # is set to the same for all connections, which is mostly what you want, but
+    # not always. We might therefore want to change this later, to be set when
+    # instantiated.
+    client_key = None
+    client_cert = None
+
     def __init__(self, *args, **kwargs):
         """Override for specifying a chain of CA certificates.
 
@@ -237,7 +244,8 @@ class HTTPSAuthConnection(httplib.HTTPSConnection, object):
             therefore accept more server certificates.
 
         """
-        self.ca_certs = kwargs.pop('ca_certs', self.ca_certs)
+        # TBD: Instantiate with ca, cert and key, if neede later.
+        #self.ca_certs = kwargs.pop('ca_certs', self.ca_certs)
         super(HTTPSAuthConnection, self).__init__(*args, **kwargs)
 
     def _getvalidhostsforcert(self, cert):
@@ -286,8 +294,9 @@ class HTTPSAuthConnection(httplib.HTTPSConnection, object):
             # TODO: this should NOT be put in production!
             return super(HTTPSAuthConnection, self).connect()
 
-        self.sock = ssl.wrap_socket(sock, keyfile=self.key_file,
-                                    certfile=self.cert_file, server_side=False,
+        self.sock = ssl.wrap_socket(sock, keyfile=self.client_key,
+                                    certfile=self.client_cert,
+                                    server_side=False,
                                     cert_reqs=ssl.CERT_REQUIRED,
                                     ssl_version=ssl.PROTOCOL_TLSv1,
                                     ca_certs=self.ca_certs)
@@ -322,7 +331,8 @@ class HTTPSAuthHandler(urllib2.HTTPSHandler, object):
     http://stackoverflow.com/questions/1087227/validate-ssl-certificates-with-python
 
     """
-    def __init__(self, key, cert, ssl_connection=HTTPSAuthConnection):
+    def __init__(self, client_key, client_cert, ca,
+                 ssl_connection=HTTPSAuthConnection):
         """Override to store the client's private key and client certificate.
 
         @type key: string
@@ -337,9 +347,10 @@ class HTTPSAuthHandler(urllib2.HTTPSHandler, object):
 
         """
         super(HTTPSAuthHandler, self).__init__()
-        self.key = key
-        self.cert = cert
         self.ssl_connection = ssl_connection
+        self.ssl_connection.ca_certs = ca
+        self.ssl_connection.client_cert = client_cert
+        self.ssl_connection.client_key = client_key
 
     def https_open(self, req):
         """Process an HTTPS request by wrapping it through SSL.
@@ -453,7 +464,8 @@ class WinRMProtocol(object):
         urllib2.socket.setdefaulttimeout(self.connection_timeout)
         if encrypted:
             self._opener = urllib2.build_opener(HTTPSAuthHandler(client_key,
-                                                                 client_cert))
+                                                                 client_cert,
+                                                                 ca))
         else:
             self._opener = urllib2.build_opener()
         self._http_headers = {

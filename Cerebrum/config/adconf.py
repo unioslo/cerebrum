@@ -122,6 +122,22 @@ SYNCS = dict()
 #   Default:
 #       True
 #
+# - ca (string):
+#   Full path to a file with one or more CA certificates - a bundle. This is
+#   used if encrypted is True,
+#
+# - client_key (string):
+#   Full path to the file with the client's private key. This is used if
+#   encrypted is True. This file must be protected!
+#
+# - client_cert (string):
+#   Full path to the file with the client certificate (public key) in PEM
+#   format. This is used if encrypted is True. It could be put in the same file
+#   as the client_key.
+#
+#   Full path to a file with one or more CA certificates - a bundle. This is
+#   used if encrypted is True,
+#
 # - auth_user (str):
 #   The user we should authenticate to the Windows member server with. It is
 #   recommended that this user has no privileges in the AD domain, and is only

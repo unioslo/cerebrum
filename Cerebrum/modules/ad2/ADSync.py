@@ -434,6 +434,9 @@ class BaseSync(object):
                               auth_user=self.config.get('auth_user'),
                               domain_admin=self.config.get('domain_admin'),
                               encrypted=self.config.get('encrypted', True),
+                              ca=self.config.get('ca', None),
+                              client_cert=self.config.get('client_cert', None),
+                              client_key=self.config.get('client_key', None),
                               dryrun=self.config['dryrun'])
 
     def add_admin_message(self, level, msg):

@@ -131,7 +131,7 @@ class ADclient(PowershellClient):
 
     def __init__(self, auth_user, domain_admin, dryrun, *args, **kwargs):
         """Set up the WinRM client to be used with running AD commands.
-        
+
         @type auth_user: string
         @param auth_user: The username of the account we use to connect to the
             server.
