@@ -381,6 +381,16 @@ class Processor:
         @param sub2pid: Mapping from subnet's entity_id to project's ou_id.
             This is needed to be able to return the correct project ID for an 
 
+        @rtype: tuple
+        @return: A two element tuple with data from Cerebrum.
+
+            First element: a dict with all subnets, identified by their IP
+            address and mask - values are tuples with data about the subnet,
+            e.g. the project id and VLAN number.
+
+            Second element: all VLANs, identified by their project ID - values
+            are the VLAN number.
+
         """
         explode = dns.IPv6Utils.IPv6Utils.explode
         subnets = dict()
@@ -429,8 +439,12 @@ class Processor:
             vlan = gw_vlan['vlantag']
             processed.add('%s:%s' % (pid, vlan))
             if pid not in vlans or vlan not in vlans[pid]:
-                self.gw.delete_vlan(pid, vlan)
-                continue
+                logger.debug3("Unknown VLAN for %s: %s" % (pid, vlan))
+                try:
+                    self.gw.delete_vlan(pid, vlan)
+                except GatewayException, e:
+                    logger.warn("GatewayException deleting VLAN %s:%s: %s" %
+                            (pid, vlan, e))
         for pid, vlns in vlans.iteritems():
             logger.debug3("Processing VLANs for project %s: %d found", pid,
                     len(vlns))
@@ -438,7 +452,11 @@ class Processor:
                 if '%s:%s' % (pid, vln) in processed:
                     continue
                 logger.debug3("New VLAN for %s: %s" % (pid, vln))
-                self.gw.create_vlan(pid, vln)
+                try:
+                    self.gw.create_vlan(pid, vln)
+                except GatewayException, e:
+                    logger.warn("GatewayException creating VLAN for %s:%s: %s" %
+                            (pid, vln, e))
 
     def _process_subnets(self, gw_subnets, subnets):
         """Sync given subnets with the GW.
@@ -477,6 +495,7 @@ class Processor:
             if ident not in subnets:
                 logger.warn("Subnet flaw, probably wrong ip: %s/%s", adr,
                             sub['prefixlen'])
+                # TODO: Delete subnet, or handle it manually?
                 continue
             if s_id not in sub2ouid:
                 logger.info("No mapping of subnet to project: %s", adr)
@@ -486,7 +505,11 @@ class Processor:
         for ident, sub in subnets.iteritems():
             if ident in processed:
                 continue
-            self.gw.create_subnet(*sub)
+            logger.debug3("New subnet: %s" % (sub,))
+            try:
+                self.gw.create_subnet(*sub)
+            except GatewayException, e:
+                logger.warn("GatewayException creating subnet: %s" % e)
 
     def _process_hosts(self, gw_hosts, ce_hosts):
         """Sync given hosts with the GW.
@@ -505,7 +528,7 @@ class Processor:
             pid = host['project']
             processed.add(hostname)
             if hostname not in ce_hosts:
-                # TODO: check expired
+                # TODO: check the value 'expired'
                 self.gw.delete_host(pid, hostname)
         for host, pid in ce_hosts.iteritems():
             if host in processed:
