@@ -490,7 +490,8 @@ class Processor:
                     s_id = self.subnet.entity_id
             except SubnetError:
                 logger.info("Unknown subnet: %s", ident)
-                self.gw.delete_subnet(pid, adr, sub['vlantag'])
+                self.gw.delete_subnet(pid, adr, sub['prefixlen'],
+                                      sub['vlantag'])
                 continue
             if ident not in subnets:
                 logger.warn("Subnet flaw, probably wrong ip: %s/%s", adr,
@@ -499,7 +500,8 @@ class Processor:
                 continue
             if s_id not in sub2ouid:
                 logger.info("No mapping of subnet to project: %s", adr)
-                self.gw.delete_subnet(pid, adr, sub['vlantag'])
+                self.gw.delete_subnet(pid, adr, sub['prefixlen'],
+                                      sub['vlantag'])
                 continue
             # TODO: check that netaddr and prefixlen is correct
         for ident, sub in subnets.iteritems():

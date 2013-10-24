@@ -548,7 +548,7 @@ class GatewayClient(xmlrpclib.Server, object):
             return True
         return self.subnet.create(params)
 
-    def delete_subnet(self, pid, netaddr, vlan):
+    def delete_subnet(self, pid, netaddr, prefixlen, vlan):
         """Remove a VLAN from the GW.
 
         @type pid: str
@@ -563,7 +563,8 @@ class GatewayClient(xmlrpclib.Server, object):
 
         """
         self.logger.info("Delete subnet for %s: %s", pid, netaddr)
-        params = {'netaddr': netaddr, 'project': pid, 'vlantag': vlan}
+        params = {'netaddr': netaddr, 'project': pid, 'vlantag': vlan,
+                  'prefixlen': prefixlen}
         if self.dryrun:
             return True
         return self.subnet.delete(params)
