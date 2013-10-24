@@ -442,7 +442,7 @@ class Processor:
                 logger.debug3("Unknown VLAN for %s: %s" % (pid, vlan))
                 try:
                     self.gw.delete_vlan(pid, vlan)
-                except GatewayException, e:
+                except Gateway.GatewayException, e:
                     logger.warn("GatewayException deleting VLAN %s:%s: %s" %
                             (pid, vlan, e))
         for pid, vlns in vlans.iteritems():
@@ -454,7 +454,7 @@ class Processor:
                 logger.debug3("New VLAN for %s: %s" % (pid, vln))
                 try:
                     self.gw.create_vlan(pid, vln)
-                except GatewayException, e:
+                except Gateway.GatewayException, e:
                     logger.warn("GatewayException creating VLAN for %s:%s: %s" %
                             (pid, vln, e))
 
@@ -508,7 +508,7 @@ class Processor:
             logger.debug3("New subnet: %s" % (sub,))
             try:
                 self.gw.create_subnet(*sub)
-            except GatewayException, e:
+            except Gateway.GatewayException, e:
                 logger.warn("GatewayException creating subnet: %s" % e)
 
     def _process_hosts(self, gw_hosts, ce_hosts):
@@ -533,7 +533,11 @@ class Processor:
         for host, pid in ce_hosts.iteritems():
             if host in processed:
                 continue
-            self.gw.create_host(pid, host)
+            try:
+                self.gw.create_host(pid, host)
+            except Gateway.GatewayException, e:
+                logger.warn("GatewayException creating host %s:%s: %s" % (pid,
+                    host, e))
 
     def _process_ips(self, gw_ips, host2project, host2ips):
         """Sync given IPs with the GW.
@@ -606,9 +610,6 @@ def main():
             if t.startswith('list_'):
                 logger.debug("Mocking: %s", t)
                 setattr(gw, t, lambda: list())
-            elif t.startswith('get_'):
-                logger.debug("Mocking: %s", t)
-                setattr(gw, t, lambda: dict())
 
     logger.debug("Start gw-sync against URL: %s", gw)
     p = Processor(gw, dryrun)
