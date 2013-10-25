@@ -996,14 +996,6 @@ def proc_delete_user(r):
     for s in account.get_spread():
         account.delete_spread(s['spread'])
 
-    # make sure all group memberships are removed
-    group = Factory.get('Group')(db)
-    for g in group.search(member_id=account.entity_id,
-                          indirect_members=False):
-        group.clear()
-        group.find(g['group_id'])
-        group.remove_member(account.entity_id)
-
     # remove POSIX data
     pu = Factory.get('PosixUser')(db)
     try:
@@ -1013,6 +1005,14 @@ def proc_delete_user(r):
         pass
     else:
         pu.delete_posixuser()
+
+    # make sure all group memberships are removed
+    group = Factory.get('Group')(db)
+    for g in group.search(member_id=account.entity_id,
+                          indirect_members=False):
+        group.clear()
+        group.find(g['group_id'])
+        group.remove_member(account.entity_id)
     return True
 
 
