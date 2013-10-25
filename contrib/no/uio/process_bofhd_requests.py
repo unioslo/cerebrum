@@ -989,26 +989,30 @@ def proc_delete_user(r):
     else:
         account.set_homedir(current_id=home['homedir_id'],
                             status=const.home_status_archived)
+
     # Remove references in other tables
     # Note that we preserve the quarantines for deleted users
     # TBD: Should we have an API function for this?
     for s in account.get_spread():
         account.delete_spread(s['spread'])
+
+    # make sure all group memberships are removed
     group = Factory.get('Group')(db)
-    default_group = _get_default_group(account.entity_id)
     for g in group.search(member_id=account.entity_id,
                           indirect_members=False):
         group.clear()
         group.find(g['group_id'])
-        #
-        # all posixuser-objects have to keep their membership
-        # in their default group due to a FK-constraint from
-        # posix_user to group_member
-        if g['group_id'] == default_group:
-            logger.debug("Skipping default group %s for user %s",
-                         group.group_name, account.account_name)
-            continue        
         group.remove_member(account.entity_id)
+
+    # remove POSIX data
+    pu = Factory.get('PosixUser')(db)
+    try:
+        pu.clear()
+        pu.find(account.entity_id)
+    except:
+        pass
+    else:
+        pu.delete_posixuser()
     return True
 
 
