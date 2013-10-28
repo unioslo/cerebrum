@@ -696,7 +696,10 @@ class BaseSync(object):
         e.g. Exchange, Lync and Sharepoint.
 
         """
-        self.logger.debug("Fetch spreads...")
+        self.logger.debug("Fetch spreads for target type %s...", self.config['target_type'])
+        if not self.config['target_type']:
+            # Don't know what spreads to fetch if we don't know the entity type.
+            return
         i = 0
         es = Entity.EntitySpread(self.db)
         for row in es.list_entity_spreads(self.config['target_type']):

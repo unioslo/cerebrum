@@ -127,7 +127,7 @@ class CerebrumEntity(object):
         self.entity_id = entity_id
         self.entity_name = entity_name
 
-        # The Id for the related object in AD. Using SamAccountName by default:
+        # The Id for the related object in AD:
         self.ad_id = self.config.get('name_format', '%s') % entity_name
 
         # Attributes that are defined in Cerebrum for the entity. The keys are
@@ -197,14 +197,13 @@ class CerebrumEntity(object):
                 # Add some substitution data to use for strings:
                 if isinstance(config.default, basestring):
                     self.set_attribute(atrname, config.default %
-                            {'entity_name': self.entity_name,
-                             'entity_id': self.entity_id,
-                             'ad_id': self.ad_id,
-                             'ou': self.ou},
+                                {'entity_name': self.entity_name,
+                                 'entity_id': self.entity_id,
+                                 'ad_id': self.ad_id,
+                                 'ou': self.ou},
                             transform=False)
                 else:
-                    self.set_attribute(atrname, config.default,
-                            transform=False)
+                    self.set_attribute(atrname, config.default, transform=False)
 
     def find_ad_attribute(self, config):
         """Find a given AD attribute in its raw format from the Cerebrum data.
@@ -441,23 +440,6 @@ class CerebrumUser(CerebrumEntity):
         dg = CerebrumDistGroup(name, description)
         dg.calc_ad_attrs()
 
-
-    def add_change(self, attr_type, value):
-        """
-        Add attribute type and value that is to be synced to AD. Some
-        attributes changes must be sent to Exchange also. If that is
-        the case set update_recipient to True
-
-        @param attr_type: AD attribute type
-        @type attr_type: str
-        @param value: AD attribute value
-        @type value: varies
-        """
-        self.changes[attr_type] = value
-        # Should update_Recipients be run for this account?
-        if not self.update_recipient and attr_type in cereconf.AD_EXCHANGE_ATTRIBUTES:
-            self.update_recipient = True
-
 class PosixCerebrumUser(CerebrumUser):
     """A posix user from Cerebrum, implementing extra attributes for POSIX data.
 
@@ -473,11 +455,11 @@ class PosixCerebrumUser(CerebrumUser):
     def calculate_ad_values(self):
         """Calculate POSIX attributes."""
         super(PosixCerebrumUser, self).calculate_ad_values()
+        # TODO: Remove this, gets handled by ConfigUtils instead now
         if self.posix.has_key('uid'):
             self.set_attribute('UidNumber', self.posix['uid'])
         if self.posix.has_key('gid'):
             self.set_attribute('GidNumber', self.posix['gid'])
-        # TODO: extra attributes, like primary group?
 
 class MailTargetEntity(CerebrumUser):
     """An entity with Mailtarget, which becomes a Mail-object in Exchange.
@@ -559,17 +541,9 @@ class CerebrumGroup(CerebrumEntity):
 
         """
         super(CerebrumGroup, self).calculate_ad_values()
-        self.set_attribute('Description', getattr(self, 'description', 'N/A'))
-        self.set_attribute('DisplayName', self.ad_id)
+        self.set_attribute('Description', getattr(self, 'description', None))
         # TODO: any changes to this? Should it be formatted else than
         # DisplayName?
-        self.set_attribute('DisplayNamePrintable', self.ad_id)
-        self.set_attribute('MailNickname', self.ad_id)
-        # These could be overridden by a Mailtarget subclass:
-        self.set_attribute('Mail', '@'.join((self.ad_id,
-                                             self.config['domain'])))
-        self.set_attribute('ProxyAddresses', ('SMTP:%s@%s' % (self.ad_id,
-                                                       self.config['domain']),))
 
 class CerebrumDistGroup(CerebrumGroup):
     """

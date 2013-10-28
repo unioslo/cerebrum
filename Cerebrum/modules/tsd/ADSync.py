@@ -200,9 +200,10 @@ class HostpolicySync(ADSync.GroupSync, TSDUtils):
         @param data: A row object with data about the entity to cache.
 
         """
-        ent = CerebrumEntity(self.logger, self.config, entity_id, entity_name)
+        ent = CerebrumGroup(self.logger, self.config, entity_id, entity_name,
+                            data['description'])
         # Feed the entity with the given data:
-        for key in ('entity_type', 'description', 'create_date', 'foundation',
+        for key in ('entity_type', 'create_date', 'foundation',
                     'foundation_date'):
             setattr(ent, key, data[key])
         if data['entity_type'] == self.co.entity_hostpolicy_atom:
