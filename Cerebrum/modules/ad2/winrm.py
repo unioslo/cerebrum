@@ -61,6 +61,8 @@ except ImportError:
     CRYPTO=False
     print "No SSL module, no mutual authentication"
 
+CRYPTO = False
+
 from lxml import etree
 
 import cerebrum_path
