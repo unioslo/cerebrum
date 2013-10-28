@@ -180,7 +180,20 @@ class AccountType(object):
                               account_id=None, person_id=None,
                               primary_only=False, person_spread=None,
                               account_spread=None, fetchall=True):
-        """Return information about the matching accounts."""
+        """Return information about the matching accounts.
+
+        TODO: Add rest of the parameters.
+        
+        @type filter_expired: bool
+        @param filter_expired:
+            If accounts marked as expired should be filtered away from the
+            output.
+
+        @type primary_only: bool
+        @param primary_only:
+            If only the primary account for each person should be returned.
+
+        """
         binds = {'ou_id': ou_id,
                  'status': status,
                  'account_id': account_id}
