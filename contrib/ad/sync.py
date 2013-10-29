@@ -265,6 +265,7 @@ def main():
         # shouldn't be started somewhere else?
         sync.fetch_cerebrum_data()
         sync.calculate_ad_values()
+        sync.server.close()
         atrnames = sorted(sync.config['attributes'])
         for entname in sorted(sync.entities):
             ent = sync.entities[entname]
