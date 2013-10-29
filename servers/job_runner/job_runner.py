@@ -171,7 +171,9 @@ class JobRunner(object):
                 if not str(msg).startswith("[Errno 4]"):
                     # 4 = "Interrupted system call", which we may get
                     # as we catch SIGCHLD
-                    logger.debug("error (%s): %s" % (job['name'], msg))
+                    # TODO: We need to filter out false positives from being
+                    # logged:
+                    logger.error("error (%s): %s" % (job['name'], msg))
                 time.sleep(1)
                 continue
             logger.debug2("cond_wait(%s) = %s" % (job['name'], ret))
