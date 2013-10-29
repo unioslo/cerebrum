@@ -34,7 +34,9 @@ import cerebrum_path
 import cereconf
 from Cerebrum.Utils import unicode2str, Factory, dyn_import, sendmail
 from Cerebrum import Entity, Errors
+from Cerebrum.modules import EntityTrait
 from Cerebrum.modules import CLHandler
+from Cerebrum.modules import dns
 
 from Cerebrum.modules.ad2.CerebrumData import CerebrumEntity
 from Cerebrum.modules.ad2.CerebrumData import CerebrumGroup
@@ -45,13 +47,22 @@ from Cerebrum.modules.ad2.winrm import PowershellException
 from Cerebrum.modules.hostpolicy.PolicyComponent import PolicyComponent
 from Cerebrum.modules.hostpolicy.PolicyComponent import Role, Atom
 
-class TSDUtils(object):
+class TSDUtils(ADSync.BaseSync):
     """Class for utility methods for the AD-syncs for TSD.
 
     This class should be a part of all the sync classes used by TSD, as it adds
     some helper methods, e.g. for getting the correct OU and parsing the domain.
 
     """
+    def __init__(self, *args, **kwargs):
+        super(TSDUtils, self).__init__(*args, **kwargs)
+        self.ou = Factory.get('OU')(self.db)
+        self.dnsowner = dns.DnsOwner.DnsOwner(self.db)
+        self.subnet = dns.Subnet.Subnet(self.db)
+        self.subnet6 = dns.IPv6Subnet.IPv6Subnet(self.db)
+        self.ar = dns.ARecord.ARecord(self.db)
+        self.aaaar = dns.AAAARecord.AAAARecord(self.db)
+
     def _parse_dns_owner_name(self, raw_name):
         """Parse a DNS name into the name format to be included in AD.
 
@@ -97,6 +108,66 @@ class TSDUtils(object):
         # TODO
         return ','.join((self.config['target_ou'],))
 
+    def _map_host_to_ou(self, dns_owner_id):
+        """Return the proper project ID for where a given hosts belongs.
+
+        Hosts are in TSD not directly registered on a project, but their subnets
+        are. We therefore find the subnet of the host, and find out in what
+        project the subnet belongs.
+
+        @type dns_owner_id: int
+        @param dns_owner_id:
+            The entity_id of the DnsOwner that should belong to a project.
+
+        @rtype: string
+        @return:
+            The project ID for the OU that the subnet belongs to, and therefore
+            also the host.
+
+        """
+        if not hasattr(self, '_subnet2ou'):
+            # Cache the subnet mapping the first time it's used:
+            ent = EntityTrait.EntityTrait(self.db)
+            self._subnet2ou = dict((r['entity_id'], r['target_id']) for r in
+                                   ent.list_traits(code=(
+                                               self.co.trait_project_subnet,
+                                               self.co.trait_project_subnet6)))
+            self._ou2pid = dict((r['entity_id'], r['external_id']) for r in
+                                self.ou.search_external_ids(
+                                        id_type=self.co.externalid_project_id))
+        pids = set()
+        for row in self.ar.list_ext(dns_owner_id=dns_owner_id):
+            self.subnet.clear()
+            try:
+                self.subnet.find(row['a_ip'])
+            except (Errors.NotFoundError, dns.Errors.SubnetError):
+                self.logger.debug("Ignoring IP %s, not in subnet", row['a_ip'])
+                continue
+            if self.subnet.entity_id not in self._subnet2ou:
+                self.logger.debug("Ignoring subnet %s, not mapped to PID",
+                                  self.subnet.entity_id)
+                continue
+            pids.add(self._ou2pid[self._subnet2ou[self.subnet.entity_id]])
+        for row in self.aaaar.list_ext(dns_owner_id=dns_owner_id):
+            self.subnet6.clear()
+            try:
+                self.subnet6.find(row['aaaa_ip'])
+            except (Errors.NotFoundError, dns.Errors.SubnetError):
+                self.logger.debug("Ignoring IP %s, not in subnet", row['aaaa_ip'])
+                continue
+            if self.subnet6.entity_id not in self._subnet2ou:
+                self.logger.debug("Ignoring subnet %s, not mapped to PID",
+                                  self.subnet6.entity_id)
+                continue
+            pids.add(self._ou2pid[self._subnet2ou[self.subnet6.entity_id]])
+        if len(pids) > 1:
+            raise Errors.TooManyRowsError("dns_owner %s mapped to %d projects" %
+                                          (dns_owner_id, len(pids)))
+        if not pids:
+            raise Errors.NotFoundError("No project found for dns_owner %s" %
+                                       dns_owner_id)
+        return pids.pop()
+
 class HostSync(ADSync.HostSync, TSDUtils):
     """A hostsync, using the DNS module instead of the basic host concept.
 
@@ -109,11 +180,9 @@ class HostSync(ADSync.HostSync, TSDUtils):
     def __init__(self, *args, **kwargs):
         """Instantiate dns specific functionality."""
         super(HostSync, self).__init__(*args, **kwargs)
-        self.dnsowner = DnsOwner(self.db)
-
 
     def fetch_cerebrum_entities(self):
-        """Fetch the entities from Cerebrum that should be compared against AD.
+        """Fetch the hosts from Cerebrum that should be compared against AD.
 
         The configuration is used to know what to cache. All data is put in a
         list, and each entity is put into an object from
@@ -125,21 +194,30 @@ class HostSync(ADSync.HostSync, TSDUtils):
 
         """
         self.logger.debug("Fetching all DNS hosts")
-        # We are not using spread, for now... Should do this in the future!
+        # Create a map from host to 
+
+        # We are not using spread for hosts in TSD, for now...
         subset = self.config.get('subset')
         for row in self.dnsowner.search():
-            parts = self._parse_dns_owner_name(row['name'])
-            name = parts[0]
-            # TODO: do we need to handle subdomains?
+            # TBD: Is it correct to only get the first part of the host, or
+            # should we for instance add sub domains to sub-OUs?
+            name = row['name'].split('.')[0]
             if subset and name not in subset:
                 continue
-            self.entities[name] = self.cache_entity(int(row["dns_owner_id"]),
-                                                    name)
+            try:
+                self.entities[name] = self.cache_entity(row["dns_owner_id"],
+                                                        name)
+            except Errors.CerebrumError, e:
+                self.logger.warn("Could not cache %s: %s" % (name, e))
+                continue
 
     def cache_entity(self, entity_id, entity_name):
         """Cache a DNS entity."""
+        pid = self._map_host_to_ou(entity_id)
         # TODO: subclass CerebrumEntity for hosts?
-        return CerebrumEntity(self.logger, self.config, entity_id, entity_name)
+        ent = CerebrumEntity(self.logger, self.config, entity_id, entity_name)
+        ent.ou = 'OU=hosts,OU=%s,%s' % (pid, self.config['target_ou'])
+        return ent
 
 class HostpolicySync(ADSync.GroupSync, TSDUtils):
     """Class for syncing all hostpolicy components to AD.
