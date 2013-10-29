@@ -72,13 +72,28 @@ class GatewayClient(xmlrpclib.Server, object):
     def _prettify_dict(self, data):
         """Return a "prettified", human-readable string representation of data.
 
-        This purpose of this was to make the log easier to watch.
+        This purpose of this was to make the log easier to watch. Some of the
+        more sensitive parameters, like OTP keys, are stripped away.
+
+        @type data: iterable
+        @param data: The parameters that should be sent to the GW.
+
+        @rtype: string
+        @return: A log readable string of all the parameters.
 
         """
         if len(data) == 0:
             return ''
         def prettify(d):
-            return ', '.join('%s=%s' % (k, d[k]) for k in d)
+            ret = []
+            for k, v in d.iteritems():
+                # Expand this list with more parameters that should be
+                # considered secret:
+                if k in ('otpuri',):
+                    v = '**********'
+                ret.append('%s=%s' % (k, v))
+            return ', '.join(ret)
+
         if len(data) == 1:
             return prettify(data[0])
         # Expects the data to be a tuple/list and not a dict, while the
