@@ -112,8 +112,10 @@ class TSDUtils(ADSync.BaseSync):
         """Return the proper project ID for where a given hosts belongs.
 
         Hosts are in TSD not directly registered on a project, but their subnets
-        are. We therefore find the subnet of the host, and find out in what
-        project the subnet belongs.
+        are. We must therefore find the subnet of the host, and then find out in
+        what project the subnet belongs. This is a bit too complicated, and we
+        should probably change this mapping, e.g. by setting project traits on
+        hosts.
 
         @type dns_owner_id: int
         @param dns_owner_id:
@@ -127,39 +129,59 @@ class TSDUtils(ADSync.BaseSync):
         """
         if not hasattr(self, '_subnet2ou'):
             # Cache the subnet mapping the first time it's used:
+            self.logger.debug("Fetch mapping hosts to OUs")
             ent = EntityTrait.EntityTrait(self.db)
             self._subnet2ou = dict((r['entity_id'], r['target_id']) for r in
                                    ent.list_traits(code=(
                                                self.co.trait_project_subnet,
                                                self.co.trait_project_subnet6)))
+            self.logger.debug2("Found %d project subnets", len(self._subnet2ou))
             self._ou2pid = dict((r['entity_id'], r['external_id']) for r in
                                 self.ou.search_external_ids(
                                         id_type=self.co.externalid_project_id))
+            self.logger.debug2("Found %d project OUs", len(self._ou2pid))
+            self._dns_owner2ar = dict()
+            for row in self.ar.list_ext():
+                self._dns_owner2ar.setdefault(row['dns_owner_id'], []).append(row['a_ip'])
+            self.logger.debug2("Found %d IPv4 addresses",
+                               len(self._dns_owner2ar))
+            self._dns_owner2aaaar = dict()
+            for row in self.aaaar.list_ext():
+                self._dns_owner2aaaar.setdefault(row['dns_owner_id'], []).append(row['aaaa_ip'])
+            self.logger.debug2("Found %d IPv6 addresses",
+                               len(self._dns_owner2aaaar))
+            # To be able to find the subnet an IP is located in, we the max and
+            # min IP address:
+            self._ipv42subnet = dict()
+            for row in self.subnet.search():
+                key = (row['ip_min'], row['ip_max'])
+                self._ipv42subnet[key] = row['entity_id']
+            self._ipv62subnet = dict()
+            for row in self.subnet6.search():
+                key = (row['ip_min'], row['ip_max'])
+                self._ipv62subnet[key] = row['entity_id']
+
         pids = set()
-        for row in self.ar.list_ext(dns_owner_id=dns_owner_id):
-            self.subnet.clear()
-            try:
-                self.subnet.find(row['a_ip'])
-            except (Errors.NotFoundError, dns.Errors.SubnetError):
-                self.logger.debug("Ignoring IP %s, not in subnet", row['a_ip'])
-                continue
-            if self.subnet.entity_id not in self._subnet2ou:
-                self.logger.debug("Ignoring subnet %s, not mapped to PID",
-                                  self.subnet.entity_id)
-                continue
-            pids.add(self._ou2pid[self._subnet2ou[self.subnet.entity_id]])
-        for row in self.aaaar.list_ext(dns_owner_id=dns_owner_id):
-            self.subnet6.clear()
-            try:
-                self.subnet6.find(row['aaaa_ip'])
-            except (Errors.NotFoundError, dns.Errors.SubnetError):
-                self.logger.debug("Ignoring IP %s, not in subnet", row['aaaa_ip'])
-                continue
-            if self.subnet6.entity_id not in self._subnet2ou:
-                self.logger.debug("Ignoring subnet %s, not mapped to PID",
-                                  self.subnet6.entity_id)
-                continue
-            pids.add(self._ou2pid[self._subnet2ou[self.subnet6.entity_id]])
+        for a_ip in self._dns_owner2ar.get(dns_owner_id, ()):
+            iplong = dns.IPUtils.IPCalc.ip_to_long(a_ip)
+            for k, subid in self._ipv42subnet.iteritems():
+                if k[0] < iplong < k[1]:
+                    ouid = self._subnet2ou.get(subid)
+                    if not ouid:
+                        continue
+                    pid = self._ou2pid.get(ouid)
+                    if pid:
+                        pids.add(pid)
+        for aaaa_ip in self._dns_owner2aaaar.get(dns_owner_id, ()):
+            iplong = dns.IPv6Utils.IPv6Calc.ip_to_long(aaaa_ip)
+            for k, subid in self._ipv62subnet.iteritems():
+                if k[0] < iplong < k[1]:
+                    ouid = self._subnet2ou.get(subid)
+                    if not ouid:
+                        continue
+                    pid = self._ou2pid.get(ouid)
+                    if pid:
+                        pids.add(pid)
         if len(pids) > 1:
             raise Errors.TooManyRowsError("dns_owner %s mapped to %d projects" %
                                           (dns_owner_id, len(pids)))
@@ -194,9 +216,9 @@ class HostSync(ADSync.HostSync, TSDUtils):
 
         """
         self.logger.debug("Fetching all DNS hosts")
-        # Create a map from host to 
 
-        # We are not using spread for hosts in TSD, for now...
+        # We are not using spread for hosts in TSD, for now, but idealisticly we
+        # should.
         subset = self.config.get('subset')
         for row in self.dnsowner.search():
             # TBD: Is it correct to only get the first part of the host, or
@@ -216,7 +238,8 @@ class HostSync(ADSync.HostSync, TSDUtils):
         pid = self._map_host_to_ou(entity_id)
         # TODO: subclass CerebrumEntity for hosts?
         ent = CerebrumEntity(self.logger, self.config, entity_id, entity_name)
-        ent.ou = 'OU=hosts,OU=%s,%s' % (pid, self.config['target_ou'])
+        ent.ou = 'OU=hosts,OU=resources,OU=%s,%s' % (pid,
+                                                     self.config['target_ou'])
         return ent
 
 class HostpolicySync(ADSync.GroupSync, TSDUtils):
