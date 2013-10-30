@@ -285,9 +285,9 @@ class HostpolicySync(ADSync.GroupSync, TSDUtils):
                     'foundation_date'):
             setattr(ent, key, data[key])
         if data['entity_type'] == self.co.entity_hostpolicy_atom:
-            ent.ou = ','.join(('OU=Atoms', self.config['target_ou']))
+            ent.ou = ','.join(('OU=atoms', self.config['target_ou']))
         elif data['entity_type'] == self.co.entity_hostpolicy_role:
-            ent.ou = ','.join(('OU=Roles', self.config['target_ou']))
+            ent.ou = ','.join(('OU=roles', self.config['target_ou']))
         else:
             self.logger.warn("Unknown entity type for %s: %s", entity_id,
                              data['entity_type'])
