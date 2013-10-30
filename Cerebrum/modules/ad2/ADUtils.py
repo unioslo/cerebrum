@@ -153,7 +153,7 @@ class ADclient(PowershellClient):
         # Note that we save the user's password by domain and not the host. It
         # _could_ be the wrong way to do it. TBD: Maybe both host and domain?
         ad_user, domain = self._split_domain_username(domain_admin)
-        self.logger.debug("Using domain account: %s/%s", domain, ad_user)
+        self.logger.debug2("Using domain account: %s/%s", domain, ad_user)
         self.ad_account_password = unicode(read_password(ad_user, domain),
                                            'utf-8')
         self.dryrun = dryrun
