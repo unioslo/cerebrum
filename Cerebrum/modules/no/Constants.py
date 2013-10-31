@@ -304,38 +304,6 @@ class ConstantsUniversityColleges(Constants.Constants):
     contact_phone_cellular_private = _ContactInfoCode(
         "PRIVCELLPHONE",
         "Privat mobiltefonnr")
-    # SAP country constants
-    country_no = _CountryCode("NO", "Norway", "47", "Norway")
-    country_gb = _CountryCode("GB", "Great Britain", "44", "Great Britain")
-    country_fi = _CountryCode("FI", "Finland", "358", "Finland")
-    country_se = _CountryCode("SE", "Sweden", "46", "Sweden")
-    country_us = _CountryCode("US", "USA", "1", "United states of America")
-    country_nl = _CountryCode("NL", "The Netherlands", "31", "The Netherlands")
-    country_de = _CountryCode("DE", "Germany", "49", "Germany")
-    country_au = _CountryCode("AU", "Australia", "61", "Australia")
-    country_dk = _CountryCode("DK", "Denmark", "45", "Denmark")
-    country_it = _CountryCode("IT", "Italy", "39", "Italy")
-    country_sg = _CountryCode("SG", "Singapore", "65", "Singapore")
-    country_at = _CountryCode("AT", "Austria", "43", "Austria")
-    country_ca = _CountryCode("CA", "Canada", "1", "Canada")
-    country_ba = _CountryCode(
-        "BA",
-        "Bosnia-Herzegovina",
-        "387",
-        "Bosnia and Herzegovina")
-    country_is = _CountryCode("IS", "Island", "345", "Iceland")
-    country_fr = _CountryCode("FR", "France", "33", "France")
-    country_ch = _CountryCode("CH", "Switzerland", "41", "Switzerland")
-    country_mx = _CountryCode("MX", "Mexico", "52", "Mexico")
-    country_id = _CountryCode("ID", "Indonesia", "62", "Republic of Indonesia")
-    country_cn = _CountryCode(
-        "CN",
-        "China",
-        "86",
-        "People's Republic of China")
-    country_be = _CountryCode("BE", "Belgium", "32", "Kingdom of Belgium")
-    country_ru = _CountryCode("RU", "Russia", "7", "Russian Federation")
-    country_es = _CountryCode("ES", "Spain", "34", "Spain")
 
     # Spread definitions - user related
     spread_ldap_account = _SpreadCode(
