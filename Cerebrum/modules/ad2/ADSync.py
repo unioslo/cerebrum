@@ -2380,10 +2380,12 @@ class GroupSync(BaseSync):
         """
         dn = ent.ad_data['dn']
         # Shortcut for empty groups - faster to just drain the group of members.
-        if not members:
-            # Tell AD to stop fetching members:
-            self.server.wsman_signal(cmdid[0], cmdid[1])
-            return self.server.empty_group(dn)
+
+        #if not members:
+        #    # Tell AD to stop fetching members:
+        #    self.server.wsman_signal(cmdid[0], cmdid[1])
+        #    return self.server.empty_group(dn)
+
         # Get the list of members from AD and compare:
         try:
             # Use SamAccountName if it exists, or the Name. Name could sometimes
