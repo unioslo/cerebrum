@@ -55,7 +55,7 @@ from Cerebrum import Utils
 from Cerebrum import Cache
 from Cerebrum import Errors
 from Cerebrum.modules.bofhd import cmd_param as cmd
-from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.dns import Subnet
 from Cerebrum.modules.dns import IPv6Subnet
 from Cerebrum.modules.dns import IPv6Utils
@@ -144,7 +144,7 @@ class SubnetParam(cmd.Parameter):
     _help_ref = 'subnet'
 
 
-class TSDBofhdExtension(BofhdCommandBase):
+class TSDBofhdExtension(BofhdCommonMethods):
 
     """Superclass for common functionality for TSD's bofhd servers."""
 
