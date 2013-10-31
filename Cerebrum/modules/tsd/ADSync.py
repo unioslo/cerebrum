@@ -347,26 +347,20 @@ class HostpolicySync(ADSync.GroupSync, TSDUtils):
                                               attributes = attrs,
                                               object_type = object_type)
 
-    def sync_group_members(self, ent):
-        """Override the member sync to work on policy relationships.
+    def get_group_members(self, ent):
+        """Override the default member retrieval to fetch policy relations.
 
-        The policies' relationships are turned around when in AD, to support
-        automatic inheritance within the policy groups. The host memberships
-        works in the same way as in the hostpolicy module.
+        We need to fetch both policy components and hosts they are connected to.
 
         """
-        self.logger.debug("Syncing policy members for: %s" % ent.ad_id)
-        # Start fetching the member list from AD:
-        cmdid = self.server.start_list_members(ent.ad_data['dn'])
         # Get policy members of the component:
         members = set()
         for row in self.component.search_relations(target_id=ent.entity_id,
                                   relationship_code=self.co.hostpolicy_contains,
                                   indirect_relations=False):
-            members.add(self.config['name_format'] % row['target_name'])
+            members.add(self.config['name_format'] % row['source_name'])
         # Get host members of the component:
         for row in self.component.search_hostpolicies(policy_id=ent.entity_id):
             parts = self._parse_dns_owner_name(row['dns_owner_name'])
             members.add(parts[0]) # TODO: what to do with subdomains?
-        return self._sync_group_members(ent, members, cmdid)
-
+        return members

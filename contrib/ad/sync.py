@@ -274,7 +274,10 @@ def main():
                 print ';'.join((ent.ad_id, atrname,
                     unicode(ent.attributes.get(atrname,
                                 '<Not Set>')))).encode('utf-8')
+            if hasattr(sync, 'get_group_members'):
+                print ';'.join((ent.ad_id, 'members', ','.join(sync.get_group_members(ent))))
         return
+
     try:
         if quicksync:
             sync.quicksync(quicksync)

@@ -137,7 +137,6 @@ class BaseSync(object):
                              ('attributes', {}),
                              ('useraccountcontrol', {}),
                              # ('first_run', False), # should we support this?
-                             ('encrypted', True),
                              ('store_sid', False),
                              ('handle_unknown_objects', ('disable', None)),
                              ('handle_deactivated_objects', ('disable', None)),
@@ -2407,26 +2406,32 @@ class GroupSync(BaseSync):
             self.server.remove_members(dn, mem_remove)
         return True
 
-    def sync_group_members(self, ent):
-        """Update the group members for a given group.
+    def get_group_members(self, ent):
+        """Get a list of a given entity's members from Cerebrum.
 
-        TODO: Distribution groups are allowed to be members of security groups,
-        but not the other way around. This is not checked for, yet.
+        Note that only the members of the given L{member_spreads} from the
+        config is fetched. If groups are found as members, they are included as
+        direct members of the entity if they have one of the member spreads. If
+        the member group does not have the spread, it sub members are included
+        in the entity - i.e. the entity is "flattened".
+
+        Note that the name of the members are by default their entity_name, but
+        if the given spread has its own sync and a L{name_format} is defined,
+        this is used instead.
 
         @type ent: CerebrumEntity
-        @param ent: An instance with information from Cerebrum about the group.
+        @param ent: The entity for which we should fetch the members of.
+
+        @rtype: set
+        @return: A list of members of the entity, filtered by spreads in config.
 
         """
-        self.logger.debug("Syncing members for group %s" % ent.ad_id)
-        dn = ent.ad_data['dn']
-        # Start fetching the member list from AD:
-        cmdid = self.server.start_list_members(dn)
-
         mem_spreads = self.config.get('member_spreads', None)
 
         # Create a mapping from entity_type to name_format, so the names are as
         # in ad_id, e.g. groupnames which ends with '-group'. Default, unknown
-        # entity types, are defaulted to '%s'. TBD: Is this an okay behaviour?
+        # entity types, are defaulted to its entity_name. TBD: Is this an okay
+        # behaviour?
         type2name = dict()
         if mem_spreads:
             for spr in mem_spreads:
@@ -2439,7 +2444,6 @@ class GroupSync(BaseSync):
                 int(sp)
                 type2name[int(sp.entity_type)] = format
         else:
-            # TODO: Need to find all defined spreads' name format!
             for spr, data in adconf.SYNCS.iteritems():
                 sp = self.co.Spread(spr)
                 try:
@@ -2448,7 +2452,12 @@ class GroupSync(BaseSync):
                     continue
                 type2name[int(sp.entity_type)] = data.get('name_format', '%s')
 
-        # Get the list of members in Cerebrum:
+        # TODO: gr.search_members by given spreads will not return all groups -
+        # we would probably need to do another search_members just for groups,
+        # to be able to expand these by including indirect members - or is it
+        # possible to expand search_members for this behaviour, or have an own
+        # API method for this to make it go faster?
+
         # TODO: Find out if the search flattens out the member list if sub
         # groups exists in the group. We need to fetch all indirect members of
         # the group too, as subgroups without the AD spread must be flattened.
@@ -2459,27 +2468,28 @@ class GroupSync(BaseSync):
             format = type2name.get(mem['member_type'], '%s')
             name = mem['member_name']
 
-            if mem['member_type'] == self.co.entity_group:
-                # Special treatment of groups. We want to flatten groups
-                # that are members of groups that does not have a spread
-                # to AD.
+            #if mem['member_type'] == self.co.entity_group:
+            #    # Special treatment of groups. We want to flatten groups
+            #    # that are members of groups that does not have a spread
+            #    # to AD.
 
-                # TODO: This only works for first level? Is that OK?
-                self.gr.clear()
-                self.gr.find(mem['member_id'])
-                
-                if self.gr.has_spread(self.config['target_spread']):
-                    name = self.gr.group_name
-                else:
-                    name = None
-                    for submem in self.gr.search_members(
-                                            group_id=self.gr.entity_id,
-                                            member_spread=mem_spreads,
-                                            include_member_entity_name=True,
-                                            indirect_members=True):
-                        cere_members.add(format % (self.gr.group_name,))
+            #    # TODO: This only works for first level? Is that OK?
+            #    self.gr.clear()
+            #    self.gr.find(mem['member_id'])
+            #    
+            #    if self.gr.has_spread(self.config['target_spread']):
+            #        name = self.gr.group_name
+            #    else:
+            #        name = None
+            #        for submem in self.gr.search_members(
+            #                                group_id=self.gr.entity_id,
+            #                                member_spread=mem_spreads,
+            #                                include_member_entity_name=True,
+            #                                indirect_members=True):
+            #            cere_members.add(format % (self.gr.group_name,))
 
-            elif mem['member_type'] == self.co.entity_person:
+            # Special treatment for persons:
+            if mem['member_type'] == self.co.entity_person:
                 # TODO: Should we cache person-id → primary account name?
                 # Fetching person
                 self.pe.clear()
@@ -2496,9 +2506,26 @@ class GroupSync(BaseSync):
                 self.ac.clear()
                 self.ac.find(a_id)
                 name = self.ac.account_name
-            if name:
-                cere_members.add(format % (name,))
+            cere_members.add(format % (name,))
+        return cere_members
+
+    def sync_group_members(self, ent):
+        """Update the members for a given entity, normally groups.
+
+        TODO: Distribution groups are allowed to be members of security groups,
+        but not the other way around. This is not checked for, yet.
+
+        @type ent: CerebrumEntity
+        @param ent: An instance with information from Cerebrum about the entity.
+
+        """
+        self.logger.debug("Syncing members for entity: %s" % ent.ad_id)
+        dn = ent.ad_data['dn']
+        # Start fetching the member list from AD:
+        cmdid = self.server.start_list_members(dn)
+        cere_members = self.get_group_members(ent)
         return self._sync_group_members(ent, cere_members, cmdid)
+
 # Gruppa ad_ind590 og ad_dat208 er eksempler hvor det må flates ut
 
 class HostSync(BaseSync):
