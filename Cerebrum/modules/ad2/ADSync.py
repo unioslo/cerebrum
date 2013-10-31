@@ -2381,6 +2381,8 @@ class GroupSync(BaseSync):
         dn = ent.ad_data['dn']
         # Shortcut for empty groups - faster to just drain the group of members.
 
+        # TODO: This is shortcut for empty groups. We might not want to do this,
+        # as we then don't know what members we have removed.
         #if not members:
         #    # Tell AD to stop fetching members:
         #    self.server.wsman_signal(cmdid[0], cmdid[1])

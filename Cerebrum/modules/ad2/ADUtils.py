@@ -836,9 +836,10 @@ class ADclient(PowershellClient):
         """
         self.logger.debug("Adding %d members for group: %s" % (len(members),
                                                                groupid))
-        # Small groups could be debugged:
-        if len(members) <= 10:
-            self.logger.debug2("Members to add: %s" % ', '.join(members))
+        # Printing out the first 1000 members, for debugging reasons:
+        self.logger.debug2("Adding members for %s: %s...", groupid,
+                           ', '.join(tuple(members)[:1000]))
+
         # As we can't have too large commands for CMD, we might have to split up
         # the member list:
         # TODO: need to find out what the max length of CMD is. Only splitting
@@ -890,6 +891,9 @@ class ADclient(PowershellClient):
         """
         self.logger.debug("Removing %d members for group: %s" % (len(members),
                                                                  groupid))
+        # Printing out the first 1000 members, for debugging reasons:
+        self.logger.debug2("Removing members for %s: %s...", groupid,
+                           ', '.join(tuple(members)[:1000]))
         cmd = self._generate_ad_command('Remove-ADGroupMember',
                                         {'Identity': groupid,
                                          'Member': members},
