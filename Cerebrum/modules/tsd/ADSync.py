@@ -63,19 +63,15 @@ class TSDUtils(ADSync.BaseSync):
         self.ar = dns.ARecord.ARecord(self.db)
         self.aaaar = dns.AAAARecord.AAAARecord(self.db)
 
-    def _parse_dns_owner_name(self, raw_name):
-        """Parse a DNS name into the name format to be included in AD.
+    def _hostname2adid(self, hostname):
+        """Parse a DNS host name into the name format to be included in AD.
 
-        AD does not accept punctuation in an object's Name, so only the first
-        part of the name is returned. Example:
+        AD does not accept punctuation in an object's Name. For now, we only
+        return the leftmost part of the name. Note that this would create
+        conflicts if subdomains are used, and two different host use the same
+        base name in two different domains. They would then override each other.
 
-            example.domain.usit.no. -> (example, domain)
-
-        Note that this could create conflicts if subdomains are used, and you
-        have two domain names that are equal, but in different subdomains. If
-        they're put in the same OU they would override each other.
-
-        TODO: Must be updated when we know how TSD's data should look like.
+        TODO: What to do with subdomains?
 
         @type raw_name: string
         @param raw_name: The FQDN of a host.
@@ -86,10 +82,9 @@ class TSDUtils(ADSync.BaseSync):
             uio.no. and usit.no.) are stripped out.
 
         """
-        if raw_name.endswith('.'):
-            return raw_name.split('.')[:-3]
-        else:
-            return raw_name.split('.')[:-2]
+        if '.' not in hostname:
+            return hostname
+        return hostname.split('.')[0]
 
     def _generate_ou_path(self, ent):
         """Return the correct OU path for an object in AD.
@@ -223,7 +218,7 @@ class HostSync(ADSync.HostSync, TSDUtils):
         for row in self.dnsowner.search():
             # TBD: Is it correct to only get the first part of the host, or
             # should we for instance add sub domains to sub-OUs?
-            name = row['name'].split('.')[0]
+            name = self._hostname2adid(row['name'])
             if subset and name not in subset:
                 continue
             try:
@@ -361,6 +356,5 @@ class HostpolicySync(ADSync.GroupSync, TSDUtils):
             members.add(self.config['name_format'] % row['source_name'])
         # Get host members of the component:
         for row in self.component.search_hostpolicies(policy_id=ent.entity_id):
-            parts = self._parse_dns_owner_name(row['dns_owner_name'])
-            members.add(parts[0]) # TODO: what to do with subdomains?
+            members.add(self._hostname2adid(row['dns_owner_name']))
         return members
