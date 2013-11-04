@@ -652,6 +652,9 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
                                  for q in quarantines)
             raise CerebrumError("User has active lock/skip quarantines, login denied:"
                                 " %s" % qua_repr)
+        # Check expire_date
+        if account.is_expired():
+            raise CerebrumError("User is expired")
         # Check password
         enc_passwords = []
         for auth in (self.server.const.auth_type_md5_crypt,
