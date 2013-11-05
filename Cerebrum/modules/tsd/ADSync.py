@@ -103,6 +103,28 @@ class TSDUtils(ADSync.BaseSync):
         # TODO
         return ','.join((self.config['target_ou'],))
 
+    def _get_ou_pid(self, ou_id):
+        """Get the corresponding project ID for a given ou_id.
+
+        This is a method to be able to cache the mapping and get faster response
+        the next time asked. Suitable if you need to fetch the project ID for a
+        lot of OUs, but if you should only fetch it for a single OU, it would be
+        a bit more efficient to run L{ou.get_project_id()} directly.
+
+        @rtype: string
+        @return: The project ID for the given OU.
+
+        @raise KeyError: 
+            If OU does not exist or if the OU does not have a project ID.
+
+        """
+        if not hasattr(self, '_ou2pid'):
+            self._ou2pid = dict((r['entity_id'], r['external_id']) for r in
+                                self.ou.search_external_ids(
+                                        id_type=self.co.externalid_project_id))
+            self.logger.debug2("Found %d project OUs", len(self._ou2pid))
+        return self._ou2pid[ou_id]
+
     def _map_host_to_ou(self, dns_owner_id):
         """Return the proper project ID for where a given hosts belongs.
 
@@ -131,10 +153,6 @@ class TSDUtils(ADSync.BaseSync):
                                                self.co.trait_project_subnet,
                                                self.co.trait_project_subnet6)))
             self.logger.debug2("Found %d project subnets", len(self._subnet2ou))
-            self._ou2pid = dict((r['entity_id'], r['external_id']) for r in
-                                self.ou.search_external_ids(
-                                        id_type=self.co.externalid_project_id))
-            self.logger.debug2("Found %d project OUs", len(self._ou2pid))
             self._dns_owner2ar = dict()
             for row in self.ar.list_ext():
                 self._dns_owner2ar.setdefault(row['dns_owner_id'], []).append(row['a_ip'])
@@ -164,9 +182,10 @@ class TSDUtils(ADSync.BaseSync):
                     ouid = self._subnet2ou.get(subid)
                     if not ouid:
                         continue
-                    pid = self._ou2pid.get(ouid)
-                    if pid:
-                        pids.add(pid)
+                    try:
+                        pids.add(self._get_ou_pid(ouid))
+                    except KeyError:
+                        pass
         for aaaa_ip in self._dns_owner2aaaar.get(dns_owner_id, ()):
             iplong = dns.IPv6Utils.IPv6Calc.ip_to_long(aaaa_ip)
             for k, subid in self._ipv62subnet.iteritems():
@@ -174,9 +193,10 @@ class TSDUtils(ADSync.BaseSync):
                     ouid = self._subnet2ou.get(subid)
                     if not ouid:
                         continue
-                    pid = self._ou2pid.get(ouid)
-                    if pid:
-                        pids.add(pid)
+                    try:
+                        pids.add(self._get_ou_pid(ouid))
+                    except KeyError:
+                        pass
         if len(pids) > 1:
             raise Errors.TooManyRowsError("dns_owner %s mapped to %d projects" %
                                           (dns_owner_id, len(pids)))
@@ -184,6 +204,52 @@ class TSDUtils(ADSync.BaseSync):
             raise Errors.NotFoundError("No project found for dns_owner %s" %
                                        dns_owner_id)
         return pids.pop()
+
+class UserSync(ADSync.UserSync, TSDUtils):
+    """TSD's sync of users."""
+
+    def fetch_cerebrum_entities(self):
+        """Fetch the users from Cerebrum.
+
+        Overridden to only get accounts affiliated with projects.
+
+        @rtype: list
+        @return: A list of targeted entities from Cerebrum, wrapped into
+            L{CerebrumData} objects.
+
+        """
+        # Get a mapping of the accounts to projects
+        ac2ouid = dict((r['account_id'], r['ou_id']) for r in
+                      self.ac.list_accounts_by_type(
+                          affiliation=self.co.affiliation_project,
+                          filter_expired=True, primary_only=False,
+                          account_spread=self.config['target_spread']))
+        self.logger.debug("Mapped %d account to OUs" % len(ac2ouid))
+
+        # Find all users with defined spread(s):
+        self.logger.debug("Fetching users with spread %s" %
+                          (self.config['target_spread'],))
+        subset = self.config.get('subset')
+        for row in self.ac.search(spread=self.config['target_spread']):
+            uname = row["name"]
+            # For testing or special cases where we only want to sync a subset
+            # of entities. The subset should contain the entity names, e.g.
+            # usernames or group names.
+            if subset and uname not in subset:
+                continue
+            if row['account_id'] not in ac2ouid:
+                continue
+            try:
+                pid = self._get_ou_pid(ac2ouid[row['account_id']])
+            except KeyError, e:
+                self.logger.warn("Unknown project ID for %s", row['account_id'])
+                continue
+            ent = self.cache_entity(int(row["account_id"]), uname,
+                                    owner_id=int(row["owner_id"]),
+                                    owner_type=int(row['owner_type']))
+            ent.ou = 'OU=users,OU=%s,%s' % (pid, self.config['target_ou'])
+            print ent.ou
+            self.entities[uname]  = ent
 
 class HostSync(ADSync.HostSync, TSDUtils):
     """A hostsync, using the DNS module instead of the basic host concept.
@@ -197,6 +263,7 @@ class HostSync(ADSync.HostSync, TSDUtils):
     def __init__(self, *args, **kwargs):
         """Instantiate dns specific functionality."""
         super(HostSync, self).__init__(*args, **kwargs)
+        self.host = dns.HostInfo.HostInfo(self.db)
 
     def fetch_cerebrum_entities(self):
         """Fetch the hosts from Cerebrum that should be compared against AD.
