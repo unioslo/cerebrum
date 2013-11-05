@@ -90,7 +90,7 @@ class ProjectID(cmd.Parameter):
 
     """Bofhd Parameter for specifying a project ID."""
     _type = 'projectID'
-    _help_ref = 'project_name'
+    _help_ref = 'project_id'
 
 
 class ProjectName(cmd.Parameter):
@@ -181,7 +181,7 @@ class TSDBofhdExtension(BofhdCommonMethods):
     def _get_entity(self, entity_type=None, ident=None):
         """Return a suitable entity subclass for the specified entity_id.
 
-        Overridden to be able to return TSD projects by their projectname or
+        Overridden to be able to return TSD projects by their project ID or
         entity_id.
 
         """
@@ -189,15 +189,15 @@ class TSDBofhdExtension(BofhdCommonMethods):
             return self._get_project(ident)
         return super(TSDBofhdExtension, self)._get_entity(entity_type, ident)
 
-    def _get_project(self, projectname):
+    def _get_project(self, projectid):
         """Return a project's OU by its name, if found. We identify project's by
         their acronym name, which is not handled uniquely in the database, so we
         could be up for integrity errors, e.g. if two projects are called the
         same. This should be handled by TSD's OU class.
 
-        @type projectname: string or integer
-        @param projectname: The name or the entity_id of the project. Must match
-            one and only one OU.
+        @type projectid: string or integer
+        @param projectid: The project id or the entity_id of the project. Must
+            match one and only one OU.
 
         @raise CerebrumError: If no project OU with the given acronym name was
             found, or if more than one project OU was found.
@@ -205,17 +205,17 @@ class TSDBofhdExtension(BofhdCommonMethods):
         """
         ou = self.OU_class(self.db)
         try:
-            ou.find_by_tsd_projectid(projectname)
+            ou.find_by_tsd_projectid(projectid)
             return ou
         except Errors.NotFoundError:
             pass
-        if projectname.isdigit():
+        if projectid.isdigit():
             try:
-                ou.find(projectname)
+                ou.find(projectid)
                 return ou
             except Errors.NotFoundError:
                 pass
-        raise CerebrumError("Could not find project: %s" % projectname)
+        raise CerebrumError("Could not find project: %s" % projectid)
 
     def _get_ou(self, ou_id=None, stedkode=None):
         """Override to change the use of L{stedkode} to check the acronym.
@@ -588,7 +588,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                                   name_language=self.const.language_en,
                                   name=longname)
         if shortname:
-            ou.add_name_with_language(name_variant=self.const.ou_name_long,
+            ou.add_name_with_language(name_variant=self.const.ou_name_short,
                                       name_language=self.const.language_en,
                                       name=shortname)
         ou.write_db()
@@ -606,13 +606,13 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ou.write_db()
         ou.setup_project(operator.get_entity_id())
         #if not ou.get_entity_quarantine(only_active=True):
-        #    self.gateway.create_project(projectname)
+        #    self.gateway.create_project(pid)
         # TODO: inform the gateway about the resources from here too, or wait
         # for the gateway sync to do that?
         return "New project created: %s" % pid
 
     all_commands['project_terminate'] = cmd.Command(
-        ('project', 'terminate'), ProjectName(),
+        ('project', 'terminate'), ProjectID(),
         perm_filter='is_superuser')
 
     @superuser
@@ -631,7 +631,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         return "Project terminated: %s" % project_name
 
     all_commands['project_approve'] = cmd.Command(
-        ('project', 'approve'), ProjectName(),
+        ('project', 'approve'), ProjectID(),
         perm_filter='is_superuser')
 
     @superuser
@@ -663,7 +663,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         return success_msg
 
     all_commands['project_reject'] = cmd.Command(
-        ('project', 'reject'), ProjectName(),
+        ('project', 'reject'), ProjectID(),
         perm_filter='is_superuser')
 
     @superuser
@@ -693,7 +693,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         return "Project deleted: %s" % project_name
 
     all_commands['project_set_enddate'] = cmd.Command(
-        ('project', 'set_enddate'), ProjectName(), cmd.Date(),
+        ('project', 'set_enddate'), ProjectID(), cmd.Date(),
         perm_filter='is_superuser')
 
     @superuser
@@ -722,7 +722,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                                                   date_to_string(end))
 
     all_commands['project_freeze'] = cmd.Command(
-        ('project', 'freeze'), ProjectName(),
+        ('project', 'freeze'), ProjectID(),
         perm_filter='is_superuser')
 
     @superuser
@@ -745,7 +745,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         return "Project %s is now frozen" % project_name
 
     all_commands['project_unfreeze'] = cmd.Command(
-        ('project', 'unfreeze'), ProjectName(),
+        ('project', 'unfreeze'), ProjectID(),
         perm_filter='is_superuser')
 
     @superuser
@@ -804,77 +804,63 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         return projects.results_sorted_by_name(['name', 'entity_id'])
 
     all_commands['project_info'] = cmd.Command(
-        ('project', 'info'), ProjectName(),
+        ('project', 'info'), ProjectID(),
         # TODO: Now we need to copy in ou_info's FormatSuggestion if that has
         # changed!
-        fs=cmd.FormatSuggestion([
-            ("Stedkode:      %s\n" +
-             "Entity ID:     %i\n" +
-             "Name (nb):     %s\n" +
-             "Name (en):     %s\n" +
-             "Quarantines:   %s\n" +
-             "Spreads:       %s",
-             ('stedkode', 'entity_id', 'name_nb', 'name_en', 'quarantines',
-              'spreads')),
-            ("Project ID:    %s", ('project_id',)),
-            ("Contact:       (%s) %s: %s",
-             ('contact_source', 'contact_type', 'contact_value')),
-            ("Address:       (%s) %s: %s%s%s %s %s",
-             ('address_source', 'address_type', 'address_text', 'address_po_box',
-              'address_postal_number', 'address_city', 'address_country')),
-            ("Email domain:  affiliation %-7s @%s",
-             ('email_affiliation', 'email_domain')),
-            ('Project start: %s', ('project_start',)),
-            ('Project end:   %s', ('project_end',)),
-            ('Quarantine:    %s', ('q_status',)),
-        ]),
+        fs=cmd.FormatSuggestion(
+            "Project ID:       %s\n"
+            "Project name:     %s\n"
+            "Entity ID:        %d\n"
+            "Long name:        %s\n"
+            "Short name:       %s\n"
+            "Start date:       %s\n"
+            "End date:         %s\n"
+            "Quarantines:      %s\n"
+            "Spreads:          %s",
+            ('project_id', 'project_name', 'entity_id', 'long_name',
+             'short_name', 'start_date', 'end_date', 'quarantines', 'spreads')),
         perm_filter='is_superuser')
 
     @superuser
-    def project_info(self, operator, projectname):
+    def project_info(self, operator, projectid):
         """Display information about a specified project using ou_info.
 
         The reason for the semi-sub method is to be able to specify the OU with
-        the projectname instead of entity_id. This could probably be handled in
+        the projectid instead of entity_id. This could probably be handled in
         a much better way.
 
         """
-        project = self._get_project(projectname)
-        ret = self.ou_info(operator, 'id:%d' % project.entity_id)
-        ret.append({'project_id': project.get_project_id()})
-        now = DateTime.now()
-
-        # Quarantine status:
-        quarantined = None
-        for q in project.get_entity_quarantine(only_active=False):
-            if q['start_date'] > now:
-                # Ignore quarantines in the future for now, as all projects
-                # should have an end quarantine
-                continue
-            if (q['end_date'] is not None and
-                    q['end_date'] < now):
-                quarantined = 'expired'
-            elif (q['disable_until'] is not None and
-                  q['disable_until'] > now):
-                quarantined = 'disabled'
-            else:
-                quarantined = 'active'
-                break
-        if quarantined:
-            ret.append({'q_status': quarantined})
-
+        project = self._get_project(projectid)
+        ret = {
+            'project_id': project.get_project_id(),
+            'project_name': project.get_project_name(),
+            'entity_id': project.entity_id,
+            }
+        quars = [self.const.Quarantine(r['quarantine_type']) for r in
+                 project.get_entity_quarantine(only_active=True)]
+        ret['quarantines'] = ', '.join(str(q) for q in quars)
+        ret['spreads'] = ', '.join(str(self.const.Spread(s['spread'])) for s in
+                                   project.get_spread())
+        # Start and end dates:
+        ret['start_date'] = '<Not Set>'
         for row in project.get_entity_quarantine(
                 self.const.quarantine_project_start):
-            pass
-
-        # Project start:
-        for row in project.get_entity_quarantine(
-                self.const.quarantine_project_start):
-            ret.append({'project_start': date_to_string(row['end_date'])})
-        # Project end:
+            ret['start_date'] = date_to_string(row['end_date'])
+        ret['end_date'] = '<Not Set>'
         for row in project.get_entity_quarantine(
                 self.const.quarantine_project_end):
-            ret.append({'project_end': date_to_string(row['start_date'])})
+            ret['end_date'] = date_to_string(row['start_date'])
+        # Names:
+        ret['long_name'] = '<Not Set>'
+        for row in project.search_name_with_language(
+                                        entity_id=project.entity_id,
+                                        name_variant=self.const.ou_name_long):
+            ret['long_name'] = row['name']
+        ret['short_name'] = '<Not Set>'
+        for row in project.search_name_with_language(
+                                        entity_id=project.entity_id,
+                                        name_variant=self.const.ou_name_short):
+            ret['short_name'] = row['name']
         return ret
 
     #
@@ -1063,9 +1049,9 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         # if owner_type == self.const.entity_person:
         #    ou_id, affiliation = affiliation['ou_id'], affiliation['aff']
         #    ou = self._get_ou(ou_id=ou_id)
-        #    projectname = self._format_ou_name(ou, include_short_name=False)
-        #    if not uname.startswith(projectname):
-        #        raise CerebrumError('Username must have projectname as prefix')
+        #    pid = ou.get_project_id()
+        #    if not uname.startswith(pid):
+        #        raise CerebrumError('Username must have projectid as prefix')
 
         posix_user = Factory.get('PosixUser')(self.db)
         # TODO: disk?
@@ -1163,7 +1149,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
     all_commands['group_create'] = cmd.Command(
         ("group", "create"),
-        ProjectName(), cmd.GroupName(), GroupDescription(),
+        ProjectID(), cmd.GroupName(), GroupDescription(),
         perm_filter='is_superuser')
 
     @superuser
