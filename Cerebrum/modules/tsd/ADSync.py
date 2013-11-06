@@ -248,8 +248,63 @@ class UserSync(ADSync.UserSync, TSDUtils):
                                     owner_id=int(row["owner_id"]),
                                     owner_type=int(row['owner_type']))
             ent.ou = 'OU=users,OU=%s,%s' % (pid, self.config['target_ou'])
-            print ent.ou
             self.entities[uname]  = ent
+
+class GroupSync(ADSync.GroupSync, TSDUtils):
+    """TSD's sync of file groups."""
+
+    def fetch_cerebrum_data(self):
+        """Subclassed to also fetch TSD data from Cerebrum, like projects"""
+        self.entity2pid = dict((r['entity_id'],
+                               self._get_ou_pid(r['target_id'])) for r in
+                               self.gr.list_traits(code=self.co.trait_project_group))
+        self.logger.debug("Mapped %d entities to projects" % len(self.entity2pid))
+        return super(GroupSync, self).fetch_cerebrum_data()
+
+    def fetch_cerebrum_entities(self):
+        """Overridden to only fetch groups affiliated with projects."""
+        self.logger.debug("Fetching groups with spread %s" %
+                          (self.config['target_spread'],))
+        subset = self.config.get('subset')
+        for row in self.gr.search(spread=self.config['target_spread']):
+            gname = row["name"]
+            # For testing or special cases where we only want to sync a subset
+            # of entities. The subset should contain the entity names, e.g.
+            # usernames or group names.
+            if subset and gname not in subset:
+                continue
+            try:
+                pid = self.entity2pid[row['group_id']]
+            except KeyError, e:
+                self.logger.warn("Unknown project ID for %s", gname)
+                continue
+            ent = self.cache_entity(row["group_id"], gname, row['description'])
+            ent.ou = 'OU=filegroups,OU=%s,%s' % (pid, self.config['target_ou'])
+            self.entities[gname] = ent
+
+class NetGroupSync(GroupSync):
+    """TSD's sync of net groups."""
+
+    def fetch_cerebrum_entities(self):
+        """Overridden to only fetch groups affiliated with projects."""
+        self.logger.debug("Fetching groups with spread %s" %
+                          (self.config['target_spread'],))
+        subset = self.config.get('subset')
+        for row in self.gr.search(spread=self.config['target_spread']):
+            gname = row["name"]
+            # For testing or special cases where we only want to sync a subset
+            # of entities. The subset should contain the entity names, e.g.
+            # usernames or group names.
+            if subset and gname not in subset:
+                continue
+            try:
+                pid = self.entity2pid[row['group_id']]
+            except KeyError, e:
+                self.logger.warn("Unknown project ID for %s", gname)
+                continue
+            ent = self.cache_entity(row["group_id"], gname, row['description'])
+            ent.ou = 'OU=netgroups,OU=%s,%s' % (pid, self.config['target_ou'])
+            self.entities[gname] = ent
 
 class HostSync(ADSync.HostSync, TSDUtils):
     """A hostsync, using the DNS module instead of the basic host concept.
