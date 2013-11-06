@@ -2557,7 +2557,7 @@ class HostSync(BaseSync):
         self.logger.debug("Fetching hosts with spread: %s" %
                           (self.config['target_spread'],))
         subset = self.config.get('subset')
-        for row in self.host.search(): # TODO: should specify spread, now we push all!
+        for row in self.host.search(self.config['target_spread']):
             name = row["name"]
             if subset and name not in subset:
                 continue
