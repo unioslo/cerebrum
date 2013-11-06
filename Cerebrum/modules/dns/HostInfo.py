@@ -1,15 +1,35 @@
-# -*- coding: iso-8859-1 -*-
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# 
+# Copyright 2005, 2013 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""Module for handling information about a DNS host, e.g. a hardware box.
 
-#from Cerebrum.DatabaseAccessor import DatabaseAccessor
-#from Cerebrum import Utils
-#from Cerebrum.Database import Errors
-#from Cerebrum.Entity import Entity, EntityName
-#import socket
-#import string
-#import struct
+A host is connected to a DnsOnwer, and contains information like L{HINFO} and
+L{TTL}.
+
+HostInfo was previously referenced to as "mreg" at UiO. You should be aware of
+this looking in the documentation.
+
+"""
 
 from Cerebrum.Entity import Entity
-
+from Cerebrum.Utils import argument_to_sql, prepare_string
 from Cerebrum.modules.dns.DnsOwner import DnsOwner
 
 class HostInfo(Entity):
@@ -154,3 +174,59 @@ class HostInfo(Entity):
         WHERE host_id=:e_id""", {'e_id': self.entity_id})
         self._db.log_change(self.entity_id, self.const.host_info_del, None)
         self.__super.delete()
+
+    def search(self, spread=None, host_id=None, dns_owner_id=None):
+        """A search method for hosts.
+
+        To be expanded in the future with more functionality when needed, e.g.
+        to filter by zone_id(s) and name. Also DnsOwners has a an
+        L{expire_date}, which we in some situations might want to filter by.
+
+        @type spread: int or sequence thereof or None
+        @param spread:
+            If not None, only hosts with at least one of the given spreads will
+            be returned.
+
+        @type host_id: int or sequence thereof or None
+        @param host_id:
+            Filter the result by the given host_id(s).
+
+        @type dns_owner_id: int or sequence thereof or None
+        @param dns_owner_id:
+            Filter the result by the given dns owner id(s).
+
+        @rtype: iterable (yielding db-rows with host information)
+        @return:
+            The search result, filtered by the given search criterias. Each
+            yielded db row contains the keys:
+
+                - host_id
+                - dns_owner_id
+                - name
+                - ttl
+                - hinfo
+                - mx_set_id
+                - zone_id
+
+        """
+        tables = []
+        tables.append("[:table schema=cerebrum name=dns_host_info] hi")
+        tables.append("[:table schema=cerebrum name=entity_name] en")
+        tables.append("[:table schema=cerebrum name=dns_owner] dno")
+        where = ['dno.dns_owner_id=hi.dns_owner_id',
+                 'en.entity_id=dno.dns_owner_id']
+        binds = dict()
+        if spread is not None:
+            tables.append("[:table schema=cerebrum name=entity_spread] es")
+            where.append('es.entity_id=hi.host_id')
+            where.append(argument_to_sql(spread, 'es.spread', binds, int))
+        if host_id is not None:
+            where.append(argument_to_sql(host_id, 'dno.host_id', binds, int))
+        if dns_owner_id is not None:
+            where.append(argument_to_sql(dns_owner_id, 'dno.dns_owner_id',
+                                         binds, int))
+        where_str = " AND ".join(where)
+        return self.query("""
+        SELECT DISTINCT hi.host_id, hi.dns_owner_id, hi.ttl, hi.hinfo,
+                        en.entity_name AS name, dno.mx_set_id, dno.zone_id
+        FROM %s WHERE %s""" % (','.join(tables), where_str), binds)
