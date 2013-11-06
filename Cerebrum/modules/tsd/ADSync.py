@@ -332,12 +332,10 @@ class HostSync(ADSync.HostSync, TSDUtils):
         extra functionality from AD and to override settings.
 
         """
-        self.logger.debug("Fetching all DNS hosts")
-
-        # We are not using spread for hosts in TSD, for now, but idealisticly we
-        # should.
+        self.logger.debug("Fetching all DNS hosts with spread: %s",
+                          self.config['target_spread'])
         subset = self.config.get('subset')
-        for row in self.dnsowner.search():
+        for row in self.host.search(spread=self.config['target_spread']):
             # TBD: Is it correct to only get the first part of the host, or
             # should we for instance add sub domains to sub-OUs?
             name = self._hostname2adid(row['name'])
