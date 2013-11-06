@@ -1930,41 +1930,37 @@ class UserSync(BaseSync):
             self.logger.debug("Found %d primary email addresses" % i)
 
     def fetch_passwords(self):
-        """Fetch passwords for accounts from changelog.
+        """Fetch passwords for accounts that are new in AD.
 
-        Only caches the newest password set. Only caches password for entities
-        that does not exist in AD.
+        The passwords are stored in L{self.uname2pasw}, and passwords are only
+        fetched for entities where the attribute L{in_ad} is False. This should
+        therefore be called after the processing of existing entities and before
+        processing the entities that doesn't exist in AD yet.
+
+        The passwords are fetched from the changelog, and only the last and
+        newest password is used. 
 
         """
-        self.uname2pass = {}
-        # This should save a small amount of memory, but also slow us down.
-        ent_ids = set(x.entity_id for x in self.entities.itervalues()
-                      if not x.in_ad)
-        answer = reversed(tuple(self.db.get_log_events(
-                                        types=self.co.account_password)))
-        for ans in answer:
+        self.uname2pasw = {}
+        for row in reversed(tuple(self.db.get_log_events(
+                                            types=self.co.account_password))):
             try:
-                ent = self.id2entity[ans['subject_entity']]
+                ent = self.id2entity[row['subject_entity']]
             except KeyError:
                 # We continue past this event. Since account is not in the
                 # list of users who should get their password set.
                 continue
-
-            if self.uname2pass.has_key(ent.entity_name):
-                self.logger.debug('Plaintext already loaded for %s' %
-                                    ent.entity_name)
-            elif (ans['change_type_id'] == self.co.account_password and
-                    ans['subject_entity'] in ent_ids):
-                try:
-                    self.uname2pass[ent.entity_name] = \
-                        pickle.loads(str(ans['change_params']))['password']
-                    self.logger.debug('Loaded pt for %s' % ent.entity_name)
-                # TODO JSAMA: Revise error-list and log.
-                except (KeyError, TypeError):
-                    self.logger.debug('No plaintext loadable for %s' %
-                                        ent.entity_name)
-            else:
-                self.logger.debug('No plaintext available for %s' %
+            if ent.entity_name in self.uname2pasw:
+                # We only need the last password for each acount
+                continue
+            if ent.in_ad:
+                # Account is already in AD
+                continue
+            try:
+                self.uname2pasw[ent.entity_name] = pickle.loads(
+                                str(row['change_params']))['password']
+            except (KeyError, TypeError):
+                self.logger.debug('No plaintext loadable for %s' %
                                     ent.entity_name)
 
     def process_entities_not_in_ad(self):
@@ -2000,7 +1996,7 @@ class UserSync(BaseSync):
             # fetch_passwords(). If there is no plaintext available for
             # the user, set an empty one.
             try:
-                password = self.uname2pass[ent.entity_name]
+                password = self.uname2pasw[ent.entity_name]
             except KeyError:
                 password = ''
                 self.logger.warn('No password set for %s' % ent.entity_name)
