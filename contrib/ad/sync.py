@@ -254,7 +254,7 @@ def main():
             configuration[key] = value
 
     sync_class = BaseSync.get_class(classes=sync_classes, sync_type=sync_type)
-    logger.debug("Using sync classes: %s" % ', '.join(c.__name__ for c in
+    logger.debug("Using sync classes: %s" % ', '.join(repr(c) for c in
                                                       type.mro(sync_class)))
     sync = sync_class(db=db, logger=logger)
     sync.configure(configuration)

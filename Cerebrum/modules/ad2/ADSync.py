@@ -1592,7 +1592,7 @@ class UserSync(BaseSync):
         self.fetch_mail()
 
     def fetch_cerebrum_entities(self):
-        """Fetch the entities from Cerebrum that should be compared against AD.
+        """Fetch the users from Cerebrum that should be compared against AD.
 
         The configuration is used to know what to cache. All data is put in a
         list, and each entity is put into an object from
