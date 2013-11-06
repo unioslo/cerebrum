@@ -1940,8 +1940,8 @@ class UserSync(BaseSync):
         # This should save a small amount of memory, but also slow us down.
         ent_ids = set(x.entity_id for x in self.entities.itervalues()
                       if not x.in_ad)
-        answer = reversed(self.db.get_log_events(
-                                        types=self.co.account_password))
+        answer = reversed(tuple(self.db.get_log_events(
+                                        types=self.co.account_password)))
         for ans in answer:
             try:
                 ent = self.id2entity[ans['subject_entity']]
@@ -2558,7 +2558,7 @@ class HostSync(BaseSync):
         extra functionality from AD and to override settings.
 
         """
-        self.logger.debug("Fetching hosts with spread %s" %
+        self.logger.debug("Fetching hosts with spread: %s" %
                           (self.config['target_spread'],))
         subset = self.config.get('subset')
         for row in self.host.search(): # TODO: should specify spread, now we push all!
