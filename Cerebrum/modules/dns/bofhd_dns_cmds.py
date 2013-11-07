@@ -790,6 +790,8 @@ class BofhdExtension(BofhdCommandBase):
         ("%-22s %s" % ("TTL:", "%s"), ('ttl',)),
         # TXT
         ("%-22s %s" % ("TXT:", "%s"), ('txt', )),
+        # entity_id
+        ("%-22s %%d" % ("Owner ID:",), ('owner_id', )),
         # Cnames
         ("%-22s %s" % ('Cname:', '%s -> %s'), ('cname', 'cname_target')),
         # SRV
@@ -878,6 +880,7 @@ class BofhdExtension(BofhdCommandBase):
             if tmp[key] is not None:
                 tmp[key] = tmp[key]['strval']
         ret = [tmp]
+        ret.append({'owner_id': dns_owner.entity_id})
 
         # HINFO records
         ret.append({'zone': str(self.const.DnsZone(dns_owner.zone))})
@@ -926,7 +929,7 @@ class BofhdExtension(BofhdCommandBase):
             ret.append({'rev_ip': IPv6Utils.compress(row['aaaa_ip']),
                         'rev_name': row['name']})
 
-# MX records
+        # MX records
         if dns_owner.mx_set_id:
             mx_set = DnsOwner.MXSet(self.db)
             mx_set.find(dns_owner.mx_set_id)
