@@ -57,6 +57,8 @@ class TSDUtils(ADSync.BaseSync):
     def __init__(self, *args, **kwargs):
         super(TSDUtils, self).__init__(*args, **kwargs)
         self.ou = Factory.get('OU')(self.db)
+        self.et = EntityTrait.EntityTrait(self.db)
+
         self.dnsowner = dns.DnsOwner.DnsOwner(self.db)
         self.subnet = dns.Subnet.Subnet(self.db)
         self.subnet6 = dns.IPv6Subnet.IPv6Subnet(self.db)
@@ -125,86 +127,6 @@ class TSDUtils(ADSync.BaseSync):
             self.logger.debug2("Found %d project OUs", len(self._ou2pid))
         return self._ou2pid[ou_id]
 
-    def _map_host_to_ou(self, dns_owner_id):
-        """Return the proper project ID for where a given hosts belongs.
-
-        Hosts are in TSD not directly registered on a project, but their subnets
-        are. We must therefore find the subnet of the host, and then find out in
-        what project the subnet belongs. This is a bit too complicated, and we
-        should probably change this mapping, e.g. by setting project traits on
-        hosts.
-
-        @type dns_owner_id: int
-        @param dns_owner_id:
-            The entity_id of the DnsOwner that should belong to a project.
-
-        @rtype: string
-        @return:
-            The project ID for the OU that the subnet belongs to, and therefore
-            also the host.
-
-        """
-        if not hasattr(self, '_subnet2ou'):
-            # Cache the subnet mapping the first time it's used:
-            self.logger.debug("Fetch mapping hosts to OUs")
-            ent = EntityTrait.EntityTrait(self.db)
-            self._subnet2ou = dict((r['entity_id'], r['target_id']) for r in
-                                   ent.list_traits(code=(
-                                               self.co.trait_project_subnet,
-                                               self.co.trait_project_subnet6)))
-            self.logger.debug2("Found %d project subnets", len(self._subnet2ou))
-            self._dns_owner2ar = dict()
-            for row in self.ar.list_ext():
-                self._dns_owner2ar.setdefault(row['dns_owner_id'], []).append(row['a_ip'])
-            self.logger.debug2("Found %d IPv4 addresses",
-                               len(self._dns_owner2ar))
-            self._dns_owner2aaaar = dict()
-            for row in self.aaaar.list_ext():
-                self._dns_owner2aaaar.setdefault(row['dns_owner_id'], []).append(row['aaaa_ip'])
-            self.logger.debug2("Found %d IPv6 addresses",
-                               len(self._dns_owner2aaaar))
-            # To be able to find the subnet an IP is located in, we the max and
-            # min IP address:
-            self._ipv42subnet = dict()
-            for row in self.subnet.search():
-                key = (row['ip_min'], row['ip_max'])
-                self._ipv42subnet[key] = row['entity_id']
-            self._ipv62subnet = dict()
-            for row in self.subnet6.search():
-                key = (row['ip_min'], row['ip_max'])
-                self._ipv62subnet[key] = row['entity_id']
-
-        pids = set()
-        for a_ip in self._dns_owner2ar.get(dns_owner_id, ()):
-            iplong = dns.IPUtils.IPCalc.ip_to_long(a_ip)
-            for k, subid in self._ipv42subnet.iteritems():
-                if k[0] < iplong < k[1]:
-                    ouid = self._subnet2ou.get(subid)
-                    if not ouid:
-                        continue
-                    try:
-                        pids.add(self._get_ou_pid(ouid))
-                    except KeyError:
-                        pass
-        for aaaa_ip in self._dns_owner2aaaar.get(dns_owner_id, ()):
-            iplong = dns.IPv6Utils.IPv6Calc.ip_to_long(aaaa_ip)
-            for k, subid in self._ipv62subnet.iteritems():
-                if k[0] < iplong < k[1]:
-                    ouid = self._subnet2ou.get(subid)
-                    if not ouid:
-                        continue
-                    try:
-                        pids.add(self._get_ou_pid(ouid))
-                    except KeyError:
-                        pass
-        if len(pids) > 1:
-            raise Errors.TooManyRowsError("dns_owner %s mapped to %d projects" %
-                                          (dns_owner_id, len(pids)))
-        if not pids:
-            raise Errors.NotFoundError("No project found for dns_owner %s" %
-                                       dns_owner_id)
-        return pids.pop()
-
 class UserSync(ADSync.UserSync, TSDUtils):
     """TSD's sync of users."""
 
@@ -248,7 +170,7 @@ class UserSync(ADSync.UserSync, TSDUtils):
                                     owner_id=int(row["owner_id"]),
                                     owner_type=int(row['owner_type']))
             ent.ou = 'OU=users,OU=%s,%s' % (pid, self.config['target_ou'])
-            self.entities[uname]  = ent
+            self.entities[uname] = ent
 
 class GroupSync(ADSync.GroupSync, TSDUtils):
     """TSD's sync of file groups."""
@@ -276,7 +198,7 @@ class GroupSync(ADSync.GroupSync, TSDUtils):
             try:
                 pid = self.entity2pid[row['group_id']]
             except KeyError, e:
-                self.logger.warn("Unknown project ID for %s", gname)
+                self.logger.warn("Unknown project ID for: %s", gname)
                 continue
             ent = self.cache_entity(row["group_id"], gname, row['description'])
             ent.ou = 'OU=filegroups,OU=%s,%s' % (pid, self.config['target_ou'])
@@ -332,25 +254,30 @@ class HostSync(ADSync.HostSync, TSDUtils):
         extra functionality from AD and to override settings.
 
         """
-        self.logger.debug("Fetching all DNS hosts with spread: %s",
-                          self.config['target_spread'])
+        self.logger.debug("Fetching all DNS host traits")
+        host2pid = dict((r['entity_id'], self._get_ou_pid(r['target_id'])) for r
+                        in self.et.list_traits(code=self.co.trait_project_host))
+        self.logger.debug("Fetched %d hosts mapped to projects" % len(host2pid))
+        self.logger.debug("Fetching all DNS hosts")
         subset = self.config.get('subset')
-        for row in self.host.search(spread=self.config['target_spread']):
+        for row in self.host.search(): # Might want to use a spread later
             # TBD: Is it correct to only get the first part of the host, or
             # should we for instance add sub domains to sub-OUs?
             name = self._hostname2adid(row['name'])
             if subset and name not in subset:
                 continue
+            if row['dns_owner_id'] not in host2pid:
+                # Host is not connected to a project, and is therefore ignored.
+                continue
             try:
                 self.entities[name] = self.cache_entity(row["dns_owner_id"],
-                                                        name)
+                                        name, host2pid[row['dns_owner_id']])
             except Errors.CerebrumError, e:
                 self.logger.warn("Could not cache %s: %s" % (name, e))
                 continue
 
-    def cache_entity(self, entity_id, entity_name):
+    def cache_entity(self, entity_id, entity_name, pid):
         """Cache a DNS entity."""
-        pid = self._map_host_to_ou(entity_id)
         # TODO: subclass CerebrumEntity for hosts?
         ent = CerebrumEntity(self.logger, self.config, entity_id, entity_name)
         ent.ou = 'OU=hosts,OU=resources,OU=%s,%s' % (pid,
