@@ -81,7 +81,7 @@ class Constants(Constants.Constants):
         'Net group')
 
     spread_ad_host = _SpreadCode(
-        'host@ad', DnsConstants.entity_dns_host,
+        'host@ad', DnsConstants.entity_dns_owner,
         'Host that is synced with AD')
 
     # GW
@@ -129,7 +129,7 @@ class Constants(Constants.Constants):
             Constants.Constants.entity_group,
             'The project a group belongs to')
     trait_project_host = _EntityTraitCode('project_host',
-            Constants.Constants.entity_host,
+            DnsConstants.entity_dns_owner,
             'The project a host belongs to')
     trait_project_subnet = _EntityTraitCode('project_subnet',
             DnsConstants.entity_dns_subnet,

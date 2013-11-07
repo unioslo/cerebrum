@@ -62,6 +62,8 @@ command_help['project'] = {
         'Show information about a given project',
     'project_list':
         'List all projects according to given filter',
+    'project_affiliate_entity':
+        'Affiliate an entity with a project, e.g. groups and hosts',
     'project_set_enddate':
         'Reset the end date for a project',
     'project_terminate':
@@ -94,7 +96,7 @@ arg_help.update({
                    'Not implemented yet'],
     'entity_type':
         ['entity_type', 'Entity type',
-         'Possible values:\n - group\n - account\n - project'],
+         'Possible values:\n - group\n - account\n - project\n - host'],
     'person_search_type':
         ['search_type', 'Enter person search type',
          """Possible values:

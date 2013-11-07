@@ -54,11 +54,12 @@ from Cerebrum import Constants
 from Cerebrum import Utils
 from Cerebrum import Cache
 from Cerebrum import Errors
+from Cerebrum.modules import EntityTrait
 from Cerebrum.modules.bofhd import cmd_param as cmd
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
+from Cerebrum.modules import dns
 from Cerebrum.modules.dns import Subnet
 from Cerebrum.modules.dns import IPv6Subnet
-from Cerebrum.modules.dns import IPv6Utils
 from Cerebrum.Constants import _CerebrumCode
 
 from Cerebrum.modules.tsd.bofhd_auth import TSDBofhdAuth
@@ -187,6 +188,8 @@ class TSDBofhdExtension(BofhdCommonMethods):
         """
         if ident and entity_type == 'project':
             return self._get_project(ident)
+        if ident and entity_type == 'host':
+            return self._get_host(ident)
         return super(TSDBofhdExtension, self)._get_entity(entity_type, ident)
 
     def _get_project(self, projectid):
@@ -216,6 +219,39 @@ class TSDBofhdExtension(BofhdCommonMethods):
             except Errors.NotFoundError:
                 pass
         raise CerebrumError("Could not find project: %s" % projectid)
+
+    def _get_host(self, host_id):
+        """Helper method for getting the DnsOwner for the given host ID.
+
+        The given L{host_id} could be an IP or IPv6 address or a CName alias.
+
+        @rtype: Cerebrum.modules.dns.DnsOwner/DnsOwner
+        @return: An instance of the matching DnsOwner.
+
+        """
+        finder = dns.Utils.Find(self.db, self.const.DnsZone(getattr(cereconf,
+                                                   'DNS_DEFAULT_ZONE', 'uio')))
+        if ':' not in host_id and host_id.split('.')[-1].isdigit():
+            # host_id is an IP
+            owner_id = finder.find_target_by_parsing(host_id, dns.IP_NUMBER)
+        else:
+            owner_id = finder.find_target_by_parsing(host_id, dns.DNS_OWNER)
+
+        # Check if it is a Cname, if so: go to the cname's owner_id
+        try:           
+            cname_record = dns.CNameRecord.CNameRecord(self.db)
+            cname_record.find_by_cname_owner_id(owner_id)
+        except Errors.NotFoundError:
+            pass
+        else:
+            owner_id = cname_record.target_owner_id
+
+        dns_owner = dns.DnsOwner.DnsOwner(self.db)
+        try:
+            dns_owner.find(owner_id)
+        except Errors.NotFoundError:
+            raise CerebrumError('Unknown host: %s' % host_id)
+        return dns_owner
 
     def _get_ou(self, ou_id=None, stedkode=None):
         """Override to change the use of L{stedkode} to check the acronym.
@@ -863,6 +899,42 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             ret['short_name'] = row['name']
         return ret
 
+    all_commands['project_affiliate_entity'] = cmd.Command(
+        ('project', 'affiliate_entity'), ProjectID(), cmd.EntityType(),
+        cmd.Id(help_ref='id:target:group'), perm_filter='is_superuser')
+
+    @superuser
+    def project_affiliate_entity(self, operator, projectid, etype, ent):
+        """Affiliate a given entity with a project. This is a shortcut command
+        for helping the TSD-admins instead of using L{trait_set}. Some entity
+        types doesn't even work with trait_set, like DnsOwners."""
+        ou = self._get_project(projectid)
+        # A mapping of what trait to set for what entity type:
+        type2trait = {
+            self.const.entity_group: self.const.trait_project_group,
+            self.const.entity_dns_owner: self.const.trait_project_host,
+            self.const.entity_dns_subnet: self.const.trait_project_subnet,
+            self.const.entity_dns_ipv6_subnet: self.const.trait_project_subnet6,
+            }
+        ent = self._get_entity(entity_type=etype, ident=ent)
+        if ent.entity_type in (self.const.entity_person,
+                               self.const.entity_account):
+            raise CerebrumError("Use 'person/user affiliation_add' for persons/users")
+        if ent.entity_type not in type2trait:
+            raise CerebrumError("Command does not handle entity type: %s" %
+                                self.const.EntityType(ent.entity_type))
+        # Forcing EntityTrait, since not all instances have this. TBD: Should
+        # rather add EntityTrait to cereconf.CLASS_ENTITY instead, but don't
+        # know the consequences of that.
+        if not isinstance(ent, EntityTrait.EntityTrait):
+            entity_id = ent.entity_id
+            ent = EntityTrait.EntityTrait(self.db)
+            ent.find(entity_id)
+        ent.populate_trait(type2trait[ent.entity_type], target_id=ou.entity_id,
+                           date=DateTime.now())
+        ent.write_db()
+        return "Entity affiliated with project: %s" % ou.get_project_id()
+
     #
     # Person commands
     def _person_affiliation_add_helper(self, operator, person, ou, aff, aff_status):
@@ -1353,7 +1425,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ret = []
         # IPv6:
         subnet6 = IPv6Subnet.IPv6Subnet(self.db)
-        compress = IPv6Utils.IPv6Utils.compress
+        compress = dns.IPv6Utils.IPv6Utils.compress
         for row in subnet6.search():
             ret.append({
                 'subnet': '%s/%s' % (compress(row['subnet_ip']),
@@ -1393,7 +1465,6 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
     def add_subnet(subnet, description, vlan, perform_checks=True):
         pass
-
 
 class EnduserBofhdExtension(TSDBofhdExtension):
 
