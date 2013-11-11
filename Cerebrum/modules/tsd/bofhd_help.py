@@ -66,6 +66,12 @@ command_help['project'] = {
         'Affiliate an entity with a project, e.g. groups and hosts',
     'project_set_enddate':
         'Reset the end date for a project',
+    'project_set_projectname':
+        'Reset the project name',
+    'project_set_longname':
+        "Reset a project's full name",
+    'project_set_shortname':
+        "Reset a project's short name",
     'project_terminate':
         'Terminate a project by removing all data',
     'project_unapproved':
