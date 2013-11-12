@@ -146,6 +146,36 @@ class ARecord(Entity):
         self.__super.delete()
 
     def list_ext(self, ip_number_id=None, dns_owner_id=None, start=None, stop=None, zone=None):
+        """List out extended information about ARecords.
+
+        @type ip_number_id: int
+        @param ip_number_id: Limit the return to only the given IP number.
+
+        @type dns_owner_id: int
+        @param dns_owner_id: Limit the return to only the given dns owner's
+            entity_id.
+
+        @type start: int
+        @param start: 
+            Limit the return to only IP numbers that are equal to or higher than
+            the given start number. Note that the IP number is in this case
+            considered in a 32-bit format and not as a string.
+
+        @type stop: int
+        @param stop: 
+            Limit the return to only IP numbers that are equal to or lower than
+            the given stop number. Note that the IP number is in this case
+            considered in a 32-bit format and not as a string.
+
+        @type zone: int or DnsZoneCode
+        @param zone: Limit the return to the given DNS zone.
+
+        @rtype: list of db-rows
+        @return: All ARecords that match the given criterias. Each db-row has
+            the elements: a_record_id, ip_number_id, ttl, mac, the DNS owner's
+            entity_name, and the IPNumber's a_ip, ipnr and mac_adr.
+
+        """
         where = ['a.dns_owner_id=d.dns_owner_id',
                  'a.ip_number_id=i.ip_number_id',
                  'd.dns_owner_id=en.entity_id']
