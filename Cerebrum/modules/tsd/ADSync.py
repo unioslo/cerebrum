@@ -242,6 +242,55 @@ class HostSync(ADSync.HostSync, TSDUtils):
         super(HostSync, self).__init__(*args, **kwargs)
         self.host = dns.HostInfo.HostInfo(self.db)
 
+        self.subnet = dns.Subnet.Subnet(self.db)
+        self.subnet6 = dns.IPv6Subnet.IPv6Subnet(self.db)
+
+        self.ar = dns.ARecord.ARecord(self.db)
+        self.aaaar = dns.AAAARecord.AAAARecord(self.db)
+
+    def fetch_cerebrum_data(self):
+        """Override for DNS info."""
+        super(HostSync, self).fetch_cerebrum_data()
+        # Mapping by dns_owner_id
+        self.owner2entity = dict((e.dns_owner_id, e) for e in
+                                 self.entities.itervalues())
+        self.logger.debug("Found %d owners for entities" %
+                          len(self.owner2entity))
+
+        # This is a slow process, so can't be used for too many hosts. Would
+        # then have to cache the mapping from ip to subnet.
+        self.logger.debug("Fetching VLAN numbers")
+        i = 0
+        for row in self.ar.list_ext():
+            try:
+                ent = self.owner2entity[row['dns_owner_id']]
+            except KeyError:
+                continue
+            self.subnet.clear()
+            try:
+                self.subnet.find(row['a_ip'])
+            except dns.Errors.SubnetError:
+                self.logger.info("No found subnet %s IP: %s" % (row['name'],
+                                                                row['aaaa_ip']))
+                continue
+            ent.vlans.add(self.subnet.vlan_number)
+            i += 1
+        for row in self.aaaar.list_ext():
+            try:
+                ent = self.owner2entity[row['dns_owner_id']]
+            except KeyError:
+                continue
+            self.subnet6.clear()
+            try:
+                self.subnet6.find(row['aaaa_ip'])
+            except dns.Errors.SubnetError:
+                self.logger.info("No subnet for %s IP: %s" % (row['name'],
+                                                              row['aaaa_ip']))
+                continue
+            ent.vlans.add(self.subnet.vlan_number)
+            i += 1
+        self.logger.debug("Fetched %d VLAN numbers" % i)
+
     def fetch_cerebrum_entities(self):
         """Fetch the hosts from Cerebrum that should be compared against AD.
 
@@ -270,19 +319,39 @@ class HostSync(ADSync.HostSync, TSDUtils):
                 # Host is not connected to a project, and is therefore ignored.
                 continue
             try:
-                self.entities[name] = self.cache_entity(row["dns_owner_id"],
-                                        name, host2pid[row['dns_owner_id']])
+                self.entities[name] = self.cache_entity(row["host_id"],
+                                        name, row['dns_owner_id'],
+                                        host2pid[row['dns_owner_id']])
             except Errors.CerebrumError, e:
                 self.logger.warn("Could not cache %s: %s" % (name, e))
                 continue
 
-    def cache_entity(self, entity_id, entity_name, pid):
+    def cache_entity(self, entity_id, entity_name, dns_owner_id, pid):
         """Cache a DNS entity."""
         # TODO: subclass CerebrumEntity for hosts?
-        ent = CerebrumEntity(self.logger, self.config, entity_id, entity_name)
+        ent = self._object_class(self.logger, self.config, entity_id,
+                                 entity_name)
+        ent.dns_owner_id = dns_owner_id
         ent.ou = 'OU=hosts,OU=resources,OU=%s,%s' % (pid,
                                                      self.config['target_ou'])
         return ent
+
+class HostEntity(CerebrumEntity):
+    """A TSD host"""
+    def __init__(self, *args, **kwargs):
+        super(HostEntity, self).__init__(*args, **kwargs)
+        self.vlans = set()
+
+    def calculate_ad_values(self):
+        """Overriden to add TSD specific values."""
+        super(HostEntity, self).calculate_ad_values()
+        if len(self.vlans) > 1:
+            self.logger.warn("Host %s in more than one VLAN: %s" %
+                             (self.ad_id, ', '.join(self.vlans)))
+            return
+        if self.vlans:
+            vlan = iter(self.vlans).next()
+            self.set_attribute('Network', vlan)
 
 class HostpolicySync(ADSync.GroupSync, TSDUtils):
     """Class for syncing all hostpolicy components to AD.
