@@ -60,9 +60,9 @@ Program flow:
     - Write exam data to csv file
       
 """
-
 import getopt
 import sys
+import re
 from os.path import basename
 
 import cereconf
@@ -70,7 +70,6 @@ import cereconf
 from Cerebrum.Utils import Factory, argument_to_sql
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet, BofhdAuthOpTarget, BofhdAuthRole
-from Cerebrum.modules.PasswordNotifier import PasswordNotifier
 
 from mx import DateTime
 
@@ -84,16 +83,12 @@ cereconf.DIGEKS_PARENT_GROUP = 'deksamen-test'
 # FIXME: These are the classes that we will be looking up exams for. This list
 # should be replaced by an automated selection of subjects, which is probably
 # another FS lookup.
-#cereconf.DIGEKS_EXAMS = ('JUS3211', 'JUS4111', 'JUS4122', 'JUS4211')
-#cereconf.DIGEKS_EXAMS = ('PPU3310L', )
-#cereconf.DIGEKS_EXAMS = ('JUS4111', )
 cereconf.DIGEKS_EXAMS = ('PPU3310L','JUS4111', )
 
 # When looking up exams, we need to filter out non-digital exams and other
 # deliverables (obligatory assignments). This string will be matched with the
 # FS field 'vurdkombkode'. FIXME: This needs to be standardized.
 cereconf.DIGEKS_TYPECODE = 'SPC%'
-
 
 # Spreads for new groups created for candidates and admins
 cereconf.DIGEKS_GROUP_SPREADS = ['AD_group']
@@ -102,10 +97,9 @@ cereconf.DIGEKS_GROUP_SPREADS = ['AD_group']
 # is missing this spread. The candidate will still be processed as normal.
 cereconf.DIGEKS_CANDIDATE_SPREADS = ['AD_account']
 
-
 # Symbol for use as separator in csv export files
-cereconf.DIGEKS_CSV_SEPARATOR = u';'
-
+# TODO/TBD: Should this be a cereconf variable?
+CSV_SEPARATOR = u';'
 
 
 def usage(exitcode=0):
@@ -117,9 +111,15 @@ def usage(exitcode=0):
     CSV-files.
 
     Options:
-      -c, --candidates           Output CSV-file with the candidates
-      -e, --exams                Output CSV-file with the exam data
-      -d, --dry-run              Only ouput files, don't commit membership changes
+      -c, --candidates <file>    Output CSV-file with the candidates
+      -e, --exams      <file>    Output CSV-file with the exam data
+      -d, --dry-run              Only ouput files, don't commit membership
+                                 changes to the db
+      -s, --subject    <s1,...>  Subjects to look up exams for
+      -y, --year       <year>    Restrict to exams in the given year
+      -t, --semester   <term>    Restrict to exams in the given term. Tip -
+                                 check encoding, might want to use: 
+                                    -t `print '<term>' | iconv -f <enc> -t <enc>`
       -h, --help                 Show this help text.
     """ % {'name': basename(sys.argv[0])}
 
@@ -135,7 +135,7 @@ class Exam(object):
     Attributes
         separator: The separator to use in CSV files.
     """
-    separator = cereconf.DIGEKS_CSV_SEPARATOR
+    separator = CSV_SEPARATOR
 
     class Candidate(object):
         """ A candidate object. Temporary storage of candidate info, sanitizes
@@ -214,6 +214,7 @@ class Exam(object):
             escape_chars(self.timecode, special=self.separator),
             str(self.year), ])
 
+
     def addCandidate(self, username, candidate, commision):
         """ Adds a new candidate to this exam. Returns False if candidate was
         already in this exam"""
@@ -238,12 +239,10 @@ class Exam(object):
             self.access, ])
 
 
-
 class CandidateCache:
-    """ A caching object, for storing candidate usernames, etc..."""
-    #TODO: Generalize, select what information we need cached. Cache on-demand?
-    #Choose what should be cached, and access info regardless of that info
-    #being cached?
+    """ A caching object, for storing candidate account names and associated
+    data.
+    """
     
     def __init__(self, db, candidates):
         """ All caching happens on init
@@ -255,23 +254,42 @@ class CandidateCache:
         @param candidates: All the candidates that should have their
                            information looked up/cached
         """
-        self.accounts = dict()
-        self.mobiles = dict()
-        self.spreads = list()
+        self.accounts = dict()    # mapping account_name -> account_id + owner_id
+        self.mobiles = dict()     # mapping person_id -> mobile
+        self.spreads = list()     # tuple (account_id, spread_code)
+        self.quarantined = dict() # mapping account_id -> [ list of quarantines ]
 
-        ac = Factory.get('Account')(db)
-        pe = Factory.get('Person')(db)
+        self.db = db  # For any future use
         self.co = Factory.get('Constants')(db)
 
-        # Fetch all accounts
+        self.cacheAccounts(candidates)
+
+    def cacheAccounts(self, account_names):
+        """ Cache data for a list of account names, efficiently. 
+        This function has a bit of an overhead, because it looks up all users in
+        the db. It is, however, a lot more efficient than looking up individual
+        accounts when there's a lot of L{account_names}.
+
+        @type account_names: set
+        @param account_names: An iterable (ideally set) of account names to cache
+                              data for.
+        """
+        ac = Factory.get('Account')(self.db)
+        pe = Factory.get('Person')(self.db)
+
+        # Save some time
+        if not account_names:
+            return
+
+        # Fetch all accounts. ...would be nice to filter by names in the query
         all_accounts = ac.search(owner_type=self.co.entity_person)
 
         # self.accounts - Account and owner id for all candidates. Dict mapping:
         #   account_name -> {account_id -> , owner_id -> ,}
-        account_names = filter(lambda a: a['name'] in candidates, all_accounts)
+        filtered_accounts = filter(lambda a: a['name'] in account_names, all_accounts)
         self.accounts = dict((a['name'], {
             'account_id': a['account_id'],
-            'owner_id': a['owner_id']}) for a in account_names)
+            'owner_id': a['owner_id']}) for a in filtered_accounts)
 
         # self.mobiles - Look up the mobile phone number (from FS) for all
         # candidates. Dict mapping:
@@ -293,13 +311,63 @@ class CandidateCache:
             self.spreads.extend(spreads)
 
         # Quarantines
-        # TODO: Check for quarantines, and pending 'autopassord'
-        #cereconf.DIGEKS_CANDIDATE_QUARANTINES = ['autopassord', ]
-        #qs = [self.co.Quarantine(q) for q in cereconf.DIGEKS_CANDIDATE_QUARANTINES]
-        #self.quarantines = filter(lambda q: q['entity_id'] in acc_ids,
-                                  #ac.list_entity_quarantines(entity_types=self.co.entity_account,
-                                                             #quarantine_types=qs))
-        #self.pending_password = filter(lambda n: n['entity_id'] in acc_ids, ac.list_traits(code=self.co.trait_passwordnotifier_notifications, ))
+        quarantines = []
+        if len(account_ids) > 0:
+            quarantines = ac.list_entity_quarantines(
+                    entity_types=self.co.entity_account,
+                    entity_ids=account_ids, 
+                    only_active=False)
+        for q in quarantines:
+            if q['entity_id'] not in self.quarantined.keys():
+                self.quarantined[q['entity_id']] = []
+            self.quarantined[q['entity_id']].append(str(self.co.Quarantine(q['quarantine_type'])))
+
+
+    def cacheAccount(self, account_name):
+        """ Cache data for one individual L{account_name}. Can be used to refresh the
+        cache, or to fetch additional data
+
+        @type account_name: str
+        @param account_name: An account name to cache data for
+
+        @rtype: bool
+        @return: True if caching was successful, otherwise False (typically
+                 the account_name does not exist as a personal account)
+        """
+        ac = Factory.get('Account')(self.db)
+        pe = Factory.get('Person')(self.db)
+        try:
+            ac.find_by_name(account_name)
+            pe.find(ac.owner_id) # NotFoundError if owner_id != Person
+        except NotFoundError:
+            return False
+
+        # account_name -> account_id + owner_id
+        self.accounts[ac.account_name] = {
+                'account_id': ac.entity_id,
+                'owner_id': ac.owner_id
+                }
+
+        # owner_id -> mobile
+        contact = pe.get_contact_info(source=self.co.system_fs,
+                type=self.co.contact_mobile_phone)
+        if len(contact) == 1:
+            self.mobiles[pe.entity_id] = contact[0].get('contact_value')
+        
+        # account_id + spread table
+        spreads = [(ac.entity_id, spread.get('spread')) for spread in ac.get_spread()]
+        print account_name, str(spreads)
+        self.spreads.extend(spreads)
+        print 'all', str(self.spreads)
+
+        # account_id -> quarantine list
+        for q in ac.get_entity_quarantine():
+            if ac.entity_id not in self.quarantined.keys():
+                self.quarantined[ac.entity_id] = []
+            self.quarantined[ac.entity_id].append(str(self.co.Quarantine(q['quarantine_type'])))
+
+        return True
+
 
     def uname2id(self, account_name):
         """ Cache lookup: account_name -> account_id """
@@ -318,16 +386,31 @@ class CandidateCache:
     def uname_has_spread(self, account_name, spread):
         """ Cache lookup: returns true if account_name has the given spread.
         This can be used to warn about accounts with missing spreads. 
+        
+        NOTE: cacheAccounts will only cache spreads in
+              C{cereconf.DIGEKS_CANDIDATE_SPREADS}. We cannot look up other
+              spreads
         """
-        try:
-            spread = self.co.Spread(spread)
-        except NotFoundError:
-            return False
         account_id = self.uname2id(account_name)
         if not account_id:
             return False
 
-        return (account_id, spread) in self.spreads
+        spread = self.co.Spread(spread)
+        try:
+            return (account_id, spread) in self.spreads
+        except NotFoundError:
+            return False
+
+    def uname_quarantines(self, account_name):
+        """ Return a list of quarantines (may be inactive) for the given user
+
+        @rtype: list
+        @return: A list of quarantine strvals applied to the user
+        """
+        account_id = self.uname2id(account_name)
+        if not account_id:
+            return []
+        return self.quarantined.get(account_id, [])
 
 
 class Digeks(object):
@@ -564,10 +647,61 @@ class Digeks(object):
         logger.debug('Found %d candidates in %d exams' % (len(self.candidates), len(self.exams)))
 
 
+    def process_candidates(self):
+        """ Process candidates. This will fetch missing candidate data from
+        cache, and report on conditions that could cause problems later, e.g.
+        missing spreads, missing mobile number, ...
+
+        """
+        # We don't need to report on the same issue for candidates with the
+        # same username. We keep track on which usernames we've seen, to avoid
+        # multiple log messages on the same issue.
+        seen_accounts = set()
+
+        for candidate in self.candidates:
+            account_id = self.cache.uname2id(candidate.username)
+            if not account_id:
+                if candidate.username not in seen_accounts:
+                    logger.error(("No account found for '%s', will be omitted"
+                        + " from export") % candidate.username)
+                    seen_accounts.add(candidate.username)
+                continue
+
+            # Fetch/Update candidate mobile number 
+            mobile = self.cache.uname2mobile(candidate.username)
+            if mobile:
+                candidate.set_mobile(mobile)
+            elif candidate.username not in seen_accounts:
+                logger.warn("No mobile number for '%s'" % candidate.username)
+
+            # Check quarantines
+            quarantines = self.cache.uname_quarantines(candidate.username)
+            # Log the first hit for a given user with quarantines
+            if quarantines and candidate.username not in seen_accounts:
+                logger.warn("User '%s' has potential quarantine(s): %s" % (
+                    candidate.username, 
+                    ', '.join(quarantines)))
+
+            # Check sperads
+            missing_spreads = []
+            for spread in cereconf.DIGEKS_CANDIDATE_SPREADS:
+                if not self.cache.uname_has_spread(candidate.username, spread):
+                    missing_spreads.append(spread)
+            # Log the first hit for a given user with missing spreads
+            if missing_spreads and candidate.username not in seen_accounts:
+                logger.warn("User '%s' is missing required spread(s): %s" % (
+                    candidate.username, 
+                    ', '.join(missing_spreads)))
+
+            seen_accounts.add(candidate.username)
+
+
     def write(self, examfile, candidatefile):
         """ Writes the exams and candidates to their respective files. Also
         adds the candidate to the correct group.
         """
+        self.process_candidates()
+
         for exam in self.exams:
             logger.debug('Exam %s, %d candidates' % 
                     (exam.key(), len(exam.candidates)))
@@ -578,26 +712,9 @@ class Digeks(object):
             for candidate in exam.candidates:
 
                 account_id = self.cache.uname2id(candidate.username)
-
-                # FIXME: Workaround for missing dummy data in cache
                 if not account_id:
-                    account_id = getattr(candidate, 'account_id', None)
-
-                if not account_id:
-                    logger.warn("Couldn't find account %s, omitted" % 
-                            candidate.username)
                     continue
                 
-                mobile = self.cache.uname2mobile(candidate.username)
-                if not mobile:
-                    logger.info("No mobile number for '%s'" % 
-                            candidate.username)
-                candidate.set_mobile(mobile)
-
-                for spread in cereconf.DIGEKS_CANDIDATE_SPREADS:
-                    if not self.cache.uname_has_spread(candidate.username, spread):
-                            logger.warn("User '%s' is missing required spread '%s'" % (candidate.username, spread))
-
                 if exam_group.has_member(account_id):
                     logger.debug('User %s already in group %s' %
                             (candidate.username, exam_group.group_name))
@@ -876,6 +993,109 @@ class UVDigeks(Digeks):
         return self.fs.db.query(query, binds)
 
 
+class DigeksTest(Digeks):
+    """ Let's us create dummy data for testing, by importing exam data from a
+    prevously generated exam CSV file, and a set of usernames.
+
+    Useful for testing the Cerebrum-related funcitons of this script
+    """
+
+    def __init__(self, exam_file, candidates=set()):
+        """ Sets up the exam_file and usernames for later processing.
+        Each of the candidates given as arguments, will be added to each of the
+        exams from exam_file.
+
+        @type exam_file: str
+        @param exam_file: A file containing exam data, as exported by this script
+
+        @type candidates: set
+        @param candidates: A set of usernames that should be included in each
+                           of the exams given in exam_file
+        """
+
+        self.exam_file = exam_file
+        self.usernames = candidates
+
+        super(DigeksTest, self).__init__([], 0) # Not neccessary to specify exam data, as that comes from the file
+
+
+    def gen_group_name(self, identity, is_admin=False):
+        """ Group name syntax for test exams
+        """
+        return "digital-eksamen-%s%s" % (('', 'adm-')[int(is_admin)], identity)
+
+
+    def process_exams(self):
+        """ Overloads the parent process_exams method (the method that reads
+        exam/candidate info from FS, and creates the appropriate object
+        representation.
+
+        In stead of using an FS-database, we use the dummy data given in init
+        to produce Exam and Candidate objects.
+        """
+
+        # Read the file
+        exam_lines = []
+        try:
+            file = open(self.exam_file, 'r')
+            exam_lines.extend(file.readlines(-1))
+            file.close()
+        except IOError:
+            logger.error('Unable to open exam file (%s)' % self.exam_file)
+            return
+
+        def _from_line(line):
+            """ Converts a line from an exams file to an Exam object
+            """
+            raw_fields = line.split(';')
+            arg_fields = []
+            try:
+                # Reorder fields -> arguments
+                arg_fields.append(int(raw_fields[0])) # institusjonskode
+                arg_fields.append(raw_fields[1]) # emnekode
+                arg_fields.append(int(raw_fields[5])) # arstall
+                arg_fields.append(raw_fields[4].decode('utf-8')) # vurdtidkode
+                arg_fields.append(raw_fields[3]) # vurdkombkode
+                arg_fields.append(raw_fields[2]) # versjon
+                arg_fields.append(raw_fields[6]) # datetime
+                arg_fields.append(raw_fields[7]) # sko
+                arg_fields.append(raw_fields[8]) # access/blank
+            except IndexError, e:
+                logger.error("Invalid data in exam_file: %s" % (str(e), ))
+                return None
+
+            try:
+                return Exam(*arg_fields)
+            except AssertionError, e:
+                logger.warn('Unable to process exam, invalid value from exam file: %s' % str(e))
+                return None
+
+
+        for line in exam_lines:
+            exam = _from_line(line)
+            if not exam:
+                continue
+
+            if exam in self.exams:
+                logger.warn("Unable to process exam, duplicate exam with key '%s'!" % exam.key())
+                continue
+
+            # Generate sequential candidate numbers and modular commission
+            # numbers
+            cand = 0
+            comm = 0
+
+            # Add each username to the exam
+            for username in self.usernames:
+                exam.addCandidate(username, cand, comm)
+                cand += 1
+                comm = (comm + 1) % 3
+            
+            # Update class sets
+            self.exams.add(exam)
+            self.candidates.update(exam.candidates)
+
+
 
 
 # TBD: Should this be in a util file? Is it needed elsewhere?
@@ -920,6 +1140,7 @@ def main():
     #examcodes = list()
 
     opts, args = getopt.getopt(sys.argv[1:], 'hdc:e:s:y:t:')
+    # TODO: Longopts
     for opt, val in opts:
         if opt in ('-h', '--help'):
             usage(0)
@@ -957,39 +1178,81 @@ def main():
     if not semester:
         semester = 'HØST'
 
-    # FIXME: Params override, debug
-    #dryrun = True
-
     if dryrun:
         logger.info('Dryrun is enabled: No changes will be commited to Cerebrum')
 
-    # TODO: This could be better... 
-    if 'PPU' in ','.join(subjects):
-        logger.debug('Found PPU* in subjects, only processing PPU-exams')
-        ppu_subs = [sub for sub in subjects if 'PPU' in sub]
-        digeks = UVDigeks(ppu_subs, year, timecode=semester)
-    elif 'JUS' in ','.join(subjects):
-        logger.debug('Found JUS* in subjects, only processing JUS-exams')
-        jus_subs = [sub for sub in subjects if 'JUS' in sub]
-        digeks = JUSDigeks(jus_subs, year, timecode=semester)
-    else:
-        logger.error("No valid subjects given, exiting")
-        sys.exit(4)
+    # Candidate processing
+    
+    # Handlers for the different subject codes.
+    handlers = {
+            'UV': {
+                'class': UVDigeks, 
+                'regex': re.compile('^(PPU)[0-9]+$'),
+                'subjects': [],
+                },
+            'JUS': {
+                'class': JUSDigeks,
+                'regex': re.compile('^(JUS|JUR)[0-9]+$'),
+                'subjects': [],
+                },
+            }
 
-    logger.debug('Processing candidates...')
-    digeks.write(examfile, candidatefile)
+    # TEST
+    # Comment out the regular digeks section (if 'PPU', 'JUS', ...), uncomment and fill in the following:
+    # digeks = DigeksTest('<filename>', ('user1', 'user2', '...'))
+    # where <filename> is a file with the same structure as the exams csv file (e.g. a previously exported file)
+    # and   <user1>, <user2>, ... is a list of exiting users to use as candidates.
+    #
+    ## TESTING - UNCOMMENT
+    #handlers = None
+    #digeks = DigeksTest('exams.csv', ('fhl', ))
+    #digeks.write(examfile, candidatefile)
+    #digeks.rollback()
+    ## TESTING
 
-    if dryrun:
-        logger.debug('Dry-run, no changes commited')
-        digeks.rollback()
-    else:
-        digeks.commit()
+    # Distribute subjects
+    for ident, handler in handlers.items():
+        if not handler.get('class'):
+            logger.error("No class for handler '%s', unable to process" % ident)
+            sys.exit(1)
+        if not handler.get('regex'):
+            logger.error("Invalid regex for handler '%s'" % ident)
+            sys.exit(2)
+        for s in subjects:
+            if handler.get('regex').match(s):
+                handler['subjects'].append(s)
+                subjects.remove(s)
+    
+    # Leftover subjects (no handler)?
+    if subjects:
+        logger.error("No handler for subject(s): %s" % str(subjects))
+        sys.exit(3)
 
+    for ident, handler in handlers.items():
+        cls = handler.get('class')
+        subs = handler.get('subjects', [])
+        if not subs:
+            continue
+
+        logger.debug("Using handler %s for subjects: %s" % 
+                (ident, str(handler.get('subjects'))))
+        digeks = cls(subs, year, timecode=semester)
+
+        logger.debug('Processing candidates...')
+        digeks.write(examfile, candidatefile)
+
+        if dryrun:
+            logger.debug('Dry-run, no changes commited')
+            digeks.rollback()
+        else:
+            digeks.commit()
+
+
+    # Close file handlers
     if not examfile is sys.stdout:
         examfile.close()
     if not candidatefile is sys.stdout:
         candidatefile.close()
-
 
 if __name__ == '__main__':
     main()
