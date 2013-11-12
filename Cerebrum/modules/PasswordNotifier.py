@@ -371,16 +371,22 @@ Users with new passwords: %d
                 to_email = account.get_primary_mailaddress()
             except Errors.NotFoundError:
                 try:
-                    # We'll pull out the contact type constant via ContactInfo,
-                    # since ContactInfo is a part of core. If there is no e-mail
-                    # type in ContactInfo, we simply wont get any results from
-                    # the lookup of other email-addresses.
-                    ct = self.constants.ContactInfo('EMAIL')
-                    to_email = account.list_contact_info(entity_id=account.owner_id, contact_type=ct)[0]['contact_value']
+                    # Look for forward addresses in entity_contact_info
+                    to_email = account.list_contact_info(entity_id=account.entity_id, 
+                                                         contact_type=co.contact_email)[0]['contact_value']
                     self.logger.debug("Found email-address for %i in contact info" % account.entity_id)
                 except IndexError:
-                    self.logger.warn("No email-address for %i" % account.entity_id)
-                    return
+                    try:
+                        # We'll pull out the contact type constant via ContactInfo,
+                        # since ContactInfo is a part of core. If there is no e-mail
+                        # type in ContactInfo, we simply wont get any results from
+                        # the lookup of other email-addresses.
+                        ct = self.constants.ContactInfo('EMAIL')
+                        to_email = account.list_contact_info(entity_id=account.owner_id, contact_type=ct)[0]['contact_value']
+                        self.logger.debug("Found email-address for %i in contact info" % account.entity_id)
+                    except IndexError:
+                        self.logger.warn("No email-address for %i" % account.entity_id)
+                        return
             subject = self.mail_info[mail_type]['Subject']
             subject = subject.replace('${USERNAME}', account.account_name)
             body = self.mail_info[mail_type]['Body']
