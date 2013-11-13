@@ -229,16 +229,12 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     # end __get_request
 
 
-    #def __assign_default_user_spreads(self, account):
-        #"""Assign all the default spreads for freshly created users.
-        #"""
-
-        #for spread in getattr(cereconf, "BOFHD_NEW_USER_SPREADS", ()):
-            #tmp = self.const.human2constant(spread, self.const.Spread)
-            #if not account.has_spread(tmp):
-                #account.add_spread(tmp)
-    ## end __assign_default_user_spreads
-            
+    # TODO: Move event processing to Cerebrum.modules.virthome.base
+    # 
+    # NOTE: The return value for __process_<event> has changed. They now return
+    # the event type and relevant values. 
+    # webid.uio.no has been updated to use this info to lookup a text
+    # translation for the event.
 
     def __process_new_account_request(self, issuer_id, event):
         """Perform the necessary magic associated with confirming a freshly
@@ -252,10 +248,11 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         self.vhutils.assign_default_user_spreads(account)
         self.logger.debug("Account %s confirmed", account.account_name)
-        #return "OK, account %s confirmed" % account.account_name
+
+        # action e_account:pending_create
+        # OK, account <username> confirmed
         return {'action': event.get('change_type'),
                 'username': account.account_name, }
-    # end __process_new_account_request
 
 
     def __process_email_change_request(self, issuer_id, event):
@@ -278,11 +275,11 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             if row["tstamp"] < event["tstamp"]:
                 self.db.remove_log_event(row["change_id"])
         
-        #return "OK, e-mail changed, %s -> %s" % (old_address, new_address)
+        # action e_account:pending_email
+        # OK, e-mail changed, <old_email> -> <new_email>
         return {'action': event.get('change_type'),
                 'old_email': old_address,
                 'new_email': new_address,}
-    # end __process_email_change_request
 
 
     def __process_group_invitation_request(self, invitee_id, event):
@@ -320,11 +317,13 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         group.add_member(member.entity_id)
         forward = self.vhutils.get_trait_val(group, self.const.trait_group_forward)
+
+        # action e_group:pending_invitation
+        # User <username> joined <group> (App url: <forward>)
         return {'action': event.get('change_type'),
                 'username': member.account_name,
                 'group': group.group_name, 
                 'forward': forward, }
-    # end __process_group_invitation_request
 
 
     # 19.04.2013 TODO: What happens if multiple invitations are sent out for
@@ -362,16 +361,13 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         self.vhutils.grant_group_auth(new_owner, 'group-owner', group)
         # ... then remove an old one
         self.vhutils.revoke_group_auth(old_owner, 'group-owner', group)
-        #self.__manipulate_group_permissions(group, old_owner, "group-owner",
-                                            #self.__revoke_auth)
-        #return "OK, %s's owner changed (%s -> %s)" % (group.group_name,
-                                                      #old_owner.account_name,
-                                                      #new_owner.account_name)
+
+        # action e_group:pending_owner_change
+        # Ok, <group> owner changed, <old_owner> -> <new_owner>
         return {'action': event.get('change_type'),
                 'group': group.group_name,
                 'old_owner': old_owner.account_name,
                 'new_owner': new_owner.account_name,}
-    # end __process_owner_swap_request
 
 
     def __process_moderator_add_request(self, issuer_id, event):
@@ -396,18 +392,13 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         self.ba.can_moderate_group(new_moderator.entity_id)
 
         self.vhutils.grant_group_auth(new_moderator, 'group-moderator', group)
-        #self.__manipulate_group_permissions(group, new_moderator, 'group-moderator',
-                                            #self.__grant_auth)
 
-        #return "OK, added moderator %s for group %s (at %s's request)" % (
-            #new_moderator.account_name,
-            #group.group_name,
-            #inviter.account_name)
+        # action e_group:pending_moderator_add
+        # Ok, added moderator <invitee> for group <group> (at <inviter>s request)
         return {'action': event.get('change_type'),
                 'group': group.group_name,
                 'inviter': inviter.account_name,
                 'invitee': new_moderator.account_name, }
-    # end __process_moderator_add_request
 
 
     def __process_password_recover_request(self, issuer_id, event, *rest):
@@ -431,9 +422,10 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         self.__check_password(target, new_password)
         target.set_password(new_password)
         target.write_db()
-        #return "OK, password reset"
+
+        # action e_account:password_recover
+        # OK, password reset
         return {'action': event.get('change_type'), }
-    # end __process_password_recover_request
 
 
     def __reset_expire_date(self, issuer_id, event):
@@ -453,9 +445,12 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         target.extend_expire_date()
         target.write_db()
+
+        # TODO: FormatSuggestion?
         #return "OK, reset expire date to %s for %s" % (
             #target.expire_date.strftime("%Y-%m-%d"),
             #target.account_name)
+
         return {'action': event.get('change_type'),
                 'username': target.account_name,
                 'date': target.expire_date.strftime('%Y-%m-%d'), }
@@ -499,21 +494,21 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         # FIXME: we should probably use callable as value, so that event
         # processing can be delegated in a suitable fashion.
         #
-        all_events = {self.const.va_pending_create:
-                          self.__process_new_account_request,
-                      self.const.va_email_change:
-                          self.__process_email_change_request,
-                      self.const.va_group_invitation:
-                          self.__process_group_invitation_request,
-                      self.const.va_group_owner_swap:
-                          self.__process_owner_swap_request,
-                      self.const.va_group_moderator_add:
-                          self.__process_moderator_add_request,
-                      self.const.va_password_recover:
-                          self.__process_password_recover_request,
-                      self.const.va_reset_expire_date:
-                          self.__reset_expire_date,
-        }
+        all_events = {
+                self.const.va_pending_create: 
+                    self.__process_new_account_request, 
+                self.const.va_email_change:
+                    self.__process_email_change_request,
+                self.const.va_group_invitation:
+                    self.__process_group_invitation_request,
+                self.const.va_group_owner_swap:
+                    self.__process_owner_swap_request,
+                self.const.va_group_moderator_add:
+                    self.__process_moderator_add_request,
+                self.const.va_password_recover:
+                    self.__process_password_recover_request,
+                self.const.va_reset_expire_date:
+                    self.__reset_expire_date, }
 
         event = self.__get_request(magic_key)
         # 'event' is a dict where the keys are the column names of the
@@ -535,65 +530,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         delete_event(self.db, magic_key)
 
         return feedback
-    # end __process_request_confirmation
-
-
-    #def __check_account_name_availability(self, account_name):
-        #"""Check that L{account_name} is available in Cerebrum. Names are case
-        #sensitive, but there should not exist two accounts with same name in
-        #lowercase, due to LDAP, so we have to check this too.
-
-        #(The combination if this call and account.write_db() is in no way
-        #atomic, but checking for availability lets us produce more meaningful
-        #error messages in (hopefully) most cases).
-
-        #@return:
-          #True if account_name is available for use, False otherwise.
-        #"""
-
-        ## Does not matter which one.
-        #account = self.virtaccount_class(self.db)
-        #return account.uname_is_available(account_name)
-
-        ## NOTREACHED
-        #assert False
-    ## end __check_account_name_availability
-
-
-    #def __create_account(self, account_type, account_name, email, expire_date,
-                         #human_first_name, human_last_name,
-                         #with_confirmation=True):
-        #"""Create an account of the specified type.
-
-        #This is a convenience function to avoid duplicating some of the work.
-
-        #@param with_confirmation:
-          #Controls whether a confirmation request should be issued for this
-          #account. In some situations it makes no sense to confirm anything.
-        #"""
-
-        #assert issubclass(account_type, (self.fedaccount_class,
-                                         #self.virtaccount_class))
-
-        ## Creation can still fail later, but hopefully this captures most
-        ## situations and produces a sensible account_name.
-        #if not self.vhutils.check_account_name_availability(account_name):
-            #raise CerebrumError("Account '%s' already exists" % account_name)
-
-        #account = account_type(self.db)
-        #account.populate(email, account_name, human_first_name,
-                         #human_last_name, expire_date)
-        #account.write_db()
-
-        #self.vhutils.assign_default_user_spreads(account)
-
-        #magic_key = ""
-        #if with_confirmation:
-            #magic_key = self.vhutils.setup_event_request(account.entity_id,
-                                                         #self.const.va_pending_create)
-
-        #return account, magic_key
-    ## end __create_account
 
 
     def __check_password(self, account, password, uname=None):
@@ -686,9 +622,12 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             raise CerebrumError("A VirtAccount must have a password")
 
         # Create account without confirmation
-        account, junk = self.vhutils.create_account(
-                self.virtaccount_class, account_name, email, expire_date,
-                human_first_name, human_last_name, False)
+        try:
+            account, junk = self.vhutils.create_account(
+                    self.virtaccount_class, account_name, email, expire_date,
+                    human_first_name, human_last_name, False)
+        except Errors.CerebrumError, e:
+            raise CerebrumError(str(e)) # bofhd CerebrumError
         account.set_password(password)
         account.write_db()
 
@@ -875,8 +814,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         """Perform a UNIX-like su, reassociating operator's session to
         target_account.
         """
-
-        #
         # The problem here is that we must be able to re-assign session_id in
         # bofhd server from this command. self.server points to a
         # BofhdServerImplementation subclass that keeps track of sessions and
@@ -1252,8 +1189,12 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             if regex.match(group_name):
                 raise CerebrumError("Illegal group name %s", group_name)
 
-        new = self.virthome.group_create(group_name, description,
-                                         operator_acc, owner_acc, url)
+        try:
+            new = self.virthome.group_create(group_name, description,
+                    operator_acc, owner_acc, url)
+        except Errors.CerebrumError, e:
+            raise CerebrumError(str(e)) # bofhd CerebrumError
+
         return {'group_id': new.entity_id}
 
 
@@ -1316,24 +1257,19 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     def user_list_memberships(self, operator):
         """List all groups where operator is a member.
         """
+        account = self.Account_class(self.db)
+        account.find(operator.get_entity_id())
 
-        group = self.Group_class(self.db)
+        # TODO/TBD: Should we use ONLY realms to filter groups?
         result = list()
         reserved = [re.compile(expr) for expr in cereconf.RESERVED_GROUPS]
 
-        for row in group.search(member_id=operator.get_entity_id()):
-            tmp = row.dict()
-            tmp["url"] = self._get_group_resource(tmp["group_id"])
-
-            # Check that the group name is not reserved, and should not appear
-            # in a membership listing.
-            # This may belong in the UI, and not here?
+        for group in self.vhutils.list_group_memberships(account, realm=cereconf.VIRTHOME_REALM):
             for regex in reserved:
-                if not regex.match(tmp["name"]):
-                    result.append(tmp)
+                if not regex.match(group['name']):
+                    result.append(group)
                 else:
-                    self.logger.debug("Group '%s' reserved, not listed" % tmp["name"])
-
+                    self.logger.debug("Group '%s' reserved, not listed" % group['name'])
         return result
     # end user_list_memberships
 
@@ -1494,8 +1430,11 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         # If you can't add members, you can't invite...
         self.ba.can_add_to_group(operator.get_entity_id(), group.entity_id)
 
-        return self.virthome.group_invite_user(operator_acc, group, email,
-                                               timeout)
+        try:
+            return self.virthome.group_invite_user(operator_acc, group, email,
+                                                   timeout)
+        except Errors.CerebrumError, e:
+            raise CerebrumError(str(e)) # bofhd CerebrumError
 
 
     all_commands["group_info"] = Command(
@@ -1645,10 +1584,17 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         else:
             raise CerebrumError("A VirtAccount must have a password")
 
+        if not self.vhutils.has_realm(account_name, cereconf.VIRTHOME_REALM):
+            raise CerebrumError("Illegal realm for '%s' (required: %s)" % (
+                account_name, cereconf.VIRTHOME_REALM))
+
         account = self.virtaccount_class(self.db)
-        account, confirmation_key = self.vhutils.create_account(
-                self.virtaccount_class, account_name, email, expire_date,
-                human_first_name, human_last_name)
+        try:
+            account, confirmation_key = self.vhutils.create_account(
+                    self.virtaccount_class, account_name, email, expire_date,
+                    human_first_name, human_last_name)
+        except Errors.CerebrumError, e:
+            raise CerebrumError(str(e)) # bofhd CerebrumError
         account.set_password(password)
         account.write_db()
 

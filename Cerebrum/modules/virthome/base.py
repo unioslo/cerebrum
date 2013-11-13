@@ -197,7 +197,8 @@ class VirthomeBase:
             group.delete_spread(row["spread"])
 
         # Remove all members
-        for membership in group.search_members(group_id=group.entity_id):
+        for membership in group.search_members(group_id=group.entity_id,
+                                               member_filter_expired=False):
             group.remove_member(membership["member_id"])
 
         group.write_db()
@@ -285,10 +286,24 @@ class VirthomeUtils:
         return result
         
 
-    def list_group_memberships(self, account, indirect_members=False):
-        """
-        ['group_id', 'name', 'description', 'visibility', 'creator_id',
-        'create_date', 'expire_date'] 
+    def list_group_memberships(self, account, indirect_members=False, realm=None):
+        """ This method lists groups that an account is member of.
+
+        @type account: Cerebrum.Account
+        @param account: The account we're looking up memberships for
+
+        @type indirect_members: bool
+        @param indirect_members: Whether indirect members
+
+        @type realm: str or NoneType
+        @param realm: Filter groups by realm. A realm of 'webid.uio.no' will
+                      only return groups on the format '*@webid.uio.no'. No
+                      filtering for empty string or None.
+
+        @rtype: list 
+        @return: A list with dictionaries, one dict per group membership.
+                 Contain keys 'group_id', 'name', 'description', 'visibility',
+                 'creator_id', 'create_date', 'expire_date'
         """
         gr = self.group_class(self.db)
         assert hasattr(account, 'entity_id')
@@ -296,14 +311,18 @@ class VirthomeUtils:
         result = list()
         for group in gr.search(member_id=account.entity_id, 
                                indirect_members=indirect_members):
+            if realm and not self.in_realm(group['name'], realm):
+                continue
             gr.clear()
             gr.find(group['group_id'])
             tmp = group.dict()
-            tmp['url'] = gr.get_contact_info(self.co.virthome_group_url)
+            # Fetch url
+            resource = gr.get_contact_info(self.co.system_virthome,
+                                           self.co.virthome_group_url)
+            if resource:
+                tmp['url'] = resource[0]['contact_value']
             result.append(tmp)
-
         return result
-
 
 
     def get_trait_val(self, entity, trait_const, val='strval'):
@@ -769,3 +788,50 @@ class VirthomeUtils:
         
         return tmp
 
+
+    # Realm-related functions
+
+    def in_realm(self, name, realm, strict=True):
+        """ Simple test - is the given L{name} in the realm L{realm}
+
+        @type name: str
+        @param name: The name (account name group name)
+
+        @type realm: str
+        @param realm: The realm, e.g. 'webid.uio.no'
+
+        @type strict: bool
+        @param strict: If false, we consider 'some.sub.realm' as being in the realm
+                      'realm'. Otherwise, the realm must be an exact match.
+
+        @rtype: bool
+        @return: True if the name is within the realm, false if not.
+        """
+        assert isinstance(name, str), 'Invalid name'
+        assert not self.illegal_realm(realm), 'Invalid realm'
+
+        # We know the realm only contains :alnum: and periods. Should be safe to do:
+        regex_realm = realm.replace('.', '\.')
+        regex = re.compile('^(.+)@((.+\.)?%s)$' % regex_realm)
+        # Groups: 1: <name>, 2: <matched realm> (3: <subrealm.>)
+        
+        match = regex.match(name)
+        if not match:
+            return False
+        assert isinstance(match.group(1), str)
+        assert isinstance(match.group(2), str)
+
+        if not strict:
+            return not self.illegal_realm(match.group(2))
+
+        return match.group(2) == realm
+
+    def illegal_realm(self, realm):
+        """ Simple test to see if a realm is an acceptable realm name
+        
+        @rtype: bool
+        @return: If the given realm name is an illegal realm name
+        """
+        assert isinstance(realm, str)
+        legal = re.compile('^[0-9a-z]+(\.[0-9a-z]+)*$')
+        return not bool(legal.match(realm))
