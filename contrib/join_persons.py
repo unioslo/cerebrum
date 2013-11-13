@@ -104,11 +104,11 @@ def person_join(old_person, new_person, with_uio_pq, with_uia_pq,
         for ci in old_person.get_contact_info(ss):
             new_person.populate_contact_info(
                 ci['source_system'], ci['contact_type'], ci['contact_value'],
-                ci['contact_pref'], ci['description'])
+                ci['contact_pref'], ci['description'], ci['contact_alias'])
         for ci in new_person.get_contact_info(ss):
             new_person.populate_contact_info(
                 ci['source_system'], ci['contact_type'], ci['contact_value'],
-                ci['contact_pref'], ci['description'])
+                ci['contact_pref'], ci['description'], ci['contact_alias'])
         new_person.write_db()
 
     # entity_address
