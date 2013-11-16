@@ -267,17 +267,35 @@ class TSDBofhdExtension(BofhdCommonMethods):
         return self._get_project(stedkode)
 
     def _format_ou_name(self, ou, include_short_name=True):
-        """Return a human readable name for a given OU."""
-        acronym = ou.get_name_with_language(
-            name_variant=self.const.ou_name_acronym,
-            name_language=self.const.language_en)
+        """Return a human readable name for a given OU (project).
+
+        We have project ID, which is used internally, and projectname, that is
+        used externally in Nettskjema. Example on output:
+
+                p25
+                p01 (tsd)
+                p14 (cancer2)
+                p02 (<Not Set>)
+
+        @type ou: OU
+        @param ou: The given OU (project) to return the name for.
+
+        @type include_short_name: bool
+        @param include_short_name: If a short name of the OU should be returned
+            as well. If False, only the project ID is returned.
+
+        @rtype: string
+        @return: The human readable string that identifies the OU.
+
+        """
+        if not include_short_name:
+            return ou.get_project_id()
+        name = '<Not Set>'
         try:
-            short_name = ou.get_name_with_language(
-                name_variant=self.const.ou_name_short,
-                name_language=self.const.language_en)
-        except Errors.NotFoundError:
-            return str(acronym)
-        return "%s (%s)" % (acronym, short_name)
+            name = ou.get_project_name()
+        except Errors.CerebrumError, e:
+            self.logger.warn("get_project_name failed: %s", e)
+        return "%s (%s)" % (ou.get_project_id(), name)
 
     # misc list_passwords
     def misc_list_passwords_prompt_func(self, session, *args):
