@@ -763,7 +763,7 @@ Example:
             policy.find(row['policy_id'])
             ret.append({'policy_name': row['policy_name'], 
                         'desc': policy.description})
-        return ret
+        return sorted(ret, key=lambda r: r['policy_name'])
 
     all_commands['policy_list_hosts'] = Command(
             ('policy', 'list_hosts'),
@@ -837,8 +837,8 @@ Example:
                 if subs:
                     ret.append({'host_or_policy': '%s%s' % (inc, row['source_name'])})
                     ret.extend(subs)
-            return ret
-        return _get_hosts(comp.entity_id)
+            return sorted(ret)
+        return sorted(_get_hosts(comp.entity_id))
 
     all_commands['policy_has_member'] = Command(
             ('policy', 'has_member'),
@@ -921,7 +921,7 @@ Example:
                                foundation_end = date_end,
                                foundation=filters['foundation']):
             ret.append({'name': row['name'], 'desc': row['description']})
-        return ret
+        return sorted(ret, key=lambda r: r['name'])
 
     all_commands['policy_list_roles'] = Command(
             ('policy', 'list_roles'),
@@ -958,7 +958,7 @@ Example:
                                foundation_end = date_end,
                                foundation=filters['foundation']):
             ret.append({'name': row['name'], 'desc': row['description']})
-        return ret
+        return sorted(ret, key=lambda r: r['name'])
 
     all_commands['policy_info'] = Command(
             ('policy', 'info'),
