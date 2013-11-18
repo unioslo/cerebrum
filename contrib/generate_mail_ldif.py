@@ -237,7 +237,7 @@ def write_ldif():
                 try:
                     addrs = ldap.read_multi_target(ei)
                 except ValueError:
-                    logger.exception("Target id=%s (type %s)", t, tt)
+                    logger.warn("Target id=%s (type %s)", t, tt)
                     continue
                 for addr in addrs:
                     rest += "forwardDestination: %s\n" % addr
