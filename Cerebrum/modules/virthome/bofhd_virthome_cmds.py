@@ -421,6 +421,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         new_password = rest[0]
         self.__check_password(target, new_password)
         target.set_password(new_password)
+        target.extend_expire_date()
         target.write_db()
 
         # action e_account:password_recover
@@ -1584,7 +1585,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         else:
             raise CerebrumError("A VirtAccount must have a password")
 
-        if not self.vhutils.has_realm(account_name, cereconf.VIRTHOME_REALM):
+        if not self.vhutils.in_realm(account_name, cereconf.VIRTHOME_REALM):
             raise CerebrumError("Illegal realm for '%s' (required: %s)" % (
                 account_name, cereconf.VIRTHOME_REALM))
 
