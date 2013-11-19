@@ -373,7 +373,7 @@ Users with new passwords: %d
                 try:
                     # Look for forward addresses in entity_contact_info
                     to_email = account.list_contact_info(entity_id=account.entity_id, 
-                                                         contact_type=co.contact_email)[0]['contact_value']
+                                                         contact_type=self.constants.contact_email)[0]['contact_value']
                     self.logger.debug("Found email-address for %i in contact info" % account.entity_id)
                 except IndexError:
                     try:
