@@ -204,9 +204,9 @@ class EntityTrait(Entity):
             return None
         return traits.get(_EntityTraitCode(trait))
 
-    def list_traits(self, code=NotSet, target_id=NotSet, date=NotSet,
-                    numval=NotSet, strval=NotSet, strval_like=NotSet,
-                    return_name=False, fetchall=False):
+    def list_traits(self, code=NotSet, target_id=NotSet, entity_id=NotSet,
+                    date=NotSet, numval=NotSet, strval=NotSet, 
+                    strval_like=NotSet, return_name=False, fetchall=False):
         """Returns all the occurences of specified trait(s), optionally
         filtered on values.
 
@@ -234,8 +234,12 @@ class EntityTrait(Entity):
         @type target_id:
           1) NotSet OR 2) int/long or a sequence thereof.
         @param target_id:
-          Filter the result by specific target_id(s) with which traits are
-          associated.
+          Filter the result by specific target_id(s) associated with the trait.
+
+        @type entity_id
+          1) NotSet OR 2) int/long or a sequence thereof.
+        @param entity_id
+          Filter the result by specific entity_id(s) associated with the trait.
 
         @type date:
           1) NotSet OR 2) an mx.DateTime object.
@@ -306,6 +310,7 @@ class EntityTrait(Entity):
         conditions = []
         code = add_cond("code", code, normalise=int)
 
+        add_cond("entity_id", entity_id, normalise=int)
         add_cond("target_id", target_id, normalise=int)
         add_cond("date", date)
         numval = add_cond("numval", numval, normalise=int)
