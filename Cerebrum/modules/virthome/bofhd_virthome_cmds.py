@@ -890,6 +890,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                             "E-mail:        %s\n"
                             "First name:    %s\n"
                             "Last name:     %s\n"
+                            "Account type:  %s\n"
                             "Spreads:       %s\n"
                             "Traits:        %s\n"
                             "Expire:        %s\n"
@@ -904,6 +905,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                 "email_address",
                 "first_name",
                 "last_name",
+                "np_type",
                 "spread",
                 "trait",
                 "expire",
@@ -943,6 +945,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                                                     self.const.human_first_name),
                   "last_name": self._get_owner_name(account,
                                                     self.const.human_last_name),
+                  "np_type": str(self.const.Account(account.np_type)),
                   "spread":  self._get_entity_spreads(account.entity_id)
                              or "<not set>",
                   "trait": list(str(self.const.EntityTrait(x).description)
