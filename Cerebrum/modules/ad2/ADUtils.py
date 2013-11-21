@@ -152,10 +152,13 @@ class ADclient(PowershellClient):
 
         # Note that we save the user's password by domain and not the host. It
         # _could_ be the wrong way to do it. TBD: Maybe both host and domain?
-        ad_user, domain = self._split_domain_username(domain_admin)
-        self.logger.debug2("Using domain account: %s/%s", domain, ad_user)
-        self.ad_account_password = unicode(read_password(ad_user, domain),
-                                           'utf-8')
+        if domain_admin:
+            ad_user, domain = self._split_domain_username(domain_admin)
+            self.logger.debug2("Using domain account: %s/%s", domain, ad_user)
+            self.ad_account_password = unicode(read_password(ad_user, domain),
+                                               'utf-8')
+        else:
+            self.logger.debug2("Not using a domain account")
         self.dryrun = dryrun
         self.db = Factory.get('Database')()
         self.co = Factory.get('Constants')(self.db)
@@ -329,7 +332,7 @@ class ADclient(PowershellClient):
     _pre_execution_code = u"""
         $pass = ConvertTo-SecureString -Force -AsPlainText %(ad_pasw)s
         $cred = New-Object System.Management.Automation.PSCredential(%(ad_user)s, $pass)
-        Import-Module ActiveDirectory 2> $null > $null"""
+        Import-Module ActiveDirectory"""
 
     def execute(self, *args, **kwargs):
         """Override the execute command with all the startup commands for AD.
@@ -406,8 +409,8 @@ class ADclient(PowershellClient):
         params = {'Filter': '*',
                   'SearchBase': ou,
                   'Properties': attributes.keys()}
-        command = """if ($str = %s | ConvertTo-Csv) {
-            $str -replace '$',';' }""" % self._generate_ad_command(cmd, params)
+        command = ("if ($str = %s | ConvertTo-Csv) { $str -replace '$',';' }"
+                   % self._generate_ad_command(cmd, params))
         return self.execute(command)
 
     def get_list_objects(self, commandid, other=None):
