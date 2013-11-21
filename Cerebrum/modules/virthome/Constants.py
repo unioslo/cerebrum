@@ -104,7 +104,10 @@ class VirtHomeMiscConstants(Constants):
     trait_user_retained = EntityTrait("user_retained",
                                       Constants.entity_account,
                                       "Account have been retained from LDAP export.")
+
+    trait_user_notified = EntityTrait("user_notified",
+                                      Constants.entity_account,
+                                      """Account owner have been emailed (about
+                                      LDAP export) """)
 # end VirtHomeMiscConstants
-
-
 
