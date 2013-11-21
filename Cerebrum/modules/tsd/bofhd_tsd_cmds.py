@@ -648,11 +648,9 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ou.write_db()
 
         # Storing start date
-        if start > DateTime.now():
-            ou.add_entity_quarantine(type=self.const.quarantine_project_start,
-                                     creator=operator.get_entity_id(), start=DateTime.now(),
-                                     end=start, description='Initial start set by superuser')
-            ou.write_db()
+        ou.add_entity_quarantine(type=self.const.quarantine_project_start,
+                                 creator=operator.get_entity_id(), start=DateTime.now(),
+                                 end=start, description='Initial start set by superuser')
         # Storing end date
         ou.add_entity_quarantine(type=self.const.quarantine_project_end,
                                  creator=operator.get_entity_id(), start=end,
