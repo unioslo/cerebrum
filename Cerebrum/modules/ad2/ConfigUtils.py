@@ -39,6 +39,14 @@ class ConfigError(Exception):
     """Exception for configuration errors."""
     pass
 
+# TODO: Add classes(?) for setting what default values should be, e.g. "NotSet"
+# (elns) for telling that the given attribute should not be overridden in AD if
+# this value occurs. This could e.g. be for avoiding to set attributes that
+# should only be set for given objects, while all the other objects should keep
+# their original value, administrered by the AD administrators - Not sure if we
+# should allow this, though - why not set attributes for all entities through
+# bofh?
+
 class AttrConfig(object):
     """Configuration settings for an AD attribute.
 
@@ -271,6 +279,28 @@ class TraitAttr(AttrConfig):
         """
         super(TraitAttr, self).__init__(*args, **kwargs)
         self.traitcodes = self._prepare_constants(traitcodes, const.EntityTrait)
+
+class CallbackAttr(AttrConfig):
+    """A special attribute, using callbacks with the entity as the argument.
+
+    This class should normally not be used, as it requires internal knowledge of
+    how the entity object works, and it will also make the adconf a bit more
+    complex. Use this only if no other alternative is possible. The plus side of
+    this, is that we don't have to create subclasses for every single weird
+    attribute that is needed.
+
+    """
+    def __init__(self, callback, *args, **kwargs):
+        """Initiate a config for a callback attribute.
+
+        @type callback: callable
+        @param callback: The callable to run for each entity.
+
+        """
+        if not callable(callback):
+            raise ConfigError("Argument is not callable: %s" % callback)
+        super(CallbackAttr, self).__init__(*args, **kwargs)
+        self.callback = callback
 
 # TODO: Need to figure out how to implement different config classes for various
 # settings that is not related to Cerebrum constants. Should we create one class

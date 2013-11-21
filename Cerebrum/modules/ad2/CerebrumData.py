@@ -202,6 +202,8 @@ class CerebrumEntity(object):
                                  'ad_id': self.ad_id,
                                  'ou': self.ou},
                             transform=False)
+                    # TBD: or should transform be set for default values too?
+                    # What is needed?
                 else:
                     self.set_attribute(atrname, config.default, transform=False)
 
@@ -306,6 +308,9 @@ class CerebrumEntity(object):
             # Email Quota
             if self.maildata.has_key('quota'):
                 return self.maildata['quota']
+        elif isinstance(config, ConfigUtils.CallbackAttr):
+            # A callback for an attribute
+            return config.callback(self)
         raise AttrNotFound('No attribute found after attr config')
 
     def set_attribute(self, key, value, force=False, transform=True):
