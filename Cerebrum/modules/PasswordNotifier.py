@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright 2004-2009 University of Oslo, Norway
+# 
+# Copyright 2004-2009,2013 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,6 +18,33 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""Module for handling notifications of passwords that are running out of date.
+
+Institutions could have security related policies in that passwords must be
+changed after a given number of days.
+
+The module makes use of traits for saving the state for targetet accounts. This
+module:
+
+1. Finds accounts that have passwords that is reaching its time limit. Expired
+   and quarantined accounts are ignored, as well as accounts with an except
+   trait.
+
+2. Removes the password trait for accounts that have already changed their
+   password.
+
+3. Quarantines accounts for where the deadline has passed.
+
+4. Sends accounts an e-mail, saying that they have to change their password, if
+   the password trait has not already been set. The password trait gets set for
+   logging this, with numval 1.
+
+5. Sends accounts another e-mail when closer to the deadline, if the password
+   trait has not already been set to 2. The trait's numval gets incremented.
+
+A trait is used for excepting specific users from being processed.
+
+"""
 
 import time, mx.DateTime as dt
 import locale
