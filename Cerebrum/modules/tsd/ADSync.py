@@ -172,7 +172,7 @@ class UserSync(ADSync.UserSync, TSDUtils):
             ent.ou = 'OU=users,OU=%s,%s' % (pid, self.config['target_ou'])
             self.entities[uname] = ent
 
-class GroupSync(ADSync.GroupSync, TSDUtils):
+class GroupSync(ADSync.PosixGroupSync, TSDUtils):
     """TSD's sync of file groups."""
 
     def fetch_cerebrum_data(self):
@@ -204,7 +204,7 @@ class GroupSync(ADSync.GroupSync, TSDUtils):
             ent.ou = 'OU=filegroups,OU=%s,%s' % (pid, self.config['target_ou'])
             self.entities[gname] = ent
 
-class NetGroupSync(GroupSync):
+class NetGroupSync(GroupSync, TSDUtils):
     """TSD's sync of net groups."""
 
     def fetch_cerebrum_entities(self):
@@ -259,13 +259,14 @@ class HostSync(ADSync.HostSync, TSDUtils):
 
         # This is a slow process, so can't be used for too many hosts. Would
         # then have to cache the mapping from ip to subnet.
-        self.logger.debug("Fetching VLAN numbers")
+        self.logger.debug("Fetching IP addresses")
         i = 0
         for row in self.ar.list_ext():
             try:
                 ent = self.owner2entity[row['dns_owner_id']]
             except KeyError:
                 continue
+            ent.ipaddresses.add(row['a_ip'])
             self.subnet.clear()
             try:
                 self.subnet.find(row['a_ip'])
@@ -273,6 +274,7 @@ class HostSync(ADSync.HostSync, TSDUtils):
                 self.logger.info("No found subnet %s IP: %s" % (row['name'],
                                                                 row['aaaa_ip']))
                 continue
+            ent.ipaddresses.add(row['a_ip'])
             ent.vlans.add(self.subnet.vlan_number)
             i += 1
         for row in self.aaaar.list_ext():
@@ -280,6 +282,7 @@ class HostSync(ADSync.HostSync, TSDUtils):
                 ent = self.owner2entity[row['dns_owner_id']]
             except KeyError:
                 continue
+            ent.ipaddresses.add(row['aaaa_ip'])
             self.subnet6.clear()
             try:
                 self.subnet6.find(row['aaaa_ip'])
@@ -321,12 +324,13 @@ class HostSync(ADSync.HostSync, TSDUtils):
             try:
                 self.entities[name] = self.cache_entity(row["host_id"],
                                         name, row['dns_owner_id'],
-                                        host2pid[row['dns_owner_id']])
+                                        host2pid[row['dns_owner_id']],
+                                        row['name'])
             except Errors.CerebrumError, e:
                 self.logger.warn("Could not cache %s: %s" % (name, e))
                 continue
 
-    def cache_entity(self, entity_id, entity_name, dns_owner_id, pid):
+    def cache_entity(self, entity_id, entity_name, dns_owner_id, pid, fqdn):
         """Cache a DNS entity."""
         # TODO: subclass CerebrumEntity for hosts?
         ent = self._object_class(self.logger, self.config, entity_id,
@@ -334,24 +338,26 @@ class HostSync(ADSync.HostSync, TSDUtils):
         ent.dns_owner_id = dns_owner_id
         ent.ou = 'OU=hosts,OU=resources,OU=%s,%s' % (pid,
                                                      self.config['target_ou'])
+        ent.fqdn = fqdn
         return ent
 
 class HostEntity(CerebrumEntity):
     """A TSD host"""
     def __init__(self, *args, **kwargs):
         super(HostEntity, self).__init__(*args, **kwargs)
+        self.ipaddresses = set()
+        self.fqdn = None
         self.vlans = set()
+        self.vlan = None
 
     def calculate_ad_values(self):
         """Overriden to add TSD specific values."""
         super(HostEntity, self).calculate_ad_values()
+        # Policy check, should only be in one single VLAN:
         if len(self.vlans) > 1:
             self.logger.warn("Host %s in more than one VLAN: %s" %
                              (self.ad_id, ', '.join(self.vlans)))
             return
-        if self.vlans:
-            vlan = iter(self.vlans).next()
-            self.set_attribute('Network', vlan)
 
 class HostpolicySync(ADSync.GroupSync, TSDUtils):
     """Class for syncing all hostpolicy components to AD.

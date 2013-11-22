@@ -272,7 +272,7 @@ class BaseSync(object):
             ('deactivate, None) # Deactivate object. This is the default.
             ('move', OU)        # Deactivate object and move to a given OU.
             ('delete', None)    # Delete the object. Can't be restored.
-            # TODO: more alternatives?
+            ('ignore', None)    # Do not do anything with these objects.
 
         - move_objects (bool): If objects in the wrong OU should be moved to the
           target_ou, or being left where it is. Other attributes are still
@@ -699,6 +699,8 @@ class BaseSync(object):
         if not self.config['target_type']:
             # Don't know what spreads to fetch if we don't know the entity type.
             return
+        # TODO: Need to check what spreads we really need - slow to fetch all
+        # spreads for an entity type...
         i = 0
         es = Entity.EntitySpread(self.db)
         for row in es.list_entity_spreads(self.config['target_type']):
@@ -2742,6 +2744,31 @@ class PosixUserSync(UserSync):
         self.logger.debug("Number of POSIX users: %d",
                           len(filter(lambda x: len(x.posix) > 0,
                               self.entities.itervalues())))
+
+class PosixGroupSync(GroupSync):
+    """Extra sync functionality for getting posix data about groups.
+
+    It is possible to sync posix data, like GID, with AD, for instance for
+    environments that should support both environments where both UNIX and AD is
+    used. Note, however, that AD needs to include an extra schema before the
+    posix attributes could be populated.
+
+    """
+    def __init__(self, *args, **kwargs):
+        """Instantiate posix specific functionality."""
+        super(PosixGroupSync, self).__init__(*args, **kwargs)
+        self.pg = Factory.get('PosixGroup')(self.db)
+
+    def fetch_cerebrum_data(self):
+        """Fetch the posix data from Cerebrum."""
+        super(PosixGroupSync, self).fetch_cerebrum_data()
+        i = 0
+        for row in self.pg.list_posix_groups():
+            ent = self.id2entity.get(row['group_id'], None)
+            if ent:
+                ent.posix_gid = int(row['posix_gid']) or ''
+                i += 1
+        self.logger.debug("Number of GIDs found: %d", i)
 
 class MailTargetSync(BaseSync):
     """Extra sync functionality for getting MailTarget data.
