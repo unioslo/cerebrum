@@ -301,6 +301,8 @@ class ADclient(PowershellClient):
                                                   timeout_retries)
         except ExitCodeException, e:
             code, stderr, output = e.exitcode, e.stderr, e.output
+            self.logger.debug3("ExitCodeException: %s: %s (%s)" % (code, stderr,
+                                                                   output))
             if not stderr:
                 # TBD: raise powershell-exception or exitcodeexception? Is it
                 # possible to separate those exceptions from each other?
@@ -330,9 +332,10 @@ class ADclient(PowershellClient):
     # up the environment properly, for our use. Note that it requires some input
     # arguments to be valid powershell code.
     _pre_execution_code = u"""
-        $pass = ConvertTo-SecureString -Force -AsPlainText %(ad_pasw)s
-        $cred = New-Object System.Management.Automation.PSCredential(%(ad_user)s, $pass)
-        Import-Module ActiveDirectory"""
+        $pass = ConvertTo-SecureString -Force -AsPlainText %(ad_pasw)s;
+        $cred = New-Object System.Management.Automation.PSCredential(%(ad_user)s, $pass);
+        Import-Module ActiveDirectory;
+        """
 
     def execute(self, *args, **kwargs):
         """Override the execute command with all the startup commands for AD.
