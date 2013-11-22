@@ -1185,10 +1185,10 @@ class BaseSync(object):
             obj = self.create_object(ent)
             ent.ad_new = True
         except ADUtils.OUUnknownException, e:
-            self.logger.info("OU was not found: %s", self.config['target_ou'])
+            self.logger.info("OU was not found: %s", ent.ou)
             if not self.config['create_ous']:
                 raise e
-            ou_name, path = self.config['target_ou'].split(',', 1)
+            ou_name, path = ent.ou.split(',', 1)
             # TODO: we should probably have helper method for getting data out
             # of paths and OUs
             ou_name = ou_name.replace('OU=', '')
