@@ -353,12 +353,10 @@ class VoipClient(EntityAuthentication, EntityTrait):
 
         # So, a few things we need to cache
         const2str = dict()
-        for cnst in self.const.fetch_constants(self.const.VoipClientTypeCode):
-            assert int(cnst) not in const2str
-            const2str[int(cnst)] = str(cnst)
-        for cnst in self.const.fetch_constants(self.const.VoipClientInfoCode):
-            assert int(cnst) not in const2str
-            const2str[int(cnst)] = str(cnst)
+        for i in ('Quarantine','VoipClientInfoCode','VoipClientTypeCode'):
+            for cnst in self.const.fetch_constants(getattr(self.const,i)):
+                assert int(cnst) not in const2str
+                const2str[int(cnst)] = str(cnst)
 
         # entity_id -> {<auth type>: <auth_data>}
         client2auth = dict()
@@ -381,16 +379,18 @@ class VoipClient(EntityAuthentication, EntityTrait):
         for row in account.list_entity_quarantines(entity_types=self.const.entity_account,
                                                    only_active=True,
                                                    entity_ids=aid2owner.keys()):
-             aid2quarantine[row["entity_id"]] = "quarantined"
+             aid2quarantine[row["entity_id"]] = "quarantined,%s,%s" % \
+                                                (const2str[row['quarantine_type']],
+                                                 row['description'])
 
         # Make a owner2quarantine, to block hardphone is if primary users is blocked
-        owner2quarantine = list()
+        owner2quarantine = dict()
         for aid in aid2quarantine:
             # Of course some users have missing affiliations, thus no primaryid.
             # Check if they at least have less than two accounts, then the aid
             # is the primaryid.
             if aid in primary2pid or len(owner2uname[aid2owner[aid]]) < 2:
-                owner2quarantine.append(aid2owner[aid])
+                owner2quarantine[aid2owner[aid]] = aid2quarantine[aid]
         
         # uname -> HA1 hashes, only for softphone for Account users aka persons.
         uname2ha1 = dict()
@@ -428,7 +428,7 @@ class VoipClient(EntityAuthentication, EntityTrait):
             if row["owner_entity_type"] == self.const.entity_person:
               # Block if primary user is quarantined
               if owner_id in owner2quarantine:
-                entry["sipEnabled"] = "quarantined"
+                entry["sipEnabled"] = owner2quarantine[owner_id]
               # Block if the person has no valid account
               elif not owner2uname[owner_id]:
                 entry["sipEnabled"] = "noaccount"
