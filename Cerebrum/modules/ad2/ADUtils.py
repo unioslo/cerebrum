@@ -672,10 +672,6 @@ class ADclient(PowershellClient):
         self.logger.info("Moving %s to OU: %s", ad_id, ou)
         cmd = self._generate_ad_command('Move-ADObject', {'Identity': ad_id,
                                                           'TargetPath': ou})
-        #cmd = """
-        #    Move-ADObject -Credential $cred -Identity %(ad_id)s -TargetPath %(ou)s
-        #    """ % {'ad_id': self.escape_to_string(ad_id),
-        #           'ou': self.escape_to_string(ou)}
         if self.dryrun:
             return True
         out = self.run(cmd)
@@ -868,10 +864,6 @@ class ADclient(PowershellClient):
                                         {'Identity': groupid,
                                          'Member': members},
                                         'Confirm:$false')
-        #cmd = """
-        #    Add-ADGroupMember -Credential $cred -Identity %(groupid)s -Confirm:$false -Member @(%(members)s)
-        #    """ % {'groupid': self.escape_to_string(groupid),
-        #           'members': members}
         if self.dryrun:
             return True
         output = self.run(cmd)
@@ -904,10 +896,6 @@ class ADclient(PowershellClient):
                                         {'Identity': groupid,
                                          'Member': members},
                                         ['Confirm:$false'])
-        #cmd = """
-        #    Remove-ADGroupMember -Credential $cred -Identity %(groupid)s -Confirm:$false -Member @(%(members)s)
-        #    """ % {'groupid': self.escape_to_string(groupid),
-        #           'members': self.escape_to_string(members)}
         if self.dryrun:
             return True
         output = self.run(cmd)
@@ -944,8 +932,8 @@ class ADclient(PowershellClient):
 
         """
         self.logger.info('Setting password for: %s', ad_id)
-        cmd = '''$pwd = ConvertTo-SecureString -AsPlainText -Force %(pwd)s
-            %(cmd)s -NewPassword $pwd
+        cmd = '''$pwd = ConvertTo-SecureString -AsPlainText -Force %(pwd)s;
+            %(cmd)s -NewPassword $pwd;
         ''' % {'pwd': self.escape_to_string(password),
                'cmd': self._generate_ad_command('Set-ADAccountPassword',
                                                 {'Identity': ad_id}, ['Reset'])}
@@ -1088,32 +1076,6 @@ class ADUtils(object):
         else:
             self.run_cmd('run_UpdateRecipient', ad_obj)
 
-    def commit_changes(self, dn, **changes):
-        """
-        Set attributes for account
-
-        @param dn: AD attribute distinguishedName 
-        @type dn: str
-        @param changes: attributes that should be changed in AD
-        @type changes: dict (keyword args)
-        """
-        if self.dryrun:
-            self.logger.debug("DRYRUN: Not setting attributes for %s: %s" %
-                              (dn, changes))
-            return
-        
-        if self.run_cmd('bindObject', dn):
-            # Set attributes in AD
-            # Check that no values in changes == None.
-            # That is an error and shouldn't be sent
-            for k, v in changes.iteritems():
-                if v is None:
-                    del changes[k]
-            self.logger.info("Setting attributes for %s: %s" % (dn, changes))
-            if changes:
-                self.run_cmd('putProperties', changes)
-                self.run_cmd('setObject')
-
     def attr_cmp(self, cb_attr, ad_attr):
         """
         Compare new (attribute calculated from Cerebrum data) and old
@@ -1149,113 +1111,6 @@ class ADUtils(object):
         else:
             if cb_attr != ad_attr:
                 return cb_attr
-
-    def run_cmd(self, command, *args):
-        """
-        Run the given command with arguments on th AD service
-
-        @param command: command to run via rpc on AD server
-        @type command: str
-        @param args: args to command
-        @type args: tuple 
-        """
-        cmd = getattr(self.server, command)
-        try:
-            self.logger.debug3("Running cmd: %s%s", command, str(args))
-            ret = cmd(*args)                
-        except xmlrpclib.ProtocolError, xpe:
-            self.logger.critical("Error connecting to AD service: %s %s" %
-                                 (xpe.errcode, xpe.errmsg))
-            return False,
-        except xmlrpclib.Fault, msg:
-            self.logger.warn("Exception from AD service: %s" % (msg,))
-            return False
-        except Exception, e:
-            self.logger.warn("Unexpected exception", exc_info=1)
-            self.logger.debug("Failed to run cmd: %s%s" % (command, str(args)))
-            return False
-            
-        # ret is a list in the form [bool, msg] where the first
-        # element tells if the command was succesful or not
-        if not ret[0]:
-            self.logger.warn("Server couldn't execute %s(%s): %s" %
-                             (command, args, ret[1]))
-            return False
-        # cmd was run successfully on the server.
-        # If command is create_object and an additional sid is
-        # returned we need to return sid instead of True
-        if command == "createObject" and len(ret) == 3:
-            return ret[2]
-        else:
-            self.logger.debug3("Command %s ran successfully", command)
-            return True
-
-    def move_object(self, dn, ou, obj_type="user"):
-        """
-        Move given object in Ad to given ou.
-
-        @param dn: AD attribute distinguishedName 
-        @type dn: str
-        @param ou: LDAP path to base ou for the entity type
-        @type ou: str        
-        """
-        if self.dryrun:
-            self.logger.debug("DRYRUN: Not moving %s %s to %s" % (
-                obj_type, dn, ou))
-            return
-
-        if self.run_cmd('bindObject', dn):
-            self.logger.info("Moving %s %s to %s" % (obj_type, dn, ou))
-            self.run_cmd('moveObject', ou)
-
-    def rename_object(self, dn, ou, cn):
-        if self.dryrun:
-            self.logger.info("DRYRUN: Not renaming %s to %s,%s" % (dn, cn, ou))
-            return
-
-        if self.run_cmd('bindObject', dn):
-            self.logger.info("Renaming %s to %s,%s" % (dn, cn, ou))
-            self.run_cmd('moveObject', ou, cn)
-
-    def move_contact(self, dn, ou):
-        if self.dryrun:
-            self.logger.info("DRYRUN: Not moving contact %s" % dn)
-            return
-        self.move_object(dn, ou, obj_type="contact")
-
-    # TBD: correct placement?
-    def create_ad_contact(self, attrs, ou):
-        """
-        Create AD account, set password and default properties. 
-
-        @param attrs: AD attrs to be set for the account
-        @type attrs: dict        
-        @param ou: LDAP path to base ou for the entity type
-        @type ou: str        
-        """
-        name = attrs.pop("sAMAccountName")
-        if self.dryrun:
-            self.logger.debug("DRYRUN: Not creating contact %s" % name)
-            return
-        
-        ret = self.run_cmd("createObject", "contact", ou, name)
-        if not ret:
-            # Don't continue if createObject fails
-            return
-        self.logger.info("created contact %s" % name)
-
-        self.run_cmd("putProperties", attrs)
-        self.run_cmd("setObject")
-        return ret
-
-    def get_ou(self, dn):
-        """
-        Extract OU part from distinguishedName
-        """
-        dn = dn.strip()
-        i = dn.find("OU=")
-        if dn and i != -1:
-            return dn[i:]
 
 class ADUserUtils(ADUtils):
     """

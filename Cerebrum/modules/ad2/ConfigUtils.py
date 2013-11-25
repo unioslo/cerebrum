@@ -65,7 +65,14 @@ class AttrConfig(object):
             The default value to set for the attribute if no other value is
             found, based on other criterias, e.g. in the subclasses. Note that
             if this is a string, it is able to use some of the basic variables
-            for the entities, like entity_name, entity_id, ad_id and ou.
+            for the entities: 
+            
+                - entity_name
+                - entity_id
+                - ad_id
+                - ou
+
+            Use these through regular substition, e.g. "%(ad_id)s".
 
             Also note that default values will not be using the L{transform}
             function for its data. TODO: Or not? Need to find out what is most
@@ -288,6 +295,12 @@ class CallbackAttr(AttrConfig):
     complex. Use this only if no other alternative is possible. The plus side of
     this, is that we don't have to create subclasses for every single weird
     attribute that is needed.
+
+    Example on usage:
+
+        'DNSHostName': ConfigUtils.CallbackAttr(
+                        lambda ent: getattr(ent, 'hostname', '')
+                        ),
 
     """
     def __init__(self, callback, *args, **kwargs):

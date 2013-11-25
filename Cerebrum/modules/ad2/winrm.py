@@ -1848,13 +1848,24 @@ class PowershellClient(WinRMClient):
 
         """
         #shellid = self.connect()
-        return super(PowershellClient, self).execute(self.exec_path,
-                        u'-NonInteractive', # As we can't handle stdin yet.
-                                            # This avoids deadlocks, if a
-                                            # prompt is popping up.
-                        u'-NoLogo',         # No startup logo
-                        u'-NoProfile',      # No need of, at least for now.
-                        u'\n'.join(args), **kwargs) # shellid=shellid
+        # Later versions of powershell just hangs at newlines, so need to remove
+        # them. TODO: This could create problems, we need to look at how we
+        # generate powershell commands!
+        command = u' '.join(args).replace('\n', ' ')
+        # Options for powershell:
+        # -NonInteractive   To avoid waiting for stdin and deadlocks if a
+        #                   prompt is popping up.
+        # -NoLogo           We don't want/need to see the copyright banner.
+        #                   Don't know if it has any effect though, as we are
+        #                   not starting a session.
+        # -NoProfile        Loading profile is not needed, at least for now. It
+        #                   will probably only increase the startup time if not
+        #                   set.
+        return super(PowershellClient, self).execute(
+                self.exec_path, 
+                u'-NonInteractive -NoLogo -NoProfile -Command "%s"' % command,
+                **kwargs
+                )
 
     def escape_to_string(self, data):
         """Prepare (escape) data to be used in powershell commands.

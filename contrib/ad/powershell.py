@@ -188,12 +188,18 @@ def main():
 
     if not host:
         host = sync['server']
-    if not port:
-        port = sync.get('port', None)
-    if not auth_user:
-        auth_user = sync['auth_user']
-    if not domain_user:
-        domain_user = sync['domain_admin']
+    if not port and sync:
+        port = sync.get('port')
+    if sync:
+        if not auth_user:
+            auth_user = sync['auth_user']
+        if not domain_user:
+            domain_user = sync['domain_admin']
+    else:
+        if not auth_user:
+            print "If no specific sync, --auth_user is required"
+            usage(1)
+
 
     client = ADclient(logger=logger,
                       host=host,

@@ -863,7 +863,7 @@ class BaseSync(object):
         if not object_type:
             object_type = self.config['target_type']
         attrs = self.config['attributes'].copy()
-        self.logger.debug2("Want to fetch the AD-attrs: %s", ', '.join(attrs))
+        self.logger.debug2("Try to fetch attributes: %s", ', '.join(sorted(attrs)))
         if attributes:
             attrs.update(attributes)
         # Some attributes are readonly, so they shouldn't be put in the list,
@@ -1742,7 +1742,6 @@ class UserSync(BaseSync):
                                              entity_type=self.co.entity_account,
                                              contact_type=types):
             ent = self.id2entity.get(row['entity_id'], None)
-            self.logger.debug2("Found contact for %s: %s", ent, row['contact_value'])
             if ent:
                 ctype = str(self.co.ContactInfo(row['contact_type']))
                 ssys = str(self.co.AuthoritativeSystem(row['source_system']))
