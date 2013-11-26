@@ -204,8 +204,88 @@ class GroupSync(ADSync.PosixGroupSync, TSDUtils):
             ent.ou = 'OU=filegroups,OU=%s,%s' % (pid, self.config['target_ou'])
             self.entities[gname] = ent
 
+class ADNetGroupClient(ADUtils.ADclient):
+    """Override of the regular AD client to support settings for NIS netgroups.
+
+    The functionality in here should hopefully be generic enough to be
+    transferred back to the original ADUtils module.
+
+    Since NisNetGroup doesn't have their own powershell commands, we need to use
+    *-ADObject instead of the more specific *-ADGroup, e.g. Get-ADGroup.
+
+    """
+
+    def __init__(self, auth_user, domain_admin, dryrun, domain, *args,
+                 **kwargs):
+        super(ADNetGroupClient, self).__init__(auth_user, domain_admin, dryrun,
+                                               domain, *args, **kwargs)
+
+    def start_list_objects(self, ou, attributes, object_type=None):
+        """Override to support NisNetGroups.
+        
+        TODO: Should rather support this in the generic class, e.g. by changing
+        the behaviour of the mapping from target_type to AD commands. Needs more
+        flexibility.
+
+        """
+        if object_type != self.co.entity_group:
+            return super(ADNetGroupClient, self).start_list_objects(
+                                        ou, attributes, object_type)
+        self.logger.debug("Start fetching NisNetGroups from AD, OU: %s", ou)
+        cmd = 'Get-ADObject'
+        params = {'SearchBase': ou,
+                  'Properties': attributes.keys()}
+        command = ("if ($str = %s -Filter {Type -eq 'NisNetGroup'} | ConvertTo-Csv) { $str -replace '$',';' }"
+                   % self._generate_ad_command(cmd, params))
+        return self.execute(command)
+
+    def create_object(self, name, path, object_type, attributes=None,
+                      parameters=None):
+        """Override to create a NisNetGroup object in AD."""
+        # Other object types must be treated in the regular way:
+        if object_type != self.co.entity_group:
+            return super(ADNetGroupClient, self).create_object(
+                            name, path, object_type, attributes, parameters)
+
+        self.logger.info("Creating NisNetGroup in AD: %s (%s)", name, path)
+        if not parameters:
+            parameters = dict()
+        parameters['Type'] = 'NisNetGroup'
+        # Add the attributes, but mapped to correctly name used in AD:
+        if attributes:
+            attributes = dict((self.attribute_write_map.get(name, name), value)
+                              for name, value in attributes.iteritems()
+                              if value is not None)
+            parameters['OtherAttributes'] = attributes
+
+        parameters['Name'] = name
+        parameters['Path'] = path
+        cmd = self._generate_ad_command('New-ADObject', parameters, 'PassThru')
+        cmd = '''if ($str = %s | ConvertTo-Csv) {
+            $str -replace '$',';'
+            }''' % cmd
+        if self.dryrun:
+            # Some of the variables are mandatory to be returned, so we have to
+            # just put something in them, for the sake of testing:
+            ret = attributes.copy()
+            ret['Name'] = ret['DistinguishedName'] = ret['SamAccountName'] = name
+            ret['SID'] = None
+            return ret
+        other_out = dict()
+        for obj in self.get_output_csv(self.run(cmd), other_out):
+            self.logger.debug("New AD-object: %s" % obj)
+            return obj
+        # We should NOT get here if all is okay
+        e_msg = "Missing server response - was '%s' created?" % name
+        self.logger.warn(e_msg)
+        self.logger.warn("Output from server: %s" % (other_out,))
+        print "Other output: %s" % (other_out,)
+        raise Exception(e_msg)
+
 class NetGroupSync(GroupSync, TSDUtils):
     """TSD's sync of net groups."""
+
+    server_class = ADNetGroupClient
 
     def fetch_cerebrum_entities(self):
         """Overridden to only fetch groups affiliated with projects."""
