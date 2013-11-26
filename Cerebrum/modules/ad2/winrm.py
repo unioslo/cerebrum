@@ -1905,7 +1905,7 @@ class PowershellClient(WinRMClient):
 
             @{'key1'='value1';'key2'='value2','value2b';...}
 
-            TODO: Not sure if semicolon is accepted by all commands.
+            Empty strings must be converted to $false.
 
         While a list or tuple would become:
 
@@ -1932,7 +1932,10 @@ class PowershellClient(WinRMClient):
         if isinstance(data, basestring):
             # TODO: more that should be removed from strings?
             data = data.replace('\0', '')
-            return "'%s'" % data.replace("'", "''")
+            if data == '':
+                return '$false'
+            else:
+                return "'%s'" % data.replace("'", "''")
         if isinstance(data, (tuple, list, set)):
             return ','.join(self.escape_to_string(s) for s in data)
         if isinstance(data, dict):
