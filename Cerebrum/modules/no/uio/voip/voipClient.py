@@ -379,7 +379,7 @@ class VoipClient(EntityAuthentication, EntityTrait):
         for row in account.list_entity_quarantines(entity_types=self.const.entity_account,
                                                    only_active=True,
                                                    entity_ids=aid2owner.keys()):
-             aid2quarantine[row["entity_id"]] = "quarantined,%s,%s" % \
+             aid2quarantine[row["entity_id"]] = "%s,%s" % \
                                                 (const2str[row['quarantine_type']],
                                                  row['description'])
 
@@ -394,9 +394,13 @@ class VoipClient(EntityAuthentication, EntityTrait):
         
         # uname -> HA1 hashes, only for softphone for Account users aka persons.
         uname2ha1 = dict()
+        uname2quarantine = dict()
         for row in account.list_account_authentication(self.const.auth_type_ha1_md5,
                                                        account_id=aid2owner.keys()):
-            uname2ha1[row['entity_name']] = aid2quarantine.get(row['account_id']) or row['auth_data']
+            if row['account_id'] in aid2quarantine:
+                uname2quarantine[row['entity_name']] = aid2quarantine[row["account_id"]]
+            else:
+                uname2ha1[row['entity_name']] = row['auth_data']
 
         for row in self.search():
             entry = {"sipClientType": const2str[row["client_type"]],
@@ -416,7 +420,11 @@ class VoipClient(EntityAuthentication, EntityTrait):
                 for uid in owner2uname[owner_id]:
                     e = entry.copy()
                     e["uid"] = str(uid)
-                    e["ha1MD5password"] = uname2ha1.get(uid) or "missing"
+                    if uid in uname2quarantine:
+                        e["sipQuarantine"] = uname2quarantine[uid]
+                        e["sipEnabled"] = "quarantined"
+                    else:
+                        e["ha1MD5password"] = uname2ha1.get(uid) or "missing"
                     # XXX: will be altered in next revision when voip_softphone/softphone
                     # becomes voip_hardhone/softphone.
                     e["sipClientInfo"] = "sbc2phone"
@@ -428,7 +436,8 @@ class VoipClient(EntityAuthentication, EntityTrait):
             if row["owner_entity_type"] == self.const.entity_person:
               # Block if primary user is quarantined
               if owner_id in owner2quarantine:
-                entry["sipEnabled"] = owner2quarantine[owner_id]
+                entry["sipEnabled"] = "quarantined"
+                entry["sipQuarantine"] = owner2quarantine[owner_id]
               # Block if the person has no valid account
               elif not owner2uname[owner_id]:
                 entry["sipEnabled"] = "noaccount"
