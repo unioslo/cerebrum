@@ -980,9 +980,13 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         if ent.entity_type in (self.const.entity_person,
                                self.const.entity_account):
             raise CerebrumError("Use 'person/user affiliation_add' for persons/users")
-        if ent.entity_type not in type2trait:
+        try:
+            trait_type = type2trait[ent.entity_type]
+        except KeyError:
             raise CerebrumError("Command does not handle entity type: %s" %
                                 self.const.EntityType(ent.entity_type))
+        self.logger.debug("Try to affiliate %s (entity_type %s) with trait: %s",
+                          ent, ent.entity_type, trait_type)
         # Forcing EntityTrait, since not all instances have this. TBD: Should
         # rather add EntityTrait to cereconf.CLASS_ENTITY instead, but don't
         # know the consequences of that.
@@ -990,7 +994,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             entity_id = ent.entity_id
             ent = EntityTrait.EntityTrait(self.db)
             ent.find(entity_id)
-        ent.populate_trait(type2trait[ent.entity_type], target_id=ou.entity_id,
+        ent.populate_trait(trait_type, target_id=ou.entity_id,
                            date=DateTime.now())
         ent.write_db()
         return "Entity affiliated with project: %s" % ou.get_project_id()
