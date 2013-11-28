@@ -475,7 +475,7 @@ class HostEntity(CerebrumEntity):
         # Policy check, should only be in one single VLAN:
         if len(self.vlans) > 1:
             self.logger.warn("Host %s in more than one VLAN: %s" %
-                             (self.ad_id, ', '.join(self.vlans)))
+                             (self.ad_id, self.vlans))
             return
 
 class HostpolicySync(ADSync.GroupSync, TSDUtils):
