@@ -422,6 +422,10 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         self.__check_password(target, new_password)
         target.set_password(new_password)
         target.extend_expire_date()
+
+        # The account might have been disabled by the reaper (expired). If
+        # so, we must reassign spreads!
+        self.vhutils.assign_default_user_spreads(target)
         target.write_db()
 
         # action e_account:password_recover
@@ -802,6 +806,10 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                 account.set_owner_name(self.const.human_last_name, human_last_name)
 
             account.extend_expire_date()
+
+            # The account might have been disabled by the reaper (expired). If
+            # so, we must reassign spreads!
+            self.vhutils.assign_default_user_spreads(account)
             account.write_db()
 
         return self.user_su(operator, account_name)
