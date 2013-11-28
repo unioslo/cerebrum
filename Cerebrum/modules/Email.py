@@ -970,10 +970,47 @@ class EmailAddress(Entity_class):
     def search(self, local_part=None, local_part_pattern=None,
                target_id=None, domain_id=None, filter_expired=True,
                fetchall=False):
-        # NA
-        """Return address_id, target_id, local_part, domain_id, and
-        domain (name) for matching all EmailAddress."""
+        """Search for EmailAddresse by given criterias.
+
+        @type local_part: str
+        @param local_part:
+            Filter the result by a given local part. Must match exactly.
+
+        @type local_part_pattern: str
+        @param local_part_pattern:
+            Filter the result by a given local part pattern. The pattern is run
+            through an SQL like query and is case insensitive.
+
+        @type target_id: int or sequence thereof
+        @param target_id:
+            Filter the result by the addresses belonging to the given targets.
+
+        @type domain_id: int
+        @param domain_id:
+            Filter the result by a given domain.
+
+        @type filter_expired: bool
+        @param filter_expired:
+            Filter the result by only returning addresses where the expire_date
+            is either not set or has not passed, i.e. is expired.
+
+        @type fetchall: bool
+        @param fetchall:
+            If True, all db-rows are fetched from the db immediately. If False,
+            an iterator is returned, returning each row on demand, which could
+            in some cases lead to lower memory usage, but it could also lead to
+            a performance penalty.
+
+        @rtype: iterable (yielding db-rows with address information)
+        @return:
+            An iterable (sequence or generator) with the db-rows that matches
+            the given search criterias for EmailAddress. Each db-row contains
+            the elements address_id, target_id, local_part, domain_id, and
+            domain (name of the domain).
+
+        """
         conditions = []
+        binds = locals()
         if local_part is not None:
             conditions.append('ea.local_part = :local_part')
         if local_part_pattern is not None:
@@ -982,7 +1019,7 @@ class EmailAddress(Entity_class):
         if domain_id is not None:
             conditions.append('ea.domain_id = :domain_id')
         if target_id is not None:
-            conditions.append('ea.target_id = :target_id')
+            conditions.append(argument_to_sql(target_id, "ea.target_id", binds, int))
         if filter_expired:
             conditions.append('(ea.expire_date IS NULL OR'
                               ' ea.expire_date > [:now])')
@@ -994,8 +1031,7 @@ class EmailAddress(Entity_class):
                ed.domain
         FROM [:table schema=cerebrum name=email_address] ea
           JOIN [:table schema=cerebrum name=email_domain] ed
-            ON ea.domain_id = ed.domain_id""" + where,
-                          locals(), fetchall=fetchall)
+            ON ea.domain_id = ed.domain_id""" + where, binds, fetchall=fetchall)
 
     # FIXME: should be replaced by search()
     def list_target_addresses(self, target_id):

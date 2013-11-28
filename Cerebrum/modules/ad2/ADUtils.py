@@ -129,7 +129,8 @@ class ADclient(PowershellClient):
                        #'dns_subnet': 'Object',
                        None: 'Object'}
 
-    def __init__(self, auth_user, domain_admin, dryrun, *args, **kwargs):
+    def __init__(self, auth_user, domain_admin, dryrun, domain, *args,
+                 **kwargs):
         """Set up the WinRM client to be used with running AD commands.
 
         @type auth_user: string
@@ -137,8 +138,17 @@ class ADclient(PowershellClient):
             server.
 
         @type domain_admin: string
-        @param domain_admin: The username of the account we use to connect to
-            the AD domain we are going to synchronize with.
+        @param domain_admin:
+            The username of the account we use to connect to the AD domain we
+            are going to synchronize with. Could also contain the domain that
+            the user belongs to, in the format of 'user@domain' or
+            'domain/user'.
+
+        @type domain: string
+        @param domain: 
+            The AD domain that we should work against. It is in this client only
+            used to set the domain for the domain admin, if not set in the
+            'domain_admin' parameter.
 
         @type dryrun: bool
         @param dryrun: If True, commands that make changes to AD will not get
@@ -148,14 +158,17 @@ class ADclient(PowershellClient):
         super(ADclient, self).__init__(*args, **kwargs)
         self.add_credentials(username=auth_user,
                 password=unicode(read_password(auth_user, self.host), 'utf-8'))
-        self.ad_account_username = domain_admin
 
         # Note that we save the user's password by domain and not the host. It
         # _could_ be the wrong way to do it. TBD: Maybe both host and domain?
         if domain_admin:
-            ad_user, domain = self._split_domain_username(domain_admin)
-            self.logger.debug2("Using domain account: %s/%s", domain, ad_user)
-            self.ad_account_password = unicode(read_password(ad_user, domain),
+            ad_user, user_domain = self._split_domain_username(domain_admin)
+            if not user_domain:
+                user_domain = domain or ''
+            self.ad_account_username = '%s\%s' % (user_domain, ad_user)
+            self.logger.debug2("Using domain account: %s",
+                               self.ad_account_username)
+            self.ad_account_password = unicode(read_password(ad_user, user_domain),
                                                'utf-8')
         else:
             self.logger.debug2("Not using a domain account")
@@ -197,7 +210,7 @@ class ADclient(PowershellClient):
                 domain, user = name.split(char, 1)
                 return user, domain
         # Guess the domain is not set then:
-        return name, ''
+        return name, None
 
     def _generate_ad_command(self, command, kwargs={}, novalueargs=()):
         """Generate a command for AD queries out of the given input.

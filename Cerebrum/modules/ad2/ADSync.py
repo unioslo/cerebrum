@@ -138,8 +138,8 @@ class BaseSync(object):
                              ('useraccountcontrol', {}),
                              # ('first_run', False), # should we support this?
                              ('store_sid', False),
-                             ('handle_unknown_objects', ('disable', None)),
-                             ('handle_deactivated_objects', ('disable', None)),
+                             ('handle_unknown_objects', ('ignore', None)),
+                             ('handle_deactivated_objects', ('ignore', None)),
                              ('language', ('nb', 'nn', 'en')),
                              ('changes_too_old_seconds', 60*60*24*365*2), # 2 years
                              # TODO: move these to GroupSync when we have a
@@ -269,7 +269,7 @@ class BaseSync(object):
           they have never existed in Cerebrum. Entities in quarantine but with
           the correct target_spread are not affected by this.
           Values:
-            ('deactivate, None) # Deactivate object. This is the default.
+            ('disable', None)   # Deactivate object. This is the default.
             ('move', OU)        # Deactivate object and move to a given OU.
             ('delete', None)    # Delete the object. Can't be restored.
             ('ignore', None)    # Do not do anything with these objects.
@@ -432,6 +432,7 @@ class BaseSync(object):
                               port=self.config.get('port'),
                               auth_user=self.config.get('auth_user'),
                               domain_admin=self.config.get('domain_admin'),
+                              domain=self.config.get('domain'),
                               encrypted=self.config.get('encrypted', True),
                               ca=self.config.get('ca', None),
                               client_cert=self.config.get('client_cert', None),
@@ -677,10 +678,13 @@ class BaseSync(object):
 
         # Limit the search to the entity_type the target_spread is meant for:
         target_type = self.config['target_type']
-
+        ids = None
+        if self.config['subset']:
+            ids = self.id2entity.keys()
         i = 0
         for row in ent.list_entity_quarantines(only_active=True,
-                                               entity_types=target_type):
+                                               entity_types=target_type,
+                                               entity_ids=ids):
             found = self.id2entity.get(int(row['entity_id']))
             if found:
                 found.active = False
@@ -716,9 +720,13 @@ class BaseSync(object):
 
         """
         self.logger.debug("Fetch attributes...")
+        ids = None
+        if self.config['subset']:
+            ids = self.id2entity.keys()
         i = 0
         # TODO: fetch only the attributes defined in config - would be faster
-        for row in self.ent.list_ad_attributes(spread=self.config['target_spread']):
+        for row in self.ent.list_ad_attributes(entity_id=ids,
+                                               spread=self.config['target_spread']):
             # TODO: is co caching such attributes? if not, we should prefetch
             # it, or make the new list method support fetching it:
             attr = self.co.ADAttribute(int(row['attr_code']))
@@ -793,8 +801,12 @@ class BaseSync(object):
         if not languages:
             # By setting to None we fetch all languages:
             languages = None
+        ids = None
+        if self.config['subset']:
+            ids = self.owner2ent.keys()
         i = 0
-        for row in self.ent.search_name_with_language(name_variant=variants,
+        for row in self.ent.search_name_with_language(
+                    name_variant=variants, entity_id=ids,
                     entity_type=self.config['entity_type'],
                     name_language=languages):
             for ent in self.owner2ent.get(row['entity_id'], ()):
@@ -978,7 +990,7 @@ class BaseSync(object):
             self.server.update_attributes(dn, ent.changes['attributes'],
                                           ad_object)
         # Store SID in Cerebrum
-        self.store_sid(ent, ad_object['SID'])
+        self.store_sid(ent, ad_object.get('SID'))
 
     def compare_attributes(self, ent, ad_object):
         """Compare entity's attributes between Cerebrum and AD.
@@ -1014,11 +1026,19 @@ class BaseSync(object):
         # system, but the error will make the sync update the attribute
         # constantly and make the sync slower.
 
-        # Integers are retrieved from AD as strings, so need to compare with
-        # Cerebrum as strings:
-        if isinstance(c, (int, long, float)) and not isinstance(c, bool):
+        # Some special cases, mostly due to the CSV converting which does not
+        # support type casting:
+        if isinstance(c, bool):
+            # Booleans could be retrieved from AD as the strings "True" and
+            # "False", so need to handle this if the Cerebrum value is boolean:
+            if a == 'False':
+                a = False
+            elif a == 'True':
+                a = True
+        elif isinstance(c, (int, long, float)) and not isinstance(c, bool):
+            # Integers are retrieved from AD as strings, so need to compare with
+            # Cerebrum as strings:
             c = unicode(c)
-
         if c != a:
             self.logger.debug("Mismatch attr for %s: %s: '%s' (%s) -> '%s' (%s)"
                               % (ent.entity_name, atr, a, type(a), c, type(c)))
@@ -1184,19 +1204,6 @@ class BaseSync(object):
         try:
             obj = self.create_object(ent)
             ent.ad_new = True
-        except ADUtils.OUUnknownException, e:
-            self.logger.info("OU was not found: %s", ent.ou)
-            if not self.config['create_ous']:
-                raise e
-            ou_name, path = ent.ou.split(',', 1)
-            # TODO: we should probably have helper method for getting data out
-            # of paths and OUs
-            ou_name = ou_name.replace('OU=', '')
-            ou_obj = self.server.create_object(ou_name, path,
-                                               object_type=self.co.entity_ou)
-            # Then retry creating the object:
-            obj = self.create_object(ent)
-            ent.ad_new = True
         except ADUtils.ObjectAlreadyExistsException, e:
             # It exists in AD, but is probably somewhere out of our search_base.
             # Will try to get it, so we could still update it, and maybe even
@@ -1219,6 +1226,30 @@ class BaseSync(object):
             self.script('new_object', obj, ent)
         return obj
 
+    def create_ou(self, dn):
+        """Helper method for creating an OU recursively.
+
+        The OUs will only be created if the config says so. TODO: Might want to
+        change where this is checked.
+
+        @type dn: str
+        @param dn:
+            The DistinguishedName of the OU that should be created.
+
+        """
+        if not self.config['create_ous']:
+            return
+        self.logger.info("Creating OU: %s" % dn)
+        name, path = dn.split(',', 1)
+        name = name.replace('OU=', '')
+        try:
+            return self.server.create_object(name, path, 'ou')
+        except ADUtils.OUUnknownException:
+            self.logger.info("OU was not found: %s", path)
+            self.create_ou(path)
+            # Then retry creating the original OU:
+            return self.server.create_object(name, path, 'ou')
+
     def create_object(self, ent, **parameters):
         """Create a given entity in AD.
 
@@ -1236,12 +1267,19 @@ class BaseSync(object):
             id existed in AD already.
 
         """
-        # TODO: check if users get "Enabled" when this happens?
-        return self.server.create_object(ent.ad_id,
-                                         ent.ou,
-                                         object_type=self.config['target_type'],
-                                         attributes=ent.attributes,
-                                         parameters=parameters)
+        try:
+            return self.server.create_object(ent.ad_id,
+                                             ent.ou,
+                                             object_type=self.config['target_type'],
+                                             attributes=ent.attributes,
+                                             parameters=parameters)
+        except ADUtils.OUUnknownException:
+            self.logger.info("OU was not found: %s", ent.ou)
+            if not self.config['create_ous']:
+                raise
+            self.create_ou(ent.ou)
+            # Then retry creating the object:
+            return self.create_object(ent, **parameters)
 
     def downgrade_object(self, ad_object, action):
         """Do a downgrade of an object in AD. 
@@ -1306,14 +1344,11 @@ class BaseSync(object):
         try:
             self.server.move_object(dn, ou)
         except ADUtils.OUUnknownException:
-            if self.config['create_ous']:
-                ou_name, path = ou.split(',', 1)
-                ou_name = ou_name.replace('OU=', '')
-                self.server.create_object(ou_name, path,
-                                          object_type=self.co.entity_ou)
-                self.server.move_object(dn, ou)
-            else:
+            self.logger.info("OU was not found: %s", ou)
+            if not self.config['create_ous']:
                 raise
+            self.create_ou(ou)
+            self.server.move_object(dn, ou)
         self.script('move_object', ad_object, move_from=dn, move_to=ou)
         # TODO: update the ad_object with the new dn?
 
@@ -1654,8 +1689,6 @@ class UserSync(BaseSync):
                     ent.name_first = row['name']
                 elif int(row['name_variant']) == int(self.co.name_last):
                     ent.name_last = row['name']
-
-
         variants = set()
         systems = set()
         languages = set()
@@ -1684,10 +1717,16 @@ class UserSync(BaseSync):
             # right?
             pass
 
+        # If subset is given, we want to limit the db-search:
+        ids = None
+        if self.config['subset']:
+            ids = self.owner2ent.keys()
+
         # Names stored in person table:
         i = 0
         for row in self.pe.search_person_names(source_system=systems,
-                                               name_variant=variants):
+                                               name_variant=variants,
+                                               person_id=ids):
             for ent in self.owner2ent.get(row['person_id'], ()):
                 vari = str(self.co.PersonName(row['name_variant']))
                 ssys = str(self.co.AuthoritativeSystem(row['source_system']))
@@ -1695,7 +1734,9 @@ class UserSync(BaseSync):
                 i += 1
         # Names stored in the entity table (with languages):
         for row in self.pe.search_name_with_language(name_variant=variants,
-                entity_type=self.co.entity_person, name_language=languages):
+                                                     entity_type=self.co.entity_person,
+                                                     entity_id=ids,
+                                                     name_language=languages):
             for ent in self.owner2ent.get(row['entity_id'], ()):
                 vari = str(self.co.EntityNameCode(row['name_variant']))
                 lang = str(self.co.LanguageCode(row['name_language']))
@@ -1727,10 +1768,16 @@ class UserSync(BaseSync):
             # By setting to None we fetch from all source_systems.
             systems = None
 
+        # Limit the db search if only working for a subset
+        ids = None
+        if self.config['subset']:
+            ids = self.owner2ent.keys()
+
         # Contact info stored on the person:
         i = 0
         for row in self.pe.list_contact_info(source_system=systems,
                                              entity_type=self.co.entity_person,
+                                             entity_id=ids,
                                              contact_type=types):
             for ent in self.owner2ent.get(row['entity_id'], ()):
                 ctype = str(self.co.ContactInfo(row['contact_type']))
@@ -1740,6 +1787,7 @@ class UserSync(BaseSync):
         # Contact info stored on the account:
         for row in self.ac.list_contact_info(source_system=systems,
                                              entity_type=self.co.entity_account,
+                                             entity_id=ids,
                                              contact_type=types):
             ent = self.id2entity.get(row['entity_id'], None)
             if ent:
@@ -1772,18 +1820,28 @@ class UserSync(BaseSync):
         if all_systems or not systems:
             # By setting to None we fetch from all source_systems.
             systems = None
+        # Limit the db search if only working for a subset
+        ids = None
+        if self.config['subset']:
+            ids = self.owner2ent.keys()
+
         i = 0
         # Search person:
-        for row in self.pe.search_external_ids(source_system=systems,
-                id_type=types, entity_type=self.co.entity_person):
+        for row in self.pe.search_external_ids(
+                    source_system=systems, id_type=types, entity_id=ids,
+                    entity_type=self.co.entity_person):
             for ent in self.owner2ent.get(row['entity_id'], ()):
                 itype = str(self.co.EntityExternalId(row['id_type']))
                 ssys = str(self.co.AuthoritativeSystem(row['source_system']))
                 ent.external_ids.setdefault(itype, {})[ssys] = row['external_id']
                 i += 1
         # Search account:
-        for row in self.ac.search_external_ids(source_system=systems,
-                id_type=types, entity_type=self.co.entity_account):
+        ids = None
+        if self.config['subset']:
+            ids = self.id2entity.keys()
+        for row in self.ac.search_external_ids(
+                    source_system=systems, id_type=types, entity_id=ids,
+                    entity_type=self.co.entity_account):
             ent = self.id2entity.get(row['entity_id'], None)
             if ent:
                 itype = str(self.co.EntityExternalId(row['id_type']))
@@ -1806,8 +1864,11 @@ class UserSync(BaseSync):
                 types.update(atr.traitcodes)
         if not types:
             return
+        ids = None
+        if self.config['subset']:
+            ids = self.id2entity.keys()
         i = 0
-        for row in self.ent.list_traits(code=types):
+        for row in self.ent.list_traits(code=types, entity_id=ids):
             ent = self.id2entity.get(row['entity_id'], None)
             if ent:
                 code = str(self.co.EntityTrait(row['code']))
@@ -1882,9 +1943,15 @@ class UserSync(BaseSync):
             return
         self.logger.debug("Fetch mail data...")
 
+        # Limit/speed up db search if only targeting a subset:
+        ids = None
+        if self.config['subset']:
+            ids = self.id2entity.keys()
+
         # Need a map from EmailTarget's target_id to entity_id:
         targetid2entityid = dict((r['target_id'], r['target_entity_id']) for r
-                                 in self.mailtarget.list_email_targets_ext())
+                                 in self.mailtarget.list_email_targets_ext(
+                                     target_entity_id=ids))
         for target_id, entity_id in targetid2entityid.iteritems():
             ent = self.entities.get(entity_id)
             if ent:
@@ -1896,6 +1963,8 @@ class UserSync(BaseSync):
             mailquota = Email.EmailQuota(self.db)
             i = 0
             for row in mailquota.list_email_quota_ext():
+                if row['target_id'] not in targetid2entityid:
+                    continue
                 ent = self.id2entity.get(targetid2entityid[row['target_id']])
                 if ent:
                     ent.maildata['quota'] = row
@@ -1909,7 +1978,7 @@ class UserSync(BaseSync):
             # Need a mapping from address_id for the primary addresses:
             adrid2email = dict()
             i = 0
-            for row in ea.search():
+            for row in ea.search(target_id=targetid2entityid.keys()):
                 ent = self.id2entity.get(targetid2entityid[row['target_id']])
                 if ent:
                     adr = '@'.join((row['local_part'], row['domain']))

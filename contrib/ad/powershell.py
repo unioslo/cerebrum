@@ -147,7 +147,7 @@ def main():
     encrypted = True
     sync = None
     host = port = None
-    auth_user = domain_user = None
+    auth_user = domain_user = domain = None
 
     for opt, val in opts:
         # General options
@@ -195,6 +195,8 @@ def main():
             auth_user = sync['auth_user']
         if not domain_user:
             domain_user = sync['domain_admin']
+        if not domain:
+            domain = sync['domain']
     else:
         if not auth_user:
             print "If no specific sync, --auth_user is required"
@@ -206,6 +208,7 @@ def main():
                       port=port,
                       auth_user=auth_user,
                       domain_admin=domain_user,
+                      domain=domain,
                       encrypted=encrypted,
                       dryrun=False)
 
