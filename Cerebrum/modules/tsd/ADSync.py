@@ -235,7 +235,7 @@ class ADNetGroupClient(ADUtils.ADclient):
         cmd = 'Get-ADObject'
         params = {'SearchBase': ou,
                   'Properties': attributes.keys()}
-        command = ("if ($str = %s -Filter {Type -eq 'NisNetGroup'} | ConvertTo-Csv) { $str -replace '$',';' }"
+        command = ("if ($str = %s -Filter {ObjectClass -eq 'NisNetGroup'} | ConvertTo-Csv) { $str -replace '$',';' }"
                    % self._generate_ad_command(cmd, params))
         return self.execute(command)
 
@@ -281,6 +281,45 @@ class ADNetGroupClient(ADUtils.ADclient):
         self.logger.warn("Output from server: %s" % (other_out,))
         print "Other output: %s" % (other_out,)
         raise Exception(e_msg)
+
+    def start_list_members(self, groupid):
+        """Override to get members of NisNetGroups.
+
+        NisNetGroups have their members in the attribute 'memberNisNetGroup' and
+        not in 'member' as regular groups. We fetch the attribute through
+        Get-ADObject directly, as Get-ADGroupMember will not work for
+        NisNetGroups.
+
+        TODO: Should rather be moving this upwards. Maybe we should rather just
+        fetch the 'member' attribute as a regular attribute for the generic
+        group sync too?
+
+        """
+        # No dryrun here, since it's read-only
+        return self.execute('(%s).memberNisNetGroup' %
+                            self._generate_ad_command('Get-ADObject', {
+                                'Identity': groupid,
+                                'Properties': 'memberNisNetGroup'
+                                }))
+
+    def get_list_members(self, commandid):
+        """Override to get members of NisNetGroups.
+
+        Chose to override instead of forcing the attributes into CSV format.
+        Should idealistically get the same return format for this subclass and
+        the superclass.
+
+        """
+        out = self.get_data(commandid).get('stdout')
+        self.logger.debug3("Got output of length: %d" % len(out))
+        for line in out.split('\n'):
+            line = line.strip()
+            if line:
+                dn = line
+                name = dn.split(',', 1)[0][3:]
+                y = {'Name': name, 'DistinguishedName': dn}
+                self.logger.debug3("Ret memb: %s" % (y,))
+                yield y
 
 class NetGroupSync(GroupSync, TSDUtils):
     """TSD's sync of net groups."""
@@ -351,8 +390,8 @@ class HostSync(ADSync.HostSync, TSDUtils):
             try:
                 self.subnet.find(row['a_ip'])
             except dns.Errors.SubnetError:
-                self.logger.info("No found subnet %s IP: %s" % (row['name'],
-                                                                row['aaaa_ip']))
+                self.logger.info("No subnet for %s (%s)" % (row['name'],
+                                                            row['a_ip']))
                 continue
             ent.ipaddresses.add(row['a_ip'])
             ent.vlans.add(self.subnet.vlan_number)
@@ -367,8 +406,8 @@ class HostSync(ADSync.HostSync, TSDUtils):
             try:
                 self.subnet6.find(row['aaaa_ip'])
             except dns.Errors.SubnetError:
-                self.logger.info("No subnet for %s IP: %s" % (row['name'],
-                                                              row['aaaa_ip']))
+                self.logger.info("No subnet for %s (%s)" % (row['name'],
+                                                            row['aaaa_ip']))
                 continue
             ent.vlans.add(self.subnet.vlan_number)
             i += 1
