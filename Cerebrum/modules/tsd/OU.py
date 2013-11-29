@@ -271,7 +271,7 @@ class OUTSDMixin(OU):
 
         gr = Factory.get("PosixGroup")(self._db)
 
-        def _create_group(groupname, desc, trait):
+        def _create_group(groupname, desc, trait, spreads):
             """Helper function for creating a group.
             
             @type groupname: string
@@ -286,6 +286,10 @@ class OUTSDMixin(OU):
             @param trait: The type of trait that should be stored at the group,
                 to affiliate the group with the current project. The
                 L{target_id} gets set to the project, i.e. L{self}.
+
+            @type spreads: list of str
+            @param spreads:
+                A list of strcode for spreads that the group should have.
 
             """
             groupname = '-'.join((projectid, groupname))
@@ -303,10 +307,16 @@ class OUTSDMixin(OU):
             gr.populate_trait(code=trait, target_id=self.entity_id,
                               date=DateTime.now())
             gr.write_db()
+
+            for strcode in spreads:
+                spr = self.const.Spread(strcode)
+                gr.add_spread(spr)
+                gr.write_db()
+
             return True
         # Create project groups
-        for suffix, desc in getattr(cereconf, 'TSD_PROJECT_GROUPS', ()):
-            _create_group(suffix, desc, self.const.trait_project_group)
+        for suffix, desc, spreads in getattr(cereconf, 'TSD_PROJECT_GROUPS', ()):
+            _create_group(suffix, desc, self.const.trait_project_group, spreads)
         # Create machines:
         self._setup_project_hosts(creator_id)
         # TODO: Disks? How?
