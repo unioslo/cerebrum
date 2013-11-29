@@ -1919,32 +1919,32 @@ class PowershellClient(WinRMClient):
 
         """
         if data is None:
-            return '$false'
+            return u'$false'
         if isinstance(data, bool):
             if data:
-                return '$true'
+                return u'$true'
             else:
-                return '$false'
+                return u'$false'
         if isinstance(data, (int, long)):
             return data
         if isinstance(data, float):
-            return "'%f'" % data
+            return u"'%f'" % data
         if isinstance(data, basestring):
             # TODO: more that should be removed from strings?
-            data = data.replace('\0', '')
-            if data == '':
-                return '$false'
+            data = data.replace(u'\0', u'')
+            if data == u'':
+                return u'$false'
             else:
-                return "'%s'" % data.replace("'", "''")
+                return u"'%s'" % data.replace(u"'", u"''")
         if isinstance(data, (tuple, list, set)):
-            return ','.join(self.escape_to_string(s) for s in data)
+            return u','.join(unicode(self.escape_to_string(s)) for s in data)
         if isinstance(data, dict):
             # Dicts are returned as "Hash Tables" for powershell
             ret = []
             for k, v in data.iteritems():
-                ret.append('%s=%s' % (self.escape_to_string(k),
-                                      self.escape_to_string(v)))
-            return '@{%s}' % ';'.join(ret)
+                ret.append(u'%s=%s' % (self.escape_to_string(k),
+                                       self.escape_to_string(v)))
+            return u'@{%s}' % u';'.join(ret)
         raise Exception('Unknown data type %s for: %s' % (type(data), data))
 
     def get_data(self, commandid, signal=True, timeout_retries=50):
