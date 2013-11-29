@@ -342,13 +342,33 @@ class IPv6Subnet(Entity):
 
 
     def find(self, identifier):
+        """Find and instantiate the subnet entity with data from the db.
+        
+        @type identifier: mixed
+        @param identifier: 
+            The identifier of the Subnet. Note that the DNS module behaves a bit
+            differently than other Cerebrum modules, in that this find method
+            accepts other input than entity_id. Possibilities are:
+
+                - A string containing the entity_id, prefixed with 'entity_id:'
+                  or 'id:'.
+
+                - A string with a subnet address, e.g. '2002:123:111::/64'.
+
+                - A string with an IPv6 address, e.g. '2001:700:111::0:12'.
+
+        """
         binds = {}
 
         if identifier is None:
             raise SubnetError("Unable to find subnet identified by '%s'" %
                                 identifier)
             
-        if 'id:' in identifier or 'entity_id:' in identifier:
+        if isinstance(identifier, (int, long)):
+            # The proper way of running find()
+            where_param = "entity_id = :e_id"
+            binds['e_id'] = identifier
+        elif 'id:' in identifier or 'entity_id:' in identifier:
             # E.g. 'id:X' or 'entity_id:X';
             where_param = "entity_id = :e_id"
             binds['e_id'] = int(identifier.split(':')[1])

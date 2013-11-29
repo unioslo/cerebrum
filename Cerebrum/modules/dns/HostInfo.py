@@ -175,7 +175,8 @@ class HostInfo(Entity):
         self._db.log_change(self.entity_id, self.const.host_info_del, None)
         self.__super.delete()
 
-    def search(self, spread=None, host_id=None, dns_owner_id=None):
+    def search(self, spread=None, host_id=None, dns_owner_id=None,
+               dns_owner_spread=None):
         """A search method for hosts.
 
         To be expanded in the future with more functionality when needed, e.g.
@@ -194,6 +195,10 @@ class HostInfo(Entity):
         @type dns_owner_id: int or sequence thereof or None
         @param dns_owner_id:
             Filter the result by the given dns owner id(s).
+
+        @type dns_owner_spread: int or sequence thereof or None
+        @param dns_owner_spread:
+            Filter the result by what spreads the dns owner has.
 
         @rtype: iterable (yielding db-rows with host information)
         @return:
@@ -220,6 +225,10 @@ class HostInfo(Entity):
             tables.append("[:table schema=cerebrum name=entity_spread] es")
             where.append('es.entity_id=hi.host_id')
             where.append(argument_to_sql(spread, 'es.spread', binds, int))
+        if dns_owner_spread is not None:
+            tables.append("[:table schema=cerebrum name=entity_spread] es2")
+            where.append('es2.entity_id=dno.dns_owner_id')
+            where.append(argument_to_sql(spread, 'es2.spread', binds, int))
         if host_id is not None:
             where.append(argument_to_sql(host_id, 'dno.host_id', binds, int))
         if dns_owner_id is not None:

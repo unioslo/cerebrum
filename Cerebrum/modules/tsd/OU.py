@@ -36,7 +36,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.OU import OU
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.dns import Subnet, IPv6Subnet
+from Cerebrum.modules import dns
 from Cerebrum.modules import EntityTrait
 
 class OUTSDMixin(OU):
@@ -126,6 +126,8 @@ class OUTSDMixin(OU):
         In practice, we only accept regular alphanumeric characters in ASCII, in
         addition to some punctuation characters, like colon, dash and question
         marks. This would need to be extended in the future.
+
+        @raise Errors.CerebrumError: If the given project name was not accepted.
 
         """
         # TODO: whitelisting accepted characters, might want to extend the list
@@ -302,16 +304,11 @@ class OUTSDMixin(OU):
                               date=DateTime.now())
             gr.write_db()
             return True
-
         # Create project groups
         for suffix, desc in getattr(cereconf, 'TSD_PROJECT_GROUPS', ()):
             _create_group(suffix, desc, self.const.trait_project_group)
-        # TODO: Create action groups - how, what?
-        # TODO: Create resource groups - how, what?
-
-        # Machines:
-        #TODO
-
+        # Create machines:
+        self._setup_project_hosts(creator_id)
         # TODO: Disks? How?
 
         # TODO: Add accounts to the various groups:
@@ -324,8 +321,8 @@ class OUTSDMixin(OU):
     def _setup_project_dns(self, creator_id):
         """Setup a new project's DNS info, like subnet and VLAN."""
         projectid = self.get_project_id()
-        subnet = Subnet.Subnet(self._db)
-        subnet6 = IPv6Subnet.IPv6Subnet(self._db)
+        subnet = dns.Subnet.Subnet(self._db)
+        subnet6 = dns.IPv6Subnet.IPv6Subnet(self._db)
         etrait = EntityTrait.EntityTrait(self._db)
 
         # TODO: Find a better way for mapping between project ID and VLAN. Now I
@@ -336,16 +333,34 @@ class OUTSDMixin(OU):
 
         # Check that the VLAN is not already in use. TBD: Or is this acceptable
         # in TSD?
+        my_subnets = set(row['entity_id'] for row in
+                         self.list_traits(code=(self.const.trait_project_subnet,
+                                                self.const.trait_project_subnet6),
+                                 target_id=self.entity_id))
         for row in subnet.search():
+            if row['entity_id'] in my_subnets:
+                continue
             if row['vlan_number'] and int(row['vlan_number']) == vlan:
                 raise Errors.CerebrumError('VLAN %s already in use: %s/%s' %
                         (vlan, row['subnet_ip'], row['subnet_mask']))
         for row in subnet6.search():
+            if row['entity_id'] in my_subnets:
+                continue
             if row['vlan_number'] and int(row['vlan_number']) == vlan:
                 raise Errors.CerebrumError('VLAN %s already in use: %s/%s' %
                         (vlan, row['subnet_ip'], row['subnet_mask']))
         subnetstart = cereconf.SUBNET_START % intpid
-        subnet.populate(subnetstart, "Subnet for project %s" % projectid, vlan)
+        # The Subnet module should in populate/write_db know if the subnet
+        # already exists and handle that, but we need to fix this manually here
+        # instead.
+        try:
+            subnet.find(subnetstart)
+        except dns.Errors.SubnetError, e:
+            subnet.populate(subnetstart, "Subnet for project %s" % projectid, vlan)
+        else:
+            if subnet.entity_id not in my_subnets:
+                raise Exception("Subnet %s exists, but does not belong to %s" %
+                                (subnetstart, projectid))
         subnet.write_db()
         etrait.clear()
         etrait.find(subnet.entity_id)
@@ -354,13 +369,24 @@ class OUTSDMixin(OU):
         etrait.write_db()
 
         subnetstart = cereconf.SUBNET_START_6 % intpid
-        subnet6.populate(subnetstart, "Subnet for project %s" % projectid, vlan)
+        try:
+            subnet6.find(subnetstart)
+        except dns.Errors.SubnetError, e:
+            subnet6.populate(subnetstart, "Subnet for project %s" % projectid, vlan)
+        else:
+            if subnet6.entity_id not in my_subnets:
+                raise Exception("Subnet %s exists, but does not belong to %s" %
+                                (subnetstart, projectid))
         subnet6.write_db()
         etrait.clear()
         etrait.find(subnet6.entity_id)
         etrait.populate_trait(self.const.trait_project_subnet6, date=DateTime.now(),
                                target_id=self.entity_id)
         etrait.write_db()
+
+    def _setup_project_hosts(self, creator_id):
+        # TODO
+        pass
 
     def get_pre_approved_persons(self):
         """Get a list of pre approved persons by their fnr.

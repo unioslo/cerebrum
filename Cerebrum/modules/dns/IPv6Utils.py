@@ -11,6 +11,7 @@ class IPv6Calc(object):
     """
 
     def ip_to_long(ip):
+        """Convert an IPv6 IP address to long format."""
         try:
             hi, lo = struct.unpack('!QQ', socket.inet_pton(socket.AF_INET6, ip))
         except socket.error, msg:
@@ -19,6 +20,7 @@ class IPv6Calc(object):
     ip_to_long = staticmethod(ip_to_long)
 
     def long_to_ip(l):
+        """Convert a long or int to an IPv6 address."""
         hi = l >> 64
         lo = l & int('1'*64, 2)
         t = struct.pack('!QQ', hi, lo)
