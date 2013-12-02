@@ -379,8 +379,10 @@ class VoipClient(EntityAuthentication, EntityTrait):
         for row in account.list_entity_quarantines(entity_types=self.const.entity_account,
                                                    only_active=True,
                                                    entity_ids=aid2owner.keys()):
-             aid2quarantine[row["entity_id"]] = "%s,%s" % \
+             aid2quarantine[row["entity_id"]] = "%s,%s,%s" % \
                                                 (const2str[row['quarantine_type']],
+                                                 # str() returns ISO 8601 format
+                                                 str(row['start_date'])[0:10],
                                                  row['description'])
 
         # Make a owner2quarantine, to block hardphone is if primary users is blocked
