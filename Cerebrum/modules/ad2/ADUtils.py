@@ -165,7 +165,7 @@ class ADclient(PowershellClient):
             ad_user, user_domain = self._split_domain_username(domain_admin)
             if not user_domain:
                 user_domain = domain or ''
-            self.ad_account_username = '%s\%s' % (user_domain, ad_user)
+            self.ad_account_username = '%s@%s' % (ad_user, user_domain)
             self.logger.debug2("Using domain account: %s",
                                self.ad_account_username)
             self.ad_account_password = unicode(read_password(ad_user, user_domain),
@@ -357,6 +357,8 @@ class ADclient(PowershellClient):
         setup = self._pre_execution_code % {
                         'ad_user': self.escape_to_string(self.ad_account_username),
                         'ad_pasw': self.escape_to_string(self.ad_account_password)}
+        #for a in args:
+        #    print a
         return super(ADclient, self).execute(setup, *args, **kwargs)
 
     # Standard lines in powershell that we can't get rid of by powershell code.
@@ -661,7 +663,6 @@ class ADclient(PowershellClient):
         e_msg = "Missing server response - was '%s' created?" % name
         self.logger.warn(e_msg)
         self.logger.warn("Output from server: %s" % (other_out,))
-        print "Other output: %s" % (other_out,)
         raise Exception(e_msg)
 
     def move_object(self, ad_id, ou):
@@ -753,6 +754,53 @@ class ADclient(PowershellClient):
         # TODO: check stdout too?
         return not out.get('stderr')
 
+    def get_ad_attribute(self, adid, attributename):
+        """Start generating a list of a given object's given AD attribute.
+
+        The AD server is asked to generate a list of the attribute, which could
+        be received and parsed by L{get_list_attribute}. The purpose of this
+        separation is that the output could take some time to produce, so you
+        could do something else while waiting.
+
+        @type adid: str
+        @param adid:
+            The idenficator of the object in AD to get the attribute from.
+
+        @type attributename: str
+        @param attributename:
+            The name of the attribute that we should get a list from. Must be a
+            valid attribute name in AD, and should be multivalued to be of any
+            use.
+
+        @rtype: callable
+        @return:
+            A callable that should be called to retrieve the data from the
+            attribute. When called, an iterator of each element in the attribute
+            is returned.
+
+        """
+        self.logger.debug2("Get attribute %s from AD for %s" % (attributename,
+                                                                adid))
+        # No dryrun here, since it's read-only
+        cmdid = self.execute('(%s).%s' % (
+                    self._generate_ad_command('Get-ADObject',
+                                              {'Identity': adid,
+                                               'Properties': attributename}),
+                    attributename))
+        def getout(cmd):
+            # TODO: By printing the attribute, it is split out on each line.
+            # Note, however, that cmd breaks the lines at 80 or more characters,
+            # so elements longer than that will be split in different elements,
+            # which needs to be fixed!
+            out = self.get_data(cmd).get('stdout')
+            self.logger.debug3("Got output of length: %d" % len(out))
+            for line in out.split('\n'):
+                line = line.strip()
+                if line:
+                    yield line
+        # TODO: Make this a decorator instead?
+        return lambda: getout(cmdid)
+
     def start_list_members(self, groupid):
         """Make AD start generating a list of a group's members.
 
@@ -776,11 +824,6 @@ class ADclient(PowershellClient):
                 $str -replace '$', ';'
             }''' % self._generate_ad_command('Get-ADGroupMember',
                                              {'Identity': groupid}))
-        #return self.execute('''
-        #    if ($str = Get-ADGroupMember -Credential $cred -Identity %(groupid)s | ConvertTo-Csv) {
-        #        $str -replace '$', ';'
-        #    }
-        #    ''' % {'groupid': self.escape_to_string(groupid)})
 
     def get_list_members(self, commandid):
         """Get the list of group members, as requested by L{start_list_members}.
@@ -852,7 +895,7 @@ class ADclient(PowershellClient):
         self.logger.debug("Adding %d members for group: %s" % (len(members),
                                                                groupid))
         # Printing out the first 1000 members, for debugging reasons:
-        self.logger.debug2("Adding members for %s: %s...", groupid,
+        self.logger.debug2("Adding members for %s: %s", groupid,
                            ', '.join(tuple(members)[:1000]))
 
         # As we can't have too large commands for CMD, we might have to split up

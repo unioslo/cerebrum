@@ -615,7 +615,7 @@ class BaseSync(object):
         ctype = self.co.ChangeType(int(row['change_type_id']))
         func_name = 'changelog_handle_%s' % (ctype.category,)
         method = getattr(self, func_name, None)
-        # TODO: if want to get entity and print out name, use
+        # TODO: if want to get entity and printing out name, use
         # cereconf.ENTITY_TYPE_NAMESPACE.
         if not method:
             self.logger.warn("No handler for changelog category: %s", func_name)
@@ -2414,64 +2414,65 @@ class GroupSync(BaseSync):
                                                 object_type=object_type,
                                                 attributes=attributes)
 
-    def _sync_group_members(self, ent, members, cmdid):
+    def sync_group_members(self, ent):
+        """Update the members for a given entity, normally groups.
+
+        TODO: Distribution groups are allowed to be members of security groups,
+        but not the other way around. This is not checked for, yet.
+
+        @type ent: CerebrumEntity
+        @param ent: An instance with information from Cerebrum about the entity.
+
+        """
+        self.logger.debug("Syncing members for entity: %s" % ent.ad_id)
+        cmd = self.server.get_ad_attribute(ent.ad_data['dn'], 'member')
+        cere_members = self.get_group_members(ent)
+        ad_members = set(cmd())
+        return self._sync_group_members(ent, cere_members, ad_members)
+
+    def _sync_group_members(self, ent, cere_members, ad_members):
         """Sync the given members to the given AD-object.
 
         This method handles the member sync with AD and works by getting the
         member list from AD and comparing it with Cerebrum's list. If the group
-        contains more members than AD could return (defaults to 1500), the group
-        in AD is drained and refilled. TODO: This should in the future be
-        changed to refilling a sub group instead, to avoid that the members lose
-        access in a minute or so.
+        contains more members than AD could return (defaults to 1500), we need
+        to treat the group specially, in the future by filling sub groups.
 
         @type ent: CerebrumEntity
-        @param ent: The targetet entity to sync the members for.
+        @param ent: The targeted entity to sync the members for.
 
-        @type members: set
-        @param members: The list of members that should be the result in AD
+        @type cere_members: set
+        @param members:
+            The list of members from Cerebrum. This should be the result in AD
             after the sync has finished.
 
-        @type cmdid: tuple
-        @param cmdid: The CommandId for a previous call to AD for generating a
-            list of all the members of the given group. This is to speed things
-            up, by making AD generate its list while we are generating ours.
+        @type ad_members: set
+        @param ad_members: 
+            The list of members from AD. This is needed to be able to see what
+            needs to change in AD.
 
         @rtype: boolean
         @return: If the sync succeeded or not.
 
-        @raise PowershellException: If a sync command to AD failed and were not
-            handled by the method. Could for instance be due to limited access
-            privileges.
+        @raise PowershellException:
+            If a sync command to AD failed and were not handled by the method.
+            Could for instance be due to limited access privileges.
 
         """
         dn = ent.ad_data['dn']
-        # Shortcut for empty groups - faster to just drain the group of members.
-
         # TODO: This is shortcut for empty groups. We might not want to do this,
-        # as we then don't know what members we have removed.
+        # if we would like to know what members we have removed.
         #if not members:
         #    # Tell AD to stop fetching members:
         #    self.server.wsman_signal(cmdid[0], cmdid[1])
         #    return self.server.empty_group(dn)
 
-        # Get the list of members from AD and compare:
-        try:
-            # Use SamAccountName if it exists, or the Name. Name could sometimes
-            # be something else, but the username should not be changed.
-            ad_members = set(mem.get('Name', mem['name']) for mem in
-                             self.server.get_list_members(cmdid))
-        except ADUtils.SizeLimitException, e:
-            self.logger.debug("Too many group members of %s: %s", ent.ad_id,
-                                                              len(members))
-            # TODO: change how this works! Could create sub group and add
-            # members to instead, and then remove the old sub group afterwards.
-            self.server.empty_group(dn)
-            return self.server.add_members(dn, members)
-        self.logger.debug("Group had %d members in AD" % len(ad_members))
-        mem_add = members - ad_members
+        self.logger.debug("Group had %d members in AD, %d in Cerebrum" %
+                          (len(ad_members), len(cere_members)))
+        mem_add = cere_members - ad_members
         if mem_add:
             self.server.add_members(dn, mem_add)
-        mem_remove = ad_members - members
+        mem_remove = ad_members - cere_members
         if mem_remove:
             self.server.remove_members(dn, mem_remove)
         return True
@@ -2507,12 +2508,12 @@ class GroupSync(BaseSync):
             for spr in mem_spreads:
                 if spr not in adconf.SYNCS:
                     continue
-                format = adconf.SYNCS[spr].get('name_format')
-                if not format:
-                    continue
+                sync = adconf.SYNCS[spr]
+                format = sync.get('name_format', '%s')
                 sp = self.co.Spread(spr)
                 int(sp)
-                type2name[int(sp.entity_type)] = format
+                type2name[int(sp.entity_type)] = 'CN=%s,%s' % (
+                        format, sync['target_ou'])
         else:
             for spr, data in adconf.SYNCS.iteritems():
                 sp = self.co.Spread(spr)
@@ -2520,7 +2521,8 @@ class GroupSync(BaseSync):
                     int(sp)
                 except Exception:
                     continue
-                type2name[int(sp.entity_type)] = data.get('name_format', '%s')
+                type2name[int(sp.entity_type)] = 'CN=%s,%s' % (
+                        data.get('name_format', '%s'), data['target_ou'])
 
         # TODO: gr.search_members by given spreads will not return all groups -
         # we would probably need to do another search_members just for groups,
@@ -2579,22 +2581,15 @@ class GroupSync(BaseSync):
             cere_members.add(format % (name,))
         return cere_members
 
-    def sync_group_members(self, ent):
-        """Update the members for a given entity, normally groups.
+    def sync_ad_attribute(self, ent, attribute, cere_elements, ad_elements):
+        """Compare a given attribute and update AD with the differences.
 
-        TODO: Distribution groups are allowed to be members of security groups,
-        but not the other way around. This is not checked for, yet.
-
-        @type ent: CerebrumEntity
-        @param ent: An instance with information from Cerebrum about the entity.
+        This is a generic method for updating any multivalued attribute in AD.
+        The given data must be given.
 
         """
-        self.logger.debug("Syncing members for entity: %s" % ent.ad_id)
-        dn = ent.ad_data['dn']
-        # Start fetching the member list from AD:
-        cmdid = self.server.start_list_members(dn)
-        cere_members = self.get_group_members(ent)
-        return self._sync_group_members(ent, cere_members, cmdid)
+        # TODO
+        pass
 
 # Gruppa ad_ind590 og ad_dat208 er eksempler hvor det må flates ut
 

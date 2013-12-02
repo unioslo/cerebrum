@@ -220,7 +220,11 @@ def main():
             # TODO: move this to the sync's configure()
             if not adconf.SYNCS[val].has_key('target_spread'):
                 spread = co.Spread(sync_type)
-                int(spread) # test that it exists
+                try:
+                    int(spread) # test that it exists
+                except Errors.NotFoundError:
+                    raise Exception("Type %s not a spread, and target_spread "
+                                    "is not defined" % sync_type)
                 configuration['target_spread'] = str(spread)
                 configuration['target_type'] = spread.entity_type
         elif opt == '--host':

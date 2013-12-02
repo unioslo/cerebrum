@@ -282,26 +282,6 @@ class ADNetGroupClient(ADUtils.ADclient):
         print "Other output: %s" % (other_out,)
         raise Exception(e_msg)
 
-    def start_list_members(self, groupid):
-        """Override to get members of NisNetGroups.
-
-        NisNetGroups have their members in the attribute 'memberNisNetGroup' and
-        not in 'member' as regular groups. We fetch the attribute through
-        Get-ADObject directly, as Get-ADGroupMember will not work for
-        NisNetGroups.
-
-        TODO: Should rather be moving this upwards. Maybe we should rather just
-        fetch the 'member' attribute as a regular attribute for the generic
-        group sync too?
-
-        """
-        # No dryrun here, since it's read-only
-        return self.execute('(%s).memberNisNetGroup' %
-                            self._generate_ad_command('Get-ADObject', {
-                                'Identity': groupid,
-                                'Properties': 'memberNisNetGroup'
-                                }))
-
     def get_list_members(self, commandid):
         """Override to get members of NisNetGroups.
 
@@ -310,16 +290,67 @@ class ADNetGroupClient(ADUtils.ADclient):
         the superclass.
 
         """
-        out = self.get_data(commandid).get('stdout')
-        self.logger.debug3("Got output of length: %d" % len(out))
-        for line in out.split('\n'):
-            line = line.strip()
-            if line:
-                dn = line
-                name = dn.split(',', 1)[0][3:]
-                y = {'Name': name, 'DistinguishedName': dn}
-                self.logger.debug3("Ret memb: %s" % (y,))
-                yield y
+        for adid in commandid():
+            # Need to make the returned output look like from Get-ADGroupMember,
+            # for now.
+            name = adid.split(',', 1)[0][3:]
+            y = {'Name': name, 'DistinguishedName': adid}
+            self.logger.debug3("Ret memb: %s" % (y,))
+            yield y
+
+    def add_members(self, adid, members, member_attribute='memberNisNetGroup'):
+        """Add members to a given object in AD.
+
+        This is subclassed to be able to handle NisNetGroups. This should be
+        moved upwards when enough tested.
+
+        @type adid: str
+        @param adid:
+            The identifier of the object in AD. Could be a SAMAccountName or a
+            DistinguishedName.
+
+        @type members: iterable of str
+        @param members:
+            A list of the members that should be added. For some member
+            attributes, AD checks and raises an exception if one of the given members 
+            already exists in the object, or if they are not identified by the
+            DistinguishedName. Other member attributes have no such checks.
+
+        @type member_attribute: str
+        @param member_attribute:
+            The name of the attribute in AD that the members should be added in.
+            This is for normal groups 'members', but e.g. for NisNetGroups is
+            this 'memberNisNetGroup' instead.
+
+        """
+        self.logger.debug("Adding %d members for object: %s" % (len(members),
+                                                                adid))
+        # Printing out the first 1000 members, for debugging reasons:
+        self.logger.debug2("Adding members for %s: %s", adid,
+                           ', '.join(tuple(members)[:1000]))
+
+        # TODO: As we can't have too large commands for CMD, we might have to
+        # split up the member list. Would then need to find the exact max length
+        # for cmd.
+        if len(members) > 1000:
+            self.logger.warn("Too large member list, not handled yet")
+            #tmp = set()
+            #for m in members:
+            #    tmp.add(m)
+            #    if len(tmp) >= 1000:
+            #        self.add_members(adid, tmp)
+            #        tmp = set()
+            #if tmp:
+            #    self.add_members(adid, tmp)
+            #self.logger.debug("Member sync completed")
+            #return True
+        cmd = self._generate_ad_command('Set-ADObject',
+                                        {'Identity': adid,
+                                         'Add': {member_attribute: members}})
+        if self.dryrun:
+            return True
+        output = self.run(cmd)
+        return not output.get('stderr')
 
 class NetGroupSync(GroupSync, TSDUtils):
     """TSD's sync of net groups."""
@@ -346,6 +377,20 @@ class NetGroupSync(GroupSync, TSDUtils):
             ent = self.cache_entity(row["group_id"], gname, row['description'])
             ent.ou = 'OU=netgroups,OU=%s,%s' % (pid, self.config['target_ou'])
             self.entities[gname] = ent
+
+    def sync_group_members(self, ent):
+        """Update the members for a given NisNetGroup.
+
+        Subclassed since NisNetGroups have their members in the attribute
+        memberNisNetGroup and not in the regular 'member'. TODO: This should be
+        supported in the regular sync in the future.
+
+        """
+        self.logger.debug("Syncing members for NisNetGroup: %s" % ent.ad_id)
+        cmd = self.server.get_ad_attribute(ent.ad_data['dn'], 'memberNisNetGroup')
+        cere_members = self.get_group_members(ent)
+        ad_members = set(cmd())
+        return self._sync_group_members(ent, cere_members, ad_members)
 
 class HostSync(ADSync.HostSync, TSDUtils):
     """A hostsync, using the DNS module instead of the basic host concept.
@@ -439,6 +484,7 @@ class HostSync(ADSync.HostSync, TSDUtils):
                 continue
             if row['dns_owner_id'] not in host2pid:
                 # Host is not connected to a project, and is therefore ignored.
+                self.logger.debug2("Host not connected to project: %s" % name)
                 continue
             try:
                 self.entities[name] = self.cache_entity(row["host_id"],
@@ -472,11 +518,6 @@ class HostEntity(CerebrumEntity):
     def calculate_ad_values(self):
         """Overriden to add TSD specific values."""
         super(HostEntity, self).calculate_ad_values()
-        # Policy check, should only be in one single VLAN:
-        if len(self.vlans) > 1:
-            self.logger.warn("Host %s in more than one VLAN: %s" %
-                             (self.ad_id, self.vlans))
-            return
 
 class HostpolicySync(ADSync.GroupSync, TSDUtils):
     """Class for syncing all hostpolicy components to AD.
