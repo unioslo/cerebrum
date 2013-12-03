@@ -1090,9 +1090,13 @@ class BofhdVoipCommands(BofhdCommandBase):
 
 
         self.ba.can_alter_number(operator.get_entity_id())
-        owner = self._get_voip_owner(designation)
+
+        # Make sure that the number is not in use.
+        if self._get_contact_info(contact_full):
+            raise CerebrumError("Number %s already in use." % contact_full)
 
         # Is there an address for that owner already?
+        owner = self._get_voip_owner(designation)
         address = self._get_or_create_voip_address(owner.entity_id)
 
         if contact_type:
