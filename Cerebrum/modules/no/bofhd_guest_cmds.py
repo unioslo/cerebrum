@@ -250,7 +250,7 @@ class BofhdExtension(BofhdCommandBase):
             Integer(help_ref='guest_days'),
             PersonName(help_ref='guest_fname'),
             PersonName(help_ref='guest_lname'),
-            GroupName(default='guest'),
+            GroupName(default=guestconfig.GUEST_TYPES_DEFAULT),
             Mobile(optional=True, default=''),
             AccountName(help_ref='guest_responsible', optional=True),
             fs=FormatSuggestion([('Created user %s.', ('username',)), (('SMS sent to %s.'), ('sms_to',))]),
@@ -336,18 +336,19 @@ class BofhdExtension(BofhdCommandBase):
                     'username': ac.account_name,
                     'expire': end_date.strftime('%Y-%m-%d'),
                     'password': password}
-            #FIXME: actually send sms in prod
-            sms = SMSSender(logger=self.logger)
-            sms(mobile, msg)
-            #print "--\nWould send the following message to %s:" % mobile
-            #print msg + "\n--"
-            #FIXME: ^^
+            if getattr(cereconf, 'SMS_DISABLE', False):
+                self.logger.info("""SMS disabled in cereconf, would send to
+                '%s':\n%s\n""" % (mobile, msg))
+            else:
+                sms = SMSSender(logger=self.logger)
+                sms(mobile, msg)
             return {'username': ac.account_name, 'sms_to': mobile}
-        #else:
-        # TBD: is it okay to reuse 'user_passwd' and not create a new state?
+
+        # Not mobile delivery - store password in session for misc_list_passwords
         operator.store_state("user_passwd", {'account_id': int(ac.entity_id),
                                              'password': password})
         return {'username': ac.account_name}
+
 
     def _create_guest_account(self, responsible_id, end_date, fname, lname,
                               mobile, guest_group):
