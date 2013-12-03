@@ -32,6 +32,7 @@ import pickle
 
 import cerebrum_path
 import cereconf
+import adconf
 from Cerebrum.Utils import unicode2str, Factory, dyn_import, sendmail
 from Cerebrum import Entity, Errors
 from Cerebrum.modules import EntityTrait
@@ -501,13 +502,30 @@ class HostpolicySync(ADSync.GroupSync, TSDUtils):
         We need to fetch both policy components and hosts they are connected to.
 
         """
+        # TODO: This is hardcoded for now, should be changed when we find a
+        # generic solution for specifying the OU path of member objects in AD:
+        hostpath = adconf.SYNCS['hosts']['target_ou']
+        rolepath = ','.join(('OU=roles', self.config['target_ou']))
+        atompath = ','.join(('OU=atoms', self.config['target_ou']))
+
         # Get policy members of the component:
         members = set()
-        for row in self.component.search_relations(target_id=ent.entity_id,
-                                  relationship_code=self.co.hostpolicy_contains,
-                                  indirect_relations=False):
-            members.add(self.config['name_format'] % row['source_name'])
+        for row in self.component.search_relations(
+                               target_id=ent.entity_id,
+                               relationship_code=self.co.hostpolicy_contains,
+                               indirect_relations=False):
+            if row['source_entity_type'] == self.co.entity_hostpolicy_role:
+                path = rolepath
+            elif row['source_entity_type'] == self.co.entity_hostpolicy_atom:
+                path = atompath
+            else:
+                self.logger.warn("Unknown entity_type %s for relation: %s",
+                                 row['source_entity_type'], row['source_name'])
+                continue
+            name = self.config['name_format'] % row['source_name']
+            members.add('CN=%s,%s' % (name, path))
         # Get host members of the component:
         for row in self.component.search_hostpolicies(policy_id=ent.entity_id):
-            members.add(self._hostname2adid(row['dns_owner_name']))
+            members.add('CN=%s,%s' % (
+                self._hostname2adid(row['dns_owner_name']), hostpath))
         return members
