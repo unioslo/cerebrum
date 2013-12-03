@@ -219,138 +219,9 @@ class ADNetGroupClient(ADUtils.ADclient):
                  **kwargs):
         super(ADNetGroupClient, self).__init__(auth_user, domain_admin, dryrun,
                                                domain, *args, **kwargs)
+        self.entity_type_map['group'] = 'nisnetgroup'
 
-    def start_list_objects(self, ou, attributes, object_type=None):
-        """Override to support NisNetGroups.
-        
-        TODO: Should rather support this in the generic class, e.g. by changing
-        the behaviour of the mapping from target_type to AD commands. Needs more
-        flexibility.
-
-        """
-        if object_type != self.co.entity_group:
-            return super(ADNetGroupClient, self).start_list_objects(
-                                        ou, attributes, object_type)
-        self.logger.debug("Start fetching NisNetGroups from AD, OU: %s", ou)
-        cmd = 'Get-ADObject'
-        params = {'SearchBase': ou,
-                  'Properties': attributes.keys()}
-        command = ("if ($str = %s -Filter {ObjectClass -eq 'NisNetGroup'} | ConvertTo-Csv) { $str -replace '$',';' }"
-                   % self._generate_ad_command(cmd, params))
-        return self.execute(command)
-
-    def create_object(self, name, path, object_type, attributes=None,
-                      parameters=None):
-        """Override to create a NisNetGroup object in AD."""
-        # Other object types must be treated in the regular way:
-        if object_type != self.co.entity_group:
-            return super(ADNetGroupClient, self).create_object(
-                            name, path, object_type, attributes, parameters)
-
-        self.logger.info("Creating NisNetGroup in AD: %s (%s)", name, path)
-        if not parameters:
-            parameters = dict()
-        parameters['Type'] = 'NisNetGroup'
-        # Add the attributes, but mapped to correctly name used in AD:
-        if attributes:
-            attributes = dict((self.attribute_write_map.get(name, name), value)
-                              for name, value in attributes.iteritems()
-                              if value is not None)
-            parameters['OtherAttributes'] = attributes
-
-        parameters['Name'] = name
-        parameters['Path'] = path
-        cmd = self._generate_ad_command('New-ADObject', parameters, 'PassThru')
-        cmd = '''if ($str = %s | ConvertTo-Csv) {
-            $str -replace '$',';'
-            }''' % cmd
-        if self.dryrun:
-            # Some of the variables are mandatory to be returned, so we have to
-            # just put something in them, for the sake of testing:
-            ret = attributes.copy()
-            ret['Name'] = ret['DistinguishedName'] = ret['SamAccountName'] = name
-            ret['SID'] = None
-            return ret
-        other_out = dict()
-        for obj in self.get_output_csv(self.run(cmd), other_out):
-            self.logger.debug("New AD-object: %s" % obj)
-            return obj
-        # We should NOT get here if all is okay
-        e_msg = "Missing server response - was '%s' created?" % name
-        self.logger.warn(e_msg)
-        self.logger.warn("Output from server: %s" % (other_out,))
-        print "Other output: %s" % (other_out,)
-        raise Exception(e_msg)
-
-    def get_list_members(self, commandid):
-        """Override to get members of NisNetGroups.
-
-        Chose to override instead of forcing the attributes into CSV format.
-        Should idealistically get the same return format for this subclass and
-        the superclass.
-
-        """
-        for adid in commandid():
-            # Need to make the returned output look like from Get-ADGroupMember,
-            # for now.
-            name = adid.split(',', 1)[0][3:]
-            y = {'Name': name, 'DistinguishedName': adid}
-            self.logger.debug3("Ret memb: %s" % (y,))
-            yield y
-
-    def add_members(self, adid, members, member_attribute='memberNisNetGroup'):
-        """Add members to a given object in AD.
-
-        This is subclassed to be able to handle NisNetGroups. This should be
-        moved upwards when enough tested.
-
-        @type adid: str
-        @param adid:
-            The identifier of the object in AD. Could be a SAMAccountName or a
-            DistinguishedName.
-
-        @type members: iterable of str
-        @param members:
-            A list of the members that should be added. For some member
-            attributes, AD checks and raises an exception if one of the given members 
-            already exists in the object, or if they are not identified by the
-            DistinguishedName. Other member attributes have no such checks.
-
-        @type member_attribute: str
-        @param member_attribute:
-            The name of the attribute in AD that the members should be added in.
-            This is for normal groups 'members', but e.g. for NisNetGroups is
-            this 'memberNisNetGroup' instead.
-
-        """
-        self.logger.debug("Adding %d members for object: %s" % (len(members),
-                                                                adid))
-        # Printing out the first 1000 members, for debugging reasons:
-        self.logger.debug2("Adding members for %s: %s", adid,
-                           ', '.join(tuple(members)[:1000]))
-
-        # TODO: As we can't have too large commands for CMD, we might have to
-        # split up the member list. Would then need to find the exact max length
-        # for cmd.
-        if len(members) > 1000:
-            self.logger.warn("Too large member list, not handled yet")
-            #tmp = set()
-            #for m in members:
-            #    tmp.add(m)
-            #    if len(tmp) >= 1000:
-            #        self.add_members(adid, tmp)
-            #        tmp = set()
-            #if tmp:
-            #    self.add_members(adid, tmp)
-            #self.logger.debug("Member sync completed")
-            #return True
-        cmd = self._generate_ad_command('Set-ADObject',
-                                        {'Identity': adid,
-                                         'Add': {member_attribute: members}})
-        if self.dryrun:
-            return True
-        output = self.run(cmd)
-        return not output.get('stderr')
+    attributename_members = 'memberNisNetGroup'
 
 class NetGroupSync(GroupSync, TSDUtils):
     """TSD's sync of net groups."""
@@ -552,8 +423,8 @@ class HostpolicySync(ADSync.GroupSync, TSDUtils):
         """Add hostpolicy functionality for the server object."""
         super(HostpolicySync, self).setup_server()
         # We must convert policies to Group objects in AD:
-        self.server.entity_type_map['hostpolicy_role'] = 'Group'
-        self.server.entity_type_map['hostpolicy_atom'] = 'Group'
+        self.server.entity_type_map['hostpolicy_role'] = 'group'
+        self.server.entity_type_map['hostpolicy_atom'] = 'group'
 
     def fetch_cerebrum_entities(self):
         """Fetch the policycomponents from Cerebrum to be compared with AD.

@@ -1203,21 +1203,22 @@ class BaseSync(object):
                                   ent.entity_name)
         try:
             obj = self.create_object(ent)
-            ent.ad_new = True
         except ADUtils.ObjectAlreadyExistsException, e:
             # It exists in AD, but is probably somewhere out of our search_base.
             # Will try to get it, so we could still update it, and maybe even
             # move it to the correct OU.
             self.logger.info("Entity already exists: %s", ent.entity_name)
+            ent.in_ad = True
             attrs = self.config['attributes'].copy()
             if self.config['store_sid'] and 'SID' not in attrs:
                 attrs['SID'] = None
             obj = self.server.get_object(ent.ad_id,
                                          object_type=self.config['target_type'],
                                          attributes=attrs)
-        # TODO: if commands should be executed for the new object now, we should
-        # control what DC we connect to. The alternative is to sleep 5 seconds
-        # before continuing, which slow the sync too much!
+        else:
+            ent.ad_new = True
+        ent.in_ad = True
+        ent.ad_data['dn'] = obj['DistinguishedName']
 
         if ent.ad_new:
             #if ent.ad_new and not self.config['dryrun']:

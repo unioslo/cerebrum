@@ -101,33 +101,24 @@ class ADclient(PowershellClient):
     # the attribute in AD:
     attribute_write_map = {'Surname': 'Sn',}
 
-    # A mapping from the entity_type to the object type that is used in command
-    # names. The keys are the str of the Cerebrum constant of type EntityType,
-    # while the values are the name that is used in a command. Note that
-    # Powershell is not consistent, so the names might vary for some commands.
-    entity_type_map = {'account': 'User',
-                       'group': 'Group',
+    # A mapping from the entity_type to the objectClass that the objects have in
+    # AD. The keys are the str of the Cerebrum constant of type EntityType.
+    # Subclasses might change this mapping, e.g. to make groups become
+    # NisNetGroups instead of regular groups.
+    entity_type_map = {'account': 'user',
+                       'group': 'group',
                        'ou': 'OrganizationalUnit',
-                       'host': 'Computer',
+                       'host': 'computer',
+                       #'dns_owner': 'computer',
                        #'disk': 'TODO',
                        #'person': 'Object',
-                       #'a_record': 'Object',
-                       #'cname': 'Domain',
-                       #'dns_host': 'Object',
-                       #'dns_owner': 'Object',
-                       #'dns_ip_number': 'Object',
                        #'email_domain': 'Object',
                        #'email_target': 'Object',
-                       #'email_address': 'Object',
-                       #'voip_address': 'Object',
-                       #'voip_client': 'Object',
-                       #'voip_service': 'Object',
-                       #'hostpolicy_role': 'Object',
-                       #'hostpolicy_atom': 'Object',
-                       #'aaaa_record': 'Object',
-                       #'dns_ipv6_number': 'Object',
-                       #'dns_subnet': 'Object',
                        None: 'Object'}
+
+    # The main objectClass that we are targeting in AD. This is used if nothing
+    # else is specified when running a command:
+    object_class = 'user'
 
     def __init__(self, auth_user, domain_admin, dryrun, domain, *args,
                  **kwargs):
@@ -423,12 +414,15 @@ class ADclient(PowershellClient):
         self.logger.debug("Start fetching %s objects from AD, OU: %s",
                           object_type, ou)
         # TBD: Should we check if the given attributes are valid?
-        cmd = 'Get-AD%s' % (self.entity_type_map[str(object_type)],)
-        params = {'Filter': '*',
-                  'SearchBase': ou,
-                  'Properties': attributes.keys()}
+        params = {'SearchBase': ou,
+                  'Properties': [self.attribute_write_map.get(a, a)
+                                 for a in attributes.keys()],
+                  }
+        filter = 'Filter *'
+        if object_type:
+            filter = "Filter {objectClass -eq '%s'}" % self.entity_type_map[str(object_type)]
         command = ("if ($str = %s | ConvertTo-Csv) { $str -replace '$',';' }"
-                   % self._generate_ad_command(cmd, params))
+                   % self._generate_ad_command('Get-ADObject', params, filter))
         return self.execute(command)
 
     def get_list_objects(self, commandid, other=None):
@@ -553,10 +547,10 @@ class ADclient(PowershellClient):
             access for the object.
 
         """
-        cmd = 'Get-AD%s' % (self.entity_type_map[str(object_type)],)
         out = self.run('''if ($str = %s | ConvertTo-Csv) {
             $str -replace '$', ';'
-            }''' % self._generate_ad_command(cmd, {'Identity': ad_id}))
+            }''' % self._generate_ad_command('Get-ADObject',
+                                             {'Identity': ad_id}))
         for obj in self.get_output_csv(out, dict()):
             return obj
         raise Exception("Bad output - was object '%s' not found?" % ad_id)
@@ -611,28 +605,13 @@ class ADclient(PowershellClient):
 
         # Add some extra parameters for the various types of objects:
         # TODO: this might be moved into subclasses of ADclient, one per object
-        # type? Would probably make easier code...
-        if str(object_type) == 'group':
-            if 'GroupScope' not in parameters:
-                # TODO: this should rather come from the config
-                parameters['GroupScope'] = 'Global'
-        elif str(object_type) == 'account':
-            # SAMAccountName is supposedly mandatory to create users:
-            if 'SamAccountName' not in parameters:
-                parameters['SamAccountName'] = name
-            # TODO: PasswordNeverExpires should probably be configurable, but
-            # hardcoding it for now:
-            if 'PasswordNeverExpires' not in parameters:
-                parameters['PasswordNeverExpires'] = True
-            # TODO: Set Enabled too?
-
-        # Objects won't be created if SamAccountName is given as an attribute.
-        # It could only be given as a parameter to the command:
-        if attributes and 'SamAccountName' in attributes:
-            if 'SamAccountName' not in parameters:
-                parameters['SamAccountName'] = attributes['SamAccountName']
-            attributes = attributes.copy()
-            del attributes['SamAccountName']
+        # type? Would probably make easier code... Or we could just depend on
+        # the configuration for this behaviour, at least for the attributes.
+        if str(object_type) == 'account':
+            # SAMAccountName is mandatory for some object types:
+            # TODO: check if this is not necessary any more...
+            if 'SamAccountName' not in attributes:
+                attributes['SamAccountName'] = name
 
         # Add the attributes, but mapped to correctly name used in AD:
         if attributes:
@@ -643,8 +622,8 @@ class ADclient(PowershellClient):
 
         parameters['Name'] = name
         parameters['Path'] = path
-        cmd = 'New-AD%s' % (self.entity_type_map[str(object_type)],)
-        cmd = self._generate_ad_command(cmd, parameters, 'PassThru')
+        parameters['Type'] = self.entity_type_map[str(object_type)]
+        cmd = self._generate_ad_command('New-ADObject', parameters, 'PassThru')
         cmd = '''if ($str = %s | ConvertTo-Csv) {
             $str -replace '$',';'
             }''' % cmd
@@ -652,7 +631,8 @@ class ADclient(PowershellClient):
             # Some of the variables are mandatory to be returned, so we have to
             # just put something in them, for the sake of testing:
             ret = attributes.copy()
-            ret['Name'] = ret['DistinguishedName'] = ret['SamAccountName'] = name
+            ret['Name'] = ret['SamAccountName'] = name
+            ret['DistinguishedName'] = 'CN=%s,%s' % (name, path)
             ret['SID'] = None
             return ret
         other_out = dict()
@@ -801,6 +781,14 @@ class ADclient(PowershellClient):
         # TODO: Make this a decorator instead?
         return lambda: getout(cmdid)
 
+    # The name of the attribute for where the members of the object are located.
+    # For a regular Group, 'member' is default, while for e.g. NisNetGroups is
+    # this 'memberNisNetGroup'.
+    # TODO: This must be removed in the future, as this should rather be
+    # configurable, as all other attributes! We must be able to sync members
+    # independently of the attribute!
+    attributename_members = 'member'
+
     def start_list_members(self, groupid):
         """Make AD start generating a list of a group's members.
 
@@ -859,8 +847,9 @@ class ADclient(PowershellClient):
 
         """
         self.logger.debug("Removing all members of group: %s" % groupid)
-        cmd = self._generate_ad_command('Set-ADGroup', {'Identity': groupid,
-                                                        'Clear': 'member'})
+        cmd = self._generate_ad_command('Set-ADObject',
+                                        {'Identity': groupid,
+                                         'Clear': self.attributename_members})
         if self.dryrun:
             return True
         output = self.run(cmd)
@@ -892,8 +881,8 @@ class ADclient(PowershellClient):
         # TODO: add support for not having to check the member lists first.
 
         """
-        self.logger.debug("Adding %d members for group: %s" % (len(members),
-                                                               groupid))
+        self.logger.debug("Adding %d members for object: %s" % (len(members),
+                                                                groupid))
         # Printing out the first 1000 members, for debugging reasons:
         self.logger.debug2("Adding members for %s: %s", groupid,
                            ', '.join(tuple(members)[:1000]))
@@ -916,10 +905,10 @@ class ADclient(PowershellClient):
                 self.add_members(groupid, tmp)
             self.logger.debug("Member sync completed")
             return True
-        cmd = self._generate_ad_command('Add-ADGroupMember',
-                                        {'Identity': groupid,
-                                         'Member': members},
-                                        'Confirm:$false')
+        cmd = self._generate_ad_command(
+                        'Set-ADObject',
+                        {'Identity': groupid,
+                         'Add': {self.attributename_members: members}})
         if self.dryrun:
             return True
         output = self.run(cmd)
@@ -948,10 +937,10 @@ class ADclient(PowershellClient):
         # Printing out the first 1000 members, for debugging reasons:
         self.logger.debug2("Removing members for %s: %s...", groupid,
                            ', '.join(tuple(members)[:1000]))
-        cmd = self._generate_ad_command('Remove-ADGroupMember',
-                                        {'Identity': groupid,
-                                         'Member': members},
-                                        ['Confirm:$false'])
+        cmd = self._generate_ad_command(
+                        'Set-ADObject',
+                        {'Identity': groupid,
+                         'Remove': {self.attributename_members: members}})
         if self.dryrun:
             return True
         output = self.run(cmd)
