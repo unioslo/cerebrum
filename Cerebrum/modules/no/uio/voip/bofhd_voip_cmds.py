@@ -551,7 +551,18 @@ class BofhdVoipCommands(BofhdCommandBase):
         return bool(value)
     # end _typeset_bool
 
+    
+    def _assert_unused_service_description(self, description):
+        """Check that a description is not in use by any voip_service.
+        """
 
+        vs = VoipService(self.db)
+        
+        services =  vs.search_voip_service_by_description(description,
+                                                          exact_match=True)
+        if services:
+            raise CerebrumError("Description must be unique. In use by id=%s." \
+                                % services[0]['entity_id'])
 
     
 
@@ -570,11 +581,13 @@ class BofhdVoipCommands(BofhdCommandBase):
 
         @param ou_tag: OU where the voip_service located (stedkode)
 
-        @param description: service's description.
+        @param description: service's description. Must be globally unique.
         """
 
         self.ba.can_create_voip_service(operator.get_entity_id())
+        self._assert_unused_service_description(description)
         service = VoipService(self.db)
+
         ou = self._get_ou(ou_tag)
         service_type = self._get_constant(service_type,
                                           self.const.VoipServiceTypeCode)
@@ -672,6 +685,7 @@ class BofhdVoipCommands(BofhdCommandBase):
         """
 
         self.ba.can_alter_voip_service(operator.get_entity_id())
+        self._assert_unused_service_description(description)
         service = self._get_voip_service(designation)
         
         if description and service.description != description:
