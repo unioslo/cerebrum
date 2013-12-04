@@ -2805,6 +2805,8 @@ class PosixUserSync(UserSync):
             if ent:
                 ent.posix['uid'] = int(row['posix_uid']) or ''
                 ent.posix['gid'] = self.posix_group_id2gid.get(row['gid'], '')
+                ent.posix['shell'] = str(self.co.PosixShell(row['shell']))
+                ent.posix['gecos'] = row['gecos']
         self.logger.debug("Number of POSIX users: %d",
                           len(filter(lambda x: len(x.posix) > 0,
                               self.entities.itervalues())))
