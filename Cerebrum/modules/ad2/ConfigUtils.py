@@ -250,7 +250,7 @@ class AddressAttr(AttrConfig):
         """
         super(AddressAttr, self).__init__(*args, **kwargs)
         self.address_types = self._prepare_constants(address_types,
-                const.Address)
+                                                     const.Address)
 
 class ExternalIdAttr(AttrConfig):
     """Config for attributes using external IDs.
@@ -374,3 +374,44 @@ class PosixAttr(AttrConfig):
     """
     # TODO: Should we have some shortcut settings, for making the config easier?
     pass
+
+class HomeAttr(AttrConfig):
+    """Config for account's home directories.
+
+    The attribute data generated for the HomeAttr is a dict with information
+    about the home registered for the given home spread. The dict contains the
+    elements:
+
+        - homedir (str): The full path to the homedir of the account, as how the
+                         Account object defines how it should be. Note that if
+                         you need the path in a different format, you probably
+                         want to subclass the L{account.resolve_homedir} for the
+                         given instance instead of tweaking it here with
+                         L{transform}.
+        - home_spread (int): The spread for the home directory.
+        - status (int): The code from the AccountHomeStatus for the homedir,
+                        that could e.g. represent that the homedir is created,
+                        archived or failed to be created. Use
+                        "str(co.AccountHomeStatus(status))" to get a readable
+                        status.
+
+    """
+    def __init__(self, home_spread, *args, **kwargs):
+        """Initiate a config for a home directory attribute.
+
+        @type home_spread: SpreadCode
+        @param home_spread:
+            The spread for the homedir that should be used. An account is
+            allowed to have different home directories per system. Note that
+            only one spread is allowed and supported, as only one home directory
+            is used per system.
+
+        """
+        super(HomeAttr, self).__init__(*args, **kwargs)
+        if not isinstance(home_spread, const.Spread):
+            raise ConfigError('Not a Spread: %s' % (home_spread,))
+        self.home_spread = home_spread
+
+# TODO: Need to figure out how to implement different config classes for various
+# settings that is not related to Cerebrum constants. Should we create one class
+

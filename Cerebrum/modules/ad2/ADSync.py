@@ -1627,6 +1627,7 @@ class UserSync(BaseSync):
         self.fetch_external_ids()
         self.fetch_traits()
         self.fetch_address_info()
+        self.fetch_homes()
         self.fetch_mail()
 
     def fetch_cerebrum_entities(self):
@@ -1804,7 +1805,6 @@ class UserSync(BaseSync):
         TODO: this should be moved upwards, as it's not only for users.
 
         """
-        self.logger.debug("Fetch external ids...")
         types = set()
         systems = set()
         all_systems = False
@@ -1818,6 +1818,7 @@ class UserSync(BaseSync):
                     systems.update(atr.source_systems)
         if not types:
             return
+        self.logger.debug("Fetch external ids...")
         if all_systems or not systems:
             # By setting to None we fetch from all source_systems.
             systems = None
@@ -1857,7 +1858,6 @@ class UserSync(BaseSync):
         TODO: this should be moved upwards, as it's not only for users.
 
         """
-        self.logger.debug("Fetch traits...")
         types = set()
         # Go through config and see what info needs to be fetched:
         for atr in self.config['attributes'].itervalues():
@@ -1865,6 +1865,7 @@ class UserSync(BaseSync):
                 types.update(atr.traitcodes)
         if not types:
             return
+        self.logger.debug("Fetch traits...")
         ids = None
         if self.config['subset']:
             ids = self.id2entity.keys()
@@ -1882,7 +1883,6 @@ class UserSync(BaseSync):
         """Fetch addresses for users.
 
         """
-        self.logger.debug("Fetch address info...")
         adrtypes = set()
         systems = set()
         all_systems = False
@@ -1896,6 +1896,7 @@ class UserSync(BaseSync):
                     systems.update(atr.source_systems)
         if not adrtypes:
             return
+        self.logger.debug("Fetch address info...")
         if all_systems or not systems:
             # By setting to None we fetch from all source_systems.
             systems = None
@@ -1999,6 +2000,42 @@ class UserSync(BaseSync):
                     ent.maildata['primary'] = adrid2email[row['address_id']]
                     i += 1
             self.logger.debug("Found %d primary email addresses" % i)
+
+    def fetch_homes(self):
+        """Fetch all home directories for the the users.
+
+        The User objects gets filled with a list of all its home directories in
+        the L{home} attribute, which is used according to
+        L{ConfigUtils.AttrConfig.HomeAttr}.
+
+        """
+        homespreads = set()
+        # Go through config and see what info needs to be fetched:
+        for atr in self.config['attributes'].itervalues():
+            if isinstance(atr, ConfigUtils.HomeAttr):
+                homespreads.add(atr.home_spread)
+        if not homespreads:
+            return
+        self.logger.debug("Fetch home directories...")
+        i = 0
+        for sp in homespreads:
+            for row in self.ac.list_account_home(
+                                  home_spread=sp,
+                                  account_spread=self.config['target_spread']):
+                ent = self.id2entity.get(row['account_id'])
+                if ent:
+                    if not hasattr(ent, 'home'):
+                        ent.home = {}
+                    tmp = {}
+                    tmp['status'] = row['status']
+                    tmp['homedir'] = self.ac.resolve_homedir(
+                                                account_name=row['entity_name'],
+                                                disk_path=row['path'],
+                                                home=row['home'],
+                                                spread=row['home_spread'])
+                    ent.home[row['home_spread']] = tmp
+                    i += 1
+        self.logger.debug("Found %d account home directories" % i)
 
     def fetch_passwords(self):
         """Fetch passwords for accounts that are new in AD.

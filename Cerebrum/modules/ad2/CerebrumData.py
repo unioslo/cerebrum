@@ -300,7 +300,12 @@ class CerebrumEntity(object):
                     return tr
         elif isinstance(config, ConfigUtils.PosixAttr):
             # POSIX data, return all data
-            return getattr(self, 'posix', {})
+            if hasattr(self, 'posix'):
+                return self.posix
+        elif isinstance(config, ConfigUtils.HomeAttr):
+            # Home Directory, set by given home_spread
+            if config.home_spread in getattr(self, 'home', {}):
+                return self.home[config.home_spread]
         elif isinstance(config, ConfigUtils.EmailAddrAttr):
             # Email Addresses
             adr = self.maildata.get('alias')
@@ -453,6 +458,9 @@ class PosixCerebrumUser(CerebrumUser):
 
     This is a simple class, only for updating the correct attributes by given
     data. The object must be fed with data inside the object variable L{posix}.
+
+    TODO: This is deprecated, use AttrConfig.PosixAttr instead for setting the
+    POSIX values, as that is independent of attribute name and entity type.
 
     """
     def __init__(self, *args, **kwargs):
