@@ -2803,6 +2803,8 @@ class PosixUserSync(UserSync):
         for row in self.pu.list_posix_users():
             ent = self.id2entity.get(row['account_id'], None)
             if ent:
+                if not hasattr(ent, 'posix'):
+                    ent.posix = {}
                 ent.posix['uid'] = int(row['posix_uid']) or ''
                 ent.posix['gid'] = self.posix_group_id2gid.get(row['gid'], '')
                 ent.posix['shell'] = str(self.co.PosixShell(row['shell']))
@@ -2832,7 +2834,9 @@ class PosixGroupSync(GroupSync):
         for row in self.pg.list_posix_groups():
             ent = self.id2entity.get(row['group_id'], None)
             if ent:
-                ent.posix_gid = int(row['posix_gid']) or ''
+                if not hasattr(ent, 'posix'):
+                    ent.posix = {}
+                ent.posix['gid'] = int(row['posix_gid']) or ''
                 i += 1
         self.logger.debug("Number of GIDs found: %d", i)
 

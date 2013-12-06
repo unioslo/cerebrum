@@ -298,6 +298,9 @@ class CerebrumEntity(object):
                 tr = self.traits.get(str(code))
                 if tr:
                     return tr
+        elif isinstance(config, ConfigUtils.PosixAttr):
+            # POSIX data, return all data
+            return getattr(self, 'posix', {})
         elif isinstance(config, ConfigUtils.EmailAddrAttr):
             # Email Addresses
             adr = self.maildata.get('alias')

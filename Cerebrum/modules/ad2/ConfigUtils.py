@@ -355,3 +355,22 @@ class EmailQuotaAttr(AttrConfig):
     """
     # No extra settings needed, got all we need from AttrConfig.
     pass
+
+class PosixAttr(AttrConfig):
+    """Config for POSIX data, like GID, UID, shell and gecos.
+
+    This class makes available a dict with the elements:
+
+        - uid: int or empty string
+        - gid: int or empty string
+        - shell: string, strcode of a PosixShell constant, e.g. "bash"
+        - gecos: string, free text
+
+    One of these could for instance be set through the L{transform} method.
+
+    Note that regular Cerebrum PosixGroups does not have anything set else than
+    GID.
+
+    """
+    # TODO: Should we have some shortcut settings, for making the config easier?
+    pass
