@@ -227,6 +227,9 @@ class ADNetGroupClient(ADUtils.ADclient):
 class NetGroupSync(GroupSync, TSDUtils):
     """TSD's sync of net groups."""
 
+    # We are working with NisNetGroups from the POSIX schema.
+    default_ad_object_class = 'nisnetgroup'
+
     server_class = ADNetGroupClient
 
     def fetch_cerebrum_entities(self):
@@ -464,37 +467,6 @@ class HostpolicySync(ADSync.GroupSync, TSDUtils):
             self.logger.warn("Unknown entity type for %s: %s", entity_id,
                              data['entity_type'])
         return ent
-
-    def start_fetch_ad_data(self, object_type=None, attributes=()):
-        """Send request(s) to AD to start generating the data we need.
-
-        Could be subclassed to get more/other data.
-
-        @type object_type: Constant of EntityTypeCode
-        @param object_type: The type of objects that should be returned from AD.
-            If not set, the value in L{config['target_type']} is used.
-
-        @type attributes: list
-        @param attributes: Extra attributes that should be retrieved from AD.
-            The attributes defined in the config is already set.
-
-        @rtype: string
-        @return: A CommandId that is the servere reference to later get the data
-            that has been generated.
-
-        """
-        if not object_type:
-            object_type = self.config['target_type']
-        attrs = self.config['attributes'].copy()
-        if attributes:
-            attrs.extend(attributes)
-        # Some attributes are readonly, so they shouldn't be put in the list,
-        # but we still need to receive them if they are used, like the SID.
-        if self.config['store_sid'] and 'SID' not in attrs:
-            attrs['SID'] = None
-        return self.server.start_list_objects(ou = self.config['search_ou'],
-                                              attributes = attrs,
-                                              object_type = object_type)
 
     def get_group_members(self, ent):
         """Override the default member retrieval to fetch policy relations.
