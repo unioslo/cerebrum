@@ -220,7 +220,6 @@ class ADNetGroupClient(ADUtils.ADclient):
                  **kwargs):
         super(ADNetGroupClient, self).__init__(auth_user, domain_admin, dryrun,
                                                domain, *args, **kwargs)
-        self.entity_type_map['group'] = 'nisnetgroup'
 
     attributename_members = 'memberNisNetGroup'
 
@@ -422,13 +421,6 @@ class HostpolicySync(ADSync.GroupSync, TSDUtils):
         """
         super(HostpolicySync, self).configure(config_args)
         # TODO
-
-    def setup_server(self):
-        """Add hostpolicy functionality for the server object."""
-        super(HostpolicySync, self).setup_server()
-        # We must convert policies to Group objects in AD:
-        self.server.entity_type_map['hostpolicy_role'] = 'group'
-        self.server.entity_type_map['hostpolicy_atom'] = 'group'
 
     def fetch_cerebrum_entities(self):
         """Fetch the policycomponents from Cerebrum to be compared with AD.
