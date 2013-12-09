@@ -82,6 +82,12 @@ SYNCS = dict()
 #   Example:
 #       False
 #
+# - ad_object_class (str):
+#   The name of the objectClass that the target entities should become in AD.
+#   This could for instance be 'user', 'group', 'organizationalunit' or
+#   'nisnetgroup'. Note that the set objectClass must exist in the AD schema to
+#   be usable.
+#
 # - ad_admin_messages (list):
 #   What to do with errors and warnings that are for the AD-administrators and
 #   not useful for Cerebrum's sysadmins. Must be a tuple/list with a list of

@@ -101,21 +101,6 @@ class ADclient(PowershellClient):
     # the attribute in AD:
     attribute_write_map = {'Surname': 'Sn',}
 
-    # A mapping from the entity_type to the objectClass that the objects have in
-    # AD. The keys are the str of the Cerebrum constant of type EntityType.
-    # Subclasses might change this mapping, e.g. to make groups become
-    # NisNetGroups instead of regular groups.
-    entity_type_map = {'account': 'user',
-                       'group': 'group',
-                       'ou': 'OrganizationalUnit',
-                       'host': 'computer',
-                       #'dns_owner': 'computer',
-                       #'disk': 'TODO',
-                       #'person': 'Object',
-                       #'email_domain': 'Object',
-                       #'email_target': 'Object',
-                       None: 'Object'}
-
     # The main objectClass that we are targeting in AD. This is used if nothing
     # else is specified when running a command:
     object_class = 'user'
@@ -384,7 +369,7 @@ class ADclient(PowershellClient):
                 first_round = False
             yield code, out
 
-    def start_list_objects(self, ou, attributes, object_type=None):
+    def start_list_objects(self, ou, attributes, object_class):
         """Start to search for objects in AD, but do not retrieve the data yet.
 
         The server is asked to generate a list of the objects, and returns an ID
@@ -399,10 +384,9 @@ class ADclient(PowershellClient):
         @param attributes: A list of all attributes that should be returned for
             all the objects that were found.
 
-        @type object_type: string or constant of EntityTypeCode
-        @param object_type: What type of objects to return. Must be defined in
-            the class variable L{entity_type_map}, as the entity types are not
-            named the same as the object types in AD.
+        @type object_class: string
+        @param object_class:
+            Specifies what objectClass in AD the returned object must be.
 
         @rtype: string
         @return: A string which should be used as a reference to later retrieve
@@ -412,17 +396,17 @@ class ADclient(PowershellClient):
 
         """
         self.logger.debug("Start fetching %s objects from AD, OU: %s",
-                          object_type, ou)
+                          object_class, ou)
         # TBD: Should we check if the given attributes are valid?
         params = {'SearchBase': ou,
                   'Properties': [self.attribute_write_map.get(a, a)
                                  for a in attributes.keys()],
                   }
-        filter = 'Filter *'
-        if object_type:
-            filter = "Filter {objectClass -eq '%s'}" % self.entity_type_map[str(object_type)]
+        filter = "Filter {objectClass -eq '%s'}" % object_class
         command = ("if ($str = %s | ConvertTo-Csv) { $str -replace '$',';' }"
                    % self._generate_ad_command('Get-ADObject', params, filter))
+        # TODO: Should return a callable instead of having another method for
+        # getting the data. Could be using a decorator instead.
         return self.execute(command)
 
     def get_list_objects(self, commandid, other=None):
@@ -519,7 +503,7 @@ class ADclient(PowershellClient):
                                                  'Confirm:$false'))
         return not out.get('stderr')
 
-    def get_object(self, ad_id, object_type, attributes=None):
+    def get_object(self, ad_id, object_class=None, attributes=None):
         """Send a command for receiving information about an object from AD.
 
         Dryrun does not affect this command, since it works readonly.
@@ -529,10 +513,14 @@ class ADclient(PowershellClient):
             (DN), Fully Qualified Domain Name (FQDN), username, UID, GID, SID or
             anything that AD accepts as identification.
 
-        @type object_type: string or constant of EntityTypeCode
-        @param object_type: What type of object that should be created. Could be
-            a 'user', 'group', or something else. This affects what attributes
-            are returned.
+        @type object_class: str
+        @param object_class:
+            Specify what objectClass the returned object should be of, e.g.
+            'user', 'group', or something else. This affects what default
+            attributes are returned and how the given L{ad_id} is used as
+            identifier in AD - for users and security groups you could for
+            instance use SAMAccountName, but OUs and distribution groups would
+            either require the full DN or its GUID.
 
         @type attributes: dict
         @param attributes: What attributes that should be returned for the
@@ -555,7 +543,7 @@ class ADclient(PowershellClient):
             return obj
         raise Exception("Bad output - was object '%s' not found?" % ad_id)
 
-    def create_object(self, name, path, object_type, attributes=None,
+    def create_object(self, name, path, object_class, attributes=None,
                       parameters=None):
         """Send a command for creating a new object in AD.
 
@@ -570,9 +558,10 @@ class ADclient(PowershellClient):
         @type path: string
         @param path: The OU to create the object in.
 
-        @type object_type: string or constant of EntityTypeCode
-        @param object_type: What type of object that should be created. Could be
-            a 'user', 'group', or something else.
+        @type object_class: string
+        @param object_class:
+            Sets the class of the object in AD, e.g. user or group. The class
+            must exist in the AD schema.
 
         @type attributes: dict
         @param attributes: All attributes that should be set for the object at
@@ -599,7 +588,7 @@ class ADclient(PowershellClient):
             already exists.
 
         """
-        self.logger.info("Creating %s in AD: %s (%s)", object_type, name, path)
+        self.logger.info("Creating %s in AD: %s (%s)", object_class, name, path)
         if not parameters:
             parameters = dict()
 
@@ -607,7 +596,7 @@ class ADclient(PowershellClient):
         # TODO: this might be moved into subclasses of ADclient, one per object
         # type? Would probably make easier code... Or we could just depend on
         # the configuration for this behaviour, at least for the attributes.
-        if str(object_type) == 'account':
+        if str(object_class).lower() == 'account':
             # SAMAccountName is mandatory for some object types:
             # TODO: check if this is not necessary any more...
             if 'SamAccountName' not in attributes:
@@ -622,7 +611,7 @@ class ADclient(PowershellClient):
 
         parameters['Name'] = name
         parameters['Path'] = path
-        parameters['Type'] = self.entity_type_map[str(object_type)]
+        parameters['Type'] = object_class
         cmd = self._generate_ad_command('New-ADObject', parameters, 'PassThru')
         cmd = '''if ($str = %s | ConvertTo-Csv) {
             $str -replace '$',';'

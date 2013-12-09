@@ -301,6 +301,12 @@ class BaseSync(object):
         # The name of the sync:
         self.config['sync_type'] = config_args['sync_type']
 
+        # Set what object class in AD to use, either the config or what is set
+        # in any of the subclasses of the ADSync. Most subclasses should set a
+        # default object class.
+        self.ad_object_class = config_args.get('ad_object_class',
+                                               self.default_ad_object_class)
+
         # The object class is generated dynamically, depending on the given list
         # of classes:
         self.logger.debug("Using object classes: %s",
@@ -854,14 +860,15 @@ class BaseSync(object):
         return self._object_class(self.logger, self.config, entity_id,
                                   entity_name, *args, **kwargs)
 
-    def start_fetch_ad_data(self, object_type=None, attributes=dict()):
+    def start_fetch_ad_data(self, object_class=None, attributes=dict()):
         """Send request(s) to AD to start generating the data we need.
 
         Could be subclassed to get more/other data.
 
-        @type object_type: Constant of EntityTypeCode
-        @param object_type: The type of objects that should be returned from AD.
-            If not set, the value in L{config['target_type']} is used.
+        @type object_class: str
+        @param object_class:
+            What object class to get from AD, e.g. 'user' or 'group'. If not
+            set, use what is defined in config or object.
 
         @type attributes: list
         @param attributes: Extra attributes that should be retrieved from AD.
@@ -872,8 +879,8 @@ class BaseSync(object):
             that has been generated.
 
         """
-        if not object_type:
-            object_type = self.config['target_type']
+        if not object_class:
+            object_class = self.ad_object_class
         attrs = self.config['attributes'].copy()
         self.logger.debug2("Try to fetch attributes: %s", ', '.join(sorted(attrs)))
         if attributes:
@@ -884,7 +891,7 @@ class BaseSync(object):
             attrs['SID'] = None
         return self.server.start_list_objects(ou = self.config['search_ou'],
                                               attributes = attrs,
-                                              object_type = object_type)
+                                              object_class = object_class)
 
     def process_ad_data(self, commandid):
         """Start processing the data from AD. Each object from AD is sent
@@ -1213,7 +1220,7 @@ class BaseSync(object):
             if self.config['store_sid'] and 'SID' not in attrs:
                 attrs['SID'] = None
             obj = self.server.get_object(ent.ad_id,
-                                         object_type=self.config['target_type'],
+                                         object_class=self.ad_object_class,
                                          attributes=attrs)
         else:
             ent.ad_new = True
@@ -1244,12 +1251,12 @@ class BaseSync(object):
         name, path = dn.split(',', 1)
         name = name.replace('OU=', '')
         try:
-            return self.server.create_object(name, path, 'ou')
+            return self.server.create_object(name, path, 'organizationalunit')
         except ADUtils.OUUnknownException:
             self.logger.info("OU was not found: %s", path)
             self.create_ou(path)
             # Then retry creating the original OU:
-            return self.server.create_object(name, path, 'ou')
+            return self.server.create_object(name, path, 'organizationalunit')
 
     def create_object(self, ent, **parameters):
         """Create a given entity in AD.
@@ -1269,9 +1276,8 @@ class BaseSync(object):
 
         """
         try:
-            return self.server.create_object(ent.ad_id,
-                                             ent.ou,
-                                             object_type=self.config['target_type'],
+            return self.server.create_object(ent.ad_id, ent.ou,
+                                             self.ad_object_class,
                                              attributes=ent.attributes,
                                              parameters=parameters)
         except ADUtils.OUUnknownException:
@@ -1486,6 +1492,10 @@ class UserSync(BaseSync):
 
     """
 
+    # The default object class of the objects to work on. Used if not the config
+    # says otherwise.
+    default_ad_object_class = 'user'
+
     # A mapping of what the different UserAccountControl settings map to,
     # bitwise. The UserAccountControl attribute is returned as a integer, where
     # each bit gives us one setting. This setting should be expanded if new
@@ -1575,7 +1585,7 @@ class UserSync(BaseSync):
             if setting not in self._useraccountcontrol_settings:
                 raise Exception('Unknown UserAccountControl: %s' % setting)
 
-    def start_fetch_ad_data(self, object_type=None, attributes=dict()):
+    def start_fetch_ad_data(self, object_class=None, attributes=dict()):
         """Ask AD to start generating the data we need about groups.
 
         Could be subclassed to get more/other data.
@@ -1590,7 +1600,7 @@ class UserSync(BaseSync):
         if self.config['useraccountcontrol']:
             attributes['UserAccountControl'] = None
         return super(UserSync, self).start_fetch_ad_data(
-                                                object_type=object_type,
+                                                object_class=object_class,
                                                 attributes=attributes)
 
     def fetch_cerebrum_data(self):
@@ -1705,9 +1715,12 @@ class UserSync(BaseSync):
                     systems.update(atr.source_systems)
                 if atr.languages:
                     languages.update(atr.languages)
-        self.logger.debug2("Fetching person name variants: %s" % (variants,))
-        self.logger.debug2("Fetching names by languages: %s" % (languages,))
-        self.logger.debug2("Fetching names from sources: %s" % (systems,))
+        self.logger.debug2("Fetching person name variants: %s",
+                           ', '.join(str(v) for v in variants))
+        self.logger.debug2("Fetching names by languages: %s",
+                           ', '.join(str(l) for l in languages))
+        self.logger.debug2("Fetching names from sources: %s",
+                           ', '.join(str(s) for s in systems))
         if not variants:
             return
         if all_systems or not systems:
@@ -1762,8 +1775,10 @@ class UserSync(BaseSync):
                     all_systems = True
                 else:
                     systems.update(atr.source_systems)
-        self.logger.debug2("Fetching contact-types: %s" % (types,))
-        self.logger.debug2("Fetching contactinfo from sources: %s" % (systems,))
+        self.logger.debug2("Fetching contact-types: %s",
+                            ', '.join(str(t) for t in types))
+        self.logger.debug2("Fetching contactinfo from sources: %s",
+                           ', '.join(str(s) for s in systems))
         if not types:
             return
         if all_systems or not systems:
@@ -1980,8 +1995,8 @@ class UserSync(BaseSync):
             # Need a mapping from address_id for the primary addresses:
             adrid2email = dict()
             i = 0
-            for row in ea.search(target_id=targetid2entityid.keys()):
-                ent = self.id2entity.get(targetid2entityid[row['target_id']])
+            for row in ea.search():
+                ent = self.id2entity.get(targetid2entityid.get(row['target_id']))
                 if ent:
                     adr = '@'.join((row['local_part'], row['domain']))
                     adrid2email[row['address_id']] = adr
@@ -2176,7 +2191,7 @@ class UserSync(BaseSync):
         elif ctype.type == 'create':
             try:
                 return self.server.create_object(name, self.config['target_ou'],
-                                         object_type=self.config['target_type'])
+                                                 self.ad_object_class)
             except Exception, e:
                 self.logger.warn(e)
                 # TODO: check if it is because the object already exists! If so,
@@ -2315,6 +2330,11 @@ class GroupSync(BaseSync):
     we treat those? Need to describe it better the specifications!
 
     """
+
+    # The default object class of the objects to work on. Used if not the config
+    # says otherwise.
+    default_ad_object_class = 'group'
+
     def __init__(self, *args, **kwargs):
         """Instantiate group specific functionality."""
         super(GroupSync, self).__init__(*args, **kwargs)
@@ -2434,12 +2454,12 @@ class GroupSync(BaseSync):
             self.entities[name] = self.cache_entity(int(row["group_id"]), name,
                                                     description=row['description'])
 
-    def start_fetch_ad_data(self, object_type=None, attributes=dict()):
+    def start_fetch_ad_data(self, object_class=None, attributes=dict()):
         """Ask AD to start generating the data we need about groups.
 
         Could be subclassed to get more/other data.
 
-        TODO: add attributes and object_type and maybe other settings as input
+        TODO: add attributes and object_class and maybe other settings as input
         parameters.
 
         @rtype: string
@@ -2449,7 +2469,7 @@ class GroupSync(BaseSync):
         """
         # TODO: some extra attributes to add?
         return super(GroupSync, self).start_fetch_ad_data(
-                                                object_type=object_type,
+                                                object_class=object_class,
                                                 attributes=attributes)
 
     def sync_group_members(self, ent):
@@ -2640,6 +2660,11 @@ class HostSync(BaseSync):
     domain.
 
     """
+
+    # The default object class of the objects to work on. Used if not the config
+    # says otherwise.
+    default_ad_object_class = 'computer'
+
     def __init__(self, *args, **kwargs):
         """Instantiate host specific functionality."""
         super(HostSync, self).__init__(*args, **kwargs)
