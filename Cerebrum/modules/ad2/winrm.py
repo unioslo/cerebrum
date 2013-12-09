@@ -549,12 +549,10 @@ class WinRMProtocol(object):
                 raise
             elif e.code == 500:
                 code, reason, detail = self._parse_fault(e)
+                #self.logger.debug2("Fault [%s]: %s" % (','.join(code),
+                #                                     '| '.join(reason)))
+                #self.logger.debug2("Fault detail: %s" % '\n'.join(detail))
                 raise WinRMServerException(code, reason, detail)
-
-                self.logger.warn("Fault [%s]: %s" % (','.join(code),
-                                                     '| '.join(reason)))
-                self.logger.warn("Fault detail: %s" % '\n'.join(detail))
-                raise
             self.logger.warn("Server http error, code=%s: %s" % (e.code, e.msg))
             self.logger.warn("Server headers: %s" % str(e.hdrs).replace('\r\n', ' | '))
             raise
@@ -1565,6 +1563,16 @@ class WinRMClient(WinRMProtocol):
         output was received okay. This is automatically done if you get output
         through L{get_output}.
 
+        Due to some weird behaviour in WinRM, we could reach
+        MaxConcurrentOperationsPerUser when sending over 1500 commands (default
+        value), even though we Signal each command with Terminate. WinRM does
+        not decrement the number of operations. We solve this error by starting
+        a new shell directly in this method. For more info on the WinRM
+        behaviour, see:
+
+            http://msdn.microsoft.com/en-us/library/cc251679.aspx
+            http://msdn.microsoft.com/en-us/library/f8ba005a-8271-45ec-92cd-43524d39c80f#id119
+
         @type shellid: string
         @param shellid: If set, used as the ShellId to execute the command in.
             Otherwise L{self.shellid} would be used.
@@ -1587,7 +1595,31 @@ class WinRMClient(WinRMProtocol):
         if not shellid:
             shellid = self.shellid
         assert shellid, "ShellId not given or set"
-        commandid = self.wsman_command(shellid, *args)
+        try:
+            commandid = self.wsman_command(shellid, *args)
+        except WinRMServerException, e:
+            # Check if error matches MaxConcurrentOperationsPerUser and
+            # reconnect 
+            if e.code != ['s:Receiver', 'w:InternalError']:
+                raise
+            if ('The maximum number of concurrent operations for this user '
+                    'has been exceeded' not in e.reason[0]):
+                raise
+            self.logger.debug2('MaxConcurrentOperationsPerUser reached')
+            try:
+                # Note this could affect already executed commands that is not
+                # received by the client yet, as we have not tested if already
+                # running or finished commands gets discarded when the shell is
+                # closed. Works when used as it is now, but should be tested if
+                # we should send more commands before returning their output.
+                self.close(shellid)
+            except Exception, e:
+                self.logger.warn("Closing shell failed: %s" % e)
+            self.connect()
+            shellid = self.shellid
+            # Retry:
+            commandid = self.wsman_command(shellid, *args)
+
         # Send input to stdin, if given:
         if 'stdin' in kwargs:
             self.wsman_send(shellid, commandid, kwargs['stdin'])
