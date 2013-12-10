@@ -960,6 +960,8 @@ def proc_delete_user(r):
     spread = default_spread # TODO: check spread in r['state_data']
     #
     # IVR 2007-01-25 We do not care if it's a posix user or not.
+    # TVL 2013-12-09 Except that if it's a POSIX user, it should retain a
+    #                personal file group.
     account, uname, old_host, old_disk = get_account_and_home(r['entity_id'],
                                                               spread=spread)
     if account.is_deleted():
@@ -994,8 +996,42 @@ def proc_delete_user(r):
     # TBD: Should we have an API function for this?
     for s in account.get_spread():
         account.delete_spread(s['spread'])
+
+    # Make sure the user's default file group is a personal group
     group = Factory.get('Group')(db)
     default_group = _get_default_group(account.entity_id)
+    pu = Factory.get('PosixUser')(db)
+    try:
+        pu.find(account.entity_id)
+    except Errors.NotFoundError:
+        pass
+    else:
+        try:
+            group.find_by_name(account.account_name)
+        except Errors.NotFoundError:
+            ac = Factory.get('Account')(db)
+            ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
+            group.clear()
+            group.new(ac.entity_id, const.group_visibility_all, account.account_name,
+                      description='Personal file group for %s' % account.account_name)
+            group.add_member(account.entity_id)
+            group.write_db()
+            print "Created group: '%s'. Group ID = %d" % (group.group_name, group.entity_id)
+        pg = Factory.get('PosixGroup')(db)
+        try:
+            pg.find(group.entity_id)
+        except:
+            pg.clear()
+            pg.populate(parent=group)
+            pg.write_db()
+            print "Group upgraded to posixgroup"
+        if group.entity_id != default_group:
+            pu.gid_id = group.entity_id
+            pu.write_db()
+            default_group = _get_default_group(account.entity_id)
+
+    # Remove the user from groups
+    group.clear()
     for g in group.search(member_id=account.entity_id,
                           indirect_members=False):
         group.clear()
