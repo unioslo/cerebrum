@@ -171,6 +171,7 @@ class UserSync(ADSync.UserSync, TSDUtils):
                                     owner_id=int(row["owner_id"]),
                                     owner_type=int(row['owner_type']))
             ent.ou = 'OU=users,OU=%s,%s' % (pid, self.config['target_ou'])
+            ent.projectid = pid
             self.entities[uname] = ent
 
 class GroupSync(ADSync.PosixGroupSync, TSDUtils):
