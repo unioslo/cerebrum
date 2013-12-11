@@ -141,7 +141,7 @@ class BaseSync(object):
                              ('handle_unknown_objects', ('ignore', None)),
                              ('handle_deactivated_objects', ('ignore', None)),
                              ('language', ('nb', 'nn', 'en')),
-                             ('changes_too_old_seconds', 60*60*24*365*2), # 2 years
+                             ('changes_too_old_seconds', 60*60*24*365), # 1 year
                              # TODO: move these to GroupSync when we have a
                              # solution for it.
                              ('group_type', 'security'),
@@ -566,69 +566,76 @@ class BaseSync(object):
         # We do it in the correct order, as the changes could be dependend of
         # each other.
         events = cl.get_events(changekey, changetypes)
+        self.logger.debug("Processing changekey: %s" % changekey)
         self.logger.debug("Found %d of changes to process", len(events))
         nr_processed = 0
         for row in events:
-            if int(row['change_type_id']) not in changetypes:
-                # TODO: Shouldn't happen - remove this check?
-                self.logger.warn("Unknown change_type_id %i" %
-                                   row['change_type_id'])
-                cl.confirm_event(row)
-                continue
-
-            # Skip too old changes:
+            # Ignore too old changes:
             if int(row['tstamp']) < too_old:
+                self.logger.info("Skipping too old change_id: %s" %
+                                 row['change_id'])
                 cl.confirm_event(row)
                 continue
-
-            # TODO: split up the input variables?
-            if self.process_cl_event(row):
-                nr_processed += 1
-                cl.confirm_event(row)
-            # TODO: put it inside on a try..except later, when done testing -
-            # would then avoid that a small problem blocks for all changes!
-            if not self.config['dryrun']:
-                cl.commit_confirmations()
+            self.logger.debug("Processing change_id %s (%s), from %s "
+                              "subject_entity: %s", row['change_id'], 
+                              self.co.ChangeType(int(row['change_type_id'])),
+                              row['tstamp'], row['subject_entity'])
+            try:
+                if self.process_cl_event(row):
+                    nr_processed += 1
+                    cl.confirm_event(row)
+            except Exception, e:
+                self.logger.warn("Failed process cl_event: %s",
+                                 row['change_id'])
+                self.logger.exception(e)
+                # TODO: remove this when done debugging:
+                break
+            else:
+                if not self.config['dryrun']:
+                    cl.commit_confirmations()
         if not self.config['dryrun']:
             cl.commit_confirmations()
-            self.logger.info("Commited events for changekey: %s", changekey)
         self.logger.debug("Successfully processed %d events", nr_processed)
         self.logger.info("Quicksync done")
         self.send_ad_admin_messages()
 
     def process_cl_event(self, row):
-        """Process a given event by calling the change type's handler. The
-        handlers must be methods in the class with the name format:
+        """Process a given ChangeLog event.
 
-            changelog_handle_<category>(self, changetype, db-row)
+        This is normally called by the L{quicksync} method. Log changes that is
+        not set in L{adconf.SYNCS[<sync_type>][change_types]} will not be
+        called.
 
-        If such a method exists, it gets called. If it doesn't exist, it's
-        logged as a warning and it returns False, so it could be redone when the
-        error is fixed. Log changes that shouldn't be handled should not be put
-        in adconf.SYNCS[<sync_type>][change_types].
+        Subclasses should override for handling their own change types. The
+        Basesync only handles quite generic change types, and not e.g. account
+        specific changes.
 
         @type row: dict of db-row
-        @param row: A db-row, as returned from L{changelog.get_events()}. This
-            is the row that should be processed.
+        @param row:
+            A db-row, as returned from L{changelog.get_events()}. This is the
+            row that should be processed.
 
         @rtype: bool
-        @return: The result from the handler. Should be True if the sync
-            succeeded or there was no need for the change to be synced, i.e. the
-            log change could be confirmed. Should only return False if the
-            change needs to be redone.
+        @return: 
+            The result from the handler. Should be True if the sync succeeded or
+            there was no need for the change to be synced, i.e. the log change
+            could be confirmed. Should only return False if the change needs to
+            be redone.
+
+        @raise UnhandledChangeTypeError?
+            TODO: Should we have our own exception class that is used if the
+            method does not know what to do with a given change type? Could then
+            be used by subclasses.
+
+        @raise TODO:
+            TODO: What exceptions is expected here?
 
         """
-        ctype = self.co.ChangeType(int(row['change_type_id']))
-        func_name = 'changelog_handle_%s' % (ctype.category,)
-        method = getattr(self, func_name, None)
-        # TODO: if want to get entity and printing out name, use
-        # cereconf.ENTITY_TYPE_NAMESPACE.
-        if not method:
-            self.logger.warn("No handler for changelog category: %s", func_name)
-            return False
-        self.logger.debug("Processing log change %s:%s for entity %s",
-                          ctype.category, ctype.type, row['subject_entity'])
-        return method(ctype, row)
+        # TODO: Add functionality for generic changes here!
+        self.logger.warn("Change type not handled: %s",
+                         self.co.ChangeType(row['change_type_id']))
+        # TODO: Or rather raise an UnhandledChangeTypeError?
+        return False
 
     def fetch_cerebrum_data(self):
         """Get basic data from Cerebrum.
@@ -882,9 +889,10 @@ class BaseSync(object):
         if not object_class:
             object_class = self.ad_object_class
         attrs = self.config['attributes'].copy()
-        self.logger.debug2("Try to fetch attributes: %s", ', '.join(sorted(attrs)))
         if attributes:
             attrs.update(attributes)
+        self.logger.debug2("Try to fetch %d attributes: %s", len(attrs),
+                           ', '.join(sorted(attrs)))
         # Some attributes are readonly, so they shouldn't be put in the list,
         # but we still need to receive them if they are used, like the SID.
         if self.config['store_sid'] and 'SID' not in attrs:
@@ -908,7 +916,9 @@ class BaseSync(object):
         i = 0
         for ad_object in self.server.get_list_objects(commandid):
             if i == 0:
-                self.logger.debug2("Retrieved attributes: %s", ad_object.keys())
+                self.logger.debug2("Retrieved %d attributes: %s",
+                                   len(ad_object), 
+                                   ', '.join(sorted(ad_object.keys())))
             try:
                 self.process_ad_object(ad_object)
             except ADUtils.NoAccessException, e:
@@ -980,9 +990,7 @@ class BaseSync(object):
             self.downgrade_object(ad_object,
                                   self.config['handle_deactivated_objects'])
         else:
-            if not ad_object.get('Enabled', True):
-                # TODO: move this to its own method in this class, to be able to
-                # modify the behaviour in subclasses.
+            if not ad_object.get('Enabled', False):
                 self.server.enable_object(dn)
         if self.config['move_objects']:
             self.move_object(ad_object, ent.ou)
@@ -1599,6 +1607,8 @@ class UserSync(BaseSync):
         # TODO: some extra attributes to add?
         if self.config['useraccountcontrol']:
             attributes['UserAccountControl'] = None
+        if 'Enabled' not in attributes:
+            attributes['Enabled'] = None
         return super(UserSync, self).start_fetch_ad_data(
                                                 object_class=object_class,
                                                 attributes=attributes)
@@ -2135,6 +2145,58 @@ class UserSync(BaseSync):
         # active, and not update it if the config says so (downgrade).
         return ret
 
+    def process_cl_event(self, row):
+        """Process a given ChangeLog event for users.
+
+        Overriden to support account specific changes.
+
+        @type row: dict of db-row
+        @param row:
+            A db-row, as returned from L{changelog.get_events()}. This is the
+            row that should be processed.
+
+        @rtype: bool
+        @return: 
+            The result from the handler. Should be True if the sync succeeded or
+            there was no need for the change to be synced, i.e. the log change
+            could be confirmed. Should only return False if the change needs to
+            be redone.
+
+        @raise UnhandledChangeTypeError?
+            TODO: Should we have our own exception class that is used if the
+            method does not know what to do with a given change type? Could then
+            be used by subclasses.
+
+        @raise TODO:
+            TODO: What exceptions is expected here?
+
+        """
+        # TODO: Should we create a new account instance per call, to support
+        # threading?
+        self.ac.clear()
+
+        # TODO: clean up code when more functionality is added!
+        if row['change_type_id'] == self.co.account_password:
+            self.ac.find(row['subject_entity'])
+            if not self.ac.has_spread(self.config['target_spread']):
+                self.logger.debug("Account %s without target_spread, ignoring",
+                                  row['subject_entity'])
+                return True
+            name = self.config.get('name_format', '%s') % self.ac.account_name
+            try:
+                pw = pickle.loads(str(row['change_params']))['password']
+            except (KeyError, TypeError):
+                self.logger.warn("Account %s missing plaintext password",
+                                 row['subject_entity'])
+                return False
+            # TODO: do we need to unicodify it here, or do we handle it in the
+            # ADclient instead?
+            #pwUnicode = unicode(pw, 'iso-8859-1')
+            return self.server.set_password(name, pw)
+
+        # Other change types handled by other classes:
+        return super(UserSync, self).process_cl_event(row)
+
     def changelog_handle_e_account(self, ctype, row):
         """Handler for changelog events of category 'e_account'.
 
@@ -2156,6 +2218,8 @@ class UserSync(BaseSync):
         @return: True if the change should be marked as finished. False only if
             it failed and should be reprocessed later.
         """
+        # TODO: move functionality from this command to the one above...
+
         self.ac.clear()
         # TODO: handle NotFoundError here, in case the entity has been nuked.
         try:
