@@ -79,8 +79,17 @@ class CLHandler(DatabaseAccessor):
         self._confirmed_events.append(int(evt['change_id']))
 
     def commit_confirmations(self):
-        """Update database with information about what events a have
-        been received OK"""
+        """Update database with confirmed events.
+
+        Note that this method runs L{db.commit()}, which means that you can't
+        run this if you try to dryrun functionality and wants to do a rollback
+        afterwards. You could swap out L{db.commit} with L{db.rollback} or
+        rather a dummy method that does nothing.
+
+        TODO: Why does this commit, and break with rest of the API? There must
+        be a reason for it. Can't remove it without checking all scripts!
+
+        """
         debug = False
         self._confirmed_events.sort()
         new_ranges = self._prev_ranges[:]
