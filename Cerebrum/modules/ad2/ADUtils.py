@@ -402,9 +402,19 @@ class ADclient(PowershellClient):
                   'Properties': [self.attribute_write_map.get(a, a)
                                  for a in attributes.keys()],
                   }
+        cmd = 'Get-ADObject'
         filter = "Filter {objectClass -eq '%s'}" % object_class
+        # User objects requires special care, as Get-ADObject will not return
+        # the attribute Enabled, and also, the filtering by objectclass='user'
+        # also includes computer objects for some reason. See
+        # http://technet.microsoft.com/en-us/library/ee198834.aspx for some
+        # information about this.
+        #
+        # Note that this could also affect other ObjectClasses...
+        if object_class == 'user':
+            cmd = 'Get-ADUser'
         command = ("if ($str = %s | ConvertTo-Csv) { $str -replace '$',';' }"
-                   % self._generate_ad_command('Get-ADObject', params, filter))
+                   % self._generate_ad_command(cmd, params, filter))
         # TODO: Should return a callable instead of having another method for
         # getting the data. Could be using a decorator instead.
         return self.execute(command)
@@ -695,8 +705,8 @@ class ADclient(PowershellClient):
         self.logger.info(u'Updating attributes for %s: %s' % (ad_id,
                                                               attributes))
         # What attributes needs to be cleared before adding the correct attr:
-        clears = set(self.attribute_write_map.get(k, k) for k in attributes
-                     if k in old_attributes and old_attributes[k] is not None)
+        clears = set(self.attribute_write_map.get(k, k) for k in attributes)
+                     #if k in old_attributes and old_attributes[k] is not None)
 
         # Some attributes are named differently when reading and writing, so we
         # need to map them properly. Also avoids setting attributes that is set
@@ -970,7 +980,8 @@ class ADclient(PowershellClient):
             %(cmd)s -NewPassword $pwd;
         ''' % {'pwd': self.escape_to_string(password),
                'cmd': self._generate_ad_command('Set-ADAccountPassword',
-                                                {'Identity': ad_id}, ['Reset'])}
+                                                {'Identity': ad_id}, 
+                                                ['Reset'])}
         #Set-ADAccountPassword -Identity %(_ad_id)s -Credential $cred -Reset -NewPassword $pwd
         if self.dryrun:
             return True
