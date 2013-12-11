@@ -990,8 +990,10 @@ class BaseSync(object):
             self.downgrade_object(ad_object,
                                   self.config['handle_deactivated_objects'])
         else:
-            if not ad_object.get('Enabled', False):
+            status = ad_object.get('Enabled', False)
+            if not status or status == 'False':
                 self.server.enable_object(dn)
+
         if self.config['move_objects']:
             self.move_object(ad_object, ent.ou)
             # Updating the DN, for later updates in the process:
