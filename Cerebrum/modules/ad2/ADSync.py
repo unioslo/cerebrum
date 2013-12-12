@@ -949,6 +949,14 @@ class BaseSync(object):
         @param ad_object: A dict with information about the AD object from AD.
             The dict contains mostly the object's attributes.
 
+        @rtype bool:
+            True if the AD object is processed and can be processed further.
+            False is returned if it should not be processed further either
+            because it is in a OU we shouldn't touch, or doesn't exist in
+            Cerebrum. Subclasses might still want to process the object in some
+            way, but for most cases this is the regular situations where the
+            object should not be processed further.
+
         """
         name = ad_object['Name']
         dn = ad_object['DistinguishedName']
@@ -970,12 +978,12 @@ class BaseSync(object):
             format = self.config.get('name_format', '%s')
             if name not in (format % s for s in self.config['subset']):
                 #self.logger.debug("Ignoring due to subset: %s", name)
-                return
+                return False
 
         # Don't touch those in OUs we should ignore:
         if any(dn.endswith(ou) for ou in self.config.get('ignore_ou', ())):
             self.logger.debug('Object in ignore_ou: %s' % dn)
-            return
+            return False
 
         # If not found in Cerebrum, remove the object (according to config):
         if not ent:
@@ -983,16 +991,12 @@ class BaseSync(object):
             self.downgrade_object(ad_object,
                                        self.config.get('handle_unknown_objects',
                                                        ('disable', None)))
-            return
+            return False
 
         # If not active in Cerebrum, do something (according to config):
         if not ent.active:
             self.downgrade_object(ad_object,
                                   self.config['handle_deactivated_objects'])
-        else:
-            status = ad_object.get('Enabled', False)
-            if not status or status == 'False':
-                self.server.enable_object(dn)
 
         if self.config['move_objects']:
             self.move_object(ad_object, ent.ou)
@@ -1008,6 +1012,7 @@ class BaseSync(object):
                                           ad_object)
         # Store SID in Cerebrum
         self.store_sid(ent, ad_object.get('SID'))
+        return True
 
     def compare_attributes(self, ent, ad_object):
         """Compare entity's attributes between Cerebrum and AD.
@@ -2097,6 +2102,22 @@ class UserSync(BaseSync):
             except (KeyError, TypeError):
                 self.logger.debug('No plaintext loadable for %s' %
                                     ent.entity_name)
+
+    def process_ad_object(self, ad_object):
+        """Compare a User object retrieved from AD with Cerebrum.
+
+        Overriden for user specific functionality.
+
+        """
+        if not super(UserSync, self).process_ad_object(ad_object):
+            return False
+        ent = self.adid2entity.get(ad_object['Name'])
+        dn = ad_object['DistinguishedName'] # TBD: or 'Name'?
+
+        if ent.active:
+            status = ad_object.get('Enabled', False)
+            if not status or status == 'False':
+                self.server.enable_object(dn)
 
     def process_entities_not_in_ad(self):
         """Start processing users not in AD.
