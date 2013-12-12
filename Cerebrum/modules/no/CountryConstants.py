@@ -225,7 +225,7 @@ class CountryConstants(Constants.Constants):
     country_mk = _CountryCode("MK", "Macedonia", "389", "Makedonia")
     country_uy = _CountryCode("UY", "Uruguay", "598", "Uruguay")
     country_yt = _CountryCode("YT", "Mayotte", "262", "Mayotte")
-    country_um = _CountryCode("UM", "United States Minor Outlying Islands", " ", "USA, mindre, utenforliggende øyer")
+    country_um = _CountryCode("UM", "United States Minor Outlying Islands", "", "USA, mindre, utenforliggende øyer")
     country_lb = _CountryCode("LB", "Lebanon", "961", "Libanon")
     country_lc = _CountryCode("LC", "Saint Lucia", "1-758", "Saint Lucia")
     country_la = _CountryCode("LA", "Laos", "856", "Laos")
