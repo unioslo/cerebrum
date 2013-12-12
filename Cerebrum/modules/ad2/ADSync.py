@@ -588,8 +588,8 @@ class BaseSync(object):
                 self.logger.warn("Failed process cl_event: %s",
                                  row['change_id'])
                 self.logger.exception(e)
-                # TODO: remove this when done debugging:
-                break
+                # TODO: Add subject_entity to a ignore-list, as I think we
+                # should keep changes in order per entity.
             else:
                 if not self.config['dryrun']:
                     cl.commit_confirmations()
@@ -2201,6 +2201,10 @@ class UserSync(BaseSync):
         # TODO: clean up code when more functionality is added!
         if row['change_type_id'] == self.co.account_password:
             self.ac.find(row['subject_entity'])
+            if self.ac.is_expired():
+                self.logger.debug("Account %s is expired, ignoring",
+                                  row['subject_entity'])
+                return True
             if not self.ac.has_spread(self.config['target_spread']):
                 self.logger.debug("Account %s without target_spread, ignoring",
                                   row['subject_entity'])
@@ -2473,14 +2477,10 @@ class GroupSync(BaseSync):
         Do the basic sync and update the member list for the group.
 
         """
-        super(GroupSync, self).process_ad_object(ad_object)
+        if not super(GroupSync, self).process_ad_object(ad_object):
+            return False
         ent = self.adid2entity.get(ad_object['Name'])
-        if not ent:
-            # Already taken care of in the super class
-            return
         dn = ad_object['DistinguishedName'] # TBD: or 'Name'?
-        if any(dn.endswith(ou) for ou in self.config.get('ignore_ou', ())):
-            return
         # TODO: more functionality for groups?
 
     def post_process(self):
