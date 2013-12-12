@@ -331,6 +331,8 @@ class PasswordAuthenticationService(AuthenticationService):
 
 class UsernameAuthenticationService(AuthenticationService):
     """Authentication Service where the auth is handled by username only.
+
+    When using this service you are trusting the security of your client.
     """
     # Standard message to return in case of errors:
     error_msg = 'Unknown username'
