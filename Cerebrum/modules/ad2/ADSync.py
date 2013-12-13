@@ -967,7 +967,9 @@ class BaseSync(object):
         #    self.logger.debug("For %s UAC: %s" % (name,
         #                      ad_object['UserAccountControl']))
 
-        ent = self.adid2entity.get(name)
+        # TBD: lowercase all entities put in adid2entity too, or should we have
+        # some smarter comparement?
+        ent = self.adid2entity.get(name.lower())
         if ent:
             ent.in_ad = True
             ent.ad_data['dn'] = dn
@@ -1061,7 +1063,15 @@ class BaseSync(object):
             # Integers are retrieved from AD as strings, so need to compare with
             # Cerebrum as strings:
             c = unicode(c)
-        if c != a:
+
+        # TODO: Special cases should not be hardcoded, but should either have it
+        # in the config, or be of generic use:
+        if atr.lower() == 'samaccountname':
+            if c.lower() != a.lower():
+                self.logger.debug("Mismatch attr for %s: %s: '%s' (%s) -> '%s' (%s)"
+                                  % (ent.entity_name, atr, a, type(a), c, type(c)))
+                ent.changes.setdefault('attributes', {})[atr] = c
+        elif c != a:
             self.logger.debug("Mismatch attr for %s: %s: '%s' (%s) -> '%s' (%s)"
                               % (ent.entity_name, atr, a, type(a), c, type(c)))
             ent.changes.setdefault('attributes', {})[atr] = c
