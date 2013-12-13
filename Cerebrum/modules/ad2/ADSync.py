@@ -1244,9 +1244,13 @@ class BaseSync(object):
             attrs = self.config['attributes'].copy()
             if self.config['store_sid'] and 'SID' not in attrs:
                 attrs['SID'] = None
+            # TODO: Change to self.server.find_object here?
             obj = self.server.get_object(ent.ad_id,
                                          object_class=self.ad_object_class,
                                          attributes=attrs)
+        except Exception, e:
+            self.logger.exception("Failed creating %s" % ent.ad_id)
+            return False
         else:
             ent.ad_new = True
         ent.in_ad = True
