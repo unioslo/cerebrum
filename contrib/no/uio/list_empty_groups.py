@@ -95,18 +95,22 @@ def print_empty_groups_info(groups, output_stream):
 
 def usage():
     print "***********************************"
-    print "Usage: python list_empty_groups.py [-f output_file]"
+    print "Usage: python list_empty_groups.py [-f path_to_output_file]",  
+    print "[-h, --help]"
     exit(0)
 
 def main():
     try:
-        options, remainder = getopt.getopt(sys.argv[1:], 'f:')
+        options, remainder = getopt.getopt(sys.argv[1:], 'f:h', ['help'])
     except getopt.GetoptError:
         usage()
    
     output_filename = "stdout" 
     for opt, arg in options:
-        if opt == '-f':
+        if opt == '-h' or opt == '--help':
+            print __doc__
+            usage()
+        elif opt == '-f':
             output_filename = arg
     if(output_filename != "stdout"):
         output_stream = open(output_filename, 'w')
