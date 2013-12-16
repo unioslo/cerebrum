@@ -222,7 +222,7 @@ class ADclient(PowershellClient):
                 -SearchBase 'OU=Users,DC=kaos' \
                 -Properties 'Name','DN','SAMAccountName'
 
-        @type novalueargs: list or string
+        @type novalueargs: string or list thereof
         @param novalueargs:
             Parameters which does not require any value. E.g. -Reset for
             Set-ADAccountPassword. No escape is performed on these, so could
@@ -553,6 +553,61 @@ class ADclient(PowershellClient):
             return obj
         raise Exception("Bad output - was object '%s' not found?" % ad_id)
 
+    def find_object(self, object_class=None, name=None, ou=None,
+                    attributes=None, ad_object_class=None):
+        """Search for a given object by the given input criterias.
+
+        @type object_class: str
+        @param object_class:
+            What objectClass in AD the object must be of to be returned.
+
+        @type name: str
+        @param name:
+            If specified, the object is searched for by the given Name
+            attribute.
+
+        @type ou: str
+        @param ou:
+            If specified, the search is limited to the given AD OU.
+
+        @type attributes: dict
+        @param attributes:
+            If specified, the given attributes are added as criterias. Could for
+            instance be used to find the object by its given SAMAccountName.
+
+        @type ad_object_class: str
+        @param ad_object_class:
+            If specified, only objects of the given objectClass are returned.
+
+        @rtype: list of dicts
+        @return:
+            The objects from AD that matched the criterias are returned,
+            together with some of their AD attributes.
+
+        """
+        parameters = {}
+        if ou:
+            parameters['SearchBase'] = ou
+        filters = {}
+        if attributes:
+            filters.update(attributes)
+        if name:
+            filters['Name'] = name
+        if ad_object_class:
+            filter['ObjectClass'] = ad_object_class
+        extra = {}
+        if filters:
+            extra = 'Filter {%s}' % ' -and '.join("%s -eq '%s'" % (k, v)
+                                                  for k, v in
+                                                  filters.iteritems())
+
+        cmd = ("if ($str = %s | ConvertTo-Csv) { $str -replace '$', ';' }" %
+               self._generate_ad_command('Get-ADObject', parameters, extra))
+        out = self.run(cmd)
+        for obj in self.get_output_csv(out, dict()):
+            return obj
+        raise Exception("Bad output - was object '%s' not found?" % ad_id)
+
     def create_object(self, name, path, object_class, attributes=None,
                       parameters=None):
         """Send a command for creating a new object in AD.
@@ -854,7 +909,7 @@ class ADclient(PowershellClient):
         output = self.run(cmd)
         return not output.get('stderr')
 
-    def add_members(self, groupid, members):
+    def add_members(self, groupid, members, attribute_name=None):
         """Send command for adding given members to a given group in AD.
 
         Note that if one of the members already exists in the group, powershell
@@ -866,54 +921,57 @@ class ADclient(PowershellClient):
         than 1000 members).
 
         @type groupid: string
-        @param groupid: The Id for the group, e.g. DistinguishedName or
-            SamAccountName.
+        @param groupid:
+            The Id for the group, e.g. DistinguishedName or SamAccountName.
 
-        @type members: set
-        @param members: The set of members to add to the group. The members
-            must not exist in the group.
+        @type members: set of strings
+        @param members:
+            The set of members to add to the group, identified by their
+            DistinguishedName. The members must not exist in the group, as that
+            would make the powershell command fail. SAMAccountName or Name are
+            not accepted by AD without workarounds.
 
-        @rtype: bool or tuple
-        @return: If the command should wait for the response, a boolean value is
-            returned. If not waiting, only a CommandId is returned, as a tuple
+        @type attribute_name: str
+        @param attribute_name:
+            The name of the member attribute to update in AD. Uses the default
+            L{self.attributename_members} if not specified.
 
-        # TODO: add support for not having to check the member lists first.
+        @rtype: bool
+        @return:
+            Telling if the member add worked or failed.
+
+        # TODO: add support for not having to check the member lists first?
 
         """
+        if not attribute_name:
+            attribute_name = self.attributename_members
         self.logger.debug("Adding %d members for object: %s" % (len(members),
                                                                 groupid))
-        # Printing out the first 1000 members, for debugging reasons:
+        # Printing out the first 500 members, for debugging reasons:
         self.logger.debug2("Adding members for %s: %s", groupid,
-                           ', '.join(tuple(members)[:1000]))
+                           ', '.join(tuple(members)[:500]))
 
-        # As we can't have too large commands for CMD, we might have to split up
-        # the member list:
-        # TODO: need to find out what the max length of CMD is. Only splitting
-        # at a suitable value for now: 1000. The max length should be calculated
-        # by the length of the command instead, since the member names could be
-        # shorter or longer, depending on the name policy of the instance.
-        if len(members) > 1000:
-            self.logger.debug2("Too large member list, splitting up command")
-            tmp = set()
-            for m in members:
-                tmp.add(m)
-                if len(tmp) >= 1000:
-                    self.add_members(groupid, tmp)
-                    tmp = set()
-            if tmp:
-                self.add_members(groupid, tmp)
-            self.logger.debug("Member sync completed")
-            return True
-        cmd = self._generate_ad_command(
-                        'Set-ADObject',
-                        {'Identity': groupid,
-                         'Add': {self.attributename_members: members}})
-        if self.dryrun:
-            return True
-        output = self.run(cmd)
-        return not output.get('stderr')
+        # TODO: Testing new method: adding each member, one by one, to avoid
+        # problems with single, bad behaving members preventing everyone else
+        # from becoming members. Must be tested to see if it takes too much time
+        # to do it this way.
+        failed_members = []
+        for member in members:
+            self.logger.debug2("Adding member: %s", member)
+            cmd = self._generate_ad_command(
+                    'Set-ADObject',
+                    {'Identity': groupid,
+                     'Add': {attribute_name: member}})
+            if not self.dryrun:
+                try:
+                    self.run(cmd)
+                except PowershellException, e:
+                    self.logger.warn("Failed adding '%s' to group %s: %s",
+                                     groupid, member, e)
+                    failed_members.append(member)
+        return not failed_members
 
-    def remove_members(self, groupid, members):
+    def remove_members(self, groupid, members, attribute_name=None):
         """Send command for removing given members from a given group in AD.
 
         Note that if one of the members does not exist in the group, the command
@@ -925,21 +983,30 @@ class ADclient(PowershellClient):
 
         @type members: set, list or tuple
         @param members: The list of members to remove from the group. All the
-            given members must be members of the group.
+            given members must be members of the group, and they must be
+            identified by their DistinguishedName.
+
+        @type attribute_name: str
+        @param attribute_name:
+            The name of the member attribute to update in AD. Uses the default
+            L{self.attributename_members} if not specified.
         
         # TODO: Add support for not getting exceptions if the members doesn't
         # exist.
 
         """
+        if not attribute_name:
+            attribute_name = self.attributename_members
         self.logger.debug("Removing %d members for group: %s" % (len(members),
                                                                  groupid))
-        # Printing out the first 1000 members, for debugging reasons:
+        # Printing out the first 500 members, for debugging reasons:
         self.logger.debug2("Removing members for %s: %s...", groupid,
-                           ', '.join(tuple(members)[:1000]))
+                           ', '.join(tuple(members)[:500]))
+        # TODO: Should do the removal in the same way as self.add_member
         cmd = self._generate_ad_command(
                         'Set-ADObject',
                         {'Identity': groupid,
-                         'Remove': {self.attributename_members: members}})
+                         'Remove': {attribute_name: members}})
         if self.dryrun:
             return True
         output = self.run(cmd)

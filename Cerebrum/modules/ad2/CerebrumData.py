@@ -395,8 +395,8 @@ class CerebrumUser(CerebrumEntity):
 
     """
 
-    def __init__(self, logger, config, entity_id, entity_name, owner_id,
-                 owner_type):
+    def __init__(self, logger, config, entity_id, entity_name, owner_id=None,
+                 owner_type=None):
         """CerebrumUser constructor
         
         @type owner_id: int

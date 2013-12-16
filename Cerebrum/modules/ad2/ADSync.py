@@ -311,25 +311,9 @@ class BaseSync(object):
         # of classes:
         self.logger.debug("Using object classes: %s",
                           ', '.join(config_args['object_classes']))
-        bases = []
-        for c in config_args['object_classes']:
-            mod_name, class_name = c.split("/", 1)
-            mod = dyn_import(mod_name)
-            claz = getattr(mod, class_name)
-            for override in bases:
-                if issubclass(claz, override):
-                    raise RuntimeError("Class %r should appear earlier in the "
-                            "list, as it's a subclass of class %r." % (claz,
-                                                                      override))
-            bases.append(claz)
-        if len(bases) == 1:
-            self._object_class = bases[0]
-        else:
-            # Dynamically construct a new class that inherits from all the
-            # specified classes:
-            self._object_class = type('_dynamic_adobject_%s' %
-                                            self.config['sync_type'],
-                                      tuple(bases), {})
+        self._object_class = self._generate_dynamic_class(
+                config_args['object_classes'], 
+                '_dynamic_adobject_%s' % self.config['sync_type'])
 
         # Spread is changed into the spread constant, if set
         if self.config['target_spread']:
@@ -430,6 +414,54 @@ class BaseSync(object):
 
         # TODO: move the instantiation of the server to somewhere else!
         self.setup_server()
+
+    def _generate_dynamic_class(self, classes, class_name='_dynamic'):
+        """Generate a dynamic class out of the given classes.
+
+        This is doing parts of what L{Utils.Factory.get} does, but without the
+        dependency of cereconf.
+
+        @type classes: list of str
+        @param classes:
+            The list of classes that should get combined and turned into a
+            dynamic class. The classes are represented by strings, starting with
+            the module path, ending with the class name in the module. Example:
+
+                Cerebrum.modules.ad2.ADSync/UserSync
+                Cerebrum.modules.ad2.ADSync/PosixUserSync
+
+            Note that the order in the list is important. The last element is
+            the superclass, and everyone before is subclasses. This also means
+            that you if add related classes, subclasses must be added before the
+            superclasses.
+
+        @type class_name: str
+        @param class_name:
+            The name of the new class, e.g. represented by L{__main__._dynamic}.
+            Not used if only one class is given, as that is then used directly -
+            no need to create a new class that is exactly the same as input.
+
+        @rtype: dynamic class
+        @return:
+            A dynamically generated class.
+
+        """
+        bases = []
+        for c in classes:
+            mod_name, cname = c.split("/", 1)
+            mod = dyn_import(mod_name)
+            claz = getattr(mod, cname)
+            for override in bases:
+                if issubclass(claz, override):
+                    raise Exception(
+                            "Class %r should appear earlier in the list, as "
+                            "it's a subclass of class %r." % (claz, override))
+            bases.append(claz)
+        if len(bases) == 1:
+            return bases[0]
+        # Dynamically construct the new class that inherits from all the given
+        # classes:
+        return type(class_name, tuple(bases), {})
 
     def setup_server(self):
         """Instantiate the server class to use for WinRM."""
@@ -2600,7 +2632,7 @@ class GroupSync(BaseSync):
         @type ent: CerebrumEntity
         @param ent: The targeted entity to sync the members for.
 
-        @type cere_members: set
+        @type cere_members: set of CerebrumEntity objects
         @param members:
             The list of members from Cerebrum. This should be the result in AD
             after the sync has finished.
@@ -2628,10 +2660,16 @@ class GroupSync(BaseSync):
 
         self.logger.debug("Group had %d members in AD, %d in Cerebrum" %
                           (len(ad_members), len(cere_members)))
-        mem_add = cere_members - ad_members
+        # AD only accepts full DN in its member lists.
+        cere_dns = set()
+        for member in cere_members:
+            # Find the DN of the object:
+            adobj = self.server.find_object(name=member.ad_id, ou=member.ou)
+            cere_dns.add(adobj['DistinguishedName'])
+        mem_add = cere_dns - ad_members
         if mem_add:
             self.server.add_members(dn, mem_add)
-        mem_remove = ad_members - cere_members
+        mem_remove = ad_members - cere_dns
         if mem_remove:
             self.server.remove_members(dn, mem_remove)
         return True
@@ -2642,7 +2680,7 @@ class GroupSync(BaseSync):
         Note that only the members of the given L{member_spreads} from the
         config is fetched. If groups are found as members, they are included as
         direct members of the entity if they have one of the member spreads. If
-        the member group does not have the spread, it sub members are included
+        the member group does not have the spread, its sub members are included
         in the entity - i.e. the entity is "flattened".
 
         Note that the name of the members are by default their entity_name, but
@@ -2653,26 +2691,41 @@ class GroupSync(BaseSync):
         @param ent: The entity for which we should fetch the members of.
 
         @rtype: set
-        @return: A list of members of the entity, filtered by spreads in config.
+        @return:
+            A list of identifiers of the members of the entity, filtered by the
+            config's L{member_spreads}. The returned identifiers depend on the
+            member spreads and how that is configured for AD. The SAMAccountName
+            could for instance be used if defined.
 
         """
         mem_spreads = self.config.get('member_spreads', None)
 
-        # Create a mapping from entity_type to name_format, so the names are as
-        # in ad_id, e.g. groupnames which ends with '-group'. Default, unknown
-        # entity types, are defaulted to its entity_name. TBD: Is this an okay
-        # behaviour?
+        # TODO: This needs refactoring! As not all objects require
+        # SAMAccountName to be used, we need to specify DN as well in some
+        # syncs.
+
+        # Create a mapping from entity_type to name_format and base-OU, so the
+        # names are as in ad_id, e.g. groupnames which ends with '-group'.
+        # Default, unknown entity types, are defaulted to its entity_name. TBD:
+        # Is this an okay behaviour?
         type2name = dict()
+        # A mapping from spreads to classes that could be used to generate and
+        # represent the AD object according to Cerebrum.
+        # TODO: If this idea stays, it should be moved to the config setup!
+        type2obj = dict()
+
         if mem_spreads:
             for spr in mem_spreads:
-                if spr not in adconf.SYNCS:
+                if str(spr) not in adconf.SYNCS:
                     continue
-                sync = adconf.SYNCS[spr]
+                sync = adconf.SYNCS[str(spr)]
                 format = sync.get('name_format', '%s')
-                sp = self.co.Spread(spr)
-                int(sp)
-                type2name[int(sp.entity_type)] = 'CN=%s,%s' % (
-                        format, sync['target_ou'])
+                type2name[int(spr.entity_type)] = (format, sync['target_ou'])
+                type2obj[int(spr.entity_type)] = (
+                                      self._generate_dynamic_class(
+                                            sync['object_classes'],
+                                            '_dynamic_admember_%s' % spr),
+                                      sync)
         else:
             for spr, data in adconf.SYNCS.iteritems():
                 sp = self.co.Spread(spr)
@@ -2680,8 +2733,13 @@ class GroupSync(BaseSync):
                     int(sp)
                 except Exception:
                     continue
-                type2name[int(sp.entity_type)] = 'CN=%s,%s' % (
-                        data.get('name_format', '%s'), data['target_ou'])
+                type2name[int(sp.entity_type)] = (data.get('name_format', '%s'),
+                                                  data['target_ou'])
+                type2obj[int(sp.entity_type)] = (
+                                    self._generate_dynamic_class(
+                                        data['object_classes'],
+                                        '_dynamic_admember_%s' % spr),
+                                    data)
 
         # TODO: gr.search_members by given spreads will not return all groups -
         # we would probably need to do another search_members just for groups,
@@ -2696,8 +2754,14 @@ class GroupSync(BaseSync):
         for mem in self.gr.search_members(group_id=ent.entity_id,
                                           member_spread=mem_spreads,
                                           include_member_entity_name=True):
-            format = type2name.get(mem['member_type'], '%s')
-            name = mem['member_name']
+            objectclass, objectconfig = type2obj[mem['member_type']]
+            ent = objectclass(self.logger, objectconfig, mem['member_id'],
+                              mem['member_name'])
+            # TODO: Some attributes depend on other data before they could get
+            # calculated. Do we care about that? We might need to run the full
+            # fetch for the given sync type to be able to fully sync the
+            # members, at least to comply with all situations.
+            ent.calculate_ad_values()
 
             #if mem['member_type'] == self.co.entity_group:
             #    # Special treatment of groups. We want to flatten groups
@@ -2720,24 +2784,26 @@ class GroupSync(BaseSync):
             #            cere_members.add(format % (self.gr.group_name,))
 
             # Special treatment for persons:
-            if mem['member_type'] == self.co.entity_person:
-                # TODO: Should we cache person-id → primary account name?
-                # Fetching person
-                self.pe.clear()
-                self.pe.find(mem['member_id'])
+            # TODO: Maybe we don't want this at all, but should only accept
+            # users? Look at what comes out of the Exchange project (NIKE).
+            #if mem['member_type'] == self.co.entity_person:
+            #    # TODO: Should we cache person-id → primary account name?
+            #    # Fetching person
+            #    self.pe.clear()
+            #    self.pe.find(mem['member_id'])
 
-                # Getting the primary account, skip if not defined
-                a_id = self.pe.get_primary_account()
-                if not a_id:
-                    self.logger.warn("Person (%d) has no primary account, " \
-                                        "skipping" % self.pe.entity_id)
-                    continue
+            #    # Getting the primary account, skip if not defined
+            #    a_id = self.pe.get_primary_account()
+            #    if not a_id:
+            #        self.logger.warn("Person (%d) has no primary account, " \
+            #                            "skipping" % self.pe.entity_id)
+            #        continue
 
-                # Fetch account, and retrieve account name
-                self.ac.clear()
-                self.ac.find(a_id)
-                name = self.ac.account_name
-            cere_members.add(format % (name,))
+            #    # Fetch account, and retrieve account name
+            #    self.ac.clear()
+            #    self.ac.find(a_id)
+            #    name = self.ac.account_name
+            cere_members.add(ent)
         return cere_members
 
     def sync_ad_attribute(self, ent, attribute, cere_elements, ad_elements):
