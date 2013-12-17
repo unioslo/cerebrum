@@ -380,9 +380,11 @@ class ADclient(PowershellClient):
         @param ou: The OU in AD to search in. All objects from given OU and its
             child OUs are returned.
 
-        @type attributes: list or tuple
-        @param attributes: A list of all attributes that should be returned for
-            all the objects that were found.
+        @type attributes: dict, list or tuple
+        @param attributes:
+            A list of all attributes that should be returned for all the objects
+            that were found. If a dict is given, its keys are used as the
+            attribute list.
 
         @type object_class: string
         @param object_class:
@@ -398,9 +400,11 @@ class ADclient(PowershellClient):
         self.logger.debug("Start fetching %s objects from AD, OU: %s",
                           object_class, ou)
         # TBD: Should we check if the given attributes are valid?
+        if isinstance(attributes, dict):
+            attributes = attributes.keys()
         params = {'SearchBase': ou,
                   'Properties': [self.attribute_write_map.get(a, a)
-                                 for a in attributes.keys()],
+                                 for a in attributes],
                   }
         cmd = 'Get-ADObject'
         filter = "Filter {objectClass -eq '%s'}" % object_class
@@ -600,13 +604,10 @@ class ADclient(PowershellClient):
             extra = 'Filter {%s}' % ' -and '.join("%s -eq '%s'" % (k, v)
                                                   for k, v in
                                                   filters.iteritems())
-
         cmd = ("if ($str = %s | ConvertTo-Csv) { $str -replace '$', ';' }" %
                self._generate_ad_command('Get-ADObject', parameters, extra))
         out = self.run(cmd)
-        for obj in self.get_output_csv(out, dict()):
-            return obj
-        raise Exception("Bad output - was object '%s' not found?" % ad_id)
+        return list(self.get_output_csv(out, dict()))
 
     def create_object(self, name, path, object_class, attributes=None,
                       parameters=None):
