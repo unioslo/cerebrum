@@ -1101,8 +1101,10 @@ class BaseSync(object):
 
         # TODO: Special cases should not be hardcoded, but should either have it
         # in the config, or be of generic use:
+
+        # SAMAccountName must be matched case insensitive:
         if atr.lower() == 'samaccountname':
-            if c.lower() != a.lower():
+            if a is None or c.lower() != a.lower():
                 self.logger.debug("Mismatch attr for %s: %s: '%s' (%s) -> '%s' (%s)"
                                   % (ent.entity_name, atr, a, type(a), c, type(c)))
                 ent.changes.setdefault('attributes', {})[atr] = c
