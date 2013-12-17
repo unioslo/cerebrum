@@ -397,17 +397,21 @@ Users with new passwords: %d
             try:
                 to_email = account.get_primary_mailaddress()
             except Errors.NotFoundError:
+                # We try pulling out the contact type constant for e-mail via
+                # ContactInfo, and use that as a forward address. If there is no
+                # e-mail type in ContactInfo, we simply wont get any results
+                # from the lookup of other email-addresses.
+                #
+                # IndexError is raised both if the e-mail ContactInfo is not
+                # defined and if no e-mail address was found for the entity.
                 try:
-                    # Look for forward addresses in entity_contact_info
+                    # Look for forward addresses registered on the account:
                     to_email = account.list_contact_info(entity_id=account.entity_id, 
                                                          contact_type=self.constants.contact_email)[0]['contact_value']
                     self.logger.debug("Found email-address for %i in contact info" % account.entity_id)
                 except IndexError:
+                    # Next, look for forward addresses registered on the owner:
                     try:
-                        # We'll pull out the contact type constant via ContactInfo,
-                        # since ContactInfo is a part of core. If there is no e-mail
-                        # type in ContactInfo, we simply wont get any results from
-                        # the lookup of other email-addresses.
                         ct = self.constants.ContactInfo('EMAIL')
                         to_email = account.list_contact_info(entity_id=account.owner_id, contact_type=ct)[0]['contact_value']
                         self.logger.debug("Found email-address for %i in contact info" % account.entity_id)
