@@ -193,6 +193,9 @@ class AccountType(object):
         @param primary_only:
             If only the primary account for each person should be returned.
 
+        @rtype: db-rows
+        @return: Each row is an account type, containing the person_id, ou_id,
+            affiliation, account_id and priority.
         """
         binds = {'ou_id': ou_id,
                  'status': status,
