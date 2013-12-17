@@ -258,7 +258,8 @@ class NetGroupSync(GroupSync, TSDUtils):
 
         Subclassed since NisNetGroups have their members in the attribute
         memberNisNetGroup and not in the regular 'member'. TODO: This should be
-        supported in the regular sync in the future.
+        supported in the regular sync in the future, so change this when the
+        member sync has finished.
 
         """
         self.logger.debug("Syncing members for NisNetGroup: %s" % ent.ad_id)
@@ -266,6 +267,40 @@ class NetGroupSync(GroupSync, TSDUtils):
         cere_members = self.get_group_members(ent)
         ad_members = set(cmd())
         return self._sync_group_members(ent, cere_members, ad_members)
+
+    def _sync_group_members(self, ent, cere_members, ad_members):
+        """Sync the given members to the given NisNetGroup in AD.
+
+        Overriden to support the nisNetgroupTriple attribute (see
+        http://msdn.microsoft.com/en-us/library/windows/desktop/ms678985(v=vs.85).aspx
+        for its specification). The format of a NisNetGroupTriple attribute:
+
+            (hostname,username,domainname)
+
+        Note that you should only include users as members of these groups.
+        Members of the group type must be included in other attributes.
+
+        Example of the attribute:
+
+            (,bobby,example.com)
+            (,olabo,)
+
+        TODO: Needs refactoring, should rather have a way of converting each
+        member into the attribute format, rather through the adconf.
+
+        """
+        groupdn = ent.ad_data['dn']
+        # Convert the members into the proper format:
+        cere_elements = set('(,%s,)' % m.ad_id for m in cere_members)
+        self.logger.debug("Group has %d members in AD and %d in Cerebrum",
+                          len(ad_members), len(cere_elements))
+        mem_add = cere_elements - ad_members
+        if mem_add:
+            self.server.add_members(groupdn, mem_add, 'NisNetGroupTriple')
+        mem_remove = ad_members - cere_elements
+        if mem_remove:
+            self.server.remove_members(groupdn, mem_remove, 'NisNetGroupTriple')
+        return True
 
 class HostSync(ADSync.HostSync, TSDUtils):
     """A hostsync, using the DNS module instead of the basic host concept.
@@ -446,6 +481,7 @@ class HostpolicySync(ADSync.GroupSync, TSDUtils):
         @param data: A row object with data about the entity to cache.
 
         """
+        # TODO: Change this to rather be using config['object_classes']:
         ent = CerebrumGroup(self.logger, self.config, entity_id, entity_name,
                             data['description'])
         # Feed the entity with the given data:
