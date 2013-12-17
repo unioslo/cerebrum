@@ -152,18 +152,6 @@ class ADclient(PowershellClient):
         self.db = Factory.get('Database')()
         self.co = Factory.get('Constants')(self.db)
         self.connect()
-        # Choose one of the Domain Controllers for the sync with AD. This is to
-        # avoid that we have to wait inbetween the updates for the DCs to have
-        # synced. We could still go without this, but then we could get race
-        # conditions.
-        try:
-            # TODO: Maybe this should get called from somewhere else, and not
-            # init? We don't always want to ask for this.
-            dc = self.get_domain_controller()
-            self._chosen_dc = dc['Name']
-            self.logger.debug("Preferred DC: %s", self._chosen_dc)
-        except Exception, e:
-            self.logger.warn("Error finding default DC: %s" % e)
 
     def _split_domain_username(self, name):
         """Separate the domain and username from a full domain username.
@@ -246,8 +234,9 @@ class ADclient(PowershellClient):
                 Get-ADUser -Credential $cred -Filter '*'
 
         """
-        if getattr(self, '_chosen_dc', None):
-            kwargs['Server'] = self._chosen_dc
+        dc = self.get_chosen_domaincontroller()
+        if dc:
+            kwargs['Server'] = dc
         if isinstance(novalueargs, basestring):
             novalueargs = (novalueargs,)
         # The parameter "-Credential $cred" is special, as "$cred" should not be
@@ -1056,31 +1045,37 @@ class ADclient(PowershellClient):
         out = self.run(cmd)
         return not out.get('stderr')
 
-    def get_domain_controller(self, all=False):
-        """Get data about one or all Domain Controllers (DCs).
+    def get_chosen_domaincontroller(self, reset=False):
+        """Fetch and cache a preferred Domain Controller (DC).
 
-        @type all: bool
-        @param all: If all DCs should be retrieved or only the first available.
-            Powershell or AD decides what DC to return, if only one should be
-            returned.
+        The list of DCs is fetched from AD the first time. The answer is then
+        cached, so the next time asked, we reuse the same DC.
 
-        @rtype: dict or iterator
+        We cache a preferred DC to sync with to avoid that we have to wait
+        inbetween the updates for the DCs to have synced. We could still go
+        without this, but then we could get race conditions. Domain Controllers
+        are normally reached semi-randomly, to avoid that one DC gets overused.
+
+        @type reset: bool
+        @param reset: 
+            If True, we should ignore the already chosen DC and pick one again.
+            If False, the already chosen DC is returned.
+
+        @rtype: str
         @return:
-            If L{all} is True, a list of dicts are returned. The dict contains
-            the data about a DC, e.g. 'Name'.
+            The Name attribute for the chosen DC is returned, as this could be
+            used directly in the powershell commands.
 
         """
-        filter = ''
-        if all:
-            filter = '-Filter *'
-        cmd = """
-        if ($str = Get-ADDomainController -Credential $cred %(filter)s | ConvertTo-Csv) {
-            $str -replace '$',';'
-        } """ % {'filter': filter}
-        ret = self.get_output_csv(self.run(cmd), dict())
-        if not all:
-            return tuple(ret)[0]
-        return ret
+        if reset or not getattr(self, '_chosen_dc', False):
+            cmd = """if ($str = Get-ADDomainController -Credential $cred 
+                        -Filter *| ConvertTo-Csv) { $str -replace '$',';' }"""
+            ret = self.get_output_csv(self.run(cmd), dict())
+            for r in ret:
+                self._chosen_dc = r['Name']
+                break
+            self.logger.debug("Preferred DC: %s", self._chosen_dc)
+        return self._chosen_dc
 
     def execute_script(self, script, **kwargs):
         """Execute a script remotely on the Windows side.
