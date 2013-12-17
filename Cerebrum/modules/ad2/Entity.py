@@ -158,9 +158,7 @@ class EntityADMixin(Entity):
                                      ("spread", "spread_code", int),
                                      ("attribute", "attr_code", int)):
             if locals()[var] is not None:
-                where.append(argument_to_sql(locals()[var],
-                                             "at." + name,
-                                             binds,
+                where.append(argument_to_sql(locals()[var], "at." + name, binds,
                                              transform))
         where = " AND ".join(where)
         if where:

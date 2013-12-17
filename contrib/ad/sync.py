@@ -80,6 +80,9 @@ def usage(exitcode=0):
                     the entities and objects with a name in the list will be
                     processed. This is for debugging and testing purposes only.
 
+    TODO: Include this?
+    --attributes    Control what attributes that should be synced.
+
     --set VALUE=... Set a configuration variable for the sync. This is used to
                     be able to set any configuration variable, e.g. 'store_sid'
                     or 'move_objects'. The name and the value of a configuration
@@ -215,18 +218,6 @@ def main():
                     print '  %s' % typ
                 sys.exit(2)
             sync_type = configuration['sync_type'] = val
-
-            # Check if it is a spread: 
-            # TODO: move this to the sync's configure()
-            if not adconf.SYNCS[val].has_key('target_spread'):
-                spread = co.Spread(sync_type)
-                try:
-                    int(spread) # test that it exists
-                except Errors.NotFoundError:
-                    raise Exception("Type %s not a spread, and target_spread "
-                                    "is not defined" % sync_type)
-                configuration['target_spread'] = str(spread)
-                configuration['target_type'] = spread.entity_type
         elif opt == '--host':
             configuration['server'] = val
         elif opt == '--port':
