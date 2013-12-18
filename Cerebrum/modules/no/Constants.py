@@ -93,6 +93,11 @@ class ConstantsCommon(Constants.Constants):
         Constants.Constants.entity_group,
         "Group is a personal file group.")
 
+    trait_group_entitlement = _EntityTraitCode(
+        'entitlement',
+        Constants.Constants.entity_group,
+        "Trait listing entitlement that members of this group have")
+    
     # Traits for the password service (Individuation)
     trait_password_token = _EntityTraitCode(
         "password_token", Constants.Constants.entity_account,
