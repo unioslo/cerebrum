@@ -443,20 +443,17 @@ class HostpolicySync(ADSync.GroupSync, TSDUtils):
 
     """
     def __init__(self, db, logger):
-        """Initialize the sync with hostpolicy objects..
-
-        """
+        """Initialize the sync with hostpolicy objects.."""
         super(HostpolicySync, self).__init__(db, logger)
         self.component = PolicyComponent(self.db)
         self.role = Role(self.db)
         self.atom = Atom(self.db)
 
     def configure(self, config_args):
-        """Add Hostpolicy specific configuration.
-
-        """
+        """Add Hostpolicy specific configuration."""
         super(HostpolicySync, self).configure(config_args)
-        # TODO
+        self.rolepath = ','.join(('OU=roles', self.config['target_ou']))
+        self.atompath = ','.join(('OU=atoms', self.config['target_ou']))
 
     def fetch_cerebrum_entities(self):
         """Fetch the policycomponents from Cerebrum to be compared with AD.
@@ -497,6 +494,42 @@ class HostpolicySync(ADSync.GroupSync, TSDUtils):
                              data['entity_type'])
         return ent
 
+    def sync_groups_members(self):
+        """Override, to simulate hostpolicies as groups in AD."""
+        self._roledns = {}
+        self._atomdns = {}
+
+        # TODO: The hardcoded functionality here should be generalized and be
+        # modifiable through adconf.
+
+        # Fetch roles
+        cmd = self.server.start_list_objects(self.rolepath,
+                                             ('Name', 'DistinguishedName',),
+                                             'group')
+        for obj in self.server.get_list_objects(cmd):
+            name = obj['Name']
+            dn = obj['DistinguishedName']
+            if name in self._roledns:
+                self.logger.warn("Skipping, more than one member match "
+                                 "for: %s (%s)", name, dn)
+                continue
+            self._roledns[name] = dn
+        # Fetch atoms
+        cmd = self.server.start_list_objects(self.atompath,
+                                             ('Name', 'DistinguishedName',),
+                                             'group')
+        for obj in self.server.get_list_objects(cmd):
+            name = obj['Name']
+            dn = obj['DistinguishedName']
+            if name in self._atomdns:
+                self.logger.warn("Skipping, more than one member match "
+                                 "for: %s (%s)", name, dn)
+                continue
+            self._atomdns[name] = dn
+        self.logger.debug("Found %d roles and %d atoms in AD", len(self._roledns),
+                          len(self._atomdns))
+        return super(HostpolicySync, self).sync_groups_members()
+
     def get_group_members(self, ent):
         """Override the default member retrieval to fetch policy relations.
 
@@ -506,8 +539,6 @@ class HostpolicySync(ADSync.GroupSync, TSDUtils):
         # TODO: This is hardcoded for now, should be changed when we find a
         # generic solution for specifying the OU path of member objects in AD:
         hostpath = adconf.SYNCS['hosts']['target_ou']
-        rolepath = ','.join(('OU=roles', self.config['target_ou']))
-        atompath = ','.join(('OU=atoms', self.config['target_ou']))
 
         # Get policy members of the component:
         members = set()
@@ -515,16 +546,23 @@ class HostpolicySync(ADSync.GroupSync, TSDUtils):
                                target_id=ent.entity_id,
                                relationship_code=self.co.hostpolicy_contains,
                                indirect_relations=False):
+            name = self.config['name_format'] % row['source_name']
+            dn = None
             if row['source_entity_type'] == self.co.entity_hostpolicy_role:
-                path = rolepath
+                dn = self._roledns.get(name)
+                if not dn:
+                    self.logger.warn("No such role in AD: %s", name)
+                    continue
             elif row['source_entity_type'] == self.co.entity_hostpolicy_atom:
-                path = atompath
+                dn = self._atomdns.get(name)
+                if not dn:
+                    self.logger.warn("No such atom in AD: %s", name)
+                    continue
             else:
                 self.logger.warn("Unknown entity_type %s for relation: %s",
                                  row['source_entity_type'], row['source_name'])
                 continue
-            name = self.config['name_format'] % row['source_name']
-            members.add('CN=%s,%s' % (name, path))
+            members.add(dn)
         # Get host members of the component:
         for row in self.component.search_hostpolicies(policy_id=ent.entity_id):
             members.add('CN=%s,%s' % (
