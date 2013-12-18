@@ -498,6 +498,7 @@ class HostpolicySync(ADSync.GroupSync, TSDUtils):
         """Override, to simulate hostpolicies as groups in AD."""
         self._roledns = {}
         self._atomdns = {}
+        self._hostdns = {}
 
         # TODO: The hardcoded functionality here should be generalized and be
         # modifiable through adconf.
@@ -528,6 +529,23 @@ class HostpolicySync(ADSync.GroupSync, TSDUtils):
             self._atomdns[name] = dn
         self.logger.debug("Found %d roles and %d atoms in AD", len(self._roledns),
                           len(self._atomdns))
+
+        # Fetch hosts:
+        cmd = self.server.start_list_objects(adconf.SYNCS['hosts']['target_ou'],
+                                             ('Name', 'DistinguishedName',),
+                                             'computer') 
+        # TODO: The hosts config should be fetched from the hosts sync and not
+        # hardcoded.
+        for obj in self.server.get_list_objects(cmd):
+            name = obj['Name'].lower()
+            dn = obj['DistinguishedName']
+            if name in self._hostdns:
+                self.logger.warn("Skipping, more than one member match in AD "
+                                 "for: %s (%s)", name, dn)
+                continue
+            self._hostdns[name] = dn
+        self.logger.debug("Found %d hosts in AD", len(self._hostdns))
+
         return super(HostpolicySync, self).sync_groups_members()
 
     def get_group_members(self, ent):
@@ -564,7 +582,14 @@ class HostpolicySync(ADSync.GroupSync, TSDUtils):
                 continue
             members.add(dn)
         # Get host members of the component:
+        hostname_format = adconf.SYNCS['hosts'].get('name_format', '%s')
         for row in self.component.search_hostpolicies(policy_id=ent.entity_id):
-            members.add('CN=%s,%s' % (
-                self._hostname2adid(row['dns_owner_name']), hostpath))
+            name = hostname_format % row['dns_owner_name']
+            name = name.lower()
+            name = self._hostname2adid(name)
+            dn = self._hostdns.get(name)
+            if not dn:
+                self.logger.warn("No such host in AD: %s" % name)
+            else:
+                members.add(dn)
         return members
