@@ -2674,7 +2674,14 @@ class GroupSync(BaseSync):
         self.logger.debug("Syncing members for entity: %s" % ent.ad_id)
         cmd = self.server.get_ad_attribute(ent.ad_data['dn'], 'member')
         cere_members = self.get_group_members(ent)
-        ad_members = set(cmd())
+        try:
+            ad_members = set(cmd())
+        except ADUtils.OUUnknownException:
+            if not self.config['dryrun']:
+                raise
+            self.logger.debug("Dryrun: unknown AD object, simulating "
+                              "empty group")
+            ad_members = set()
         return self._sync_group_members(ent, cere_members, ad_members)
 
     def _sync_group_members(self, ent, cere_members, ad_members):
