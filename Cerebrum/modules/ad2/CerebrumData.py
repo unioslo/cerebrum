@@ -542,7 +542,7 @@ class CerebrumGroup(CerebrumEntity):
     TODO: some reorganisation is needed.
 
     """
-    def __init__(self, logger, config, entity_id, entity_name, description):
+    def __init__(self, logger, config, entity_id, entity_name, description=None):
         """CerebrumGroup constructor."""
         super(CerebrumGroup, self).__init__(logger, config, entity_id,
                                             entity_name)
