@@ -78,7 +78,6 @@ def map_entitlements_to_persons(groups_entitlement):
             # There is only one primary account per person
             person_id = primary_accounts[0]['person_id']
             mapped_entitlements.setdefault(person_id, []).append(group_entitlement)
-    print mapped_entitlements
     return mapped_entitlements
 
 def main():
