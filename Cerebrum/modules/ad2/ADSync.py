@@ -310,9 +310,16 @@ class BaseSync(object):
             try:
                 int(spread)
             except Errors.NotFoundError:
-                raise ConfigUtils.ConfigError(
-                        'Either sync name must be a spread, or target_spread '
-                        'must be defined')
+                if config_args.has_key('target_type'):
+                    self.config['target_type'] = config_args['target_type']
+                    self.config['target_spread'] = None
+                else:
+                    # TODO: in the future, we would like to require
+                    # target_spread, and force all syncs to go through spreads,
+                    # but that's too hard to change at the moment.
+                    raise ConfigUtils.ConfigError(
+                            'Either sync name must be a spread, or target_type '
+                            'must be defined')
             else:
                 self.config['target_spread'] = spread
                 self.config['target_type'] = spread.entity_type
@@ -2681,10 +2688,16 @@ class GroupSync(BaseSync):
         @type ent: CerebrumEntity
         @param ent: The targeted entity to sync the members for.
 
-        @type cere_members: set of CerebrumEntity objects
+        @type cere_members: set of CerebrumEntity objects or str
         @param members:
-            The list of members from Cerebrum. This should be the result in AD
-            after the sync has finished.
+            The list of members from Cerebrum, either gathered as
+            CerebrumEntity objects with data that could be used, or just as
+            simple strings. If strings are given, no convertion is done - the
+            strings are expected to be the DN or what the member attribute
+            expects.
+            
+            This member list should be the result in AD after the sync has
+            finished.
 
         @type ad_members: set
         @param ad_members: 
@@ -2710,13 +2723,16 @@ class GroupSync(BaseSync):
         # AD only accepts full DN in its member lists.
         cere_dns = set()
         for member in cere_members:
-            # Find the DN of the object:
-            dn = self._member2dn.get(member.ad_id)
-            if not dn:
-                self.logger.info("Could not find member in AD: %s",
-                                 member.ad_id)
+            if isinstance(member, basestring):
+                cere_dns.add(member)
             else:
-                cere_dns.add(dn)
+                # Find the DN of the object:
+                dn = self._member2dn.get(member.ad_id)
+                if not dn:
+                    self.logger.info("Could not find member in AD: %s",
+                                     member.ad_id)
+                else:
+                    cere_dns.add(dn)
         self.logger.debug("Group had %d members in AD and %d in Cerebrum "
                           "(found %d in AD)" % (len(ad_members),
                                                 len(cere_members),
