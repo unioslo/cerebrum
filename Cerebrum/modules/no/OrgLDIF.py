@@ -18,6 +18,8 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from Cerebrum.modules.OrgLDIF import *
+import pickle
+import os.path
 
 class norEduLDIFMixin(OrgLDIF):
     """Mixin class for OrgLDIF, adding FEIDE attributes to the LDIF output.
@@ -236,6 +238,8 @@ class norEduLDIFMixin(OrgLDIF):
         if pri_edu_aff:
             entry['eduPersonPrimaryAffiliation'] = pri_edu_aff
             entry['eduPersonPrimaryOrgUnitDN'] = self.ou2DN.get(int(pri_ou)) or self.dummy_ou_dn
+        if ldapconf('PERSON', 'entitlements_pickle_file') and self.person2entitlements.has_key(p_id):
+            entry['eduPersonEntitlement'] = self.person2entitlements[p_id]
         return dn, entry, alias_info
 
 
@@ -344,8 +348,18 @@ class norEduLDIFMixin(OrgLDIF):
 
     def init_person_dump(self, use_mail_module):
         self.__super.init_person_dump(use_mail_module)
+        if ldapconf('PERSON', 'entitlements_pickle_file'):
+            self.init_person_entitlements()
         self.init_person_fodselsnrs()
         self.init_person_birth_dates()
+
+    def init_person_entitlements(self):
+        """Populate dicts with a person's entitlement information."""
+        timer = self.make_timer("Processing person entitlements...")
+        self.person2entitlements = pickle.load(file(
+            os.path.join(ldapconf(None, 'dump_dir'), 
+                       ldapconf('PERSON', 'entitlements_pickle_file'))))
+        timer("...person entitlements done.")
 
     def init_person_fodselsnrs(self):
         # Set self.fodselsnrs = dict {person_id: str or instance with fnr}
