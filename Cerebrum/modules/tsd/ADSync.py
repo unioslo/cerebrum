@@ -222,7 +222,7 @@ class ADNetGroupClient(ADUtils.ADclient):
         super(ADNetGroupClient, self).__init__(auth_user, domain_admin, dryrun,
                                                domain, *args, **kwargs)
 
-    attributename_members = 'memberNisNetGroup'
+    attributename_members = 'NisNetGroupTriple'
 
 class NetGroupSync(GroupSync, TSDUtils):
     """TSD's sync of net groups."""
@@ -257,13 +257,13 @@ class NetGroupSync(GroupSync, TSDUtils):
         """Update the members for a given NisNetGroup.
 
         Subclassed since NisNetGroups have their members in the attribute
-        memberNisNetGroup and not in the regular 'member'. TODO: This should be
+        NisNetGroupTriple and not in the regular 'member'. TODO: This should be
         supported in the regular sync in the future, so change this when the
         member sync has finished.
 
         """
         self.logger.debug("Syncing members for NisNetGroup: %s" % ent.ad_id)
-        cmd = self.server.get_ad_attribute(ent.ad_data['dn'], 'memberNisNetGroup')
+        cmd = self.server.get_ad_attribute(ent.ad_data['dn'], 'NisNetGroupTriple')
         cere_members = self.get_group_members(ent)
         ad_members = set(cmd())
         return self._sync_group_members(ent, cere_members, ad_members)
