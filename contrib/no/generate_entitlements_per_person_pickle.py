@@ -65,6 +65,9 @@ def map_entitlements_to_persons(groups_entitlement):
     """
     mapped_entitlements = {}
     user_account_code = co.entity_account
+    primary_accounts_dict = {}
+    for account in ac.list_accounts_by_type(primary_only = True):
+        primary_accounts_dict[account['account_id']] = account['person_id']
     for group_id, group_entitlement in groups_entitlement.iteritems():
         group_members = gr.search_members(group_id = group_id, 
                                           member_filter_expired = True)
@@ -72,11 +75,10 @@ def map_entitlements_to_persons(groups_entitlement):
             # We're only interested in primary user accounts
             # Non-user accounts or user accounts that are not primary
             # are excluded
-            primary_accounts = ac.list_accounts_by_type(account_id = member['member_id'], primary_only=True)
-            if member['member_type'] != user_account_code or len(primary_accounts) != 1:
+            if member['member_type'] != user_account_code or not member['member_id'] in primary_accounts_dict:
                 continue
             # There is only one primary account per person
-            person_id = primary_accounts[0]['person_id']
+            person_id = primary_accounts_dict[member['member_id']]
             mapped_entitlements.setdefault(person_id, []).append(group_entitlement)
     return mapped_entitlements
 
