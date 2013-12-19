@@ -291,7 +291,7 @@ class NetGroupSync(GroupSync, TSDUtils):
         """
         groupdn = ent.ad_data['dn']
         # Convert the members into the proper format:
-        cere_elements = set('(,%s,)' % m.ad_id for m in cere_members)
+        cere_elements = set('(-,%s,)' % m.ad_id for m in cere_members)
         self.logger.debug("Group has %d members in AD and %d in Cerebrum",
                           len(ad_members), len(cere_elements))
         mem_add = cere_elements - ad_members
