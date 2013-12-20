@@ -292,6 +292,9 @@ class ADclient(PowershellClient):
             if ': The size limit for this request was exceeded' in stderr:
                 raise SizeLimitException(code, stderr, output)
             if ': Directory object not found' in stderr:
+                # TODO: This might not always mean that the OU is missing, it
+                # could also sometimes mean that the object itself is missing.
+                # Need to find a way to differentiate this?
                 raise OUUnknownException(code, stderr, output)
             if 'ADIdentityAlreadyExistsException' in stderr:
                 raise ObjectAlreadyExistsException(code, stderr, output)

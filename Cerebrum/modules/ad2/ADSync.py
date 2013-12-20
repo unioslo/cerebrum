@@ -2564,7 +2564,7 @@ class GroupSync(BaseSync):
         self._member2dn = {}
         for spr in self.config.get('member_spreads', ()):
             if str(spr) not in adconf.SYNCS:
-                self.logger.warn("Skipping members not configured: %s", spr)
+                self.logger.warn("Missing AD sync for member spread: %s", spr)
                 continue
             sync = adconf.SYNCS[str(spr)]
             sync['sync_type'] = str(spr)
@@ -2733,8 +2733,14 @@ class GroupSync(BaseSync):
             if isinstance(member, basestring):
                 cere_dns.add(member)
             else:
-                # Find the DN of the object:
-                dn = self._member2dn.get(member.ad_id)
+                # Find the DN for the object
+                dn = None
+                if hasattr(member, 'entity_type'):
+                    dn = self._member2dn.get(member.entity_type, {}).get(
+                                                                member.ad_id)
+                else:
+                    self.logger.warn("Entity %s has no set entity_type, "
+                                     "can't find DN in AD", member.ad_id)
                 if not dn:
                     self.logger.info("Could not find member in AD: %s",
                                      member.ad_id)
@@ -2794,6 +2800,9 @@ class GroupSync(BaseSync):
             syncclass, objclass, objconf = self._membertype2setup[mem['member_type']]
             ent = objclass(self.logger, objconf, mem['member_id'],
                            mem['member_name'])
+            # Needed for finding the DN later - TODO: Should include it in the
+            # standard __init__ for CerebrumEntity per default.
+            ent.entity_type = mem['member_type']
             ent.calculate_ad_values()
 
             # TODO: special treatment for groups (check indirect relations) and
