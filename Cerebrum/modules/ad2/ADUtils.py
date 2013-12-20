@@ -940,17 +940,13 @@ class ADclient(PowershellClient):
             attribute_name = self.attributename_members
         self.logger.debug("Adding %d members for object: %s" % (len(members),
                                                                 groupid))
-        # Printing out the first 500 members, for debugging reasons:
-        self.logger.debug2("Adding members for %s: %s", groupid,
-                           ', '.join(tuple(members)[:500]))
-
         # TODO: Testing new method: adding each member, one by one, to avoid
         # problems with single, bad behaving members preventing everyone else
         # from becoming members. Must be tested to see if it takes too much time
         # to do it this way.
         failed_members = []
         for member in members:
-            self.logger.debug2("Adding member: %s", member)
+            self.logger.debug("Adding member: %s", member)
             cmd = self._generate_ad_command(
                     'Set-ADObject',
                     {'Identity': groupid,
