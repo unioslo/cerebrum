@@ -252,7 +252,7 @@ class Processor:
                 logger.debug("Skipping unaffiliated account: %s",
                         self.pu.entity_id)
                 continue
-            self.gw.create_user(pid, row['name'])
+            self.gw.create_user(pid, row['name'], self.pu.posix_uid)
 
     def process_user(self, gw_user, ac2proj):
         """Sync a given user with the GW.
