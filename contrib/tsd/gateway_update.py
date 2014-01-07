@@ -351,7 +351,7 @@ class Processor:
                         self.subnet6.entity_id)
                 continue
             host2project[adr] = pid
-            host2ips.setdefault(owner2hostname['dns_owner_id'], set()).add(adr)
+            host2ips.setdefault(owner2hostname[row['dns_owner_id']], set()).add(adr)
         for row in ar.list_ext():
             adr = row['a_ip']
             self.subnet.clear()
@@ -367,7 +367,7 @@ class Processor:
                         self.subnet6.entity_id)
                 continue
             host2project[adr] = pid
-            host2ips.setdefault(owner2hostname['dns_owner_id'], set()).add(adr)
+            host2ips.setdefault(owner2hostname[row['dns_owner_id']], set()).add(adr)
         logger.debug2("Mapped %d hosts to projects", len(host2project))
         logger.debug2("Mapped %d hosts with at least one IP address",
                 len(host2ips))
@@ -567,8 +567,13 @@ class Processor:
             if addr not in host2ip[hostname]:
                 self.gw.delete_ip(pid, hostname, addr)
                 continue
+        # Create the IP addresses that didn't exist in GW:
         for hst, addresses in host2ips.iteritems():
-            pid = host2project[hst]
+            try:
+                pid = host2project[hst]
+            except KeyError:
+                logger.debug("Host not affiliated with project: %s", hst)
+                continue
             for adr in addresses:
                 if ':'.join((pid, hst, adr)) in processed:
                     continue
