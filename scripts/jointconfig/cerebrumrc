@@ -9,12 +9,13 @@
 # A file like ~/.cereconf/uio/cerepath.py will override
 # the common configuration.
 #
-# Changelog:
+# Changes:
 #
 #   June    2013, Alexander Rødseth <rodseth@usit.uio.no>
-#   July    2013
-#   August  2013
-#   October 2013
+#   July    2013,
+#   August  2013,
+#   October 2013,
+#   January 2014,
 #
 # For Cerebrum/USIT.
 # 
@@ -29,13 +30,13 @@ if [[ -f "$CERECONF_PATH/$AUTOGEN_MARKER_FILE" ]]; then
 fi
 
 # If INST is set, use that as CEREBRUM_INST (overrides CEREBRUM_INST)
-[ -z "$INST" ] || CEREBRUM_INST="$INST"
+[ -z $INST ] || CEREBRUM_INST="$INST"
 
 # If CI is set, use that as CEREBRUM_INST (overrides INST and CEREBRUM_INST)
-[ -z "$CI" ] || CEREBRUM_INST="$CI"
+[ -z $CI ] || CEREBRUM_INST="$CI"
 
 # Set CEREBRUM_INST to uio if it's not already set
-[ -z "$CEREBRUM_INST" ] && CEREBRUM_INST=uio
+[ -z $CEREBRUM_INST ] && CEREBRUM_INST=uio
 
 # exports
 export CEREBRUM_PATH
@@ -59,8 +60,8 @@ CISCONF="/cerebrum/$CEREBRUM_INST/etcprod/cerebrum"
 if [[ -e $CISCONF ]]; then
   mkdir -p "$CERECONF_PATH/cisconf"
   cp -r "$CISCONF/cisconf" "$CERECONF_PATH/"
-  echo 'INTERFACE ="129.240.2.136"' >> "$CERECONF_PATH/cisconf/postmaster.py"
-  echo 'PORT = 8999' >> "$CERECONF_PATH/cisconf/postmaster.py"
+  echo 'INTERFACE ="129.240.2.156"' >> "$CERECONF_PATH/cisconf/postmaster.py"
+  echo 'PORT = 8998' >> "$CERECONF_PATH/cisconf/postmaster.py"
   CISCONF="$CERECONF_PATH"
 fi
 
@@ -84,7 +85,7 @@ export LOGGING_CONFIGFILE="$CERECONF_PATH/logging.ini"
 export LOGGING_ROOT_DIR=/tmp
 
 # PYTHON
-if [[ "$PY" == "26" ]]; then
+if [[ $PY == "26" ]]; then
   # Use Python 2.6 if PY=26
   PYTHON_BIN=/usr/bin/python2.6
   PYTHON_LIBRARY_PATH=/local/lib
@@ -123,13 +124,14 @@ PYTHON_CEREBRUM_MODULES="$CEREBRUM_PATH"
 CERECONF_CUSTOM=$CERECONF_PATH/"$CEREBRUM_INST"
 export PYTHONPATH="$PYTHON_SITE_PACKAGES:$CERECONF_CUSTOM:$CERECONF_COMMON:$CERECONF_GLOBAL:$PYTHON_CEREBRUM_MODULES:$PYTHON_EXTERNAL:$CISCONF"
 
-if [[ "$XPAND" == "yes" ]]; then
+# Xpand
+if [[ $XPAND == yes ]]; then
   export BRANCH='js_xpand'
   export PYTHONPATH=$PYTHONPATH:/usit/cere-utv01/u1/jsama/pylib/suds-0.4-py2.4.egg
 fi
 
 # For xpand and others (ie BRANCH=js_expand for using ~/checkout/js_expand first in PYTHONPATH)
-if [[ "$BRANCH" != "" ]]; then
+if [[ $BRANCH != "" ]]; then
   export PYTHONPATH=~/checkout/$BRANCH:$PYTHONPATH
 fi
 
