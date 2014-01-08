@@ -266,7 +266,11 @@ class Processor:
         """
         username = gw_user['username']
         logger.debug2("Process user %s: %s" % (username, gw_user))
-        pid = gw_user['project']
+        try:
+            pid = gw_user['project']
+        except KeyError:
+            logger.error("Missing project from GW for user: %s", username)
+            return
         self.pu.clear()
         try:
             self.pu.find_by_name(username)
@@ -432,8 +436,13 @@ class Processor:
         """
         processed = set()
         for gw_vlan in gw_vlans:
-            pid = gw_vlan['project']
             vlan = gw_vlan['vlantag']
+            try:
+                pid = gw_vlan['project']
+            except KeyError:
+                logger.error("Missing project for vlan: %s", vlan)
+                continue
+
             processed.add('%s:%s' % (pid, vlan))
             if pid not in vlans or vlan not in vlans[pid]:
                 logger.debug3("Unknown VLAN for %s: %s" % (pid, vlan))
@@ -473,7 +482,12 @@ class Processor:
         processed = set()
         for sub in gw_subnets:
             adr = sub['netaddr']
-            pid = sub['project']
+            try:
+                pid = sub['project']
+            except KeyError:
+                logger.error("Missing project for address: %s", adr)
+                continue
+
             ident = '%s/%s' % (adr, sub['prefixlen'])
             processed.add(ident)
             try:
@@ -524,7 +538,12 @@ class Processor:
         processed = set()
         for host in gw_hosts:
             hostname = host['name']
-            pid = host['project']
+            try:
+                pid = host['project']
+            except KeyError:
+                logger.error("Missing project for host: %s", hostname)
+                continue
+
             processed.add(hostname)
             if hostname not in host2project:
                 # TODO: check the value 'expired'
@@ -554,9 +573,14 @@ class Processor:
         """
         processed = set()
         for p in gw_ips:
-            hostname = p['host']
-            pid = p['project']
             addr = p['addr']
+            try:
+                hostname = p['hostname']
+                pid = p['project']
+            except KeyError:
+                logger.error("Missing data from GW about an IP: %s", addr)
+                continue
+
             processed.add(':'.join((pid, hostname, addr)))
             if hostname not in host2project or hostname not in host2ip:
                 self.gw.delete_ip(pid, hostname, addr)
@@ -574,7 +598,10 @@ class Processor:
             for adr in addresses:
                 if ':'.join((pid, hst, adr)) in processed:
                     continue
-                self.gw.create_ip(pid, hst, adr)
+                try:
+                    self.gw.create_ip(pid, hst, adr)
+                except Gateway.GatewayException, e:
+                    logger.warn("GW exception for new IP %s: %s", adr, e)
 
 def main():
     try:
