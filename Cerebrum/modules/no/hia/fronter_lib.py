@@ -600,14 +600,12 @@ class FronterXML(object):
             if data["MOBILE"]:
                 self.xml.dataElement('tel', data["MOBILE"],
                                      {"teltype": "3"})
-            self.xml.startTag('extension')
+            # All persons are authenticated through LDAP,
+            # that corresponds to pwencryptiontype="5" in the XML-entry
             if self.include_password:
-                self.xml.emptyTag('password',
-                                  {'passwordtype': data['PASSWORD']})
-            self.xml.emptyTag('emailclient',
-                              {'clienttype': data['EMAILCLIENT']})
-            self.xml.emptyTag('useraccess', {'accesstype': data['USERACCESS']})
-            self.xml.endTag('extension')
+                self.xml.dataElement('userid', id, {'pwencryptiontype': '5'})
+            # All persons here have User access, so the value can be hardcoded.
+            self.xml.emptyTag('systemrole', {'systemroletype': 'User'})
         self.xml.endTag('person')
 
     def group_to_XML(self, id, recstatus, data):
