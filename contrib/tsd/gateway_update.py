@@ -330,9 +330,6 @@ class Processor:
         self._process_vlans(gw_vlans, vlans)
         self._process_subnets(gw_subnets, subnets)
 
-        owner2hostname = dict((r['dns_owner_id'], r['name']) for r in
-                              dns_owner.search())
-        logger.debug2("Mapped %d dns_owners to hosts" % len(owner2hostname))
         # Mapping hosts to projects by what subnet they're on:
         host2project = dict()
         host2ips = dict()
@@ -350,8 +347,8 @@ class Processor:
                 logger.debug("Subnet %s not affiliated with project",
                         self.subnet6.entity_id)
                 continue
-            host2project[adr] = pid
-            host2ips.setdefault(owner2hostname[row['dns_owner_id']], set()).add(adr)
+            host2project[row['name']] = pid
+            host2ips.setdefault(row['name'], set()).add(adr)
         for row in ar.list_ext():
             adr = row['a_ip']
             self.subnet.clear()
@@ -366,8 +363,8 @@ class Processor:
                 logger.debug("Subnet %s not affiliated with project",
                         self.subnet6.entity_id)
                 continue
-            host2project[adr] = pid
-            host2ips.setdefault(owner2hostname[row['dns_owner_id']], set()).add(adr)
+            host2project[row['name']] = pid
+            host2ips.setdefault(row['name'], set()).add(adr)
         logger.debug2("Mapped %d hosts to projects", len(host2project))
         logger.debug2("Mapped %d hosts with at least one IP address",
                 len(host2ips))
@@ -513,14 +510,14 @@ class Processor:
             except Gateway.GatewayException, e:
                 logger.warn("GatewayException creating subnet: %s" % e)
 
-    def _process_hosts(self, gw_hosts, ce_hosts):
+    def _process_hosts(self, gw_hosts, host2project):
         """Sync given hosts with the GW.
 
         @type gw_hosts: list
         @param gw_hosts: List of all hosts from the GW.
 
-        @type ce_hosts: dict
-        @param ce_hosts: The hosts registered in Cerebrum. Keys are hostnames,
+        @type host2project: dict
+        @param host2project: The hosts registered in Cerebrum. Keys are hostnames,
             values are the project IDs.
 
         """
@@ -529,10 +526,10 @@ class Processor:
             hostname = host['name']
             pid = host['project']
             processed.add(hostname)
-            if hostname not in ce_hosts:
+            if hostname not in host2project:
                 # TODO: check the value 'expired'
                 self.gw.delete_host(pid, hostname)
-        for host, pid in ce_hosts.iteritems():
+        for host, pid in host2project.iteritems():
             if host in processed:
                 continue
             try:
