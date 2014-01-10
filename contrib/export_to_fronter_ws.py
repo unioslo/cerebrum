@@ -100,7 +100,8 @@ def usage(i=0):
       Visit https://ws.fronter.com/es/?authkey=<key> in order to view the
       integration status. The "Data Exported" row tells you when the file was
       correctly received by the WS. "Data Imported" tells you when the last
-      import was run.
+      import was run. These timestamps do not update instantly, you'll probably
+      need to wait quite a while before they update :)
 
       It seems like the import maintains an internal state in regards to the
       files you upload. If "there hasn't been large enough changes", the
