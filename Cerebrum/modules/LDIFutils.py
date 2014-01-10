@@ -77,7 +77,7 @@ def ldapconf(tree, attr, default=_dummy, utf8=True, module=cereconf):
 
 
 def _deep_text2utf(obj, utf8):
-    if bool(utf8):
+    if utf8 == True:
         if isinstance(obj, str):
             return iso2utf(obj)
         if isinstance(obj, unicode):
