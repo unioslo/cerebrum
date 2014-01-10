@@ -1074,16 +1074,19 @@ class BaseSync(object):
                                    ad_object.get(atr, None))
 
     def compare_attribute(self, ent, atr, c, a):
-        """Compare an attribute between Cerebrum and AD and mark for update.
+        """Compare an attribute between Cerebrum and AD.
+
+        This is a generic method. Specific attributes should not be hardcoded in
+        this method, but should rather be configurable, or maybe be subclassed.
+
         """
-        # TODO: Some attributes are special, should they be checked for and
-        #       ignored here?
-        # TODO: Multivalued attributes, how should we compare them? This is not
-        # implemented yet.
+        # TODO: Change this to only return a bool if an attribute is correct or
+        # not, and let self.compare_attributes handles marking it for update.
+
         # TODO: Should we care about case sensitivity?
 
-        # We can't get None values from AD (yet), so ignore the cases where an
-        # attribute is None in Cerebrum and an empty string in AD:
+        # Ignore the cases where an attribute is None in Cerebrum and an empty
+        # string in AD:
         if c is None and a == '':
             return
         # TODO: Should we ignore attributes with extra spaces? AD converts
@@ -1092,27 +1095,16 @@ class BaseSync(object):
         # system, but the error will make the sync update the attribute
         # constantly and make the sync slower.
 
-        # Some special cases, mostly due to the CSV converting which does not
-        # support type casting:
-        if isinstance(c, bool):
-            # Booleans could be retrieved from AD as the strings "True" and
-            # "False", so need to handle this if the Cerebrum value is boolean:
-            if a == 'False':
-                a = False
-            elif a == 'True':
-                a = True
-        elif isinstance(c, (int, long, float)) and not isinstance(c, bool):
-            # Integers are retrieved from AD as strings, so need to compare with
-            # Cerebrum as strings:
-            c = unicode(c)
-
-        # TODO: Special cases should not be hardcoded, but should either have it
-        # in the config, or be of generic use:
-
-        # SAMAccountName must be matched case insensitive:
+        # SAMAccountName must be matched case insensitively. TODO: Case
+        # sensitivity should rather be configurable.
         if atr.lower() == 'samaccountname':
             if a is None or c.lower() != a.lower():
                 self.logger.debug("Mismatch attr for %s: %s: '%s' (%s) -> '%s' (%s)"
+                                  % (ent.entity_name, atr, a, type(a), c, type(c)))
+                ent.changes.setdefault('attributes', {})[atr] = c
+        elif isinstance(c, (list, tuple)) and isinstance(a, (list, tuple)):
+            if sorted(c) != sorted(a):
+                self.logger.debug("Mismatch multivalued attr for %s: %s: '%s' (%s) -> '%s' (%s)"
                                   % (ent.entity_name, atr, a, type(a), c, type(c)))
                 ent.changes.setdefault('attributes', {})[atr] = c
         elif c != a:
@@ -1298,6 +1290,7 @@ class BaseSync(object):
         else:
             ent.ad_new = True
         ent.in_ad = True
+        print obj
         ent.ad_data['dn'] = obj['DistinguishedName']
 
         if ent.ad_new:

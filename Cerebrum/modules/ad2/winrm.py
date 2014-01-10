@@ -60,10 +60,14 @@ try:
 except ImportError:
     CRYPTO=False
     print "No SSL module, no mutual authentication"
-
 CRYPTO = False
 
 from lxml import etree
+
+try:
+    import json
+except ImportError:
+    from Cerebrum.extlib import json
 
 import cerebrum_path
 from Cerebrum.Utils import to_unicode, unicode2str
@@ -220,8 +224,9 @@ class HTTPSAuthConnection(httplib.HTTPSConnection, object):
 
     """
 
-    # For how long we should try to connect to the server:
-    default_timeout = 60
+    # For how long we should try to connect to the server. This controls the
+    # socket timeout:
+    default_timeout = 1800
 
     # Default list of CA certificate files to use for authentication of server
     # certificate. Gets used if CA certificates are not specified when
@@ -390,8 +395,9 @@ class WinRMProtocol(object):
     # The default ports for encrypted [0] and unencrypted [1] communication:
     _default_ports = (5986, 5985)
 
-    # Timeout in seconds for trying to connect to the server:
-    connection_timeout = 120
+    # Timeout in seconds for trying to connect to the server. Controls the
+    # socket timeout:
+    connection_timeout = 1800
 
     # Timeout in seconds for waiting for replies from the server. This is
     # handled by the WinRM server, returning a Fault when this many seconds have
@@ -556,12 +562,12 @@ class WinRMProtocol(object):
             self.logger.warn("Server http error, code=%s: %s" % (e.code, e.msg))
             self.logger.warn("Server headers: %s" % str(e.hdrs).replace('\r\n', ' | '))
             raise
-        except urllib2.URLError, e:
-            self.logger.warn("Connection error: %s" % (e.reason,))
-            raise
         except socket.timeout, e:
             self.logger.warn("Socket timeout when connecting to %s: %s" %
                                             (self._http_url('wsman'), e))
+            raise
+        except urllib2.URLError, e:
+            self.logger.warn("Connection error: %s" % (e.reason,))
             raise
         return ret
 
@@ -1709,7 +1715,7 @@ class WinRMClient(WinRMProtocol):
                         raise
                     retried += 1
                     state = "TimedOut"
-                    self.logger.debug("wsman_receive: Timeout %d" % int(retried))
+                    self.logger.debug2("wsman_receive: Timeout %d", retried)
                     continue
                 yield code, out
                 retried = 0
@@ -2266,6 +2272,62 @@ class PowershellClient(WinRMClient):
         if tmp or input.endswith(delimiter):
             ret.append(''.join(tmp))
         return ret
+
+    def get_output_json(self, commandid, other):
+        """Get a Command's output and return the JSON as native data.
+
+        This method could be used when data to output is piped through the
+        powershell command:
+
+            ... | ConvertTo-Json
+
+        Note that to make the code a lot easier to read, the method reads in the
+        complete output from WinRM before parsing it. The result is that it then
+        consumes a lot of memory, especially for large output, but it's easier
+        to debug later on.
+
+        @type commandid: list or dict
+        @param commandid: The CommandId for the command that the output should
+            be retrieved from. If it is a dict, it is considered to be the
+            output from the command already retrieved - the output must then be
+            under the 'stdout' key of the dict.
+
+        @type other: dict
+        @param other: This is where all server output that is not CSV gets put,
+            sorted by output type. The values are lists of all its output.
+
+        @rtype: mixed
+        @return: All the JSON output is returned as native python data elements.
+            The output could return a list, a dict (array) or a single element.
+
+            Note that all returned strings, including dict keys, are unicode
+            objects.
+
+        """
+        out = []
+        # If the CommandId is not an Id but output data from the server
+        if isinstance(commandid, dict):
+            out = commandid['stdout']
+        else:
+            o = self.get_data(commandid)
+            out = o.get('stdout')
+            for otype, data in o.iteritems():
+                if data and otype != 'stdout':
+                    other[otype] = data
+            del o, otype, data
+        self.logger.debug3("Got output of length: %d" % len(out))
+        # Powershell ends JSON output with semicolon, which needs to be removed
+        # for json to parse it without errors:
+        out = out.strip()[:-1]
+        try:
+            r = json.loads(out, encoding='utf-8')
+        except ValueError:
+            # TODO: Add better debugging later
+            print out
+            raise
+        print "json returned type: %s" % type(r)
+        return r
+        # TODO: should we yield it iteratively, to save memory?
 
     @staticmethod
     def xml_obj2dict(obj):

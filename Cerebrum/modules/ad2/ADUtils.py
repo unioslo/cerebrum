@@ -47,6 +47,13 @@ import cereconf
 from Cerebrum.Utils import read_password
 from Cerebrum.Utils import Factory
 
+try:
+    import json
+except ImportError:
+    # Until python 2.6, we have our local, partly tweaked json module for python
+    # 2.5. At python 2.6, you _should_ use the proper json module.
+    from Cerebrum.extlib import json
+
 from Cerebrum.modules.ad2.winrm import PowershellClient, iter2stream
 from Cerebrum.modules.ad2.winrm import PowershellException, ExitCodeException
 
@@ -409,7 +416,9 @@ class ADclient(PowershellClient):
         # Note that this could also affect other ObjectClasses...
         if object_class == 'user':
             cmd = 'Get-ADUser'
-        command = ("if ($str = %s | ConvertTo-Csv) { $str -replace '$',';' }"
+        # TODO: It looks like we should use ForEach-Object instead, to avoid too
+        # much memory usage, which creates problems for WinRM.
+        command = ("if ($str = %s | ConvertTo-Json) { $str -replace '$',';' }"
                    % self._generate_ad_command(cmd, params, filter))
         # TODO: Should return a callable instead of having another method for
         # getting the data. Could be using a decorator instead.
@@ -418,6 +427,9 @@ class ADclient(PowershellClient):
     def get_list_objects(self, commandid, other=None):
         """Get list of AD objects, as requested by L{start_list_objects}.
 
+        The returned data is parsed into native python elements, as much as is
+        possible with the returned data format. Uses ConvertTo-Json for this.
+
         The server should have been generating the list of objects in the
         background, and this method sends a request to get the output.
 
@@ -425,21 +437,6 @@ class ADclient(PowershellClient):
         between reading and writing. This is done here, so those who use this
         client should not need to know of this, but only use the standard key.
         See L{self.attribute_write_map} for the mapping.
-
-        Note that ConvertTo-Csv make a move that is not obvious:
-
-            When you submit multiple objects to ConvertTo-CSV, ConvertTo-CSV
-            orders the strings based on the properties of the first object that
-            you submit. If the remaining objects do not have one of the
-            specified properties, the property value of that object is null, as
-            represented by two consecutive commas. If the remaining objects have
-            additional properties, those property values are ignored.
-
-        This must be handled by the ADSync so that attributes not returned from
-        here are still updated in AD, rather than being ignored for updates. It
-        is better to set everyone's attributes once in a while and slow down the
-        sync, than to never set any new attribute. TODO: Or we could fix this by
-        changing the command, or use something else than ConvertTo-Csv.
 
         @type commandid: string
         @param commandid: A CommandId from a previous call to
@@ -464,7 +461,7 @@ class ADclient(PowershellClient):
             other = dict()
             other_set = False
         try:
-            for obj in self.get_output_csv(commandid, other):
+            for obj in self.get_output_json(commandid, other):
                 # Some attribute keys are unfortunately not the same when
                 # reading and writing, so we need to translate those here
                 yield dict((attr_map_reverse.get(key, key), value)
@@ -541,13 +538,14 @@ class ADclient(PowershellClient):
             access for the object.
 
         """
-        out = self.run('''if ($str = %s | ConvertTo-Csv) {
+        out = self.run('''if ($str = %s | ConvertTo-Json) {
             $str -replace '$', ';'
             }''' % self._generate_ad_command('Get-ADObject',
                                              {'Identity': ad_id}))
-        for obj in self.get_output_csv(out, dict()):
-            return obj
-        raise Exception("Bad output - was object '%s' not found?" % ad_id)
+        ret = self.get_output_json(out, dict())
+        if not ret:
+            raise Exception("Bad output - was object '%s' not found?" % ad_id)
+        return ret
 
     def find_object(self, object_class=None, name=None, ou=None,
                     attributes=None, ad_object_class=None):
@@ -596,10 +594,10 @@ class ADclient(PowershellClient):
             extra = 'Filter {%s}' % ' -and '.join("%s -eq '%s'" % (k, v)
                                                   for k, v in
                                                   filters.iteritems())
-        cmd = ("if ($str = %s | ConvertTo-Csv) { $str -replace '$', ';' }" %
+        cmd = ("if ($str = %s | ConvertTo-Json) { $str -replace '$', ';' }" %
                self._generate_ad_command('Get-ADObject', parameters, extra))
         out = self.run(cmd)
-        return list(self.get_output_csv(out, dict()))
+        return list(self.get_output_json(out, dict()))
 
     def create_object(self, name, path, object_class, attributes=None,
                       parameters=None):
@@ -671,7 +669,7 @@ class ADclient(PowershellClient):
         parameters['Path'] = path
         parameters['Type'] = object_class
         cmd = self._generate_ad_command('New-ADObject', parameters, 'PassThru')
-        cmd = '''if ($str = %s | ConvertTo-Csv) {
+        cmd = '''if ($str = %s | ConvertTo-Json) {
             $str -replace '$',';'
             }''' % cmd
         if self.dryrun:
@@ -682,15 +680,13 @@ class ADclient(PowershellClient):
             ret['DistinguishedName'] = 'CN=%s,%s' % (name, path)
             ret['SID'] = None
             return ret
-        other_out = dict()
-        for obj in self.get_output_csv(self.run(cmd), other_out):
-            self.logger.debug("New AD-object: %s" % obj)
-            return obj
-        # We should NOT get here if all is okay
-        e_msg = "Missing server response - was '%s' created?" % name
-        self.logger.warn(e_msg)
-        self.logger.warn("Output from server: %s" % (other_out,))
-        raise Exception(e_msg)
+        ret = self.get_output_json(self.run(cmd), dict())
+        if not ret:
+            e_msg = "Creating object %s not confirmed by AD" % name
+            self.logger.warn(e_msg)
+            raise Exception(e_msg)
+        self.logger.debug("New AD-object: %s" % ret)
+        return ret
 
     def move_object(self, ad_id, ou):
         """Send a command for moving an object to the given OU.
@@ -855,7 +851,7 @@ class ADclient(PowershellClient):
 
         """
         # No dryrun here, since it's read-only
-        return self.execute('''if ($str = %s | ConvertTo-Csv) {
+        return self.execute('''if ($str = %s | ConvertTo-Json) {
                 $str -replace '$', ';'
             }''' % self._generate_ad_command('Get-ADGroupMember',
                                              {'Identity': groupid}))
@@ -880,7 +876,7 @@ class ADclient(PowershellClient):
             recommended to change this limit either.
 
         """
-        return self.get_output_csv(commandid, dict())
+        return self.get_output_json(commandid, dict())
         # TODO: check other output?
 
     def empty_group(self, groupid):
@@ -1068,11 +1064,9 @@ class ADclient(PowershellClient):
         """
         if reset or not getattr(self, '_chosen_dc', False):
             cmd = """if ($str = Get-ADDomainController -Credential $cred 
-                        -Filter *| ConvertTo-Csv) { $str -replace '$',';' }"""
-            ret = self.get_output_csv(self.run(cmd), dict())
-            for r in ret:
-                self._chosen_dc = r['Name']
-                break
+                        -Filter *| ConvertTo-Json) { $str -replace '$',';' }"""
+            ret = self.get_output_json(self.run(cmd), dict())
+            self._chosen_dc = ret['Name']
             self.logger.debug("Preferred DC: %s", self._chosen_dc)
         return self._chosen_dc
 
