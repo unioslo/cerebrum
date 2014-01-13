@@ -2323,9 +2323,7 @@ class PowershellClient(WinRMClient):
             r = json.loads(out, encoding='utf-8')
         except ValueError:
             # TODO: Add better debugging later
-            print out
             raise
-        print "json returned type: %s" % type(r)
         return r
         # TODO: should we yield it iteratively, to save memory?
 

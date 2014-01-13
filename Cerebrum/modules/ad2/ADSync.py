@@ -1375,19 +1375,20 @@ class BaseSync(object):
         dn = ad_object['DistinguishedName']
         #conf = self.config.get('handle_unknown_objects', ('disable', None))
         if action[0] == 'ignore':
-            # Do nothing
+            self.logger.debug2("Downgrade: ignoring AD object: %s", dn)
             return
         elif action[0] == 'disable':
-            # TODO: note that this only works for accounts!
-            if ad_object.get('Enabled') == 'False':
-                return # already disabled
+            if not ad_object.get('Enabled'):
+                return
             self.server.disable_object(dn)
             self.script('disable_object', ad_object)
         elif action[0] == 'move':
-            if ad_object.get('Enabled') != 'False':
+            if ad_object.get('Enabled'):
                 self.server.disable_object(dn)
                 self.script('disable_object', ad_object)
             if not dn.endswith(action[1]):
+                self.logger.debug("Downgrade: moving from '%s' to '%s'", dn,
+                                  action[1])
                 # TODO: test if this works as expected!
                 self.move_object(ad_object, action[1])
             return True
@@ -2166,8 +2167,7 @@ class UserSync(BaseSync):
         dn = ad_object['DistinguishedName'] # TBD: or 'Name'?
 
         if ent.active:
-            status = ad_object.get('Enabled', False)
-            if not status or status == 'False':
+            if not ad_object.get('Enabled', False):
                 self.server.enable_object(dn)
 
     def process_entities_not_in_ad(self):
