@@ -41,6 +41,7 @@ talking with the domain controllers through Active Directory Web Service:
 
 import time
 import re
+import base64
 
 import cerebrum_path
 import cereconf
@@ -1028,7 +1029,13 @@ class ADclient(PowershellClient):
 
         """
         self.logger.info('Setting password for: %s', ad_id)
-        cmd = '''$pwd = ConvertTo-SecureString -AsPlainText -Force %(pwd)s;
+        # Would like to be able to give AD a hash/crypt in some format that is
+        # not readable for others. We convert it to base64 only to avoid any
+        # trouble with string escape characters - this is not for security
+        # reasons.
+        password = base64.b64encode(password)
+        cmd = '''$b = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(%(pwd)s));
+            $pwd = ConvertTo-SecureString -AsPlainText -Force $b;
             %(cmd)s -NewPassword $pwd;
         ''' % {'pwd': self.escape_to_string(password),
                'cmd': self._generate_ad_command('Set-ADAccountPassword',
