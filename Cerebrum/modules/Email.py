@@ -187,6 +187,13 @@ class EmailConstants(Constants.Constants):
         "Target is the local delivery defined for the PosixUser whose"
         " account_id == email_target.using_uid.")
 
+    # exchange-related-jazz
+    email_target_dl_group = _EmailTargetCode(
+        'group',
+        "Target is the Exchange - local delivery defined for"
+        " the DistributionGroup with"
+        " group_id == email_target.using_uid.")
+
     email_target_deleted = _EmailTargetCode(
         'deleted',
         "Target type for addresses that are no longer working, but"
@@ -342,12 +349,15 @@ class EmailDomain(Entity_class):
         # Need to clean up categories first
         for category_row in self.get_categories():
             self.remove_category(category_row['category'])
-        
+        # exchange-relatert-jazz 
+        # requires cl-use!
+        self._db.log_change(self.entity_id, self.const.email_dom_rem, None, 
+                            change_params={'del_domain': 
+                                           self.email_domain_name})
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=email_domain]
         WHERE domain_id=:e_id""", {'e_id': self.entity_id})
         self.__super.delete()
-        
 
     def write_db(self):
         self.__super.write_db()
@@ -362,6 +372,15 @@ class EmailDomain(Entity_class):
                          {'d_id': self.entity_id,
                           'name': self.email_domain_name,
                           'descr': self.email_domain_description})
+            #exchange-relatert-jazz
+            self._db.log_change(self.entity_id, 
+                                self.const.email_dom_add,
+                                None,
+                                change_params=
+                                {'new_domain_name': 
+                                 self.email_domain_name,
+                                 'new_domain_desc': 
+                                 self.email_domain_description})
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=email_domain]
@@ -370,6 +389,12 @@ class EmailDomain(Entity_class):
                          {'d_id': self.entity_id,
                           'name': self.email_domain_name,
                           'descr': self.email_domain_description})
+            #exchange-relatert-jazz
+            self._db.log_change(self.entity_id, self.const.email_dom_mod, 
+                                None, change_params= {'mod_domain_name': 
+                                                      self.email_domain_name,
+                                                      'mod_domain_desc': 
+                                                      self.email_domain_description})
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -421,6 +446,9 @@ class EmailDomain(Entity_class):
         WHERE domain_id=:d_id""", {'d_id': self.entity_id})
 
     def add_category(self, category):
+        # exchange-relevant-jazz
+        self._db.log_change(self.entity_id, self.const.email_dom_addcat, 
+                            None, change_params={'category': int(category)})
         # conv
         return self.execute("""
         INSERT INTO [:table schema=cerebrum name=email_domain_category]
@@ -429,6 +457,9 @@ class EmailDomain(Entity_class):
                                   'cat': int(category)})
 
     def remove_category(self, category):
+        # exchange-relevant-jazz
+        self._db.log_change(self.entity_id, self.const.email_dom_remcat, 
+                            None, change_params={'category': int(category)})
         # conv
         return self.execute("""
         DELETE FROM [:table schema=cerebrum name=email_domain_category]
@@ -572,6 +603,12 @@ class EmailTarget(Entity_class):
                           'alias': self.email_target_alias,
                           'uid': self.email_target_using_uid,
                           'server_id': self.email_server_id})
+            # exchange-relatert-jazz
+            self._db.log_change(self.entity_id, 
+                                self.const.email_target_add,
+                                self.email_target_entity_id,
+                                change_params={'target_type': 
+                                               int(self.email_target_type)})
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=email_target]
@@ -586,6 +623,19 @@ class EmailTarget(Entity_class):
                           'alias': self.email_target_alias,
                           'uid': self.email_target_using_uid,
                           'server_id': self.email_server_id})
+            # exchange-relatert-jazz
+            # we are mostly interested in changes to target_type 
+            # and server, ignoring other changes (although it
+            # would probably be better to re-write API so that
+            # every changes is done separately, but there is no
+            # time for that. Jazz (2013-11)
+            self._db.log_change(self.entity_id, 
+                                self.const.email_target_mod,
+                                self.email_target_entity_id,
+                                change_params={'target_type': 
+                                               int(self.email_target_type),
+                                               'server_id': 
+                                               self.email_server_id})
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -619,6 +669,9 @@ class EmailTarget(Entity_class):
         #
         # TBD: is this really a good idea? medling in other classes.
         #      makes ChangeLogging harder.
+        # exchange-relatert-jazz
+        # TODO: this is definitely not a very good idea. delete should be
+        # done in each class. (Jazz, 2013-11)
         for table in ('email_forward', 'email_vacation', 'email_quota',
                       'email_spam_filter', 'email_virus_scan',
                       'email_target_filter'):
@@ -629,6 +682,12 @@ class EmailTarget(Entity_class):
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=email_target]
         WHERE target_id=:e_id""", {'e_id': self.entity_id})
+        # exchange-relevant-jazz
+        self._db.log_change(self.entity_id, 
+                            self.const.email_target_rem,
+                            self.email_target_entity_id,
+                            change_params={'target_type': 
+                                           int(self.email_target_type)})
         self.__super.delete()
 
     def find_by_email_target_attrs(self, **kwargs):
@@ -729,20 +788,29 @@ class EmailTarget(Entity_class):
         WHERE server_id IS NOT NULL
         """, fetchall=False)
 
-    def list_email_targets_ext(self, target_entity_id=None):
-        # NA
-        """Return an iterator over all email_target rows.  If target_entity_id
-        is specified, only return email_targets with the given target_entity.
+    # exchange-relatert-jazz
+    # production og mail-ldif is very slow, trying to make it possible
+    # to optimize targets listing a little bit
+    def list_email_targets_ext(self, target_entity_id=None, target_type=None):
+        """ Return an iterator over all email_target rows.  If
+            target_entity_id is specified, only return email_targets 
+            with the given target_entity. If target_type is specified
+            return all email_target_rows with the conforming 
+            target_type.
 
         For each row, the following columns are included:
-          target_id, target_type, target_entity_type, target_entity_id,
-          alias_value, using_uid and server_id.
+        target_id, target_type, target_entity_type, target_entity_id,
+        alias_value, using_uid and server_id. """
 
-        """
         binds = {}
         where_str = ""
+        if target_entity_id and target_type:
+            raise ProgrammingError, \
+                "Cannot use both entity_id and target_type!"
         if not target_entity_id is None:
             where_str = " WHERE %s" % argument_to_sql(target_entity_id, "target_entity_id", binds, int)
+        if not target_type is None:
+            where_str = " WHERE %s" % argument_to_sql(target_type, "target_type", binds, int)
         return self.query("""
         SELECT target_id, target_type, target_entity_type,
                target_entity_id, alias_value, using_uid,
@@ -860,6 +928,18 @@ class EmailAddress(Entity_class):
                           'd_id': self.email_addr_domain_id,
                           't_id': self.email_addr_target_id,
                           'expire': self.email_addr_expire_date})
+            # exchange-relevant-jazz
+            # we would like to be able to search for all
+            # changes related to a target. as this includes 
+            # address-manipulation subject_entity in change_log
+            # will be the target_id and not the address_id
+            self._db.log_change(self.email_addr_target_id,
+                                self.const.email_address_add,
+                                self.entity_id,
+                                change_params={'lp': 
+                                               self.email_addr_local_part,
+                                               'dom_id': 
+                                               self.email_addr_domain_id})
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=email_address]
@@ -895,9 +975,22 @@ class EmailAddress(Entity_class):
         
     def delete(self):
         # conv
+        # We must store these params, in order to remove this address from
+        # target system
+        params = {'lp': self.email_addr_local_part,
+                  'dom_id': self.email_addr_domain_id}
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=email_address]
         WHERE address_id=:e_id""", {'e_id': self.entity_id})
+        # exchange-relevant-jazz
+        # in order to collect all target-related changes
+        # address-manipulation is change_logged with target_id
+        # as subject_entity
+        self._db.log_change(self.email_addr_target_id,
+                            self.const.email_address_rem,
+                            self.entity_id,
+                            change_params={'lp': self.email_addr_local_part,
+                                           'dom_id': self.email_addr_domain_id})
         self.__super.delete()
 
     def find_by_local_part_and_domain(self, local_part, domain_id):
@@ -1111,6 +1204,12 @@ class EntityEmailDomain(Entity):
                          {'e_id': self.entity_id,
                           'aff': affiliation,
                           'dom_id': self.entity_email_domain_id})
+            # exchange-relevant-jazz
+            self._db.log_change(self.entity_email_domain_id,
+                                self.const.email_entity_dom_add,
+                                self.entity_id,
+                                change_params={'aff': affiliation})
+            
         else:
             # TBD: What about DELETEs?
             self.execute("""
@@ -1121,6 +1220,11 @@ class EntityEmailDomain(Entity):
                affiliation = :aff)""", {'e_id': self.entity_id,
                                        'aff': affiliation,
                                        'dom_id': self.entity_email_domain_id})
+            # exchange-relevant-jazz
+            self._db.log_change(self.entity_email_domain_id,
+                                self.const.email_entity_dom_mod,
+                                self.entity_id,
+                                change_params={'aff': affiliation})
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -1161,12 +1265,17 @@ class EntityEmailDomain(Entity):
             aff_cond = "affiliation=:aff"
         else:
             aff_cond = "affiliation IS NULL"
+        # exchange-relevant-jazz
+        self._db.log_change(self.entity_email_domain_id,
+                            self.const.email_entity_dom_rem,
+                            self.entity_id,
+                            change_params={'aff': 
+                                           self.entity_email_affiliation})
         return self.execute("""
         DELETE FROM [:table schema=cerebrum name=email_entity_domain]
         WHERE entity_id=:e_id AND """ + aff_cond,
                             {'e_id': self.entity_id,
                              'aff': self.entity_email_affiliation})
-
 
 class EmailQuota(EmailTarget):
     """Mixin class allowing quotas to be set on specific `EmailTarget`s."""
@@ -1202,6 +1311,14 @@ class EmailQuota(EmailTarget):
                          {'t_id': self.entity_id,
                           'soft': self.email_quota_soft,
                           'hard': self.email_quota_hard})
+            # exchange-relevant-jazz
+            self._db.log_change(self.entity_id,
+                                self.const.email_quota_add,
+                                None,
+                                change_params={'soft': 
+                                               self.email_quota_soft,
+                                               'hard': 
+                                               self.email_quota_hard})
         else:
             # TBD: What about DELETEs?
             self.execute("""
@@ -1211,6 +1328,14 @@ class EmailQuota(EmailTarget):
             WHERE target_id=:t_id""", {'t_id': self.entity_id,
                                        'soft': self.email_quota_soft,
                                        'hard': self.email_quota_hard})
+            # exchange-relevant-jazz
+            self._db.log_change(self.entity_id,
+                                self.const.email_quota_mod,
+                                None,
+                                change_params={'soft': 
+                                               self.email_quota_soft,
+                                               'hard': 
+                                               self.email_quota_hard})
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -1230,6 +1355,10 @@ class EmailQuota(EmailTarget):
         self.__updated = []
 
     def delete(self):
+        # exchange-relevant-jazz
+        self._db.log_change(self.entity_id,
+                            self.const.email_quota_rem,
+                            None)
         return self.execute("""
         DELETE FROM [:table schema=cerebrum name=email_quota]
         WHERE target_id=:e_id""", {'e_id': self.entity_id})
@@ -1299,6 +1428,12 @@ class EmailTargetFilter(EmailTarget):
             VALUES (:t_id, :filter)""",
                          {'t_id': self.entity_id,
                           'filter': int(self.email_target_filter_filter)})
+            # exchange-relatert-jazz
+            self._db.log_change(self.entity_id,
+                                self.const.email_tfilter_add,
+                                None,
+                                change_params={'filter': 
+                                               int(self.email_target_filter_filter)})
         else:
             # Binary table. No need to update with the same info
             pass
@@ -1328,6 +1463,11 @@ class EmailTargetFilter(EmailTarget):
 
     def disable_email_target_filter(self, filter):
         """Helper method, used to enable a given filter."""
+        # exchange-relatert-jazz
+        self._db.log_change(self.entity_id,
+                            self.const.email_tfilter_rem,
+                            None,
+                            change_params={'filter': filter})
         return self.execute("""
         DELETE FROM [:table schema=cerebrum name=email_target_filter]
         WHERE target_id=:t_id AND filter=:filter""",
@@ -1385,6 +1525,14 @@ class EmailSpamFilter(EmailTarget):
                          {'t_id': self.entity_id,
                           'level': int(self.email_spam_level),
                           'action': int(self.email_spam_action)})
+            # exchange-relatert-jazz
+            self._db.log_change(self.entity_id,
+                                self.const.email_sfilter_add,
+                                None,
+                                change_params={'level':
+                                               int(self.email_spam_level),
+                                               'action': 
+                                               int(self.email_spam_action)})
         else:
             # TBD: What about DELETEs?
             self.execute("""
@@ -1394,6 +1542,14 @@ class EmailSpamFilter(EmailTarget):
             WHERE target_id=:t_id""", {'t_id': self.entity_id,
                                        'level': int(self.email_spam_level),
                                        'action': int(self.email_spam_action)})
+            # exchange-relatert-jazz
+            self._db.log_change(self.entity_id,
+                                self.const.email_sfilter_mod,
+                                None,
+                                change_params={'level':
+                                               int(self.email_spam_level),
+                                               'action': 
+                                               int(self.email_spam_action)})
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -1471,6 +1627,16 @@ class EmailVirusScan(EmailTarget):
                           'found': self.email_virus_found_act,
                           'removed': self.email_virus_removed_act,
                           'enable': self.email_virus_enable})
+            # exchange-relatert-jazz
+            self._db.log_change(self.entity_id,
+                                self.const.email_scan_add,
+                                None,
+                                change_params={'found':
+                                               int(self.email_virus_found_act),
+                                               'removed': 
+                                               int(self.email_virus_removed_act),
+                                               'enable':
+                                               int(self.email_virus_enable)})
         else:
             # TBD: What about DELETEs?
             self.execute("""
@@ -1481,6 +1647,16 @@ class EmailVirusScan(EmailTarget):
                           'found': self.email_virus_found_act,
                           'removed': self.email_virus_removed_act,
                           'enable': self.email_virus_enable})
+            # exchange-relatert-jazz
+            self._db.log_change(self.entity_id,
+                                self.const.email_scan_mod,
+                                None,
+                                change_params={'found':
+                                               int(self.email_virus_found_act),
+                                               'removed': 
+                                               int(self.email_virus_removed_act),
+                                               'enable':
+                                               int(self.email_virus_enable)})
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -1533,13 +1709,19 @@ class EmailForward(EmailTarget):
         enable = 'F'
         if enable:
             enable = 'T'
+       # exchange-relevant-jazz
+        self._db.log_change(self.entity_id,
+                            self.const.email_forward_add, 
+                            self.entity_id,
+                            change_params={'forward': forward,
+                                           'enable': enable})
         return self.execute("""
         INSERT INTO [:table schema=cerebrum name=email_forward]
           (target_id, forward_to, enable)
         VALUES (:t_id, :forward, :enable)""", {'t_id': self.entity_id,
                                                'forward': forward,
                                                'enable': enable})
-
+ 
     def _set_forward_enable(self, forward, enable):
         return self.execute("""
         UPDATE [:table schema=cerebrum name=email_forward]
@@ -1548,6 +1730,15 @@ class EmailForward(EmailTarget):
               forward_to = :fwd""", {'enable': enable,
                                      'fwd': forward,
                                      't_id': self.entity_id})
+        if enable == 'F':
+            cat = const.email_forward_disable
+        else:
+            cat = const.email_forward_enable
+        # exchange-relevant-jazz
+        self._db.log_change(self.target_id,
+                            cat, 
+                            self.entity_id,
+                            change_params={'forward': forward})
 
     def enable_forward(self, forward):
         return self._set_forward_enable(forward, 'T')
@@ -1562,6 +1753,11 @@ class EmailForward(EmailTarget):
         WHERE target_id=:t_id""", {'t_id': self.entity_id})
 
     def delete_forward(self, forward):
+        # exchange-relevant-jazz
+        self._db.log_change(self.entity_id,
+                            self.const.email_forward_rem, 
+                            None,
+                            change_params={'forward': forward})
         return self.execute("""
         DELETE FROM [:table schema=cerebrum name=email_forward]
         WHERE target_id=:t_id AND forward_to=:forward""",
@@ -1583,7 +1779,7 @@ class EmailVacation(EmailTarget):
             enable = 'T'
         else:
             enable = 'F'
-        return self.execute("""
+        ret = self.execute("""
         INSERT INTO [:table schema=cerebrum name=email_vacation]
           (target_id, start_date, vacation_text, end_date, enable)
         VALUES (:t_id, :start, :text, :end, :enable)""",
@@ -1592,12 +1788,25 @@ class EmailVacation(EmailTarget):
                              'text': text,
                              'end': end,
                              'enable': enable})
+        # exchange-relevant-jazz
+        self._db.log_change(self.entity_id,
+                            self.const.email_vacation_add, None,
+                            change_params={'start': start,
+                                           'end': end,
+                                           'enable': enable})
+        return ret
 
     def enable_vacation(self, start, enable=True):
         if enable:
             enable = 'T'
+            cat = self.const.email_vacation_enable
         else:
             enable = 'F'
+            cat = self.const.email_vacation_disable
+        # exchange-relevant-jazz
+        self._db.log_change(self.entity_id,
+                            cat, None,
+                            change_params={'start': start})
         return self.execute("""
         UPDATE [:table schema=cerebrum name=email_vacation]
         SET enable=:enable
@@ -1617,6 +1826,11 @@ class EmailVacation(EmailTarget):
         ORDER BY start_date""", {'t_id': self.entity_id})
 
     def delete_vacation(self, start):
+        # exchange-relevant-jazz
+        self._db.log_change(self.entity_id,
+                            self.const.email_vacation_rem,
+                            None,
+                            change_params={'start': start})
         return self.execute("""
         DELETE FROM [:table schema=cerebrum name=email_vacation]
         WHERE target_id=:t_id AND start_date=:start""",
@@ -1663,6 +1877,12 @@ class EmailPrimaryAddressTarget(EmailTarget):
             VALUES (:t_id, :addr_id)""",
                          {'t_id': self.entity_id,
                           'addr_id': self.email_primaddr_id})
+            # exchange-relevant-jazz
+            self._db.log_change(self.entity_id, 
+                                self.const.email_primary_address_add,
+                                None,
+                                change_params={'addr_id': 
+                                               self.email_primaddr_id})
         else:
             # TBD: What about DELETEs?
             self.execute("""
@@ -1670,6 +1890,12 @@ class EmailPrimaryAddressTarget(EmailTarget):
             SET address_id=:addr_id
             WHERE target_id=:t_id""", {'t_id': self.entity_id,
                                        'addr_id': self.email_primaddr_id})
+            # exchange-relevant-jazz
+            self._db.log_change(self.entity_id, 
+                                self.const.email_primary_address_mod,
+                                None,
+                                change_params={'addr_id': 
+                                               self.email_primaddr_id})
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -1679,6 +1905,12 @@ class EmailPrimaryAddressTarget(EmailTarget):
         """Delete primary address.  Note that this will _not_ call
         delete() in parent.  If you want to delete the EmailTarget as
         well, you need to do so explicitly."""
+        # exchange-relevant-jazz
+        self._db.log_change(self.entity_id, 
+                            self.const.email_primary_address_rem,
+                            None,
+                            change_params={'addr_id': 
+                                           self.email_primaddr_id})
         ret = self.execute("""
         DELETE FROM [:table schema=cerebrum name=email_primary_address]
         WHERE target_id=:e_id""", {'e_id': self.entity_id})
@@ -1739,6 +1971,12 @@ class EmailServer(Host):
             VALUES (:s_id, :type)""",
                          {'s_id': self.entity_id,
                           'type': int(self.email_server_type)})
+            # exchange-relatert-jazz
+            self._db.log_change(self.entity_id,
+                                self.const.email_server_add,
+                                None,
+                                change_params={'server_type': 
+                                               int(self.email_server_type)})
         else:
             # TBD: What about DELETEs?
             self.execute("""
@@ -1746,6 +1984,12 @@ class EmailServer(Host):
             SET server_type=:type
             WHERE server_id=:s_id""", {'s_id': self.entity_id,
                                        'type': int(self.email_server_type)})
+            # exchange-relatert-jazz
+            self._db.log_change(self.entity_id,
+                                self.const.email_server_mod,
+                                None,
+                                change_params={'server_type': 
+                                               int(self.email_server_type)})
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -1756,6 +2000,12 @@ class EmailServer(Host):
             DELETE FROM [:table schema=cerebrum name=email_server]
             WHERE server_id=:s_id""", {'s_id': self.entity_id,
                                        'type': int(self.email_server_type)})
+        # exchange-relatert-jazz
+        self._db.log_change(self.entity_id,
+                            self.const.email_server_rem,
+                            None,
+                            change_params={'server_type': 
+                                           int(self.email_server_type)})
         return self.__super.delete()
     # end delete
 
@@ -1803,6 +2053,13 @@ class AccountEmailMixin(Account.Account):
             self.update_email_addresses()
         return ret
 
+    # exchange-relatert-jazz
+    # I did not touch this method and cannot see any readily
+    # implemented improvements relates to Exchange roll-out or
+    # completed migration to Exchange at UiO. Someone should, however,
+    # take at look at the metod after migration is completed as new
+    # data may be discovered during migration. Jazz (2013-11)
+    #
     def update_email_addresses(self):
         # Find, create or update a proper EmailTarget for this
         # account.
@@ -2330,6 +2587,12 @@ class AccountEmailQuotaMixin(Account.Account):
                 eq.write_db()
         if not change:
             return
+        # exchange-relatert-jazz 
+        # after migration to exchange is completed this part of the
+        # method may be removed along with the default_config.py and
+        # cereconf.py definitions of EMAIL_ADD_QUOTA_REQUEST as they
+        # will no longer be necessary
+        # Jazz (2013-11)
         if cereconf.EMAIL_ADD_QUOTA_REQUEST:
             from Cerebrum.modules.bofhd.utils import BofhdRequests
             br = BofhdRequests(self._db, self.const)

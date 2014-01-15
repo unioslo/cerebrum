@@ -50,7 +50,7 @@ def _command_help_modifications():
 
     # Remove all but some subkeys for some keys
     keep = {'access':['access_grant', 'access_group', 'access_host', 'access_revoke'],
-            'email':['email_add_address', 'email_add_domain_affiliation', 'email_add_forward', 'email_add_tripnote', 'email_create_archive', 'email_create_domain', 'email_create_forward', 'email_create_list', 'email_create_multi', 'email_delete_archive', 'email_delete_list', 'email_delete_multi', 'email_domain_configuration', 'email_domain_info', 'email_forward', 'email_info', 'email_list_tripnotes', 'email_migrate', 'email_move', 'email_quota', 'email_remove_address', 'email_remove_domain_affiliation', 'email_remove_forward', 'email_remove_tripnote', 'email_spam_action', 'email_spam_level', 'email_tripnote', 'email_update']
+            'email':['email_add_address', 'email_add_domain_affiliation', 'email_add_forward', 'email_add_tripnote', 'email_create_archive', 'email_create_domain', 'email_create_forward_target', 'email_create_list', 'email_create_multi', 'email_delete_archive', 'email_delete_list', 'email_delete_multi', 'email_domain_configuration', 'email_domain_info', 'email_forward', 'email_info', 'email_list_tripnotes', 'email_migrate', 'email_move', 'email_quota', 'email_remove_address', 'email_remove_domain_affiliation', 'email_remove_forward', 'email_remove_tripnote', 'email_spam_action', 'email_spam_level', 'email_tripnote', 'email_update']
             }
     #remove_not_kept_subkeys(command_help, keep)
 
@@ -475,7 +475,7 @@ def _arg_help_modifications():
 #     """Enter person id as idtype:id.
 #If idtype=fnr, the idtype does not have to be specified.
 #The currently defined id-types are:
-#  - fnr : norwegian fødselsnummer."""],
+#  - fnr : norwegian fÃ¸dselsnummer."""],
 #    'person_id_other':
 #    ['person_id', 'Enter person id',
 #     """Enter person id as idtype:id.
@@ -614,7 +614,7 @@ def _arg_help_modifications():
 #    ['owner', 'Enter account owner',
 #     """Identify account owner (person or group) by entering:
 #  Birthdate (YYYY-MM-DD)
-#  Norwegian fødselsnummer (11 digits)
+#  Norwegian fÃ¸dselsnummer (11 digits)
 #  Export-ID (exp:exportid)
 #  External ID (idtype:idvalue)
 #  Entity ID (entity_id:value)

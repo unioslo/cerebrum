@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 # 
-# Copyright 2012 University of Oslo, Norway
+# Copyright 2012-2014 University of Oslo, Norway
 # 
 # This file is part of Cerebrum.
 # 
@@ -1605,13 +1605,27 @@ class WinRMClient(WinRMProtocol):
             commandid = self.wsman_command(shellid, *args)
         except WinRMServerException, e:
             # Check if error matches MaxConcurrentOperationsPerUser and
-            # reconnect 
-            if e.code != ['s:Receiver', 'w:InternalError']:
+            # reconnect. We also check to see if the shells have timed out
+            # (the InvalidSelectors error) code, and reconnect in that case
+            # too.
+            if e.code not in (['s:Receiver', 'w:InternalError'],
+                              ['s:Sender', 'w:InvalidSelectors'],):
                 raise
+
+            to_raise = True
             if ('The maximum number of concurrent operations for this user '
-                    'has been exceeded' not in e.reason[0]):
+                    'has been exceeded' in e.reason[0]):
+                to_raise = False
+                self.logger.debug2('MaxConcurrentOperationsPerUser reached')
+                
+            if ('request contained invalid selectors for the resource' in
+                       e.reason[0]):
+                to_raise = False
+                self.logger.debug2('ShellId is inncorrect, or does not ' + \
+                                    'exist anymore')
+            if to_raise:
                 raise
-            self.logger.debug2('MaxConcurrentOperationsPerUser reached')
+
             try:
                 # Note this could affect already executed commands that is not
                 # received by the client yet, as we have not tested if already

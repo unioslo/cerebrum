@@ -115,7 +115,7 @@ command_help = {
             "Create a new e-mail domain",
         "email_delete_domain":
             "Delete an e-mail domain",
-        "email_create_forward":
+        "email_create_forward_target":
             "Create a new e-mail forward target",
         "email_domain_info":
             "View information about an e-mail domain",
@@ -173,7 +173,7 @@ command_help = {
             "Remove a Sympa list's addresses",
         "email_delete_multi":
             "Remove a multi target and all its addresses",
-        "email_delete_forward":
+        "email_delete_forward_target":
             "Delete an e-mail forward target",
         "email_edit_pipe_command":
             "Change the command the pipe or RT target runs",
@@ -235,6 +235,12 @@ command_help = {
         'group_delete': 'Delete a group from Cerebrum',
         'group_demote_posix':
             'Make an existing POSIX-group into a Cerebrum group',
+        'group_distgroup_attr_set':
+            'Set a distribution group specific attribute',
+        'group_distgroup_create':
+            'Make a distribution group from an existing or a new group',
+        'group_distgroup_remove':
+            'Remove distribution group attributes from a group',
         'group_gadd': 'Let src_group(s) join dest_group(s)',
         'group_gremove': 'Remove src_group(s) from given dest_group(s)',
         'group_info': 'View information about a spesific group',
@@ -245,11 +251,16 @@ command_help = {
         'group_padd': 'Let a person join a group',
         'group_personal': 'Create a new personal filegroup for an account',
         'group_promote_posix': 'Make an existing group into a POSIX-group',
+        'group_roomlist_create': 
+            'Make a roomlist from scratch. Remove with spread remove/group delete',
+        'group_secgroup_create': 
+            'Make a sec group from existing. Remove with spread remove/group delete',
         'group_multi_remove': 'Remove member(s) from a given group',
         'group_remove': 'Remove member accounts from a given group',
         'group_request': 'Send in request for a new Cerebrum group',
         'group_search': 'Search for a group using various criteria',
         'group_set_description': 'Set description for a group',
+        'group_set_displayname': 'Set displayname with nb as varian for a distribution group/room list',
         'group_set_expire': 'Set expire date for a group',
         'group_set_visibility': 'Set visibility for a group',
         'group_user': 'List all groups an account is a member of',
@@ -459,6 +470,12 @@ arg_help = {
          'Enter quota size in MiB, or -1 for unlimited quota'],
     'disk_quota_expire_date':
         ['end_date', 'Enter end-date for override', 'Format is 2003-12-31'],
+    'display_name_language':
+        ['language', 'Enter language short name',
+         "Allowed values: en, nn, nb (nb used in exports)"],
+    'dlgroup_or_account_name':
+        ['name', "Enter distgroup or account name",
+         """Enter name of a distribution group or an account."""],
     'email_address':
         ['address', 'Enter e-mail address'],
     'email_category':
@@ -494,6 +511,21 @@ arg_help = {
     'external_id_type':
         ['external_id_type', 'Enter external id type',
          'The external id type, i.e. NO_BIRTHNO/NO_STUDNO etc'],
+    'group_disp_name':
+        ['disp_name', 'Enter display name (optional, may differ from name)'],
+    'group_dl_managedby':
+        ['dl_managedby', 'Enter address for ou/person managing this group'],
+    'group_dl_modby':
+        ['dl_moderateby', 'Enter a list of user names, separated by the comma character (,)'],
+    'group_dist_attr':
+        ['group_dattr', 'Enter attribute to modify',
+         """Valid attributes:
+            - depart_restriction (Open, Closes, ApprovalRequired)
+            - join_restriction (Open, Closes, ApprovalRequired)
+            - moderation_enabled (T/F)
+            - moderated_by ('uname1, uname2,...')
+            - managed_by (e-mailaddress)
+            - addrbook_hidden (T/F)"""],
     'group_name':
         ['gname', 'Enter groupname'],
     'group_name_dest':
@@ -727,6 +759,8 @@ arg_help = {
          'account' username: the user affected by the operation"""],
     'string_description':
         ['description', 'Enter description'],
+    'string_dl_desc':
+        ['dl_desc', 'Enter description, not mandatory if an existing group is used'],
     'string_spread':
         ['spread', 'Enter spread. Example: AD_group NIS_fg@uio'],
     'string_email_host':
@@ -843,6 +877,10 @@ arg_help = {
         ['force', 'Force the operation?'],
     'yes_no_all_op':
         ['all', 'All operations?'],
+    'yes_no_from_existing':
+        ['from_existing', 'Create distgroup from existing group, optional, def no, (y/n)?'],
+    'yes_no_expire_group':
+        ['expire_group', 'Set an expire data in 90 days for group (y/n)?'],
     'yes_no_include_expired':
         ['include_expired', 'Include expired? (y/n)'],
     'yes_no_with_request':

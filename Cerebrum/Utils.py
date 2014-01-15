@@ -840,6 +840,11 @@ class Factory(object):
         'group': 'Group',
         'host': 'Host',
         'disk': 'Disk',
+        # exchange-relatert-jazz
+        # we would like to be able to do entity history on
+        # email_target-entities and therefore have to
+        # introduce a factory object representation of email_target
+        'email_target': 'EmailTarget',
     }
 
     def get(comp):
@@ -856,11 +861,20 @@ class Factory(object):
                       'ChangeLog': 'CLASS_CHANGELOG',
                       'DBDriver': 'CLASS_DBDRIVER',
                       'EmailLDAP': 'CLASS_EMAILLDAP',
+                      # exchange-relatert-jazz we would like to be
+                      # able to do entity history on
+                      # email_target-entities and therefore have to
+                      # introduce a factory object representation of
+                      # email_target.
+                      # exchange-related-jsama Defined CLASS_EMAILTARGET
+                      # since I want to have the quota mixin functionality :)
+                      'EmailTarget': 'CLASS_EMAILTARGET',
                       'OrgLDIF': 'CLASS_ORGLDIF',
                       'PosixExport': 'CLASS_POSIXEXPORT',
                       'PosixLDIF': 'CLASS_POSIXLDIF',
                       'PosixUser': 'CLASS_POSIX_USER',
                       'PosixGroup': 'CLASS_POSIX_GROUP',
+                      'DistributionGroup': 'CLASS_DISTRIBUTION_GROUP',
                       'Project': 'CLASS_PROJECT',
                       'Allocation': 'CLASS_ALLOCATION',
                       'AllocationPeriod': 'CLASS_ALLOCATION_PERIOD',

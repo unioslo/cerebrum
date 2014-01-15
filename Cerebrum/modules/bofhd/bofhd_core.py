@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: iso-8859-1 -*-
 #
-# Copyright 2009-2012 University of Oslo, Norway
+# Copyright 2009-2013 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #

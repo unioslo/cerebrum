@@ -330,13 +330,61 @@ def runfile(fname, db, debug, phase):
     global all_ok
     print "Reading file (phase=%s): <%s>" % (phase, fname)
     f = file(fname)
-    text = "".join(f.readlines())
-    long_comment = re.compile(r"/\*.*?\*/", re.DOTALL)
-    text = re.sub(long_comment, "", text)
+    text = f.readlines()
+    long_comment_start = re.compile(r"/\*", re.DOTALL)
+    long_comment_stop = re.compile(r".*?\*/", re.DOTALL)
+    long_line_comment = re.compile(r"/\*.*?\*/", re.DOTALL)
     line_comment = re.compile(r"--.*")
-    text = re.sub(line_comment, "", text)
-    text = re.sub(r"\s+", " ", text)
-    text = text.split(";")
+    sc_pat_repl = re.compile(r';\s*')
+    sc_pat = re.compile(r'.*;\s*')
+    kill_newline_repl = re.compile('\n+')
+    kill_spaces_repl = re.compile('\s+')
+
+
+    function_join_mode = False
+    skip_mode = False
+    tmp = []
+    join_str = ''
+
+    # Iterate through all lines in the file, and generate statements
+    # from the lines. We need combine lines like this, in order to support
+    # functions.
+    for x in text:
+        x = kill_newline_repl.sub('', x)
+        x = kill_spaces_repl.sub(' ', x)
+        # Skip long comments
+        if re.match(long_comment_start, x):
+            skip_mode = True
+            continue
+        elif re.match(long_comment_stop, x):
+            skip_mode = False
+            continue
+        elif skip_mode:
+            continue
+        # Skip line comments
+        elif re.match(line_comment, x) or re.match(long_line_comment, x):
+            continue
+        # Handle functions correctly
+        elif 'FUNCTION' in x and not 'DROP FUNCTION' in x:
+            function_join_mode = True
+            join_str += x
+        elif 'LANGUAGE' in x:
+            function_join_mode = False
+            join_str += sc_pat_repl.sub('', x)
+            tmp.append(join_str)
+            join_str = ''
+        elif function_join_mode:
+            join_str += x
+        # Handle everything else
+        else:
+            if not sc_pat.match(x):
+                join_str += x
+            else:
+                join_str += sc_pat_repl.sub('', x)
+                tmp.append(join_str)
+                join_str = ''
+    text = tmp
+    
     NO_CATEGORY, WRONG_CATEGORY, CORRECT_CATEGORY, SET_METAINFO = 1, 2, 3, 4
     state = NO_CATEGORY
     output_col = None

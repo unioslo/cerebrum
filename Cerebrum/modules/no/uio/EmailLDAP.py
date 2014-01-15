@@ -17,8 +17,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-""""""
-
 import os
 import re
 import sys
@@ -30,6 +28,8 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 from Cerebrum.modules.EmailLDAP import EmailLDAP
+from Cerebrum.modules.LDIFutils import iso2utf
+
 
 class EmailLDAPUiOMixin(EmailLDAP):
     """Methods specific for UiO."""
@@ -37,10 +37,13 @@ class EmailLDAPUiOMixin(EmailLDAP):
     def __init__(self, db):
         self.__super.__init__(db)
         self.mail_dom = Email.EmailDomain(self._db)
-
         # mapping between a target id and its ulrik.uio.no-address. This is
         # required for account email_targets at postmasters' request.
         self.targ2ulrik_addr = {}
+        # exchange-relatert-jazz
+        # will use this list to exclude forwards and vacation messages for
+        # accounts with Exchange-mailbox
+        self.targ2spread = self.target2spread_populate()
     # end __init__
 
     spam_act2dig = {'noaction':   '0',
@@ -48,7 +51,9 @@ class EmailLDAPUiOMixin(EmailLDAP):
                     'dropspam':   '2',
                     'greylist':   '3'}
     db_tt2ldif_tt = {'account': 'user',
-                     'forward': 'forwardAddress'}         
+                     'forward': 'forwardAddress'}
+
+
 
     def get_targettype(self, targettype):
         return self.db_tt2ldif_tt.get(str(targettype), str(targettype))
@@ -85,6 +90,8 @@ class EmailLDAPUiOMixin(EmailLDAP):
                                        int(self.targ2server_id[target_id])]
         if server_type == self.const.email_server_type_cyrus:
             result["IMAPserver"] = server_name
+        elif server_type == self.const.email_server_type_exchange:
+            result["Exchangeserver"] = server_name
         return result
     # end get_server_info
 
@@ -221,5 +228,103 @@ class EmailLDAPUiOMixin(EmailLDAP):
                     row['entity_name'],
                     quarantines.get(account_id) or row['auth_data'])
 
+    # exchange-relatert-jazz
+    # hardcoding exchange spread since there is no case for any other
+    # known spreads at this point
+    def target2spread_populate(self):
+        a = Factory.get('Account')(self._db)
+        spread = self.const.spread_exchange_account
+        ttype = self.const.email_target_account
+        ret = []
+        et = Email.EmailTarget(self._db)
+        et2 = Email.EmailTarget(self._db)
+        for row in et.list_email_targets_ext(target_type=ttype):
+            et2.clear()
+            et2.find(int(row['target_id']))
+            a.clear()
+            a.find(int(et2.email_target_entity_id))
+            if a.has_spread(spread):
+                ret.append(et2.entity_id)
+        return ret
                 
-# arch-tag: 7bb4c2b7-8112-4bd0-85dd-0112db222638
+    # exchange-relatert-jazz
+    # 
+    # it would have been more elegant to split read_forward
+    # into more managable parts and reduce the code that
+    # needs to be doubled in that manner, but no time for 
+    # such things now (Jazz, 2013-12)
+    # overriding read forward locally in order to be able to 
+    # exclude forward for accounts with exchange_spread
+    def read_forward(self):
+        mail_forw = Email.EmailForward(self._db)
+        for row in mail_forw.list_email_forwards():
+            # if the target is recorded as having spread_exchange_acc
+            # the whole row is skipped because we don't want to
+            # export forwards for such targets to LDAP
+            if not int(row['target_id']) in self.targ2spread:
+                self.targ2forward.setdefault(int(row['target_id']),
+                                             []).append([row['forward_to'],
+                                                         row['enable']])
+    # exchange-relatert-jazz
+    # 
+    # it would have been more elegant to split read_vacation
+    # into more managable parts and reduce the code that
+    # needs to be doubled in that manner, but no time for 
+    # such things now (Jazz, 2013-12)
+    # overriding read_vacation locally in order to be able to 
+    # exclude vacation messages for accounts with exchange_spread
+    def read_vacation(self):
+        mail_vaca = Email.EmailVacation(self._db)
+        cur = mx.DateTime.today()
+        def prefer_row(row, oldval):
+            o_txt, o_sdate, o_edate, o_enable = oldval
+            txt, sdate, edate, enable = [row[x]
+                                         for x in ('vacation_text',
+                                                   'start_date',
+                                                   'end_date', 'enable')]
+            spans_now = (sdate <= cur and (edate is None or edate >= cur))
+            o_spans_now = (o_sdate <= cur and (o_edate is None or o_edate >= cur))
+            row_is_newer = sdate > o_sdate
+            if spans_now:
+                if enable == 'T' and o_enable == 'F': return True
+                elif enable == 'T' and o_enable == 'T':
+                    if o_spans_now:
+                        return row_is_newer
+                    else: return True
+                elif enable == 'F' and o_enable == 'T':
+                    if o_spans_now: return False
+                    else: return True
+                else:
+                    if o_spans_now: return row_is_newer
+                    else: return True
+            else:
+                if o_spans_now: return False
+                else: return row_is_newer
+        for row in mail_vaca.list_email_vacations():
+            t_id = int(row['target_id'])
+            # exchange-relatert-jazz
+            # if the target is recorded as having spread_exchange_acc
+            # the whole row is skipped because we don't want to
+            # export vacation messages for such targets to LDAP
+            if t_id in self.targ2spread:
+                continue
+            insert = False
+            if self.targ2vacation.has_key(t_id):
+                if prefer_row(row, self.targ2vacation[t_id]):
+                    insert = True
+            else:
+                insert = True
+            if insert:
+                # Make sure vacations that doesn't span now aren't marked
+                # as active, even though they might be registered as
+                # 'enabled' in the database.
+                enable = False
+                if row['start_date'] <= cur and (row['end_date'] is None
+                                                 or row['end_date'] >= cur):
+                    enable = (row['enable'] == 'T')
+                self.targ2vacation[t_id] = (iso2utf(row['vacation_text']),
+                                            row['start_date'],
+                                            row['end_date'],
+                                            enable)
+
+

@@ -166,7 +166,7 @@ class BofhdExtension(BofhdCommonMethods):
         '_email_info_mailman', '_email_info_multi', '_email_info_file',
         '_email_info_pipe', '_email_info_forward', 'email_create_domain',
         'email_domain_configuration', 'email_domain_info', 'email_add_domain_affiliation',
-        'email_remove_domain_affiliation', 'email_create_forward', 'email_create_list',
+        'email_remove_domain_affiliation', 'email_create_forward_target', 'email_create_list',
         'email_delete_list', 'email_quota', 'email_tripnote',
         'email_list_tripnotes', 'email_add_tripnote', 'email_remove_tripnote',
         'email_update', '_get_email_domain', '_onoff', '_register_spam_settings',

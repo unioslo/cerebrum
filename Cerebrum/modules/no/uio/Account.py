@@ -17,8 +17,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-""""""
-
 import random
 
 import re
@@ -53,13 +51,25 @@ class AccountUiOMixin(Account.Account):
                and int(self.const.spread_uio_nis_user) not in spreads:
             raise self._db.IntegrityError, \
                   "Can't add ifi spread to an account without uio spread."
-        #
         # Gather information on present state, to be used later.  Note
         # that this information gathering must be done before we pass
         # control to our superclass(es), as the superclass methods
         # might change the state.
+        #
+        # exchange-relatert-jazz
+        # this code (up to and including 'pass') may be removed
+        # after Exchange roll-out, as it has been decided that all
+        # new mail-boxes will be created in Exchange and any old 
+        # mailboxes restored to Exchange
+        # Jazz (2013-11)
         state = {}
         if spread == self.const.spread_uio_imap:
+            # exchange-relatert-jazz
+            # no account should have both IMAP and Exchange spread at the
+            # same time, as this will create a double mailbox
+            if self.has_spread(self.const.spread_exchange_account):
+                raise self._db.IntegrityError, \
+                    "Can't add IMAP-spread to an account with Exchange-spread."
             # Is this account already associated with an Cyrus
             # EmailTarget?
             et = Email.EmailTarget(self._db)
@@ -75,20 +85,68 @@ class AccountUiOMixin(Account.Account):
         #
         # Additional post-add magic
         #
+        # exchange-relatert-jazz
+        if spread == self.const.spread_exchange_account:
+            # exchange-relatert-jazz
+            # no account should have both IMAP and Exchange spread at the
+            # same time, as this will create a double mailbox
+            if self.has_spread(self.const.spread_uio_imap):
+                raise self._db.IntegrityError, \
+                    "Can't add Exchange-spread to an account with IMAP-spread."
+            es = Email.EmailServer(self._db)
+            es.clear()
+            # we could probably define a cereconf var to hold this
+            # default (dummy) server value, but I hope that, since it
+            # is not actually used in Exchange, the whole
+            # server-reference may de removed from EmailTarget after
+            # migration to Exchange is completed (it should be done,
+            # no matter if Baardj says differently :-)). Jazz (2013-11)
+            es.find_by_name('mail.uio.no')
+            # Check if the account already is associated with an
+            # EmailTarget. If so, we are most likely looking at an
+            # account restore (or else an anomaly in the cerebrum-db)
+            # We should keep the EmailTarget, but make sure that
+            # target_type is refreshed to "account" and target_server
+            # is refreshed to dummy-exchange server. We are, at this
+            # point, not interessted in any target-data.
+            et = Email.EmailTarget(self._db)
+            try:
+                et.find_by_target_entity(self.entity_id)
+                et.email_server_id = es.entity_id
+                et.email_target_type =  self.const.email_target_account
+            except Errors.NotFoundError:
+                # No EmailTarget found for account, creating one
+                # after the migration to Exchange is completed this
+                # part may be done by update_email_addresses,
+                # but since we need to support both exchange and
+                # imap for a while, it's easiest to create the 
+                # target manually
+                et.populate(self.const.email_target_account,
+                            self.entity_id,
+                            self.const.entity_account,
+                            server_id=es.entity_id)
+            et.write_db()   
+            self.update_email_quota(force=True, 
+                                    spread=self.const.spread_exchange_account)
+            # register default spam and filter settings
+            self._UiO_default_spam_settings(et)
+            self._UiO_default_filter_settings(et)
+            # The user's email target is now associated with an email
+            # server, try generating email addresses connected to the
+            # target.
+            self.update_email_addresses(spread=self.const.spread_exchange_account)
+        # exchange-relatert-jazz
+        # this code (up to and including 'update_email_addresse') 
+        # may be removed after Exchange roll-out, as it has been 
+        # decided that all new mail-boxes will be created in Exchange
+        # and any old mailboxes restored to Exchange
+        # Jazz (2013-11)
         if spread == self.const.spread_uio_imap:
             # Unless this account already has been associated with an
             # Cyrus EmailTarget, we need to do so.
             if et.email_server_id:
                 old_server = et.email_server_id
             et = self._UiO_update_email_server(self.const.email_server_type_cyrus)
-            # this is no longer necessary because we have changed
-            # _UiO_update_email_server.
-            # TODO: rewrite this, jazz 2008-08-20
-            # 
-            # if et.email_server_id != old_server:
-            # self._UiO_order_cyrus_action(self.const.bofh_email_create,
-            #                            et.email_server_id)
-            
             # Make sure that Cyrus is told about the quota, the
             # previous call probably didn't change the database value
             # and therefore didn't add a request.
@@ -117,6 +175,93 @@ class AccountUiOMixin(Account.Account):
                       "Cannot add Notes-spread to a non-personal account."
         return ret
 
+    # exchange-related-jazz
+    def delete_spread(self, spread):
+        #
+        # Pre-remove checks
+        #
+        spreads = [int(r['spread']) for r in self.get_spread()]
+        if not spread in spreads:  # user doesn't have this spread
+            return
+        # All users in the 'ifi' NIS domain must also exist in the
+        # 'uio' NIS domain.
+        if spread == self.const.spread_uio_nis_user \
+               and int(self.const.spread_ifi_nis_user) in spreads:
+            raise self._db.IntegrityError, \
+                  "Can't remove uio spread to an account with ifi spread."
+
+        if spread == self.const.spread_ifi_nis_user \
+               or spread == self.const.spread_uio_nis_user:
+            self.clear_home(spread)
+
+        # Remove IMAP user
+        # TBD: It is currently a bit uncertain who and when we should
+        # allow this.  Currently it should only be used when deleting
+        # a user.
+        # exchange-related-jazz
+        # this code, up to and including the TBD should be removed
+        # when migration to Exchange is completed as it wil no longer
+        # be needed. Jazz (2013-11)
+        # 
+        if (spread == self.const.spread_uio_imap and
+            int(self.const.spread_uio_imap) in spreads):
+            et = Email.EmailTarget(self._db)
+            et.find_by_target_entity(self.entity_id)
+            self._UiO_order_cyrus_action(self.const.bofh_email_delete,
+                                         et.email_server_id)
+            # TBD: should we also perform a "cascade delete" from EmailTarget?
+        # exchange-relatert-jazz
+        # Due to the way Exchange is updated we no longer need to
+        # register a delete request in Cerebrum. Setting target_type
+        # to deleted should generate an appropriate event which then
+        # may be used to remove the mailbox from Exchange in the
+        # agreed maner (export to .pst-file, then remove-mailbox). A
+        # clean-up job should probably be implemented to remove
+        # email_targets that have had status deleted for a period of
+        # time. This will however remove the e-mailaddresses assigned
+        # to the target and make their re-use possible. Jazz (2013-11)
+        # 
+        if spread == self.const.spread_exchange_account:
+            et = Email.EmailTarget(self._db)
+            et.find_by_target_entity(self.entity_id)
+            et.email_target_type = self.const.email_target_deleted
+            et.write_db()
+        # (Try to) perform the actual spread removal.
+        ret = self.__super.delete_spread(spread)
+        return ret
+
+    # exchange-relatert-jazz 
+    # update_email_quota is very different for Exchange and we
+    # therefore have to override the method defined in
+    # Email.AccountEmailQuotaMixin. After migration to Exchange is
+    # completed the method should be updated as documented there and
+    # this override removed. Jazz (2013-11)
+    #
+    def update_email_quota(self, force=False, spread=None):
+        if spread == None or spread == self.const.spread_uio_imap:
+            return self.__super.update_email_quota()
+        if spread == self.const.spread_exchange_account:
+            change = force
+            quota = self._calculate_account_emailquota()
+            eq = Email.EmailQuota(self._db)
+            try:
+                eq.find_by_target_entity(self.entity_id)
+            except Errors.NotFoundError:
+                if quota is not None:
+                    change = True
+                    eq.populate(cereconf.EMAIL_SOFT_QUOTA, quota)
+                    eq.write_db()
+                else:
+                    # We never decrease quota, because of manual overrides
+                    if quota is None:
+                        eq.delete()
+                    elif quota > eq.email_quota_hard:
+                        change = True
+                        eq.email_quota_hard = quota
+                        eq.write_db()
+            if not change:
+                return
+
     def create(self, owner_type, owner_id, np_type, creator_id,
                expire_date=None, parent=None, name=None):
         """UiO specific functionality for creating a regular account."""
@@ -132,6 +277,9 @@ class AccountUiOMixin(Account.Account):
            and int(self.const.spread_ifi_nis_user) in spreads:
             self.__super.set_home(self.const.spread_ifi_nis_user, homedir_id)
 
+    # exchange-realatert-jazz
+    # this method should not have to be changes after Exchange roll-out
+    # or at migration completion. Jazz (2013-11)
     def _UiO_default_filter_settings(self, email_target):
         t_id = email_target.entity_id
         tt_str = str(Email._EmailTargetCode(email_target.email_target_type))
@@ -147,7 +295,10 @@ class AccountUiOMixin(Account.Account):
                     etf.clear()
                     etf.populate(f_id, parent=email_target)
                     etf.write_db()
-        
+
+    # exchange-realatert-jazz
+    # this method should not have to be changes after Exchange roll-out
+    # or at migration completion. Jazz (2013-11)        
     def _UiO_default_spam_settings(self, email_target):
         t_id = email_target.entity_id
         tt_str = str(Email._EmailTargetCode(email_target.email_target_type))
@@ -168,6 +319,13 @@ class AccountUiOMixin(Account.Account):
                 esf.populate(lvl, act, parent=email_target)
                 esf.write_db()
 
+    # exchange-relatert-jazz
+    # after Exchange migration is completed this method should be
+    # removed as it will no longer be necessary due to the Exchange
+    # updates being event based. It may even be possible to remove the
+    # method after Exchange roll-out and before migration is completed
+    # if we are sure that no imap-accounts will be moved between
+    # servers after roll-out. Jazz (2013-11)
     def _UiO_order_cyrus_action(self, action, destination, state_data=None):
         br = BofhdRequests(self._db, self.const)
         # If there are any registered BofhdRequests for this account
@@ -186,6 +344,20 @@ class AccountUiOMixin(Account.Account):
         reqid = br.add_request(requestor,
                                br.now, action, self.entity_id, destination,
                                state_data=state_data)
+
+    # exchange-relatert-jazz
+    # added a check for reservation from electronic listing
+    def owner_has_e_reservation(self):
+        # this method may be applied to any Cerebrum-instances that
+        # use trait_public_reservation
+        person = Factory.get('Person')(self._db)
+        try:
+            person.find(self.owner_id)
+        except Errors.NotFoundError:
+            # no reservation may exist unless account is owned by a
+            # person-object 
+            return False
+        return person.has_e_reservation()
 
     def set_password(self, plaintext):
         # Override Account.set_password so that we get a copy of the
@@ -220,6 +392,14 @@ class AccountUiOMixin(Account.Account):
             ph.add_history(self, plain)
         return ret
 
+    # exchange-relatert-jazz
+    # after Exchange roll-out this method should be removed as it will
+    # no longer be necessary due to the server-data not being kept in
+    # Cerebrum for Exchange mailboxes. This method must not be used at
+    # restore of mailboxes after Exchange roll-out or at creation of
+    # Exchange mailboxes. The method is made void by 'add_spread
+    # override here. Jazz (2013-11)
+    #
     def _UiO_update_email_server(self, server_type):
         """Due to diverse legacy stuff and changes in server types as
            well as requirements for assigning e-mail accounts this
@@ -298,7 +478,12 @@ class AccountUiOMixin(Account.Account):
                                              new_server)
         return et
 
-
+    # exchange-relatert-jazz
+    # after Exchange roll-out this method should be removed as it will
+    # no longer be necessary due to the server-data not being kept in
+    # Cerebrum for Exchange mailboxes. See also
+    # _UiO_update_email_server() Jazz (2013-11)
+    #
     def _pick_email_server(self):
             # We try to spread the usage across servers, but want a
             # random component to the choice of server.  The choice is
@@ -348,42 +533,12 @@ class AccountUiOMixin(Account.Account):
                 return False
         return self.__super.validate_new_uname(domain, uname)
 
-    def delete_spread(self, spread):
-        #
-        # Pre-remove checks
-        #
-        spreads = [int(r['spread']) for r in self.get_spread()]
-        if not spread in spreads:  # user doesn't have this spread
-            return
-        # All users in the 'ifi' NIS domain must also exist in the
-        # 'uio' NIS domain.
-        if spread == self.const.spread_uio_nis_user \
-               and int(self.const.spread_ifi_nis_user) in spreads:
-            raise self._db.IntegrityError, \
-                  "Can't remove uio spread to an account with ifi spread."
-
-        if spread == self.const.spread_ifi_nis_user \
-               or spread == self.const.spread_uio_nis_user:
-            self.clear_home(spread)
-
-        # Remove IMAP user
-        # TBD: It is currently a bit uncertain who and when we should
-        # allow this.  Currently it should only be used when deleting
-        # a user.
-        if (spread == self.const.spread_uio_imap and
-            int(self.const.spread_uio_imap) in spreads):
-            et = Email.EmailTarget(self._db)
-            et.find_by_target_entity(self.entity_id)
-            self._UiO_order_cyrus_action(self.const.bofh_email_delete,
-                                         et.email_server_id)
-            # TBD: should we also perform a "cascade delete" from EmailTarget?
-        #
-        # (Try to) perform the actual spread removal.
-        ret = self.__super.delete_spread(spread)
-        return ret
-
-
-    def update_email_addresses(self):
+    # exchange-relatert-jazz
+    # For Exchange mailboxes the use of GECOS is void and should be
+    # dropped. After Exchange migration is completed, this override
+    # may be dropped as using super will be sufficient. Jazz (2013-11)
+    #
+    def update_email_addresses(self, spread=None):
         # The "cast" into PosixUser causes this function to be called
         # twice in the typical case, so the "pre" code must be idempotent.
 
@@ -391,32 +546,34 @@ class AccountUiOMixin(Account.Account):
         # with an appropriate email server.  We must do this before
         # super, since without an email server, no target or address
         # will be created.
-        spreads = [r['spread'] for r in self.get_spread()]
-        if self.const.spread_uio_imap in spreads:
-            self._UiO_update_email_server(self.const.email_server_type_cyrus)
-            self.update_email_quota()
+        if spread == None or spread == self.const.spread_uio_imap:
+            spreads = [r['spread'] for r in self.get_spread()]
+            if self.const.spread_uio_imap in spreads:
+                self._UiO_update_email_server(self.const.email_server_type_cyrus)
+                self.update_email_quota()
 
-        # Avoid circular import dependency
-        from Cerebrum.modules.PosixUser import PosixUser
+            # Avoid circular import dependency
+            from Cerebrum.modules.PosixUser import PosixUser
 
-        # Try getting the PosixUser-promoted version of self.  Failing
-        # that, use self unpromoted.
-        userobj = self
-        if not isinstance(self, PosixUser):
-            try:
-                # We use the PosixUser object to get access to GECOS.
-                # TODO: This ought to be in a mixin class for Account
-                # for installations where both the PosixUser and the
-                # Email module is in use.  For now we'll just put it
-                # in the UiO specific code.
-                tmp = PosixUser(self._db)
-                tmp.find(self.entity_id)
-                userobj = tmp
-            except Errors.NotFoundError:
-                # This Account hasn't been promoted to PosixUser yet.
-                pass
-
-        return userobj.__super.update_email_addresses()
+            # Try getting the PosixUser-promoted version of self.  Failing
+            # that, use self unpromoted.
+            userobj = self
+            if not isinstance(self, PosixUser):
+                try:
+                    # We use the PosixUser object to get access to GECOS.
+                    # TODO: This ought to be in a mixin class for Account
+                    # for installations where both the PosixUser and the
+                    # Email module is in use.  For now we'll just put it
+                    # in the UiO specific code.
+                    tmp = PosixUser(self._db)
+                    tmp.find(self.entity_id)
+                    userobj = tmp
+                except Errors.NotFoundError:
+                    # This Account hasn't been promoted to PosixUser yet.
+                    pass
+            return userobj.__super.update_email_addresses()
+        if spread == self.const.spread_exchange_account:
+            return self.__super.update_email_addresses()
 
     def is_employee(self):
         for r in self.get_account_types():

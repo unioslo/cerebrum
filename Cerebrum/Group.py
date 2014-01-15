@@ -26,13 +26,14 @@ that fashion.  Hence, this module **requires** the caller to supply a
 name when constructing a Group object."""
 
 import mx
+import re
 from mx.DateTime import now
 
 import cereconf
 from Cerebrum import Utils
 from Cerebrum import Errors
 from Cerebrum.Entity import EntityName, EntityQuarantine, \
-    EntityExternalId, EntitySpread
+    EntityExternalId, EntitySpread, EntityNameWithLanguage
 from Cerebrum.Utils import argument_to_sql, prepare_string
 try:
     set()
@@ -47,7 +48,7 @@ Entity_class = Utils.Factory.get("Entity")
 
 
 class Group(EntityQuarantine, EntityExternalId, EntityName,
-            EntitySpread, Entity_class):
+            EntitySpread, EntityNameWithLanguage, Entity_class):
 
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('description', 'visibility', 'creator_id',
@@ -100,8 +101,14 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             return False
         return True
 
-    def illegal_name(self, name):
+    # exchange-relatert-jazz
+    # we need to be able to check group names for different
+    # lengths and max length in database is 256 characters
+    # 
+    def illegal_name(self, name, max_length=256):
         """Return a string with error message if groupname is illegal"""
+        if len(name) > max_length:
+            return "Name %s too long (%d char allowed)" % (name, max_length)
         return False
 
     def write_db(self):
@@ -749,9 +756,9 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                 group_id = search_transitive_closure(group_id,
                                                      lambda ids: self.search_members(
                                                          group_id=ids,
-                                                     indirect_members=False,
-                                                     member_type=self.const.entity_group,
-                                                     member_filter_expired=False),
+                                                         indirect_members=False,
+                                                         member_type=self.const.entity_group,
+                                                         member_filter_expired=False),
                                                      "member_id")
                 indirect_members = False
 
@@ -786,7 +793,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         if member_type is not None:
             where.append(argument_to_sql(member_type, "tmp1.member_type",
                                          binds, int))
-
+        
         if member_spread is not None:
             tables.append("""JOIN [:table schema=cerebrum name=entity_spread] es
                                ON tmp1.member_id = es.entity_id
@@ -840,9 +847,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                 entry["expire_date"] = entry["expire1"]
             elif entry["expire2"] is not None:
                 entry["expire_date"] = entry["expire2"]
-
             yield entry
     # end search_members
-
 
 # end class Group

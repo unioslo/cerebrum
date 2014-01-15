@@ -48,6 +48,17 @@ from Cerebrum.modules.EntityTrait import \
 from Cerebrum.modules.bofhd.utils import \
      _AuthRoleOpCode
 
+class ConstantsExchange(Constants.Constants):
+    spread_exchange_account = _SpreadCode('exchange_acc@uio',
+                                          Constants.Constants.entity_account,
+                                          'An account with an Exchange-mailbox at UiO')
+    spread_exchange_dlgroup = _SpreadCode('exch_dlgroup@uio',
+                                          Constants.Constants.entity_group,
+                                          'A group with an Exchange-mailbox at UiO (dist group).')
+    spread_exchange_secgroup = _SpreadCode('exch_segroup@uio',
+                                           Constants.Constants.entity_group,
+                                           'A security group used for access controll in Exchange.')
+
 class Constants(Constants.Constants):
     system_lt = _AuthoritativeSystemCode('LT', 'LT')
     system_ureg = _AuthoritativeSystemCode('Ureg', 'Migrerte data, utdatert')
@@ -309,6 +320,12 @@ class Constants(Constants.Constants):
     spread_uio_ad_group = _SpreadCode('AD_group', Constants.Constants.entity_group, 'Group included in Active Directory at UiO')
     spread_uio_ua = _SpreadCode('UA@uio', Constants.Constants.entity_person,
                                 'Person exported to UA')
+    # exchange-related-jazz
+    # this code should be removed from the cerebrum-db as soon as
+    # migration to Exchange is completed. Removal will serve two
+    # purposes; firstly as a code clean-up, secondly as a check that
+    # the migration was completed properly and no mailboxes are
+    # registered as IMAP-accounts.
     spread_uio_imap = _SpreadCode('IMAP@uio', Constants.Constants.entity_account,
                                   'E-mail user at UiO')
     spread_uio_notes_account = _SpreadCode('Notes_user', Constants.Constants.entity_account,

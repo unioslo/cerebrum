@@ -555,29 +555,70 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         return self.list_affiliations(self.entity_id,
                                       include_deleted=include_deleted)
 
+    # exchange-relatert-jazz
+    # create an easy way to populate automatic groups with
+    # primary account_id rather then person_id
     def list_affiliations(self, person_id=None, source_system=None,
                           affiliation=None, status=None, ou_id=None,
-                          include_deleted=False, fetchall=True):
+                          include_deleted=False, ret_primary_acc=False,
+                          fetchall=True):
         where = []
-        for t in ('person_id', 'affiliation', 'source_system', 'status',
+        for t in ('person_id', 'affiliation', 'source_system', 'status', 
                   'ou_id'):
             val = locals()[t]
             if val is not None:
                 if isinstance(val, (list, tuple, set)):
-                    where.append("%s IN (%s)" %
+                    where.append("pas.%s IN (%s)" %
                                  (t, ", ".join(map(str, map(int, val)))))
                 else:
-                    where.append("%s = %d" % (t, val))
+                    where.append("pas.%s = %d" % (t, val))
         if not include_deleted:
-            where.append("(deleted_date IS NULL OR deleted_date > [:now])")
+            where.append("(pas.deleted_date IS NULL OR pas.deleted_date > [:now])")
         where = " AND ".join(where)
         if where:
             where = "WHERE " + where
-
+        # exchange-relatert-jazz
+        # this is a bit dirty as the return values are registered as
+        # "person_id" while they actually are account_id's
+        # it is however the quickest way of solving the requirement
+        # of creating auto-groups populated by primary accounts
+        # (Jazz, 2013-12)
+        if ret_primary_acc:
+            return self.query("""
+            SELECT 
+              ai.account_id AS person_id, 
+              pas.ou_id AS ou_id,
+              pas.affiliation AS affiliation, 
+              pas.source_system AS source_system, pas.status AS status, 
+              pas.deleted_date AS deleted_date, 
+              pas.create_date AS create_date, 
+              pas.last_date AS last_date
+            FROM [:table schema=cerebrum name=person_affiliation_source] pas,
+                 [:table schema=cerebrum name=account_info] ai,
+                 [:table schema=cerebrum name=account_type] at
+            %s AND            
+            ai.owner_id=pas.person_id AND
+            at.account_id=ai.account_id AND
+            at.priority = (SELECT min(at2.priority)
+                           FROM
+                            [:table schema=cerebrum name=account_type] at2,
+                            [:table schema=cerebrum name=account_info] ai2
+                           WHERE
+                               at2.person_id = pas.person_id AND
+                               at2.account_id = ai2.account_id AND
+                               (ai2.expire_date IS NULL OR
+                                ai2.expire_date > [:now]))
+            """ % where , fetchall=fetchall)
         return self.query("""
-        SELECT person_id, ou_id, affiliation, source_system, status,
-          deleted_date, create_date, last_date
-        FROM [:table schema=cerebrum name=person_affiliation_source]
+        SELECT 
+              pas.person_id AS person_id, 
+              pas.ou_id AS ou_id,
+              pas.affiliation AS affiliation, 
+              pas.source_system AS source_system, pas.status AS status, 
+              pas.deleted_date AS deleted_date, 
+              pas.create_date AS create_date, 
+              pas.last_date AS last_date
+        FROM [:table schema=cerebrum name=person_affiliation_source] pas
         %s""" % where, fetchall=fetchall)
 
     def add_affiliation(self, ou_id, affiliation, source, status):

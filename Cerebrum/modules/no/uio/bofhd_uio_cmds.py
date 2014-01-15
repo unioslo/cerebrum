@@ -37,7 +37,7 @@ from Cerebrum import Database
 from Cerebrum import Entity
 from Cerebrum import Errors
 from Cerebrum import Metainfo
-from Cerebrum.Constants import _CerebrumCode, _SpreadCode
+from Cerebrum.Constants import _CerebrumCode, _SpreadCode, _LanguageCode
 from Cerebrum import Utils
 from Cerebrum.modules import Email
 from Cerebrum.modules.Email import _EmailDomainCategoryCode
@@ -199,6 +199,12 @@ class BofhdExtension(BofhdCommonMethods):
         for t in person.list_person_name_codes():
             self.name_codes[int(t['code'])] = t['description']
         self.external_id_mappings['fnr'] = self.const.externalid_fodselsnr
+        # exchange-relatert-jazz
+        # currently valid language variants for UiO-Cerebrum
+        # although these codes are used for distribution groups
+        # they are not directly related to them. maybe these should be 
+        # put in a cereconf-variable somewhere in the future? (Jazz, 2013-12)
+        self.language_codes = ['nb', 'nn', 'en']
         self.ba = UiOAuth(self.db)
         aos = BofhdAuthOpSet(self.db)
         self.num2op_set_name = {}
@@ -1030,21 +1036,37 @@ class BofhdExtension(BofhdCommonMethods):
     #
 
     # email add_address <address or account> <address>+
+    # exchange-relatert-jazz
+    # made it possible to use this cmd for adding addresses
+    # to dist group targets
     all_commands['email_add_address'] = Command(
         ('email', 'add_address'),
-        AccountName(help_ref='account_name'),
+        SimpleString(help_ref="dlgroup_or_account_name"),
         EmailAddress(help_ref='email_address', repeat=True),
         perm_filter='can_email_address_add')
-    def email_add_address(self, operator, uname, address):
-        et, acc = self.__get_email_target_and_account(uname)
+    def email_add_address(self, operator, name, address):
+        try:
+            et, acc = self.__get_email_target_and_account(name)
+        except CerebrumError, e:
+            # check if a distribution-group with an appropriate target
+            # is registered by this name
+            try:
+                et, grp = self.__get_email_target_and_dlgroup(name)
+            except CerebrumError, e:
+                raise e
         ttype = et.email_target_type
         if et.email_target_type == self.const.email_target_deleted:
             raise CerebrumError, "Can't add e-mail address to deleted target"
         ea = Email.EmailAddress(self.db)
         lp, dom = self._split_email_address(address)
         ed = self._get_email_domain(dom)
+        # TODO: change can_email_address_add so that both accounts and
+        # distribution groups are checked when asserting priviledges
+        # however, being "postmaster" trumps this, so assertion will be
+        # correct
         self.ba.can_email_address_add(operator.get_entity_id(),
-                                      account=acc, domain=ed)
+                                      account=acc, domain=ed) or \
+                                      self.ba.is_postmaster(operator.get_entity_id())
         ea.clear()
         try:
             ea.find_by_address(address)
@@ -1054,19 +1076,32 @@ class BofhdExtension(BofhdCommonMethods):
         ea.clear()
         ea.populate(lp, ed.entity_id, et.entity_id)
         ea.write_db()
-        return "OK, added '%s' as email-address for '%s'" % (address, uname)
+        return "OK, added '%s' as email-address for '%s'" % (address, name)
     
     # email remove_address <account> <address>+
+    # exchange-relatert-jazz
+    # made it possible to use this cmd for removing addresses
+    # for dist group targets    
     all_commands['email_remove_address'] = Command(
         ('email', 'remove_address'),
-        AccountName(), EmailAddress(repeat=True),
+        SimpleString(help_ref="dlgroup_or_account_name"),
+        EmailAddress(repeat=True),
         perm_filter='can_email_address_delete')
-    def email_remove_address(self, operator, uname, address):
-        et, acc = self.__get_email_target_and_account(uname)
+    def email_remove_address(self, operator, name, address):
+        try:
+            et, acc = self.__get_email_target_and_account(name)
+        except CerebrumError, e:
+            # check if a distribution-group with an appropriate target
+            # is registered by this name
+            try:
+                et, grp = self.__get_email_target_and_dlgroup(name)
+            except CerebrumError, e:
+                raise e
         lp, dom = self._split_email_address(address, with_checks=False)
         ed = self._get_email_domain(dom)
         self.ba.can_email_address_delete(operator.get_entity_id(),
-                                      account=acc, domain=ed)
+                                      account=acc, domain=ed) or \
+                                      self.ba.is_postmaster(operator.get_entity_id())
         return self._remove_email_address(et, address)
 
     def _remove_email_address(self, et, address):
@@ -1229,6 +1264,14 @@ class BofhdExtension(BofhdCommonMethods):
         perm_filter='can_email_forward_edit')
     def email_add_forward(self, operator, uname, address):
         et, acc = self.__get_email_target_and_account(uname)
+        # exchange-relatert-jazz
+        # For Exchange-mailboxes forward must be registered via 
+        # OWA since smart host solution for Exchange@UiO
+        # could not be implemented. When migration to Exchange 
+        # is completed this method should be changed and adding 
+        # forward for any account disallowed. Jazz (2013-11)
+        if acc.has_spread(self.const.spread_exchange_account):
+            return "Sorry, Exchange-users must add forwards via OWA!"
         if uname.count('@') and not acc:
             lp, dom = uname.split('@')
             ed = Email.EmailDomain(self.db)
@@ -1253,12 +1296,12 @@ class BofhdExtension(BofhdCommonMethods):
             address, uname)
 
     # email delete_forward address
-    all_commands['email_delete_forward'] = Command(
-        ("email", "delete_forward"),
+    all_commands['email_delete_forward_target'] = Command(
+        ("email", "delete_forward_target"),
         EmailAddress(help_ref='email_address'),
         fs=FormatSuggestion([("Deleted forward address: %s", ("address", ))]),
         perm_filter='can_email_forward_create')
-    def email_delete_forward(self, operator, address):
+    def email_delete_forward_target(self, operator, address):
         """Delete a forward target with associated aliases. Requires primary
         address."""
 
@@ -1359,11 +1402,12 @@ class BofhdExtension(BofhdCommonMethods):
     # email info <account>+
     all_commands['email_info'] = Command(
         ("email", "info"),
-        AccountName(help_ref="account_name", repeat=True),
+        # AccountName(help_ref="account_name", repeat=True),
+        SimpleString(help_ref="dlgroup_or_account_name", repeat=True),
         perm_filter='can_email_info',
         fs=FormatSuggestion([
-        ("Type:             %s",
-         ("target_type",)),
+        ("Type:             %s\nHistory:          entity history id:%d",
+         ("target_type", "target_id")),
         #
         # target_type == Account
         #
@@ -1394,6 +1438,39 @@ class BofhdExtension(BofhdCommonMethods):
          ("forward_1", )),
         ("                  %s",
          ("forward", )),
+        # exchange-relatert-jazz
+        #
+        # target_type == dlgroup
+        # 
+        ("Dl group:         %s",
+         ("name", )),
+        ("Group id:         %d",
+         ("group_id", )),
+        ("Display name:     %s",
+         ("displayname", )),
+        ("Primary address:  %s",
+         ("primary", )),
+        # We use valid_addr_1 and (multiple) valid_addr to enable
+        # programs to get the information reasonably easily, while
+        # still keeping the suggested output format pretty.
+        #("Valid addresses:  %s",
+         #("valid_addr_1", )),
+        #("                  %s",
+        # ("valid_addr",)),
+        ("Valid addresses:  %s",
+         ("aliases", )),
+        ("Dep restriction:  %s",
+         ("deprestr", )),
+        ("Join restriction: %s",
+         ("joinrestr", )),
+        ("Moderated:        %s",
+         ("modenable", )),
+        ("Moderated by:     %s",
+         ("modby", )),
+        ("Managed by:       %s",
+         ("mngdby_address", )),
+        ("Hidden addr list: %s",
+         ('hidden', )),    
         #
         # target_type == Mailman
         #
@@ -1479,29 +1556,47 @@ class BofhdExtension(BofhdCommonMethods):
         ("Status:           %s",
          ("status",)),
         ]))
-    def email_info(self, operator, uname):
+    def email_info(self, operator, name):
         try:
-            et, acc = self.__get_email_target_and_account(uname)
+            et, acc = self.__get_email_target_and_account(name)
         except CerebrumError, e:
-            # handle accounts with email address stored in contact_info
+            # exchange-relatert-jazz
+            # check if a distribution-group with an appropriate target
+            # is registered by this name
             try:
-                ac = self._get_account(uname)
-                return self._email_info_contact_info(operator, ac)
-            except CerebrumError:
-                pass
+                et, grp = self.__get_email_target_and_dlgroup(name)
+            except CerebrumError, e:
+                # handle accounts with email address stored in contact_info
+                try:
+                    ac = self._get_account(name)
+                    return self._email_info_contact_info(operator, ac)
+                except CerebrumError:
+                    pass
             raise e
 
         ttype = et.email_target_type
         ttype_name = str(self.const.EmailTarget(ttype))
 
         ret = []
-        if ttype not in (self.const.email_target_account,
-                         self.const.email_target_Mailman,
+        # exchange-relatert-jazz 
+        
+        # will allow target_type and target_id to be shown for
+        # accounts also when account is not deleted. This will double
+        # target_type information, but will allow use of same code for
+        # getting and showing target_id
+        #
+        # if ttype not in (self.const.email_target_account,
+        if ttype not in (self.const.email_target_Mailman,
                          self.const.email_target_Sympa,
                          self.const.email_target_pipe,
-                         self.const.email_target_RT):
-            ret += [ {'target_type': ttype_name } ]
-
+                         self.const.email_target_RT,
+                         # exchange-relatert-jazz
+                         # make sure dl-group is a recognized
+                         # target type
+                         self.const.email_target_dl_group):
+            ret += [ {'target_type': ttype_name,
+                      'target_id': et.entity_id } ]
+            
         epat = Email.EmailPrimaryAddressTarget(self.db)
         try:
             epat.find(et.entity_id)
@@ -1509,10 +1604,17 @@ class BofhdExtension(BofhdCommonMethods):
             if ttype == self.const.email_target_account:
                 ret.append({'def_addr': "<none>"})
         else:
-            ret.append({'def_addr': self.__get_address(epat)})
+            # exchange-relatert-jazz
+            # drop def_addr here, it's introduced at proper placing later
+            if ttype != self.const.email_target_dl_group:
+                ret.append({'def_addr': self.__get_address(epat)})
 
         if ttype not in (self.const.email_target_Mailman,
-                         self.const.email_target_Sympa):
+                         self.const.email_target_Sympa,
+                         # exchange-relatert-jazz
+                         # drop fetching valid addrs, 
+                         # it's done in a proper place latter
+                         self.const.email_target_dl_group):
             # We want to split the valid addresses into multiple
             # parts for MLs, so there is special code for that.
             addrs = self.__get_valid_email_addrs(et, special=True, sort=True)
@@ -1522,20 +1624,30 @@ class BofhdExtension(BofhdCommonMethods):
                 ret.append({"valid_addr": addr})
 
         if ttype == self.const.email_target_Mailman:
-            ret += self._email_info_mailman(uname, et)
+            ret += self._email_info_mailman(name, et)
         elif ttype == self.const.email_target_Sympa:
-            ret += self._email_info_sympa(operator, uname, et)
+            ret += self._email_info_sympa(operator, name, et)
+        # exchange-relatert-jazz
+        # get data necessary for dist groups
+        elif ttype == self.const.email_target_dl_group:
+            ret += self._email_info_dlgroup(name)
         elif ttype == self.const.email_target_multi:
-            ret += self._email_info_multi(uname, et)
+            ret += self._email_info_multi(name, et)
         elif ttype == self.const.email_target_file:
-            ret += self._email_info_file(uname, et)
+            ret += self._email_info_file(name, et)
         elif ttype == self.const.email_target_pipe:
-            ret += self._email_info_pipe(uname, et)
+            ret += self._email_info_pipe(name, et)
         elif ttype == self.const.email_target_RT:
-            ret += self._email_info_rt(uname, et)
+            ret += self._email_info_rt(name, et)
         elif ttype == self.const.email_target_forward:
-            ret += self._email_info_forward(uname, et)
-        elif (ttype == self.const.email_target_account or
+            ret += self._email_info_forward(name, et)
+        elif (ttype == self.const.email_target_account,
+              # exchange-relatert jazz
+              # This should be changed, distgroups will have 
+              # target_type=deleted and we will no longer
+              # be able to assume "deleted" means that 
+              # target_entity_type is account
+              # <TODO>
               ttype == self.const.email_target_deleted):
             ret += self._email_info_account(operator, acc, et, addrs)
         else:
@@ -1548,7 +1660,7 @@ class BofhdExtension(BofhdCommonMethods):
                          self.const.email_target_deleted):
             ret += self._email_info_spam(et)
             ret += self._email_info_filters(et)
-            ret += self._email_info_forwarding(et, uname)
+            ret += self._email_info_forwarding(et, name)
 
         return ret
 
@@ -1656,7 +1768,13 @@ class BofhdExtension(BofhdCommonMethods):
             et.find_by_target_entity(acc.entity_id)
             es = Email.EmailServer(self.db)
             es.find(et.email_server_id)
-
+            
+            # exchange-relatert-jazz
+            # since Exchange-users will have a different kind of
+            # server this code will not be affected at Exchange
+            # roll-out It may, however, be removed as soon as
+            # migration is completed (up to and including
+            # "dis_quota_soft': eq.email_quota_soft})")
             if es.email_server_type == self.const.email_server_type_cyrus:
                 pw = self.db._read_password(cereconf.CYRUS_HOST,
                                             cereconf.CYRUS_ADMIN)
@@ -1699,7 +1817,14 @@ class BofhdExtension(BofhdCommonMethods):
                              'dis_quota_soft': eq.email_quota_soft})
         except Errors.NotFoundError:
             pass
-
+        # exchange-relatert-jazz 
+        # delivery for exchange-mailboxes is not regulated through
+        # LDAP, and LDAP should not be checked there my be some need
+        # to implement support for checking if delivery is paused in
+        # Exchange, but at this point only very vague explanation has
+        # been given and priority is therefore low
+        if acc.has_spread(self.const.spread_exchange_account):
+            return info
         # Check if the ldapservers have set mailPaused
         if self._email_delivery_stopped(acc.account_name):
             info.append({'status': 'Paused (migrating to new server)'})
@@ -1741,6 +1866,23 @@ class BofhdExtension(BofhdCommonMethods):
     _mailman_pipe = "|/local/Mailman/mail/wrapper %(interface)s %(listname)s"
     _mailman_patt = r'\|/local/Mailman/mail/wrapper (\S+) (\S+)$'
 
+    # exchange-relatert-jazz
+    # fetch necessary dist group info
+    def _email_info_dlgroup(self, groupname):
+        et, dl_group = self.__get_email_target_and_dlgroup(groupname)
+        ret = []
+        # we need to make the return value conform with the
+        # client requeirements
+        tmpret = dl_group.get_distgroup_attributes_and_targetdata()
+        for x in tmpret:
+            if tmpret[x] == 'T':
+                ret.append({x: 'Yes'})
+                continue
+            elif tmpret[x] == 'F':
+                ret.append({x: 'No'})
+                continue
+            ret.append({x: tmpret[x]})
+        return ret
 
     def _email_info_mailman(self, addr, et):
         m = re.match(self._mailman_patt, et.email_target_alias)
@@ -1797,7 +1939,7 @@ class BofhdExtension(BofhdCommonMethods):
                                     '%(local_part)s@%(domain)s' % addrs[idx]})
             except Errors.NotFoundError:
                 pass
-        return ret
+        print ret
     # end _email_info_mailman
 
 
@@ -1897,7 +2039,6 @@ class BofhdExtension(BofhdCommonMethods):
         
         for suffix in ("owner", "request", "editor", "subscribe", "unsubscribe"):
             ret.extend(fish_information(suffix, lp, dom, listname))
-
         return ret
     # end _email_info_sympa
 
@@ -2043,7 +2184,6 @@ class BofhdExtension(BofhdCommonMethods):
         ("email", "mod_name"),PersonId(help_ref="person_id_other"),
         PersonName(help_ref="person_name_first"),
         PersonName(help_ref="person_name_last"),
-        SourceSystem(optional=True, help_ref="source_system"),
         fs=FormatSuggestion("Name and e-mail address altered for: %i",
         ("person_id",)),
         perm_filter='can_email_mod_name')
@@ -2081,6 +2221,8 @@ class BofhdExtension(BofhdCommonMethods):
     def email_primary_address(self, operator, addr):
         self.ba.is_postmaster(operator.get_entity_id())
         et, ea = self.__get_email_target_and_address(addr)
+        if et.email_target_type == self.const.email_target_dl_group:
+            return "Cannot change primary for distribution group %s" % addr
         return self._set_email_primary_address(et, ea, addr)
 
     def _set_email_primary_address(self, et, ea, addr):
@@ -2515,13 +2657,13 @@ class BofhdExtension(BofhdCommonMethods):
         eed.delete()
         return "OK, removed domain-affiliation for '%s'" % domainname
 
-    # email create_forward <local-address> <remote-address>
-    all_commands['email_create_forward'] = Command(
-        ("email", "create_forward"),
+    # email create_forward_target <local-address> <remote-address>
+    all_commands['email_create_forward_target'] = Command(
+        ("email", "create_forward_target"),
         EmailAddress(),
         EmailAddress(help_ref='email_forward_address'),
         perm_filter="can_email_forward_create")
-    def email_create_forward(self, operator, localaddr, remoteaddr):
+    def email_create_forward_target(self, operator, localaddr, remoteaddr):
         """Create a forward target, add localaddr as an address
         associated with that target, and add remoteaddr as a forward
         addresses."""
@@ -4314,6 +4456,13 @@ Addresses and settings:
         perm_filter='can_email_pause')
     def email_pause(self, operator, on_off, uname):
         et, acc = self.__get_email_target_and_account(uname)
+        
+        # exchange-relatert-jazz
+        # there is no point in registering mailPause for 
+        # Exchange mailboxes
+        if acc.has_spread(self.const.spread_exchange_account):
+            return "Modifying mailPause for Exchange-mailboxes is not allowed!"
+
         self.ba.can_email_pause(operator.get_entity_id(), acc)
         self._ldap_init()
 
@@ -4518,13 +4667,16 @@ Addresses and settings:
 
         return "Ok, removed filter %s for %s" % (filter, address)
     
-    # email spam_level <level> <uname>+
+    # email spam_level <level> <name>+
+    # exchange-relatert-jazz
+    # made it possible to use this cmd for adding spam_level
+    # to dist group targets
     all_commands['email_spam_level'] = Command(
         ('email', 'spam_level'),
         SimpleString(help_ref='spam_level'),
-        AccountName(help_ref='account_name', repeat=True),
+        SimpleString(help_ref="dlgroup_or_account_name", repeat=True),
         perm_filter='can_email_spam_settings')
-    def email_spam_level(self, operator, level, uname):
+    def email_spam_level(self, operator, level, name):
         """Set the spam level for the EmailTarget associated with username.
         It is also possible for super users to pass the name of other email
         targets."""
@@ -4537,8 +4689,18 @@ Addresses and settings:
         else:
            raise CerebrumError, ("'%s' does not uniquely identify a spam "+
                                  "level") % level
-        et, acc = self.__get_email_target_and_account(uname)
-        self.ba.can_email_spam_settings(operator.get_entity_id(), acc, et)
+        try:
+            et, acc = self.__get_email_target_and_account(name)
+        except CerebrumError, e:
+            # check if a distribution-group with an appropriate target
+            # is registered by this name
+            try:
+                et, grp = self.__get_email_target_and_dlgroup(name)
+            except CerebrumError, e:
+                raise e
+        self.ba.can_email_spam_settings(operator.get_entity_id(), 
+                                        acc, et) or \
+                                        self.ba.is_postmaster(operator.get_entity_id())
         esf = Email.EmailSpamFilter(self.db)
         # All this magic with target ids is necessary to accomodate MLs (all
         # ETs "related" to the same ML should have the
@@ -4548,9 +4710,9 @@ Addresses and settings:
         # address on its own.
         if int(et.email_target_type) in (self.const.email_target_Mailman,
                                          self.const.email_target_Sympa):
-           target_ids = self.__get_all_related_maillist_targets(uname)
+           target_ids = self.__get_all_related_maillist_targets(name)
         elif int(et.email_target_type) == self.const.email_target_RT:
-           targets_ids = self.__get_all_related_rt_targets(uname)
+           targets_ids = self.__get_all_related_rt_targets(name)
 
         for target_id in target_ids:
            try:
@@ -4568,7 +4730,7 @@ Addresses and settings:
                            parent=et)
            esf.write_db()
 
-        return "OK, set spam-level for '%s'" % uname
+        return "OK, set spam-level for '%s'" % name
     # end email_spam_level
 
 
@@ -4577,10 +4739,13 @@ Addresses and settings:
     # (This code is cut'n'paste of email_spam_level(), only the call
     # to populate() had to be fixed manually.  It's hard to fix this
     # kind of code duplication cleanly.)
+    # exchange-relatert-jazz
+    # made it possible to use this cmd for adding spam_action
+    # to dist group targets
     all_commands['email_spam_action'] = Command(
         ('email', 'spam_action'),
         SimpleString(help_ref='spam_action'),
-        AccountName(help_ref='account_name', repeat=True),
+        SimpleString(help_ref="dlgroup_or_account_name", repeat=True),
         perm_filter='can_email_spam_settings')
     def email_spam_action(self, operator, action, uname):
         """Set the spam action for the EmailTarget associated with username.
@@ -4595,8 +4760,18 @@ Addresses and settings:
         else:
             raise CerebrumError, ("'%s' does not uniquely identify a spam "+
                                   "action") % action
-        et, acc = self.__get_email_target_and_account(uname)
-        self.ba.can_email_spam_settings(operator.get_entity_id(), acc, et)
+        try:
+            et, acc = self.__get_email_target_and_account(name)
+        except CerebrumError, e:
+            # check if a distribution-group with an appropriate target
+            # is registered by this name
+            try:
+                et, grp = self.__get_email_target_and_dlgroup(name)
+            except CerebrumError, e:
+                raise e
+        self.ba.can_email_spam_settings(operator.get_entity_id(), 
+                                         acc, et) or \
+                                      self.ba.is_postmaster(operator.get_entity_id())
         esf = Email.EmailSpamFilter(self.db)
         # All this magic with target ids is necessary to accomodate MLs (all
         # ETs "related" to the same ML should have the
@@ -4606,9 +4781,9 @@ Addresses and settings:
         # address on its own.
         if int(et.email_target_type) in (self.const.email_target_Mailman,
                                          self.const.email_target_Sympa):
-            target_ids = self.__get_all_related_maillist_targets(uname)
+            target_ids = self.__get_all_related_maillist_targets(name)
         elif int(et.email_target_type) == self.const.email_target_RT:
-            targets_ids = self.__get_all_related_rt_targets(uname)
+            targets_ids = self.__get_all_related_rt_targets(name)
 
         for target_id in target_ids:
             try:
@@ -4627,7 +4802,7 @@ Addresses and settings:
                              parent=et)
             esf.write_db()
         
-        return "OK, set spam-action for '%s'" % uname
+        return "OK, set spam-action for '%s'" % name
     # end email_spam_action
     
 
@@ -4647,6 +4822,14 @@ Addresses and settings:
             raise CerebrumError, ("Unknown tripnote action '%s', choose one "+
                                   "of on or off") % action
         acc = self._get_account(uname)
+        # exchange-relatert-jazz
+        # For Exchange-mailboxes vacation must be registered via 
+        # Outlook/OWA since smart host solution for Exchange@UiO
+        # could not be implemented. When migration to Exchange 
+        # is completed this method should be changed and adding 
+        # vacation for any account disallowed. Jazz (2013-11)
+        if acc.has_spread(self.const.spread_exchange_account):
+            return "Sorry, Exchange-users must enable vacation messages via OWA!"
         self.ba.can_email_tripnote_toggle(operator.get_entity_id(), acc)
         ev = Email.EmailVacation(self.db)
         ev.find_by_target_entity(acc.entity_id)
@@ -4738,6 +4921,14 @@ Addresses and settings:
         perm_filter='can_email_tripnote_edit')
     def email_add_tripnote(self, operator, uname, text, when=None):
         acc = self._get_account(uname)
+        # exchange-relatert-jazz
+        # For Exchange-mailboxes vacation must be registered via 
+        # OWA since smart host solution for Exchange@UiO
+        # could not be implemented. When migration to Exchange 
+        # is completed this method should be changed and adding 
+        # vacation for any account disallowed. Jazz (2013-11)
+        if acc.has_spread(self.const.spread_exchange_account):
+            return "Sorry, Exchange-users must add vacation messages via OWA!"
         self.ba.can_email_tripnote_edit(operator.get_entity_id(), acc)
         date_start, date_end = self._parse_date_from_to(when)
         now = self._today()
@@ -4848,7 +5039,16 @@ Addresses and settings:
                 epa.find(et.entity_id)
                 ea.find(epa.email_primaddr_id)
             except Errors.NotFoundError:
-                raise CerebrumError, ("No such address: '%s'" % address)
+                try:
+                    dlgroup = Utils.Factory.get("DistributionGroup")(self.db)
+                    dlgroup.find_by_name(address)
+                    et = Email.EmailTarget(self.db)
+                    et.find_by_target_entity(dlgroup.entity_id)
+                    epa = Email.EmailPrimaryAddressTarget(self.db)
+                    epa.find(et.entity_id)
+                    ea.find(epa.email_primaddr_id)
+                except Errors.NotFoundError:
+                    raise CerebrumError, ("No such address: '%s'" % address)
         elif address.count('@') == 1:
             try:
                 ea.find_by_address(address)
@@ -4870,6 +5070,23 @@ Addresses and settings:
                                     self.const.email_target_deleted):
             acc = self._get_account(et.email_target_entity_id, idtype='id')
         return et, acc
+
+    def __get_email_target_and_dlgroup(self, address):
+        """Returns a tuple consisting of the email target associated
+        with address and the account if the target type is user.  If
+        there is no at-sign in address, assume it is an account name.
+        Raises CerebrumError if address is unknown."""
+        et, ea = self.__get_email_target_and_address(address)
+        grp = None
+        # what will happen if the target was a dl_group but is now 
+        # deleted? it's possible that we should have created a new
+        # target_type = dlgroup_deleted, but it seemed redundant earlier
+        # now, i'm not so sure (Jazz, 2013-12(
+        if et.email_target_type in (self.const.email_target_dl_group,
+                                    self.const.email_target_deleted):
+            grp = self._get_group(et.email_target_entity_id, idtype='id',
+                                    grtype="DistributionGroup")
+        return et, grp
     
     def __get_address(self, etarget):
         """The argument can be
@@ -5150,6 +5367,299 @@ Addresses and settings:
               "to become group member" % src_entity_id
         return self._group_add_entity(operator, src_entity, dest_group)
 
+    ## exchange-relatert-jazz
+    ## group distgroup_create
+    # should probably ask about language for displayname, but we 
+    # can let that be for now
+    # perm_filter is now "is_postmaster" but it may be changed to
+    # accomodate local-IT in the future. For now the method is to
+    # be used by postmaster only.
+    # yes_no is a bit stupid, if the group is new the answer does not
+    # matter at all. not sure how to make this nicer
+    all_commands['group_distgroup_create'] = Command(
+        ("group", "distgroup_create"), 
+        GroupName(help_ref="group_name_new"),
+        SimpleString(help_ref="group_disp_name", optional='true'),
+        SimpleString(help_ref="string_dl_desc"),
+        EmailAddress(help_ref="group_dl_managedby", 
+                     default=cereconf.DISTGROUP_DEFAULT_ADMIN),
+        SimpleString(help_ref='group_dl_modby'),
+        YesNo(help_ref='yes_no_from_existing', default='No'),
+        fs=FormatSuggestion("Group created, internal id: %i", ("group_id",)),
+        perm_filter='is_postmaster')
+    def group_distgroup_create(self, operator, groupname, displayname, description, managedby, moderatedby, from_existing=None):
+        # check for appropriate priviledge
+        self.ba.is_postmaster(operator.get_entity_id())
+        existing_group = False
+        modby_unames = []
+        mngdby_addr = None
+        dl_group = Utils.Factory.get("DistributionGroup")(self.db)
+        std_values = dl_group.ret_standard_attr_values(room=False)
+        # although cerebrum supports different visibility levels
+        # all groups are created visibile for all, and that vis
+        # type is hardcoded. if the situation should change group
+        # vis may be made into a parameter 
+        group_vis = self.const.group_visibility_all
+        # display name language is standard for dist groups
+        disp_name_language = dl_group.ret_standard_language()
+        disp_name_variant = self.const.dl_group_displ_name
+        grp = Utils.Factory.get("Group")(self.db)
+        try:
+            grp.find_by_name(groupname)
+            existing_group = True
+        except Errors.NotFoundError:
+            # nothing to do, inconsistencies are dealt with
+            # further down
+            pass
+        if not displayname:
+            displayname = groupname
+        # all moderators must be valid accounts in Cerebrum and Exchange
+        modby_unames = self._valid_unames_exchange(moderatedby)
+        if not modby_unames:
+            return "Can't create dist group, no valid moderators in %s" % moderatedby
+        if existing_group and not self._is_yes(from_existing):
+            return "You choose not to create dist group from the existing group %s" % groupname
+        mngdby_addr = self._valid_address_exchange(managedby)
+        if not managedby or \
+                 (managedby != cereconf.DISTGROUP_DEFAULT_ADMIN and \
+                      not mngdby_addr):
+            return "Cannot create dist group without setting ManagedBy attr"
+        if not existing_group:
+            # one could imagine making a helper function in the future
+            # _make_dl_group_new, as the functionality is required
+            # both here and for the roomlist creation (Jazz, 2013-12)
+            dl_group.new(operator.get_entity_id(), 
+                         group_vis, 
+                         groupname, description=description,
+                         roomlist=std_values['roomlist'], 
+                         mngdby_addrid=mngdby_addr,
+                         modenable=std_values['modenable'], 
+                         modby=moderatedby,
+                         deprestr=std_values['deprestr'], 
+                         joinrestr=std_values['joinrestr'], 
+                         hidden=std_values['hidden']) 
+        else:
+            dl_group.populate(roomlist=std_values['roomlist'], 
+                              mngdby_addrid=mngdby_addr,
+                              modenable=std_values['modenable'], 
+                              modby=moderatedby,
+                              deprestr=std_values['deprestr'], 
+                              joinrestr=std_values['joinrestr'], 
+                              hidden=std_values['hidden'],
+                              parent=grp) 
+        dl_group.write_db()
+        self._set_display_name(groupname, displayname, 
+                               disp_name_variant, disp_name_language)
+        dl_group.create_distgroup_mailtarget()
+        dl_group.add_spread(self.const.Spread(cereconf.DISTGROUP_SPREAD))
+        dl_group.write_db()
+        return "Made distribution group %s" % groupname
+
+    def _valid_unames_exchange(self, moderatedby):
+        # TODO: Do we want to check fo errors for single users?
+        ret = []
+        if re.match(r'.*,.*', moderatedby):
+            # there seems to be a list of unames to deal with
+            tmp = moderatedby.split(',')
+            for x in tmp:
+                name = x.strip()
+                acc = self._get_account(name)
+                if acc.has_spread(int(self.const.Spread(cereconf.EXCHANGE_ACCOUNT_SPREAD))):
+                    ret.append(name)
+        else:
+            # only a single moderator is given or a wrong delimiter used
+            ret.append(moderatedby)
+        return ret
+
+    def _valid_address_exchange(self, address):
+        ea = Email.EmailAddress(self.db)
+        try:
+            ea.find_by_address(address)
+        except Errors.NotFoundError:
+            # no such address in Cerebrum
+            return False
+        et = Email.EmailTarget(self.db)
+        try:
+            et.find(int(ea.email_addr_target_id))
+        except Errors.NotFoundError:
+            # e-mail target is missing, this should never happen
+            return False
+        if et.email_target_type == self.const.email_target_dl_group:
+            dl_group = Utils.Factory.get("DistributionGroup")(self.db)
+            try:
+                dl_group.find(int(et.email_target_entity_id))
+            except Errors.NotFoundError:
+                # no dist group associated with the target,
+                # this should never happen
+                return False
+            # address belongs to a valid distribution group and is 
+            # therefore connected to an existing mailbox in 
+            # Exchange
+            return ea.entity_id
+        elif et.email_target_type == self.const.email_target_account:
+            acc = self._get_account(int(et.email_target_entity_id), 
+                                    idtype='id')
+            if acc.has_spread(int(self.const.Spread(cereconf.EXCHANGE_ACCOUNT_SPREAD))):
+                return ea.entity_id
+        return False
+
+    ## exchange-relatert-jazz
+    # deactivate a group as distribution-group, but we may not
+    # remove such groups permanently as the addresses then may be
+    # re-used
+    all_commands['group_distgroup_remove'] = Command(
+        ("group", "distgroup_remove"), 
+        GroupName(help_ref="group_name", repeat='true'),
+        YesNo(help_ref='yes_no_expire_group', default='No'),
+        # perm_filter makes the command visible
+        perm_filter='is_postmaster')
+    def group_distgroup_remove(self, operator, groupname, expire_group=None):
+        # check for appropriate priviledge
+        self.ba.is_postmaster(operator.get_entity_id())
+        dl_group = self._get_group(groupname, idtype='name', 
+                                   grtype="DistributionGroup")
+        try:
+            dl_group.delete_spread(self.const.Spread(cereconf.DISTGROUP_SPREAD))
+            dl_group.deactivate_dl_mailtarget()
+            dl_group.delete()
+        except Errors.NotFoundError:
+            return "No distribution group %s found" % groupname
+        if  self._is_yes(expire_group):
+            # set expire in 90 dates for the remaining Cerebrum-group
+            new_expire_date = DateTime.now() + DateTime.DateTimeDelta(90, 0, 0)
+            dl_group.expire_date = new_expire_date
+            dl_group.write_db()
+        return "Distribution group data removed for %s" % groupname
+
+    ## group distgroup_attr_set
+    #  Valid attributes are: 
+    #    - depart_restriction (Open, Close, Approval, Required)
+    #    - join_restriction (Open, Close, Approval, Required)
+    #    - moderation_enabled T/F
+    #    - addrbook_hidden T/F
+    #    - moderated_by 'uname1, uname2,...'
+    #    - managed_by email_address
+    all_commands['group_distgroup_attr_set'] = Command(
+        ("group", "distgroup_attr_set"),
+        GroupName(help_ref="group_name"),
+        GroupDistAttr(default='addrbook_visibility'),
+        # no help here as the values may differ
+        SimpleString(),
+        perm_filter='is_postmaster')
+    def group_distgroup_attr_set(self, operator, groupname, attr, val):
+        # attributte "roomlist" exists for distribution groups, 
+        # but there are quite a few differences between roomlists
+        # and distributions group and we therefore don't support
+        # making existing distribution groups into roomlists. 
+        # check for appropriate priviledges
+        self.ba.is_postmaster(operator.get_entity_id())
+        modby_unames = []
+        dl_group = self._get_group(groupname, idtype='name', 
+                                   grtype="DistributionGroup")
+        if attr == 'depart_restriction':
+            if val in dl_group.ret_valid_restrictions(variant="depart"):
+                dl_group.set_depjoin_restriction(variant="depart", 
+                                                 restriction=val)
+        elif attr == 'join_restriction':
+            if val in dl_group.ret_valid_restrictions():
+                dl_group.set_depjoin_restriction(restriction=val)
+        elif attr == 'moderation_enabled':
+            if val in ['T', 'F']:
+                dl_group.set_modenable(enable=val)
+        elif attr == 'addrbook_visibility':
+            if val in ['T', 'F']:
+                dl_group.set_hidden(hidden=val)
+        elif attr == 'moderated_by':
+            modby_unames = self._valid_unames_Exchange(val)
+            if modby_unames:
+                dl_group.set_modby(val)
+            else:
+                return "Moderators are not valid, check for existance in Cerebrum and exchange spread"
+        elif attr == 'managed_by':
+            if self._valid_address_exchange(val):
+                dl_group.set_managedby(val)
+            else:
+                return "Could not set ManagedBy, addr not valid in Exchange"
+        else:
+            return "No such attribute %s" % attr
+        dl_group.write_db()
+        return "Ok, modified attribute %s with %s" % (attr, val)
+
+    # create roomlists, which are a special kind of distribution group
+    # no re-use of existing groups allowed
+    all_commands['group_roomlist_create'] = Command(
+        ("group", "roomlist_create"), 
+        GroupName(help_ref="group_name_new"),
+        SimpleString(help_ref="group_disp_name", optional='true'),
+        SimpleString(help_ref="string_description"),
+        fs=FormatSuggestion("Group created, internal id: %i", ("group_id",)),
+        perm_filter='is_postmaster')
+    def group_roomlist_create(self, operator, groupname, displayname, description):
+        # check for appropriate priviledge
+        self.ba.is_postmaster(operator.get_entity_id())
+        grp = Utils.Factory.get("Group")(self.db)
+        try:
+            grp.find_by_name(groupname)
+            return "Cannot make an existing group into a roomlist"
+        except Errors.NotFoundError:
+            pass
+        room_list = Utils.Factory.get("DistributionGroup")(self.db)
+        std_values = room_list.ret_standard_attr_values(room=True)
+        # although cerebrum supports different visibility levels
+        # all groups are created visibile for all, and that vis
+        # type is hardcoded. if the situation should change group
+        # vis may be made into a parametar 
+        group_vis = self.const.group_visibility_all
+        # the following attributes is not used and don't need to
+        # be registered correctly
+        # managedby is never exported to Exchange, hardcoded to
+        # dl-dladmin@groups.uio.bo
+        managedby = cereconf.DISTGROUP_DEFAULT_ADMIN
+        # display name language is standard for dist groups
+        disp_name_language = room_list.ret_standard_language()
+        disp_name_variant = self.const.dl_group_displ_name
+        # we could use _valid_address_exchange here in stead,
+        # I'll leave as an exercise for a willing developer 
+        # :-) (Jazz, 2013-12)
+        ea = Email.EmailAddress(self.db)
+        try:
+            ea.find_by_address(managedby)
+        except Errors.NotFoundError:
+            # should never happen unless default admin
+            # dist group is deleted from Cerebrum
+            return "Default admin address does not exist, please contact cerebrum-drift@usit.uio.no for help!"
+        if not displayname:
+            displayname = groupname
+        # using DistributionGroup.new(...)
+        room_list.new(operator.get_entity_id(), 
+                      group_vis, 
+                      groupname, description=description,
+                      roomlist=std_values['roomlist'], 
+                      mngdby_addrid=ea.entity_id,
+                      modenable=std_values['modenable'], 
+                      deprestr=std_values['deprestr'], 
+                      joinrestr=std_values['joinrestr'], 
+                      hidden=std_values['hidden']) 
+        room_list.write_db()
+        room_list.add_spread(self.const.Spread(cereconf.DISTGROUP_SPREAD))
+        self._set_display_name(groupname, displayname, disp_name_variant,
+                               disp_name_language)
+        room_list.write_db()
+        return "Made roomlist %s" % groupname
+
+    ## exchange-relatert-jazz
+    # create a security group for Exchange (out of an existing group)
+    all_commands['group_secgroup_create'] = Command(
+        ("group", "secgroup_create"), 
+        GroupName(help_ref="group_name"),
+        # perm_filter makes the command visible
+        perm_filter='is_postmaster')
+    def group_secgroup_create(self, operator, groupname):
+        self.ba.is_postmaster(operator.get_entity_id())
+        dest = self._get_group(groupname)
+        secgrp_holder = Utils.Factory.get("Group")(self.db)
+        return secgrp_holder.make_secgroup(dest.entity_id)
+
     ## group create
     # (all_commands is updated from BofhdCommonMethods)
     def group_create(self, operator, groupname, description):
@@ -5250,6 +5760,16 @@ Addresses and settings:
         self.ba.can_delete_group(operator.get_entity_id(), grp)
         if grp.group_name == cereconf.BOFHD_SUPERUSER_GROUP:
             raise CerebrumError("Can't delete superuser group")
+        # exchange-relatert-jazz
+        # it should not be possible to remove distribution groups via
+        # bofh, as that would "orphan" e-mail target. if need be such groups
+        # should be nuked using a cerebrum-side script.
+        try:
+            dl_group = self._get_group(groupname, 
+                                       grtype="DistributionGroup")
+            return "Cannot delete distribution groups, use 'group distgroup_remove' to deactivate %s" % groupname
+        except CerebrumError:
+            pass # not a distribution group
         if self._is_yes(force):
             try:
                 pg = self._get_group(groupname, grtype="PosixGroup")
@@ -5557,7 +6077,6 @@ Addresses and settings:
         return result
     # end group_list_expanded
 
-
     # group personal <uname>+
     all_commands['group_personal'] = Command(
         ("group", "personal"), AccountName(repeat=True),
@@ -5701,6 +6220,40 @@ Addresses and settings:
         grp.description = description
         grp.write_db()
         return "OK, description for group '%s' updated" % group
+
+    # exchange-relatert-jazz
+    # set display name, only for distribution groups and roomlists
+    # for the time being, but may be interesting to use for other
+    # groups as well
+    all_commands['group_set_displayname'] = Command(
+        ("group", 'set_display_name'),
+        GroupName(help_ref="group_name"),
+        SimpleString(help_ref="group_disp_name"),
+        SimpleString(help_ref='display_name_language', default='nb'),
+        perm_filter="is_postmaster")
+    def group_set_displayname(self, operator, gname, disp_name, name_lang):
+        # if this methos is to be made generic use
+        # _get_group(grptype="Group")
+        self.ba.is_postmaster(operator.get_entity_id())
+        name_variant = self.const.dl_group_displ_name
+        self._set_display_name(gname, disp_name, name_variant, name_lang)
+        return "Registered display name %s for %s" % (disp_name, gname)
+
+    # helper method, will use in distgroup_ and roomlist_create
+    # as they both require sett display_name
+    def _set_display_name(self, gname, disp_name, name_var, name_lang):
+        # if this method is to be of generic use the name variant must 
+        # be made into a parameter. it may be advisable to change 
+        # dl_group_displ_name into a more generic group_display_name
+        # value in the future
+        group = self._get_group(gname, grtype="DistributionGroup")
+        if name_lang in self.language_codes:
+            name_lang = int(_LanguageCode(name_lang))
+        else:
+            return "Could not set display name, invalid language code"
+        group.add_name_with_language(name_var, name_lang, 
+                                     disp_name)
+        group.write_db()
 
     # group set_expire
     all_commands['group_set_expire'] = Command(
@@ -7986,6 +8539,18 @@ Addresses and settings:
         entity = self._get_entity(entity_type, id)
         spread = self._get_constant(self.const.Spread, spread, "spread")
         self.ba.can_add_spread(operator.get_entity_id(), entity, spread)
+        # exchange-relatert-jazz
+        # NB! no checks are implemented in the group-mixin
+        # as we want to let other clients handle these spreads
+        # in different manner if needed
+        # dissallow spread-setting for distribution groups
+        if cereconf.DISTGROUP_SPREAD and \
+                str(spread) == cereconf.DISTGROUP_SPREAD: 
+            return "Please create distribution group via *group distgroup_create* in bofh"
+        # dissallog spread-setting for security groups
+        if cereconf.SECGROUP_SPREAD and \
+                str(spread) == cereconf.SECGROUP_SPREAD: 
+            return "Please create exchange security groups via *group secgroup_create* in bofh"
         try:
             if entity.has_spread(spread):
                 raise CerebrumError("entity id=%s already has spread=%s" %
@@ -8029,6 +8594,17 @@ Addresses and settings:
         entity = self._get_entity(entity_type, id)
         spread = self._get_constant(self.const.Spread, spread, "spread")
         self.ba.can_add_spread(operator.get_entity_id(), entity, spread)
+        # exchange-relatert-jazz
+        # make sure that if anyone uses spread remove instead of
+        # group distgroup_remove the appropriate clean-up is still 
+        # done
+        if entity_type == 'group' and cereconf.DISTGROUP_SPREAD:
+            # from Cerebrum.modules.exchange.v2013 import ExchangeGroups
+            #dl_group = ExchangeGroups.DistributionGroup(self.db)
+            dl_group = Utils.Factory.get("DistributionGroup")(self.db)
+            dl_group.deactivate_dl_mailtarget()
+            dl_group.delete()
+            # dl_group.delete_spread()
         if entity.has_spread(spread):
             entity.delete_spread(spread)
         else:
@@ -9620,6 +10196,10 @@ Password altered. Use misc list_password to print or view the new password.%s'''
             group = self.Group_class(self.db)
         elif grtype == "PosixGroup":
             group = Utils.Factory.get('PosixGroup')(self.db)
+        # exchange-relatert-jazz
+        # make DistributionGroup a valid group type
+        elif grtype == "DistributionGroup":
+            group = Utils.Factory.get("DistributionGroup")(self.db)
         try:
             group.clear()
             if idtype is None:

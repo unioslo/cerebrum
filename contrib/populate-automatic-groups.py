@@ -541,7 +541,7 @@ def affiliation2groups(row, current_groups, select_criteria, perspective):
 # end affiliation2groups
 
 
-def populate_groups_from_rule(person_generator, row2groups, current_groups,
+def populate_groups_from_rule(generator, row2groups, current_groups,
                               new_groups):
     """Sweep all the people from generator and assign group memberships.
 
@@ -551,8 +551,14 @@ def populate_groups_from_rule(person_generator, row2groups, current_groups,
     structure with the database.
 
     @type person_generator:
-      Generator (or a function returning a sequence) of db_rows.
+      Generator (or a function returning a sequence) of db_rows (person_ids).
+     @type primary_generator:
+      Generator (or a function returning a sequence) of db_rows (account_ids posing as person_ids).
     @param person_generator:
+      Next db-row 'source' to process. Calling this yields something we can
+      iterate across. The items in the sequence should be db_rows (or
+      something which emulates them, like a dict)
+    @param primary_generator:
       Next db-row 'source' to process. Calling this yields something we can
       iterate across. The items in the sequence should be db_rows (or
       something which emulates them, like a dict)
@@ -588,7 +594,7 @@ def populate_groups_from_rule(person_generator, row2groups, current_groups,
     """
 
     count = 0
-    for person in person_generator():
+    for person in generator():
         memberships = row2groups(person, current_groups)
 
         for member_id, group_id in memberships:
@@ -910,7 +916,11 @@ def perform_sync(select_criteria, perspective, source_system, spreads):
          lambda row, current_groups: affiliation2groups(row,
                                                         current_groups,
                                                         select_criteria,
-                                                        perspective)),
+                                                        perspective),
+         lambda: person.list_affiliations(
+                affiliation=selecting_affiliations,
+                source_system=source_system,
+                ret_primary_acc=True)),
 
         # Trait-based rules: a person with a trait -> membership in a group
         # (lambda: person.list_traits(code=_locate_all_auto_traits()),
@@ -922,12 +932,30 @@ def perform_sync(select_criteria, perspective, source_system, spreads):
     for rule in global_rules:
         # How do we get all the people for registering in the groups?
         person_generator = rule[0]
+        # exchange-relatert-jazz
+        # it seems that using row2groups is good enough, and we don't
+        # really need to create another rule, Jazz (2013-12)
+        # 
         # Given a row with a person, which groups should (s)he be registered
         # in?
         row2groups = rule[1]
+        # exchange-relatert-jazz
+        # if we want to add primary accounts to auto-groups in stead of
+        # people we create a primary_generator
+        primary_generator = rule[2]
+        # 
         # Let's go
-        populate_groups_from_rule(person_generator, row2groups,
-                                  current_groups, new_groups)
+        # 
+        # exchange-relatert-jazz
+        # pop-auto-groups may be used to populate person-groups
+        # or primary_acc groups, by using the "-a"/"--account" 
+        # switch
+        if not populate_with_primary_acc:
+            populate_groups_from_rule(person_generator, row2groups,
+                                      current_groups, new_groups)
+        else:
+            populate_groups_from_rule(primary_generator, row2groups,
+                                      current_groups, new_groups)
 
     current_groups = synchronise_groups(current_groups, new_groups, spreads)
 
@@ -1270,9 +1298,13 @@ def usage(exitcode):
 
 
 def main():
-
+    # exchange-relatert-jazz
+    # need to able to use this var in order to pick a generator rule
+    # added option -a/--account to indicate that primary accounts
+    # should be group members rather than people
+    global populate_with_primary_acc
     options, junk = getopt.getopt(sys.argv[1:],
-                                  "p:ds:c:of:r:h",
+                                  "p:ds:c:of:ar:h",
                                   ("perspective=",
                                    "dryrun",
                                    "source_system=",
@@ -1281,11 +1313,13 @@ def main():
                                    "output-groups",
                                    "filters=",
                                    "spread=",
+                                   "accounts",
                                    "help"))
 
     dryrun = False
     perspective = None
     wipe_all = False
+    populate_with_primary_acc = False
     source_system = constants.system_sap
     select_criteria = dict()
     output_groups = False
@@ -1311,6 +1345,8 @@ def main():
             output_groups = True
         elif option in ("-h", "--help"):
             usage(1)
+        elif option in ('-a', '--accounts'):
+            populate_with_primary_acc = True
         elif option in ("-r", "--spread"):
             prefix, spread = value.split(":")
             spread = const.human2constant(spread, const.Spread)

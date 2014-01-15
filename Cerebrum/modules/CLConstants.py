@@ -248,6 +248,191 @@ class CLConstants(Constants.Constants):
         ('type=%(quarantine_type:q_type)s',))
     quarantine_refresh = _ChangeTypeCode('quarantine', 'refresh',
                                          'refresh quarantine for %(subject)s')
+    # exchange-relatert-jazz
+    # 
+    # changelog variables used by the EventHandler to register
+    # when events are handled by the recieving system
+    #
+
+    # Temporary hack, we need this in order to requeue the setting of
+    # the adress book policy for a mailbox if someone pulls the plug on
+    # one of the Exchange-servers at exactly the right time.
+    ea_policy = _ChangeTypeCode('exchange', 'set_ea_policy',
+                                    'Address book policy changed')
+
+    # Account mailbox created/deleted
+    acc_mbox_create = _ChangeTypeCode('exchange', 'acc_mbox_create',
+                                      'account mailbox added')
+    acc_mbox_delete = _ChangeTypeCode('exchange', 'acc_mbox_delete',
+                                      'account mailbox deleted')
+    # Account add/remove an address 
+    acc_addr_add = _ChangeTypeCode('exchange', 'acc_addr_add',
+                                   'account address added')
+    acc_addr_rem = _ChangeTypeCode('exchange', 'acc_addr_rem',
+                                   'account address removed')
+    # Account change primary address 
+    acc_primaddr = _ChangeTypeCode('exchange', 'acc_primaddr',
+                                   'account primary changed')
+    # Electronic reservation registered
+    pers_reservation = _ChangeTypeCode('exchange', 'per_e_reserv', 
+                                       'person reservation changed')
+
+    # Distribution group create/deleted
+    dl_mbox_create = _ChangeTypeCode('exchange', 'dl_mbox_create',
+                                      'dist group mailbox added')
+    dl_mbox_delete = _ChangeTypeCode('exchange', 'dl_mbox_delete',
+                                      'dist group mailbox deleted')
+    # Dist group add/remove address
+    dl_addr_add = _ChangeTypeCode('exchange', 'dl_addr_add',
+                                  'dist group address added')
+    dl_addr_rem = _ChangeTypeCode('exchange', 'dl_addr_rem',
+                                  'dist group address deleted')    
+    # Dist group set managed by
+    dl_manby_set = _ChangeTypeCode('exchange', 'dl_manby_set',
+                                   'dist group set Managedby')
+    # Dist group set moderated by
+    dl_modby_set = _ChangeTypeCode('exchange', 'dl_modby_set',
+                                   'dist group set Moderatedby')
+    # Dist group set hidden
+    dl_hidden_set = _ChangeTypeCode('exchange', 'dl_hidden_set',
+                                    'dist group set HiddenAddr')
+    # Dist group set join/depart restrictions
+    dl_join_set = _ChangeTypeCode('exchange', 'dl_join_set',
+                                    'dist group set JoinRestr')
+    dl_depart_set = _ChangeTypeCode('exchange', 'dl_depart_set',
+                                    'dist group set DepartRestr')
+
+    # email change types and categories
+    #
+    # email domain
+    email_dom_add = _ChangeTypeCode('email_domain', 'add_domain', 
+                                    'add email domain %(subject)s',
+                                    ('name=%(string:new_domain_name)'))
+    email_dom_rem = _ChangeTypeCode('email_domain', 'rem_domain', 
+                                    'remove email domain %(subject)s',
+                                    ('name=%(string:del_domain'))
+    # either domain name or domain description has been changed
+    # TODO: these two actions should be splitt? 
+    email_dom_mod = _ChangeTypeCode('email_domain', 'mod_domain', 
+                                    'modify email domain %(subject)s',
+                                    ('name=%(string:new_domain_name)',
+                                     'desc=%(string:new_domain_desc'))
+    email_dom_addcat = _ChangeTypeCode('email_domain', 'addcat_domain', 
+                                       'add category in email domain %(subject)s',
+                                       ('cat=%(int:cat)'))
+    email_dom_remcat = _ChangeTypeCode('email_domain', 'remcat_domain', 
+                                       'remove category in email domain %(subject)s',
+                                       ('cat=%(int:cat)'))
+    # email target
+    email_target_add = _ChangeTypeCode('email_target', 'add_target', 
+                                       'add email target %(subject)s',
+                                       )
+    email_target_rem = _ChangeTypeCode('email_target', 'rem_target', 
+                                       'remove email target %(subject)s')
+    email_target_mod = _ChangeTypeCode('email_target', 'mod_target', 
+                                       'modify email target %(subject)s',
+                                       ('type=%(int:target_type)',
+                                        'server=%(int:server_id)'))
+    email_address_add = _ChangeTypeCode('email_address', 'add_address', 
+                                        'add email address %(subject)s',
+                                        ('lp=%(string:lp)s',
+                                         'domain=%(int:dom_id)s'))
+    email_address_rem = _ChangeTypeCode('email_address', 'rem_address', 
+                                        'remove email address %(subject)s',
+                                        ('lp=%(string:lp)s',
+                                         'domain=%(int:dom_id)s'))
+    # email entity domain affiliation
+    email_entity_dom_add = _ChangeTypeCode('email_entity_dom', 'add_entdom',
+                                           'add domain aff for %(subject)s',
+                                           ('affiliation=%(int:aff)'))
+    email_entity_dom_rem = _ChangeTypeCode('email_entity_dom', 'rem_entdom',
+                                           'remove domain aff for %(subject)s')
+    email_entity_dom_mod = _ChangeTypeCode('email_entity_dom', 'mod_entdom',
+                                           'modify domain aff for %(subject)s',
+                                           ('affiliation=%(int:aff)'))
+    # email quota (subject here is an email_target)
+    email_quota_add = _ChangeTypeCode('email_quota', 'add_quota', 
+                                      'add quota for %(subject)s',
+                                      ('soft=%(int:soft)',
+                                       'hard=%(int:hard)'))
+    email_quota_rem = _ChangeTypeCode('email_quota', 'rem_quota', 
+                                      'remove quota for %(subject)s')
+    email_quota_mod = _ChangeTypeCode('email_quota', 'mod_quota', 
+                                      'modify quota for %(subject)s',
+                                      ('soft=%(int:soft)',
+                                       'hard=%(int:hard)'))
+    # email target filter
+    email_tfilter_add = _ChangeTypeCode('email_tfilter', 'add_filter',
+                                        'add tfilter for %(subject)s',
+                                        ('filter=%(int:filter)'))
+    email_tfilter_rem = _ChangeTypeCode('email_tfilter', 'rem_filter',
+                                        'remove tfilter for %(subject)s',
+                                        ('filter=%(int:filter)'))
+    # email spam_filter
+    email_sfilter_add = _ChangeTypeCode('email_sfilter', 'add_sfilter', 
+                                        'add sfilter for %(subject)s',
+                                        ('level=%(int:level)',
+                                         'action=%(int:action)'))
+    email_sfilter_mod = _ChangeTypeCode('email_sfilter', 'mod_sfilter', 
+                                        'modify sfilter for %(subject)s',
+                                        ('level=%(int:level)',
+                                         'action=%(int:action)'))
+    # email virus scan
+    email_scan_add = _ChangeTypeCode('email_scan', 'add_scan', 
+                                     'add scan for %(subject)s',
+                                     ('found=%(int:found)',
+                                      'removed=%(int:removed)',
+                                      'enable=%(int:enable)'))
+    email_scan_mod = _ChangeTypeCode('email_scan', 'mod_scan', 
+                                     'modify scan for %(subject)s')
+    # email forward (subject here is an email_target)
+    email_forward_add = _ChangeTypeCode('email_forward', 'add_forward', 
+                                        'add forward for %(subject)s',
+                                        ('forward=%(string:forward)',
+                                         'enable=%(string:enable)'))
+    email_forward_rem = _ChangeTypeCode('email_forward', 'rem_forward', 
+                                        'remove forward for %(subject)s',
+                                        ('forward=%(string:forward)'))
+    email_forward_enable = _ChangeTypeCode('email_forward', 'enable_forward', 
+                                           'enable forward for %(subject)s',
+                                           ('forward=%(string:forward)',
+                                            'cat=%(int:cat)'))
+    email_forward_disable = _ChangeTypeCode('email_forward', 'disable_forward', 
+                                            'disable forward for %(subject)s',
+                                           ('forward=%(string:forward)',
+                                            'cat=%(int:cat)'))
+    # email vacation (subject here is an email_target)
+    # TBD: should we bother to log this? I don't think so, vacation 
+    # msg will be moved to exchange
+    email_vacation_add = _ChangeTypeCode('email_vacation', 'add_vacation', 
+                                         'add vacation for %(subject)s')
+    email_vacation_rem = _ChangeTypeCode('email_vacation', 'rem_vacation', 
+                                        'remove vacation for %(subject)s')
+    email_vacation_enable = _ChangeTypeCode('email_vacation', 'enable_vaca', 
+                                           'enable vacation msg for %(subject)s')
+    email_vacation_disable = _ChangeTypeCode('email_vacation', 'disable_vaca', 
+                                            'disable vacation msg for %(subject)s')
+    # email primary address target (subject here is an email_target)
+    email_primary_address_add = _ChangeTypeCode('email_primary_address', 'add_primary', 
+                                                'add primary address for %(subject)s',
+                                                ('primary=%(int:addr_id)'))
+    email_primary_address_rem = _ChangeTypeCode('email_primary_address', 'rem_primary', 
+                                                'remove primary address for %(subject)s',
+                                                ('primary=%(int:addr_id)'))
+    email_primary_address_mod = _ChangeTypeCode('email_primary_address', 'mod_primary', 
+                                                'modify primary address for %(subject)s',
+                                                ('primary=%(int:addr_id)'))
+    # email server (subject here is an e-mail server)
+    email_server_add = _ChangeTypeCode('email_server', 'add_server', 
+                                       'add email server %(subject)s',
+                                       ('type=%(int:server_type)'))
+    email_server_rem = _ChangeTypeCode('email_server', 'rem_server', 
+                                       'remove email server %(subject)s',
+                                       ('type=%(int:server_type)'))
+    email_server_mod = _ChangeTypeCode('email_server', 'mod_server', 
+                                       'modify email server %(subject)s',
+                                       ('type=%(int:server_type)'))
+    # entity changes
     entity_add = _ChangeTypeCode('entity', 'add', 'add entity %(subject)s')
     entity_del = _ChangeTypeCode('entity', 'del', 'del entity %(subject)s')
     entity_name_add = _ChangeTypeCode(
@@ -288,6 +473,44 @@ class CLConstants(Constants.Constants):
     posix_group_promote = _ChangeTypeCode(
         'posix', 'group-promote', 'group promote posix %(subject)s',
         ('gid=%(int:gid)s',))
+
+    # exchange-relatert-jazz
+    # register when a distribution group has been created or removed
+    # should probably log and show more data about groups
+    dl_group_create = _ChangeTypeCode('dlgroup', 'create', 
+                                      'group create distribution %(subject)s')
+    dl_group_modify = _ChangeTypeCode('dlgroup', 'modify', 
+                                      'group modify distribution %(subject)s')
+    dl_group_remove = _ChangeTypeCode('dlgroup', 'remove', 
+                                      'group remove distribution %(subject)s')
+    dl_group_primary = _ChangeTypeCode('dlgroup', 'primary', 
+                                       'group set primary for %(subject)s')
+    dl_group_addaddr = _ChangeTypeCode('dlgroup', 'addaddr', 
+                                       'group add address for %(subject)s')
+    dl_group_remaddr = _ChangeTypeCode('dlgroup', 'remaddr', 
+                                       'group remove address for %(subject)s')
+    dl_roomlist_create = _ChangeTypeCode('dlgroup', 'roomcreate', 
+                                         'group create roomlist %(subject)s')
+    dl_group_hidden = _ChangeTypeCode('dlgroup', 'modhidden', 'group mod hidden for %(subject)s',
+                                      ('hidden:%(string:hidden)'))
+    dl_group_depres = _ChangeTypeCode('dlgroup', 
+                                      'moddepres', 
+                                      'group mod dep restriction for %(subject)s',
+                                      ('deprestr:%(string:deprestr)'))
+    dl_group_joinre = _ChangeTypeCode('dlgroup', 
+                                      'modjoinre', 
+                                      'group mod join restriction for %(subject)s',
+                                      ('joinrestr:%(string:joinrestr)'))
+    dl_group_manby = _ChangeTypeCode('dlgroup', 'modmanby', 'group mod managed by for %(subject)s',
+                                      ('manby:%(str:manby)'))
+    dl_group_modby = _ChangeTypeCode('dlgroup', 'modmodby', 'group mod modify by for %(subject)s',
+                                      ('modby:%(str:modby)'))
+    dl_group_room = _ChangeTypeCode('dlgroup', 'modroom', 
+                                    'group mod room stat for %(subject)s',
+                                    ('roomlist:%(str:roomlist)'))
+    dl_group_modrt = _ChangeTypeCode('dlgroup', 'moderate', 
+                                    'group mod room stat for %(subject)s',
+                                    ('modenable:%(str:enable)'))
 
     # Guest functionality
     guest_create = _ChangeTypeCode(

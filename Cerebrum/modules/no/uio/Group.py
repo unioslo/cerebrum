@@ -17,12 +17,12 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-""""""
 
 import re
 import cereconf
 
 from Cerebrum import Group
+from Cerebrum import Utils
 from Cerebrum.Database import Errors
 
 class GroupUiOMixin(Group.Group):
@@ -72,7 +72,6 @@ class GroupUiOMixin(Group.Group):
     def add_spread(self, spread):
         # Avoid circular import dependency
         from Cerebrum.modules import PosixGroup
-
         # When adding a NIS-spread, assert that group is a PosixGroup
         if int(spread) in (self.const.spread_uio_nis_fg,
                            self.const.spread_ifi_nis_fg,
@@ -87,20 +86,66 @@ class GroupUiOMixin(Group.Group):
             tmp = pg.illegal_name(pg.group_name)
             if tmp:
                 raise self._db.IntegrityError, \
-                      "Illegal name for filegroup, %s." % tmp                
+                      "Illegal name for filegroup, %s." % tmp
         #
         # (Try to) perform the actual spread addition.
         ret = self.__super.add_spread(spread)
 
-    def illegal_name(self, name):
+    # helper methods for AD/Exchange security groups
+    # make fetching group data for Exchange consistent (between
+    # security groups and distribution groups)
+    def get_secgroup_data(self, group_id):
+        all_data = {}
+        sec_group = Utils.Factory.get("Group")(self._db)
+        try:
+            sec_group.find(group_id)
+        except Errors.NotFoundError:
+            return None
+        all_data = {'name': sec_group.group_name,
+                    'group_id': sec_group.entity_id,
+                    'description': sec_group.description}
+        return all_data
+
+    # sec-group create, will do all necessary checks and actions
+    # here
+    def make_secgroup(self, group_id):
+        sec_group = Utils.Factory.get("Group")(self._db)
+        try:
+            # only existing groups may be made into security groups
+            sec_group.find(group_id)
+        except Errors.NotFoundError:
+            return
+        # group name must not contain illegal char or be longer than 
+        # 64 char
+        if re.search("[^a-z0-9\-\.]", str(sec_group.group_name)) or \
+                self.illegal_name(sec_group.group_name, max_length=64):
+            return "Illegal name for security group %s" % sec_group.group_name 
+        sec_group.add_spread(self.const.Spread(cereconf.SECGROUP_SPREAD))
+        sec_group.write_db()
+        return "Will export security group %s to Exchange" % sec_group.group_name
+    # exchange-relatert-jazz
+    # add som name checks that are related to group name requirements
+    # in AD/Exchange. 
+    def illegal_name(self, name, max_length=32):
+        # no group names should start with a period or a space!
+        if re.search("^\.|^\s", name):
+            return "Names cannot start with period or space (%s)" % name 
         # Avoid circular import dependency
         from Cerebrum.modules import PosixGroup
+        from Cerebrum.modules.exchange.v2013 import ExchangeGroups
 
         if isinstance(self, PosixGroup.PosixGroup):
-            if len(name) > 32:
-                return "name too long (%s characters; 32 is max)" % len(name)
+            if len(name) > max_length:
+                return "name too long (%s characters; %d is max)" % (len(name), max_length)
             if re.search("^[^a-z]", name):
                 return "name must start with a character (%s)" % name
             if re.search("[^a-z0-9\-_]", name):
                 return "name contains illegal characters (%s)" % name
+        elif isinstance(self, ExchangeGroups.DistributionGroup):
+            # allow [a-z0-9], '-' and '.' in DistributionGroup names
+            if re.search("[^a-z0-9\-\.]", name):
+                return "name contains illegal characters (%s)" % name
+            # ad-groups may have names up to 64 char long
+            if len(name) > 64:
+                return "Name %s too long (64 char allowed)" % name
         return False

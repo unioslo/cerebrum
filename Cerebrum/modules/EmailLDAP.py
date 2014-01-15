@@ -211,6 +211,8 @@ class EmailLDAP(DatabaseAccessor):
             f_id = int(row['filter'])
             self.targ2filter.setdefault(t_id, []).append(const2str[f_id])
 
+    # why is spread sent as a parameter here and then not used?
+    # should probably remove the option (Jazz, 2013-12)
     def read_server(self, spread):
         mail_serv = Email.EmailServer(self._db)
         for row in mail_serv.list_email_server_ext():
@@ -219,8 +221,6 @@ class EmailLDAP(DatabaseAccessor):
         mail_targ = Email.EmailTarget(self._db)
         for row in mail_targ.list_email_server_targets():
             self.targ2server_id[int(row['target_id'])] = int(row['server_id'])
-
-            
     def read_forward(self):
         mail_forw = Email.EmailForward(self._db)
         for row in mail_forw.list_email_forwards():
@@ -228,7 +228,6 @@ class EmailLDAP(DatabaseAccessor):
                                          []).append([row['forward_to'],
                                                      row['enable']])
 
-        
     def read_vacation(self):
         mail_vaca = Email.EmailVacation(self._db)
         cur = mx.DateTime.today()
@@ -256,7 +255,6 @@ class EmailLDAP(DatabaseAccessor):
             else:
                 if o_spans_now: return False
                 else: return row_is_newer
-
         for row in mail_vaca.list_email_vacations():
             t_id = int(row['target_id'])
             insert = False

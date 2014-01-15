@@ -379,7 +379,13 @@ def get_data(spread):
     if verbose:
         logger.debug("  done in %d sec." % (now() - curr))
         logger.debug("Starting read_account()...")
-        curr = now()    
+        curr = now()
+    # exchange-relatert-jazz
+    # this wil, at UiO work fine as long as all Exchange-accounts
+    # have NIS_user@uio as well. if UiO should decide to
+    # allow pure AD-accounts/Exchange mailboxes they will not
+    # be exported to LDAP. A solution could be to allow spread
+    # to be None and export all accounts regardless of (Jazz, 2013-12)
     ldap.read_accounts(spread)
     if verbose:
         logger.debug("  done in %d sec." % (now() - curr))

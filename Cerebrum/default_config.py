@@ -116,9 +116,17 @@ CLASS_CL_CONSTANTS = ['Cerebrum.modules.CLConstants/CLConstants']
 
 CLASS_DBDRIVER = ['Cerebrum.Database/PostgreSQL']
 CLASS_DATABASE = ['Cerebrum.CLDatabase/CLDatabase']
+#CLASS_DATABASE = ['Cerebrum.CLDatabase/ELDatabase', 'Cerebrum.CLDatabase/CLDatabase']
+
+# exchange-relatert-jazz
+# define and enable Factory for DistributionGroup-objects, 
+# override localy if needed.
+CLASS_DISTRIBUTION_GROUP=['Cerebrum.modules.exchange.v2013.ExchangeGroups/DistributionGroup']
+
 # To enable logging, use this:
 # CLASS_CHANGELOG = ['Cerebrum.modules.ChangeLog/ChangeLog']
 CLASS_CHANGELOG = ['Cerebrum.ChangeLog/ChangeLog']
+CLASS_EVENTLOG = ['Cerebrum.EventLog/EventLog']
 
 # Plain Email-backend generation.
 # UiO has it's own. Enable it with
@@ -251,6 +259,29 @@ AD_ACCOUNT_SPREADS = None
 AD_TRAIT_TYPES = None
 AD_DOMAIN_ADMIN_USER = 'cerebrum'
 # Exchange-related variables
+#
+# exchange-related-jazz
+# account exchange spread, accounts with this spread are exported to
+# exchange. override localy.
+EXCHANGE_ACCOUNT_SPREAD=""
+# exchange-related-jazz
+# at creation of primary address for dist-groups this short prefix 
+# will be attached to the chosen name, override localy
+# 
+DISTGROUP_PRIMARY_ADDR_PREFIX=""
+#
+# default domain for distribution groups, override localy
+# 
+DISTGROUP_DEFAULT_DOMAIN=""
+#
+# distribution group spread, override localy
+DISTGROUP_SPREAD=None
+#
+# distribution group default admin list in exchange, override localy
+DISTGROUP_DEFAULT_ADMIN=""
+#
+# security group spread, override localy
+SECGROUP_SPREAD=None
 # list all valid homeMDBs for the given instance, max nr og users per MDB as follows:
 # EXCHANGE_HOMEMDB_VALID = {'homeMDB01': 200,
 #                           'homeMDB02': 800,
