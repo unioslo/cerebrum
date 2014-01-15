@@ -589,8 +589,8 @@ class BofhdCommonMethods(BofhdCommandBase):
                                 co.contact_mobile_phone,
                                 co.contact_private_mobile):
             # match an 8-digit phone number
-            if not re.match(r"^\d{8}$", contact_value):
-                raise CerebrumError("Invalid phone number: %s. Expected an 8 digit number."
+            if not re.match(r"^\+?\d+$", contact_value):
+                raise CerebrumError("Invalid phone number: %s. The number can contain only digits with possible '+' for prefix."
                     % contact_value)
 
         # get existing contact info for this entity and contact type
