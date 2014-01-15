@@ -332,7 +332,7 @@ class Processor:
         # Process subnets and VLANs:
         subnets, vlans = self._get_subnets_and_vlans(sub2pid)
         self._process_vlans(gw_vlans, vlans)
-        self._process_subnets(gw_subnets, subnets)
+        self._process_subnets(gw_subnets, subnets, sub2ouid)
 
         # Mapping hosts to projects by what subnet they're on:
         host2project = dict()
@@ -464,7 +464,7 @@ class Processor:
                     logger.warn("GatewayException creating VLAN for %s:%s: %s" %
                             (pid, vln, e))
 
-    def _process_subnets(self, gw_subnets, subnets):
+    def _process_subnets(self, gw_subnets, subnets, sub2ouid):
         """Sync given subnets with the GW.
 
         @type gw_subnets: list
@@ -477,6 +477,12 @@ class Processor:
 
             Note that this comparement does not always work, as you are able to
             save
+
+        @type sub2ouid: dict
+        @param sub2ouid: 
+            A mapping from each subnet's entity_id, to the entity_id of the
+            project it belongs to. Subnets not affiliated with any project
+            will not be given to the GW.
 
         """
         processed = set()
