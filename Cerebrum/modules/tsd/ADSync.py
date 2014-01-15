@@ -357,6 +357,9 @@ class HostSync(ADSync.HostSync, TSDUtils):
                 continue
             ent.ipaddresses.add(row['a_ip'])
             ent.vlans.add(self.subnet.vlan_number)
+            self.logger.debug2("Host %s (%s): %s (%s)", row['name'],
+                               row['dns_owner_id'], row['a_ip'],
+                               self.subnet.vlan_number)
             i += 1
         for row in self.aaaar.list_ext():
             try:
@@ -372,6 +375,9 @@ class HostSync(ADSync.HostSync, TSDUtils):
                                                             row['aaaa_ip']))
                 continue
             ent.vlans.add(self.subnet.vlan_number)
+            self.logger.debug2("Host %s (%s): %s (%s)", row['name'],
+                               row['dns_owner_id'], row['aaaa_ip'],
+                               self.subnet6.vlan_number)
             i += 1
         self.logger.debug("Fetched %d VLAN numbers" % i)
 
