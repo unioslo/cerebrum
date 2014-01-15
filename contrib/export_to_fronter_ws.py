@@ -1,6 +1,6 @@
 #! /local/bin/python
 #
-# Copyright 2013 University of Oslo, Norway
+# Copyright 2013-2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,7 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""This script can be used for sending an export to a Fronter instance"""
+"""This script can be used for sending an export to a Fronter instances
+webservice"""
 
 import sys
 import socket
