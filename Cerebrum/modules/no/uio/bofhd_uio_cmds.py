@@ -8362,8 +8362,8 @@ Addresses and settings:
                             'dato_betaling': None})
 
         # Check is alive
-        if fs.person.is_dead(fodselsdato, pnum):
-            ret.append({'status_dod': 'Ja'})
+        #if fs.person.is_dead(fodselsdato, pnum):
+        #    ret.append({'status_dod': 'Ja'})
         db.close()
         return ret
 
