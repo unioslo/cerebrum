@@ -88,10 +88,12 @@ class EmailLDAPUiOMixin(EmailLDAP):
 
         server_type, server_name = self.serv_id2server[
                                        int(self.targ2server_id[target_id])]
-        if server_type == self.const.email_server_type_cyrus:
-            result["IMAPserver"] = server_name
-        elif server_type == self.const.email_server_type_exchange:
-            result["Exchangeserver"] = server_name
+        result["IMAPserver"] = server_name
+        # jsama says that we disable this for nao..!
+        #if server_type == self.const.email_server_type_cyrus:
+        #    result["IMAPserver"] = server_name
+        #elif server_type == self.const.email_server_type_exchange:
+        #    result["Exchangeserver"] = server_name
         return result
     # end get_server_info
 
