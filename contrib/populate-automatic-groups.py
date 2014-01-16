@@ -1292,6 +1292,7 @@ def usage(exitcode):
     print(" -c or --collect\t\tCollect")
     print(" -f or --filters\t\tFilters")
     print(" -o or --output-groups\t\tOutput groups")
+    print(" -a or --accounts\t\tTarget primary accounts instead of persons")
     print(" -r or --spread\t\t\tSpread")
     print
     sys.exit(exitcode)
