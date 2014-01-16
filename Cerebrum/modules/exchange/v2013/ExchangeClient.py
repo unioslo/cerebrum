@@ -502,10 +502,9 @@ class ExchangeClient(PowershellClient):
         -FirstName Jo
         -LastName Sama"""
 
-        # TODO: IMPORTANT! REMOVE 'jsp_'!! 
         kwargs = {'LinkedDomainController': self.ad_server,
                  'LinkedMasterAccount': '%s\%s' % (self.ad_domain, uname),
-                 'Alias': 'jsp_' + uname,
+                 'Alias': uname,
                  #'Alias': uname,
                  'Name': uname,
                  'DisplayName': display_name,
