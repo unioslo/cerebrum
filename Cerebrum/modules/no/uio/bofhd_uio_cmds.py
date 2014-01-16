@@ -1939,7 +1939,7 @@ class BofhdExtension(BofhdCommonMethods):
                                     '%(local_part)s@%(domain)s' % addrs[idx]})
             except Errors.NotFoundError:
                 pass
-        print ret
+        return ret
     # end _email_info_mailman
 
 
