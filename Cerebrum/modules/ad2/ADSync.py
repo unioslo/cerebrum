@@ -610,7 +610,7 @@ class BaseSync(object):
         already_handled = set()
 
         # Avoid changes that are too old:
-        too_old = time.time() - self.config['changes_too_old_seconds']
+        too_old = time.time() - int(self.config['changes_too_old_seconds'])
 
         # We do it in the correct order, as the changes could be dependend of
         # each other.
