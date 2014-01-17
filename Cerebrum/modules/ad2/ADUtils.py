@@ -1070,8 +1070,9 @@ class ADclient(PowershellClient):
 
         """
         if reset or not getattr(self, '_chosen_dc', False):
-            cmd = """if ($str = Get-ADDomainController -Credential $cred 
-                        -Filter *| ConvertTo-Json) { $str -replace '$',';' }"""
+            # Can't make use of _generate_ad_command here, as it calls this
+            # method.
+            cmd = "Get-ADDomainController -Credential $cred | ConvertTo-Json"
             ret = self.get_output_json(self.run(cmd), dict())
             self._chosen_dc = ret['Name']
             self.logger.debug("Preferred DC: %s", self._chosen_dc)

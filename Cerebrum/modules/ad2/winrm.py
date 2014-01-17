@@ -2332,9 +2332,12 @@ class PowershellClient(WinRMClient):
                     other[otype] = data
             del o, otype, data
         self.logger.debug3("Got output of length: %d" % len(out))
-        # Powershell ends JSON output with semicolon, which needs to be removed
-        # for json to parse it without errors:
-        out = out.strip()[:-1]
+        # TODO: how to avoid creating a full copy of the data, e.g. by strip?
+        out = out.strip()
+        # Powershell ends JSON output with semicolon, which needs to be
+        # removed for json to parse it without errors:
+        if out.endswith(';'):
+            out = out[:-1]
         try:
             r = json.loads(out, encoding='utf-8')
         except ValueError:
