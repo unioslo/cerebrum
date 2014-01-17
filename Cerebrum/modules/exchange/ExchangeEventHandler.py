@@ -415,7 +415,7 @@ class ExchangeEventHandler(processing.Process):
         for aid, uname in self.ut.get_person_accounts(
                                             spread=self.mb_spread,
                                             person_id=event['subject_entity']):
-            if self.mb_spread in self.ut.get_account_spread(aid):
+            if self.mb_spread in self.ut.get_account_spreads(aid):
                 try:
                     self.ec.set_mailbox_names(uname, first, last, full)
                     self.logger.info('Updated name for %s' % uname)
@@ -447,7 +447,7 @@ class ExchangeEventHandler(processing.Process):
         # Exchange-spread
         for aid, uname in self.ut.get_person_accounts(event['subject_entity'],
                                              self.mb_spread):
-            if not self.mb_spread in self.ut.get_account_spread(aid):
+            if not self.mb_spread in self.ut.get_account_spreads(aid):
                 # If we wind up here, the user is not supposed to be in Exchange :S
                 raise UnrelatedEvent
             if hidden_from_address_book:
@@ -483,7 +483,7 @@ class ExchangeEventHandler(processing.Process):
                                         target_id=event['subject_entity'])
         params = self.ut.unpickle_event_params(event)
         name = self.ut.get_account_name(tid)
-        if not self.mb_spread in self.ut.get_account_spread(tid):
+        if not self.mb_spread in self.ut.get_account_spreads(tid):
             # If we wind up here, the user is not supposed to be in Exchange :S
             raise UnrelatedEvent
         try:
@@ -521,7 +521,7 @@ class ExchangeEventHandler(processing.Process):
 
         # Check if we are handling an account
         if eit == self.co.entity_account:
-            if not self.mb_spread in self.ut.get_account_spread(eid):
+            if not self.mb_spread in self.ut.get_account_spreads(eid):
                 # If we wind up here, the user is not supposed to be in Exchange :S
                 raise UnrelatedEvent
             uname = self.ut.get_account_name(eid)
@@ -578,7 +578,7 @@ class ExchangeEventHandler(processing.Process):
         et_eid, eid, eit, hq, sq = self.ut.get_email_target_info(
                                         target_entity=event['subject_entity'])
         if eit == self.co.entity_account:
-            if not self.mb_spread in self.ut.get_account_spread(eid):
+            if not self.mb_spread in self.ut.get_account_spreads(eid):
                 # If we wind up here, the user is not supposed to be in Exchange :S
                 raise UnrelatedEvent
             uname = self.ut.get_account_name(eid)
@@ -636,7 +636,7 @@ class ExchangeEventHandler(processing.Process):
 
         if eit == self.co.entity_account:
             uname = self.ut.get_account_name(eid)
-            if not self.mb_spread in self.ut.get_account_spread(eid):
+            if not self.mb_spread in self.ut.get_account_spreads(eid):
                 # If we wind up here, the user is not supposed to be in Exchange :S
                 raise UnrelatedEvent
             addr = self.ut.get_account_primary_email(eid)
