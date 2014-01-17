@@ -367,7 +367,7 @@ class CerebrumEntity(object):
                 # TODO: Missing proper config for what to set in case of missing
                 # spread. Only set it to None for now, but should be able to set
                 # it to something else, in adconf.
-                self.attributes[key] = u''
+                self.attributes[key] = None
                 return True
 
         if isinstance(value, str):
