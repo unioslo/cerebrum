@@ -59,7 +59,6 @@ try:
     CRYPTO=True
 except ImportError:
     CRYPTO=False
-    print "No SSL module, no mutual authentication"
 CRYPTO = False
 
 from lxml import etree
@@ -944,7 +943,10 @@ class WinRMProtocol(object):
     # WINRS_SKIP_CMD_SHELL: If a command that is sent to WinRS should be
     # executed inside of cmd.exe (False), or not (True). If not, the first
     # argument must be an absolute path to an executable file to run, e.g.
-    # powershell.exe.
+    # powershell.exe. Note that CMD has a limit on the input length of the
+    # command, which is 8191 (http://support.microsoft.com/kb/830473), and you
+    # will in addition need to escape strings both for CMD and for Powershell,
+    # if that is used.
     _winrs_skip_cmd_shell = True
 
     # Commands that are defined by the WSMan and WinRM standards:

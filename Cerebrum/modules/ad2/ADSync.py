@@ -66,7 +66,7 @@ from Cerebrum.modules.ad2.CerebrumData import CerebrumEntity
 from Cerebrum.modules.ad2.CerebrumData import CerebrumUser
 from Cerebrum.modules.ad2.CerebrumData import CerebrumGroup
 from Cerebrum.modules.ad2.CerebrumData import CerebrumDistGroup
-from Cerebrum.modules.ad2.winrm import PowershellException
+from Cerebrum.modules.ad2.winrm import PowershellException, CRYPTO
 
 class BaseSync(object):
     """Class for the generic AD synchronisation functionality.
@@ -174,6 +174,11 @@ class BaseSync(object):
         self.co = Factory.get("Constants")(self.db)
         self.ent = Factory.get('Entity')(self.db)
         self._ent_extid = Entity.EntityExternalId(self.db)
+
+        # TODO: A check here for telling us that the mutual authentication is
+        # not fully implemented yet. Should be removed when fixed.
+        if not CRYPTO:
+            self.logger.warn("Not using mutual authentication")
 
         # Where the sync configuration should go:
         self.config = dict()
@@ -572,7 +577,7 @@ class BaseSync(object):
         # down connections on the server side:
         self.server.close()
 
-    def quicksync(self, changekey):
+    def quicksync(self, changekey, change_ids=None):
         """Do a quicksync, by sending the latest changes to AD.
 
         All events of the given change_types are processed generically, and in
@@ -587,9 +592,16 @@ class BaseSync(object):
         in reverse, so that equeal events are only processed once.
 
         @type changekey: string
-        @param changekey: The change-log key to mark the events as commited or
-            not. Must be unique per job, unless you're in for race conditions
-            and skipped events.
+        @param changekey:
+            The change-log key to mark the events as commited or not. Must be
+            unique per job, unless you're in for race conditions and skipped
+            events.
+
+        @type change_ids: list or None
+        @param change_ids:
+            If specified, only the given change ids will be attempted executed.
+            The given IDs will be run no matter if they are considered finished
+            by the L{CLHandler}.
 
         """
         self.logger.info("Quicksync started")
@@ -599,8 +611,6 @@ class BaseSync(object):
 
         # Avoid changes that are too old:
         too_old = time.time() - self.config['changes_too_old_seconds']
-
-        int(time.mktime(time.strptime('20120301', '%Y%m%d')))
 
         # We do it in the correct order, as the changes could be dependend of
         # each other.
@@ -2586,6 +2596,8 @@ class GroupSync(BaseSync):
                 memberlist[name] = dn
             self.logger.debug("For member_spread %s found: %d DNs", spr,
                               len(memberlist))
+        self.logger.debug2("Number of member types to process: %s",
+                           len(self._membertype2setup))
 
         self.logger.debug("Start syncing members")
         for ent in self.entities.itervalues():
@@ -2794,7 +2806,13 @@ class GroupSync(BaseSync):
         for mem in self.gr.search_members(group_id=ent.entity_id,
                                           member_spread=mem_spreads,
                                           include_member_entity_name=True):
-            syncclass, objclass, objconf = self._membertype2setup[mem['member_type']]
+            try:
+                setupconf = self._membertype2setup[mem['member_type']]
+            except KeyError:
+                self.logger.error("Missing setup for member_type: %s",
+                                  self.co.EntityType(mem['member_type']))
+                continue
+            syncclass, objclass, objconf = setupconf
             ent = objclass(self.logger, objconf, mem['member_id'],
                            mem['member_name'])
             # Needed for finding the DN later - TODO: Should include it in the

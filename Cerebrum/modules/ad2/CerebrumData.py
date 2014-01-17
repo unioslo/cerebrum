@@ -362,9 +362,13 @@ class CerebrumEntity(object):
             return False
         attrconf = self.config['attributes'][key]
         # Skip if entity does not have the required spread:
-        if getattr(attrconf, 'spreads', None):
-            if not any(s in attrconf.spreads for s in self.spreads):
-                return False
+        if getattr(attrconf, 'spread', None):
+            if not any(s in attrconf.spread for s in self.spreads):
+                # TODO: Missing proper config for what to set in case of missing
+                # spread. Only set it to None for now, but should be able to set
+                # it to something else, in adconf.
+                self.attributes[key] = u''
+                return True
 
         if isinstance(value, str):
             # This will fail if str contains special characters. Input should
