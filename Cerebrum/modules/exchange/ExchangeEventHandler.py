@@ -404,18 +404,27 @@ class ExchangeEventHandler(processing.Process):
         
         @raises ExchangeException: If all accounts could not be updated.
         """
-        first, last, full = self.ut.get_person_names(
+        try:
+            first, last, full = self.ut.get_person_names(
                                             person_id=event['subject_entity'])
+        except Errors.NotFoundError:
+            # If we arrive here, the person has probably been deleted,
+            # and we can't look her up!
+            raise UnrelatedEvent
         
         for aid, uname in self.ut.get_person_accounts(
                                             spread=self.mb_spread,
                                             person_id=event['subject_entity']):
-            try:
-                self.ec.set_mailbox_names(uname, first, last, full)
-                self.logger.info('Updated name for %s' % uname)
-            except ExchangeException, e:
-                self.logger.warn('Failed updating name for %s: %s' % (uname, e))
-                raise EventExecutionException
+            if self.mb_spread in self.ut.get_account_spread(aid):
+                try:
+                    self.ec.set_mailbox_names(uname, first, last, full)
+                    self.logger.info('Updated name for %s' % uname)
+                except ExchangeException, e:
+                    self.logger.warn('Failed updating name for %s: %s' % (uname, e))
+                    raise EventExecutionException
+            else:
+                # If we wind up here, the user is not supposed to be in Exchange :S
+                raise UnrelatedEvent
 
     @EventDecorator.RegisterHandler(['trait:add', 'trait:mod', 'trait:del'])
     def set_address_book_visibility(self, event):
@@ -438,6 +447,9 @@ class ExchangeEventHandler(processing.Process):
         # Exchange-spread
         for aid, uname in self.ut.get_person_accounts(event['subject_entity'],
                                              self.mb_spread):
+            if not self.mb_spread in self.ut.get_account_spread(aid):
+                # If we wind up here, the user is not supposed to be in Exchange :S
+                raise UnrelatedEvent
             if hidden_from_address_book:
                 try:
                     self.ec.set_mailbox_visibility(uname, visible=False)
@@ -471,6 +483,9 @@ class ExchangeEventHandler(processing.Process):
                                         target_id=event['subject_entity'])
         params = self.ut.unpickle_event_params(event)
         name = self.ut.get_account_name(tid)
+        if not self.mb_spread in self.ut.get_account_spread(tid):
+            # If we wind up here, the user is not supposed to be in Exchange :S
+            raise UnrelatedEvent
         try:
             hard = params['hard']
             soft = (params['hard'] * params['soft']) / 100
@@ -506,8 +521,10 @@ class ExchangeEventHandler(processing.Process):
 
         # Check if we are handling an account
         if eit == self.co.entity_account:
+            if not self.mb_spread in self.ut.get_account_spread(eid):
+                # If we wind up here, the user is not supposed to be in Exchange :S
+                raise UnrelatedEvent
             uname = self.ut.get_account_name(eid)
-            # TODO: Chack for spread here? 
             try:
                 self.ec.add_mailbox_addresses(uname, [address])
                 self.logger.info('Added %s to %s' % 
@@ -561,8 +578,10 @@ class ExchangeEventHandler(processing.Process):
         et_eid, eid, eit, hq, sq = self.ut.get_email_target_info(
                                         target_entity=event['subject_entity'])
         if eit == self.co.entity_account:
+            if not self.mb_spread in self.ut.get_account_spread(eid):
+                # If we wind up here, the user is not supposed to be in Exchange :S
+                raise UnrelatedEvent
             uname = self.ut.get_account_name(eid)
-            # TODO: Check for spread here? 
             try:
                 self.ec.remove_mailbox_addresses(uname,
                                                  [address])
@@ -617,9 +636,9 @@ class ExchangeEventHandler(processing.Process):
 
         if eit == self.co.entity_account:
             uname = self.ut.get_account_name(eid)
-            if not self.mb_spread in self.ut.get_account_spreads(eid):
-                # TODO: How severe is this?
-                return
+            if not self.mb_spread in self.ut.get_account_spread(eid):
+                # If we wind up here, the user is not supposed to be in Exchange :S
+                raise UnrelatedEvent
             addr = self.ut.get_account_primary_email(eid)
             try:
                 self.ec.set_primary_mailbox_address(uname, addr)
@@ -969,8 +988,13 @@ class ExchangeEventHandler(processing.Process):
         
         # If the users does not have an AD-spread, it should never end
         # up in a group!
-        if not self.ad_spread in \
-                self.ut.get_account_spreads(event['subject_entity']):
+        member_spreads = self.ut.get_account_spreads(event['subject_entity'])
+
+        # Can't stuff that user into the group ;)
+        if not self.mb_spread in member_spreads:
+            raise UnrelatedEvent
+        if not self.ad_spread in member_spreads:
+            # TODO: Return? That is NOT sane.
             return
 
         if self.dg_spread in group_spreads:
@@ -1017,7 +1041,18 @@ class ExchangeEventHandler(processing.Process):
         group_spreads = self.ut.get_group_spreads(event['dest_entity'])        
         uname = self.ut.get_account_name(event['subject_entity'])        
         gname, description = self.ut.get_group_information(event['dest_entity'])
+        
+        # If the users does not have an AD-spread, we can't remove em. Or can we?
+        # TODO: Figure this out
+        member_spreads = self.ut.get_account_spreads(event['subject_entity'])
 
+        # Can't remove that user into the group ;)
+        if not self.mb_spread in member_spreads:
+            raise UnrelatedEvent
+        if not self.ad_spread in member_spreads:
+            # TODO: Return? That is NOT sane.
+            return
+        
         if self.dg_spread in group_spreads:
             mod_gname = self.config['distgroup_prefix'] + gname
             try:

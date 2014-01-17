@@ -65,7 +65,7 @@ class CerebrumUtils(object):
         @return: A list of (account_id, username) tuples
         """
         return filter(lambda x: (x['account_id'], x['name']),
-                        self.ac.search(owner_id=337360,
+                        self.ac.search(owner_id=person_id,
                                        owner_type=self.co.entity_person,
                                        spread=self.co.spread_exchange_account))
 

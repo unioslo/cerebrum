@@ -36,7 +36,7 @@ import urllib2
 import urllib
 import urlparse
 import random
-import shlex
+import popen2
 from string import maketrans, ascii_lowercase, digits, rstrip
 from subprocess import Popen, PIPE
 from Cerebrum.UtilsHelper import Latin1
@@ -317,97 +317,65 @@ def read_password(user, system, host=None):
         f.close()
 
 
-def which(file):
-    """Finds the full path to a file in the path.
-    Returns None if the files is not found in $PATH."""
-    for path in os.environ["PATH"].split(os.path.pathsep):
-        if os.path.exists(os.path.join(path, os.path.sep, file)):
-            return os.path.join(path, os.path.sep, file)
-    return None
-
-
-def cmd2full_path_format(cmd):
-    """Converts a path string to an argument list, suitable for use with
-    the subprocess module. An attempt is made to find the full path of the
-    command (first word in the string).
-    """
-    fields = [field for field in shlex.split(cmd) if field.strip()]
-    # Set the first element to be the full path to the executable
-    if fields:
-        full_path = which(fields[0])
-        if full_path:
-            fields[0] = full_path
-    return fields
-
-
-# TODO: Figure out what connect_to does, update the docstring
+# TODO: Replace the popen2 module with Popen for this function as well
 def spawn_and_log_output(cmd, log_exit_status=True, connect_to=[]):
-    """Runs a command, logs what would have been sent to stdout, stderr
-    and can also log the exit status. If the process is killed, it can
-    be logged if log_exit_status has been set to True.
+    """Run command and copy stdout to logger.debug and stderr to
+    logger.error.  cmd may be a sequence.  connect_to is a list of
+    servers which will be contacted.  If debug_hostlist is set and
+    does not contain these servers, the command will not be run and
+    success is always reported.
 
-    Keyword arguments:
-    cmd -- the command line to be run, a string
-    log_exit_status -- if the return code and exit status should be logged
-    connect_to -- used for logging somehow
-
-    Returns the return code from the process, or 0 if a host in connect_to is not in cereconf.DEBUG_HOSTLIST.
+    Return the exit code if the process exits normally, or the
+    negative signal value if the process was killed by a signal.
 
     """
-
+    # select on pipes and Popen3 only works in Unix.
+    from select import select
+    EXIT_SUCCESS = 0
     logger = Factory.get_logger()
+    if cereconf.DEBUG_HOSTLIST is not None:
+        for srv in connect_to:
+            if srv not in cereconf.DEBUG_HOSTLIST:
+                logger.debug("Won't connect to %s, won't spawn %r",
+                             srv, cmd)
+                return EXIT_SUCCESS
 
-    # TODO: Check with previous authors what connect_to is used for
-    if connect_to:
-        invalid_hosts = set(connect_to).difference(cereconf.DEBUG_HOSTLIST)
-        if invalid_hosts:
-            logger.debug(
-                "Won't connect to %s, won't spawn %r",
-                invalid_hosts[0],
-                cmd)
-            # TODO: Throw an error instead of returning 0 for sucess?
-            return 0
-
-    # Start the process
-    cmdf = cmd2full_path_format(cmd)
-    p = Popen(cmdf, 10240, stdout=PIPE, stderr=PIPE)
-
+    proc = popen2.Popen3(cmd, capturestderr=True, bufsize=10240)
+    pid = proc.pid
     if log_exit_status:
-        logger.debug('Spawned %r, pid %d', cmd, p.pid)
-
-    # Wait until the process completes and gather the output
-    outdata, errdata = p.communicate()
-
-    # Log what's normally written to stdout
-    for line in map(rstrip, outdata.split(os.linesep)):
-        if line:
-            logger.debug("[%d] %s" % (p.pid, line))
-
-    # Log what's normally written to stderr
-    for line in map(rstrip, errdata.split(os.linesep)):
-        if line:
-            logger.error("[%d] %s" % (p.pid, line))
-
-    # Examine the return code
-    if log_exit_status:
-        if p.returncode == 0:
-            logger.debug("[%d] Completed successfully", p.pid)
-        elif os.WIFSIGNALED(p.returncode):
-            signal = os.WTERMSIG(p.returncode)
-            logger.error(
-                '[%d] Command "%r" was killed by signal %d',
-                p.pid,
-                cmd,
-                signal)
-        else:
-            signal = os.WSTOPSIG(p.returncode)
-            logger.error(
-                '[%d] Return value was %d from command %r',
-                p.pid,
-                signal,
-                cmd)
-
-    return p.returncode
+        logger.debug('Spawned %r, pid %d', cmd, pid)
+    proc.tochild.close()
+    descriptor = {proc.fromchild: logger.debug,
+                  proc.childerr: logger.error}
+    while descriptor:
+        # select() is called for _every_ line, since we can't inspect
+        # the buffering in Python's file object.  This works OK since
+        # select() will return "readable" for an unread EOF, and
+        # Python won't read the EOF until the buffers are exhausted.
+        ready, _, _ = select(descriptor.keys(), [], [])
+        for fd in ready:
+            line = fd.readline()
+            if line == '':
+                fd.close()
+                del descriptor[fd]
+            else:
+                descriptor[fd]("[%d] %s" % (pid, line.rstrip()))
+    status = proc.wait()
+    if status == EXIT_SUCCESS and log_exit_status:
+        logger.debug("[%d] Completed successfully", pid)
+    elif os.WIFSIGNALED(status):
+        # The process was killed by a signal.
+        status = os.WTERMSIG(status)
+        if log_exit_status:
+            logger.error('[%d] Command "%r" was killed by signal %d',
+                         pid, cmd, status)
+    else:
+        # The process exited with an exit status
+        status = os.WSTOPSIG(status)
+        if log_exit_status:
+            logger.error("[%d] Return value was %d from command %r",
+                         pid, status, cmd)
+    return status
 
 
 def filtercmd(cmd, input):
