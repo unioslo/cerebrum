@@ -134,8 +134,6 @@ def main():
 
     # Trap the Hangup-signal, we use this in order to shut down nicely
     signal.signal(signal.SIGHUP, signal_hup_handler)
-    signal.signal(signal.SIGINT, signal_hup_handler)
-    signal.signal(signal.SIGTERM, signal_hup_handler)
     signal.pause()
     # TODO: Instead of signal.pause, wait for joinage of proccesses or something
 

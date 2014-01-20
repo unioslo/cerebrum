@@ -28,6 +28,7 @@ import processing
 
 from Queue import Empty
 import pickle
+import traceback
 
 from Cerebrum.modules.exchange.v2013.ExchangeClient import ExchangeClient
 from Cerebrum.modules.exchange.Exceptions import ExchangeException
@@ -42,6 +43,18 @@ from Cerebrum.modules.event.EventDecorator import EventDecorator
 
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
+
+
+# The following code can be used for quick testing of the Cerebrum side
+# of stuff. We fake the client, and always return True :D This way, we
+# can quickly run through a fuckton of events.
+class PI(object):
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def __getattr__(self, a):
+        return lambda *args, **kwargs: True
+#ExchangeClient = PI
 
 class ExchangeEventHandler(processing.Process):
     # Event to method lookup table. Populated by decorators.
@@ -173,6 +186,22 @@ class ExchangeEventHandler(processing.Process):
 #                # is probably wrong. We silently discard the event
 #                self.db.remove_event(ev_log['event_id'])
 #                self.db.commit()
+            except Exception, e:
+                # If we wind up here, we have found a "state" that the
+                # programmer failed to imagine. We log it, so we can process
+                # further events, and shut down the event dæmon gracefully
+                # (some systems don't like hard kills, like WinRM / Powershell,
+                # which has natzi rules on connection counts and so forth)
+                #
+                # We don't release the "lock" on the event, since the event
+                # will probably fail the next time around. Manual intervention
+                # IS therefore REQUIRED!!!!!!1
+                #
+                # Get the traceback, put some tabs in front, and log it.
+                tb = traceback.format_exc()
+                tb = '\t' + tb.replace('\n', '\t\n')
+                self.logger.error(
+                        'Oops! Didn\'t see that one coming! :)\n%s' % tb)
 
         # When the run-state has been set to 0, we kill the pssession
         self.ec.kill_session()
@@ -228,6 +257,7 @@ class ExchangeEventHandler(processing.Process):
         added_spread_code = self.ut.unpickle_event_params(event)['spread']
         # An Exchange-spread has been added! Let's make a mailbox!
         # TODO: Check for subject entity type? It is supposed to be an account
+        #           Explicit instead of implicit
         if added_spread_code == self.mb_spread:
             et, eid = self.ut.get_account_owner_info(event['subject_entity'])
             uname = self.ut.get_account_name(event['subject_entity'])
@@ -435,10 +465,13 @@ class ExchangeEventHandler(processing.Process):
         
         @raises ExchangeException: If all accounts could not be updated.
         """
-        if not self.ut.get_entity_type(event['subject_entity']) == \
-                self.co.entity_person:
+        try:
+            et = self.ut.get_entity_type(event['subject_entity'])
+            if not et == self.co.entity_person:
+                raise Errors.NotFoundError
             # If we can't find a person with this entity id, we silently
             # discard the event by doing nothing
+        except Errors.NotFoundError:
             raise EntityTypeError
 
         hidden_from_address_book = self.ut.is_electronic_reserved(
@@ -576,7 +609,7 @@ class ExchangeEventHandler(processing.Process):
         address = '%s@%s' % (params['lp'], domain)
         
         et_eid, eid, eit, hq, sq = self.ut.get_email_target_info(
-                                        target_entity=event['subject_entity'])
+                                        target_id=event['subject_entity'])
         if eit == self.co.entity_account:
             if not self.mb_spread in self.ut.get_account_spreads(eid):
                 # If we wind up here, the user is not supposed to be in Exchange :S
@@ -673,6 +706,7 @@ class ExchangeEventHandler(processing.Process):
         """
         gname = None
         # TODO: Handle exceptions!
+        # TODO: Implicit checking of type. Should it be excplicit?
         added_spread_code = self.ut.unpickle_event_params(event)['spread']
         if added_spread_code == self.dg_spread:
             gname, desc = self.ut.get_group_information(event['subject_entity'])
@@ -686,6 +720,8 @@ class ExchangeEventHandler(processing.Process):
             except ExchangeException, e:
                 self.logger.warn('Could not create group %s: %s' % (gname, e))
                 raise EventExecutionException
+
+        
 
             try:
                 self.ec.set_distgroup_address_policy(gname)
@@ -795,8 +831,8 @@ class ExchangeEventHandler(processing.Process):
                         (gname, data['modenable']))
 # TODO: Receipt for this?
             except ExchangeException, e:
-                self.logger.warn('Can\'t set moderation on %s to %s' % \
-                        (gname, data['modenable']))
+                self.logger.warn('Can\'t set moderation on %s to %s: %s' % \
+                        (gname, data['modenable'], str(e)))
                 ev_mod = event.copy()
                 ev_mod['change_params'] = pickle.dumps(
                                             {'modenable': data['modenable']})
@@ -882,6 +918,7 @@ class ExchangeEventHandler(processing.Process):
         """
         gname = None
         # TODO: Handle exceptions!
+        # TODO: Should we check the type of the event-target excplicitly?
         added_spread_code = self.ut.unpickle_event_params(event)['spread']
         if added_spread_code == self.sg_spread:
             gname, desc = self.ut.get_group_information(event['subject_entity'])
@@ -981,9 +1018,19 @@ class ExchangeEventHandler(processing.Process):
         # Look up group information (eid and spreads)
         # Look up member for removal
         # Remove from group type according to spread
-        # TODO: Should we check to see if it is an unsupported member type?
-        group_spreads = self.ut.get_group_spreads(event['dest_entity'])        
-        uname = self.ut.get_account_name(event['subject_entity'])        
+
+        # Check to see if we should do something with this member
+        try:
+            et = self.ut.get_entity_type(event['subject_entity'])
+            if not et == self.co.entity_account:
+                raise Errors.NotFoundError
+            # If we can't find a person with this entity id, we silently
+            # discard the event by doing nothing
+        except Errors.NotFoundError:
+            raise EntityTypeError
+
+        group_spreads = self.ut.get_group_spreads(event['dest_entity'])
+        uname = self.ut.get_account_name(event['subject_entity'])
         gname, description = self.ut.get_group_information(event['dest_entity'])
         
         # If the users does not have an AD-spread, it should never end
@@ -1034,14 +1081,24 @@ class ExchangeEventHandler(processing.Process):
         # Look up group information (eid and spreads)
         # Look up member for removal
         # Remove from group type according to spread
-        # TODO: Should we check to see if it is an unsupported member type?
         # TODO: We should check if the user to remove exists first.. If it does
         # not, it has allready been removed.. This would probably be smart to
         # do, in order to reduce noise.
-        group_spreads = self.ut.get_group_spreads(event['dest_entity'])        
-        uname = self.ut.get_account_name(event['subject_entity'])        
-        gname, description = self.ut.get_group_information(event['dest_entity'])
+        group_spreads = self.ut.get_group_spreads(event['dest_entity'])
         
+        # Check to see if we should do something with this member
+        try:
+            et = self.ut.get_entity_type(event['subject_entity'])
+            if not et == self.co.entity_account:
+                raise Errors.NotFoundError
+            # If we can't find a person with this entity id, we silently
+            # discard the event by doing nothing
+        except Errors.NotFoundError:
+            raise EntityTypeError
+        
+        uname = self.ut.get_account_name(event['subject_entity'])
+        gname, description = self.ut.get_group_information(event['dest_entity'])
+
         # If the users does not have an AD-spread, we can't remove em. Or can we?
         # TODO: Figure this out
         member_spreads = self.ut.get_account_spreads(event['subject_entity'])
@@ -1124,7 +1181,15 @@ class ExchangeEventHandler(processing.Process):
         @type event: Cerebrum.extlib.db_row.row
         @param event: The event returned from Change- or EventLog
         """
-        et = self.ut.get_entity_type(event['subject_entity'])
+        try:
+            et = self.ut.get_entity_type(event['subject_entity'])
+            if not et == self.co.entity_person:
+                raise Errors.NotFoundError
+            # If we can't find a person with this entity id, we silently
+            # discard the event by doing nothing
+        except Errors.NotFoundError:
+            raise EntityTypeError
+
         if et == self.co.entity_account:
             name = self.ut.get_account_name(event['subject_entity'])
             try:
@@ -1268,54 +1333,61 @@ class ExchangeEventHandler(processing.Process):
         @type event: Cerebrum.extlib.db_row.row
         @param event: The event returned from Change- or EventLog
         """
-        et = self.ut.get_entity_type(event['subject_entity'])
-        if et == self.co.entity_group:
-            failed = False
-            group_spreads = self.ut.get_group_spreads(event['subject_entity'])
-            # If it is a security group, load info and set display name
-            if self.dg_spread in group_spreads:
-                attrs = self.ut.get_distgroup_attributes_and_targetdata(
-                                                            event['subject_entity'])
-                attrs['name'] = self.config['distgroup_prefix'] + attrs['name']
+        try:
+            et = self.ut.get_entity_type(event['subject_entity'])
+            if not et == self.co.entity_group:
+                raise Errors.NotFoundError
+            # If we can't find a person with this entity id, we silently
+            # discard the event by doing nothing
+        except Errors.NotFoundError:
+            raise EntityTypeError
 
-                # Set the display name
-                try:
-                    self.ec.set_group_display_name(attrs['name'],
-                                                   attrs['displayname'])
-                    self.logger.info('Set displayname on %s to %s' % \
-                            (attrs['name'], attrs['name']))
-                except ExchangeException, e:
-                    self.logger.warn('can\'t set displayname on %s to %s: %s' \
-                            % (attrs['name'], attrs['name'], e))
-                    failed = True
+        failed = False
+        group_spreads = self.ut.get_group_spreads(event['subject_entity'])
+        # If it is a security group, load info and set display name
+        if self.dg_spread in group_spreads:
+            attrs = self.ut.get_distgroup_attributes_and_targetdata(
+                                                        event['subject_entity'])
+            attrs['name'] = self.config['distgroup_prefix'] + attrs['name']
 
-                # Set the description
-                try:
-                    self.ec.set_distgroup_description(attrs['name'],
-                                                      attrs['description'])
-                    self.logger.info('Set description on %s to %s' % \
-                            (attrs['name'], attrs['description']))
-                except ExchangeException, e:
-                    self.logger.info('Can\'t set description on %s to %s: %s' % \
-                            (attrs['name'], attrs['description'], e))
-                    failed = True
+            # Set the display name
+            try:
+                self.ec.set_group_display_name(attrs['name'],
+                                               attrs['displayname'])
+                self.logger.info('Set displayname on %s to %s' % \
+                        (attrs['name'], attrs['name']))
+            except ExchangeException, e:
+                self.logger.warn('can\'t set displayname on %s to %s: %s' \
+                        % (attrs['name'], attrs['name'], e))
+                failed = True
 
-            # If it is a security group, load info
-            elif self.sg_spread in group_spreads:
-                name, desc = self.ut.get_group_information(event['subject_entity'])
-                name = self.config['secgroup_prefix'] + name
-                
-                # We don't have displaynames for security groups (yet)
+            # Set the description
+            try:
+                self.ec.set_distgroup_description(attrs['name'],
+                                                  attrs['description'])
+                self.logger.info('Set description on %s to %s' % \
+                        (attrs['name'], attrs['description']))
+            except ExchangeException, e:
+                self.logger.info('Can\'t set description on %s to %s: %s' % \
+                        (attrs['name'], attrs['description'], e))
+                failed = True
 
-                # Set description
-                try:
-                    self.ec.set_secgroup_description(name, desc)
-                    self.logger.info('Set description on %s to %s' % \
-                                     (name, desc))
-                except ExchangeException, e:
-                    self.logger.info('Can\'t set description on %s to %s: %s' % \
-                            (name, desc, e))
-                    failed = True
+        # If it is a security group, load info
+        elif self.sg_spread in group_spreads:
+            name, desc = self.ut.get_group_information(event['subject_entity'])
+            name = self.config['secgroup_prefix'] + name
+            
+            # We don't have displaynames for security groups (yet)
+
+            # Set description
+            try:
+                self.ec.set_secgroup_description(name, desc)
+                self.logger.info('Set description on %s to %s' % \
+                                 (name, desc))
+            except ExchangeException, e:
+                self.logger.info('Can\'t set description on %s to %s: %s' % \
+                        (name, desc, e))
+                failed = True
 
             else:
                 # TODO: Correct exception? Think about it
@@ -1325,7 +1397,3 @@ class ExchangeEventHandler(processing.Process):
             # so the event gets resceduled for processing
             if failed:
                 raise EventExecutionException
-        # We won't handle this event
-        else:
-            raise UnrelatedEvent
-

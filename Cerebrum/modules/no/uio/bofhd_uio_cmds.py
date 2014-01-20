@@ -4747,7 +4747,7 @@ Addresses and settings:
         SimpleString(help_ref='spam_action'),
         SimpleString(help_ref="dlgroup_or_account_name", repeat=True),
         perm_filter='can_email_spam_settings')
-    def email_spam_action(self, operator, action, uname):
+    def email_spam_action(self, operator, action, name):
         """Set the spam action for the EmailTarget associated with username.
         It is also possible for super users to pass the name of other email
         targets."""
@@ -4783,7 +4783,7 @@ Addresses and settings:
                                          self.const.email_target_Sympa):
             target_ids = self.__get_all_related_maillist_targets(name)
         elif int(et.email_target_type) == self.const.email_target_RT:
-            targets_ids = self.__get_all_related_rt_targets(name)
+            target_ids = self.__get_all_related_rt_targets(name)
 
         for target_id in target_ids:
             try:

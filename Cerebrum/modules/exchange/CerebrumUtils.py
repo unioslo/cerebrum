@@ -64,10 +64,10 @@ class CerebrumUtils(object):
         @rtype: list
         @return: A list of (account_id, username) tuples
         """
-        return filter(lambda x: (x['account_id'], x['name']),
+        return [(x['account_id'], x['name']) for x in \
                         self.ac.search(owner_id=person_id,
                                        owner_type=self.co.entity_person,
-                                       spread=self.co.spread_exchange_account))
+                                       spread=self.co.spread_exchange_account)]
 
     def get_person_names(self, account_id=None, person_id=None):
         """Return a persons names

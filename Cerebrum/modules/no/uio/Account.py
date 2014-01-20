@@ -101,7 +101,7 @@ class AccountUiOMixin(Account.Account):
             # server-reference may de removed from EmailTarget after
             # migration to Exchange is completed (it should be done,
             # no matter if Baardj says differently :-)). Jazz (2013-11)
-            es.find_by_name('mail.uio.no')
+            es.find_by_name('mail')
             # Check if the account already is associated with an
             # EmailTarget. If so, we are most likely looking at an
             # account restore (or else an anomaly in the cerebrum-db)
