@@ -378,7 +378,6 @@ def superuser(fn):
 
 
 class _Project:
-
     """Helper class for project information that has an entity_id, name and a list of
     quarantine types.
 
@@ -401,7 +400,7 @@ class _Project:
 
     """
 
-    def __init__(self, const, entity_id, name):
+    def __init__(self, const, entity_id, name, pid=None):
         """Initialize the _Project object with an entity_id and a name.
         Quarantines are added with the add_quarantine method.
         """
@@ -413,6 +412,8 @@ class _Project:
         self.name = name
         # Quarantines, stores as id's to quarantine types
         self.quarantines = []
+        # Project ID
+        self.pid = pid
 
     def add_quarantine(self, quarantine_type):
         """Add a quarantine to the list of quarantines."""
@@ -441,7 +442,6 @@ class _Project:
 
 
 class _Projects:
-
     """Helper class for making it easy to search, filter, sort and return project data."""
 
     def __init__(self, logger, const, ou, exact_match=False, filter=None):
@@ -450,22 +450,30 @@ class _Projects:
         """
         # A dictionary that maps entity_ids to _Project objects
         self.projects = {}
-
         self.filter = filter
         self._fix_filter()
 
         # Perform the queries
-        project_structs = ou.search_name_with_language(entity_type=const.entity_ou,
-                                                       name_variant=const.ou_name_acronym,
-                                                       exact_match=exact_match,
-                                                       name=self.filter)
+        project_structs = ou.search_tsd_projects(name=self.filter)
         quarantine_structs = ou.list_entity_quarantines(entity_types=const.entity_ou,
                                                         only_active=True)
-
+        # TODO: Would like to have this in the OUTSDMixin, to be used other
+        # places:
+        project_ids = ou.search_external_ids(
+                                entity_type=const.entity_ou,
+                                id_type=const.externalid_project_id)
         # Fill in a dictionary of Project objects.
         # Projects is a dictionary on the form {entity_id: project_object}
-        self.projects = dict([(p['entity_id'], _Project(const, p['entity_id'], p['name']))
-                              for p in project_structs])
+        self.projects = dict((p['entity_id'],
+                               _Project(const, p['entity_id'], p['name']))
+                              for p in project_structs)
+
+        # Fill in with project IDs:
+        for row in ou.search_external_ids(
+                                    entity_type=const.entity_ou,
+                                    id_type=const.externalid_project_id):
+            if row['entity_id'] in self.projects:
+                self.projects[row['entity_id']].pid = row['external_id']
 
         # Fill in the quarantine information into the Project objects
         for quarantine_struct in quarantine_structs:
@@ -474,13 +482,14 @@ class _Projects:
                 project = self.projects[quarantine_entity_id]
                 quarantine_type = quarantine_struct['quarantine_type']
                 project.add_quarantine(quarantine_type)
-            else:
-                continue
 
     def _fix_filter(self):
         """Massage the filter string so that also searches for 'ø*' is possible.
         Also uses * instead of an empty filter.
         """
+        if self.filter is None:
+            # Don't do anything
+            return
         try:
             if self.filter:
                 self.filter.encode('ascii')
@@ -503,15 +512,23 @@ class _Projects:
         filtered = [p for p in self.projects.values() if p.has_quarantine(quarantine_type)]
         self.set_project_list(filtered)
 
-    def results_sorted_by_name(self, names):
+    def results_sorted_by_name(self, keynames):
         """Returns the results as a dictionary, where the projects are sorted by name."""
         names_and_keys = [(project.name, project.id) for project in self.projects.values()]
         sorted_keys = [name_and_key[1] for name_and_key in sorted(names_and_keys)]
-        return [self.projects[key].as_dict(names) for key in sorted_keys]
+        return [self.projects[key].as_dict(keynames) for key in sorted_keys]
 
-    def results(self, names):
+    def results_sorted_by_pid(self, keynames):
+        """Returns the results as a dictionary, where the projects are sorted by name."""
+        pids_and_keys = [(project.pid, project.id) for project in
+                                                        self.projects.values()]
+        # TODO: numerical sort instead of alphabetic
+        sorted_keys = [name_and_key[1] for name_and_key in sorted(pids_and_keys)]
+        return [self.projects[key].as_dict(keynames) for key in sorted_keys]
+
+    def results(self, keynames):
         """Return the results as a list of dictionaries, which is what bofhd expects."""
-        return [project.as_dict(names) for project in self.projects.values()]
+        return [project.as_dict(keynames) for project in self.projects.values()]
 
 
 class AdministrationBofhdExtension(TSDBofhdExtension):
@@ -866,20 +883,16 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     all_commands['project_list'] = cmd.Command(
         ('project', 'list'), ProjectStatusFilter(optional=True),
         fs=cmd.FormatSuggestion(
-            '%-16s %-10s %s', ('name', 'entity_id', 'quars'),
-            hdr='%-16s %-10s %s' % ('Name', 'Entity-Id', 'Quarantines')),
+            '%-11s %-16s %-10s %s', ('pid', 'name', 'entity_id', 'quars'),
+            hdr='%-11s %-16s %-10s %s' % ('Project ID', 'Name', 'Entity-Id', 'Quarantines')),
         perm_filter='is_superuser')
 
     @superuser
     def project_list(self, operator, filter=None):
         """List out all projects by their acronym and status."""
-
-        projects = _Projects(self.logger,
-                             self.const,
-                             self.OU_class(self.db),
-                             exact_match=False,
-                             filter=filter)
-        return projects.results_sorted_by_name(['name', 'entity_id', 'quars'])
+        projects = _Projects(self.logger, self.const, self.OU_class(self.db),
+                             exact_match=False, filter=filter)
+        return projects.results_sorted_by_name(['pid', 'name', 'entity_id', 'quars'])
 
     all_commands['project_unapproved'] = cmd.Command(
         ('project', 'unapproved'),
@@ -898,7 +911,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                              exact_match=False,
                              filter=filter)
         projects.filter_by_quarantine(self.const.quarantine_not_approved)
-        return projects.results_sorted_by_name(['name', 'entity_id'])
+        return projects.results_sorted_by_pid(['name', 'entity_id'])
 
     all_commands['project_info'] = cmd.Command(
         ('project', 'info'), ProjectID(),
