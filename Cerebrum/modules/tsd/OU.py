@@ -83,18 +83,21 @@ class OUTSDMixin(OU):
         @param name: The project name.
 
         @type exact_match: bool
-        @param exact_match: If it should search for the exact name, or through
-            an sql query with LIKE.
+        @param exact_match:
+            If it should search for the exact name, or through an sql query with
+            LIKE.
 
-        @rtype: db-rows
-        @return: TODO: what db elements do we need?
+        @rtype: list of db-rows
+        @return:
+            The db rows for each project. Each element contains what is returned
+            from L{search_name_with_language}.
 
         """
-        # TBD: filter out OU's that are not project OU's, if we need other OUs.
-        return self.search_name_with_language(entity_type=self.const.entity_ou,
-                                    name_variant=self.const.ou_name_acronym,
-                                    # TODO: name_language=self.const.language_en
-                                    name=name, exact_match=exact_match)
+        return self.search_name_with_language(
+                        entity_type=self.const.entity_ou,
+                        name_variant=self.const.ou_name_acronym,
+                        # TODO: name_language=self.const.language_en,
+                        name=name, exact_match=exact_match)
 
     def _validate_project_name(self, name):
         """Check if a given project name is valid.

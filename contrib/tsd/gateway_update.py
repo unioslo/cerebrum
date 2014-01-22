@@ -127,11 +127,17 @@ class Processor:
             gw_data[key] = meth()
             logger.debug("Got %d %s from GW", len(gw_data[key]), key)
             for d in gw_data[key]:
-                logger.debug3(d)
+                logger.debug3('From GW, %s: %s', key, d)
+        logger.info("Start processing projects")
         self.process_projects(gw_data['projects'])
+        logger.info("Processing projects done")
+        logger.info("Start processing users")
         self.process_users(gw_data['users'])
+        logger.info("Processing users done")
+        logger.info("Start processing DNS data")
         self.process_dns(gw_data['hosts'], gw_data['subnets'], gw_data['vlans'],
                          gw_data['ips'])
+        logger.info("Processing DNS data done")
 
     def process_projects(self, gw_projects):
         """Go through and update the projects from the GW.
@@ -152,12 +158,24 @@ class Processor:
                 logger.warn("GatewayException for %s: %s" % (pid, e))
             processed.add(pid)
         # Add new OUs:
-        for row in self.ou.search(filter_quarantined=True):
+        # TODO: A bug in ou.search does not handle filtering on quarantines that
+        # are not active (yet), as they won't get returned even though they
+        # should. This should be fixed in the API, but as it affects quite a few
+        # exports, it requires a bit more effort.
+        for row in self.ou.search():
             self.ou.clear()
             self.ou.find(row['ou_id'])
-            pid = self.ou.get_project_id()
-            if pid in processed:
+            if self.ou.get_entity_quarantine(only_active=True):
                 continue
+            try:
+                pid = self.ou.get_project_id()
+            except Errors.NotFoundError, e:
+                logger.warn(e)
+            if pid in processed:
+                logger.debug4('Skipping already processed project: %s',
+                                   pid)
+                continue
+            logger.debug2('Creating project: %s', pid)
             self.gw.create_project(pid)
 
     def process_project(self, pid, proj):
