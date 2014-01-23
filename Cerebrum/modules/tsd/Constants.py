@@ -155,7 +155,8 @@ class Constants(Constants.Constants):
 
     trait_otp_device = _EntityTraitCode('otp_device',
                                         Constants.Constants.entity_person,
-                                        'The device for handling the OTP keys, e.g. yubikey or smartphone')
+                                        'The type of OTP key, e.g. hotp or '
+                                        'totp, depending on device')
 
     auth_type_otp_key = _AuthenticationCode('OTP-key',
                                             'One-Time Password key, used to be able to generate one-time'

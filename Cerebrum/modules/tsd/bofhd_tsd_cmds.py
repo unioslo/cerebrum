@@ -1262,8 +1262,18 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             account.write_db()
         except self.db.DatabaseError, m:
             raise CerebrumError("Database error: %s" % m)
-        # TODO: Send to gateway
 
+        actypes = account.get_account_types()
+        if len(actypes) != 1:
+            raise CerebrumError('Incorrect number of project affiliations for user')
+        ou = self.OU_class(self.db)
+        ou.find(actypes[0]['ou_id'])
+
+        # Send to gateway:
+        try:
+            self.gateway.user_otp(ou.get_project_id(), account.account_name, uri)
+        except Gateway.GatewayException, e:
+            raise CerebrumError("GatewayException: %s" % e)
 
         # TODO: Remove some "weak password" quarantine?
         if account.is_deleted():
@@ -1292,6 +1302,23 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         return 'Approved account: %s' % account.account_name
         # TODO: add more feedback, e.g. tell if account is expired or has other
         # quarantines?
+
+    # user delete
+    all_commands['user_delete'] = cmd.Command(
+        ("user", "delete"), cmd.AccountName(),
+        perm_filter='can_delete_user')
+    def user_delete(self, operator, accountname):
+        account = self._get_account(accountname)
+        self.ba.can_delete_user(operator.get_entity_id(), account)
+        if account.is_deleted():
+            raise CerebrumError("User is already deleted")
+        pu = Factory.get('PosixUser')(self.db)
+        pu.find(account.entity_id)
+        pu.delete_posixuser()
+        pu.write_db()
+        account.deactivate()
+        account.write_db()
+        return "User %s is deactivated" % account.account_name
 
     #
     # Group commands

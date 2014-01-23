@@ -89,7 +89,7 @@ class GatewayClient(xmlrpclib.Server, object):
             for k, v in d.iteritems():
                 # Expand this list with more parameters that should be
                 # considered secret:
-                if k in ('otpuri',):
+                if k in ('otpuri', 'otpkey'):
                     v = '**********'
                 ret.append('%s=%s' % (k, v))
             return ', '.join(ret)

@@ -78,23 +78,33 @@ class AccountTSDMixin(Account.Account):
 
         """
         l = int(length / 8) # to support if a float sneaks in
-        f = open('/dev/urandom', 'rb')
+        f = open('/dev/random', 'rb')
         return ''.join('%x' % ord(o) for o in f.read(l))
 
     def regenerate_otpkey(self):
         """Create a new OTP key and store it for the account.
-        
+
+        TODO: Note that we do not store the OTP key in Cerebrum, for now. We
+        should only pass it on to the Gateway, so it's only stored in one place.
+        Other requirements could change this in the future.
+
         @rtype: string
-        @return: TODO: Only the key, or in a formatted URI, as defined in
-            https://code.google.com/p/google-authenticator/wiki/KeyUriFormat?
+        @return:
+            The full URI of otpauth, as defined in cereconf.OTP_URI_FORMAT,
+            filled with the proper data. The format should follow
+            https://code.google.com/p/google-authenticator/wiki/KeyUriFormat
 
         """
         key = self._generate_otpkey(getattr(cereconf, 'OTP_KEY_LENGTH', 160))
         secret = base64.b32encode(key)
-        # TODO: token type, totp or hotp, found in a user's trait
-
-        uri = cereconf.OTP_URI_FORMAT % {'secret': secret,
+        # Get the token type from trait, e.g. totp or hotp.
+        tokentype = 'totp'
+        typetrait = self.get_trait(self.const.trait_otp_device)
+        if typetrait:
+            tokentype = typetrait['strval']
+        return cereconf.OTP_URI_FORMAT % {
+                'secret': secret,
                 'user': '%s@%s' % (self.account_name,
-                    cereconf.INSTITUTION_DOMAIN_NAME),
-                'type': 'totp'}
-        return uri
+                                   cereconf.INSTITUTION_DOMAIN_NAME),
+                'type': tokentype,
+                }

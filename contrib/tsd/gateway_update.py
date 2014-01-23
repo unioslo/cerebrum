@@ -233,7 +233,7 @@ class Processor:
         for row in self.pu.list_accounts_by_type(
                             affiliation=self.co.affiliation_project,
                             filter_expired=True,
-                            account_spread=self.co.spread_ad_account):
+                            account_spread=self.co.spread_gateway_account):
             if ac2proj.has_key(row['account_id']):
                 logger.warn("Account %s affiliated with more than one project",
                             row['account_id'])
