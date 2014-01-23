@@ -22,6 +22,7 @@
 
 import cereconf
 from Cerebrum.Utils import read_password
+from Cerebrum.modules.event.HackedLogger import Logger
 
 import time
 import processing
@@ -33,7 +34,7 @@ from psycopg2 import OperationalError
 
 
 class NotificationCollector(processing.Process):
-    def __init__(self, event_queue, channels, logger, run_state):
+    def __init__(self, event_queue, channels, logger_queue, run_state):
         """
         NotificationCollector initzialization.
 
@@ -43,8 +44,8 @@ class NotificationCollector(processing.Process):
         @type channels: list
         @param channels: A list of channel names that should be listened on
 
-        @type logger: Cerebrum.modules.cerelog.CerebrumLogger
-        @param logger: The logger used for logging
+        @type logger_queue: processing.Queue
+        @param logger_queue: The queue used for logging.
 
         @type run_state: processing.Value(ctypes.c_int)
         @param run_state: A shared object used to determine if we should
@@ -64,9 +65,12 @@ class NotificationCollector(processing.Process):
                 }
         
         self.event_queue = event_queue
-        self.logger = logger
         self.run_state = run_state
         self.channels = channels
+        
+        # TODO: This is a hack. Fix it
+        self.logger_queue = logger_queue
+        self.logger = Logger(self.logger_queue)
 
         super(NotificationCollector, self).__init__()
 

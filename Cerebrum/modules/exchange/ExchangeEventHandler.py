@@ -40,6 +40,7 @@ from Cerebrum.modules.event.EventExceptions import EventHandlerNotImplemented
 from Cerebrum.modules.event.EventExceptions import EntityTypeError
 from Cerebrum.modules.event.EventExceptions import UnrelatedEvent
 from Cerebrum.modules.event.EventDecorator import EventDecorator
+from Cerebrum.modules.event.HackedLogger import Logger
 
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
@@ -59,7 +60,7 @@ class PI(object):
 class ExchangeEventHandler(processing.Process):
     # Event to method lookup table. Populated by decorators.
     _lut_type2meth = {}
-    def __init__(self, config, event_queue, logger, run_state):
+    def __init__(self, config, event_queue, logger_queue, run_state):
         """ExchangeEventHandler initialization routine
 
         @type config: dict
@@ -69,8 +70,9 @@ class ExchangeEventHandler(processing.Process):
         @type event_queue: processing.Queue
         @param event_queue: The queue that events get queued on
         
-        @type logger: Cerebrum.modules.cerelog.CerebrumLogger
-        @param logger: The logger used for logging
+        @type logger: processing.Queue
+        @param logger: Put tuples like ('warn', 'my message') onto this
+            queue in order to have them logged
 
         @type run_state: processing.Value(ctypes.c_int)
         @param run_state: A shared object used to determine if we should
@@ -79,7 +81,9 @@ class ExchangeEventHandler(processing.Process):
         self.event_queue = event_queue
         self.run_state = run_state
         self.config = config
-        self.logger = logger
+        # TODO: This is a hack. Fix it
+        self.logger_queue = logger_queue
+        self.logger = Logger(self.logger_queue)
         
         super(ExchangeEventHandler, self).__init__()
 
@@ -201,7 +205,8 @@ class ExchangeEventHandler(processing.Process):
                 tb = traceback.format_exc()
                 tb = '\t' + tb.replace('\n', '\t\n')
                 self.logger.error(
-                        'Oops! Didn\'t see that one coming! :)\n%s' % tb)
+                        'Oops! Didn\'t see that one coming! :)\n%s\n%s' % \
+                                (str(ev_log), tb))
 
         # When the run-state has been set to 0, we kill the pssession
         self.ec.kill_session()
@@ -269,7 +274,9 @@ class ExchangeEventHandler(processing.Process):
                     self.ut.get_person_names(person_id=eid)
 
                 hide_from_address_book = \
-                        self.ut.is_electronic_reserved(person_id=eid)
+                        self.ut.is_electronic_reserved(person_id=eid) or \
+                        not event['subject_entity'] == \
+                            self.ut.get_primary_account(person_id=eid)
 
             # Then for accounts owned by groups
             elif et == self.co.entity_group:
@@ -380,6 +387,7 @@ class ExchangeEventHandler(processing.Process):
 
             # Set the initial quota
             aid = self.ut.get_account_id(uname)
+
             et_eid, tid, tt, hq, sq = self.ut.get_email_target_info(
                                                         target_entity=aid) 
             try:
@@ -410,6 +418,9 @@ class ExchangeEventHandler(processing.Process):
         """
         removed_spread_code = self.ut.unpickle_event_params(event)['spread']
         if removed_spread_code == self.mb_spread:
+            # TODO: This is highly temporary! Remove the following line when
+            #       we have solved archiving of mailboxes ;)
+            raise EventExecutionException
             uname = self.ut.get_account_name(event['subject_entity'])
             try:
                 self.ec.remove_mailbox(uname)
@@ -450,10 +461,12 @@ class ExchangeEventHandler(processing.Process):
                     self.ec.set_mailbox_names(uname, first, last, full)
                     self.logger.info('Updated name for %s' % uname)
                 except ExchangeException, e:
-                    self.logger.warn('Failed updating name for %s: %s' % (uname, e))
+                    self.logger.warn('Failed updating name for %s: %s' % \
+                            (uname, e))
                     raise EventExecutionException
             else:
-                # If we wind up here, the user is not supposed to be in Exchange :S
+                # If we wind up here, the user is not supposed to be in
+                # Exchange :S
                 raise UnrelatedEvent
 
     @EventDecorator.RegisterHandler(['trait:add', 'trait:mod', 'trait:del'])
@@ -512,8 +525,15 @@ class ExchangeEventHandler(processing.Process):
                                      'email_quota:rem_quota'])
     def set_mailbox_quota(self, event):
         # TODO: Should we error check the reutrn from this method? Typewise that is
-        et_eid, tid, tet, hq, sq = self.ut.get_email_target_info(
-                                        target_id=event['subject_entity'])
+        try:
+            et_eid, tid, tet, hq, sq = self.ut.get_email_target_info(
+                                            target_id=event['subject_entity'])
+        except Errors.NotFoundError:
+            # If we wind up here, we have recieved an event that is triggered
+            # by entity:del or something. Is this a bug, or a feature? We'll
+            # just define this event as unrelated.
+            raise UnrelatedEvent
+
         params = self.ut.unpickle_event_params(event)
         name = self.ut.get_account_name(tid)
         if not self.mb_spread in self.ut.get_account_spreads(tid):
@@ -549,8 +569,14 @@ class ExchangeEventHandler(processing.Process):
         domain = self.ut.get_email_domain_info(params['dom_id'])['name']
         address = '%s@%s' % (params['lp'], domain)
 
-        et_eid, eid, eit, hq, sq = self.ut.get_email_target_info(
-                                        target_id=event['subject_entity'])
+        try:
+            et_eid, eid, eit, hq, sq = self.ut.get_email_target_info(
+                                            target_id=event['subject_entity'])
+        except Errors.NotFoundError:
+            # If we wind up here, we have recieved an event that is triggered
+            # by entity:del or something. Is this a bug, or a feature? We'll
+            # just define this event as unrelated.
+            raise UnrelatedEvent
 
         # Check if we are handling an account
         if eit == self.co.entity_account:
@@ -608,8 +634,15 @@ class ExchangeEventHandler(processing.Process):
         domain = self.ut.get_email_domain_info(params['dom_id'])['name']
         address = '%s@%s' % (params['lp'], domain)
         
-        et_eid, eid, eit, hq, sq = self.ut.get_email_target_info(
-                                        target_id=event['subject_entity'])
+        try:
+            et_eid, eid, eit, hq, sq = self.ut.get_email_target_info(
+                                            target_id=event['subject_entity'])
+        except Errors.NotFoundError:
+            # If we wind up here, we have recieved an event that is triggered
+            # by entity:del or something. Is this a bug, or a feature? We'll
+            # just define this event as unrelated.
+            raise UnrelatedEvent
+        
         if eit == self.co.entity_account:
             if not self.mb_spread in self.ut.get_account_spreads(eid):
                 # If we wind up here, the user is not supposed to be in Exchange :S
@@ -664,8 +697,14 @@ class ExchangeEventHandler(processing.Process):
         
         @raises ExchangeException: If all accounts could not be updated.
         """
-        et_eid, eid, eit, hq, sq = self.ut.get_email_target_info(
-                                        target_id=event['subject_entity'])
+        try:
+            et_eid, eid, eit, hq, sq = self.ut.get_email_target_info(
+                                            target_id=event['subject_entity'])
+        except Errors.NotFoundError:
+            # If we wind up here, we have recieved an event that is triggered
+            # by entity:del or something. Is this a bug, or a feature? We'll
+            # just define this event as unrelated.
+            raise UnrelatedEvent
 
         if eit == self.co.entity_account:
             uname = self.ut.get_account_name(eid)

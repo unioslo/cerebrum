@@ -1406,8 +1406,8 @@ class BofhdExtension(BofhdCommonMethods):
         SimpleString(help_ref="dlgroup_or_account_name", repeat=True),
         perm_filter='can_email_info',
         fs=FormatSuggestion([
-        ("Type:             %s\nHistory:          entity history id:%d",
-         ("target_type", "target_id")),
+        ("Type:             %s", ("target_type",)),
+        ("History:          entity history id:%d", ("target_id",)),
         #
         # target_type == Account
         #
@@ -1661,7 +1661,6 @@ class BofhdExtension(BofhdCommonMethods):
             ret += self._email_info_spam(et)
             ret += self._email_info_filters(et)
             ret += self._email_info_forwarding(et, name)
-
         return ret
 
     def _email_info_contact_info(self, operator, acc):
@@ -4460,8 +4459,8 @@ Addresses and settings:
         # exchange-relatert-jazz
         # there is no point in registering mailPause for 
         # Exchange mailboxes
-        if acc.has_spread(self.const.spread_exchange_account):
-            return "Modifying mailPause for Exchange-mailboxes is not allowed!"
+        #if acc.has_spread(self.const.spread_exchange_account):
+        #    return "Modifying mailPause for Exchange-mailboxes is not allowed!"
 
         self.ba.can_email_pause(operator.get_entity_id(), acc)
         self._ldap_init()

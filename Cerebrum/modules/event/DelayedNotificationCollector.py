@@ -26,12 +26,13 @@ import cerebrum_path
 import cereconf
 
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.event.HackedLogger import Logger
 
 import processing
 import time
 
 class DelayedNotificationCollector(processing.Process):
-    def __init__(self, event_queue, config, logger, run_state):
+    def __init__(self, event_queue, config, logger_queue, run_state):
         """
         DelayedNotificationCollector initzialization. This class
         implements functionality for stuffing old events into the
@@ -43,15 +44,19 @@ class DelayedNotificationCollector(processing.Process):
         @type config: dict
         @param config: Dict containing configuration parameters
 
-        @type logger: Cerebrum.modules.cerelog.CerebrumLogger
-        @param logger: The logger used for logging
+        @type logger_queue: processing.Queue
+        @param logger_queue: The queue used for logging
 
         @type run_state: processing.Value(ctypes.c_int)
         @param run_state: A shared object used to determine if we should
             stop execution or not
         """
         self.event_queue = event_queue
-        self.logger = logger
+        
+        # TODO: This is a hack. Fix it
+        self.logger_queue = logger_queue
+        self.logger = Logger(self.logger_queue)
+        
         self.run_state = run_state
         self.target_system = config['target_system']
         self.run_interval = config['run_interval']

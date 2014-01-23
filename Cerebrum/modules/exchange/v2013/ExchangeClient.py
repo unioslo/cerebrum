@@ -660,9 +660,11 @@ class ExchangeClient(PowershellClient):
         """
         cmd = self._generate_exchange_command(
                 'Set-Mailbox',
-               {'Identity': uname,
-                'IssueWarningQuota': '"%d MB"' % int(soft),
-                'ProhibitSendReceiveQuota': '"%d MB"' % int(hard)})
+                   {'Identity': uname,
+                    'IssueWarningQuota': '"%d MB"' % int(soft),
+                    'ProhibitSendReceiveQuota': '"%d MB"' % int(hard),
+                    'ProhibitSendQuota': '"%d MB"' % int(hard)},
+                ('UseDatabaseQuotaDefaults:$false',))
         out = self.run(cmd)
         if out.has_key('stderr'):
             raise ExchangeException(out['stderr'])

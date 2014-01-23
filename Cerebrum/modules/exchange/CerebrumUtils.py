@@ -205,6 +205,19 @@ class CerebrumUtils(object):
         self.ac.find_by_name(uname)
         return self.ac.entity_id
 
+    def get_primary_account(self, person_id):
+        """Get a persons primary account
+
+        @type person_id: int
+        @param person_id: The persons entity id
+
+        @rtype: int
+        @return: The primary accounts entity_id or None if no primary
+        """
+        self.pe.clear()
+        self.pe.find(person_id)
+        return self.pe.get_primary_account()
+
 ####
 # Group related methods
 ####

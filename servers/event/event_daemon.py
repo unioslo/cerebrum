@@ -24,6 +24,8 @@ import eventconf
 
 import getopt
 import processing
+import Queue
+import thread
 
 import sys
 import signal
@@ -35,7 +37,7 @@ from Cerebrum.modules.event.DelayedNotificationCollector import \
         DelayedNotificationCollector
 
 # TODO: Change to cronjob
-logger = Utils.Factory.get_logger('cronjob')
+logger = Utils.Factory.get_logger('small_cronjob')
 
 def usage(i=0):
     print('usage: python event_daemon.py [--type --no-notifications'
@@ -46,14 +48,39 @@ def usage(i=0):
     print('')
     print('HUP me ONCE (but not my children) if you want to shut me down'
             'with grace.')
-    return i
+    sys.exit(i)
 
-run_state = processing.Value(ctypes.c_int, 1, lock=False)
+# TODO: Do I need to pass this?
+def log_it(queue, run_state):
+    logger.info('Started logging thread')
+    # TODO: This is highly incorrect. We should be sure the queue is empty
+    # before quitting. Call join or something on the callee in the caller or
+    # something
+#    run = True
+#    while run:
+    while run_state.value:
+        try:
+            entry = queue.get(block=True, timeout=5)
+#            empty = False
+        except Queue.Empty:
+#            empty = True
+            continue
+        log_func = logger.__getattribute__(entry[0])
+        log_func(entry[1])
+#        run = not empty or run_state.value
+    logger.info('Shutting down logger thread')
+    # TODO: Log that it runs, and that it quits?
 
 def signal_hup_handler(signal, frame):
     frame.f_locals['run_state'].value = 0
 
 def main():
+    log_queue = processing.Queue()
+    # Shared varaiable, used to tell the children to shut down
+    run_state = processing.Value(ctypes.c_int, 1)
+    # Start the thread that writes to the log
+    thread.start_new(log_it, (log_queue, run_state,))
+
     # Parse args
     try:
         opts, args = getopt.getopt(sys.argv[1:],
@@ -81,10 +108,8 @@ def main():
     # Can't run without a config!
     if not conf:
         logger.error('No configuration given')
+        run_state.value = 0
         usage(2)
-
-    # Shared varaiable, used to tell the children to shut down
-    run_state = processing.Value(ctypes.c_int, 1)
 
     # We need to store the procecess
     procs = []
@@ -100,20 +125,21 @@ def main():
 
     # Create all the event-handeler processes
     for i in range(0, conf['concurrent_workers']):
-        procs.append(event_handler_class(conf, event_queue, logger, run_state))
+        procs.append(event_handler_class(conf, event_queue, log_queue,
+                                                                    run_state))
 
     # Create the NotificationCollector if appropriate
     if notifications:
         nc = NotificationCollector(event_queue,
                                    conf['event_channels'],
-                                   logger,
+                                   log_queue,
                                    run_state)
     
     # Create the DelayedNotificationCollector if appropriate
     if delayed_notifications:
         dnc = DelayedNotificationCollector(event_queue,
                                    conf,
-                                   logger,
+                                   log_queue,
                                    run_state)
 
     # Start all processes
