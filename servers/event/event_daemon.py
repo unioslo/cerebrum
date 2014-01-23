@@ -36,8 +36,7 @@ from Cerebrum.modules.event.NotificationCollector import NotificationCollector
 from Cerebrum.modules.event.DelayedNotificationCollector import \
         DelayedNotificationCollector
 
-# TODO: Change to cronjob
-logger = Utils.Factory.get_logger('small_cronjob')
+logger = Utils.Factory.get_logger('cronjob')
 
 def usage(i=0):
     print('usage: python event_daemon.py [--type --no-notifications'
