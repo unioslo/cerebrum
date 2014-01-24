@@ -56,7 +56,7 @@ import pickle
 import cerebrum_path
 import adconf
 
-from Cerebrum.Utils import unicode2str, Factory, dyn_import, sendmail
+from Cerebrum.Utils import unicode2str, Factory, dyn_import, sendmail, NotSet
 from Cerebrum import Entity, Errors
 from Cerebrum.modules import CLHandler
 from Cerebrum.modules import Email
@@ -1963,8 +1963,8 @@ class UserSync(BaseSync):
                 types.update(atr.traitcodes)
         if not types:
             return
-        self.logger.debug("Fetch traits...")
-        ids = None
+        self.logger.debug("Fetch traits of types: %s", types)
+        ids = NotSet
         if self.config['subset']:
             ids = self.id2entity.keys()
         i = 0
