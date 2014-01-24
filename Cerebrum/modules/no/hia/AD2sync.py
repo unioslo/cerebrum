@@ -55,4 +55,4 @@ class UiACerebrumUser(CerebrumUser):
 
         # Hide all accounts that are not primary accounts:
         self.set_attribute('MsExchHideFromAddressLists',
-                not has_exchange or not self.is_primary_account)
+                           not self.is_primary_account)
