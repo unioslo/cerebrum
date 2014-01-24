@@ -601,8 +601,8 @@ class Processor:
             try:
                 hostname = p['hostname']
                 pid = p['project']
-            except KeyError:
-                logger.error("Missing data from GW about an IP: %s", addr)
+            except KeyError, e:
+                logger.error("Missing element from GW about IP %s: %e", addr, e)
                 continue
 
             processed.add(':'.join((pid, hostname, addr)))
