@@ -57,7 +57,7 @@ class AttrConfig(object):
 
     """
     def __init__(self, default=None, transform=None, spread=None,
-                 source_systems=None):
+                 source_systems=None, criterias=None):
         """Setting the basic, most used config variables.
 
         @type default: mixed
@@ -103,6 +103,13 @@ class AttrConfig(object):
             wrong use of the spread definition. Therefore, use with care, to
             avoid complications in the other parts of the business logic.
 
+            TODO: This should be moved into CriteriaConfig
+
+        @type criterias: CriteriaConfig
+        @param criterias:
+            TODO: A class that sets what criterias must be fullfilled before a
+            value could be set according to this ConfigAttr.
+
         @type source_systems: AuthoritativeSystemCode or sequence thereof
         @param source_systems:
             One or more of the given source systems to retrieve the information
@@ -117,8 +124,10 @@ class AttrConfig(object):
         if transform:
             self.transform = transform
         self.source_systems = self._prepare_constants(source_systems,
-                const.AuthoritativeSystem)
+                                                      const.AuthoritativeSystem)
         self.spread = self._prepare_constants(spread, const.Spread)
+        # TODO: Not implemented yet:
+        self.criterias = criterias
 
     def _prepare_constants(self, input, const_class):
         """Prepare and validate given constant(s).
@@ -195,8 +204,27 @@ class NameAttr(AttrConfig):
         """
         super(NameAttr, self).__init__(*args, **kwargs)
         self.name_variants = self._prepare_constants(name_variants,
-                (const.EntityNameCode, const.PersonName))
+                                                     (const.EntityNameCode,
+                                                      const.PersonName))
         self.languages = self._prepare_constants(languages, const.LanguageCode)
+
+class PersonNameAttr(AttrConfig):
+    """Configuration for attributes that should contain person names.
+
+    This is for personal accounts, and it is not the same as entity_name but is
+    in its own db table.
+
+    """
+    def __init__(self, name_variants, *args, **kwargs):
+        """Initiate a person name attribute.
+
+        @type name_variants: PersonName (constant) or sequence thereof
+        @param name_variants: The defined name variants to retrieve.
+
+        """
+        super(PersonNameAttr, self).__init__(*args, **kwargs)
+        self.name_variants = self._prepare_constants(name_variants,
+                                                     const.PersonName)
 
 class AddressAttr(AttrConfig):
     """Config for attributes with addresses, or parts of an address.

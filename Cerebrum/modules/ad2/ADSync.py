@@ -860,6 +860,8 @@ class BaseSync(object):
                     languages.update(atr.languages)
         if not variants:
             return
+        self.logger.debug("Fetch names of the types: %s", variants)
+
         if all_systems or not systems:
             # By setting to None we fetch from all source_systems.
             systems = None
@@ -871,9 +873,9 @@ class BaseSync(object):
             ids = self.owner2ent.keys()
         i = 0
         for row in self.ent.search_name_with_language(
-                    name_variant=variants, entity_id=ids,
-                    entity_type=self.config['entity_type'],
-                    name_language=languages):
+                                name_variant=variants, entity_id=ids,
+                                entity_type=self.config['entity_type'],
+                                name_language=languages):
             for ent in self.owner2ent.get(row['entity_id'], ()):
                 vari = str(self.co.EntityNameCode(row['name_variant']))
                 lang = str(self.co.LanguageCode(row['name_language']))
@@ -1706,7 +1708,7 @@ class UserSync(BaseSync):
 
         # Set what is primary accounts.
         # TODO: We don't want to fetch this unless we really need the data,
-        # since it takes some time to finish. How could be find its usage from
+        # since it takes some time to finish. How could we find its usage from
         # the config?
         for row in self.ac.list_accounts_by_type(primary_only=True):
             ent = self.id2entity.get(row['account_id'])
@@ -1717,6 +1719,7 @@ class UserSync(BaseSync):
         # depending on the attribute configuration.
         self.fetch_contact_info()
         self.fetch_names()
+        self.fetch_person_names()
         self.fetch_external_ids()
         self.fetch_traits()
         self.fetch_address_info()
@@ -1772,18 +1775,7 @@ class UserSync(BaseSync):
         """
         self.logger.debug("Fetch name information...")
 
-        # TODO: this first block should be removed when ent.name_first,
-        # ent.name_last and ent.name_full is not used anymore, but is instead
-        # using the more generic ConfigUtils.NameAttr.
-        for row in self.pe.search_person_names(
-                                    source_system = self.co.system_cached,
-                                    name_variant  = [self.co.name_first,
-                                                     self.co.name_last]):
-            for ent in self.owner2ent.get(row['person_id'], ()):
-                if int(row['name_variant']) == int(self.co.name_first):
-                    ent.name_first = row['name']
-                elif int(row['name_variant']) == int(self.co.name_last):
-                    ent.name_last = row['name']
+        # First PersonName:
         variants = set()
         systems = set()
         languages = set()
@@ -1798,7 +1790,7 @@ class UserSync(BaseSync):
                     systems.update(atr.source_systems)
                 if atr.languages:
                     languages.update(atr.languages)
-        self.logger.debug2("Fetching person name variants: %s",
+        self.logger.debug2("Fetching name variants: %s",
                            ', '.join(str(v) for v in variants))
         self.logger.debug2("Fetching names by languages: %s",
                            ', '.join(str(l) for l in languages))
@@ -1813,7 +1805,63 @@ class UserSync(BaseSync):
             languages = None
             # TODO: Or make use of self.config['language'] to get the priority
             # right?
-            pass
+
+        # If subset is given, we want to limit the db-search:
+        ids = None
+        if self.config['subset']:
+            ids = self.owner2ent.keys()
+        i = 0
+        # TODO: This is not always for persons! Need to also fetch for e.g. OUs.
+        # Do we need to fetch in two rounds? One for the entities and one for
+        # the owners?
+        for row in self.pe.search_name_with_language(name_variant=variants,
+                                                     entity_type=self.co.entity_person,
+                                                     entity_id=ids,
+                                                     name_language=languages):
+            for ent in self.owner2ent.get(row['entity_id'], ()):
+                vari = str(self.co.EntityNameCode(row['name_variant']))
+                lang = str(self.co.LanguageCode(row['name_language']))
+                ent.entity_name_with_language.setdefault(vari, {})[lang] = row['name']
+                i += 1
+        self.logger.debug("Found %d names" % i)
+
+    def fetch_person_names(self):
+        """Fetch all the persons' names and store them for the accounts.
+
+        This overrides the default behaviour of fetching the names registered
+        for the given entities, but instead fetches the owner's (person's)
+        names.
+
+        The names that is retrieved are first and last names. Titles are
+        retrieved in L{fetch_titles}, even though they're stored as names too.
+        TODO: change this, and put all in a dict of names instead?
+
+        If there exist personal accounts without first and last names, it gets
+        logged.
+
+        """
+        self.logger.debug("Fetch person name information...")
+        variants = set()
+        systems = set()
+        languages = set()
+        all_systems = False
+        # Go through config and see what info needs to be fetched:
+        for atr in self.config['attributes'].itervalues():
+            if isinstance(atr, ConfigUtils.PersonNameAttr):
+                variants.update(atr.name_variants)
+                if atr.source_systems is None:
+                    all_systems = True
+                else:
+                    systems.update(atr.source_systems)
+        self.logger.debug2("Fetching person person name variants: %s",
+                           ', '.join(str(v) for v in variants))
+        self.logger.debug2("Fetching person names from sources: %s",
+                           ', '.join(str(s) for s in systems))
+        if not variants:
+            return
+        if all_systems or not systems:
+            # By setting to None we fetch from all source_systems.
+            systems = None
 
         # If subset is given, we want to limit the db-search:
         ids = None
@@ -1830,20 +1878,25 @@ class UserSync(BaseSync):
                 ssys = str(self.co.AuthoritativeSystem(row['source_system']))
                 ent.person_names.setdefault(vari, {})[ssys] = row['name']
                 i += 1
-        # Names stored in the entity table (with languages):
-        for row in self.pe.search_name_with_language(name_variant=variants,
-                                                     entity_type=self.co.entity_person,
-                                                     entity_id=ids,
-                                                     name_language=languages):
-            for ent in self.owner2ent.get(row['entity_id'], ()):
-                vari = str(self.co.EntityNameCode(row['name_variant']))
-                lang = str(self.co.LanguageCode(row['name_language']))
-                ent.entity_name_with_language.setdefault(vari, {})[lang] = row['name']
-                i += 1
         self.logger.debug("Found %d person names" % i)
 
     def fetch_contact_info(self):
         """Fetch all contact information for users, e.g. mobile and telephone.
+
+        Checks the config for what contact info to fetch from Cerebrum, fetches
+        it and puts them in each CerebrumEntity's dict L{contact_info}. The
+        format of the dict must be matched from this method and the
+        CerebrumEntity class. Example on how L{contact_info} could look like:
+
+            {str(contacttypeA): 
+                                {str(sourcesystemA): str(contactvalue),
+                                 str(sourcesystemB): str(contactvalue),
+                                 },
+             str(contacttypeB):
+                                {str(sourcesystemA): str(contactvalue),
+                                 str(sourcesystemB): str(contactvalue),
+                                 },
+             }
 
         """
         self.logger.debug("Fetch contact info...")
