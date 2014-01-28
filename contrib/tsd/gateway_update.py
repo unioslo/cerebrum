@@ -481,6 +481,8 @@ class Processor:
                 except Gateway.GatewayException, e:
                     logger.warn("GatewayException creating VLAN for %s:%s: %s" %
                             (pid, vln, e))
+                else:
+                    processed.add('%s:%s' % (pid, vlan))
 
     def _process_subnets(self, gw_subnets, subnets, sub2ouid):
         """Sync given subnets with the GW.
