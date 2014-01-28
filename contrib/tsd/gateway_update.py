@@ -353,7 +353,7 @@ class Processor:
         self._process_subnets(gw_subnets, subnets, sub2ouid)
 
         # Mapping hosts to projects by what subnet they're on:
-        hostid2pid = dict((r['entity_id'], self.ouid2pid['target_id']) for r
+        hostid2pid = dict((r['entity_id'], self.ouid2pid[r['target_id']]) for r
                           in self.ent.list_traits(code=self.co.trait_project_host))
         host2project = dict()
         host2ips = dict()
