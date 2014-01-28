@@ -353,40 +353,24 @@ class Processor:
         self._process_subnets(gw_subnets, subnets, sub2ouid)
 
         # Mapping hosts to projects by what subnet they're on:
+        hostid2pid = dict((r['entity_id'], self.ouid2pid['target_id']) for r
+                          in self.ent.list_traits(code=self.co.trait_project_host))
         host2project = dict()
         host2ips = dict()
         for row in aaaar.list_ext():
-            adr = row['aaaa_ip']
-            self.subnet6.clear()
-            try:
-                self.subnet6.find(adr)
-            except SubnetError:
-                logger.info("No found subnet for dns_owner %s",
-                            row['dns_owner_id'])
+            if row['dns_owner_id'] not in hostid2pid:
+                # Host is not connected to a project, and is therefore ignored.
+                logger.debug2("Host not connected to project: %s" % row['name'])
                 continue
-            pid = sub2pid.get(self.subnet6.entity_id)
-            if not pid:
-                logger.debug("Subnet %s not affiliated with project",
-                        self.subnet6.entity_id)
-                continue
-            host2project[row['name']] = pid
-            host2ips.setdefault(row['name'], set()).add(adr)
+            host2project[row['name']] = hostid2pid[row['dns_owner_id']]
+            host2ips.setdefault(row['name'], set()).add(row['aaaa_ip'])
         for row in ar.list_ext():
-            adr = row['a_ip']
-            self.subnet.clear()
-            try:
-                self.subnet.find(adr)
-            except SubnetError:
-                logger.info("No found subnet for dns_owner %s",
-                            row['dns_owner_id'])
+            if row['dns_owner_id'] not in hostid2pid:
+                # Host is not connected to a project, and is therefore ignored.
+                logger.debug2("Host not connected to project: %s" % row['name'])
                 continue
-            pid = sub2pid.get(self.subnet.entity_id)
-            if not pid:
-                logger.debug("Subnet %s not affiliated with project",
-                        self.subnet6.entity_id)
-                continue
-            host2project[row['name']] = pid
-            host2ips.setdefault(row['name'], set()).add(adr)
+            host2project[row['name']] = hostid2pid[row['dns_owner_id']]
+            host2ips.setdefault(row['name'], set()).add(row['a_ip'])
         logger.debug2("Mapped %d hosts to projects", len(host2project))
         logger.debug2("Mapped %d hosts with at least one IP address",
                 len(host2ips))
@@ -557,8 +541,9 @@ class Processor:
         @param gw_hosts: List of all hosts from the GW.
 
         @type host2project: dict
-        @param host2project: The hosts registered in Cerebrum. Keys are hostnames,
-            values are the project IDs.
+        @param host2project:
+            The hosts registered in Cerebrum. Keys are hostnames, values are the
+            project IDs.
 
         """
         processed = set()
