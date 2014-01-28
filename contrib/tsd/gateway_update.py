@@ -594,10 +594,18 @@ class Processor:
 
             processed.add(':'.join((pid, hostname, addr)))
             if hostname not in host2project or hostname not in host2ip:
-                self.gw.delete_ip(pid, hostname, addr)
+                try:
+                    self.gw.delete_ip(pid, hostname, addr)
+                except Gateway.GatewayException, e:
+                    logger.warn("GW exception for deleting IP %s for %s: %s",
+                                addr, hostname, e)
                 continue
             if addr not in host2ip[hostname]:
-                self.gw.delete_ip(pid, hostname, addr)
+                try:
+                    self.gw.delete_ip(pid, hostname, addr)
+                except Gateway.GatewayException, e:
+                    logger.warn("GW exception for deleting IP %s for %s: %s",
+                                addr, hostname, e)
                 continue
         # Create the IP addresses that didn't exist in GW:
         for hst, addresses in host2ips.iteritems():
