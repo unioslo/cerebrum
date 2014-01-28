@@ -105,9 +105,15 @@ class Processor:
                                 self.ac.search(spread=self.co.spread_gateway_account))
         logger.debug2("Found %d accounts" % len(self.acid2acname))
         # Map ou_id to project id:
+        quarantined_ous = set(r['entity_id'] for r in
+                              self.ou.list_entity_quarantines(
+                                        entity_types=self.co.entity_ou,
+                                        only_active=True))
         self.ouid2pid = dict((row['entity_id'], row['external_id']) for row in
-                self.ou.search_external_ids(entity_type=self.co.entity_ou,
-                    id_type=self.co.externalid_project_id))
+                             self.ou.search_external_ids(
+                                entity_type=self.co.entity_ou,
+                                id_type=self.co.externalid_project_id)
+                             if row['entity_id'] not in quarantined_ous)
         logger.debug2("Found %d project IDs" % len(self.ouid2pid))
 
     def process(self):
@@ -339,7 +345,8 @@ class Processor:
 
         # Map subnets to projects:
         sub2ouid = dict((row['entity_id'], row['target_id']) for row in
-            self.ent.list_traits(code=self.co.trait_project_subnet))
+                        self.ent.list_traits(code=self.co.trait_project_subnet)
+                        if row['target_id'] in self.ouid2pid)
         sub2ouid.update(dict((row['entity_id'], row['target_id']) for row in
             self.ent.list_traits(code=self.co.trait_project_subnet6)))
         logger.debug("Mapped %d subnets to OUs", len(sub2ouid))
