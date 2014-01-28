@@ -593,14 +593,14 @@ class Processor:
                 continue
 
             processed.add(':'.join((pid, hostname, addr)))
-            if hostname not in host2project or hostname not in host2ip:
+            if hostname not in host2project or hostname not in host2ips:
                 try:
                     self.gw.delete_ip(pid, hostname, addr)
                 except Gateway.GatewayException, e:
                     logger.warn("GW exception for deleting IP %s for %s: %s",
                                 addr, hostname, e)
                 continue
-            if addr not in host2ip[hostname]:
+            if addr not in host2ips[hostname]:
                 try:
                     self.gw.delete_ip(pid, hostname, addr)
                 except Gateway.GatewayException, e:
