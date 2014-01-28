@@ -601,7 +601,7 @@ class Processor:
         for p in gw_ips:
             addr = p['addr']
             try:
-                hostname = p['hostname']
+                hostname = p['host']
                 pid = p['project']
             except KeyError, e:
                 logger.error("Missing element from GW about IP %s: %e", addr, e)
