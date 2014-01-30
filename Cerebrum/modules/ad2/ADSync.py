@@ -1099,11 +1099,10 @@ class BaseSync(object):
         for atr in self.config['attributes']:
             value = ent.attributes.get(atr, None)
             ad_value = ad_object.get(atr, None)
-            if self.attribute_mismatch(ent, atr, value,
-                                       ad_object.get(atr, None)):
-                self.logger.debug("Mismatch attr for %s: %s: '%s'(%s) -> '%s'(%s)",
-                                  ent.entity_name, atr, ad_value,
-                                  type(ad_value), value, type(value))
+            if self.attribute_mismatch(ent, atr, value, ad_value):
+                self.logger.debug("Mismatch attr for %s: %s: '%s'(%r) (type: %s) -> '%s'(%r) (type: %s)",
+                                  ent.entity_name, atr, ad_value, ad_value,
+                                  type(ad_value), value, value, type(value))
                 ret[atr] = value
         return ret
 
@@ -1159,7 +1158,7 @@ class BaseSync(object):
         if isinstance(c, (list, tuple)) and isinstance(a, (list, tuple)):
             # TODO: Do we in some cases need to unicodify strings before
             # comparement?
-            return sorted(c) != sorted(a)
+            return list(sorted(c)) != list(sorted(a))
         return c != a
 
     def changelog_handle_spread(self, ctype, row):
