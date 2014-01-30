@@ -172,8 +172,8 @@ class CerebrumEntity(object):
     def calculate_ad_values(self):
         """Calculate entity values for AD from Cerebrum data.
 
-        Sets up the automatic AD attributes, for those which hasn't already.
-        The object has to be fed with all the needed data from Cerebrum before
+        Sets up the automatic AD attributes, for those which hasn't already. The
+        object has to be fed with all the needed data from Cerebrum before
         calling this method.
 
         """
@@ -183,35 +183,20 @@ class CerebrumEntity(object):
                                                               self.ou))
         # Attributes defined by the config:
         for atrname, config in self.config['attributes'].iteritems():
-            # Some attributes are not configured, but defined as None in the
-            # config. We expect those to be handled by subclasses and ignore
-            # them here.
+            # Some attributes are not configured, but e.g. defined as None in
+            # the config. We expect those to be handled by subclasses and ignore
+            # them here:
             if not isinstance(config, (ConfigUtils.AttrConfig, list, tuple)):
                 continue
-            try:
-                value = self.find_ad_attribute(config)
-                self.set_attribute(atrname, value)
-            except AttrNotFound:
-                # Use default value, if defined by config:
-                if (isinstance(config, ConfigUtils.AttrConfig) and
-                        hasattr(config, 'default')):
-                    # Add some substitution data to be used for strings: TODO:
-                    # Should we include all the attributes for the entity that
-                    # contains primitive values in here? Would then for instance
-                    # be able to include 'description' for groups, for instance.
-                    # The downside is that it is a bit internal, and might
-                    # change in the future.
-                    if isinstance(config.default, basestring):
-                        self.set_attribute(atrname, config.default %
-                                    {'entity_name': self.entity_name,
-                                     'entity_id': self.entity_id,
-                                     'ad_id': self.ad_id,
-                                     'ou': self.ou},
-                                transform=False)
-                        # TBD: Should transform be used for default values too?
-                    else:
-                        self.set_attribute(atrname, config.default,
-                                           transform=False)
+            if not isinstance(config, (list, tuple)):
+                config = (config,)
+            for c in config:
+                try:
+                    value = self.find_ad_attribute(c)
+                except AttrNotFound:
+                    continue
+                self.set_attribute(atrname, value, c)
+                break
 
     def find_ad_attribute(self, config):
         """Find a given AD attribute in its raw format from the Cerebrum data.
@@ -220,31 +205,19 @@ class CerebrumEntity(object):
         filtering, e.g. the prioritised order of source system that should be
         searched first.
 
-        @type config: mixed
+        @type config: ConfigUtils.AttrConfig
         @param config:
-            The configuration for the given attribute, if set. If it's a list or
-            tuple, each element's config is searched recursively to fetch the
-            first defined valued.
+            The configuration for what value to be fetched from Cerebrum.
 
         @rtype: mixed
         @return:
-            The attribute, if found. Note that None could also be found for an
-            attribute.
+            The attribute value, if found. Note that None could also be found
+            for an attribute.
 
         @raise AttrNotFound:
             Raised in cases where the attribute was not set for the entity.
 
         """
-        if isinstance(config, (list, tuple)):
-            # When the config is a list of different attribute configurations,
-            # we return the first value availble.
-            for c in config:
-                try:
-                    return self.find_ad_attribute(c)
-                except AttrNotFound:
-                    pass
-            raise AttrNotFound('None of AttrConf matched any value')
-
         # TODO: This could be cleaned up, e.g. by one or more helper methods.
 
         if isinstance(config, ConfigUtils.ContactAttr):
@@ -334,8 +307,8 @@ class CerebrumEntity(object):
                 if tr:
                     return tr
         elif isinstance(config, ConfigUtils.PosixAttr):
-            # POSIX data, return all data
-            if hasattr(self, 'posix'):
+            # POSIX data, return all data and let transform set what's needed
+            if getattr(self, 'posix', False):
                 return self.posix
         elif isinstance(config, ConfigUtils.HomeAttr):
             # Home Directory, set by given home_spread
@@ -354,34 +327,52 @@ class CerebrumEntity(object):
         elif isinstance(config, ConfigUtils.CallbackAttr):
             # A callback for an attribute
             return config.callback(self)
+
+        # Use default value, if defined by config:
+        if (isinstance(config, ConfigUtils.AttrConfig) and
+                getattr(config, 'default')):
+            # Add some substitution data to be used for strings: TODO: Should we
+            # include all the attributes for the entity that contains primitive
+            # values in here? Would then for instance be able to include
+            # 'description' for groups, for instance. The downside is that it is
+            # a bit internal, and might change in the future.
+            return config.default
         raise AttrNotFound('No attribute found after attr config')
 
-    def set_attribute(self, key, value, force=False, transform=True):
+    def set_attribute(self, key, value, config=None, force=False,
+                      transform=True):
         """Setting an attribute for the entity.
         
-        Only the first setter of the same key is stored, the rest is ignored -
-        unless L{force} is True. This is so that you could start with setting
-        special values, and end with less important values, like default values.
+        An attribute is only set if the key is defined in the config, and could
+        normally only be set once, the first set value is used, unless L{force}
+        is True. This is so that you could start with setting special values,
+        and end with less important values, like default values.
 
-        The attribute is not set if already set or if not defined in the config.
-
-        Note that if the attribute is defined with a L{transform} function, this
-        is called when setting the attribute.
+        Some extra data is given to the attribute, e.g. through. string
+        substitutions. Also, if the attribute is defined with a L{transform}
+        function in the given config, this is called when setting the attribute.
 
         @type key: string
         @param key: The name of the attribute that wants to be set.
 
         @type value: str, unicode, tuple or list
-        @param value: The value of the attribute that wants to be set. Note that
-            str gets converted to unicode, to make it easier to compare with AD.
+        @param value:
+            The value of the attribute that wants to be set. Note that str gets
+            converted to unicode, to make it easier to compare with AD.
+
+        @type config: ConfigUtils.AttrConfig or None
+        @param config:
+            If set, the tweaks from the config is used, e.g. L{transform}.
 
         @type force: bool
-        @param force: If the attribute should be set even though it has already
-            been set. Should be False if values are calculated.
+        @param force:
+            If the attribute should be set even though it has already been set.
+            Should be False if values are calculated.
 
         @type transform: bool
-        @param transform: If the transform should be called for the input value
-            or not, if it is defined in the configuration for the attribute.
+        @param transform:
+            If the transform should be called for the input value or not, if it
+            is defined in the configuration for the attribute.
 
         @rtype: bool
         @return: True only if the attribute got set.
@@ -395,10 +386,10 @@ class CerebrumEntity(object):
         # Skip if attribute is already set
         if not force and key in self.attributes:
             return False
-        attrconf = self.config['attributes'][key]
         # Skip if entity does not have the required spread:
-        if getattr(attrconf, 'spread', None):
-            if not any(s in attrconf.spread for s in self.spreads):
+        # TODO: This should rather be set in the find_ad_attribute
+        if getattr(config, 'spread', None):
+            if not any(s in config.spread for s in self.spreads):
                 # TODO: Missing proper config for what to set in case of missing
                 # spread. Only set it to None for now, but should be able to set
                 # it to something else, in adconf.
@@ -418,11 +409,47 @@ class CerebrumEntity(object):
             value = value.strip()
             # TODO: also remove double white spaces from all attributes?
 
-        # The config might want to transform the value:
-        if transform and hasattr(attrconf, 'transform'):
-            value = attrconf.transform(value)
+        if transform and hasattr(config, 'transform'):
+            value = config.transform(value)
+        value = self._add_attribute_data(value)
         self.attributes[key] = value
         return True
+
+    def _add_attribute_data(self, value):
+        """Add extra common data to a value, i.e. string substitute in elements.
+
+        Some common elements, like the L{ad_id}, L{entity_id} and L{ou} could be
+        added in to attribute strings by regular string substitution. Example on
+        a given value:
+
+            'group-%(ad_id)s'
+
+        could for different entitites be returned as:
+
+            'group-cerebrum'
+            'group-root'
+            'group-david'
+
+        @type value: mixed
+        @param value:
+            The given AD attribute that should be set. Only some data types are
+            modified. List and tuples are handled recursively.
+
+        @rtype: mixed
+        @return:
+            Return either the input value or a modified version of the input
+            value.
+
+        """
+        if isinstance(value, (tuple, list)):
+            return tuple(self._add_attribute_data(e) for e in value)
+        if isinstance(value, basestring):
+            return value % {'entity_name': self.entity_name,
+                              'entity_id': self.entity_id,
+                              'ad_id': self.ad_id,
+                              'ou': self.ou,
+                              }
+        return value
 
 class CerebrumUser(CerebrumEntity):
     """A representation for a Cerebrum Account which may be exported to AD.
@@ -497,15 +524,6 @@ class PosixCerebrumUser(CerebrumUser):
         """Making the object ready for posix data."""
         super(PosixCerebrumUser, self).__init__(*args, **kwargs)
         self.posix = dict()
-
-    def calculate_ad_values(self):
-        """Calculate POSIX attributes."""
-        super(PosixCerebrumUser, self).calculate_ad_values()
-        # TODO: Remove this, gets handled by ConfigUtils instead now
-        if self.posix.has_key('uid'):
-            self.set_attribute('UidNumber', self.posix['uid'])
-        if self.posix.has_key('gid'):
-            self.set_attribute('GidNumber', self.posix['gid'])
 
 class MailTargetEntity(CerebrumUser):
     """An entity with Mailtarget, which becomes a Mail-object in Exchange.

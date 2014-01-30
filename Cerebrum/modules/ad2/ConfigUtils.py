@@ -387,6 +387,11 @@ class EmailQuotaAttr(AttrConfig):
 class PosixAttr(AttrConfig):
     """Config for POSIX data, like GID, UID, shell and gecos.
 
+    It is possible to sync posix data, like GID, with AD, for instance for
+    environments that should support both environments where both UNIX and AD is
+    used. Note, however, that AD needs to include an extra schema before the
+    posix attributes could be populated.
+
     This class makes available a dict with the elements:
 
         - uid: int or empty string
@@ -394,7 +399,9 @@ class PosixAttr(AttrConfig):
         - shell: string, strcode of a PosixShell constant, e.g. "bash"
         - gecos: string, free text
 
-    One of these could for instance be set through the L{transform} method.
+    One of these could for instance be set through the L{transform} method, e.g:
+
+        lamba posix: posix.get('shell', '<N/A>')
 
     Note that regular Cerebrum PosixGroups does not have anything set else than
     GID.
@@ -443,3 +450,59 @@ class HomeAttr(AttrConfig):
 # TODO: Need to figure out how to implement different config classes for various
 # settings that is not related to Cerebrum constants. Should we create one class
 
+def has_config(config, configclass):
+    """Helper function for checking if a given attribute is defined.
+
+    Searches recursively, as some attributes could be defined as lists with
+    different attribute classes.
+
+    @type config: dict
+    @param config: The configuration for all the attributes.
+
+    @type configclass: AttrConfig or list of AttrConfig
+    @param configclass:
+        The given class or classes that should be searched for. Used simply as
+        input to isinstance(config, configclass).
+
+    @rtype: bool
+    @return:
+        If the given config class is defined and exists in the configuration.
+
+    """
+    if isinstance(config, dict):
+        # We only need the values, not the attribute names
+        config = config.itervalues()
+    for c in config:
+        if isinstance(c, configclass):
+            return True
+        if isinstance(c, (list, tuple)):
+            if has_config(c, configclass):
+                return True
+    return False
+
+def get_config_by_type(config, configclass):
+    """Helper function for getting all config by a given type.
+
+    Searches recursively, as some attributes could be defined as lists with
+    different attribute classes. The result is a flattened list, without the
+    attribute names.
+
+    @type config: dict
+    @param config: The configuration for all the attributes.
+
+    @type configclass: AttrConfig
+    @param configclass: The given class that should be searched for.
+
+    @rtype: list
+    @return:
+        A flattened list with all the attribute configuration objects of the
+        given class type. 
+
+    """
+    ret = []
+    for c in config.itervalues():
+        if isinstance(c, configclass):
+            return ret.append(c)
+        if isinstance(c, (list, tuple)):
+            ret.extend(get_config_by_type(c, configclass))
+    return ret

@@ -1706,6 +1706,8 @@ class UserSync(BaseSync):
             self.owner2ent.setdefault(ent.owner_id, []).append(ent)
         self.logger.debug("Mapped %d entity owners", len(self.owner2ent))
 
+        self.fetch_posix()
+
         # Set what is primary accounts.
         # TODO: We don't want to fetch this unless we really need the data,
         # since it takes some time to finish. How could we find its usage from
@@ -2016,7 +2018,8 @@ class UserSync(BaseSync):
                 types.update(atr.traitcodes)
         if not types:
             return
-        self.logger.debug("Fetch traits of types: %s", types)
+        self.logger.debug2("Fetch traits of types: %s",
+                           ', '.join(str(t) for t in types))
         ids = NotSet
         if self.config['subset']:
             ids = self.id2entity.keys()
@@ -2089,10 +2092,10 @@ class UserSync(BaseSync):
         fix this in a better way later.
 
         """
-        mailconf = (ConfigUtils.EmailQuotaAttr, ConfigUtils.EmailAddrAttr)
-        if not any(isinstance(a, mailconf) for a in
-                self.config['attributes'].itervalues()):
-            # No mail data needed, skipping
+        if not ConfigUtils.has_config(
+                    self.config['attributes'],
+                    (ConfigUtils.EmailQuotaAttr, ConfigUtils.EmailAddrAttr)):
+            # No email data is needed, skipping
             return
         self.logger.debug("Fetch mail data...")
 
@@ -2187,6 +2190,36 @@ class UserSync(BaseSync):
                     ent.home[row['home_spread']] = tmp
                     i += 1
         self.logger.debug("Found %d account home directories" % i)
+
+    def fetch_posix(self):
+        """Fetch the POSIX data for users, if needed.
+
+        """
+        if not ConfigUtils.has_config(self.config['attributes'],
+                                     ConfigUtils.PosixAttr):
+            # No need for any posix data
+            return
+        self.logger.debug("Fetch posix data...")
+        pg = Factory.get('PosixGroup')(self.db)
+        pu = Factory.get('PosixUser')(self.db)
+
+        # Map from group_id to GID:
+        posix_group_id2gid = dict((eid, gid) for eid, gid in
+                                  pg.list_posix_groups())
+        self.logger.debug("Found %d posix groups", len(posix_group_id2gid))
+
+        i = 0
+        for row in pu.list_posix_users():
+            ent = self.id2entity.get(row['account_id'], None)
+            if ent:
+                if not hasattr(ent, 'posix'):
+                    ent.posix = {}
+                ent.posix['uid'] = int(row['posix_uid']) or ''
+                ent.posix['gid'] = posix_group_id2gid.get(row['gid'], '')
+                ent.posix['shell'] = str(self.co.PosixShell(row['shell']))
+                ent.posix['gecos'] = row['gecos']
+                i += 1
+        self.logger.debug("Found %d posix users", i)
 
     def fetch_passwords(self):
         """Fetch passwords for accounts that are new in AD.
@@ -2677,8 +2710,7 @@ class GroupSync(BaseSync):
 
         """
         super(GroupSync, self).fetch_cerebrum_data()
-        # TODO: More data that is needed?
-        # For instance what groups are dist groups and sec groups?
+        self.fetch_posix()
 
     def fetch_cerebrum_entities(self):
         """Fetch the groups from Cerebrum that should be compared against AD.
@@ -2704,6 +2736,26 @@ class GroupSync(BaseSync):
                 continue
             self.entities[name] = self.cache_entity(int(row["group_id"]), name,
                                                     description=row['description'])
+
+    def fetch_posix(self):
+        """Fetch the POSIX data for groups, if needed.
+
+        """
+        if not ConfigUtils.has_config(self.config['attributes'],
+                                     ConfigUtils.PosixAttr):
+            # No need for any posix data
+            return
+        self.logger.debug("Fetch posix data...")
+        pg = Factory.get('PosixGroup')(self.db)
+        i = 0
+        for row in pg.list_posix_groups():
+            ent = self.id2entity.get(row['group_id'], None)
+            if ent:
+                if not hasattr(ent, 'posix'):
+                    ent.posix = {}
+                ent.posix['gid'] = int(row['posix_gid']) or ''
+                i += 1
+        self.logger.debug("Found %d posix groups", i)
 
     def start_fetch_ad_data(self, object_class=None, attributes=dict()):
         """Ask AD to start generating the data we need about groups.
@@ -3071,75 +3123,6 @@ class DistGroupSync(GroupSync):
         "wrapper func for easier subclassing"
         return CerebrumDistGroup(gname, group_id, description, self.ad_domain,
                                  self.get_default_ou())
-
-class PosixUserSync(UserSync):
-    """Extra sync functionality for posix data about users.
-
-    It is possible to sync posix data, like UID and GID, with AD, for
-    environments that should support both environments where both UNIX and AD is
-    used. Note, however, that AD needs to include an extra schema before the
-    pposix attributes could be populated.
-
-    """
-    def __init__(self, *args, **kwargs):
-        """Instantiate posix specific functionality."""
-        super(PosixUserSync, self).__init__(*args, **kwargs)
-        self.pu = Factory.get('PosixUser')(self.db)
-        self.pg = Factory.get('PosixGroup')(self.db)
-
-    def fetch_cerebrum_data(self):
-        """Fetch the posix data from Cerebrum."""
-        super(PosixUserSync, self).fetch_cerebrum_data()
-
-        # Then fetch POSIX data for the user
-
-        # First, we need a mapping between group_id to GID:
-        self.posix_group_id2gid = dict((eid, gid) for eid, gid in
-                                       self.pg.list_posix_groups())
-        self.logger.debug("Number of POSIX groups: %d",
-                          len(self.posix_group_id2gid))
-        # Then we give each account UID and GID
-        # TODO: Should be extended in the future with more attributes. UiO would
-        # for instance like to populate "gecos" and primary group.
-        for row in self.pu.list_posix_users():
-            ent = self.id2entity.get(row['account_id'], None)
-            if ent:
-                if not hasattr(ent, 'posix'):
-                    ent.posix = {}
-                ent.posix['uid'] = int(row['posix_uid']) or ''
-                ent.posix['gid'] = self.posix_group_id2gid.get(row['gid'], '')
-                ent.posix['shell'] = str(self.co.PosixShell(row['shell']))
-                ent.posix['gecos'] = row['gecos']
-        self.logger.debug("Number of POSIX users: %d",
-                          len(filter(lambda x: len(x.posix) > 0,
-                              self.entities.itervalues())))
-
-class PosixGroupSync(GroupSync):
-    """Extra sync functionality for getting posix data about groups.
-
-    It is possible to sync posix data, like GID, with AD, for instance for
-    environments that should support both environments where both UNIX and AD is
-    used. Note, however, that AD needs to include an extra schema before the
-    posix attributes could be populated.
-
-    """
-    def __init__(self, *args, **kwargs):
-        """Instantiate posix specific functionality."""
-        super(PosixGroupSync, self).__init__(*args, **kwargs)
-        self.pg = Factory.get('PosixGroup')(self.db)
-
-    def fetch_cerebrum_data(self):
-        """Fetch the posix data from Cerebrum."""
-        super(PosixGroupSync, self).fetch_cerebrum_data()
-        i = 0
-        for row in self.pg.list_posix_groups():
-            ent = self.id2entity.get(row['group_id'], None)
-            if ent:
-                if not hasattr(ent, 'posix'):
-                    ent.posix = {}
-                ent.posix['gid'] = int(row['posix_gid']) or ''
-                i += 1
-        self.logger.debug("Number of GIDs found: %d", i)
 
 class MailTargetSync(BaseSync):
     """Extra sync functionality for getting MailTarget data.
