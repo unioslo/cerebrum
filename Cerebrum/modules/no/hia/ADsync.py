@@ -901,27 +901,51 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             else:
                 cerebrumdump[exch_user['uname']]['deliverAndRedirect'] = False
                 if row['enable'] == 'T':
-                    exch_user['forward_addresses'].append(row['forward_to'])
+                    #
+                    # In AD, a contact object name may only contain 64
+                    # characters. The existing namin convention uses
+                    # the forwarding address as a part of the name,
+                    # which creates problems for the sync (AD will
+                    # not register any contact objects with names longer
+                    # than 64 character. In order to fix this, we suggest
+                    # that the naming convention is changed to
+                    # the relevant user name and the entity_id of the
+                    # the forward target. The suggestion has been made
+                    # by UiA on 2014-01-29. (Jazz)
+                    # 
+                    # NB! this will only work if we assume that no address
+                    # contain a ;, which should be the case anyway as
+                    # the standards do not allow such use
+                    forw_addr_entid = "%s;%d" % (row['forward_to'],int(row['target_id']))
+                    exch_user['forward_addresses'].append(forw_addr_entid)
 
         # Make dict with attributes for AD
         forwards = {}
         for values in exch_users.itervalues():
-            for fwrd_addr in values['forward_addresses']:
+            for tmp_addr in values['forward_addresses']:
+                
+                fwrd_addr, fwrd_target_id = tmp_addr.split(';')
+                fwrd_addr.strip()
+                fwrd_target_id.strip()
                 SMTP = "SMTP:%s" % fwrd_addr
                 smtp = "smtp:%s" % fwrd_addr
                 if (SMTP in cerebrumdump[values['uname']]['proxyAddresses']
                         or smtp in cerebrumdump[values['uname']]['proxyAddresses']):
                     cerebrumdump[values['uname']]['deliverAndRedirect'] = True
                 else:
-                    objectname = "Forward_for_%s__%s" % (
-                        values['uname'], fwrd_addr)
+                    # using the established naming convention
+                    objectname = "Forward_for_%s__%s" % (values['uname'], fwrd_addr)
+                    if len(objectname) > 64:
+                        # the name is too long, and the alternative
+                        # naming convention kicks in
+                        objectname = "Forward_for_%s__%d" % (values['uname'], fwrd_target_id)
                     forwards[objectname] = {
                         "displayName":
                         "Forward for %s (%s)" % (
                         values['uname'],
                         fwrd_addr),
-                        "targetAddress": "SMTP:%s" % fwrd_addr,
-                        "proxyAddresses": [("SMTP:%s" % fwrd_addr)],
+                        "targetAddress": "%s" % SMTP,
+                        "proxyAddresses": [("%s" % SMTP)],
                         "mail": fwrd_addr,
                         "msExchPoliciesExcluded":
                         cereconf.AD_EX_POLICIES_EXCLUDED,
