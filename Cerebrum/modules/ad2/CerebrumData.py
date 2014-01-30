@@ -333,8 +333,12 @@ class CerebrumEntity(object):
                 return {'alias': adr, 'primary': prim}
         elif isinstance(config, ConfigUtils.EmailQuotaAttr):
             # Email Quota
-            if self.maildata.has_key('quota'):
+            if 'quota' in self.maildata:
                 return self.maildata['quota']
+        elif isinstance(config, ConfigUtils.EmailForwardAttr):
+            # Email Forward
+            if 'forward' in self.maildata:
+                return self.maildata['forward']
         elif isinstance(config, ConfigUtils.CallbackAttr):
             # A callback for an attribute
             return config.callback(self)

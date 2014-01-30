@@ -2127,7 +2127,8 @@ class UserSync(BaseSync):
         """
         if not ConfigUtils.has_config(
                     self.config['attributes'],
-                    (ConfigUtils.EmailQuotaAttr, ConfigUtils.EmailAddrAttr)):
+                    (ConfigUtils.EmailQuotaAttr, ConfigUtils.EmailAddrAttr,
+                     ConfigUtils.EmailForwardAttr)):
             # No email data is needed, skipping
             return
         self.logger.debug("Fetch mail data...")
@@ -2187,6 +2188,24 @@ class UserSync(BaseSync):
                     ent.maildata['primary'] = adrid2email[row['address_id']]
                     i += 1
             self.logger.debug("Found %d primary email addresses" % i)
+
+        # Email forwards
+        if ConfigUtils.has_config(self.config['attributes'],
+                                  ConfigUtils.EmailForwardAttr):
+            ef = Email.EmailForward(self.db)
+            i = 0
+            for row in ef.list_email_forwards():
+                ent_id = targetid2entityid.get(row['target_id'])
+                if not ent_id:
+                    continue
+                ent = self.id2entity.get(targetid2entityid[row['target_id']])
+                if ent:
+                    ent.maildata.setdefault('forward', []).append({
+                        'forward_to': row['forward_to'],
+                        'enable': row['enable']
+                        })
+                    i += 1
+            self.logger.debug("Found %d forward addresses" % i)
 
     def fetch_homes(self):
         """Fetch all home directories for the the users.

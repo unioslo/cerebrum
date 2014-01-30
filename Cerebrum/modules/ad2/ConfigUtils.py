@@ -386,6 +386,25 @@ class EmailQuotaAttr(AttrConfig):
     # No extra settings needed, got all we need from AttrConfig.
     pass
 
+class EmailForwardAttr(AttrConfig):
+    """Config for e-mail forward addresses for an entity from the Email module.
+
+    Note that each given value contains a list with forwards, each with
+    elements:
+    
+        - TODO
+
+        - primary (string): The primary e-mail address for the entity.
+        - alias (list of strings): A list of all the e-mail aliases for the
+          entity.
+
+    You would like to use L{transform} or other methods to set what you want for
+    the given attribute.
+
+    """
+    # No extra settings needed, got all we need from AttrConfig.
+    pass
+
 class PosixAttr(AttrConfig):
     """Config for POSIX data, like GID, UID, shell and gecos.
 
