@@ -1157,8 +1157,9 @@ class BaseSync(object):
                 return True
         # Order does not matter in multivalued attributes:
         if isinstance(c, (list, tuple)) and isinstance(a, (list, tuple)):
-            if sorted(c) != sorted(a):
-                return True
+            # TODO: Do we in some cases need to unicodify strings before
+            # comparement?
+            return sorted(c) != sorted(a)
         return c != a
 
     def changelog_handle_spread(self, ctype, row):
