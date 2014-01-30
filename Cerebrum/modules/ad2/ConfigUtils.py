@@ -523,13 +523,16 @@ def get_config_by_type(config, configclass):
     @rtype: list
     @return:
         A flattened list with all the attribute configuration objects of the
-        given class type. 
+        given class type. The attribute names are not returned.
 
     """
     ret = []
-    for c in config.itervalues():
+    if isinstance(config, dict):
+        # We only need the values, not the attribute names
+        config = config.itervalues()
+    for c in config:
         if isinstance(c, configclass):
-            return ret.append(c)
+            ret.append(c)
         if isinstance(c, (list, tuple)):
             ret.extend(get_config_by_type(c, configclass))
     return ret

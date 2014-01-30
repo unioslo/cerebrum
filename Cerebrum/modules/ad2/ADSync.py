@@ -849,15 +849,15 @@ class BaseSync(object):
         languages = set()
         all_systems = False
         # Go through config and see what info needs to be fetched:
-        for atr in self.config['attributes'].itervalues():
-            if isinstance(atr, ConfigUtils.NameAttr):
-                variants.update(atr.name_variants)
-                if atr.source_systems is None:
-                    all_systems = True
-                else:
-                    systems.update(atr.source_systems)
-                if atr.languages:
-                    languages.update(atr.languages)
+        for atr in ConfigUtils.get_config_by_type(self.config['attributes'],
+                                                  ConfigUtils.NameAttr):
+            variants.update(atr.name_variants)
+            if atr.source_systems is None:
+                all_systems = True
+            else:
+                systems.update(atr.source_systems)
+            if atr.languages:
+                languages.update(atr.languages)
         if not variants:
             return
         self.logger.debug("Fetch names of the types: %s", variants)
@@ -1816,15 +1816,15 @@ class UserSync(BaseSync):
         languages = set()
         all_systems = False
         # Go through config and see what info needs to be fetched:
-        for atr in self.config['attributes'].itervalues():
-            if isinstance(atr, ConfigUtils.NameAttr):
-                variants.update(atr.name_variants)
-                if atr.source_systems is None:
-                    all_systems = True
-                else:
-                    systems.update(atr.source_systems)
-                if atr.languages:
-                    languages.update(atr.languages)
+        for atr in ConfigUtils.get_config_by_type(self.config['attributes'],
+                                                  ConfigUtils.NameAttr):
+            variants.update(atr.name_variants)
+            if atr.source_systems is None:
+                all_systems = True
+            else:
+                systems.update(atr.source_systems)
+            if atr.languages:
+                languages.update(atr.languages)
         self.logger.debug2("Fetching name variants: %s",
                            ', '.join(str(v) for v in variants))
         self.logger.debug2("Fetching names by languages: %s",
@@ -1881,13 +1881,13 @@ class UserSync(BaseSync):
         languages = set()
         all_systems = False
         # Go through config and see what info needs to be fetched:
-        for atr in self.config['attributes'].itervalues():
-            if isinstance(atr, ConfigUtils.PersonNameAttr):
-                variants.update(atr.name_variants)
-                if atr.source_systems is None:
-                    all_systems = True
-                else:
-                    systems.update(atr.source_systems)
+        for atr in ConfigUtils.get_config_by_type(self.config['attributes'],
+                                                  ConfigUtils.PersonNameAttr):
+            variants.update(atr.name_variants)
+            if atr.source_systems is None:
+                all_systems = True
+            else:
+                systems.update(atr.source_systems)
         self.logger.debug2("Fetching person person name variants: %s",
                            ', '.join(str(v) for v in variants))
         self.logger.debug2("Fetching person names from sources: %s",
@@ -1939,13 +1939,13 @@ class UserSync(BaseSync):
         systems = set()
         all_systems = False
         # Go through config and see what info needs to be fetched:
-        for atr in self.config['attributes'].itervalues():
-            if isinstance(atr, ConfigUtils.ContactAttr):
-                types.update(atr.contact_types)
-                if atr.source_systems is None:
-                    all_systems = True
-                else:
-                    systems.update(atr.source_systems)
+        for atr in ConfigUtils.get_config_by_type(self.config['attributes'],
+                                                  ConfigUtils.ContactAttr):
+            types.update(atr.contact_types)
+            if atr.source_systems is None:
+                all_systems = True
+            else:
+                systems.update(atr.source_systems)
         self.logger.debug2("Fetching contact-types: %s",
                             ', '.join(str(t) for t in types))
         self.logger.debug2("Fetching contactinfo from sources: %s",
@@ -1995,13 +1995,13 @@ class UserSync(BaseSync):
         systems = set()
         all_systems = False
         # Go through config and see what info needs to be fetched:
-        for atr in self.config['attributes'].itervalues():
-            if isinstance(atr, ConfigUtils.ExternalIdAttr):
-                types.update(atr.id_types)
-                if atr.source_systems is None:
-                    all_systems = True
-                else:
-                    systems.update(atr.source_systems)
+        for atr in ConfigUtils.get_config_by_type(self.config['attributes'],
+                                                  ConfigUtils.ExternalIdAttr):
+            types.update(atr.id_types)
+            if atr.source_systems is None:
+                all_systems = True
+            else:
+                systems.update(atr.source_systems)
         if not types:
             return
         self.logger.debug("Fetch external ids...")
@@ -2046,9 +2046,9 @@ class UserSync(BaseSync):
         """
         types = set()
         # Go through config and see what info needs to be fetched:
-        for atr in self.config['attributes'].itervalues():
-            if isinstance(atr, ConfigUtils.TraitAttr):
-                types.update(atr.traitcodes)
+        for atr in ConfigUtils.get_config_by_type(self.config['attributes'],
+                                                  ConfigUtils.TraitAttr):
+            types.update(atr.traitcodes)
         if not types:
             return
         self.logger.debug2("Fetch traits of types: %s",
@@ -2074,13 +2074,13 @@ class UserSync(BaseSync):
         systems = set()
         all_systems = False
         # Go through config and see what info needs to be fetched:
-        for atr in self.config['attributes'].itervalues():
-            if isinstance(atr, ConfigUtils.AddressAttr):
-                adrtypes.update(atr.address_types)
-                if atr.source_systems is None:
-                    all_systems = True
-                else:
-                    systems.update(atr.source_systems)
+        for atr in ConfigUtils.get_config_by_type(self.config['attributes'],
+                                                  ConfigUtils.AddressAttr):
+            adrtypes.update(atr.address_types)
+            if atr.source_systems is None:
+                all_systems = True
+            else:
+                systems.update(atr.source_systems)
         if not adrtypes:
             return
         self.logger.debug("Fetch address info...")
@@ -2148,8 +2148,8 @@ class UserSync(BaseSync):
                 ent.maildata['target_id'] = target_id
 
         # Email quotas
-        if any(isinstance(a, ConfigUtils.EmailQuotaAttr) for a in
-                self.config['attributes'].itervalues()):
+        if ConfigUtils.has_config(self.config['attributes'],
+                                  ConfigUtils.EmailQuotaAttr):
             mailquota = Email.EmailQuota(self.db)
             i = 0
             for row in mailquota.list_email_quota_ext():
@@ -2162,8 +2162,8 @@ class UserSync(BaseSync):
             self.logger.debug("Found %d email quotas" % i)
 
         # Email addresses
-        if any(isinstance(a, ConfigUtils.EmailAddrAttr) for a in
-                self.config['attributes'].itervalues()):
+        if ConfigUtils.has_config(self.config['attributes'],
+                                  ConfigUtils.EmailAddrAttr):
             ea = Email.EmailAddress(self.db)
             # Need a mapping from address_id for the primary addresses:
             adrid2email = dict()
@@ -2217,9 +2217,9 @@ class UserSync(BaseSync):
         """
         homespreads = set()
         # Go through config and see what info needs to be fetched:
-        for atr in self.config['attributes'].itervalues():
-            if isinstance(atr, ConfigUtils.HomeAttr):
-                homespreads.add(atr.home_spread)
+        for atr in ConfigUtils.get_config_by_type(self.config['attributes'],
+                                                  ConfigUtils.HomeAttr):
+            homespreads.add(atr.home_spread)
         if not homespreads:
             return
         self.logger.debug("Fetch home directories...")
