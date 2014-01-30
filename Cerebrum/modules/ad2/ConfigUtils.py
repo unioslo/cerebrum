@@ -103,9 +103,9 @@ class AttrConfig(object):
             wrong use of the spread definition. Therefore, use with care, to
             avoid complications in the other parts of the business logic.
 
-            TODO: This should be moved into CriteriaConfig
+            TODO: This should be moved into AttrCriterias
 
-        @type criterias: CriteriaConfig
+        @type criterias: AttrCriterias
         @param criterias:
             TODO: A class that sets what criterias must be fullfilled before a
             value could be set according to this ConfigAttr.
@@ -123,34 +123,36 @@ class AttrConfig(object):
         self.default = default
         if transform:
             self.transform = transform
-        self.source_systems = self._prepare_constants(source_systems,
+        self.source_systems = _prepare_constants(source_systems,
                                                       const.AuthoritativeSystem)
-        self.spread = self._prepare_constants(spread, const.Spread)
-        # TODO: Not implemented yet:
+        self.spread = _prepare_constants(spread, const.Spread)
+        if criterias and not isinstance(criterias, AttrCriterias):
+            raise ConfigError('Criterias is not an AttrCriterias object')
         self.criterias = criterias
 
-    def _prepare_constants(self, input, const_class):
-        """Prepare and validate given constant(s).
+def _prepare_constants(input, const_class):
+    """Prepare and validate given Cerebrum constant(s).
 
-        @type input: Cerebrum constant or sequence thereof or None
-        @param input: The constants that should be used.
+    @type input: Cerebrum constant or sequence thereof or None
+    @param input: The constants that should be used.
 
-        @type const_class: CerebrumCode class or sequence thereof
-        @param const_class: The class that the given constant(s) must be
-            instances of to be valid. If a sequence is given, the constants must
-            be an instance of one of the classes.
+    @type const_class: CerebrumCode class or sequence thereof
+    @param const_class:
+        The class that the given constant(s) must be instances of to be valid.
+        If a sequence is given, the constants must be an instance of one of the
+        classes.
 
-        @rtype: sequence of Cerebrum constants
-        @return: Return the given input, but makes sure that it is iterable.
+    @rtype: sequence of Cerebrum constants
+    @return: Return the given input, but makes sure that it is iterable.
 
-        """
-        if input:
-            if not isinstance(input, (list, tuple, set)):
-                input = (input,)
-            for i in input:
-                if not isinstance(i, const_class):
-                    raise ConfigError('Not a %s: %s (%r)' % (const_class, i, i))
-        return input
+    """
+    if input:
+        if not isinstance(input, (list, tuple, set)):
+            input = (input,)
+        for i in input:
+            if not isinstance(i, const_class):
+                raise ConfigError('Not a %s: %s (%r)' % (const_class, i, i))
+    return input
 
 class ContactAttr(AttrConfig):
     """Configuration for an attribute containing contact info.
@@ -177,7 +179,7 @@ class ContactAttr(AttrConfig):
 
         """
         super(ContactAttr, self).__init__(*args, **kwargs)
-        self.contact_types = self._prepare_constants(contact_types,
+        self.contact_types = _prepare_constants(contact_types,
                 const.ContactInfo)
 
 class NameAttr(AttrConfig):
@@ -203,10 +205,10 @@ class NameAttr(AttrConfig):
 
         """
         super(NameAttr, self).__init__(*args, **kwargs)
-        self.name_variants = self._prepare_constants(name_variants,
+        self.name_variants = _prepare_constants(name_variants,
                                                      (const.EntityNameCode,
                                                       const.PersonName))
-        self.languages = self._prepare_constants(languages, const.LanguageCode)
+        self.languages = _prepare_constants(languages, const.LanguageCode)
 
 class PersonNameAttr(AttrConfig):
     """Configuration for attributes that should contain person names.
@@ -223,7 +225,7 @@ class PersonNameAttr(AttrConfig):
 
         """
         super(PersonNameAttr, self).__init__(*args, **kwargs)
-        self.name_variants = self._prepare_constants(name_variants,
+        self.name_variants = _prepare_constants(name_variants,
                                                      const.PersonName)
 
 class AddressAttr(AttrConfig):
@@ -277,7 +279,7 @@ class AddressAttr(AttrConfig):
 
         """
         super(AddressAttr, self).__init__(*args, **kwargs)
-        self.address_types = self._prepare_constants(address_types,
+        self.address_types = _prepare_constants(address_types,
                                                      const.Address)
 
 class ExternalIdAttr(AttrConfig):
@@ -292,7 +294,7 @@ class ExternalIdAttr(AttrConfig):
 
         """
         super(ExternalIdAttr, self).__init__(*args, **kwargs)
-        self.id_types = self._prepare_constants(id_types,
+        self.id_types = _prepare_constants(id_types,
                 const.EntityExternalId)
 
 class TraitAttr(AttrConfig):
@@ -313,7 +315,7 @@ class TraitAttr(AttrConfig):
 
         """
         super(TraitAttr, self).__init__(*args, **kwargs)
-        self.traitcodes = self._prepare_constants(traitcodes, const.EntityTrait)
+        self.traitcodes = _prepare_constants(traitcodes, const.EntityTrait)
 
 class CallbackAttr(AttrConfig):
     """A special attribute, using callbacks with the entity as the argument.
@@ -447,8 +449,14 @@ class HomeAttr(AttrConfig):
             raise ConfigError('Not a Spread: %s' % (home_spread,))
         self.home_spread = home_spread
 
-# TODO: Need to figure out how to implement different config classes for various
-# settings that is not related to Cerebrum constants. Should we create one class
+class AttrCriterias(object):
+    """Config class for setting criterias for an AttrConfig.
+
+    """
+    def __init__(self, spreads=None):
+        self.spread = _prepare_constants(spreads, const.Spread)
+
+    # TODO: Add helper methods for checking the criterias here
 
 def has_config(config, configclass):
     """Helper function for checking if a given attribute is defined.

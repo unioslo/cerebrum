@@ -220,6 +220,17 @@ class CerebrumEntity(object):
         """
         # TODO: This could be cleaned up, e.g. by one or more helper methods.
 
+        # Check the criterias for the attribute first:
+        # TODO: We need to move the spread criteria into the Criterias class.
+        if getattr(config, 'spread', False):
+            if not any(s in config.spread for s in self.spreads):
+                raise AttrNotFound('Attribute criterias not fullfilled')
+        if getattr(config, 'criterias', False):
+            cr = config.criterias
+            if not any(s in cr.spread for s in self.spreads):
+                raise AttrNotFound('Attribute criterias not fullfilled')
+            # TODO: Check more of the criterias
+
         if isinstance(config, ConfigUtils.ContactAttr):
             # ContactInfo
             # The dict self.contact_info has the format:
@@ -386,15 +397,6 @@ class CerebrumEntity(object):
         # Skip if attribute is already set
         if not force and key in self.attributes:
             return False
-        # Skip if entity does not have the required spread:
-        # TODO: This should rather be set in the find_ad_attribute
-        if getattr(config, 'spread', None):
-            if not any(s in config.spread for s in self.spreads):
-                # TODO: Missing proper config for what to set in case of missing
-                # spread. Only set it to None for now, but should be able to set
-                # it to something else, in adconf.
-                self.attributes[key] = None
-                return True
 
         if isinstance(value, str):
             # This will fail if str contains special characters. Input should

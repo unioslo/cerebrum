@@ -1066,15 +1066,14 @@ class BaseSync(object):
                 ad_object['DistinguishedName'] = dn
 
         # Compare attributes:
-        self.compare_attributes(ent, ad_object)
-        if ent.changes:
-            self.server.update_attributes(dn, ent.changes['attributes'],
-                                          ad_object)
+        changes = self.get_mismatch_attributes(ent, ad_object)
+        if changes:
+            self.server.update_attributes(dn, changes, ad_object)
         # Store SID in Cerebrum
         self.store_sid(ent, ad_object.get('SID'))
         return True
 
-    def compare_attributes(self, ent, ad_object):
+    def get_mismatch_attributes(self, ent, ad_object):
         """Compare entity's attributes between Cerebrum and AD.
 
         If the attributes exists in both places, it should be updated if it
@@ -1083,28 +1082,68 @@ class BaseSync(object):
         The changes gets appended to the entity's change list for further
         processing.
 
-        """
-        for atr in self.config['attributes']:
-            self.compare_attribute(ent, atr,
-                                   ent.attributes.get(atr, None),
-                                   ad_object.get(atr, None))
+        @type ent: CerebrumEntity
+        @param ent:
+            The given entity from Cerebrum, with calculated attributes.
 
-    def compare_attribute(self, ent, atr, c, a):
+        @type ad_object: dict (an object in the future?)
+        @param ad_object: 
+            The given attributes from AD for the target object.
+
+        @rtype: dict
+        @return:
+            The list of attributes that doesn't match and should be updated.
+
+        """
+        ret = {}
+        for atr in self.config['attributes']:
+            value = ent.attributes.get(atr, None)
+            ad_value = ad_object.get(atr, None)
+            if self.attribute_mismatch(ent, atr, value,
+                                       ad_object.get(atr, None)):
+                self.logger.debug("Mismatch attr for %s: %s: '%s'(%s) -> '%s'(%s)",
+                                  ent.entity_name, atr, ad_value,
+                                  type(ad_value), value, type(value))
+                ret[atr] = value
+        return ret
+
+    def attribute_mismatch(self, ent, atr, c, a):
         """Compare an attribute between Cerebrum and AD.
 
         This is a generic method. Specific attributes should not be hardcoded in
-        this method, but should rather be configurable, or maybe be subclassed.
+        this method, but should rather be configurable, or might be subclassed
+        even though that should be avoided (try to generalize).
+
+        The attributes are matched in different ways. The order does for example
+        not matter for multivalued attributes, i.e. lists.
+
+        @type ent: CerebrumEntity
+        @param ent:
+            The given entity from Cerebrum, with calculated attributes.
+
+        @type atr: str
+        @param atr: The name of the attribute to compare
+
+        @type c: mixed
+        @param c: The value from Cerebrum for the given attribute
+
+        @type a: mixed
+        @param a: The value from AD for the given attribute
+
+        @rtype: bool
+        @return:
+            True if the attribute from Cerebrum and AD does not match and should
+            be updated in AD.
 
         """
-        # TODO: Change this to only return a bool if an attribute is correct or
-        # not, and let self.compare_attributes handles marking it for update.
 
         # TODO: Should we care about case sensitivity?
 
         # Ignore the cases where an attribute is None in Cerebrum and an empty
         # string in AD:
+        # TODO: Is this correct after using JSON format?
         if c is None and a == '':
-            return
+            return False
         # TODO: Should we ignore attributes with extra spaces? AD converts
         # double spaces into single spaces, e.g. GivenName='First  Last' becomes
         # in AD 'First Last'. This is issues that should be fixed in the source
@@ -1115,18 +1154,12 @@ class BaseSync(object):
         # sensitivity should rather be configurable.
         if atr.lower() == 'samaccountname':
             if a is None or c.lower() != a.lower():
-                self.logger.debug("Mismatch attr for %s: %s: '%s' (%s) -> '%s' (%s)"
-                                  % (ent.entity_name, atr, a, type(a), c, type(c)))
-                ent.changes.setdefault('attributes', {})[atr] = c
-        elif isinstance(c, (list, tuple)) and isinstance(a, (list, tuple)):
+                return True
+        # Order does not matter in multivalued attributes:
+        if isinstance(c, (list, tuple)) and isinstance(a, (list, tuple)):
             if sorted(c) != sorted(a):
-                self.logger.debug("Mismatch multivalued attr for %s: %s: '%s' (%s) -> '%s' (%s)"
-                                  % (ent.entity_name, atr, a, type(a), c, type(c)))
-                ent.changes.setdefault('attributes', {})[atr] = c
-        elif c != a:
-            self.logger.debug("Mismatch attr for %s: %s: '%s' (%s) -> '%s' (%s)"
-                              % (ent.entity_name, atr, a, type(a), c, type(c)))
-            ent.changes.setdefault('attributes', {})[atr] = c
+                return True
+        return c != a
 
     def changelog_handle_spread(self, ctype, row):
         """Handler for changelog events of category 'spread'.
