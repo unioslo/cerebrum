@@ -56,7 +56,7 @@ class UiAUserSync(UserSync):
         instances, as these problems will probably exist for others too.
 
         """
-        if atr.lower() == 'proxyaddresses':
+        if atr.lower() == 'proxyaddresses' and c and a:
             return sorted(c) != sorted(v for v in a if not
                                                     v.startswith('x500:'))
         return super(UiAUserSync, self).attribute_mismatch(ent, atr, c, a)
