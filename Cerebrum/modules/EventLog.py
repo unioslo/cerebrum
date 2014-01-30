@@ -100,31 +100,47 @@ class EventLog(object):
                    :destination_entity, :change_params)""", e)
         self.events = []
 
-    def remove_event(self, event_id):
+    def remove_event(self, event_id, target_system=None):
         """Remove an event from the eventlog. Typically happens when an
         event has completed processing sucessfully.
 
         @type event_id: int
         @param event_id: The events ID
+        
+        @type target_system: TargetSystemCode
+        @param target_system: The target-system to perform delete on
         """
-        self.execute("""
-        DELETE FROM [:table schema=cerebrum name=event_log]
-        WHERE event_id = :event_id""", {
-            'event_id': int(event_id)})
+        params = {'event_id': int(event_id)}
+        if target_system:
+            params['target_system'] = int(target_system)
 
-    def get_event(self, event_id):
+        self.query_1("""
+        DELETE FROM [:table schema=cerebrum name=event_log]
+        WHERE %s RETURNING event_id""" % \
+                ' AND '.join(['%s = :%s' % (k,k) for k in params]),
+                params)
+
+    def get_event(self, event_id, target_system=None):
         """Fetch information about an event
 
         @type event_id: int
         @param event_id: The event to fetch.
 
+        @type target_system: TargetSystemCode
+        @param target_system: The target-system to perform select on
+
         @rtype: Cerebrum.extlib.db_row.row
         @return: One row representing the event
         """
+        params = {'event_id': int(event_id)}
+        if target_system:
+            params['target_system'] = int(target_system)
+
         return self.query_1("""
             SELECT * FROM event_log
-            WHERE event_id = :event_id""",
-            {'event_id': int(event_id)})
+            WHERE %s""" %
+                ' AND '.join(['%s = :%s' % (k,k) for k in params]),
+                params)
         
     def lock_event(self, event_id):
         """Lock an event for processing.
@@ -207,27 +223,112 @@ class EventLog(object):
             args,
             fetchall=fetchall)
 
-    def release_event(self, event_id, increment=True):
+    def release_event(self, event_id, target_system=None, increment=True):
         """Release a locked/taken event. Releases typically happens
         when an event fails processing.
 
         @type event_id: int
         @param event_id: The events id.
+        
+        @type target_system: TargetSystemCode
+        @param target_system: The target-system to perform unlock on
 
         @type increment: bool
         @param increment: wether or not to increment the 'failed' field
             in the database upon release.
         """
+        params = {'event_id': int(event_id)}
         # We check if we should increment the failed-column
         if increment:
             inc = ', failed = failed + 1'
         else:
             inc = ''
-        # TODO: Should we execute instead?
-        self.query("""
+        if target_system:
+            params['target_system'] = int(target_system)
+        self.query_1("""
             UPDATE event_log
             SET taken_time = NULL
             %s
-            WHERE event_id = :event_id""" % inc,
-            {'event_id': int(event_id)})
+            WHERE %s RETURNING event_id""" % \
+                    (inc, ' AND '.join(['%s = :%s' % (k,k) for k in params])),
+            params)
 
+
+
+# TODO: Should this really be here? Should it be in a supplemental API?
+###
+# Utility functions for bofhd-tools
+###
+
+    def get_target_stats(self, target_system, fail_limit=10):
+        """Collect statistics for a target-system.
+
+        @type target_system: TargetSystemCode
+        @param target_system: The target-system to collect from
+
+        @type fail_limit: int
+        @param fail_limit: Number of failures before it is a permanent failure
+
+        @rtype: dict
+        @return: {t_failed, t_locked, total}
+        """
+        t_locked = self.query_1(
+                'SELECT count(*) FROM event_log WHERE taken_time IS NOT NULL'
+                ' AND target_system = :target_system',
+                {'target_system': int(target_system)})
+        t_failed = self.query_1(
+                'SELECT count(*) FROM event_log WHERE failed >= :fail_limit'
+                ' AND target_system = :target_system',
+                {'target_system': int(target_system), 'fail_limit': fail_limit})
+        total = self.query_1(
+                'SELECT count(*) FROM event_log WHERE'
+                ' target_system = :target_system',
+                {'target_system': int(target_system)})
+        return {'t_locked': t_locked, 't_failed': t_failed, 'total': total}
+
+    def get_failed_and_locked_events(self, target_system, fail_limit=10,
+                                        locked=True, fetchall=True):
+        """Collect a list of events that have failed permanently, or are locked.
+
+        @type target_system: TargetSystemCode
+        @param target_system: The target-system to collect from
+
+        @type fail_limit: int
+        @param fail_limit: Number of failures to filter on
+
+        @type locked: bool
+        @param locked: Return locked rows?
+
+        @rtype: list(tuple)
+        @return: [(event_id, event_type, taken_time, failed,)]
+        
+        """
+        # TODO: Expand me to allow choosing "presicion" on the "locked" rows,
+        # like selecting only those locked up until 10 hours ago, for example.
+        p = {'ts': int(target_system)}
+        q = 'SELECT event_id, event_type, taken_time, failed FROM event_log' + \
+                ' WHERE target_system = :ts'
+        tmp = []
+        if fail_limit:
+            tmp += [ 'failed >= :fail_limit']
+            p['fail_limit'] = fail_limit
+        if locked:
+            tmp += ['taken_time IS NOT NULL']
+        if tmp:
+            q += ' AND ' + ' OR '.join(tmp)
+
+        return self.query(q, p, fetchall=fetchall)
+
+    def decrement_failed_count(self, target_system, id):
+        """Decrement the failed count on a row
+        
+        @type target_system: TargetSystemCode
+        @param target_system: The target-system to collect from
+
+        @type id: int
+        @param id: The row id to do this in
+        """
+        self.query_1(
+                'UPDATE event_log SET failed = failed - 1 WHERE event_id = :id'
+                ' AND target_system = :ts RETURNING event_id',
+                {'id': int(id), 'ts': int(target_system)})
