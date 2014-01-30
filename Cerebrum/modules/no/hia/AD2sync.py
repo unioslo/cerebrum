@@ -57,8 +57,8 @@ class UiAUserSync(UserSync):
 
         """
         if atr.lower() == 'proxyaddresses' and c and a:
-            return sorted(c) != sorted(v for v in a if not
-                                                    v.startswith('x500:'))
+            return list(sorted(c)) != list(sorted(v for v in a if not
+                                                  v.startswith('x500:')))
         return super(UiAUserSync, self).attribute_mismatch(ent, atr, c, a)
 
 class UiACerebrumUser(CerebrumUser):
