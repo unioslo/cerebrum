@@ -676,8 +676,6 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ou.setup_project(operator.get_entity_id())
         #if not ou.get_entity_quarantine(only_active=True):
         #    self.gateway.create_project(pid)
-        # TODO: inform the gateway about the resources from here too, or wait
-        # for the gateway sync to do that?
         return "New project created: %s" % pid
 
     all_commands['project_terminate'] = cmd.Command(
@@ -755,8 +753,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         try:
             # Double check that project doesn't exist in Gateway.
             # Will raise exception if it's okay.
-            #self.gateway.delete_project(projectid)
-            pass
+            self.gateway.delete_project(projectid)
         except Exception:
             pass
         return "Project deleted: %s" % projectid
@@ -846,7 +843,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         end = DateTime.now()
 
         # The quarantine needs to be removed before it could be added again
-        qtype = self.const.quarantine_project_freeze
+        qtype = self.const.quarantine_frozen
         for row in project.get_entity_quarantine(qtype):
             project.delete_entity_quarantine(qtype)
             project.write_db()
@@ -855,8 +852,13 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                                       description='Project freeze',
                                       start=end)
         project.write_db()
-        #self.gateway.freeze_project(projectid)
-        return "Project %s is now frozen" % projectid
+        success_msg = 'Project %s is now frozen' % projectid
+        try:
+            self.gateway.freeze_project(projectid)
+        except Gateway.GatewayException, e:
+            self.logger.warn("From GW: %s", e)
+            success_msg += " (bad result from GW)"
+        return success_msg
 
     all_commands['project_unfreeze'] = cmd.Command(
         ('project', 'unfreeze'), ProjectID(),
@@ -874,11 +876,18 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             project.delete_entity_quarantine(qtype)
             project.write_db()
 
+        success_msg = 'Project %s is now unfrozen' % projectid
+
         # Only unthaw projects without quarantines
         if not project.get_entity_quarantine(only_active=True):
-            #self.gateway.thaw_project(projectid)
-            pass
-        return "Project %s is now unfrozen" % projectid
+            try:
+                self.gateway.thaw_project(projectid)
+            except Gateway.GatewayException, e:
+                self.logger.warn("From GW: %s", e)
+                success_msg += ' (bad result from GW)'
+        else:
+            success_msg += ' (project still with other quarantines)'
+        return success_msg
 
     all_commands['project_list'] = cmd.Command(
         ('project', 'list'), ProjectStatusFilter(optional=True),
@@ -1238,6 +1247,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                                                    ou_id, affiliation)
         except self.db.DatabaseError, m:
             raise CerebrumError("Database error: %s" % m)
+        for spread in cereconf.BOFHD_NEW_USER_SPREADS:
+            posix_user.add_spread(self.const.Spread(spread))
         operator.store_state("new_account_passwd", {'account_id': int(posix_user.entity_id),
                                                     'password': passwd})
         return "Ok, created %s, UID: %s" % (posix_user.account_name, uid)
