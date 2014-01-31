@@ -60,6 +60,7 @@ be compared with attributes from data objects from AD.
 import cerebrum_path
 import cereconf
 
+from Cerebrum.Utils import NotSet
 from Cerebrum.modules.ad2 import ConfigUtils
 
 class AttrNotFound(Exception):
@@ -345,7 +346,7 @@ class CerebrumEntity(object):
 
         # Use default value, if defined by config:
         if (isinstance(config, ConfigUtils.AttrConfig) and 
-                config.default is not None):
+                config.default is not NotSet):
             # Add some substitution data to be used for strings: TODO: Should we
             # include all the attributes for the entity that contains primitive
             # values in here? Would then for instance be able to include

@@ -57,7 +57,7 @@ class or a list thereof. A short example on how the config classes are used:
 
 import cerebrum_path
 import cereconf
-from Cerebrum.Utils import Factory
+from Cerebrum.Utils import Factory, NotSet
 
 # Note that the constants object is not instantiated, as we only need type
 # checking in here.
@@ -88,7 +88,7 @@ class AttrConfig(object):
     criterias.
 
     """
-    def __init__(self, default=None, transform=None, spread=None,
+    def __init__(self, default=NotSet, transform=None, spread=None,
                  source_systems=None, criterias=None):
         """Setting the basic, most used config variables.
 
