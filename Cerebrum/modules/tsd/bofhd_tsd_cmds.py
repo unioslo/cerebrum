@@ -1229,16 +1229,6 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                             expire_date=None)
         try:
             posix_user.write_db()
-            # for spread in cereconf.BOFHD_NEW_USER_SPREADS:
-            #    posix_user.add_spread(self.const.Spread(spread))
-            # homedir_id = posix_user.set_homedir(
-            #    disk_id=disk_id, home=home,
-            #    status=self.const.home_status_not_created)
-            # posix_user.set_home(self.const.spread_nis_user, homedir_id)
-            # For correct ordering of ChangeLog events, new users
-            # should be signalled as "exported to" a certain system
-            # before the new user's password is set.  Such systems are
-            # flawed, and should be fixed.
             passwd = posix_user.make_passwd(uname)
             posix_user.set_password(passwd)
             posix_user.write_db()
@@ -1269,31 +1259,35 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         account = self._get_account(accountname)
         self.ba.can_generate_otpkey(operator.get_entity_id(), account)
         uri = account.regenerate_otpkey()
-        try:
-            account.write_db()
-        except self.db.DatabaseError, m:
-            raise CerebrumError("Database error: %s" % m)
 
-        actypes = account.get_account_types()
-        if len(actypes) != 1:
-            raise CerebrumError('Incorrect number of project affiliations for user')
+        # Generate a list of all the accounts for the person
+        ac = Factory.get('Account')(self.db)
         ou = self.OU_class(self.db)
-        ou.find(actypes[0]['ou_id'])
+        ac_list = {}
+        for row in account.search(owner_id=account.owner_id,
+                                  spread=self.const.spread_gateway_account):
+            ac.clear()
+            ac.find(row['account_id'])
+            actypes = ac.get_account_types()
+            if len(actypes) < 1:
+                continue
+            if len(actypes) > 1:
+                raise CerebrumError('Incorrect number of project affiliations: %s', row['name'])
+            ou.clear()
+            ou.find(actypes[0]['ou_id'])
+            ac_list[row['name']] = ou.get_project_id()
 
-        # Send to gateway:
-        try:
-            self.gateway.user_otp(ou.get_project_id(), account.account_name, uri)
-        except Gateway.GatewayException, e:
-            raise CerebrumError("GatewayException: %s" % e)
-
-        # TODO: Remove some "weak password" quarantine?
-        if account.is_deleted():
-            return "Warning: user is deleted\n%s" % uri
-        elif account.is_expired():
-            return "Warning: user is expired\n%s" % uri
-        elif account.get_entity_quarantine(only_active=True):
-            return "Warning: user has an active quarantine\n%s" % uri
-        return uri
+        # Send all to gateway:
+        failed = []
+        for name, pid in ac_list.iteritems():
+            try:
+                self.gateway.user_otp(pid, name, uri)
+            except Gateway.GatewayException, e:
+                failed.append(name)
+        msg = uri
+        if failed:
+            msg += '\nFailed updating gateway for: %s' % ', '.join(failed)
+        return msg
 
     # user approve
     all_commands['user_approve'] = cmd.Command(
