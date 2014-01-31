@@ -337,15 +337,15 @@ class CerebrumEntity(object):
                 return self.maildata['quota']
         elif isinstance(config, ConfigUtils.EmailForwardAttr):
             # Email Forward
-            if 'forward' in self.maildata:
+            if self.maildata.get('forward'):
                 return self.maildata['forward']
         elif isinstance(config, ConfigUtils.CallbackAttr):
             # A callback for an attribute
             return config.callback(self)
 
         # Use default value, if defined by config:
-        if (isinstance(config, ConfigUtils.AttrConfig) and
-                getattr(config, 'default')):
+        if (isinstance(config, ConfigUtils.AttrConfig) and 
+                config.default is not None):
             # Add some substitution data to be used for strings: TODO: Should we
             # include all the attributes for the entity that contains primitive
             # values in here? Would then for instance be able to include
