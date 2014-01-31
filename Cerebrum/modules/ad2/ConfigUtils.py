@@ -411,7 +411,6 @@ class EmailAddrAttr(AttrConfig):
     the given attribute.
 
     """
-    # No extra settings needed, got all we need from AttrConfig.
     pass
 
 class EmailQuotaAttr(AttrConfig):
@@ -425,7 +424,6 @@ class EmailQuotaAttr(AttrConfig):
     You would therefore need to e.g. use L{transform}.
 
     """
-    # No extra settings needed, got all we need from AttrConfig.
     pass
 
 class EmailForwardAttr(AttrConfig):
@@ -434,17 +432,13 @@ class EmailForwardAttr(AttrConfig):
     Note that each given value contains a list with forwards, each with
     elements:
     
-        - TODO
-
-        - primary (string): The primary e-mail address for the entity.
-        - alias (list of strings): A list of all the e-mail aliases for the
-          entity.
+        - forward_to - The e-mail address
+        - enabled - If the forward is enabled or not (TODO: What format? Bool?)
 
     You would like to use L{transform} or other methods to set what you want for
     the given attribute.
 
     """
-    # No extra settings needed, got all we need from AttrConfig.
     pass
 
 class PosixAttr(AttrConfig):
@@ -535,10 +529,11 @@ class AttrCriterias(object):
             a more specific criteria. The callable must accept one argument, a
             L{CerebrumEntity} object, and must return True to tell that the
             criteria was fullfilled.
-            
-            Note however that the sync does not what data the callable needs, so
-            that has to be gathered manually (or we should extend the config to
-            force the retrieval of data elements from Cerebrum).
+
+            Note however that the sync does not know what data the callable
+            needs, so that has to be gathered manually (TODO: or we should
+            extend the config to force the retrieval of specific data elements
+            from Cerebrum).
 
             Note that any other given criterias in the object must also be
             fullfilled for the AttrConfig to be set.
@@ -546,6 +541,8 @@ class AttrCriterias(object):
         """
         self.spreads = _prepare_constants(spreads, const.Spread)
         if callback:
+            if not callable(callback):
+                raise ConfigError("Criteria not callable: %s" % callback)
             self.callback = callback
 
     def check(self, ent):
@@ -593,7 +590,7 @@ class AccountCriterias(AttrCriterias):
         """Subclass with more checks for accounts."""
         super(AccountCriterias, self).check(ent)
         if self.primary_account is not None:
-            if self.primary_account != ent.is_primary_account:
+            if bool(self.primary_account) != bool(ent.is_primary_account):
                 raise CriteriaError('Primary account mismatch')
 
 def has_config(config, configclass):

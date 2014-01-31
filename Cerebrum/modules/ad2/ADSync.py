@@ -1739,16 +1739,14 @@ class UserSync(BaseSync):
             self.owner2ent.setdefault(ent.owner_id, []).append(ent)
         self.logger.debug("Mapped %d entity owners", len(self.owner2ent))
 
-        self.fetch_posix()
-
         # Set what is primary accounts.
-        # TODO: We don't want to fetch this unless we really need the data,
-        # since it takes some time to finish. How could we find its usage from
-        # the config?
+        i = 0
         for row in self.ac.list_accounts_by_type(primary_only=True):
             ent = self.id2entity.get(row['account_id'])
             if ent:
                 ent.is_primary_account = True
+                i += 1
+        self.logger.debug("Found %d primary accounts", i)
 
         # The different methods decides if their data should be fetched or not,
         # depending on the attribute configuration.
@@ -1758,6 +1756,7 @@ class UserSync(BaseSync):
         self.fetch_external_ids()
         self.fetch_traits()
         self.fetch_address_info()
+        self.fetch_posix()
         self.fetch_homes()
         self.fetch_mail()
 
