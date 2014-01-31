@@ -57,8 +57,14 @@ class UiAUserSync(UserSync):
 
         """
         if atr.lower() == 'proxyaddresses' and c and a:
-            return list(sorted(c)) != list(sorted(v for v in a if not
-                                                  v.startswith('x500:')))
+            advalues = list(sorted(v for v in a if not v.startswith('x500:')))
+            cevalues = list(sorted(c))
+            match = cevalues != advalues
+            # TODO: remove logging when done debugging
+            self.logger.debug2("Proxy: match=%s", match)
+            self.logger.debug2("    AD: %s", advalues)
+            self.logger.debug2("    C:  %s", cevalues)
+            return match
         return super(UiAUserSync, self).attribute_mismatch(ent, atr, c, a)
 
 class UiACerebrumUser(CerebrumUser):
