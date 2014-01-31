@@ -221,15 +221,15 @@ class CerebrumEntity(object):
         # TODO: This could be cleaned up, e.g. by one or more helper methods.
 
         # Check the criterias for the attribute first:
-        # TODO: We need to move the spread criteria into the Criterias class.
+        if getattr(config, 'criterias', False):
+            try:
+                config.criterias.check(self)
+            except ConfigUtils.CriteriaError, e:
+                raise AttrNotFound('Attribute criterias not fullfilled')
+        # TODO: Remove this when done migrating to the criteria class:
         if getattr(config, 'spread', False):
             if not any(s in config.spread for s in self.spreads):
                 raise AttrNotFound('Attribute criterias not fullfilled')
-        if getattr(config, 'criterias', False):
-            cr = config.criterias
-            if not any(s in cr.spread for s in self.spreads):
-                raise AttrNotFound('Attribute criterias not fullfilled')
-            # TODO: Check more of the criterias
 
         if isinstance(config, ConfigUtils.ContactAttr):
             # ContactInfo

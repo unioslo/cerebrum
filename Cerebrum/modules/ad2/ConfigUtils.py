@@ -18,12 +18,40 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Configuration functionality for the Active Directory synchronisation.
 
-The AD sync is a bit configurable, to be able to fulfill many needs without
-having to develop for each instance. It tries to be flexible, at the cost of a
-bit more thorough configuration.
+The AD sync is a bit configurable, to be able to fulfill most needs without
+having to develop complex subclasses for each instance. It tries to be flexible,
+at the cost of a bit more thorough and complicated configuration.
 
 Each setting should be well commented in this file, to inform developers and
 sysadmin about the usage and consequences of the setting.
+
+The classes in this file is normally instantiated in L{adconf.py}, in each
+sync's 'attribute' element.
+
+You have, for now, mainly two types of config classes in this file,
+L{AttrConfig} and L{AttrCriterias}. The L{AttrConfig} class adds settings for
+how to set and control what a given attribute should contain, and the
+L{AttrCriterias} sets the requirements that needs to be fullfilled for the
+L{AttrConfig} object it belongs should be used.
+
+Each element in a sync's 'attribute' dict could be defined with L{AttrConfig}
+class or a list thereof. A short example on how the config classes are used:
+
+    'attributes': {
+        'DisplayName': ConfigUtils.PersonNameAttr(
+                            name_variant=co.name_full
+                            source_system=co.system_fs),
+        'Description': (ConfigUtils.NameAttr(
+                            name_variant=(co.personal_title, co.work_title),
+                            criterias=ConfigUtils.AttrCriterias(
+                                            spread=co.spread_lms)),
+                        ConfigUtils.TraitAttr(
+                            trait_type=co.trait_description
+                            # Traits contain both a strval and a numval:
+                            transform=lambda tr: tr['strval'].strip(),
+                            default={'strval': 'N/A'),
+                        ),
+        },
 
 """
 
@@ -37,6 +65,10 @@ const = Factory.get('Constants')
 
 class ConfigError(Exception):
     """Exception for configuration errors."""
+    pass
+
+class CriteriaError(Exception):
+    """Exception for when a AttrCriterias is not fullfilled."""
     pass
 
 # TODO: Add classes(?) for setting what default values should be, e.g. "NotSet"
@@ -63,9 +95,8 @@ class AttrConfig(object):
         @type default: mixed
         @param default:
             The default value to set for the attribute if no other value is
-            found, based on other criterias, e.g. in the subclasses. Note that
-            if this is a string, it is able to use some of the basic variables
-            for the entities: 
+            found. Note that if this is a string, it is able to use some of the
+            basic variables for the entities: 
             
                 - entity_name
                 - entity_id
@@ -74,9 +105,15 @@ class AttrConfig(object):
 
             Use these through regular substition, e.g. "%(ad_id)s".
 
-            Also note that default values will not be using the L{transform}
-            function for its data. TODO: Or not? Need to find out what is most
-            suitable and intuitive for sysadmins.
+            Also note that default values will also be using the L{transform}
+            function for its data, so if you set up a config with special
+            elements like dicts, you need to feed the default value with the
+            same format.
+
+            Note that L{default} is NOT set if the given criterias is not
+            matched for the entity. L{default} is only used if the criterias are
+            fullfilled but Cerebrum does not have the needed data for the given
+            entity.
 
         @type transform: function
         @param transform:
@@ -92,6 +129,9 @@ class AttrConfig(object):
 
         @type spread: SpreadCode or sequence thereof
         @param spread:
+            TODO: The spread argument rather belongs to AttrCriterias. Remove
+            this when done updating adconf settings.
+
             If set, defines what spread the entity must have for the value to be
             set. If a sequence is given, the entity must have at least one of
             the spreads. Entitites without any of the given spreads would get
@@ -107,8 +147,10 @@ class AttrConfig(object):
 
         @type criterias: AttrCriterias
         @param criterias:
-            TODO: A class that sets what criterias must be fullfilled before a
-            value could be set according to this ConfigAttr.
+            A class that sets what criterias must be fullfilled before a value
+            could be set according to this ConfigAttr. This object is asked
+            before the given config is used. This includes the L{default}
+            setting, which is not set if the given criterias is not fullfilled.
 
         @type source_systems: AuthoritativeSystemCode or sequence thereof
         @param source_systems:
@@ -469,13 +511,90 @@ class HomeAttr(AttrConfig):
         self.home_spread = home_spread
 
 class AttrCriterias(object):
-    """Config class for setting criterias for an AttrConfig.
+    """Config class for setting criterias for entities' AttrConfigs.
+
+    Each AttrConfig object could be set up with an AttrCriterias for defining
+    what criterias that must be fullfilled for the AttrConfig to be set. By
+    having the criterias in its own classes, we make it easier to gather the
+    exact data that is needed from Cerebrum to check the criterias. The
+    criterias will in some situations be too limited, which makes it possible to
+    use a callback.
 
     """
-    def __init__(self, spreads=None):
-        self.spread = _prepare_constants(spreads, const.Spread)
+    def __init__(self, spreads=None, callback=None):
+        """Set up the initial criterias.
 
-    # TODO: Add helper methods for checking the criterias here
+        @type spreads: SpreadCode or list thereof
+        @param spreads:
+            If set, defines that at least one of the spreads must be set for the
+            entity to allow the given AttrConfig to be set.
+
+        @type callback: callable
+        @param callback: 
+            If flexibility is needed, you could use this callback for generating
+            a more specific criteria. The callable must accept one argument, a
+            L{CerebrumEntity} object, and must return True to tell that the
+            criteria was fullfilled.
+            
+            Note however that the sync does not what data the callable needs, so
+            that has to be gathered manually (or we should extend the config to
+            force the retrieval of data elements from Cerebrum).
+
+            Note that any other given criterias in the object must also be
+            fullfilled for the AttrConfig to be set.
+
+        """
+        self.spreads = _prepare_constants(spreads, const.Spread)
+        if callback:
+            self.callback = callback
+
+    def check(self, ent):
+        """Check all the defined criterias.
+
+        TBD: Should this functionality be in ConfigUtils, or should it be moved
+        to CerebrumData or some other place?
+
+        @type ent: CerebrumEntity
+        @param ent:
+            The given entity which should be checked for criterias.
+
+        @raise CriteriaError:
+            Raised if any of the criterias is not fullfilled.
+
+        """
+        if self.spreads:
+            if not any(s in self.spreads for s in ent.spreads):
+                raise CriteriaError('Entity missing required spread')
+        if getattr(self, 'callback', False):
+            if not self.callback(ent):
+                raise CriteriaError('Callback criteria not fullfilled')
+
+class AccountCriterias(AttrCriterias):
+    """Account specific criterias for an AttrConfig.
+
+    The class could be extended by more criterias.
+
+    """
+    def __init__(self, primary_account=None, *args, **kwargs):
+        """Subclass for accounts.
+
+        @type primary_account: True, False or None
+        @param primary_account:
+            True if a given account must be the primary account. If set to False
+            will the AttrConfig be ignored if the account is a primary account.
+            Non personal accounts will never be primary accounts, as they don't
+            have the affiliations to decide that.
+
+        """
+        self.primary_account = primary_account
+        super(AccountCriterias, self).__init__(*args, **kwargs)
+
+    def check(self, ent):
+        """Subclass with more checks for accounts."""
+        super(AccountCriterias, self).check(ent)
+        if self.primary_account is not None:
+            if self.primary_account != ent.is_primary_account:
+                raise CriteriaError('Primary account mismatch')
 
 def has_config(config, configclass):
     """Helper function for checking if a given attribute is defined.
