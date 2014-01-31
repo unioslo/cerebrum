@@ -121,6 +121,9 @@ class ExchangeEventHandler(processing.Process):
         self.sg_spread = self.co.Spread(self.config['secgroup_spread'])
         self.ad_spread = self.co.Spread(self.config['ad_spread'])
 
+        # Throw away our implicit transaction after fetching spreads
+        self.db.rollback()
+
         # Initialise the Utils. This contains functions to pull data from
         # Cerebrum
         self.ut = CerebrumUtils()
@@ -157,7 +160,10 @@ class ExchangeEventHandler(processing.Process):
                 # DelayedNotificationCollector is running.
                 # We'll just move along silently...
                 self.logger.debug3('Event already processed: %s' % str(ev))
+                self.db.rollback()
                 continue
+
+            # Fetch the event after it has been locked 
             ev_log = self.db.get_event(ev_id)
             
             # We try to handle the event
@@ -174,10 +180,10 @@ class ExchangeEventHandler(processing.Process):
             # If an event fails, we just release it, and let the
             # DelayedNotificationCollector enqueue it when appropriate
             except EventExecutionException, e:
-                self.db.release_event(ev_log['event_id'])
-                self.db.commit()
                 self.logger.debug('Failed to process event %d: %s' % \
                                         (ev_log['event_id'], str(e)))
+                self.db.release_event(ev_log['event_id'])
+                self.db.commit()
             except EventHandlerNotImplemented:
                 # TODO: Should we log this?
                 self.logger.debug3('Event Handler Not Implemented!')
@@ -207,6 +213,9 @@ class ExchangeEventHandler(processing.Process):
                 self.logger.error(
                         'Oops! Didn\'t see that one coming! :)\n%s\n%s' % \
                                 (str(ev_log), tb))
+                # We unlock the event, so it can be retried
+                self.db.release_event(ev_log['event_id'])
+                self.db.commit()
 
         # When the run-state has been set to 0, we kill the pssession
         self.ec.kill_session()
@@ -773,76 +782,84 @@ class ExchangeEventHandler(processing.Process):
 
             data = self.ut.get_distgroup_attributes_and_targetdata(
                                                         event['subject_entity'])
-            # Set primary address
-            try:
-                self.ec.set_distgroup_primary_address(gname, data['primary'])
-                self.logger.info('Set primary %s for %s' % (data['primary'],
-                                                                        gname))
-                self.ut.log_event_receipt(event, 'dlgroup:primary')
-            except ExchangeException, e:
-                self.logger.warn('Can\'t set primary %s for %s: %s' % \
-                        (data['primary'], gname, e))
+            # Only for pure distgroups :)
+            if data['roomlist'] == 'F':
+                # Set primary address
+                try:
+                    self.ec.set_distgroup_primary_address(gname,
+                                                          data['primary'])
+                    self.logger.info('Set primary %s for %s' % (data['primary'],
+                                                                gname))
+                    self.ut.log_event_receipt(event, 'dlgroup:primary')
+                except ExchangeException, e:
+                    self.logger.warn('Can\'t set primary %s for %s: %s' % \
+                            (data['primary'], gname, e))
 # TODO: This won't really work. Not implemented. Fix it somehow
-                # We create another event to set the primary address since
-                # setting it now failed
-                ev_mod = event.copy()
-                ev_mod['subject_entity'], tra, sh, hq, sq = \
-                        self.ut.get_email_target_info(
+                    # We create another event to set the primary address since
+                    # setting it now failed
+                    ev_mod = event.copy()
+                    ev_mod['subject_entity'], tra, sh, hq, sq = \
+                            self.ut.get_email_target_info(
                                         target_entity=event['subject_entity'])
-                self.ut.log_event(ev_mod, 'email_primary_address:add_primary')
+                    self.ut.log_event(ev_mod,
+                                        'email_primary_address:add_primary')
 
-            # Set mailaddrs
-            try:
-                self.ec.add_distgroup_addresses(gname, data['aliases'])
-                self.logger.info('Set addresses for %s: %s' % \
-                                                (gname, str(data['aliases'])))
-                # TODO: More resolution here? We want to mangle the event to
-                # show addresses?
-                self.ut.log_event_receipt(event, 'dlgroup:addaddr')
+                # Set mailaddrs
+                try:
+                    self.ec.add_distgroup_addresses(gname, data['aliases'])
+                    self.logger.info('Set addresses for %s: %s' % \
+                                                    (gname,
+                                                     str(data['aliases'])))
+                    # TODO: More resolution here? We want to mangle the event to
+                    # show addresses?
+                    self.ut.log_event_receipt(event, 'dlgroup:addaddr')
 
-            except ExchangeException, e:
-                self.logger.warn('Can\'t set addresses %s for %s: %s' % \
-                        (str(data['aliases']), gname, e))
-                # TODO: Refactor this out
-                ev_mod = event.copy()
-                ev_mod['subject_entity'], tra, sh, hq, sq = \
-                        self.ut.get_email_target_info(
+                except ExchangeException, e:
+                    self.logger.warn('Can\'t set addresses %s for %s: %s' % \
+                            (str(data['aliases']), gname, e))
+                    # TODO: Refactor this out
+                    ev_mod = event.copy()
+                    ev_mod['subject_entity'], tra, sh, hq, sq = \
+                            self.ut.get_email_target_info(
                                         target_entity=event['subject_entity'])
-                for x in data['aliases']:
-                    x = x.split('@')
-                    info = self.ut.get_email_domain_info(email_domain_name=x[1])
-                    # TODO: UTF-8 error?
+                    for x in data['aliases']:
+                        x = x.split('@')
+                        info = self.ut.get_email_domain_info(
+                                                        email_domain_name=x[1])
+                        # TODO: UTF-8 error?
+                        ev_mod['change_params'] = pickle.dumps(
+                                                {'dom_id': info['id'],
+                                                 'lp': x[0]})
+                        self.ut.log_event(ev_mod, 'email_address:add_address')
+                     
+                # Set hidden
+                try:
+                    hide = True if data['hidden'] == 'T' else False
+                    self.ec.set_distgroup_visibility(gname, not hide)
+                    self.logger.info('Set %s visible: %s' % (gname,
+                                                             data['hidden']))
+                    self.ut.log_event_receipt(event, 'dlgroup:modhidden')
+                except ExchangeException, e:
+                    self.logger.warn('Can\'t set visibility for %s: %s' % \
+                            (gname, e))
+                    ev_mod = event.copy()
                     ev_mod['change_params'] = pickle.dumps(
-                                            {'dom_id': info['id'], 'lp': x[0]})
-                    self.ut.log_event(ev_mod, 'email_address:add_address')
-                 
-            # Set hidden
-            try:
-                hide = True if data['hidden'] == 'T' else False
-                self.ec.set_distgroup_visibility(gname, not hide)
-                self.logger.info('Set %s visible: %s' % (gname, data['hidden']))
-                self.ut.log_event_receipt(event, 'dlgroup:modhidden')
-            except ExchangeException, e:
-                self.logger.warn('Can\'t set visibility for %s: %s' % \
-                        (gname, e))
-                ev_mod = event.copy()
-                ev_mod['change_params'] = pickle.dumps(
-                                            {'hidden': data['hidden']})
-                self.ut.log_event(ev_mod, 'dlgroup:modhidden')
+                                                {'hidden': data['hidden']})
+                    self.ut.log_event(ev_mod, 'dlgroup:modhidden')
 
-            # Set manager
-            try:
-                self.ec.set_distgroup_manager(gname, data['mngdby_address'])
-                self.logger.info('Set manager of %s to %s' % \
-                        (gname, data['mngdby_address']))
-                self.ut.log_event_receipt(event, 'dlgroup:modmanby')
-            except ExchangeException, e:
-                self.logger.warn('Can\'t set manager of %s to %s: %s' % \
-                            (gname, data['mngdby_address'], e))
-                ev_mod = event.copy()
-                ev_mod['change_params'] = pickle.dumps(
-                        {'manby': data['mngdby_address']})
-                self.ut.log_event(ev_mod, 'dlgroup:modmanby')
+                # Set manager
+                try:
+                    self.ec.set_distgroup_manager(gname, data['mngdby_address'])
+                    self.logger.info('Set manager of %s to %s' % \
+                            (gname, data['mngdby_address']))
+                    self.ut.log_event_receipt(event, 'dlgroup:modmanby')
+                except ExchangeException, e:
+                    self.logger.warn('Can\'t set manager of %s to %s: %s' % \
+                                (gname, data['mngdby_address'], e))
+                    ev_mod = event.copy()
+                    ev_mod['change_params'] = pickle.dumps(
+                            {'manby': data['mngdby_address']})
+                    self.ut.log_event(ev_mod, 'dlgroup:modmanby')
 
             # Set join/part restriction
             try:
@@ -862,34 +879,37 @@ class ExchangeEventHandler(processing.Process):
                                     'deprestr': data['deprestr']})
                 self.ut.log_event(ev_mod, 'dlgroup:moddepres')
             
-            # Set moderation
-            enable = True if data['modenable'] == 'T' else False
-            try:
-                self.ec.set_distgroup_moderation(gname, enable)
-                self.logger.info('Set moderation on %s to %s' % \
-                        (gname, data['modenable']))
+            # Only for pure distgroups :)
+            if data['roomlist'] == 'F':
+                # Set moderation
+                enable = True if data['modenable'] == 'T' else False
+                try:
+                    self.ec.set_distgroup_moderation(gname, enable)
+                    self.logger.info('Set moderation on %s to %s' % \
+                            (gname, data['modenable']))
 # TODO: Receipt for this?
-            except ExchangeException, e:
-                self.logger.warn('Can\'t set moderation on %s to %s: %s' % \
-                        (gname, data['modenable'], str(e)))
-                ev_mod = event.copy()
-                ev_mod['change_params'] = pickle.dumps(
+                except ExchangeException, e:
+                    self.logger.warn('Can\'t set moderation on %s to %s: %s' % \
+                            (gname, data['modenable'], str(e)))
+                    ev_mod = event.copy()
+                    ev_mod['change_params'] = pickle.dumps(
                                             {'modenable': data['modenable']})
-                self.ut.log_event(ev_mod, 'dlgroup:moderate')
-            
-            # Set moderator
-            try:
-                self.ec.set_distgroup_moderator(gname, data['modby'])
-                self.logger.info('Set moderators %s on %s' % \
-                        (data['modby'], gname))
-                # TODO: This correct? CLConstants is a bit strange
-                self.ut.log_event_receipt(event, 'dlgroup:modmodby')
-            except ExchangeException, e:
-                self.logger.warn('Can\'t set moderators %s on %s' % \
-                        (data['modby'], gname))
-                ev_mod = event.copy()
-                ev_mod['change_params'] = pickle.dumps({'modby': data['modby']})
-                self.ut.log_event(ev_mod, 'dlgroup:modmodby')
+                    self.ut.log_event(ev_mod, 'dlgroup:moderate')
+                
+                # Set moderator
+                try:
+                    self.ec.set_distgroup_moderator(gname, data['modby'])
+                    self.logger.info('Set moderators %s on %s' % \
+                            (data['modby'], gname))
+                    # TODO: This correct? CLConstants is a bit strange
+                    self.ut.log_event_receipt(event, 'dlgroup:modmodby')
+                except ExchangeException, e:
+                    self.logger.warn('Can\'t set moderators %s on %s' % \
+                            (data['modby'], gname))
+                    ev_mod = event.copy()
+                    ev_mod['change_params'] = pickle.dumps(
+                                            {'modby': data['modby']})
+                    self.ut.log_event(ev_mod, 'dlgroup:modmodby')
 
             tmp_fail = False
             # Set displayname

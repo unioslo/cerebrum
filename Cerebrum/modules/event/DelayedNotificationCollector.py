@@ -78,7 +78,10 @@ class DelayedNotificationCollector(processing.Process):
         self.db = Factory.get('Database')(client_encoding='UTF-8')
         self.co = Factory.get('Constants')(self.db)
 
+        # Cache the int
+        int(self.co.TargetSystem(self.target_system))
         self.target_system = self.co.TargetSystem(self.target_system)
+        self.db.rollback()
 
     def run(self):
         """Main event-fetching loop. This is spawned by
@@ -108,6 +111,7 @@ class DelayedNotificationCollector(processing.Process):
                 # Append the channel and payload to the queue
                 self.event_queue.put(ev)
                 self.logger.debug2('DNC enqueued %d' % x['event_id'])
+            tmp_db.close()
         
             # Sleep for a while
             time.sleep(self.run_interval)

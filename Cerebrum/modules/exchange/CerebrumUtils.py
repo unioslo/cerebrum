@@ -64,10 +64,12 @@ class CerebrumUtils(object):
         @rtype: list
         @return: A list of (account_id, username) tuples
         """
-        return [(x['account_id'], x['name']) for x in \
+        ret = [(x['account_id'], x['name']) for x in \
                         self.ac.search(owner_id=person_id,
                                        owner_type=self.co.entity_person,
                                        spread=self.co.spread_exchange_account)]
+        self.db.rollback()
+        return ret
 
     def get_person_names(self, account_id=None, person_id=None):
         """Return a persons names
@@ -94,9 +96,11 @@ class CerebrumUtils(object):
         else:
             raise AssertionError('Called w/o person or account id')
 
-        return (self.pe.get_name(self.co.system_cached, self.co.name_first),
-                self.pe.get_name(self.co.system_cached, self.co.name_last),
-                self.pe.get_name(self.co.system_cached, self.co.name_full,))
+        ret = (self.pe.get_name(self.co.system_cached, self.co.name_first),
+               self.pe.get_name(self.co.system_cached, self.co.name_last),
+               self.pe.get_name(self.co.system_cached, self.co.name_full,))
+        self.db.rollback()
+        return ret
 
     def is_electronic_reserved(self, person_id=None, account_id=None):
         """Check if a person has reserved themself from listing
@@ -113,14 +117,17 @@ class CerebrumUtils(object):
         if person_id:
             self.pe.clear()
             self.pe.find(person_id)
-            return self.pe.has_e_reservation()
+            ret = self.pe.has_e_reservation()
         elif account_id:
             self.ac.clear()
             self.ac.find(account_id)
-            return self.ac.owner_has_ereservation()
+            ret = self.ac.owner_has_ereservation()
         # TODO: This is sane?
         else:
-            return True
+            ret = True
+        self.db.rollback()
+        return ret
+
 ####
 # Account related methods
 ####
@@ -138,6 +145,7 @@ class CerebrumUtils(object):
         self.et.find_by_target_entity(account_id)
         addrs = ['%s@%s' % (x['local_part'], x['domain']) \
                 for x in self.et.get_addresses()]
+        self.db.rollback()
         return addrs
 
     def get_account_name(self, account_id):
@@ -151,7 +159,9 @@ class CerebrumUtils(object):
         """
         self.ac.clear()
         self.ac.find(account_id)
-        return self.ac.account_name
+        ret = self.ac.account_name
+        self.db.rollback()
+        return ret
     
     def get_account_owner_info(self, account_id):
         """Return the type and id of the accounts owner.
@@ -164,7 +174,9 @@ class CerebrumUtils(object):
         """
         self.ac.clear()
         self.ac.find(account_id)
-        return (self.ac.owner_type, self.ac.owner_id)
+        ret = (self.ac.owner_type, self.ac.owner_id)
+        self.db.rollback()
+        return ret
     
     def get_account_spreads(self, account_id):
         """Return the accounts spread codes.
@@ -177,7 +189,9 @@ class CerebrumUtils(object):
         """
         self.ac.clear()
         self.ac.find(account_id)
-        return [x['spread'] for x in self.ac.get_spread()]
+        ret = [x['spread'] for x in self.ac.get_spread()]
+        self.db.rollback()
+        return ret
     
     def get_account_primary_email(self, account_id):
         """Return the accounts primary address
@@ -190,7 +204,9 @@ class CerebrumUtils(object):
         """
         self.ac.clear()
         self.ac.find(account_id)
-        return self.ac.get_primary_mailaddress()
+        ret = self.ac.get_primary_mailaddress()
+        self.db.rollback()
+        return ret
 
     def get_account_id(self, uname):
         """Get an accounts entity id.
@@ -203,7 +219,9 @@ class CerebrumUtils(object):
         """
         self.ac.clear()
         self.ac.find_by_name(uname)
-        return self.ac.entity_id
+        ret = self.ac.entity_id
+        self.db.rollback()
+        return ret
 
     def get_primary_account(self, person_id):
         """Get a persons primary account
@@ -216,7 +234,9 @@ class CerebrumUtils(object):
         """
         self.pe.clear()
         self.pe.find(person_id)
-        return self.pe.get_primary_account()
+        ret = self.pe.get_primary_account()
+        self.db.rollback()
+        return ret
 
 ####
 # Group related methods
@@ -234,7 +254,9 @@ class CerebrumUtils(object):
         # This function is kinda generic. We don't care
         # (yet) if it's a distribution or security group.
         r = self.gr.search(group_id=group_id)[0]
-        return (r['name'], r['description'])
+        ret = (r['name'], r['description'])
+        self.db.rollback()
+        return ret
     
     def get_group_spreads(self, group_id):
         """Return the groupss spread codes.
@@ -247,7 +269,9 @@ class CerebrumUtils(object):
         """
         self.gr.clear()
         self.gr.find(group_id)
-        return [x['spread'] for x in self.gr.get_spread()]
+        ret = [x['spread'] for x in self.gr.get_spread()]
+        self.db.rollback()
+        return ret
 
     def get_group_members(self, group_id, spread=None, filter_spread=None):
         """Collect a list of the usernames of all users in a group.
@@ -301,6 +325,7 @@ class CerebrumUtils(object):
                         r.append({'name': self.ac.account_name,
                                   'account_id': self.ac.entity_id})
                         found_accounts.append(self.ac.entity_id)
+        self.db.rollback()
         return r
 
 ####
@@ -333,7 +358,9 @@ class CerebrumUtils(object):
         """
         self.en.clear()
         self.en.find(entity_id)
-        return self.en.entity_type
+        ret = self.en.entity_type
+        self.db.rollback()
+        return ret
 
     def log_event(self, event, trigger):
         """Utility method used to create an event only in the EventLog.
@@ -416,13 +443,16 @@ class CerebrumUtils(object):
             except Errors.NotFoundError:
                 self.eq.clear()
         else:
+            self.db.rollback()
             raise Errors.ProgrammingError(
                     'Must define either target_id og target_entity')
-        return (self.et.entity_id,
-                self.et.email_target_entity_id,
-                self.et.email_target_entity_type,
-                self.eq.get_quota_hard(),
-                self.eq.get_quota_soft())
+        ret = (self.et.entity_id,
+               self.et.email_target_entity_id,
+               self.et.email_target_entity_type,
+               self.eq.get_quota_hard(),
+               self.eq.get_quota_soft())
+        self.db.rollback()
+        return ret
 
     def get_email_domain_info(self, email_domain_id=None,
                                     email_domain_name=None):
@@ -439,7 +469,9 @@ class CerebrumUtils(object):
             self.ed.find(email_domain_id)
         elif email_domain_name:
             self.ed.find_by_domain(email_domain_name)
-        return {'name': self.ed.email_domain_name, 'id': self.ed.entity_id}
+        ret = {'name': self.ed.email_domain_name, 'id': self.ed.entity_id}
+        self.db.rollback()
+        return ret
 
 ####
 # *Group utility methods
@@ -450,11 +482,16 @@ class CerebrumUtils(object):
         # which is not a DistributionGroup in Cerebrum
         self.dg.clear()
         self.dg.find(subj_id)
-        return self.dg.get_distgroup_attributes_and_targetdata()
+        rl = True if self.dg.roomlist == 'T' else False
+        ret = self.dg.get_distgroup_attributes_and_targetdata(roomlist=rl)
+        self.db.rollback()
+        return ret
 
     def get_distgroup_displayname(self, subj_id):
         self.dg.clear()
         self.dg.find(subj_id)
-        return self.dg.search_name_with_language(entity_id=subj_id,
+        ret = self.dg.search_name_with_language(entity_id=subj_id,
                                      name_variant=self.co.dl_group_displ_name,
                                      name_language=self.co.language_nb)
+        self.db.rollback()
+        return ret

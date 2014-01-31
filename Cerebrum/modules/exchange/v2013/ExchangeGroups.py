@@ -388,8 +388,11 @@ class DistributionGroup(Group_class):
             all_data = {'name': self.group_name,
                         'description': self.description,
                         'displayname': display_name,
-                        'group_id': self.group_id,
+                        'group_id': self.entity_id,
+                        'deprestr': self.deprestr,
+                        'joinrestr': self.joinrestr,
                         'roomlist': self.roomlist}
+            return all_data
         try:
             ea.find(self.mngdby_addrid)
         except Errors.NotFoundError:
