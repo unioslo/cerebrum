@@ -89,8 +89,7 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory, NotSet, simple_memoize
 
 
-#logger = Factory.get_logger("cronjob")
-logger = Factory.get_logger("console")
+logger = Factory.get_logger("cronjob")
 database = Factory.get("Database")()
 database.cl_init(change_program="pop-auto-groups")
 constants = Factory.get("Constants")(database)
