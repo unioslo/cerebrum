@@ -2167,7 +2167,8 @@ class UserSync(BaseSync):
             # Need a mapping from address_id for the primary addresses:
             adrid2email = dict()
             i = 0
-            for row in ea.search():
+            # TODO: filter_expired could might be a config setting?
+            for row in ea.search(filter_expired=False):
                 ent = self.id2entity.get(targetid2entityid.get(row['target_id']))
                 if ent:
                     adr = '@'.join((row['local_part'], row['domain']))
