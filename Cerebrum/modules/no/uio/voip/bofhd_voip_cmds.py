@@ -685,10 +685,10 @@ class BofhdVoipCommands(BofhdCommandBase):
         """
 
         self.ba.can_alter_voip_service(operator.get_entity_id())
-        self._assert_unused_service_description(description)
         service = self._get_voip_service(designation)
         
         if description and service.description != description:
+            self._assert_unused_service_description(description)
             service.description = description
         if service_type:
             service_type = self._get_constant(service_type,
