@@ -429,14 +429,10 @@ class EmailQuotaAttr(AttrConfig):
 class EmailForwardAttr(AttrConfig):
     """Config for e-mail forward addresses for an entity from the Email module.
 
-    Note that each given value contains a list with forwards, each with
-    elements:
-    
-        - forward_to - The e-mail address
-        - enabled - If the forward is enabled or not (TODO: What format? Bool?)
-
-    You would like to use L{transform} or other methods to set what you want for
-    the given attribute.
+    Only active forward addresses are used, i.e. those that has status 'enable'
+    set to 'T' and not 'F'. The resulting value is a list of all the forward
+    addresses, so you would like to use L{transform} or other methods to set
+    what you want for the given attribute.
 
     """
     pass

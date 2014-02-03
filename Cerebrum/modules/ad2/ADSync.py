@@ -2195,15 +2195,16 @@ class UserSync(BaseSync):
             ef = Email.EmailForward(self.db)
             i = 0
             for row in ef.list_email_forwards():
+                # Skip not enabled forwards. We should not need those.
+                if row['enable'] != 'T':
+                    continue
                 ent_id = targetid2entityid.get(row['target_id'])
                 if not ent_id:
                     continue
                 ent = self.id2entity.get(targetid2entityid[row['target_id']])
                 if ent:
-                    ent.maildata.setdefault('forward', []).append({
-                        'forward_to': row['forward_to'],
-                        'enable': row['enable']
-                        })
+                    ent.maildata.setdefault('forward', []).append(
+                                                             row['forward_to'])
                     i += 1
             self.logger.debug("Found %d forward addresses" % i)
 
