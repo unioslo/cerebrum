@@ -847,19 +847,19 @@ class ExchangeEventHandler(processing.Process):
                                                 {'hidden': data['hidden']})
                     self.ut.log_event(ev_mod, 'dlgroup:modhidden')
 
-                # Set manager
-                try:
-                    self.ec.set_distgroup_manager(gname, data['mngdby_address'])
-                    self.logger.info('Set manager of %s to %s' % \
-                            (gname, data['mngdby_address']))
-                    self.ut.log_event_receipt(event, 'dlgroup:modmanby')
-                except ExchangeException, e:
-                    self.logger.warn('Can\'t set manager of %s to %s: %s' % \
-                                (gname, data['mngdby_address'], e))
-                    ev_mod = event.copy()
-                    ev_mod['change_params'] = pickle.dumps(
-                            {'manby': data['mngdby_address']})
-                    self.ut.log_event(ev_mod, 'dlgroup:modmanby')
+            # Set manager
+            try:
+                self.ec.set_distgroup_manager(gname, data['mngdby_address'])
+                self.logger.info('Set manager of %s to %s' % \
+                        (gname, data['mngdby_address']))
+                self.ut.log_event_receipt(event, 'dlgroup:modmanby')
+            except ExchangeException, e:
+                self.logger.warn('Can\'t set manager of %s to %s: %s' % \
+                            (gname, data['mngdby_address'], e))
+                ev_mod = event.copy()
+                ev_mod['change_params'] = pickle.dumps(
+                        {'manby': data['mngdby_address']})
+                self.ut.log_event(ev_mod, 'dlgroup:modmanby')
 
             # Set join/part restriction
             try:
@@ -916,10 +916,10 @@ class ExchangeEventHandler(processing.Process):
             try:
                 self.ec.set_group_display_name(gname, data['displayname'])
                 self.logger.info('Set displayname to %s for %s' % \
-                        (data['name'], gname))
+                        (data['displayname'], gname))
             except ExchangeException, e:
                 self.logger.warn('Can\'t set displayname to %s for %s: %s' \
-                        % (data['name'], gname, e))
+                        % (data['displayname'], gname, e))
                 tmp_fail = True
 
             # Set description

@@ -381,18 +381,8 @@ class DistributionGroup(Group_class):
         display_name = self.get_name_with_language(name_variant, 
                                                    name_language,
                                                    default=self.group_name)
-        # in roomlists we only care about name, description, 
-        # displayname and the roomlist-status, the other attributes
-        # don't need to be set in Exchange
-        if roomlist:
-            all_data = {'name': self.group_name,
-                        'description': self.description,
-                        'displayname': display_name,
-                        'group_id': self.entity_id,
-                        'deprestr': self.deprestr,
-                        'joinrestr': self.joinrestr,
-                        'roomlist': self.roomlist}
-            return all_data
+
+        # Fetch the managers address
         try:
             ea.find(self.mngdby_addrid)
         except Errors.NotFoundError:
@@ -404,6 +394,21 @@ class DistributionGroup(Group_class):
             # Could not find the domain recorded. this should never happen
             return None            
         mngdby_address = "%s@%s" % (ea.email_addr_local_part, ed.email_domain_name)
+
+        # in roomlists we only care about name, description, 
+        # displayname and the roomlist-status, the other attributes
+        # don't need to be set in Exchange
+        if roomlist:
+            all_data = {'name': self.group_name,
+                        'description': self.description,
+                        'displayname': display_name,
+                        'group_id': self.entity_id,
+                        'mngdby_address': mngdby_address,
+                        'deprestr': self.deprestr,
+                        'joinrestr': self.joinrestr,
+                        'roomlist': self.roomlist}
+            return all_data
+
         try:
             et.find_by_target_entity(self.entity_id)
         except Errors.NotFoundError:
