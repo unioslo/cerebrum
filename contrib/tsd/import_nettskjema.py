@@ -221,9 +221,9 @@ class InputControl(object):
 
     def is_nonempty(self, txt):
         """Check that a string is not empty or only consists of whitespaces."""
-        if bool(txt.strip()):
-            return True
-        raise BadInputError('Empty string')
+        if not txt or not bool(txt.strip()):
+            raise BadInputError('Empty string')
+        return True
 
     def is_username(self, name):
         """Check that a given username is a valid username."""
@@ -258,6 +258,20 @@ class InputControl(object):
         # TODO: bogus fnr in test, add the check back when done testing:
         #fnr = fodselsnr.personnr_ok(fnr)
         return True
+
+    def in_options(self, options):
+        """Check if the answer is in a valid range of options.
+
+        Actually returns a lambda that could be used by the validator.
+
+        """
+        def check(input):
+            ret = input in options
+            if not ret:
+                raise BadInputError('Invalid option, should be one of: %s'
+                                    % ', '.join(options))
+            return ret
+        return check
 
     def str(self, data):
         """Return the data as a string, stripped."""
@@ -313,7 +327,8 @@ input_values = {
         # The respondent's phone number
         'phone': (input.is_phone, input.str),
         # What resources that should be used in a given project:
-        'vm_descr': (input.is_nonempty, input.str),
+        'vm_descr': (input.in_options(('win_vm', 'linux_vm',
+                                       'win_and_linux_vm')), input.str),
         # If the person should use OTP through smartphone or yubikey:
         'smartphone': (lambda x: True, input.str),
         }
@@ -359,20 +374,55 @@ def _xml2answersdict(xml):
             # Ignore undefined questions
             continue
         # Answers could either be put in a <textAnswer/> tag, which is then a
-        # simple string or integer, or it could be an <answerOption/>.
-        answer = ans.find('textAnswer')
-        if answer is not None:
-            answer = answer.text
-        else:
+        # simple string or integer, or it could be an <answerOption/> inside of
+        # an <answerOptions/>. Note that <textAnswer/> could be visible even if
+        # the answer is an <answerOption/>.
+
+        print "Answer: %s" % etree.tostring(ans)
+
+        answer = None
+        if ans.find('answerOptions/answerOption'):
+            #import code
+            #code.interact(local=locals())
             for r in ans.iterfind('answerOptions/answerOption/externalAnswerOptionId'):
                 answer = r.text
-
             if answer is None:
                 logger.warn("For question %s, got unhandled answerOption: %s",
                             extid, etree.tostring(ans)[:1000])
                 continue
+        else:
+            answer = ans.find('textAnswer').text
         ret[extid] = answer
     return ret
+
+def _xmlanswer2answer(xmlanswer):
+    """Return the answer from a given <answer/> tag in native format.
+    
+    If the question is multiple choice, the chosen <answerOption/> is returned,
+    by returning the text answer from this. Otherwise is the value from
+    <textAnswer/> returned.
+
+    @type xmlanswer: etree.Element
+    @param xmlanswer:
+        The given etree object for a <answer/> tag.
+
+    @rtype: str
+    @return:
+        The answer, either the multiple choice answer or a text.
+
+    """
+    print "Answer: %s" % etree.tostring(xmlanswer)
+
+    if xmlanswer.find('answerOptions/answerOption'):
+        #import code
+        #code.interact(local=locals())
+        for r in xmlanswer.iterfind('answerOptions/answerOption/externalAnswerOptionId'):
+            return r.text
+        logger.warn("For question %s, got unhandled answerOption: %s", extid,
+                    etree.tostring(ans)[:1000])
+        return None
+    return xmlanswer.find('textAnswer').text
+
 
 def xml2answers(xml):
     """Fetch and check answers from XML, and guess the submission type.
@@ -437,7 +487,10 @@ def process_file(file, dryrun):
     logger.info("Processing file: %s", file)
     xml = etree.parse(file).getroot()
     stype, answers = xml2answers(xml)
-    fnr = xml.find('respondentPersonIdNumber').text
+    try:
+        fnr = xml.find('respondentNationalIdNumber').text
+    except AttributeError:
+        raise Exception("Bad file, missing mandatory FNR tag from ID-porten")
     logger.debug('Submission, type "%s", respondent: "%s", answers: %d', stype,
                  fnr, len(answers))
     for k in sorted(answers):
@@ -540,7 +593,7 @@ class Processing(object):
         """Create the project OU based on given input."""
         pname = input['p_id']
         pid = ou.create_project(pname)
-        logger.debug("New project %s named: %s" (pid, pname))
+        logger.debug("New project %s named: %s", pid, pname)
 
         # The gateway should not be informed about new projects before they're
         # approved, so if we should create the project in the GW, we must also
