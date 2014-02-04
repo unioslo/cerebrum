@@ -34,8 +34,8 @@ command_help['user'].update({
         'Activate a user in the systems, after checking',
     'user_generate_otpkey':
         'Regenerate a One Time Password (OTP) key for an account',
-    'user_set_password':
-        'Set a password for a user',
+    'user_password':
+        "Set password for a person's users",
 })
 command_help['group'].update({
     'group_add_member':

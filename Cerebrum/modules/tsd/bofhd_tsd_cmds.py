@@ -556,7 +556,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         'person_affiliation_add', 'person_affiliation_remove',
         # User
         'user_history', 'user_info', 'user_find', 'user_set_expire',
-        'user_password', '_user_create_set_account_type',
+        '_user_create_set_account_type',
         # Group
         'group_info', 'group_list', 'group_list_expanded', 'group_memberships',
         'group_delete', 'group_set_description', 'group_set_expire',
@@ -906,8 +906,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     all_commands['project_unapproved'] = cmd.Command(
         ('project', 'unapproved'),
         fs=cmd.FormatSuggestion(
-            '%-16s %-10s', ('name', 'entity_id'),
-            hdr='%-16s %-10s' % ('Name', 'Entity-Id')),
+            '%-10s %-16s %-10s', ('pid', 'name', 'entity_id'),
+            hdr='%-10s %-16s %-10s' % ('ProjectID', 'Name', 'Entity-Id')),
         perm_filter='is_superuser')
 
     @superuser
@@ -920,7 +920,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                              exact_match=False,
                              filter=filter)
         projects.filter_by_quarantine(self.const.quarantine_not_approved)
-        return projects.results_sorted_by_pid(['name', 'entity_id'])
+        return projects.results_sorted_by_pid(['pid', 'name', 'entity_id'])
 
     all_commands['project_info'] = cmd.Command(
         ('project', 'info'), ProjectID(),
@@ -1244,12 +1244,64 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         return "Ok, created %s, UID: %s" % (posix_user.account_name, uid)
 
     # user password
-    all_commands['user_set_password'] = cmd.Command(
-        ('user', 'set_password'), cmd.AccountName(), cmd.AccountPassword(optional=True))
+    all_commands['user_password'] = cmd.Command(
+        ('user', 'password'), cmd.AccountName(), cmd.AccountPassword(optional=True))
 
-    def user_set_password(self, operator, accountname, password=None):
-        """Set password for a user. Copied from UiO, but renamed for TSD."""
-        return self.user_password(operator, accountname, password)
+    def user_password(self, operator, accountname, password=None):
+        """Set password for a user. A modified version of UiO's command."""
+        account = self._get_account(accountname)
+        self.ba.can_set_password(operator.get_entity_id(), account)
+        if password is None:
+            password = account.make_passwd(accountname)
+        else:
+            # this is a bit complicated, but the point is that
+            # superusers are allowed to *specify* passwords for other
+            # users if cereconf.BOFHD_SU_CAN_SPECIFY_PASSWORDS=True
+            # otherwise superusers may change passwords by assigning
+            # automatic passwords only.
+            if self.ba.is_superuser(operator.get_entity_id()):
+                if (operator.get_entity_id() != account.entity_id and
+                    not cereconf.BOFHD_SU_CAN_SPECIFY_PASSWORDS):
+                    raise CerebrumError("Superuser cannot specify passwords "
+                                        "for other users")
+            elif operator.get_entity_id() != account.entity_id:
+                raise CerebrumError("Cannot specify password for another user.")
+        try:
+            account.goodenough(account, password)
+        except PasswordChecker.PasswordGoodEnoughException, m:
+            raise CerebrumError("Bad password: %s" % m)
+        ret_msg = 'Password altered'
+        # Set password for all person's accounts:
+        ac = Factory.get('Account')(self.db)
+        for row in ac.search(owner_id=account.owner_id):
+            ac.clear()
+            ac.find(row['account_id'])
+            ac.set_password(password)
+            try:
+                ac.write_db()
+            except self.db.DatabaseError, m:
+                raise CerebrumError("Database error: %s" % m)
+            # Remove "weak password" quarantine
+            for r in ac.get_entity_quarantine():
+                if int(r['quarantine_type']) == self.const.quarantine_autopassord:
+                    ac.delete_entity_quarantine(self.const.quarantine_autopassord)
+                if int(r['quarantine_type']) == self.const.quarantine_svakt_passord:
+                    ac.delete_entity_quarantine(self.const.quarantine_svakt_passord)
+            ac.write_db()
+            ret_msg += "\nNew password for: %s" % ac.account_name
+            if ac.is_deleted():
+                ret_msg += "\nWarning: user is deleted: %s" % ac.account_name
+            elif ac.is_expired():
+                ret_msg += "\nWarning: user is expired: %s" % ac.account_name
+            elif ac.get_entity_quarantine(only_active=True):
+                ret_msg += "\nWarning: user in quarantine: %s" % ac.account_name
+
+        # Only store one of the account's password. Not necessary to store all
+        # of them, as it's the same.
+        operator.store_state("user_passwd", {'account_id': int(account.entity_id),
+                                             'password': password})
+        ret_msg += "\nPlease use misc list_password to print or view the new password."
+        return ret_msg
 
     # user password
     all_commands['user_generate_otpkey'] = cmd.Command(
