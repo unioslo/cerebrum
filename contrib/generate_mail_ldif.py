@@ -245,8 +245,17 @@ def write_ldif():
                 # A 'multi' target with no forwarding; seems odd.
                 logger.warn("Target id=%s (type %s) no forwarding found", t, tt)
                 continue 
-
         else:
+            # We don't want to log errors for distributiong groups.
+            # This is really a bad hack. This LDIF generator should
+            # be re-written in a way that lets us define desired functionality
+            # in a non-hackis-way.
+            try:
+                if cereconf.LDAP_INST != "uio":
+                    raise AttributeError
+            except AttributeError:
+                if tt == co.email_target_dl_group:
+                    continue
             # The target-type isn't known to this script.
             logger.error("Wrong target-type in target id=%s: %s", t, tt)
             continue
