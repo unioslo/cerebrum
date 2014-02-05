@@ -267,15 +267,17 @@ class AccountType(object):
 
 
 class AccountHome(object):
+    """AccountHome keeps track of where the user's home directory is.
 
-    """AccountHome keeps track of where the users home dir is.
     A different home dir for each defined home spread may exist.
     A home is identified either by a disk_id, or by the string
-    represented by home
+    represented by home.
 
     Whenever a users account_home or homedir is modified, we changelog
     the new path of the users homedirectory as a string.  For
-    convenience, we also log this path when the entry is deleted."""
+    convenience, we also log this path when the entry is deleted.
+
+    """
 
     def resolve_homedir(self, account_name=None, disk_id=None,
                         disk_path=None, home=None, spread=None):
@@ -298,6 +300,10 @@ class AccountHome(object):
 
     def delete(self):
         """Removes all homedirs for an account"""
+
+        # TODO: This should either call its super class, which should rather be
+        # Account or Entity, or it should be renamed to delete_home, to avoid
+        # breaking the mro.
 
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=account_home]
@@ -477,8 +483,9 @@ class AccountHome(object):
                              'spread': int(spread)})
 
     def get_homes(self):
+        """Return a list of all the given account's registered homes."""
         return self.query("""
-        SELECT ah.homedir_id, disk_id, home, status, spread
+        SELECT ah.homedir_id, ahd.disk_id, ahd.home, ahd.status, ah.spread
         FROM [:table schema=cerebrum name=account_home] ah,
              [:table schema=cerebrum name=homedir] ahd
         WHERE ah.homedir_id=ahd.homedir_id AND ah.account_id=:account_id""",
