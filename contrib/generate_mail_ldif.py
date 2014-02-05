@@ -251,11 +251,10 @@ def write_ldif():
             # be re-written in a way that lets us define desired functionality
             # in a non-hackis-way.
             try:
-                if cereconf.LDAP_INST != "uio":
-                    raise AttributeError
-            except AttributeError:
                 if tt == co.email_target_dl_group:
                     continue
+            except AttributeError:
+                pass
             # The target-type isn't known to this script.
             logger.error("Wrong target-type in target id=%s: %s", t, tt)
             continue
