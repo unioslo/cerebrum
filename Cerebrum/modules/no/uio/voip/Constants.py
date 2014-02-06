@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- encoding: latin-1 -*-
+# -*- encoding: utf-8 -*-
 #
 # Copyright 2010 University of Oslo, Norway
 #
@@ -144,6 +144,11 @@ class VoipConstants(Constants.Constants):
     voip_service_viderekoblet = VoipServiceTypeCode(
         "voip_service_viderekoblet",
         "viderekoblet",
+    )
+
+    voip_service_tradlos = VoipServiceTypeCode(
+        "voip_service_trådløs",
+        "trådløs",
     )
     
     ########################################################################
