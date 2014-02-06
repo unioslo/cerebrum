@@ -789,9 +789,9 @@ class BofhdExtension(BofhdCommandBase):
         # TTL
         ("%-22s %s" % ("TTL:", "%s"), ('ttl',)),
         # TXT
-        ("%-22s %s" % ("TXT:", "%s"), ('txt', )),
+        ("%-22s %s" % ("TXT:", "%s"), ('txt',)),
         # entity_id
-        ("%-22s %%d" % ("Owner ID:",), ('owner_id', )),
+        ("%-22s %%d" % ("Owner ID:",), ('owner_id',)),
         # Cnames
         ("%-22s %s" % ('Cname:', '%s -> %s'), ('cname', 'cname_target')),
         # SRV
@@ -887,7 +887,7 @@ class BofhdExtension(BofhdCommandBase):
         try:
             host = HostInfo.HostInfo(self.db)
             host.find_by_dns_owner_id(owner_id)
-            hinfo_cpu, hinfo_os = host.hinfo.split("\t", 2)
+            hinfo_cpu, hinfo_os = host.hinfo.split("\t", 1)
             ret.append({'hinfo.os': hinfo_os,
                         'hinfo.cpu': hinfo_cpu})
         except Errors.NotFoundError:  # not found
@@ -966,7 +966,6 @@ class BofhdExtension(BofhdCommandBase):
             policy = PolicyComponent(self.db)
             for row in policy.search_hostpolicies(dns_owner_id=owner_id):
                 ret.append({'policy_name': row['policy_name']})
-
         return ret
 
     # host unused_list

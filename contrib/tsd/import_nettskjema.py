@@ -377,9 +377,6 @@ def _xml2answersdict(xml):
         # simple string or integer, or it could be an <answerOption/> inside of
         # an <answerOptions/>. Note that <textAnswer/> could be visible even if
         # the answer is an <answerOption/>.
-
-        print "Answer: %s" % etree.tostring(ans)
-
         answer = None
         if ans.find('answerOptions/answerOption'):
             #import code
@@ -585,7 +582,7 @@ class Processing(object):
         for key in ('smartphone',):
             if key in input:
                 logger.debug("Updating otp-device: %s", input[key])
-                pe.populate_trait(trait_otp_device, date=DateTime.now(),
+                pe.populate_trait(co.trait_otp_device, date=DateTime.now(),
                                   strval=str(input[key]))
                 pe.write_db()
 
@@ -627,20 +624,21 @@ class Processing(object):
                                  start=endtime)
         ou.write_db()
         starttime = input['project_start']
-        # TBD: should we always set the start date, even if it is passed, for
-        # the administrators to see when the project started?
-        if starttime > DateTime.now():
-            logger.debug("Project %s gets start-time quarantine" % pid)
-            ou.add_entity_quarantine(type=co.quarantine_project_start,
-                                     creator=systemaccount_id,
-                                     description='Initial requested starttime for project',
-                                     start=DateTime.now(), end=starttime)
-            ou.write_db()
+        # We always set the start time quarantine, even if the start time has
+        # passed. This is to let the administrators see the start time in bofh.
+        ou.add_entity_quarantine(type=co.quarantine_project_start,
+                                 creator=systemaccount_id,
+                                 description='Initial requested starttime for project',
+                                 start=DateTime.now() - 1000, end=starttime)
+        ou.write_db()
 
         ou.populate_trait(co.trait_project_institution, target_id=ou.entity_id,
                           strval=input['inst_address'])
         ou.populate_trait(co.trait_project_rek, target_id=ou.entity_id,
                           strval=input['legal_notice'])
+        # TODO: Should we have a mapping of vm_descr?
+        ou.populate_trait(co.trait_project_vm_type, target_id=ou.entity_id,
+                          strval=input['vm_descr'])
         ou.write_db()
         logger.debug("New project created successfully: %s", pid)
         # The project will not be properly set up before it gets approved. The
@@ -665,9 +663,9 @@ class Processing(object):
         ac = Factory.get('Account')(db)
         username = '%s-%s' % (pid, username)
         # Check if wanted username is already taken:
-        if ac.search(name=username):
+        if ac.search(name=username, expire_start=None):
             raise Exception("Username already taken: %s" % username)
-            # TODO: generate username if we have the person's name
+            # TODO: generate username if we have the person's name?
             #for name in ac.suggest_unames(co.account_namespace, fname, lname,
             #                              maxlen=cereconf.USERNAME_MAX_LENGTH,
             #                              prefix='%s-' % pid):
@@ -786,8 +784,7 @@ class Processing(object):
                 # account.
                 pe2.write_db()
             except Errors.NotFoundError:
-                logger.warn("Project owner not found: %s",
-                            input['rek_owner'])
+                logger.warn("Project owner not found: %s", input['rek_owner'])
 
         # Give the PA an account:
         ac = self._create_account(pe, ou, input['pa_username'])
@@ -864,8 +861,8 @@ class Processing(object):
         # Check if the person already has an account:
         accounts = self._get_project_account(pe, ou)
         if accounts:
-            logger.info("Ignoring person %s, already has project accounts: %s",
-                        self.fnr,
+            logger.info("Ignoring person %s, already has project accounts: id:%s",
+                        pe.entity_id,
                         ', '.join(str(a['account_id']) for a in accounts))
             return False
 

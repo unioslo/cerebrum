@@ -744,11 +744,9 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         project = self._get_project(projectid)
         if not project.get_entity_quarantine(only_active=True,
                                              type=self.const.quarantine_not_approved):
-            raise CerebrumError('Can not reject approved projects, you may wish to terminate '
-                                'it instead.')
-
-        # TODO: delete person affiliations and accounts?
-
+            raise CerebrumError('Can not reject approved projects, you may '
+                                'wish to terminate it instead.')
+        project.terminate()
         project.delete()
         try:
             # Double check that project doesn't exist in Gateway.
@@ -924,7 +922,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
     all_commands['project_info'] = cmd.Command(
         ('project', 'info'), ProjectID(),
-        fs=cmd.FormatSuggestion(
+        fs=cmd.FormatSuggestion([(
             "Project ID:       %s\n"
             "Project name:     %s\n"
             "Entity ID:        %d\n"
@@ -936,7 +934,10 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             "Spreads:          %s",
             ('project_id', 'project_name', 'entity_id', 'long_name',
              'short_name', 'start_date', 'end_date', 'quarantines', 'spreads')),
-            # TODO: REK-number and other data!
+            ('REK-number:       %s', ('rek',)),
+            ('Institution:      %s', ('institution',)),
+            ('VM-type:          %s', ('vm_type',)),
+            ]),
         perm_filter='is_superuser')
 
     @superuser
@@ -949,8 +950,12 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
         """
         project = self._get_project(projectid)
+        try:
+            pid = project.get_project_id()
+        except Errors.NotFoundError:
+            pid = '<Missing>'
         ret = {
-            'project_id': project.get_project_id(),
+            'project_id': pid,
             'project_name': project.get_project_name(),
             'entity_id': project.entity_id,
             }
@@ -979,6 +984,26 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                                         entity_id=project.entity_id,
                                         name_variant=self.const.ou_name_short):
             ret['short_name'] = row['name']
+        ret = [ret,]
+        # REK number
+        trait = project.get_trait(self.const.trait_project_rek)
+        if trait:
+            ret.append({'rek': trait['strval']})
+        else:
+            ret.append({'rek': '<Not Set>'})
+        # Institution
+        trait = project.get_trait(self.const.trait_project_institution)
+        if trait:
+            ret.append({'institution': trait['strval']})
+        else:
+            ret.append({'institution': '<Not Set>'})
+        # VM type
+        trait = project.get_trait(self.const.trait_project_vm_type)
+        if trait:
+            # TODO: how should we store this?
+            ret.append({'vm_type': trait['strval']})
+        else:
+            ret.append({'vm_type': '<Not Set>'})
         return ret
 
     all_commands['project_affiliate_entity'] = cmd.Command(
@@ -1370,9 +1395,13 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         if account.is_deleted():
             raise CerebrumError("User is already deleted")
         pu = Factory.get('PosixUser')(self.db)
-        pu.find(account.entity_id)
-        pu.delete_posixuser()
-        pu.write_db()
+        try:
+            pu.find(account.entity_id)
+        except Errors.NotFoundError:
+            pass
+        else:
+            pu.delete_posixuser()
+            pu.write_db()
         account.deactivate()
         account.write_db()
         return "User %s is deactivated" % account.account_name

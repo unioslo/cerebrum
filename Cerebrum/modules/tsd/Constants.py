@@ -138,6 +138,10 @@ class Constants(Constants.Constants):
             DnsConstants.entity_dns_ipv6_subnet,
             'The project a IPv6 subnet belongs to')
 
+    trait_project_vm_type = _EntityTraitCode('project_vm_type',
+            Constants.Constants.entity_ou,
+            'The type of VM the project should use')
+
     # Traits for metadata about projects:
     trait_project_institution = _EntityTraitCode('institution',
                                                  Constants.Constants.entity_ou,

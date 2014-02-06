@@ -101,15 +101,15 @@ class PosixUserTSDMixin(PosixUser.PosixUser):
             self.pg.add_member(self.entity_id)
 
         # Syncronizing the groups spreads with the users
-        #mapping = {int(self.const.spread_ad_account):
-        #           int(self.const.spread_ad_group),}
-        #user_spreads = [int(r['spread']) for r in self.get_spread()]
-        #group_spreads = [int(r['spread']) for r in self.pg.get_spread()]
-        #for uspr, gspr in mapping.iteritems():
-        #    if uspr in user_spreads:
-        #        if gspr not in group_spreads:
-        #            self.pg.add_spread(gspr)
-        #    elif gspr in group_spreads:
-        #        self.pg.delete_spread(gspr)
+        mapping = {int(self.const.spread_ad_account):
+                   int(self.const.spread_file_group),}
+        user_spreads = [int(r['spread']) for r in self.get_spread()]
+        group_spreads = [int(r['spread']) for r in self.pg.get_spread()]
+        for uspr, gspr in mapping.iteritems():
+            if uspr in user_spreads:
+                if gspr not in group_spreads:
+                    self.pg.add_spread(gspr)
+            elif gspr in group_spreads:
+                self.pg.delete_spread(gspr)
         return ret
 

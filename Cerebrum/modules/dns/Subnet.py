@@ -395,13 +395,14 @@ class Subnet(Entity):
         # Revoke BofhdAuthRoles associated with subnet
         baot = BofhdAuthOpTarget(self._db)
         bar = BofhdAuthRole(self._db)
-        targets = [ x['op_target_id'] for x in baot.list(entity_id = 
-                                                         self.entity_id) ]
-        for x in bar.list(op_target_id = targets):
-            bar.revoke_auth(*x)
-        bar.commit()
+        targets = [x['op_target_id'] for x in
+                   baot.list(entity_id=self.entity_id)]
+        if targets:
+            for x in bar.list(op_target_id=targets):
+                bar.revoke_auth(*x)
+            bar.commit()
 
-        # Remove BofhdAuthOpTarget associated wit subnet
+        # Remove BofhdAuthOpTarget associated with subnet
         for x in targets:
             baot.clear()
             try:

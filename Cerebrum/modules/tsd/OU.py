@@ -158,6 +158,18 @@ class OUTSDMixin(OU):
         raise Errors.NotFoundError('Mandatory project ID not found for %s' %
                 self.entity_id)
 
+    def get_project_int(self):
+        """Shortcut for getting the "integer" for the project.
+
+        An integer is needed e.g. to map a project to a subnet and/or VLAN. For
+        now, is this mapped from the number in the project ID, so p01 would
+        become 1 and p21 would become 21. This might be changed in the future
+        when we reach p99.
+
+        """
+        projectid = self.get_project_id()
+        return int(projectid[1:])
+
     def add_name_with_language(self, name_variant, name_language, name):
         """Override to be able to verify project names (acronyms).
 
@@ -322,7 +334,6 @@ class OUTSDMixin(OU):
             _create_group(suffix, desc, self.const.trait_project_group, spreads)
         # Create machines:
         self._setup_project_hosts(creator_id)
-        # TODO: Disks? How?
 
         # TODO: Add accounts to the various groups:
         ac = Factory.get('Account')(self._db)
@@ -341,7 +352,7 @@ class OUTSDMixin(OU):
         # TODO: Find a better way for mapping between project ID and VLAN. Now I
         # only cut out the first character, which is normally 'p', and the rest
         # _should_ be digits:
-        intpid = int(projectid[1:])
+        intpid = self.get_project_int()
         vlan = intpid + cereconf.VLAN_START
 
         # Check that the VLAN is not already in use. TBD: Or is this acceptable
@@ -397,9 +408,87 @@ class OUTSDMixin(OU):
                                target_id=self.entity_id)
         etrait.write_db()
 
+        # TODO: Reserve 10 PTR addresses in the start of the subnet!
+
     def _setup_project_hosts(self, creator_id):
-        # TODO
-        pass
+        """Setup the hosts initially needed for the given project."""
+        projectid = self.get_project_id()
+        intpid = self.get_project_int()
+        subnetstart = cereconf.SUBNET_START_6 % intpid
+        host = dns.HostInfo.HostInfo(self._db)
+
+        vm_trait = self.get_trait(self.const.trait_project_vm_type)
+        vm_type = 'win_vm'
+        if vm_trait:
+            vm_type = vm_trait['strval']
+
+        if vm_type in ('win_vm', 'win_and_linux_vm'):
+            # Create a Windows host for the whole project
+            hinfo = 'IBM-PC\tWINDOWS'
+            # TODO: Need to confirm correct hostname
+            hostname = '%s-project-l.tsd.usit.no.' % projectid
+            dns_owner = self._populate_dnsowner(hostname)
+            host.populate(dns_owner.entity_id, hinfo)
+            host.write_db()
+            # TODO: add dns-comment and/or dns-contact?
+        elif vm_type in ('linux_vm',):
+            # TODO: Create linux hosts per project user.
+            # TODO: Should we do this somewhere else instead, as it should be
+            #       connected per account? E.g. in AccountTSDmixin.
+            hinfo = 'IBM-PC\tLINUX'
+
+    def _populate_dnsowner(self, hostname, ipv6_adr=None):
+        """Create or update a DnsOwner connected to the given project.
+
+        This should rather be put in the DNS module, but due to its complexity,
+        its weird layout, and my lack of IQ points to understand it, I started
+        just using its API instead.
+
+        @type hostname: str
+        @param hostname: The given FQDN for the host.
+
+        @type ipv6_adr: str
+        @param ipv6_adr:
+            The given IPv6 address to set for the host. Only IPv6 addresses are
+            needed for projects in TSD, so IPv4 addresses must be added
+            manually. If not given, a free IP address in the project's subnet
+            will be used.
+
+        @rtype: DnsOwner object
+        @return:
+            The DnsOwner object that is created or updated.
+
+        """
+        dns_owner = dns.DnsOwner.DnsOwner(self._db)
+        dnsfind = dns.Utils.Find(self._db, cereconf.DNS_DEFAULT_ZONE)
+        ipv6number = dns.IPv6Number.IPv6Number(self._db)
+        aaaarecord = dns.AAAARecord.AAAARecord(self._db)
+
+        projectid = self.get_project_id()
+        intpid = self.get_project_int()
+        subnetstart = cereconf.SUBNET_START_6 % intpid
+
+        try:
+            dns_owner.find_by_name(hostname)
+        except Errors.NotFoundError:
+            # TODO: create owner here?
+            dns_owner.populate(self.const.DnsZone(cereconf.DNS_DEFAULT_ZONE),
+                               hostname)
+            dns_owner.write_db()
+
+        # Only IPv6 is needed for projects in TSD
+        if not ipv6_adr:
+            ipv6_adr = dnsfind.find_free_ip(subnetstart, no_of_addrs=1)[0]
+        # TODO: check if dnsowner already has an ipv6 address.
+        ip = dnsfind.find_free_ip(subnetstart, no_of_addrs=1)[0]
+        ipv6number.populate(ip)
+        ipv6number.write_db()
+        aaaarecord.populate(dns_owner.entity_id, ipv6number.entity_id)
+        aaaarecord.write_db()
+        dns_owner.populate_trait(self.const.trait_project_host,
+                                 target_id=self.entity_id)
+        dns_owner.write_db()
+        return dns_owner
 
     def get_pre_approved_persons(self):
         """Get a list of pre approved persons by their fnr.
@@ -437,13 +526,83 @@ class OUTSDMixin(OU):
     def terminate(self):
         """Remove all of a project, except its project id and name (acronym).
         
-        Note that you would have to delete accounts and other project entitites
-        as well.
+        The project's entities are deleted by this method, so use with care!
+
+        For the OU object, it does almost the same as L{delete} except from
+        deleting the entity itself.
 
         """
         self.write_db()
+        ent = EntityTrait.EntityTrait(self._db)
+
+        # Delete affiliated entities
+        # Delete the project's users:
+        ac = Factory.get('Account')(self._db)
+        for row in ac.list_accounts_by_type(ou_id=self.entity_id):
+            ac.clear()
+            ac.find(row['account_id'])
+            ac.delete()
+        # Remove every trace of person affiliations to the project:
+        pe = Factory.get('Person')(self._db)
+        for row in pe.list_affiliations(ou_id=self.entity_id):
+            pe.clear()
+            pe.find(row['person_id'])
+            pe.nuke_affiliation(ou_id=row['ou_id'],
+                                affiliation=row['affiliation'],
+                                source=row['source_system'],
+                                status=row['status'])
+            pe.write_db()
+        # Remove all project's groups:
+        gr = Factory.get('Group')(self._db)
+        pg = Factory.get('PosixGroup')(self._db)
+        for row in gr.list_traits(code=self.const.trait_project_group,
+                                  target_id=self.entity_id):
+            gr.clear()
+            pg.clear()
+            try:
+                pg.find(row['entity_id'])
+                pg.delete()
+            except Errors.NotFoundError:
+                pass
+            gr.find(row['entity_id'])
+            gr.delete()
+
+        # Delete all subnets
+        subnet = dns.Subnet.Subnet(self._db)
+        subnet6 = dns.IPv6Subnet.IPv6Subnet(self._db)
+        for row in ent.list_traits(code=(self.const.trait_project_subnet6,
+                                         self.const.trait_project_subnet),
+                                   target_id=self.entity_id):
+            ent.clear()
+            ent.find(row['entity_id'])
+            ent.delete_trait(row['code'])
+            ent.write_db()
+            if row['code'] == self.const.trait_project_subnet:
+                subnet.clear()
+                subnet.find(row['entity_id'])
+                subnet.delete()
+            if row['code'] == self.const.trait_project_subnet6:
+                subnet6.clear()
+                subnet6.find(row['entity_id'])
+                subnet6.delete()
+
+        # Remove all project's DnsOwners (hosts):
+        dnsowner = dns.DnsOwner.DnsOwner(self._db)
+        for row in ent.list_traits(code=self.const.trait_project_host,
+                                   target_id=self.entity_id):
+            # TODO: Could we instead update the Subnet classes to use
+            # Factory.get('Entity'), and make use of EntityTrait there to handle
+            # this?
+            ent.clear()
+            ent.find(row['entity_id'])
+            ent.delete_trait(row['code'])
+            ent.write_db()
+            dnsowner.clear()
+            dnsowner.find(row['entity_id'])
+            dnwowner.delete()
+
         # Remove all data from the OU except for the project ID and project name
-        for tr in self.get_traits():
+        for tr in tuple(self.get_traits()):
             self.delete_trait(tr)
         for row in self.get_spread():
             self.delete_spread(row['spread'])
@@ -458,7 +617,3 @@ class OUTSDMixin(OU):
                 continue
             self.delete_name_with_language(row['name_variant'])
         self.write_db()
-
-        # TODO: Also remove all related entities...
-
-        raise Errors.CerebrumError('Not fully implemented yet')
