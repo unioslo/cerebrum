@@ -241,7 +241,10 @@ class AccountUtil(object):
 
         for c_id, dta in changes:
             if c_id == 'add_spread':
-                user.add_spread(dta)
+                try:
+                    user.add_spread(dta)
+                except db.IntegrityError:
+                    logger.warn('Could not add %s to %s' % (str(dta), str(account_id)))
         for c_id, dta in changes:
             if c_id == 'dfg':
                 user.gid_id = dta
