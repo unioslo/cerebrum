@@ -174,7 +174,7 @@ class UserSync(ADSync.UserSync, TSDUtils):
             ent.projectid = pid
             self.entities[uname] = ent
 
-class GroupSync(ADSync.PosixGroupSync, TSDUtils):
+class GroupSync(ADSync.GroupSync, TSDUtils):
     """TSD's sync of file groups."""
 
     def fetch_cerebrum_data(self):
