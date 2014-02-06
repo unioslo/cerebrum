@@ -2334,6 +2334,8 @@ class PowershellClient(WinRMClient):
         self.logger.debug3("Got output of length: %d" % len(out))
         # TODO: how to avoid creating a full copy of the data, e.g. by strip?
         out = out.strip()
+        if not out:
+            return ()
         # Powershell ends JSON output with semicolon, which needs to be
         # removed for json to parse it without errors:
         if out.endswith(';'):
