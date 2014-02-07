@@ -996,15 +996,28 @@ class ExchangeEventHandler(processing.Process):
         removed_spread_code = self.ut.unpickle_event_params(event)['spread']
         if removed_spread_code == self.group_spread:
             gname, desc = self.ut.get_group_information(event['subject_entity'])
-            try:
-                self.ec.remove_group(gname)
-                self.logger.info('Removed group %s' % gname)
-                self.ut.log_event_receipt(event, 'dlgroup:remove')
-                
-            except ExchangeException, e:
-                self.logger.warn('Couldn\'t remove group %s' % \
-                                  gname)
-                raise EventExecutionException
+            data = self.ut.get_distgroup_attributes_and_targetdata(
+                                                        event['subject_entity'])
+            if data['roomlist'] == 'F':
+                try:
+                    self.ec.remove_group(gname)
+                    self.logger.info('Removed group %s' % gname)
+                    self.ut.log_event_receipt(event, 'dlgroup:remove')
+                    
+                except ExchangeException, e:
+                    self.logger.warn('Couldn\'t remove group %s' % \
+                                      gname)
+                    raise EventExecutionException
+            else:
+                try:
+                    self.ec.remove_roomlist(gname)
+                    self.logger.info('Removed roomlist %s' % gname)
+                    self.ut.log_event_receipt(event, 'dlgroup:roomcreate')
+                    
+                except ExchangeException, e:
+                    self.logger.warn('Couldn\'t remove roomlist %s: %s' % \
+                                      (gname, e))
+                    raise EventExecutionException
         if not self.group_spread == removed_spread_code:
             # Silently discard it
             raise UnrelatedEvent

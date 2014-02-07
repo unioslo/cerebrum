@@ -260,8 +260,6 @@ class CLConstants(Constants.Constants):
     # Ask jsama about this.
     ea_policy = _ChangeTypeCode('exchange', 'set_ea_policy',
                                     'Address book policy changed')
-    roomlist_create = _ChangeTypeCode('exchange', 'create_roomlist',
-                                      'Roomlist creation event')
 
     # Account mailbox created/deleted
     acc_mbox_create = _ChangeTypeCode('exchange', 'acc_mbox_create',
