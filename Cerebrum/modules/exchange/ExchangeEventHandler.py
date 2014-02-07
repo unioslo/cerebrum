@@ -772,7 +772,7 @@ class ExchangeEventHandler(processing.Process):
                 try:
                     self.ec.new_roomlist(gname, self.config['group_ou'])
                     self.logger.info('Created roomlist %s' % gname)
-                    self.ut.log_event_reciept(event, 'dlgroup:roomcreate')
+                    self.ut.log_event_receipt(event, 'dlgroup:roomcreate')
                 except ExchangeException, e:
                     self.logger.warn('Could not create roomlist %s: %s' % \
                                                                 (gname, e))
