@@ -719,7 +719,54 @@ class ExchangeClient(PowershellClient):
             raise ExchangeException(out['stderr'])
         else:
             return True
-    
+
+    def new_roomlist(self, gname, ou=None):
+        """Create a new Room List
+
+        @type gname: string
+        @param gname: The roomlists name
+
+        @type ou: string
+        @param ou: Which container to put the object into
+        
+        @raise ExchangeException: If the command cannot be run, raise.
+        """
+        # Yeah, we need to specify the Confirm-option as a NVA,
+        # due to the silly syntax.
+        param = {'Name': gname,
+                'Type': 'Distribution'}
+        if ou:
+            param['OrganizationalUnit'] = ou
+
+        cmd = self._generate_exchange_command(
+                'New-DistributionGroup',
+                param,
+                ('RoomList', 'Confirm:$false',))
+
+        out = self.run(cmd)
+        if out.has_key('stderr'):
+            raise ExchangeException(out['stderr'])
+        else:
+            return True
+
+    def remove_roomlist(self, gname):
+        """Remove a roomlist.
+
+        @type gname: string
+        @param gname: The roomlists name
+
+        @raise ExchangeException: If the command cannot be run, raise.
+        """
+        cmd = self._generate_exchange_command(
+                'Remove-DistributionGroup',
+               {'Identity': gname},
+               ('Confirm:$false',))
+        out = self.run(cmd)
+        if out.has_key('stderr'):
+            raise ExchangeException(out['stderr'])
+        else:
+            return True
+
     def remove_group(self, gname):
         """Remove a mail enabled securitygroup.
 
@@ -814,23 +861,23 @@ class ExchangeClient(PowershellClient):
         else:
             return True
     
-    def set_roomlist(self, gname):
-        """Define a distribution group as a roomlist.
-
-        @type gname: string
-        @param gname: The groups name
-
-        @raise ExchangeException: Raised if the command cannot be run.
-        """
-        cmd = self._generate_exchange_command(
-                'Set-DistributionGroup',
-               {'Identity': gname},
-               ('RoomList',))
-        out = self.run(cmd)
-        if out.has_key('stderr'):
-            raise ExchangeException(out['stderr'])
-        else:
-            return True
+#    def set_roomlist(self, gname):
+#        """Define a distribution group as a roomlist.
+#
+#        @type gname: string
+#        @param gname: The groups name
+#
+#        @raise ExchangeException: Raised if the command cannot be run.
+#        """
+#        cmd = self._generate_exchange_command(
+#                'Set-DistributionGroup',
+#               {'Identity': gname},
+#               ('RoomList',))
+#        out = self.run(cmd)
+#        if out.has_key('stderr'):
+#            raise ExchangeException(out['stderr'])
+#        else:
+#            return True
 
     def set_distgroup_primary_address(self, gname, address):
         """Set the primary-address of a Distribution Group.

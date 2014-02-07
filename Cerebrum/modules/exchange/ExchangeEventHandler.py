@@ -756,14 +756,28 @@ class ExchangeEventHandler(processing.Process):
         added_spread_code = self.ut.unpickle_event_params(event)['spread']
         if added_spread_code == self.group_spread:
             gname, desc = self.ut.get_group_information(event['subject_entity'])
+            data = self.ut.get_distgroup_attributes_and_targetdata(
+                                                        event['subject_entity'])
 
-            try:
-                self.ec.new_group(gname, self.config['group_ou'])
-                self.logger.info('Created Exchange group %s' % gname)
-                self.ut.log_event_receipt(event, 'dlgroup:create')
-            except ExchangeException, e:
-                self.logger.warn('Could not create group %s: %s' % (gname, e))
-                raise EventExecutionException
+            if data['roomlist'] == 'F':
+                try:
+                    self.ec.new_group(gname, self.config['group_ou'])
+                    self.logger.info('Created Exchange group %s' % gname)
+                    self.ut.log_event_receipt(event, 'dlgroup:create')
+                except ExchangeException, e:
+                    self.logger.warn('Could not create group %s: %s' % \
+                                                                (gname, e))
+                    raise EventExecutionException
+            else:
+                try:
+                    self.ec.new_roomlist(gname, self.config['group_ou'])
+                    self.logger.info('Created roomlist %s' % gname)
+                    self.ut.log_event_reciept(event, 'dlgroup:roomcreate')
+                except ExchangeException, e:
+                    self.logger.warn('Could not create roomlist %s: %s' % \
+                                                                (gname, e))
+                    raise EventExecutionException
+                
 
             try:
                 self.ec.set_distgroup_address_policy(gname)
@@ -774,17 +788,16 @@ class ExchangeEventHandler(processing.Process):
                                 (gname, e))
                 self.ut.log_event(event, 'exchange:set_ea_policy')
 
-            data = self.ut.get_distgroup_attributes_and_targetdata(
-                                                        event['subject_entity'])
-            # We must define roomlists as roomlists!
-            if data['roomlist'] == 'T':
-                try:
-                    self.ec.set_roomlist(gname)
-                    self.logger.info('Defined %s as roomlist' % gname)
-                    self.ut.log_event_reciept(event, 'dlgroup:roomcreate')
-                except ExchangeException, e:
-                    self.logger.warn('Can\'t define %s as roomlist' % gname)
-                    self.ut.log_event(event, 'exchange:create_roomlist')
+
+#            # We must define roomlists as roomlists!
+#            if data['roomlist'] == 'T':
+#                try:
+#                    self.ec.set_roomlist(gname)
+#                    self.logger.info('Defined %s as roomlist' % gname)
+#                    self.ut.log_event_reciept(event, 'dlgroup:roomcreate')
+#                except ExchangeException, e:
+#                    self.logger.warn('Can\'t define %s as roomlist' % gname)
+#                    self.ut.log_event(event, 'exchange:create_roomlist')
 
             # Only for pure distgroups :)
             if data['roomlist'] == 'F':
@@ -888,19 +901,20 @@ class ExchangeEventHandler(processing.Process):
             # Only for pure distgroups :)
             if data['roomlist'] == 'F':
                 # Set moderator
-                try:
-                    self.ec.set_distgroup_moderator(gname, data['modby'])
-                    self.logger.info('Set moderators %s on %s' % \
-                            (data['modby'], gname))
-                    # TODO: This correct? CLConstants is a bit strange
-                    self.ut.log_event_receipt(event, 'dlgroup:modmodby')
-                except ExchangeException, e:
-                    self.logger.warn('Can\'t set moderators %s on %s' % \
-                            (data['modby'], gname))
-                    ev_mod = event.copy()
-                    ev_mod['change_params'] = pickle.dumps(
-                                            {'modby': data['modby']})
-                    self.ut.log_event(ev_mod, 'dlgroup:modmodby')
+                if data['modby']:
+                    try:
+                        self.ec.set_distgroup_moderator(gname, data['modby'])
+                        self.logger.info('Set moderators %s on %s' % \
+                                (data['modby'], gname))
+                        # TODO: This correct? CLConstants is a bit strange
+                        self.ut.log_event_receipt(event, 'dlgroup:modmodby')
+                    except ExchangeException, e:
+                        self.logger.warn('Can\'t set moderators %s on %s' % \
+                                (data['modby'], gname))
+                        ev_mod = event.copy()
+                        ev_mod['change_params'] = pickle.dumps(
+                                                {'modby': data['modby']})
+                        self.ut.log_event(ev_mod, 'dlgroup:modmodby')
 
                 # Set moderation
                 enable = True if data['modenable'] == 'T' else False
@@ -1135,22 +1149,22 @@ class ExchangeEventHandler(processing.Process):
             # TODO: Will we ever arrive here? Log this?
             raise UnrelatedEvent
 
-    @EventDecorator.RegisterHandler(['exchange:create_roomlist'])
-    def set_roomlist(self, event):
-        """Define a group as a roomlist.
-
-        @type event: Cerebrum.extlib.db_row.row
-        @param event: The event returned from Change- or EventLog
-        """
-        gname, description = self.ut.get_group_information(
-                                                        event['subject_entity'])
-        try:
-            self.ec.set_roomlist(gname)
-            self.logger.info('Defined %s as roomlist' % gname)
-            self.ut.log_event_reciept(event, 'dlgroup:roomcreate')
-        except ExchangeException, e:
-            self.logger.warn('Can\'t define %s as roomlist: %s' % gname, e)
-            raise EventExecutionException
+#    @EventDecorator.RegisterHandler(['exchange:create_roomlist'])
+#    def set_roomlist(self, event):
+#        """Define a group as a roomlist.
+#
+#        @type event: Cerebrum.extlib.db_row.row
+#        @param event: The event returned from Change- or EventLog
+#        """
+#        gname, description = self.ut.get_group_information(
+#                                                        event['subject_entity'])
+#        try:
+#            self.ec.set_roomlist(gname)
+#            self.logger.info('Defined %s as roomlist' % gname)
+#            self.ut.log_event_reciept(event, 'dlgroup:roomcreate')
+#        except ExchangeException, e:
+#            self.logger.warn('Can\'t define %s as roomlist: %s' % (gname, e))
+#            raise EventExecutionException
 
     @EventDecorator.RegisterHandler(['exchange:set_ea_policy'])
     def set_address_policy(self, event):
@@ -1224,19 +1238,20 @@ class ExchangeEventHandler(processing.Process):
         gname, description = self.ut.get_group_information(
                                                         event['subject_entity'])
         params = self.ut.unpickle_event_params(event)
-        try:
-            self.ec.set_distgroup_moderator(gname, params['modby'])
-            # TODO: Better logging
-            self.logger.info('Setting moderators (%s) for %s' % \
-                                (params['modby'], gname))
-            # Log a reciept that represents completion of the operation
-            # in ChangeLog.
-            # TODO: Move this to the caller sometime
-            self.ut.log_event_receipt(event, 'dlgroup:modmodby')
-        except ExchangeException, e:
-            self.logger.warn('Failed to set moderators (%s) on %s: %s' % \
-                                (params['modby'], gname, e))
-            raise EventExecutionException
+        if params['modby']:
+            try:
+                self.ec.set_distgroup_moderator(gname, params['modby'])
+                # TODO: Better logging
+                self.logger.info('Setting moderators (%s) for %s' % \
+                                    (params['modby'], gname))
+                # Log a reciept that represents completion of the operation
+                # in ChangeLog.
+                # TODO: Move this to the caller sometime
+                self.ut.log_event_receipt(event, 'dlgroup:modmodby')
+            except ExchangeException, e:
+                self.logger.warn('Failed to set moderators (%s) on %s: %s' % \
+                                    (params['modby'], gname, e))
+                raise EventExecutionException
     
     @EventDecorator.RegisterHandler(['dlgroup:modenable'])
     def set_distgroup_moderation(self, event):
