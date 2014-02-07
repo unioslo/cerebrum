@@ -267,45 +267,6 @@ class ExchangeClient(PowershellClient):
             return super(ExchangeClient, self).execute(setup, *args, **kwargs)
         except WinRMServerException, e:
             raise ExchangeException(e)
-# TODO: This has been moved to a lower level.. Remove eventually
-#        try:
-#            return super(ExchangeClient, self).execute(setup, *args, **kwargs)
-#        except WinRMServerException, e:
-#            # TODO: Should we check for more exceptions inside here or
-#            # something?
-#
-#            # If we wind up here, the MaxConcurrentOperationsPerUser variable
-#            # might have reached it's limit. We try to close the shell on the
-#            # springboard, and open a new connection. If that fails still,
-#            # we raise an ExchangeException, to requeue the event at a later
-#            # time.
-#            #
-#            # We really should not do this, as this really should not happen.
-#            # It does happen, since Windows is Silly. Read the following
-#            # document about Signal, and the note in the appendix:
-#            # http://msdn.microsoft.com/en-us/library/cc251679.aspx
-#            # http://msdn.microsoft.com/en-us/library/f8ba005a-8271-45ec-92cd-
-#            #                                               43524d39c80f#id119
-#            try:
-#                self.logger.debug('Cought WinRM failure: %s' % str(e))
-#                self.logger.debug('Trying to start a new shell..')
-#                # We need to do this try/except when attempting a close.
-#                # If the shell times out, we can't close it, since it does
-#                # not exist (and the close operation raises an exception).
-#                # If the number operations performed has reached the
-#                # MaxConcurrentOperations- PerUsers limit, we must close the
-#                # shell.
-#                # TODO: Implement saner exception-handling here, when mood
-#                # allows.
-#                try:
-#                    self.close()
-#                except:
-#                    pass
-#                self.connect()
-#                return super(ExchangeClient, self).execute(
-#                                                        setup, *args, **kwargs)
-#            except WinRMServerException, e:
-#                raise ExchangeException(e)
         except URLError, e:
             # We can expect that the servers go up-and-down a bit.
             # We need to tell the caller about this. For example, events
@@ -575,6 +536,7 @@ class ExchangeClient(PowershellClient):
                {'Identity': uname,
                 'EmailAddresses': addrs})
         out = self.run(cmd)
+
         if out.has_key('stderr'):
             raise ExchangeException(out['stderr'])
         else:
@@ -597,6 +559,7 @@ class ExchangeClient(PowershellClient):
                {'Identity': uname,
                 'EmailAddresses': addrs})
         out = self.run(cmd)
+
         if out.has_key('stderr'):
             raise ExchangeException(out['stderr'])
         else:
@@ -723,7 +686,59 @@ class ExchangeClient(PowershellClient):
     ######
     # General group operations
     ######
+
+    def new_group(self, gname, ou=None):
+        """Create a new mail enabled security group.
+
+        @type gname: string
+        @param gname: The groups name
+        
+        @type ou: string
+        @param ou: The container the group should be organized in
+
+        @raises ExchangeException: Raised if the command fails to run
+        """
+        param = {'Name':  gname,
+                 'GroupCategory': 'Security',
+                 'GroupScope': 'Universal'}
+        if ou:
+            param['Path'] = ou
+        cmd = self._generate_exchange_command(
+                'New-ADGroup',
+                param,
+                ('Credential $cred',))
+
+        param = {'Identity': '"CN=%s,%s"' % (gname, ou)}
+        nva = ('Confirm:$false',)
+        cmd += self._generate_exchange_command('Enable-Distributiongroup',
+                param,
+                nva)
+
+        out = self.run(cmd)
+        if out.has_key('stderr'):
+            raise ExchangeException(out['stderr'])
+        else:
+            return True
     
+    def remove_group(self, gname):
+        """Remove a mail enabled securitygroup.
+
+        @type gname: string
+        @param gname: The groups name
+
+        @raises ExchangeException: Raised if the command fails to run
+        """
+        cmd = self._generate_exchange_command(
+                'Remove-ADGroup',
+                {'Identity':  gname},
+                ('Confirm:$false', 'Credential $cred'))
+        out = self.run(cmd)
+        if out.has_key('stderr'):
+            raise ExchangeException(out['stderr'])
+        else:
+            return True
+
+
     def set_group_display_name(self, gname, dn):
         """Set a groups display name.
 
@@ -774,61 +789,9 @@ class ExchangeClient(PowershellClient):
         else:
             return True
 
-    def set_secgroup_description(self, gname, description):
-        """Set a securitygroups description.
-
-        @type gname: string
-        @param gname: The groups name
-
-        @type description: str
-        @param description: The groups description
-
-        @raises ExchangeException: If the command fails to run
-        """
-        cmd = self._generate_exchange_command(
-                'Set-ADGroup',
-               {'Identity': gname,
-                'Description': description},
-                ('Credential $cred',))
-        
-        out = self.run(cmd)
-        if out.has_key('stderr'):
-            raise ExchangeException(out['stderr'])
-        else:
-            return True
-
     ######
     # Distribution Group-specific operations
     ######
-
-    def new_distribution_group(self, gname, ou=None):
-        """Create a new Distribution Group
-
-        @type gname: string
-        @param gname: The groups name
-
-        @type ou: string
-        @param ou: Which container to put the object into
-        
-        @raise ExchangeException: If the command cannot be run, raise.
-        """
-        # Yeah, we need to specify the Confirm-option as a NVA,
-        # due to the silly syntax.
-        param = {'Name': gname,
-                'Type': 'Distribution'}
-        if ou:
-            param['OrganizationalUnit'] = ou
-
-        cmd = self._generate_exchange_command(
-                'New-DistributionGroup',
-                param,
-                ('Confirm:$false',))
-
-        out = self.run(cmd)
-        if out.has_key('stderr'):
-            raise ExchangeException(out['stderr'])
-        else:
-            return True
 
     def set_distgroup_address_policy(self, gname, enabled=False):
         """Enable or disable the AddressPolicy for the Distribution Group.
@@ -845,6 +808,24 @@ class ExchangeClient(PowershellClient):
                 'Set-DistributionGroup',
                {'Identity': gname,
                 'EmailAddressPolicyEnabled': enabled})
+        out = self.run(cmd)
+        if out.has_key('stderr'):
+            raise ExchangeException(out['stderr'])
+        else:
+            return True
+    
+    def set_roomlist(self, gname):
+        """Define a distribution group as a roomlist.
+
+        @type gname: string
+        @param gname: The groups name
+
+        @raise ExchangeException: Raised if the command cannot be run.
+        """
+        cmd = self._generate_exchange_command(
+                'Set-DistributionGroup',
+               {'Identity': gname},
+               ('RoomList',))
         out = self.run(cmd)
         if out.has_key('stderr'):
             raise ExchangeException(out['stderr'])
@@ -887,7 +868,7 @@ class ExchangeClient(PowershellClient):
         cmd = self._generate_exchange_command(
                 'Set-DistributionGroup',
                 {'Identity': gname,
-                 'HiddenFromAddressListsEnabled': not visible})
+                 'HiddenFromAddressListsEnabled': visible})
         out = self.run(cmd)
         if out.has_key('stderr'):
             raise ExchangeException(out['stderr'])
@@ -928,32 +909,6 @@ class ExchangeClient(PowershellClient):
 
         @raise ExchangeException: If it fails to run
         """
-    ##TODO: Add DomainController arg.
-    #    if isinstance(member, list):
-    #        # TODO: Should 300 be configurable?
-    #        # We need to split the member list into pieces, or else stuff
-    #        # crashes.
-    #        ntp = 300
-    #        slots = range(0, len(member), ntp)
-    #        slots.append((len(member) - slots[-1]) + slots[-1])
-    #        del slots[0]
-    #        for x in slots:
-    #            start = (x - (x % ntp)) if x % 2 else x - ntp
-    #            end = x
-    #            s_member = r'@(\"%s\")' % r'\", \"'.join(member[start:end])
-    #            cmd = self._generate_exchange_command(
-    #                    '%s | ForEach-Object { Add-DistributionGroupMember -Member $_ -Identity %s -BypassSecurityGroupManagerCheck }' % (s_member, gname))
-# TO#DO: Create a new event_log_event for users that fail this!
-    #                    #'%s | Add-DistributionGroupMember' % s_member,
-    #                    #{'Identity': gname},
-    #                    #('BypassSecurityGroupManagerCheck',))
-    #            self.logger.info(cmd )
-    #        #s_member = '@("%s")' % '", "'.join(member)
-    #        #cmd = self._generate_exchange_command(
-    #        #        '%s | Add-DistributionGroupMember' % s_member,
-    #        #        {'Identity': gname},
-    #        #        ('BypassSecurityGroupManagerCheck',))
-    #    else:
         cmd = self._generate_exchange_command(
                 'Add-DistributionGroupMember',
                 {'Identity': gname,
@@ -1079,7 +1034,8 @@ class ExchangeClient(PowershellClient):
         cmd = self._generate_exchange_command(
                 'Set-DistributionGroup',
                {'Identity':  gname,
-                'ManagedBy': addr})
+                'ManagedBy': addr},
+               ('BypassSecurityGroupManagerCheck',))
         out = self.run(cmd)
         if out.has_key('stderr'):
             raise ExchangeException(out['stderr'])
@@ -1109,172 +1065,137 @@ class ExchangeClient(PowershellClient):
         else:
             return True
 
-#    def set_distgroup_mailtip(self, gname, mailtip):
-#        """Set the MailTip (description) on a Distribution Group
-#
-#        @type gname: string
-#        @param gname: The groups name
-#
-#        @type mailtip: string
-#        @param mailtip: The groups description
-#
-#        @raise ExchangeException: If the command cannot be run, raise.
-#        """
-#        cmd = self._generate_exchange_command(
-#                'Set-DistributionGroup',
-#                {'Identity': gname,
-#                 'MailTip': mailtip})
-#        out = self.run(cmd)
-#        if out.has_key('stderr'):
-#            raise ExchangeException(out['stderr'])
-#        else:
-#            return True
-
-    def remove_distgroup(self, gname):
-        """Remove a distribution group.
-
-        @type gname: string
-        @param gname: The groups name
-
-        @raise ExchangeException: If the command cannot be run, raise.
-        """
-        cmd = self._generate_exchange_command(
-                'Remove-DistributionGroup',
-               {'Identity': gname},
-               ('Confirm:$false',))
-        out = self.run(cmd)
-        if out.has_key('stderr'):
-            raise ExchangeException(out['stderr'])
-        else:
-            return True
-
-
-    ######
-    # Security Group-specific operations
-    ######
-
-    def new_secgroup(self, gname, ou=None):
-        """Create a new securitygroup.
-
-        @type gname: string
-        @param gname: The groups name
-        
-        @type ou: string
-        @param ou: The container the securitygroup should be organized in
-
-        @raises ExchangeException: Raised if the command fails to run
-        """
-        param = {'Name':  gname,
-                 'GroupCategory': 'Security',
-                 'GroupScope': 'DomainLocal'}
-        if ou:
-            param['Path'] = ou
-        cmd = self._generate_exchange_command(
-                'New-ADGroup',
-                param,
-                ('Credential $cred',))
-        out = self.run(cmd)
-        if out.has_key('stderr'):
-            raise ExchangeException(out['stderr'])
-        else:
-            return True
-
-    def remove_secgroup(self, gname):
-        """Remove a securitygroup.
-
-        @type gname: string
-        @param gname: The groups name
-
-        @raises ExchangeException: Raised if the command fails to run
-        """
-        cmd = self._generate_exchange_command(
-                'Remove-ADGroup',
-                {'Identity':  gname},
-                ('Confirm:$false', 'Credential $cred'))
-        out = self.run(cmd)
-        if out.has_key('stderr'):
-            raise ExchangeException(out['stderr'])
-        else:
-            return True
-
-    def add_secgroup_member(self, gname, member):
-        """Add a member from the master domain to a securitygroup.
-
-        @type gname: string
-        @param gname: The groups name
-
-        @type member: string or list
-        @param meber: The username of the member to add, or a list of em'
-
-        @raises ExchangeException: Raised if the command fails to run
-        """
-        #TODO: Add DomainController arg.
-        if isinstance(member, list):
-            s_member = '@("%s")' % '", "'.join(member)
-            cmd = self._generate_exchange_command(
-                        '$m = %s | Get-ADUser' % s_member,
-                        {'Server': self.ad_domain},
-                        ('Credential $ad_cred',))
-        else:
-            cmd = self._generate_exchange_command(
-                    '$m = Get-ADUser',
-                    {'Identity': member,
-                     'Server': self.ad_domain},
-                     ('Credential $ad_cred',))
-        cmd += '; ' +  self._generate_exchange_command(
-                'Add-ADGroupMember',
-                {'Identity':  gname},
-                 ('Members $m', 'Credential $cred'))
-        out = self.run(cmd)
-        if out.has_key('stderr'):
-            raise ExchangeException(out['stderr'])
-        else:
-            return True
-
-    def remove_secgroup_member(self, gname, member):
-        """Remove a member from the master domain to a securitygroup.
-
-        @type gname: string
-        @param gname: The groups name
-
-        @type member: string
-        @param meber: The username of the member to remove
-
-        @raises ExchangeException: Raised if the command fails to run
-        """
-
-        #TODO: Add DomainController arg.
-        # TODO: Make this support multiple users at a time!
-        cmd = self._generate_exchange_command(
-                '$m = Get-ADUser',
-                {'Identity': member,
-                 'Server': self.ad_domain},
-                ('Credential $ad_cred',))
-        cmd += '; ' +  self._generate_exchange_command(
-                'Remove-ADGroupMember',
-                {'Identity': gname},
-                ('Members $m', 'Confirm:$false', 'Credential $cred'))
-        out = self.run(cmd)
-        if out.has_key('stderr'):
-            raise ExchangeException(out['stderr'])
-        else:
-            return True
-
     ######
     # Get-operations used for checking state in Exchange
     ######
 
-
-    def get_mailbox_info(self):
+    # TODO: Refactor these two or something
+    def get_mailbox_info(self, attributes):
         """Get information about the mailboxes in Exchange
+
+        @type attributes: list(string)
+        @param attributes: Which attributes we want to return
 
         @raises ExchangeException: Raised if the command fails to run
         """
         # TODO: Filter by '-Filter {IsLinked -eq "True"}' on get-mailbox.
         cmd = self._generate_exchange_command(
-                'Get-Mailbox bore | select Identity, EmailAddresses, DisplayName, HiddenFromAddressListsEnabled, ProhibitSendReceiveQuota, IssueWarningQuota, FirstName, LastName, EmailAddressPolicyEnabled, IsLinked')
-        out = self.run(cmd)
+                '''Get-Mailbox | Select %s''' % ', '.join(attributes))
+        # TODO: Do we really need to add that ;? We can't have it here...
+        json_wrapped = '''if ($str = %s | ConvertTo-Json) {
+            $str -replace '$', ';'
+            }''' % cmd[:-1]
+        out = self.run(json_wrapped)
+        try:
+            ret = self.get_output_json(out, dict())
+        except ValueError, e:
+            raise ExchangeException('No mailboxes exists?')
+
         if out.has_key('stderr'):
             raise ExchangeException(out['stderr'])
+        elif not ret:
+            raise ExchangeException('Bad output while fetching mailboxes: %s' \
+                    % str(out))
         else:
-            return out
+            return ret
+
+    def get_user_info(self, attributes):
+        """Get information about a user in AD
+
+        @type attributes: list(string)
+        @param attributes: Which attributes we want to return
+
+        @raises ExchangeException: Raised if the command fails to run
+        """
+        # TODO: I hereby leave the tidying up this call generation as an
+        #       exersice to my followers.
+        cmd = self._generate_exchange_command(
+            '''Get-ADUser -Server %s -Credential %s -Filter * | Select %s''' % \
+                        (self.ex_domain, '$cred', ', '.join(attributes),))
+        
+        # TODO: Do we really need to add that ;? We can't have it here...
+        json_wrapped = '''if ($str = %s | ConvertTo-Json) {
+            $str -replace '$', ';'
+            }''' % cmd[:-1]
+        out = self.run(json_wrapped)
+        try:
+            ret = self.get_output_json(out, dict())
+        except ValueError, e:
+            raise ExchangeException('No users exist?')
+
+        if out.has_key('stderr'):
+            raise ExchangeException(out['stderr'])
+        elif not ret:
+            raise ExchangeException('Bad output while fetching users: %s' \
+                    % str(out))
+        else:
+            return ret
+
+    ######
+    # Get-operations used for checking group state in Exchange
+    ######
+
+    def get_distgroup_info(self, attributes):
+        """Get information about the distribution group in Exchange
+
+        @type attributes: list(string)
+        @param attributes: Which attributes we want to return
+
+        @raises ExchangeException: Raised if the command fails to run
+        """
+        # TODO: Filter by '-Filter {IsLinked -eq "True"}' on get-mailbox.
+        cmd = self._generate_exchange_command(
+                '''Get-DistributionGroup | Select %s''' % ', '.join(attributes))
+        # TODO: Do we really need to add that ;? We can't have it here...
+        json_wrapped = '''if ($str = %s | ConvertTo-Json) {
+            $str -replace '$', ';'
+            }''' % cmd[:-1]
+        out = self.run(json_wrapped)
+        try:
+            ret = self.get_output_json(out, dict())
+        except ValueError, e:
+            raise ExchangeException('No mailboxes exists?')
+
+        if out.has_key('stderr'):
+            raise ExchangeException(out['stderr'])
+        elif not ret:
+            raise ExchangeException('Bad output while fetching mailboxes: %s' \
+                    % str(out))
+        else:
+            return ret
+    
+    def get_secgroup_info(self, attributes, ou):
+        """Get information about the security groups in Exchange
+
+        @type attributes: list(string)
+        @param attributes: Which attributes we want to return
+
+        @type ou: string
+        @param ou: Which OU we should search for groups
+
+        @raises ExchangeException: Raised if the command fails to run
+        """
+        # TODO: Filter by '-Filter {IsLinked -eq "True"}' on get-mailbox.
+        cmd = self._generate_exchange_command(
+                '''Get-ADGroup -Filter "*" -SearchBase "%s" | Select %s''' % \
+                        (ou, ', '.join(attributes),))
+        # TODO: Do we really need to add that ;? We can't have it here...
+        json_wrapped = '''if ($str = %s | ConvertTo-Json) {
+            $str -replace '$', ';'
+            }''' % cmd[:-1]
+        out = self.run(json_wrapped)
+        try:
+            ret = self.get_output_json(out, dict())
+        except ValueError, e:
+            raise ExchangeException('No mailboxes exists?')
+
+        if out.has_key('stderr'):
+            raise ExchangeException(out['stderr'])
+        elif not ret:
+            raise ExchangeException('Bad output while fetching mailboxes: %s' \
+                    % str(out))
+        else:
+            return ret
+
+    def get_group_members(self, gname, ou):
+        pass

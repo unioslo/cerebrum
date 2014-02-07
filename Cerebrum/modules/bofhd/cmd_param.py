@@ -115,9 +115,9 @@ class ExternalIdType(Parameter):
     _type = 'externalIdType'
     _help_ref = 'external_id_type'
 
-class GroupDistAttr(Parameter):
-    _type = 'groupDistAttr'
-    _help_ref = 'group_dist_attr'
+class GroupExchangeAttr(Parameter):
+    _type = 'groupExchangeAttr'
+    _help_ref = 'group_exchange_attr'
 
 class GroupName(Parameter):
     # _prompt_func = 'prompt_foobar'

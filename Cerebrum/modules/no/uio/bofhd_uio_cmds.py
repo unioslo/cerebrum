@@ -5375,8 +5375,8 @@ Addresses and settings:
     # be used by postmaster only.
     # yes_no is a bit stupid, if the group is new the answer does not
     # matter at all. not sure how to make this nicer
-    all_commands['group_distgroup_create'] = Command(
-        ("group", "distgroup_create"), 
+    all_commands['group_exchangegroup_create'] = Command(
+        ("group", "exchangegroup_create"), 
         GroupName(help_ref="group_name_new"),
         SimpleString(help_ref="group_disp_name", optional='true'),
         SimpleString(help_ref="string_dl_desc"),
@@ -5386,7 +5386,7 @@ Addresses and settings:
         YesNo(help_ref='yes_no_from_existing', default='No'),
         fs=FormatSuggestion("Group created, internal id: %i", ("group_id",)),
         perm_filter='is_postmaster')
-    def group_distgroup_create(self, operator, groupname, displayname, description, managedby, moderatedby, from_existing=None):
+    def group_exchangegroup_create(self, operator, groupname, displayname, description, managedby, moderatedby, from_existing=None):
         # check for appropriate priviledge
         self.ba.is_postmaster(operator.get_entity_id())
         existing_group = False
@@ -5415,14 +5415,14 @@ Addresses and settings:
         # all moderators must be valid accounts in Cerebrum and Exchange
         modby_unames = self._valid_unames_exchange(moderatedby)
         if not modby_unames:
-            return "Can't create dist group, no valid moderators in %s" % moderatedby
+            return "Can't create Exchange group, no valid moderators in %s" % moderatedby
         if existing_group and not self._is_yes(from_existing):
-            return "You choose not to create dist group from the existing group %s" % groupname
+            return "You choose not to create Exchange group from the existing group %s" % groupname
         mngdby_addr = self._valid_address_exchange(managedby)
         if not managedby or \
                  (managedby != cereconf.DISTGROUP_DEFAULT_ADMIN and \
                       not mngdby_addr):
-            return "Cannot create dist group without setting ManagedBy attr"
+            return "Cannot create Exchange group without setting ManagedBy attr"
         if not existing_group:
             # one could imagine making a helper function in the future
             # _make_dl_group_new, as the functionality is required
@@ -5452,7 +5452,7 @@ Addresses and settings:
         dl_group.create_distgroup_mailtarget()
         dl_group.add_spread(self.const.Spread(cereconf.DISTGROUP_SPREAD))
         dl_group.write_db()
-        return "Made distribution group %s" % groupname
+        return "Created Exchange group %s" % groupname
 
     def _valid_unames_exchange(self, moderatedby):
         # TODO: Do we want to check fo errors for single users?
@@ -5506,13 +5506,13 @@ Addresses and settings:
     # deactivate a group as distribution-group, but we may not
     # remove such groups permanently as the addresses then may be
     # re-used
-    all_commands['group_distgroup_remove'] = Command(
-        ("group", "distgroup_remove"), 
+    all_commands['group_exchangegroup_remove'] = Command(
+        ("group", "exchangegroup_remove"), 
         GroupName(help_ref="group_name", repeat='true'),
         YesNo(help_ref='yes_no_expire_group', default='No'),
         # perm_filter makes the command visible
         perm_filter='is_postmaster')
-    def group_distgroup_remove(self, operator, groupname, expire_group=None):
+    def group_exchangegroup_remove(self, operator, groupname, expire_group=None):
         # check for appropriate priviledge
         self.ba.is_postmaster(operator.get_entity_id())
         dl_group = self._get_group(groupname, idtype='name', 
@@ -5522,13 +5522,13 @@ Addresses and settings:
             dl_group.deactivate_dl_mailtarget()
             dl_group.delete()
         except Errors.NotFoundError:
-            return "No distribution group %s found" % groupname
+            return "No Exchange group %s found" % groupname
         if  self._is_yes(expire_group):
             # set expire in 90 dates for the remaining Cerebrum-group
             new_expire_date = DateTime.now() + DateTime.DateTimeDelta(90, 0, 0)
             dl_group.expire_date = new_expire_date
             dl_group.write_db()
-        return "Distribution group data removed for %s" % groupname
+        return "Exchange group data removed for %s" % groupname
 
     ## group distgroup_attr_set
     #  Valid attributes are: 
@@ -5538,14 +5538,14 @@ Addresses and settings:
     #    - addrbook_hidden T/F
     #    - moderated_by 'uname1, uname2,...'
     #    - managed_by email_address
-    all_commands['group_distgroup_attr_set'] = Command(
-        ("group", "distgroup_attr_set"),
+    all_commands['group_exchangegroup_attr_set'] = Command(
+        ("group", "exchangegroup_attr_set"),
         GroupName(help_ref="group_name"),
-        GroupDistAttr(default='addrbook_visibility'),
+        GroupExchangeAttr(default='addrbook_visibility'),
         # no help here as the values may differ
         SimpleString(),
         perm_filter='is_postmaster')
-    def group_distgroup_attr_set(self, operator, groupname, attr, val):
+    def group_exchangegroup_attr_set(self, operator, groupname, attr, val):
         # attributte "roomlist" exists for distribution groups, 
         # but there are quite a few differences between roomlists
         # and distributions group and we therefore don't support
@@ -5645,19 +5645,6 @@ Addresses and settings:
                                disp_name_language)
         room_list.write_db()
         return "Made roomlist %s" % groupname
-
-    ## exchange-relatert-jazz
-    # create a security group for Exchange (out of an existing group)
-    all_commands['group_secgroup_create'] = Command(
-        ("group", "secgroup_create"), 
-        GroupName(help_ref="group_name"),
-        # perm_filter makes the command visible
-        perm_filter='is_postmaster')
-    def group_secgroup_create(self, operator, groupname):
-        self.ba.is_postmaster(operator.get_entity_id())
-        dest = self._get_group(groupname)
-        secgrp_holder = Utils.Factory.get("Group")(self.db)
-        return secgrp_holder.make_secgroup(dest.entity_id)
 
     ## group create
     # (all_commands is updated from BofhdCommonMethods)
@@ -8546,10 +8533,6 @@ Addresses and settings:
         if cereconf.DISTGROUP_SPREAD and \
                 str(spread) == cereconf.DISTGROUP_SPREAD: 
             return "Please create distribution group via *group distgroup_create* in bofh"
-        # dissallog spread-setting for security groups
-        if cereconf.SECGROUP_SPREAD and \
-                str(spread) == cereconf.SECGROUP_SPREAD: 
-            return "Please create exchange security groups via *group secgroup_create* in bofh"
         try:
             if entity.has_spread(spread):
                 raise CerebrumError("entity id=%s already has spread=%s" %

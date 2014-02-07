@@ -257,8 +257,11 @@ class CLConstants(Constants.Constants):
     # Temporary hack, we need this in order to requeue the setting of
     # the adress book policy for a mailbox if someone pulls the plug on
     # one of the Exchange-servers at exactly the right time.
+    # Ask jsama about this.
     ea_policy = _ChangeTypeCode('exchange', 'set_ea_policy',
                                     'Address book policy changed')
+    roomlist_create = _ChangeTypeCode('exchange', 'create_roomlist',
+                                      'Roomlist creation event')
 
     # Account mailbox created/deleted
     acc_mbox_create = _ChangeTypeCode('exchange', 'acc_mbox_create',

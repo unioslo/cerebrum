@@ -280,8 +280,6 @@ DISTGROUP_SPREAD=None
 # distribution group default admin list in exchange, override localy
 DISTGROUP_DEFAULT_ADMIN=""
 #
-# security group spread, override localy
-SECGROUP_SPREAD=None
 # list all valid homeMDBs for the given instance, max nr og users per MDB as follows:
 # EXCHANGE_HOMEMDB_VALID = {'homeMDB01': 200,
 #                           'homeMDB02': 800,

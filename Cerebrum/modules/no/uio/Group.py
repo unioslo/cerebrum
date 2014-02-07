@@ -91,38 +91,6 @@ class GroupUiOMixin(Group.Group):
         # (Try to) perform the actual spread addition.
         ret = self.__super.add_spread(spread)
 
-    # helper methods for AD/Exchange security groups
-    # make fetching group data for Exchange consistent (between
-    # security groups and distribution groups)
-    def get_secgroup_data(self, group_id):
-        all_data = {}
-        sec_group = Utils.Factory.get("Group")(self._db)
-        try:
-            sec_group.find(group_id)
-        except Errors.NotFoundError:
-            return None
-        all_data = {'name': sec_group.group_name,
-                    'group_id': sec_group.entity_id,
-                    'description': sec_group.description}
-        return all_data
-
-    # sec-group create, will do all necessary checks and actions
-    # here
-    def make_secgroup(self, group_id):
-        sec_group = Utils.Factory.get("Group")(self._db)
-        try:
-            # only existing groups may be made into security groups
-            sec_group.find(group_id)
-        except Errors.NotFoundError:
-            return
-        # group name must not contain illegal char or be longer than 
-        # 64 char
-        if re.search("[^a-z0-9\-\.]", str(sec_group.group_name)) or \
-                self.illegal_name(sec_group.group_name, max_length=64):
-            return "Illegal name for security group %s" % sec_group.group_name 
-        sec_group.add_spread(self.const.Spread(cereconf.SECGROUP_SPREAD))
-        sec_group.write_db()
-        return "Will export security group %s to Exchange" % sec_group.group_name
     # exchange-relatert-jazz
     # add som name checks that are related to group name requirements
     # in AD/Exchange. 

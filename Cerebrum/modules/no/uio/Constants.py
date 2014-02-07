@@ -52,12 +52,9 @@ class ConstantsExchange(Constants.Constants):
     spread_exchange_account = _SpreadCode('exchange_acc@uio',
                                           Constants.Constants.entity_account,
                                           'An account with an Exchange-mailbox at UiO')
-    spread_exchange_dlgroup = _SpreadCode('exch_dlgroup@uio',
+    spread_exchange_group = _SpreadCode('exch_group@uio',
                                           Constants.Constants.entity_group,
-                                          'A group with an Exchange-mailbox at UiO (dist group).')
-    spread_exchange_secgroup = _SpreadCode('exch_segroup@uio',
-                                           Constants.Constants.entity_group,
-                                           'A security group used for access controll in Exchange.')
+                                          'A mail enabled security group for Exchange')
 
 class Constants(Constants.Constants):
     system_lt = _AuthoritativeSystemCode('LT', 'LT')

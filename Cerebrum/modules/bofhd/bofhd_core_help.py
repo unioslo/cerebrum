@@ -235,12 +235,12 @@ command_help = {
         'group_delete': 'Delete a group from Cerebrum',
         'group_demote_posix':
             'Make an existing POSIX-group into a Cerebrum group',
-        'group_distgroup_attr_set':
-            'Set a distribution group specific attribute',
-        'group_distgroup_create':
-            'Make a distribution group from an existing or a new group',
-        'group_distgroup_remove':
-            'Remove distribution group attributes from a group',
+        'group_exchangegroup_attr_set':
+            'Set an Exchange-group specific attribute',
+        'group_exchangegroup_create':
+            'Make an Exchange-group from an existing or a new group',
+        'group_exchangegroup_remove':
+            'Remove Exchange-group attributes from a group',
         'group_gadd': 'Let src_group(s) join dest_group(s)',
         'group_gremove': 'Remove src_group(s) from given dest_group(s)',
         'group_info': 'View information about a spesific group',
@@ -253,14 +253,15 @@ command_help = {
         'group_promote_posix': 'Make an existing group into a POSIX-group',
         'group_roomlist_create': 
             'Make a roomlist from scratch. Remove with spread remove/group delete',
-        'group_secgroup_create': 
-            'Make a sec group from existing. Remove with spread remove/group delete',
+# TODO: Remove me! secgroup jsama
+#            'group_secgroup_create': 
+#            'Make a sec group from existing. Remove with spread remove/group delete',
         'group_multi_remove': 'Remove member(s) from a given group',
         'group_remove': 'Remove member accounts from a given group',
         'group_request': 'Send in request for a new Cerebrum group',
         'group_search': 'Search for a group using various criteria',
         'group_set_description': 'Set description for a group',
-        'group_set_displayname': 'Set displayname with nb as varian for a distribution group/room list',
+        'group_set_displayname': 'Set displayname with nb as varian for an Exchange-group/room list',
         'group_set_expire': 'Set expire date for a group',
         'group_set_visibility': 'Set visibility for a group',
         'group_user': 'List all groups an account is a member of',
@@ -474,8 +475,8 @@ arg_help = {
         ['language', 'Enter language short name',
          "Allowed values: en, nn, nb (nb used in exports)"],
     'dlgroup_or_account_name':
-        ['name', "Enter distgroup or account name",
-         """Enter name of a distribution group or an account."""],
+        ['name', "Enter Exchange-group or account name",
+         """Enter name of an Exchange-group or an account."""],
     'email_address':
         ['address', 'Enter e-mail address'],
     'email_category':
@@ -517,15 +518,15 @@ arg_help = {
         ['dl_managedby', 'Enter address for ou/person managing this group'],
     'group_dl_modby':
         ['dl_moderateby', 'Enter a list of user names, separated by the comma character (,)'],
-    'group_dist_attr':
+    'group_exchange_attr':
         ['group_dattr', 'Enter attribute to modify',
          """Valid attributes:
-            - depart_restriction (Open, Closes, ApprovalRequired)
-            - join_restriction (Open, Closes, ApprovalRequired)
+            - depart_restriction (Open, Closed, ApprovalRequired)
+            - join_restriction (Open, Closed, ApprovalRequired)
             - moderation_enabled (T/F)
             - moderated_by ('uname1, uname2,...')
             - managed_by (e-mailaddress)
-            - addrbook_hidden (T/F)"""],
+            - addrbook_visibility (T/F)"""],
     'group_name':
         ['gname', 'Enter groupname'],
     'group_name_dest':
@@ -878,7 +879,7 @@ arg_help = {
     'yes_no_all_op':
         ['all', 'All operations?'],
     'yes_no_from_existing':
-        ['from_existing', 'Create distgroup from existing group, optional, def no, (y/n)?'],
+        ['from_existing', 'Create Exchange-group from existing group, optional, def no, (y/n)?'],
     'yes_no_expire_group':
         ['expire_group', 'Set an expire data in 90 days for group (y/n)?'],
     'yes_no_include_expired':
