@@ -433,8 +433,11 @@ class DistributionGroup(Group_class):
             addrs.append(ad)
         tmp = self.modby.split(',')
         for x in tmp:
-            # return a list og moderators
-            mod_by.append(x.strip())
+            y = x.strip()
+            if y == '':
+                continue
+            # return a list of moderators
+            mod_by.append(y)
         # name is expanded with prefix 'dl-' by the export
         all_data = {'name': self.group_name,
                     'description': self.description,
