@@ -275,7 +275,7 @@ DISTGROUP_PRIMARY_ADDR_PREFIX=""
 DISTGROUP_DEFAULT_DOMAIN=""
 #
 # distribution group spread, override localy
-DISTGROUP_SPREAD=None
+EXCHANGE_GROUP_SPREAD=None
 #
 # distribution group default admin list in exchange, override localy
 DISTGROUP_DEFAULT_ADMIN=""

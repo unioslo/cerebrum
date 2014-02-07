@@ -5450,7 +5450,7 @@ Addresses and settings:
         self._set_display_name(groupname, displayname, 
                                disp_name_variant, disp_name_language)
         dl_group.create_distgroup_mailtarget()
-        dl_group.add_spread(self.const.Spread(cereconf.DISTGROUP_SPREAD))
+        dl_group.add_spread(self.const.Spread(cereconf.EXCHANGE_GROUP_SPREAD))
         dl_group.write_db()
         return "Created Exchange group %s" % groupname
 
@@ -5518,7 +5518,7 @@ Addresses and settings:
         dl_group = self._get_group(groupname, idtype='name', 
                                    grtype="DistributionGroup")
         try:
-            dl_group.delete_spread(self.const.Spread(cereconf.DISTGROUP_SPREAD))
+            dl_group.delete_spread(self.const.Spread(cereconf.EXCHANGE_GROUP_SPREAD))
             dl_group.deactivate_dl_mailtarget()
             dl_group.delete()
         except Errors.NotFoundError:
@@ -5640,7 +5640,7 @@ Addresses and settings:
                       joinrestr=std_values['joinrestr'], 
                       hidden=std_values['hidden']) 
         room_list.write_db()
-        room_list.add_spread(self.const.Spread(cereconf.DISTGROUP_SPREAD))
+        room_list.add_spread(self.const.Spread(cereconf.EXCHANGE_GROUP_SPREAD))
         self._set_display_name(groupname, displayname, disp_name_variant,
                                disp_name_language)
         room_list.write_db()
@@ -8530,8 +8530,8 @@ Addresses and settings:
         # as we want to let other clients handle these spreads
         # in different manner if needed
         # dissallow spread-setting for distribution groups
-        if cereconf.DISTGROUP_SPREAD and \
-                str(spread) == cereconf.DISTGROUP_SPREAD: 
+        if cereconf.EXCHANGE_GROUP_SPREAD and \
+                str(spread) == cereconf.EXCHANGE_GROUP_SPREAD: 
             return "Please create distribution group via *group distgroup_create* in bofh"
         try:
             if entity.has_spread(spread):
@@ -8580,7 +8580,7 @@ Addresses and settings:
         # make sure that if anyone uses spread remove instead of
         # group distgroup_remove the appropriate clean-up is still 
         # done
-        if entity_type == 'group' and cereconf.DISTGROUP_SPREAD:
+        if entity_type == 'group' and cereconf.EXCHANGE_GROUP_SPREAD:
             # from Cerebrum.modules.exchange.v2013 import ExchangeGroups
             #dl_group = ExchangeGroups.DistributionGroup(self.db)
             dl_group = Utils.Factory.get("DistributionGroup")(self.db)
