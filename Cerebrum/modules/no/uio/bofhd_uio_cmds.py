@@ -5569,7 +5569,7 @@ Addresses and settings:
             if val in ['T', 'F']:
                 dl_group.set_hidden(hidden=val)
         elif attr == 'moderated_by':
-            modby_unames = self._valid_unames_Exchange(val)
+            modby_unames = self._valid_unames_exchange(val)
             if modby_unames:
                 dl_group.set_modby(val)
             else:
