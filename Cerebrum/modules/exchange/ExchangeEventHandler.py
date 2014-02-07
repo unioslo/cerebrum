@@ -901,20 +901,22 @@ class ExchangeEventHandler(processing.Process):
             # Only for pure distgroups :)
             if data['roomlist'] == 'F':
                 # Set moderator
-                if data['modby']:
-                    try:
-                        self.ec.set_distgroup_moderator(gname, data['modby'])
-                        self.logger.info('Set moderators %s on %s' % \
-                                (data['modby'], gname))
-                        # TODO: This correct? CLConstants is a bit strange
-                        self.ut.log_event_receipt(event, 'dlgroup:modmodby')
-                    except ExchangeException, e:
-                        self.logger.warn('Can\'t set moderators %s on %s' % \
-                                (data['modby'], gname))
-                        ev_mod = event.copy()
-                        ev_mod['change_params'] = pickle.dumps(
-                                                {'modby': data['modby']})
-                        self.ut.log_event(ev_mod, 'dlgroup:modmodby')
+                if not data['modby']:
+                    # TODO: Move this out to a config var...
+                    data['modby'] = 'groupadmin'
+                try:
+                    self.ec.set_distgroup_moderator(gname, data['modby'])
+                    self.logger.info('Set moderators %s on %s' % \
+                            (data['modby'], gname))
+                    # TODO: This correct? CLConstants is a bit strange
+                    self.ut.log_event_receipt(event, 'dlgroup:modmodby')
+                except ExchangeException, e:
+                    self.logger.warn('Can\'t set moderators %s on %s' % \
+                            (data['modby'], gname))
+                    ev_mod = event.copy()
+                    ev_mod['change_params'] = pickle.dumps(
+                                            {'modby': data['modby']})
+                    self.ut.log_event(ev_mod, 'dlgroup:modmodby')
 
                 # Set moderation
                 enable = True if data['modenable'] == 'T' else False
