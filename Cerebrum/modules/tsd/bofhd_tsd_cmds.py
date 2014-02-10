@@ -1354,16 +1354,17 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             ou.find(actypes[0]['ou_id'])
             ac_list[row['name']] = ou.get_project_id()
 
+        msg = uri + '\n'
+
         # Send all to gateway:
-        failed = []
         for name, pid in ac_list.iteritems():
             try:
                 self.gateway.user_otp(pid, name, uri)
             except Gateway.GatewayException, e:
-                failed.append(name)
-        msg = uri
-        if failed:
-            msg += '\nFailed updating gateway for: %s' % ', '.join(failed)
+                self.logger.warn("OTP failed for %s: %s", name, e)
+                msg += '\nFailed updating GW for: %s' % name
+            else:
+                msg += '\nUpdated GW for: %s' % name
         return msg
 
     # user approve
