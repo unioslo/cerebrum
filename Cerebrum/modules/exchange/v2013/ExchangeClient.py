@@ -1095,17 +1095,23 @@ class ExchangeClient(PowershellClient):
         @type gname: string
         @param gname: The groups name
 
-        @type addr: list
+        @type addr: str
         @param uname: The e-mail addresses which moderates this group
 
         @raise ExchangeException: If the command cannot be run, raise.
         """
         # TODO: Make ModeratedBy a kwarg that accepts a list
-        addr_str = ', '.join(addr)
+        params = {'Identity':  gname}
+        if addr == '':
+            params['ModerationEnabled'] = False
+            addr = '$null'
+        else:
+            params['ModerationEnabled'] = True
+            
         cmd = self._generate_exchange_command(
                 'Set-DistributionGroup',
-               {'Identity':  gname},
-                ('ModeratedBy ' + addr_str,))
+                params,
+                ('ModeratedBy ' + addr,))
         out = self.run(cmd)
         if out.has_key('stderr'):
             raise ExchangeException(out['stderr'])

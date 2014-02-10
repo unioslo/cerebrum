@@ -903,7 +903,8 @@ class ExchangeEventHandler(processing.Process):
                 # Set moderator
                 if data['modby']:
                     try:
-                        self.ec.set_distgroup_moderator(gname, data['modby'])
+                        self.ec.set_distgroup_moderator(gname,
+                                                    ', '.join(data['modby']))
                         self.logger.info('Set moderators %s on %s' % \
                                 (data['modby'], gname))
                         # TODO: This correct? CLConstants is a bit strange
@@ -913,23 +914,24 @@ class ExchangeEventHandler(processing.Process):
                                 (data['modby'], gname))
                         ev_mod = event.copy()
                         ev_mod['change_params'] = pickle.dumps(
-                                                {'modby': data['modby']})
+                                            {'modby': ', '.join(data['modby'])})
                         self.ut.log_event(ev_mod, 'dlgroup:modmodby')
 
-                # Set moderation
-                enable = True if data['modenable'] == 'T' else False
-                try:
-                    self.ec.set_distgroup_moderation(gname, enable)
-                    self.logger.info('Set moderation on %s to %s' % \
-                            (gname, data['modenable']))
+                    # Set moderation
+                    enable = True if data['modenable'] == 'T' else False
+                    try:
+                        self.ec.set_distgroup_moderation(gname, enable)
+                        self.logger.info('Set moderation on %s to %s' % \
+                                (gname, data['modenable']))
 # TODO: Receipt for this?
-                except ExchangeException, e:
-                    self.logger.warn('Can\'t set moderation on %s to %s: %s' % \
-                            (gname, data['modenable'], str(e)))
-                    ev_mod = event.copy()
-                    ev_mod['change_params'] = pickle.dumps(
+                    except ExchangeException, e:
+                        self.logger.warn(
+                                    'Can\'t set moderation on %s to %s: %s' % \
+                                    (gname, data['modenable'], str(e)))
+                        ev_mod = event.copy()
+                        ev_mod['change_params'] = pickle.dumps(
                                             {'modenable': data['modenable']})
-                    self.ut.log_event(ev_mod, 'dlgroup:moderate')
+                        self.ut.log_event(ev_mod, 'dlgroup:moderate')
 
             tmp_fail = False
             # Set displayname
@@ -1251,20 +1253,19 @@ class ExchangeEventHandler(processing.Process):
         gname, description = self.ut.get_group_information(
                                                         event['subject_entity'])
         params = self.ut.unpickle_event_params(event)
-        if params['modby']:
-            try:
-                self.ec.set_distgroup_moderator(gname, params['modby'])
-                # TODO: Better logging
-                self.logger.info('Setting moderators (%s) for %s' % \
-                                    (params['modby'], gname))
-                # Log a reciept that represents completion of the operation
-                # in ChangeLog.
-                # TODO: Move this to the caller sometime
-                self.ut.log_event_receipt(event, 'dlgroup:modmodby')
-            except ExchangeException, e:
-                self.logger.warn('Failed to set moderators (%s) on %s: %s' % \
-                                    (params['modby'], gname, e))
-                raise EventExecutionException
+        try:
+            self.ec.set_distgroup_moderator(gname, params['modby'])
+            # TODO: Better logging
+            self.logger.info('Setting moderators (%s) for %s' % \
+                                (params['modby'], gname))
+            # Log a reciept that represents completion of the operation
+            # in ChangeLog.
+            # TODO: Move this to the caller sometime
+            self.ut.log_event_receipt(event, 'dlgroup:modmodby')
+        except ExchangeException, e:
+            self.logger.warn('Failed to set moderators (%s) on %s: %s' % \
+                                (params['modby'], gname, e))
+            raise EventExecutionException
     
     @EventDecorator.RegisterHandler(['dlgroup:modenable'])
     def set_distgroup_moderation(self, event):
