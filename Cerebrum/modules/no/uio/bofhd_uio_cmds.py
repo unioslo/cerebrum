@@ -8580,7 +8580,8 @@ Addresses and settings:
         # make sure that if anyone uses spread remove instead of
         # group distgroup_remove the appropriate clean-up is still 
         # done
-        if entity_type == 'group' and cereconf.EXCHANGE_GROUP_SPREAD:
+        if entity_type == 'group' and \
+                entity.has_spread(cereconf.EXCHANGE_GROUP_SPREAD):
             # from Cerebrum.modules.exchange.v2013 import ExchangeGroups
             #dl_group = ExchangeGroups.DistributionGroup(self.db)
             dl_group = Utils.Factory.get("DistributionGroup")(self.db)
