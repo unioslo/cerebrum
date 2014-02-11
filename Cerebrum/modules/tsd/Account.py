@@ -32,11 +32,14 @@ import base64
 import cerebrum_path
 import cereconf
 
+from Cerebrum.Utils import Factory
 from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum.modules import PasswordHistory
+from Cerebrum.modules import EntityTrait
 from Cerebrum.modules.no.uio.DiskQuota import DiskQuota
 from Cerebrum.modules.bofhd.utils import BofhdRequests
+from Cerebrum.modules import dns
 from Cerebrum.Utils import pgp_encrypt, Factory
 
 class AccountTSDMixin(Account.Account):
@@ -51,9 +54,14 @@ class AccountTSDMixin(Account.Account):
     # TODO: create and deactive - do they need to be subclassed?
 
     def set_account_type(self, ou_id, affiliation, priority=None):
-        """Subclass setting of the account_type to avoid more than one OU.
+        """Subclass setting of the account_type.
 
-        This is to avoid letting an account get access to different projects.
+        Since OUs are treated as separate projects in TSD, we need to add some
+        protection to them. An account should only be allowed to be part of a
+        single OU, no others, to avoid mixing different projects' data.
+
+        Also, when a user is added to a project, we should also give the account
+        extra functionality related to the project.
 
         """
         if affiliation == self.const.affiliation_project:
@@ -65,6 +73,23 @@ class AccountTSDMixin(Account.Account):
                 if row['ou_id'] != ou_id:
                     raise Errors.CerebrumError('Account already part of other '
                                                'project OUs')
+
+        # If the given project is set up so that every project member should
+        # have their own virtual linux machine, we need to create this host for
+        # the account:
+        if affiliation == self.const.affiliation_project:
+            et = EntityTrait.EntityTrait(self._db)
+            et.find(ou_id)
+            vmtrait = et.get_trait(self.const.trait_project_vm_type)
+            if vmtrait and vmtrait['strval'] in ('linux_vm',
+                                                 'win_and_linux_vm'):
+                ou = Factory.get('OU')(self._db)
+                ou.find(ou_id)
+                hostname = '%s-l.tsd.usit.no.' % self.account_name
+                dnsowner = ou._populate_dnsowner(hostname)
+                host = dns.HostInfo.HostInfo(self._db)
+                host.populate(dnsowner.entity_id, 'IBM-PC\tWINDOWS')
+                host.write_db()
         return self.__super.set_account_type(ou_id, affiliation, priority)
 
     def _generate_otpkey(self, length=192):
