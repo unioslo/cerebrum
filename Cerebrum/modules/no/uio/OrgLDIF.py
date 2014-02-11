@@ -210,6 +210,7 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
                 entry['eduPersonEntitlement'].extend(self.ownerid2urnlist[p_id])
             else:    
                 entry['eduPersonEntitlement'] = self.ownerid2urnlist[p_id]
+        entry['uioPersonID'] = str(p_id)
         if self.person2group.has_key(p_id):
             # TODO: remove member and uioPersonObject after transition period
             entry['uioMemberOf'] = entry['member'] = self.person2group[p_id]

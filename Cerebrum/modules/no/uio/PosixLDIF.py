@@ -69,7 +69,7 @@ class PosixLDIF_UiOMixin(PosixLDIF):
 	    return ret
 
     def update_user_entry(self, account_id, entry, row):
-	# Add eduPersonAffiliation and sambaNTPassword
+	# Add some additional attributes that are in use @ UiO
 
 	# eduPersonAffiliation (taken from OrgLDIF)
 	owner_id = int(row['owner_id'])
@@ -89,6 +89,12 @@ class PosixLDIF_UiOMixin(PosixLDIF):
             entry['uioPrimaryAffiliation'] = (affs[0],)
             added = True
 
+        # Add owner_id to the entry, but only if the owner is a person
+        # We can simply reuse pid2primary_aid dictionary, that contains
+        # all persons with primary accounts
+        if (owner_id in self.pid2primary_aid):
+  	    entry['uioPersonID'] = str(owner_id)
+            added = True
 	# Object class which allows the additional attributes
 	if added:
 	    entry['objectClass'].append('uioAccountObject')
