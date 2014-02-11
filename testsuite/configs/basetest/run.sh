@@ -39,7 +39,7 @@ fi
 
 # Tests should run in <root>/basetests
 env_name=basetests
-env_dir=${WORKSPACE}/${name}
+env_dir=${WORKSPACE}/${env_name}
 
 # Config dir
 config=$( abs_dirname "${BASH_SOURCE[0]}" )
@@ -49,8 +49,8 @@ setup_test_env -r"${root_dir}" -c"${crb_src}" -e"${env_name}" -s"${config}"
 error=$(($? + $error))
 
 ## Setup pythonpath for the tests
-info "pypath ($pypath)"
 export PYTHONPATH=$( prepare_pypath ${env_dir}/etc/cerebrum ${crb_src}/testsuite/testtools )
+info "New PYTHONPATH=${PYTHONPATH}"
 error+=$?
 
 if [ $error -ne 0 ]
@@ -62,7 +62,7 @@ fi
 # 
 # Setup OK, run tests
 info "Running tests"
-${test_env}/bin/nosetests -c ${config}/noseconfig.cfg  ${crb_src}/testsuite/tests/test_Cerebrum
+${env_dir}/bin/nosetests -c ${config}/noseconfig.cfg  ${crb_src}/testsuite/tests/test_Cerebrum
 error=$(($? + $error))
 
 exit $error
