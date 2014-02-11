@@ -2764,6 +2764,7 @@ class GroupSync(BaseSync):
         """
         super(GroupSync, self).fetch_cerebrum_data()
         self.fetch_posix()
+        self.fetch_members_by_spread()
 
     def fetch_cerebrum_entities(self):
         """Fetch the groups from Cerebrum that should be compared against AD.
@@ -2789,6 +2790,112 @@ class GroupSync(BaseSync):
                 continue
             self.entities[name] = self.cache_entity(int(row["group_id"]), name,
                                                     description=row['description'])
+
+    def _configure_group_member_spreads(self):
+        """Process configuration and set needed parameters for extracting
+           extra AD information about group members with needed spreads
+
+        """
+
+        self.config['group_member_spreads'] = dict()
+        # There is sanity check. All spreads defined in MemberAttr should have
+        # their own syncs defined too
+        for member_atr in ConfigUtils.get_config_by_type(
+                              self.config['attributes'],
+                              ConfigUtils.MemberAttr
+                          ):
+            for spr in member_atr.member_spreads:
+                spr_name = str(spr)
+                if spr_name not in adconf.SYNCS:
+                    raise Exception("Illegal spread in 'Member' attribute: %s. "
+                                    "Only spreads that have their own sync" 
+                                    "configured can be used in the attribute" %
+                                    spr_name)
+                self.config['group_member_spreads'][spr_name] = {}
+                self.config['group_member_spreads'][spr_name]['config'] = \
+                    adconf.SYNCS[spr_name]
+                self.config['group_member_spreads'][spr_name]['spread'] = spr
+
+    def _fetch_group_member_entities(self):
+        """Extract entities with needed spreads and make AD objects out of them.
+
+        """
+        self.id2extraentity = dict()
+        for spread_var in self.config['group_member_spreads'].itervalues():
+            # Need to process spreads one by one, since each has its config
+            spread = spread_var['spread']
+            if spread.entity_type == self.co.entity_group:
+                if spread == self.config['target_spread']:
+                    # The needed data for target_spread is already extracted
+                    self.id2extraentity.update(self.id2entity)
+                for row in self.gr.search(spread=spread):
+                    if row['group_id'] in self.id2extraentity:
+                        self.id2extraentity[row['group_id']].spreads.append(spread)
+                        continue
+                    ad_entity_class = self._generate_dynamic_class(
+                                         spread_var['config']['object_classes'],
+                                         'member_of_%s' % spread
+                                      )
+                    ad_entity_object = ad_entity_class(self.logger, 
+                                                       spread_var['config'], 
+                                                       row['group_id'], 
+                                                       row['name'])
+                    # Save the spread for which current entities 
+                    # have been extracted
+                    ad_entity_object.spreads.append(spread)
+                    self.id2extraentity[ad_entity_object.entity_id] = \
+                        ad_entity_object
+            elif spread.entity_type == self.co.entity_account:
+                for row in self.ac.search(spread=spread):
+                    if row['account_id'] in self.id2extraentity:
+                        self.id2extraentity[row['account_id']].spreads.append(spread)
+                        continue
+                    ad_entity_class = self._generate_dynamic_class(
+                                         spread_var['config']['object_classes'],
+                                         'member_of_%s' % spread
+                                      )
+                    ad_entity_object = ad_entity_class(self.logger, 
+                                                       spread_var['config'], 
+                                                       row['account_id'], 
+                                                       row['name'])
+                    # Save the spread for which current entities 
+                    # have been extracted
+                    ad_entity_object.spreads.append(spread)
+                    self.id2extraentity[ad_entity_object.entity_id] = \
+                        ad_entity_object
+            else:
+                # In the future more entity types will be added
+                pass
+ 
+    def fetch_members_by_spread(self):
+        """Fetch the group members of given type that have given spread.
+           Is not run if "Member" attribute is not defined in configuration.
+
+        """
+        if not ConfigUtils.has_config(self.config['attributes'], 
+                                  ConfigUtils.MemberAttr):
+            # No need for such data
+            return
+        self.logger.debug("Fetch group members of predefined types with " 
+                          "predefined spreads...")
+        
+        self._configure_group_member_spreads()
+        self._fetch_group_member_entities()
+        i = 0
+        for member in self.gr.search_members(
+                          member_spread = [elem['spread'] for elem in 
+                               self.config['group_member_spreads'].itervalues()]):
+            ent = self.id2entity.get(member['group_id'], None)
+            if ent:
+                if not hasattr(ent, 'members_by_spread'):
+                    ent.members_by_spread = []
+                # We have to translate membed_id's to names.
+                ent2 = self.id2extraentity.get(member['member_id'], None)
+                if ent2:
+                    ent.members_by_spread.append(ent2)
+                    i += 1
+        self.logger.debug("Found %d members of needed types that have "
+                          "needed spreads", i)
 
     def fetch_posix(self):
         """Fetch the POSIX data for groups, if needed.
@@ -2924,7 +3031,7 @@ class GroupSync(BaseSync):
         if mem_remove:
             self.server.remove_members(groupdn, mem_remove)
         return True
-
+    
     def get_group_members(self, ent):
         """Get a list of a given entity's members from Cerebrum.
 
@@ -2982,7 +3089,7 @@ class GroupSync(BaseSync):
             # persons?
             cere_members.add(ent)
         return cere_members
-
+    
     def sync_ad_attribute(self, ent, attribute, cere_elements, ad_elements):
         """Compare a given attribute and update AD with the differences.
 

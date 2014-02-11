@@ -340,6 +340,14 @@ class CerebrumEntity(object):
             # Email Forward
             if self.maildata.get('forward'):
                 return self.maildata['forward']
+        elif isinstance(config, ConfigUtils.MemberAttr):
+            # Member attribute for groups
+            if hasattr(self, 'members_by_spread'):
+                # Return only those members who have the spread 
+                # defined in this attribute
+                return [member for member in self.members_by_spread 
+                        if any(spr in member.spreads 
+                               for spr in config.member_spreads)]
         elif isinstance(config, ConfigUtils.CallbackAttr):
             # A callback for an attribute
             return config.callback(self)

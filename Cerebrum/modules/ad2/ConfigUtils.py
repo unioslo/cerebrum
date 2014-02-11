@@ -359,6 +359,21 @@ class TraitAttr(AttrConfig):
         super(TraitAttr, self).__init__(*args, **kwargs)
         self.traitcodes = _prepare_constants(traitcodes, const.EntityTrait)
 
+class MemberAttr(AttrConfig):
+    """Config for Member attribute of groups.
+
+    """
+    def __init__(self, member_spreads = None, *args, **kwargs):
+        """Initiate a config for fetching group members.
+
+        @type member_spread: SpreadCode or sequence thereof
+        @param member_spread: 
+            What spread(s) the group members should have to be selected.
+
+        """
+        super(MemberAttr, self).__init__(*args, **kwargs)
+        self.member_spreads = _prepare_constants(member_spreads, const.Spread)
+
 class CallbackAttr(AttrConfig):
     """A special attribute, using callbacks with the entity as the argument.
 
