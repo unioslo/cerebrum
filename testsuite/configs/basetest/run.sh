@@ -79,15 +79,33 @@ ${env_dir}/bin/pep8 --format=default --exclude=extlib \
 popd
 
 # Run pylint error checks
-# Note that we ignore E1101(no-member), as pylint won't recognize mixins that
-# aren't named '*mixin'
 info "Running static test: pylint"
-pushd ${root_dir} # We should already be here, but we need to be sure
+pushd ${root_dir}
 # As with the pep8 static check, we need the reports to be relative to the
 # workspace root
-${env_dir}/bin/pylint --errors-only --output-format=parseable --ignore=extlib \
-                      --disable=E1101 \
-                      src/cerebrum/Cerebrum src/cerebrum/contrib > ${root_dir}/pylint.txt
+#
+# Also, we have to do some path manipulation to make pylint check the Cerebrum
+# module in the checked out source tree, and not the installed cerebrum module.
+export PYTHONPATH=$( prepare_pypath ${env_dir}/etc/cerebrum ${crb_src} )
+
+#pylint_init="f='${env_dir}/bin/activate_this.py';execfile(f, dict(__file__=f))"
+
+# Note that we ignore E1101(no-member), as pylint won't recognize mixins that
+# aren't named '*mixin'. Maybe we should solve this better by setting
+# 'ignored-classes' in pylintrc? Not entirely sure what effect that has, but
+# it's recommended to do that for 'classes with dynamically set attributes'
+${env_dir}/bin/pylint --rcfile=${config}/pylintrc --errors-only \
+                      --disable=E1101 Cerebrum > ${root_dir}/pylint.txt
+
+# Contrib and other python files outside Cerebrum are not in our path. They need
+# to be checked individually. Let's do just that, and append to the pylint
+# report
+for f in $( find src/cerebrum/contrib -name *.py )
+do
+    ${env_dir}/bin/pylint --rcfile=${config}/pylintrc --errors-only  \
+                          $f >> ${root_dir}/pylint.txt
+done
+
 popd
 
 exit $error
