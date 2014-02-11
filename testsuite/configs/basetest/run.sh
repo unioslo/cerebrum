@@ -61,7 +61,7 @@ fi
 
 # 
 # Setup OK, run tests
-info "Running tests"
+info "Running nosetests"
 ${env_dir}/bin/nosetests -c ${config}/noseconfig.cfg  ${crb_src}/testsuite/tests/test_Cerebrum
 error=$(($? + $error))
 
@@ -70,16 +70,24 @@ error=$(($? + $error))
 ln -sf ${root_dir}/coverage.xml ${crb_src}/coverage.xml
 
 # Run pep8 syntax check
-pushd ${crb_src}
-${env_dir}/bin/pep8 --format=default --exclude=extlib Cerebrum contrib > ${root_dir}/pep8_report.txt
+info "Running static test: pep8"
+pushd ${root_dir}
+# The violations plugin (and sanity in general) expects the pep8 report to be
+# relative to the workspace root.
+${env_dir}/bin/pep8 --format=default --exclude=extlib \
+                    src/cerebrum/Cerebrum src/cerebum/contrib > ${root_dir}/pep8_report.txt
 popd
 
 # Run pylint error checks
 # Note that we ignore E1101(no-member), as pylint won't recognize mixins that
 # aren't named '*mixin'
-pushd ${crb_src}
+info "Running static test: pylint"
+pushd ${root_dir} # We should already be here, but we need to be sure
+# As with the pep8 static check, we need the reports to be relative to the
+# workspace root
 ${env_dir}/bin/pylint --errors-only --output-format=parseable --ignore=extlib \
-                      --disable=E1101 Cerebrum contrib > ${root_dir}/pylint.txt
+                      --disable=E1101 \
+                      src/cerebrum/Cerebrum src/cerebrum/contrib > ${root_dir}/pylint.txt
 popd
 
 exit $error
