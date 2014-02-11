@@ -65,4 +65,14 @@ info "Running tests"
 ${env_dir}/bin/nosetests -c ${config}/noseconfig.cfg  ${crb_src}/testsuite/tests/test_Cerebrum
 error=$(($? + $error))
 
+# The jenkins cobertura expects to find the coverage report in the SCM path, and
+# refuse to accept any other addressing.
+ln -sf ${root_dir}/coverage.xml ${crb_src}/coverage.xml
+
+# Run pep8 syntax check
+${env_dir}/bin/pep8 --format=default ${crb_src}/Cerebrum ${crb_src}/contrib > ${WORKSPACE}/pep8_report.txt
+
+# Run pylint error checks
+${env_dir}/bin/pylint --errors-only --format=parseable --ignore=extlib ${crb_src}/Cerebrum ${crb_src}/contrib > ${WORKSPACE}/pylint.txt
+
 exit $error
