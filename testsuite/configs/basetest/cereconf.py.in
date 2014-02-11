@@ -9,6 +9,7 @@ from Cerebrum.default_config import *
 
 DB_AUTH_DIR = '@test_base@/etc/cerebrum'
 LOGGING_CONFIGFILE = '@test_base@/etc/cerebrum/logging.ini'
+LOGGING_ROOT_DIR = '@test_base@/var/log/cerebrum'
 
 CEREBRUM_DATABASE_NAME = 'testdb'
 

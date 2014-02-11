@@ -23,7 +23,7 @@ root_dir=${WORKSPACE:-/tmp}
 error=0
 
 # Cerebrum source dir should exist in <root>/src/cerebrum
-crb_src=${WORKSPACE}/src/cerebrum
+crb_src=${root_dir}/src/cerebrum
 
 # Source the setup tools
 if ! source ${crb_src}/testsuite/scripts/setup_tools.sh
@@ -39,7 +39,7 @@ fi
 
 # Tests should run in <root>/basetests
 env_name=basetests
-env_dir=${WORKSPACE}/${env_name}
+env_dir=${root_dir}/${env_name}
 
 # Config dir
 config=$( abs_dirname "${BASH_SOURCE[0]}" )
@@ -70,9 +70,16 @@ error=$(($? + $error))
 ln -sf ${root_dir}/coverage.xml ${crb_src}/coverage.xml
 
 # Run pep8 syntax check
-${env_dir}/bin/pep8 --format=default ${crb_src}/Cerebrum ${crb_src}/contrib > ${WORKSPACE}/pep8_report.txt
+pushd ${crb_src}
+${env_dir}/bin/pep8 --format=default --exclude=extlib Cerebrum contrib > ${root_dir}/pep8_report.txt
+popd
 
 # Run pylint error checks
-${env_dir}/bin/pylint --errors-only --format=parseable --ignore=extlib ${crb_src}/Cerebrum ${crb_src}/contrib > ${WORKSPACE}/pylint.txt
+# Note that we ignore E1101(no-member), as pylint won't recognize mixins that
+# aren't named '*mixin'
+pushd ${crb_src}
+${env_dir}/bin/pylint --errors-only --output-format=parseable --ignore=extlib \
+                      --disable=E1101 Cerebrum contrib > ${root_dir}/pylint.txt
+popd
 
 exit $error
