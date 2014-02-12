@@ -8679,16 +8679,8 @@ Addresses and settings:
         ety = self.util.get_target(ety_id, restrict_to=[])
         self.ba.can_view_trait(operator.get_entity_id(), ety=ety)
 
-        if isinstance(ety, Utils.Factory.get('Disk')):
-            ety_name = ety.path
-        elif isinstance(ety, Utils.Factory.get('Person')):
-            try:
-                ety_name = ety.get_name(self.const.system_cached,
-                                        self.const.name_full)
-            except Errors.NotFoundError:
-                ety_name = "<no name>"
-        else:
-            ety_name = ety.get_names()[0][0]
+        ety_name = self._get_name_from_object(ety)
+
         text = []
         ret = []
         for trait, values in ety.get_traits().items():
