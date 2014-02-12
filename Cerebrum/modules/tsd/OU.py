@@ -524,8 +524,8 @@ class OUTSDMixin(OU):
         return True
 
     def terminate(self):
-        """Remove all of a project, except its project id and name (acronym).
-        
+        """Remove all of a project, except its project ID and name (acronym).
+
         The project's entities are deleted by this method, so use with care!
 
         For the OU object, it does almost the same as L{delete} except from
@@ -544,7 +544,8 @@ class OUTSDMixin(OU):
             ac.delete()
         # Remove every trace of person affiliations to the project:
         pe = Factory.get('Person')(self._db)
-        for row in pe.list_affiliations(ou_id=self.entity_id):
+        for row in pe.list_affiliations(ou_id=self.entity_id,
+                                        include_deleted=True):
             pe.clear()
             pe.find(row['person_id'])
             pe.nuke_affiliation(ou_id=row['ou_id'],

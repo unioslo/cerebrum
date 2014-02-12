@@ -594,7 +594,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         '_get_account', 
         '_map_person_id', '_entity_info', 'num2str', '_get_affiliationid',
         '_get_affiliation_statusid', '_parse_date', '_today',
-        '_format_changelog_entry', '_format_from_cl', '_get_name_from_object',
+        '_format_changelog_entry', '_format_from_cl',
         '_get_constant', '_is_yes', '_remove_auth_target', '_remove_auth_role',
         '_get_cached_passwords', '_parse_date_from_to',
         '_convert_ticks_to_timestamp', '_fetch_member_names',

@@ -60,9 +60,6 @@ class AccountTSDMixin(Account.Account):
         protection to them. An account should only be allowed to be part of a
         single OU, no others, to avoid mixing different projects' data.
 
-        Also, when a user is added to a project, we should also give the account
-        extra functionality related to the project.
-
         """
         if affiliation == self.const.affiliation_project:
             for row in self.list_accounts_by_type(account_id=self.entity_id,
@@ -73,24 +70,46 @@ class AccountTSDMixin(Account.Account):
                 if row['ou_id'] != ou_id:
                     raise Errors.CerebrumError('Account already part of other '
                                                'project OUs')
+        self.setup_for_project()
+        return self.__super.set_account_type(ou_id, affiliation, priority)
+
+    def setup_for_project(self):
+        """Set up different config and attributes for a project account. 
+
+        When a user is added to a project, we should also give the account extra
+        functionality related to the project, like a linux machine if the
+        project is set to use that.
+
+        """
+        ou = Factory.get('OU')(self._db)
+
+        # The account and OU must be approved before we should set anything
+        is_approved = False
+        for row in self.get_account_types():
+            if row['affiliation'] != self.const.affiliation_project:
+                continue
+            ou.clear()
+            ou.find(row['ou_id'])
+            if not tuple(ou.get_entity_quarantine()):
+                is_approved = True
+        if not is_approved:
+            return
 
         # If the given project is set up so that every project member should
         # have their own virtual linux machine, we need to create this host for
         # the account:
-        if affiliation == self.const.affiliation_project:
-            et = EntityTrait.EntityTrait(self._db)
-            et.find(ou_id)
-            vmtrait = et.get_trait(self.const.trait_project_vm_type)
-            if vmtrait and vmtrait['strval'] in ('linux_vm',
-                                                 'win_and_linux_vm'):
-                ou = Factory.get('OU')(self._db)
-                ou.find(ou_id)
-                hostname = '%s-l.tsd.usit.no.' % self.account_name
-                dnsowner = ou._populate_dnsowner(hostname)
-                host = dns.HostInfo.HostInfo(self._db)
-                host.populate(dnsowner.entity_id, 'IBM-PC\tWINDOWS')
-                host.write_db()
-        return self.__super.set_account_type(ou_id, affiliation, priority)
+        vmtrait = ou.get_trait(self.const.trait_project_vm_type)
+        if vmtrait and vmtrait['strval'] in ('linux_vm', 'win_and_linux_vm'):
+            hostname = '%s-l.tsd.usit.no.' % self.account_name
+            dnsowner = ou._populate_dnsowner(hostname)
+            host = dns.HostInfo.HostInfo(self._db)
+            host.populate(dnsowner.entity_id, 'IBM-PC\tWINDOWS')
+            host.write_db()
+
+    def delete_entity_quarantine(self, *args, **kwargs):
+        """Override to also setup the project account."""
+        self.__super.delete_entity_quarantine(*args, **kwargs)
+        self.setup_for_project()
 
     def _generate_otpkey(self, length=192):
         """Return a randomly generated OTP key.
