@@ -551,7 +551,8 @@ class Processing(object):
     def _update_person(self, pe, input):
         """Update the data about a given person.
 
-        Update names, contact info and other available data.
+        Update names, contact info and other available data. No project related
+        data is added or modified.
 
         """
         # Full name
@@ -649,8 +650,8 @@ class Processing(object):
         """Create an account for a given project.
 
         The person must already be affiliated with the project for the account
-        to be created. If the person only has a pending affiliation, the
-        account gets quarantined.
+        to be created. If the person only has a pending affiliation, the account
+        gets quarantined.
 
         If the project has been approved and is set up properly, the account
         could become a posix user. Otherwise, the account is only a regular
@@ -658,7 +659,7 @@ class Processing(object):
         project approval.
 
         """
-        ou_is_quarantined = bool(ou.get_entity_quarantine(only_active=True))
+        ou_is_quarantined = tuple(ou.get_entity_quarantine(only_active=True))
         pid = ou.get_project_id()
         ac = Factory.get('Account')(db)
         username = '%s-%s' % (pid, username)
@@ -706,7 +707,12 @@ class Processing(object):
                          pid)
             ac.set_account_type(ou.entity_id, co.affiliation_project)
             realname = pe.get_name(co.system_cached, co.name_full)
-            if not ou_is_quarantined:
+            if ou_is_quarantined:
+                ac.add_entity_quarantine(type=co.quarantine_not_approved,
+                                         creator=systemaccount_id,
+                                         description='Project not yet approved',
+                                         start=DateTime.now())
+            else:
                 gateway.create_user(pid, username, realname, ac.posix_uid)
         elif pe.list_affiliations(pe.entity_id, ou_id=ou.entity_id,
                                   affiliation=co.affiliation_pending):
@@ -835,6 +841,14 @@ class Processing(object):
         ou.find_by_tsd_projectname(pname)
         pid = ou.get_project_id()
 
+        # Check that the person is not already in the project:
+        for row in pe.list_affiliations(person_id=pe.entity_id,
+                                        affiliation=co.affiliation_project,
+                                        ou_id=ou.entity_id):
+            logger.info("Person %s already affiliated with project",
+                        pe.entity_id)
+            return False
+
         # Check if the person is pre approved for the project:
         approved = False
         if self.fnr in ou.get_pre_approved_persons():
@@ -926,11 +940,11 @@ class Processing(object):
                                          ou_id=ou.entity_id,
                                          affiliation=co.affiliation_project,
                                          status=co.affiliation_status_project_member)
-            # Remove pending aff, if set:
+            # Remove pending aff, if set. Note that this also removes any other
+            # pending statuses, if we should create more of those in the future.
             pe2.delete_affiliation(ou_id=ou.entity_id,
-                                   affiliation=co.affiliation_pending)
-            # Note that this also removes any other pending statuses, if we
-            # should create more of those in the future.
+                                   affiliation=co.affiliation_pending,
+                                   source=co.system_nettskjema)
             pe2.write_db()
 
             # Find the member's project account, if it exist:
