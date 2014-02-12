@@ -706,7 +706,7 @@ class BaseSync(object):
         self.name2entity = dict((self.entities[e].entity_name, self.entities[e])
                               for e in self.entities)
         # Make a mapping from ad_id to the entity:
-        self.adid2entity = dict((self.entities[e].ad_id, self.entities[e])
+        self.adid2entity = dict((self.entities[e].ad_id.lower(), self.entities[e])
                                 for e in self.entities)
         if len(self.entities) != len(self.adid2entity):
             self.logger.warn("Mismatch in mapping of ad_id -> entity_id")
@@ -1021,8 +1021,6 @@ class BaseSync(object):
         #    self.logger.debug("For %s UAC: %s" % (name,
         #                      ad_object['UserAccountControl']))
 
-        # TBD: lowercase all entities put in adid2entity too, or should we have
-        # some smarter comparement?
         ent = self.adid2entity.get(name.lower())
         if ent:
             ent.in_ad = True
@@ -2316,7 +2314,7 @@ class UserSync(BaseSync):
         """
         if not super(UserSync, self).process_ad_object(ad_object):
             return False
-        ent = self.adid2entity.get(ad_object['Name'])
+        ent = self.adid2entity.get(ad_object['Name'].lower())
         dn = ad_object['DistinguishedName'] # TBD: or 'Name'?
 
         if ent.active:
@@ -2683,7 +2681,7 @@ class GroupSync(BaseSync):
         """
         if not super(GroupSync, self).process_ad_object(ad_object):
             return False
-        ent = self.adid2entity.get(ad_object['Name'])
+        ent = self.adid2entity.get(ad_object['Name'].lower())
         dn = ad_object['DistinguishedName'] # TBD: or 'Name'?
         # TODO: more functionality for groups?
 
