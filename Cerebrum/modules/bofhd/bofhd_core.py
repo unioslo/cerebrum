@@ -399,6 +399,22 @@ class BofhdCommandBase(object):
     # end _get_entity_spreads
         
 
+    def _get_name_from_object(self, entity):
+        """Return a human-friendly name for the given entity, if such exists.
+
+        @type entity: Entity
+        @param entity:
+            The entity from which we should return the human-readable name.
+
+        """
+        # optimise for common cases:
+        if isinstance(entity, self.Account_class):
+            return entity.account_name
+        elif isinstance(entity, self.Group_class):
+            return entity.group_name
+        else:
+            # TODO: extend as needed for quasi entity classes like Disk
+            return self._get_entity_name(entity.entity_id, entity.entity_type)
 
     def _get_entity_name(self, entity_id, entity_type=None):
         """Fetch a human-friendly name for the specified entity.
@@ -434,6 +450,19 @@ class BofhdCommandBase(object):
         elif entity_type == self.const.entity_group:
             group = self._get_group(entity_id, idtype='id')
             return group.group_name
+        elif entity_type == self.const.entity_disk:
+            disk = Factory.get('Disk')(self.db)
+            disk.find(entity_id)
+            return disk.path
+        elif entity_type == self.const.entity_host:
+            host = Factory.get('Host')(self.db)
+            host.find(entity_id)
+            return host.name
+        elif entity_type == self.const.entity_person:
+            person = Factory.get('Person')(self.db)
+            person.find(entity_id)
+            return person.get_name(self.const.system_cached,
+                                   self.const.name_full)
 
         # Okey, we've run out of good options. Let's try a sensible fallback:
         # many entities have a generic name in entity_name. Let's use that:

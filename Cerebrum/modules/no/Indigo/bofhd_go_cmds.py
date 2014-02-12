@@ -84,7 +84,7 @@ class BofhdExtension(BofhdCommonMethods):
         '_get_cached_passwords',
         '_get_entity_spreads',
         'group_add_entity', 'group_remove_entity', 'user_password',
-        '_get_group_opcode', '_get_name_from_object',
+        '_get_group_opcode',
         '_group_add_entity', '_group_count_memberships',
         'spread_add', '_get_constant',
         'misc_clear_passwords', 'person_set_user_priority',

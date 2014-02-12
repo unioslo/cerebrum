@@ -10348,16 +10348,6 @@ Password altered. Use misc list_password to print or view the new password.%s'''
             return id_type, id
         raise CerebrumError, "Unknown person_id type"
 
-    def _get_name_from_object(self, entity):
-        # optimise for common case
-        if isinstance(entity, self.Account_class):
-            return entity.account_name
-        elif isinstance(entity, self.Group_class):
-            return entity.group_name
-        else:
-            # TODO: extend as needed for quasi entity classes like Disk
-            return self._get_entity_name(entity.entity_id, entity.entity_type)
-
     def _get_entity_name(self, entity_id, entity_type=None):
         """Fetch a human-friendly name for the specified entity.
 
