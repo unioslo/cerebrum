@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2004-2006 University of Oslo, Norway
+# Copyright 2004-2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,6 +18,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from Cerebrum.modules.PosixLDIF import PosixLDIF
+from Cerebrum.modules.no.uio.printer_quota import PaidPrinterQuotas
 from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.Utils import Factory
 
@@ -53,6 +54,11 @@ class PosixLDIF_UiOMixin(PosixLDIF):
 		account_aff[account_id].append(val)
 	    else:
 		account_aff[account_id] = [val]
+
+        self.pq_people = frozenset(
+            int(row['person_id'])
+            for row in PaidPrinterQuotas.PaidPrinterQuotas(self.db).list()
+            if row['has_quota'] == 'T')
 
     def id2stedkode(self, ou_id):
 	try:
@@ -95,6 +101,12 @@ class PosixLDIF_UiOMixin(PosixLDIF):
         if (owner_id in self.pid2primary_aid):
   	    entry['uioPersonID'] = str(owner_id)
             added = True
+
+        # People with printer quotas.
+        if owner_id in self.pq_people:
+            entry['uioHasPrinterQuota'] = "TRUE"
+            added = True
+
 	# Object class which allows the additional attributes
 	if added:
 	    entry['objectClass'].append('uioAccountObject')
