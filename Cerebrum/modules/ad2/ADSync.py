@@ -1978,7 +1978,7 @@ class UserSync(BaseSync):
             if ent:
                 ctype = str(self.co.ContactInfo(row['contact_type']))
                 ssys = str(self.co.AuthoritativeSystem(row['source_system']))
-                ent.contact_info[ctype][ssys] = row
+                ent.contact_info.setdefault(ctype, {})[ssys] = row
                 i += 1
         self.logger.debug("Found %d contact data" % i)
 
