@@ -369,20 +369,34 @@ class Processor:
                 # Host is not connected to a project, and is therefore ignored.
                 logger.debug2("Host not connected to project: %s" % row['name'])
                 continue
-            host2project[row['name']] = hostid2pid[row['dns_owner_id']]
-            host2ips.setdefault(row['name'], set()).add(row['aaaa_ip'])
+            hostname = self._format_hostname(row['name'])
+            host2project[hostname] = hostid2pid[row['dns_owner_id']]
+            host2ips.setdefault(hostname, set()).add(row['aaaa_ip'])
         for row in ar.list_ext():
             if row['dns_owner_id'] not in hostid2pid:
                 # Host is not connected to a project, and is therefore ignored.
                 logger.debug2("Host not connected to project: %s" % row['name'])
                 continue
-            host2project[row['name']] = hostid2pid[row['dns_owner_id']]
-            host2ips.setdefault(row['name'], set()).add(row['a_ip'])
+            hostname = self._format_hostname(row['name'])
+            host2project[hostname] = hostid2pid[row['dns_owner_id']]
+            host2ips.setdefault(hostname, set()).add(row['a_ip'])
         logger.debug2("Mapped %d hosts to projects", len(host2project))
         logger.debug2("Mapped %d hosts with at least one IP address",
                 len(host2ips))
         self._process_hosts(gw_hosts, host2project)
         self._process_ips(gw_ips, host2project, host2ips)
+
+    def _format_hostname(self, name):
+        """Return the hostname without the last dot.
+
+        The GW requires the name to be without a trailing dot, otherwize it
+        modifies it itself, which means that this script doesn't recognize it,
+        tries to delete and creates it properly, at each run.
+
+        """
+        if name.endswith('.'):
+            return name[:-1]
+        return name
 
     def _get_subnets_and_vlans(self, sub2pid):
         """Get subnets and vlans from Cerebrum.
