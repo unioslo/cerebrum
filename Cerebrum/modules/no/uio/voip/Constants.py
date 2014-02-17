@@ -205,6 +205,21 @@ class VoipConstants(Constants.Constants):
         "Polycom VVX310"
         )
 
+    voip_client_ip5000 = VoipClientInfoCode(
+        "001007",
+        "Polycom IP5000"
+        )
+
+    voip_client_ip6000 = VoipClientInfoCode(
+        "001008",
+        "Polycom IP6000"
+        )
+
+    voip_client_ip7000 = VoipClientInfoCode(
+        "001009",
+        "Polycom IP7000"
+        )
+
     voip_client_spa504g = VoipClientInfoCode(
         "002001",
         "Cisco SPA-504G"
