@@ -517,8 +517,8 @@ arg_help = {
     'group_dl_managedby':
         ['dl_managedby', 'Enter address for ou/person managing this group'],
     'group_dl_modby':
-        ['dl_moderateby', 'Enter a list of user names, separated by the comma character (,)'],
-    'group_exchange_attr':
+        ['dl_moderateby', 'Moderators (list of usernames, comma separated)'],
+        'group_exchange_attr':
         ['group_dattr', 'Enter attribute to modify',
          """Valid attributes:
             - depart_restriction (Open, Closed, ApprovalRequired)

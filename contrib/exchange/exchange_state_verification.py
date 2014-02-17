@@ -34,7 +34,8 @@ import re
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.exchange.v2013.ExchangeClient import ExchangeClient
 from Cerebrum.modules.exchange.Exceptions import ExchangeException
-from Cerebrum.modules.Email import EmailQuota
+from Cerebrum.modules.Email import EmailQuota, EmailAddress
+from Cerebrum.modules.exchange.CerebrumUtils import CerebrumUtils
 from Cerebrum import Utils
 
 logger = Utils.Factory.get_logger('console')
@@ -46,8 +47,11 @@ class StateChecker(object):
         self.dg = Factory.get('DistributionGroup')(self.db)
         self.ac = Factory.get('Account')(self.db)
         self.pe = Factory.get('Person')(self.db)
+        self.gr = Factory.get('Group')(self.db)
         self.et = Factory.get('EmailTarget')(self.db)
+        self.ea = EmailAddress(self.db)
         self.eq = EmailQuota(self.db)
+        self.ut = CerebrumUtils()
 
         self.config = conf
         self.logger = logger
@@ -68,38 +72,247 @@ class StateChecker(object):
         self.ec.kill_session()
         self.ec.close()
 
-    def collect_cerebrum_distgroup_info(self):
-        pass
+###
+# Group related fetching & comparison
+###
+    def collect_exchange_group_memberships(self, group):
+        try:
+            return self.ec.get_group_members(group)
+        except ExchangeException, e:
+            logger.warn(str(e))
+            return []
 
-    def collect_cerebrum_secgroup_info(self):
-        pass
-
-    def collect_exchange_distgroup_info(self):
-        """
-ManagedBy                              : {exutv.uio.no/Users/groupadmin}
-ModeratedBy                            : {}
-MemberJoinRestriction                  : Closed
-MemberDepartRestriction                : Closed
-DisplayName                            : Fjasemikk
-EmailAddresses                         : {SMTP:dl-fjas@groups.uio.no}
-HiddenFromAddressListsEnabled          : False
-ModerationEnabled                      : False
-Name                                   : dl-fjas
-        """
+    def collect_exchange_group_info(self, ou):
         attributes = ['ManagedBy', 'ModeratedBy', 'MemberJoinRestriction',
                       'MemberDepartRestriction', 'DisplayName',
                       'EmailAddresses', 'HiddenFromAddressListsEnabled',
                       'ModerationEnabled', 'Name']
-        return self.ec.get_distgroup_info(attributes)
+        exgrinfo = self.ec.get_group_info(attributes, ou)
 
-    def collect_exchange_secgroup_info(self, ou):
-        """
-GroupCategory      : Security
-GroupScope         : DomainLocal
-Name               : SG-julenissen
-        """
-        attributes = ['GroupCategory', 'GroupScope', 'Name']
-        return self.ec.get_secgroup_info(attributes, ou)
+        exgrdesc = {}
+        for x in  self.ec.get_group_description(ou):
+            exgrdesc[x['Name']] = x['Notes']
+
+        tmp = {}
+        for group in exgrinfo:
+            tmp.setdefault(group['Name'], {})
+            for attr in attributes:
+                if attr == 'EmailAddresses':
+                    addrs = []
+                    for addr in group[attr]:
+                        if addr[:4] == 'SMTP':
+                            tmp[group['Name']]['Primary'] = addr[5:]
+                        else:
+                            addrs += [addr[5:]]
+                    tmp[group['Name']]['Aliases'] = addrs
+                elif attr == 'ModeratedBy':
+                    # Strip of all that prefix stuff on moderators names
+                    mods = []
+                    for mod in group[attr]:
+                        mods += [ mod.split('/')[-1] ]
+                    tmp[group['Name']][attr] = mods
+                elif attr == 'ManagedBy':
+                    try:
+                        mans = []
+                        for x in group[attr]:
+                            mans += [ x.split('/')[-1] ]
+                        tmp[group['Name']][attr] = mans
+                    except IndexError:
+                        tmp[group['Name']][attr] = group[attr]
+                elif 'Restriction' in attr:
+                    # So, 'Value' is a string, 'value' is an int in this
+                    # context. So very nice.
+                    tmp[group['Name']][attr] = group[attr]['Value']
+                else:
+                   tmp[group['Name']][attr] = group[attr]
+            try:
+                desc = exgrdesc[group['Name']]
+            except KeyError:
+                # Probably not set. We set it! :D
+                desc = 'Undefined'
+            tmp[group['Name']]['Description'] = desc
+
+            # Mix in group members in the dict
+            # TODO: Should we do this another way? This takes time
+            tmp[group['Name']]['Members'] = \
+                    self.collect_exchange_group_memberships(group['Name'])
+        return tmp            
+
+    def collect_cerebrum_group_info(self, mb_spread, ad_spread):
+        # TODO: This entire function is so darn ugly. Rewrite EVERYTHING related
+        # to Exchange some day!
+
+        mb_spread = self.co.Spread(mb_spread)
+        ad_spread = self.co.Spread(ad_spread)
+
+        def _true_or_false(val):
+            # Yes, we know...
+            if val == 'T':
+                return True
+            elif val == 'F':
+                return False
+            else:
+                return None
+
+        tmp = {}
+        for dg in self.dg.list_distribution_groups():
+            self.dg.clear()
+            self.dg.find(dg['group_id'])
+            roomlist = _true_or_false(self.dg.roomlist)
+            data = self.dg.get_distgroup_attributes_and_targetdata(
+                                                            roomlist=roomlist)
+
+            # Yes. We must look up the user/group name......!!11
+            try:
+                self.ea.clear()
+                self.ea.find_by_address(data['mngdby_address'])
+                self.et.clear()
+                self.et.find(self.ea.get_target_id())
+                if self.et.email_target_entity_type == self.co.entity_group:
+                    self.gr.clear()
+                    self.gr.find(self.et.email_target_entity_id)
+                    manager = self.gr.group_name
+                elif self.et.email_target_entity_type == self.co.entity_account:
+                    self.ac.clear()
+                    self.ac.find(self.et.email_target_entity_id)
+                    manager = self.ac.account_name
+                else:
+                    raise Exception
+            except:
+                manager = u'Unknown'
+
+
+            tmp[self.dg.group_name] = {
+                        'Name': self.dg.group_name,
+                        'Description': self.dg.description,
+                        'DisplayName': data['displayname'],
+                        'ManagedBy': [manager],
+                        'MemberDepartRestriction': data['deprestr'],
+                        'MemberJoinRestriction': data['joinrestr'],
+            }
+
+            if not roomlist:
+                tmp[self.dg.group_name].update({
+                            'ModerationEnabled': _true_or_false(data['modenable']),
+                            'ModeratedBy': data['modby'],
+                            'HiddenFromAddressListsEnabled': _true_or_false(data['hidden']),
+                            'Primary': data['primary'],
+                            'Aliases': data['aliases']
+                })
+
+            # Collect members
+            membs_unfiltered = self.ut.get_group_members(self.dg.entity_id,
+                                                        spread=mb_spread,
+                                                        filter_spread=ad_spread)
+            members = [member['name'] for member in membs_unfiltered]
+            tmp[self.dg.group_name].update({'Members': members})
+        return tmp
+
+    def compare_group_state(self, ex_group_info, cere_group_info, state,
+                                config):
+        # TODO: This is mostly copypasta fra compare_mailbox_state, refactor
+        # and generalize
+        
+        s_ce_keys = set(cere_group_info.keys())
+        s_ex_keys = set(ex_group_info.keys())
+        diff_group = {}
+        diff_stale = {}
+        diff_new = {}
+
+        ##
+        # Populate some structures with information we need
+
+        # Groups in Exchange, but not in Cerebrum
+        stale_keys = list(s_ex_keys - s_ce_keys)
+        for ident in stale_keys:
+            if state and ident in state['stale_group']:
+                diff_stale[ident] = state['stale_group'][ident]
+            else:
+                diff_stale[ident] = time.time()
+        
+        # Groups in Cerebrum, but not in Exchange
+        new_keys = list(s_ce_keys - s_ex_keys)
+        for ident in new_keys:
+            if state and ident in state['new_group']:
+                diff_new[ident] = state['new_group'][ident]
+            else:
+                diff_new[ident] = time.time()
+
+        # Check groups that exists in both Cerebrum and Exchange for
+        # difference (& is union, in case you wondered). If an attribute is not
+        # in it's desired state in both this and the last run, save the
+        # timestamp from the last run. This is used for calculating when we nag
+        # to someone about stuff not beeing in sync.
+        for key in s_ex_keys & s_ce_keys:
+            for attr in cere_group_info[key]:
+                if state and attr in state['group'][key]:
+                    t_0 = state['group'][key][attr]['Time']
+                else:
+                    t_0 = time.time()
+                diff_group.setdefault(key, {})
+                if attr not in ex_group_info[key]:
+                    diff_group[key][attr] = {
+                         'Exchange': None,
+                         'Cerebrum': cere_group_info[key][attr],
+                         'Time': t_0
+                        }
+                elif cere_group_info[key][attr] != ex_group_info[key][attr]:
+                    diff_group[key][attr] = {
+                         'Exchange': ex_group_info[key][attr],
+                         'Cerebrum': cere_group_info[key][attr],
+                         'Time': t_0
+                        }
+
+        ret = { 'new_group': diff_new,
+                'stale_group':diff_stale,
+                'group': diff_group }
+
+        if not state:
+            return ret, []
+
+        now = time.time()
+        # By now, we have three different dicts. Loop trough them and check if
+        # we should report 'em
+        report = ['\n\n# Group Attribute Since Cerebrum_value:Exchange_value']
+
+        # Report attribute mismatches for groups
+        for key in diff_group:
+            for attr in diff_group[key]:
+                delta = config.get(attr) if attr in config else \
+                                                config.get('UndefinedAttribute')
+                if diff_group[key][attr]['Time'] < now - delta:
+                    t = time.strftime('%d%m%Y-%H:%M', time.localtime(
+                        diff_group[key][attr]['Time']))
+                    tmp = '%-10s %-30s %s %s:%s' % (key, attr, t,
+                                        str(diff_group[key][attr]['Cerebrum']),
+                                        str(diff_group[key][attr]['Exchange']))
+                    report += [tmp]
+
+
+        # Report uncreated groups
+        report += ['\n# Uncreated groups (uname, time)']
+        attr = 'UncreatedGroup'
+        delta = config.get(attr) if attr in config else \
+                                                config.get('UndefinedAttribute')
+        for key in diff_new:
+            if diff_new[key] < now - delta:
+                t = time.strftime('%d%m%Y-%H:%M', time.localtime(
+                    diff_new[key]))
+                report += ['%-10s %s' % (key, t)]
+
+        # Report stale groups
+        report += ['\n# Stale groups (uname, time)']
+        attr = 'StaleGroup'
+        delta = config.get(attr) if attr in config else \
+                                                config.get('UndefinedAttribute')
+        for key in diff_stale:
+            t = time.strftime('%d%m%Y-%H:%M', time.localtime(
+                diff_stale[key]))
+            if diff_stale[key] < now - delta:
+                report += ['%-10s %s' % (key, t)]
+
+        return ret, report
+
 
 ###
 # Mailbox related state fetching & comparison
@@ -133,27 +346,29 @@ Name               : SG-julenissen
                 tmp['FirstName'] = self.pe.get_name(self.co.system_cached,
                                                     self.co.name_first)
                 tmp['LastName'] = self.pe.get_name(self.co.system_cached,
-                                                   self.co.name_last)
+                                                    self.co.name_last)
                 tmp['DisplayName'] = self.pe.get_name(self.co.system_cached,
-                                                   self.co.name_full)
+                                                    self.co.name_full)
             else:
                 tmp['FirstName'] = ''
                 tmp['LastName'] = ''
                 tmp['DisplayName'] = ''
 
             # Fetch quotas
-                self.eq.clear()
-                self.eq.find(self.et.entity_id)
-                hard = str(self.eq.get_quota_hard() * 1024 * 1024)
-                soft = self.eq.get_quota_soft()
-                tmp['ProhibitSendQuota'] = hard
-                tmp['ProhibitSendReceiveQuota'] = hard
-                tmp['IssueWarningQuota'] = int(hard * soft / 100.)
+            self.eq.clear()
+            self.eq.find(self.et.entity_id)
+            hard = self.eq.get_quota_hard() * 1024 * 1024
+            soft = self.eq.get_quota_soft()
+            tmp['ProhibitSendQuota'] = str(hard)
+            tmp['ProhibitSendReceiveQuota'] = str(hard)
+            tmp['IssueWarningQuota'] = str(int(hard * soft / 100.))
 
             # Fetch hidden
-                tmp['HiddenFromAddressListsEnabled'] = \
-                        self.pe.has_e_reservation()
-            
+            hide = self.pe.has_e_reservation() or \
+                    not self.ac.entity_id == self.pe.get_primary_account()
+
+            tmp['HiddenFromAddressListsEnabled'] = hide
+
             res[self.ac.account_name] = tmp
 
         return res
@@ -169,15 +384,13 @@ Name               : SG-julenissen
                       'ProhibitSendReceiveQuota',
                       'IssueWarningQuota',
                       'UseDatabaseQuotaDefaults',
-                      'FirstName',
-                      'LastName',
                       'EmailAddressPolicyEnabled',
                       'IsLinked']
         return self.ec.get_mailbox_info(attributes)
 
     def collect_exchange_user_info(self):
-        attributes = ['GivenName',
-                      'Surname',
+        attributes = ['FirstName',
+                      'Lastname',
                       'SamAccountName']
         return self.ec.get_user_info(attributes)
 
@@ -188,7 +401,7 @@ Name               : SG-julenissen
         for mb in raw_mb:
             tmp = {}
             # str / none
-            for key in ('DisplayName',): # 'FirstName', 'LastName',):
+            for key in ('DisplayName',):
                 tmp[key] = mb[key]
 
             # bool
@@ -226,10 +439,8 @@ Name               : SG-julenissen
         for acc in raw_user:
             if not ret.has_key(acc['SamAccountName']):
                 continue
-            if acc['GivenName']:
-                ret[acc['SamAccountName']]['FirstName'] = acc['GivenName']
-            if acc['Surname']:
-                ret[acc['SamAccountName']]['LastName']  = acc['Surname']
+            ret[acc['SamAccountName']]['FirstName'] = acc['FirstName']
+            ret[acc['SamAccountName']]['LastName']  = acc['LastName']
 
         return ret
 
@@ -244,7 +455,7 @@ Name               : SG-julenissen
         # Populate some structures with information we need
 
         # Mailboxes in Exchange, but not in Cerebrum
-        stale_keys = list(s_ce_keys - s_ex_keys)
+        stale_keys = list(s_ex_keys - s_ce_keys)
         for ident in stale_keys:
             if state and ident in state['stale_mb']:
                 diff_stale[ident] = state['stale_mb'][ident]
@@ -252,7 +463,7 @@ Name               : SG-julenissen
                 diff_stale[ident] = time.time()
         
         # Mailboxes in Cerebrum, but not in Exchange
-        new_keys = list(s_ex_keys - s_ce_keys)
+        new_keys = list(s_ce_keys - s_ex_keys)
         for ident in new_keys:
             if state and ident in state['new_mb']:
                 diff_new[ident] = state['new_mb'][ident]
@@ -278,6 +489,23 @@ Name               : SG-julenissen
                          'Time': t_0
                         }
                 elif ce_state[key][attr] != ex_state[key][attr]:
+                    # For quotas, we only want to report mismatches if the
+                    # difference is between the quotas in Cerebrum and Exchange
+                    # is greater than 1% on either side. Hope this is an
+                    # appropriate value to use ;)
+                    try:
+                        if 'Quota' in attr:
+                            exq = ex_state[key][attr]
+                            ceq = ce_state[key][attr]
+                            diff = abs(int(exq) - int(ceq))
+                            avg = (int(exq) + int(ceq)) / 2
+                            one_p = avg * 0.01
+                            if avg + diff < avg + one_p and \
+                                    avg - diff > avg - one_p:
+                                continue
+                    except TypeError:
+                        pass
+
                     diff_mb[key][attr] = {
                          'Exchange': ex_state[key][attr],
                          'Cerebrum': ce_state[key][attr],
@@ -287,7 +515,7 @@ Name               : SG-julenissen
         ret = { 'new_mb': diff_new, 'stale_mb':diff_stale, 'mb': diff_mb }
 
         if not state:
-            return ret
+            return ret, []
 
         now = time.time()
         # By now, we have three different dicts. Loop trough them and check if
@@ -301,7 +529,7 @@ Name               : SG-julenissen
                 if diff_mb[key][attr]['Time'] < now - delta:
                     t = time.strftime('%d%m%Y-%H:%M', time.localtime(
                         diff_mb[key][attr]['Time']))
-                    tmp = '%-8s %-20s %s %s:%s' % (key, attr, t,
+                    tmp = '%-10s %-30s %s %s:%s' % (key, attr, t,
                                             str(diff_mb[key][attr]['Cerebrum']),
                                             str(diff_mb[key][attr]['Exchange']))
                     report += [tmp]
@@ -314,7 +542,7 @@ Name               : SG-julenissen
             if diff_new[key] < now - delta:
                 t = time.strftime('%d%m%Y-%H:%M', time.localtime(
                     diff_new[key]))
-                report += ['%-8s %s' % (key, t)]
+                report += ['%-10s %s' % (key, t)]
 
         # Report stale mailboxes
         report += ['\n# Stale mailboxes (uname, time)']
@@ -323,7 +551,7 @@ Name               : SG-julenissen
             t = time.strftime('%d%m%Y-%H:%M', time.localtime(
                 diff_stale[key]))
             if diff_stale[key] < now - delta:
-                report += ['%-8s %s' % (key, t)]
+                report += ['%-10s %s' % (key, t)]
 
         return ret, report
 
@@ -333,17 +561,14 @@ Name               : SG-julenissen
 if __name__ == '__main__':
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                                    'g:crt:f:s:m:',
-                                    ['groups=', 'commit',
-                                     'remove', 'type=',
-                                     'file=', 'sender=',
+                                    't:f:s:m:',
+                                    ['type=',
+                                     'file=',
+                                     'sender=',
                                      'mail='])
     except getopt.GetoptError, err:
         print err
 
-    groups = None
-    commit = False
-    remove_mode = False
     state_file = None
     mail = None
     sender = None
@@ -351,12 +576,6 @@ if __name__ == '__main__':
     for opt, val in opts:
         if opt in ('-t', '--type'):
             conf = eventconf.CONFIG[val]
-        if opt in ('-g', '--groups',):
-            groups = val.split(',')
-        if opt in ('-c', '--commit',):
-            commit = True
-        if opt in ('-r', '--remove',):
-            remove_mode = True
         if opt in ('-f', '--file',):
             state_file = val
         if opt in ('-m', '--mail',):
@@ -364,13 +583,8 @@ if __name__ == '__main__':
         if opt in ('-s', '--sender',):
             sender = val
 
-    # TODO: Move this out in another file or something
-    config = {'UndefinedAttribute': 3*60,
-              'UncreatedMailbox': 3*60,
-              'StaleMailbox': 3*60,
-              'EmailAddress': 3*60}
-    secgroup_ou = 'OU=securitygroups,OU=cerebrum,DC=exutv,DC=uio,DC=no'
-
+    attr_config = conf['state_check_conf']
+    group_ou = conf['group_ou']
 
     # TODO: Check if state file is defined here. If it does not contain any
     # data, or it is not defined trough the command line, create an empty data
@@ -399,11 +613,27 @@ if __name__ == '__main__':
     mb_info = sc.parse_mailbox_info(raw_mb_info, raw_user_info)
 
     # Collect mail-data from Cerebrum
-    cere_mb_info = sc.collect_mail_info()
+    cere_mb_info = sc.collect_cerebrum_mail_info()
 
     # Compare mailbox state between Cerebrum and Exchange
     new_state, report = sc.compare_mailbox_state(mb_info, cere_mb_info,
-                                                 state, config)
+                                                 state, attr_config)
+
+    # Collect group infor from Cerebrum and Exchange
+    ex_group_info = sc.collect_exchange_group_info(group_ou)
+    cere_group_info = sc.collect_cerebrum_group_info(conf['mailbox_spread'],
+                                                     conf['ad_spread'])
+    # Compare group state
+    new_group_state, group_report = sc.compare_group_state(ex_group_info,
+                                                           cere_group_info,
+                                                           state,
+                                                           attr_config)
+    # Join state dicts
+    new_state.update(new_group_state)
+#    import interact
+#    interact.Interact(local=locals())
+    # Concat reports
+    report += group_report
 
     # Send a report by mail
     if mail and sender:

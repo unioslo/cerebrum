@@ -29,7 +29,7 @@ from Cerebrum import Errors
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.cmd_param import Command, Parameter, \
-        FormatSuggestion
+        FormatSuggestion, SimpleString
 
 import eventconf
 
@@ -37,6 +37,10 @@ import eventconf
 class TargetSystem(Parameter):
     _type = 'targetSystem'
     _help_ref = 'target_system'
+
+class EventId(Parameter):
+    _type = 'eventId'
+    _help_ref = 'event_id'
 
 class EventId(Parameter):
     _type = 'eventId'
@@ -82,7 +86,7 @@ class BofhdExtension(BofhdCommandBase):
                 arg_help)
 
     # Validate that the target system exists, and that the operator is
-    # allowed to perfor operations on it.
+    # allowed to perform operations on it.
     def _validate_target_system(self, operator, target_sys):
         # TODO: Chack for perms on target system.
         ts = self.const.TargetSystem(target_sys)
@@ -115,7 +119,7 @@ class BofhdExtension(BofhdCommandBase):
 
     # event list
     all_commands['event_list'] = Command(
-            ('event', 'list',), TargetSystem(),
+            ('event', 'list',), TargetSystem(), SimpleString(optional=True),
                 fs=FormatSuggestion(
                     '%-8d %-28s %-25s %d',
                         ('id', 'type', 'taken', 'failed',),
@@ -123,17 +127,25 @@ class BofhdExtension(BofhdCommandBase):
                                                  'Taken', 'Failed',)
                                     ,),
                                     perm_filter='is_postmaster')
-    def event_list(self, operator, target_sys):
+    def event_list(self, operator, target_sys, args='failed'):
         self.ba.is_postmaster(operator.get_entity_id())
         ts = self._validate_target_system(operator, target_sys)
         
         r = []
         # TODO: Check auth on target-system
         #       Remove perm_filter when this is implemented?
-        fail_limit = eventconf.CONFIG[str(ts)]['fail_limit']
+        if args == 'failed':
+            fail_limit = eventconf.CONFIG[str(ts)]['fail_limit']
+            locked = True
+        elif args == 'full':
+            fail_limit = None
+            locked = False
+        else:
+            return []
+
         for ev in self.db.get_failed_and_locked_events(target_system=ts,
                                                        fail_limit=fail_limit,
-                                                       locked=True):
+                                                       locked=locked):
             tmp = {'id': ev['event_id'],
                     # TODO: Change this when we create TargetType()
                    'type': str(self.const.ChangeType(ev['event_type'])),

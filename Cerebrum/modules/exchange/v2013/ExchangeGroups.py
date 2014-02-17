@@ -163,10 +163,11 @@ class DistributionGroup(Group_class):
     # the danger of address re-use
     def delete(self):
         if self.__in_db:
-            # should probably logg change params!
             self._db.log_change(self.entity_id,
                                 self.const.dl_group_remove,
-                                None)
+                                None,
+                                change_params={'name': self.group_name,
+                                               'roomlist': self.roomlist})
             # Remove entry from distribution_group-table
             self.execute("""
             DELETE FROM [:table schema=cerebrum name=distribution_group]
@@ -186,10 +187,14 @@ class DistributionGroup(Group_class):
 
 
     def list_distribution_groups(self):
-        """Return * from all DistributionGroups in database"""
+        """Return all distributiongroup IDs
+        
+        @rtype list(db_row.row)
+        @return [(group_id,)]
+        """
         return self.query("""
-        SELECT *
-        FROM [:table schema=cerebrum name=distribuition_group]""")
+        SELECT group_id
+        FROM [:table schema=cerebrum name=distribution_group]""")
 
     # assign or remove roomlist status
     def set_roomlist_status(self, roomlist='F'):
@@ -365,7 +370,7 @@ class DistributionGroup(Group_class):
         mngdby_address = ""
         primary_address = ""
         display_name = ""
-        name_laguage = ""
+        name_language = ""
         addrs = []
         mod_by = []
         name_variant = self.const.dl_group_displ_name
@@ -393,7 +398,8 @@ class DistributionGroup(Group_class):
         except Errors.NotFoundError:
             # Could not find the domain recorded. this should never happen
             return None            
-        mngdby_address = "%s@%s" % (ea.email_addr_local_part, ed.email_domain_name)
+        mngdby_address = "%s@%s" % (ea.email_addr_local_part,
+                                    ed.email_domain_name)
 
         # in roomlists we only care about name, description, 
         # displayname and the roomlist-status, the other attributes

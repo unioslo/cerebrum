@@ -488,13 +488,16 @@ class ExchangeEventHandler(processing.Process):
         """
         try:
             et = self.ut.get_entity_type(event['subject_entity'])
-            if not et == self.co.entity_person:
+            params = self.ut.unpickle_event_params(event)
+            if not et == self.co.entity_person or \
+                not params['code'] == self.co.trait_public_reservation:
                 raise Errors.NotFoundError
             # If we can't find a person with this entity id, we silently
-            # discard the event by doing nothing
+            # discard the event by doing nothing. We also discard if it
+            # something else than a person reservation
         except Errors.NotFoundError:
             raise EntityTypeError
-
+        # We pull this from the DB, since it is imperative that we are in sync.
         hidden_from_address_book = self.ut.is_electronic_reserved(
                                             person_id=event['subject_entity'])
         # We set visibility on all accounts the person owns, that has an
@@ -758,7 +761,7 @@ class ExchangeEventHandler(processing.Process):
             gname, desc = self.ut.get_group_information(event['subject_entity'])
             data = self.ut.get_distgroup_attributes_and_targetdata(
                                                         event['subject_entity'])
-
+            # TODO: Split up new_group and new_roomlist? create requeueing of mailenabling?
             if data['roomlist'] == 'F':
                 try:
                     self.ec.new_group(gname, self.config['group_ou'])
@@ -787,17 +790,6 @@ class ExchangeEventHandler(processing.Process):
                         'Could not disable address policy for %s %s' % \
                                 (gname, e))
                 self.ut.log_event(event, 'exchange:set_ea_policy')
-
-
-#            # We must define roomlists as roomlists!
-#            if data['roomlist'] == 'T':
-#                try:
-#                    self.ec.set_roomlist(gname)
-#                    self.logger.info('Defined %s as roomlist' % gname)
-#                    self.ut.log_event_reciept(event, 'dlgroup:roomcreate')
-#                except ExchangeException, e:
-#                    self.logger.warn('Can\'t define %s as roomlist' % gname)
-#                    self.ut.log_event(event, 'exchange:create_roomlist')
 
             # Only for pure distgroups :)
             if data['roomlist'] == 'F':
@@ -877,26 +869,6 @@ class ExchangeEventHandler(processing.Process):
                 ev_mod['change_params'] = pickle.dumps(
                         {'manby': data['mngdby_address']})
                 self.ut.log_event(ev_mod, 'dlgroup:modmanby')
-
-# We don't try to set restrictions on groups. They are Closed by default, and
-# will be like that as long as we use mail-enabled security groups
-#            # Set join/part restriction
-#            try:
-#                self.ec.set_distgroup_member_restrictions(gname,
-#                                                  join=data['joinrestr'],
-#                                                  part=data['deprestr'])
-#                self.logger.info('Set part %s, join %s for %s' % \
-#                        (data['deprestr'], data['joinrestr'], gname))
-#                self.ut.log_event_receipt(event, 'dlgroup:modjoinre')
-#                self.ut.log_event_receipt(event, 'dlgroup:moddepres')
-#            except ExchangeException, e:
-#                self.logger.warn('Can\'t set part %s, join %s for %s: %s' % \
-#                        (data['deprestr'], data['joinrestr'], gname, e))
-#                ev_mod = event.copy()
-#                ev_mod['change_params'] = pickle.dumps(
-#                                    {'joinrestr': data['joinrestr'],
-#                                    'deprestr': data['deprestr']})
-#                self.ut.log_event(ev_mod, 'dlgroup:moddepres')
             
             # Only for pure distgroups :)
             if data['roomlist'] == 'F':
@@ -988,41 +960,34 @@ class ExchangeEventHandler(processing.Process):
                                                         (memb['name'], gname))
             self.ut.log_event(ev_mod, 'e_group:add')
 
-    @EventDecorator.RegisterHandler(['spread:delete'])
+    @EventDecorator.RegisterHandler(['dlgroup:remove'])
     def remove_group(self, event):
         """Removal of group when spread is removed.
 
         @type event: Cerebrum.extlib.db_row.row
         @param event: The event returned from Change- or EventLog
         """
-        removed_spread_code = self.ut.unpickle_event_params(event)['spread']
-        if removed_spread_code == self.group_spread:
-            gname, desc = self.ut.get_group_information(event['subject_entity'])
-            data = self.ut.get_distgroup_attributes_and_targetdata(
-                                                        event['subject_entity'])
-            if data['roomlist'] == 'F':
-                try:
-                    self.ec.remove_group(gname)
-                    self.logger.info('Removed group %s' % gname)
-                    self.ut.log_event_receipt(event, 'dlgroup:remove')
-                    
-                except ExchangeException, e:
-                    self.logger.warn('Couldn\'t remove group %s' % \
-                                      gname)
-                    raise EventExecutionException
-            else:
-                try:
-                    self.ec.remove_roomlist(gname)
-                    self.logger.info('Removed roomlist %s' % gname)
-                    self.ut.log_event_receipt(event, 'dlgroup:roomcreate')
-                    
-                except ExchangeException, e:
-                    self.logger.warn('Couldn\'t remove roomlist %s: %s' % \
-                                      (gname, e))
-                    raise EventExecutionException
-        if not self.group_spread == removed_spread_code:
-            # Silently discard it
-            raise UnrelatedEvent
+        data = self.ut.unpickle_event_params(event)
+        if data['roomlist'] == 'F':
+            try:
+                self.ec.remove_group(data['name'])
+                self.logger.info('Removed group %s' % data['name'])
+                self.ut.log_event_receipt(event, 'dlgroup:remove')
+                
+            except ExchangeException, e:
+                self.logger.warn('Couldn\'t remove group %s' % \
+                                  data['gname'])
+                raise EventExecutionException
+        else:
+            try:
+                self.ec.remove_roomlist(data['name'])
+                self.logger.info('Removed roomlist %s' % data['name'])
+                self.ut.log_event_receipt(event, 'dlgroup:remove')
+                
+            except ExchangeException, e:
+                self.logger.warn('Couldn\'t remove roomlist %s: %s' % \
+                                  (data['name'], e))
+                raise EventExecutionException
 
     @EventDecorator.RegisterHandler(['e_group:add'])
     def add_group_member(self, event):
@@ -1163,23 +1128,6 @@ class ExchangeEventHandler(processing.Process):
         else:
             # TODO: Will we ever arrive here? Log this?
             raise UnrelatedEvent
-
-#    @EventDecorator.RegisterHandler(['exchange:create_roomlist'])
-#    def set_roomlist(self, event):
-#        """Define a group as a roomlist.
-#
-#        @type event: Cerebrum.extlib.db_row.row
-#        @param event: The event returned from Change- or EventLog
-#        """
-#        gname, description = self.ut.get_group_information(
-#                                                        event['subject_entity'])
-#        try:
-#            self.ec.set_roomlist(gname)
-#            self.logger.info('Defined %s as roomlist' % gname)
-#            self.ut.log_event_reciept(event, 'dlgroup:roomcreate')
-#        except ExchangeException, e:
-#            self.logger.warn('Can\'t define %s as roomlist: %s' % (gname, e))
-#            raise EventExecutionException
 
     @EventDecorator.RegisterHandler(['exchange:set_ea_policy'])
     def set_address_policy(self, event):

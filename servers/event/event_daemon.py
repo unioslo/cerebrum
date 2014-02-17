@@ -25,7 +25,7 @@ import eventconf
 import getopt
 import processing
 import Queue
-import thread
+import threading
 
 import sys
 import signal
@@ -49,26 +49,23 @@ def usage(i=0):
             'with grace.')
     sys.exit(i)
 
-# TODO: Do I need to pass this?
+# Logger function that runs in it's own thread. We need to do it like this,
+# since the logger is not process safe
 def log_it(queue, run_state):
     logger.info('Started logging thread')
     # TODO: This is highly incorrect. We should be sure the queue is empty
-    # before quitting. Call join or something on the callee in the caller or
+    # before quitting. Call join or something on the processes that logs or
     # something
-#    run = True
-#    while run:
-    while run_state.value:
+    run = run_state.value
+    while run:
         try:
             entry = queue.get(block=True, timeout=5)
-#            empty = False
         except Queue.Empty:
-#            empty = True
+            run = run_state.value
             continue
         log_func = logger.__getattribute__(entry[0])
         log_func(entry[1])
-#        run = not empty or run_state.value
     logger.info('Shutting down logger thread')
-    # TODO: Log that it runs, and that it quits?
 
 def signal_hup_handler(signal, frame):
     frame.f_locals['run_state'].value = 0
@@ -77,8 +74,13 @@ def main():
     log_queue = processing.Queue()
     # Shared varaiable, used to tell the children to shut down
     run_state = processing.Value(ctypes.c_int, 1)
+    # Separate run-state for the logger
+    logger_run_state = processing.Value(ctypes.c_int, 1)
     # Start the thread that writes to the log
-    thread.start_new(log_it, (log_queue, run_state,))
+    logger_thread = threading.Thread(target=log_it,
+                                     args=(log_queue, logger_run_state,))
+    
+    logger_thread.start()
 
     # Parse args
     try:
@@ -150,16 +152,25 @@ def main():
     if notifications:
         nc.daemon = True
         nc.start()
+        procs.append(nc)
 
     # Start the DelayedNotificationCollector
     if delayed_notifications:
         dnc.daemon = True
         dnc.start()
-
+        procs.append(dnc)
 
     # Trap the Hangup-signal, we use this in order to shut down nicely
     signal.signal(signal.SIGHUP, signal_hup_handler)
     signal.pause()
+    
+    for x in procs:
+        x.join()
+    
+    # Stop the logger
+    logger_run_state.value = 0
+    logger_thread.join()
+ 
     # TODO: Instead of signal.pause, wait for joinage of proccesses or something
 
     # TODO: Here

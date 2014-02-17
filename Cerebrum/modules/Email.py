@@ -62,7 +62,6 @@ import time
 from Cerebrum import Utils
 from Cerebrum.Utils import prepare_string, argument_to_sql
 from Cerebrum import Constants
-from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Entity import Entity
 from Cerebrum.Disk import Host
 from Cerebrum import Person
@@ -693,7 +692,7 @@ class EmailTarget(Entity_class):
     def find_by_email_target_attrs(self, **kwargs):
         # NA
         if not kwargs:
-            raise ProgrammingError, \
+            raise Errors.ProgrammingError, \
                   "Need at least one column argument to find target"
         where = []
         binds = {}
@@ -708,7 +707,7 @@ class EmailTarget(Entity_class):
                     binds[column] = int(binds[column])
                 del kwargs[column]
         if kwargs:
-            raise ProgrammingError, \
+            raise Errors.ProgrammingError, \
                   "Unrecognized argument(s): %r" % kwargs
         where = " AND ".join(where)
         # This might find no rows, and it might find more than one
@@ -805,12 +804,16 @@ class EmailTarget(Entity_class):
         binds = {}
         where_str = ""
         if target_entity_id and target_type:
-            raise ProgrammingError, \
+            raise Errors.ProgrammingError, \
                 "Cannot use both entity_id and target_type!"
         if not target_entity_id is None:
-            where_str = " WHERE %s" % argument_to_sql(target_entity_id, "target_entity_id", binds, int)
+            where_str = " WHERE %s" % argument_to_sql(target_entity_id,
+                                                        "target_entity_id",
+                                                        binds, int)
         if not target_type is None:
-            where_str = " WHERE %s" % argument_to_sql(target_type, "target_type", binds, int)
+            where_str = " WHERE %s" % argument_to_sql(target_type,
+                                                        "target_type",
+                                                        binds, int)
         return self.query("""
         SELECT target_id, target_type, target_entity_type,
                target_entity_id, alias_value, using_uid,
@@ -818,7 +821,8 @@ class EmailTarget(Entity_class):
         FROM [:table schema=cerebrum name=email_target]%s
         """ % where_str, binds, fetchall=False)
     
-    def list_email_target_primary_addresses(self, target_type=None, target_entity_id=None):
+    def list_email_target_primary_addresses(self, target_type=None,
+                                                target_entity_id=None):
         # conv
         """Return an iterator over primary email-addresses belonging
         to email_target.

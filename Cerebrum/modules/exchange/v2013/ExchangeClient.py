@@ -57,7 +57,7 @@ class ExchangeClient(PowershellClient):
 #TODO: Bad hack, cleanup and fix
         super(ExchangeClient, self).__init__(*args, **kwargs)
 #super(ExchangeClient, self).__init__(kwargs['host'], ex_domain_admin,
-#        identity_file='/usit/cere-utv01/u1/jsama/exchange/keys/exutv-multi01',
+#        identity_file='dsfdfsdf',
 #        logger=kwargs['logger'], timeout=60)
         self.add_credentials(username=auth_user,
                 password=unicode(read_password(auth_user, self.host), 'utf-8'))
@@ -91,7 +91,8 @@ class ExchangeClient(PowershellClient):
                                                    self.ex_domain)
         self.ad_server = controllers['domain']
         self.resource_ad_server = controllers['resource_domain']
-
+        # TODO: For all commands. Use the two variables above, and specify
+        # which DC we use
 
     def _split_domain_username(self, name):
         """Separate the domain and username from a full domain username.
@@ -700,7 +701,8 @@ class ExchangeClient(PowershellClient):
         """
         param = {'Name':  gname,
                  'GroupCategory': 'Security',
-                 'GroupScope': 'Universal'}
+                 'GroupScope': 'Universal',
+                 'Server': self.resource_ad_server}
         if ou:
             param['Path'] = ou
         cmd = self._generate_exchange_command(
@@ -708,7 +710,8 @@ class ExchangeClient(PowershellClient):
                 param,
                 ('Credential $cred',))
 
-        param = {'Identity': '"CN=%s,%s"' % (gname, ou)}
+        param = {'Identity': '"CN=%s,%s"' % (gname, ou),
+                 'DomainController': self.resource_ad_server}
         nva = ('Confirm:$false',)
         cmd += self._generate_exchange_command('Enable-Distributiongroup',
                 param,
@@ -1153,7 +1156,7 @@ class ExchangeClient(PowershellClient):
             return ret
 
     def get_user_info(self, attributes):
-        """Get information about a user in AD
+        """Get information about a user in Exchange
 
         @type attributes: list(string)
         @param attributes: Which attributes we want to return
@@ -1161,10 +1164,10 @@ class ExchangeClient(PowershellClient):
         @raises ExchangeException: Raised if the command fails to run
         """
         # TODO: I hereby leave the tidying up this call generation as an
-        #       exersice to my followers.
+        #       exercise to my followers.
         cmd = self._generate_exchange_command(
-            '''Get-ADUser -Server %s -Credential %s -Filter * | Select %s''' % \
-                        (self.ex_domain, '$cred', ', '.join(attributes),))
+            '''Get-User -Filter * | Select %s''' % \
+                        ', '.join(attributes))
         
         # TODO: Do we really need to add that ;? We can't have it here...
         json_wrapped = '''if ($str = %s | ConvertTo-Json) {
@@ -1188,17 +1191,25 @@ class ExchangeClient(PowershellClient):
     # Get-operations used for checking group state in Exchange
     ######
 
-    def get_distgroup_info(self, attributes):
+    def get_group_info(self, attributes, ou=None):
         """Get information about the distribution group in Exchange
 
         @type attributes: list(string)
         @param attributes: Which attributes we want to return
 
+        @type ou: string
+        @param ou: The organizational unit to look in
+
         @raises ExchangeException: Raised if the command fails to run
         """
-        # TODO: Filter by '-Filter {IsLinked -eq "True"}' on get-mailbox.
+        if ou:
+            f_org = '-OrganizationalUnit \'%s\'' % ou
+        else:
+            f_org = ''
+        
         cmd = self._generate_exchange_command(
-                '''Get-DistributionGroup | Select %s''' % ', '.join(attributes))
+                '''Get-DistributionGroup %s | Select %s''' % \
+                    (f_org, ', '.join(attributes)))
         # TODO: Do we really need to add that ;? We can't have it here...
         json_wrapped = '''if ($str = %s | ConvertTo-Json) {
             $str -replace '$', ';'
@@ -1207,48 +1218,74 @@ class ExchangeClient(PowershellClient):
         try:
             ret = self.get_output_json(out, dict())
         except ValueError, e:
-            raise ExchangeException('No mailboxes exists?')
+            raise ExchangeException('No groups exists?: %s' % str(e))
 
         if out.has_key('stderr'):
             raise ExchangeException(out['stderr'])
         elif not ret:
-            raise ExchangeException('Bad output while fetching mailboxes: %s' \
+            raise ExchangeException('Bad output while fetching groups: %s' \
+                    % str(out))
+        else:
+            return ret
+
+    def get_group_description(self, ou=None):
+        """Get the description from groups in Exchange
+
+        @type ou: string
+        @param ou: The organizational unit to look in
+
+        @raises ExchangeException: Raised if the command fails to run
+        """
+        if ou:
+            f_org = '-OrganizationalUnit \'%s\'' % ou
+        else:
+            f_org = ''
+        
+        cmd = self._generate_exchange_command(
+                '''Get-Group %s | Select Name, Notes''' % f_org)
+        # TODO: Do we really need to add that ;? We can't have it here...
+        json_wrapped = '''if ($str = %s | ConvertTo-Json) {
+            $str -replace '$', ';'
+            }''' % cmd[:-1]
+        out = self.run(json_wrapped)
+        try:
+            ret = self.get_output_json(out, dict())
+        except ValueError, e:
+            raise ExchangeException('No groups exists?: %s' % str(e))
+
+        if out.has_key('stderr'):
+            raise ExchangeException(out['stderr'])
+        elif not ret:
+            raise ExchangeException('Bad output while fetching NOTES: %s' \
                     % str(out))
         else:
             return ret
     
-    def get_secgroup_info(self, attributes, ou):
-        """Get information about the security groups in Exchange
+    def get_group_members(self, gname):
+        """Return the members of a group
 
-        @type attributes: list(string)
-        @param attributes: Which attributes we want to return
-
-        @type ou: string
-        @param ou: Which OU we should search for groups
+        @type gname: string
+        @param gname: The groups name
 
         @raises ExchangeException: Raised if the command fails to run
         """
-        # TODO: Filter by '-Filter {IsLinked -eq "True"}' on get-mailbox.
+        # Jeg er mesteren!!!!!11
         cmd = self._generate_exchange_command(
-                '''Get-ADGroup -Filter "*" -SearchBase "%s" | Select %s''' % \
-                        (ou, ', '.join(attributes),))
-        # TODO: Do we really need to add that ;? We can't have it here...
-        json_wrapped = '''if ($str = %s | ConvertTo-Json) {
-            $str -replace '$', ';'
-            }''' % cmd[:-1]
-        out = self.run(json_wrapped)
+        '$m = @(); $m += Get-ADGroupMember %s -Credential $cred | ' % gname + \
+            'Select -ExpandProperty Name; ConvertTo-Json $m')
+        out = self.run(cmd)
         try:
             ret = self.get_output_json(out, dict())
         except ValueError, e:
-            raise ExchangeException('No mailboxes exists?')
+            raise ExchangeException('No group members in %s?: %s' % (gname, e))
 
         if out.has_key('stderr'):
             raise ExchangeException(out['stderr'])
-        elif not ret:
-            raise ExchangeException('Bad output while fetching mailboxes: %s' \
-                    % str(out))
+        # TODO: Be more specific in this check?
+        elif ret == None:
+            raise ExchangeException(
+                'Bad output while fetching members from %s: %s' \
+                    % (gname, str(out)))
         else:
             return ret
 
-    def get_group_members(self, gname, ou):
-        pass

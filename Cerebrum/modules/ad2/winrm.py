@@ -1636,7 +1636,7 @@ class WinRMClient(WinRMProtocol):
                 # we should send more commands before returning their output.
                 self.close(shellid)
             except Exception, e:
-                self.logger.warn("Closing shell failed: %s" % e)
+                self.logger.debug2("Closing shell failed: %s" % e)
             self.connect()
             shellid = self.shellid
             # Retry:
