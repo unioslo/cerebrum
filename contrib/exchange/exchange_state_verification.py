@@ -38,7 +38,7 @@ from Cerebrum.modules.Email import EmailQuota, EmailAddress
 from Cerebrum.modules.exchange.CerebrumUtils import CerebrumUtils
 from Cerebrum import Utils
 
-logger = Utils.Factory.get_logger('console')
+logger = Utils.Factory.get_logger('cronjob')
 
 class StateChecker(object):
     def __init__(self, logger, conf):
