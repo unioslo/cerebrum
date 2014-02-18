@@ -567,7 +567,7 @@ if __name__ == '__main__':
                                      'sender=',
                                      'mail='])
     except getopt.GetoptError, err:
-        print err
+        logger.warn(str(err))
 
     state_file = None
     mail = None
@@ -608,7 +608,8 @@ if __name__ == '__main__':
         raw_mb_info = sc.collect_exchange_mail_info()
         raw_user_info = sc.collect_exchange_user_info()
     except ExchangeException, e:
-        print(str(e))
+        logger.warn(str(e))
+        sys.exit(1)
     sc.close()
     mb_info = sc.parse_mailbox_info(raw_mb_info, raw_user_info)
 
@@ -620,9 +621,14 @@ if __name__ == '__main__':
                                                  state, attr_config)
 
     # Collect group infor from Cerebrum and Exchange
-    ex_group_info = sc.collect_exchange_group_info(group_ou)
-    cere_group_info = sc.collect_cerebrum_group_info(conf['mailbox_spread'],
-                                                     conf['ad_spread'])
+    try:
+        ex_group_info = sc.collect_exchange_group_info(group_ou)
+        cere_group_info = sc.collect_cerebrum_group_info(conf['mailbox_spread'],
+                                                         conf['ad_spread'])
+    except ExchangeException, e:
+        logger.warn(str(e))
+        sys.exit(1)
+    
     # Compare group state
     new_group_state, group_report = sc.compare_group_state(ex_group_info,
                                                            cere_group_info,
@@ -630,8 +636,7 @@ if __name__ == '__main__':
                                                            attr_config)
     # Join state dicts
     new_state.update(new_group_state)
-#    import interact
-#    interact.Interact(local=locals())
+    
     # Concat reports
     report += group_report
 

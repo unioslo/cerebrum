@@ -1145,7 +1145,8 @@ class ExchangeClient(PowershellClient):
         try:
             ret = self.get_output_json(out, dict())
         except ValueError, e:
-            raise ExchangeException('No mailboxes exists?')
+            error = '%s\n%s' % (str(e), str(out))
+            raise ExchangeException('No mailboxes exists?: %s' % error)
 
         if out.has_key('stderr'):
             raise ExchangeException(out['stderr'])
@@ -1177,7 +1178,7 @@ class ExchangeClient(PowershellClient):
         try:
             ret = self.get_output_json(out, dict())
         except ValueError, e:
-            raise ExchangeException('No users exist?')
+            raise ExchangeException('No users exist?: %s' % str(e))
 
         if out.has_key('stderr'):
             raise ExchangeException(out['stderr'])
