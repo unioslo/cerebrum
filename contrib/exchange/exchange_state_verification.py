@@ -91,7 +91,10 @@ class StateChecker(object):
 
         exgrdesc = {}
         for x in  self.ec.get_group_description(ou):
-            exgrdesc[x['Name']] = x['Notes']
+            try:
+                exgrdesc[x['Name']] = x['Notes']
+            except Exception, e:
+                logger.info('Could not handle the description %s: %s' % (str(x), str(e)))
 
         tmp = {}
         for group in exgrinfo:
