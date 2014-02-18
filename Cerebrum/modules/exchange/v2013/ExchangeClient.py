@@ -1136,7 +1136,7 @@ class ExchangeClient(PowershellClient):
         """
         # TODO: Filter by '-Filter {IsLinked -eq "True"}' on get-mailbox.
         cmd = self._generate_exchange_command(
-                '''Get-Mailbox | Select %s''' % ', '.join(attributes))
+                '''Get-Mailbox -ResultSize Unlimited | Select %s''' % ', '.join(attributes))
         # TODO: Do we really need to add that ;? We can't have it here...
         json_wrapped = '''if ($str = %s | ConvertTo-Json) {
             $str -replace '$', ';'
@@ -1167,7 +1167,7 @@ class ExchangeClient(PowershellClient):
         # TODO: I hereby leave the tidying up this call generation as an
         #       exercise to my followers.
         cmd = self._generate_exchange_command(
-            '''Get-User -Filter * | Select %s''' % \
+            '''Get-User -Filter * -ResultSize Unlimited | Select %s''' % \
                         ', '.join(attributes))
         
         # TODO: Do we really need to add that ;? We can't have it here...
@@ -1209,7 +1209,7 @@ class ExchangeClient(PowershellClient):
             f_org = ''
         
         cmd = self._generate_exchange_command(
-                '''Get-DistributionGroup %s | Select %s''' % \
+                '''Get-DistributionGroup %s -ResultSize Unlimited | Select %s''' % \
                     (f_org, ', '.join(attributes)))
         # TODO: Do we really need to add that ;? We can't have it here...
         json_wrapped = '''if ($str = %s | ConvertTo-Json) {
@@ -1243,7 +1243,7 @@ class ExchangeClient(PowershellClient):
             f_org = ''
         
         cmd = self._generate_exchange_command(
-                '''Get-Group %s | Select Name, Notes''' % f_org)
+                '''Get-Group %s -ResultSize Unlimited | Select Name, Notes''' % f_org)
         # TODO: Do we really need to add that ;? We can't have it here...
         json_wrapped = '''if ($str = %s | ConvertTo-Json) {
             $str -replace '$', ';'
