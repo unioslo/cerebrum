@@ -163,8 +163,8 @@ DEBUG_COMPARE = False
 # these spreads
 NIS_SPREADS = ()
 
-# process_students uses this constant to detect that the user should
-# become a posix-user
+# process_students and other scripts uses this constant to detect that the user
+# should become a posix-user
 POSIX_SPREAD_CODES = ()
 
 # if an account is given spread to a spesific target system, try to synchronize

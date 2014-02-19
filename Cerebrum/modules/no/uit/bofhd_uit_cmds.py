@@ -3035,7 +3035,7 @@ class BofhdExtension(object):
         acc.gid_id = group.entity_id
         acc.write_db()
         # 6. add spreads corresponding to its owning user
-        self.__spread_sync_group(acc, group)
+        self._spread_sync_group(acc, group)
         return {'group_id': int(pg.posix_gid)}
 
     # group posix_create
@@ -4532,7 +4532,7 @@ class BofhdExtension(object):
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
         if entity_type == 'account':
-            self.__spread_sync_group(entity)
+            self._spread_sync_group(entity)
         return "OK, added spread %s for %s" % (
             spreadconst, self._get_name_from_object (entity))
 
@@ -4560,11 +4560,11 @@ class BofhdExtension(object):
         self.ba.can_add_spread(operator.get_entity_id(), entity, spread)
         entity.delete_spread(spread)
         if entity_type == 'account':
-            self.__spread_sync_group(entity)
+            self._spread_sync_group(entity)
         return "OK, removed spread %s from %s" % (
             spreadconst, self._get_name_from_object (entity))
 
-    def __spread_sync_group(self, account, group=None):
+    def _spread_sync_group(self, account, group=None):
         """Make sure the group has the NIS spreads corresponding to
         the NIS spreads of the account.  The account and group
         arguments may be passed as Entity objects.  If group is None,

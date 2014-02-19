@@ -1600,6 +1600,24 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             raise CerebrumError("Database error: %s" % m)
         return "OK, removed '%s' from '%s'" % (member_name, group.group_name)
 
+    def _spread_sync_group(self, account, group=None):
+        """Override from UiO to support personal file groups in TSD.
+
+        This should rather be done automatically by the PosixUser mixin class
+        for TSD, and UiO, but that requires some refactoring of bofhd. We don't
+        know the consequences of that quite yet.
+
+        """
+        if account.np_type or account.owner_type == self.const.entity_group:
+            return
+        pu = Factory.get('PosixUser')(self.db)
+        try:
+            pu.find(account.entity_id)
+        except Errors.NotFoundError:
+            return
+        # The PosixUser class should handle most of the functionality
+        pu.write_db()
+
     #
     # Subnet commands
 

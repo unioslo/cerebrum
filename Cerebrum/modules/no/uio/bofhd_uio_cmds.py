@@ -6110,7 +6110,7 @@ Addresses and settings:
         acc.gid_id = group.entity_id
         acc.write_db()
         # 6. add spreads corresponding to its owning user
-        self.__spread_sync_group(acc, group)
+        self._spread_sync_group(acc, group)
         # 7. give personal group a trait
         if hasattr(self.const, 'trait_personal_dfg'):
             pg.populate_trait(self.const.trait_personal_dfg,
@@ -8538,10 +8538,11 @@ Addresses and settings:
                 raise CerebrumError("entity id=%s already has spread=%s" %
                                     (id, spread))
             entity.add_spread(spread)
+            entity.write_db()
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
         if entity_type == 'account' and cereconf.POSIX_SPREAD_CODES:
-            self.__spread_sync_group(entity)
+            self._spread_sync_group(entity)
         return "OK, added spread %s for %s" % (
             spread, self._get_name_from_object(entity))
 
@@ -8594,17 +8595,17 @@ Addresses and settings:
             txt = "Entity '%s' does not have spread '%s'" % (id, str(spread))
             raise CerebrumError, txt
         if entity_type == 'account' and cereconf.POSIX_SPREAD_CODES:
-            self.__spread_sync_group(entity)
+            self._spread_sync_group(entity)
         return "OK, removed spread %s from %s" % (
             spread, self._get_name_from_object(entity))
 
-    def __spread_sync_group(self, account, group=None):
+    def _spread_sync_group(self, account, group=None):
         """Make sure the group has the NIS spreads corresponding to
         the NIS spreads of the account.  The account and group
         arguments may be passed as Entity objects.  If group is None,
         the group with the same name as account is modified, if it
         exists."""
-        
+
         if account.np_type or account.owner_type == self.const.entity_group:
             return
 

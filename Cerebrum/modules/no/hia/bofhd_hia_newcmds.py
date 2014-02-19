@@ -257,7 +257,7 @@ class BofhdExtension(BofhdCommonMethods):
 
     # helpers needed for spread_add, cannot be copied in the usual way
     #
-    def __spread_sync_group(self, account, group=None):
+    def _spread_sync_group(self, account, group=None):
         """Make sure the group has the NIS spreads corresponding to
         the NIS spreads of the account.  The account and group
         arguments may be passed as Entity objects.  If group is None,

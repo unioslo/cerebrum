@@ -100,16 +100,41 @@ class PosixUserTSDMixin(PosixUser.PosixUser):
         if not self.pg.has_member(self.entity_id):
             self.pg.add_member(self.entity_id)
 
-        # Syncronizing the groups spreads with the users
-        mapping = {int(self.const.spread_ad_account):
-                   int(self.const.spread_file_group),}
-        user_spreads = [int(r['spread']) for r in self.get_spread()]
-        group_spreads = [int(r['spread']) for r in self.pg.get_spread()]
-        for uspr, gspr in mapping.iteritems():
-            if uspr in user_spreads:
-                if gspr not in group_spreads:
-                    self.pg.add_spread(gspr)
-            elif gspr in group_spreads:
-                self.pg.delete_spread(gspr)
+        # Update the group's spreads:
+        self._synchronize_posix_spreads()
+        return ret 
+
+    def add_spread(self, *args, **kwargs):
+        """Override with TSD specific behaviour."""
+        ret = self.__super.add_spread(self, *args, **kwargs)
+        self._synchronize_posix_spreads()
         return ret
 
+    def delete_spread(self, *args, **kwargs):
+        """Override with TSD specific behaviour."""
+        ret = self.__super.delete_spread(self, *args, **kwargs)
+        self._synchronize_posix_spreads()
+        return ret
+
+    def _synchronize_posix_spreads(self):
+        """Synchronize the user's spreads with the personal group's.
+
+        TODO: Should we do this for regular Accounts as well and not just POSIX
+        users?
+
+        """
+        mapping = {int(self.const.spread_ad_account):
+                       (int(self.const.spread_file_group), 
+                        int(self.const.spread_net_group),),
+                   }
+        user_spreads = [int(r['spread']) for r in self.get_spread()]
+        group_spreads = [int(r['spread']) for r in self.pg.get_spread()]
+        for uspr, gsprs in mapping.iteritems():
+            if uspr in user_spreads:
+                for gspr in gsprs:
+                    if gspr not in group_spreads:
+                        self.pg.add_spread(gspr)
+            else:
+                for gspr in gsprs:
+                    if gspr in group_spreads:
+                        self.pg.delete_spread(gspr)
