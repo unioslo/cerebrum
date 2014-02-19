@@ -468,7 +468,7 @@ Options:
 
 USAGE
 
-    while getopts "r:e:c:s:" opt
+    while getopts "r:e:c:s:o:" opt
     do
         case "${opt}" in
         r)

@@ -21,7 +21,7 @@ crb_src=${root_dir}/src/cerebrum
 # there, and we'll install packages in 'offline mode' (pip --no-index)
 if [ -d "${HOME}/pypi" ]
 then
-    offline="${HOME}/pypi"
+    offline="-o ${HOME}/pypi"
 fi
 
 # These tests should run in <root>/basetests
