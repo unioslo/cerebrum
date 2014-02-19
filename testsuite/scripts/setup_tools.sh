@@ -16,19 +16,29 @@
 # Print to stderr
 #
 # Usage:
+#   printstderr LEVEL And some message
+function printstderr  # level messages
+{
+    local level=${1:-'LEVEL'} when=$( date '+%Y-%m-%d %H:%M:%S' )
+    shift
+    echo " ** ${level} ${when} **" $@ >&2
+}
+# Print to stderr, with given level
+#
+# Usage:
 #   error|warning|info  This message goes to stderr
 #
 function error  # messages ...
 {
-    echo "ERROR: $@" >&2
+    printstderr ERROR $@
 }
 function warning  # messages ...
 {
-    echo "WARNING: $@" >&2
+    printstderr WARNING $@
 }
 function info  # messages ...
 {
-    echo "INFO: $@" >&2
+    printstderr INFO $@
 }
 
 # Simple implode function
@@ -205,10 +215,21 @@ function build_extra_file_args # design-dir extras-file
 
 
 # Installs pip-packages based on a package requirement file
+# 
+# The requirements file is a list of packages, and optional version
+# restrictions. It's on the format that `pip freeze' outputs.
+# 
+# The cache_dir can contain packages from earlier installs, to save us from
+# downloading them again.
+# 
+# If no_index is given, then the cache_dir MUST contain the neccessary tar-balls
+# for installing offline. This means downloading manually (with `pip --download'
+# 
+# 
 #
-function pip_install_reqs  # req_file [ cache_dir ]
+function pip_install_reqs  # req_file [ cache_dir [ no_index ]]
 {
-    local pip_bin=${CRB_PIP:-pip} req_file=$1 cache_dir=$2 opts
+    local pip_bin=${CRB_PIP:-pip} req_file=$1 cache_dir=$2 offline=$3 opts
 
     # Check args
     if [ ! -r "${req_file}" ]
@@ -226,6 +247,12 @@ function pip_install_reqs  # req_file [ cache_dir ]
     then
         mkdir -p ${cache_dir}
         opts="${opts} --download-cache ${cache_dir}"
+    fi
+
+    # Offline install?
+    if [ -n "${offline}" ]
+    then
+        opts="--no-index --find-links ${cache_dir}"
     fi
 
     ${pip_bin} install ${opts} --requirement ${req_file} --egg
@@ -410,11 +437,13 @@ function prepare_pypath
 # 
 function setup_test_env
 {
-    local root_dir env_name crb_src config_dir
+    local root_dir env_name crb_src config_dir offline_pip
     local OPTARG OPTIND opt
     local pypath=( split_str : ${PYTHONPATH} )
 
     local usage=<<USAGE
+Set up a new test environment for Cerebrum.
+
 Options:
     -r DIR    Root directory, where to set up the test environment
                 - In Jenkins, this should be set to \$WORKSPACE
@@ -430,6 +459,12 @@ Options:
                 - cerebrum_path.py.in: cerebrum_path template
                 - extras.txt: List of DB design mod_*.sql-files
                 - pip.txt: PIP requirements file
+    -o DIR    Make PIP work offline, and supply a directory with the neccessary
+              packages. Note that a tar-ball with every package from 'pip.txt'
+              must already exist in this location.
+              This makes it possible to install packages with pip even if we
+              have no connection with pypi.python.org. It is, however, less
+              automated.
 
 USAGE
 
@@ -443,10 +478,17 @@ USAGE
             env_name="${OPTARG}"
             ;;
         c)
+            # We could probably infer this from the dirname of this script, but
+            # then again, we might also want to run the setup with some other,
+            # altered Cerebrum source directory tree.
             crb_src="${OPTARG}"
             ;;
         s)
             config_dir="${OPTARG}"
+            ;;
+        o)
+            # Directory of PIP packages, if working in offline mode
+            offline_pip="${OPTARG}"
             ;;
         *)
             error "Invalid option '${opt}'" 
@@ -457,29 +499,30 @@ USAGE
     done
     shift $((OPTIND-1))
 
-    ## Verify that we have gathered all the neccessary variables
+    # Verify that we have gathered all the neccessary input, and that the
+    # directory variables actually exists.
     if [ -z "${root_dir}" -o ! -d "${root_dir}" ]
     then
         error "(setup_test_env) Invalid root directory '${root_dir}'"
         return 2
     elif [ -z "${crb_src}" -o ! -d "${crb_src}" ]
     then
+        ## TODO: Check that it actually contains the cerebrum repository?
         error "(setup_test_env) Invalid cerebrum source directory '${crb_src}'"
         return 2
     elif [ -z "${config_dir}" -o ! -d "${config_dir}" ]
     then
         error "(setup_test_env) No config directory"
         return 2
+    elif [ -n "${offline_pip}" -a ! -d "${offline_pip}" ]
+    then
+        error "(setup_test_env) No PIP package directory '${offline_pip}'"
+        return 2
     elif [ -z "${env_name}" ]
     then
         error "(setup_test_env) Missing virtenv name"
         return 2
     fi
-
-    echo "root_dir=${root_dir}"
-    echo "env_name=${env_name}"
-    echo "root_dir=${crb_src}"
-    echo "config_dir=${config_dir}"
 
     # FILE CHECK
     # 
@@ -501,7 +544,7 @@ USAGE
     local test_env=${root_dir}/${env_name}  # Working directory for our env
 
     local pip_requirements=${config_dir}/pip.txt
-    local pip_cache=${test_env}/cache
+    local pip_cache=${test_env}/cache}
 
     local crb_db_extras=${config_dir}/extras.txt
     local crb_path_config=${config_dir}/cerebrum_path.py.in
@@ -540,9 +583,16 @@ USAGE
         then
             return 4
         fi
-    else
-        info "Installing packages with pip (no cache)"
+    elif [ -z "${offline_pip}" ]
+    then
+        info "Installing packages with pip (with cache '${pip_cache}')"
         if ! pip_install_reqs ${pip_requirements} ${pip_cache}
+        then
+            return 4
+        fi
+    else
+        info "Installing packages with pip offline (from '${offline_pip}')"
+        if ! pip_install_reqs ${pip_requirements} ${offline_pip} true
         then
             return 4
         fi
@@ -583,6 +633,9 @@ USAGE
 
 
     # Given the cereconf, we should be able to extract the db setup
+    # TODO: Should we SET in stead of GET the cereconf variables? Maybe it would
+    # be better to set these things through script options, and not in the files
+    # themselves.
     info "Fetching cereconf settings"
     local db_user db_name db_host auth_dir
     if ! db_user=$(get_cereconf 'CEREBRUM_DATABASE_CONNECT_DATA["user"]' ${crb_confdir}/cereconf.py)
