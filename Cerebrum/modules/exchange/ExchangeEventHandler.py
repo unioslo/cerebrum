@@ -759,8 +759,13 @@ class ExchangeEventHandler(processing.Process):
         added_spread_code = self.ut.unpickle_event_params(event)['spread']
         if added_spread_code == self.group_spread:
             gname, desc = self.ut.get_group_information(event['subject_entity'])
-            data = self.ut.get_distgroup_attributes_and_targetdata(
+            try:
+                data = self.ut.get_distgroup_attributes_and_targetdata(
                                                         event['subject_entity'])
+            except Errors.NotFoundError:
+                self.logger.warn(
+                            'Can\'t find group %d' % event['subject_entity'])
+                raise EventExecutionException
             # TODO: Split up new_group and new_roomlist? create requeueing of mailenabling?
             if data['roomlist'] == 'F':
                 try:
@@ -976,7 +981,7 @@ class ExchangeEventHandler(processing.Process):
                 
             except ExchangeException, e:
                 self.logger.warn('Couldn\'t remove group %s' % \
-                                  data['gname'])
+                                  data['name'])
                 raise EventExecutionException
         else:
             try:

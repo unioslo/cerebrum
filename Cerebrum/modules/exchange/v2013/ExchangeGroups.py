@@ -478,9 +478,9 @@ class DistributionGroup(Group_class):
             if et.email_target_type != target_type:
                 changed = True
                 et.email_target_type = target_type
-            else:
-                raise self._db.IntegrityError, \
-                    "E-mail target alredy exist for %s" % self.group_name
+#            else:
+#                raise self._db.IntegrityError, \
+#                    "E-mail target alredy exist for %s" % self.group_name
         except Errors.NotFoundError:
             et.populate(target_type, self.entity_id, self.const.entity_group)
         et.write_db()
