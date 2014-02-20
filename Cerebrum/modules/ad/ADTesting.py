@@ -139,6 +139,18 @@ class MockADServer(object):
             return retur
         return (True, "putObjectProperty %s" % self.distinguishedName)
 
+    def setContactAttributes(self, attributes=None):
+        self.contactAttributes = attributes
+        return (True, "setContactAttributes")
+
+    def setGroupAttributes(self, attributes=None):
+        self.groupAttributes = attributes
+        return (True, "setGroupAttributes")
+
+    def findObject(self, account, OU=False):
+        # Returning False for now, might want to simulate a DistinguishedName.
+        return False
+
     def getSid(self,acObject):
         return '123124125412'
 
