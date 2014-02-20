@@ -33,18 +33,33 @@ from mx.DateTime import now
 from Cerebrum.Utils import Factory
 
 def mangle(from_spread, to_spread, file,
-           commit=False, events=False,
-           disable_requests=True):
+           commit=False, log_event=False,
+           exclude_events=[], disable_requests=True):
     print('%s: Starting to migrate spreads' % str(now()))
 
-    if not events:
-        cereconf.CLASS_CHANGELOG = \
-                filter(lambda x: 'Event' not in x, cereconf.CLASS_CHANGELOG)
     db = Factory.get('Database')()
     ac = Factory.get('Account')(db)
     co = Factory.get('Constants')(db)
     db.cl_init(change_program='migrate_spreads')
-    
+
+    # Parse the types to be excluded
+    if exclude_events:
+        tmp = []
+        for x in exclude_events:
+            tmp += [ int(co.ChangeType(*x.split(':'))) ]
+        exclude_events = tmp
+
+    # Monkeypatch in a function that avoids creating events for certain change
+    # types
+    log_it = db.log_change
+    def filter_out_types(*args, **kwargs):
+        if int(args[1]) in exclude_events or not log_event:
+            kwargs['change_only'] = True
+            log_it(*args, **kwargs)
+        else:
+            log_it(*args, **kwargs)
+    db.log_change = filter_out_types
+
     from_spread = co.Spread(from_spread)
     to_spread = co.Spread(to_spread)
 
@@ -58,13 +73,16 @@ def mangle(from_spread, to_spread, file,
     
     f = open(file, 'r')
     for line in f:
+        uname = line.strip()
+        if not uname:
+            continue
         ac.clear()
-        ac.find_by_name(line.strip())
+        ac.find_by_name(uname)
         ac.delete_spread(from_spread)
         ac.add_spread(to_spread)
         ac.write_db()
         print('%-9s: removed %s, added %s' % \
-                (line.strip(), str(from_spread), str(to_spread)))
+                (uname, str(from_spread), str(to_spread)))
     f.close()
 
     if commit:
@@ -79,24 +97,28 @@ def mangle(from_spread, to_spread, file,
 def usage(code=0):
     print('Usage: migrate_spreads.py -f IMAP@uio -t exchange_acc@uio -d '
             '-u <name>')
-    print('    --from      (-f) spread to migrate from')
-    print('    --to        (-t) spread to migrate to')
-    print('    --commit    (-c) Commit-mode on')
-    print('    --dis-reqs  (-d) Disable bofhd requests?')
-    print('    --log-event (-e) Log events for spread removal and addition')
-    print('    --users     (-u) File containig users to do this on')
-    print('    --help      (-h) This help')
+    print('    --from           (-f) spread to migrate from')
+    print('    --to             (-t) spread to migrate to')
+    print('    --commit         (-c) Commit-mode on')
+    print('    --dis-reqs       (-d) Disable bofhd requests?')
+    print('    --log-event      (-e) Log events for spread removal and '
+            'addition')
+    print('    --exclude-events (-x) Events to exclude from logging '
+            '(i.e. spread:add,spread;delete)')
+    print('    --users          (-u) File containig users to do this on')
+    print('    --help           (-h) This help')
     sys.exit(code)
 
 if __name__ == '__main__':
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                                    'f:t:cdeu:h',
+                'f:t:cdeu:hx:',
                                     ['from=',
                                      'to=',
                                      'commit',
                                      'dis-reqs',
                                      'log-event',
+                                     'exclude-events=',
                                      'users=',
                                      'help'])
     except getopt.GetoptError:
@@ -107,6 +129,7 @@ if __name__ == '__main__':
     to_spread = None
     disable_requests = False
     log_events = False
+    exclude_events = []
     users_file = None
     for opt, val in opts:
         if opt in ('-c', '--commit'):
@@ -121,6 +144,10 @@ if __name__ == '__main__':
             disable_requests = True
         elif opt in ('-e', '--log-event'):
             log_events = True
+        elif opt in ('-x', '--exclude-events'):
+            for x in val.split(','):
+                if x:
+                    exclude_events += [x.strip()]
         elif opt in ('-u', '--users'):
             users_file = val
         elif opt in ('-h', '--help'):
@@ -139,4 +166,4 @@ if __name__ == '__main__':
         usage(3)
 
     mangle(from_spread, to_spread, users_file, commit, log_events,
-            disable_requests)
+            exclude_events, disable_requests)
