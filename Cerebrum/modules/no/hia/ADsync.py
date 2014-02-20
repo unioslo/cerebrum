@@ -887,6 +887,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 target_id2target_entity_id[int(row['target_id'])] = {
                     'target_ent_id': int(row['target_entity_id'])}
 
+        i = 0
         for row in eforward.list_email_forwards():
             if target_id2target_entity_id.has_key(int(row['target_id'])):
                 te_id = target_id2target_entity_id[
@@ -916,17 +917,19 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     # NB! this will only work if we assume that no address
                     # contain a ;, which should be the case anyway as
                     # the standards do not allow such use
-                    forw_addr_entid = "%s;%d" % (row['forward_to'],int(row['target_id']))
+                    forw_addr_entid = "%s;%d" % (row['forward_to'], int(row['target_id']))
                     exch_user['forward_addresses'].append(forw_addr_entid)
+                    i += 1
+        self.logger.debug2("Found %d email forwards for users", i)
 
         # Make dict with attributes for AD
+        self.logger.debug2("Updating forward objects...")
         forwards = {}
         for values in exch_users.itervalues():
             for tmp_addr in values['forward_addresses']:
-                
                 fwrd_addr, fwrd_target_id = tmp_addr.split(';')
-                fwrd_addr.strip()
-                fwrd_target_id.strip()
+                fwrd_addr = fwrd_addr.strip()
+                fwrd_target_id = int(fwrd_target_id.strip())
                 SMTP = "SMTP:%s" % fwrd_addr
                 smtp = "smtp:%s" % fwrd_addr
                 if (SMTP in cerebrumdump[values['uname']]['proxyAddresses']
@@ -936,9 +939,14 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     # using the established naming convention
                     objectname = "Forward_for_%s__%s" % (values['uname'], fwrd_addr)
                     if len(objectname) > 64:
-                        # the name is too long, and the alternative
-                        # naming convention kicks in
-                        objectname = "Forward_for_%s__%d" % (values['uname'], fwrd_target_id)
+                        # the name is too long, and the alternative naming
+                        # convention kicks in
+                        self.logger.debug2("Too long forward name: %s",
+                                           objectname)
+                        objectname = "Forward_for_%s__%d" % (values['uname'],
+                                                             fwrd_target_id)
+                        self.logger.debug2("Long name renamed to: %s",
+                                           objectname)
                     forwards[objectname] = {
                         "displayName":
                         "Forward for %s (%s)" % (
