@@ -540,7 +540,8 @@ class StateChecker(object):
 
         # Report uncreated mailboxes
         report += ['\n# Uncreated mailboxes (uname, time)']
-        delta = config.get('UncreatedMailbox')
+        delta = config.get('UncreatedMailbox') if attr in config else \
+                                        config.get('UndefinedAttribute')
         for key in diff_new:
             if diff_new[key] < now - delta:
                 t = time.strftime('%d%m%Y-%H:%M', time.localtime(
@@ -549,7 +550,8 @@ class StateChecker(object):
 
         # Report stale mailboxes
         report += ['\n# Stale mailboxes (uname, time)']
-        delta = config.get('StaleMailbox')
+        delta = config.get('StaleMailbox') if attr in config else \
+                                        config.get('UndefinedAttribute')
         for key in diff_stale:
             t = time.strftime('%d%m%Y-%H:%M', time.localtime(
                 diff_stale[key]))
@@ -603,8 +605,6 @@ if __name__ == '__main__':
 
     sc = StateChecker(logger, conf)
 
-
-
 # Mailboxes
     # Collect and parse mailbox and user data from Exchange
     try:
@@ -613,7 +613,7 @@ if __name__ == '__main__':
     except ExchangeException, e:
         logger.warn(str(e))
         sys.exit(1)
-    sc.close()
+
     mb_info = sc.parse_mailbox_info(raw_mb_info, raw_user_info)
 
     # Collect mail-data from Cerebrum
@@ -631,7 +631,8 @@ if __name__ == '__main__':
     except ExchangeException, e:
         logger.warn(str(e))
         sys.exit(1)
-    
+    sc.close()
+
     # Compare group state
     new_group_state, group_report = sc.compare_group_state(ex_group_info,
                                                            cere_group_info,
