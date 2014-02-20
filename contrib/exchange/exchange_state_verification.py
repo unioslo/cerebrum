@@ -94,7 +94,8 @@ class StateChecker(object):
             try:
                 exgrdesc[x['Name']] = x['Notes']
             except Exception, e:
-                logger.info('Could not handle the description %s: %s' % (str(x), str(e)))
+                logger.info('Could not handle the description %s: %s' % \
+                        (str(x), str(e)))
 
         tmp = {}
         for group in exgrinfo:
@@ -196,9 +197,11 @@ class StateChecker(object):
 
             if not roomlist:
                 tmp[self.dg.group_name].update({
-                            'ModerationEnabled': _true_or_false(data['modenable']),
+                            'ModerationEnabled': \
+                                    _true_or_false(data['modenable']),
                             'ModeratedBy': data['modby'],
-                            'HiddenFromAddressListsEnabled': _true_or_false(data['hidden']),
+                            'HiddenFromAddressListsEnabled': \
+                                    _true_or_false(data['hidden']),
                             'Primary': data['primary'],
                             'Aliases': data['aliases']
                 })
@@ -248,7 +251,8 @@ class StateChecker(object):
         # to someone about stuff not beeing in sync.
         for key in s_ex_keys & s_ce_keys:
             for attr in cere_group_info[key]:
-                if state and attr in state['group'][key]:
+                if state and key in state['group'] and \
+                        attr in state['group'][key]:
                     t_0 = state['group'][key][attr]['Time']
                 else:
                     t_0 = time.time()
@@ -480,7 +484,8 @@ class StateChecker(object):
         # to someone about stuff not beeing in sync.
         for key in s_ex_keys & s_ce_keys:
             for attr in ce_state[key]:
-                if state and attr in state['mb'][key]:
+                if state and key in state['mb'] and \
+                        attr in state['mb'][key]:
                     t_0 = state['mb'][key][attr]['Time']
                 else:
                     t_0 = time.time()
