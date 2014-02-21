@@ -72,31 +72,34 @@ assert_retval prepare_pypath
 #
 # Run pep8 syntax check
 # 
+pushd ${crb_src}
 info "Running static test: pep8"
-${tools}/bin/pep8 --format=default --exclude=extlib \
-                    ${crb_src}/Cerebrum ${crb_src}/contrib > ${crb_src}/pep8.txt
+${tools}/bin/pep8 --format=default --exclude=extlib Cerebrum contrib > pep8.txt
+popd
 
 # 
 # Run pylint error checks
 #
-info "Running static test: pylint"
+pushd ${crb_src}
+info "Running static test: pylint, Cerebrum"
+# Note that we here refer to Cerbrum as a package, not as a directory
+${tools}/bin/pylint --rcfile=${config}/pylintrc Cerebrum > pylint.txt
+popd
 
-#pylint_init="f='${env_dir}/bin/activate_this.py';execfile(f, dict(__file__=f))"
-
-# Note that we ignore E1101(no-member), as pylint won't recognize mixins that
-# aren't named '*mixin'. Maybe we should solve this better by setting
-# 'ignored-classes' in pylintrc? Not entirely sure what effect that has, but
-# it's recommended to do that for 'classes with dynamically set attributes'
-${tools}/bin/pylint --rcfile=${config}/pylintrc Cerebrum > ${crb_src}/pylint.txt
-
-# Contrib and other python files outside Cerebrum are not in our path. They need
-# to be checked individually. Let's do just that, and append to the pylint
-# report
-for f in $( find ${crb_src}/contrib -name *.py )
+# 
+# Run pylint error checks
+#
+pushd ${crb_src}
+info "Running static test: pylint, contrib"
+${tools}/bin/pylint --rcfile=${config}/pylintrc Cerebrum > pylint.txt
+popd
+for f in $( find contrib -name *.py )
 do
-    ${tools}/bin/pylint --rcfile=${config}/pylintrc $f >> ${crb_src}/pylint.txt
+    ${tools}/bin/pylint --rcfile=${config}/pylintrc $f >> pylint.txt
 done
 
+info "DONE"
+# 
 # If reached, all tests completed and the test is, in essence, successful.
 #
 true
