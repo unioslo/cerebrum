@@ -124,8 +124,7 @@ class PosixUserTSDMixin(PosixUser.PosixUser):
 
         """
         mapping = {int(self.const.spread_ad_account):
-                       (int(self.const.spread_file_group), 
-                        int(self.const.spread_net_group),),
+                       (int(self.const.spread_file_group),),
                    }
         user_spreads = [int(r['spread']) for r in self.get_spread()]
         group_spreads = [int(r['spread']) for r in self.pg.get_spread()]
