@@ -862,6 +862,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
         except (self.server.db.IntegrityError,
                 self.server.db.OperationalError), m:
             self.server.db.rollback()
+            logger.debug("db error: %s", m, exc_info=1)
             raise CerebrumError, "DatabaseError: %s" % m
         except Exception:
             self.server.db.rollback()
