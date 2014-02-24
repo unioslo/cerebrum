@@ -609,8 +609,13 @@ class BofhClient(object):
         if not isinstance(resp, (tuple, list)):
             resp = [resp]
         for sv in format["str_vars"]:
-            # TODO: sub headers
-            format_str, order = sv
+            header = None
+            if len(sv) == 3:
+                format_str, order, header = sv
+            else:
+                format_str, order = sv
+            if header:
+                self.show_message(header)
             for row in resp:
                 if not row.has_key(order[0]):
                     continue
