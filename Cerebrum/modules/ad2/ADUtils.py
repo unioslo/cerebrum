@@ -771,12 +771,42 @@ class ADclient(PowershellClient):
         if attrs:
             cmds.append(self._generate_ad_command('Set-ADObject', {'Add': attrs}))
         cmd = ' | '.join(cmds)
+
         self.logger.debug3("Command: %s" % (cmd,))
         if self.dryrun:
             return True
-        out = self.run(cmd)
-        # TODO: check stdout too?
-        return not out.get('stderr')
+        
+        # The maximum length according to PowerShell documentation
+        if len(cmd) < 8190:
+            out = self.run(cmd)
+            return not out.get('stderr')
+        else:
+            self.logger.debug3("""Command exceeded the maximum length. """
+                              """Trying to break it into smaller chunks.""")
+            # First, execute the original 'Clear' command
+            cmd = self._generate_ad_command('Set-ADObject', cmd_params)
+            out = self.run(cmd)
+            if out.get('stderr'):
+                return None
+            self.logger.debug3("Cleared the attributes.")
+            for k, v in attrs.iteritems():
+                # Elements of the list are approximately the same length
+                # 5000 is chosen to have some length reserve
+                splits = sum(len(elem) for elem in v) / 5000 + 1
+                elems_in_split = len(v) / splits + 1 
+                newattrs = {}
+                for i in range(0, splits):
+                    newattrs[k] = v[i * elems_in_split:(i+1) * elems_in_split]
+                    cmd = self._generate_ad_command('Set-ADObject', 
+                                                    {'Identity' : ad_id, 
+                                                     'Add': newattrs})
+                    out = self.run(cmd)
+                    if out.get('stderr'):
+                        return None
+                    self.logger.debug3("Attribute %s partially updated." % k)
+                self.logger.debug3("Attribute %s fully updated" % k)
+            return not out.get('stderr')
+                
 
     def get_ad_attribute(self, adid, attributename):
         """Start generating a list of a given object's given AD attribute.
