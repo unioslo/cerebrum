@@ -106,21 +106,23 @@ class StateChecker(object):
                     for addr in group[attr]:
                         if addr[:4] == 'SMTP':
                             tmp[group['Name']]['Primary'] = addr[5:]
-                        else:
+                        if not \
+                            cereconf.EXCHANGE_DEFAULT_ADDRESS_PLACEHOLDER \
+                                in addr:
                             addrs += [addr[5:]]
-                    tmp[group['Name']]['Aliases'] = addrs
+                    tmp[group['Name']]['Aliases'] = sorted(addrs)
                 elif attr == 'ModeratedBy':
                     # Strip of all that prefix stuff on moderators names
                     mods = []
                     for mod in group[attr]:
                         mods += [ mod.split('/')[-1] ]
-                    tmp[group['Name']][attr] = mods
+                    tmp[group['Name']][attr] = sorted(mods)
                 elif attr == 'ManagedBy':
                     try:
                         mans = []
                         for x in group[attr]:
                             mans += [ x.split('/')[-1] ]
-                        tmp[group['Name']][attr] = mans
+                        tmp[group['Name']][attr] = sorted(mans)
                     except IndexError:
                         tmp[group['Name']][attr] = group[attr]
                 elif 'Restriction' in attr:
@@ -139,7 +141,7 @@ class StateChecker(object):
             # Mix in group members in the dict
             # TODO: Should we do this another way? This takes time
             tmp[group['Name']]['Members'] = \
-                    self.collect_exchange_group_memberships(group['Name'])
+                sorted(self.collect_exchange_group_memberships(group['Name']))
         return tmp            
 
     def collect_cerebrum_group_info(self, mb_spread, ad_spread):
@@ -199,11 +201,11 @@ class StateChecker(object):
                 tmp[self.dg.group_name].update({
                             'ModerationEnabled': \
                                     _true_or_false(data['modenable']),
-                            'ModeratedBy': data['modby'],
+                            'ModeratedBy': sorted(data['modby']),
                             'HiddenFromAddressListsEnabled': \
                                     _true_or_false(data['hidden']),
                             'Primary': data['primary'],
-                            'Aliases': data['aliases']
+                            'Aliases': sorted(data['aliases'])
                 })
 
             # Collect members
@@ -211,7 +213,7 @@ class StateChecker(object):
                                                         spread=mb_spread,
                                                         filter_spread=ad_spread)
             members = [member['name'] for member in membs_unfiltered]
-            tmp[self.dg.group_name].update({'Members': members})
+            tmp[self.dg.group_name].update({'Members': sorted(members)})
         return tmp
 
     def compare_group_state(self, ex_group_info, cere_group_info, state,
@@ -290,7 +292,18 @@ class StateChecker(object):
                 if diff_group[key][attr]['Time'] < now - delta:
                     t = time.strftime('%d%m%Y-%H:%M', time.localtime(
                         diff_group[key][attr]['Time']))
-                    tmp = '%-10s %-30s %s %s:%s' % (key, attr, t,
+                    if attr in ('ModeratedBy', 'Aliases', 'Members',):
+                        # We report the difference for these types, for
+                        # redability
+                        s_ce_attr = set(diff_group[key][attr]['Cerebrum'])
+                        s_ex_attr = set(diff_group[key][attr]['Exchange'])
+                        new_attr = list(s_ce_attr - s_ex_attr)
+                        stale_attr = list(s_ex_attr - s_ce_attr)
+                        tmp = '%-10s %-30s %s +%s:-%s' % (key, attr, t,
+                                                          str(new_attr),
+                                                          str(stale_attr))
+                    else:
+                        tmp = '%-10s %-30s %s %s:%s' % (key, attr, t,
                                         str(diff_group[key][attr]['Cerebrum']),
                                         str(diff_group[key][attr]['Exchange']))
                     report += [tmp]
@@ -339,7 +352,7 @@ class StateChecker(object):
             addrs = []
             for addr in self.et.get_addresses():
                 addrs += ['%s@%s' % (addr['local_part'], addr['domain'])]
-            tmp['EmailAddresses'] = addrs
+            tmp['EmailAddresses'] = sorted(addrs)
 
             # Fetch primary address
             pea = self.et.list_email_target_primary_addresses(
@@ -392,6 +405,7 @@ class StateChecker(object):
                       'IssueWarningQuota',
                       'UseDatabaseQuotaDefaults',
                       'EmailAddressPolicyEnabled',
+                      'CustomAttribute1',
                       'IsLinked']
         return self.ec.get_mailbox_info(attributes)
 
@@ -406,6 +420,9 @@ class StateChecker(object):
 
         # Data about mailboxes
         for mb in raw_mb:
+            if mb['CustomAttribute1'] == 'not migrated':
+                continue
+
             tmp = {}
             # str / none
             for key in ('DisplayName',):
@@ -424,8 +441,9 @@ class StateChecker(object):
                 # Handle primary address
                 if addr[:4].isupper():
                     tmp['PrimaryAddress'] = addr[5:]
-                addrs += [addr[5:]]
-            tmp['EmailAddresses'] = addrs
+                if not cereconf.EXCHANGE_DEFAULT_ADDRESS_PLACEHOLDER in addr:
+                    addrs += [addr[5:]]
+            tmp['EmailAddresses'] = sorted(addrs)
 
             size_pat = re.compile('[0-9.GMKB\s]+\(([0-9,]+) bytes\)')
             for key in ('ProhibitSendQuota',
@@ -537,7 +555,18 @@ class StateChecker(object):
                 if diff_mb[key][attr]['Time'] < now - delta:
                     t = time.strftime('%d%m%Y-%H:%M', time.localtime(
                         diff_mb[key][attr]['Time']))
-                    tmp = '%-10s %-30s %s %s:%s' % (key, attr, t,
+                    if attr == 'EmailAddresses':
+                        # We report the difference for email addresses, for
+                        # redability
+                        s_ce_addr = set(diff_mb[key][attr]['Cerebrum'])
+                        s_ex_addr = set(diff_mb[key][attr]['Exchange'])
+                        new_addr = list(s_ce_addr - s_ex_addr)
+                        stale_addr = list(s_ex_addr - s_ce_addr)
+                        tmp = '%-10s %-30s %s +%s:-%s' % (key, attr, t,
+                                                          str(new_addr),
+                                                          str(stale_addr))
+                    else:
+                        tmp = '%-10s %-30s %s %s:%s' % (key, attr, t,
                                             str(diff_mb[key][attr]['Cerebrum']),
                                             str(diff_mb[key][attr]['Exchange']))
                     report += [tmp]
