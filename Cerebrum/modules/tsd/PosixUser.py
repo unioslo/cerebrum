@@ -106,7 +106,7 @@ class PosixUserTSDMixin(PosixUser.PosixUser):
 
     def add_spread(self, *args, **kwargs):
         """Override with TSD specific behaviour."""
-        ret = self.__super.add_spread(self, *args, **kwargs)
+        ret = self.__super.add_spread(*args, **kwargs)
         self._synchronize_posix_spreads()
         return ret
 
