@@ -347,7 +347,6 @@ class HostSync(ADSync.HostSync, TSDUtils):
                 ent = self.owner2entity[row['dns_owner_id']]
             except KeyError:
                 continue
-            ent.ipaddresses.add(row['a_ip'])
             self.subnet.clear()
             try:
                 self.subnet.find(row['a_ip'])
@@ -366,7 +365,6 @@ class HostSync(ADSync.HostSync, TSDUtils):
                 ent = self.owner2entity[row['dns_owner_id']]
             except KeyError:
                 continue
-            ent.ipaddresses.add(row['aaaa_ip'])
             self.subnet6.clear()
             try:
                 self.subnet6.find(row['aaaa_ip'])
@@ -374,7 +372,8 @@ class HostSync(ADSync.HostSync, TSDUtils):
                 self.logger.info("No subnet for %s (%s)" % (row['name'],
                                                             row['aaaa_ip']))
                 continue
-            ent.vlans.add(self.subnet.vlan_number)
+            ent.ipaddresses.add(row['aaaa_ip'])
+            ent.vlans.add(self.subnet6.vlan_number)
             self.logger.debug2("Host %s (%s): %s (%s)", row['name'],
                                row['dns_owner_id'], row['aaaa_ip'],
                                self.subnet6.vlan_number)
@@ -436,7 +435,6 @@ class HostEntity(CerebrumEntity):
         self.ipaddresses = set()
         self.fqdn = None
         self.vlans = set()
-        self.vlan = None
 
     def calculate_ad_values(self):
         """Overriden to add TSD specific values."""
