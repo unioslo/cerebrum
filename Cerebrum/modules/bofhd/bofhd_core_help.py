@@ -526,7 +526,7 @@ arg_help = {
             - moderation_enabled (T/F)
             - moderated_by ('uname1, uname2,...')
             - managed_by (e-mailaddress)
-            - addrbook_visibility (T/F)"""],
+            - addrbook_visibility (H/V)"""],
     'group_name':
         ['gname', 'Enter groupname'],
     'group_name_dest':

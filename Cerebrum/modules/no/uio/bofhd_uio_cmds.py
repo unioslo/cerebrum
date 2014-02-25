@@ -5498,9 +5498,151 @@ Addresses and settings:
         elif et.email_target_type == self.const.email_target_account:
             acc = self._get_account(int(et.email_target_entity_id), 
                                     idtype='id')
-            if acc.has_spread(int(self.const.Spread(cereconf.EXCHANGE_ACCOUNT_SPREAD))):
+            if acc.has_spread(
+                    int(self.const.Spread(cereconf.EXCHANGE_ACCOUNT_SPREAD))):
                 return ea.entity_id
         return False
+
+    # group info
+    all_commands['group_exchangegroup_info'] = Command(
+        ("group", "exchangegroup_info"), GroupName(help_ref="id:gid:name"),
+        fs=FormatSuggestion([("Name:         %s\n" +
+                              "Spreads:      %s\n" +
+                              "Description:  %s\n" +
+                              "Expire:       %s\n" +
+                              "Entity id:    %i""",
+                              ("name", "spread", "description",
+                               format_day("expire_date"),
+                               "entity_id")),
+                             ("Moderator:    %s %s (%s)",
+                              ('owner_type', 'owner', 'opset')),
+                             ("Gid:          %i",
+                              ('gid',)),
+                             ("Members:      %s", ("members",)),
+                             
+                             ("DisplayName:  %s",
+                                 ('displayname',)),
+                             ("Roomlist:     %s",
+                                 ('roomlist',)),
+                             ("ManagedBy:    %s",
+                                 ('mngdby_address',)),
+                             ("ModEnable:    %s",
+                                 ('modenable',)),
+                             ("ModeratedBy:  %s",
+                                 ('modby_1',)),
+                             ("              %s",
+                                 ('modby',)),
+                             ("Depart res.:  %s",
+                                 ('deprestr',)),
+                             ("Join restr.:  %s",
+                                 ('joinrestr',)),
+                             ("Hidden:       %s",
+                                 ('hidden',)),
+                             ("PrimaryAddr.: %s",
+                                 ('primary',)),
+                             ("Aliases:      %s",
+                                 ('aliases_1',)),
+                             ("              %s",
+                                 ('aliases',))]))
+    def group_exchangegroup_info(self, operator, groupname):
+        # check for appropriate priviledge
+        self.ba.is_postmaster(operator.get_entity_id())
+        
+        try:
+            grp = self._get_group(groupname, grtype="DistributionGroup")
+        except CerebrumError:
+            if groupname.startswith('gid:'):
+                gid = groupname.split(':',1)[1]
+                raise CerebrumError(
+                    "Could not find DistributionGroup with gid=%s" % gid)
+            else:
+                raise CerebrumError(
+                    "Could not find DistributionGroup with name=%s" % groupname)
+
+        co = self.const
+        gr_info = self._entity_info(grp)
+
+        # Don't stop! Never give up!
+        # We just delete stuff, thats faster to implement than fixing stuff.
+        del gr_info['create_date']
+        del gr_info['visibility']
+        del gr_info['creator_id']
+        del gr_info['type']
+        ret = [ gr_info ]
+
+        # find owners
+        aot = BofhdAuthOpTarget(self.db)
+        targets = []
+        for row in aot.list(target_type='group', entity_id=grp.entity_id):
+            targets.append(int(row['op_target_id']))
+        ar = BofhdAuthRole(self.db)
+        aos = BofhdAuthOpSet(self.db)
+        for row in ar.list_owners(targets):
+            aos.clear()
+            aos.find(row['op_set_id'])
+            id = int(row['entity_id'])
+            en = self._get_entity(ident=id)
+            if en.entity_type == co.entity_account:
+                owner = en.account_name
+            elif en.entity_type == co.entity_group:
+                owner = en.group_name
+            else:
+                owner = '#%d' % id
+            ret.append({'owner_type': str(co.EntityType(en.entity_type)),
+                        'owner': owner,
+                        'opset': aos.name})
+
+
+        # Member stats are a bit complex, since any entity may be a
+        # member. Collect them all and sort them by members.
+        members = dict()
+        for row in grp.search_members(group_id=grp.entity_id):
+            members[row["member_type"]] = members.get(row["member_type"], 0) + 1
+
+        # Produce a list of members sorted by member type
+        ET = self.const.EntityType
+        entries = ["%d %s(s)" % (members[x], str(ET(x)))
+                   for x in sorted(members,
+                                   lambda it1, it2:
+                                     cmp(str(ET(it1)),
+                                         str(ET(it2))))]
+
+        ret.append({"members": ", ".join(entries)})
+        # Find distrgoup info
+        roomlist = True if grp.roomlist == 'T' else False
+        dgr_info = grp.get_distgroup_attributes_and_targetdata(
+                                                        roomlist=roomlist)
+        del dgr_info['group_id']
+        del dgr_info['name']
+        del dgr_info['description']
+
+        # Yes, I'm gonna do it!
+        tmp = {}
+        for attr in ['displayname', 'roomlist', 'mngdby_address', 'modenable']:
+            tmp[attr] = dgr_info[attr]
+        ret.append(tmp)
+
+        if dgr_info.has_key('modby'):
+            if len(dgr_info['modby']) > 0:
+                ret.append({'modby_1': dgr_info['modby'].pop(0)})
+        
+        for mod in dgr_info['modby']:
+            ret.append({'modby': mod})
+
+        tmp = {}
+        for attr in ['deprestr', 'joinrestr', 'hidden', 'primary']:
+            tmp[attr] = dgr_info[attr]
+        ret.append(tmp)
+
+        if dgr_info.has_key('aliases'):
+            if len(dgr_info['aliases']) > 0:
+                ret.append({'aliases_1': dgr_info['aliases'].pop(0)})
+
+        for alias in dgr_info['aliases']:
+            ret.append({'aliases': alias})
+
+        return ret
+    # end group_info
 
     ## exchange-relatert-jazz
     # deactivate a group as distribution-group, but we may not
@@ -5566,8 +5708,14 @@ Addresses and settings:
             if val in ['T', 'F']:
                 dl_group.set_modenable(enable=val)
         elif attr == 'addrbook_visibility':
-            if val in ['T', 'F']:
-                dl_group.set_hidden(hidden=val)
+            # We translate the argument. V and H are not ambiguous.
+            if val == 'V':
+                t_val = 'F'
+            elif val == 'H':
+                t_val = 'T'
+            else:
+                return 'Choose either \'V\' or \'H\''
+            dl_group.set_hidden(hidden=t_val)
         elif attr == 'moderated_by':
             modby_unames = self._valid_unames_exchange(val)
             if modby_unames:
