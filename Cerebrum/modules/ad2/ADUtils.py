@@ -776,13 +776,12 @@ class ADclient(PowershellClient):
         if self.dryrun:
             return True
         
-        # PowerShell commands are executed through Windows command line
-        # The maximum length of the command in the command line is 8191
-        # for modern Windows versions
-        # http://support.microsoft.com/kb/830473
-        # It was found however that the command that is sent from our side
-        # has to be even shorter for not to get "command line is too long"
-        # exception
+        # PowerShell commands are executed through Windows command line.
+        # The maximum length of the command there is 8191 
+        # for modern Windows versions (http://support.microsoft.com/kb/830473).
+        # Due to additional parameters that other methods add to the command,
+        # the part of it which is generated here has to be even shorter.
+        # The limit at 8000 bytes seems to be working.
         if len(cmd) < 8000:
             out = self.run(cmd)
             return not out.get('stderr')
