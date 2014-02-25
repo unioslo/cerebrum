@@ -776,7 +776,10 @@ class ADclient(PowershellClient):
         if self.dryrun:
             return True
         
-        # The maximum length according to PowerShell documentation
+        # PowerShell commands are executed through Windows command line
+        # The maximum length of the command in the command line is 8191
+        # for modern Windows versions
+        # http://support.microsoft.com/kb/830473
         if len(cmd) < 8190:
             out = self.run(cmd)
             return not out.get('stderr')
