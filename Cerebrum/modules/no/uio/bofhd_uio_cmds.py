@@ -5619,27 +5619,30 @@ Addresses and settings:
         # Yes, I'm gonna do it!
         tmp = {}
         for attr in ['displayname', 'roomlist', 'mngdby_address', 'modenable']:
-            tmp[attr] = dgr_info[attr]
+            if dgr_info.has_key(attr):
+                tmp[attr] = dgr_info[attr]
         ret.append(tmp)
 
-        if dgr_info.has_key('modby'):
-            if len(dgr_info['modby']) > 0:
-                ret.append({'modby_1': dgr_info['modby'].pop(0)})
-        
-        for mod in dgr_info['modby']:
-            ret.append({'modby': mod})
+        if not roomlist:
+            if dgr_info.has_key('modby'):
+                if len(dgr_info['modby']) > 0:
+                    ret.append({'modby_1': dgr_info['modby'].pop(0)})
+            
+            for mod in dgr_info['modby']:
+                ret.append({'modby': mod})
 
         tmp = {}
         for attr in ['deprestr', 'joinrestr', 'hidden', 'primary']:
-            tmp[attr] = dgr_info[attr]
+            if dgr_info.has_key(attr):
+                tmp[attr] = dgr_info[attr]
         ret.append(tmp)
 
         if dgr_info.has_key('aliases'):
             if len(dgr_info['aliases']) > 0:
                 ret.append({'aliases_1': dgr_info['aliases'].pop(0)})
 
-        for alias in dgr_info['aliases']:
-            ret.append({'aliases': alias})
+            for alias in dgr_info['aliases']:
+                ret.append({'aliases': alias})
 
         return ret
     # end group_info
