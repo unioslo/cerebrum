@@ -780,7 +780,10 @@ class ADclient(PowershellClient):
         # The maximum length of the command in the command line is 8191
         # for modern Windows versions
         # http://support.microsoft.com/kb/830473
-        if len(cmd) < 8190:
+        # It was found however that the command that is sent from our side
+        # has to be even shorter for not to get "command line is too long"
+        # exception
+        if len(cmd) < 8000:
             out = self.run(cmd)
             return not out.get('stderr')
         else:
@@ -794,7 +797,7 @@ class ADclient(PowershellClient):
             self.logger.debug3("Cleared the attributes.")
             for k, v in attrs.iteritems():
                 # Elements of the list are approximately the same length
-                # 5000 is chosen to have some length reserve
+                # 5000 is empyrically chosen to have some length reserve
                 splits = sum(len(elem) for elem in v) / 5000 + 1
                 elems_in_split = len(v) / splits + 1 
                 newattrs = {}
