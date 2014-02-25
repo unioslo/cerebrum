@@ -790,7 +790,7 @@ class ADclient(PowershellClient):
             cmd = self._generate_ad_command('Set-ADObject', cmd_params)
             out = self.run(cmd)
             if out.get('stderr'):
-                return None
+                return False
             self.logger.debug3("Cleared the attributes.")
             for k, v in attrs.iteritems():
                 # Elements of the list are approximately the same length
@@ -805,10 +805,10 @@ class ADclient(PowershellClient):
                                                      'Add': newattrs})
                     out = self.run(cmd)
                     if out.get('stderr'):
-                        return None
+                        return False
                     self.logger.debug3("Attribute %s partially updated." % k)
                 self.logger.debug3("Attribute %s fully updated" % k)
-            return not out.get('stderr')
+            return True
                 
 
     def get_ad_attribute(self, adid, attributename):
