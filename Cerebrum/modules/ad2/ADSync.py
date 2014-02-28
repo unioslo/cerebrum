@@ -2854,7 +2854,6 @@ class GroupSync(BaseSync):
                     ent.members_by_spread = []
                 # We have to translate member_id's to names.
                 ent2 = self.id2extraentity.get(account_id)
-                self.logger.debug2("Found primary: %s", ent2)
                 if ent2:
                     ent.members_by_spread.append(ent2)
                     i += 1
