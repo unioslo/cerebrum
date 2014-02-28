@@ -342,13 +342,12 @@ class ExternalIdAttr(AttrConfig):
 class TraitAttr(AttrConfig):
     """Config for attributes retrieved from traits.
 
+    Note that each trait is a dict that contains different elements, like strval
+    and numval, and must therefore be wrapped e.g. through L{transform}.
+
     """
     def __init__(self, traitcodes, *args, **kwargs):
         """Initiate a config for given traits.
-
-        Note that each trait is a dict that contains different elements, like
-        strval and numval, and must therefore be wrapped e.g. through
-        L{transform}.
 
         This might be expanded later, if more criterias are needed.
 
@@ -362,17 +361,37 @@ class TraitAttr(AttrConfig):
 class MemberAttr(AttrConfig):
     """Config for Member attribute of groups.
 
+    This is to set up an attribute with different kinds of members, typically
+    the Member attribute for group objects, but could also be used e.g. for
+    NisNetGroups, which requires user members in one attribute, on a "triple"
+    format, and group members in another attribute.
+
+    Example on configuration:
+
+        ConfigUtils.MemberAttr(
+               member_spreads=(co.spread_ad_account, co.spread_ad_group),
+               transform=lambda x: ('CN=%s,%s' % (m.ad_id, m.ou) for m in x),
+        )
+
     """
-    def __init__(self, member_spreads = None, *args, **kwargs):
+    def __init__(self, member_spreads=None, person2primary=False, *args,
+                 **kwargs):
         """Initiate a config for fetching group members.
 
         @type member_spread: SpreadCode or sequence thereof
         @param member_spread: 
             What spread(s) the group members should have to be selected.
 
+        @type person2primary: bool
+        @param person2primary:
+            If set to True, persons are included as members by fetching their
+            primary accounts instead. Note that only the primary accounts that
+            has one of the given L{member_spreads} will be added.
+
         """
         super(MemberAttr, self).__init__(*args, **kwargs)
         self.member_spreads = _prepare_constants(member_spreads, const.Spread)
+        self.person2primary = person2primary
 
 class CallbackAttr(AttrConfig):
     """A special attribute, using callbacks with the entity as the argument.

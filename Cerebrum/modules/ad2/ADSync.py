@@ -2645,15 +2645,6 @@ class GroupSync(BaseSync):
         """
         super(GroupSync, self).configure(config_args)
 
-        if 'member_spreads' in config_args:
-            # Convert the member spread names to spread constants:
-            self.config['member_spreads'] = tuple(self.co.Spread(s) for s in
-                                                  config_args['member_spreads'])
-            # Check if the member spreads have their own sync:
-            for s in self.config['member_spreads']:
-                if str(s) not in adconf.SYNCS:
-                    self.logger.warn("Member_spread without its own AD-sync: %s", s)
-
         # Check if the group type is a valid type:
         if self.config['group_type'] not in ('security', 'distribution'):
             raise Exception('Invalid group type: %s' %
@@ -2662,16 +2653,6 @@ class GroupSync(BaseSync):
         if self.config['group_scope'] not in ('global', 'universal'):
             raise Exception('Invalid group scope: %s' %
                             self.config['group_scope'])
-
-        return
-        # TODO: remove the rest:
-
-        # Sync settings for this module
-        for k in ("sec_group_spread", "dist_group_spread", "user_spread"):
-            # Group.search() must have spread constant or int to work,
-            # unlike Account.search()
-            if k in config_args:
-                setattr(self, k, self.co.Spread(config_args[k]))
 
     def process_ad_object(self, ad_object):
         """Process a Group object retrieved from AD.
@@ -2729,7 +2710,7 @@ class GroupSync(BaseSync):
 
     def _configure_group_member_spreads(self):
         """Process configuration and set needed parameters for extracting
-           extra AD information about group members with needed spreads
+        extra AD information about group members with needed spreads.
 
         """
 
@@ -2801,11 +2782,32 @@ class GroupSync(BaseSync):
                         ad_entity_object
             else:
                 # In the future more entity types will be added
-                pass
- 
+                self.logger.warn("Unknown entity_type for spread %s: %s",
+                                 spread, spread.entity_type)
+
+    def _fetch_person2primary_mapping(self):
+        """Generate a mapping from person id to its primary account id.
+
+        TODO: This might be moved upwards to the L{BaseSync} if needed in syncs
+        of other entity types.
+
+        """
+        self.logger.debug2('Fetch mapping of person ids to primary accounts')
+        # Only fetch the list once
+        if getattr(self, 'personid2primary', False):
+            return
+        self.personid2primary = dict((r['person_id'], r['account_id'])
+                                     for r in self.ac.list_accounts_by_type(
+                                                            primary_only=True))
+        # A small optimisation could be to specify account_spreads for only
+        # returning the accounts we really need.
+        self.logger.debug2('Found %d persons mapped to a primary account',
+                           len(self.personid2primary))
+
     def fetch_members_by_spread(self):
         """Fetch the group members of given type that have given spread.
-           Is not run if "Member" attribute is not defined in configuration.
+
+        Is not run if a member attribute is not defined in configuration.
 
         """
         if not ConfigUtils.has_config(self.config['attributes'], 
@@ -2814,9 +2816,10 @@ class GroupSync(BaseSync):
             return
         self.logger.debug("Fetch group members of predefined types with " 
                           "predefined spreads...")
-        
+
         self._configure_group_member_spreads()
         self._fetch_group_member_entities()
+
         i = 0
         for member in self.gr.search_members(
                           member_spread = [elem['spread'] for elem in 
@@ -2825,8 +2828,33 @@ class GroupSync(BaseSync):
             if ent:
                 if not hasattr(ent, 'members_by_spread'):
                     ent.members_by_spread = []
-                # We have to translate membed_id's to names.
+                # We have to translate member_id's to names.
                 ent2 = self.id2extraentity.get(member['member_id'], None)
+                if ent2:
+                    ent.members_by_spread.append(ent2)
+                    i += 1
+        # Check if persons should be included:
+        # TODO: Note that we are now overriding the person2primary setting for
+        # all member attributes, and does not respect each attribute's setting
+        # of this. Needs to be fixed.
+        if any(c.person2primary for c in ConfigUtils.get_config_by_type(
+                                            self.config['attributes'],
+                                            ConfigUtils.MemberAttr)):
+            self._fetch_person2primary_mapping()
+            for r in self.gr.search_members(member_type=self.co.entity_person):
+                ent = self.id2entity.get(r['group_id'], None)
+                if not ent:
+                    continue
+                account_id = self.personid2primary.get(r['member_id'])
+                if not account_id:
+                    self.logger.debug2("Person %s has no primary account",
+                                       r['member_id'])
+                    continue
+                if not hasattr(ent, 'members_by_spread'):
+                    ent.members_by_spread = []
+                # We have to translate member_id's to names.
+                ent2 = self.id2extraentity.get(account_id)
+                self.logger.debug2("Found primary: %s", ent2)
                 if ent2:
                     ent.members_by_spread.append(ent2)
                     i += 1
