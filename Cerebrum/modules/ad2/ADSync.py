@@ -1337,7 +1337,6 @@ class BaseSync(object):
         else:
             ent.ad_new = True
         ent.in_ad = True
-        print obj
         ent.ad_data['dn'] = obj['DistinguishedName']
 
         if ent.ad_new:
