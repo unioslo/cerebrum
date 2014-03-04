@@ -1,9 +1,0 @@
-Traits
-------
-
-Script for calling makedb.py for updating traits (--only-insert-codes).
-
-Uses the joint configuration setup.
-
-Changelog:
-	Alexander Rødseth <rodseth@usit.uio.no>, August 2013

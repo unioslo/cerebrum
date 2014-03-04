@@ -1,8 +1,0 @@
-Viewcereconf
-------------
-
-Script for listing the majority of the cereconf.py files that are in use.
-Different files will be listed depending on the settings in ~/.cerebrumrc.
-
-Changelog:
-	Alexander Rødseth <rodseth@usit.uio.no>, July 2013
