@@ -304,8 +304,8 @@ class StateChecker(object):
                                                           str(stale_attr))
                     else:
                         tmp = '%-10s %-30s %s %s:%s' % (key, attr, t,
-                                        str(diff_group[key][attr]['Cerebrum']),
-                                        str(diff_group[key][attr]['Exchange']))
+                                        repr(diff_group[key][attr]['Cerebrum']),
+                                        repr(diff_group[key][attr]['Exchange']))
                     report += [tmp]
 
 
@@ -567,8 +567,8 @@ class StateChecker(object):
                                                           str(stale_addr))
                     else:
                         tmp = '%-10s %-30s %s %s:%s' % (key, attr, t,
-                                            str(diff_mb[key][attr]['Cerebrum']),
-                                            str(diff_mb[key][attr]['Exchange']))
+                                            repr(diff_mb[key][attr]['Cerebrum']),
+                                            repr(diff_mb[key][attr]['Exchange']))
                     report += [tmp]
 
 
