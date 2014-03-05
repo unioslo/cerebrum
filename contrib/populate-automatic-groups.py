@@ -19,7 +19,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""Synchronize several automatically maintained groups in Cerebrum.
+"""Populate and update several automatically maintained groups in Cerebrum.
 
 The complete specification of this script is in
 cerebrum-sites/doc/intern/felles/utvikling/auto-grupper-spesifikasjon.rst.
@@ -39,8 +39,9 @@ A few salient points:
   trait_auto_group; metagroups (autogroups with group members) are tagged with
   trait_auto_meta_group.
 
-* Some groups have people as members (person_ids); others have other automatic
-  groups as members.
+* Some groups have people as members (person_ids), or their primary account if
+  the --account switch is turned on; others have other automatic groups as
+  members.
 
 * ansatt-<sko>, ansatt-vitenskapelig-<sko>, ansatt-tekadm-<sko>,
   ansatt-bilag-<sko> have person_id as members. They contain the employees (of
@@ -57,10 +58,10 @@ A few salient points:
 
 A typical run for UiO would be something like this:
 
-populate-automatic-groups.py --dryrun -s system_sap -p SAP \
-        -c affiliation_status_ansatt_vitenskapelig:ansatt-vitenskapelig \
-        -c affiliation_status_ansatt_tekadm:ansatt-tekadm \
-        -c affiliation_status_ansatt_bil:ansatt-bilag \
+populate-automatic-groups.py --dryrun -s system_sap -p SAP \\
+        -c affiliation_status_ansatt_vitenskapelig:ansatt-vitenskapelig \\
+        -c affiliation_status_ansatt_tekadm:ansatt-tekadm \\
+        -c affiliation_status_ansatt_bil:ansatt-bilag \\
         -c affiliation_ansatt:ansatt
 
 If you want to look at the resulting structure, issue this:
@@ -103,8 +104,9 @@ legal_prefixes = {
     "ansatt-vitenskapelig": "Vitenskapelige tilsatte ved %s",
     "ansatt-tekadm": "Teknisk-administrativt tilsatte ved %s",
     "ansatt-bilag": "Bilagslønnede ved %s",
-    "meta-ansatt":
-    "Tilsatte ved %s og underordnede organisatoriske enheter",
+    "meta-ansatt": "Tilsatte ved %s og underordnede organisatoriske enheter",
+    # TBD: Find out what is the best prefix name for "tilknyttede"
+    #"tilknyttet": "Tilknyttede ved %s",
 }
 
 
@@ -1274,28 +1276,62 @@ def build_complete_group_forest():
     return result
 # end build_complete_forest
 
-
-# TODO: Better descriptions of the various options
 def usage(exitcode):
     """Help text for the commandline options."""
-    print
-    print("The \"populate automatic groups\" script")
-    print
-    print __doc__
-    print("Options:")
-    print
-    print(" -p or --perspective\t\tPerspective")
-    print(" -d or --dryrun\t\t\tPerform a dry run")
-    print(" -s or --source_system\t\tSource system")
-    print(" --remove-all-auto-groups\tRemove all auto groups")
-    print(" -c or --collect\t\tCollect")
-    print(" -f or --filters\t\tFilters")
-    print(" -o or --output-groups\t\tOutput groups")
-    print(" -a or --accounts\t\tTarget primary accounts instead of persons")
-    print(" -r or --spread\t\t\tSpread")
-    print
-    sys.exit(exitcode)
+    print """Usage: populate-automatic-groups.py -p SYSTEM [OPTIONS]
 
+    -p --perspective SYSTEM     Set the system perspective to fetch the OU
+                                structure from, e.g. SAP or FS. This sets what
+                                system that controls the OU hierarchy which
+                                should be used for the group hierarchy.
+
+    -s --source_system SYSTEM   Set the source system to fetch the person
+                                affiliations from. Could be a single system or a
+                                list of systems. Defaults to 'system_sap'.
+
+    -c --collect CRITERIA       Update the select criterias for what
+                                affiliations or statuses that shoul be
+                                collected and used for populating auto groups.
+                                Note that this comes in addition to what is set
+                                in the mapping in cereconf.AUTOMATIC_GROUPS.
+
+                                Format: The aff or status must be tailed with a
+                                colon and what group prefix to use. Example:
+
+                                    affilation_status_tilknyttet_eremitus:auto-eremitus
+
+    -a --accounts               Populate the groups with primary accounts
+                                instead of persons.
+
+    -r --spread SPREAD          Add a spread to the auto groups. Each given
+                                spread must have a prefix that must match the
+                                start of the group name for the spread to be
+                                given. Examples:
+
+                                   ansatt:group@ad # Each group starting with
+                                                   # "ansatt..." will get to AD.
+
+                                   :group@ldap # All groups will get to LDAP,
+                                               # since the prefix is blank and
+                                               # will match all groups.
+
+    --remove-all-auto-groups    Delete all auto groups, which means all groups
+                                that has the autogroup trait.
+
+    -o --output-groups          Print out the group forest of auto groups and
+                                quit, without doing any changes.
+
+    -f --filters                Add an output filter that is used for finding
+                                the root OUs that are used when printing out the
+                                forest - see --output-groups.
+
+    -d --dryrun                 Do not commit the changes.
+
+    -h --help                   Show this and quit.
+
+    """
+    print __doc__
+    sys.exit(exitcode)
 
 def main():
     # exchange-relatert-jazz
