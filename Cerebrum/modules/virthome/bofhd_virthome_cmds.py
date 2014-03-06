@@ -1463,8 +1463,8 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                             "Member(s):    %s\n"
                             "Pending (mod) %s\n"
                             "Pending (mem) %s\n"
-                            "Resource:     %s\n",
-                            "Forward:      %s",
+                            "Resource:     %s\n"
+                            "Forward:      %s\n",
                             ("group_name",
                              "expire",
                              "spread",
