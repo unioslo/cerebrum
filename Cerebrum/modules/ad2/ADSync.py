@@ -1153,7 +1153,8 @@ class BaseSync(object):
             if a is None or c.lower() != a.lower():
                 return True
         # Order does not matter in multivalued attributes:
-        if isinstance(c, (list, tuple)) and isinstance(a, (list, tuple)):
+        types = (list, tuple, set)
+        if isinstance(c, types) and isinstance(a, types):
             # TODO: Do we in some cases need to unicodify strings before
             # comparement?
             return list(sorted(c)) != list(sorted(a))
