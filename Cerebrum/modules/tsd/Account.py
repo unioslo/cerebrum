@@ -27,6 +27,7 @@ should refuse account_types from different OUs for a single account.
 """
 
 import base64
+import math
 #from mx import DateTime
 
 import cerebrum_path
@@ -112,18 +113,28 @@ class AccountTSDMixin(Account.Account):
         self.setup_for_project()
 
     def _generate_otpkey(self, length=192):
-        """Return a randomly generated OTP key.
+        """Return a randomly generated OTP key of the given length.
 
         @type length: int
-        @param length: The number of bits that should be generated.
+        @param length:
+            The number of bits that should be generated. Note that the number is
+            rounded upwards to be contained in a full byte (8 bits).
 
         @rtype: str
-        @return: The OTP key, formed as a string of the hexadecimal values.
+        @return:
+            The OTP key, formed as a string of the hexadecimal values. Each
+            hexadecimal value represent 8 bits.
 
         """
-        l = int(length / 8) # to support if a float sneaks in
+        bytes = int(math.ceil(float(length) / 8))
+        ret = ''
         f = open('/dev/random', 'rb')
-        return ''.join('%x' % ord(o) for o in f.read(l))
+        # f.read might return less than what is needed, so might need to fetch
+        # more random bits before we're done:
+        while len(ret) < bytes:
+            ret += ''.join('%x' % ord(o) for o in f.read(bytes/2 + 1))
+        f.close()
+        return ret[:bytes]
 
     def regenerate_otpkey(self):
         """Create a new OTP key and store it for the account.
