@@ -107,7 +107,7 @@ def mangle(from_spread, to_spread, file,
                           None,
                           event_only=True)
 
-            print(u'Creating e_group:add event for %s → %s' % (
+            print('Creating e_group:add event for %s -> %s' % (
                                                             ac.account_name,
                                                             gname))
 ###
