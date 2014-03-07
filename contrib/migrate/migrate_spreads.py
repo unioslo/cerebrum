@@ -31,6 +31,7 @@ import cereconf
 from mx.DateTime import now
 
 from Cerebrum.Utils import Factory
+from Cerebrum import Errors
 
 def mangle(from_spread, to_spread, file,
            commit=False, log_event=False,
@@ -78,7 +79,14 @@ def mangle(from_spread, to_spread, file,
         if not uname:
             continue
         ac.clear()
-        ac.find_by_name(uname)
+        try:
+            ac.find_by_name(uname)
+        except Errors.NotFoundError:
+            print('%s seems to be nuked, skipping..' % uname)
+            continue
+        if not ac.get_spread() and ac.expire_date:
+            print('%s seems to be deleted, skipping..' % uname)
+            continue
         ac.delete_spread(from_spread)
         ac.add_spread(to_spread)
         ac.write_db()
