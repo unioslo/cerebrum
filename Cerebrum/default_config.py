@@ -381,6 +381,14 @@ BOFHD_REQUEST_LOCK_DIR = '/cerebrum/var/log/cerebrum/.lock-%d'
 BOFHD_NONLOCK_QUARANTINES = ()
 BOFHD_QUARANTINE_DISABLE_LIMIT = None  # days a quarantine can be disabled
 
+# INDIGO-/CWEB-related bofhd settings, only used by bofhd_go_cmds
+# Auth. system that contains the info on people considered 'active'
+INDIGO_ACTIVE_SOURCE_SYSTEM = 'system'
+# Auth. levels
+INDIGO_AUTH_LEVEL = {'superuser': 50,
+                     'operator':  30,
+                     'other':      0}
+
 # What spreads which should be tagged as 'auto' in bofhds spread_list
 GROUP_REQUESTS_AUTOSPREADS = ()
 
@@ -398,11 +406,6 @@ PRINT_BARCODE = None
 
 # Used for sending e-mail
 SMTP_HOST = 'localhost'
-
-# Logdir for Cweb app.
-CWEB_LOG_DIR = '.'
-# Templates for Cweb app
-CWEB_TPL_DIR = '.'
 
 # Logdir for AutoStud jobs
 AUTOADMIN_LOG_DIR = '.'     # Set to a place where only 'cerebrum' has write access

@@ -240,12 +240,12 @@ class BofhdExtension(BofhdCommonMethods):
     all_commands['get_auth_level'] = None
     def get_auth_level(self, operator):
         if self.ba.is_superuser(operator.get_entity_id()):
-            return cereconf.BOFHD_AUTH_LEVEL['super']
+            return cereconf.INDIGO_AUTH_LEVEL['super']
 
         if self.ba.is_schoolit(operator.get_entity_id(), True):
-            return cereconf.BOFHD_AUTH_LEVEL['schoolit']
+            return cereconf.INDIGO_AUTH_LEVEL['schoolit']
 
-        return cereconf.BOFHD_AUTH_LEVEL['other']
+        return cereconf.INDIGO_AUTH_LEVEL['other']
 
     all_commands['list_defined_spreads'] = None
     def list_defined_spreads(self, operator):
@@ -289,7 +289,7 @@ class BofhdExtension(BofhdCommonMethods):
         active = list()
         # IVR 2007-03-11 fetch the source system, which determines people that
         # are considered 'active'.
-        source = int(getattr(self.const, cereconf.CWEB_ACTIVE_SOURCE_SYSTEM))
+        source = int(getattr(self.const, cereconf.INDIGO_ACTIVE_SOURCE_SYSTEM))
         for row in self.person.list_affiliations(source_system=source):
             active.append(row['person_id'])
         return active
