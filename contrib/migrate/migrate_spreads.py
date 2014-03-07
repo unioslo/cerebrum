@@ -84,9 +84,13 @@ def mangle(from_spread, to_spread, file,
         except Errors.NotFoundError:
             print('%s seems to be nuked, skipping..' % uname)
             continue
+        # TODO: Is this _entirely_ correct?
         if not ac.get_spread() and ac.expire_date:
             print('%s seems to be deleted, skipping..' % uname)
             continue
+        # TODO: We should report if the account does not have the spread
+        # we want to remove. We should really raise an error if we try to
+        # delete a spread that does not exist on an account...
         ac.delete_spread(from_spread)
         ac.add_spread(to_spread)
         ac.write_db()
