@@ -218,7 +218,7 @@ class EventLog(object):
             filter += ' AND taken_time IS NULL'
         
         return self.query("""
-            SELECT event_id FROM event_log
+            SELECT * FROM event_log
             WHERE %s""" % filter,
             args,
             fetchall=fetchall)

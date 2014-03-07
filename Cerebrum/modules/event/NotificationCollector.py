@@ -21,7 +21,7 @@
 """Collector of notify-events from postgresql"""
 
 import cereconf
-from Cerebrum.Utils import read_password
+from Cerebrum.Utils import read_password, Factory
 from Cerebrum.modules.event.HackedLogger import Logger
 
 import time
@@ -81,6 +81,10 @@ class NotificationCollector(processing.Process):
         @type channels: list
         @param channels: A list of channel names to listen on
         """
+        # Initzialize DB
+        self.db = Factory.get('Database')(client_encoding='UTF-8')
+
+        # Initzialize connection for listening
         self.conn = psycopg2.connect(self.DSN)
         self.conn.set_isolation_level(
                 psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT
@@ -139,10 +143,15 @@ class NotificationCollector(processing.Process):
                 # We reverse it, since we want FIFO, not LIFO.
                 while reversed(self.conn.notifies):
                     notification = self.conn.notifies.pop()
-                    # Extract channel and payload
+                    # Extract channel and the event
+                    # Dictifying the event in order to pickle it when
+                    # enqueueuing.
+                    ev = self.db.get_event(int(notification.payload))
                     cp = {'channel': notification.channel,
-                          'payload': int(notification.payload)}
+                          'event': dict(ev)}
                     # Append the channel and payload to the queue
                     self.event_queue.put(cp)
                     self.logger.debug2('NC enqueueing %s' % str(notification))
+                # Rolling back to avoid IDLE in transact
+                self.db.rollback()
         self.logger.info('NotificationCollector stopped')

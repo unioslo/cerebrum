@@ -24,6 +24,7 @@ import eventconf
 
 import getopt
 import processing
+from processing import managers
 import Queue
 import threading
 
@@ -115,14 +116,33 @@ def main():
     # We need to store the procecess
     procs = []
 
+    # Helper for importing correct classes dynamically
+    # TODO: Should this be done in a prettier way?
+    def dyn_import(class_name):
+        return getattr(Utils.dyn_import(class_name),
+                       class_name.split('.')[-1])
+
     # Import the event handeler we need to use
-    # TODO: Make someone do this pretty
-    event_handler_class = getattr(Utils.dyn_import(
-                                    conf['event_handler_class']), 
-                                    conf['event_handler_class'].split('.')[-1])
+    event_handler_class = dyn_import(conf['event_handler_class'])
     
-    # The queue of events to be processed
-    event_queue = processing.Queue()
+    # Define the queue of events to be processed.
+    # We look for classes that we can import dynamically, but if that is not
+    # defined, we fall back to the BaseQueue-class, which really is
+    # processing.Queue (as of now).
+    # TODO: This is not totally sane? Should we support mixins? We should define
+    # a manager in BaseQueue, and implement everything on top of that?
+    try:
+        event_queue_class_name = conf['event_queue_class']
+    except KeyError:
+        event_queue_class_name = 'Cerebrum.modules.event.BaseQueue'
+
+    class MyManager(managers.BaseManager):
+        event_queue_class = managers.CreatorMethod(
+                                            dyn_import(event_queue_class_name))
+    manager = MyManager()
+    manager.daemon = True
+    manager.start()
+    event_queue = manager.event_queue_class()
 
     # Create all the event-handeler processes
     for i in range(0, conf['concurrent_workers']):
@@ -166,6 +186,8 @@ def main():
     
     for x in procs:
         x.join()
+
+    manager.shutdown()
     
     # Stop the logger
     logger_run_state.value = 0

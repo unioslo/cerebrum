@@ -105,9 +105,10 @@ class DelayedNotificationCollector(processing.Process):
                 # TODO: Should we remove channel alltogether?
                 # TODO: Add support for different failed_delay on different
                 #       event types?
-                # "Encode" & enqueue event
+                # Enqueue events. We must dictify the DBrow since it can't
+                # be pickled.
                 ev = {'channel': str(self.target_system),
-                      'payload': x['event_id']}
+                      'event': dict(x)}
                 # Append the channel and payload to the queue
                 self.event_queue.put(ev)
                 self.logger.debug2('DNC enqueued %d' % x['event_id'])

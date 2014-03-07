@@ -49,8 +49,8 @@ def mangle(from_spread, to_spread, file,
             tmp += [ int(co.ChangeType(*x.split(':'))) ]
         exclude_events = tmp
 
-    # Monkeypatch in a function that avoids creating events for certain change
-    # types
+    # Monkeypatch in a function that avoids creating events for certain
+    # change types
     log_it = db.log_change
     def filter_out_types(*args, **kwargs):
         if int(args[1]) in exclude_events or not log_event:
@@ -65,9 +65,10 @@ def mangle(from_spread, to_spread, file,
 
 
     # TODO: You whom are reading this in the future should make this more
-    # generic!  You can for example replace 'ac' with 'locals()[object]', where
-    # 'object' defines the object to act on. Then you should use __setattr__ to
-    # replace the appropriate bofhd_request-generating method. If you dare!
+    # generic!  You can for example replace 'ac' with 'locals()[object]',
+    # where 'object' defines the object to act on. Then you should use
+    # __setattr__ to replace the appropriate bofhd_request-generating method.
+    # If you dare!
     if disable_requests:
         ac._UiO_order_cyrus_action = lambda *args, **kwargs: True
     
@@ -81,6 +82,28 @@ def mangle(from_spread, to_spread, file,
         ac.delete_spread(from_spread)
         ac.add_spread(to_spread)
         ac.write_db()
+
+# TODO: Factor out this and generalize it! This is a BAD hack
+# We really need to generate some faux events. For example, when a user is
+# migrated from cyrus to exchange, we must generate events for addition of
+# the user into groups :S
+###
+        from Cerebrum.modules.exchange.CerebrumUtils import CerebrumUtils
+        cu = CerebrumUtils()
+        for gname, gid in cu.get_account_group_memberships(ac.account_name,
+                                                co.spread_exchange_group):
+            ct = co.ChangeType('e_group', 'add')
+            db.log_change(ac.entity_id,
+                          int(ct),
+                          gid,
+                          None,
+                          event_only=True)
+
+            print(u'Creating e_group:add event for %s → %s' % (
+                                                            ac.account_name,
+                                                            gname))
+###
+
         print('%-9s: removed %s, added %s' % \
                 (uname, str(from_spread), str(to_spread)))
     f.close()

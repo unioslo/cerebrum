@@ -29,6 +29,7 @@ import processing
 from Queue import Empty
 import pickle
 import traceback
+import os
 
 from Cerebrum.modules.exchange.v2013.ExchangeClient import ExchangeClient
 from Cerebrum.modules.exchange.Exceptions import ExchangeException
@@ -99,8 +100,11 @@ class ExchangeEventHandler(processing.Process):
         We also initialize the ExchangeClient here.. We can start faster
         when we do it in paralell.
         """
+        # fhl said I shoul rather use the PID or something truly unique here.
+        # That sounds acceptable.
         gen_key = lambda: 'CB%s' \
-                % hex(random.randint(0xF00000,0xFFFFFF))[2:].upper()
+                % hex(os.getpid())[2:].upper()
+        self.key = gen_key
         self.ec = ExchangeClient(logger=self.logger,
                      host=self.config['server'],
                      port=self.config['port'],
@@ -141,7 +145,9 @@ class ExchangeEventHandler(processing.Process):
         while self.run_state.value:
             # Collect a new event.
             try:
-                ev = self.event_queue.get(block=True, timeout=5)
+                #raw_ev = self.event_queue.get(self.key, block=True, timeout=5)
+                raw_ev = self.event_queue.get(block=True, timeout=5)
+                ev = raw_ev['event']
             except Empty:
                 # We continue here, since the queue will be empty
                 # at times.
@@ -150,7 +156,7 @@ class ExchangeEventHandler(processing.Process):
             
             # Try to lock the event
             try:
-                ev_id = self.db.lock_event(ev['payload'])
+                self.db.lock_event(ev['event_id'])
                 # We must commit to lock the event.
                 self.db.commit()
             except Errors.NotFoundError:
@@ -162,38 +168,36 @@ class ExchangeEventHandler(processing.Process):
                 self.db.rollback()
                 continue
 
-            # Fetch the event after it has been locked 
-            ev_log = self.db.get_event(ev_id)
-            
             # We try to handle the event
             try:
-                self.handle_event(ev_log)
+                self.handle_event(ev)
                 # When the command(s) have run sucessfully, we remove the
                 # the triggering event.
-                self.db.remove_event(ev_log['event_id'])
+                self.db.remove_event(ev['event_id'])
                 # TODO: Store the receipt in ChangeLog! We need to handle
                 # EntityTypeError and UnrelatedEvent in a appropriate manner
-                # for this to work.
+                # for this to work. Now we always store the reciept in the
+                # functions called. That is a tad innapropriate, but also
+                # correct. Hard choices.
                 self.db.commit()
             # If the event fails, we append the event to the queue
             # If an event fails, we just release it, and let the
             # DelayedNotificationCollector enqueue it when appropriate
             except EventExecutionException, e:
                 self.logger.debug('Failed to process event %d: %s' % \
-                                        (ev_log['event_id'], str(e)))
-                self.db.release_event(ev_log['event_id'])
+                                        (ev['event_id'], str(e)))
+                self.db.release_event(ev['event_id'])
                 self.db.commit()
             except EventHandlerNotImplemented:
-                # TODO: Should we log this?
                 self.logger.debug3('Event Handler Not Implemented!')
                 # We remove the event for now.. Or else it will just
                 # sit around for a loooong time...
-                self.db.remove_event(ev_log['event_id'])
+                self.db.remove_event(ev['event_id'])
                 self.db.commit()
 #            except (EntityTypeError, UnrelatedEvent):
 #                # When this gets raised, the owner type of the object
 #                # is probably wrong. We silently discard the event
-#                self.db.remove_event(ev_log['event_id'])
+#                self.db.remove_event(ev['event_id'])
 #                self.db.commit()
             except Exception, e:
                 # If we wind up here, we have found a "state" that the
@@ -211,9 +215,9 @@ class ExchangeEventHandler(processing.Process):
                 tb = '\t' + tb.replace('\n', '\t\n')
                 self.logger.error(
                         'Oops! Didn\'t see that one coming! :)\n%s\n%s' % \
-                                (str(ev_log), tb))
+                                (str(ev), tb))
                 # We unlock the event, so it can be retried
-                self.db.release_event(ev_log['event_id'])
+                self.db.release_event(ev['event_id'])
                 self.db.commit()
 
         # When the run-state has been set to 0, we kill the pssession
@@ -411,6 +415,19 @@ class ExchangeEventHandler(processing.Process):
                                                     {'soft': sq,
                                                      'hard': hq})
                 self.ut.log_event(mod_ev, 'email_quota:add_quota')
+
+            # Generate events for addition of the account into the groups the
+            # account should be a member of
+            groups = self.ut.get_account_group_memberships(uname,
+                                                           self.group_spread)
+            for gname, gid in groups:
+                faux_event = {'subject_entity': aid,
+                              'dest_entity': gid,
+                              'change_params': pickle.dumps(None)}
+
+                self.logger.debug1('Creating event: Adding %s to %s' % 
+                                                            (uname, gname))
+                self.ut.log_event(faux_event, 'e_group:add')
 
         # If we wind up here, the spread type is notrelated to our target system
         else:
@@ -849,7 +866,7 @@ class ExchangeEventHandler(processing.Process):
                 # Set hidden
                 try:
                     hide = True if data['hidden'] == 'T' else False
-                    self.ec.set_distgroup_visibility(gname, not hide)
+                    self.ec.set_distgroup_visibility(gname, hide)
                     self.logger.info('Set %s visible: %s' % (gname,
                                                              data['hidden']))
                     self.ut.log_event_receipt(event, 'dlgroup:modhidden')
@@ -1116,7 +1133,7 @@ class ExchangeEventHandler(processing.Process):
         if self.group_spread in group_spreads:
             
             # Reverse logic, gotta love it!!!11
-            show = True if params['hidden'] == 'F' else False
+            show = True if params['hidden'] == 'T' else False
             try:
                 self.ec.set_distgroup_visibility(gname, show)
                 self.logger.info('Group visibility set to %s for %s' % \

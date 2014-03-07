@@ -238,6 +238,38 @@ class CerebrumUtils(object):
         self.db.rollback()
         return ret
 
+    def get_account_group_memberships(self, uname, group_spread):
+        """Get a list of group names, which the user (and users owner, if
+        person), is a member of.
+
+        @type uname: string
+        @param uname: The accounts name
+
+        @type group_spread: _SpreadCode
+        @param group_spread: Spread to filter groups by
+
+        @rtype: list(tuple)
+        @return: A list of tuples contining group-name and -id
+        """
+        self.ac.clear()
+        self.ac.find_by_name(uname)
+
+        groups = []
+
+        # Fetch the groups the person is a member of
+        if self.ac.owner_type == self.co.entity_person:
+            for group in self.gr.search(member_id=self.ac.owner_id, spread=group_spread,
+                                       indirect_members=True):
+                groups.append((group['name'], group['group_id']))
+
+        # Fetch the groups the account is a member of
+        for group in self.gr.search(member_id=self.ac.entity_id, spread=group_spread,
+                                    indirect_members=True):
+            groups.append((group['name'], group['group_id']))
+
+        self.db.rollback()
+        return groups
+
 ####
 # Group related methods
 ####
