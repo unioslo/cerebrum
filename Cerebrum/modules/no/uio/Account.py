@@ -114,6 +114,9 @@ class AccountUiOMixin(Account.Account):
                 et.find_by_target_entity(self.entity_id)
                 et.email_server_id = es.entity_id
                 et.email_target_type =  self.const.email_target_account
+                # We store a bit of state. Need to do this to know if we should
+                # mangle filters
+                is_new = False
             except Errors.NotFoundError:
                 # No EmailTarget found for account, creating one
                 # after the migration to Exchange is completed this
@@ -125,16 +128,20 @@ class AccountUiOMixin(Account.Account):
                             self.entity_id,
                             self.const.entity_account,
                             server_id=es.entity_id)
+                # We store a bit of state. Need to do this to know if we should
+                # mangle filters
+                is_new = True
             et.write_db()   
             self.update_email_quota(force=True, 
                                     spread=self.const.spread_exchange_account)
             # register default spam and filter settings
             self._UiO_default_spam_settings(et)
-            self._UiO_default_filter_settings(et)
+            if is_new:
+                self._UiO_default_filter_settings(et)
             # The user's email target is now associated with an email
             # server, try generating email addresses connected to the
             # target.
-            self.update_email_addresses(spread=self.const.spread_exchange_account)
+            self.update_email_addresses()
         # exchange-relatert-jazz
         # this code (up to and including 'update_email_addresse') 
         # may be removed after Exchange roll-out, as it has been 
@@ -251,16 +258,16 @@ class AccountUiOMixin(Account.Account):
                     change = True
                     eq.populate(cereconf.EMAIL_SOFT_QUOTA, quota)
                     eq.write_db()
-                else:
-                    # We never decrease quota, because of manual overrides
-                    if quota is None:
-                        eq.delete()
-                    elif quota > eq.email_quota_hard:
-                        change = True
-                        eq.email_quota_hard = quota
-                        eq.write_db()
-            if not change:
-                return
+            else:
+                # We never decrease quota, because of manual overrides
+                if quota is None:
+                    eq.delete()
+                elif quota > eq.email_quota_hard:
+                    change = True
+                    eq.email_quota_hard = quota
+                    eq.write_db()
+        if not change:
+            return
 
     def create(self, owner_type, owner_id, np_type, creator_id,
                expire_date=None, parent=None, name=None):
@@ -538,41 +545,18 @@ class AccountUiOMixin(Account.Account):
     # dropped. After Exchange migration is completed, this override
     # may be dropped as using super will be sufficient. Jazz (2013-11)
     #
-    def update_email_addresses(self, spread=None):
-        # The "cast" into PosixUser causes this function to be called
-        # twice in the typical case, so the "pre" code must be idempotent.
-
-        # Make sure the email target of this account is associated
-        # with an appropriate email server.  We must do this before
-        # super, since without an email server, no target or address
-        # will be created.
-        if spread == None or spread == self.const.spread_uio_imap:
-            spreads = [r['spread'] for r in self.get_spread()]
-            if self.const.spread_uio_imap in spreads:
-                self._UiO_update_email_server(self.const.email_server_type_cyrus)
-                self.update_email_quota()
-
-            # Avoid circular import dependency
-            from Cerebrum.modules.PosixUser import PosixUser
-
-            # Try getting the PosixUser-promoted version of self.  Failing
-            # that, use self unpromoted.
-            userobj = self
-            if not isinstance(self, PosixUser):
-                try:
-                    # We use the PosixUser object to get access to GECOS.
-                    # TODO: This ought to be in a mixin class for Account
-                    # for installations where both the PosixUser and the
-                    # Email module is in use.  For now we'll just put it
-                    # in the UiO specific code.
-                    tmp = PosixUser(self._db)
-                    tmp.find(self.entity_id)
-                    userobj = tmp
-                except Errors.NotFoundError:
-                    # This Account hasn't been promoted to PosixUser yet.
-                    pass
-            return userobj.__super.update_email_addresses()
-        if spread == self.const.spread_exchange_account:
+    def update_email_addresses(self):
+        spreads = [r['spread'] for r in self.get_spread()]
+        if self.const.spread_uio_imap in spreads:
+            # Make sure the email target of this account is associated
+            # with an appropriate email server.  We must do this before
+            # super, since without an email server, no target or address
+            # will be created.
+            self._UiO_update_email_server(self.const.email_server_type_cyrus)
+            self.update_email_quota(self.const.spread_uio_imap)
+            return self.__super.update_email_addresses()
+        elif self.const.spread_exchange_account in spreads:
+            self.update_email_quota(self.const.spread_exchange_account)
             return self.__super.update_email_addresses()
 
     def is_employee(self):
