@@ -293,8 +293,8 @@ class ExchangeEventHandler(processing.Process):
             # Then for accounts owned by groups
             elif et == self.co.entity_group:
                 first_name = last_name = ''
-                # 'full_name' is really the description :) Ugly, but less code.
-                gname, full_name = self.ut.get_group_information(eid)
+                gname, desc = self.ut.get_group_information(eid)
+                full_name = '%s (owner: %s)' % (uname, gname)
 
                 # TODO: Is this ok?
                 hide_from_address_book = False
