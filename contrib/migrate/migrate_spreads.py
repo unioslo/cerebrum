@@ -91,9 +91,23 @@ def mangle(from_spread, to_spread, file,
         # TODO: We should report if the account does not have the spread
         # we want to remove. We should really raise an error if we try to
         # delete a spread that does not exist on an account...
-        ac.delete_spread(from_spread)
-        ac.add_spread(to_spread)
-        ac.write_db()
+
+        # Use savepoints to handle the cases where a user occours two times
+        # in a file, or a user is remigrated. A savepoint is kind of like a
+        # nested transaction. We do it like this, because it is simpler to
+        # implement, than checking the input-file for duplicates and
+        # existing spreads...
+        try:
+            db.execute('SAVEPOINT migrate_spread')
+            ac.delete_spread(from_spread)
+            ac.add_spread(to_spread)
+        except db.IntegrityError:
+            db.execute('ROLLBACK TO SAVEPOINT migrate_spread')
+            print('%s allready migrated? skipping..' % uname)
+            continue
+        else:
+            db.execute('RELEASE SAVEPOINT migrate_spread')
+            ac.write_db()
 
 # TODO: Factor out this and generalize it! This is a BAD hack
 # We really need to generate some faux events. For example, when a user is
