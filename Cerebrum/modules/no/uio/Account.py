@@ -51,6 +51,7 @@ class AccountUiOMixin(Account.Account):
                and int(self.const.spread_uio_nis_user) not in spreads:
             raise self._db.IntegrityError, \
                   "Can't add ifi spread to an account without uio spread."
+
         # Gather information on present state, to be used later.  Note
         # that this information gathering must be done before we pass
         # control to our superclass(es), as the superclass methods
@@ -79,7 +80,14 @@ class AccountUiOMixin(Account.Account):
                     state['email_server_id'] = et.email_server_id
             except Errors.NotFoundError:
                 pass
-        #
+
+        if spread == self.const.spread_exchange_account:
+            # no account should have both IMAP and Exchange spread at the
+            # same time, as this will create a double mailbox
+            if self.has_spread(self.const.spread_uio_imap):
+                raise self._db.IntegrityError, \
+                    "Can't add Exchange-spread to an account with IMAP-spread."
+
         # (Try to) perform the actual spread addition.
         ret = self.__super.add_spread(spread)
         #
@@ -88,11 +96,6 @@ class AccountUiOMixin(Account.Account):
         # exchange-relatert-jazz
         if spread == self.const.spread_exchange_account:
             # exchange-relatert-jazz
-            # no account should have both IMAP and Exchange spread at the
-            # same time, as this will create a double mailbox
-            if self.has_spread(self.const.spread_uio_imap):
-                raise self._db.IntegrityError, \
-                    "Can't add Exchange-spread to an account with IMAP-spread."
             es = Email.EmailServer(self._db)
             es.clear()
             # we could probably define a cereconf var to hold this
