@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: latin-1 -*-
 
-# Copyright 2007, 2008 University of Oslo, Norway
+# Copyright 2007, 2008, 2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -652,7 +652,7 @@ def add_members(group, member_sequence):
 # end add_members
 
 
-def synchronise_spreads(group, spreads):
+def synchronise_spreads(group, spreads, omit_spreads):
     """Force a specific spread set for group.
 
     Each automatic group must have a specific set of spreads. Exactly that
@@ -666,6 +666,11 @@ def synchronise_spreads(group, spreads):
       A set of tuples, (prefix, spread), where prefix is matched against
       group.group_name. If the value is NotSet, leave the spreads of this
       specific group unchanged.
+    
+    @type omit_spreads: set of tuples (str, const.Spread) or NotSet.
+    @param omit_spreads:
+      A set of tuples, (prefix, spread), where prefix is matched against
+      group.group_name. These spreads are not touched by PAG.
     """
 
     if spreads is NotSet:
@@ -674,9 +679,14 @@ def synchronise_spreads(group, spreads):
     group_name = group.group_name
     own_spreads = set(constants.Spread(x["spread"])
                       for x in group.get_spread())
+    omitted_spreads = set(constants.Spread(x[1])
+                        for x in omit_spreads
+                        if group_name.startswith(x[0]))
     given_spreads = set(constants.Spread(x[1])
                         for x in spreads
                         if group_name.startswith(x[0]))
+    # Exclude ommited spreads, so they don't get touched
+    own_spreads = own_spreads.difference(omitted_spreads)
 
     for spread in given_spreads.difference(own_spreads):
         logger.debug("Assigning spread %s to group %s (id=%s)",
@@ -690,7 +700,8 @@ def synchronise_spreads(group, spreads):
 # end synchronise_spreads
 
 
-def synchronise_groups(groups_from_cerebrum, groups_from_data, spreads):
+def synchronise_groups(groups_from_cerebrum, groups_from_data, spreads,
+                       omit_spreads):
     """Synchronise current in-memory representation of groups with the db.
 
     The groups (through the rules) are built in-memory. This function
@@ -709,6 +720,10 @@ def synchronise_groups(groups_from_cerebrum, groups_from_data, spreads):
     @type spreads: set of tuples
     @param spreads:
       Spreads to assign for our auto-groups.
+    
+    @type omit_spreads: set of tuples
+    @param omit_spreads:
+      Spreads that should not be touched.
 
     @rtype: type(groups_from_cerebrum)
     @return:
@@ -726,7 +741,7 @@ def synchronise_groups(groups_from_cerebrum, groups_from_data, spreads):
             logger.warn("group_id=%s disappeared from Cerebrum.", group_id)
             continue
 
-        synchronise_spreads(group, spreads)
+        synchronise_spreads(group, spreads, omit_spreads)
 
         # select just the entity_ids (we don't care about entity_type)
         group_members = set(int(x["member_id"]) for x in
@@ -869,7 +884,8 @@ def delete_defunct_groups(groups):
 # end delete_defunct_groups
 
 
-def perform_sync(select_criteria, perspective, source_system, spreads):
+def perform_sync(select_criteria, perspective, source_system, spreads,
+                 omit_spread):
     """Set up the environment for synchronisation and synch all groups.
 
     @type select_criteria: a dict (aff/status constant -> str)
@@ -958,7 +974,8 @@ def perform_sync(select_criteria, perspective, source_system, spreads):
             populate_groups_from_rule(primary_generator, row2groups,
                                       current_groups, new_groups)
 
-    current_groups = synchronise_groups(current_groups, new_groups, spreads)
+    current_groups = synchronise_groups(current_groups, new_groups, spreads,
+                                        omit_spread)
 
     # As the last step of synchronisation, empty all groups for which we could
     # find no members.
@@ -1315,6 +1332,10 @@ def usage(exitcode):
                                                # since the prefix is blank and
                                                # will match all groups.
 
+    --omit-spread SPREAD        These spreads will be ommitted from syncronization.
+                                In other words, they won't be touched.
+                                Should be specified in the same way as for --spread.
+
     --remove-all-auto-groups    Delete all auto groups, which means all groups
                                 that has the autogroup trait.
 
@@ -1349,6 +1370,7 @@ def main():
                                    "output-groups",
                                    "filters=",
                                    "spread=",
+                                   "omit-spread=",
                                    "accounts",
                                    "help"))
 
@@ -1362,6 +1384,7 @@ def main():
     output_filters = list()
     const = Factory.get("Constants")()
     spreads = NotSet
+    omit_spreads = NotSet
 
     for option, value in options:
         if option in ("-p", "--perspective"):
@@ -1393,6 +1416,16 @@ def main():
             if spreads is NotSet:
                 spreads = set()
             spreads.add((prefix, spread))
+        elif option in ("--omit-spread"):
+            prefix, spread = value.split(":")
+            spread = const.human2constant(spread, const.Spread)
+            if spread is None:
+                logger.warn("Unknown spread value %s", value)
+                continue
+
+            if omit_spreads is NotSet:
+                omit_spreads = set()
+            omit_spreads.add((prefix, spread))
 
     if output_groups:
         output_group_forest(output_filters, perspective)
@@ -1401,7 +1434,7 @@ def main():
         perform_delete()
     else:
         select_criteria = load_registration_criteria(select_criteria)
-        perform_sync(select_criteria, perspective, source_system, spreads)
+        perform_sync(select_criteria, perspective, source_system, spreads, omit_spreads)
 
     if dryrun:
         database.rollback()
