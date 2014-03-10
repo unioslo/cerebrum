@@ -266,8 +266,6 @@ class AccountUiOMixin(Account.Account):
                     change = True
                     eq.email_quota_hard = quota
                     eq.write_db()
-        if not change:
-            return
 
     def create(self, owner_type, owner_id, np_type, creator_id,
                expire_date=None, parent=None, name=None):
@@ -553,11 +551,11 @@ class AccountUiOMixin(Account.Account):
             # super, since without an email server, no target or address
             # will be created.
             self._UiO_update_email_server(self.const.email_server_type_cyrus)
-            self.update_email_quota(self.const.spread_uio_imap)
+            self.update_email_quota(spread=self.const.spread_uio_imap)
             return self.__super.update_email_addresses()
         elif self.const.spread_exchange_account in spreads:
-            self.update_email_quota(self.const.spread_exchange_account)
-            return self.__super.update_email_addresses()
+            self.__super.update_email_addresses()
+            return self.update_email_quota(spread=self.const.spread_exchange_account)
 
     def is_employee(self):
         for r in self.get_account_types():
