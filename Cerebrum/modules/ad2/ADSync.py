@@ -1097,11 +1097,28 @@ class BaseSync(object):
         for atr in self.config['attributes']:
             value = ent.attributes.get(atr, None)
             ad_value = ad_object.get(atr, None)
-            if self.attribute_mismatch(ent, atr, value, ad_value):
-                self.logger.debug("Mismatch attr for %s: %s: '%s'(%r) (type: %s) -> '%s'(%r) (type: %s)",
-                                  ent.entity_name, atr, ad_value, ad_value,
-                                  type(ad_value), value, value, type(value))
-                ret[atr] = value
+            mismatch, add_elements, remove_elements = \
+                self.attribute_mismatch(ent, atr, value, ad_value)
+            if mismatch:
+                ret[atr] = dict()
+                if add_elements or remove_elements:
+                    self.logger.debug("Mismatch attr for %s: %s.", 
+                                      ent.entity_name, atr)
+                    if add_elements:
+                        self.logger.debug("Have to add '%s' to the attribute",
+                                          '; '.join(add_elements))
+                        ret[atr]['add'] = add_elements
+                    if remove_elements:
+                        self.logger.debug("""Have to remove '%s' """
+                                          """from the attribute""", 
+                                          '; '.join(remove_elements))
+                        ret[atr]['remove'] = remove_elements
+                else:
+                    self.logger.debug("""Mismatch attr for %s: %s: """
+                                      """Need to replace current value '%s' """
+                                      """with a new value '%s'""",
+                                      ent.entity_name, atr, ad_value, value)
+                    ret[atr]['fullupdate'] = value
         return ret
 
     def attribute_mismatch(self, ent, atr, c, a):
@@ -1127,11 +1144,15 @@ class BaseSync(object):
         @type a: mixed
         @param a: The value from AD for the given attribute
 
-        @rtype: bool
+        @rtype: (bool, list, list)
         @return:
-            True if the attribute from Cerebrum and AD does not match and should
-            be updated in AD.
-
+            A tuple of three values.
+            The first value is True if the attribute from Cerebrum and AD 
+            does not match and should be updated in AD.
+            If the attribute is a list and only some of its elements should
+            be updated, the second and the third values list the elements
+            that should be respectively added or removed.
+        
         """
 
         # TODO: Should we care about case sensitivity?
@@ -1140,7 +1161,7 @@ class BaseSync(object):
         # string in AD:
         # TODO: Is this correct after using JSON format?
         if c is None and a == '':
-            return False
+            return (False, None, None)
         # TODO: Should we ignore attributes with extra spaces? AD converts
         # double spaces into single spaces, e.g. GivenName='First  Last' becomes
         # in AD 'First Last'. This is issues that should be fixed in the source
@@ -1151,14 +1172,16 @@ class BaseSync(object):
         # sensitivity should rather be configurable.
         if atr.lower() == 'samaccountname':
             if a is None or c.lower() != a.lower():
-                return True
+                return (True, None, None)
         # Order does not matter in multivalued attributes:
         types = (list, tuple, set)
         if isinstance(c, types) and isinstance(a, types):
             # TODO: Do we in some cases need to unicodify strings before
             # comparement?
-            return list(sorted(c)) != list(sorted(a))
-        return c != a
+            to_add = set(c).difference(a)
+            to_remove = set(a).difference(c)
+            return (to_add or to_remove, list(to_add), list(to_remove))
+        return (c != a, None, None)
 
     def changelog_handle_spread(self, ctype, row):
         """Handler for changelog events of category 'spread'.
@@ -2985,3 +3008,49 @@ class MailTargetSync(BaseSync):
                 ent.maildata['quota_soft'] = row['quota_soft']
                 ent.maildata['quota_hard'] = row['quota_hard']
 
+
+class MailListSync(BaseSync):
+    """Sync for Cerebrum mail lists in AD.
+
+    This contains generic functionality for handling mailing lists for AD, to add more
+    functionality you need to subclass this.
+
+    """
+
+    default_ad_object_class = 'contact'
+
+    def __init__(self, *args, **kwargs):
+        """Instantiate Mail Lists specific functionality."""
+        super(MailListSync, self).__init__(*args, **kwargs)
+        self.mailtarget = Email.EmailTarget(self.db)
+        self.rewrite = Email.EmailDomain(self.db).rewrite_special_domains
+
+    def fetch_cerebrum_entities(self):
+        """Fetch the mailing lists information from Cerebrum, 
+        that should be compared against AD.
+
+        The configuration is used to know what to cache. All data is put in a
+        list, and each entity is put into an object from
+        L{Cerebrum.modules.ad2.CerebrumData} or a subclass, to make it 
+        easier to later compare with AD objects.
+
+        Could be subclassed to fetch more data about each entity to support
+        extra functionality from AD and to override settings.
+
+        """
+        self.logger.debug("Fetching mailing lists information")
+        subset = self.config.get('subset')
+        for row in self.mailtarget.list_email_target_primary_addresses(
+                            target_type = self.co.email_target_Mailman
+                                                                      ):
+            # Filter admin and request mailing lists
+            if row['local_part'].endswith('-admin') or \
+               row['local_part'].endswith('-request'):
+                continue
+            name = ("@".join((row['local_part'], self.rewrite(row['domain']))))
+            # For testing or special cases where we only want to sync a subset
+            # of entities. The subset should contain the entity names, e.g.
+            # usernames or group names.
+            if subset and name not in subset:
+                continue
+            self.entities[name] = self.cache_entity(int(row["target_id"]), name)

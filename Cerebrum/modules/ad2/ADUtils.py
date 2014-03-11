@@ -715,6 +715,63 @@ class ADclient(PowershellClient):
         out = self.run(cmd)
         return not out.get('stderr')
 
+    def _setadobject_command_wrapper(self, ad_id, action, attrs):
+        """Generate and execute a Set-ADObject command on a remote AD server
+        to update the object' attributes.
+
+        @type ad_id: string
+        @param ad_id: The ID of the object whose attributes will be updated.
+        
+        @type action: string
+        @param action: What to perform with the object' attributes.
+
+        @type attrs: list
+        @param attrs: List of attributes to update.
+
+        """
+        cmd = self._generate_ad_command('Set-ADObject', 
+                                        {'Identity' : ad_id, 
+                                         action: attrs})
+        
+        self.logger.debug3("Command: %s" % cmd)
+        if self.dryrun:
+            return True
+
+        # PowerShell commands are executed through Windows command line.
+        # The maximum length of the command there is 8191 
+        # for modern Windows versions (http://support.microsoft.com/kb/830473).
+        # Due to additional parameters that other methods add to the command,
+        # the part of it which is generated here has to be even shorter.
+        # The limit at 8000 bytes seems to be working.
+        if len(cmd) < 8000:
+            out = self.run(cmd)
+            return not out.get('stderr')
+        else:
+            # Strictly speaking, here we have to check if we have to perform
+            # 'Clear' operation, before we go into the loop belove to update 
+            # attributes. However, the only realistic case here is that
+            # the length is exceeded because we have to update too many
+            # elements in the attributes, not to clear them.
+            self.logger.debug3("""Command exceeded the maximum length. """
+                              """Trying to break it into smaller chunks.""")
+            for k, v in attrs.iteritems():
+                # Elements of the list are approximately the same length
+                # 5000 is empyrically chosen to have some length reserve
+                splits = sum(len(elem) for elem in v) / 5000 + 1
+                elems_in_split = len(v) / splits + 1 
+                newattrs = {}
+                for i in range(0, splits):
+                    newattrs[k] = v[i * elems_in_split:(i+1) * elems_in_split]
+                    cmd = self._generate_ad_command('Set-ADObject', 
+                                                    {'Identity' : ad_id, 
+                                                     action: newattrs})
+                    out = self.run(cmd)
+                    if out.get('stderr'):
+                        return False
+                    self.logger.debug3("Attribute %s partially updated." % k)
+                self.logger.debug3("Attribute %s fully updated" % k)
+            return True
+
     def update_attributes(self, ad_id, attributes, old_attributes=None):
         """Update an AD object with the given attributes.
 
@@ -748,69 +805,39 @@ class ADclient(PowershellClient):
 
         """
         self.logger.info(u'Updating attributes for %s: %s' % (ad_id,
-                                                              attributes))
-        # What attributes needs to be cleared before adding the correct attr:
-        clears = set(self.attribute_write_map.get(k, k) for k in attributes)
-                     #if k in old_attributes and old_attributes[k] is not None)
+                                                            attributes.keys()))
 
+        removes = dict()
+        adds = dict()
+        fullupdates = dict()
         # Some attributes are named differently when reading and writing, so we
-        # need to map them properly. Also avoids setting attributes that is set
-        # to None.
-        attrs = dict((self.attribute_write_map.get(k, k), v) for k, v in
-                     attributes.iteritems() if v is not None)
-        if not clears and not attrs:
-            # TODO: Remove this when checked
-            self.logger.warn("No changes - check if this is an error or not")
-            return
+        # need to map them properly.
+        for k, v in attributes.iteritems():
+            if 'remove' in v:
+                removes[self.attribute_write_map.get(k, k)] = v['remove']
+            elif 'add' in v:
+                adds[self.attribute_write_map.get(k, k)] = v['add']
+            else:
+                fullupdates[self.attribute_write_map.get(k, k)] = \
+                    v['fullupdate']
 
-        cmd_params = {'Identity': ad_id}
-        if clears:
-            cmd_params['Clear'] = clears
-        cmds = [self._generate_ad_command('Set-ADObject', cmd_params,
-                                          ['PassThru'])]
-        if attrs:
-            cmds.append(self._generate_ad_command('Set-ADObject', {'Add': attrs}))
-        cmd = ' | '.join(cmds)
-
-        self.logger.debug3("Command: %s" % (cmd,))
-        if self.dryrun:
-            return True
-        
-        # PowerShell commands are executed through Windows command line.
-        # The maximum length of the command there is 8191 
-        # for modern Windows versions (http://support.microsoft.com/kb/830473).
-        # Due to additional parameters that other methods add to the command,
-        # the part of it which is generated here has to be even shorter.
-        # The limit at 8000 bytes seems to be working.
-        if len(cmd) < 8000:
-            out = self.run(cmd)
-            return not out.get('stderr')
-        else:
-            self.logger.debug3("""Command exceeded the maximum length. """
-                              """Trying to break it into smaller chunks.""")
-            # First, execute the original 'Clear' command
-            cmd = self._generate_ad_command('Set-ADObject', cmd_params)
-            out = self.run(cmd)
-            if out.get('stderr'):
+        if removes:
+            if not self._setadobject_command_wrapper(ad_id, 'Remove', removes):
                 return False
-            self.logger.debug3("Cleared the attributes.")
-            for k, v in attrs.iteritems():
-                # Elements of the list are approximately the same length
-                # 5000 is empyrically chosen to have some length reserve
-                splits = sum(len(elem) for elem in v) / 5000 + 1
-                elems_in_split = len(v) / splits + 1 
-                newattrs = {}
-                for i in range(0, splits):
-                    newattrs[k] = v[i * elems_in_split:(i+1) * elems_in_split]
-                    cmd = self._generate_ad_command('Set-ADObject', 
-                                                    {'Identity' : ad_id, 
-                                                     'Add': newattrs})
-                    out = self.run(cmd)
-                    if out.get('stderr'):
-                        return False
-                    self.logger.debug3("Attribute %s partially updated." % k)
-                self.logger.debug3("Attribute %s fully updated" % k)
-            return True
+
+        if adds:
+            if not self._setadobject_command_wrapper(ad_id, 'Add', adds):
+                return False
+
+        if fullupdates:
+            # What attributes need to be cleared before adding the correct attr:
+            clears = set(k for k in fullupdates)
+            if not self._setadobject_command_wrapper(ad_id, 'Clear', clears):
+                return False
+            if not self._setadobject_command_wrapper(ad_id, 'Add', fullupdates):
+                return False
+        
+        return True
                 
 
     def get_ad_attribute(self, adid, attributename):
