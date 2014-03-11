@@ -49,6 +49,7 @@ class HIHCerebrumUser(CerebrumUser):
         """
         CerebrumUser.__init__(self, account_id, owner_id, uname, domain, ou)
         self.contact_mobile_phone = ""
+        self.contact_phone = ""
 
 
     def is_student(self):
@@ -88,7 +89,6 @@ class HIHCerebrumUser(CerebrumUser):
         ad_attrs["ACCOUNTDISABLE"] = self.quarantined
         ad_attrs["userPrincipalName"] = "%s@%s" % (self.uname, self.domain) 
         ad_attrs["title"] = self.title
-        ad_attrs["telephoneNumber"] = self.contact_mobile_phone
         
         if self.is_student():
             ad_attrs["cn"] = self.uname
@@ -96,7 +96,11 @@ class HIHCerebrumUser(CerebrumUser):
                                                           self.ou)
             ad_attrs["homeDirectory"] = cereconf.AD_HOME_DIR_STUDENT % self.uname
             ad_attrs["profilePath"] = cereconf.AD_PROFILE_PATH_STUDENT % self.uname
+            ad_attrs["telephoneNumber"] = self.contact_mobile_phone
         else:
+            ad_attrs["mobile"] = self.contact_mobile_phone
+            ad_attrs["description"] = self.title
+            ad_attrs["telephoneNumber"] = self.contact_phone
             ad_attrs["cn"] = "%s %s" % (self.name_first, self.name_last)
             ad_attrs["distinguishedName"] = "CN=%s %s,%s" % (self.name_first,
                                                              self.name_last,
@@ -155,9 +159,21 @@ class HIHUserSync(UserSync):
         pid2data = {}
         # Get phone number
         for row in self.pe.list_contact_info(source_system=(self.co.system_sap,
-                                                            self.co.system_fs),
+                                                            self.co.system_fs,
+                                                            self.co.system_manual),
                                              entity_type=self.co.entity_person,
-                                             contact_type=self.co.contact_mobile_phone):
+                                             contact_type=(self.co.contact_mobile_phone,
+                                                           self.co.contact_phone)):
+            # Omit phone numbers unless they were registered manually
+            if (row["contact_type"] == self.co.contact_phone) and \
+               (row["source_system"] != self.co.system_manual):
+                continue
+            # Omit mobile phone numbers unless they were registered manually or 
+            # came from student information database
+            if (row["contact_type"] == self.co.contact_mobile_phone) and \
+               (row["source_system"] != self.co.system_manual) and \
+               (row["source_system"] != self.co.system_fs):
+                continue
             pid2data.setdefault(int(row["entity_id"]), {})[
                 int(row["contact_type"])] = row["contact_value"]
         # Get title
@@ -173,6 +189,7 @@ class HIHUserSync(UserSync):
             data = pid2data.get(acc.owner_id)
             if data:
                 acc.contact_mobile_phone = data.get(int(self.co.contact_mobile_phone), "")
+                acc.contact_phone = data.get(int(self.co.contact_phone), "")
                 acc.title = (data.get(int(self.co.personal_title), "") or
                              data.get(int(self.co.work_title), ""))
 
