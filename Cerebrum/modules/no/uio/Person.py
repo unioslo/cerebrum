@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2013 University of Oslo, Norway
+# Copyright 2013-2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -34,6 +34,6 @@ class PersonUiOMixin(Person.Person):
         # this method may be applied to any Cerebrum-instances that
         # use trait_public_reservation
         r = self.get_trait(self.const.trait_public_reservation)
-        if r and r['numval'] != 0:
-            return True
-        return False
+        if r and r['numval'] == 0:
+            return False
+        return True
