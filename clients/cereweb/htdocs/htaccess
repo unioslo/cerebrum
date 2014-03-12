@@ -1,6 +1,0 @@
-Options +Indexes +ExecCGI
-#SetHandler mod_python
-PythonHandler Chandler
-PythonDebug On
-PythonInterpPerDirectory On
-DirectoryIndex Chandler.cgi
