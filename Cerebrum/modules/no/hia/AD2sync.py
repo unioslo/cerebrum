@@ -40,32 +40,6 @@ from Cerebrum.modules.Email import EmailTarget, EmailQuota
 from Cerebrum.modules.ad2.ADSync import UserSync, GroupSync
 from Cerebrum.modules.ad2.CerebrumData import CerebrumUser, CerebrumGroup
 
-class UiAUserSync(UserSync):
-    """UiA specific behaviour for the sync of users."""
-    def attribute_mismatch(self, ent, atr, c, a):
-        """Compare an attribute between Cerebrum and AD.
-
-        Overridden to handle special attributes for UiA.
-
-        The ProxyAddresses attribute is also updated by Office365, with
-        addresses starting with x500. We should ignore such attributes when
-        comparing, to avoid having to update 20000 objects at each run. We
-        should only take care of SMTP addresses.
-
-        TODO: We should rather have this configurable and reusable for other
-        instances, as these problems will probably exist for others too.
-
-        """
-        if atr.lower() == 'proxyaddresses' and c and a:
-            advalues = list(sorted(v for v in a if not v.startswith('x500:')))
-            cevalues = list(sorted(c))
-            match = cevalues != advalues
-            # TODO: remove logging when done debugging
-            self.logger.debug2("Proxy: match=%s", match)
-            self.logger.debug2("    AD: %s", advalues)
-            self.logger.debug2("    C:  %s", cevalues)
-            return match
-        return super(UiAUserSync, self).attribute_mismatch(ent, atr, c, a)
 
 class UiACerebrumUser(CerebrumUser):
     """UiA specific behaviour and attributes for a user object."""

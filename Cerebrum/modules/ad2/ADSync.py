@@ -3054,3 +3054,30 @@ class MailListSync(BaseSync):
             if subset and name not in subset:
                 continue
             self.entities[name] = self.cache_entity(int(row["target_id"]), name)
+
+
+class ProxyAddressesCompare(BaseSync):
+    """Entities that have ProxyAddresses attribute should have a special
+    entity comparison routine.
+    
+    """
+    def attribute_mismatch(self, ent, atr, c, a):
+        """Compare an attribute between Cerebrum and AD.
+
+        Overridden to handle ProxyAddresses specifically.
+
+        The ProxyAddresses attribute is also updated by Office365, with
+        addresses starting with x500. We should ignore such attributes when
+        comparing, to avoid having to update 20000 objects at each run. We
+        should only take care of SMTP addresses.
+
+        TODO: We should rather have this configurable instead of hardcoding it.
+
+        """
+        if atr.lower() == 'proxyaddresses' and c and a:
+            advalues = list(v for v in a if not v.startswith('x500:'))
+            cevalues = list(c)
+            to_add = set(cevalues).difference(advalues)
+            to_remove = set(advalues).difference(cevalues)
+            return (to_add or to_remove, list(to_add), list(to_remove))
+        return super(ProxyAddressesCompare, self).attribute_mismatch(ent, atr, c, a)
