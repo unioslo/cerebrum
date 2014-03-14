@@ -10452,46 +10452,6 @@ Password altered. Use misc list_password to print or view the new password.%s'''
             raise CerebrumError, "Unable to parse person id %r" % arg
         return ret
 
-    def _get_person(self, idtype, id):
-        person = Utils.Factory.get('Person')(self.db)
-        person.clear()
-        try:
-            if str(idtype) == 'account_name':
-                ac = self._get_account(id)
-                id = ac.owner_id
-                idtype = "entity_id"
-            if isinstance(idtype, _CerebrumCode):
-                person.find_by_external_id(idtype, id)
-            elif idtype in ('entity_id', 'id'):
-                if isinstance(id, str) and not id.isdigit():
-                    raise CerebrumError, "Entity id must be a number"
-                person.find(id)
-            else:
-                raise CerebrumError, "Unknown idtype"
-        except Errors.NotFoundError:
-            raise CerebrumError, "Could not find person with %s=%s" % (idtype, id)
-        except Errors.TooManyRowsError:
-            raise CerebrumError, "ID not unique %s=%s" % (idtype, id)
-        return person
-
-    def _map_person_id(self, id):
-        """Map <idtype:id> to const.<idtype>, id.  Recognizes
-        fødselsnummer without <idtype>.  Also recognizes entity_id"""
-        if id.isdigit() and len(id) >= 10:
-            return self.const.externalid_fodselsnr, id
-        if id.find(":") == -1:
-            self._get_account(id)  # We assume this is an account
-            return "account_name", id
-
-        id_type, id = id.split(":", 1)
-        if id_type not in ('entity_id', 'id'):
-            id_type = self.external_id_mappings.get(id_type, None)
-        if id_type is not None:
-            if len(id) == 0:
-                raise CerebrumError, "id cannot be blank"
-            return id_type, id
-        raise CerebrumError, "Unknown person_id type"
-
     def _get_entity_name(self, entity_id, entity_type=None):
         """Fetch a human-friendly name for the specified entity.
 

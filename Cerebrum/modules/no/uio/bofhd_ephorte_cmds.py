@@ -22,7 +22,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum import Cache
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
@@ -63,7 +63,7 @@ class Tilgang(Parameter):
     _type = 'tilgang'
     _help_ref = 'tilgang'
     
-class BofhdExtension(BofhdCommandBase):
+class BofhdExtension(BofhdCommonMethods):
     all_commands = {}
 
     def __new__(cls, *arg, **karg):
@@ -73,7 +73,7 @@ class BofhdExtension(BofhdCommandBase):
              UiOBofhdExtension
 
         for func in ('_format_changelog_entry', '_format_from_cl',
-                     '_format_ou_name', '_get_entity_name', '_get_account'):
+                     '_format_ou_name', '_get_account'):
             setattr(cls, func, UiOBofhdExtension.__dict__.get(func))
         x = object.__new__(cls)
         return x

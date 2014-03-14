@@ -36,6 +36,7 @@ from Cerebrum import Cache
 from Cerebrum import Errors
 from Cerebrum import Entity
 from Cerebrum.Utils import Factory
+from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules import Email
 
@@ -70,12 +71,11 @@ class BofhdCommandBase(object):
 
 
     def __init__(self, server):
-        self._cached_client_commands = Cache.Cache(mixins=[Cache.cache_mru,
-                                                           Cache.cache_slots,
-                                                           Cache.cache_timeout],
-                                                   size=500,
-                                                   timeout=60*60)
-        # 
+        self._cached_client_commands = Cache.Cache(
+            mixins=[Cache.cache_mru, Cache.cache_slots, Cache.cache_timeout],
+            size=500,
+            timeout=60*60)
+        
         # NB! A subclass needs to create its own authenticator.
         self.ba = None
 
@@ -87,13 +87,11 @@ class BofhdCommandBase(object):
         self.OU_class = Factory.get("OU")
         self.Account_class = Factory.get("Account")
         self.Group_class = Factory.get("Group")
-    # end __init__
-
-
+        self.Person_class = Factory.get("Person")
 
     def get_commands(self, account_id):
         """Fetch all available (public) commands for the specified client.
- 
+
         bofhd distiguishes between two types of commands -- public (declared
         in the ``all_commands`` dict) and hidden (available in the
         ``hidden_commands`` dict). This methods fetches all the public
@@ -103,15 +101,15 @@ class BofhdCommandBase(object):
         @param account_id:
           All commands are specified on per-account basis (i.e. superusers get
           a different command set than regular Joes, obviously). account_id
-          specifies which account we retrieve the commands for. 
+          specifies which account we retrieve the commands for.
 
         @rtype: dict of strings (command names) to tuples
         @return:
           Returns a dict mapping command names to tuples with information
           about the command. See cmd_param.py:Command:get_struct()'s
-          documentation. 
-        """
+          documentation.
 
+        """
         try:
             return self._cached_client_commands[int(account_id)]
         except KeyError:
@@ -122,21 +120,18 @@ class BofhdCommandBase(object):
             if cmd is not None:
                 if cmd.perm_filter:
                     if not getattr(self.ba,
-                                   cmd.perm_filter)(account_id, query_run_any=True):
+                                   cmd.perm_filter)(account_id,
+                                                    query_run_any=True):
                         continue
                 commands[key] = cmd.get_struct(self)
 
         self._cached_client_commands[int(account_id)] = commands
         return commands
-    # end get_commands
-
-
 
     def get_help_strings(self):
+        """ Get help strings dicts. """
+        # Must be implemented in subclasses
         return ({}, {}, {})
-    # end get_help_strings
-
-
 
     def get_format_suggestion(self, command):
         """Return a format string for a specific command.
@@ -153,29 +148,27 @@ class BofhdCommandBase(object):
         @return:
           A dict describing the formatting for the specified command. See
           cmd_param.py:FormatSuggestion.get_format().
+
         """
-        
         return self.all_commands[command].get_fs()
-    # end get_format_suggestion
-
-
 
     def _get_boolean(self, onoff):
-        """Convert a human-friendly representation of boolean to the proper
-        Python object.
+        """ String to boolean conversion.
+
+        Convert a human-friendly representation of boolean to the proper Python
+        object.
+
         """
-        
         if onoff.lower() in ('on', 'true', 'yes', 'y'):
             return True
         elif onoff.lower() in ('off', 'false', 'no', 'n'):
             return False
-        raise CerebrumError("Invalid value: '%s'; use one of: on true yes y off false no n" % str(onoff))
-    # end _get_boolean
-
-
+        raise CerebrumError(
+            "Invalid value: '%s'; use one of: on true yes y off false no n" %
+            str(onoff))
 
     def _human_repr2id(self, human_repr):
-        """Convert a human representation of an id, to a suitable pair.
+        """ Convert a human representation of an id, to a suitable pair.
 
         We want to treat ids like these:
 
@@ -194,8 +187,8 @@ class BofhdCommandBase(object):
           A tuple (id_type, identification), where id_type is one of:
           'name', 'id'. It is the caller's responsibility to
           ensure that the given id_type makes sense in the caller's context.
-        """
 
+        """
         if (human_repr is None or human_repr == ""):
             raise CerebrumError("Invalid id: <None>")
 
@@ -224,17 +217,14 @@ class BofhdCommandBase(object):
                                     str(ident))
 
         return id_type, ident
-    # end __human_repr2id
-
-
 
     def _get_entity(self, entity_type=None, ident=None):
-        """Return a suitable entity subclass for the specified entity_id.
+        """ Return a suitable entity subclass for the specified entity_id.
 
         This method is useful when we have entity_id only, but want the most
         specific object for that id.
-        """
 
+        """
         if ident is None:
             raise CerebrumError("Invalid id")
         if entity_type in ('account', self.const.entity_account):
@@ -260,12 +250,9 @@ class BofhdCommandBase(object):
             return ent.get_subclassed_object(entity_id)
 
         raise CerebrumError("Invalid entity type: %s" % str(entity_type))
-    # end _get_entity
-
-    
 
     def _get_ou(self, ou_id=None, stedkode=None):
-        """Fetch a specified OU instance.
+        """ Fetch a specified OU instance.
 
         Either ou_id or stedkode must be provided.
 
@@ -276,8 +263,8 @@ class BofhdCommandBase(object):
         @type stedkode: string (DDDDDD, where D is a digit)
         @param stedkode:
           Stedkode for OU if not None.
-        """
 
+        """
         ou = self.OU_class(self.db)
         ou.clear()
         try:
@@ -292,23 +279,17 @@ class BofhdCommandBase(object):
             return ou
         except Errors.NotFoundError:
             raise CerebrumError("Unknown OU (%s)" %
-                                (ou_id and ("id=%s" % ou_id)
-                                        or ("sko=%s" % stedkode)))
+                                (ou_id and ("id=%s" % ou_id) or
+                                 ("sko=%s" % stedkode)))
 
         assert False, "NOTREACHED"
-    # end _get_ou
 
-
-
-    def _get_account(self, account_id, idtype=None):
-        """Fetch an account identified by account_id.
+    def _get_account(self, account_id, idtype=None, actype="Account"):
+        """ Fetch an account identified by account_id.
 
         Return an Account object associated with the specified
         account_id. Raises an exception if no account matches.
 
-        NB! This method returns a generic Account (rather than, say, a
-        PosixUser instance, as is required for some installations)
-    
         @type account_id: basestring or int
         @param account_id:
           Account identification for the account we want to retrieve. It could
@@ -318,12 +299,22 @@ class BofhdCommandBase(object):
         @param idtype:
           ID type for the account_id specified.
 
+        @type actype: str
+        @param actype: 'Account' or 'PosixAccount'
+
         @rtype: self.Account_class instance l
         @return:
           An account associated with the specified id (or an exception is
           raised if nothing suitable matches)
+
         """
-        account = self.Account_class(self.db)
+        account = None
+        if actype == 'Account':
+            account = self.Account_class(self.db)
+        elif actype == 'PosixAccount':
+            account = Factory.get('PosixUser')(self.db)
+        else:
+            raise CerebrumError("Invalid account type %s" % actype)
         account.clear()
         try:
             if idtype is None:
@@ -342,15 +333,13 @@ class BofhdCommandBase(object):
             raise CerebrumError("Could not find an account with %s=%s" %
                                 (idtype, account_id))
         return account
-    # end _get_account
-
 
     def _get_group(self, group_id, idtype=None):
-        """Fetch a group identified by group_id.
+        """ Fetch a group identified by group_id.
 
         Return a Group object associated with the specified group_id. Raises
         an exception if no such group exists.
-    
+
         @type group_id: basestring or int
         @param group_id:
           Group identification for the account we want to retrieve. It could
@@ -364,8 +353,8 @@ class BofhdCommandBase(object):
         @return:
           A group associated with the specified id (or an exception is raised
           if nothing suitable matches)
-        """
 
+        """
         group = self.Group_class(self.db)
         try:
             if idtype is None:
@@ -381,23 +370,66 @@ class BofhdCommandBase(object):
             raise CerebrumError("Could not find a group with %s=%s" %
                                 (idtype, group_id))
         return group
-    # end _get_group
-
-
 
     def _get_entity_spreads(self, entity_id):
-        """Fetch a human-friendly spread nmae for the specified entity.
-        """
+        """ Fetch a human-friendly spread name for the specified entity. """
 
         entity = self._get_entity(ident=entity_id)
         # FIXME: Is this a sensible default behaviour?
         if not isinstance(entity, Entity.EntitySpread):
             return ""
-        
+
         return ",".join(str(self.const.Spread(x['spread']))
                         for x in entity.get_spread())
-    # end _get_entity_spreads
-        
+
+    def _get_person(self, idtype, id):
+        """ Get person. """
+        # TODO: Normalize the arguments. This should have similar usage to
+        # _get_account, _get_group, ...
+        # Also, document the idtype/id combinations.
+        person = self.Person_class(self.db)
+        person.clear()
+        try:
+            if str(idtype) == 'account_name':
+                ac = self._get_account(id, idtype='name')
+                id = ac.owner_id
+                idtype = "entity_id"
+            if isinstance(idtype, _CerebrumCode):
+                person.find_by_external_id(idtype, id)
+            elif idtype in ('entity_id', 'id'):
+                if isinstance(id, str) and not id.isdigit():
+                    raise CerebrumError, "Entity id must be a number"
+                person.find(id)
+            else:
+                raise CerebrumError, "Unknown idtype"
+        except Errors.NotFoundError:
+            raise CerebrumError, "Could not find person with %s=%s" % (idtype, id)
+        except Errors.TooManyRowsError:
+            raise CerebrumError, "ID not unique %s=%s" % (idtype, id)
+        return person
+
+    def _map_person_id(self, id):
+        """ Map <idtype:id> to const.<idtype>, id.
+
+        Recognizes fødselsnummer without <idtype>.  Also recognizes entity_id.
+
+        """
+        # TODO: This is ugly, and must be fixed with arguments of _get_person
+        # We return arguments that match input args of _get_person
+        if id.isdigit() and len(id) >= 10:
+            return self.const.externalid_fodselsnr, id
+        if id.find(":") == -1:
+            self._get_account(id)  # We assume this is an account
+            return "account_name", id
+
+        id_type, id = id.split(":", 1)
+        if id_type not in ('entity_id', 'id'):
+            id_type = self.external_id_mappings.get(id_type, None)
+        if id_type is not None:
+            if len(id) == 0:
+                raise CerebrumError, "id cannot be blank"
+            return id_type, id
+        raise CerebrumError, "Unknown person_id type"
 
     def _get_name_from_object(self, entity):
         """Return a human-friendly name for the given entity, if such exists.

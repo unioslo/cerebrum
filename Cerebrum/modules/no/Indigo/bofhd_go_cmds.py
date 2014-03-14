@@ -30,22 +30,23 @@ import cereconf
 
 import mx
 import pickle
-import re
+#import re
 
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
-from Cerebrum import Constants
-from Cerebrum import Utils
+#from Cerebrum import Constants
+#from Cerebrum import Utils
 from Cerebrum import Cache
 from Cerebrum import Errors
 from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthRole, \
-                                        BofhdAuthOpSet, BofhdAuthOpTarget
-from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
+    BofhdAuthOpSet, BofhdAuthOpTarget
+#from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
-from Cerebrum.extlib.sets import Set as set
+from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailMixin
+#from Cerebrum.extlib.sets import Set as set
 from Cerebrum.modules.no.Indigo import bofhd_go_help
 
 
@@ -68,15 +69,13 @@ def date_to_string(date):
     return "%04i-%02i-%02i" % (date.year, date.month, date.day)
 
 
-class BofhdExtension(BofhdCommonMethods):
-    Account_class = Factory.get('Account')
-    Group_class = Factory.get('Group')
-    OU_class = Factory.get('OU')
+class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
+
     all_commands = {}
 
     copy_commands = (
-        '_get_account', '_get_person', '_get_disk',
-        '_get_group', '_map_person_id', '_parse_date', '_get_entity',
+        '_get_account', '_get_disk',
+        '_get_group', '_parse_date', '_get_entity',
         'group_user', 'person_list_user_priorities',
         'group_memberships', 'group_search',
         '_entity_info', 'num2str', 'group_list',
@@ -88,14 +87,20 @@ class BofhdExtension(BofhdCommonMethods):
         '_group_add_entity', '_group_count_memberships',
         'spread_add', '_get_constant',
         'misc_clear_passwords', 'person_set_user_priority',
-        'email_add_address', 'email_remove_address',
-        'email_info', '_email_info_basic', '_email_info_account', 
-        '_email_info_spam', '_email_info_forwarding', '_email_info_filters',
 
-        'trait_info', 'trait_list', 'trait_set', 'trait_remove',
+        #'email_add_address', 'email_remove_address',
+        #'email_info', '_email_info_basic', '_email_info_account', 
+        #'_email_info_spam', '_email_info_forwarding', '_email_info_filters',
 
-        '_get_address', '_remove_email_address', '_split_email_address', 
-        '_get_email_domain', )
+        'trait_info', 'trait_list', 'trait_set', 'trait_remove', )
+
+        #'_get_address', '_remove_email_address',
+        #'_split_email_address', '_get_email_domain', )
+
+    # Decide which email mixins to use?
+    email_mixin_commands = ('email_add_address',
+                            'email_remove_address',
+                            'email_info', )
 
     def __new__(cls, *arg, **karg):
         # A bit hackish.  A better fix is to split bofhd_uio_cmds.py
@@ -146,6 +151,10 @@ class BofhdExtension(BofhdCommonMethods):
             if not self.all_commands.has_key(key):
                 self.all_commands[key] = cmd
 
+        # ...and the desired email mixin commands
+        for key in self.email_mixin_commands:
+            self.all_commands[key] = self.default_email_commands[key]
+
 
     def get_help_strings(self):
         return (bofhd_go_help.group_help,
@@ -159,6 +168,7 @@ class BofhdExtension(BofhdCommonMethods):
             pass
         commands = {}
         for k in self.all_commands.keys():
+
             tmp = self.all_commands[k]
             if tmp is not None:
                 if tmp.perm_filter:
@@ -294,40 +304,47 @@ class BofhdExtension(BofhdCommonMethods):
             active.append(row['person_id'])
         return active
 
+    #
+    # user info [username]
+    #
     all_commands['user_info'] = Command(
-        ("user", "info"), AccountName(),
+        ("user", "info"),
+        AccountName(),
         fs=FormatSuggestion("Entity id:      %d\n" +
                             "Owner id:       %d\n" +
                             "Owner type:     %d\n",
                             ("entity_id", "owner_id", "owner_type")))
+
     def user_info(self, operator, entity_id):
+        """ Account info. """
         account = self._get_account(entity_id)
         return {'entity_id': account.entity_id,
                 'owner_id': account.owner_id,
                 'owner_type': account.owner_type}
 
+    # TODO: Interessant... FormatSuggestion stemmer overhode ikke overens med
+    #       data som returneres fra person_info ...
+    #       Denne vil gi NullPointerException i jBofh - fhl
     all_commands['person_info'] = Command(
-        ("person", "info"), PersonId(help_ref="id:target:person"),
+        ("person", "info"),
+        PersonId(help_ref="id:target:person"),
         fs=FormatSuggestion([
-        ("Name:          %s\n" +
-         "Entity-id:     %i\n" +
-         "Birth:         %s\n" +
-         "Spreads:       %s\n" +
-         "Affiliations:  %s [from %s]",
-         ("name", "entity_id", "birth", "spreads",
-          "affiliation_1", "source_system_1")),
-        ("               %s [from %s]",
-         ("affiliation", "source_system")),
-        ("Names:         %s[from %s]",
-         ("names", "name_src")),
-        ("Fnr:           %s [from %s]",
-         ("fnr", "fnr_src")),
-        ("Contact:       %s: %s [from %s]",
-         ("contact_type", "contact", "contact_src")),
-        ("External id:   %s [from %s]",
-         ("extid", "extid_src"))
+            ("Name:          %s\n" +
+             "Entity-id:     %i\n" +
+             "Birth:         %s\n" +
+             "Spreads:       %s\n" +
+             "Affiliations:  %s [from %s]", ("name", "entity_id", "birth",
+                                             "spreads", "affiliation_1",
+                                             "source_system_1")),
+            ("               %s [from %s]", ("affiliation", "source_system")),
+            ("Names:         %s[from %s]", ("names", "name_src")),
+            ("Fnr:           %s [from %s]", ("fnr", "fnr_src")),
+            ("Contact:       %s: %s [from %s]", ("contact_type", "contact",
+                                                 "contact_src")),
+            ("External id:   %s [from %s]", ("extid", "extid_src"))
         ]))
     def person_info(self, operator, person_id):
+        """ Person info for Cweb. """
         try:
             person = self._get_person(*self._map_person_id(person_id))
         except Errors.TooManyRowsError:
@@ -362,6 +379,7 @@ class BofhdExtension(BofhdCommonMethods):
                 data.append({'fnr': row['external_id'],
                              'fnr_src': str(
                     self.const.AuthoritativeSystem(row['source_system']))})
+        print data
         return data
 
 
@@ -709,7 +727,7 @@ class BofhdExtension(BofhdCommonMethods):
             return ou_id
     # end find_school
 
-    
+
     all_commands["get_password_information"] = None
     def get_password_information(self, operator, entity_id):
         """Retrieve information about password changes for entity_id.
@@ -738,15 +756,16 @@ class BofhdExtension(BofhdCommonMethods):
             if owner.entity_type == self.const.entity_person:
                 result["birth_date"] = owner.birth_date
                 # Main affiliation points to school.
-                affs = account.list_accounts_by_type(primary_only=True,
-                                                     person_id=owner.entity_id,
-                                                     account_id=account.entity_id)
+                affs = account.list_accounts_by_type(
+                    primary_only=True,
+                    person_id=owner.entity_id,
+                    account_id=account.entity_id)
                 if affs:
                     ou = self._get_entity(ident=affs[0]["ou_id"])
                     ou_name = ou.get_name_with_language(
-                                     name_variant=self.const.ou_name,
-                                     name_language=self.const.language_nb,
-                                     default="")
+                        name_variant=self.const.ou_name,
+                        name_language=self.const.language_nb,
+                        default="")
                     result["institution_name"] = ou_name
                 else:
                     result["institution_name"] = "n/a"
@@ -769,21 +788,27 @@ class BofhdExtension(BofhdCommonMethods):
                                           **binds))
     # end _format_ou_name
 
-    
-    # this is stripped down version of UiO's, without ldap-functionality.
+
     def _email_info_detail(self, acc):
+        """ Get quotas from Cerebrum, and usage from Cyrus. """
+        # NOTE: Very similar to hiof and uio
+
         info = []
         eq = Email.EmailQuota(self.db)
+
+        # Get quota and usage
         try:
             eq.find_by_target_entity(acc.entity_id)
             et = Email.EmailTarget(self.db)
             et.find_by_target_entity(acc.entity_id)
             es = Email.EmailServer(self.db)
             es.find(et.email_server_id)
+
             if es.email_server_type == self.const.email_server_type_cyrus:
+                used = 'N/A'
+                limit = None
                 pw = self.db._read_password(cereconf.CYRUS_HOST,
                                             cereconf.CYRUS_ADMIN)
-                used = 'N/A'; limit = None
                 try:
                     cyrus = imaplib.IMAP4(es.name)
                     # IVR 2007-08-29 If the server is too busy, we do not want
@@ -801,9 +826,12 @@ class BofhdExtension(BofhdCommonMethods):
                                     used = str(int(qused)/1024)
                                     limit = int(qlimit.rstrip(")"))/1024
                             except ValueError:
-                                # line.split fails e.g. because quota isn't set on server
+                                # line.split fails e.g. because quota isn't set
+                                # on server
                                 folder, junk = line.split()
-                                self.logger.warning("No IMAP quota set for '%s'" % acc.account_name)
+                                self.logger.warning(
+                                    "No IMAP quota set for '%s'" %
+                                    acc.account_name)
                                 used = "N/A"
                                 limit = None
                 except (TimeoutException, socket.error):
@@ -818,107 +846,24 @@ class BofhdExtension(BofhdCommonMethods):
                 if limit is not None and limit != eq.email_quota_hard:
                     info.append({'quota_server': limit})
             else:
+                # Just get quotas
                 info.append({'dis_quota_hard': eq.email_quota_hard,
                              'dis_quota_soft': eq.email_quota_soft})
         except Errors.NotFoundError:
             pass
-
         return info
-
-    # helpers needed for email_info, cannot be copied in the usual way
-    #
-    def __get_email_target_and_account(self, address):
-        """Returns a tuple consisting of the email target associated
-        with address and the account if the target type is user.  If
-        there is no at-sign in address, assume it is an account name.
-        Raises CerebrumError if address is unknown."""
-        et, ea = self.__get_email_target_and_address(address)
-        acc = None
-        if et.email_target_type in (self.const.email_target_account,
-                                    self.const.email_target_deleted):
-            acc = self._get_account(et.email_target_entity_id, idtype='id')
-        return et, acc
-
-    def __get_email_target_and_address(self, address):
-        """Returns a tuple consisting of the email target associated
-        with address and the address object.  If there is no at-sign
-        in address, assume it is an account name and return primary
-        address.  Raises CerebrumError if address is unknown.
-        """
-        et = Email.EmailTarget(self.db)
-        ea = Email.EmailAddress(self.db)
-        if address.count('@') == 0:
-            acc = self.Account_class(self.db)
-            try:
-                acc.find_by_name(address)
-                # FIXME: We can't use Account.get_primary_mailaddress
-                # since it rewrites special domains.
-                et = Email.EmailTarget(self.db)
-                et.find_by_target_entity(acc.entity_id)
-                epa = Email.EmailPrimaryAddressTarget(self.db)
-                epa.find(et.entity_id)
-                ea.find(epa.email_primaddr_id)
-            except Errors.NotFoundError:
-                raise CerebrumError, ("No such address: '%s'" % address)
-        elif address.count('@') == 1:
-            try:
-                ea.find_by_address(address)
-                et.find(ea.email_addr_target_id)
-            except Errors.NotFoundError:
-                raise CerebrumError, "No such address: '%s'" % address
-        else:
-            raise CerebrumError, "Malformed e-mail address (%s)" % address
-        return et, ea
-
-    def __get_address(self, etarget):
-        """The argument can be
-        - EmailPrimaryAddressTarget
-        - EmailAddress
-        - EmailTarget (look up primary address and return that, throw
-        exception if there is no primary address)
-        - integer (use as entity_id and look up that target's
-        primary address)
-        The return value is a text string containing the e-mail
-        address.  Special domain names are not rewritten."""
-        ea = Email.EmailAddress(self.db)
-        if isinstance(etarget, (int, long, float)):
-            epat = Email.EmailPrimaryAddressTarget(self.db)
-            # may throw exception, let caller handle it
-            epat.find(etarget)
-            ea.find(epat.email_primaddr_id)
-        elif isinstance(etarget, Email.EmailTarget):
-            epat = Email.EmailPrimaryAddressTarget(self.db)
-            epat.find(etarget.entity_id)
-            ea.find(epat.email_primaddr_id)
-        elif isinstance(etarget, Email.EmailPrimaryAddressTarget):
-            ea.find(etarget.email_primaddr_id)
-        elif isinstance(etarget, Email.EmailAddress):
-            ea = etarget
-        else:
-            raise ValueError, "Unknown argument (%s)" % repr(etarget)
-        ed = Email.EmailDomain(self.db)
-        ed.find(ea.email_addr_domain_id)
-        return ("%s@%s" % (ea.email_addr_local_part,
-                           ed.email_domain_name))
-
-    def __get_valid_email_addrs(self, et, special=False, sort=False):
-        """Return a list of all valid e-mail addresses for the given
-        EmailTarget.  Keep special domain names intact if special is
-        True, otherwise re-write them into real domain names."""
-        addrs = [(r['local_part'], r['domain'])       
-                 for r in et.get_addresses(special=special)]
-        if sort:
-            addrs.sort(lambda x,y: cmp(x[1], y[1]) or cmp(x[0],y[0]))
-        return ["%s@%s" % a for a in addrs]
-
 
     # Commands for Exchange migration:
 
+    #
+    # user migrate_exchange [username] [mdb]
+    #
     all_commands['user_migrate_exchange'] = Command(
-        ("user", "migrate_exchange"), 
+        ("user", "migrate_exchange"),
         AccountName(help_ref="account_name", repeat=False),
-        SimpleString(help_ref='string_mdb'),        
+        SimpleString(help_ref='string_mdb'),
         perm_filter='is_superuser')
+
     def user_migrate_exchange(self, operator, uname, mdb):
         """Tagging a user as under migration, and setting the new MDB.
 
@@ -934,14 +879,18 @@ class BofhdExtension(BofhdCommonMethods):
         # Set new mdb value
         account.populate_trait(self.const.trait_homedb_info, strval=mdb)
         # Mark that account is being migrated
-        account.populate_trait(self.const.trait_exchange_under_migration)        
+        account.populate_trait(self.const.trait_exchange_under_migration)
         account.write_db()
         return "OK, mdb stored for user %s" % uname
 
+    #
+    # user migrate_exchange_finished
+    #
     all_commands['user_migrate_exchange_finished'] = Command(
-        ("user", "migrate_exchange_finished"), 
+        ("user", "migrate_exchange_finished"),
         AccountName(help_ref="account_name", repeat=True),
         perm_filter='is_superuser')
+
     def user_migrate_exchange_finished(self, operator, uname):
         """Tagging a user as migrated to a newer Exchange version."""
         if not self.ba.is_superuser(operator.get_entity_id()):
@@ -956,4 +905,3 @@ class BofhdExtension(BofhdCommonMethods):
         account.delete_trait(self.const.trait_exchange_under_migration)
         account.write_db()
         return "OK, deleted trait for user %s" % uname
-

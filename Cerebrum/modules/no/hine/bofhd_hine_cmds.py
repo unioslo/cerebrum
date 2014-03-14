@@ -79,17 +79,6 @@ class BofhdExtension(BofhdCommonMethods):
         'access_list', '_get_auth_op_target', '_grant_auth', '_revoke_auth',
         '_get_opset',
         #
-        # copy relevant e-mail-cmds and util methods
-        #
-        # 'email_info', 'email_update', 
-        # '_email_info_spam', '_email_info_filters',
-        #'_email_info_forwarding', '_split_email_address',
-        #'_email_info_mailman', '_email_info_multi', '_email_info_file',
-        #'_email_info_pipe', '_email_info_forward',
-        #'email_add_address', '_get_email_domain', 'email_mod_name',
-        #'email_reassign_address', 'email_remove_address', 
-        #'_split_email_address', '_remove_email_address', 
-        #
         # copy relevant group-cmds and util methods
         #
         'group_add', 'group_gadd', '_group_add', '_group_add_entity',
@@ -137,14 +126,13 @@ class BofhdExtension(BofhdCommonMethods):
         #
         # copy relevant helper-functions
         #
-        '_find_persons', '_format_ou_name', '_get_person', '_get_disk',
-        '_map_person_id', '_entity_info', 'num2str', '_get_affiliationid',
+        '_find_persons', '_format_ou_name', '_get_disk',
+        '_entity_info', 'num2str', '_get_affiliationid',
         '_get_affiliation_statusid', '_parse_date', '_today', 'entity_history',
         '_format_changelog_entry', '_format_from_cl', '_get_group_opcode',
         '_get_constant', '_is_yes', '_remove_auth_target',
         '_remove_auth_role', '_get_cached_passwords', '_parse_date_from_to',
         '_convert_ticks_to_timestamp', '_get_account', '_get_entity',
-        '_get_entity_name'
         )
 
     def __new__(cls, *arg, **karg):
@@ -286,18 +274,6 @@ class BofhdExtension(BofhdCommonMethods):
                                                     'password': passwd})
         return {'account_id': int(account.entity_id)}
     
-    # user delete
-    #
-    all_commands['user_delete'] = Command(
-        ("user", "delete"), AccountName(), perm_filter='can_delete_user')
-    def user_delete(self, operator, accountname):
-        account = self._get_account(accountname)
-        self.ba.can_delete_user(operator.get_entity_id(), account)
-        if account.is_deleted():
-            raise CerebrumError, "User is already deleted"
-        account.deactivate()
-        return "User %s deactivated" % account.account_name
-
     # misc check_password
     all_commands['misc_check_password'] = Command(
         ("misc", "check_password"), AccountPassword())
@@ -374,7 +350,7 @@ class BofhdExtension(BofhdCommonMethods):
                                 "result" %
                                 (cereconf.BOFHD_MAX_MATCHES_ACCESS, len(matches)))
         for row in matches:
-            entity = self._get_entity(id=row["entity_id"])
+            entity = self._get_entity(ident=row["entity_id"])
             etype = str(self.const.EntityType(entity.entity_type))
             ename = self._get_entity_name(entity.entity_id, entity.entity_type)
             tmp = {"entity_id": row["entity_id"],
@@ -432,30 +408,28 @@ class BofhdExtension(BofhdCommonMethods):
                  "code_str": str(x),
                  "description": x.description}
                 for x in self.const.fetch_constants(kls)]
-    # end get_constant_description
-    
+
     def _person_create_externalid_helper(self, person):
         person.affect_external_id(self.const.system_manual,
-                                  self.const.externalid_fodselsnr)    
+                                  self.const.externalid_fodselsnr)
 
+    #
+    # email info [username]
+    #
     all_commands['email_info'] = Command(
         ("email", "info"),
         AccountName(help_ref="account_name", repeat=True),
         perm_filter='can_email_info',
         fs=FormatSuggestion([
-        ("Type:             %s",
-         ("target_type",)),
-        #
-        # target_type == Account
-        #
-        ("Account:          %s\n",
-         ("account",)),
-        ("Primary address:  %s",
-         ("def_addr",)),
+            ("Type:             %s", ("target_type",)),
+            ("Account:          %s", ("account",)),
+            ("Primary address:  %s", ("def_addr",)),
         ]))
+
     def email_info(self, operator, uname):
+        """ email info for an account. """
         acc = self._get_account(uname)
         ret = []
-        ret += [ {'target_type': "Account" } ]
+        ret += [{'target_type': "Account", }, ]
         ret.append({'def_addr': acc.get_primary_mailaddress()})
         return ret

@@ -142,8 +142,8 @@ class BofhdExtension(BofhdCommonMethods):
         #
         # copy relevant helper-functions
         #
-        '_find_persons', '_format_ou_name', '_get_person', '_get_disk',
-        '_map_person_id', '_entity_info', 'num2str', '_get_affiliationid',
+        '_find_persons', '_format_ou_name', '_get_disk',
+        '_entity_info', 'num2str', '_get_affiliationid',
         '_get_affiliation_statusid', '_parse_date', '_today', 'entity_history',
         '_format_changelog_entry', '_format_from_cl', '_get_group_opcode',
         '_get_constant', '_is_yes', '_remove_auth_target',

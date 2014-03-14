@@ -590,9 +590,9 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         # Entity
         'entity_history',
         # Helper functions
-        '_find_persons', '_get_person', '_get_disk', '_get_group', '_get_shell',
+        '_find_persons', '_get_disk', '_get_group', '_get_shell',
         '_get_account', 
-        '_map_person_id', '_entity_info', 'num2str', '_get_affiliationid',
+        '_entity_info', 'num2str', '_get_affiliationid',
         '_get_affiliation_statusid', '_parse_date', '_today',
         '_format_changelog_entry', '_format_from_cl',
         '_get_constant', '_is_yes', '_remove_auth_target', '_remove_auth_role',

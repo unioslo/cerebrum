@@ -17,38 +17,33 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+""" Bofhd for UiA. """
 
-
-
-import mx
-import pickle
 import time
 import os
-import sys
+from mx import DateTime
 
 import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
-from Cerebrum import Constants
 from Cerebrum import Utils
 from Cerebrum import Cache
 from Cerebrum import Errors
 from Cerebrum import Database
 
 from Cerebrum.modules import Email
-from Cerebrum.modules import PosixUser
 from Cerebrum.modules import Note
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.no.hia import bofhd_hia_help
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
+from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailMixin
+from Cerebrum.modules.bofhd.bofhd_email_list import BofhdEmailListMixin
 from Cerebrum.modules.bofhd.utils import BofhdRequests
-from Cerebrum.Constants import _CerebrumCode, _SpreadCode
-from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthOpSet
-from Cerebrum.modules.bofhd.auth import BofhdAuthOpTarget, BofhdAuthRole
+from Cerebrum.Constants import _CerebrumCode
+from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet, BofhdAuthOpTarget, \
+    BofhdAuthRole
 from Cerebrum.modules.no.hia.bofhd_uia_auth import BofhdAuth
-from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
 from Cerebrum.modules.no import fodselsnr
-from mx import DateTime
 from Cerebrum.modules.no.hia.access_FS import FS
 from Cerebrum.modules.templates.letters import TemplateHandler
 
@@ -67,9 +62,8 @@ def date_to_string(date):
     """
     if not date:
         return "<not set>"
-    
-    return "%04i-%02i-%02i" % (date.year, date.month, date.day)
 
+    return "%04i-%02i-%02i" % (date.year, date.month, date.day)
 
 # Parameter class for mobile phone number
 # FIXME: Refers help text in bofhd_core_help
@@ -78,10 +72,10 @@ class Mobile(Parameter):
     _help_ref = 'mobile_phone'
 
 
-class BofhdExtension(BofhdCommonMethods):
-    OU_class = Utils.Factory.get('OU')
-    Account_class = Factory.get('Account')
-    Group_class = Factory.get('Group')
+class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin, BofhdEmailListMixin):
+
+    """ The main UiA BofhdExtension. """
+
     external_id_mappings = {}
     all_commands = {}
     hidden_commands = {}
@@ -103,15 +97,15 @@ class BofhdExtension(BofhdCommonMethods):
         #
         # copy relevant group-cmds and util methods
         #
-        'group_add', 'group_gadd', 'group_padd', '_group_add', '_group_add_entity',
-        '_group_count_memberships', 'group_add_entity',
+        'group_add', 'group_gadd', 'group_padd', '_group_add',
+        '_group_add_entity', '_group_count_memberships', 'group_add_entity',
         'group_def', 'group_delete', 'group_remove', 'group_gremove',
         '_group_remove', '_group_remove_entity', 'group_remove_entity',
         'group_demote_posix', 'group_promote_posix', 'group_info',
-        'group_list', 'group_list_expanded', 'group_search', 'group_set_description',
-        'group_memberships', '_get_group', '_get_group_opcode',
-        'group_personal', 'group_set_expire', 'group_set_visibility',
-        '_fetch_member_names',
+        'group_list', 'group_list_expanded', 'group_search',
+        'group_set_description', 'group_memberships', '_get_group',
+        '_get_group_opcode', 'group_personal', 'group_set_expire',
+        'group_set_visibility', '_fetch_member_names',
         #
         # copy relevant misc-cmds and util methods
         #
@@ -154,29 +148,6 @@ class BofhdExtension(BofhdCommonMethods):
         #
         'spread_list', 'spread_add', 'spread_remove',
         #
-        # copy relevant email-functions and util methods
-        #
-        'email_add_address', 'email_remove_address', '_remove_email_address',
-        'email_add_filter', 'email_remove_filter', 'email_create_list_alias',
-        'email_remove_list_alias', 'email_spam_action', 'email_spam_level',
-        'email_reassign_address', 'email_forward', 'email_add_forward',
-        'email_remove_forward','_check_email_address', '_forward_exists',
-        'email_info', '_email_info_account', '_email_info_basic', '_email_info_spam',
-        '_email_info_filters', '_email_info_forwarding', '_split_email_address',
-        '_email_info_mailman', '_email_info_multi', '_email_info_file',
-        '_email_info_pipe', '_email_info_forward', 'email_create_domain',
-        'email_domain_configuration', 'email_domain_info', 'email_add_domain_affiliation',
-        'email_remove_domain_affiliation', 'email_create_forward_target', 'email_create_list',
-        'email_delete_list', 'email_quota', 'email_tripnote',
-        'email_list_tripnotes', 'email_add_tripnote', 'email_remove_tripnote',
-        'email_update', '_get_email_domain', '_onoff', '_register_spam_settings',
-        '_register_filter_settings', '_find_tripnote', '_sync_category',
-        '_has_category', '_update_email_for_ou', '_is_ok_mailman_name',
-        '_register_list_addresses', '_register_mailman_list_addresses',
-        '_email_delete_list', '_check_mailman_official_name',
-        '_get_mailman_list', '_create_mailing_list_in_cerebrum', '_is_ok_mailing_list_name',
-        '_email_info_contact_info',
-        #
         # copy trait-functions
         #
         'trait_info', 'trait_list', 'trait_remove', 'trait_set',
@@ -189,7 +160,7 @@ class BofhdExtension(BofhdCommonMethods):
         # copy relevant helper-functions
         #
          '_find_persons', '_get_account', '_format_ou_name',
-        '_get_person', '_get_disk', '_get_group', '_map_person_id', '_get_entity',
+        '_get_disk', '_get_group', '_get_entity',
         '_entity_info', 'num2str', '_get_affiliationid',
         '_get_affiliation_statusid', '_parse_date', '_today',
         '_format_changelog_entry', '_format_from_cl',
@@ -198,6 +169,34 @@ class BofhdExtension(BofhdCommonMethods):
         '_remove_auth_role', '_get_cached_passwords', '_parse_date_from_to',
         '_convert_ticks_to_timestamp'
         )
+
+    # Decide which email mixins to use?
+    email_mixin_commands = ('email_add_address', 'email_remove_address',
+                            'email_reassign_address',
+                            'email_set_primary_address',
+                            # Domain
+                            'email_create_domain', 'email_domain_info',
+                            'email_domain_configuration',
+                            'email_add_domain_affiliation',
+                            'email_remove_domain_affiliation',
+                            # Filter
+                            'email_add_filter', 'email_remove_filter',
+                            # Forward
+                            'email_add_forward', 'email_create_forward',
+                            'email_remove_forward',
+                            # Spam
+                            'email_spam_action', 'email_spam_level',
+                            # Tripnote
+                            'email_tripnote', 'email_add_tripnote',
+                            'email_list_tripnotes', 'email_remove_tripnote',
+                            # Generic
+                            'email_forward', 'email_info', 'email_move',
+                            'email_quota', 'email_update', )
+
+    # Decide which email mixins to use?
+    email_list_mixin_commands = ('email_create_list', 'email_delete_list',
+                                 'email_create_list_alias',
+                                 'email_remove_list_alias', )
 
     def __new__(cls, *arg, **karg):
         # A bit hackish.  A better fix is to split bofhd_uio_cmds.py
@@ -247,13 +246,17 @@ class BofhdExtension(BofhdCommonMethods):
         for key, cmd in super(BofhdExtension, self).all_commands.iteritems():
             if not self.all_commands.has_key(key):
                 self.all_commands[key] = cmd
-    # end __init__
 
+        # ...and the desired email mixin commands
+        for key in self.email_mixin_commands:
+            self.all_commands[key] = self.default_email_commands[key]
 
+        # ...and the desired email list mixin commands
+        for key in self.email_list_mixin_commands:
+            self.all_commands[key] = self.default_email_list_commands[key]
 
     def get_help_strings(self):
-	   return bofhd_hia_help.get_help_strings(self)
-    
+        return bofhd_hia_help.get_help_strings(self)
 
     # helpers needed for spread_add, cannot be copied in the usual way
     #
@@ -263,7 +266,7 @@ class BofhdExtension(BofhdCommonMethods):
         arguments may be passed as Entity objects.  If group is None,
         the group with the same name as account is modified, if it
         exists."""
-        
+
         if account.np_type or account.owner_type == self.const.entity_group:
             return
 
@@ -319,92 +322,6 @@ class BofhdExtension(BofhdCommonMethods):
                 group.delete_spread(spread)
         for spread in wanted:
             group.add_spread(spread)
-            
-    # helpers needed for email_info, cannot be copied in the usual way
-    #
-    def __get_valid_email_addrs(self, et, special=False, sort=False):
-        """Return a list of all valid e-mail addresses for the given
-        EmailTarget.  Keep special domain names intact if special is
-        True, otherwise re-write them into real domain names."""
-        addrs = [(r['local_part'], r['domain'])       
-                 for r in et.get_addresses(special=special)]
-        if sort:
-            addrs.sort(lambda x,y: cmp(x[1], y[1]) or cmp(x[0],y[0]))
-        return ["%s@%s" % a for a in addrs]
-
-    def __get_email_target_and_address(self, address):
-        """Returns a tuple consisting of the email target associated
-        with address and the address object.  If there is no at-sign
-        in address, assume it is an account name and return primary
-        address.  Raises CerebrumError if address is unknown.
-        """
-        et = Email.EmailTarget(self.db)
-        ea = Email.EmailAddress(self.db)
-        if address.count('@') == 0:
-            acc = self.Account_class(self.db)
-            try:
-                acc.find_by_name(address)
-                # FIXME: We can't use Account.get_primary_mailaddress
-                # since it rewrites special domains.
-                et = Email.EmailTarget(self.db)
-                et.find_by_target_entity(acc.entity_id)
-                epa = Email.EmailPrimaryAddressTarget(self.db)
-                epa.find(et.entity_id)
-                ea.find(epa.email_primaddr_id)
-            except Errors.NotFoundError:
-                raise CerebrumError, ("No such address: '%s'" % address)
-        elif address.count('@') == 1:
-            try:
-                ea.find_by_address(address)
-                et.find(ea.email_addr_target_id)
-            except Errors.NotFoundError:
-                raise CerebrumError, "No such address: '%s'" % address
-        else:
-            raise CerebrumError, "Malformed e-mail address (%s)" % address
-        return et, ea
-
-    def __get_email_target_and_account(self, address):
-        """Returns a tuple consisting of the email target associated
-        with address and the account if the target type is user.  If
-        there is no at-sign in address, assume it is an account name.
-        Raises CerebrumError if address is unknown."""
-        et, ea = self.__get_email_target_and_address(address)
-        acc = None
-        if et.email_target_type in (self.const.email_target_account,
-                                    self.const.email_target_deleted):
-            acc = self._get_account(et.email_target_entity_id, idtype='id')
-        return et, acc
-    
-    def __get_address(self, etarget):
-        """The argument can be
-        - EmailPrimaryAddressTarget
-        - EmailAddress
-        - EmailTarget (look up primary address and return that, throw
-        exception if there is no primary address)
-        - integer (use as entity_id and look up that target's
-        primary address)
-        The return value is a text string containing the e-mail
-        address.  Special domain names are not rewritten."""
-        ea = Email.EmailAddress(self.db)
-        if isinstance(etarget, (int, long, float)):
-            epat = Email.EmailPrimaryAddressTarget(self.db)
-            # may throw exception, let caller handle it
-            epat.find(etarget)
-            ea.find(epat.email_primaddr_id)
-        elif isinstance(etarget, Email.EmailTarget):
-            epat = Email.EmailPrimaryAddressTarget(self.db)
-            epat.find(etarget.entity_id)
-            ea.find(epat.email_primaddr_id)
-        elif isinstance(etarget, Email.EmailPrimaryAddressTarget):
-            ea.find(etarget.email_primaddr_id)
-        elif isinstance(etarget, Email.EmailAddress):
-            ea = etarget
-        else:
-            raise ValueError, "Unknown argument (%s)" % repr(etarget)
-        ed = Email.EmailDomain(self.db)
-        ed.find(ea.email_addr_domain_id)
-        return ("%s@%s" % (ea.email_addr_local_part,
-                           ed.email_domain_name))
 
     def _email_info_detail(self, acc):
         info = []
@@ -507,36 +424,28 @@ class BofhdExtension(BofhdCommonMethods):
     all_commands['person_info'] = Command(
         ("person", "info"), PersonId(help_ref="id:target:person"),
         fs=FormatSuggestion([
-        ("Name:          %s\n" +
-         "Entity-id:     %i\n" +
-         "Birth:         %s\n" +
-         "Affiliations:  %s [from %s]",
-         ("name", "entity_id", "birth",
-          "affiliation_1", "source_system_1")),
-        ("               %s [from %s]",
-         ("affiliation", "source_system")),
-        ("Names:         %s[from %s]",
-         ("names", "name_src")),
-        ("Fnr:           %s [from %s]",
-         ("fnr", "fnr_src")),
-        ("External id:   %s [from %s]",
-         ("extid", "extid_src")),
-        ("Mobile:        %s [from %s]",
-         ("mobile", "mobile_src")),
-        ("Telephone:     %s [from %s]",
-         ("phone", "phone_src")),
-        ("Address:       %s",
-         ("address_line_1",)),
-        ("               %s",
-         ("address_line",)),
-        ("               %s %s",
-         ("address_zip", "address_city")),
-        ("               %s [from %s]",
-         ("address_country", 'address_source')),
-        ("Office:        %s Room: %s [from %s]",
-         ("office_code", "office_room", "office_source")),
-        ("Contact:       %s: %s [from %s]",
-         ("contact_type", "contact", "contact_src")),
+            ("Name:          %s\n" +
+             "Entity-id:     %i\n" +
+             "Birth:         %s\n" +
+             "Affiliations:  %s [from %s]", ("name", "entity_id", "birth",
+                                             "affiliation_1",
+                                             "source_system_1")),
+            ("               %s [from %s]", ("affiliation", "source_system")),
+            ("Names:         %s [from %s]", ("names", "name_src")),
+            ("Fnr:           %s [from %s]", ("fnr", "fnr_src")),
+            ("External id:   %s [from %s]", ("extid", "extid_src")),
+            ("Mobile:        %s [from %s]", ("mobile", "mobile_src")),
+            ("Telephone:     %s [from %s]", ("phone", "phone_src")),
+            ("Address:       %s", ("address_line_1",)),
+            ("               %s", ("address_line",)),
+            ("               %s %s", ("address_zip", "address_city")),
+            ("               %s [from %s]", ("address_country",
+                                             'address_source')),
+            ("Office:        %s Room: %s [from %s]", ("office_code",
+                                                      "office_room",
+                                                      "office_source")),
+            ("Contact:       %s: %s [from %s]", ("contact_type", "contact",
+                                                 "contact_src")),
         ]))
     def person_info(self, operator, person_id):
         try:
@@ -1535,16 +1444,24 @@ class BofhdExtension(BofhdCommonMethods):
 
         return None
 
-
-    ## user send_welcome_sms
+    #
+    # user send_welcome_sms <accountname> [<mobile override>]
     #
     all_commands['user_send_welcome_sms'] = Command(
         ("user", "send_welcome_sms"),
         AccountName(help_ref="account_name", repeat=False),
         Mobile(optional=True),
-        fs=FormatSuggestion([('Ok, message sent to %s', ('mobile',)),]),
+        fs=FormatSuggestion([('Ok, message sent to %s', ('mobile',)), ]),
         perm_filter='can_send_welcome_sms')
+
     def user_send_welcome_sms(self, operator, username, mobile=None):
+        """ Send a (new) welcome SMS to a user.
+
+        Optional mobile override, if what's registered in Cerebrum is wrong or
+        missing. Override must be permitted in the cereconf setting
+        BOFHD_ALLOW_MANUAL_MOBILE.
+
+        """
         sms = Utils.SMSSender(logger=self.logger)
         account = self._get_account(username)
         # Access Control
@@ -1564,13 +1481,14 @@ class BofhdExtension(BofhdCommonMethods):
             raise CerebrumError("User is not a personal account")
         # Look up the mobile number
         if not mobile:
-            phone_types = [(self.const.system_fs, 
+            phone_types = [(self.const.system_fs,
                             self.const.contact_mobile_phone),
                            (self.const.system_sap,
                             self.const.contact_mobile_phone)]
             mobile = self._get_phone_number(account.owner_id, phone_types)
             if not mobile:
-               raise CerebrumError("No mobile phone number for '%s'" % username)
+                raise CerebrumError("No mobile phone number for '%s'" %
+                                    username)
         # Get primary e-mail address, if it exists
         mailaddr = ''
         try:
@@ -1579,7 +1497,7 @@ class BofhdExtension(BofhdCommonMethods):
             pass
         # NOTE: There's no need to supply the 'email' entry at the moment,
         # but contrib/no/send_welcome_sms.py does it as well
-        message = cereconf.AUTOADMIN_WELCOME_SMS % {"username": username, 
+        message = cereconf.AUTOADMIN_WELCOME_SMS % {"username": username,
                                                     "email": mailaddr}
         if not sms(mobile, message):
             raise CerebrumError("Could not send SMS to %s" % mobile)
@@ -1596,121 +1514,19 @@ class BofhdExtension(BofhdCommonMethods):
             account.write_db()
         return {'mobile': mobile}
 
-
-    # email set_primary_address account lp@dom
     #
-    all_commands['email_set_primary_address'] = Command(
-        ("email", "set_primary_address"), 
-        AccountName(help_ref="account_name", repeat=False),
-        EmailAddress(help_ref='email_address', repeat=False),
-        perm_filter='is_superuser')
-    def email_set_primary_address(self, operator, uname, address):
-        et, acc = self.__get_email_target_and_account(uname)
-        ea = Email.EmailAddress(self.db)
-        if address == '':
-            return "Primary address cannot be an empty string!"
-        lp, dom = address.split('@')
-        ed = self._get_email_domain(dom)
-        ea.clear()
-        try:
-            ea.find_by_address(address)
-            if ea.email_addr_target_id <> et.entity_id:
-                raise CerebrumError, "Address (%s) is in use by another user" % address
-        except Errors.NotFoundError:
-            pass
-        ea.populate(lp, ed.entity_id, et.entity_id)
-        ea.write_db()
-        epat = Email.EmailPrimaryAddressTarget(self.db)
-        epat.clear()
-        try:
-            epat.find(ea.email_addr_target_id)
-            epat.populate(ea.entity_id)
-        except Errors.NotFoundError:
-            epat.clear()
-            epat.populate(ea.entity_id, parent = et)
-        epat.write_db()
-        return "Registered %s as primary address for %s" % (address, uname)
-
-    # email find all list targets
-    #
-    def __get_all_related_maillist_targets(self, address):
-        """This method locates and returns all ETs associated with the same ML.
-
-        Given any address associated with a ML, this method returns all the
-        ETs associated with that ML. E.g.: 'foo-subscribe@domain' for a Sympa
-        ML will result in returning the ETs for 'foo@domain',
-        'foo-owner@domain', 'foo-request@domain', 'foo-editor@domain',
-        'foo-subscribe@domain' and 'foo-unsubscribe@domain'
-
-        If address (EA) is not associated with a mailing list ET, this method
-        raises an exception. Otherwise a list of ET entity_ids is returned.
-
-        @type address: basestring
-        @param address:
-          One of the mail addresses associated with a mailing list.
-
-        @rtype: sequence (of ints)
-        @return:
-          A sequence with entity_ids of all ETs related to the ML that address
-          is related to.
-        """
-
-        # step 1, find the ET, check its type.
-        et, ea = self.__get_email_target_and_address(address)
-        # Mapping from ML types to (x, y)-tuples, where x is a callable that
-        # fetches the ML's official/main address, and y is a set of patterns
-        # for EAs that are related to this ML.
-        ml2action = {
-            int(self.const.email_target_Mailman):
-                (self._get_mailman_list,
-                 [x[0] for x in self._interface2addrs.values()])
-            }
-
-        if int(et.email_target_type) not in ml2action:
-            raise CerebrumError("'%s' is not associated with a mailing list" %
-                                address)
-            
-        result = []
-        get_official_address, patterns = ml2action[int(et.email_target_type)]
-        # step 1, get official ML address (i.e. foo@domain)
-        official_ml_address = get_official_address(ea.get_address())
-        ea.clear()
-        ea.find_by_address(official_ml_address)
-        et.clear()
-        et.find(ea.get_target_id())
-
-        # step 2, get local_part and domain separated:
-        local_part, domain = self._split_email_address(official_ml_address)
-
-        # step 3, generate all 'derived'/'administrative' addresses, and
-        # locate their ETs.
-        result = set([et.entity_id,])
-        for pattern in patterns:
-            address = pattern % {"local_part": local_part, "domain": domain}
-
-            # some of the addresses may be missing. It is not an error.
-            try:
-                ea.clear()
-                ea.find_by_address(address)
-            except Errors.NotFoundError:
-                continue
-
-            result.add(ea.get_target_id())
-
-        return result
-    # end __get_all_related_maillist_targets
-
     # group multi_remove
+    #
     all_commands['group_multi_remove'] = Command(
-        ("group", "multi_remove"), 
+        ("group", "multi_remove"),
         MemberType(help_ref='member_type', default='account'),
         MemberName(help_ref="member_name_src", repeat=True),
         GroupName(help_ref="group_name_dest", repeat=True),
         perm_filter='can_alter_group')
+
     def group_multi_remove(self, operator, member_type, src_name, dest_group):
-        '''Removes a person, account or group from a given group.'''
+        """ Remove a person, account or group from a given group. """
         if member_type not in ('group', 'account', 'person'):
             return 'Unknown member_type "%s"' % (member_type)
         return self._group_remove(operator, src_name, dest_group,
                                   member_type=member_type)
-

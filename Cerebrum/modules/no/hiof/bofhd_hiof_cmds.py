@@ -54,10 +54,9 @@ class BofhdExtension(BofhdCommonMethods):
         #
         # copy relevant user_create related methods
         #
-        '_find_persons', '_get_person', '_get_account',
-        '_format_ou_name', '_user_create_set_account_type','_get_group',
-        '_get_constant', '_parse_date', '_get_entity_name',
-        'misc_list_requests', 'misc_cancel_request',
+        '_find_persons', '_get_account', '_format_ou_name',
+        '_user_create_set_account_type','_get_group', '_get_constant',
+        '_parse_date', 'misc_list_requests', 'misc_cancel_request',
         #
         # copy relevant ou-cmds and util methods
         #
@@ -469,9 +468,12 @@ class BofhdExtension(BofhdCommonMethods):
             try:
                 account.add_spread(self.const.Spread(spread))
             except Errors.NotFoundError:
-                raise CerebrumError, "No such spread %s" % spread                    
+                raise CerebrumError("No such spread: %s" % spread)
         account.write_db()
-        account._update_email_server(email_server)
+        try:
+            account._update_email_server(email_server)
+        except Errors.NotFoundError:
+            raise CerebrumError("No such email server: %s" % email_server)
         passwd = account.make_passwd(uname)
         account.set_password(passwd)
         try:
@@ -481,7 +483,7 @@ class BofhdExtension(BofhdCommonMethods):
                 self._user_create_set_account_type(
                     account, person.entity_id, ou_id, affiliation)
         except self.db.DatabaseError, m:
-            raise CerebrumError, "Database error: %s" % m
+            raise CerebrumError("Database error: %s" % m)
         operator.store_state("new_account_passwd", {'account_id': int(account.entity_id),
                                                     'password': passwd})
         return {'account_id': int(account.entity_id)}
