@@ -842,6 +842,8 @@ class EmailTarget(Entity_class):
 
         if where:
             where = "WHERE " + " AND ".join(where)
+        else:
+            where = ''
  
         return self.query("""
         SELECT et.target_id, et.target_entity_id, ea.local_part, ed.domain,
