@@ -1023,22 +1023,23 @@ class ExchangeEventHandler(processing.Process):
         # Remove from group type according to spread
 
         # Check to see if we should do something with this member
-        try:
-            et = self.ut.get_entity_type(event['subject_entity'])
-            if not et == self.co.entity_account:
-                raise Errors.NotFoundError
-            # If we can't find a person with this entity id, we silently
-            # discard the event by doing nothing
-        except Errors.NotFoundError:
+        et = self.ut.get_entity_type(event['subject_entity'])
+        if et == self.co.entity_account:
+            uname = self.ut.get_account_name(event['subject_entity'])
+            aid = event['subject_entity']
+        elif et == self.co.entity_person:
+            aid = self.ut.get_primary_account(event['subject_entity'])
+            uname = self.ut.get_account_name(aid)
+        else:
+            # Can't handle this memeber type
             raise EntityTypeError
 
         group_spreads = self.ut.get_group_spreads(event['dest_entity'])
-        uname = self.ut.get_account_name(event['subject_entity'])
         gname, description = self.ut.get_group_information(event['dest_entity'])
         
         # If the users does not have an AD-spread, it should never end
         # up in a group!
-        member_spreads = self.ut.get_account_spreads(event['subject_entity'])
+        member_spreads = self.ut.get_account_spreads(aid)
 
         # Can't stuff that user into the group ;)
         if not self.mb_spread in member_spreads:
@@ -1077,21 +1078,22 @@ class ExchangeEventHandler(processing.Process):
         group_spreads = self.ut.get_group_spreads(event['dest_entity'])
         
         # Check to see if we should do something with this member
-        try:
-            et = self.ut.get_entity_type(event['subject_entity'])
-            if not et == self.co.entity_account:
-                raise Errors.NotFoundError
-            # If we can't find a person with this entity id, we silently
-            # discard the event by doing nothing
-        except Errors.NotFoundError:
+        et = self.ut.get_entity_type(event['subject_entity'])
+        if et == self.co.entity_account:
+            uname = self.ut.get_account_name(event['subject_entity'])
+            aid = event['subject_entity']
+        elif et == self.co.entity_person:
+            aid = self.ut.get_primary_account(event['subject_entity'])
+            uname = self.ut.get_account_name(aid)
+        else:
+            # Can't handle this memeber type
             raise EntityTypeError
-        
-        uname = self.ut.get_account_name(event['subject_entity'])
+
         gname, description = self.ut.get_group_information(event['dest_entity'])
 
         # If the users does not have an AD-spread, we can't remove em. Or can we?
         # TODO: Figure this out
-        member_spreads = self.ut.get_account_spreads(event['subject_entity'])
+        member_spreads = self.ut.get_account_spreads(aid)
 
         # Can't remove that user into the group ;)
         if not self.mb_spread in member_spreads:
