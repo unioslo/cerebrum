@@ -48,14 +48,6 @@ from Cerebrum.modules.EntityTrait import \
 from Cerebrum.modules.bofhd.utils import \
      _AuthRoleOpCode
 
-class ConstantsExchange(Constants.Constants):
-    spread_exchange_account = _SpreadCode('exchange_acc@uio',
-                                          Constants.Constants.entity_account,
-                                          'An account with an Exchange-mailbox at UiO')
-    spread_exchange_group = _SpreadCode('exch_group@uio',
-                                          Constants.Constants.entity_group,
-                                          'A mail enabled security group for Exchange')
-
 class Constants(Constants.Constants):
     system_lt = _AuthoritativeSystemCode('LT', 'LT')
     system_ureg = _AuthoritativeSystemCode('Ureg', 'Migrerte data, utdatert')
@@ -317,6 +309,15 @@ class Constants(Constants.Constants):
     spread_uio_ad_group = _SpreadCode('AD_group', Constants.Constants.entity_group, 'Group included in Active Directory at UiO')
     spread_uio_ua = _SpreadCode('UA@uio', Constants.Constants.entity_person,
                                 'Person exported to UA')
+
+    # Spreads for Exchange
+    spread_exchange_account = _SpreadCode('exchange_acc@uio',
+                                          Constants.Constants.entity_account,
+                                          'An account with an Exchange-mailbox at UiO')
+    spread_exchange_group = _SpreadCode('exch_group@uio',
+                                          Constants.Constants.entity_group,
+                                          'A mail enabled security group for Exchange')
+
     # exchange-related-jazz
     # this code should be removed from the cerebrum-db as soon as
     # migration to Exchange is completed. Removal will serve two

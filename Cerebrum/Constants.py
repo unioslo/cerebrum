@@ -636,12 +636,6 @@ class _AuthoritativeSystemCode(_CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=authoritative_system_code]'
     pass
 
-class _TargetSystemCode(_CerebrumCode):
-
-    "Mappings stored in the target_system_code table"
-    _lookup_table = '[:table schema=cerebrum name=target_system_code]'
-    pass
-
 class _OUPerspectiveCode(_CerebrumCode):
 
     "Mappings stored in the ou_perspective_code table"
@@ -1065,14 +1059,6 @@ class CommonConstants(ConstantsBase):
     work_title = _EntityNameCode('WORKTITLE', "Person's work title",
                                  {"nb": "Arbeidstittel",
                                   "en": "Work title", },)
-    # exchange-relatert-jazz
-    # using entity_language_name in order to support display
-    # names in various languages if that should be required at 
-    # some point
-    dl_group_displ_name = _EntityNameCode("DL display name", 
-                                    "DL-group display name",
-                                    {"nb": "Fremvisningsnavn",
-                                     "en": "Display Name", })
 
     ou_name = _EntityNameCode("OU name", "OU name",
                               {"nb": "Stedsnavn",
@@ -1120,7 +1106,6 @@ class Constants(CoreConstants, CommonConstants):
     PersonAffiliation = _PersonAffiliationCode
     PersonAffStatus = _PersonAffStatusCode
     AuthoritativeSystem = _AuthoritativeSystemCode
-    TargetSystem = _TargetSystemCode
     OUPerspective = _OUPerspectiveCode
     Account = _AccountCode
     AccountHomeStatus = _AccountHomeStatusCode
@@ -1131,10 +1116,6 @@ class Constants(CoreConstants, CommonConstants):
     Quarantine = _QuarantineCode
     LanguageCode = _LanguageCode
     EntityNameCode = _EntityNameCode
-
-class TargetSystemConstants(Constants):
-    target_system_exchange = _TargetSystemCode('Exchange',
-            'Exchange as an destination system')
 
 class ExampleConstants(Constants):
 
