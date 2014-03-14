@@ -426,15 +426,6 @@ class CLConstants(Constants.Constants):
         'guest', 'create', 'created guest %(dest)s',
         ('mobile=%(string:mobile)s, name=%(string:name)s, owner_id=%(string:owner)s',))
 
-    # AD functionality
-    ad_attr_add = _ChangeTypeCode(
-        'ad_attr', 'add', 'added AD-attribute for %(subject)s',
-        ('spread=%(string:spread)s, attr=%(string:attr)s, value=%(string:value)s',))
-
-    ad_attr_del = _ChangeTypeCode(
-        'ad_attr', 'del', 'removed AD-attribute for %(subject)s',
-        ('spread=%(string:spread)s, attr=%(string:attr)s',))
-
 def main():
     from Cerebrum.Utils import Factory
     from Cerebrum import Errors
