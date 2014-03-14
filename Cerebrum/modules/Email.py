@@ -62,6 +62,7 @@ import time
 from Cerebrum import Utils
 from Cerebrum.Utils import prepare_string, argument_to_sql
 from Cerebrum import Constants
+from Cerebrum.modules import CLConstants
 from Cerebrum.Entity import Entity
 from Cerebrum.Disk import Host
 from Cerebrum import Person
@@ -134,7 +135,8 @@ class _EmailVirusRemovedCode(Constants._CerebrumCode):
 
 
 class EmailConstants(Constants.Constants):
-
+    # TODO: Clean up these constants! And do it in a way that lets
+    # us import system specific constants
     EmailTarget = _EmailTargetCode
     EmailDomainCategory = _EmailDomainCategoryCode
     EmailServerType = _EmailServerTypeCode
@@ -276,9 +278,143 @@ class EmailConstants(Constants.Constants):
         "Only accept the use of an UiO address as sender address"
         " on the UiO network, or when using authenticated SMTP")
 
+class CLConstants(CLConstants.CLConstants):
+    # ChangeTypes used by the email module
+    # TODO: Put these in it's own file? Put that file and this file into
+    # Cerebrum/modules/email/?
+
+    # email change types and categories
+    #
+    # email domain
+    email_dom_add = CLConstants._ChangeTypeCode('email_domain', 'add_domain', 
+                                    'add email domain %(subject)s',
+                                    ('name=%(string:new_domain_name)'))
+    email_dom_rem = CLConstants._ChangeTypeCode('email_domain', 'rem_domain', 
+                                    'remove email domain %(subject)s',
+                                    ('name=%(string:del_domain'))
+    # either domain name or domain description has been changed
+    # TODO: these two actions should be splitt? 
+    email_dom_mod = CLConstants._ChangeTypeCode('email_domain', 'mod_domain', 
+                                    'modify email domain %(subject)s',
+                                    ('name=%(string:new_domain_name)',
+                                     'desc=%(string:new_domain_desc'))
+    email_dom_addcat = CLConstants._ChangeTypeCode('email_domain', 'addcat_domain', 
+                                       'add category in email domain %(subject)s',
+                                       ('cat=%(int:cat)'))
+    email_dom_remcat = CLConstants._ChangeTypeCode('email_domain', 'remcat_domain', 
+                                       'remove category in email domain %(subject)s',
+                                       ('cat=%(int:cat)'))
+    # email target
+    email_target_add = CLConstants._ChangeTypeCode('email_target', 'add_target', 
+                                       'add email target %(subject)s',
+                                       )
+    email_target_rem = CLConstants._ChangeTypeCode('email_target', 'rem_target', 
+                                       'remove email target %(subject)s')
+    email_target_mod = CLConstants._ChangeTypeCode('email_target', 'mod_target', 
+                                       'modify email target %(subject)s',
+                                       ('type=%(int:target_type)',
+                                        'server=%(int:server_id)'))
+    email_address_add = CLConstants._ChangeTypeCode('email_address', 'add_address', 
+                                        'add email address %(subject)s',
+                                        ('lp=%(string:lp)s',
+                                         'domain=%(int:dom_id)s'))
+    email_address_rem = CLConstants._ChangeTypeCode('email_address', 'rem_address', 
+                                        'remove email address %(subject)s',
+                                        ('lp=%(string:lp)s',
+                                         'domain=%(int:dom_id)s'))
+    # email entity domain affiliation
+    email_entity_dom_add = CLConstants._ChangeTypeCode('email_entity_dom', 'add_entdom',
+                                           'add domain aff for %(subject)s',
+                                           ('affiliation=%(int:aff)'))
+    email_entity_dom_rem = CLConstants._ChangeTypeCode('email_entity_dom', 'rem_entdom',
+                                           'remove domain aff for %(subject)s')
+    email_entity_dom_mod = CLConstants._ChangeTypeCode('email_entity_dom', 'mod_entdom',
+                                           'modify domain aff for %(subject)s',
+                                           ('affiliation=%(int:aff)'))
+    # email quota (subject here is an email_target)
+    email_quota_add = CLConstants._ChangeTypeCode('email_quota', 'add_quota', 
+                                      'add quota for %(subject)s',
+                                      ('soft=%(int:soft)',
+                                       'hard=%(int:hard)'))
+    email_quota_rem = CLConstants._ChangeTypeCode('email_quota', 'rem_quota', 
+                                      'remove quota for %(subject)s')
+    email_quota_mod = CLConstants._ChangeTypeCode('email_quota', 'mod_quota', 
+                                      'modify quota for %(subject)s',
+                                      ('soft=%(int:soft)',
+                                       'hard=%(int:hard)'))
+    # email target filter
+    email_tfilter_add = CLConstants._ChangeTypeCode('email_tfilter', 'add_filter',
+                                        'add tfilter for %(subject)s',
+                                        ('filter=%(int:filter)'))
+    email_tfilter_rem = CLConstants._ChangeTypeCode('email_tfilter', 'rem_filter',
+                                        'remove tfilter for %(subject)s',
+                                        ('filter=%(int:filter)'))
+    # email spam_filter
+    email_sfilter_add = CLConstants._ChangeTypeCode('email_sfilter', 'add_sfilter', 
+                                        'add sfilter for %(subject)s',
+                                        ('level=%(int:level)',
+                                         'action=%(int:action)'))
+    email_sfilter_mod = CLConstants._ChangeTypeCode('email_sfilter', 'mod_sfilter', 
+                                        'modify sfilter for %(subject)s',
+                                        ('level=%(int:level)',
+                                         'action=%(int:action)'))
+    # email virus scan
+    email_scan_add = CLConstants._ChangeTypeCode('email_scan', 'add_scan', 
+                                     'add scan for %(subject)s',
+                                     ('found=%(int:found)',
+                                      'removed=%(int:removed)',
+                                      'enable=%(int:enable)'))
+    email_scan_mod = CLConstants._ChangeTypeCode('email_scan', 'mod_scan', 
+                                     'modify scan for %(subject)s')
+    # email forward (subject here is an email_target)
+    email_forward_add = CLConstants._ChangeTypeCode('email_forward', 'add_forward', 
+                                        'add forward for %(subject)s',
+                                        ('forward=%(string:forward)',
+                                         'enable=%(string:enable)'))
+    email_forward_rem = CLConstants._ChangeTypeCode('email_forward', 'rem_forward', 
+                                        'remove forward for %(subject)s',
+                                        ('forward=%(string:forward)'))
+    email_forward_enable = CLConstants._ChangeTypeCode('email_forward', 'enable_forward', 
+                                           'enable forward for %(subject)s',
+                                           ('forward=%(string:forward)',
+                                            'cat=%(int:cat)'))
+    email_forward_disable = CLConstants._ChangeTypeCode('email_forward', 'disable_forward', 
+                                            'disable forward for %(subject)s',
+                                           ('forward=%(string:forward)',
+                                            'cat=%(int:cat)'))
+    # email vacation (subject here is an email_target)
+    # TBD: should we bother to log this? I don't think so, vacation 
+    # msg will be moved to exchange
+    email_vacation_add = CLConstants._ChangeTypeCode('email_vacation', 'add_vacation', 
+                                         'add vacation for %(subject)s')
+    email_vacation_rem = CLConstants._ChangeTypeCode('email_vacation', 'rem_vacation', 
+                                        'remove vacation for %(subject)s')
+    email_vacation_enable = CLConstants._ChangeTypeCode('email_vacation', 'enable_vaca', 
+                                           'enable vacation msg for %(subject)s')
+    email_vacation_disable = CLConstants._ChangeTypeCode('email_vacation', 'disable_vaca', 
+                                            'disable vacation msg for %(subject)s')
+    # email primary address target (subject here is an email_target)
+    email_primary_address_add = CLConstants._ChangeTypeCode('email_primary_address', 'add_primary', 
+                                                'add primary address for %(subject)s',
+                                                ('primary=%(int:addr_id)'))
+    email_primary_address_rem = CLConstants._ChangeTypeCode('email_primary_address', 'rem_primary', 
+                                                'remove primary address for %(subject)s',
+                                                ('primary=%(int:addr_id)'))
+    email_primary_address_mod = CLConstants._ChangeTypeCode('email_primary_address', 'mod_primary', 
+                                                'modify primary address for %(subject)s',
+                                                ('primary=%(int:addr_id)'))
+    # email server (subject here is an e-mail server)
+    email_server_add = CLConstants._ChangeTypeCode('email_server', 'add_server', 
+                                       'add email server %(subject)s',
+                                       ('type=%(int:server_type)'))
+    email_server_rem = CLConstants._ChangeTypeCode('email_server', 'rem_server', 
+                                       'remove email server %(subject)s',
+                                       ('type=%(int:server_type)'))
+    email_server_mod = CLConstants._ChangeTypeCode('email_server', 'mod_server', 
+                                       'modify email server %(subject)s',
+                                       ('type=%(int:server_type)'))
+
 Entity_class = Utils.Factory.get("Entity")
-
-
 
 class EmailDomain(Entity_class):
     """Interface to the email domains your MTA should consider as 'local'.
