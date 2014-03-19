@@ -379,7 +379,6 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
                 data.append({'fnr': row['external_id'],
                              'fnr_src': str(
                     self.const.AuthoritativeSystem(row['source_system']))})
-        print data
         return data
 
 
