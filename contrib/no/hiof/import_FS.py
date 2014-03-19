@@ -321,7 +321,7 @@ def process_person_callback(person_info):
             etternavn = p['etternavn']
             fornavn = p['fornavn']
         if p.has_key('studentnr_tildelt'):
-            studentnr = '%06d' % int(p['studentnr_tildelt'])
+            studentnr = p['studentnr_tildelt']
     
         # Get affiliations
         if dta_type in ('fagperson',):
