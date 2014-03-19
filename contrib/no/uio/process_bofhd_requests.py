@@ -1016,7 +1016,7 @@ def proc_delete_user(r):
                       description='Personal file group for %s' % account.account_name)
             group.add_member(account.entity_id)
             group.write_db()
-            print "Created group: '%s'. Group ID = %d" % (group.group_name, group.entity_id)
+            logger.debug("Created group: '%s'. Group ID = %d", group.group_name, group.entity_id)
         pg = Factory.get('PosixGroup')(db)
         try:
             pg.find(group.entity_id)
@@ -1024,7 +1024,7 @@ def proc_delete_user(r):
             pg.clear()
             pg.populate(parent=group)
             pg.write_db()
-            print "Group upgraded to posixgroup"
+            logger.debug("Group upgraded to posixgroup")
         if group.entity_id != default_group:
             pu.gid_id = group.entity_id
             pu.write_db()
