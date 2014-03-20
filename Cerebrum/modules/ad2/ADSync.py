@@ -1505,53 +1505,6 @@ class BaseSync(object):
         """
         pass
 
-    def _old_compare_forwards(self, ad_contacts):
-        # TODO: Move this to somewhere else?
-        """
-        Compare forward objects from AD with forward info in Cerebrum.
-
-        @param ad_contacts: a dict of dicts wich maps contact obects
-                            name to that objects properties (dict)
-        @type ad_contacts: dict
-        """
-        for acc in self.accounts.itervalues():
-            for contact in acc.contact_objects:
-                cb_fwd = contact.forward_attrs
-                ad_fwd = ad_contacts.pop(cb_fwd['sAMAccountName'], None)
-                if not ad_fwd:
-                    # Create AD contact object
-                    self.create_ad_contact(cb_fwd, self.default_ou)
-                    continue
-                # contact object is in AD and Cerebrum -> compare OU
-                # TBD: should OU's be compared?
-                ou = cereconf.AD_CONTACT_OU
-                cb_dn = 'CN=%s,%s' % (cb_fwd['sAMAccountName'], ou)
-                if ad_fwd['distinguishedName'] != cb_dn:
-                    self.move_contact(cb_dn, ou)
-
-                # Compare other attributes
-                for attr_type, cb_fwd_attr in fwd.iteritems():
-                    ad_fwd_attr = ad_fwd.get(attr_type)
-                    if cb_fwd_attr and ad_fwd_attr:
-                        # value both in ad and cerebrum => compare
-                        result = self.attr_cmp(cb_fwd_attr, ad_fwd_attr)
-                        if result: 
-                            self.logger.debug("Changing attr %s from %s to %s",
-                                              attr, unicode2str(ad_fwd_attr),
-                                              unicode2str(cb_fwd_attr))
-                            cb_user.add_change(attr, result)
-                    elif cb_fwd_attr:
-                        # attribute is not in AD and cerebrum value is set => update AD
-                        cb_user.add_change(attr, cb_fwd_attr)
-                    elif ad_fwd_attr:
-                        # value only in ad => delete value in ad
-                        # TBD: is this correct behavior?
-                        cb_user.add_change(attr,"")
-
-            # Remaining contacts in AD should be deleted
-            for ad_fwd in ad_contacts.itervalues():
-                self.delete_contact()
-
     def store_sid(self, ent, sid):
         """Store the SID for an entity as an external ID in Cerebrum.
         
@@ -2540,22 +2493,7 @@ class UserSync(BaseSync):
     # TODO: the rest must be cleaned up first! Old code.
 
     def fullsync_forward(self):
-        # TODO: move this to somewhere else?
-        #
-        #Fetch ad data
-        self.logger.debug("Fetching ad data about contact objects...")
-        ad_contacts = self.fetch_ad_data_contacts()
-        self.logger.info("Fetched %i ad forwards" % len(ad_contacts))
 
-        # Fetch forward_info
-        self.logger.debug("Fetching forwardinfo from cerebrum...")
-        self.fetch_forward_info()
-        for acc in self.accounts.itervalues():
-            for fwd in acc.contact_objects:
-                fwd.calc_forward_attrs()
-        # Compare forward info 
-        self.compare_forwards(ad_contacts)
-        
         # Fetch ad dist group data
         self.logger.debug("Fetching ad data about distrubution groups...")
         ad_dist_groups = self.fetch_ad_data_distribution_groups()
@@ -2570,51 +2508,6 @@ class UserSync(BaseSync):
         #self.compare_dist_groups(ad_dist_groups)
         #self.sync_dist_group_members()
 
-    def fetch_forward_info(self):
-        # TODO: move this to somewhere else?
-        """
-        Fetch forward info for all users with both AD and exchange spread.
-        """ 
-        from Cerebrum.modules.Email import EmailDomain, EmailTarget, EmailForward
-        etarget = EmailTarget(self.db)
-        rewrite = EmailDomain(self.db).rewrite_special_domains
-        eforward = EmailForward(self.db)
-
-        # We need a email target -> entity_id mapping
-        target_id2target_entity_id = {}
-        for row in etarget.list_email_targets_ext():
-            if row['target_entity_id']:
-                te_id = int(row['target_entity_id'])
-                target_id2target_entity_id[int(row['target_id'])] = te_id
-
-        # Check all email forwards
-        for row in eforward.list_email_forwards():
-            te_id = target_id2target_entity_id.get(int(row['target_id']))
-            acc = self.get_account(account_id=te_id)
-            # We're only interested in those with AD and exchange spread
-            if acc.to_exchange:
-                acc.add_forward(row['forward_to'])
-
-    def fetch_ad_data_contacts(self):
-        # TODO: Move this to somewhere else?
-        """
-        Returns full LDAP path to AD objects of type 'contact' and prefix
-        indicating it is used for forwarding.
-
-        @return: a dict of dicts wich maps contact obects name to that
-                 objects properties (dict)
-        @rtype: dict
-        """
-        ret = dict()
-        self.server.setContactAttributes(cereconf.AD_CONTACT_FORWARD_ATTRIBUTES)
-        ad_contacts = self.server.listObjects('contact', True, self.ad_ldap)
-        if ad_contacts:
-            # Only deal with forwarding contact objects. 
-            for object_name, properties in ad_contacts.iteritems():
-                # TBD: cereconf-var?
-                if object_name.startswith("Forward_for_"):
-                    ret[object_name] = properties
-        return ret
 
     def fetch_ad_data_distribution_groups(self):
         # TODO: Move this to somewhere else?
@@ -3054,6 +2947,97 @@ class MailListSync(BaseSync):
             if subset and name not in subset:
                 continue
             self.entities[name] = self.cache_entity(int(row["target_id"]), name)
+
+
+class ForwardSync(BaseSync):
+    """Sync for Cerebrum forward mail addresses in AD.
+
+    This contains generic functionality for handling forward addresses AD,
+    to add more functionality you need to subclass this.
+
+    """
+
+    default_ad_object_class = 'contact'
+
+    def __init__(self, *args, **kwargs):
+        """Instantiate forward addresses specific functionality."""
+        super(ForwardSync, self).__init__(*args, **kwargs)
+        self.ac = Factory.get('Account')(self.db)
+        self.etarget = Email.EmailTarget(self.db)
+        self.eforward = Email.EmailForward(self.db)
+
+    def configure(self, config_args):
+        """Override the configuration for setting forward specific variables.
+
+        """
+        super(ForwardSync, self).configure(config_args)
+        # Which spreads the accounts should have for their forward-addresses
+        # to be synchronized
+        self.config['account_spreads'] = config_args['account_spreads']
+
+
+    def fetch_cerebrum_entities(self):
+        """Fetch the forward addresses information from Cerebrum, 
+        that should be compared against AD. The forward addresses that
+        belong to the accounts with specified spreads are fetched.
+        
+        The configuration is used to know what to cache. All data is put in a
+        list, and each entity is put into an object from
+        L{Cerebrum.modules.ad2.CerebrumData} or a subclass, to make it 
+        easier to later compare with AD objects.
+
+        Could be subclassed to fetch more data about each entity to support
+        extra functionality from AD and to override settings.
+
+        """
+        self.logger.debug("Fetching forward addresses information")
+        subset = self.config.get('subset')
+        
+        # Get accounts that have all the needed spreads
+        self.logger.debug2("Fetching accounts with needed spreads")
+        accounts_dict = {}
+        account_sets_list = []
+        for spread in self.config['account_spreads']:
+            tmp_set = set([(row['account_id'], row['name']) for row in
+                    list(self.ac.search(spread = spread))])
+            account_sets_list.append(tmp_set)
+        entity_id2uname = set.intersection(*account_sets_list)
+        for entity_id, username in entity_id2uname:
+            accounts_dict[entity_id] = {'uname': username,
+                                        'forward_addresses': []}
+
+        # Generate email target -> entity_id mapping
+        self.logger.debug2("Generating email target -> entity_id mapping")
+        target_id2target_entity_id = {}
+        for row in self.etarget.list_email_targets_ext():
+            if row['target_entity_id']:
+                target_id2target_entity_id[int(row['target_id'])] = \
+                    int(row['target_entity_id'])
+
+        # Fetch all email forwards and save all of them that are enabled
+        # and belong to the accounts with needed spreads
+        self.logger.debug2("Fetching forwards that belong to the accounts")
+        for row in self.eforward.list_email_forwards():
+            te_id = target_id2target_entity_id.get(int(row['target_id']))
+            if te_id in accounts_dict and row['enable'] == 'T':
+                accounts_dict[te_id]['forward_addresses'].append(
+                                               row['forward_to']
+                                                                )
+        # Create an AD-object for every forward fetched
+        self.logger.debug2("Creating AD-objects for forwards")
+        for key, value in accounts_dict.iteritems():
+            for tmp_addr in value['forward_addresses']:
+                name = "Forward_for_%s__%s" % (value['uname'], tmp_addr)
+                if len(name) > 64:
+                    # Replace the forward with entity_id in this case
+                    name = "Forward_for_%s__%d" % (value['uname'], key)
+                if subset and name not in subset:
+                    continue
+                self.entities[name] = self.cache_entity(key, name)
+                # All the object attributes are composed based on the username
+                # and forwardname. Save it for future use
+                self.entities[name].ad_data['uname'] = value['uname']
+                self.entities[name].ad_data['faddr'] = tmp_addr
 
 
 class ProxyAddressesCompare(BaseSync):
