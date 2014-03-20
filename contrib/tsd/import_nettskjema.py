@@ -688,11 +688,7 @@ class Processing(object):
         else:
             # Project is active, creating posix user instead:
             ac = Factory.get('PosixUser')(db)
-
-            pg = Factory.get('PosixGroup')(db)
-            pg.find_by_name('%s%s' % (pid, '-dfg'))
-
-            ac.populate(posix_uid=ac.get_free_uid(), gid_id=pg.gid_id, gecos=None,
+            ac.populate(posix_uid=ac.get_free_uid(), gid_id=None, gecos=None,
                         shell=co.posix_shell_bash, name=username,
                         owner_type=pe.entity_type, owner_id=pe.entity_id,
                         np_type=None, creator_id=systemaccount_id, expire_date=None)
