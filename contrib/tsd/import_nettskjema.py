@@ -834,7 +834,11 @@ class Processing(object):
         # Find the project:
         pname = input['p_id']
         ou.clear()
-        ou.find_by_tsd_projectname(pname)
+        try:
+            ou.find_by_tsd_projectname(pname)
+        except Errors.NotFoundError: 
+            # Retry with lowercase, just in case:
+            ou.find_by_tsd_projectname(pname.lower())
         pid = ou.get_project_id()
 
         # Check that the person is not already in the project:
