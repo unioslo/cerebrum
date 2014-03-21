@@ -811,6 +811,9 @@ class Processing(object):
             except fodselsnr.InvalidFnrError:
                 logger.debug("Ignoring invalid fnr: %s", fnr)
                 continue
+            except ValueError:
+                logger.debug("Ignoring invalid fnr: %s", fnr)
+                continue
             pre_approve_list.add(fnr)
         if pre_approve_list:
             logger.debug("Pre approvals: %s", ', '.join(pre_approve_list))
