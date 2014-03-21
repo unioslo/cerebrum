@@ -216,7 +216,10 @@ class InputControl(object):
     """
     def is_projectid(self, name):
         """Check that a given projectname validates."""
-        return ou._validate_project_name(name)
+        try:
+            return ou._validate_project_name(name)
+        except Errors.CerebrumError, e:
+            raise BadInputError(e)
 
     def is_valid_date(self, date):
         """Check that a date is parsable and valid."""
