@@ -68,6 +68,7 @@ Tags that are important to us:
 
 import sys
 import os
+from os.path import join as pjoin
 import time
 import getopt
 from lxml import etree
@@ -160,7 +161,7 @@ def process_files(locations, dryrun, archive=None):
     files = set()
     for location in locations:
         if os.path.isdir(location):
-            files.update(os.listdir(location))
+            files.update(pjoin(location, f) for f in os.listdir(location))
         elif os.path.exists(location):
             files.add(location)
         else:
@@ -709,7 +710,11 @@ class Processing(object):
                                          description='Project not yet approved',
                                          start=DateTime.now())
             else:
-                gateway.create_user(pid, username, realname, ac.posix_uid)
+                try:
+                    gateway.create_user(uid=ac.posix_uid, pid=pid, 
+                                        username=username, realname=realname)
+                except Gateway.GatewayException:
+                    self.logger.info("User will arrive in GW at next fullsync")
         elif pe.list_affiliations(pe.entity_id, ou_id=ou.entity_id,
                                   affiliation=co.affiliation_pending):
             # Pending account:
@@ -1023,6 +1028,8 @@ def main():
     if not args:
         print "No input file given"
         usage(1)
+
+    gateway.dryrun = dryrun
 
     process_files(args, dryrun, archive)
 
