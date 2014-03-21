@@ -190,6 +190,9 @@ def process_files(locations, dryrun, archive=None):
         except etree.XMLSyntaxError, e:
             logger.warn("Syntax error in file %s: %s", location, e)
             db.rollback()
+        except Errors.CerebrumError, e:
+            logger.exception(e)
+            db.rollback()
         #except Errors.CerebrumError, e:
         #    logger.warn("Failed processing %s: %s", location, e)
         #    db.rollback()
@@ -498,6 +501,7 @@ def process_file(file, dryrun):
     p = Processing(fnr=fnr)
     ret = getattr(p, stype)(answers)
     logger.debug("Submission processed: %s" % ret)
+    return ret
 
 class Processing(object):
     """Handles the processing of the parsed and validated XML data."""
