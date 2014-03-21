@@ -73,7 +73,7 @@ class BofhdExtension(BofhdCommonMethods):
         'group_delete', 'group_remove', 'group_gremove', '_group_remove',
         '_group_remove_entity', 'group_remove_entity', 'group_info',
         'group_list', 'group_list_expanded', 'group_search', 'group_set_description',
-        'group_memberships', '_get_group', '_get_group_opcode', '_fetch_member_names',
+        'group_memberships', '_get_group_opcode', '_fetch_member_names',
         #
         # copy relevant misc-cmds and util methods
         #
@@ -114,8 +114,8 @@ class BofhdExtension(BofhdCommonMethods):
         # copy relevant helper-functions
         #
          '_find_persons', '_get_account', '_format_ou_name',
-        '_get_disk', '_get_group', '_get_entity',
-        '_entity_info', 'num2str', '_get_affiliationid',
+        '_get_disk', '_get_entity', '_entity_info', 'num2str',
+        '_get_affiliationid',
         '_get_affiliation_statusid', '_parse_date', '_today', 'entity_history',
         '_format_changelog_entry', '_format_from_cl',
         '_get_group_opcode',

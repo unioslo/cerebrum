@@ -102,7 +102,7 @@ class BofhdExtension(BofhdCommonMethods):
         'group_delete', 'group_remove', 'group_gremove', '_group_remove',
         '_group_remove_entity', 'group_remove_entity', 'group_info',
         'group_list', 'group_list_expanded', 'group_search', 'group_set_description',
-        'group_memberships', '_get_group', '_get_group_opcode', '_fetch_member_names',
+        'group_memberships', '_get_group_opcode', '_fetch_member_names',
         #
         # copy relevant misc-cmds and util methods
         #

@@ -10319,14 +10319,15 @@ Password altered. Use misc list_password to print or view the new password.%s'''
             raise CerebrumError, "Unknown host: %s" % name
 
     def _get_group(self, id, idtype=None, grtype="Group"):
-        if grtype == "Group":
-            group = self.Group_class(self.db)
-        elif grtype == "PosixGroup":
-            group = Utils.Factory.get('PosixGroup')(self.db)
-        # exchange-relatert-jazz
-        # make DistributionGroup a valid group type
-        elif grtype == "DistributionGroup":
+        group = None
+        if grtype == "DistributionGroup":
             group = Utils.Factory.get("DistributionGroup")(self.db)
+        else:
+            return super(BofhdExtension, self)._get_group(id, idtype=idtype,
+                                                          grtype=grtype)
+
+        # This is almost a re-implementation of super._get_group. Maybe this
+        # should have a better implementation to avoid 'reuse'?
         try:
             group.clear()
             if idtype is None:
@@ -10341,12 +10342,7 @@ Password altered. Use misc list_password to print or view the new password.%s'''
                     raise CerebrumError, "Non-numeric id lookup (%s)" % id
                 group.find(id)
             elif idtype == 'gid':
-                if grtype == 'PosixGroup':
-                    if not (isinstance(id, (int, long)) or id.isdigit()):
-                        raise CerebrumError, "Non-numeric gid lookup (%s)" % id
-                    group.find_by_gid(id)
-                else:
-                    raise Errors.NotFoundError
+                raise Errors.NotFoundError
             else:
                 raise CerebrumError, "Unknown idtype: '%s', did you mean name:%s:%s?" % (
                         idtype, idtype, id)

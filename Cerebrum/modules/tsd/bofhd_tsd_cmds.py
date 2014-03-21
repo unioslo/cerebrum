@@ -592,8 +592,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         # Entity
         'entity_history',
         # Helper functions
-        '_find_persons', '_get_disk', '_get_group', '_get_shell',
-        '_get_account', 
+        '_find_persons', '_get_disk', '_get_shell', '_get_account', 
         '_entity_info', 'num2str', '_get_affiliationid',
         '_get_affiliation_statusid', '_parse_date', '_today',
         '_format_changelog_entry', '_format_from_cl',

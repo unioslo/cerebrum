@@ -65,9 +65,14 @@ def date_to_string(date):
 
     return "%04i-%02i-%02i" % (date.year, date.month, date.day)
 
+
 # Parameter class for mobile phone number
 # FIXME: Refers help text in bofhd_core_help
+#        This should be under modules.bofhd.cmd_param
 class Mobile(Parameter):
+
+    """ Mobile phone Parameter. """
+
     _type = 'mobilePhone'
     _help_ref = 'mobile_phone'
 
@@ -86,14 +91,17 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin, BofhdEmailListMixin):
         #
         'access_disk', 'access_group', 'access_ou', 'access_user',
         'access_global_group', 'access_global_ou', '_list_access',
+        #       i.e. we hand off the args directly to _get_person.
         'access_grant', 'access_revoke', '_manipulate_access',
         '_get_access_id', '_validate_access', '_get_access_id_disk',
-        '_validate_access_disk', '_get_access_id_group', '_validate_access_group',
-        '_get_access_id_global_group', '_validate_access_global_group',
-        '_get_access_id_ou', '_validate_access_ou', '_get_access_id_global_ou',
-        '_validate_access_global_ou', 'access_list_opsets', 'access_show_opset',
-        'access_list', '_get_auth_op_target', '_grant_auth', '_revoke_auth',
-        '_get_opset',
+        '_validate_access_disk', '_get_access_id_group',
+        '_validate_access_group', '_get_access_id_global_group',
+        '_validate_access_global_group', '_get_access_id_ou',
+        '_validate_access_ou', '_get_access_id_global_ou',
+        '_validate_access_global_ou', 'access_list_opsets',
+        'access_show_opset', 'access_list', '_get_auth_op_target',
+        '_grant_auth', '_revoke_auth', '_get_opset', '_get_access_id_host',
+        '_get_host',
         #
         # copy relevant group-cmds and util methods
         #
@@ -103,9 +111,9 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin, BofhdEmailListMixin):
         '_group_remove', '_group_remove_entity', 'group_remove_entity',
         'group_demote_posix', 'group_promote_posix', 'group_info',
         'group_list', 'group_list_expanded', 'group_search',
-        'group_set_description', 'group_memberships', '_get_group',
-        '_get_group_opcode', 'group_personal', 'group_set_expire',
-        'group_set_visibility', '_fetch_member_names',
+        'group_set_description', 'group_memberships', '_get_group_opcode',
+        'group_personal', 'group_set_expire', 'group_set_visibility',
+        '_fetch_member_names',
         #
         # copy relevant misc-cmds and util methods
         #
@@ -152,15 +160,15 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin, BofhdEmailListMixin):
         #
         'trait_info', 'trait_list', 'trait_remove', 'trait_set',
         #
-        # UiA needs a local version of 'trait_set' 
+        # UiA needs a local version of 'trait_set'
         #
         # copy entity-functions
-        'entity_history', 
+        'entity_history',
         #
         # copy relevant helper-functions
         #
-         '_find_persons', '_get_account', '_format_ou_name',
-        '_get_disk', '_get_group', '_get_entity',
+        '_find_persons', '_get_account', '_format_ou_name',
+        '_get_disk', '_get_entity',
         '_entity_info', 'num2str', '_get_affiliationid',
         '_get_affiliation_statusid', '_parse_date', '_today',
         '_format_changelog_entry', '_format_from_cl',

@@ -334,7 +334,7 @@ class BofhdCommandBase(object):
                                 (idtype, account_id))
         return account
 
-    def _get_group(self, group_id, idtype=None):
+    def _get_group(self, group_id, idtype=None, grtype='Group'):
         """ Fetch a group identified by group_id.
 
         Return a Group object associated with the specified group_id. Raises
@@ -355,7 +355,13 @@ class BofhdCommandBase(object):
           if nothing suitable matches)
 
         """
-        group = self.Group_class(self.db)
+        group = None
+        if grtype == 'Group':
+            group = self.Group_class(self.db)
+        elif grtype == 'PosixGroup':
+            group = Factory.get('PosixGroup')(self.db)
+        else:
+            raise CerebrumError("Invalid group type %s" % grtype)
         try:
             if idtype is None:
                 idtype, group_id = self._human_repr2id(group_id)
@@ -398,24 +404,26 @@ class BofhdCommandBase(object):
                 person.find_by_external_id(idtype, id)
             elif idtype in ('entity_id', 'id'):
                 if isinstance(id, str) and not id.isdigit():
-                    raise CerebrumError, "Entity id must be a number"
+                    raise CerebrumError("Entity id must be a number")
                 person.find(id)
             else:
-                raise CerebrumError, "Unknown idtype"
+                raise CerebrumError("Unknown idtype")
         except Errors.NotFoundError:
-            raise CerebrumError, "Could not find person with %s=%s" % (idtype, id)
+            raise CerebrumError("Could not find person with %s=%s" % (idtype,
+                                                                      id))
         except Errors.TooManyRowsError:
-            raise CerebrumError, "ID not unique %s=%s" % (idtype, id)
+            raise CerebrumError("ID not unique %s=%s" % (idtype, id))
         return person
 
     def _map_person_id(self, id):
         """ Map <idtype:id> to const.<idtype>, id.
 
-        Recognizes fødselsnummer without <idtype>.  Also recognizes entity_id.
+        Recognized fodselsnummer without <idtype>. Also recognizes entity_id.
 
         """
-        # TODO: This is ugly, and must be fixed with arguments of _get_person
-        # We return arguments that match input args of _get_person
+        # TODO: The way this function is used is kind of ugly.
+        #       Typical usage is:
+        #         self._get_person(*self._map_person_id(person_id))
         if id.isdigit() and len(id) >= 10:
             return self.const.externalid_fodselsnr, id
         if id.find(":") == -1:
@@ -427,9 +435,9 @@ class BofhdCommandBase(object):
             id_type = self.external_id_mappings.get(id_type, None)
         if id_type is not None:
             if len(id) == 0:
-                raise CerebrumError, "id cannot be blank"
+                raise CerebrumError("id cannot be blank")
             return id_type, id
-        raise CerebrumError, "Unknown person_id type"
+        raise CerebrumError("Unknown person_id type")
 
     def _get_name_from_object(self, entity):
         """Return a human-friendly name for the given entity, if such exists.
@@ -574,17 +582,24 @@ class BofhdCommonMethods(BofhdCommandBase):
     ##
     ## Group methods
 
+    #
     # group create
+    #
     all_commands['group_create'] = cmd.Command(
         ("group", "create"),
         cmd.GroupName(help_ref="group_name_new"),
         cmd.SimpleString(help_ref="string_description"),
-        fs=cmd.FormatSuggestion("Group created, internal id: %i", ("group_id",)),
+        fs=cmd.FormatSuggestion("Group created, internal id: %i",
+                                ("group_id",)),
         perm_filter='can_create_group')
+
     def group_create(self, operator, groupname, description):
-        """Standard method for creating normal groups. BofhdAuth's
-        L{can_create_group} is first checked. The group gets the spreads as
-        defined in L{cereconf.BOFHD_NEW_GROUP_SPREADS}."""
+        """ Standard method for creating normal groups.
+
+        BofhdAuth's L{can_create_group} is first checked. The group gets the
+        spreads as defined in L{cereconf.BOFHD_NEW_GROUP_SPREADS}.
+
+        """
         self.ba.can_create_group(operator.get_entity_id())
         g = self.Group_class(self.db)
         g.populate(creator_id=operator.get_entity_id(),
@@ -598,6 +613,52 @@ class BofhdCommonMethods(BofhdCommandBase):
             g.add_spread(self.const.Spread(spread))
             g.write_db()
         return {'group_id': int(g.entity_id)}
+
+    #
+    # group delete
+    #
+    #all_commands['group_delete'] = cmd.Command(
+        #("group", "delete"),
+        #cmd.GroupName(),
+        #cmd.YesNo(help_ref="yes_no_force", default="No"),
+        #perm_filter='can_delete_group')
+
+    #def group_delete(self, operator, groupname, force=None):
+        #""" Standard method to delete a group (potentially posix group). """
+
+        ## TODO: Sigh.
+        #grp = self._get_group(groupname)
+        #self.ba.can_delete_group(operator.get_entity_id(), grp)
+        #if grp.group_name == cereconf.BOFHD_SUPERUSER_GROUP:
+            #raise CerebrumError("Can't delete superuser group")
+        #if self._is_yes(force):
+            #try:
+                #pg = self._get_group(groupname, grtype="PosixGroup")
+                #pg.delete()
+            #except CerebrumError:
+                #pass   # Not a PosixGroup
+            #except self.db.DatabaseError, msg:
+                #if re.search("posix_user_gid", str(msg)):
+                    #raise CerebrumError(
+                        #"Assigned as primary group for posix user(s).  "+
+                        #"Use 'group list %s'" % grp.group_name)
+                #raise
+        ## Should we have these here?
+        #self._remove_auth_target("group", grp.entity_id)
+        #self._remove_auth_role(grp.entity_id)
+        #try:
+            #grp.delete()
+        #except self.db.DatabaseError, msg:
+            #if re.search("group_member_exists", str(msg)):
+                #raise CerebrumError(
+                    #"Group is member of groups.  "+
+                    #"Use 'group memberships group %s'" % grp.group_name)
+            #elif re.search("account_info_owner", str(msg)):
+                #raise CerebrumError(
+                    #"Group is owner of an account.  "+
+                    #"Use 'entity accounts group %s'" % grp.group_name)
+            #raise
+        #return "OK, deleted group '%s'" % groupname
 
     ##
     ## Entity methods

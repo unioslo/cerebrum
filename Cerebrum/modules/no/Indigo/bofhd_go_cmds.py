@@ -75,7 +75,7 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
 
     copy_commands = (
         '_get_account', '_get_disk',
-        '_get_group', '_parse_date', '_get_entity',
+        '_parse_date', '_get_entity',
         'group_user', 'person_list_user_priorities',
         'group_memberships', 'group_search',
         '_entity_info', 'num2str', 'group_list',

@@ -55,8 +55,8 @@ class BofhdExtension(BofhdCommonMethods):
         # copy relevant user_create related methods
         #
         '_find_persons', '_get_account', '_format_ou_name',
-        '_user_create_set_account_type','_get_group', '_get_constant',
-        '_parse_date', 'misc_list_requests', 'misc_cancel_request',
+        '_user_create_set_account_type', '_get_constant', '_parse_date',
+        'misc_list_requests', 'misc_cancel_request',
         #
         # copy relevant ou-cmds and util methods
         #
