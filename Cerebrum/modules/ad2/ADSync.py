@@ -3065,3 +3065,64 @@ class ProxyAddressesCompare(BaseSync):
             to_remove = set(advalues).difference(cevalues)
             return (to_add or to_remove, list(to_add), list(to_remove))
         return super(ProxyAddressesCompare, self).attribute_mismatch(ent, atr, c, a)
+
+class UpdateRecipientMixin(BaseSync):
+    """Extra sync functionality for running Update-Recipient for objects.
+
+    The Exchange Powershell command Update-Recipient has in Exchange previous to
+    2013 been used to update the rest of the Exchange attributes that we don't
+    sync. The cmdlet has to be run each time we modify an object and the changes
+    have effect on Exchange, e.g. attributes with e-mail addresses, and
+    especially new Exchange accounts.
+
+    TODO: Only subclass UserSync if we can't make this generic enough to be used
+    by different object types.
+
+    Note: An issue with this way of running the cmdlet is that we don't store
+    the state after the script has finished. The cmdlet will not be rerun after
+    this, so they will not be updated for Exchange, unfortunately. We should
+    instead make use of the new EventHandler functionality, created for Exchange
+    2013.
+
+    """
+    # The list of what attributes that is relevant for Update-Recipient. Only
+    # changes in these attributes would trigger the cmdlet.
+    recipient_related_attributes = set(('HomeMDB',
+                                        'MailNickName',
+                                        'ProxyAddresses',
+                                        'AltRecipient',
+                                        'TargetAddress',
+                                        'MsExchHomeServerName',
+                                        'MsExchHideFromAddressLists'
+                                        ))
+
+    def post_process(self):
+        """Run the Update-Recipient for all modified entities."""
+        subset = self.config.get('subset')
+        # Skip if none of the relevant attributes are synced:
+        if not any(a in self.recipient_related_attributes
+                   for a in self.config.attributes):
+            return
+
+        def update_recipient(ad_id):
+            """Helper command for handling the Update-Recipient."""
+            self.logger.info("Run Update-Recipient for: %s", ad_id)
+            try:
+                return self.server.update_recipient(ad_id)
+            except PowershellException, e:
+                # TODO: Would like to put the failed objects in a list to be
+                # rerun one more time, just to be sure.
+                self.logger.warn("Failed to run Update-Recipient for: %s",
+                        ad_id)
+            return False
+
+        for ent in self.entities:
+            if subset and ent.ad_id not in subset:
+                continue
+            # Deactivated objects must also be updated.
+            if ent.ad_new:
+                update_recipient(ent.ad_id)
+            elif ent.changes and any(a in self.recipient_related_attributes
+                                     for a in ent.changes):
+                update_recipient(ad_id)
+            # TODO: Other situations where we should run the cmdlet?

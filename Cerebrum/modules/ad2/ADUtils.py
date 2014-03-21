@@ -1140,6 +1140,35 @@ class ADclient(PowershellClient):
             self.logger.debug("Preferred DC: %s", self._chosen_dc)
         return self._chosen_dc
 
+    def update_recipient(self, ad_id):
+        """Run the cmdlet Update-Recipient for a given object.
+
+        @param ad_id:
+            The Id for the object. Could be the SamAccountName,
+            DistinguishedName, SID, UUID and probably some other identifiers.
+
+        @rtype: TODO
+        @return: TODO
+
+        """
+        self.logger.info('Run Update-Recipient for: %s', ad_id)
+
+        # TODO: Could we use the standard parameters?
+
+        #cmd = self._generate_ad_command
+        #cmd = '''$b = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(%(pwd)s));
+        #    $pwd = ConvertTo-SecureString -AsPlainText -Force $b;
+        #    %(cmd)s -NewPassword $pwd;
+        #''' % {'pwd': self.escape_to_string(password),
+        #       'cmd': self._generate_ad_command('Set-ADAccountPassword',
+        #                                        {'Identity': ad_id}, 
+        #                                        ['Reset'])}
+        ##Set-ADAccountPassword -Identity %(_ad_id)s -Credential $cred -Reset -NewPassword $pwd
+        if self.dryrun:
+            return True
+        out = self.run(cmd)
+        return not out.get('stderr')
+
     def execute_script(self, script, **kwargs):
         """Execute a script remotely on the Windows side.
 
