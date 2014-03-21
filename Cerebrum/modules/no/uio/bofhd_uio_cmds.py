@@ -9483,13 +9483,16 @@ Addresses and settings:
         return ret
 
     all_commands['user_find'] = Command(
-        ("user", "find"), UserSearchType(), SimpleString(),
-        SimpleString(optional=True, help_ref="affiliation_optional"),
+        ("user", "find"),
+        UserSearchType(),
+        SimpleString(),
         YesNo(optional=True, default='n', help_ref='yes_no_include_expired'),
-        fs=FormatSuggestion("%7i   %-12s %s",
-                            ('entity_id', 'username', format_day("expire")),
-                            hdr="%7s   %-10s   %-12s" % \
-                            ('Id', 'Username', 'Expire date')))
+        SimpleString(optional=True, help_ref="affiliation_optional"),
+        fs=FormatSuggestion("%7i   %-12s %s", ('entity_id', 'username',
+                                               format_day("expire")),
+                            hdr="%7s   %-10s   %-12s" % ('Id', 'Username',
+                                                         'Expire date')))
+
     def user_find(self, operator, search_type, value,
                   include_expired="no", aff_filter=None):
         acc = self.Account_class(self.db)
