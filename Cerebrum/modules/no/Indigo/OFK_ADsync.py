@@ -153,7 +153,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 # Find the server name of where the MDB is put:
                 exchangeserver = ""
                 for servername in cereconf.AD_EX_MDB_SERVER:
-                    if mdb_trait["strval"] in cereconf.AD_EX_MDB_SERVER[servername]:
+                    if mdb_trait and str(mdb_trait["strval"]) in cereconf.AD_EX_MDB_SERVER[servername]:
                         exchangeserver = servername
 
                 # Migrated users:
@@ -170,11 +170,13 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     if exchangeserver:
                         v['homeMTA'] = cereconf.EXCHANGE_HOMEMTA % {'server': exchangeserver}
                         self.logger.debug2('HomeMTA: %s', v['homeMTA'])
+                    else:
+                        self.logger.info("No servername for: %s, homeMDB='%s'",
+                                         k, v['homeMDB'])
                 elif mdb_trait and mdb_trait["strval"]:
                     # Non-migrated user:
                     v['homeMDB'] = "CN=%s,CN=SG_%s,CN=InformationStore,CN=%s,%s" % (mdb_trait["strval"],
-                                                                                    mdb_trait[
-                                                                                    "strval"],
+                                                                                    mdb_trait["strval"],
                                                                                     exchangeserver,
                                                                                     cereconf.AD_EX_MDB_DN)
                 else:
@@ -475,11 +477,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         else:
             self.logger.info("created user %s" % ret)
             if store_sid:
-                self.write_sid(
-                    'account',
-                    chg['sAMAccountName'],
-                    ret[2],
-                    dry_run)
+                self.write_sid('account', chg['sAMAccountName'], ret[2],
+                               dry_run)
             self.ac.clear()
             self.ac.find_by_name(str(chg['sAMAccountName']))
             pw = unicode(
@@ -739,23 +738,18 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         @type  exch_users: list
         @param dry_run : Flag
         """
-        self.logger.debug(
-            "Sleeping for 5 seconds to give ad-ldap time to update")
-        time.sleep(5)
+        self.logger.debug("Sleeping 5 seconds so ad-ldap is updated")
+        #time.sleep(5)
         for usr in exch_users:
-            self.logger.info("Running Update-Recipient for user '%s'"
-                             " against Exchange" % usr)
-            if cereconf.AD_DC:
-                ret = self.run_cmd(
-                    'run_UpdateRecipient',
-                    dry_run,
-                    usr,
-                    cereconf.AD_DC)
-            else:
-                ret = self.run_cmd('run_UpdateRecipient', dry_run, usr)
-            if not ret[0]:
-                self.logger.warning("run_UpdateRecipient on %s failed: %r",
-                                    usr, ret)
+            self.logger.info("Not running Update-Recipient for user: %s", usr)
+            #if cereconf.AD_DC:
+            #    ret = self.run_cmd('run_UpdateRecipient', dry_run, usr,
+            #                       cereconf.AD_DC)
+            #else:
+            #    ret = self.run_cmd('run_UpdateRecipient', dry_run, usr)
+            #if not ret[0]:
+            #    self.logger.warning("run_UpdateRecipient on %s failed: %r",
+            #                        usr, ret)
         self.logger.info("Ran Update-Recipient against Exchange for %i users",
                          len(exch_users))
 
