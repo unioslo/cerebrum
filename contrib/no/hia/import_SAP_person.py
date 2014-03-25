@@ -365,7 +365,7 @@ def populate_communication(person, fields):
     comm_types = ((const.contact_mobile_phone, fields.sap_phone_mobile),
                   (const.contact_private_mobile, fields.sap_phone_mobile_private))
     for comm_type, comm_value in comm_types:
-        if not comm_value or not re.match('^\d{8}$', comm_value):
+        if not comm_value:
             _remove_communication(person, comm_type)
             continue
         person.populate_contact_info(const.system_sap, comm_type, comm_value)

@@ -1612,8 +1612,41 @@ class SMSSender():
                              % (status, to, msg_id))
         return False
 
+    def _filter_phone_number(self, phone_to):
+        """ Check if the mobile number, L{phone_to}, is a valid phone number.
+
+        This function is used to whitelist phone numbers, which in turn will
+        prevent sending messages to non-whitelisted numbers.
+
+        This function can also be used if we want to wash phone numbers before
+        passing them to the SMS gateway (e.g. strip spaces).
+
+        NOTE: If the phone number is deemed un-sms-worthy, we raise a
+            ValueError.
+
+        @type: str
+        @param:
+            The phone number that we will filter.
+
+        @rtype: str
+        @return: The (properly formatted) phone number.
+
+        """
+        # Should we allow ints as well?
+        #if isinstance(phone_to, (int, long)):
+            #phone_to = str(phone_to)
+
+        # Should we be helpful and remove any space separators?
+        #phone_to = phone_to.replace(' ', '')
+
+        for regex in cereconf.SMS_ACCEPT_REGEX:
+            if re.match(regex, phone_to):
+                return phone_to
+
+        raise ValueError("Invalid phone number '%s'" % phone_to)
+
     def __call__(self, phone_to, message, confirm=False):
-        """Sends an SMS message to the given phone number.
+        """ Sends an SMS message to the given phone number.
 
         @type phone_to: basestring
         @param phone_to:
@@ -1628,6 +1661,13 @@ class SMSSender():
           If the gateway should wait for the message to be sent before it
           confirms it being sent.
         """
+
+        try:
+            phone_to = self._filter_phone_number(phone_to)
+        except ValueError, e:
+            self._logger.warning("Unable to send SMS: %s" % str(e))
+            return False
+
         hostname = urlparse.urlparse(self._url).hostname
         password = read_password(user=self._user, system=hostname)
         postdata = urllib.urlencode({'b': self._user,

@@ -923,6 +923,9 @@ SMS_URL = ''
 SMS_SYSTEM = ''
 # The username for authentication at the gateway
 SMS_USER = ''
+# A regex whitelist of numbers. The SMSSender will only send to phone numbers
+# that pass one of these regexes. Default value: Eight digit number.
+SMS_ACCEPT_REGEX = (r'^\d{8}$', )
 
 #
 # Certificates
