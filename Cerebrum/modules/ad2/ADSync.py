@@ -235,6 +235,27 @@ class BaseSync(object):
         return cls._generate_dynamic_class(classes,
                                            '_dynamic_adsync_%s' % sync_type)
 
+    def _format_name(self, name_to_format):
+        """Adjust the name of the object according to the sync's configuration.
+        The type of adjustment is defined by the type of 'name_format'
+        configuration parameter.
+
+        @type name_to_format: string
+        @param name_to_format: the name of the object. It can be either
+            just adjusted according to some string formatting, or become
+            an input parameter to a function, that performs more complex
+            transformation.
+
+        """
+
+        nformat = self.config.get('name_format', '%s')
+        if callable(nformat):
+            # There is a transformation function defined in the config
+            return nformat(name_to_format)
+        else:
+            # This is a string formatting in the configuration
+            return nformat % name_to_format
+
     def configure(self, config_args):
         """Read configuration options from given arguments and config file.
 
@@ -407,8 +428,10 @@ class BaseSync(object):
                     self.logger.warn("Missing setting in ad_admin_message: %s",
                                      opt)
 
-        # The name_format must include the %s for the entity_name to be put in:
-        if '%s' not in self.config.get('name_format', '%s'):
+        # If name_format is string, it should include the '%s' for 
+        # the entity_name to be put in.
+        nformat = self.config.get('name_format', '%s')
+        if not callable(nformat) and '%s' not in nformat:
             self.logger.warn("Missing '%s' in name_format, name not included")
 
         for handl in ('handle_unknown_objects', 'handle_deactivated_objects'):
@@ -1029,8 +1052,8 @@ class BaseSync(object):
         # Don't touch others than from the subset, if set:
         if self.config.get('subset'):
             # Convert names to comply with 'name_format':
-            format = self.config.get('name_format', '%s')
-            if name not in (format % s for s in self.config['subset']):
+            subset_names = (self._format_name(s) for s in self.config['subset'])
+            if name not in subset_names:
                 #self.logger.debug("Ignoring due to subset: %s", name)
                 return False
 
@@ -2387,7 +2410,9 @@ class UserSync(BaseSync):
                 self.logger.debug("Account %s without target_spread, ignoring",
                                   row['subject_entity'])
                 return True
-            name = self.config.get('name_format', '%s') % self.ac.account_name
+
+            name = self._format_name(self.ac.account_name)
+
             try:
                 pw = pickle.loads(str(row['change_params']))['password']
             except (KeyError, TypeError):
@@ -2445,7 +2470,8 @@ class UserSync(BaseSync):
             self.logger.debug("Account %s without spread, ignoring",
                               self.ac.account_name)
             return True
-        name = self.config.get('name_format', '%s') % self.ac.account_name
+
+        name = self._format_name(self.ac.account_name)
 
         if ctype.type == 'password':
             try:
@@ -3043,10 +3069,7 @@ class ForwardSync(BaseSync):
         self.logger.debug2("Creating AD-objects for forwards")
         for key, value in accounts_dict.iteritems():
             for tmp_addr in value['forward_addresses']:
-                name = "Forward_for_%s__%s" % (value['uname'], tmp_addr)
-                if len(name) > 64:
-                    # Replace the forward with entity_id in this case
-                    name = "Forward_for_%s__%d" % (value['uname'], key)
+                name = ','.join((value['uname'], tmp_addr, str(key)))
                 if subset and name not in subset:
                     continue
                 self.entities[name] = self.cache_entity(key, name)

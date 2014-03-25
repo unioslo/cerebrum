@@ -129,7 +129,11 @@ class CerebrumEntity(object):
         self.entity_name = entity_name
 
         # The Id for the related object in AD:
-        self.ad_id = self.config.get('name_format', '%s') % entity_name
+        nformat = self.config.get('name_format', '%s')
+        if callable(nformat):
+            self.ad_id = nformat(entity_name)
+        else:
+            self.ad_id = nformat % entity_name
 
         # Attributes that are defined in Cerebrum for the entity. The keys are
         # the attribute type, e.g. SamAccountName.
