@@ -279,44 +279,6 @@ class BofhdEmailMixinBase(object):
             raise CerebrumError("Invalid e-mail address (%s)" % address)
         return address
 
-    def _split_email_address(self, addr, with_checks=True):
-        """Split an e-mail address into local part and domain.
-
-        Additionally, perform certain basic checks to ensure that the address
-        looks sane.
-
-        @type addr: basestring
-        @param addr:
-          E-mail address to split, spelled as 'foo@domain'.
-
-        @type with_checks: bool
-        @param with_checks:
-          Controls whether to perform local part checks on the
-          address. Occasionally we may want to sidestep this (e.g. when
-          *removing* things from the database).
-
-        @rtype: tuple of (basestring, basestring)
-        @return:
-          A pair, local part and domain extracted from the L{addr}.
-
-        """
-        if addr.count('@') == 0:
-            raise CerebrumError(
-                "E-mail address (%s) must include domain" % addr)
-        lp, dom = addr.split('@')
-        if addr != addr.lower() and \
-           dom not in cereconf.LDAP['rewrite_email_domain']:
-            raise CerebrumError(
-                "E-mail address (%s) can't contain upper case letters" % addr)
-
-        if not with_checks:
-            return lp, dom
-
-        ea = Email.EmailAddress(self.db)
-        if not ea.validate_localpart(lp):
-            raise CerebrumError("Invalid localpart '%s'" % lp)
-        return lp, dom
-
     def _forward_exists(self, fw, addr):
         """ Check if a forward address exists in an EmailForward. """
         for r in fw.get_forward():
