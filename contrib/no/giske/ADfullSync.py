@@ -293,6 +293,11 @@ class ADfgSync(ADutilMixIn.ADgroupUtil):
                                g['description']))
         return all_groups
 
+    def fetch_ad_data(self):
+        """Fetch all group objects from AD."""
+        self.server.setGroupAttributes([]) # trying an empty list
+        return super(ADfgSync, self).fetch_ad_data()
+
 def usage(exitcode=0):
     print """Usage:
     [--user_sync | --group_sync]
