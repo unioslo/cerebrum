@@ -116,7 +116,10 @@ class ABCObj2Cerebrum(object):
                                ("display_name", self.co.ou_name_display),
                                ("sort_name", self.co.ou_name_short)):
             if abcconf.OU_NAMES.get(type):
-                ou.ou_names[ceretype] = ou._names.get(abcconf.OU_NAMES[type])
+                try:
+                    ou.ou_names[ceretype] = ou._names[abcconf.OU_NAMES[type]]
+                except KeyError:
+                    pass
         # Name must be set
         if not ou.ou_names.get(self.co.ou_name):
             raise ABCDataError("Missing name for OU: %s" % ou._ids)
