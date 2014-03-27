@@ -94,7 +94,7 @@ class AAAARecord(Entity):
     def find_by_dns_owner_id(self, dns_owner_id):
         # May throw TooManyRows error, which callee should handle
         aaaa_record_id = self.query_1("""
-        SELECT a_record_id
+        SELECT aaaa_record_id
         FROM [:table schema=cerebrum name=dns_aaaa_record]
         WHERE dns_owner_id=:dns_owner_id""", {'dns_owner_id': dns_owner_id})
         self.find(aaaa_record_id)
