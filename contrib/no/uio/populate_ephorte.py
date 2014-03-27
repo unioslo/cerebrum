@@ -125,18 +125,18 @@ class PopulateEphorte(object):
                 if ephorte_sko not in ephorte_sko_ignore:
                     logger.warn("Unknown ePhorte sko: '%s'" % ephorte_sko)
                 continue
-            # Check if OU is not yet active
-            start_date = line.split(";")[posname2num['AI_FRADATO']]
-            if start_date and start_date != 'null':
-                try:
-                    tmp_date = DateTime.strptime(start_date, "%Y-%m-%dT%T+%R")
-                    if tmp_date > DateTime.now():
-                        logger.debug("Ephorte OU %s is not active yet. Skipping!" %
-                                     ephorte_sko)
-                        continue
-                except DateTime.Error:
-                    logger.warn("Couldn't parse date format for sted %s: %s" %
-                                (ephorte_sko, start_date))
+            ## Check if OU is not yet active
+            #start_date = line.split(";")[posname2num['AI_FRADATO']]
+            #if start_date and start_date != 'null':
+            #    try:
+            #        tmp_date = DateTime.strptime(start_date, "%Y-%m-%dT%T+%R")
+            #        if tmp_date > DateTime.now():
+            #            logger.debug("Ephorte OU %s is not active yet. Skipping!" %
+            #                         ephorte_sko)
+            #            continue
+            #    except DateTime.Error:
+            #        logger.warn("Couldn't parse date format for sted %s: %s" %
+            #                    (ephorte_sko, start_date))
             # Check if OU is expired
             end_date = line.split(";")[posname2num['AI_TILDATO']]
             if end_date and end_date != 'null':
