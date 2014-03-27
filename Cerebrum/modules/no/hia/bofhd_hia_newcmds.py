@@ -45,7 +45,7 @@ from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet, BofhdAuthOpTarget, \
 from Cerebrum.modules.no.hia.bofhd_uia_auth import BofhdAuth
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.hia.access_FS import FS
-from Cerebrum.modules.templates.letters import TemplateHandler
+from Cerebrum.modules.no.hia.templates.letters import TemplateHandler
 
 def format_day(field):
     fmt = "yyyy-MM-dd"                  # 10 characters wide
