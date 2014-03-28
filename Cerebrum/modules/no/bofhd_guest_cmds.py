@@ -196,7 +196,7 @@ class BofhdExtension(BofhdCommandBase):
             return all
         # Get entity_ids for expired guests, and filter them out
         expired = [q['entity_id'] for q in ac.list_entity_quarantines(
-                       entity_types=self.const.entity_acount,
+                       entity_types=self.const.entity_account,
                        quarantine_types=self.const.quarantine_guest_old,
                        only_active=True)]
         return filter(lambda a: a['entity_id'] not in expired, all)
