@@ -2516,44 +2516,6 @@ class UserSync(BaseSync):
         # we want this to work...
         return False
 
-    # TODO: the rest must be cleaned up first! Old code.
-
-    def fullsync_forward(self):
-
-        # Fetch ad dist group data
-        self.logger.debug("Fetching ad data about distrubution groups...")
-        ad_dist_groups = self.fetch_ad_data_distribution_groups()
-        # create a distribution group for each cerebrum user with
-        # forward addresses
-        for acc in self.accounts.itervalues():
-            if acc.contact_objects:
-                acc.create_dist_group()
-        # Compare dist group info
-        # TBD: dist group sync should perhaps be a sub class of group
-        # sync?
-        #self.compare_dist_groups(ad_dist_groups)
-        #self.sync_dist_group_members()
-
-
-    def fetch_ad_data_distribution_groups(self):
-        # TODO: Move this to somewhere else?
-        """
-        Returns full LDAP path to AD objects of type 'group' and prefix
-        indicating it is to hold forward contact objects.
-
-        @rtype: dict
-        @return: a dict of dict wich maps distribution group names to
-                 distribution groupproperties (dict)
-        """        
-        ret = dict()
-        self.server.setGroupAttributes(cereconf.AD_DIST_GRP_ATTRIBUTES)
-        ad_dist_grps = self.server.listObjects('group', True, self.ad_ldap)
-        if ad_dist_grps:
-            # Only deal with forwarding groups. Groupsync deals with other groups.
-            for grp_name, properties in ad_dist_grps.iteritems():
-                if grp_name.startswith(cereconf.AD_FORWARD_GROUP_PREFIX):
-                    ret[grp_name] = properties
-        return ret
 
 class GroupSync(BaseSync):
     """Sync for Cerebrum groups in AD.
