@@ -163,6 +163,28 @@ class GatewayClient(xmlrpclib.Server, object):
         """
         return self.user.list()
 
+    def list_groups(self):
+        """Ask GW for a list of all its groups.
+
+        This call is not affected by the L{dryrun} option as it makes no
+        changes to the GW.
+
+        @rtype: list
+        @return:
+            Each element in the list is a dict from the server, at the time
+            containing the elements:
+
+            - L{groupname} (string): The groupname
+            - L{project} (string): The project ID the group belongs to.
+            - L{frozen} (DateTime): If, and when, the user gets quarantined.
+            - L{created} (DateTime): When the user got created.
+            - L{expires} (DateTime): When the user expires.
+
+            TODO: other data?
+
+        """
+        return self.group.list()
+
     def list_hosts(self):
         """Ask GW for a list of all its project hosts.
 
@@ -266,6 +288,8 @@ class GatewayClient(xmlrpclib.Server, object):
                   registered in the Gateway.
                 - users (list of dict with user info): The users registered for
                   the given project. See L{list_users} for the keys.
+                - groups (list of dict with group info): The groups registered
+                  for the given project. See L{list_groups} for the keys.
                 - hosts (list of dict with host info): The hosts registered for
                   the given project. See L{list_hosts} for the keys.
                 - subnets (list of dict with subnet info): The subnets
@@ -285,6 +309,9 @@ class GatewayClient(xmlrpclib.Server, object):
         # Fetch user info:
         for user in self.list_users():
             ret[user['project']]['users'].append(user)
+        # Fetch group info:
+        for group in self.list_groups():
+            ret[group['project']]['groups'].append(group)
         # Fetch host info:
         for host in self.list_hosts():
             ret[host['project']]['hosts'].append(host)
@@ -458,6 +485,115 @@ class GatewayClient(xmlrpclib.Server, object):
         if self.dryrun:
             return True
         return self.user.otp.setkey(params)
+
+    # Group methods
+
+    def create_group(self, pid, groupname, gid):
+        """Create a group in the GW.
+
+        @type pid: string
+        @param pid: The project ID where the group belongs.
+
+        @type groupname: string
+        @param groupname: The groupname of the group.
+
+        @type gid: string or int
+        @param gid:
+            The POSIX GID of the group.
+
+        """
+        self.logger.info("Creating group: %s", groupname)
+        params = {'project': pid, 'groupname': groupname, 'gid': gid}
+        if self.dryrun:
+            return True
+        return self.group.create(params)
+
+    def delete_group(self, pid, groupname):
+        """Delete a group from the GW.
+
+        @type pid: string
+        @param pid: The project ID.
+
+        @type groupname: string
+        @param groupname: The groupname of the group.
+
+        """
+        self.logger.info("Deleting group: %s", groupname)
+        params = {'project': pid, 'groupname': groupname}
+        if self.dryrun:
+            return True
+        return self.group.delete(params)
+
+    def add_member(self, pid, groupname, membername):
+        """Add a member to a group in the GW.
+
+        @type pid: string
+        @param pid:
+            The project ID for where the group belongs.
+            
+        @type groupname: string
+        @param groupname:
+            The name of the target group, for which the member should be added
+            to. Must exist in the GW on beforehand.
+
+        @type membername: string
+        @param membername:
+            The identifier of the member. For users this would be the
+            username. The member must exist in the GW on beforehand.
+
+            TODO: Does the GW accept other member types, like groups?
+
+        """
+        self.logger.info("Adding member to group %s: %s", groupname,
+                         membername)
+        params = {'project': pid,
+                  'groupname': groupname,
+                  'username': membername,
+                  }
+        if self.dryrun:
+            return True
+        return self.group.user.add(params)
+
+    def remove_member(self, pid, groupname, membername):
+        """Remove a member from a group in the GW.
+
+        @type pid: string
+        @param pid:
+            The project ID for where the group belongs.
+            
+        @type groupname: string
+        @param groupname:
+            The name of the target group, for which the member should be
+            removed from. The group must exist in the GW on beforehand.
+
+        @type membername: string
+        @param membername:
+            The identifier of the member. For users this would be the
+            username. The member must exist in the GW on beforehand, and for
+            the method to succeed the entity must already be a member of the
+            group.
+
+            TODO: Does the GW accept other member types, like groups?
+
+        @raise GatewayException:
+            Various situations could trigger an exception from the GW, like:
+
+            - The group does not exist in the GW.
+            - The member does not exist in the GW.
+            - The member is not a member of the group, and can therefore not
+              be removed.
+            - Unknown errors.
+
+        """
+        self.logger.info("Removing member from group %s: %s", groupname,
+                         membername)
+        params = {'project': pid,
+                  'groupname': groupname,
+                  'username': membername,
+                  }
+        if self.dryrun:
+            return True
+        return self.group.user.remove(params)
 
     # Host methods
 

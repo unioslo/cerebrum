@@ -97,6 +97,7 @@ class Processor:
         self.pe = Factory.get('Person')(self.db)
         self.ac = Factory.get('Account')(self.db)
         self.pu = Factory.get('PosixUser')(self.db)
+        self.pg = Factory.get('PosixGroup')(self.db)
         self.subnet6 = dns.IPv6Subnet.IPv6Subnet(self.db)
         self.subnet = dns.Subnet.Subnet(self.db)
 
@@ -125,6 +126,7 @@ class Processor:
         gw_data = dict()
         for key, meth in (('projects', self.gw.list_projects), 
                           ('users', self.gw.list_users),
+                          ('groups', self.gw.list_groups),
                           ('hosts', self.gw.list_hosts),
                           ('ips', self.gw.list_ips),
                           ('subnets', self.gw.list_subnets),
@@ -144,6 +146,9 @@ class Processor:
         self.process_dns(gw_data['hosts'], gw_data['subnets'], gw_data['vlans'],
                          gw_data['ips'])
         logger.info("Processing DNS data done")
+        logger.info("Start processing groups")
+        self.process_groups(gw_data['groups'])
+        logger.info("Processing groups done")
 
     def process_projects(self, gw_projects):
         """Go through and update the projects from the GW.
@@ -183,6 +188,7 @@ class Processor:
                 continue
             logger.debug2('Creating project: %s', pid)
             self.gw.create_project(pid)
+            processed.add(pid)
 
     def process_project(self, pid, proj):
         """Process a given project retrieved from the GW.
@@ -252,7 +258,8 @@ class Processor:
             try:
                 self.process_user(usr, ac2proj)
             except Gateway.GatewayException, e:
-                logger.warn("GW exception for %s: %s" % (usr['username'], e))
+                logger.warn("GW exception for user %s: %s", usr['username'],
+                            e)
             processed.add(usr['username'])
         # Add new users:
         for row in self.pu.search(spread=self.co.spread_gateway_account):
@@ -285,7 +292,9 @@ class Processor:
         @param gw_user: The data about the user from the GW.
 
         @type ac2proj: dict
-        @param ac2proj: A mapping from 
+        @param ac2proj:
+            A mapping from account_id to the ou_id of the project it belongs
+            to.
 
         """
         username = gw_user['username']
@@ -319,6 +328,79 @@ class Processor:
         else:
             if gw_user['frozen']:
                 self.gw.thaw_user(pid, username)
+
+    def process_groups(self, gw_groups):
+        """Sync all groups with the GW."""
+        # Mapping from group_id to project's ou_id:
+        gr2proj = dict((r['entity_id'], r['target_id']) for r in
+                       self.ent.list_traits(code=self.co.trait_project_group)
+                       if r['target_id'] in self.ouid2pid)
+        logger.debug2("Found %d groups affiliated with projects",
+                      len(gr2proj))
+        processed = set()
+
+        # Update existing projects:
+        for grp in gw_groups:
+            try:
+                self.process_group(grp, gr2proj)
+            except Gateway.GatewayException, e:
+                logger.warn("GW exception for group %s: %s", grp['groupname'],
+                            e)
+            processed.add(grp['groupname'])
+        # Add new groups:
+        for row in self.pg.search(spread=self.co.spread_file_group):
+            if row['name'] in processed:
+                continue
+            logger.debug2("Group not known by GW: %s" % row['name'])
+            # Skip groups not affiliated with a project.
+            pid = self.ouid2pid.get(gr2proj.get(self.pg.entity_id))
+            if not pid:
+                logger.debug("Skipping unaffiliated group: %s",
+                             self.pg.entity_id)
+                continue
+            self.pg.clear()
+            try:
+                self.pg.find(row['group_id'])
+            except Errors.NotFoundError:
+                logger.debug("Skipping non-posix group: %s", row['name'])
+                continue
+            self.gw.create_group(pid, row['name'], self.pg.posix_gid)
+
+        # TODO: Fix group memberships!
+
+    def process_group(self, gw_group, gr2proj):
+        """Sync a given group with the GW.
+
+        @type gw_group: dict
+        @param gw_group: The data about the group from the GW.
+
+        @type gr2proj: dict
+        @param gr2proj:
+            A mapping from group_id to the ou_id of the project it belongs to.
+
+        """
+        groupname = gw_group['groupname']
+        logger.debug2("Process group %s: %s" % (groupname, gw_group))
+        try:
+            pid = gw_group['project']
+        except KeyError:
+            logger.error("Missing project from GW for group: %s", groupname)
+            return
+        self.pg.clear()
+        try:
+            self.pg.find_by_name(groupname)
+        except Errors.NotFoundError:
+            logger.info("Group %s not found in Cerebrum" % groupname)
+            self.gw.delete_group(pid, groupname)
+            return
+        # Skip accounts not affiliated with a project.
+        if not gr2proj.get(self.pg.entity_id):
+            logger.info("Group %s not affiliated with any project" % groupname)
+            self.gw.delete_group(pid, groupname)
+            return
+        if pid != self.ouid2pid.get(gr2proj[self.pg.entity_id]):
+            logger.error("Danger! Project mismatch in Cerebrum and GW for account %s" % self.pg.entity_id)
+            raise Exception("Project mismatch with GW and Cerebrum")
 
     def process_dns(self, gw_hosts, gw_subnets, gw_vlans, gw_ips):
         """Sync DNS data with the gateway.
