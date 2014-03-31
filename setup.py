@@ -18,91 +18,81 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+""" This is the install script for the Cerebrum module.
 
-# Placement of files when installing Cerebrum
-# -------------------------------------------
-#
-# NOTE: At least while developing, I recommend using "--prefix
-# /cerebrum".  Otherwise all these paths are relative to / unless
-# otherwise noted.
-#
-# /
-#   README:       usr/share/cerebrum/doc/
-#   COPYING:      usr/share/cerebrum/doc/
-#
-# Cerebrum/
-#   */*.py:       under site-packages of the running python interpreter
-#   cereconf.py:  etc/cerebrum/
-#   */tests/*:    Not installed
-#
-#   Note that the entire Cerebrum/modules catalog is installed.
-#   Site-specific components should assert that they do not use names
-#   that clashes with the files distributed with Cerebrum, otherwise
-#   they may be overwritten by a later installation.  The naming
-#   syntax should be that of a reversed dns name with '.' replaced with
-#   '/'.  E.g., for uio.no, the directory modules/no/uio is used.
-#
-# design/
-#   *.sql:        usr/share/cerebrum/design/
-#   *.html,*.dia: usr/share/doc/cerebrum/
-#
-# doc/
-#   *:            Not installed
-#
-# testsuite/
-#   *:            Not installed
-#
-# servers/bofhd/
-#   bofhd.py:     usr/sbin/
-#   config.dat:   etc/cerebrum/bofhd.config
-#   *.py:         usr/share/cerebrum/bofhd (site-packages/modules/bofhd better?)
-#
-# clients/examples/
-#   bofh.py:      usr/bin
-#   passweb.py:   usr/share/cerebrum/client ?
-#
-#   As the client will be installed stand-alone on numerous machines,
-#   the files for it resides in a separate directory to make
-#   distribution easier.  All clients should share at least one config
-#   file
-#
-# clients/jbofh/
-#   jbofh.jar:    usr/share/cerebrum/client
-#   libJavaReadline.so:
-#                 usr/share/cerebrum/client/linux
-#   jbofh.sh:     usr/bin
-#
-# contrib/
-#   generate_nismaps.py:  usr/sbin
-#
-# contrib/no
-#   *.py:         usr/sbin
-# contrib/no/uio
-#   *.py:         usr/sbin
-#
-# contrib/no/uio/studit
-#   *:            usr/share/cerebrum/studit
-#
-#
-# Other directories/files:
-#
-#   var/log/cerebrum/:
-#        All log-files for cerebrum, unless the number of files is
-#        above 4, when a seperate directory should be created.
-#
-#   usr/share/cerebrum/data:
-#        A number of subdirectories for various backends
+Placement of files when installing Cerebrum
+-------------------------------------------
 
-# To install python modules in standard locations, and cerebrum files
-# under /cerebrum, run like:
-#  python setup.py install install_data --install-dir=/cerebrum
-#
-# To get the files in /etc under /cerebrum/etc, add:
-#  --root=/cerebrum
-#
-# To build dist file:
-#  python setup.py sdist
+NOTE: At least while developing, I recommend using "--prefix
+/cerebrum".  Otherwise all these paths are relative to / unless
+otherwise noted.
 
+/
+  README:       usr/share/cerebrum/doc/
+  COPYING:      usr/share/cerebrum/doc/
+
+Cerebrum/
+  */*.py:       under site-packages of the running python interpreter
+  cereconf.py:  etc/cerebrum/
+  */tests/*:    Not installed
+
+  Note that the entire Cerebrum/modules catalog is installed.
+  Site-specific components should assert that they do not use names
+  that clashes with the files distributed with Cerebrum, otherwise
+  they may be overwritten by a later installation.  The naming
+  syntax should be that of a reversed dns name with '.' replaced with
+  '/'.  E.g., for uio.no, the directory modules/no/uio is used.
+
+design/
+  *.sql:        usr/share/cerebrum/design/
+  *.html,*.dia: usr/share/cerebrum/doc/
+
+doc/
+  *:            Not installed
+
+testsuite/
+  *:            Not installed
+
+servers/bofhd/
+  bofhd.py:     usr/sbin/
+  config.dat:   etc/cerebrum/bofhd.config
+  *.py:         usr/share/cerebrum/bofhd (site-packages/modules/bofhd better?)
+
+clients/
+  *:            Not installed
+
+contrib/
+  generate_nismaps.py:  usr/sbin
+
+contrib/no
+  *.py:         usr/sbin
+contrib/no/uio
+  *.py:         usr/sbin
+
+contrib/no/uio/studit
+  *:            usr/share/cerebrum/studit
+
+
+Other directories/files:
+
+  var/log/cerebrum/:
+    All log-files for cerebrum, unless the number of files is above 4, when a
+    seperate directory should be created.
+
+  usr/share/cerebrum/data:
+    A number of subdirectories for various backends
+
+To install python modules in standard locations, and cerebrum files
+under /cerebrum, run like:
+ python setup.py install install_data --install-dir=/cerebrum
+
+To get the files in /etc under /cerebrum/etc, add:
+ --root=/cerebrum
+
+To build dist file:
+ python setup.py sdist
+
+"""
 import os
 import sys
 import pwd
@@ -110,25 +100,14 @@ from glob import glob
 from types import StringType
 
 from distutils import sysconfig
-from distutils.command import install_data, install_lib
-from distutils.command.build import build
-from distutils.command.sdist import sdist
-from distutils.core import setup, Command
+from distutils.command import install_data
+from distutils.core import setup
 from distutils.util import change_root, convert_path
 import Cerebrum
 
-# Ugly hack to decide whether bofh was disabled
-# through ./configure
-bofh = True
-try:
-    for line in open('Makefile'):
-        if line.startswith('bofh ='):
-            _, b = line.split('=')
-            b = b.strip()
-            break
-    bofh = b != 'no'
-except Exception, e:
-    pass
+
+# Should we install servers?
+install_servers = True
 
 #
 # Which user should own the installed files
@@ -138,9 +117,19 @@ cerebrum_user = "cerebrum"
 
 class my_install_data (install_data.install_data, object):
 
+    """ Custom install_data class. """
+
     def finalize_options(self):
-        """Add wildcard support for filenames.  Generate cerebrum_path.py"""
+        """ Prepare my_install_data options.
+
+        This function adds wildcard support for filenames.
+        It also generates the cerebrum_path.py file (allthough this should
+        probably be performed by the run() method...
+
+        """
         super(my_install_data, self).finalize_options()
+
+        # Wildcard lookup
         for f in self.data_files:
             if type(f) != StringType:
                 files = f[1]
@@ -152,6 +141,13 @@ class my_install_data (install_data.install_data, object):
                         files.pop(i)
                         i -= 1
                     i += 1
+
+        # cerebrum_path.py.in -> cerebrum_path.py
+        # TODO/FIXME: We should do this smarter. If sysconfig.get_python_lib()
+        # is writeable by the user, we should try to install the
+        # cerebrum_path.py file. uid != null is not a good test.
+        #
+        # This is all very hacky and weird
         if(os.geteuid() != 0):
             print "Warning, uid!=0, not writing cerebrum_path.py"
             return
@@ -208,124 +204,19 @@ class my_install_data (install_data.install_data, object):
                     if(os.geteuid() == 0):
                         os.chown(out, uid, gid)
 
-
-class test(Command):
-    user_options = [('check', None, 'Run check'),
-                    ('dbcheck', None, 'Run db-check')]
-
-    def initialize_options(self):
-        self.check = None
-        self.dbcheck = None
-
-    def finalize_options(self):
-        if self.check is None and self.dbcheck is None:
-            raise RuntimeError, "Must specify test option"
-
-    def run(self):
-        if self.dbcheck is not None:
-            os.system(
-                '%s testsuite/Run.py -v Cerebrum.tests.SQLDriverTestCase.suite' %
-                sys.executable)
-        if self.check is not None:
-            os.system('%s testsuite/Run.py -v' % sys.executable)
-
-
-class my_sdist(sdist, object):
-
-    def finalize_options(self):
-        super(my_sdist, self).finalize_options()
-        if bofh and os.system('cd clients/jbofh && ant dist') != 0:
-            raise RuntimeError, "Error running ant"
-
-
-def wsdl2py(name):
-    try:
-        from ZSI.generate.wsdl2python import WriteServiceModule
-        from ZSI.wstools import WSDLTools
-    except ImportError:
-        pass
-    else:
-        reader = WSDLTools.WSDLReader()
-        wsdl = reader.loadFromFile(name)
-        dir = os.path.dirname(name)
-
-        wsm = WriteServiceModule(wsdl, addressing=True)
-        fd = open(os.path.join(dir, '%s.py' % wsm.getClientModuleName()), 'w+')
-        print os.path.join(dir, '%s.py' % wsm.getClientModuleName())
-        wsm.writeClient(fd)
-        fd.close()
-
-        fd = open(os.path.join(dir, '%s.py' % wsm.getTypesModuleName()), 'w+')
-        wsm.writeTypes(fd)
-        fd.close()
-
-
-def wsdl2dispatch(name):
-    try:
-        from ZSI.wstools import WSDLTools
-        from ZSI.generate.wsdl2dispatch import ServiceModuleWriter as ServiceDescription
-        from ZSI.generate.wsdl2dispatch import DelAuthServiceModuleWriter as DelAuthServiceDescription
-        from ZSI.generate.wsdl2dispatch import WSAServiceModuleWriter as ServiceDescriptionWSA
-        from ZSI.generate.wsdl2dispatch import DelAuthWSAServiceModuleWriter as DelAuthServiceDescriptionWSA
-
-    except ImportError:
-        pass
-    else:
-        reader = WSDLTools.WSDLReader()
-        wsdl = reader.loadFromFile(name)
-
-        dir = os.path.dirname(name)
-
-        ss = ServiceDescription(do_extended=False)
-        ss.fromWSDL(wsdl)
-
-        fd = open(os.path.join(dir, ss.getServiceModuleName() + '.py'), 'w+')
-        print os.path.join(dir, ss.getServiceModuleName() + '.py')
-        ss.write(fd)
-        fd.close()
-
-# Ugly hack to get path names from configure
-# Please fix this if you see a better solution.
-vars = locals()
-try:
-    for line in open('Makefile'):
-        if line.find(':') != -1:
-            break  # Only scan until the first target.
-        if line.find('$') != -1:
-            continue  # Don't read in variable names.
-        try:
-            name, value = line.split('=')
-            name = name.strip()
-            value = value.strip()
-            # We only overwrite variables that are not already set.
-            if not vars.has_key(name):
-                vars[name] = value
-        except ValueError, e:
-            continue
-except IOError, e:
-    pass
-
-# Then we set the default value of these variables.  If they are already
-# set, we keep the original value.
-vars.setdefault('prefix', ".")
-                # Should preferably be initialized from the command-line
-                # argument
-vars.setdefault('sharedir', "%s/share" % prefix)
-vars.setdefault('sbindir', "%s/sbin" % prefix)
-vars.setdefault('bindir', "%s/bin" % prefix)
-vars.setdefault(
-    'sysconfdir', "%s/etc/cerebrum" %
-    prefix)  # Should be /etc/cerebrum/
-vars.setdefault(
-    'logdir', "%s/var/log/cerebrum" %
-    prefix)  # Should be /var/log/cerebrum/
-# End ugly hack
+# Where things should be located, Relative to --prefix or root
+prefix = './'  # Is this 'safeguard' really neccessary?
+sharedir = prefix + 'share'
+sbindir = prefix + 'sbin'
+bindir = prefix + 'bin'
+sysconfdir = prefix + os.path.join('etc', 'cerebrum')
+logdir = prefix + os.path.join('var', 'log', 'cerebrum')
 
 sbin_files = [
     ('servers/job_runner/job_runner.py', 0755),
     ('makedb.py', 0755)
 ]
-if (bofh):
+if (install_servers):
     sbin_files.append(('servers/bofhd/bofhd.py', 0755))
     sbin_files.append(('servers/event/event_daemon.py', 0755))
     sbin_files.append(('servers/cis/SoapIndividuationServer.py', 0755))
@@ -334,45 +225,23 @@ if (bofh):
     sbin_files.append(('servers/cis/SoapGroupPublish.py', 0755))
     sbin_files.append(('servers/cis/SoapVirthomeServer.py', 0755))
 
-if (bofh):
-    bin_files = [
-        ('clients/examples/bofh.py', 0755),
-        ('clients/jbofh/fix_jbofh_jar.py', 0755)
-    ]
-else:
-    bin_files = []
+bin_files = []
 
-share_files = [
-    ('clients/examples/passweb.py', 0755),
-    ('clients/examples/passweb_form.html', 0644),
-    ('clients/examples/passweb_receipt.html', 0644),
-]
-if (bofh):
-    jar_file = 'clients/jbofh/dist/lib/JBofh.jar'
-    try:
-        open(jar_file)
-        share_files.append((jar_file, 0644))
-    except IOError, e:
-        print "'%s': not found. Skipping." % jar_file
+share_files = []
 
 data_files = [
     ({'path': "%s/cerebrum/design" % sharedir,
       'owner': cerebrum_user,
       'mode': 0755},
-     [('design/*.sql', 0644),
-      ]),
-    ({'path': "%s/doc/cerebrum" % sharedir,
+     [('design/*.sql', 0644), ]),
+    ({'path': "%s/cerebrum/doc" % sharedir,
       'owner': cerebrum_user,
       'mode': 0755},
      [('design/cerebrum-core.dia', 0644),
       ('design/cerebrum-core.html', 0644),
       ('design/adminprotocol.html', 0644),
       ('README', 0644),
-      ('COPYING', 0644)
-      # 'doc/*'
-      ]),
-    # ("%s/samples" % sharedir,
-    # ['doc/*.cron']),
+      ('COPYING', 0644), ]),
     ({'path': sbindir,
       'owner': cerebrum_user,
       'mode': 0755}, sbin_files),
@@ -400,58 +269,22 @@ data_files = [
       'owner': cerebrum_user,
       'mode': 0755},
      [('contrib/no/*.py', 0755)]),
-
     ({'path': "%s/cerebrum/contrib/virthome" % sharedir,
       'owner': cerebrum_user,
       'mode': 0755},
      [('contrib/virthome/*.py', 0755)]),
-
     ({'path': "%s/cerebrum/contrib/ad" % sharedir,
       'owner': cerebrum_user,
       'mode': 0755},
      [('contrib/ad/*.py', 0755)]),
-
-    # Indigo.  A recurse-like option would be great...
     ({'path': "%s/cerebrum/contrib/no/Indigo" % sharedir,
       'owner': cerebrum_user,
       'mode': 0755},
      [('contrib/no/Indigo/*.py', 0755)]),
-    ({'path': "%s/cerebrum/contrib/no/Indigo/web/templates" % sharedir,
-      'owner': cerebrum_user,
-      'mode': 0755},
-     [('contrib/no/Indigo/web/templates/*.html', 0644),
-      ('contrib/no/Indigo/web/templates/*.png', 0644),
-      ('contrib/no/Indigo/web/templates/*.css', 0644)]),
-    ({'path': "%s/cerebrum/contrib/no/Indigo/web/templates/ofk" % sharedir,
-      'owner': cerebrum_user,
-      'mode': 0755},
-     [('contrib/no/Indigo/web/templates/ofk/*.zpl', 0644)]),
-    ({'path': "%s/cerebrum/contrib/no/Indigo/web/templates/giske" % sharedir,
-      'owner': cerebrum_user,
-      'mode': 0755},
-     [('contrib/no/Indigo/web/templates/giske/*.zpl', 0644)]),
-    ({'path': "%s/cerebrum/contrib/no/Indigo/web/templates/ofk/macro" % sharedir,
-      'owner': cerebrum_user,
-      'mode': 0755},
-     [('contrib/no/Indigo/web/templates/ofk/macro/*.zpl', 0644)]),
-    ({'path': "%s/cerebrum/contrib/no/Indigo/web/templates/giske/macro" % sharedir,
-      'owner': cerebrum_user,
-      'mode': 0755},
-     [('contrib/no/Indigo/web/templates/giske/macro/*.zpl', 0644)]),
-    ({'path': "%s/cerebrum/contrib/no/Indigo/web/templates/default" % sharedir,
-      'owner': cerebrum_user,
-      'mode': 0755},
-     [('contrib/no/Indigo/web/templates/default/*.zpl', 0644)]),
-    ({'path': "%s/cerebrum/contrib/no/Indigo/web/templates/default/macro" % sharedir,
-      'owner': cerebrum_user,
-      'mode': 0755},
-     [('contrib/no/Indigo/web/templates/default/macro/*.zpl', 0644)]),
-
     ({'path': "%s/cerebrum/contrib/statistics" % sharedir,
       'owner': cerebrum_user,
       'mode': 0755},
      [('contrib/statistics/*.py', 0755)]),
-
     ({'path': "%s/cerebrum/contrib/no/uio" % sharedir,
       'owner': cerebrum_user,
       'mode': 0755},
@@ -488,30 +321,30 @@ data_files = [
       'owner': cerebrum_user,
       'mode': 0755},
      [('contrib/no/hine/*.py', 0755)]),
-    ({'path': "%s/cerebrum/contrib/no/nvh" % sharedir,
-      'owner': cerebrum_user,
-      'mode': 0755},
-     [('contrib/no/nvh/*.py', 0755)]),
+    #     ({'path': "%s/cerebrum/contrib/no/nvh" % sharedir,
+    #      'owner': cerebrum_user,
+    #      'mode': 0755},
+    #     [('contrib/no/nvh/*.py', 0755)]),
     ({'path': "%s/cerebrum/contrib/tsd" % sharedir,
       'owner': cerebrum_user,
       'mode': 0755},
      [('contrib/tsd/*.py', 0755)]),
-    ({'path': "%s/cerebrum/contrib/no/uit" % sharedir,
-      'owner': cerebrum_user,
-      'mode': 0755},
-     [('contrib/no/uit/*.py', 0755)]),
-    ({'path': "%s/cerebrum/contrib/no/uit" % sharedir,
-      'owner': cerebrum_user,
-      'mode': 0755},
-     [('contrib/no/uit/*.pl', 0755)]),
-    ({'path': "%s/cerebrum/contrib/no/uit/misc" % sharedir,
-      'owner': cerebrum_user,
-      'mode': 0755},
-     [('contrib/no/uit/misc/*.py', 0755)]),
-    ({'path': "%s/cerebrum/contrib/no/uit/misc" % sharedir,
-      'owner': cerebrum_user,
-      'mode': 0755},
-     [('contrib/no/uit/misc/*.sh', 0755)]),
+    #   ({'path': "%s/cerebrum/contrib/no/uit" % sharedir,
+    #     'owner': cerebrum_user,
+    #     'mode': 0755},
+    #    [('contrib/no/uit/*.py', 0755)]),
+    #   ({'path': "%s/cerebrum/contrib/no/uit" % sharedir,
+    #     'owner': cerebrum_user,
+    #     'mode': 0755},
+    #    [('contrib/no/uit/*.pl', 0755)]),
+    #   ({'path': "%s/cerebrum/contrib/no/uit/misc" % sharedir,
+    #     'owner': cerebrum_user,
+    #     'mode': 0755},
+    #    [('contrib/no/uit/misc/*.py', 0755)]),
+    #   ({'path': "%s/cerebrum/contrib/no/uit/misc" % sharedir,
+    #     'owner': cerebrum_user,
+    #     'mode': 0755},
+    #    [('contrib/no/uit/misc/*.sh', 0755)]),
     ({'path': bindir,
       'owner': cerebrum_user,
       'mode': 0755}, bin_files),
@@ -523,8 +356,7 @@ data_files = [
       'mode': 0755},
      [('design/cereconf.py', 0644),
       ('servers/bofhd/config.dat', 0644),
-      ('design/logging.ini', 0644)
-      ]),
+      ('design/logging.ini', 0644), ]),
     ({'path': logdir,
       'owner': cerebrum_user,
       'mode': 0750},
@@ -535,18 +367,16 @@ data_files = [
      []),
 ]
 
-wsdl2py('servers/cerews/lib/cerews.wsdl')
-wsdl2dispatch('servers/cerews/lib/cerews.wsdl')
-
 
 setup(name="Cerebrum", version=Cerebrum.__version__,
+      # TODO: This url is invalid
       url="http://cerebrum.sourceforge.net",
       maintainer="Cerebrum Developers",
       maintainer_email="do.we@want.this.here",
       description="Cerebrum is a user-administration system",
       license="GPL",
-      long_description=("System for user semi-automatic user " +
-                        "administration in a heterogenous " +
+      long_description=("System for user semi-automatic user "
+                        "administration in a heterogenous "
                         "environment"),
       platforms = "UNIX",
       # NOTE: all scripts ends up in the same dir!
@@ -580,14 +410,14 @@ setup(name="Cerebrum", version=Cerebrum.__version__,
                   'Cerebrum/modules/no/nih',
                   'Cerebrum/modules/no/hine',
                   'Cerebrum/modules/no/notur',
-                  'Cerebrum/modules/no/nvh',
+                  #'Cerebrum/modules/no/nvh',
                   'Cerebrum/modules/tsd',
                   'Cerebrum/modules/templates',
                   'Cerebrum/modules/xmlutils',
                   'Cerebrum/modules/abcenterprise',
                   'Cerebrum/modules/process_entity',
-                  'Cerebrum/modules/no/uit',
-                  'Cerebrum/modules/no/uit/AutoStud',
+                  #'Cerebrum/modules/no/uit',
+                  #'Cerebrum/modules/no/uit/AutoStud',
                   'Cerebrum/lib',
                   'Cerebrum/client',
                   'Cerebrum/modules/LMS',
@@ -602,8 +432,7 @@ setup(name="Cerebrum", version=Cerebrum.__version__,
       #                            }},
       # data_files doesn't seem to handle wildcards
       data_files = data_files,
+
       # Overridden command classes
-      cmdclass = {'install_data': my_install_data,
-                  'sdist': my_sdist,
-                  'test': test}
+      cmdclass={'install_data': my_install_data, },
       )
