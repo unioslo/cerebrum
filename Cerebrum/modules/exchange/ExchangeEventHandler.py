@@ -124,6 +124,9 @@ class ExchangeEventHandler(processing.Process):
         self.group_spread = self.co.Spread(self.config['group_spread'])
         self.ad_spread = self.co.Spread(self.config['ad_spread'])
 
+        # Group defining that rendzone users should be shown in address book
+        self.randzone_unreserve_group = self.config['randzone_unreserve_group']
+
         # Throw away our implicit transaction after fetching spreads
         self.db.rollback()
 
@@ -494,7 +497,8 @@ class ExchangeEventHandler(processing.Process):
                 # Exchange :S
                 raise UnrelatedEvent
 
-    @EventDecorator.RegisterHandler(['trait:add', 'trait:mod', 'trait:del'])
+    @EventDecorator.RegisterHandler(['trait:add', 'trait:mod', 'trait:del',
+                                     'e_group:add', 'e_group:rem'])
     def set_address_book_visibility(self, event):
         """Set the visibility of a persons accounts in the address book.
 
@@ -506,17 +510,29 @@ class ExchangeEventHandler(processing.Process):
         try:
             et = self.ut.get_entity_type(event['subject_entity'])
             params = self.ut.unpickle_event_params(event)
-            if not et == self.co.entity_person or \
-                not params['code'] == self.co.trait_public_reservation:
+            if not et == self.co.entity_person:
                 raise Errors.NotFoundError
             # If we can't find a person with this entity id, we silently
-            # discard the event by doing nothing. We also discard if it
-            # something else than a person reservation
+            # discard the event by doing nothing.
         except Errors.NotFoundError:
             raise EntityTypeError
-        # We pull this from the DB, since it is imperative that we are in sync.
-        hidden_from_address_book = self.ut.is_electronic_reserved(
+        
+        # TODO: Rework the following code, so it checks for where to look up
+        # by EventType. That might be more efficient and result in fewer actions
+
+        hidden_from_address_book = True
+        # Handle the override for randzone-units
+        if self.randzone_unreserve_group in \
+                self.ut.get_person_membership_groupnames(
+                                                    event['subject_entity']):
+            hidden_from_address_book = False
+        elif params and params.has_key('code') and \
+                params['code'] == self.co.trait_public_reservation:
+            # We pull this from the DB, since it is imperative that we are in
+            # sync.
+            hidden_from_address_book = self.ut.is_electronic_reserved(
                                             person_id=event['subject_entity'])
+
         # We set visibility on all accounts the person owns, that has an
         # Exchange-spread
         for aid, uname in self.ut.get_person_accounts(event['subject_entity'],
@@ -548,6 +564,8 @@ class ExchangeEventHandler(processing.Process):
         # ChangeLog.
         # TODO: Move this to the caller sometime
         self.ut.log_event_receipt(event, 'exchange:per_e_reserv')
+
+
 
     @EventDecorator.RegisterHandler(['email_quota:add_quota',
                                      'email_quota:mod_quota',
