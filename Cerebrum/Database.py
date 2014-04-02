@@ -184,11 +184,14 @@ class NotSupportedError(DatabaseError):
     turned off."""
     pass
 
+# Note the naming order. No exception name should be a subclass of latter
+# exceptions in this list. If this is not true, the DatabaseErrorWrapper will
+# re-raise the wrong exception type.
 API_EXCEPTION_NAMES = (
-    "Warning", "Error", "InterfaceError", "DatabaseError",
-    "DataError", "OperationalError", "IntegrityError",
-    "InternalError", "ProgrammingError", "NotSupportedError")
-"""Tuple holding the names of the standard DB-API exceptions."""
+    'NotSupportedError', 'ProgrammingError', 'InternalError', 'IntegrityError',
+    'OperationalError', 'DataError', 'DatabaseError', 'InterfaceError',
+    'Error', 'Warning')
+""" Tuple holding the names of the standard DB-API exceptions. """
 
 API_TYPE_NAMES = (
     "STRING", "BINARY", "NUMBER", "DATETIME")
@@ -200,9 +203,97 @@ API_TYPE_CTOR_NAMES = (
 """Tuple holding the names of the standard DB-API type constructors."""
 
 
+class DatabaseErrorWrapper(object):
+
+    """ Exception context wrapper for calls to the database cursor.
+
+    The idea is based on the django.db.utils.DatabaseExceptionWrapper. Calls
+    performed in this context will handle PEP-249 exceptions, and reraise as
+    Cerebrum-specific exceptions.
+
+    """
+
+    def __init__(self, database, module, **kwargs):
+        """ Initialize wrapper.
+
+        @type database: Cererbum.Database
+        @param database: The database wrapper object. This object contains
+            monkey patched exceptions from this module as attributes.
+
+        @type module: module
+        @param module: A PEP-249 compatible database module. It should contain
+            the DB-API 2.0 exception types as attributes.
+
+        @type kwargs: **dict
+        @param kwargs: Each keyword style argument is added to the exception as
+            an attribute. This can be used to piggy-back extra information with
+            the exception.
+
+        """
+        self.db = database
+        self.mod = module
+
+        # Attributes for the exception
+        self.extra_attrs = dict((n, repr(v)) for n, v in kwargs.iteritems())
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        """ Convert exception types of type API_EXCEPTION_NAMES.
+
+        @type exc_type: type or NoneType
+        @param exc_type: The raised exception type, or None if no exception was
+            raised in the context
+
+        @type exc_value: Exception or NoneType
+        @param exc_value: The raised exception, if an exception was raised in
+            the context.
+
+        @type traceback: traceback or NoneType
+        @param traceback: The exception traceback, if an exception was raised
+            in the context.
+
+        """
+        if exc_type is None:
+            return
+
+        # Identify the exception
+        for api_exc_name in API_EXCEPTION_NAMES:
+            crb_exc_type = getattr(self.db, api_exc_name)
+            mod_exc_type = getattr(self.mod, api_exc_name)
+            if issubclass(exc_type, mod_exc_type):
+                # Copy arguments and cause
+                try:
+                    # PY27
+                    args = tuple(exc_value.args)
+                except AttributeError:
+                    # Pre-2.7 value
+                    args = (exc_value,)
+                crb_exc_value = crb_exc_type(*args)
+                crb_exc_value.__cause__ = exc_value
+
+                # Piggy-back extra attributes
+                for attr, value in self.extra_attrs.iteritems():
+                    setattr(crb_exc_value, attr, value)
+
+                # PY3: Not python 3 compatible,
+                #      There are packages (e.g. six) that wraps calls like this
+                #      to be PY2 and PY3 compatible.
+                raise crb_exc_type, crb_exc_value, traceback
+        # Miss, some other exception type was raised.
+        raise exc_type, exc_value, traceback
+
+    def __call__(self, func):
+        def inner(*args, **kwargs):
+            with self:
+                return func(*args, **kwargs)
+        return inner
+
+
 class Cursor(object):
 
-    """Driver-independent cursor wrapper class.
+    """ Driver-independent cursor wrapper class.
 
     Instances are created by calling the .cursor() method of an object
     of the appropriate Database subclass."""
@@ -263,7 +354,9 @@ class Cursor(object):
         # .execute() is 'unspecified'; however, for maximum
         # compatibility with the underlying database module, we return
         # this 'unspecified' value anyway.
-        try:
+        with DatabaseErrorWrapper(self._db, self._db._db_mod,
+                                  operation=operation, sql=sql,
+                                  parameters=parameters, binds=binds):
             try:
                 return self._cursor.execute(sql, binds)
             finally:
@@ -276,14 +369,6 @@ class Cursor(object):
                 else:
                     # Not a row-returning query; clear self._row_class.
                     self._row_class = None
-        except self.DatabaseError, exc:
-            # stuff extra information into the exception object, in case we
-            # want to print this baby later.
-            exc.operation = operation
-            exc.sql = sql
-            exc.parameters = repr(parameters)
-            exc.binds = repr(binds)
-            raise exc
     # end execute
 
     def _translate(self, statement, params):
@@ -666,13 +751,11 @@ class Database(object):
             base = getattr(Utils.this_module(), name)
             exc = getattr(self._db_mod, name)
             if not issubclass(exc, base):
-                # monkey patch "our" classes in. Be careful here wrt old-style
-                # and new-style classes. Be mindful of the MRO, since we may
-                # want our hooks to take precedence.
-                exc.__bases__ += (base,)
-            if hasattr(self_class, name):
-                continue
-            setattr(self_class, name, exc)
+                # monkey patch the module api exceptions into the exception
+                # classes from this module.
+                exc = type(name, (base, exc), {})
+                if not hasattr(self_class, name):
+                    setattr(self_class, name, exc)
         #
         # The type constructors provided by the driver module should
         # be accessible as (static) methods of the database's
