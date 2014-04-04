@@ -71,6 +71,7 @@ import os
 from os.path import join as pjoin
 import time
 import getopt
+import re
 from lxml import etree
 from mx import DateTime
 
@@ -654,7 +655,71 @@ class Processing(object):
         # gateway will for instance not hear about it before it's approved.
         return ou
 
-    def _create_account(self, pe, ou, username):
+    def _generate_username(self, pid, pe, ac):
+        """Helper method for generating a project username for a given person.
+
+        """
+        fname = pe.get_name(co.system_cached, co.name_first)
+        lname = pe.get_name(co.system_cached, co.name_last)
+        for name in ac.suggest_unames(co.account_namespace, fname, lname,
+                                      maxlen=cereconf.USERNAME_MAX_LENGTH,
+                                      prefix='%s-' % pid):
+            return name
+        raise Exception("No available username for %s in %s" % (pe.entity_id,
+                        pid))
+
+    def _get_username(self, pe, ou, requestedname=None):
+        """Find a proper project username for the person.
+
+        The username is generated on the following basis:
+
+        - If the person does not have any other TSD-account:
+            - If the requested name is valid and available: return that one.
+            - If not, generate a username.
+        - If the person has another TSD-account: Use the format of one of the
+          accounts for the new project. This will fail if the username is taken
+          by someone else.
+
+        @type pe: Person object
+        @param pe: The instantiated person that should get an account.
+
+        @type ou: OU object
+        @param ou: The instantiated project OU where the account should belong.
+
+        @type requestedname: str
+        @param requestedname:
+            A username that the person has asked for having. This will be
+            ignored if the person already has a TSD-account.
+
+        @rtype: str
+        @return: The chosen, available username.
+
+        """
+        pid = ou.get_project_id()
+        ac = Factory.get('Account')(db)
+        other_acs = ac.search(owner_id=pe.entity_id)
+        if not other_acs:
+            logger.debug("No other accounts for person %s", pe.entity_id)
+            if requestedname:
+                rname = '%s-%s' % (pid, requestedname.lower())
+                if (not ac.illegal_name(rname) and not ac.search(name=rname)):
+                    return rname
+            return self._generate_username(pid, pe, ac)
+        for row in other_acs:
+            logger.debug("Person %s has other accounts, ignoring requestedname",
+                         pe.entity_id)
+            # Strip out the project prefix and give it the new pid
+            uname = ac.get_username_without_project(row['name'])
+            new_name = '%s-%s' % (pid, uname)
+            # TODO: If a person should be able to have more than one account in
+            # a project, we should also check if ac.owner_id == pe.entity_id and
+            # skip those without an exception.
+            if ac.search(name=new_name):
+                raise Exception("Failed giving %s username: %s, already taken" %
+                                (pe.entity_id, new_name))
+            return new_name
+
+    def _create_account(self, pe, ou, requestedname):
         """Create an account for a given project.
 
         The person must already be affiliated with the project for the account
@@ -670,20 +735,8 @@ class Processing(object):
         ou_is_quarantined = tuple(ou.get_entity_quarantine(only_active=True))
         pid = ou.get_project_id()
         ac = Factory.get('Account')(db)
-        username = '%s-%s' % (pid, username)
-        # Check if wanted username is already taken:
-        if ac.search(name=username, expire_start=None):
-            raise Exception("Username already taken: %s" % username)
-            # TODO: generate username if we have the person's name?
-            #for name in ac.suggest_unames(co.account_namespace, fname, lname,
-            #                              maxlen=cereconf.USERNAME_MAX_LENGTH,
-            #                              prefix='%s-' % pid):
-            #   if not ac.search(name=name):
-            #       username = name
-            #       break
-            #else:
-            #   raise Exception("No available username for %s in %s" % (pe.entity_id, pid))
-
+        # Not set usernames or invalid usernames gets ignored
+        username = self._get_username(pe, ou, requestedname)
         logger.info("Creating project user for person %s: %s", pe.entity_id,
                     username)
         # Check if the project has been accepted, i.e. is active:
