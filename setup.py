@@ -82,6 +82,9 @@ Other directories/files:
   usr/share/cerebrum/data:
     A number of subdirectories for various backends
 
+TODO: 
+  comment on template config files (logging.ini, config.dat, cereconf.py)
+
 To install python modules in standard locations, and cerebrum files
 under /cerebrum, run like:
  python setup.py install install_data --install-dir=/cerebrum
