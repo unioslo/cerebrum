@@ -134,7 +134,7 @@ class AccountTSDMixin(Account.Account):
             username = self.account_name
         # Users that not fullfill the project format
         if '-' not in username:
-            return Exception("User is not a project account: %s" % username)
+            raise Exception("User is not a project account: %s" % username)
         return username[4:]
 
     def delete_entity_quarantine(self, *args, **kwargs):
