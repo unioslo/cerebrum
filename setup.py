@@ -171,17 +171,15 @@ class my_install_data (install_data.install_data, object):
 
         # Remove files from data_files already exists in the target location,
         # and are in the `do_not_replace' list.
-        for filename in do_not_replace:
-            for ldata, fdata in self.data_files:
-                files = [fn for fn, _ in fdata]
-                path = os.path.realpath(os.path.join(self.install_dir,
-                                                     ldata.get('path')))
-                if filename in files:
-                    if os.path.exists(
-                            os.path.join(path, os.path.basename(filename))):
-                        print "Ignoring '%s', already exists in '%s'" % (
-                            filename, path)
-                        files.remove(filename)
+        for ldata, fdata in self.data_files:
+            path = os.path.realpath(os.path.join(self.install_dir,
+                                                 ldata.get('path')))
+            for fn, mode in fdata:
+                if fn in do_not_replace and os.path.exists(
+                        os.path.join(path, os.path.basename(fn))):
+                    print "Ignoring '%s', already exists in '%s'" % (
+                        fn, path)
+                    fdata.remove((fn, mode))
 
         # cerebrum_path.py.in -> cerebrum_path.py
         # TODO/FIXME: We should do this smarter. If sysconfig.get_python_lib()
