@@ -174,7 +174,9 @@ class my_install_data (install_data.install_data, object):
         for ldata, fdata in self.data_files:
             path = os.path.realpath(os.path.join(self.install_dir,
                                                  ldata.get('path')))
-            for fn, mode in fdata:
+            for fn, mode in fdata[:]:
+                # We iterate through a copy, so that fdata.remove() won't break
+                # the loop
                 if fn in do_not_replace and os.path.exists(
                         os.path.join(path, os.path.basename(fn))):
                     print "Ignoring '%s', already exists in '%s'" % (
