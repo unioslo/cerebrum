@@ -1142,6 +1142,8 @@ class BaseSync(object):
                                       """with a new value '%s'""",
                                       ent.entity_name, atr, ad_value, value)
                     ret[atr]['fullupdate'] = value
+        # Save the list of changes for possible future use
+        ent.changes = ret
         return ret
 
     def attribute_mismatch(self, ent, atr, c, a):
@@ -3102,28 +3104,28 @@ class UpdateRecipientMixin(BaseSync):
         subset = self.config.get('subset')
         # Skip if none of the relevant attributes are synced:
         if not any(a in self.recipient_related_attributes
-                   for a in self.config.attributes):
+                   for a in self.config['attributes']):
             return
 
-        def update_recipient(ad_id):
+        def update_recipient(ad_dn):
             """Helper command for handling the Update-Recipient."""
-            self.logger.info("Run Update-Recipient for: %s", ad_id)
+            self.logger.info("Run Update-Recipient for: %s", ad_dn)
             try:
-                return self.server.update_recipient(ad_id)
+                return self.server.update_recipient(ad_dn)
             except PowershellException, e:
                 # TODO: Would like to put the failed objects in a list to be
                 # rerun one more time, just to be sure.
                 self.logger.warn("Failed to run Update-Recipient for: %s",
-                        ad_id)
+                        ad_dn)
             return False
 
-        for ent in self.entities:
+        for ent in self.entities.itervalues():
             if subset and ent.ad_id not in subset:
                 continue
             # Deactivated objects must also be updated.
             if ent.ad_new:
-                update_recipient(ent.ad_id)
+                update_recipient(ent.ad_data['dn'])
             elif ent.changes and any(a in self.recipient_related_attributes
                                      for a in ent.changes):
-                update_recipient(ad_id)
+                update_recipient(ent.ad_data['dn'])
             # TODO: Other situations where we should run the cmdlet?
