@@ -102,6 +102,22 @@ class CerebrumUtils(object):
         self.db.rollback()
         return ret
 
+    def get_person_membership_groupnames(self, person_id):
+        """List all the groups the person is a member of
+        
+        @type person_id: int
+        @param person_id: The persons entity_id
+        
+        @rtype: list
+        @return: list(string) of groupnames
+        """
+        ret = [x['group_name'] for x in self.gr.search_members(
+                                    member_id=person_id, indirect_members=True)]
+        self.db.rollback()
+        return ret
+
+
+
     def is_electronic_reserved(self, person_id=None, account_id=None):
         """Check if a person has reserved themself from listing
 
