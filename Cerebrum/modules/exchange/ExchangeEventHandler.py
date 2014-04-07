@@ -124,6 +124,9 @@ class ExchangeEventHandler(processing.Process):
         self.group_spread = self.co.Spread(self.config['group_spread'])
         self.ad_spread = self.co.Spread(self.config['ad_spread'])
 
+        # Group lookup patterns
+        self.group_name_translation = self.config['group_name_translation']
+
         # Throw away our implicit transaction after fetching spreads
         self.db.rollback()
 
@@ -1022,7 +1025,21 @@ class ExchangeEventHandler(processing.Process):
         # Look up member for removal
         # Remove from group type according to spread
 
-        # Check to see if we should do something with this member
+        # Collect information about the group, and see if we should handle it
+        group_spreads = self.ut.get_group_spreads(event['dest_entity'])
+
+        if not self.group_spread in group_spreads:
+            self.logger.debug2('Unsupported group type for gid=%s!' % \
+                              event['subject_entity'])
+            # Silently discard it
+            raise UnrelatedEvent
+        
+        gname, description = self.ut.get_group_information(event['dest_entity'])
+
+        add_to_groups = [gname]
+
+        # Check to see if we should do something with this member, and fetch
+        # some information about the member
         et = self.ut.get_entity_type(event['subject_entity'])
         if et == self.co.entity_account:
             uname = self.ut.get_account_name(event['subject_entity'])
@@ -1030,37 +1047,41 @@ class ExchangeEventHandler(processing.Process):
         elif et == self.co.entity_person:
             aid = self.ut.get_primary_account(event['subject_entity'])
             uname = self.ut.get_account_name(aid)
+
+            # Look for derived groups (like meta-ansatt-something), that we
+            # should add the user to
+            for gnt in self.group_name_translation:
+                if gname.startswith(gnt):
+                    add_to_groups.extend(self.ut.get_parent_groups(
+                                         event['dest_entity'],
+                                         self.group_spread,
+                                         self.group_name_translation[gnt]))
         else:
             # Can't handle this memeber type
             raise EntityTypeError
-
-        group_spreads = self.ut.get_group_spreads(event['dest_entity'])
-        gname, description = self.ut.get_group_information(event['dest_entity'])
         
-        # If the users does not have an AD-spread, it should never end
-        # up in a group!
+        # If the users does not have an AD- or an Exchange-spread, it should
+        # never end up in a group! So we fetch the spreads and check..
         member_spreads = self.ut.get_account_spreads(aid)
 
-        # Can't stuff that user into the group ;)
         if not self.mb_spread in member_spreads:
             raise UnrelatedEvent
         if not self.ad_spread in member_spreads:
             raise EventExecutionException('No AD-spread on user :S')
 
-        if self.group_spread in group_spreads:
+        for group in add_to_groups:
             try:
-                self.ec.add_distgroup_member(gname, uname)
-                self.logger.info('Added %s to %s' % (uname, gname))
+                self.ec.add_distgroup_member(group, uname)
+                self.logger.info('Added %s to %s' % (uname, group))
             except ExchangeException, e:
                 self.logger.warn('Can\'t add %s to %s: %s' %
                                  (uname, gname, e))
-                raise EventExecutionException
-
-        if not self.group_spread in group_spreads:
-            self.logger.debug2('Unsupported group type for gid=%s!' % \
-                              event['subject_entity'])
-            # Silently discard it
-            raise UnrelatedEvent
+                # Log an event so this will happen sometime (hopefully)
+                ev_mod = event.copy()
+                ev_mod['dest_entity'] = self.ut.get_group_id(group)
+                self.logger.debug1('Creating event: Adding %s to %s' % 
+                                                            (uname, gname))
+                self.ut.log_event(ev_mod, 'e_group:add')
 
     @EventDecorator.RegisterHandler(['e_group:rem'])
     def remove_group_member(self, event):
@@ -1074,10 +1095,21 @@ class ExchangeEventHandler(processing.Process):
         # Remove from group type according to spread
         # TODO: We should check if the user to remove exists first.. If it does
         # not, it has allready been removed.. This would probably be smart to
-        # do, in order to reduce noise.
+        # do, in order to reduce noise in da logs.
         group_spreads = self.ut.get_group_spreads(event['dest_entity'])
         
-        # Check to see if we should do something with this member
+        if not self.group_spread in group_spreads:
+            self.logger.debug2('Unsupported group type for gid=%s!' % \
+                              event['subject_entity'])
+            # Silently discard it
+            raise UnrelatedEvent
+        
+        gname, description = self.ut.get_group_information(event['dest_entity'])
+
+        rem_from_groups = [gname]
+
+        # Check to see if we should do something with this member,
+        # and fetch some info.
         et = self.ut.get_entity_type(event['subject_entity'])
         if et == self.co.entity_account:
             uname = self.ut.get_account_name(event['subject_entity'])
@@ -1085,11 +1117,18 @@ class ExchangeEventHandler(processing.Process):
         elif et == self.co.entity_person:
             aid = self.ut.get_primary_account(event['subject_entity'])
             uname = self.ut.get_account_name(aid)
+            
+            # Look for derived groups (like meta-ansatt-something), that we
+            # should remove the user to
+            for gnt in self.group_name_translation:
+                if gname.startswith(gnt):
+                    rem_from_groups.extend(self.ut.get_parent_groups(
+                                           event['dest_entity'],
+                                           self.group_spread,
+                                           self.group_name_translation[gnt]))
         else:
             # Can't handle this memeber type
             raise EntityTypeError
-
-        gname, description = self.ut.get_group_information(event['dest_entity'])
 
         # If the users does not have an AD-spread, we can't remove em. Or can we?
         # TODO: Figure this out
@@ -1102,23 +1141,21 @@ class ExchangeEventHandler(processing.Process):
             # TODO: Return? That is NOT sane.
             return
         
-        if self.group_spread in group_spreads:
+        for group in rem_from_groups:
             try:
-                self.ec.remove_distgroup_member(gname, uname)
+                self.ec.remove_distgroup_member(group, uname)
                 self.logger.info('Removed %s from %s' % (uname,
-                                                         gname))
+                                                         group))
             except ExchangeException, e:
                 self.logger.warn('Can\'t remove %s from %s: %s' %
                                  (uname, gname, e))
-                raise EventExecutionException
+                # Log an event so this will happen sometime (hopefully)
+                ev_mod = event.copy()
+                ev_mod['dest_entity'] = self.ut.get_group_id(group)
+                self.logger.debug1('Creating event: Removing %s from %s' % 
+                                                            (uname, group))
+                self.ut.log_event(ev_mod, 'e_group:rem')
        
-        # TODO: This doesn't result in anything. Will we use it in the future?
-        if not self.group_spread in group_spreads:
-            self.logger.debug2('Unsupported group type for gid=%s!' % \
-                              event['subject_entity'])
-            # Silently discard it
-            raise UnrelatedEvent
-
 
     @EventDecorator.RegisterHandler(['dlgroup:modhidden'])
     def set_group_visibility(self, event):

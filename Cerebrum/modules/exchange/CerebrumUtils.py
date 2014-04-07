@@ -258,12 +258,14 @@ class CerebrumUtils(object):
 
         # Fetch the groups the person is a member of
         if self.ac.owner_type == self.co.entity_person:
-            for group in self.gr.search(member_id=self.ac.owner_id, spread=group_spread,
-                                       indirect_members=True):
+            for group in self.gr.search(member_id=self.ac.owner_id,
+                                        spread=group_spread,
+                                        indirect_members=True):
                 groups.append((group['name'], group['group_id']))
 
         # Fetch the groups the account is a member of
-        for group in self.gr.search(member_id=self.ac.entity_id, spread=group_spread,
+        for group in self.gr.search(member_id=self.ac.entity_id,
+                                    spread=group_spread,
                                     indirect_members=True):
             groups.append((group['name'], group['group_id']))
 
@@ -290,6 +292,21 @@ class CerebrumUtils(object):
         self.db.rollback()
         return ret
     
+    def get_group_id(self, group_name):
+        """Get a groups entity_id
+
+        @type group_name: str
+        @param group_name: The groups name
+
+        @rtype: int
+        @return: The groups entity_id
+        """
+        self.gr.clear()
+        self.gr.find_by_name(group_name)
+        ret = self.gr.entity_id
+        self.db.rollback()
+        return ret
+
     def get_group_spreads(self, group_id):
         """Return the groupss spread codes.
 
@@ -353,12 +370,39 @@ class CerebrumUtils(object):
                     # Do this in a wiser way
                     if spreads and \
                         set(spreads).issubset(set([x['spread']
-                                                for x in self.ac.get_spread()])):
+                                            for x in self.ac.get_spread()])):
                         r.append({'name': self.ac.account_name,
                                   'account_id': self.ac.entity_id})
                         found_accounts.append(self.ac.entity_id)
         self.db.rollback()
         return r
+    
+    def get_parent_groups(self, id, spread=None, name_prefix=None):
+        """Return all groups that the group is an indirect member of. Filter
+        by spread and the start of the group name.
+
+        @type id: int
+        @param id: The entity_id
+
+        @type spread: _SpreadCode
+        @param _SpreadCode: The spread code to filter by, default is None
+
+        @type name_prefix: str
+        @param name_prefix: Check if the group starts with this, default None
+
+        @rtype: list
+        @return: A list of appropriate groups
+        """
+        if name_prefix:
+            np = '%s%%' % name_prefix
+        else:
+            np = None
+        groups = []
+        for group in self.gr.search(member_id=id, indirect_members=True,
+                                    spread=spread, name=np):
+            groups.append(group['name'])
+        self.db.rollback()
+        return groups
 
 ####
 # Other utility methods
