@@ -1128,13 +1128,14 @@ class BaseSync(object):
                     self.logger.debug("Mismatch attr for %s: %s.", 
                                       ent.entity_name, atr)
                     if add_elements:
-                        self.logger.debug("Have to add '%s' to the attribute",
-                                          '; '.join(add_elements))
+                        self.logger.debug(" - adding: %s",
+                                          '; '.join(str(m) for m in
+                                                    add_elements))
                         ret[atr]['add'] = add_elements
                     if remove_elements:
-                        self.logger.debug("""Have to remove '%s' """
-                                          """from the attribute""", 
-                                          '; '.join(remove_elements))
+                        self.logger.debug(" - removing: %s",
+                                          '; '.join(str(m) for m in
+                                                    remove_elements))
                         ret[atr]['remove'] = remove_elements
                 else:
                     self.logger.debug("""Mismatch attr for %s: %s: """
