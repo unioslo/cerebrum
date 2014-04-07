@@ -105,10 +105,11 @@ def sendmail(toaddr, fromaddr, subject, body, cc=None,
     msg = MIMEText(body, _charset=charset)
     msg['Subject'] = Header(subject.strip(), charset)
     msg['From'] = fromaddr.strip()
+    msg['To'] = toaddr.strip()
     msg['Date'] = formatdate(localtime=True)
     # recipients in smtp.sendmail should be a list of RFC 822
     # to-address strings
-    msg['To'] = [addr.strip() for addr in toaddr.split(',')]
+    toaddr = [addr.strip() for addr in toaddr.split(',')]
     if cc:
         toaddr.extend([addr.strip() for addr in cc.split(',')])
         msg['Cc'] = cc.strip()
