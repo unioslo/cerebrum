@@ -88,6 +88,58 @@ class StateChecker(object):
                 break
         return data[1:]
 
+    # TODO: Generalise this wrapper!
+    def _searcher(self, dn, scope, attrs):
+        # Wrapping the search, try three times
+        c_fail = 0
+        e_save = None
+        while c_fail <= 3:
+            try:
+                # Search
+                msgid = self.ldap_srv.search(dn, scope, attrlist=attrs)
+                # Fetch
+                rtype, r = self.ldap_srv.result(msgid)
+                return rtype, r
+            except (ldap.SERVER_DOWN, e):
+                c_fail = c_fail + 1
+                e_save = e
+                time.sleep(14)
+        raise e_save 
+
+    # We need to implement a special function to pull out all the members from
+    # a group, since the idiots at M$ forces us to select a range...
+    # Fucking asswipes will burn in hell.
+    def collect_members(self, dn):
+        # We are searching trough a range. 0 is the start point.
+        low = str(0)
+        members = []
+        end = False
+        while not end:
+            # * means that we search for as many attributes as possible, from
+            # the start point defined by the low-param
+            attr = ['member;range=%s-*' % low]
+            # Search'n fetch
+            rtype, r = self._searcher(dn, ldap.SCOPE_BASE, attr)
+            # If this shit hits, no members exists. Break of.
+            if not r[0][1]:
+                end = True
+                break
+            # Dig out the data
+            r = r[0][1]
+            # Extract key
+            key = r.keys()[0]
+            # Store members
+            members.extend(r[key])
+            # If so, we have reached the end of the range
+            # (i.e. key is 'member;range=7500-*')
+            if '*' in key:
+                end = True
+            # Extract the new start point from the key
+            # (i.e. key is 'member;range=0-1499')
+            else:
+                low = str(int(key.split('-')[-1]) + 1)
+        return members
+
     def close(self):
         self.ldap_srv.unbind()
 
@@ -97,8 +149,7 @@ class StateChecker(object):
     def collect_exchange_group_info(self, group_ou):
         #TODO: Consider these: ['MemberJoinRestriction', 'MemberDepartRestriction',]
 
-        attrs = ['member',
-                 'displayName',
+        attrs = ['displayName',
                  'info',
                  'proxyAddresses',
                  'managedBy',
@@ -140,12 +191,11 @@ class StateChecker(object):
                 elif key == 'msExchEnableModeration':
                     tmp[u'ModerationEnabled'] = True if \
                             data[key][0].decode('UTF-8') == 'TRUE' else False
-                elif key.startswith('member'):
-                    members = []
-                    for memb in data[key]:
-                        members.append(memb[3:].split(',')[0].decode('UTF-8'))
-                    tmp.setdefault(u'Members', []).extend(sorted(members))
-            
+
+            # Pulling 'em out the logical way... S..
+            tmp['Members'] = [ m[3:].split(',')[0] for m in \
+                                                    self.collect_members(cn) ]
+
             # Non-existent attribute means that the value is false. Fuckers.
             if data.has_key('msExchHideFromAddressLists'):
                 tmp_key = 'msExchHideFromAddressLists'
