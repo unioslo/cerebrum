@@ -18,16 +18,18 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Driver-independent API for accessing databases.
 
+This is a DB-API 2.0 (PEP-249) database wrapper, for use with Cerebrum.
+
+    http://legacy.python.org/dev/peps/pep-0249/
+
 Because the connect() factory function takes care of selecting what DB-API
 driver should be used, the need for hardcoding names of specific database
 module is reduced -- at least as long as you're only accessing your Cerebrum
 database.
 
 However, one might need to collect data from other databases, possibly using a
-different driver; how could this best be implemented? (TODO/TBD)
-
-Currently, the function can be told what Database subclass to use in the
-DB_driver keyword argument.
+different driver; how could this best be implemented? Currently, the function
+can be told what Database subclass to use in the DB_driver keyword argument.
 
 """
 from __future__ import with_statement
