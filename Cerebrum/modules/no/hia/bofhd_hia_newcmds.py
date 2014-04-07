@@ -37,7 +37,8 @@ from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.no.hia import bofhd_hia_help
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailMixin
-from Cerebrum.modules.bofhd.bofhd_email_list import BofhdEmailListMixin
+from Cerebrum.modules.bofhd.bofhd_email_list import BofhdEmailMailmanMixin, \
+    BofhdEmailSympaMixin
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet, BofhdAuthOpTarget, \
@@ -77,7 +78,9 @@ class Mobile(Parameter):
     _help_ref = 'mobile_phone'
 
 
-class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin, BofhdEmailListMixin):
+class BofhdExtension(BofhdCommonMethods,
+                     BofhdEmailMixin,
+                     BofhdEmailMailmanMixin):
 
     """ The main UiA BofhdExtension. """
 
@@ -201,16 +204,17 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin, BofhdEmailListMixin):
                             'email_forward', 'email_info', 'email_move',
                             'email_quota', 'email_update', )
 
-    # Decide which email mixins to use?
-    email_list_mixin_commands = ('email_create_list', 'email_delete_list',
-                                 'email_create_list_alias',
-                                 'email_remove_list_alias', )
+    # Decide which email list mixins to use?
+    email_mailman_mixin_commands = ('mailman_create_list',
+                                    'mailman_remove_list',
+                                    'mailman_create_list_alias',
+                                    'mailman_remove_list_alias')
 
     def __new__(cls, *arg, **karg):
         # A bit hackish.  A better fix is to split bofhd_uio_cmds.py
         # into seperate classes.
         from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as \
-             UiOBofhdExtension
+            UiOBofhdExtension
 
         non_all_cmds = ('num2str', 'user_set_owner_prompt_func',)
         for func in BofhdExtension.copy_commands:
@@ -260,8 +264,8 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin, BofhdEmailListMixin):
             self.all_commands[key] = self.default_email_commands[key]
 
         # ...and the desired email list mixin commands
-        for key in self.email_list_mixin_commands:
-            self.all_commands[key] = self.default_email_list_commands[key]
+        for key in self.email_mailman_mixin_commands:
+            self.all_commands[key] = self.default_mailman_commands[key]
 
     def get_help_strings(self):
         return bofhd_hia_help.get_help_strings(self)
