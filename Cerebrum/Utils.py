@@ -105,10 +105,9 @@ def sendmail(toaddr, fromaddr, subject, body, cc=None,
     msg = MIMEText(body, _charset=charset)
     msg['Subject'] = Header(subject.strip(), charset)
     msg['From'] = fromaddr.strip()
-    msg['To'] = toaddr.strip()
+    msg['To'] = [addr.strip() for addr in toaddr.split(',')]
     msg['Date'] = formatdate(localtime=True)
     if cc:
-        toaddr = [toaddr]
         toaddr.append(cc.strip())
         msg['Cc'] = cc.strip()
     if debug:
