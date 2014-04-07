@@ -136,12 +136,23 @@ class AccountTSDMixin(Account.Account):
         f.close()
         return ret[:bytes]
 
-    def regenerate_otpkey(self):
-        """Create a new OTP key and store it for the account.
+    def regenerate_otpkey(self, tokentype=None):
+        """Create a new OTP key for the account.
 
-        TODO: Note that we do not store the OTP key in Cerebrum, for now. We
-        should only pass it on to the Gateway, so it's only stored in one place.
-        Other requirements could change this in the future.
+        Note that we do not store the OTP key in Cerebrum. We only pass it on to
+        the Gateway, so it's only stored one place. Other requirements could
+        change this in the future.
+
+        The OTP type, e.g. hotp or totp, is retrieved from the person's trait.
+
+        @type tokentype: str
+        @param tokentype:
+            What token type the OTP should become, e.g. 'totp' or 'hotp'. Note
+            that it could also be translated by L{cereconf.OTP_MAPPING_TYPES} if
+            it matches a value there.
+
+            If this parameter is None, the person's default OTP type will be
+            used, or 'totp' by default if no value is set for the person.
 
         @rtype: string
         @return:
@@ -150,13 +161,21 @@ class AccountTSDMixin(Account.Account):
             https://code.google.com/p/google-authenticator/wiki/KeyUriFormat
 
         """
+        # Generate a new key:
         key = self._generate_otpkey(getattr(cereconf, 'OTP_KEY_LENGTH', 160))
         secret = base64.b32encode(key)
-        # Get the token type from trait, e.g. totp or hotp.
-        tokentype = 'totp'
-        typetrait = self.get_trait(self.const.trait_otp_device)
-        if typetrait:
-            tokentype = typetrait['strval']
+        # Get the tokentype
+        if tokentype is None:
+            tokentype = 'totp'
+            if self.owner_type == self.const.entity_person:
+                pe = Factory.get('Person')(self._db)
+                pe.find(self.owner_id)
+                typetrait = pe.get_trait(self.const.trait_otp_device)
+                if typetrait:
+                    tokentype = typetrait['strval']
+        # A mapping from e.g. Nettskjema's smartphone_yes -> topt:
+        mapping = getattr(cereconf, 'OTP_MAPPING_TYPES', {})
+        tokentype = mapping.get(tokentype, tokentype)
         return cereconf.OTP_URI_FORMAT % {
                 'secret': secret,
                 'user': '%s@%s' % (self.account_name,
