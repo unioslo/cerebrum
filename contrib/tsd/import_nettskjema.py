@@ -68,6 +68,7 @@ Tags that are important to us:
 
 import sys
 import os
+import shutil
 from os.path import join as pjoin
 import time
 import getopt
@@ -114,6 +115,9 @@ def usage(exitcode=0):
                         COUNT starts at 0 and goes upwards if there exists
                         more files.
 
+    -d --dryrun         Only test-run the import and ignores the --archive
+                        option.
+
     -h --help           Show this and quit.
 
     """ % {'doc': __doc__,
@@ -149,7 +153,7 @@ def archive_file(file, dryrun, directory):
     logger.info("Archiving file to: %s", new_file)
     if dryrun:
         return True
-    return os.rename(file, new_file)
+    return shutil.move(file, new_file)
 
 class InvalidFileError(Exception):
     """Exception for invalid files, e.g. it can't be parsed."""
