@@ -87,7 +87,7 @@ class StateChecker(object):
                                 attrlist=attrs, serverctrls=ctrls)
                 c_fail = 0
                 e_save = None
-            except (ldap.LDAPError, e):
+            except ldap.LDAPError, e:
                 c_fail = c_fail + 1
                 e_save = e
                 self.logger.debug('Caught %s in _searcher' % str(e))
@@ -104,7 +104,7 @@ class StateChecker(object):
                 return self.ldap_srv.result3(msgid)
                 c_fail = 0
                 e_save = None
-            except (ldap.LDAPError, e):
+            except ldap.LDAPError, e:
                 c_fail = c_fail + 1
                 e_save = e
                 self.logger.debug('Caught %s in _recvr' % str(e))
