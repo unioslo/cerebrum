@@ -2637,12 +2637,13 @@ class GroupSync(BaseSync):
                     mem_obj = self
                     mem_config = self.config
                 else:
-                    mem_obj = self.get_class(sync_type=spr_name)(db,
+                    mem_obj = self.get_class(sync_type=spr_name)(self.db,
                                                                  self.logger)
                     mem_config = adconf.SYNCS[spr_name].copy()
                     # Drain the list of attributes, to avoid fetching too much data
                     # we don't need when running the sync:
                     mem_config['attributes'] = {}
+                    mem_config['sync_type'] = spr_name
                     mem_obj.configure(mem_config)
                 self.config['group_member_spreads'][spr_name] = {
                         'config': mem_config,
