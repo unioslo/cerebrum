@@ -78,7 +78,7 @@ class StateChecker(object):
                 c_fail = c_fail + 1
                 e_save = e
                 self.logger.debug('Caught %s in _searcher' % str(e))
-                time.sleep(14)
+                time.sleep(30)
         if e_save:
             raise e_save 
     
@@ -95,7 +95,7 @@ class StateChecker(object):
                 c_fail = c_fail + 1
                 e_save = e
                 self.logger.debug('Caught %s in _recvr' % str(e))
-                time.sleep(14)
+                time.sleep(30)
         if e_save:
             raise e_save 
 
@@ -139,7 +139,7 @@ class StateChecker(object):
                 c_fail = c_fail + 1
                 e_save = e
                 self.logger.debug('Caught %s in member_searcher' % str(e))
-                time.sleep(14)
+                time.sleep(30)
         raise e_save 
 
     # We need to implement a special function to pull out all the members from
