@@ -348,12 +348,15 @@ class CerebrumUtils(object):
                 self.ac.clear()
                 self.ac.find(aid)
                 if self.ac.entity_id not in found_accounts:
-                    # TODO: This is gonna make it fail sometime, since it won't
-                    # look up people if we dont give any spreads.
-                    # Do this in a wiser way
+                    # If/elif used to allow usage without filter and
+                    # filter_spread params
                     if spreads and \
                         set(spreads).issubset(set([x['spread']
-                                                for x in self.ac.get_spread()])):
+                                            for x in self.ac.get_spread()])):
+                        r.append({'name': self.ac.account_name,
+                                  'account_id': self.ac.entity_id})
+                        found_accounts.append(self.ac.entity_id)
+                    elif not spreads:
                         r.append({'name': self.ac.account_name,
                                   'account_id': self.ac.entity_id})
                         found_accounts.append(self.ac.entity_id)

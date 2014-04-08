@@ -64,6 +64,7 @@ class StateChecker(object):
         self.ldap_lc = ldap.controls.SimplePagedResultsControl(
                 ldap.LDAP_CONTROL_PAGE_OID, True, (self._ldap_page_size, ''))
 
+    # This is a paging searcher, that should be used for large amounts of data
     def search(self, ou, attrs, scope=ldap.SCOPE_SUBTREE):
         # Implementing paging, taken from
         # http://www.novell.com/coolsolutions/tip/18274.html
@@ -88,8 +89,8 @@ class StateChecker(object):
                 break
         return data[1:]
 
-    # TODO: Generalise this wrapper!
-    def _searcher(self, dn, scope, attrs):
+    # This search wrapper should be used for fetching members
+    def member_searcher(self, dn, scope, attrs):
         # Wrapping the search, try three times
         c_fail = 0
         e_save = None
@@ -119,7 +120,7 @@ class StateChecker(object):
             # the start point defined by the low-param
             attr = ['member;range=%s-*' % low]
             # Search'n fetch
-            rtype, r = self._searcher(dn, ldap.SCOPE_BASE, attr)
+            rtype, r = self.member_searcher(dn, ldap.SCOPE_BASE, attr)
             # If this shit hits, no members exists. Break of.
             if not r[0][1]:
                 end = True
@@ -252,12 +253,9 @@ class StateChecker(object):
 
 
             tmp[self.dg.group_name] = {
-#                        u'Name': self.dg.group_name,
                         u'Description': self.dg.description,
                         u'DisplayName': data['displayname'],
                         u'ManagedBy': [manager],
-#                        'MemberDepartRestriction': data['deprestr'],
-#                        'MemberJoinRestriction': data['joinrestr'],
             }
 
             if not roomlist:

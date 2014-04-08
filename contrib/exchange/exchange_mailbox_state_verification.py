@@ -31,8 +31,10 @@ import sys
 
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.Email import EmailQuota
+from Cerebrum.modules.Email import EmailAddress
 from Cerebrum import Utils
 from Cerebrum.Utils import read_password
+from Cerebrum.modules.exchange.CerebrumUtils import CerebrumUtils
 import ldap
 
 logger = Utils.Factory.get_logger('cronjob')
@@ -43,13 +45,27 @@ class StateChecker(object):
         self.co = Factory.get('Constants')(self.db)
         self.ac = Factory.get('Account')(self.db)
         self.pe = Factory.get('Person')(self.db)
+        self.gr = Factory.get('Group')(self.db)
         self.et = Factory.get('EmailTarget')(self.db)
         self.eq = EmailQuota(self.db)
+        self.ea = EmailAddress(self.db)
+        self.cu = CerebrumUtils()
 
         self.config = conf
         self.logger = logger
         
         self._ldap_page_size = 1000
+
+        self._cache_randzone_users = self._populate_randzone_cache(
+                                        self.config['randzone_unreserve_group'])
+        self._cache_accounts = self._populate_account_cache(
+                                                self.co.spread_exchange_account)
+        self._cache_addresses = self._populate_address_cache()
+        self._cache_quotas = self._populate_quota_cache()
+        self._cache_targets = self._populate_target_cache()
+        self._cache_names = self._populate_name_cache()
+        self._cache_no_reservation = self._populate_no_reservation_cache()
+        self._cache_primary_accounts = self._populate_primary_account_cache()
 
     def init_ldap(self):
         self.ldap_srv = ldap.ldapobject.ReconnectLDAPObject(
@@ -88,64 +104,114 @@ class StateChecker(object):
     def close(self):
         self.ldap_srv.unbind()
 
+    def _populate_randzone_cache(self, randzone):
+        self.gr.clear()
+        self.gr.find_by_name(randzone)
+        return [ x['name'] for x in \
+                self.cu.get_group_members(self.gr.entity_id) ]
+
+    def _populate_account_cache(self, spread):
+        return self.ac.search(spread=spread)
+
+    def _populate_address_cache(self):
+        tmp = {}
+        # TODO: Implement fetchall?
+        for addr in self.ea.list_email_addresses_ext():
+            tmp.setdefault(addr['target_id'], []).append(u'%s@%s' % \
+                                        (addr['local_part'], addr['domain']))
+        return tmp
+
+    def _populate_quota_cache(self):
+        tmp = {}
+        # TODO: Implement fetchall?
+        for quota in self.eq.list_email_quota_ext():
+            tmp.setdefault(quota['target_id'], {})['soft'] = quota['quota_soft']
+            tmp.setdefault(quota['target_id'], {})['hard'] = quota['quota_hard']
+        return tmp
+
+    def _populate_target_cache(self):
+        tmp = {}
+        for targ in self.et.list_email_target_primary_addresses(
+                                    target_type=self.co.email_target_account):
+            tmp.setdefault(targ['target_entity_id'], {})['target_id'] = \
+                    targ['target_id']
+            tmp.setdefault(targ['target_entity_id'], {})['primary'] = \
+                    u'%s@%s' % (targ['local_part'], targ['domain'])
+        return tmp
+
+    def _populate_name_cache(self):
+        tmp = {}
+        for name in self.pe.search_person_names(
+                                        name_variant=[self.co.name_first,
+                                                      self.co.name_last,
+                                                      self.co.name_full],
+                                        source_system=self.co.system_cached):
+            tmp.setdefault(name['person_id'], {})[name['name_variant']] = \
+                                                                    name['name']
+        return tmp
+
+    def _populate_no_reservation_cache(self):
+        unreserved = []
+        for r in self.pe.list_traits(self.co.trait_public_reservation,
+                                     fetchall=True):
+            if r['numval'] == 0:
+                unreserved.append(r['target_id'])
+        return unreserved
+
+    def _populate_primary_account_cache(self):
+        primary = []
+        for acc in self.ac.list_accounts_by_type(primary_only=True):
+            primary.append(acc['account_id'])
+        return primary
 ###
 # Mailbox related state fetching & comparison
 ###
     def collect_cerebrum_mail_info(self):
-        # TODO: Cache stuff?
         res = {}
-        # TODO: Move spread out
-        for acc in self.ac.search(spread=self.co.spread_exchange_account):
+        for acc in self._cache_accounts:
             tmp = {}
-            self.ac.clear()
-            self.ac.find(acc['account_id'])
-            self.et.clear()
-            self.et.find_by_target_entity(self.ac.entity_id)
-
+            tid = self._cache_targets[acc['account_id']]['target_id']
             # Fetch addresses
-            addrs = []
-            for addr in self.et.get_addresses():
-                addrs += [u'%s@%s' % (addr['local_part'], addr['domain'])]
-            tmp[u'EmailAddresses'] = sorted(addrs)
-
+            tmp[u'EmailAddresses'] = sorted(self._cache_addresses[tid])
             # Fetch primary address
-            pea = self.et.list_email_target_primary_addresses(
-                                        target_entity_id=self.ac.entity_id)[0]
-            tmp[u'PrimaryAddress'] = u'%s@%s' % (pea['local_part'],
-                                                 pea['domain'])
+            tmp[u'PrimaryAddress'] = \
+                    self._cache_targets[acc['account_id']]['primary']
 
             # Fetch names
-            if self.ac.owner_type == self.co.entity_person:
-                self.pe.clear()
-                self.pe.find(self.ac.owner_id)
-                tmp[u'FirstName'] = self.pe.get_name(self.co.system_cached,
-                                                    self.co.name_first)
-                tmp[u'LastName'] = self.pe.get_name(self.co.system_cached,
-                                                    self.co.name_last)
-                tmp[u'DisplayName'] = self.pe.get_name(self.co.system_cached,
-                                                    self.co.name_full)
+            if acc['owner_type'] == self.co.entity_person:
+                tmp[u'FirstName'] = \
+                    self._cache_names[acc['owner_id']][int(self.co.name_first)]
+                tmp[u'LastName'] = \
+                    self._cache_names[acc['owner_id']][int(self.co.name_last)]
+                tmp[u'DisplayName'] = \
+                    self._cache_names[acc['owner_id']][int(self.co.name_full)]
             else:
                 tmp[u'FirstName'] = ''
                 tmp[u'LastName'] = ''
                 tmp[u'DisplayName'] = ''
 
             # Fetch quotas
-            self.eq.clear()
-            self.eq.find(self.et.entity_id)
-            #hard = self.eq.get_quota_hard() * 1024 * 1024
-            hard = self.eq.get_quota_hard() * 1024
-            soft = self.eq.get_quota_soft()
+            hard = self._cache_quotas[tid]['hard'] * 1024
+            soft = self._cache_quotas[tid]['soft']
+
             tmp[u'ProhibitSendQuota'] = str(hard)
             tmp[u'ProhibitSendReceiveQuota'] = str(hard)
             tmp[u'IssueWarningQuota'] = str(int(hard * soft / 100.))
 
-            # Fetch hidden
-            hide = self.pe.has_e_reservation() or \
-                    not self.ac.entity_id == self.pe.get_primary_account()
+
+            # Randzone users will always be shown. This overrides everything
+            # else.
+            if acc['name'] in self._cache_randzone_users:
+                hide = False
+            elif acc['owner_id'] in self._cache_no_reservation and \
+                    acc['account_id'] in self._cache_primary_accounts:
+                hide = False
+            else:
+                hide = True
 
             tmp[u'HiddenFromAddressListsEnabled'] = hide
 
-            res[self.ac.account_name] = tmp
+            res[acc['name']] = tmp
 
         return res
 
@@ -315,8 +381,8 @@ class StateChecker(object):
 
         # Report uncreated mailboxes
         report += [u'\n# Uncreated mailboxes (uname, time)']
-        delta = config.get('UncreatedMailbox') if attr in config else \
-                                        config.get('UndefinedAttribute')
+        delta = config.get('UncreatedMailbox') if 'UncreatedMailbox' in config \
+                else config.get('UndefinedAttribute')
         for key in diff_new:
             if diff_new[key] < now - delta:
                 t = time.strftime(u'%d%m%Y-%H:%M', time.localtime(
@@ -325,7 +391,7 @@ class StateChecker(object):
 
         # Report stale mailboxes
         report += [u'\n# Stale mailboxes (uname, time)']
-        delta = config.get('StaleMailbox') if attr in config else \
+        delta = config.get('StaleMailbox') if 'StaleMailbox' in config else \
                                         config.get('UndefinedAttribute')
         for key in diff_stale:
             t = time.strftime(u'%d%m%Y-%H:%M', time.localtime(
