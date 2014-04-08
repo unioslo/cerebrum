@@ -64,15 +64,50 @@ class StateChecker(object):
         self.ldap_lc = ldap.controls.SimplePagedResultsControl(
                 ldap.LDAP_CONTROL_PAGE_OID, True, (self._ldap_page_size, ''))
 
+    # Wrapping the search with retries if the server is busy or similar errors
+    def _searcher(self, ou, scope, attrs, ctrls):
+        c_fail = 0
+        e_save = None
+        while c_fail <= 3:
+            try:
+                return self.ldap_srv.search_ext(ou, scope,
+                                attrlist=attrs, serverctrls=ctrls)
+                c_fail = 0
+                e_save = None
+            except (ldap.LDAPError, e):
+                c_fail = c_fail + 1
+                e_save = e
+                self.logger.debug('Caught %s in _searcher' % str(e))
+                time.sleep(14)
+        if e_save:
+            raise e_save 
+    
+    # Wrapping the fetch with retries if the server is busy or similar errors
+    def _recvr(self, msgid):
+        c_fail = 0
+        e_save = None
+        while c_fail <= 3:
+            try:
+                return self.ldap_srv.result3(msgid)
+                c_fail = 0
+                e_save = None
+            except (ldap.LDAPError, e):
+                c_fail = c_fail + 1
+                e_save = e
+                self.logger.debug('Caught %s in _recvr' % str(e))
+                time.sleep(14)
+        if e_save:
+            raise e_save 
+
     # This is a paging searcher, that should be used for large amounts of data
     def search(self, ou, attrs, scope=ldap.SCOPE_SUBTREE):
         # Implementing paging, taken from
         # http://www.novell.com/coolsolutions/tip/18274.html
-        msgid = self.ldap_srv.search_ext(ou, scope,
-                        attrlist=attrs, serverctrls=[self.ldap_lc])
+        msgid = self._searcher(ou, scope, attrs, [self.ldap_lc])
+
         data = []
         while True:
-            rtype, rdata, rmsgid, sc = self.ldap_srv.result3(msgid)
+            rtype, rdata, rmsgid, sc = self._recvr(msgid)
             data.extend(rdata)
             pctrls = [c for c in sc if \
                     c.controlType == ldap.LDAP_CONTROL_PAGE_OID]
@@ -80,8 +115,7 @@ class StateChecker(object):
                 est, cookie = pctrls[0].controlValue
                 if cookie:
                     self.ldap_lc.controlValue = (self._ldap_page_size, cookie)
-                    msgid = self.ldap_srv.search_ext(ou, ldap.SCOPE_SUBTREE,
-                                attrlist=attrs, serverctrls=[self.ldap_lc])
+                    msgid = self._searcher(ou, scope, attrs, [self.ldap_lc])
                 else:
                     break
             else:
@@ -101,9 +135,10 @@ class StateChecker(object):
                 # Fetch
                 rtype, r = self.ldap_srv.result(msgid)
                 return rtype, r
-            except (ldap.SERVER_DOWN, e):
+            except (ldap.LDAPError, e):
                 c_fail = c_fail + 1
                 e_save = e
+                self.logger.debug('Caught %s in member_searcher' % str(e))
                 time.sleep(14)
         raise e_save 
 
@@ -148,8 +183,6 @@ class StateChecker(object):
 # Group related fetching & comparison
 ###
     def collect_exchange_group_info(self, group_ou):
-        #TODO: Consider these: ['MemberJoinRestriction', 'MemberDepartRestriction',]
-
         attrs = ['displayName',
                  'info',
                  'proxyAddresses',
@@ -470,7 +503,8 @@ if __name__ == '__main__':
         rep = u'\n'.join(tmp)
     # Send a report by mail
     if mail and sender:
-        Utils.sendmail(mail, sender, 'Exchange group state report', rep.encode('utf-8'))
+        Utils.sendmail(mail, sender, 'Exchange group state report',
+                                                            rep.encode('utf-8'))
 
     # Write report to file
     if repfile:

@@ -77,14 +77,50 @@ class StateChecker(object):
         self.ldap_lc = ldap.controls.SimplePagedResultsControl(
                 ldap.LDAP_CONTROL_PAGE_OID, True, (self._ldap_page_size, ''))
 
+    # Wrapping the search with retries if the server is busy or similar errors
+    def _searcher(self, ou, scope, attrs, ctrls):
+        c_fail = 0
+        e_save = None
+        while c_fail <= 3:
+            try:
+                return self.ldap_srv.search_ext(ou, scope,
+                                attrlist=attrs, serverctrls=ctrls)
+                c_fail = 0
+                e_save = None
+            except (ldap.LDAPError, e):
+                c_fail = c_fail + 1
+                e_save = e
+                self.logger.debug('Caught %s in _searcher' % str(e))
+                time.sleep(14)
+        if e_save:
+            raise e_save 
+    
+    # Wrapping the fetch with retries if the server is busy or similar errors
+    def _recvr(self, msgid):
+        c_fail = 0
+        e_save = None
+        while c_fail <= 3:
+            try:
+                return self.ldap_srv.result3(msgid)
+                c_fail = 0
+                e_save = None
+            except (ldap.LDAPError, e):
+                c_fail = c_fail + 1
+                e_save = e
+                self.logger.debug('Caught %s in _recvr' % str(e))
+                time.sleep(14)
+        if e_save:
+            raise e_save 
+
+
     def search(self, ou, attrs, scope=ldap.SCOPE_SUBTREE):
         # Implementing paging, taken from
         # http://www.novell.com/coolsolutions/tip/18274.html
-        msgid = self.ldap_srv.search_ext(ou, scope,
-                        attrlist=attrs, serverctrls=[self.ldap_lc])
+        msgid = self._searcher(ou, scope, attrs, [self.ldap_lc])
+
         data = []
         while True:
-            rtype, rdata, rmsgid, sc = self.ldap_srv.result3(msgid)
+            rtype, rdata, rmsgid, sc = self._recvr(msgid)
             data.extend(rdata)
             pctrls = [c for c in sc if \
                     c.controlType == ldap.LDAP_CONTROL_PAGE_OID]
@@ -92,8 +128,7 @@ class StateChecker(object):
                 est, cookie = pctrls[0].controlValue
                 if cookie:
                     self.ldap_lc.controlValue = (self._ldap_page_size, cookie)
-                    msgid = self.ldap_srv.search_ext(ou, ldap.SCOPE_SUBTREE,
-                                attrlist=attrs, serverctrls=[self.ldap_lc])
+                    msgid = self._searcher(ou, scope, attrs, [self.ldap_lc])
                 else:
                     break
             else:
