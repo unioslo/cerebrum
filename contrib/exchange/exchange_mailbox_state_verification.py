@@ -190,7 +190,7 @@ class StateChecker(object):
         for r in self.pe.list_traits(self.co.trait_public_reservation,
                                      fetchall=True):
             if r['numval'] == 0:
-                unreserved.append(r['target_id'])
+                unreserved.append(r['entity_id'])
         return unreserved
 
     def _populate_primary_account_cache(self):
