@@ -823,7 +823,7 @@ class BaseSync(object):
             e = self.id2entity.get(row['entity_id'], None)
             if e:
                 if attr.multivalued:
-                    e.attribues.setdefault(str(attr), []).append(row['value'])
+                    e.attributes.setdefault(str(attr), []).append(row['value'])
                 else:
                     e.attributes[str(attr)] = row['value']
                 i += 1
