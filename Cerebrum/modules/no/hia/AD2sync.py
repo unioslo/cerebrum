@@ -76,8 +76,8 @@ class UiACerebrumDistGroup(CerebrumGroup):
         
         """
         super(UiACerebrumDistGroup, self).calculate_ad_values()
-        self.set_attribute('Members', ["CN=" + y.ad_id + "," + y.ou
-                                       for y in self.ad_data['members']])
+        self.set_attribute('Member', ["CN=" + y.ad_id + "," + y.ou
+                                      for y in self.ad_data['members']])
 
 
 class UiADistGroupSync(BaseSync):
