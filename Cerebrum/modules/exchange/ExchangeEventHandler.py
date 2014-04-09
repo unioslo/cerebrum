@@ -317,8 +317,8 @@ class ExchangeEventHandler(processing.Process):
                 self.ec.new_mailbox(uname, full_name,
                                     first_name, last_name,
                                     ou=self.config['mailbox_path'])
-                self.logger.info('Created new mailbox for %s' \
-                        % uname)
+                self.logger.info('eid:%d: Created new mailbox for %s' \
+                        % (event['event_id'], uname))
                 # TODO: Should we log a receipt for hiding the mbox in the
                 # address book? We don't really need to, since everyone is
                 # hidden by default.
@@ -349,8 +349,9 @@ class ExchangeEventHandler(processing.Process):
                 try:
                     self.ec.set_mailbox_visibility(
                             uname, visible=True)
-                    self.logger.info('Publishing %s in address book...' \
-                            % uname)
+                    self.logger.info(
+                            'eid:%d: Publishing %s in address book...' \
+                            % (event['event_id'], uname))
                     # TODO: Mangle the event som it represents this correctly??
                     self.ut.log_event_receipt(event, 'exchange:per_e_reserv')
                 except ExchangeException, e:
@@ -363,8 +364,8 @@ class ExchangeEventHandler(processing.Process):
             addrs = self.ut.get_account_mailaddrs(event['subject_entity'])
             try:
                 self.ec.add_mailbox_addresses(uname, addrs)
-                self.logger.info('Added addresses for %s' % \
-                                    uname)
+                self.logger.info('eid:%d: Added addresses for %s' % \
+                                    (event['event_id'], uname))
                 # TODO: Higher resolution? Should we do this for all addresses,
                 # and mangle the event to represent this?
                 self.ut.log_event_receipt(event, 'exchange:acc_addr_add')
@@ -390,8 +391,8 @@ class ExchangeEventHandler(processing.Process):
             try:
                 self.ec.set_primary_mailbox_address(uname,
                                                     pri_addr)
-                self.logger.info('Defined primary address for %s' % \
-                                    uname)
+                self.logger.info('eid:%d: Defined primary address for %s' % \
+                                    (event['event_id'], uname))
                 self.ut.log_event_receipt(event, 'exchange:acc_primaddr')
 
             except ExchangeException, e:
@@ -412,8 +413,8 @@ class ExchangeEventHandler(processing.Process):
             try:
                 soft = (hq * sq) / 100
                 self.ec.set_mailbox_quota(uname, soft, hq)
-                self.logger.info('Set quota (%s, %s) on %s' % \
-                                 (soft, hq, uname))
+                self.logger.info('eid:%d: Set quota (%s, %s) on %s' % \
+                                 (event['event_id'], soft, hq, uname))
             except ExchangeException, e:
                 self.logger.warn('eid:%d: Could not set quota on %s: %s' % \
                         (event['event_id'], uname, e))
@@ -433,8 +434,8 @@ class ExchangeEventHandler(processing.Process):
                               'dest_entity': gid,
                               'change_params': pickle.dumps(None)}
 
-                self.logger.debug1('Creating event: Adding %s to %s' % 
-                                                            (uname, gname))
+                self.logger.debug1('eid:%d: Creating event: Adding %s to %s' % \
+                                            (event['event_id'], uname, gname))
                 self.ut.log_event(faux_event, 'e_group:add')
 
         # If we wind up here, the spread type is notrelated to our target system
@@ -457,7 +458,8 @@ class ExchangeEventHandler(processing.Process):
             uname = self.ut.get_account_name(event['subject_entity'])
             try:
                 self.ec.remove_mailbox(uname)
-                self.logger.info('Removed mailbox %s' % uname)
+                self.logger.info('eid:%d: Removed mailbox %s' % \
+                                                    (event['event_id'], uname))
                 # Log a reciept that represents completion of the operation in
                 # ChangeLog.
                 # TODO: Move this to the caller sometime
@@ -492,7 +494,8 @@ class ExchangeEventHandler(processing.Process):
             if self.mb_spread in self.ut.get_account_spreads(aid):
                 try:
                     self.ec.set_mailbox_names(uname, first, last, full)
-                    self.logger.info('Updated name for %s' % uname)
+                    self.logger.info('eid:%d: Updated name for %s' % \
+                            (event['event_id'], uname))
                 except ExchangeException, e:
                     self.logger.warn('eid:%d: Failed updating name for %s: %s' \
                             % (event['event_id'], uname, e))
@@ -549,8 +552,8 @@ class ExchangeEventHandler(processing.Process):
             if hidden_from_address_book:
                 try:
                     self.ec.set_mailbox_visibility(uname, visible=False)
-                    self.logger.info('Hiding id:%d in address book..' \
-                                        % event['subject_entity'])
+                    self.logger.info('eid:%d: Hiding id:%d in address book..' \
+                                % (event['event_id'], event['subject_entity']))
                 except ExchangeException, e:
                     self.logger.warn(
                             'eid:%d: Can\'t hide %d in address book: %s' % \
@@ -559,8 +562,9 @@ class ExchangeEventHandler(processing.Process):
             else:
                 try:
                     self.ec.set_mailbox_visibility(uname, visible=True)
-                    self.logger.info('Publishing id:%d in address book..' \
-                                        % event['subject_entity'])
+                    self.logger.info(
+                            'eid:%d: Publishing id:%d in address book..' \
+                                % (event['event_id'], event['subject_entity']))
                 except ExchangeException, e:
                     self.logger.warn(
                             'eid:%d: Can\'t publish %d in address book: %s' % \
@@ -598,8 +602,9 @@ class ExchangeEventHandler(processing.Process):
             soft = (params['hard'] * params['soft']) / 100
 
             self.ec.set_mailbox_quota(name, soft, hard)
-            self.logger.info('Set quota (%d hard, %d soft) on mailbox for %s' \
-                    % (hard, soft, name))
+            self.logger.info(
+                    'eid:%d: Set quota (%d hard, %d soft) on mailbox for %s' \
+                    % (event['event_id'], hard, soft, name))
         except ExchangeException, e:
             self.logger.warn(
                     'eid:%d: Can\'t set quota (%d hard, %d soft) for %s: %s)' \
@@ -641,8 +646,8 @@ class ExchangeEventHandler(processing.Process):
             uname = self.ut.get_account_name(eid)
             try:
                 self.ec.add_mailbox_addresses(uname, [address])
-                self.logger.info('Added %s to %s' % 
-                        (address, uname))
+                self.logger.info('eid:%d: Added %s to %s' % 
+                        (event['event_id'], address, uname))
 
                 # Log a reciept that represents completion of the operation in
                 # ChangeLog.
@@ -660,14 +665,14 @@ class ExchangeEventHandler(processing.Process):
                 gname, desc = self.ut.get_group_information(eid)
                 try:
                     self.ec.add_distgroup_addresses(gname, [address])
-                    self.logger.info('Added %s to %s' % 
-                            (address, gname))
+                    self.logger.info('eid:%d: Added %s to %s' % \
+                            (event['event_id'], address, gname))
                     # Log a reciept that represents completion of the operation
                     # in ChangeLog.
                     # TODO: Move this to the caller sometime
                     self.ut.log_event_receipt(event, 'dlgroup:addaddr')
                 except ExchangeException, e:
-                    self.logger.warn('eid:%d: Can\'t add %s to %s: %s' % 
+                    self.logger.warn('eid:%d: Can\'t add %s to %s: %s' % \
                                      (event['event_id'], address, gname, e))
                     raise EventExecutionException
         else:
@@ -706,8 +711,8 @@ class ExchangeEventHandler(processing.Process):
             try:
                 self.ec.remove_mailbox_addresses(uname,
                                                  [address])
-                self.logger.info('Removed %s from %s' % 
-                        (address, uname))
+                self.logger.info('eid:%d: Removed %s from %s' % \
+                        (event['event_id'], address, uname))
                 # Log a reciept that represents completion of the operation in
                 # ChangeLog.
                 # TODO: Move this to the caller sometime
@@ -724,8 +729,8 @@ class ExchangeEventHandler(processing.Process):
                 gname, desc = self.ut.get_group_information(eid)
                 try:
                     self.ec.remove_distgroup_addresses(gname, [address])
-                    self.logger.info('Removed %s from %s' % 
-                            (address, gname))
+                    self.logger.info('eid:%d: Removed %s from %s' % \
+                            (event['event_id'], address, gname))
                     # Log a reciept that represents completion of the operation
                     # in ChangeLog.
                     # TODO: Move this to the caller sometime
@@ -768,8 +773,9 @@ class ExchangeEventHandler(processing.Process):
             addr = self.ut.get_account_primary_email(eid)
             try:
                 self.ec.set_primary_mailbox_address(uname, addr)
-                self.logger.info('Changing primary address of %s to %s' %
-                                 (uname, addr))
+                self.logger.info(
+                        'eid:%d: Changing primary address of %s to %s' % \
+                                 (event['event_id'], uname, addr))
                 # Log a reciept that represents completion of the operation
                 # in ChangeLog.
                 # TODO: Move this to the caller sometime
@@ -814,7 +820,8 @@ class ExchangeEventHandler(processing.Process):
             if data['roomlist'] == 'F':
                 try:
                     self.ec.new_group(gname, self.config['group_ou'])
-                    self.logger.info('Created Exchange group %s' % gname)
+                    self.logger.info('eid:%d: Created Exchange group %s' % \
+                            (event['event_id'], gname))
                     self.ut.log_event_receipt(event, 'dlgroup:create')
                 except ExchangeException, e:
                     self.logger.warn('eid:%d: Could not create group %s: %s' % \
@@ -823,7 +830,8 @@ class ExchangeEventHandler(processing.Process):
             else:
                 try:
                     self.ec.new_roomlist(gname, self.config['group_ou'])
-                    self.logger.info('Created roomlist %s' % gname)
+                    self.logger.info('eid:%d: Created roomlist %s' % \
+                            (event['event_id'], gname))
                     self.ut.log_event_receipt(event, 'dlgroup:roomcreate')
                 except ExchangeException, e:
                     self.logger.warn(
@@ -834,7 +842,9 @@ class ExchangeEventHandler(processing.Process):
 
             try:
                 self.ec.set_distgroup_address_policy(gname)
-                self.logger.info('Disabling Ex address policy for %s' % gname)
+                self.logger.info(
+                        'eid:%d: Disabling Ex address policy for %s' % \
+                        (event['event_id'], gname))
             except ExchangeException, e:
                 self.logger.warn(
                         'eid:%d: Could not disable address policy for %s %s' % \
@@ -847,8 +857,8 @@ class ExchangeEventHandler(processing.Process):
                 try:
                     self.ec.set_distgroup_primary_address(gname,
                                                           data['primary'])
-                    self.logger.info('Set primary %s for %s' % (data['primary'],
-                                                                gname))
+                    self.logger.info('eid:%d: Set primary %s for %s' % \
+                            (event['event_id'], data['primary'], gname))
                     self.ut.log_event_receipt(event, 'dlgroup:primary')
                 except ExchangeException, e:
                     self.logger.warn(
@@ -867,8 +877,9 @@ class ExchangeEventHandler(processing.Process):
                 # Set mailaddrs
                 try:
                     self.ec.add_distgroup_addresses(gname, data['aliases'])
-                    self.logger.info('Set addresses for %s: %s' % \
-                                                    (gname,
+                    self.logger.info('eid:%d: Set addresses for %s: %s' % \
+                                                    (event['event_id'],
+                                                     gname,
                                                      str(data['aliases'])))
                     # TODO: More resolution here? We want to mangle the event to
                     # show addresses?
@@ -897,8 +908,8 @@ class ExchangeEventHandler(processing.Process):
                 try:
                     hide = True if data['hidden'] == 'T' else False
                     self.ec.set_distgroup_visibility(gname, hide)
-                    self.logger.info('Set %s visible: %s' % (gname,
-                                                             data['hidden']))
+                    self.logger.info('eid:%d: Set %s visible: %s' % \
+                                    (event['event_id'], gname, data['hidden']))
                     self.ut.log_event_receipt(event, 'dlgroup:modhidden')
                 except ExchangeException, e:
                     self.logger.warn(
@@ -912,8 +923,8 @@ class ExchangeEventHandler(processing.Process):
             # Set manager
             try:
                 self.ec.set_distgroup_manager(gname, data['mngdby_address'])
-                self.logger.info('Set manager of %s to %s' % \
-                        (gname, data['mngdby_address']))
+                self.logger.info('eid:%d: Set manager of %s to %s' % \
+                        (event['event_id'], gname, data['mngdby_address']))
                 self.ut.log_event_receipt(event, 'dlgroup:modmanby')
             except ExchangeException, e:
                 self.logger.warn(
@@ -931,8 +942,8 @@ class ExchangeEventHandler(processing.Process):
                     try:
                         self.ec.set_distgroup_moderator(gname,
                                                     ', '.join(data['modby']))
-                        self.logger.info('Set moderators %s on %s' % \
-                                (data['modby'], gname))
+                        self.logger.info('eid:%d: Set moderators %s on %s' % \
+                                (event['event_id'], data['modby'], gname))
                         # TODO: This correct? CLConstants is a bit strange
                         self.ut.log_event_receipt(event, 'dlgroup:modmodby')
                     except ExchangeException, e:
@@ -948,8 +959,9 @@ class ExchangeEventHandler(processing.Process):
                     enable = True if data['modenable'] == 'T' else False
                     try:
                         self.ec.set_distgroup_moderation(gname, enable)
-                        self.logger.info('Set moderation on %s to %s' % \
-                                (gname, data['modenable']))
+                        self.logger.info(
+                                'eid:%d: Set moderation on %s to %s' % \
+                                (event['event_id'], gname, data['modenable']))
 # TODO: Receipt for this?
                     except ExchangeException, e:
                         self.logger.warn(
@@ -965,8 +977,8 @@ class ExchangeEventHandler(processing.Process):
             # Set displayname
             try:
                 self.ec.set_group_display_name(gname, data['displayname'])
-                self.logger.info('Set displayname to %s for %s' % \
-                        (data['displayname'], gname))
+                self.logger.info('eid:%d: Set displayname to %s for %s' % \
+                        (event['event_id'], data['displayname'], gname))
             except ExchangeException, e:
                 self.logger.warn(
                         'eid:%d: Can\'t set displayname to %s for %s: %s' \
@@ -980,8 +992,8 @@ class ExchangeEventHandler(processing.Process):
                 try:
                     self.ec.set_distgroup_description(gname,
                                                       data['description'])
-                    self.logger.info('Set description to %s for %s' % \
-                            (data['description'], gname))
+                    self.logger.info('eid:%d: Set description to %s for %s' % \
+                            (event['event_id'], data['description'], gname))
                 except ExchangeException, e:
                     self.logger.warn(
                         'eid:%d: Can\'t set description to %s for %s: %s' % \
@@ -998,7 +1010,7 @@ class ExchangeEventHandler(processing.Process):
         else:
             # TODO: Fix up this comment, it is not the entire truth.
             # If we can't handle the object type, silently discard it
-            self.logger.debug2('UnrelatedEvent')
+            self.logger.debug2('eid:%d: UnrelatedEvent' % event['event_id'])
             raise UnrelatedEvent
         
 # TODO: SPlit this out in its own function depending on spread:add
@@ -1014,8 +1026,8 @@ class ExchangeEventHandler(processing.Process):
             ev_mod = event.copy()
             ev_mod['dest_entity'] = ev_mod['subject_entity']
             ev_mod['subject_entity'] = memb['account_id']
-            self.logger.debug1('Creating event: Adding %s to %s' % 
-                                                        (memb['name'], gname))
+            self.logger.debug1('eid:%d: Creating event: Adding %s to %s' % \
+                                    (event['event_id'], memb['name'], gname))
             self.ut.log_event(ev_mod, 'e_group:add')
 
     @EventDecorator.RegisterHandler(['dlgroup:remove'])
@@ -1029,7 +1041,8 @@ class ExchangeEventHandler(processing.Process):
         if data['roomlist'] == 'F':
             try:
                 self.ec.remove_group(data['name'])
-                self.logger.info('Removed group %s' % data['name'])
+                self.logger.info('eid:%d: Removed group %s' % \
+                        (event['event_id'], data['name']))
                 self.ut.log_event_receipt(event, 'dlgroup:remove')
                 
             except ExchangeException, e:
@@ -1039,7 +1052,8 @@ class ExchangeEventHandler(processing.Process):
         else:
             try:
                 self.ec.remove_roomlist(data['name'])
-                self.logger.info('Removed roomlist %s' % data['name'])
+                self.logger.info('eid:%d: Removed roomlist %s' % \
+                        (event['event_id'], data['name']))
                 self.ut.log_event_receipt(event, 'dlgroup:remove')
                 
             except ExchangeException, e:
@@ -1062,8 +1076,8 @@ class ExchangeEventHandler(processing.Process):
         group_spreads = self.ut.get_group_spreads(event['dest_entity'])
 
         if not self.group_spread in group_spreads:
-            self.logger.debug2('Unsupported group type for gid=%s!' % \
-                              event['subject_entity'])
+            self.logger.debug2('eid:%d: Unsupported group type for gid=%s!' % \
+                              (event['event_id'], event['subject_entity']))
             # Silently discard it
             raise UnrelatedEvent
         
@@ -1105,15 +1119,16 @@ class ExchangeEventHandler(processing.Process):
         for group in add_to_groups:
             try:
                 self.ec.add_distgroup_member(group, uname)
-                self.logger.info('Added %s to %s' % (uname, group))
+                self.logger.info('eid:%d: Added %s to %s' % \
+                        (event['event_id'], uname, group))
             except ExchangeException, e:
                 self.logger.warn('eid:%d: Can\'t add %s to %s: %s' %
                                  (event['event_id'], uname, gname, e))
                 # Log an event so this will happen sometime (hopefully)
                 ev_mod = event.copy()
                 ev_mod['dest_entity'] = self.ut.get_group_id(group)
-                self.logger.debug1('Creating event: Adding %s to %s' % 
-                                                            (uname, gname))
+                self.logger.debug1('eid:%d: Creating event: Adding %s to %s' % \
+                        (event['event_id'], uname, gname))
                 self.ut.log_event(ev_mod, 'e_group:add')
 
     @EventDecorator.RegisterHandler(['e_group:rem'])
@@ -1132,8 +1147,8 @@ class ExchangeEventHandler(processing.Process):
         group_spreads = self.ut.get_group_spreads(event['dest_entity'])
         
         if not self.group_spread in group_spreads:
-            self.logger.debug2('Unsupported group type for gid=%s!' % \
-                              event['subject_entity'])
+            self.logger.debug2('eid:%d: Unsupported group type for gid=%s!' % \
+                              (event['event_id'], event['subject_entity']))
             # Silently discard it
             raise UnrelatedEvent
         
@@ -1177,16 +1192,17 @@ class ExchangeEventHandler(processing.Process):
         for group in rem_from_groups:
             try:
                 self.ec.remove_distgroup_member(group, uname)
-                self.logger.info('Removed %s from %s' % (uname,
-                                                         group))
+                self.logger.info('eid:%d: Removed %s from %s' % \
+                        (event['event_id'], uname, group))
             except ExchangeException, e:
                 self.logger.warn('eid:%d: Can\'t remove %s from %s: %s' %
                                  (event['event_id'], uname, gname, e))
                 # Log an event so this will happen sometime (hopefully)
                 ev_mod = event.copy()
                 ev_mod['dest_entity'] = self.ut.get_group_id(group)
-                self.logger.debug1('Creating event: Removing %s from %s' % 
-                                                            (uname, group))
+                self.logger.debug1(
+                        'eid:%d: Creating event: Removing %s from %s' % \
+                                        (event['event_id'], uname, group))
                 self.ut.log_event(ev_mod, 'e_group:rem')
        
 
@@ -1208,8 +1224,8 @@ class ExchangeEventHandler(processing.Process):
             show = True if params['hidden'] == 'T' else False
             try:
                 self.ec.set_distgroup_visibility(gname, show)
-                self.logger.info('Group visibility set to %s for %s' % \
-                                    (show, gname))
+                self.logger.info('eid:%d: Group visibility set to %s for %s' % \
+                                    (event['event_id'], show, gname))
 
                 # Log a reciept that represents completion of the operation
                 # in ChangeLog.
@@ -1244,7 +1260,8 @@ class ExchangeEventHandler(processing.Process):
             name = self.ut.get_account_name(event['subject_entity'])
             try:
                 self.ec.set_mailbox_address_policy(name)
-                self.logger.info('EAP disabled on %s' % name)
+                self.logger.info('eid:%d: EAP disabled on %s' % \
+                        (event['event_id'], name))
             except ExchangeException, e:
                 self.logger.warn(
                         'eid:%d: Can\'t disable EAP on account %s: %s' \
@@ -1254,7 +1271,8 @@ class ExchangeEventHandler(processing.Process):
             name, desc = self.ut.get_group_information(event['subject_entity'])
             try:
                 self.ec.set_distgroup_address_policy(name)
-                self.logger.info('EAP disabled on %s' % name)
+                self.logger.info('eid:%d: EAP disabled on %s' % \
+                        (event['event_id'], name))
             except ExchangeException, e:
                 self.logger.warn('eid:%d: Can\'t disable EAP for %s: %s' % \
                         (event['event_id'], name, e))
@@ -1275,8 +1293,8 @@ class ExchangeEventHandler(processing.Process):
         try:
             self.ec.set_distgroup_manager(gname, params['manby'])
             # TODO: Better logging
-            self.logger.info('Setting manager %s for %s' % \
-                                (params['manby'], gname))
+            self.logger.info('eid:%d: Setting manager %s for %s' % \
+                                (event['event_id'], params['manby'], gname))
 
             # Log a reciept that represents completion of the operation
             # in ChangeLog.
@@ -1301,8 +1319,8 @@ class ExchangeEventHandler(processing.Process):
         try:
             self.ec.set_distgroup_moderator(gname, params['modby'])
             # TODO: Better logging
-            self.logger.info('Setting moderators (%s) for %s' % \
-                                (params['modby'], gname))
+            self.logger.info('eid:%d: Setting moderators (%s) for %s' % \
+                                (event['event_id'], params['modby'], gname))
             # Log a reciept that represents completion of the operation
             # in ChangeLog.
             # TODO: Move this to the caller sometime
@@ -1327,8 +1345,8 @@ class ExchangeEventHandler(processing.Process):
         enable = True if params['modenable'] == 'T' else False
         try:
             self.ec.set_distgroup_moderation(gname, enable)
-            self.logger.info('Set moderation enabled to %s on %s' % \
-                    (str(enable), gname))
+            self.logger.info('eid:%d: Set moderation enabled to %s on %s' % \
+                    (event['event_id'], str(enable), gname))
         except ExchangeException, e:
             self.logger.warn(
                 'eid:%d: Failed to set moderation enabled to %s for %s : %s' % \
@@ -1360,12 +1378,12 @@ class ExchangeEventHandler(processing.Process):
             # TODO: Move this to the caller sometime
             if join:
                 self.ut.log_event_receipt(event, 'dlgroup:modjoinre')
-                self.logger.info('Set join restriction to %s for %s' % \
-                                    (join, gname))
+                self.logger.info('eid:%d: Set join restriction to %s for %s' % \
+                                    (event['event_id'], join, gname))
             if part:
                 self.ut.log_event_receipt(event, 'dlgroup:moddepres')
-                self.logger.info('Set part restriction to %s for %s' % \
-                                    (part, gname))
+                self.logger.info('eid:%d: Set part restriction to %s for %s' % \
+                                    (event['event_id'], part, gname))
         except ExchangeException, e:
             self.logger.warn(
                     'eid:%d: Can\'t set join/part restriction on %s: %s' % \
@@ -1401,8 +1419,8 @@ class ExchangeEventHandler(processing.Process):
             try:
                 self.ec.set_group_display_name(attrs['name'],
                                                attrs['displayname'])
-                self.logger.info('Set displayname on %s to %s' % \
-                        (attrs['name'], attrs['name']))
+                self.logger.info('eid:%d: Set displayname on %s to %s' % \
+                        (event['event_id'], attrs['name'], attrs['name']))
             except ExchangeException, e:
                 self.logger.warn(
                         'eid:%d: can\'t set displayname on %s to %s: %s' \
@@ -1412,8 +1430,8 @@ class ExchangeEventHandler(processing.Process):
             try:
                 self.ec.set_distgroup_description(attrs['name'],
                                                   attrs['description'])
-                self.logger.info('Set description on %s to %s' % \
-                        (attrs['name'], attrs['description']))
+                self.logger.info('eid:%d: Set description on %s to %s' % \
+                        (event['event_id'], attrs['name'], attrs['description']))
             except ExchangeException, e:
                 self.logger.warn(
                         'eid:%d: Can\'t set description on %s to %s: %s' % \
