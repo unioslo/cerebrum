@@ -2633,62 +2633,41 @@ class GroupSync(BaseSync):
                                     "Only spreads that have their own sync" 
                                     "configured can be used in the attribute" %
                                     spr_name)
-                self.config['group_member_spreads'][spr_name] = {}
-                self.config['group_member_spreads'][spr_name]['config'] = \
-                    adconf.SYNCS[spr_name]
-                self.config['group_member_spreads'][spr_name]['spread'] = spr
+                if spr_name == self.config['target_spread']:
+                    mem_obj = self
+                    mem_config = self.config
+                else:
+                    mem_obj = self.get_class(sync_type=spr_name)(self.db,
+                                                                 self.logger)
+                    mem_config = adconf.SYNCS[spr_name].copy()
+                    # Drain the list of attributes, to avoid fetching too much data
+                    # we don't need when running the sync:
+                    mem_config['attributes'] = {}
+                    mem_config['sync_type'] = spr_name
+                    mem_obj.configure(mem_config)
+                self.config['group_member_spreads'][spr_name] = {
+                        'config': mem_config,
+                        'spread': spr,
+                        'sync': mem_obj,
+                        }
 
     def _fetch_group_member_entities(self):
         """Extract entities with needed spreads and make AD objects out of them.
 
         """
         self.id2extraentity = dict()
+        # Need to process spreads one by one, since each has its config
         for spread_var in self.config['group_member_spreads'].itervalues():
-            # Need to process spreads one by one, since each has its config
             spread = spread_var['spread']
-            if spread.entity_type == self.co.entity_group:
-                if spread == self.config['target_spread']:
-                    # The needed data for target_spread is already extracted
-                    self.id2extraentity.update(self.id2entity)
-                for row in self.gr.search(spread=spread):
-                    if row['group_id'] in self.id2extraentity:
-                        self.id2extraentity[row['group_id']].spreads.append(spread)
-                        continue
-                    ad_entity_class = self._generate_dynamic_class(
-                                         spread_var['config']['object_classes'],
-                                         'member_of_%s' % spread
-                                      )
-                    ad_entity_object = ad_entity_class(self.logger, 
-                                                       spread_var['config'], 
-                                                       row['group_id'], 
-                                                       row['name'])
-                    # Save the spread for which current entities 
-                    # have been extracted
-                    ad_entity_object.spreads.append(spread)
-                    self.id2extraentity[ad_entity_object.entity_id] = \
-                        ad_entity_object
-            elif spread.entity_type == self.co.entity_account:
-                for row in self.ac.search(spread=spread):
-                    if row['account_id'] in self.id2extraentity:
-                        self.id2extraentity[row['account_id']].spreads.append(spread)
-                        continue
-                    ad_entity_class = self._generate_dynamic_class(
-                                         spread_var['config']['object_classes'],
-                                         'member_of_%s' % spread
-                                      )
-                    ad_entity_object = ad_entity_class(self.logger, 
-                                                       spread_var['config'], 
-                                                       row['account_id'], 
-                                                       row['name'])
-                    # Save the spread for which current entities 
-                    # have been extracted
-                    ad_entity_object.spreads.append(spread)
-                    self.id2extraentity[ad_entity_object.entity_id] = \
-                        ad_entity_object
-            else:
-                # In the future more entity types will be added
-                self.logger.warn("Unknown entity_type for spread %s: %s",
-                                 spread, spread.entity_type)
+            self.logger.debug("Fetch members for spread: %s", spread)
+            mem_sync = spread_var['sync']
+            # Fetch Cerebrum data for all sync classes except for self:
+            if mem_sync != self:
+                self.logger.debug2("Starting member's sync of: %s", mem_sync)
+                mem_sync.fetch_cerebrum_data()
+                mem_sync.calculate_ad_values()
+                self.logger.debug2("Member sync done")
+            self.id2extraentity.update(mem_sync.id2entity)
 
     def _fetch_person2primary_mapping(self):
         """Generate a mapping from person id to its primary account id.
