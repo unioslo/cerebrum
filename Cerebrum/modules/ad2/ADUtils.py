@@ -748,7 +748,7 @@ class ADclient(PowershellClient):
             return not out.get('stderr')
         else:
             # Strictly speaking, here we have to check if we have to perform
-            # 'Clear' operation, before we go into the loop belove to update 
+            # 'Clear' operation, before we go into the loop below to update 
             # attributes. However, the only realistic case here is that
             # the length is exceeded because we have to update too many
             # elements in the attributes, not to clear them.
