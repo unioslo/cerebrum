@@ -887,6 +887,10 @@ class ADclient(PowershellClient):
         # TODO: Make this a decorator instead?
         return lambda: getout(cmdid)
 
+
+    # TODO: All the old group-member functionality should be removed, as it is
+    # now handled through the regular update of attributes!
+
     # The name of the attribute for where the members of the object are located.
     # For a regular Group, 'member' is default, while for e.g. NisNetGroups is
     # this 'memberNisNetGroup'.
