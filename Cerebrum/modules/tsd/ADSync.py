@@ -464,30 +464,18 @@ class HostpolicySync(ADSync.GroupSync, TSDUtils):
 
         """
         ret = super(HostpolicySync, self).fetch_cerebrum_data()
-        hostpath = adconf.SYNCS['hosts']['target_ou']
-        hostname_format = adconf.SYNCS['hosts'].get('name_format', '%s')
 
-        def generate_host_dn(entity_name, pid):
-            """Helper method for generating the full AD path for a host.
-
-            @type entity_name: str
-            @param entity_name: The dns_owner_name of the host.
-
-            @type pid: str
-            @param pid: The project ID the host is affilated with, e.g. "p01".
-
-            @rtype: str
-            @return: The full DN for the entity in AD.
-
-            """
-            adid = hostname_format % entity_name.lower()
-            adid = self._hostname2adid(adid)
-            return 'CN=%s,OU=hosts,OU=resource,OU=%s,%s' % (adid, pid, hostpath)
-
-        # Get the project affiliation for the hosts, to be able to know what OU
-        # they are supposed to be in.
-        host2pid = dict((r['entity_id'], self._get_ou_pid(r['target_id'])) for r
-                        in self.et.list_traits(code=self.co.trait_project_host))
+        # Simulate the host sync to get the correct member data (OU) for hosts:
+        self.logger.debug2("Simulating host sync")
+        host_sync = self.get_class(sync_type='hosts')(self.db, self.logger)
+        host_config = adconf.SYNCS['hosts'].copy()
+        host_config['attributes'] = {}
+        host_config['sync_type'] = 'hosts'
+        host_sync.configure(host_config)
+        host_sync.fetch_cerebrum_data()
+        host_sync.calculate_ad_values()
+        self.logger.debug2("Host sync simulation done, found %d hosts",
+                           len(host_sync.id2entity))
 
         # Fetch the memberships per component. This is a rather slow process,
         # but we know that we are not getting that many different hostpolicies
@@ -512,13 +500,10 @@ class HostpolicySync(ADSync.GroupSync, TSDUtils):
             # TODO: We might want to run the hosts' AD-sync class to fetch all
             # needed data, but this works for now.
             for row in self.component.search_hostpolicies(policy_id=ent.entity_id):
-                try:
-                    pid = host2pid[row['dns_owner_id']]
-                except KeyError:
-                    self.logger.debug("Host not affiliated with project: %s",
-                                      row['dns_owner_name'])
-                    continue
-                members.add(generate_host_dn(row['dns_owner_name'], pid))
+                mem = host_sync.owner2entity.get(row['dns_owner_id'])
+                if mem:
+                    members.add('CN=%s,%s' % (mem.ad_id, mem.ou))
+
             ent.set_attribute('Member', members)
             i += len(members)
         self.logger.debug2("Found in total %d hostpolicy members", i)
