@@ -107,9 +107,11 @@ def sendmail(toaddr, fromaddr, subject, body, cc=None,
     msg['From'] = fromaddr.strip()
     msg['To'] = toaddr.strip()
     msg['Date'] = formatdate(localtime=True)
+    # recipients in smtp.sendmail should be a list of RFC 822
+    # to-address strings
+    toaddr = [addr.strip() for addr in toaddr.split(',')]
     if cc:
-        toaddr = [toaddr]
-        toaddr.append(cc.strip())
+        toaddr.extend([addr.strip() for addr in cc.split(',')])
         msg['Cc'] = cc.strip()
     if debug:
         return msg.as_string()
