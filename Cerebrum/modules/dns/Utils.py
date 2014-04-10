@@ -229,9 +229,10 @@ class Find(object):
         ret = []
         
         if ip_number_id and ip_type == dns.REV_IP_NUMBER:
-            for ipn in [IPNumber.IPNumber(self._db), IPv6Number.IPv6Number(self._db)]:
+            for ipn, key in [(IPNumber.IPNumber(self._db), 'ip_number_id'), \
+                        (IPv6Number.IPv6Number(self._db), 'ipv6_number_id')]:
                 for row in ipn.list_override(ip_number_id=ip_number_id):
-                    ret.append((dns.REV_IP_NUMBER, row[ip_key]))
+                    ret.append((dns.REV_IP_NUMBER, row[key]))
 
             if only_type:
                 return [x[0] for x in ret]
