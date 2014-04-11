@@ -306,9 +306,8 @@ class ExchangeEventHandler(processing.Process):
             else:
                 # An exchange-spread has been given to an account not owned
                 # by a person or a group
-                self.logger.warn(
-                'eid:%d: Account %s is not owned by a person or group. Skipp.' \
-                                % (event['event_id'], uname))
+                self.logger.warn('eid:%d: Account %s is not owned by a person '
+                                 'or group. Skip.', event['event_id'], uname)
                 # Raise exception, this should result in silent discard
                 raise EntityTypeError
 
