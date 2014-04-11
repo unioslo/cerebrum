@@ -1143,14 +1143,12 @@ class ADclient(PowershellClient):
     def update_recipient(self, ad_dn):
         """Run the cmdlet Update-Recipient for a given object.
 
-        @param ad_id:
+        @param ad_dn:
             The Id for the object. Could be the SamAccountName,
             DistinguishedName, SID, UUID and probably some other identifiers.
 
-        @rtype: TODO
-        @return: TODO
-
         """
+        self.logger.info("Run Update-Recipient for: %s", ad_dn)
 
         # TODO: Could we use the standard parameters?
         cmd = self._generate_ad_command('Update-Recipient', 

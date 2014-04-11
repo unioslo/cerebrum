@@ -3109,7 +3109,6 @@ class UpdateRecipientMixin(BaseSync):
 
         def update_recipient(ad_dn):
             """Helper command for handling the Update-Recipient."""
-            self.logger.info("Run Update-Recipient for: %s", ad_dn)
             try:
                 return self.server.update_recipient(ad_dn)
             except PowershellException, e:
