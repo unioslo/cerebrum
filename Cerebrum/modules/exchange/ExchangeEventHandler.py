@@ -317,8 +317,8 @@ class ExchangeEventHandler(processing.Process):
                 self.ec.new_mailbox(uname, full_name,
                                     first_name, last_name,
                                     ou=self.config['mailbox_path'])
-                self.logger.info('eid:%d: Created new mailbox for %s' \
-                        % (event['event_id'], uname))
+                self.logger.info('eid:%d: Created new mailbox for %s',
+                                 event['event_id'], uname)
                 # TODO: Should we log a receipt for hiding the mbox in the
                 # address book? We don't really need to, since everyone is
                 # hidden by default.
@@ -334,8 +334,8 @@ class ExchangeEventHandler(processing.Process):
                                                    enabled=False)
             except ExchangeException, e:
                 self.logger.warn(
-                        'eid:%d: Failed disabling address policy for %s' \
-                        % (event['event_id'], uname))
+                        'eid:%d: Failed disabling address policy for %s',
+                        event['event_id'], uname)
                 self.ut.log_event(event, 'exchange:set_ea_policy')
                 # TODO: Should we do this here? Should we rather do it in the
                 # address policy handler?
@@ -556,8 +556,8 @@ class ExchangeEventHandler(processing.Process):
                                 % (event['event_id'], event['subject_entity']))
                 except ExchangeException, e:
                     self.logger.warn(
-                            'eid:%d: Can\'t hide %d in address book: %s' % \
-                            (event['event_id'], event['subject_entity'], e))
+                            "eid:%d: Can't hide %d in address book: %s",
+                            event['event_id'], event['subject_entity'], e)
                     raise EventExecutionException
             else:
                 try:
