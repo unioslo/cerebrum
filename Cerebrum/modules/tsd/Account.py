@@ -29,6 +29,7 @@ should refuse account_types from different OUs for a single account.
 import base64
 import math
 #from mx import DateTime
+import re
 
 import cerebrum_path
 import cereconf
@@ -131,6 +132,35 @@ class AccountTSDMixin(Account.Account):
             return row['ou_id']
         raise Errors.NotFoundError('Account not affiliated with any project')
 
+    def get_username_without_project(self, username=None):
+        """Helper method for fetching the username without the project prefix.
+
+        This was originally not needed, but due to changes in the requirements
+        we unfortunately need to a downstripped username from time to time.
+
+        If the format of the project prefix changes in the future, we need to
+        expand this method later.
+
+        @type username: str
+        @param username:
+            A username with a project prefix. If not given, we expect that
+            L{self.account_name} is available.
+
+        @rtype: str
+        @return:
+            The username without the project prefix.
+
+        @raise Exception:
+            If the username does not have the format of project accounts.
+
+        """
+        if username is None:
+            username = self.account_name
+        # Users that not fullfill the project format
+        if '-' not in username:
+            raise Exception("User is not a project account: %s" % username)
+        return username[4:]
+
     def delete_entity_quarantine(self, *args, **kwargs):
         """Override to also setup the project account."""
         self.__super.delete_entity_quarantine(*args, **kwargs)
@@ -160,12 +190,23 @@ class AccountTSDMixin(Account.Account):
         f.close()
         return ret[:bytes]
 
-    def regenerate_otpkey(self):
-        """Create a new OTP key and store it for the account.
+    def regenerate_otpkey(self, tokentype=None):
+        """Create a new OTP key for the account.
 
-        TODO: Note that we do not store the OTP key in Cerebrum, for now. We
-        should only pass it on to the Gateway, so it's only stored in one place.
-        Other requirements could change this in the future.
+        Note that we do not store the OTP key in Cerebrum. We only pass it on to
+        the Gateway, so it's only stored one place. Other requirements could
+        change this in the future.
+
+        The OTP type, e.g. hotp or totp, is retrieved from the person's trait.
+
+        @type tokentype: str
+        @param tokentype:
+            What token type the OTP should become, e.g. 'totp' or 'hotp'. Note
+            that it could also be translated by L{cereconf.OTP_MAPPING_TYPES} if
+            it matches a value there.
+
+            If this parameter is None, the person's default OTP type will be
+            used, or 'totp' by default if no value is set for the person.
 
         @rtype: string
         @return:
@@ -174,16 +215,42 @@ class AccountTSDMixin(Account.Account):
             https://code.google.com/p/google-authenticator/wiki/KeyUriFormat
 
         """
+        # Generate a new key:
         key = self._generate_otpkey(getattr(cereconf, 'OTP_KEY_LENGTH', 160))
         secret = base64.b32encode(key)
-        # Get the token type from trait, e.g. totp or hotp.
-        tokentype = 'totp'
-        typetrait = self.get_trait(self.const.trait_otp_device)
-        if typetrait:
-            tokentype = typetrait['strval']
+        # Get the tokentype
+        if tokentype is None:
+            tokentype = 'totp'
+            if self.owner_type == self.const.entity_person:
+                pe = Factory.get('Person')(self._db)
+                pe.find(self.owner_id)
+                typetrait = pe.get_trait(self.const.trait_otp_device)
+                if typetrait:
+                    tokentype = typetrait['strval']
+        # A mapping from e.g. Nettskjema's smartphone_yes -> topt:
+        mapping = getattr(cereconf, 'OTP_MAPPING_TYPES', {})
+        tokentype = mapping.get(tokentype, tokentype)
         return cereconf.OTP_URI_FORMAT % {
                 'secret': secret,
                 'user': '%s@%s' % (self.account_name,
                                    cereconf.INSTITUTION_DOMAIN_NAME),
                 'type': tokentype,
                 }
+
+    def illegal_name(self, name):
+        """TSD's checks on what is a legal username.
+
+        This checks both project accounts and system accounts, so the project
+        prefix is not checked.
+
+        """
+        tmp = super(AccountTSDMixin, self).illegal_name(name)
+        if tmp:
+            return tmp
+        if len(name) > getattr(cereconf, 'USERNAME_MAX_LENGTH', 12):
+            return "too long (%s)" % name
+        if re.search("^[^A-Za-z]", name):
+            return "must start with a character (%s)" % name
+        if re.search("[^A-Za-z0-9\-_]", name):
+            return "contains illegal characters (%s)" % name
+        return False
