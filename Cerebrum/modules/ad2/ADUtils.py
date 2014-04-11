@@ -1143,9 +1143,16 @@ class ADclient(PowershellClient):
     def update_recipient(self, ad_dn):
         """Run the cmdlet Update-Recipient for a given object.
 
+        @type ad_dn: str
         @param ad_dn:
-            The Id for the object. Could be the SamAccountName,
-            DistinguishedName, SID, UUID and probably some other identifiers.
+            The Id for the object. Most likely DistinguishedName, but sometimes
+            could also be the SamAccountName, SID, UUID 
+            and probably some other identifiers.
+
+        @rtype: bool
+        @return:
+            True if there was no error during the command execution (stderr
+            from the command is missing). False otherwise.
 
         """
         self.logger.info("Run Update-Recipient for: %s", ad_dn)
