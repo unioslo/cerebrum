@@ -887,6 +887,10 @@ class ADclient(PowershellClient):
         # TODO: Make this a decorator instead?
         return lambda: getout(cmdid)
 
+
+    # TODO: All the old group-member functionality should be removed, as it is
+    # now handled through the regular update of attributes!
+
     # The name of the attribute for where the members of the object are located.
     # For a regular Group, 'member' is default, while for e.g. NisNetGroups is
     # this 'memberNisNetGroup'.
@@ -1140,30 +1144,26 @@ class ADclient(PowershellClient):
             self.logger.debug("Preferred DC: %s", self._chosen_dc)
         return self._chosen_dc
 
-    def update_recipient(self, ad_id):
+    def update_recipient(self, ad_dn):
         """Run the cmdlet Update-Recipient for a given object.
 
-        @param ad_id:
-            The Id for the object. Could be the SamAccountName,
-            DistinguishedName, SID, UUID and probably some other identifiers.
+        @type ad_dn: str
+        @param ad_dn:
+            The Id for the object. Most likely DistinguishedName, but sometimes
+            could also be the SamAccountName, SID, UUID 
+            and probably some other identifiers.
 
-        @rtype: TODO
-        @return: TODO
+        @rtype: bool
+        @return:
+            True if there was no error during the command execution (stderr
+            from the command is missing). False otherwise.
 
         """
-        self.logger.info('Run Update-Recipient for: %s', ad_id)
+        self.logger.info("Run Update-Recipient for: %s", ad_dn)
 
         # TODO: Could we use the standard parameters?
-
-        #cmd = self._generate_ad_command
-        #cmd = '''$b = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(%(pwd)s));
-        #    $pwd = ConvertTo-SecureString -AsPlainText -Force $b;
-        #    %(cmd)s -NewPassword $pwd;
-        #''' % {'pwd': self.escape_to_string(password),
-        #       'cmd': self._generate_ad_command('Set-ADAccountPassword',
-        #                                        {'Identity': ad_id}, 
-        #                                        ['Reset'])}
-        ##Set-ADAccountPassword -Identity %(_ad_id)s -Credential $cred -Reset -NewPassword $pwd
+        cmd = self._generate_ad_command('Update-Recipient', 
+                                        {'Identity': ad_dn})
         if self.dryrun:
             return True
         out = self.run(cmd)
