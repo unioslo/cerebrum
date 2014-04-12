@@ -105,7 +105,12 @@ class AccountTSDMixin(Account.Account):
             hostname = '%s-l.tsd.usit.no.' % self.account_name
             dnsowner = ou._populate_dnsowner(hostname)
             host = dns.HostInfo.HostInfo(self._db)
-            host.populate(dnsowner.entity_id, 'IBM-PC\tWINDOWS')
+            hinfo = 'IBM-PC\tLINUX'
+            try:
+                host.find_by_dns_owner_id(dnsowner.entity_id)
+            except Errors.NotFoundError:
+                host.populate(dnsowner.entity_id, hinfo)
+            host.hinfo = hinfo
             host.write_db()
 
     def get_tsd_project_id(self):
