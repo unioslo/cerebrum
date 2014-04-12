@@ -274,19 +274,32 @@ class OUTSDMixin(OU):
 
         @type creator_id: int
         @param creator_id:
-            The creator of the project. Either the entity_id of the
-            administrator that created the project or a system user.
+            The creator of the project. Eiter the entity_id of the administrator
+            that created the project or a system user.
 
         """
         if self.get_entity_quarantine(type=self.const.quarantine_not_approved,
                 only_active=True):
             raise Errors.CerebrumError("Project is not approved, cannot setup")
-        projectid = self.get_project_id()
         self._setup_project_dns(creator_id)
+        self._setup_project_hosts(creator_id)
+        self._setup_project_groups(creator_id)
 
+    def _setup_project_groups(self, creator_id):
+        """Setup the groups belonging to the given project.
+
+        @type creator_id: int
+        @param creator_id:
+            The creator of the project. Eiter the entity_id of the administrator
+            that created the project or a system user.
+
+        """
+        projectid = self.get_project_id()
         gr = Factory.get("PosixGroup")(self._db)
+        ac = Factory.get('Account')(self._db)
+        pe = Factory.get('Person')(self._db)
 
-        def _create_group(groupname, desc, trait, spreads):
+        def _create_group(groupname, desc, spreads):
             """Helper function for creating a group.
             
             @type groupname: string
@@ -296,11 +309,6 @@ class OUTSDMixin(OU):
             @type desc: string
             @param desc: The description that should get stored at the new
                 group.
-
-            @type trait: TraitConstant
-            @param trait: The type of trait that should be stored at the group,
-                to affiliate the group with the current project. The
-                L{target_id} gets set to the project, i.e. L{self}.
 
             @type spreads: list of str
             @param spreads:
@@ -317,30 +325,75 @@ class OUTSDMixin(OU):
                 gr.populate(creator_id, self.const.group_visibility_all,
                             groupname, desc)
                 gr.write_db()
-
             # Each group is linked to the project by a project trait:
-            gr.populate_trait(code=trait, target_id=self.entity_id,
-                              date=DateTime.now())
+            gr.populate_trait(code=self.const.trait_project_group,
+                              target_id=self.entity_id, date=DateTime.now())
             gr.write_db()
-
+            # Add defined spreads:
             for strcode in spreads:
                 spr = self.const.Spread(strcode)
-                gr.add_spread(spr)
-                gr.write_db()
-
+                if not gr.has_spread(spr):
+                    gr.add_spread(spr)
+                    gr.write_db()
             return True
-        # Create project groups
-        for suffix, desc, spreads in getattr(cereconf, 'TSD_PROJECT_GROUPS', ()):
-            _create_group(suffix, desc, self.const.trait_project_group, spreads)
-        # Create machines:
-        self._setup_project_hosts(creator_id)
 
-        # TODO: Add accounts to the various groups:
-        ac = Factory.get('Account')(self._db)
-        gr.clear()
-        #gr.find_by_name('%s_member' % projectid)
-        #for row in ac.list_accounts_by_type(ou_id=self.entity_id):
-        #    pass
+        for suffix, desc, spreads in getattr(cereconf, 'TSD_PROJECT_GROUPS', ()):
+            _create_group(suffix, desc, spreads)
+
+        def _get_accounts(person_id):
+            """Helper method for getting this project's accounts for a person.
+
+            Only the accounts related to this project OU are returned.
+
+            @type person_id: int
+            @param person_id:
+                Only return the accounts belonging to the given person.
+
+            @rtype: generator of account_id
+            @return:
+                The persons accounts' entity_ids.
+
+            """
+            return (r['account_id'] for r in
+                    ac.list_accounts_by_type(person_id=person_id,
+                                             ou_id=self.entity_id))
+
+        # Update group memberships:
+        for grname, members in getattr(cereconf, 'TSD_GROUP_MEMBERS',
+                                       dict()).iteritems():
+            grname = '-'.join((projectid, grname))
+            gr.clear()
+            try:
+                gr.find_by_name(grname)
+            except Errors.NotFoundError:
+                # Group not created, skipping
+                continue
+            for mem in members:
+                memtype, memvalue = mem.split(':')
+                if memtype == 'group':
+                    gr2 = Factory.get('Group')(self._db)
+                    gr2.find_by_name('-'.join((projectid, memvalue)))
+                    gr.add_member(gr2.entity_id)
+                elif memtype == 'person_aff':
+                    # Fetch the correct affiliation, handle both a single
+                    # "AFFILIATION" and the "AFFILIATION/status" format:
+                    try:
+                        af, st = memvalue.split('/')
+                    except ValueError:
+                        aff = self.const.PersonAffiliation(memvalue)
+                        status = None
+                    else:
+                        aff = self.const.PersonAffiliation(af)
+                        status = self.const.PersonAffStatus(aff, st)
+                    for row in pe.list_affiliations(ou_id=self.entity_id,
+                                                    affiliation=aff,
+                                                    status=status):
+                        for a_id in _get_accounts(row['person_id']):
+                            if not gr.has_member(a_id):
+                                gr.add_member(a_id)
+                else:
+                    raise Exception("Unknown member type in: %s" % mem)
+            gr.write_db()
 
     def _setup_project_dns(self, creator_id):
         """Setup a new project's DNS info, like subnet and VLAN."""
