@@ -353,7 +353,7 @@ class Processor:
                 continue
             logger.debug2("Group not known by GW: %s" % row['name'])
             # Skip groups not affiliated with a project.
-            pid = self.ouid2pid.get(gr2proj.get(self.pg.entity_id))
+            pid = self.ouid2pid.get(gr2proj.get(row['group_id']))
             if not pid:
                 logger.debug("Skipping unaffiliated group: %s",
                              self.pg.entity_id)
@@ -364,9 +364,8 @@ class Processor:
             except Errors.NotFoundError:
                 logger.debug("Skipping non-posix group: %s", row['name'])
                 continue
-            self.gw.create_group(pid, row['name'], self.pg.posix_gid)
-
-        # TODO: Fix group memberships!
+            gwdata = self.gw.create_group(pid, row['name'], self.pg.posix_gid)
+            self.process_group(gwdata, gr2proj)
 
     def process_group(self, gw_group, gr2proj):
         """Sync a given group with the GW.
@@ -399,8 +398,24 @@ class Processor:
             self.gw.delete_group(pid, groupname)
             return
         if pid != self.ouid2pid.get(gr2proj[self.pg.entity_id]):
-            logger.error("Danger! Project mismatch in Cerebrum and GW for account %s" % self.pg.entity_id)
-            raise Exception("Project mismatch with GW and Cerebrum")
+            logger.warn("Project mismatch for group %s" % self.pg.entity_id)
+            # Deleting for now, would be created at next run of this script:
+            self.gw.delete_group(pid, groupname)
+
+        # Fixing the memberships. Only updating user members for now, and
+        # therefore including indirect members. The GW might need other member
+        # types later.
+        cere_members = set(r['member_name'] for r in self.pg.search_members(
+                                   group_id=self.pg.entity_id,
+                                   member_type=self.co.entity_account,
+                                   indirect_members=True,
+                                   member_spread=self.co.spread_gateway_account,
+                                   include_member_entity_name=True))
+        gw_users = set(gw_group.get('users', ()))
+        for add in cere_members - gw_users:
+            self.gw.add_member(pid, groupname, add)
+        for rem in gw_users - cere_members:
+            self.gw.remove_member(pid, groupname, rem)
 
     def process_dns(self, gw_hosts, gw_subnets, gw_vlans, gw_ips):
         """Sync DNS data with the gateway.
