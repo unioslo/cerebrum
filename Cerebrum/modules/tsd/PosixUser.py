@@ -19,6 +19,8 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """TSD specific behaviour for posix users."""
 
+from mx import DateTime
+
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -102,18 +104,22 @@ class PosixUserTSDMixin(PosixUser.PosixUser):
 
         # Update the group's spreads:
         self._synchronize_posix_spreads()
-        return ret 
+        # Affiliate the group:
+        self._assert_group_project_affiliation()
+        return ret
 
     def add_spread(self, *args, **kwargs):
         """Override with TSD specific behaviour."""
         ret = self.__super.add_spread(*args, **kwargs)
         self._synchronize_posix_spreads()
+        self._assert_group_project_affiliation()
         return ret
 
     def delete_spread(self, *args, **kwargs):
         """Override with TSD specific behaviour."""
         ret = self.__super.delete_spread(self, *args, **kwargs)
         self._synchronize_posix_spreads()
+        self._assert_group_project_affiliation()
         return ret
 
     def _synchronize_posix_spreads(self):
@@ -137,3 +143,21 @@ class PosixUserTSDMixin(PosixUser.PosixUser):
                 for gspr in gsprs:
                     if gspr in group_spreads:
                         self.pg.delete_spread(gspr)
+
+    def _assert_group_project_affiliation(self):
+        """Make sure the group is affiliated with the TSD project.
+
+        The trait will not be updated if already set, as we assume that it is
+        correct.
+
+        """
+        if not self.pg.get_trait(self.const.trait_project_group):
+            try:
+                ou_id = self.get_tsd_project_id()
+            except Errors.NotFoundError:
+                pass
+            else:
+                self.pg.populate_trait(self.const.trait_project_group,
+                                       target_id=ou_id,
+                                       date=DateTime.now())
+                self.pg.write_db()

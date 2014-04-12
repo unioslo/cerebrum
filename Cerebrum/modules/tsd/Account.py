@@ -108,6 +108,30 @@ class AccountTSDMixin(Account.Account):
             host.populate(dnsowner.entity_id, 'IBM-PC\tWINDOWS')
             host.write_db()
 
+    def get_tsd_project_id(self):
+        """Helper method for getting the ou_id for the account's project.
+
+        @rtype: int
+        @return:
+            The entity_id for the TSD project the account is affiliated with.
+
+        @raise NotFoundError:
+            If the account is not affiliated with any project.
+
+        @raise Exception:
+            If the account has more than one project affiliation, which is not
+            allowed in TSD, or if the account is not affiliated with any
+            project.
+
+        """
+        rows = self.list_accounts_by_type(
+                    account_id=self.entity_id,
+                    affiliation=self.const.affiliation_project)
+        assert len(rows) < 2, "Account affiliated with more than one project"
+        for row in rows:
+            return row['ou_id']
+        raise Errors.NotFoundError('Account not affiliated with any project')
+
     def get_username_without_project(self, username=None):
         """Helper method for fetching the username without the project prefix.
 
