@@ -170,6 +170,19 @@ class OUTSDMixin(OU):
         projectid = self.get_project_id()
         return int(projectid[1:])
 
+    def is_approved(self):
+        """Check if this project is approved by TSD-admins.
+
+        The approval is registered through a quarantine.
+
+        @rtype: bool
+        @return: True if the project is approved.
+
+        """
+        return not tuple(self.get_entity_quarantine(
+                                type=self.const.quarantine_not_approved,
+                                only_active=True))
+
     def add_name_with_language(self, name_variant, name_language, name):
         """Override to be able to verify project names (acronyms).
 
@@ -278,8 +291,7 @@ class OUTSDMixin(OU):
             administrator that created the project or a system user.
 
         """
-        if self.get_entity_quarantine(type=self.const.quarantine_not_approved,
-                only_active=True):
+        if not self.is_approved():
             raise Errors.CerebrumError("Project is not approved, cannot setup")
         projectid = self.get_project_id()
         self._setup_project_dns(creator_id)
