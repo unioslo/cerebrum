@@ -2690,61 +2690,138 @@ class GroupSync(BaseSync):
         self.logger.debug2('Found %d persons mapped to a primary account',
                            len(self.personid2primary))
 
-    def fetch_members_by_spread(self):
-        """Fetch the group members of given type that have given spread.
+    def _get_group_hierarchy(self, person2primary=False):
+        """Get mappings of every group and every membership.
 
-        Is not run if a member attribute is not defined in configuration.
+        This is a costly method, as its fetches _all_ groups and _all_ its
+        memberships from the database. This took for instance 25 seconds for
+        10000 groups in the test environment. The advantage of this is that we
+        cache the data you would otherwise need to ask the db about for each
+        group.
+
+        TODO: Note that we are, by specifying L{person2primary} here, overriding
+        the person2primary setting for all member attributes, and does not
+        respect each attribute's setting of this. Might need to handle this
+        later, and not set it globally.
+
+        @type person2primary: bool
+        @param person2primary:
+            If set to True, every person that is a member is swapped out with
+            its primary account from the L{self.personid2primary} dict.
+
+        @rtype: tuple(dict, dict)
+        @return:
+            Two mappings, one from group_id to all its member_ids, and one from
+            member_id to all its group_ids. Both dicts contain the same data,
+            but both is returned for convenience.
+
+        """
+        groups = dict()
+        mem2group = dict()
+        for row in self.gr.search_members():
+            # TODO: Should we skip entitites not in either self.id2entity nor
+            # self.id2extraentity?
+            groups.setdefault(row['group_id'], set()).add(row['member_id'])
+            if person2primary and row['member_type'] == self.co.entity_person:
+                # Add persons by their primary account. Note that the primary
+                # account must also have the correct AD spread to be added.
+                account_id = self.personid2primary.get(row['member_id'])
+                if account_id:
+                    self.logger.debug3("Adding person %s by primary: %s",
+                                       row['member_id'], account_id)
+                    mem2group.setdefault(account_id, set()).add(row['group_id'])
+                else:
+                    self.logger.debug2("Person %s has no primary account",
+                                       row['member_id'])
+            else:
+                mem2group.setdefault(row['member_id'], set()).add(row['group_id'])
+        return groups, mem2group
+
+    def fetch_members_by_spread(self):
+        """Fetch the group members by the member spreads defined by the config.
+
+        This method only fetches what is needed. It will not fetch anything if
+        no L{MemberAttr} attribute is defined.
 
         """
         if not ConfigUtils.has_config(self.config['attributes'], 
                                   ConfigUtils.MemberAttr):
             # No need for such data
             return
-        self.logger.debug("Fetch group members of predefined types with " 
-                          "predefined spreads...")
-
+        self.logger.debug("Fetch group members by spreads...")
         self._configure_group_member_spreads()
         self._fetch_group_member_entities()
-
-        i = 0
-        for member in self.gr.search_members(
-                          member_spread = [elem['spread'] for elem in 
-                               self.config['group_member_spreads'].itervalues()]):
-            ent = self.id2entity.get(member['group_id'], None)
-            if ent:
-                if not hasattr(ent, 'members_by_spread'):
-                    ent.members_by_spread = []
-                # We have to translate member_id's to names.
-                ent2 = self.id2extraentity.get(member['member_id'], None)
-                if ent2:
-                    ent.members_by_spread.append(ent2)
-                    i += 1
-        # Check if persons should be included:
-        # TODO: Note that we are now overriding the person2primary setting for
-        # all member attributes, and does not respect each attribute's setting
-        # of this. Needs to be fixed.
+        person2primary = False
         if any(c.person2primary for c in ConfigUtils.get_config_by_type(
                                             self.config['attributes'],
                                             ConfigUtils.MemberAttr)):
+            person2primary = True
             self._fetch_person2primary_mapping()
-            for r in self.gr.search_members(member_type=self.co.entity_person):
-                ent = self.id2entity.get(r['group_id'], None)
-                if not ent:
+        # Cache all group memberships:
+        groups, mem2group = self._get_group_hierarchy(person2primary)
+        self.logger.debug2("Mapped %d groups with members", len(groups))
+        self.logger.debug2("Mapped %d groups with AD spread",
+                           len(filter(lambda x: x in self.id2entity, groups)))
+        self.logger.debug2("Mapped %d members in total", len(mem2group))
+
+        def get_parents_in_ad(groupid):
+            """Helper method for returning a group's parent AD groups.
+
+            You will get a list of all the groups that is in this AD-sync, i.e.
+            has the correct AD spread, and which has the given group as a direct
+            or indirect member.
+
+            @type groupid: int
+            @param groupid:
+                The given group's entity_id.
+
+            @rtype: set
+            @return:
+                List of all the group-ids of the groups that has the given group
+                as a member, either direct or indirect. Could return an empty
+                set if no parents were found, or none of the parent groups were
+                targeted in the AD sync.
+
+            """
+            ret = set()
+            for parent in mem2group.get(groupid, ()):
+                # Check if already processed, to avoid loops caused by two
+                # groups being (indirect) members of each others:
+                if parent in ret:
                     continue
-                account_id = self.personid2primary.get(r['member_id'])
-                if not account_id:
-                    self.logger.debug2("Person %s has no primary account",
-                                       r['member_id'])
+                if parent in self.id2entity:
+                    ret.add(parent)
+                ret.update(get_parents_in_ad(parent))
+            return ret
+
+        # Go through all group memberships and add those relevant for AD in the
+        # proper groups, either directly or indirectly:
+        i = 0
+        for group_id, members in groups.iteritems():
+            # Target the parent groups if the group is not supposed to be in AD:
+            if group_id in self.id2entity:
+                target_groups = (group_id,)
+            else:
+                target_groups = get_parents_in_ad(group_id)
+            if not target_groups:
+                continue
+            # Go through each member in the group and add it to all the parent
+            # groups that should be in AD:
+            for mem in members:
+                member = self.id2extraentity.get(mem)
+                # TODO: persons to primary account mapping here?
+                if not member:
                     continue
-                if not hasattr(ent, 'members_by_spread'):
-                    ent.members_by_spread = []
-                # We have to translate member_id's to names.
-                ent2 = self.id2extraentity.get(account_id)
-                if ent2:
-                    ent.members_by_spread.append(ent2)
+                for t_id in target_groups:
+                    ent = self.id2entity[t_id]
+                    if not hasattr(ent, 'members_by_spread'):
+                        # TODO: might want a set or something similar:
+                        ent.members_by_spread = []
+                    ent.members_by_spread.append(member)
+                    self.logger.debug3("Added %s to group %s (originally in %s)",
+                                       member, ent, group_id)
                     i += 1
-        self.logger.debug("Found %d members of needed types that have "
-                          "needed spreads", i)
+        self.logger.debug2("Fetched %d memberships", i)
 
     def fetch_posix(self):
         """Fetch the POSIX data for groups, if needed.
