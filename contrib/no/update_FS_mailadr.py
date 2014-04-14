@@ -1,7 +1,7 @@
 #! /usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003, 2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,12 +19,24 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""
+"""Script for updating FS with data from Cerebrum, e.g. mail addresses.
 
-This file is a part of the Cerebrum framework. At the University of Oslo 
-Cerebrum is considerer authoritative source system in respect to the
-mail addresses of the persons with an affiliation to any of the 
-organizational units at the University of Oslo.
+Mail addresses are in FS registered in the database element::
+
+    fs.person.emailadresse
+
+While usernames are registered in:
+
+    fs.person.brukernavn
+
+Addresses of all the persons are first fetched from FS through L{access_FS}.
+Currently registered primary address is then compared to the default mailadress
+for the primary account the person posesses. If there is a difference between
+these two addresses then FS is updated.
+
+
+Cerebrum could, depending on the instance, be considered as the authoritative
+source system in respect to mail addresses and usernames.
 
 As specified by the system owners for FS at the University of Oslo
 (representened by SSA, Central student administration) each student 
@@ -32,13 +44,6 @@ at the University og Oslo has to have a working, official email address
 registered in FS (more specifically in the table FS.PERSON, the field 
 EMAILADRESSE). Any other email addresses (privat email accounts) may be
 registered in the field EMAILADRESSE_PRIVAT. 
-
-Addresses of all the persons registered in FS are fetched via the
-method GetAllPersonsEmail() as defined in 
-/cerebrum/Cerebrum/modules/no/uio/access_FS.py. Currently registered 
-primary address is then compared to the default mailadress for the 
-primary account the person posesses. If there is a difference between 
-these two addresses then FS is updated.
 
 Problems: the addresses fetched from Cerebrum do not take the 
 account_type nor the source system into consideration. This means that 
@@ -63,9 +68,6 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.access_FS import FS
 
 
-
-
-
 def synchronize_attribute(cerebrum_lookup, fs_lookup, 
                           fs_update, index, const):
     """
@@ -87,7 +89,7 @@ def synchronize_attribute(cerebrum_lookup, fs_lookup,
     additions = {}
 
     for row in fs_lookup():
-	fnr = "%06d%05d" % (int(row['fodselsdato']), int(row['personnr']))
+        fnr = "%06d%05d" % (int(row['fodselsdato']), int(row['personnr']))
         cere_attribute = fnr2attribute.get(fnr, None)
         fs_attribute = row[index]
 
@@ -107,27 +109,22 @@ def synchronize_attribute(cerebrum_lookup, fs_lookup,
                               fnr, fs_attribute, cere_attribute)
                 updates[fs_attribute] = [row['fodselsdato'], row['personnr'],
                                          cere_attribute]
-            # fi
 
         # Attribute registered in FS does not exist in Cerebrum anymore
-	else:
+        else:
 
-	    if fs_attribute is not None:
+            if fs_attribute is not None:
                 logger.debug1("Deleting address for %s: %s",
                               fnr, fs_attribute)
 
                 # None in FS means "no value"
                 fs_update(row['fodselsdato'], row['personnr'], None)
                 attempt_commit()
-            # fi
-        # fi
-    # od
 
     for fs_value in updates.keys():
         # Have we already done this update?
         if updates[fs_value] is None:
             continue
-        # fi
 
         fdato, persnr, cere_value = updates[fs_value]
         
@@ -145,7 +142,6 @@ def synchronize_attribute(cerebrum_lookup, fs_lookup,
             attempt_commit()
             # Mark it as done
             updates[cere_value] = None
-        # fi
 
         logger.debug1("Changing address for %06d%05d: %s -> %s",
                       fdato, persnr, fs_value, cere_value)
@@ -155,7 +151,6 @@ def synchronize_attribute(cerebrum_lookup, fs_lookup,
         except Exception, e:
             logger.error("Failed updating mailaddr for %06d%05d to %s: %s",
                          fdato, persnr, cere_value, e)
-    # od
 
     # Now all old values are cleared away, and adding values to new(?)
     # persons can't give duplicates.
@@ -170,26 +165,28 @@ def synchronize_attribute(cerebrum_lookup, fs_lookup,
         except Exception, e:
             logger.error("Failed adding mailaddr for %06d%05d to %s: %s",
                          fdato, persnr, cere_value, e)
-    # od
 
     logger.debug("Done updating attributes")
-# end 
-
 
 
 def usage( exitcode = 0 ):
     print """
-Updates all e-mail adresses in FS that come from Cerebrum
-Usage: update_FS_mailadr.py [options]
--d | --dryrun	       - Run synchronization, but do *not* update FS
--u | --db-user name    - Connect with given database username
--s | --db-service name - Connect to given database
--e | --email           - Synchronize e-mail information
--a | --account         - Synchronize account information
-"""
-    sys.exit(exitcode)
-# end usage
+%(doc)s
 
+Usage: update_FS_mailadr.py [options]
+
+-e --email           Synchronize e-mail information
+
+-a --account         Synchronize account information
+
+-u --db-user NAME    Connect with given database username
+
+-s --db-service NAME Connect to given database
+
+-d --dryrun          Run synchronization, but do *not* update FS
+
+""" % {'doc': __doc__}
+    sys.exit(exitcode)
 
 
 def main():
@@ -200,16 +197,16 @@ def main():
 
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                                   "du:s:ea",
-                                   ["dryrun",
+                                   "hdu:s:ea",
+                                   ["help",
+                                    "dryrun",
                                     "db-user=",
                                     "db-service=",
                                     "email",
                                     "account",])
-    except getopt.GetoptError:
-        usage()
-        sys.exit(2)
-    # yrt
+    except getopt.GetoptError, e:
+        print e
+        usage(2)
 
     user = "I0185_ureg2000"
     service = "fsprod.uio.no"
@@ -228,8 +225,11 @@ def main():
             email = True
         elif option in ('-a', '--account'):
             account = True
-        # fi
-    # od
+        elif option in ('-h', '--help'):
+            usage()
+        else:
+            print "Unknown argument: %s" % option
+            usage(2)
 
     DB_driver = getattr(cereconf, 'DB_DRIVER_ORACLE', 'cx_Oracle')
     fs_db = Database.connect(user = user, service = service,
@@ -247,8 +247,7 @@ def main():
         else:
             fs.db.commit()
             logger.info("Commited all changes")
-        # fi
-    # end my_commit
+
     global attempt_commit
     attempt_commit = my_commit
 
@@ -257,19 +256,13 @@ def main():
                               fs.person.list_email,
                               fs.person.write_email,
                               "emailadresse", const)
-    # fi
 
     if account:
         synchronize_attribute(person.getdict_external_id2primary_account,
                               fs.person.list_uname,
                               fs.person.write_uname,
                               "brukernavn", const)
-    # fi
-# end main
 
 
 if __name__ == '__main__':
     main()
-# fi
-
-# arch-tag: d5935a3d-8307-4663-ae6f-8a181b2de2b3
