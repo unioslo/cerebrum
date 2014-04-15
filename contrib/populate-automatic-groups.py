@@ -1320,7 +1320,7 @@ def usage(exitcode):
     -a --accounts               Populate the groups with primary accounts
                                 instead of persons.
 
-    -r --spread SPREAD          Add a spread to the auto groups. Each given
+    -r --spread PREFIX:SPREAD   Add a spread to the auto groups. Each given
                                 spread must have a prefix that must match the
                                 start of the group name for the spread to be
                                 given. Examples:
@@ -1393,7 +1393,7 @@ def main():
             dryrun = True
         elif option in ("-s", "--source_system"):
             source_system = getattr(constants, value)
-        elif option in ("--remove-all-auto-groups"):
+        elif option in ("--remove-all-auto-groups",):
             wipe_all = True
         elif option in ("-c", "--collect"):
             aff_or_status, prefix = value.split(":")
@@ -1407,7 +1407,11 @@ def main():
         elif option in ('-a', '--accounts'):
             populate_with_primary_acc = True
         elif option in ("-r", "--spread"):
-            prefix, spread = value.split(":")
+            try:
+                prefix, spread = value.split(":")
+            except ValueError:
+                print "Missing prefix in %s, e.g. ansatt:group@ldap" % option
+                sys.exit(1)
             spread = const.human2constant(spread, const.Spread)
             if spread is None:
                 logger.warn("Unknown spread value %s", value)
