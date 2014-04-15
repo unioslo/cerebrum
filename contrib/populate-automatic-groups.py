@@ -667,10 +667,11 @@ def synchronise_spreads(group, spreads, omit_spreads):
       group.group_name. If the value is NotSet, leave the spreads of this
       specific group unchanged.
     
-    @type omit_spreads: set of tuples (str, const.Spread) or NotSet.
+    @type omit_spreads: set of tuples (str, const.Spread)
     @param omit_spreads:
       A set of tuples, (prefix, spread), where prefix is matched against
       group.group_name. These spreads are not touched by PAG.
+
     """
 
     if spreads is NotSet:
@@ -1384,7 +1385,7 @@ def main():
     output_filters = list()
     const = Factory.get("Constants")()
     spreads = NotSet
-    omit_spreads = NotSet
+    omit_spreads = set()
 
     for option, value in options:
         if option in ("-p", "--perspective"):
@@ -1427,10 +1428,7 @@ def main():
                 logger.warn("Unknown spread value %s", value)
                 continue
 
-            if omit_spreads is NotSet:
-                omit_spreads = set()
             omit_spreads.add((prefix, spread))
-
     if output_groups:
         output_group_forest(output_filters, perspective)
         sys.exit(0)
