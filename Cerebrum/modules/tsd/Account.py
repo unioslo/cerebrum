@@ -178,6 +178,8 @@ class AccountTSDMixin(Account.Account):
             hexadecimal value represent 8 bits.
 
         """
+        # Round upwards to nearest full byte by adding 7 to the number of bits.
+        # This makes sure that it's always rounded upwards if not modulo 0 to 8.
         bytes = (length + 7) / 8
         ret = ''
         f = open('/dev/random', 'rb')
