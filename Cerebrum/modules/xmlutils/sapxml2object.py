@@ -326,7 +326,9 @@ class XMLPerson2Object(XMLEntity2Object):
                 continue
             value = sub.text.strip().encode("latin1")
 
-            if sub.tag in ("Gateadresse", "Adressetillegg"):
+            if sub.tag in ("Gateadresse",):
+                street.insert(0, value)
+            if sub.tag in ("Adressetillegg",):
                 street.append(value)
             elif sub.tag in ("Postnummer",):
                 zip = value
