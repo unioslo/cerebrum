@@ -182,7 +182,7 @@ class AccountTSDMixin(Account.Account):
         # This makes sure that it's always rounded upwards if not modulo 0 to 8.
         bytes = (length + 7) / 8
         ret = ''
-        f = open('/dev/random', 'rb')
+        f = open('/dev/urandom', 'rb')
         # f.read _could_ return less than what is needed, so need to make sure
         # that we have enough data, in case the read should stop:
         while len(ret) < bytes:
