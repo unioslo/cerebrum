@@ -326,13 +326,26 @@ class DataEmployment(NameContainer):
     def __str__(self):
         return "(%s) Employment: %s%% %s [%s..%s @ %s]" % (
             self.kind, self.percentage,
-            ", ".join("%s:%s" % (x.language, x.value)
+            ", ".join("%s:%s" % (x[0], x[1])
                       for x in self.iternames()),
             self.start, self.end, self.place)
     # end __str__
 # end DataEmployment
 
+class DataExternalWork(object):
+    """Representing external employment or affiliation registered following the
+    University of Oslo's regulations for external work."""
+    def __init__(self, organization, type, extent, start, end, description):
+        self.description = description
+        self.organization = organization
+        self.type = type
+        self.extent = extent
+        self.start = start
+        self.end = end
 
+    def __str__(self):
+        return "Org: %s Type: %s Extent: %s Start: %s End: %s" % (
+                self.organization, self.type, self.extent, self.start, self.end)
 
 class DataEntity(NameContainer):
     """Class for representing common traits of objects in a data source.
@@ -483,7 +496,8 @@ class DataPerson(DataEntity):
     def __str__(self):
         ret = "DataPerson: %s\n" % list(self.iterids())
         for kind, name in self.iternames():
-            ret += "%s: %s\n" % (kind, name.value)
+            #ret += "%s: %s\n" % (kind, name.value)
+            ret += "%s: %s\n" % (kind, name)
         return ret
     # end __str__
 # end DataPerson
@@ -500,6 +514,7 @@ class HRDataPerson(DataPerson):
         self.birth_date = None
         self.employments = list()
         self.reserved = None
+        self.external_work = list()
     # end __init__
 
 
@@ -507,6 +522,8 @@ class HRDataPerson(DataPerson):
         self.employments.append(emp)
     # end add_employment
 
+    def add_external_work(self, emp):
+        self.external_work.append(emp)
 
     # IVR 2007-03-06 FIXME: ugh! name consistency was not a top priority to
     # say the least :( There should be a "_" here.
@@ -543,6 +560,8 @@ class HRDataPerson(DataPerson):
                                          list(self.iteraddress())],
                                         [str(x) for x in
                                          list(self.iteremployment())]))
+        if self.external_work:
+            result += "\n\texternal work: %s" % map(str, self.external_work)
         return result
     # end __str__
 # end HRDataPerson
