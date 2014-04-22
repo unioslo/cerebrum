@@ -105,17 +105,17 @@ class XMLOU2Object(XMLEntity2Object):
     # TBD: Bind it to Cerebrum constants?
     tag2type = { "Stedkode" : DataOU.NO_SKO,
                  "Akronym"  : DataOU.NAME_ACRONYM,
-                 "Kortnavn" : DataOU.NAME_SHORT,
-                 "Langnavn" : DataOU.NAME_LONG,
+                 "Navn20" : DataOU.NAME_SHORT,
+                 "Navn120" : DataOU.NAME_LONG,
                  }
 
     def _make_contact(self, element):
-        comm_type = element.find("Stedknavn")
-        value = element.find("Stedkomm")
+        comm_type = element.find("Type")
+        value = element.find("Verdi")
         if comm_type is None or value is None or value.text is None:
             return None
 
-        priority = element.find("Stedprio")
+        priority = element.find("Prioritet")
         if (priority is not None and
             priority.text is not None and
             priority.text.isdigit()):
@@ -158,9 +158,9 @@ class XMLOU2Object(XMLEntity2Object):
             return None
 
         result = DataAddress(kind = xml2kind[kind],
-                             street = (ext("Cnavn"),
-                                       ext("Gatenavn1"),
-                                       ext("Gatenavn2")),
+                             street = (ext("CO"),
+                                       ext("Gateadresse"),
+                                       ext("Adressetillegg")),
                              zip = ext("Postnummer"),
                              city = ext("Poststed"),
                              country = ext("Landkode"))
@@ -172,8 +172,8 @@ class XMLOU2Object(XMLEntity2Object):
         """Extract name information from XML element sub."""
 
         tag2kind = {"Akronym": DataOU.NAME_ACRONYM,
-                    "Kortnavn": DataOU.NAME_SHORT,
-                    "Langnavn": DataOU.NAME_LONG, }
+                    "Navn20": DataOU.NAME_SHORT,
+                    "Navn120": DataOU.NAME_LONG, }
 
         language = sub.findtext(".//Sprak")
         # Accumulate the results. One <stednavn> gives rise to several
@@ -218,14 +218,14 @@ class XMLOU2Object(XMLEntity2Object):
                 sko = make_sko(value)
                 if sko is not None:
                     result.add_id(self.tag2type[sub.tag], sko)
-            elif sub.tag == "Overordnetsted":
+            elif sub.tag == "Overordnetstedkode":
                 sko = make_sko(value)
                 if sko is not None:
                     result.parent = (result.NO_SKO, make_sko(value))
-            elif sub.tag == "stednavn":
+            elif sub.tag == "Navn":
                 for name in self._make_names(sub):
                     result.add_name(name)
-            elif sub.tag in ("stedadresse",):
+            elif sub.tag in ("Adresse",):
                 result.add_address(self._make_address(sub))
             elif sub.tag in ("Startdato", "Sluttdato"):
                 date = self._make_mxdate(sub.text, format="%Y-%m-%d")
@@ -236,15 +236,15 @@ class XMLOU2Object(XMLEntity2Object):
 
         # Whether the OU can be published in various online directories
         result.publishable = False
-        for tmp in element.findall(".//stedbruk/StedType"):
-            if tmp.text == "Tillatt Organisasjon":
+        for tmp in element.findall(".//Bruksomrade/Type"):
+            if tmp.text == "ORGA":
                 result.publishable = True
             # <StedType> tell us how an OU can be used. This information is
             # represented in Cerebrum with the help of spreads and can be
             # accessed via the EntitySpread interface.
             result.add_usage_code(tmp.text)
 
-        celems = element.findall("stedkomm")
+        celems = element.findall("Kommunikasjon")
         for sub in celems:
             ct = self._make_contact(sub)
             if ct:
