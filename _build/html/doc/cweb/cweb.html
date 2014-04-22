@@ -1,0 +1,881 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>1   CWEB framework in Cerebrum &mdash; Cerebrum 0.9.16 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.9.16',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Cerebrum 0.9.16 documentation" href="../../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="cweb-framework-in-cerebrum">
+<h1><a class="toc-backref" href="#id12">1&nbsp;&nbsp;&nbsp;CWEB framework in Cerebrum</a><a class="headerlink" href="#cweb-framework-in-cerebrum" title="Permalink to this headline">¶</a></h1>
+<div class="contents topic" id="table-of-contents">
+<p class="topic-title first">Table of contents</p>
+<ul class="auto-toc simple">
+<li><a class="reference internal" href="#cweb-framework-in-cerebrum" id="id12">1&nbsp;&nbsp;&nbsp;CWEB framework in Cerebrum</a><ul class="auto-toc">
+<li><a class="reference internal" href="#introduction" id="id13">1.1&nbsp;&nbsp;&nbsp;Introduction</a></li>
+<li><a class="reference internal" href="#cweb-architecture" id="id14">1.2&nbsp;&nbsp;&nbsp;CWEB architecture</a></li>
+<li><a class="reference internal" href="#cweb-security" id="id15">1.3&nbsp;&nbsp;&nbsp;CWEB security</a><ul class="auto-toc">
+<li><a class="reference internal" href="#login-procedure" id="id16">1.3.1&nbsp;&nbsp;&nbsp;Login procedure</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#cweb-presentation-layer" id="id17">1.4&nbsp;&nbsp;&nbsp;CWEB presentation layer</a><ul class="auto-toc">
+<li><a class="reference internal" href="#zpt" id="id18">1.4.1&nbsp;&nbsp;&nbsp;ZPT</a></li>
+<li><a class="reference internal" href="#page-layout-and-zpt-macros" id="id19">1.4.2&nbsp;&nbsp;&nbsp;Page layout and ZPT macros</a></li>
+<li><a class="reference internal" href="#how-does-it-all-work" id="id20">1.4.3&nbsp;&nbsp;&nbsp;How does it all work?</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#cweb-hacking" id="id21">1.5&nbsp;&nbsp;&nbsp;CWEB hacking</a></li>
+<li><a class="reference internal" href="#cweb-setup" id="id22">1.6&nbsp;&nbsp;&nbsp;CWEB setup</a><ul class="auto-toc">
+<li><a class="reference internal" href="#software-requirements" id="id23">1.6.1&nbsp;&nbsp;&nbsp;Software requirements</a></li>
+<li><a class="reference internal" href="#configuration" id="id24">1.6.2&nbsp;&nbsp;&nbsp;Configuration</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#troubleshooting" id="id25">1.7&nbsp;&nbsp;&nbsp;Troubleshooting</a></li>
+<li><a class="reference internal" href="#references" id="id26">1.8&nbsp;&nbsp;&nbsp;References</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="introduction">
+<h2><a class="toc-backref" href="#id13">1.1&nbsp;&nbsp;&nbsp;Introduction</a><a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p>This document describes the user management framework CWEB in some of the
+Cerebrum <a class="footnote-reference" href="#cerebrum" id="id1">[1]</a> installations.</p>
+<p>Today, 2007-03-14, Cerebrum offers essentially three user management
+interfaces to the database. In each case, the overall architecture is the same
+&#8211; there is a client entity that communicates with a Cerebrum server (bofhd,
+<a class="footnote-reference" href="#bofhd" id="id2">[2]</a>), which in turn queries the Cerebrum database. The clients are:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li>JBofh, a command-line interface client written in Java that communicates
+over XMLRPC <a class="footnote-reference" href="#xmlrpc" id="id3">[3]</a> with the bofhd.</li>
+<li>Cereweb, a web-based user administration interface to Cerebrum client
+used chiefly at NTNU.</li>
+<li>CWEB, another web-based user administration client used primarily with
+Indigo-OFK and Indigo-giske projects.</li>
+</ol>
+</div></blockquote>
+<p>This memo is on the workings of the CWEB framework.</p>
+<p>The CWEB framework is based on <a class="reference external" href="http://en.wikipedia.org/wiki/Common_Gateway_Interface">CGI</a>. The CWEB modules
+are set up to be launched from a CGI script. The modules parse the command
+passed to the script by a web server, and communicate with a Cerebrum server
+bofhd potentially running on a different machine using XMLRPC <a class="footnote-reference" href="#xmlrpc" id="id4">[3]</a>. The
+web pages themselves are rendered with the help of Zope page templates
+<a class="footnote-reference" href="#id11" id="id5">[4]</a>.</p>
+<p>A sketch of the components involved in passing a request to view user
+information is presented below.</p>
+<img alt="overall cweb architecture" class="align-center" src="../../_images/overall-arch.png" />
+</div>
+<div class="section" id="cweb-architecture">
+<h2><a class="toc-backref" href="#id14">1.2&nbsp;&nbsp;&nbsp;CWEB architecture</a><a class="headerlink" href="#cweb-architecture" title="Permalink to this headline">¶</a></h2>
+<p>The CWEB &#8220;interface&#8221; is launched by running the CGI-script <tt class="docutils literal"><span class="pre">cweb.py</span></tt>. The
+CWEB itself consists of several components, each of which is responsible for
+its own task. The components are:</p>
+<blockquote>
+<div><ul>
+<li><dl class="first docutils">
+<dt><em>Controller</em> class (in file <tt class="docutils literal"><span class="pre">Controller.py</span></tt>) is the wrapper around all</dt>
+<dd><p class="first last">actions and it decides which method (in CWEB) corresponds to which user
+action (i.e. a magic value submitted via an HTML form). The controller
+wraps the command execution in a try-catch to present a nicer error to
+the end user. Also, the controller restricts the available commands via a
+<tt class="docutils literal"><span class="pre">cereconf.CWEB_AVAILABLE_COMMANDS</span></tt>. Note that this has nothing to do
+with the web pages presented to the end users. I.e. the web page may very
+well &#8220;offer&#8221; a command, whereas the controller would lock such a command
+out. Obviously, such a situation is probably a bug, but this discrepancy
+is nevertheless possible.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt><em>Command</em> classes (in file <tt class="docutils literal"><span class="pre">Commands.py</span></tt>) are classes that implement</dt>
+<dd><p class="first last">various CWEB commands. Usually a user action (such as &#8220;find person&#8221;) is
+passed to a suitable command object. The command object handles the
+request and calls the necessary methods to present the result (i.e. the
+command object outputs the html page with a result suitably
+formatted). Various command objects are hooked to a controller object
+instantiated by the CGI-script.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt><em>CerebrumProxy</em> class (in file <tt class="docutils literal"><span class="pre">CerebrumGW.py</span></tt>) is a proxy class that</dt>
+<dd><p class="first last">relays all commands from CWEB to the bofh daemon. This class is
+responsible for establishing a (preferrably) HTTPS connection to the
+bofhd, does a bit of marshalling and massaging the input/output values. A
+<tt class="docutils literal"><span class="pre">CerebrumProxy</span></tt>, object, much like the command objects, is hooked to a
+controller object. The controller also passes the the proxy object to
+command objects, so the entire structure is linked pretty tight together.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt><em>State</em> class (in file <tt class="docutils literal"><span class="pre">State.py</span></tt>) keeps track of the client state (who</dt>
+<dd><p class="first last">is logged in, their privilege level, which person is being displayed, and
+so forth) with the help of Cookies and gdbm database. A state object
+fetches its state from <tt class="docutils literal"><span class="pre">cereconf.CWEB_STATE_FILE</span></tt>. The controller
+object initializes one state object and passes it around to whatever
+object needs it.</p>
+</dd>
+</dl>
+</li>
+<li><p class="first">A presentation layer (in file <tt class="docutils literal"><span class="pre">Layout.py</span></tt>), which is used to present
+user with web pages (either to fetch a query, or to display query
+results). The presentation layer is a collection of classes to help
+manipulate zope page templates <a class="footnote-reference" href="#id11" id="id6">[4]</a>. Additionally, the page templates
+themselves have to be written. We&#8217;ll look into this in greater detail in
+<a class="reference internal" href="#cweb-presentation-layer">CWEB presentation layer</a>.</p>
+</li>
+</ul>
+</div></blockquote>
+<p>An overall sketch of the CWEB components is presented below.</p>
+<img alt="CWEB components" class="align-center" src="../../_images/components.png" />
+<p>A controller object holds pointers to everything. Various command objects
+consult the state and the proxy objects to fetch the supplied values and pass
+on commands to bofhd respectively.</p>
+</div>
+<div class="section" id="cweb-security">
+<h2><a class="toc-backref" href="#id15">1.3&nbsp;&nbsp;&nbsp;CWEB security</a><a class="headerlink" href="#cweb-security" title="Permalink to this headline">¶</a></h2>
+<p>In general, CWEB is just a client, much like any of the three mention in
+<a class="reference internal" href="#introduction">Introduction</a>. By design, the main security decisions (authorization,
+mostly) are made by the tailored bofhd version. Whichever commands it allows,
+are available to users. Ideally, even if CWEB is compromised, it will not be
+possible to attack the Cerebrum database.</p>
+<p>CWEB operates with 3 privilege levels: c3, c2, c1. c3 level are the superusers
+and all commands supported by an installation are available to them. c2 level
+is reserved for local IT administrators and they have the permissions to look
+users/people up and change users&#8217; passwords. c1 are ordinary users and they
+can only see the information about themselves and change their own passwords.</p>
+<p>When a user logs into CWEB, CWEB establishes the user&#8217;s privilege level. This
+happens in <tt class="docutils literal"><span class="pre">modules.bofhd.auth.py</span></tt>. Currently the permissions are awarded
+based on either group membership (for c3) or the ability to perform certain
+operations (c2 is awarded to all who can set passwords).</p>
+<p>Each privilege level presents a different interface (e.g. a c1 user will never
+&#8220;see&#8221; a web page with a &#8220;create group&#8221; link). However, a c1 user can still
+craft an url and &#8220;send&#8221; a &#8220;create group&#8221; request. The verification of a
+request is three-folded:</p>
+<blockquote>
+<div><ul class="simple">
+<li>The controller object checks whether the command is at all available. The
+commands available on an installation can be constrained through
+<tt class="docutils literal"><span class="pre">cereconf.CWEB_AVAILABLE_COMMANDS</span></tt></li>
+<li>A suitable command object or the cerebrum proxy object (see figure in
+section <a class="reference internal" href="#cweb-architecture">CWEB architecture</a>) will check if the particular user level can
+perform the command (client-side). (FIXME: Currently this happens only
+sporadically and is not enforced through. This should perhaps be fixed, if
+nothing else, than to give a klient a better error message?)</li>
+<li>Once the bofhd gets the request from the cerebrum proxy object, it
+performs permissions checks once a method for a particular command is
+invoked.</li>
+</ul>
+</div></blockquote>
+<div class="section" id="login-procedure">
+<h3><a class="toc-backref" href="#id16">1.3.1&nbsp;&nbsp;&nbsp;Login procedure</a><a class="headerlink" href="#login-procedure" title="Permalink to this headline">¶</a></h3>
+<p>Before a user can issue any commands, (s)he must log in (cweb typically greets
+the users with a login page). Username/password are transmitted with HTTPS,
+so there is no possibility of leaking the information there.</p>
+<p>However, there exists another issue that needs to be addressed. A browser can
+cache form values, and re-submit them, once the same form is encountered
+again (e.g. if the user presses the &#8220;back&#8221; button in the browser, after having
+logged out). We cannot allow this &#8216;resubmission&#8217; to happen.</p>
+<p>Therefore, each time a login page is loaded, a random key K is inserted into
+the login form (as a hidden field). K is registered in the state database
+prior to displaying the login page. When the user submits the data (HTTP POST
+request), cweb login procedure checks if K submitted with the page exists in
+the state database. If it does, then the login data is processed,
+username/password is verified, the user is logged in, and K is removed from
+the state database. If K does NOT exist in the state database, the login
+information is discarded (without verification), and the user is asked to log
+in. Additionally, to &#8220;force&#8221; the browser to reload the login page (rather than
+reuse old values), HTTP cache directives are issued that prohibit the browser
+to cache the page. This is a convenience only feature (to avoid certain error
+conditions while pressing the &#8220;back&#8221; button to reach the login page), and has
+no security merits.</p>
+</div>
+</div>
+<div class="section" id="cweb-presentation-layer">
+<h2><a class="toc-backref" href="#id17">1.4&nbsp;&nbsp;&nbsp;CWEB presentation layer</a><a class="headerlink" href="#cweb-presentation-layer" title="Permalink to this headline">¶</a></h2>
+<p>A word on the presentation layer. As mentioned, CWEB uses Zope page templates
+<a class="footnote-reference" href="#id11" id="id7">[4]</a> to generate webpages. ZPT is a framework that allows to merge HTML
+with dynamic page generation. Roughly, a page template is loaded from a file,
+and can be rendered (to HTML) while performing certain substitions within the
+template. The resulting HTML is then returned from CWEB as &#8220;the result&#8221; of
+running a CGI script.</p>
+<div class="section" id="zpt">
+<h3><a class="toc-backref" href="#id18">1.4.1&nbsp;&nbsp;&nbsp;ZPT</a><a class="headerlink" href="#zpt" title="Permalink to this headline">¶</a></h3>
+<p>ZPTs, Zope page templates, are regular HTML files, with certain directives
+embedded into them. In CWEB these directives are used to merge dynamic content
+(e.g. user names, person names, affiliations, etc.) into HTML pages generated
+by the CGI script.</p>
+<p>When a ZPT is rendered (<tt class="docutils literal"><span class="pre">__call__</span></tt> method for suitable class in ZPT), every
+magic &#8220;directive&#8221; (they are written in a language called TAL, template
+attribute language <a class="footnote-reference" href="#tal" id="id8">[6]</a>) is replaced by a value from a context dictionary
+which is supplied to the render call. CWEB puts all the required values into
+such a dictionary before asking ZPT to render a template.</p>
+<p>Templates are located in <tt class="docutils literal"><span class="pre">contrib/no/Indigo/web/templates</span></tt>. They are also
+grouped by sites (<tt class="docutils literal"><span class="pre">cereconf.CWEB_TEMPLATE_SITE_DIR</span></tt>), so that a
+site-specific template is preferred to a default one
+(<tt class="docutils literal"><span class="pre">...web/templates/default</span></tt>), when both exist. The templates are loaded in
+<tt class="docutils literal"><span class="pre">Layout.py:MyPageTemplate.load</span></tt>.</p>
+</div>
+<div class="section" id="page-layout-and-zpt-macros">
+<h3><a class="toc-backref" href="#id19">1.4.2&nbsp;&nbsp;&nbsp;Page layout and ZPT macros</a><a class="headerlink" href="#page-layout-and-zpt-macros" title="Permalink to this headline">¶</a></h3>
+<p>In order to give all of the pages similar look, we use macros in ZPTs in
+CWEB. Normally, you would not need to define your own, just know how to use
+the existing ones. There is one macro in CWEB &#8211; &#8220;page&#8221;. Today, 2007-03-19, it
+has four different incarnations &#8211; for displaying user, group and person query
+results and a general macro that&#8217;s used for everything else.</p>
+<p>The general macro (<tt class="docutils literal"><span class="pre">outer.zpl</span></tt>) defines a layout that looks approximately
+like this:</p>
+<div class="highlight-python"><pre>+-------------+
+|    header   |
++-+-----------+
+|m|           |
+|e|           |
+|n| bodyframe |
+|u|           |
+| |           |
++-+-----------+</pre>
+</div>
+<p>&#8220;menu&#8221; and &#8220;bodyframe&#8221; in the figure above are macro slots (i.e.
+<tt class="docutils literal"><span class="pre">metal:define-slot</span></tt>), called &#8220;menuframe&#8221; and &#8220;bodyframe&#8221;
+respectively. &#8220;menuframe&#8221; is filled with a suitable menu (selected based on a
+privilege level) and &#8220;bodyframe&#8221; is populated by a template specific to the
+command being run. This way <em>all</em> pages have the same general look.</p>
+<p>Typically a page for doing any kind of task (say, a query page for locating a
+user, <tt class="docutils literal"><span class="pre">user_find.zpl</span></tt>), will include something like this:</p>
+<div class="highlight-python"><pre>&lt;span metal:use-macro="tpl/macros/page"&gt;
+&lt;span metal:fill-slot="body" tal:omit-tag=""&gt;</pre>
+</div>
+<p>... at the top of the page. This way, a page (for asking for username search
+criteria in our example) will look &#8220;the same&#8221; compared to all other user
+pages. Note the string <tt class="docutils literal"><span class="pre">tpl/macros/page</span></tt>. <tt class="docutils literal"><span class="pre">tpl</span></tt> is the name of the object
+in python code that holds the macros. <tt class="docutils literal"><span class="pre">macros</span></tt> is a fixed string (fixed in
+the ZPT framework) to designate that whatever follows names a macro and
+finally <tt class="docutils literal"><span class="pre">page</span></tt> is the name of the macro that has to be used.</p>
+<p>The other three &#8220;page&#8221; macro incarnations, <tt class="docutils literal"><span class="pre">user_frame.zpl</span></tt>,
+<tt class="docutils literal"><span class="pre">person_frame.zpl</span></tt> and <tt class="docutils literal"><span class="pre">group_frame.zpl</span></tt> (that are very similar,
+actually), are used to fill the &#8220;bodyframe&#8221; slot of the general outer
+macro. They all look like this:</p>
+<div class="highlight-python"><pre>&lt;span metal:define-macro="page" tal:omit-tag=""&gt;
+  &lt;table&gt;
+    &lt;tr&gt;
+      &lt;td&gt;&lt;h1 tal:content="title"&gt;title&lt;/h1&gt;&lt;/td&gt;
+      &lt;td&gt;&lt;a tal:replace="structure python:help_link(title_id,'')"&gt;&lt;/a&gt;&lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/table&gt;
+  &lt;table&gt;
+    &lt;tr&gt;
+      &lt;td&gt;&lt;span metal:define-slot="body" tal:omit-tag=""&gt;&lt;/span&gt;&lt;/td&gt;
+      &lt;td&gt;&lt;iframe src="about:blank" name="helpframe" frameborder="0"&gt; &lt;/iframe&gt;&lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/table&gt;
+&lt;/span&gt;</pre>
+</div>
+<p>Each page is generated in two steps: first step is the content that ends up in
+the &#8220;bodyframe&#8221;. Once it has been generated, it is embedded into the &#8220;outer&#8221;
+pager (controlled by the <tt class="docutils literal"><span class="pre">outer.zpl</span></tt>) macro. This &#8220;embedding&#8221; of one page
+into another happens in <tt class="docutils literal"><span class="pre">Layout.py:SubTemplate.show()</span></tt> and
+<tt class="docutils literal"><span class="pre">Layout.py:MainTemplate.show()</span></tt>.</p>
+</div>
+<div class="section" id="how-does-it-all-work">
+<h3><a class="toc-backref" href="#id20">1.4.3&nbsp;&nbsp;&nbsp;How does it all work?</a><a class="headerlink" href="#how-does-it-all-work" title="Permalink to this headline">¶</a></h3>
+<p>Okey, so how exactly does all of this fit together? Initially, the only
+&#8220;interface&#8221; available is two input boxes for logging in (username and
+passwords). Once a user has logged in, (s)he is presented with an interface
+suitable for his/her privilege level (<tt class="docutils literal"><span class="pre">Layout.py:MainTemplate.get_menu()</span></tt>
+fetches the right menu template). Each command fills the &#8220;bodyframe&#8221; slot in
+the figure mentioned previously. The result of each command fills the
+&#8220;bodyframe&#8221; slot as well. E.g. person commands (handled by
+<tt class="docutils literal"><span class="pre">Commands.py:PersonCommands</span></tt>) usually end up by calling
+<tt class="docutils literal"><span class="pre">template.show(...)</span></tt>, where <tt class="docutils literal"><span class="pre">template</span></tt> is an instance of
+<tt class="docutils literal"><span class="pre">PersonTemplate</span></tt>. To render such a <tt class="docutils literal"><span class="pre">PersonTemplate</span></tt> template, two things
+are required:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li>a macro for the body layout (<tt class="docutils literal"><span class="pre">person_fram.zpl</span></tt>), which tells where the
+body of the resulting page goes.</li>
+<li>a template for the command result (specific to each command), that
+actually <em>is</em> the body of the resulting page.</li>
+</ol>
+</div></blockquote>
+<p>Typically, in order to introduce a new command, or display an additional
+result, one would only need to fix the template for the command result. The
+rest of the web page layout/infrastructure would simply &#8220;just work&#8221;.</p>
+<p>The zope page template framework is not really complicated, but there are many
+pieces that have to work together, which makes it somewhat difficult to get a
+grasp of the framework. There are templates and macros, that define the layout
+of the webpage, there is some python code that massages the results in python
+and passes commands to bofhd, and then there is bofhd which actually executes
+the commands. The easist way of understanding how it works it to trace an
+existing command, such as &#8220;find person&#8221; all the way through.</p>
+</div>
+</div>
+<div class="section" id="cweb-hacking">
+<h2><a class="toc-backref" href="#id21">1.5&nbsp;&nbsp;&nbsp;CWEB hacking</a><a class="headerlink" href="#cweb-hacking" title="Permalink to this headline">¶</a></h2>
+<p>Assuming that you want to extend a running instance of CWEB, here are the
+places where you can start tweaking.</p>
+<p>Perhaps, it is easiest to do this by following an example through. Suppose you
+want to make a function, &#8220;punish user&#8221; available to the c2 and c3
+users. Let&#8217;s assume that punishing a user means setting a random password and
+removing a group membership (supplied by the operator). There are essentially two
+inputs here &#8211; user name and group name. There is a number of possible error
+situations, but we&#8217;ll deal with them later.</p>
+<p>You&#8217;ll have to go through roughly these steps:</p>
+<blockquote>
+<div><ol class="arabic">
+<li><p class="first">Find out which page is to be supplemented with a link to the &#8220;punish
+user&#8221; command. Suppose you want to make a link from the main menu. Then a
+template for c2 and c3 users can be extended thus:</p>
+<div class="highlight-python"><pre>&lt;dt&gt;Menu
+&lt;dd&gt;
+  &lt;a href="?action=show_person_find"&gt;Find person&lt;/a&gt;&lt;/br&gt;
+  &lt;!-- same list as before --&gt;
+  &lt;a href="?action=show_punish_user"&gt;Punish user&lt;/a&gt;&lt;/br&gt;</pre>
+</div>
+<p>The next time any page is loaded by a c2/c3 user, they&#8217;ll see a clickable
+link that leads them to the <tt class="docutils literal"><span class="pre">show_punish_user</span></tt> command/page.</p>
+</li>
+<li><p class="first">... which brings us to the next point &#8211; the template for the &#8220;punish
+user&#8221; command (i.e. which page is to be displayed when executing
+<tt class="docutils literal"><span class="pre">show_punish_user</span></tt>).</p>
+<p>Let&#8217;s assume that we need a text field (for the username) and a submit
+button. A prospective template may then look like this:</p>
+<div class="highlight-python"><pre>&lt;!-- remember our macros to give all pages the same look --&gt;
+&lt;span tal:define="title string:Look for users to punish" tal:omit-tag=""&gt;
+&lt;span metal:use-macro="tpl/macros/page"&gt;
+&lt;span metal:fill-slot="body" tal:omit-tag=""&gt;
+
+&lt;form action="#" method="get"&gt;
+  &lt;input type="HIDDEN" name="action" value="do_punish_user"&gt;
+  &lt;dl&gt;
+    &lt;dt&gt;Username
+    &lt;dd&gt;&lt;input type="TEXT" name="user_name" size="20"&gt;
+    &lt;br&gt;
+    &lt;dt&gt;&lt;input type="TEXT" name="group_name" size="20"&gt;
+  &lt;/dl&gt;
+
+  &lt;input type="SUBMIT" value="Punish!"&gt;
+&lt;/form&gt;</pre>
+</div>
+<p>The worthy key points here are <tt class="docutils literal"><span class="pre">name</span></tt> and <tt class="docutils literal"><span class="pre">value</span></tt> attributes. These
+are the &#8220;tags&#8221; we&#8217;ll need later to fetch the proper values from the
+<tt class="docutils literal"><span class="pre">UserCommand</span></tt> class.</p>
+<p>Let&#8217;s call our template <tt class="docutils literal"><span class="pre">user_punish.zpl</span></tt>. If the template is general
+enough, it should probably end up in
+<tt class="docutils literal"><span class="pre">contrib/no/Indigo/web/templates/default</span></tt>. Or, if the template is
+installation-specific, then it should be placed in
+<tt class="docutils literal"><span class="pre">contrib/no/Indigo/web/templates/&lt;institution&gt;</span></tt>.</p>
+<p>To summarize, a template in this case needs:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li>a form (<tt class="docutils literal"><span class="pre">&lt;form&gt;</span></tt>) through which a request is submitted.</li>
+<li>a standard header, so that the query page conforms to the overall
+layout and looks &#8220;the same&#8221; as the rest of the CWEB web pages. This
+is what the <tt class="docutils literal"><span class="pre">use-macro</span></tt> is for.</li>
+<li>a few tags within the form that will let the Command class to
+identify various parts of user input. It does not matter what they
+are called, however, the tags should be unique within one template
+and the <tt class="docutils literal"><span class="pre">name</span></tt> attribute of the <tt class="docutils literal"><span class="pre">&lt;input&gt;</span></tt> that registers which
+action should be called in the controller <em>must</em> be called
+<tt class="docutils literal"><span class="pre">action</span></tt>.</li>
+</ol>
+</div></blockquote>
+<p>Keep in mind that we&#8217;ll need a second template, to present the output of
+the &#8220;punish user&#8221; command to the user.</p>
+</li>
+<li><p class="first">Now, we have a link in the menu and a template to use when the link is
+clicked. What we need is to establish a &#8220;connection&#8221; in the
+<tt class="docutils literal"><span class="pre">Controller</span></tt> class between the &#8220;show_punish_user&#8221; action and the
+template to be displayed. This is accomplished by registering the proper
+entry in the <tt class="docutils literal"><span class="pre">Controller.action_map</span></tt> dictionary:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">controller</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="n">action_map</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="c"># as before</span>
+        <span class="s">&#39;show_user_punish&#39;</span><span class="p">:</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">html_util</span><span class="o">.</span><span class="n">show_page</span><span class="p">,</span>
+                             <span class="n">Layout</span><span class="o">.</span><span class="n">UserTemplate</span><span class="p">,</span> <span class="s">&#39;user_punish&#39;</span><span class="p">],</span>
+    <span class="p">}</span>
+</pre></div>
+</div>
+<p>What does all of this mean? Well, when the controller sees the action
+&#8220;show_user_punish&#8221; (which is exactly what would happen, because of the
+URL with &#8221;?action=show_user_punish&#8221;), it&#8217;ll execute <tt class="docutils literal"><span class="pre">show_page</span></tt>
+function with a <tt class="docutils literal"><span class="pre">UserTemplate</span></tt> using the <tt class="docutils literal"><span class="pre">user_punish.zpl</span></tt> template
+that we&#8217;ve just designed. Yay! We are ready to move on ...</p>
+</li>
+<li><p class="first">... to actually implementing the punishing part. When the operator pushes
+the &#8220;Punish!&#8221; button, we want to call the command that actually does
+something to a user. So, once more, we need to tie the <tt class="docutils literal"><span class="pre">action</span></tt> in the
+<tt class="docutils literal"><span class="pre">user_punish.zpl</span></tt> template to whatever method implements the
+command; and that happends in <tt class="docutils literal"><span class="pre">action_map</span></tt>:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">controller</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="n">action_map</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="c"># as before</span>
+        <span class="s">&#39;show_user_punish&#39;</span><span class="p">:</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">html_util</span><span class="o">.</span><span class="n">show_page</span><span class="p">,</span>
+                             <span class="n">Layout</span><span class="o">.</span><span class="n">UserTemplate</span><span class="p">,</span> <span class="s">&#39;user_punish&#39;</span><span class="p">],</span>
+        <span class="s">&#39;do_punish_user&#39;</span><span class="p">:</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">user_cmd</span><span class="o">.</span><span class="n">user_punish</span><span class="p">],</span>
+    <span class="p">}</span>
+</pre></div>
+</div>
+<p>The next time the operator hits the &#8220;Punish!&#8221; button on the web page, the
+controller will call <tt class="docutils literal"><span class="pre">user_punish</span></tt> method in class <tt class="docutils literal"><span class="pre">UserCommands</span></tt> ...</p>
+</li>
+<li><p class="first">... which we now have to implement. <tt class="docutils literal"><span class="pre">user_cmd</span></tt> in the previous bullet
+is an instance of class <tt class="docutils literal"><span class="pre">UserCommands</span></tt>, and since we want to perform an
+operation on a <em>user</em>, it makes sense to place the code there.</p>
+<p>We have to perform two distinct operations here: scrambling the password
+and removing a specific membership.</p>
+<p>So, let&#8217;s deal with the password scrambling first. We need to perform
+roughly these commands:</p>
+<blockquote>
+<div><ol class="arabic">
+<li><p class="first">Check that the operator <em>can</em> in fact punish users:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">user_punish</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="n">html_util</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">controller</span><span class="o">.</span><span class="n">html_util</span>
+
+    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&quot;authlevel&quot;</span><span class="p">)</span> <span class="o">&lt;</span> <span class="s">&#39;c2&#39;</span><span class="p">:</span>
+        <span class="n">html_util</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s">&quot;Insufficient privilege to punish users&quot;</span><span class="p">)</span>
+        <span class="k">return</span>
+</pre></div>
+</div>
+<p>If the operator cannot punish users, then there is no point in
+asking bofhd to perform anything. (FIXME: the multiple dotting is a
+bit ugly. Since all these classes are tightly coupled anyway,
+perhaps it makes sense to make this a bit easier?)</p>
+</li>
+<li><p class="first">So, assuming the operator has permissions, whose password are we
+scrambling? Well, remember that <tt class="docutils literal"><span class="pre">name</span></tt> attribute with value
+<tt class="docutils literal"><span class="pre">user_name</span></tt> in the HTML form? That&#8217;s exactly what we want:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">user_punish</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="c"># as before</span>
+
+    <span class="n">user_to_punish</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_form_value</span><span class="p">(</span><span class="s">&quot;user_name&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The victim is found!</p>
+</li>
+<li><p class="first">Now we actually scramble the password. There is already a command to
+change a user&#8217;s password, so we&#8217;ll just reuse it:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">user_punish</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="c"># as before</span>
+
+    <span class="n">user_to_punish</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_form_value</span><span class="p">(</span><span class="s">&quot;user_name&quot;</span><span class="p">)</span>
+    <span class="n">candidates</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cerebrum</span><span class="o">.</span><span class="n">user_find</span><span class="p">(</span><span class="s">&quot;uname&quot;</span><span class="p">,</span> <span class="n">user_to_punish</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">candidates</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">html_util</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s">&quot;User is not unique!&quot;</span><span class="p">)</span>
+        <span class="k">return</span>
+
+    <span class="n">account_id</span> <span class="o">=</span> <span class="n">candidates</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s">&#39;account_id&#39;</span><span class="p">]</span>
+    <span class="c"># set the password now. None means give random password</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">cerebrum</span><span class="o">.</span><span class="n">user_password</span><span class="p">(</span><span class="n">account_id</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>So far, so good. But what if setting the password fails on bofhd&#8217;s
+end (e.g. the db is down or a transaction is aborted)? Well, in that
+case bofhd will raise an exception which will be &#8220;forwarded&#8221; by the
+<tt class="docutils literal"><span class="pre">cerebrumProxy</span></tt> and caught by the controller. The <tt class="docutils literal"><span class="pre">user_punish</span></tt>
+is not involved in handling this kind of errors.</p>
+</li>
+<li><p class="first">Now that we have scrambled the password, we can move on to removing
+the membership. Much like with the user name, the group name was in
+an <tt class="docutils literal"><span class="pre">&lt;input&gt;</span></tt>-element with attribute <tt class="docutils literal"><span class="pre">name</span></tt> set to
+<tt class="docutils literal"><span class="pre">group_name</span></tt>. Thus, we collect the name, and proceed much like
+before:</p>
+<div class="highlight-python"><pre>def user_punish(self):
+    # as before
+
+    group_name = self.state.get_form_value("group_name")
+    groups = self.cerebrum.group_search("name", group_name)
+    if not groups:
+        html_util.error("No group matches name '%s' % group_name)
+        return
+    elif len(groups) &gt; 1:
+        html_util.error("Too many groups match name '%s'" % group_name)
+        return
+
+    group_id = groups[0]["entity_id"]
+
+    # ok, we've got both account_id and group_id -- register change.
+    self.cerebrum.group_remove_entity((account_id,), group_id)</pre>
+</div>
+</li>
+<li><p class="first">And finally, at least some sort of user feedback would be
+nice. Since none of the existing templates fit, we create a minimal
+one &#8211; <tt class="docutils literal"><span class="pre">user_punish_ok.zpl</span></tt>:</p>
+<div class="highlight-python"><pre>&lt;span tal:define="title string:User punished" tal:omit-tag=""&gt;
+  &lt;span metal:use-macro="tpl/macros/page"&gt;
+    &lt;span metal:fill-slot="body" tal:omit-tag=""&gt;
+
+      &lt;p&gt;User punished!&lt;/p&gt;
+    &lt;/span&gt;
+  &lt;/span&gt;
+&lt;/span&gt;</pre>
+</div>
+<p>... and then amend <tt class="docutils literal"><span class="pre">user_punish</span></tt> with a report page at the end:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">user_punish</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="c"># as before</span>
+
+    <span class="n">tpl</span> <span class="o">=</span> <span class="n">UserTemplate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">,</span> <span class="s">&quot;user_punish_ok&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">tpl</span><span class="o">.</span><span class="n">show</span><span class="p">({})</span>
+<span class="c"># end user_punish</span>
+</pre></div>
+</div>
+<p>Now we are done, and we can punish users left and right.</p>
+</li>
+</ol>
+</div></blockquote>
+</li>
+</ol>
+</div></blockquote>
+<p>So, to reiterate. To implement a new command, you&#8217;d need:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li>About two templates (one for displaying the &#8220;dialogs&#8221; that ask for
+operator input; and another for displaying the results).</li>
+<li>Hook up the new functionality somewhere (a suitable menu, a particular
+templates (such as e.g. <tt class="docutils literal"><span class="pre">person_info.zpl</span></tt>))</li>
+<li>Link up the forms with the commands (in <tt class="docutils literal"><span class="pre">Controller.py</span></tt>)</li>
+<li>Implemented the commands (somewhere in <tt class="docutils literal"><span class="pre">Commands.py</span></tt>, and perhaps
+<tt class="docutils literal"><span class="pre">CerebrumGW.py</span></tt> if the proxy needs to do something fancy).</li>
+<li>Implement the necessary functionality bofhd-side, if needed (in
+<tt class="docutils literal"><span class="pre">bofhd_go_cmds.py</span></tt>)</li>
+<li><a class="reference external" href="http://en.wikipedia.org/wiki/Underpants_Gnomes#The_gnomes">profit!</a></li>
+</ol>
+</div></blockquote>
+</div>
+<div class="section" id="cweb-setup">
+<h2><a class="toc-backref" href="#id22">1.6&nbsp;&nbsp;&nbsp;CWEB setup</a><a class="headerlink" href="#cweb-setup" title="Permalink to this headline">¶</a></h2>
+<p>Assuming that you want an instance of CWEB up and running, these are the
+software requirements and configuration options you have to tweak.</p>
+<div class="section" id="software-requirements">
+<h3><a class="toc-backref" href="#id23">1.6.1&nbsp;&nbsp;&nbsp;Software requirements</a><a class="headerlink" href="#software-requirements" title="Permalink to this headline">¶</a></h3>
+<p>In addition to all of the software requirements for Cerebrum, a CWEB
+installation requires zope page templates <a class="footnote-reference" href="#id11" id="id9">[4]</a>. Make sure that the prefix
+where the software is installed is available to the user that renders the
+pages (e.g. CGI scripts may be run by user nobody)</p>
+<p>Furthermore, mx.DateTime must be installed and accessible from python (store
+users, package is called python-module-egenix-mx-base).</p>
+</div>
+<div class="section" id="configuration">
+<h3><a class="toc-backref" href="#id24">1.6.2&nbsp;&nbsp;&nbsp;Configuration</a><a class="headerlink" href="#configuration" title="Permalink to this headline">¶</a></h3>
+<p>Here is a short list of things you should keep in mind when configuring CWEB
+on a new installation.</p>
+<blockquote>
+<div><ul>
+<li><p class="first">Install zope page templates <a class="footnote-reference" href="#id11" id="id10">[4]</a>. Version 1.4 would do nicely. It&#8217;s
+probably best to install it to <tt class="docutils literal"><span class="pre">/site</span></tt>. Make sure that the user running
+CWEB has access to the right python and has <tt class="docutils literal"><span class="pre">/site/lib/...</span></tt> in
+<tt class="docutils literal"><span class="pre">PYTHONPATH</span></tt>.</p>
+</li>
+<li><p class="first">Define several variables in <tt class="docutils literal"><span class="pre">cereconf.py</span></tt>, so that CWEB can locate
+templates and its components:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="37%" />
+<col width="63%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">CWEB_TEMPLATE_DIR</span></tt></td>
+<td>The &#8220;root&#8221; directory well all templates are
+located.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">CWEB_TEMPLATE_SITE_DIR</span></tt></td>
+<td>The name of the directory with site-specific
+templates. E.g. &#8220;ofk&#8221; or &#8220;giske&#8221;. Such a
+directory must exist under <tt class="docutils literal"><span class="pre">CWEB_TEMPLATE_DIR</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">CWEB_BOFH_SERVER_URL</span></tt></td>
+<td>Location of the bofhd that the CWEB
+framework passes the commands to. The format
+looks like this &#8220;protocol:host:port&#8221;, where
+&#8220;port&#8221; is optional. The protocols can be
+&#8220;http&#8221; or &#8220;https&#8221;. &#8220;https&#8221; is recommended.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">CWEB_LOG_FILE</span></tt></td>
+<td>Logfile for the CWEB framework (the logger
+is fetched from the python&#8217;s logging
+framework. We may want to change that in the
+future. In that case, this variable will
+disappear). This is useful mainly for
+debugging.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">CWEB_STATE_FILE</span></tt></td>
+<td>Client-state file (basically, a bunch of
+cookies in a gdbm database).</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">CWEB_ACTIVE_SOURCE_SYSTEM</span></tt></td>
+<td>Name of the authoritative system where
+people must have affiliations to be
+considered &#8216;active&#8217;. Used by
+bofhd. Typically, only active people are
+returned as query results.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">CWEB_AVAILABLE_COMMANDS</span></tt></td>
+<td>Is a sequence of function names that are
+available in the CWEB framework. Although
+each new installation potentially needs a
+bunch of new templates, the code for
+processing commands may remain
+unchanged. This variable can be used to
+&#8220;turn off&#8221; some functionality, without any
+code changes to CWEB/bofh.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">BOFHD_AUTH_LEVEL</span></tt></td>
+<td>Is used by bofhd to partition the users into
+superusers, lita and regular users. It&#8217;s a
+dictionary from strings (&#8216;super&#8217;,
+&#8216;schoolit&#8217;, &#8216;other&#8217;) to numerical values
+designating privilege thresholds.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">BOFHD_NEW_GROUP_SPREADS</span></tt></td>
+<td>is a sequence of spreads (spread names,
+i.e. <tt class="docutils literal"><span class="pre">code_str</span></tt>) <em>always</em> given to groups
+created via the CWEB interface.</td>
+</tr>
+</tbody>
+</table>
+<p>Also, make sure that the directories actually exist (e.g. the directory
+for log/state files).</p>
+</li>
+<li><p class="first">Fix <tt class="docutils literal"><span class="pre">config.dat</span></tt> for <tt class="docutils literal"><span class="pre">bofhd</span></tt>. We need to include at least
+<tt class="docutils literal"><span class="pre">Indigo/bofhd_go_cmds</span></tt>.</p>
+</li>
+<li><p class="first">Remember that each new installation may need its own templates. This may
+require changing setup.py to include new directories and all the
+zpl-files.</p>
+</li>
+</ul>
+</div></blockquote>
+<p>Apache has to be configured as well, and there are several key points in that
+configuration as well.</p>
+<blockquote>
+<div><ul class="simple">
+<li>Don&#8217;t forget the SSL-certificates.</li>
+<li><tt class="docutils literal"><span class="pre">/etc/httpd.conf</span></tt>. The easiest is probably to migrate the
+<tt class="docutils literal"><span class="pre">/etc/httpd.conf</span></tt> from an existing installation.</li>
+<li>Don&#8217;t forget the logos (supplied by the institution that requested CWEB)
+and a stylesheet.</li>
+<li>Set up symlinks from whichever directories <tt class="docutils literal"><span class="pre">/etc/httpd.conf</span></tt> declares to
+cweb.py in the <em>installed</em> cerebrum/CWEB tree.</li>
+</ul>
+</div></blockquote>
+</div>
+</div>
+<div class="section" id="troubleshooting">
+<h2><a class="toc-backref" href="#id25">1.7&nbsp;&nbsp;&nbsp;Troubleshooting</a><a class="headerlink" href="#troubleshooting" title="Permalink to this headline">¶</a></h2>
+<p>So, what does one do, when nothing works? Unfortunately, there is no easy
+answer. But here are a few things you can try:</p>
+<blockquote>
+<div><ul>
+<li><p class="first">Have a look in the apache logs. Everything written to stderr ends up
+there. Occasionally, you may see something like:</p>
+<div class="highlight-python"><pre>Traceback (most recent call last):
+  File "/site/opt/apache-ssl/cgi-bin/cweb", line 7, in ?
+    import cerebrum_path
+ImportError: No module named cerebrum_path</pre>
+</div>
+<p>... which may prove helpful (in this case the CGI script was run by the
+wrong python). The location of the apache logs is configured in
+<tt class="docutils literal"><span class="pre">/etc/httpd.conf</span></tt> (typically,
+<tt class="docutils literal"><span class="pre">/site/opt/apache-ssl/no.usit.&lt;sitename&gt;.cweb_&lt;port&gt;/logs/</span></tt>). Apache
+logs are the first step in solving &#8220;internal server error&#8221; messages.</p>
+</li>
+<li><p class="first">Have a look in the CWEB logs. <tt class="docutils literal"><span class="pre">cweb.py</span></tt> configures a logger that writes
+to <tt class="docutils literal"><span class="pre">cereconf.CWEB_LOG_FILE</span></tt>. Misspelled template names result often in:</p>
+<div class="highlight-python"><pre>IOError: [Errno 2] No such file or directory: '...templates/default/macro/outer.zpl'</pre>
+</div>
+<p>It does not have to be a misspelled name, though. Check the file
+permissions as well (and remember, they have to be accessible to whichever
+user executes the CGI script (typically <tt class="docutils literal"><span class="pre">nobody</span></tt>)).</p>
+<p>If anything breaks in the &#8220;Python&#8221;-part of CWEB, the error messages will
+end up in this log. Useful for tracking <tt class="docutils literal"><span class="pre">KeyErrors</span></tt>, <tt class="docutils literal"><span class="pre">UnboundLocal</span></tt>
+and the like that occur in the Python code.</p>
+</li>
+<li><p class="first">Occasionally one needs to extend bofhd, to implement some
+functionality. If anything breaks there, it&#8217;s bofhd&#8217;s log that you should
+have a look at. Typically,
+<tt class="docutils literal"><span class="pre">/cerebrum/var/log/cerebrum/bofhd.py/log</span></tt>. Check <tt class="docutils literal"><span class="pre">logging.ini</span></tt> for the
+key <tt class="docutils literal"><span class="pre">bofhd</span></tt>. bofhd exception would typically reach the rendered web
+page, though, so the error should be obvious (page says &#8220;list index out of
+range&#8221;, the bofhd log contains the traceback, and it should be fairly easy
+to identify the problem).</p>
+</li>
+<li><p class="first">The worst kind of errors is the one when something is wrong with the TAL
+directives within a new page, but it&#8217;s unclear what exactly failed and
+where. The ZPT framework is rather terse when it comes to error reporting:</p>
+<div class="highlight-python"><pre>File "/site/lib/python2.4/site-packages/ZopePageTemplates/__init__.py", line 86, in pt_render
+  raise PTRuntimeError, 'Page Template %s has errors.' % self.id
+PTRuntimeError: Page Template (unknown) has errors.</pre>
+</div>
+<p>That is not really helpful. TAL has a directive for trapping errors &#8211;
+<tt class="docutils literal"><span class="pre">tal:on-error</span></tt>. It behaves like <tt class="docutils literal"><span class="pre">tal:content</span></tt> and can be &#8220;wrapped
+around&#8221; the erroneous page to potentially gain some insight as to why
+things are failing:</p>
+<div class="highlight-python"><pre>&lt;span tal:on-error="python: '''TAL error: type:%s;
+                                          value:%s''' % (error.type,
+                                                         error.value)"&gt;
+   &lt;!-- page innards go here --&gt;
+&lt;/span&gt;</pre>
+</div>
+<p>E.g. if you wrote something weird in a <tt class="docutils literal"><span class="pre">tal:content</span></tt> directive, this may
+help explain what went wrong. The results will be displayed in the
+rendered web page.</p>
+</li>
+</ul>
+</div></blockquote>
+<p>If you are still no closer to solving the dreaded &#8216;Page Template &lt;something&gt;
+has errors&#8217;, it&#8217;s time to examine the template page carefully. Comment parts
+of the template page, and locate the failing directive. Watch out for proper
+placement of quotes, doublequotes, semicolons, and the like. Are any closing
+html tags missing? Are the elements nested properly (i.e. do opening and
+closing tags match)?</p>
+</div>
+<div class="section" id="references">
+<h2><a class="toc-backref" href="#id26">1.8&nbsp;&nbsp;&nbsp;References</a><a class="headerlink" href="#references" title="Permalink to this headline">¶</a></h2>
+<table class="docutils footnote" frame="void" id="cerebrum" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id1">[1]</a></td><td>Cerebrum project. &lt;<a class="reference external" href="http://cerebrum.sf.net/">http://cerebrum.sf.net/</a>&gt;.</td></tr>
+</tbody>
+</table>
+<table class="docutils footnote" frame="void" id="bofhd" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id2">[2]</a></td><td>Bofhd - server for remote administration in
+Cerebrum. Development documentation is available in cvs,
+<tt class="docutils literal"><span class="pre">doc/devel/bofh.rst</span></tt>.</td></tr>
+</tbody>
+</table>
+<table class="docutils footnote" frame="void" id="xmlrpc" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label">[3]</td><td><em>(<a class="fn-backref" href="#id3">1</a>, <a class="fn-backref" href="#id4">2</a>)</em> <a class="reference external" href="http://en.wikipedia.org/wiki/Xmlrpc">XMLPRC</a>.</td></tr>
+</tbody>
+</table>
+<table class="docutils footnote" frame="void" id="id11" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label">[4]</td><td><em>(<a class="fn-backref" href="#id5">1</a>, <a class="fn-backref" href="#id6">2</a>, <a class="fn-backref" href="#id7">3</a>, <a class="fn-backref" href="#id9">4</a>, <a class="fn-backref" href="#id10">5</a>)</em> <a class="reference external" href="http://zpt.sourceforge.net/">Zope page templates</a>.</td></tr>
+</tbody>
+</table>
+<table class="docutils footnote" frame="void" id="zintro" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label">[5]</td><td><a class="reference external" href="http://www.zopemag.com/Issue003/Section_Articles/article_ZPTintro.html">ZPT for newbies</a>. Lots of useful information.</td></tr>
+</tbody>
+</table>
+<table class="docutils footnote" frame="void" id="tal" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id8">[6]</a></td><td><a class="reference external" href="http://wiki.zope.org/ZPT/TALSpecification14">Template Attribute Language</a>.</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">1&nbsp;&nbsp;&nbsp;CWEB framework in Cerebrum</a><ul>
+<li><a class="reference internal" href="#introduction">1.1&nbsp;&nbsp;&nbsp;Introduction</a></li>
+<li><a class="reference internal" href="#cweb-architecture">1.2&nbsp;&nbsp;&nbsp;CWEB architecture</a></li>
+<li><a class="reference internal" href="#cweb-security">1.3&nbsp;&nbsp;&nbsp;CWEB security</a><ul>
+<li><a class="reference internal" href="#login-procedure">1.3.1&nbsp;&nbsp;&nbsp;Login procedure</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#cweb-presentation-layer">1.4&nbsp;&nbsp;&nbsp;CWEB presentation layer</a><ul>
+<li><a class="reference internal" href="#zpt">1.4.1&nbsp;&nbsp;&nbsp;ZPT</a></li>
+<li><a class="reference internal" href="#page-layout-and-zpt-macros">1.4.2&nbsp;&nbsp;&nbsp;Page layout and ZPT macros</a></li>
+<li><a class="reference internal" href="#how-does-it-all-work">1.4.3&nbsp;&nbsp;&nbsp;How does it all work?</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#cweb-hacking">1.5&nbsp;&nbsp;&nbsp;CWEB hacking</a></li>
+<li><a class="reference internal" href="#cweb-setup">1.6&nbsp;&nbsp;&nbsp;CWEB setup</a><ul>
+<li><a class="reference internal" href="#software-requirements">1.6.1&nbsp;&nbsp;&nbsp;Software requirements</a></li>
+<li><a class="reference internal" href="#configuration">1.6.2&nbsp;&nbsp;&nbsp;Configuration</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#troubleshooting">1.7&nbsp;&nbsp;&nbsp;Troubleshooting</a></li>
+<li><a class="reference internal" href="#references">1.8&nbsp;&nbsp;&nbsp;References</a></li>
+</ul>
+</li>
+</ul>
+
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/doc/cweb/cweb.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, University of Oslo.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

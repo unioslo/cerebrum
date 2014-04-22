@@ -1,0 +1,239 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>1   Expiration dates &mdash; Cerebrum 0.9.16 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.9.16',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Cerebrum 0.9.16 documentation" href="../../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="expiration-dates">
+<h1><a class="toc-backref" href="#id1">1&nbsp;&nbsp;&nbsp;Expiration dates</a><a class="headerlink" href="#expiration-dates" title="Permalink to this headline">¶</a></h1>
+<div class="contents topic" id="contents">
+<p class="topic-title first">Contents</p>
+<ul class="auto-toc simple">
+<li><a class="reference internal" href="#expiration-dates" id="id1">1&nbsp;&nbsp;&nbsp;Expiration dates</a><ul class="auto-toc">
+<li><a class="reference internal" href="#introduction" id="id2">1.1&nbsp;&nbsp;&nbsp;Introduction</a></li>
+<li><a class="reference internal" href="#interpretation-of-expire-date" id="id3">1.2&nbsp;&nbsp;&nbsp;Interpretation of <tt class="docutils literal"><span class="pre">expire_date</span></tt></a><ul class="auto-toc">
+<li><a class="reference internal" href="#when-the-clock-ticks-past-expire-date" id="id4">1.2.1&nbsp;&nbsp;&nbsp;When the clock ticks past <tt class="docutils literal"><span class="pre">expire_date</span></tt></a></li>
+<li><a class="reference internal" href="#cleaning-up-obsolete-data" id="id5">1.2.2&nbsp;&nbsp;&nbsp;Cleaning up obsolete data</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#generalizing-entity-expiration" id="id6">1.3&nbsp;&nbsp;&nbsp;Generalizing <tt class="docutils literal"><span class="pre">Entity</span></tt> Expiration</a></li>
+<li><a class="reference internal" href="#example-of-expiration-policy" id="id7">1.4&nbsp;&nbsp;&nbsp;Example of expiration policy</a><ul class="auto-toc">
+<li><a class="reference internal" href="#users" id="id8">1.4.1&nbsp;&nbsp;&nbsp;Users</a></li>
+<li><a class="reference internal" href="#groups" id="id9">1.4.2&nbsp;&nbsp;&nbsp;Groups</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="introduction">
+<h2><a class="toc-backref" href="#id2">1.1&nbsp;&nbsp;&nbsp;Introduction</a><a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p>This document describes how the <tt class="docutils literal"><span class="pre">expire_date</span></tt> in Cerebrum should be
+interpreted.</p>
+<p>The <tt class="docutils literal"><span class="pre">expire_date</span></tt> can be used to put a limit on how long an
+<tt class="docutils literal"><span class="pre">Entity</span></tt> in Cerebrum should be valid.  Typically one could create a
+guest account for a visiting user, and set its <tt class="docutils literal"><span class="pre">expire_date</span></tt> 180
+days ahead so that one wouldn&#8217;t have to remember to delete the account
+after the guest has left.</p>
+</div>
+<div class="section" id="interpretation-of-expire-date">
+<h2><a class="toc-backref" href="#id3">1.2&nbsp;&nbsp;&nbsp;Interpretation of <tt class="docutils literal"><span class="pre">expire_date</span></tt></a><a class="headerlink" href="#interpretation-of-expire-date" title="Permalink to this headline">¶</a></h2>
+<p>The <tt class="docutils literal"><span class="pre">expire_date</span></tt> takes effect iff it is set for an <tt class="docutils literal"><span class="pre">Entity</span></tt>, and
+current-date &gt; <tt class="docutils literal"><span class="pre">expire_date</span></tt>.  We shall then refer to such entities
+as expired.  There is no practical difference between an Entity that
+has <tt class="docutils literal"><span class="pre">expire_date=NULL</span></tt>, and one that has an <tt class="docutils literal"><span class="pre">expire_date</span></tt> in the
+future.</p>
+<p>If an <tt class="docutils literal"><span class="pre">Entity</span></tt> is expired, any derived entities are also expired.
+I.e if an <tt class="docutils literal"><span class="pre">Account</span></tt> is expired, a corresponding <tt class="docutils literal"><span class="pre">PosixUser</span></tt> is
+also expired.</p>
+<p>An expired <tt class="docutils literal"><span class="pre">Entity</span></tt> will by default <em>not</em> be returned by <em>any</em>
+Cerebrum method that lists entities unless the optional keyword
+argument <tt class="docutils literal"><span class="pre">filter_expired=False</span></tt> is used (it defaults to <tt class="docutils literal"><span class="pre">True</span></tt>).</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The above statement probably requires some modifications to the
+current API</p>
+</div>
+<p>All scripts that lookup entities by <tt class="docutils literal"><span class="pre">entity_id</span></tt>, where the
+<tt class="docutils literal"><span class="pre">entity_id</span></tt> is not originated from a list method that filters
+expired entities, <em>must</em> use its corresponding <tt class="docutils literal"><span class="pre">is_expired()</span></tt> method
+to check that the <tt class="docutils literal"><span class="pre">Entity</span></tt> is in fact still valid.</p>
+<div class="section" id="when-the-clock-ticks-past-expire-date">
+<h3><a class="toc-backref" href="#id4">1.2.1&nbsp;&nbsp;&nbsp;When the clock ticks past <tt class="docutils literal"><span class="pre">expire_date</span></tt></a><a class="headerlink" href="#when-the-clock-ticks-past-expire-date" title="Permalink to this headline">¶</a></h3>
+<p>The only thing that happens when the clock ticks past <tt class="docutils literal"><span class="pre">expire_date</span></tt>
+is that the queries mentioned above will no longer return the
+<tt class="docutils literal"><span class="pre">Entity</span></tt> (or <tt class="docutils literal"><span class="pre">is_expired()</span></tt> will return <tt class="docutils literal"><span class="pre">True</span></tt>).  It is not
+automatically removed from the database, and no special jobs are
+triggered.</p>
+<p>Any actions based on the <tt class="docutils literal"><span class="pre">expire_date</span></tt> must be setup specifically for
+each site.</p>
+</div>
+<div class="section" id="cleaning-up-obsolete-data">
+<h3><a class="toc-backref" href="#id5">1.2.2&nbsp;&nbsp;&nbsp;Cleaning up obsolete data</a><a class="headerlink" href="#cleaning-up-obsolete-data" title="Permalink to this headline">¶</a></h3>
+<p>There are both advantages and disadvantages with leaving data related
+to an <tt class="docutils literal"><span class="pre">Entity</span></tt> intact once its <tt class="docutils literal"><span class="pre">expire_date</span></tt> has passed.  The
+obvious advantage with not touching the data is that it is easy to
+revert the expiration if it was due to some error.  On the other hand,
+obsolete data may clutter up information about group_members etc, and
+reviving an expired <tt class="docutils literal"><span class="pre">Entity</span></tt> may have unexpected side-effects
+since the <tt class="docutils literal"><span class="pre">Entity</span></tt> automatically regains all group_memberships,
+spreads etc. that it had prior to deletion.  Premature deletion of
+quarantines may again cause reviving of an account who&#8217;s user had done
+something nasty without the quarantine being preserved.</p>
+<p>The best solution is probably to gradually remove data related to the
+<tt class="docutils literal"><span class="pre">Entity</span></tt> once its <tt class="docutils literal"><span class="pre">expire_date</span></tt> has passed.</p>
+</div>
+</div>
+<div class="section" id="generalizing-entity-expiration">
+<h2><a class="toc-backref" href="#id6">1.3&nbsp;&nbsp;&nbsp;Generalizing <tt class="docutils literal"><span class="pre">Entity</span></tt> Expiration</a><a class="headerlink" href="#generalizing-entity-expiration" title="Permalink to this headline">¶</a></h2>
+<p>Cerebrum currently uses <tt class="docutils literal"><span class="pre">expire_date</span></tt> in <tt class="docutils literal"><span class="pre">account_info</span></tt> and
+<tt class="docutils literal"><span class="pre">group_info</span></tt>.  We also need this information in <tt class="docutils literal"><span class="pre">ou_info</span></tt>.  It has
+been suggested to add <tt class="docutils literal"><span class="pre">expire_date</span></tt> into the <tt class="docutils literal"><span class="pre">entity_info</span></tt> table.
+This will probably be done in the near future.</p>
+</div>
+<div class="section" id="example-of-expiration-policy">
+<h2><a class="toc-backref" href="#id7">1.4&nbsp;&nbsp;&nbsp;Example of expiration policy</a><a class="headerlink" href="#example-of-expiration-policy" title="Permalink to this headline">¶</a></h2>
+<p>Cerebrums handling of <tt class="docutils literal"><span class="pre">expire_date</span></tt> is a bit dangerous unless one
+provides mechanisms that trigger on a date related to the
+<tt class="docutils literal"><span class="pre">expire_date</span></tt>.  Typically one would want someone to receive an
+e-mail warning a number of days before an <tt class="docutils literal"><span class="pre">Entity</span></tt> expires.</p>
+<p>It is possible to provide such a mechanism by sub-classing the
+<tt class="docutils literal"><span class="pre">Entity</span></tt> in question, and making it do something whenever an
+<tt class="docutils literal"><span class="pre">expire_date</span></tt> is set.  Alternatively, one could use a change-log
+listener to achieve the same effect.  This is the way
+<tt class="docutils literal"><span class="pre">contrib/no/uio/process_changes.py</span></tt> handles quarantines, which has a
+similar problem.</p>
+<p>What one then needs is a mechanism to make something happen on a given
+date.  Currently Cerebrum only has one such mechanism:
+<tt class="docutils literal"><span class="pre">bofhd_request</span></tt>, so we could use that in the same way that
+<tt class="docutils literal"><span class="pre">process_changes.py</span></tt> uses it to register actions to trigger at dates
+related to the <tt class="docutils literal"><span class="pre">expire_date</span></tt>.</p>
+<p>It is recommended that the action stored on the given date should be
+&#8220;check <tt class="docutils literal"><span class="pre">expire_date</span></tt>&#8221;, and not &#8220;delete user&#8221; to avoid problems if
+the <tt class="docutils literal"><span class="pre">expire_date</span></tt> was somehow changed after it was first set.</p>
+<div class="section" id="users">
+<h3><a class="toc-backref" href="#id8">1.4.1&nbsp;&nbsp;&nbsp;Users</a><a class="headerlink" href="#users" title="Permalink to this headline">¶</a></h3>
+<p>For users one would typically want to send an e-mail notification to
+the account-owner X days prior to expiration, and then a reminder Y
+days later with a copy to whoever has &#8220;bofh rights&#8221; over the user.
+For such sites, one might consider providing mechanisms in the
+user-administration tool that handles the special-case where an
+administrator manually sets the <tt class="docutils literal"><span class="pre">expire_date</span></tt> less than X days
+ahead.</p>
+<p>On the actual <tt class="docutils literal"><span class="pre">expire_date</span></tt> one might automatically start a job that
+archives and removes the users home-directory, email etc, as it is
+probably not a good idea to have data on other systems belonging to
+this user, but who now looks like it has no owner.</p>
+<p>Some sites may want to completely remove the <tt class="docutils literal"><span class="pre">Entity</span></tt> from Cerebrum
+after some time has passed.</p>
+</div>
+<div class="section" id="groups">
+<h3><a class="toc-backref" href="#id9">1.4.2&nbsp;&nbsp;&nbsp;Groups</a><a class="headerlink" href="#groups" title="Permalink to this headline">¶</a></h3>
+<p>Like for users, one would probably want one or two e-mail reminders.
+Some time after expiration, one would remove the group-members, and
+some time after that one would probably delete the <tt class="docutils literal"><span class="pre">Entity</span></tt>.</p>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">1&nbsp;&nbsp;&nbsp;Expiration dates</a><ul>
+<li><a class="reference internal" href="#introduction">1.1&nbsp;&nbsp;&nbsp;Introduction</a></li>
+<li><a class="reference internal" href="#interpretation-of-expire-date">1.2&nbsp;&nbsp;&nbsp;Interpretation of <tt class="docutils literal"><span class="pre">expire_date</span></tt></a><ul>
+<li><a class="reference internal" href="#when-the-clock-ticks-past-expire-date">1.2.1&nbsp;&nbsp;&nbsp;When the clock ticks past <tt class="docutils literal"><span class="pre">expire_date</span></tt></a></li>
+<li><a class="reference internal" href="#cleaning-up-obsolete-data">1.2.2&nbsp;&nbsp;&nbsp;Cleaning up obsolete data</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#generalizing-entity-expiration">1.3&nbsp;&nbsp;&nbsp;Generalizing <tt class="docutils literal"><span class="pre">Entity</span></tt> Expiration</a></li>
+<li><a class="reference internal" href="#example-of-expiration-policy">1.4&nbsp;&nbsp;&nbsp;Example of expiration policy</a><ul>
+<li><a class="reference internal" href="#users">1.4.1&nbsp;&nbsp;&nbsp;Users</a></li>
+<li><a class="reference internal" href="#groups">1.4.2&nbsp;&nbsp;&nbsp;Groups</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/doc/devel/expire_date.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, University of Oslo.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

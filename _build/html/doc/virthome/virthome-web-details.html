@@ -1,0 +1,336 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Spesifikasjoner for brukergrensesnittet til virthome &mdash; Cerebrum 0.9.16 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.9.16',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Cerebrum 0.9.16 documentation" href="../../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="spesifikasjoner-for-brukergrensesnittet-til-virthome">
+<h1><a class="toc-backref" href="#id1">Spesifikasjoner for brukergrensesnittet til virthome</a><a class="headerlink" href="#spesifikasjoner-for-brukergrensesnittet-til-virthome" title="Permalink to this headline">¶</a></h1>
+<div class="contents topic" id="innholdsfortegnelse">
+<p class="topic-title first">Innholdsfortegnelse</p>
+<ul class="simple">
+<li><a class="reference internal" href="#spesifikasjoner-for-brukergrensesnittet-til-virthome" id="id1">Spesifikasjoner for brukergrensesnittet til virthome</a><ul>
+<li><a class="reference internal" href="#innledning" id="id2">Innledning</a></li>
+<li><a class="reference internal" href="#funksjonalitet" id="id3">Funksjonalitet</a></li>
+<li><a class="reference internal" href="#implementasjon" id="id4">Implementasjon</a></li>
+<li><a class="reference internal" href="#sider" id="id5">Sider</a><ul>
+<li><a class="reference internal" href="#felles" id="id6">Felles</a><ul>
+<li><a class="reference internal" href="#forside" id="id7">Forside</a></li>
+<li><a class="reference internal" href="#invitasjon" id="id8">Invitasjon</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#f-dererte-brukere" id="id9">F?dererte brukere</a><ul>
+<li><a class="reference internal" href="#feide-innlogging" id="id10">Feide-innlogging</a></li>
+<li><a class="reference internal" href="#hovedside-f-dererte-brukere" id="id11">Hovedside (f?dererte brukere)</a></li>
+<li><a class="reference internal" href="#grupper" id="id12">Grupper</a></li>
+<li><a class="reference internal" href="#gruppeside" id="id13">Gruppeside</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#uf-dererte-brukere" id="id14">Uf?dererte brukere</a><ul>
+<li><a class="reference internal" href="#innlogging" id="id15">Innlogging</a></li>
+<li><a class="reference internal" href="#hovedside-uf-dererte-brukere" id="id16">Hovedside (uf?dererte brukere)</a></li>
+<li><a class="reference internal" href="#account" id="id17">Account</a></li>
+<li><a class="reference internal" href="#groups" id="id18">Groups</a></li>
+<li><a class="reference internal" href="#registreringsside" id="id19">Registreringsside</a></li>
+<li><a class="reference internal" href="#glemt-passord" id="id20">Glemt passord</a></li>
+<li><a class="reference internal" href="#registrering" id="id21">Registrering</a></li>
+<li><a class="reference internal" href="#etter-oppretting" id="id22">Etter oppretting</a></li>
+<li><a class="reference internal" href="#token-verifisering" id="id23">Token-verifisering</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="innledning">
+<h2><a class="toc-backref" href="#id2">Innledning</a><a class="headerlink" href="#innledning" title="Permalink to this headline">¶</a></h2>
+<p>Dette er en kravspesifikasjon for hvordan brukergrensesnittet for virthome skal
+se ut og oppf?re seg.</p>
+<p>Virthome skal v?re et komplett system for ? la brukere som er eksterne og som
+det ikke er aktuelt ? gi en gjestekonto eller lignende f? tilgang til
+tjenester ved UiO.</p>
+<p>Backenden skal v?re cerebrum, og detaljer for den l?sningen finnes i et annet
+dokument. Da vi allerede har et webgrensesnitt til cerebrum som heter
+brukerinfo kan virthome ta det som et utgangspunkt.</p>
+<p>M?let er ? gjenbruke s? mye av brukerinfo-kodebasen som mulig, og kun legge
+til funksjonalitet som ikke n? ligger i brukerinfo. Brukerinfo takler allerede
+kommunikasjon med en cerebrum-base via en bofhd.</p>
+</div>
+<div class="section" id="funksjonalitet">
+<h2><a class="toc-backref" href="#id3">Funksjonalitet</a><a class="headerlink" href="#funksjonalitet" title="Permalink to this headline">¶</a></h2>
+<p>Brukergrensesnittet skal brukes av to forskjellige typer brukere som skal bli
+presentert med forskjellige valg. Den ene gruppen er brukere uten f?derert
+tilknytning og den andre er for de som har en f?derert tilknytning.</p>
+<p>F?dererte brukere skal kunne:</p>
+<blockquote>
+<div><ul class="simple">
+<li>Logge inn via FEIDE</li>
+<li>Opprette grupper</li>
+<li>Slette grupper de er eier for</li>
+<li>Invitere en annen f?derert bruker til ? bli eier av en gruppe de eier ved bruk av e-postadresse</li>
+<li>Invitere uf?dererte og f?dererte brukere inn i grupper ved hjelp av en e-postadresse</li>
+<li>Fjerne brukere fra grupper</li>
+<li>Legge til f?dererte moderatorer til grupper de er eier av</li>
+<li>Fjerne moderatorer fra grupper de er eier av</li>
+<li>Bli med i grupper etter invitasjon</li>
+</ul>
+</div></blockquote>
+<p>Uf?dererte brukere skal kunne:</p>
+<blockquote>
+<div><ul class="simple">
+<li>Registrere ny bruker kun etter invitasjon</li>
+<li>Endre passord</li>
+<li>Vise reglement</li>
+<li>Vise oversikt over gruppemedlemskap</li>
+<li>Godta ? bli medlem av ny gruppe</li>
+<li>Endre e-postadresse</li>
+<li>Endre navnet sitt</li>
+<li>Avvikle bruker</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="implementasjon">
+<h2><a class="toc-backref" href="#id4">Implementasjon</a><a class="headerlink" href="#implementasjon" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="sider">
+<h2><a class="toc-backref" href="#id5">Sider</a><a class="headerlink" href="#sider" title="Permalink to this headline">¶</a></h2>
+<p>F?lgende websider skal kunne vises</p>
+<div class="section" id="felles">
+<h3><a class="toc-backref" href="#id6">Felles</a><a class="headerlink" href="#felles" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="forside">
+<h4><a class="toc-backref" href="#id7">Forside</a><a class="headerlink" href="#forside" title="Permalink to this headline">¶</a></h4>
+<p>Her skal det v?re info om tjenesten og info som gj?r at man kan forst?
+de to valgene man f?r om ? logge seg inn som enten f?derert bruker eller
+uf?derert bruker.</p>
+</div>
+<div class="section" id="invitasjon">
+<h4><a class="toc-backref" href="#id8">Invitasjon</a><a class="headerlink" href="#invitasjon" title="Permalink to this headline">¶</a></h4>
+<p>N?r man blir invitert til en gruppe f?r man en e-post med en link som
+inneholder en n?kkel som gir tilgang til gruppen. F?lger man den linken
+kommer man til en side som ligner p? forsiden, med valg om man er f?derert
+eller ekstern bruker samt et ekstra valg for ? registrere seg selv.</p>
+<p>Er man eksisterende bruker og f?lger en av de to linkene vil man komme til
+innloggingssiden for den typen brukere og vil etter innlogging
+bli meldt inn i gruppen.</p>
+<p>Velger man ? registrere seg vil man bli sendt til en egen registreringsside.</p>
+</div>
+</div>
+<div class="section" id="f-dererte-brukere">
+<h3><a class="toc-backref" href="#id9">F?dererte brukere</a><a class="headerlink" href="#f-dererte-brukere" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="feide-innlogging">
+<h4><a class="toc-backref" href="#id10">Feide-innlogging</a><a class="headerlink" href="#feide-innlogging" title="Permalink to this headline">¶</a></h4>
+<p>Trykker brukeren p? feide-innloggingslinken som er p? forsiden vil brukeren
+bli sendt rett til feide sin side. Etter vellykket p?logging vil brukeren bli
+videresendt til denne siden, som vil lagre info om brukeren som vi f?r fra feide og opprette en session
+mot bofhd. Hvis brukeren ikke finnes i brukerdatabasen vil den automatisk bli
+opprettet. Brukeren blir s? automatisk bli videresendt til hovedsiden for
+f?dererte brukere.</p>
+</div>
+<div class="section" id="hovedside-f-dererte-brukere">
+<h4><a class="toc-backref" href="#id11">Hovedside (f?dererte brukere)</a><a class="headerlink" href="#hovedside-f-dererte-brukere" title="Permalink to this headline">¶</a></h4>
+<p>Oversiktsside med info om hvilke data vi har lagret om brukeren, samt en link
+til gruppesiden.</p>
+</div>
+<div class="section" id="grupper">
+<h4><a class="toc-backref" href="#id12">Grupper</a><a class="headerlink" href="#grupper" title="Permalink to this headline">¶</a></h4>
+<p>Vise liste over alle grupper brukeren er eier av, er moderator av eller er
+medlem av. Det skal v?re en link p? hver gruppe til en side med mer info om
+gruppen for de gruppene brukeren enten er eier eller moderator av.</p>
+</div>
+<div class="section" id="gruppeside">
+<h4><a class="toc-backref" href="#id13">Gruppeside</a><a class="headerlink" href="#gruppeside" title="Permalink to this headline">¶</a></h4>
+<p>En side per gruppe, som er linket opp fra &#8220;Your groups&#8221;. Den skal inneholde
+info om hvem som er medlem i gruppen og mulighet for ? melde dem ut.
+Det skal v?re mulig ? legge til brukere som medlemmer av gruppen, og det gj?res
+kun ved hjelp av e-postadresser.</p>
+<p>Det skal ogs? v?re et valg for ? legge ned gruppen. Da vil alle brukerene bli meldt
+av gruppen og gruppen vil bli satt inaktiv.</p>
+</div>
+</div>
+<div class="section" id="uf-dererte-brukere">
+<h3><a class="toc-backref" href="#id14">Uf?dererte brukere</a><a class="headerlink" href="#uf-dererte-brukere" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="innlogging">
+<h4><a class="toc-backref" href="#id15">Innlogging</a><a class="headerlink" href="#innlogging" title="Permalink to this headline">¶</a></h4>
+<p>Innloggingssiden for uf?dererte brukere kan se identisk ut som dagens
+brukerinfo-innlogging, og bruke de samme mekanismene.</p>
+</div>
+<div class="section" id="hovedside-uf-dererte-brukere">
+<h4><a class="toc-backref" href="#id16">Hovedside (uf?dererte brukere)</a><a class="headerlink" href="#hovedside-uf-dererte-brukere" title="Permalink to this headline">¶</a></h4>
+<p>Oversiktsside med linker til account og groups-siden.</p>
+</div>
+<div class="section" id="account">
+<h4><a class="toc-backref" href="#id17">Account</a><a class="headerlink" href="#account" title="Permalink to this headline">¶</a></h4>
+<p>Skal vise informasjon som er registrert om brukeren:</p>
+<ul class="simple">
+<li>e-postadresse</li>
+<li>Navn</li>
+</ul>
+<p>Siden skal ogs? gi brukeren mulighet til ? endre e-postadressen, navnet
+og passordet i tillegg gi muligheten for ? slette kontoen. (I praksis
+sette den innaktiv)</p>
+<p>N?r brukeren skal foreta et passordbytte m? brukeren oppgi n?v?rende
+passord, samt nytt passord to ganger. Dette er for ? hindre at det nye
+passordet blir feilstavet.</p>
+</div>
+<div class="section" id="groups">
+<h4><a class="toc-backref" href="#id18">Groups</a><a class="headerlink" href="#groups" title="Permalink to this headline">¶</a></h4>
+<p>Vise liste over alle grupper brukeren er medlem av med en beskrivelse av
+gruppene. Det skal v?re mulig for brukeren ? melde seg ut av enkeltgrupper.</p>
+</div>
+<div class="section" id="registreringsside">
+<h4><a class="toc-backref" href="#id19">Registreringsside</a><a class="headerlink" href="#registreringsside" title="Permalink to this headline">¶</a></h4>
+<p>Her kommer man etter ? ha blitt invitert til en gruppe og man ikke har
+en konto enda.
+Her m? man oppgi ?nsket brukernavn og passord, samt godta reglementet.</p>
+</div>
+<div class="section" id="glemt-passord">
+<h4><a class="toc-backref" href="#id20">Glemt passord</a><a class="headerlink" href="#glemt-passord" title="Permalink to this headline">¶</a></h4>
+<p>P? denne siden kan en bruker som har glemt passordet sitt skrive inn
+brukernavnet sitt. Vi vil da sende ut en e-post til den registrerte
+e-postadressen for den kontoen med en link til en side hvor brukeren kan
+sette et nytt passord.</p>
+</div>
+<div class="section" id="registrering">
+<h4><a class="toc-backref" href="#id21">Registrering</a><a class="headerlink" href="#registrering" title="Permalink to this headline">¶</a></h4>
+<p>Her vil brukeren trenge ? fylle ut navn, ?nsket brukernavn og ?nsket passord.
+Siden vi alt har en verifisert e-postadresse trenger vi ikke sp?rre om det.
+Hvis brukeren heller vil ha en annen e-postadresse assosiert med kontoen
+kan den enkelt byttes senere.</p>
+</div>
+<div class="section" id="etter-oppretting">
+<h4><a class="toc-backref" href="#id22">Etter oppretting</a><a class="headerlink" href="#etter-oppretting" title="Permalink to this headline">¶</a></h4>
+<p>Infoside som sier at kontoen er opprettet og at det skal fungere
+? logge inn p? tjenesten de har blitt invitert til innen f? minutter.
+Det skal ogs? v?re en link til tjenesten og en link til innloggingssiden
+til virthome.</p>
+</div>
+<div class="section" id="token-verifisering">
+<h4><a class="toc-backref" href="#id23">Token-verifisering</a><a class="headerlink" href="#token-verifisering" title="Permalink to this headline">¶</a></h4>
+<p>Her blir den oppgitte tokenen verifisert mot det vi har lagret og hvis den
+stemmer blir e-postadressen verifisert.</p>
+</div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Spesifikasjoner for brukergrensesnittet til virthome</a><ul>
+<li><a class="reference internal" href="#innledning">Innledning</a></li>
+<li><a class="reference internal" href="#funksjonalitet">Funksjonalitet</a></li>
+<li><a class="reference internal" href="#implementasjon">Implementasjon</a></li>
+<li><a class="reference internal" href="#sider">Sider</a><ul>
+<li><a class="reference internal" href="#felles">Felles</a><ul>
+<li><a class="reference internal" href="#forside">Forside</a></li>
+<li><a class="reference internal" href="#invitasjon">Invitasjon</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#f-dererte-brukere">F?dererte brukere</a><ul>
+<li><a class="reference internal" href="#feide-innlogging">Feide-innlogging</a></li>
+<li><a class="reference internal" href="#hovedside-f-dererte-brukere">Hovedside (f?dererte brukere)</a></li>
+<li><a class="reference internal" href="#grupper">Grupper</a></li>
+<li><a class="reference internal" href="#gruppeside">Gruppeside</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#uf-dererte-brukere">Uf?dererte brukere</a><ul>
+<li><a class="reference internal" href="#innlogging">Innlogging</a></li>
+<li><a class="reference internal" href="#hovedside-uf-dererte-brukere">Hovedside (uf?dererte brukere)</a></li>
+<li><a class="reference internal" href="#account">Account</a></li>
+<li><a class="reference internal" href="#groups">Groups</a></li>
+<li><a class="reference internal" href="#registreringsside">Registreringsside</a></li>
+<li><a class="reference internal" href="#glemt-passord">Glemt passord</a></li>
+<li><a class="reference internal" href="#registrering">Registrering</a></li>
+<li><a class="reference internal" href="#etter-oppretting">Etter oppretting</a></li>
+<li><a class="reference internal" href="#token-verifisering">Token-verifisering</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/doc/virthome/virthome-web-details.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, University of Oslo.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

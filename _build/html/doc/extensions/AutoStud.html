@@ -1,0 +1,161 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Automatic useradministration in Cerebrum &mdash; Cerebrum 0.9.16 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.9.16',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Cerebrum 0.9.16 documentation" href="../../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="automatic-useradministration-in-cerebrum">
+<h1>Automatic useradministration in Cerebrum<a class="headerlink" href="#automatic-useradministration-in-cerebrum" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="technical-details">
+<h2>Technical details<a class="headerlink" href="#technical-details" title="Permalink to this headline">¶</a></h2>
+<p>Most of the routines for automatic student administration in Cerebrum
+are handled by <tt class="docutils literal"><span class="pre">Cerebrum.modules.no.uio.AutoStud</span></tt>.  Typical usage is
+something like:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">autostud</span> <span class="o">=</span> <span class="n">AutoStud</span><span class="o">.</span><span class="n">AutoStud</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">logger</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="n">debug</span><span class="p">,</span> <span class="n">cfg_file</span><span class="o">=</span><span class="n">studconfig_file</span><span class="p">,</span>
+                             <span class="n">studieprogs_file</span><span class="o">=</span><span class="n">studieprogs_file</span><span class="p">)</span>
+<span class="n">autostud</span><span class="o">.</span><span class="n">start_student_callbacks</span><span class="p">(</span><span class="n">student_info_file</span><span class="p">,</span>
+                                 <span class="n">process_students_callback</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">process_students_callback</span><span class="p">(</span><span class="n">person_info</span><span class="p">):</span>
+    <span class="n">profile</span> <span class="o">=</span> <span class="n">autostud</span><span class="o">.</span><span class="n">get_profile</span><span class="p">(</span><span class="n">person_info</span><span class="p">)</span>
+    <span class="k">print</span> <span class="s">&quot;Disk: </span><span class="si">%s</span><span class="s">&quot;</span> <span class="o">%</span> <span class="n">profile</span><span class="o">.</span><span class="n">get_disk</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">cfg_file</span></tt> is an XML file that contains rules defining
+properties of a students account.  <tt class="docutils literal"><span class="pre">studieprogs_file</span></tt> is an XML file
+describing the various &#8220;studieprogrammer&#8221;, and <tt class="docutils literal"><span class="pre">student_info_file</span></tt>
+is the <tt class="docutils literal"><span class="pre">merged_persons.xml</span></tt> file generated from FS data.  The
+classes in <tt class="docutils literal"><span class="pre">AutoStud</span></tt> are:</p>
+<blockquote>
+<div><ul class="simple">
+<li><tt class="docutils literal"><span class="pre">AutoStud.AutoStud</span></tt> is the main class, and is normally the only
+one you would initialize.</li>
+<li><tt class="docutils literal"><span class="pre">Util.ProgressReporter</span></tt> is an alternative to <tt class="docutils literal"><span class="pre">logging.py</span></tt>, and
+should probably be replaced by that module.</li>
+<li><tt class="docutils literal"><span class="pre">Util.LookupHelper</span></tt> contains various helper functions for
+DB-lookup</li>
+<li><tt class="docutils literal"><span class="pre">ProfileConfig.Config</span></tt> parses the <tt class="docutils literal"><span class="pre">studconfig.xml</span></tt> file and
+stores it internaly</li>
+<li><tt class="docutils literal"><span class="pre">ProfileConfig.ProfileDefinition</span></tt> internal class that stores data
+about a spesific profile</li>
+<li><tt class="docutils literal"><span class="pre">ProfileConfig.StudconfigParser</span></tt> is the actual XML parser for the
+<tt class="docutils literal"><span class="pre">studconfig.xml</span></tt> file.</li>
+<li><tt class="docutils literal"><span class="pre">ProfileHandler.Profile</span></tt> contains logic that expands the actual
+profile matches to the disk, groups etc. that a user should have.</li>
+<li><tt class="docutils literal"><span class="pre">Studentinfo.StudentInfoParser</span></tt> is a XML parser for the
+<tt class="docutils literal"><span class="pre">merged_persons.xml</span></tt> file.</li>
+<li><tt class="docutils literal"><span class="pre">Studentinfo.StudieprogDefParser</span></tt> is a XML parser for the file
+with &#8220;studieprogrammer&#8221;.</li>
+</ul>
+</div></blockquote>
+<p>The figure belo shows a schematic view of the classes (should be UML,
+but the author is no UML expert).  It should give you a rough idea
+about where things are implemeted.</p>
+<p id="class-overview">Figure: Class overview</p>
+<img alt="../../_images/AutoStud.png" src="../../_images/AutoStud.png" />
+</div>
+<div class="section" id="studconfig-xml-file">
+<h2>Studconfig.xml file<a class="headerlink" href="#studconfig-xml-file" title="Permalink to this headline">¶</a></h2>
+<p>The file <tt class="docutils literal"><span class="pre">studconfig.xml</span></tt> controls how the automated student
+maintenance is performed.  It defines a list of profiles containing
+attributes for accounts as well as select criterias reuired to match
+the profile.</p>
+<p><a class="reference external" href="autoconfig-student-eksempel.xml">Example</a></p>
+<p>After editing <tt class="docutils literal"><span class="pre">studconfig.xml</span></tt>, you should validate it against
+<tt class="docutils literal"><span class="pre">studconfig.dtd</span></tt> using an XML parser.  In emacs with psgml-mode,
+simply press <tt class="docutils literal"><span class="pre">Ctrl-c</span> <span class="pre">Ctrl-p</span></tt> to load the DTD, and <tt class="docutils literal"><span class="pre">Ctrl-c</span> <span class="pre">Ctrl-o</span></tt>
+to jump to next error.</p>
+<p><a class="reference external" href="studconfig_dtd.xml">DTD</a></p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Automatic useradministration in Cerebrum</a><ul>
+<li><a class="reference internal" href="#technical-details">Technical details</a></li>
+<li><a class="reference internal" href="#studconfig-xml-file">Studconfig.xml file</a></li>
+</ul>
+</li>
+</ul>
+
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/doc/extensions/AutoStud.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, University of Oslo.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

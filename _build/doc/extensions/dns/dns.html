@@ -1,0 +1,340 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>1   Dnsinfo - design &mdash; Cerebrum 0.9.16 documentation</title>
+    
+    <link rel="stylesheet" href="../../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../../',
+        VERSION:     '0.9.16',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <link rel="top" title="Cerebrum 0.9.16 documentation" href="../../../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li><a href="../../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="dnsinfo-design">
+<h1><a class="toc-backref" href="#id1">1&nbsp;&nbsp;&nbsp;Dnsinfo - design</a><a class="headerlink" href="#dnsinfo-design" title="Permalink to this headline">¶</a></h1>
+<div class="contents topic" id="contents">
+<p class="topic-title first">Contents</p>
+<ul class="auto-toc simple">
+<li><a class="reference internal" href="#dnsinfo-design" id="id1">1&nbsp;&nbsp;&nbsp;Dnsinfo - design</a><ul class="auto-toc">
+<li><a class="reference internal" href="#introduction" id="id2">1.1&nbsp;&nbsp;&nbsp;Introduction</a><ul class="auto-toc">
+<li><a class="reference internal" href="#overview-of-the-database" id="id3">1.1.1&nbsp;&nbsp;&nbsp;Overview of the database</a></li>
+<li><a class="reference internal" href="#validation-etc" id="id4">1.1.2&nbsp;&nbsp;&nbsp;Validation etc.</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#api" id="id5">1.2&nbsp;&nbsp;&nbsp;API</a><ul class="auto-toc">
+<li><a class="reference internal" href="#database-tied-classes" id="id6">1.2.1&nbsp;&nbsp;&nbsp;Database-tied classes</a><ul class="auto-toc">
+<li><a class="reference internal" href="#arecord" id="id7">1.2.1.1&nbsp;&nbsp;&nbsp;ARecord</a></li>
+<li><a class="reference internal" href="#cnamerecord" id="id8">1.2.1.2&nbsp;&nbsp;&nbsp;CNameRecord</a></li>
+<li><a class="reference internal" href="#dnsowner-mxset" id="id9">1.2.1.3&nbsp;&nbsp;&nbsp;DnsOwner.MXSet</a></li>
+<li><a class="reference internal" href="#dnsowner-generaldnsrecord" id="id10">1.2.1.4&nbsp;&nbsp;&nbsp;DnsOwner.GeneralDnsRecord</a></li>
+<li><a class="reference internal" href="#dnsowner-dnsowner" id="id11">1.2.1.5&nbsp;&nbsp;&nbsp;DnsOwner.DnsOwner</a></li>
+<li><a class="reference internal" href="#hostinfo-hostinfo" id="id12">1.2.1.6&nbsp;&nbsp;&nbsp;HostInfo.HostInfo</a></li>
+<li><a class="reference internal" href="#ipnumber-ipnumber" id="id13">1.2.1.7&nbsp;&nbsp;&nbsp;IPNumber.IPNumber</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#helper-classes" id="id14">1.2.2&nbsp;&nbsp;&nbsp;Helper classes</a><ul class="auto-toc">
+<li><a class="reference internal" href="#dnsconstants" id="id15">1.2.2.1&nbsp;&nbsp;&nbsp;DnsConstants</a></li>
+<li><a class="reference internal" href="#integrityhelper-dnserror" id="id16">1.2.2.2&nbsp;&nbsp;&nbsp;IntegrityHelper.DNSError</a></li>
+<li><a class="reference internal" href="#integrityhelper-validator" id="id17">1.2.2.3&nbsp;&nbsp;&nbsp;IntegrityHelper.Validator</a></li>
+<li><a class="reference internal" href="#integrityhelper-updater" id="id18">1.2.2.4&nbsp;&nbsp;&nbsp;IntegrityHelper.Updater</a></li>
+<li><a class="reference internal" href="#utils-dnsparser" id="id19">1.2.2.5&nbsp;&nbsp;&nbsp;Utils.DnsParser</a></li>
+<li><a class="reference internal" href="#utils-find" id="id20">1.2.2.6&nbsp;&nbsp;&nbsp;Utils.Find</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#distributed-files" id="id21">1.3&nbsp;&nbsp;&nbsp;Distributed files</a></li>
+<li><a class="reference internal" href="#todo" id="id22">1.4&nbsp;&nbsp;&nbsp;TODO</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="introduction">
+<h2><a class="toc-backref" href="#id2">1.1&nbsp;&nbsp;&nbsp;Introduction</a><a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p>The DNS API consists of two groups of classes, the ones that are tied
+closely to the database, and a number of helper classes.  The helper
+classes should normaly be used when updating the database, as they
+perform some sanity checks on what is legal to do in the database.</p>
+<div class="section" id="overview-of-the-database">
+<h3><a class="toc-backref" href="#id3">1.1.1&nbsp;&nbsp;&nbsp;Overview of the database</a><a class="headerlink" href="#overview-of-the-database" title="Permalink to this headline">¶</a></h3>
+<p>Details about each table is listed in the API section along with its
+corresponding class.</p>
+<p>Important consepts:</p>
+<ul class="simple">
+<li>the name of a host/cname/a-record... is stored in dns_owner.  A
+rename will affect all entries, even targets for mx/cnames etc.</li>
+<li>ip_numbers is stored in ip_number.  An update will affect all
+a-records that point to this ip</li>
+<li>mx_set is a collection of MX records.  It is tied to dns_owner.</li>
+</ul>
+<p id="fig-data-model">Figure: The database schema</p>
+<img alt="doc/extensions/dns/../figures/dns.png" src="doc/extensions/dns/../figures/dns.png" />
+</div>
+<div class="section" id="validation-etc">
+<h3><a class="toc-backref" href="#id4">1.1.2&nbsp;&nbsp;&nbsp;Validation etc.</a><a class="headerlink" href="#validation-etc" title="Permalink to this headline">¶</a></h3>
+<p>Dnsinfo tries to maintain a set of rules to preserve the integrity of the
+zone file.  The database schema preserves some constraints, such as
+preventing deletion of data that other data poins to, or having
+duplicate entries.  Other constraints are, however too complex to be
+expressed in SQL.  Updating of such data is done through helper classes.</p>
+</div>
+</div>
+<div class="section" id="api">
+<h2><a class="toc-backref" href="#id5">1.2&nbsp;&nbsp;&nbsp;API</a><a class="headerlink" href="#api" title="Permalink to this headline">¶</a></h2>
+<p>What follows is a brief description of the various classes and their
+responsibility.</p>
+<p>You can also get a rough overview of the design by looking at the
+figure below.  Note however that methods may not be 100% up to date.</p>
+<p id="fig-api">Figure: UML class diagram of the API</p>
+<img alt="doc/extensions/dns/../figures/dns_api.png" src="doc/extensions/dns/../figures/dns_api.png" />
+<p>This temporary diagram illustrates how methods are divided between
+bofhd_dns_cmds.py and bofhd_dns_utils.py</p>
+<p id="fig-bofh-code">Figure: UML class diagram of the bofh code</p>
+<img alt="doc/extensions/dns/../figures/dns_bofh_code.png" src="doc/extensions/dns/../figures/dns_bofh_code.png" />
+<div class="section" id="database-tied-classes">
+<h3><a class="toc-backref" href="#id6">1.2.1&nbsp;&nbsp;&nbsp;Database-tied classes</a><a class="headerlink" href="#database-tied-classes" title="Permalink to this headline">¶</a></h3>
+<p>These classes are thightly related to the underlying database-schema,
+which is described in the same context.</p>
+<p>API-users should be careful about updating the database using these
+classes, as they do not perform much sanity checking on the changes
+performed.  The <tt class="docutils literal"><span class="pre">Helper</span></tt> class provides methods the perform
+consistency checks.</p>
+<p>As a convinience many of these classes will set self.name in
+<tt class="docutils literal"><span class="pre">find()</span></tt>.  It is, however a read-only value as updating should be
+done through the <tt class="docutils literal"><span class="pre">Helper</span></tt> class.</p>
+<div class="section" id="arecord">
+<h4><a class="toc-backref" href="#id7">1.2.1.1&nbsp;&nbsp;&nbsp;ARecord</a><a class="headerlink" href="#arecord" title="Permalink to this headline">¶</a></h4>
+<p>Associated table:</p>
+<blockquote>
+<div></div></blockquote>
+</div>
+<div class="section" id="cnamerecord">
+<h4><a class="toc-backref" href="#id8">1.2.1.2&nbsp;&nbsp;&nbsp;CNameRecord</a><a class="headerlink" href="#cnamerecord" title="Permalink to this headline">¶</a></h4>
+<p>Associated table:</p>
+<blockquote>
+<div></div></blockquote>
+</div>
+<div class="section" id="dnsowner-mxset">
+<h4><a class="toc-backref" href="#id9">1.2.1.3&nbsp;&nbsp;&nbsp;DnsOwner.MXSet</a><a class="headerlink" href="#dnsowner-mxset" title="Permalink to this headline">¶</a></h4>
+<p>Associated tables:</p>
+<blockquote>
+<div></div></blockquote>
+</div>
+<div class="section" id="dnsowner-generaldnsrecord">
+<h4><a class="toc-backref" href="#id10">1.2.1.4&nbsp;&nbsp;&nbsp;DnsOwner.GeneralDnsRecord</a><a class="headerlink" href="#dnsowner-generaldnsrecord" title="Permalink to this headline">¶</a></h4>
+<p>Associated table:</p>
+<blockquote>
+<div></div></blockquote>
+<p>Code values are stored in <tt class="docutils literal"><span class="pre">dns_field_type_code</span></tt></p>
+</div>
+<div class="section" id="dnsowner-dnsowner">
+<h4><a class="toc-backref" href="#id11">1.2.1.5&nbsp;&nbsp;&nbsp;DnsOwner.DnsOwner</a><a class="headerlink" href="#dnsowner-dnsowner" title="Permalink to this headline">¶</a></h4>
+<p>Associated tables:</p>
+<blockquote>
+<div></div></blockquote>
+</div>
+<div class="section" id="hostinfo-hostinfo">
+<h4><a class="toc-backref" href="#id12">1.2.1.6&nbsp;&nbsp;&nbsp;HostInfo.HostInfo</a><a class="headerlink" href="#hostinfo-hostinfo" title="Permalink to this headline">¶</a></h4>
+<p>Associated table:</p>
+<blockquote>
+<div></div></blockquote>
+<p>Code values are stored in <tt class="docutils literal"><span class="pre">hinfo_code</span></tt></p>
+</div>
+<div class="section" id="ipnumber-ipnumber">
+<h4><a class="toc-backref" href="#id13">1.2.1.7&nbsp;&nbsp;&nbsp;IPNumber.IPNumber</a><a class="headerlink" href="#ipnumber-ipnumber" title="Permalink to this headline">¶</a></h4>
+<p>Associated tables:</p>
+<blockquote>
+<div></div></blockquote>
+</div>
+</div>
+<div class="section" id="helper-classes">
+<h3><a class="toc-backref" href="#id14">1.2.2&nbsp;&nbsp;&nbsp;Helper classes</a><a class="headerlink" href="#helper-classes" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="dnsconstants">
+<h4><a class="toc-backref" href="#id15">1.2.2.1&nbsp;&nbsp;&nbsp;DnsConstants</a><a class="headerlink" href="#dnsconstants" title="Permalink to this headline">¶</a></h4>
+</div>
+<div class="section" id="integrityhelper-dnserror">
+<h4><a class="toc-backref" href="#id16">1.2.2.2&nbsp;&nbsp;&nbsp;IntegrityHelper.DNSError</a><a class="headerlink" href="#integrityhelper-dnserror" title="Permalink to this headline">¶</a></h4>
+</div>
+<div class="section" id="integrityhelper-validator">
+<h4><a class="toc-backref" href="#id17">1.2.2.3&nbsp;&nbsp;&nbsp;IntegrityHelper.Validator</a><a class="headerlink" href="#integrityhelper-validator" title="Permalink to this headline">¶</a></h4>
+</div>
+<div class="section" id="integrityhelper-updater">
+<h4><a class="toc-backref" href="#id18">1.2.2.4&nbsp;&nbsp;&nbsp;IntegrityHelper.Updater</a><a class="headerlink" href="#integrityhelper-updater" title="Permalink to this headline">¶</a></h4>
+</div>
+<div class="section" id="utils-dnsparser">
+<h4><a class="toc-backref" href="#id19">1.2.2.5&nbsp;&nbsp;&nbsp;Utils.DnsParser</a><a class="headerlink" href="#utils-dnsparser" title="Permalink to this headline">¶</a></h4>
+</div>
+<div class="section" id="utils-find">
+<h4><a class="toc-backref" href="#id20">1.2.2.6&nbsp;&nbsp;&nbsp;Utils.Find</a><a class="headerlink" href="#utils-find" title="Permalink to this headline">¶</a></h4>
+</div>
+</div>
+</div>
+<div class="section" id="distributed-files">
+<h2><a class="toc-backref" href="#id21">1.3&nbsp;&nbsp;&nbsp;Distributed files</a><a class="headerlink" href="#distributed-files" title="Permalink to this headline">¶</a></h2>
+<p>User interface:</p>
+<blockquote>
+<div><dl class="docutils">
+<dt>Cerebrum/modules/bofhd_dns_cmds.py</dt>
+<dd>BofhdExtension for the bofhd module</dd>
+<dt>Cerebrum/modules/bofhd_dns_utils.py</dt>
+<dd>The business-logic for the bofhd module</dd>
+</dl>
+</div></blockquote>
+<p>API:</p>
+<blockquote>
+<div><dl class="docutils">
+<dt>Cerebrum/modules/DnsConstants.py</dt>
+<dd>Defines various constants</dd>
+<dt>Cerebrum/modules/dns/ARecord.py</dt>
+<dd>Handles the a_record table</dd>
+<dt>Cerebrum/modules/dns/CNameRecord.py</dt>
+<dd>Handles the cname_record table</dd>
+<dt>Cerebrum/modules/dns/DnsOwner.py</dt>
+<dd>handles dns_owner, mx_set, mx_set_members, general_ttl_record, srv_record</dd>
+<dt>Cerebrum/modules/dns/IntegrityHelper.py</dt>
+<dd>various helper methods used by the API and bofhd to assert that we
+don&#8217;t violate DNS schema etc.</dd>
+<dt>Cerebrum/modules/dns/Utils.py</dt>
+<dd>additional utilities</dd>
+<dt>Cerebrum/modules/dns/HostInfo.py</dt>
+<dd>handles dns_host_info</dd>
+<dt>Cerebrum/modules/dns/IPNumber.py</dt>
+<dd>handles ip_number and override_reversemap</dd>
+<dt>Cerebrum/modules/dns/__init__.py</dt>
+<dd>defines some API constants</dd>
+</dl>
+</div></blockquote>
+<p>Support files:</p>
+<blockquote>
+<div><dl class="docutils">
+<dt>contrib/build_zone.py</dt>
+<dd>builds forward, reverse maps and hosts file</dd>
+<dt>contrib/import_dns.py</dt>
+<dd>migrates existing forward+reverse zone files, hosts file and
+netgroup files into the database</dd>
+<dt>contrib/strip4cmp.py</dt>
+<dd>converts forward/reverse map into a format that is usable for
+comparing zone files with &#8220;diff -u&#8221;</dd>
+</dl>
+</div></blockquote>
+</div>
+<div class="section" id="todo">
+<h2><a class="toc-backref" href="#id22">1.4&nbsp;&nbsp;&nbsp;TODO</a><a class="headerlink" href="#todo" title="Permalink to this headline">¶</a></h2>
+<p>TBD: We currently allow contact-info and comments for a-records,
+cnames and hosts.  Should we move the comment+contact to dns_owner?
+Do we need comments/contact info other places?</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">1&nbsp;&nbsp;&nbsp;Dnsinfo - design</a><ul>
+<li><a class="reference internal" href="#introduction">1.1&nbsp;&nbsp;&nbsp;Introduction</a><ul>
+<li><a class="reference internal" href="#overview-of-the-database">1.1.1&nbsp;&nbsp;&nbsp;Overview of the database</a></li>
+<li><a class="reference internal" href="#validation-etc">1.1.2&nbsp;&nbsp;&nbsp;Validation etc.</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#api">1.2&nbsp;&nbsp;&nbsp;API</a><ul>
+<li><a class="reference internal" href="#database-tied-classes">1.2.1&nbsp;&nbsp;&nbsp;Database-tied classes</a><ul>
+<li><a class="reference internal" href="#arecord">1.2.1.1&nbsp;&nbsp;&nbsp;ARecord</a></li>
+<li><a class="reference internal" href="#cnamerecord">1.2.1.2&nbsp;&nbsp;&nbsp;CNameRecord</a></li>
+<li><a class="reference internal" href="#dnsowner-mxset">1.2.1.3&nbsp;&nbsp;&nbsp;DnsOwner.MXSet</a></li>
+<li><a class="reference internal" href="#dnsowner-generaldnsrecord">1.2.1.4&nbsp;&nbsp;&nbsp;DnsOwner.GeneralDnsRecord</a></li>
+<li><a class="reference internal" href="#dnsowner-dnsowner">1.2.1.5&nbsp;&nbsp;&nbsp;DnsOwner.DnsOwner</a></li>
+<li><a class="reference internal" href="#hostinfo-hostinfo">1.2.1.6&nbsp;&nbsp;&nbsp;HostInfo.HostInfo</a></li>
+<li><a class="reference internal" href="#ipnumber-ipnumber">1.2.1.7&nbsp;&nbsp;&nbsp;IPNumber.IPNumber</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#helper-classes">1.2.2&nbsp;&nbsp;&nbsp;Helper classes</a><ul>
+<li><a class="reference internal" href="#dnsconstants">1.2.2.1&nbsp;&nbsp;&nbsp;DnsConstants</a></li>
+<li><a class="reference internal" href="#integrityhelper-dnserror">1.2.2.2&nbsp;&nbsp;&nbsp;IntegrityHelper.DNSError</a></li>
+<li><a class="reference internal" href="#integrityhelper-validator">1.2.2.3&nbsp;&nbsp;&nbsp;IntegrityHelper.Validator</a></li>
+<li><a class="reference internal" href="#integrityhelper-updater">1.2.2.4&nbsp;&nbsp;&nbsp;IntegrityHelper.Updater</a></li>
+<li><a class="reference internal" href="#utils-dnsparser">1.2.2.5&nbsp;&nbsp;&nbsp;Utils.DnsParser</a></li>
+<li><a class="reference internal" href="#utils-find">1.2.2.6&nbsp;&nbsp;&nbsp;Utils.Find</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#distributed-files">1.3&nbsp;&nbsp;&nbsp;Distributed files</a></li>
+<li><a class="reference internal" href="#todo">1.4&nbsp;&nbsp;&nbsp;TODO</a></li>
+</ul>
+</li>
+</ul>
+
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../../_sources/doc/extensions/dns/dns.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li><a href="../../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, University of Oslo.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

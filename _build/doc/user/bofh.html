@@ -1,0 +1,293 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Brukeradministrasjon med bofh &mdash; Cerebrum 0.9.16 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.9.16',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Cerebrum 0.9.16 documentation" href="../../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="brukeradministrasjon-med-bofh">
+<h1>Brukeradministrasjon med bofh<a class="headerlink" href="#brukeradministrasjon-med-bofh" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="innledning">
+<h2>Innledning<a class="headerlink" href="#innledning" title="Permalink to this headline">¶</a></h2>
+<p>Dette kapittelet tar for seg virkem?ten til programmet bofh/jbofh.
+Det tar ikke for seg de enkelte kommandoer, utover noen enkle
+eksempler.  Dokumentasjon av de enkelte kommandoer finnes her: TODO.</p>
+</div>
+<div class="section" id="hva-er-bofh">
+<h2>Hva er bofh?<a class="headerlink" href="#hva-er-bofh" title="Permalink to this headline">¶</a></h2>
+<p>Bofh er en enkel kommandolinjebasert klient som prater med en bofhd
+server.  Brukeren oppgir kommandoer som sendes til en server.  Serveren
+tolker kommandoen, og sender et svar tilbake.  Klienten formaterer
+dette svaret, og viser det p? skjermen.</p>
+</div>
+<div class="section" id="bruk-av-bofh">
+<h2>Bruk av bofh<a class="headerlink" href="#bruk-av-bofh" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="oppstart-og-innlogging">
+<h3>Oppstart og innlogging<a class="headerlink" href="#oppstart-og-innlogging" title="Permalink to this headline">¶</a></h3>
+<p>bofh distribueres som en jar fil.  De fleste steder har
+systemadministratoren installert et wrapper-script slik at man kan
+starte bofh ved ? skrive <tt class="docutils literal"><span class="pre">bofh</span></tt>:</p>
+<div class="highlight-python"><pre>~@maskinami&gt; bofh
+Bofhd server is at https://cerebrum.uio.no:8000
+Password for mittbrukernavn:</pre>
+</div>
+<p>bofh starter da med ? fortelle hvilken bofh server den prater med, og
+sp?r etter passord.  Det kommer ingen ting p? skjermen n?r man skriver
+inn passord.  Etter innlogging, f?r man opp en velkomstmelding, og blir
+m?tt av bofh promptet (normalt <tt class="docutils literal"><span class="pre">jbofh&gt;</span></tt>).  Noen ganger vil man f? en
+melding, en s?kalt motd, f?r velkomstmeldingen.</p>
+<div class="highlight-python"><pre>~@maskinami&gt; bofh
+Bofhd server is at https://cerebrum.uio.no:8000
+Password for mittbrukernavn:
+motd: I dag er det gratis winerbr?d i kantina
+Welcome to jbofh, v 0.9.3, type "help" for help
+jbofh&gt;</pre>
+</div>
+</div>
+<div class="section" id="bruk-av-kommandoer">
+<h3>Bruk av kommandoer<a class="headerlink" href="#bruk-av-kommandoer" title="Permalink to this headline">¶</a></h3>
+<p>Kommandoer oppgis ved ? skrive inn en kommando, fulgt av enter tasten.
+Kommandoene er normalt bygget opp som:</p>
+<div class="highlight-python"><pre>&lt;hovedkommando&gt; &lt;underkommando&gt; &lt;argumenter&gt;</pre>
+</div>
+<p>For alle kommandoer som omhandler grupper, kan f.eks hovedkommandoen
+v?re <tt class="docutils literal"><span class="pre">group</span></tt>, mens underkommandoene kan v?re <tt class="docutils literal"><span class="pre">add</span></tt>, <tt class="docutils literal"><span class="pre">info</span></tt> osv.</p>
+<p>De forskjellige kommandoene tar et varierende antall argumenter.
+Hvilke argumenter en kommando bruker, kan man finne ved ? bruke
+<tt class="docutils literal"><span class="pre">help</span></tt>.  Dersom man ikke har oppgitt nok argumenter til en kommando,
+vil bofh sp?rre etter det manglende argumentet f?r kommandoen utf?res:</p>
+<div class="highlight-python"><pre>jbofh&gt; pquota status
+Enter person id &gt;</pre>
+</div>
+<p>Dersom man ikke forst?r hva man skal oppgi som argument, kan man taste
+? fulgt av enter:</p>
+<div class="highlight-python"><pre>jbofh&gt; pquota status
+Enter person id &gt;?
+Enter person id as idtype:id.
+If idtype=fnr, the idtype does not have to be specified.
+The currently defined id-types are:
+  - fnr : norwegian f?dselsnummer.</pre>
+</div>
+<p>Dette eksempelet illustrerer for?vrig en vanlig utvidelse: et argument
+kan angis p? mer enn en m?te.  Eksempelvis skj?nner systemet at
+argumentet er et f?dselsnummer dersom det best?r av 11 tall.  Det kan
+ogs? forst? at hvis man har angitt et brukernavn, s? mener man
+personen som eier denne brukeren.  Mange kommandoer lar en ogs? angi
+den interne id&#8217;en til et attributt som entity_id:tall.  Dette anbefales
+kun for viderekommende.</p>
+</div>
+<div class="section" id="universelle-kommandoer">
+<h3>Universelle kommandoer<a class="headerlink" href="#universelle-kommandoer" title="Permalink to this headline">¶</a></h3>
+<ul>
+<li><p class="first">help</p>
+<p>Gir hjelp for systemet.  Uten argumenter, vises litt generell hjelp,
+samt de forskjellige hovedkommandoene.  Oppgis hovedkommando som
+argument, f?r man vist de ulike underkommandoene, mens hvis begge
+disse angis som argument, f?r man hjelp for en enkelt kommando.</p>
+<p>I hjelpen til en enkelt kommando er noen argumenter angitt i
+klammeparenteser.  Dette betyr at argumentet kan utelates.</p>
+</li>
+<li><p class="first">source</p>
+<p>Leser kommandoer fra fil.  Fungerer akkurat som om man hadde tastet de
+samme kommandoene p? kommandolinjen.</p>
+</li>
+<li><p class="first">quit</p>
+<p>Avslutter programmet.</p>
+</li>
+<li><p class="first">commands</p>
+<p>For internt bruk.  Viser definisjonen av de kommandoer brukeren har
+lov til ? utf?re.</p>
+</li>
+</ul>
+</div>
+<div class="section" id="dynamisk-tildeling-av-kommandoer">
+<h3>Dynamisk tildeling av kommandoer<a class="headerlink" href="#dynamisk-tildeling-av-kommandoer" title="Permalink to this headline">¶</a></h3>
+<p>Hvilke kommandoer som er tilgjengelige for den enkelte bruker vil
+variere b?de utifra hvilken bofh server man er tilkoblet, samt til
+hvilke rettigheter man har.  Dersom bofh serveren er startet med en
+tom konfigurasjons-fil, vil man kun ha tilgang til de universelle
+kommandoene angitt ovenfor.  Bofh serveren forteller klienten hvilke
+kommandoer som er tilgjengelige n?r brukeren logger inn.  Dersom
+serveren re-startes, vil klienten automatisk oppdatere listen over
+tilgjengelige kommandoer.</p>
+</div>
+<div class="section" id="kj-ring-av-flere-like-kommandoer-i-en-operasjon">
+<h3>Kj?ring av flere like kommandoer i en operasjon<a class="headerlink" href="#kj-ring-av-flere-like-kommandoer-i-en-operasjon" title="Permalink to this headline">¶</a></h3>
+<p>Dersom et eller flere av argumentene til en kommando er skrevet i
+parentes, vil kommandoen bli utf?rt enkeltvis p? hvert av argumentene
+inne i parentesen.  Dersom kommandoen medf?rer en endring i databasen,
+skjer endringen kun dersom alle endringene lykkes.  Skal man f.eks
+melde brukerene ola og kari inn i gruppene gruppe1 og gruppe2, kan det
+gj?res slik:</p>
+<div class="highlight-python"><pre>jbofh&gt; group remove (ola kari) (gruppe1 gruppe2)
+OK, ola added to gruppe1
+OK, ola added to gruppe2
+OK, kari added to gruppe1
+OK, kari added to gruppe2</pre>
+</div>
+</div>
+<div class="section" id="blanke-tegn-o-l">
+<h3>Blanke tegn o.l.<a class="headerlink" href="#blanke-tegn-o-l" title="Permalink to this headline">¶</a></h3>
+<p>Dersom man trenger ? oppgi et blankt tegn, kan man enten taste enter
+f?r argumentet, slik at man blir spurt etter det, eller man kan
+omslutte mellomrommet med &#8221; eller &#8216;, f.eks slik:</p>
+<div class="highlight-python"><pre>jbofh&gt; person set_name ola "That's ok"</pre>
+</div>
+<p>Backslash (\) behandles som et helt vanlig tegn.</p>
+</div>
+<div class="section" id="navigering-p-kommandolinjen">
+<h3>Navigering p? kommandolinjen<a class="headerlink" href="#navigering-p-kommandolinjen" title="Permalink to this headline">¶</a></h3>
+<p>Dersom bofh sp?r om noe man ikke vil svare p?, kan man avbryte ved ?
+taste EOF-tasten.  P? unix er dette Ctrl-d.</p>
+<p>Normalt er bofh kompilert med gnu-readline st?tte.  Det betyr at man
+kan navigere frem og tilbake p? kommandolinjen med piltastene.  Pil
+opp/ned blar tilbake/frem i kommandoer man har utf?rt tidligere.</p>
+<p>For hoved og underkommando kan man benytte TAB-tasten for ? automatisk
+fylle ut resten av kommandoen dersom den er unik.  Man kan ogs? utelate
+resten av tegnene s?fremt man har oppgitt nok tegn til at kommandoen er
+unik.  F.eks kan man fritt velge om man vil skrive <tt class="docutils literal"><span class="pre">user</span> <span class="pre">info</span></tt> eller
+<tt class="docutils literal"><span class="pre">u</span> <span class="pre">i</span></tt>.</p>
+</div>
+<div class="section" id="bruk-p-windows-maskiner">
+<h3>Bruk p? windows maskiner<a class="headerlink" href="#bruk-p-windows-maskiner" title="Permalink to this headline">¶</a></h3>
+<p>Dersom man starter bofh p? en windows maskin, evt. oppgir parameteren
+<tt class="docutils literal"><span class="pre">--gui</span></tt> p? kommandolinjen, ?pnes bofh som et eget vindu der man
+taster inn kommandoer nederst, og f?r tilbakemeldinger fra serveren p?
+linjen over.  Denne klienten oppf?rer seg likt den vanlige klienten
+med noen f? unntak:</p>
+<ul class="simple">
+<li>Man m? bruke ESC-tasten istedenfor Ctrl-d for ? avbryte en kommando
+man er i ferd med ? oppgi parametere til.  Dersom man st?r p?
+<tt class="docutils literal"><span class="pre">jbofh&gt;</span></tt> promptet, vil ESC-tasten sp?rre om man skal avbryte
+programmet.</li>
+<li>Man f?r en scrollbar i feltet der tilbakemeldinger fra serveren
+vises.  H?yreklikk i dette feltet bringer frem en meny der man kan
+t?mme skjermen.</li>
+</ul>
+</div>
+<div class="section" id="opsjoner-til-bofh">
+<h3>Opsjoner til bofh<a class="headerlink" href="#opsjoner-til-bofh" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">--url</span> <span class="pre">url</span></tt> : angi en alternativ bofh server</li>
+<li><tt class="docutils literal"><span class="pre">-u</span> <span class="pre">brukernavn</span></tt> : angi et annen brukernavn</li>
+<li><tt class="docutils literal"><span class="pre">--gui</span></tt> : start med gui</li>
+<li><tt class="docutils literal"><span class="pre">--nogui</span></tt> : start uten gui</li>
+<li><tt class="docutils literal"><span class="pre">-d</span></tt> : sl? p? debug-informasjon (skrives i jbofh_debug.log)</li>
+</ul>
+</div>
+</div>
+<div class="section" id="mer-informasjon">
+<h2>Mer informasjon<a class="headerlink" href="#mer-informasjon" title="Permalink to this headline">¶</a></h2>
+<ul>
+<li><p class="first"><a class="reference external" href="../devel/bofh.html#communicating-with-bofhd">Protokollen som bofh benytter</a></p>
+<p>Nyttig lesing dersom man ?nsker ? skrive script som prater med bofh</p>
+</li>
+<li><p class="first"><a class="reference external" href="../admin/bofh.html">Administrasjon av bofh serveren</a></p>
+</li>
+</ul>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Brukeradministrasjon med bofh</a><ul>
+<li><a class="reference internal" href="#innledning">Innledning</a></li>
+<li><a class="reference internal" href="#hva-er-bofh">Hva er bofh?</a></li>
+<li><a class="reference internal" href="#bruk-av-bofh">Bruk av bofh</a><ul>
+<li><a class="reference internal" href="#oppstart-og-innlogging">Oppstart og innlogging</a></li>
+<li><a class="reference internal" href="#bruk-av-kommandoer">Bruk av kommandoer</a></li>
+<li><a class="reference internal" href="#universelle-kommandoer">Universelle kommandoer</a></li>
+<li><a class="reference internal" href="#dynamisk-tildeling-av-kommandoer">Dynamisk tildeling av kommandoer</a></li>
+<li><a class="reference internal" href="#kj-ring-av-flere-like-kommandoer-i-en-operasjon">Kj?ring av flere like kommandoer i en operasjon</a></li>
+<li><a class="reference internal" href="#blanke-tegn-o-l">Blanke tegn o.l.</a></li>
+<li><a class="reference internal" href="#navigering-p-kommandolinjen">Navigering p? kommandolinjen</a></li>
+<li><a class="reference internal" href="#bruk-p-windows-maskiner">Bruk p? windows maskiner</a></li>
+<li><a class="reference internal" href="#opsjoner-til-bofh">Opsjoner til bofh</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#mer-informasjon">Mer informasjon</a></li>
+</ul>
+</li>
+</ul>
+
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/doc/user/bofh.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, University of Oslo.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

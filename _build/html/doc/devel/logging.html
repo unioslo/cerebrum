@@ -1,0 +1,445 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>1   Logging framework in Cerebrum &mdash; Cerebrum 0.9.16 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.9.16',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Cerebrum 0.9.16 documentation" href="../../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="logging-framework-in-cerebrum">
+<h1><a class="toc-backref" href="#id5">1&nbsp;&nbsp;&nbsp;Logging framework in Cerebrum</a><a class="headerlink" href="#logging-framework-in-cerebrum" title="Permalink to this headline">¶</a></h1>
+<div class="contents topic" id="table-of-contents">
+<p class="topic-title first">Table of contents</p>
+<ul class="auto-toc simple">
+<li><a class="reference internal" href="#logging-framework-in-cerebrum" id="id5">1&nbsp;&nbsp;&nbsp;Logging framework in Cerebrum</a><ul class="auto-toc">
+<li><a class="reference internal" href="#introduction" id="id6">1.1&nbsp;&nbsp;&nbsp;Introduction</a></li>
+<li><a class="reference internal" href="#rationale" id="id7">1.2&nbsp;&nbsp;&nbsp;Rationale</a></li>
+<li><a class="reference internal" href="#issues" id="id8">1.3&nbsp;&nbsp;&nbsp;Issues</a></li>
+<li><a class="reference internal" href="#files" id="id9">1.4&nbsp;&nbsp;&nbsp;Files</a></li>
+<li><a class="reference internal" href="#configuration" id="id10">1.5&nbsp;&nbsp;&nbsp;Configuration</a></li>
+<li><a class="reference internal" href="#for-the-impatient" id="id11">1.6&nbsp;&nbsp;&nbsp;For the impatient</a></li>
+<li><a class="reference internal" href="#migrating-existing-code-base" id="id12">1.7&nbsp;&nbsp;&nbsp;Migrating existing code base</a></li>
+<li><a class="reference internal" href="#references" id="id13">1.8&nbsp;&nbsp;&nbsp;References</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="introduction">
+<h2><a class="toc-backref" href="#id6">1.1&nbsp;&nbsp;&nbsp;Introduction</a><a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p>This documents describes the logging framework used in the Cerebrum project
+<a class="footnote-reference" href="#cerebrum" id="id1">[3]</a>.</p>
+<p>The logging framework is based on python&#8217;s <tt class="docutils literal"><span class="pre">logging</span></tt> module
+<a class="footnote-reference" href="#python-logging" id="id2">[4]</a> that appeared in python 2.3. Partially for historical
+reasons (Cerebrum is older than python 2.3), partially for functional reasons
+(more on this later), a custom-made logger has been chosen for Cerebrum. Most
+of the <tt class="docutils literal"><span class="pre">logging</span></tt> module&#8217;s interface has been kept as well as the overall
+architecture. However, some of the semantics have been altered.</p>
+<p>Presently, there are no less than 3 different loggers in use in UiO &#8220;branch&#8221;
+of Cerebrum, which is clearly unacceptable. The ideal goal is to converge to a
+single logger which would suit all of our needs. The loggers are:</p>
+<blockquote>
+<div><ul class="simple">
+<li><tt class="docutils literal"><span class="pre">Cerebrum/modules/cerelog.py:CerebrumLogger</span></tt>. We will focus on extending
+this logger to merge the needed functionality from elsewhere.</li>
+<li><tt class="docutils literal"><span class="pre">Cerebrum/modules/no/uio/AutoStud/Utils.py:ProgressReporter</span></tt>. The
+primary &#8220;raison d&#8217;?tre&#8221; for this logger is to support a different
+initialization mode (one logfile per job run, regardless of the log
+size/time span) and indentation support.</li>
+<li><tt class="docutils literal"><span class="pre">Cerebrum/modules/no/uio/printer_quota/bofhd_pq_utils.py:SimpleLogger</span></tt>.
+This logger is a work-around for the fact that there can be one instance
+of <tt class="docutils literal"><span class="pre">CerebrumLogger</span></tt> per process only.</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="rationale">
+<h2><a class="toc-backref" href="#id7">1.2&nbsp;&nbsp;&nbsp;Rationale</a><a class="headerlink" href="#rationale" title="Permalink to this headline">¶</a></h2>
+<p>The goal for the Cerebrum logging framework was to make a logger available to
+an &#8220;average&#8221; job with a minimal setup required. In the general case, only two
+statements are necessary to fetch a ready-to-use logger. The idea is for the
+scripts never to meddle with logger settings, but to simply use the logger and
+rely on a set of predefined loggers in the configuration file.</p>
+<p>So, why is there a custom framework for logging, when python offers a logging
+module?</p>
+<blockquote>
+<div><ul class="simple">
+<li>Only one logger type is initialized. It is a subclass of
+<tt class="docutils literal"><span class="pre">CerebrumLogger</span></tt>. We may have to relax this restriction at some point,
+given certain provisions. Python&#8217;s <tt class="docutils literal"><span class="pre">logging</span></tt> does not allow specifying a
+custom logger class (or Formatter class, for that matter).</li>
+<li>Only the loggers/handlers/formatters explicitly asked for are
+initialized. <tt class="docutils literal"><span class="pre">logging.py</span></tt> instantiates <em>all</em> loggers/handlers/formatters
+found in the configuration file. It is a bit of a chore, given cerebrum&#8217;s
+<tt class="docutils literal"><span class="pre">logging.ini</span></tt> configuration.</li>
+<li>Python&#8217;s <tt class="docutils literal"><span class="pre">logging</span></tt> makes a few peculiar decisions regarding logger
+classes in the logger hierarchy. This basically forces us to initialize
+the logger hierarchy our way to force proper child-parent relations
+between loggers.</li>
+<li>Our loggers understand indentation commands. Although this kind of
+communication is against &#8220;the spirit&#8221; of the logging framework, it has
+been deemed necessary to improve log readability for humans.</li>
+<li>Cerebrum logger framework understands certain command line arguments. The
+arguments are processed destructively (i.e. calling <tt class="docutils literal"><span class="pre">cerelog_init</span></tt> will
+process the arguments in <tt class="docutils literal"><span class="pre">sys.argv</span></tt> destructively)</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="issues">
+<h2><a class="toc-backref" href="#id8">1.3&nbsp;&nbsp;&nbsp;Issues</a><a class="headerlink" href="#issues" title="Permalink to this headline">¶</a></h2>
+<p>There arequite a few issues outstanding with regard to the logging
+framework. In no particular order:</p>
+<blockquote>
+<div><ul>
+<li><p class="first">Lazy file opening. Opening log files needs to be delayed until there is an
+actual message that is to be issued. The rationale for this is that if the
+user running the script lacks the permission to write to a log file, the
+user is greeted with a traceback even when using options like <tt class="docutils literal"><span class="pre">--help</span></tt>.</p>
+<p>We cannot easily hook onto the existing <tt class="docutils literal"><span class="pre">FileHandler</span></tt> and force it to
+delay file opening. It is easiest to write our own handler,
+<tt class="docutils literal"><span class="pre">DelayedFileHandler</span></tt>, which would behave just like a <tt class="docutils literal"><span class="pre">FileHandler</span></tt>,
+except that the file will not be opened unless there is a message that
+must be output there.</p>
+</li>
+<li><p class="first">Unicode treatment. It should be possible to pass unicode objects directly
+to any logger and it should be possible to write it out as is. The
+rationale for this is that the unicode objects occur quite often in
+Cerebrum and we should be able to print them out without having to think
+about conversions and what not. The problem is that unicode code points
+have to be encoded before they can be written out.</p>
+<p>The solution:</p>
+<blockquote>
+<div><ul class="simple">
+<li><tt class="docutils literal"><span class="pre">StreamHandler</span></tt> already handles <tt class="docutils literal"><span class="pre">UnicodeError</span></tt> internally, so
+nothing needs be done.</li>
+<li><tt class="docutils literal"><span class="pre">FileHandler</span></tt> and all its subclasses have an extra argument
+<tt class="docutils literal"><span class="pre">encoding</span></tt> which determines the charset to which unicodes should be
+converted. The conversion happens via the <tt class="docutils literal"><span class="pre">codecs</span></tt> python module.</li>
+<li>We do not care about all the other handlers.</li>
+</ul>
+</div></blockquote>
+<p>It&#8217;s probably easiest to encode all unicode objects to utf-8 (this is
+guaranteed not to fail). The <tt class="docutils literal"><span class="pre">encoding</span></tt> is specified along with other
+arguments in <tt class="docutils literal"><span class="pre">logging.ini</span></tt>.</p>
+</li>
+<li><p class="first">Indentation. Occasionally it may be desirable to indent some of the
+messages to structure the logs in a manner more suitable for human
+consumption (specifically, <tt class="docutils literal"><span class="pre">process_students</span></tt>). One solution has been
+presented by runefro in an e-mail to <tt class="docutils literal"><span class="pre">cerebrum-developers</span></tt>
+&#8220;IndentingFormatter for cerelog&#8221;.</p>
+<p>An <tt class="docutils literal"><span class="pre">IndentingFormatter</span></tt> and <tt class="docutils literal"><span class="pre">IndentingHandler</span></tt> have been incorporated
+into <tt class="docutils literal"><span class="pre">cerelog.py</span></tt> 1.21. All formatters are instances of
+<tt class="docutils literal"><span class="pre">IndentingFormatter</span></tt> and can typeset the <tt class="docutils literal"><span class="pre">&quot;%(indent)s&quot;</span></tt> formatting
+directive (this is an extension of <a class="footnote-reference" href="#python-logging" id="id3">[4]</a>). Our loggers simply
+pass the <tt class="docutils literal"><span class="pre">set_indent</span></tt> down to handlers and they, in turn, to
+formatters. For now the indentation prefix is one space character (this
+will be configurable in later versions). I.e. <tt class="docutils literal"><span class="pre">set_indent(4)</span></tt> will
+indent the messages by four spaces. The <tt class="docutils literal"><span class="pre">&quot;%(indent)s&quot;</span></tt> formatting
+directive decides where the indent is merged. Thus, a formatter section
+like this:</p>
+<div class="highlight-python"><pre>[formatter_form_indent]
+format=%(asctime)s %(indent)s%(level)s%(message)s
+datefmt=%F %T</pre>
+</div>
+<p>... would yield a log file that looks like this:</p>
+<div class="highlight-python"><pre>2007-02-14 15:15:14 INFO hello
+2007-02-14 15:21:26     DEBUG indented
+2007-02-14 15:21:49          DEBUG even more indented</pre>
+</div>
+<p>All handlers initialized through cerelog are extended with a
+<tt class="docutils literal"><span class="pre">IndentingHandler</span></tt> mixin and accept <tt class="docutils literal"><span class="pre">set_indent()</span></tt> calls. All this
+happens transparently and does not affect the existing code base that
+makes no use of the indenting features.</p>
+<p>It should be noted that Vinay Sajip (creator of python&#8217;s <tt class="docutils literal"><span class="pre">logging</span></tt>
+framework) expressed his concerns regarding this approach to
+indentation. Also, as of python 2.5, there is a possibility of passing
+<em>any</em> number of extra arguments to logger calls. Therefore, we could
+implement indentation in python 2.5 like this:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&quot;foo&quot;</span><span class="p">)</span>
+<span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&quot;this is indented&quot;</span><span class="p">,</span> <span class="n">extra</span> <span class="o">=</span> <span class="p">{</span><span class="s">&quot;indent&quot;</span><span class="p">:</span> <span class="s">&quot; &quot;</span><span class="o">*</span><span class="mi">4</span><span class="p">})</span>
+<span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&quot;this is NOT indented&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div></blockquote>
+<p>In addition to the issues above (which have been solved), the following issues
+have been discussed but remain unresolved:</p>
+<blockquote>
+<div><ul>
+<li><p class="first">User-friendliness in case of various failures within the cerelog
+framework. E.g. opening a file for writing where a user does not have
+write access should perhaps not result in throwing an <tt class="docutils literal"><span class="pre">IOError</span></tt> in
+user&#8217;s face, but rather hidden behind a single line like &#8220;could not open
+log file &lt;something&gt;&#8221;. This has been discussed in an e-mail thread
+&#8220;cerelog og &#8211;opsjoner&#8221; sent to <tt class="docutils literal"><span class="pre">cerebrum-developers</span></tt>.</p>
+</li>
+<li><p class="first">Non-destructive argument processing. Right now, fetching a logger through
+Cerebrum changes the argument list (<tt class="docutils literal"><span class="pre">sys.argv</span></tt>) destructively. This
+means that essentially only the first logger can process its command-line
+arguments without further caching voodoo. This is a shame. (The argument
+mangling happens in a non thread-safe manner too).</p>
+<p>The overall nicest solution is to process command line arguments
+differently than <tt class="docutils literal"><span class="pre">getopt/optparse</span></tt> do, but this requires a huge code
+change (every file using logging and <tt class="docutils literal"><span class="pre">getopt/optparse</span></tt>).</p>
+</li>
+<li><p class="first">Inter-module cooperation. Several modules within one script may request
+their own loggers. This has interesting side-effects (modules may request
+loggers before the <tt class="docutils literal"><span class="pre">main()</span></tt>  script and may instantiate a wrong kind of
+logger wrt the <tt class="docutils literal"><span class="pre">main()</span></tt> script). kjetilho, ivr and hmeland have
+discussed a possible remedy, but the suggestion have not been realized as
+of yet (2007-02-19).</p>
+</li>
+<li><p class="first"><tt class="docutils literal"><span class="pre">cerelog.py</span></tt> is not threadsafe. There are a number of places within the
+initialization code that make thread unsafe global structure updates. This
+should be fixed before we can safely used cerelog in multithreaded
+environment.</p>
+</li>
+</ul>
+</div></blockquote>
+<p>All these issues have been acknowledged, but the resolving them has not been a
+prioritized task.</p>
+</div>
+<div class="section" id="files">
+<h2><a class="toc-backref" href="#id9">1.4&nbsp;&nbsp;&nbsp;Files</a><a class="headerlink" href="#files" title="Permalink to this headline">¶</a></h2>
+<p>The files of consequence for the logging framework are:</p>
+<blockquote>
+<div><table border="1" class="docutils">
+<colgroup>
+<col width="49%" />
+<col width="51%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">Cerebrum/modules/cerelog.py</span></tt></td>
+<td>Cerebrum-specific extensions to the
+logging framework.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">spine/ceresync/cerelog.py</span></tt></td>
+<td>NTNU&#8217;s own extensions</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">Cerebrum/extlib/logging.py</span></tt></td>
+<td>This is a copy of python&#8217;s own
+<tt class="docutils literal"><span class="pre">logging</span></tt>. Since we are using
+&gt;=python2.3, this is no longer
+necessary and should be removed.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">Cerebrum/Utils.py</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">Factory</span></tt> interface to logging. This
+is the interface that the typical user
+would see.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">Cerebrum/design/cereconf.py</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">cereconf.LOGGING_CONFIGFILE</span></tt> tells
+where the configuration file is to be
+found.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">Cerebrum/Logging.py</span></tt></td>
+<td>Old cruft (no longer relevant).</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">logging.ini</span></tt></td>
+<td>Configuration file.</td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+</div>
+<div class="section" id="configuration">
+<h2><a class="toc-backref" href="#id10">1.5&nbsp;&nbsp;&nbsp;Configuration</a><a class="headerlink" href="#configuration" title="Permalink to this headline">¶</a></h2>
+<p>The behaviour of the Cerebrum logger is controlled by a configuration
+file. The configuration filename is registered in
+<tt class="docutils literal"><span class="pre">cereconf.LOGGING_CONFIGFILE</span></tt>. <tt class="docutils literal"><span class="pre">Factory.get_logger</span></tt> uses this variable to
+get hold of the configuration file. <tt class="docutils literal"><span class="pre">Factory.get_logger</span></tt> is also <em>the only</em>
+interface to obtaining logger objects within Cerebrum.</p>
+<p>The overall format of the config file itself is described in
+<a class="footnote-reference" href="#logging-config" id="id4">[5]</a>. The simplest useful configuration would be one logger, one
+handler and one formatter that spit everything to the console:</p>
+<div class="highlight-python"><pre>[logger_root]
+level=WARN
+qualname=root
+handlers=hand_root_warn
+
+[handler_hand_root_warn]
+class=StreamHandler
+level=NOTSET
+formatter=form_console
+args=(sys.stdout,)
+
+[formatter_form_console]
+format=%(levelname)s %(message)s</pre>
+</div>
+<p>Python&#8217;s <tt class="docutils literal"><span class="pre">logging</span></tt> module requires additional sections with <tt class="docutils literal"><span class="pre">keys=</span></tt>
+specifying all loggers, handlers and formatters. We do not. Also, the
+arguments (e.g. in handler sections) are passed to <tt class="docutils literal"><span class="pre">eval()</span></tt>, so be careful
+what you put there, since the code will be executed with the privileges of the
+process that asks for a logger.</p>
+</div>
+<div class="section" id="for-the-impatient">
+<h2><a class="toc-backref" href="#id11">1.6&nbsp;&nbsp;&nbsp;For the impatient</a><a class="headerlink" href="#for-the-impatient" title="Permalink to this headline">¶</a></h2>
+<p>One of the first statements of your program:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">from</span> <span class="nn">Cerebrum.Utils</span> <span class="kn">import</span> <span class="n">Factory</span>
+<span class="n">logger</span> <span class="o">=</span> <span class="n">Factory</span><span class="o">.</span><span class="n">get_logger</span><span class="p">(</span><span class="s">&quot;console&quot;</span><span class="p">)</span>
+<span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&quot;hi!&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Since <tt class="docutils literal"><span class="pre">get_logger()</span></tt> modifies <tt class="docutils literal"><span class="pre">sys.argv</span></tt> destructively, you should
+probably instantiate a logger <em>before</em> parsing the program arguments yourself,
+unless your argument parsing code is prepared to deal with logger-related
+options.</p>
+</div>
+<div class="section" id="migrating-existing-code-base">
+<h2><a class="toc-backref" href="#id12">1.7&nbsp;&nbsp;&nbsp;Migrating existing code base</a><a class="headerlink" href="#migrating-existing-code-base" title="Permalink to this headline">¶</a></h2>
+<p>Migrating the existing code base would have to happen in several steps:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li>Stop job_runner (bofhd can continue functioning, but it&#8217;d have to be
+restarted later)</li>
+<li>Upgrade <tt class="docutils literal"><span class="pre">Cerebrum/modules/cerelog.py</span></tt>,
+<tt class="docutils literal"><span class="pre">Cerebrum/modules/no/uio/AutoStud/Util.py</span></tt>, <tt class="docutils literal"><span class="pre">Cerebrum/Utils.py</span></tt>,
+<tt class="docutils literal"><span class="pre">contrib/no/uio/process_students.py</span></tt>.</li>
+<li>Fix configuration files <tt class="docutils literal"><span class="pre">cereconf.py</span></tt> and <tt class="docutils literal"><span class="pre">logging.ini</span></tt>.</li>
+<li>kill bofhd, restart job_runner.</li>
+</ol>
+</div></blockquote>
+<p>The pq-bofhd logger cannot be removed right now, since moving to several
+loggers per process idea has not been fully explored yet. To implement the
+changes, <tt class="docutils literal"><span class="pre">bofhd</span></tt> would need a restart. <tt class="docutils literal"><span class="pre">job_runner</span></tt> should also be paused
+right before the new <tt class="docutils literal"><span class="pre">logging.ini</span></tt>, <tt class="docutils literal"><span class="pre">cerelog.py</span></tt> and other files are
+installed.</p>
+<p><tt class="docutils literal"><span class="pre">process_students</span></tt> will log a bit differently now:
+&#8220;/cerebrum/var/log/cerebrum/&#8221; + &#8220;log&#8221; + timestamp (this way process_student&#8217;s
+logs will share the directory with all other loggers; we won&#8217;t have to hunt
+around for them). There is exactly one log file per job run.</p>
+<p>Incidentally, <tt class="docutils literal"><span class="pre">cereconf.AUTOADMIN_LOG_DIR</span></tt> cannot be removed yet. pq-bofhd
+logger uses it, as well as <tt class="docutils literal"><span class="pre">process_student.py</span></tt> for some temporary
+file info.</p>
+</div>
+<div class="section" id="references">
+<h2><a class="toc-backref" href="#id13">1.8&nbsp;&nbsp;&nbsp;References</a><a class="headerlink" href="#references" title="Permalink to this headline">¶</a></h2>
+<table class="docutils footnote" frame="void" id="logging-pep" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label">[1]</td><td>PEP 282 &#8220;A logging system&#8221;.
+&lt;<a class="reference external" href="http://www.python.org/dev/peps/pep-0282/">http://www.python.org/dev/peps/pep-0282/</a>&gt;</td></tr>
+</tbody>
+</table>
+<table class="docutils footnote" frame="void" id="vinay-doc" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label">[2]</td><td>Vinay Sajip&#8217;s logging documentation
+&lt;<a class="reference external" href="http://www.red-dove.com/python_logging.html">http://www.red-dove.com/python_logging.html</a>&gt;</td></tr>
+</tbody>
+</table>
+<table class="docutils footnote" frame="void" id="cerebrum" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id1">[3]</a></td><td>Cerebrum project. &lt;<a class="reference external" href="http://cerebrum.sf.net/">http://cerebrum.sf.net/</a>&gt;.</td></tr>
+</tbody>
+</table>
+<table class="docutils footnote" frame="void" id="python-logging" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label">[4]</td><td><em>(<a class="fn-backref" href="#id2">1</a>, <a class="fn-backref" href="#id3">2</a>)</em> &lt;<a class="reference external" href="http://docs.python.org/lib/module-logging.html">http://docs.python.org/lib/module-logging.html</a>&gt;.</td></tr>
+</tbody>
+</table>
+<table class="docutils footnote" frame="void" id="logging-config" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id4">[5]</a></td><td>&lt;<a class="reference external" href="http://docs.python.org/lib/logging-config-fileformat.html">http://docs.python.org/lib/logging-config-fileformat.html</a>&gt;.</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">1&nbsp;&nbsp;&nbsp;Logging framework in Cerebrum</a><ul>
+<li><a class="reference internal" href="#introduction">1.1&nbsp;&nbsp;&nbsp;Introduction</a></li>
+<li><a class="reference internal" href="#rationale">1.2&nbsp;&nbsp;&nbsp;Rationale</a></li>
+<li><a class="reference internal" href="#issues">1.3&nbsp;&nbsp;&nbsp;Issues</a></li>
+<li><a class="reference internal" href="#files">1.4&nbsp;&nbsp;&nbsp;Files</a></li>
+<li><a class="reference internal" href="#configuration">1.5&nbsp;&nbsp;&nbsp;Configuration</a></li>
+<li><a class="reference internal" href="#for-the-impatient">1.6&nbsp;&nbsp;&nbsp;For the impatient</a></li>
+<li><a class="reference internal" href="#migrating-existing-code-base">1.7&nbsp;&nbsp;&nbsp;Migrating existing code base</a></li>
+<li><a class="reference internal" href="#references">1.8&nbsp;&nbsp;&nbsp;References</a></li>
+</ul>
+</li>
+</ul>
+
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/doc/devel/logging.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, University of Oslo.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

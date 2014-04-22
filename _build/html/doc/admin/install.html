@@ -1,0 +1,450 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Cerebrum installation procedure &mdash; Cerebrum 0.9.16 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.9.16',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Cerebrum 0.9.16 documentation" href="../../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="cerebrum-installation-procedure">
+<h1>Cerebrum installation procedure<a class="headerlink" href="#cerebrum-installation-procedure" title="Permalink to this headline">¶</a></h1>
+<p>This document describes installation of Cerebrum from a source code
+distribution. It also describes the installation procedure when
+installing Cerebrum from a CVS tree. Cerebrum can be downloaded from
+the repository at <a class="reference external" href="http://cerebrum.sourceforge.net/">SourceForge.net</a></p>
+<p>Preliminary document, expected to change.</p>
+<div class="section" id="short-version">
+<h2>Short version<a class="headerlink" href="#short-version" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li>python setup.py install ...</li>
+<li>Edit the installed <tt class="docutils literal"><span class="pre">cereconf.py</span></tt> file</li>
+<li>python makedb.py ...</li>
+<li>setup.py test -check</li>
+</ul>
+<p>The rest of this document contains a more explanatory installation
+guide.</p>
+</div>
+<div class="section" id="requirements-and-pre-requisites">
+<h2>Requirements and pre-requisites<a class="headerlink" href="#requirements-and-pre-requisites" title="Permalink to this headline">¶</a></h2>
+<p>The recommended platform for current Cerebrum distribution is Linux,
+as that is where most development has been done. RedHat 8.0, RedHat 9
+and Debian sarge has been (lightly) tested, but any modern Unix should
+in theory work.</p>
+<p>You will also need a few software packages in order to build and
+successfully install Cerebrum. These are:</p>
+<ul class="simple">
+<li>gzip/gunzip</li>
+<li>tar</li>
+<li>Python</li>
+<li>An relational database management system (PostgreSQL or Oracle)</li>
+<li>A Python database API (pyPgSQL or DCOracle2)</li>
+<li>OpenSSL</li>
+<li>M2Crypto, a Python interface to OpenSSL</li>
+</ul>
+<p>Descriptions:</p>
+<ul class="simple">
+<li>gzip is a compression utility which produces files with the
+extension <tt class="docutils literal"><span class="pre">.gz</span></tt> which can be uncompressed by the <tt class="docutils literal"><span class="pre">gunzip</span></tt>. More
+information about gzip is available from &lt;<a class="reference external" href="http://www.gzip.org/">http://www.gzip.org/</a>&gt;</li>
+<li>tar is an archiving tool for storing and extracting files from
+tarfiles. More information on tar is available from
+&lt;<a class="reference external" href="http://www.gnu.org/software/tar/">http://www.gnu.org/software/tar/</a>&gt;.</li>
+<li>Python is an interpreted, interactive, extensible object-oriented
+programming language. You will need Python 2.2.1 or later in order to
+install Cerebrum. More information about Python is available from
+&lt;<a class="reference external" href="http://www.python.org/">http://www.python.org/</a>&gt;.</li>
+<li>PostgreSQL is an open-source object-relational database managment
+system. It is recommended to use version 7.2 or later. For more
+information about PostgreSQL see &lt;<a class="reference external" href="http://www.postgresql.org">http://www.postgresql.org</a>&gt;.</li>
+<li>Oracle is a common proprietary database management system. To be
+usable as a Cerebrum backend, Oracle 9i is needed. More informastion
+about Oracle is available from &lt;<a class="reference external" href="http://www.oracle.com/">http://www.oracle.com/</a>&gt;.</li>
+<li>OpenSSL is a cryptography toolkit implementing the Secure Sockets
+Layer and Transport Layer Security network protocols and related
+cryptography standards required by them. The software and the
+documentation made by the developers is available for download from
+&lt;<a class="reference external" href="http://www.openssl.org/">http://www.openssl.org/</a>&gt;.</li>
+<li>M2Crypto is a python interface to OpenSSL. For more information and
+download check &lt;<a class="reference external" href="http://www.post1.com/home/ngps/m2/">http://www.post1.com/home/ngps/m2/</a>&gt;.</li>
+</ul>
+<p>Whether you will need to obtain pyPgSQL or DCOracle depends on the
+choice of the database managment system.</p>
+<ul class="simple">
+<li>pyPgSQL provides an interface to PostgreSQL databases. More
+information is available from &lt;<a class="reference external" href="http://pypgsql.sourceforge.net/">http://pypgsql.sourceforge.net/</a>&gt;
+where you also can download the software package. You will need
+version 2.2 or later in order to install and run Cerebrum on
+PostgreSQL.</li>
+<li>DCOracle2is a python interface for Oracle available from
+&lt;<a class="reference external" href="http://www.zope.org/Members/matt/dco2">http://www.zope.org/Members/matt/dco2</a>&gt;. Running
+Cerebrum on Oracle requires DCOracle2.</li>
+</ul>
+</div>
+<div class="section" id="obtaining-cerebrum">
+<h2>Obtaining Cerebrum<a class="headerlink" href="#obtaining-cerebrum" title="Permalink to this headline">¶</a></h2>
+<p>Cerebrum is open-source software released under GNU General Public
+License. New releases will be made available from Cerebrum&#8217;s
+SourceForge pages. On these pages one can also find the instructions
+on how to retrieve fresh, bleeding-edge development version from the
+project&#8217;s CVS repository. To get the latest release download the
+tarfile Cerebrum-X.Y.Z.tar.gz from &lt;<a class="reference external" href="http://cerebrum.sourceforge.net/">http://cerebrum.sourceforge.net/</a>&gt;
+and unpack the source code into an empty directory:</p>
+<div class="highlight-python"><pre>gunzip Cerebrum-X.Y.Z.tar.gz
+tar xf Cerebrum-X.Y.Z.tar</pre>
+</div>
+<p>This will create a directory Cerebrum-X.Y.Z under the current
+directory with the Cerebrum sources. Change into that directory for
+the rest of the installation procedure. If you prefer downloading the
+CVS-version execute the following commands:</p>
+<div class="highlight-python"><pre>cvs -d:pserver:anonymous@cvs.cerebrum.sourceforge.net:cvsrootcerebrum login
+cvs -z3 -d:pserver:anonymous@cvs.cerebrum.sourceforge.net:cvsrootcerebrum co cerebrum</pre>
+</div>
+<p>You will probably be asked to provide a password during the first step
+but it is not required - just press Enter to continue. A directory
+<tt class="docutils literal"><span class="pre">cerebrum/</span></tt> containing the CVS tree will be created. The additional
+installation steps when installing from a CVS tree are described in
+XXX</p>
+</div>
+<div class="section" id="installation-procedure">
+<h2>Installation procedure<a class="headerlink" href="#installation-procedure" title="Permalink to this headline">¶</a></h2>
+<p>Cerebrum installation procedure consist of several steps:</p>
+<ul class="simple">
+<li>Preliminary tasks</li>
+<li>Installing the Python code</li>
+<li>Tailoring the system to your needs</li>
+<li>Bootstrapping your database</li>
+<li>Testing the distribution (optional)</li>
+</ul>
+<p>As some of these tasks are fairly complex they are described in
+separate subsections.</p>
+<div class="section" id="preliminary-tasks">
+<h3>Preliminary tasks<a class="headerlink" href="#preliminary-tasks" title="Permalink to this headline">¶</a></h3>
+<p>You will need to create a database instance on your system where
+Cerebrum should be run. Furthermore, you will need to create a user
+which cerebrum will connect to the database as. If you are using a
+PostgreSQL database system the following commands might (depending on
+your PostgreSQL configuration) do the trick:</p>
+<div class="highlight-python"><pre>createuser cerebrum
+createdb -E unicode cerebrum</pre>
+</div>
+<p>If you are using Oracle you need to execute the following statements:</p>
+<div class="highlight-python"><pre>CREATE USER cerebrum IDENTIFYED BY somepassword;
+GRANT connect, resource, create role TO cerebrum;
+CREATE USER cerebrum_user IDENTIFIED BY somepassword;
+GRANT connect, resource TO cerebrum_user;</pre>
+</div>
+</div>
+<div class="section" id="installing-the-python-code">
+<h3>Installing the Python code<a class="headerlink" href="#installing-the-python-code" title="Permalink to this headline">¶</a></h3>
+<p>Execute the command:</p>
+<div class="highlight-python"><pre>python setup.py install [options]</pre>
+</div>
+<p>All files will by default be installed under <tt class="docutils literal"><span class="pre">/usr/local/</span></tt>. You can
+change this installation prefix by supplying the following command
+line options to <tt class="docutils literal"><span class="pre">python</span> <span class="pre">setup.py</span> <span class="pre">install</span></tt>:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="o">--</span><span class="n">prefix</span><span class="o">=</span><span class="n">PREFIX</span>
+</pre></div>
+</div>
+<p>All the files will then be installed under the directory PREFIX
+instead <tt class="docutils literal"><span class="pre">/usr/local</span></tt>.  Note that no files will ever be installed
+into the PREFIX directory, only in various subdirectories</p>
+<p>There are a few other options you can set by using <tt class="docutils literal"><span class="pre">setup.py</span></tt>. To
+get the full list of options enter:</p>
+<div class="highlight-python"><pre>python setup.py --help</pre>
+</div>
+</div>
+<div class="section" id="tailoring-the-system-to-your-needs">
+<h3>Tailoring the system to your needs<a class="headerlink" href="#tailoring-the-system-to-your-needs" title="Permalink to this headline">¶</a></h3>
+<p>You now need to edit the file <tt class="docutils literal"><span class="pre">cereconf.py</span></tt>.  <tt class="docutils literal"><span class="pre">cereconf.py</span></tt>
+inherits all its settings from <tt class="docutils literal"><span class="pre">Cerebrum/default_config.py</span></tt> and
+basically defines a set of options. Since the file actually is a
+python script it may do other things as well (if you tell it to). You
+may set quite a few options in the <tt class="docutils literal"><span class="pre">cereconf.py</span></tt>. For a full list of
+options that can be modified check <tt class="docutils literal"><span class="pre">Cerebrum/default_config.p</span></tt>.</p>
+<p>In order to make testing procedures work you should add something
+like:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">CEREBRUM_DATABASE_CONNECT_DATA</span><span class="p">[</span><span class="s">&#39;user&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s">&#39;cerebrum&#39;</span>
+<span class="n">DATABASE_DRIVER</span> <span class="o">=</span> <span class="s">&#39;PostgreSQL&#39;</span>
+<span class="n">CEREBRUM_DATABASE_NAME</span> <span class="o">=</span> <span class="s">&quot;cerebrum&quot;</span>
+<span class="n">DB_AUTH_DIR</span> <span class="o">=</span> <span class="s">&#39;/etc/cerebrum&#39;</span>
+<span class="n">CLASS_CONSTANTS</span> <span class="o">=</span> <span class="p">(</span>
+  <span class="s">&#39;Cerebrum.modules.no.uio.Constants/Constants&#39;</span><span class="p">,</span>
+  <span class="s">&#39;Cerebrum.modules.no.Constants/Constants&#39;</span><span class="p">,</span>
+  <span class="s">&#39;Cerebrum.modules.PosixUser/Constants&#39;</span><span class="p">,</span>
+  <span class="s">&#39;Cerebrum.modules.CLConstants/CLConstants&#39;</span> <span class="p">)</span>
+<span class="n">CLASS_OU</span> <span class="o">=</span> <span class="p">(</span><span class="s">&#39;Cerebrum.modules.no.Stedkode/Stedkode&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>to <tt class="docutils literal"><span class="pre">cereconf.py</span></tt></p>
+<p>Cerebrum also expects to find an authentication file for the database
+user named:</p>
+<div class="highlight-python"><pre>DB_AUTH_DIR/passwd-DATABASE_CONNECT_DATA['user']@DATABASE_NAME</pre>
+</div>
+<p>which contains the users database password. the format of the
+authentication file should be:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">user</span><span class="o">&lt;</span><span class="n">tab</span><span class="o">&gt;</span><span class="n">databasepassword</span>
+</pre></div>
+</div>
+<p>For the configuration example above a file named
+<tt class="docutils literal"><span class="pre">passwd-cerebrum&#64;cerebrum</span></tt>, containing the line:</p>
+<div class="highlight-python"><pre>cerebrum      somepassword</pre>
+</div>
+<p>should be placed in the directory specified in <tt class="docutils literal"><span class="pre">DB_AUTH_DIR</span></tt></p>
+</div>
+<div class="section" id="bootstrapping-your-database">
+<h3>Bootstrapping your database<a class="headerlink" href="#bootstrapping-your-database" title="Permalink to this headline">¶</a></h3>
+<p>You are now ready to bootstrap the database. This is done by running
+the <tt class="docutils literal"><span class="pre">makedb.py</span></tt> script with appropriate parameters.</p>
+<p>First, you&#8217;ll need to find out which database components you want. The
+various components are to be found in the files matching
+<tt class="docutils literal"><span class="pre">design/*.sql</span></tt>. Pick the ones you want, and be sure to at least
+include the components that corresponds to the classes in your
+<tt class="docutils literal"><span class="pre">cereconf.CLASS_*</span></tt> variables.</p>
+<p>If you want just the basic Cerebrum core (even though this really
+isn&#8217;t very useful by itself), give the simple command:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">makedb</span><span class="o">.</span><span class="n">py</span>
+</pre></div>
+</div>
+<p>To create both the Cerebrum core components and the components found
+in <tt class="docutils literal"><span class="pre">design/mod_stedkode.sql</span></tt>, the following command should be
+enough:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">makedb</span><span class="o">.</span><span class="n">py</span> <span class="o">--</span><span class="n">extra</span><span class="o">-</span><span class="nb">file</span><span class="o">=</span><span class="n">design</span><span class="o">/</span><span class="n">mod_stedkode</span><span class="o">.</span><span class="n">sql</span>
+</pre></div>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">--extra-file</span></tt> argument can be repeated, if you want to install
+more than one non-Core module:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">makedb</span><span class="o">.</span><span class="n">py</span> <span class="o">--</span><span class="n">extra</span><span class="o">-</span><span class="nb">file</span><span class="o">=</span><span class="n">design</span><span class="o">/</span><span class="n">mod_stedkode</span><span class="o">.</span><span class="n">sql</span> \
+  <span class="o">--</span><span class="n">extra</span><span class="o">-</span><span class="nb">file</span><span class="o">=</span><span class="n">mod_posix_user</span><span class="o">.</span><span class="n">sql</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="testing-the-distribution-optional">
+<h3>Testing the distribution (optional)<a class="headerlink" href="#testing-the-distribution-optional" title="Permalink to this headline">¶</a></h3>
+<p>Now that the database has been created, you might want to run some of
+the self-tests included in the distribution. This is not required,
+though, but it will give you a (rather naive) sanity check on your
+system.</p>
+<p>The tests are started with the command:</p>
+<div class="highlight-python"><pre>python setup.py test --check</pre>
+</div>
+</div>
+</div>
+<div class="section" id="building-cerebrum-from-a-cvs-tree">
+<h2>Building Cerebrum from a CVS tree<a class="headerlink" href="#building-cerebrum-from-a-cvs-tree" title="Permalink to this headline">¶</a></h2>
+<p>If you are building Cerebrum from a CVS tree or you want to do
+development you will need some additional software:</p>
+<ul class="simple">
+<li>Apache ant</li>
+<li>Java</li>
+<li>ant is a Java-based build tool. For more information and download
+check &lt;<a class="reference external" href="http://ant.apache.org/">http://ant.apache.org/</a>&gt;. It is recommended to use version
+1.5 or later.</li>
+<li>Java is an object-oriented programming language developed by
+Sun. More information about Java is available from
+&lt;<a class="reference external" href="http://java.sun.com/">http://java.sun.com/</a>&gt;.</li>
+</ul>
+<p>The installation procedure here is basically the same as described
+above. However, for some tasks you might have to convince Python to
+use the Cerebrum modules directly in the CVS tree, rather than any
+similar modules already installed elsewhere on your system.</p>
+<p>For such tasks the environment variable PYTHONPATH comes in handy.  By
+setting the variable to a colon-separated list of directories, you&#8217;re
+effectively telling Python &#8220;Look for modules in these directories
+before you start searching in the familiar places&#8221;.  Hence, with a
+command along the lines of:</p>
+<div class="highlight-python"><pre>PYTHONPATH='pwd'; export PYTHONPATH</pre>
+</div>
+<p>executed after changing to the directory where setup.py lives, you
+should be well on your way.</p>
+<p>Building the client requires that you install Java and Apache Ant.
+You will also need to set <tt class="docutils literal"><span class="pre">JAVA_HOME</span></tt> to point to
+your Java installation.</p>
+</div>
+<div class="section" id="upgrading-a-cerebrum-installation">
+<h2>Upgrading a Cerebrum installation<a class="headerlink" href="#upgrading-a-cerebrum-installation" title="Permalink to this headline">¶</a></h2>
+<p>Due to the fact that each installation of Cerebrum may differ
+considerably from the original Cerebrum distribution upgrading Cerebrum
+is a complicated affair. Some general rules to upgrading will apply:</p>
+<ul class="simple">
+<li>Backup your data</li>
+<li>If you are installing in the same place as the old version move the
+old installation out of the way</li>
+</ul>
+<p>There are, at the present time, no automatic mechanisms for Cerebrum
+upgrading. Any upgrade will have to be done as a from-the-scratch
+installation. Also note that the flexibility and extensibility
+features of Cerebrum is in fact paramount to producing a fully general
+and complete automatic upgrade procedure. The main reason for this is
+the intended use of Cerebrum - any installation may and should be
+customized in order to accommodate local needs.</p>
+<p>It is in fact expected of the Cerebrum users to customize their
+installation. More information about upgrading is available at
+&lt;<a class="reference external" href="http://cerebrum.sourceforge.net">http://cerebrum.sourceforge.net</a>&gt;</p>
+</div>
+<div class="section" id="using-cerebrum">
+<h2>Using Cerebrum<a class="headerlink" href="#using-cerebrum" title="Permalink to this headline">¶</a></h2>
+<p>Cerebrum core classes are used to update the information about the
+entities registered. You may update any attributes of a given entity
+by accessing the data trough a python program. A file which you would
+use to add or update information about name, address and fax number to
+an Organizational Unit should look something like this:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="c">#!/usr/bin/env python</span>
+<span class="kn">import</span> <span class="nn">cerebrum_path</span>
+
+<span class="kn">from</span> <span class="nn">Cerebrum</span> <span class="kn">import</span> <span class="n">Errors</span>
+<span class="kn">from</span> <span class="nn">Cerebrum.Utils</span> <span class="kn">import</span> <span class="n">Factory</span>
+
+<span class="n">OU_class</span> <span class="o">=</span> <span class="n">Factory</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;OU&#39;</span><span class="p">)</span>
+
+<span class="n">k</span> <span class="o">=</span> <span class="p">{</span>  <span class="c"># Define some imaginary place</span>
+    <span class="s">&#39;fakultetnr&#39;</span><span class="p">:</span>    <span class="mi">15</span><span class="p">,</span>
+    <span class="s">&#39;instituttnr&#39;</span><span class="p">:</span>   <span class="mi">14</span><span class="p">,</span>
+    <span class="s">&#39;gruppenr&#39;</span><span class="p">:</span>      <span class="mi">14</span><span class="p">,</span>
+    <span class="s">&#39;stednavn&#39;</span><span class="p">:</span>      <span class="s">&#39;some place&#39;</span><span class="p">,</span>
+    <span class="s">&#39;forkstednavn&#39;</span><span class="p">:</span>  <span class="s">&#39;some place&#39;</span>
+    <span class="p">}</span>
+
+<span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
+    <span class="n">db</span> <span class="o">=</span> <span class="n">Factory</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;Database&#39;</span><span class="p">)()</span>
+    <span class="n">co</span> <span class="o">=</span> <span class="n">Factory</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;Constants&#39;</span><span class="p">)(</span><span class="n">db</span><span class="p">)</span>
+    <span class="n">ou</span> <span class="o">=</span> <span class="n">OU_class</span><span class="p">(</span><span class="n">db</span><span class="p">)</span>
+
+    <span class="n">ou</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">ou</span><span class="o">.</span><span class="n">find_stedkode</span><span class="p">(</span><span class="n">k</span><span class="p">[</span><span class="s">&#39;fakultetnr&#39;</span><span class="p">],</span>
+                         <span class="n">k</span><span class="p">[</span><span class="s">&#39;instituttnr&#39;</span><span class="p">],</span>
+                         <span class="n">k</span><span class="p">[</span><span class="s">&#39;gruppenr&#39;</span><span class="p">])</span>
+    <span class="k">except</span> <span class="n">Errors</span><span class="o">.</span><span class="n">NotFoundError</span><span class="p">:</span>
+        <span class="k">pass</span>
+    <span class="n">ou</span><span class="o">.</span><span class="n">populate</span><span class="p">(</span><span class="n">k</span><span class="p">[</span><span class="s">&#39;fakultetnr&#39;</span><span class="p">],</span>
+                <span class="n">k</span><span class="p">[</span><span class="s">&#39;instituttnr&#39;</span><span class="p">],</span> <span class="n">k</span><span class="p">[</span><span class="s">&#39;gruppenr&#39;</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">k</span><span class="o">.</span><span class="n">has_key</span><span class="p">(</span><span class="s">&#39;adresselinje1_besok_adr&#39;</span><span class="p">):</span>
+        <span class="n">ou</span><span class="o">.</span><span class="n">populate_address</span><span class="p">(</span>
+            <span class="n">co</span><span class="o">.</span><span class="n">system_lt</span><span class="p">,</span> <span class="n">co</span><span class="o">.</span><span class="n">address_street</span><span class="p">,</span>
+            <span class="n">address_text</span><span class="o">=</span><span class="s">&quot;</span><span class="si">%s</span><span class="se">\n</span><span class="si">%s</span><span class="s">&quot;</span> <span class="o">%</span>
+            <span class="p">(</span><span class="n">k</span><span class="p">[</span><span class="s">&#39;adresselinje1_besok_adr&#39;</span><span class="p">],</span>
+             <span class="n">k</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;adresselinje2_besok_adr&#39;</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">)),</span>
+            <span class="n">postal_number</span><span class="o">=</span><span class="n">k</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;poststednr_besok_adr&#39;</span><span class="p">,</span>
+                                <span class="bp">None</span><span class="p">),</span>
+            <span class="n">city</span><span class="o">=</span><span class="n">k</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;poststednavn_besok_adr&#39;</span><span class="p">,</span> <span class="bp">None</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">t</span><span class="p">[</span><span class="s">&#39;kommtypekode&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s">&#39;FAX&#39;</span><span class="p">:</span>
+        <span class="n">ou</span><span class="o">.</span><span class="n">populate_contact_info</span><span class="p">(</span>
+            <span class="n">co</span><span class="o">.</span><span class="n">system_lt</span><span class="p">,</span> <span class="n">co</span><span class="o">.</span><span class="n">contact_fax</span><span class="p">,</span>
+            <span class="n">t</span><span class="p">[</span><span class="s">&#39;telefonnr&#39;</span><span class="p">],</span> <span class="n">contact_pref</span><span class="o">=</span><span class="n">n</span><span class="p">)</span>
+    <span class="n">op</span> <span class="o">=</span> <span class="n">ou</span><span class="o">.</span><span class="n">write_db</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">op</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">print</span> <span class="s">&quot;**** EQUAL ****&quot;</span>
+    <span class="k">elif</span> <span class="n">op</span><span class="p">:</span>
+        <span class="k">print</span> <span class="s">&quot;**** NEW ****&quot;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">print</span> <span class="s">&quot;**** UPDATE ****&quot;</span>
+    <span class="n">db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Cerebrum installation procedure</a><ul>
+<li><a class="reference internal" href="#short-version">Short version</a></li>
+<li><a class="reference internal" href="#requirements-and-pre-requisites">Requirements and pre-requisites</a></li>
+<li><a class="reference internal" href="#obtaining-cerebrum">Obtaining Cerebrum</a></li>
+<li><a class="reference internal" href="#installation-procedure">Installation procedure</a><ul>
+<li><a class="reference internal" href="#preliminary-tasks">Preliminary tasks</a></li>
+<li><a class="reference internal" href="#installing-the-python-code">Installing the Python code</a></li>
+<li><a class="reference internal" href="#tailoring-the-system-to-your-needs">Tailoring the system to your needs</a></li>
+<li><a class="reference internal" href="#bootstrapping-your-database">Bootstrapping your database</a></li>
+<li><a class="reference internal" href="#testing-the-distribution-optional">Testing the distribution (optional)</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#building-cerebrum-from-a-cvs-tree">Building Cerebrum from a CVS tree</a></li>
+<li><a class="reference internal" href="#upgrading-a-cerebrum-installation">Upgrading a Cerebrum installation</a></li>
+<li><a class="reference internal" href="#using-cerebrum">Using Cerebrum</a></li>
+</ul>
+</li>
+</ul>
+
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/doc/admin/install.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, University of Oslo.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

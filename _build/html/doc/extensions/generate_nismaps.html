@@ -1,0 +1,161 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Cerebrum extension generate_nismaps &mdash; Cerebrum 0.9.16 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.9.16',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Cerebrum 0.9.16 documentation" href="../../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="cerebrum-extension-generate-nismaps">
+<h1>Cerebrum extension generate_nismaps<a class="headerlink" href="#cerebrum-extension-generate-nismaps" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="what-does-the-generate-nismaps-extension-do">
+<h2>What does the generate_nismaps extension do?<a class="headerlink" href="#what-does-the-generate-nismaps-extension-do" title="Permalink to this headline">¶</a></h2>
+<p>It dumps Cerebrum data in text file formats suitable for building the
+<tt class="docutils literal"><span class="pre">passwd</span></tt>, <tt class="docutils literal"><span class="pre">group</span></tt> and <tt class="docutils literal"><span class="pre">netgroup.user</span></tt> NIS maps.  Groups and
+users to be included in the dump are selected by spreads.</p>
+</div>
+<div class="section" id="configuration-variables-specific-to-this-extension">
+<h2>Configuration variables specific to this extension<a class="headerlink" href="#configuration-variables-specific-to-this-extension" title="Permalink to this headline">¶</a></h2>
+<p>None.</p>
+</div>
+<div class="section" id="usage">
+<h2>Usage<a class="headerlink" href="#usage" title="Permalink to this headline">¶</a></h2>
+<p>Example:</p>
+<div class="highlight-python"><pre>generate_nismaps.py --user_spread NIS_user@uio --group_spread NIS_fg@uio --passwd /var/yp/src/passwd</pre>
+</div>
+</div>
+<div class="section" id="detailed-description">
+<h2>Detailed description<a class="headerlink" href="#detailed-description" title="Permalink to this headline">¶</a></h2>
+<p>All output is written to temporary files which must pass sanity
+checking before being renamed to the file name given on the command
+line.  One such sanity test is that the size of the file must not
+change too much between two consecutive runs.</p>
+<div class="section" id="when-generating-group-output">
+<h3>When generating <tt class="docutils literal"><span class="pre">group</span></tt> output<a class="headerlink" href="#when-generating-group-output" title="Permalink to this headline">¶</a></h3>
+<p>This extension will flatten groups with subgroup members.</p>
+<p>Group names must pass the <tt class="docutils literal"><span class="pre">Factory-Group.illegal_name()</span></tt> test.</p>
+</div>
+<div class="section" id="when-generating-netgroup-user-output">
+<h3>When generating <tt class="docutils literal"><span class="pre">netgroup.user</span></tt> output<a class="headerlink" href="#when-generating-netgroup-user-output" title="Permalink to this headline">¶</a></h3>
+<p>Subgroup members that does not have the appropriate spread for export
+will be flattened into the nearest parent group possessing this
+spread.</p>
+<p>The extension does not yet handle <tt class="docutils literal"><span class="pre">intersection</span></tt> or <tt class="docutils literal"><span class="pre">difference</span></tt>
+group members for netgroups.</p>
+</div>
+<div class="section" id="when-generating-passwd-output">
+<h3>When generating <tt class="docutils literal"><span class="pre">passwd</span></tt> output<a class="headerlink" href="#when-generating-passwd-output" title="Permalink to this headline">¶</a></h3>
+<p>User names must pass the <tt class="docutils literal"><span class="pre">Factory-Account.illegal_name()</span></tt> test.</p>
+</div>
+<div class="section" id="related-extensions">
+<h3>Related extensions<a class="headerlink" href="#related-extensions" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li><a class="reference external" href="PosixEntity.html#PosixUser">PosixUser</a></li>
+<li><a class="reference external" href="PosixEntity.html#PosixGroup">PosixGroup</a></li>
+</ul>
+</div>
+<div class="section" id="files">
+<h3>Files<a class="headerlink" href="#files" title="Permalink to this headline">¶</a></h3>
+<p>contrib/generate_nismaps.py</p>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Cerebrum extension generate_nismaps</a><ul>
+<li><a class="reference internal" href="#what-does-the-generate-nismaps-extension-do">What does the generate_nismaps extension do?</a></li>
+<li><a class="reference internal" href="#configuration-variables-specific-to-this-extension">Configuration variables specific to this extension</a></li>
+<li><a class="reference internal" href="#usage">Usage</a></li>
+<li><a class="reference internal" href="#detailed-description">Detailed description</a><ul>
+<li><a class="reference internal" href="#when-generating-group-output">When generating <tt class="docutils literal"><span class="pre">group</span></tt> output</a></li>
+<li><a class="reference internal" href="#when-generating-netgroup-user-output">When generating <tt class="docutils literal"><span class="pre">netgroup.user</span></tt> output</a></li>
+<li><a class="reference internal" href="#when-generating-passwd-output">When generating <tt class="docutils literal"><span class="pre">passwd</span></tt> output</a></li>
+<li><a class="reference internal" href="#related-extensions">Related extensions</a></li>
+<li><a class="reference internal" href="#files">Files</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/doc/extensions/generate_nismaps.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, University of Oslo.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

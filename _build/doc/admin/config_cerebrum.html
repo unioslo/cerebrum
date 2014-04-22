@@ -1,0 +1,146 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Configuring and running Cerebrum &mdash; Cerebrum 0.9.16 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.9.16',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Cerebrum 0.9.16 documentation" href="../../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="configuring-and-running-cerebrum">
+<h1>Configuring and running Cerebrum<a class="headerlink" href="#configuring-and-running-cerebrum" title="Permalink to this headline">¶</a></h1>
+<p>This document aims to describe the procedures necessary for running and
+administering Cerebrum within an organization. The routines for tailoring,
+bootstraping, logging, cleaning, upgrading etc. are described from the
+administrators point of view. This document will in addition contain some
+of the simpler troubleshooting procedures.</p>
+<div class="section" id="job-runner-with-examples">
+<h2>Job_runner (with examples)<a class="headerlink" href="#job-runner-with-examples" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="constans-core-constants-vs-additional-institution-spesific-constants">
+<h2>Constans (core constants vs. additional, institution spesific constants)<a class="headerlink" href="#constans-core-constants-vs-additional-institution-spesific-constants" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="logs-loggers-and-configuration-of-logging-routines-with-examples">
+<h2>Logs, loggers and configuration of logging routines (with examples)<a class="headerlink" href="#logs-loggers-and-configuration-of-logging-routines-with-examples" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="cleaning-and-other-data-quality-preservation-routines">
+<h2>Cleaning and other data quality preservation routines<a class="headerlink" href="#cleaning-and-other-data-quality-preservation-routines" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="simple-db-administration-with-postgresql">
+<h2>Simple db-administration (with postgresql)<a class="headerlink" href="#simple-db-administration-with-postgresql" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="upgrading-cerebrum">
+<h2>Upgrading Cerebrum<a class="headerlink" href="#upgrading-cerebrum" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="starting-services-after-down-time-machine-crash-i-e">
+<h2>Starting services after down-time (machine crash i.e.)<a class="headerlink" href="#starting-services-after-down-time-machine-crash-i-e" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="relations-between-changes-in-db-and-troughout-your-export-systems">
+<h2>Relations between changes in db and troughout your export systems<a class="headerlink" href="#relations-between-changes-in-db-and-troughout-your-export-systems" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="overview-of-troubleshooting-routines">
+<h2>Overview of troubleshooting routines<a class="headerlink" href="#overview-of-troubleshooting-routines" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li>Finding errors, stack traces</li>
+<li>Common errors (troubleshooting)</li>
+<li>job_runner as a troblueshooting tool</li>
+<li>Resolving problems introduced by authoritative source systems</li>
+</ul>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Configuring and running Cerebrum</a><ul>
+<li><a class="reference internal" href="#job-runner-with-examples">Job_runner (with examples)</a></li>
+<li><a class="reference internal" href="#constans-core-constants-vs-additional-institution-spesific-constants">Constans (core constants vs. additional, institution spesific constants)</a></li>
+<li><a class="reference internal" href="#logs-loggers-and-configuration-of-logging-routines-with-examples">Logs, loggers and configuration of logging routines (with examples)</a></li>
+<li><a class="reference internal" href="#cleaning-and-other-data-quality-preservation-routines">Cleaning and other data quality preservation routines</a></li>
+<li><a class="reference internal" href="#simple-db-administration-with-postgresql">Simple db-administration (with postgresql)</a></li>
+<li><a class="reference internal" href="#upgrading-cerebrum">Upgrading Cerebrum</a></li>
+<li><a class="reference internal" href="#starting-services-after-down-time-machine-crash-i-e">Starting services after down-time (machine crash i.e.)</a></li>
+<li><a class="reference internal" href="#relations-between-changes-in-db-and-troughout-your-export-systems">Relations between changes in db and troughout your export systems</a></li>
+<li><a class="reference internal" href="#overview-of-troubleshooting-routines">Overview of troubleshooting routines</a></li>
+</ul>
+</li>
+</ul>
+
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/doc/admin/config_cerebrum.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, University of Oslo.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

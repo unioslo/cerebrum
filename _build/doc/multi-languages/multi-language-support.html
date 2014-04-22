@@ -1,0 +1,615 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Håndtering av språkdata i Cerebrum &mdash; Cerebrum 0.9.16 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.9.16',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Cerebrum 0.9.16 documentation" href="../../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="handtering-av-sprakdata-i-cerebrum">
+<h1><a class="toc-backref" href="#id2">Håndtering av språkdata i Cerebrum</a><a class="headerlink" href="#handtering-av-sprakdata-i-cerebrum" title="Permalink to this headline">¶</a></h1>
+<div class="contents topic" id="innholdsfortegnelse">
+<p class="topic-title first">Innholdsfortegnelse</p>
+<ul class="simple">
+<li><a class="reference internal" href="#handtering-av-sprakdata-i-cerebrum" id="id2">Håndtering av språkdata i Cerebrum</a><ul>
+<li><a class="reference internal" href="#introduksjon" id="id3">Introduksjon</a></li>
+<li><a class="reference internal" href="#status-quo" id="id4">Status quo</a><ul>
+<li><a class="reference internal" href="#bofhd" id="id5">bofhd</a></li>
+<li><a class="reference internal" href="#database" id="id6">Database</a></li>
+<li><a class="reference internal" href="#brukerinfo" id="id7">brukerinfo</a></li>
+<li><a class="reference internal" href="#kildesystemer" id="id8">Kildesystemer</a></li>
+<li><a class="reference internal" href="#api-et" id="id9">API-et</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#utfordringer" id="id10">Utfordringer</a><ul>
+<li><a class="reference internal" href="#entiteter-vs-ikke-entiteter" id="id11">Entiteter vs ikke-Entiteter</a></li>
+<li><a class="reference internal" href="#sprakkoding" id="id12">Språkkoding</a></li>
+<li><a class="reference internal" href="#api-endringene" id="id13">API-endringene</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#forslag" id="id14">Forslag</a><ul>
+<li><a class="reference internal" href="#kildedata" id="id15">Kildedata</a></li>
+<li><a class="reference internal" href="#db-skjema" id="id16">DB-skjema</a></li>
+<li><a class="reference internal" href="#id1" id="id17">API-endringene</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#implementasjonsplan" id="id18">Implementasjonsplan</a></li>
+<li><a class="reference internal" href="#bakoverkompatibilitet" id="id19">Bakoverkompatibilitet</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<p>Formålet med dette notatet er å drøfte mulighetene rundt lagring og håndtering
+av språkdata i Cerebrum.</p>
+<div class="section" id="introduksjon">
+<h2><a class="toc-backref" href="#id3">Introduksjon</a><a class="headerlink" href="#introduksjon" title="Permalink to this headline">¶</a></h2>
+<p>Cerebrum per i dag håndterer ikke språkdata i noe særlig grad. Det er kommet
+ønsker fra flere hold om å støtte dette i en viss utstrekning. Noen (dog ikke
+komplette) eksempler på data ønskes lagret i flere språk er:</p>
+<blockquote>
+<div><ul class="simple">
+<li>Arbeidstitler til folk (typisk norsk og engelsk)</li>
+<li>Navn på OU-er (alle navnetyper)</li>
+<li>Konstanter i Cerebrum (f.eks. for å gi et bedre grensesnitt i
+bofhd/brukerinfo o.l. tjenester)</li>
+</ul>
+</div></blockquote>
+<p>Potensielt sett er det dog enda flere situasjoner der språkinformasjonen kan
+være nyttig, så det ville ha vært fordelaktig med en så generisk løsning som
+mulig.</p>
+<p>Så, en overordnet liste av mål for dette prosjektet er:</p>
+<blockquote>
+<div><ul class="simple">
+<li>Definere overordnet håndtering av språkdata.</li>
+<li>Sette opp db-skjema for å støtte språkdata.</li>
+<li>Definere API-et mot språkdata.</li>
+<li>Legge inn endringene for de eksisterende API-metodene som må forholde seg
+til språkdata.</li>
+</ul>
+</div></blockquote>
+<p>Språkdata i seg selv, gitt at vi får gode nok data fra de autoritative
+systemene, må lagres i databasen. Det bør tilbys et grensesnitt som er
+komfortabelt mtp språkhåndtering. Eksempelvis burde det være en mulighet til å
+hente tekstdata i API-et uten en eksplisitt språkangivelse i de tilfellene der
+man ikke bryr seg om språket (f.eks. fordi mottageren ikke har noe begrep om
+flere språk).</p>
+<p>Viktig skille å ha i bakhodet &#8211; språkdefinisjonene og enkoding er relaterte
+men forskjellige ting. Vi kan gjerne løse språkhåndtering på en generell basis
+uten å måtte forhold oss til endringer i encoding (på kildekodenivå eller
+kommunikasjonsnivå).</p>
+</div>
+<div class="section" id="status-quo">
+<h2><a class="toc-backref" href="#id4">Status quo</a><a class="headerlink" href="#status-quo" title="Permalink to this headline">¶</a></h2>
+<p>La oss begynne først med en liten oversikt over hvordan språk håndteres i
+dag.</p>
+<div class="section" id="bofhd">
+<h3><a class="toc-backref" href="#id5">bofhd</a><a class="headerlink" href="#bofhd" title="Permalink to this headline">¶</a></h3>
+<p>Håndterer ikke språkdata. Transportlaget (klient&lt;-&gt;bofhd) bruker unicode (det
+er et krav til XMLRPC) og vil kunne håndtere data for et vilkårlig språk (blir
+vanskelig å støtte thai med latin-1 encoding), men bofhd har intet
+kommandobegrep for &#8220;klienten ønsker data på språket X&#8221;. Således vil
+f.eks. <tt class="docutils literal"><span class="pre">misc</span> <span class="pre">stedkode</span></tt> returnere enten alle språk eller et defaultvalg.</p>
+</div>
+<div class="section" id="database">
+<h3><a class="toc-backref" href="#id6">Database</a><a class="headerlink" href="#database" title="Permalink to this headline">¶</a></h3>
+<p>Håndterer ikke språkdata. Imidlertid var det påtenkt på et tidlig stadium. Vi
+har <tt class="docutils literal"><span class="pre">language_code</span></tt> og <tt class="docutils literal"><span class="pre">ou_name_language</span></tt>. Dette er forøvrig opplagte
+kandidater til å basere språklagring på. Tabellene eksisterer i core-skjema,
+men de er ikke i bruk.</p>
+</div>
+<div class="section" id="brukerinfo">
+<h3><a class="toc-backref" href="#id7">brukerinfo</a><a class="headerlink" href="#brukerinfo" title="Permalink to this headline">¶</a></h3>
+<p>Tilbyr per i dag grensesnittet på norsk og engelsk (yay), men alle data fra
+bofhd kommer uten språkmerking. Ej heller er det bakt inn språkinformasjon i
+protokollen (dvs. brukerinfo (eller noen av bofhd sine klienter for den saks
+skyld) har ikke mulighet til å finne ut hvilket språk data kommer på).</p>
+</div>
+<div class="section" id="kildesystemer">
+<h3><a class="toc-backref" href="#id8">Kildesystemer</a><a class="headerlink" href="#kildesystemer" title="Permalink to this headline">¶</a></h3>
+<p>Tilgjengelighet av språkdata er litt variabelt kildene i mellom. FS har
+f.eks. noen kolonner eksplisitt merket med språk
+(<tt class="docutils literal"><span class="pre">fs.sted.stednavn_bokmal</span></tt>), mens UiO-SAP tilbyr en mer generisk mekanisme
+der navn merkes med språkkodene:</p>
+<div class="highlight-python"><pre>STED_STEDNAVN0;EN;no_val;;Research Institute for Internal
+Medicine;Research Institute for Internal Medicine;
+STED_STEDNAVN1;NO;IIF;Indremed. forsk.;Institutt for
+indremedisinsk forskning;Institutt for indremedisinsk forskning;</pre>
+</div>
+<p>Per dags dato har ikke vi valgt en bevisst innstilling ift språket på diverse
+dataposter. Noen steder finnes data (f.eks. i SAP-dumpen &#8211; EN, FR, IT, NO,
+osv.), andre ganger gidder vi ikke å hente dem (FS-filene, f.eks.).</p>
+<p>Situasjonen skyldes også at språkdata ikke eksporteres ensformig fra
+kildesystemene &#8211; det er ikke opplagt hvordan man i utgangspunktet skulle
+skille nynorsk fra bokmål på tvers av alle kildesystemer vi hanskes med i dag
+(<tt class="docutils literal"><span class="pre">nn_NO</span></tt> som kodeverdi burde ha vært et bra alternativ å velge, men vi har
+begrenset påvirkningsmulighet og slikt vil antageligvis måtte legges inn i
+importrutinene).</p>
+<p>Nok en betraktning her er at noen av formatene (heldigvis våre egne) ikke kan
+støtte språkangivelse slik de står:</p>
+<div class="highlight-python"><pre>&lt;sted akronym="ServTorg" forkstednavn="ServTorg" instituttnr="33"
+      stednavn="Servicetorget" stedkode_konv="10002651-0011"
+      gruppenr="11" fakultetnr="12"&gt;</pre>
+</div>
+<p>Hvordan skal man bake inn språkangivelse, når datapostene er attributter og
+ikke kan merkes med det? (en mulighet er å lage et nytt attributt for å kode
+språket, men det vil fordre at samtlige attributter bruker det samme
+språket. En annen mulighet er å dele opp dette XML-elementet, slik at de
+individuelle feltene kan støtte språk).</p>
+</div>
+<div class="section" id="api-et">
+<h3><a class="toc-backref" href="#id9">API-et</a><a class="headerlink" href="#api-et" title="Permalink to this headline">¶</a></h3>
+<p>Det er overhodet ingen støtte for språkhåndtering i API-et. Videre er det også
+slik at vi vil måtte utvide API-et for å håndtere dette.</p>
+<p>Potensielle steder i koden hvor slikt kan bli nødvendig er OU, Person,
+EntityName, _CerebrumCode (evt. andre deler av Constants-rammerverket vi har).</p>
+</div>
+</div>
+<div class="section" id="utfordringer">
+<h2><a class="toc-backref" href="#id10">Utfordringer</a><a class="headerlink" href="#utfordringer" title="Permalink to this headline">¶</a></h2>
+<p>Det er 4 store grupper med utfordringer som er umiddelbart opplagte: både
+entiteter og ikke-entiteter trenger språkstøtte, vi må velge en felles måte å
+kode språk på, vi må sørge for at de relevante datapostene leveres med språk
+på samme måte fra alle kilder og vi må lage de nødvendige API-endringene slik
+at det forstyrrer minst mulig.</p>
+<div class="section" id="entiteter-vs-ikke-entiteter">
+<h3><a class="toc-backref" href="#id11">Entiteter vs ikke-Entiteter</a><a class="headerlink" href="#entiteter-vs-ikke-entiteter" title="Permalink to this headline">¶</a></h3>
+<p>Hovedproblemstillingen her er at vi har 2 forskjellige typer objekter (ved
+mangel på bedre ord) i Cerebrum &#8211; Entiteter og ikke-Entiteter. Hva språk
+angår, så er det mest aktuelt med en løsning som behandler alle Entity-typer
+likt. Det mest aktuelle er å lage et opplegg basert på å binde (ikke-unike)
+navn til <tt class="docutils literal"><span class="pre">entity_id</span></tt>. (Avsporing: er dette et godt tidspunkt å flytte
+OU/Person-navn i dette rammeverket? Det er ingen grunn til at Person- og
+stedsnavn skal håndteres forskjellig fra, si, et vilkårlig annet ikke-unikt
+navn).</p>
+<p>Blant ikke-entiteter er konstantene (la oss si alle typer) er det som er mest
+aktuelt. Opplegget er omtrent det samme &#8211; konstanten i seg selv (code), og en
+bøtte med beskrivelser (code_str trenger ikke å merkes med språk &#8211; kodebasen
+er på engelsk).</p>
+<p>Problemet er at konstantene og entitetene ikke deler en felles representasjon:
+den magiske id-en til hver &#8220;gruppe&#8221; tappes fra egen sekvens (<tt class="docutils literal"><span class="pre">code_seq</span></tt> og
+<tt class="docutils literal"><span class="pre">entity_id_seq</span></tt>). Trist, synd, leit (nok en avsporing: hvorfor er det 2
+sekvenser, egentlig?)</p>
+</div>
+<div class="section" id="sprakkoding">
+<h3><a class="toc-backref" href="#id12">Språkkoding</a><a class="headerlink" href="#sprakkoding" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div><ul class="simple">
+<li>Representasjon av språk via konstanter.</li>
+<li>Abstraksjonsmekanismer som tilbyr samme grensesnitt på tross av
+forskjellige kilder (f.eks. skal vi lage XML med data der noen av postene
+har språkinfo med seg, bør dette gjøres likt på tvers av kildesystemer)</li>
+<li>Felles platform der alle kildesystemene kan tvinges inn.</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="api-endringene">
+<h3><a class="toc-backref" href="#id13">API-endringene</a><a class="headerlink" href="#api-endringene" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div><ul>
+<li><p class="first">Prøve å holde endringene til et minimum for å knekke minst mulig kode av
+gangen.</p>
+</li>
+<li><p class="first">Tilby en mulighet for å hente data der språk er tilgjengelige uten å bry
+seg om språk (f.eks. kan det tenkes at det ikke spiller en rolle for en
+jobb hvilket språk OU-navnet er på, all den tid det finnes bare ett navn
+fra det aktuelle autoritative kildesystemet).</p>
+</li>
+<li><p class="first">Defaultspråk med et oppplegg à la SYSTEM_LOOKUP_ORDER? (Dvs. der API-et
+maskerer at det er flere språk for et <tt class="docutils literal"><span class="pre">get_name(name_type)</span></tt>-kall).</p>
+</li>
+<li><p class="first">Utvide konstantrammeverket til å støtte beskrivelser på forskjellige
+språk.</p>
+</li>
+<li><p class="first">Legge inn støtte for språk i bofhd. Det kan gjøres på flere måter:</p>
+<blockquote>
+<div><ul class="simple">
+<li>Bare dumpe alle språkdata av en bestemt type for en gitt kommando (si
+alle OU-ens navn på alle språk) og la klienten finne ut av hva som
+trenges. Minimalt med endringer for bofhd, antageligvis en del
+endringer for jbofh/brukerinfo.</li>
+<li>Ha et standardopplegg (forutsatt at API-et støtter slikt) men samtidig
+tilby en egen kommando for å hente entitetsnavn av en gitt type på et
+gitt språk. Minimalt med endringer for jbofh, en del pes for
+brukerinfo (ikke minst hardkodingen av alle konstantene).</li>
+<li>Ha et opplegg der klienten kan registrere &#8220;sitt&#8221; språk ved pålogging
+og bofhd tar hensyn til det (evt. faller tilbake på et standardvalg
+når det aktuelle språket ikke lenger er tilgjengelig) på alle
+kommandoer som returnerer data med språkinfo. Blir potensielt ganske
+pes for bofhd, dog herlig simpelt for jbofh/brukerinfo (de gjør ett
+ekstra kall for å sette språk etter pålogging).</li>
+<li>Feilmeldingene fra bofhd burde man gjøre noe med. gettext? Noe annet?
+La CerebrumError finne ut av dette selv?</li>
+</ul>
+</div></blockquote>
+</li>
+<li><p class="first">Uniform tilgang til språkdata uansett om det skjer fra Constants eller
+Entity. Dvs. fra Python skal uthenting av språknavn se likt ut.</p>
+</li>
+</ul>
+</div></blockquote>
+</div>
+</div>
+<div class="section" id="forslag">
+<h2><a class="toc-backref" href="#id14">Forslag</a><a class="headerlink" href="#forslag" title="Permalink to this headline">¶</a></h2>
+<p>Det er flere deler som kan angripes litt uavhengig av hverandre.</p>
+<div class="section" id="kildedata">
+<h3><a class="toc-backref" href="#id15">Kildedata</a><a class="headerlink" href="#kildedata" title="Permalink to this headline">¶</a></h3>
+<p>Iallfall følgende kildesystemer leverer data med språkinformasjon SAP-UiO,
+SAP-SSØ, FS, ABC-Enterprise. Hver av disse har sin egen måte å representere
+språk på. Ideelt sett burde man ha et felles filformat, men det skjer nok
+ikke, så det er bare å justere importrutinene.</p>
+<p>Hver importjobb trenger å bry seg kun om sine egne inputverdier. Dvs. vi kan
+leve med at hvert system koder språk på forskjellige måter. MEN, hver
+importjobb vil måtte oversette fra systemspesifikke språkkoder til Cerebrum
+sine.</p>
+<p>FIXME: Et lite problem her &#8211; hva med de jobbene som henter data fra filene
+direkte framfor å slå opp i Cerebrum? <em>Hvis</em> slike jobber håndterer noe som
+ligner på språkdata, må de skrives om (fortrinnvis for å hente data fra
+Cerebrum).</p>
+<p>FIXME: Hvilke jobber er det?</p>
+</div>
+<div class="section" id="db-skjema">
+<h3><a class="toc-backref" href="#id16">DB-skjema</a><a class="headerlink" href="#db-skjema" title="Permalink to this headline">¶</a></h3>
+<p>Vi kan gjenbruke den eksisterende tabellen for språkkonstanter:</p>
+<div class="highlight-python"><pre>language_code(code, code_str, description)
+              &lt;--&gt;</pre>
+</div>
+<p>Da kan man ganske greit referere til språk fra koden slik vi bruker
+konstantene ellers:</p>
+<div class="highlight-python"><pre>123     nn          Nynorsk
+124     nb          Bokmål
+125     en          English
+126     fr          Français
+127     de          Deutsch</pre>
+</div>
+<p>En liten notis angående code_str &#8211;
+&lt;<a class="reference external" href="http://en.wikipedia.org/wiki/Language_codes">http://en.wikipedia.org/wiki/Language_codes</a>&gt; har en del å velge fra. Vi
+trenger f.eks. å skille mellom bokmål og nynorsk (nb, nn), men hvilken av
+disse mulige kodinger av språk skal man velge for code_str? (den skal være
+entydig og ikke være funnet opp av oss, men heller standarisert). Det er nok
+ingen grunn å droppe description (kjekt for mennesker), hverken for
+<tt class="docutils literal"><span class="pre">language_code</span></tt> eller andre konstantene. Den kolonnen kan gjerne inneholde
+noe mennesker kan forholde seg til og kan brukes når folk ikke bryr seg om
+språk (for språkkonstantene kan man velge språknavnet på det aktuelle
+språket. For andre konstanter kan vi f.eks. putte noe på engelsk (eller norsk,
+dersom det gir mer mening)).</p>
+<p>Så, til navnlagringen i seg selv. Først for konstantene:</p>
+<div class="highlight-python"><pre>constant_language(code, language, value)
+                  &lt;-------------&gt;</pre>
+</div>
+<p>der <tt class="docutils literal"><span class="pre">language</span></tt> er en foreign key til <tt class="docutils literal"><span class="pre">language\_code.code</span></tt>:</p>
+<div class="highlight-python"><pre>984          123           Arbeidstittel
+984          124           Arbeidstittel
+984          125           Work title</pre>
+</div>
+<p>(En kuriøsitet &#8211; språkkonstantene i seg selv vil kunne legge i
+<tt class="docutils literal"><span class="pre">constant_language</span></tt>, slik at man kan merke bokmål som både &#8220;bokmål&#8221; og
+&#8220;Norwegian&#8221;, f.eks.).</p>
+<p>Nå til entitetene. Man trenger iallfall <tt class="docutils literal"><span class="pre">entity_id</span></tt>, <tt class="docutils literal"><span class="pre">language</span></tt> og
+<tt class="docutils literal"><span class="pre">value</span></tt>. Spørsmålet er om det er tilstrekkelig. Er det aktuelt å tillate at
+den samme entiteten (si Person) har den samme navnetypen (si arbeidstittel)
+representert på forskjellige måter på samme språk (!) fra forskjellige
+kildesystemer? La oss se på den enkleste varianten først:</p>
+<div class="highlight-python"><pre>entity_name_language(entity_id, name_type, language, source_system, value)
+                     &lt;-------------------------------------------&gt;</pre>
+</div>
+<p>Dette vil gi oss mulighet til å registrere arbeidstitler, akronymer,
+forskjellige stedsnavn osv med et språk. PK-en er vel også den minste mulige,
+gitt nåværende problemstillinger.</p>
+<p>En åpen problemstilling er hvorvidt vi ønsker en prioritering av
+navneinformasjon. Eller registrering av kildesystemet. Det er intet
+umiddelbart behov for prioritering. Siden de forskjellige systemene gir
+ikke-overlappende navnetyper (iallfall enn så lenge), er det muligens ikke
+behov for <tt class="docutils literal"><span class="pre">source_system</span></tt> heller?</p>
+<p>Sist, men ikke minst, hva gjør vi med dagens språkinformasjon som ligger i
+Person og i OU? (OU har jo ikke færre enn name, acronym, short_name,
+display_name og sort_name definert i ou_info-tabellen. person_name-tabellen
+har antageligvis en bøtte med navn der språk ikke er så viktig (som
+f.eks. for- og etternavn, men samtidig plasserer man ting dit som helt klart
+kan være forskjellige på forskjellige språk (arbeidstittel)).</p>
+<p>Legg merke til at <tt class="docutils literal"><span class="pre">value</span></tt> ikke har en unique constraint på seg &#8211;
+<tt class="docutils literal"><span class="pre">entity_name</span></tt> er per i dag den tabellen som bærer på unike navn (brukernavn
+og slikt). Apropos det, burde den omdøpes til <tt class="docutils literal"><span class="pre">entity_unique_name</span></tt>?</p>
+</div>
+<div class="section" id="id1">
+<h3><a class="toc-backref" href="#id17">API-endringene</a><a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
+<p>Dette er antageligvis den mest åpne problemstillingene, siden målene er såpass
+motstridende.</p>
+<p>La oss begynne med konstantene først, siden man har mindre gammel kode å
+forholde seg til:</p>
+<div class="highlight-python"><pre>class ConstantName(object):
+    table = "[:table schema=cerebrum name=constant_language]"
+
+    def get_name_language(self, language=None):
+        if language is None:
+            return str(self) # &lt;- fetches 'description'
+
+        return "SELECT ... FROM contant_language"
+    # end
+
+    def update_name_language(self, *rest):
+        for (name, language) in rest:
+            &lt;insert or update&gt;
+
+    def delete(self):
+        &lt;delete from constant_language where ...&gt;
+# end ConstantName
+
+
+class Constants(..., ConstantName):
+    # ...</pre>
+</div>
+<p>Kunne noe slikt være et utgangspunkt? Det som er teit er at get_name_language
+vil returnere en liste. Kanskje man kan omskrive den til å returnere
+description (<tt class="docutils literal"><span class="pre">str(self)</span></tt>) når det aktuelle språket ikke er tilgjengelig?
+Mulig man ønsker en eller annen <tt class="docutils literal"><span class="pre">list_*</span></tt>-variant også.</p>
+<p>Nå, til entitetene. Vi har allerede en mal i form av <tt class="docutils literal"><span class="pre">EntityName</span></tt>:</p>
+<blockquote>
+<div><ul class="simple">
+<li>delete()</li>
+<li>get_name(domain)</li>
+<li>get_names()</li>
+<li>add_entity_name()</li>
+<li>delete_entity_name()</li>
+<li>update_entity_name()</li>
+<li>find_by_name()</li>
+<li>list_names()</li>
+</ul>
+</div></blockquote>
+<p>Ser man også på Person, har klassen følgende grensesnitt mot navn:</p>
+<blockquote>
+<div><ul class="simple">
+<li>en del metoder for å manipulere navn gjennom <tt class="docutils literal"><span class="pre">populate</span></tt>
+affect_names, populate_name, write_db</li>
+<li>en del spesiallogikk for <tt class="docutils literal"><span class="pre">system_cached</span></tt></li>
+<li>get_name</li>
+<li>get_all_names</li>
+<li>getdict_persons_names</li>
+<li>search</li>
+</ul>
+</div></blockquote>
+<p>Det kompliserte her er det er <tt class="docutils literal"><span class="pre">populate</span></tt>-logikk og den må samsvare med
+dataene i databasen. I tillegg er det selvsagt slik at hvis vi skal lagre noe
+av informasjonen i <tt class="docutils literal"><span class="pre">person_name</span></tt> (for- og etternavn, f.eks.), vil det
+virke forvirrende om andre navn (eksempelvis <tt class="docutils literal"><span class="pre">work_title</span></tt>) skal plasseres i
+en annen tabell og skal behandles på en annen måte.</p>
+<p>Sist men ikke minst har vi OU-klassen. Her er alle navn satt opp som
+objektattributter (<tt class="docutils literal"><span class="pre">__write_attr__</span></tt>), som er atter en ny variant av
+navnhåndtering. Metodene som er innblandet i navnhåndtering:</p>
+<blockquote>
+<div><ul class="simple">
+<li>populate</li>
+<li>write_db</li>
+<li>new</li>
+<li>get_names</li>
+<li>get_acronyms</li>
+<li>search</li>
+</ul>
+</div></blockquote>
+<p>Det er egentlig litt trist at vi har så mange parallelle måter å håndtere navn
+på. Det burde være to, maks &#8211; en for unike og en for ikke-unike navn.</p>
+<p>Før man begynner med kreative forslag på navnhåndtering for Entity-instanser,
+la oss først se på hvordan navnedata fordeler seg i Cerebrum i dag:</p>
+<div class="highlight-python"><pre>=&gt; select pnc.code_str, count(pn.*)
+   from person_name pn, person_name_code pnc
+   where pnc.code = pn.name_variant group by code_str ;
+   code_str    | count
+---------------+--------
+ FIRST         | 474913
+ WORKTITLE     |  13204
+ PERSONALTITLE |    933
+ LAST          | 474913
+ FULL          | 199185
+
+=&gt; select vdc.code_str, count(en.*)
+   from entity_name en, value_domain_code vdc
+   where vdc.code = en.value_domain group by code_str, value_domain ;
+   code_str    | count
+---------------+--------
+ dns_owner_ns  |  49496
+ group_names   | 266386
+ account_names | 199747
+ host_names    |    173</pre>
+</div>
+<p>Innholdet av <tt class="docutils literal"><span class="pre">entity_name</span></tt> er uten noe tilknytning til språk og det er ikke
+naturlig å sette inn språk der mtp. hva slags data er lagret (&#8220;språket&#8221; til
+brukernavn er ikke spesielt nyttig/interessant).</p>
+<p><tt class="docutils literal"><span class="pre">person_name</span></tt> og <tt class="docutils literal"><span class="pre">ou_info</span></tt> bør nok revideres (det er et reelt behov for
+det allerede i dag), men, hvordan håndterer man personnavn (altså, ekte navn
+som folk har) ift titler og den slags som vi bruker person_name til?</p>
+<p>En mulighet (ressurskrevende) er å lage generell støtte for ikke-unike navn og
+lempe alt dit. Det vil kunne brukes til OU-er, Personer, e-postadresser &#8211;
+alt. Det vil fremdeles være nødvendig med 3 tabeller:</p>
+<blockquote>
+<div><ul class="simple">
+<li>entity_name &#8211; unike navn uten språk</li>
+<li>entity_non_unique_name &#8211; ikke-unike navn uten språk</li>
+<li>entity_name_language &#8211; ikke-unike navn med språkdata</li>
+</ul>
+</div></blockquote>
+<p>Da kan vi bli kvitt person_name, trimme ou_info og åpne for lagring av navn
+med og uten språk. Høres fint ut, men det er en enorm innsats å dra OU+Person
+over på det skjema.</p>
+<p>En annen mulighet er å organisere ting slik:</p>
+<blockquote>
+<div><ul class="simple">
+<li>entity_name &#8211; unike navn uten språk.</li>
+<li>person_name &#8211; (ekte) personnavn uten språk</li>
+<li>entity_name_language &#8211; ikke-unike navn med språkdata.</li>
+</ul>
+</div></blockquote>
+<p>Her beholder vi <tt class="docutils literal"><span class="pre">person_name</span></tt>, trimmer <tt class="docutils literal"><span class="pre">ou_info</span></tt> og støtter (ikke-unike)
+navn med språk. Den soleklare ulempen er at navnhåndtering i Person blir
+ulidelig komplisert.</p>
+<p>Nok en variasjon over tema er å la <tt class="docutils literal"><span class="pre">ou_info</span></tt> og <tt class="docutils literal"><span class="pre">person_name</span></tt> forbli
+uberørt, men samtidig lage <tt class="docutils literal"><span class="pre">entity_name_language</span></tt> med et passende
+grensesnitt. Det grensesnittet i sin tur kan brukes for å håndtere
+flerspråkdata. Dersom metodene har ikke-overlappende navn, kan vi introdusere
+flerspråkstøtte gradvis (dvs. gradvis fase ut person/OU-spesifikke
+navnehacks). Ulempen er at navneinformasjon blir atter mer komplisert (det
+siste vi vil akkurat nå er mer kode for marginalt mer funksjonalitet).</p>
+<p>Jeg vet ærlig talt ikke hva som er den lavest hengende frukten her.</p>
+<p>Hvis vi skal ha <tt class="docutils literal"><span class="pre">EntityNameLanguage</span></tt>, så kan muligens det 1. utkastet se
+slik ut:</p>
+<div class="highlight-python"><pre>class EntityNameLanguage(object):
+
+    def update_name_language(self, *rest):
+        for name, language, source in rest:
+            &lt;insert or update&gt;
+
+    def get_name_language(self, languages=..., source=..., name_type=...)
+        # find 1 row matching...
+
+    def search_name_language(self, ...):
+        # find multiple rows matching...
+
+    def delete_name_language(self, &lt;primary key attributes&gt;):
+        # delete from entity_name_language where ...</pre>
+</div>
+<p>Så kan man stappe en slik mixin inn i enhver klasse som arver fra <tt class="docutils literal"><span class="pre">Entity</span></tt>.</p>
+<p>En liten avsporting &#8211; jeg har aldri likt populate-ideen for navn: logikken i
+<tt class="docutils literal"><span class="pre">write_db</span></tt> blir en del mer komplisert, man må fremdeles hente ut navn for å
+finne ut om man skal gjøre en update eller en insert og evt. hvor mange
+deletes som skal følge med og mellom populate og write_db er ikke uthenting av
+navn mulig på konsistent vis (API-et tar ikke hensyn til data cachet internt,
+så populate(), get_name*, write_db() vil gi et annet svar enn populate(),
+write_db(), get_name*). Derfor er <tt class="docutils literal"><span class="pre">populate()</span></tt>-aktig logikk utelatt fra
+<tt class="docutils literal"><span class="pre">EntityNameLanguage</span></tt>.</p>
+</div>
+</div>
+<div class="section" id="implementasjonsplan">
+<h2><a class="toc-backref" href="#id18">Implementasjonsplan</a><a class="headerlink" href="#implementasjonsplan" title="Permalink to this headline">¶</a></h2>
+<p>Isjda, hvilken ende begynner man i?</p>
+<p>Det som brenner mest er navn på OU-er på ymse språk, så fokuset bør ligge
+der. <tt class="docutils literal"><span class="pre">EntityNameLanguage</span></tt> kan innføres uten stor dramatikk. Skal man droppe
+name/short_name/acronym osv tilgjengelige direkte som attributter? Kan iofs
+erstatte dem med properties, slik at klientkoden kan fortsette å bruke
+<tt class="docutils literal"><span class="pre">ou.acronym</span></tt> som en slags &#8220;default/fallback&#8221; verdi, mens for de tilfellene
+der det er viktig å være klar over språket, bruker man det som
+<tt class="docutils literal"><span class="pre">EntityNameLanguge</span></tt> tilbyr?</p>
+<p>En slik tilpasning vil forresten gi oss anledning til å gradvis migrere koden
+(en stor gulrot i seg selv). Dog, mulig implementasjon gjennom properties vil
+ha ganske høye kostander (hvis koden refererer til <tt class="docutils literal"><span class="pre">ou.name</span></tt> ukritisk, kan
+det tenkes at å ta en &#8220;select * from ...&#8221; på hver property-oppslag vil bære
+betydelige kostnader).</p>
+<p>Hva arbeidstitler på personer angår, vet jeg ikke helt hvordan man skal
+angripe uten store endringer i kodebasen.</p>
+</div>
+<div class="section" id="bakoverkompatibilitet">
+<h2><a class="toc-backref" href="#id19">Bakoverkompatibilitet</a><a class="headerlink" href="#bakoverkompatibilitet" title="Permalink to this headline">¶</a></h2>
+<p>Det er nok et problem å ta hensyn til. Navn (Person, OU, Entity) står sentralt
+i Cerebrum, og vi kan ikke foreta endringer av denne størrelsen uten å berøre
+andres kodetrær. Hvordan avklares dette med NTNU og Tromsø?</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Håndtering av språkdata i Cerebrum</a><ul>
+<li><a class="reference internal" href="#introduksjon">Introduksjon</a></li>
+<li><a class="reference internal" href="#status-quo">Status quo</a><ul>
+<li><a class="reference internal" href="#bofhd">bofhd</a></li>
+<li><a class="reference internal" href="#database">Database</a></li>
+<li><a class="reference internal" href="#brukerinfo">brukerinfo</a></li>
+<li><a class="reference internal" href="#kildesystemer">Kildesystemer</a></li>
+<li><a class="reference internal" href="#api-et">API-et</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#utfordringer">Utfordringer</a><ul>
+<li><a class="reference internal" href="#entiteter-vs-ikke-entiteter">Entiteter vs ikke-Entiteter</a></li>
+<li><a class="reference internal" href="#sprakkoding">Språkkoding</a></li>
+<li><a class="reference internal" href="#api-endringene">API-endringene</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#forslag">Forslag</a><ul>
+<li><a class="reference internal" href="#kildedata">Kildedata</a></li>
+<li><a class="reference internal" href="#db-skjema">DB-skjema</a></li>
+<li><a class="reference internal" href="#id1">API-endringene</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#implementasjonsplan">Implementasjonsplan</a></li>
+<li><a class="reference internal" href="#bakoverkompatibilitet">Bakoverkompatibilitet</a></li>
+</ul>
+</li>
+</ul>
+
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/doc/multi-languages/multi-language-support.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, University of Oslo.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

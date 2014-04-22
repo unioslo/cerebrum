@@ -1,0 +1,173 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Coding conventions for Cerebrum &mdash; Cerebrum 0.9.16 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.9.16',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Cerebrum 0.9.16 documentation" href="../../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="coding-conventions-for-cerebrum">
+<h1>Coding conventions for Cerebrum<a class="headerlink" href="#coding-conventions-for-cerebrum" title="Permalink to this headline">¶</a></h1>
+<p>Code submitted to Cerebrum should conform to <a class="reference external" href="http://www.python.org/peps/pep-0008.html">PEP 8 &#8211; Style Guide for
+Python Code</a>.</p>
+<p>The document is a bit long, so we repeat some of the main points here:</p>
+<ul class="simple">
+<li>tabs should not be used in Cerebrum (though PEP 8 allows it)</li>
+<li>follow the naming conventions for class, variable and method names.
+See <tt class="docutils literal"><span class="pre">Cerebrum/Entity.py</span></tt> for an example.</li>
+<li>avoid lines wider than 79 lines (there may be exceptions)</li>
+<li>It is recomended to follow <a class="reference external" href="http://www.python.org/dev/peps/pep-0287/">PEP 287 &#8211; reStructuredText Docstring
+Format</a> if docstring
+formatting is desired.</li>
+</ul>
+<dl class="docutils">
+<dt>Example (TODO-2006-12-03 runefro: expand and elaborate)::</dt>
+<dd><p class="first">class Keeper(Storer):</p>
+<blockquote class="last">
+<div><p>&#8220;&#8221;&#8221;
+Keep data fresher longer.</p>
+<p>Extend <cite>Storer</cite>.  Class attribute <cite>instances</cite> keeps track
+of the number of <cite>Keeper</cite> objects instantiated.
+&#8220;&#8221;&#8220;</p>
+<p>instances = 0
+&#8220;&#8221;&#8220;How many <cite>Keeper</cite> objects are there?&#8221;&#8220;&#8221;</p>
+<dl class="docutils">
+<dt>def __init__(self):</dt>
+<dd>&#8220;&#8221;&#8221;
+Extend <cite>Storer.__init__()</cite> to keep track of
+instances.  Keep count in <cite>self.instances</cite> and data
+in <cite>self.data</cite>.
+&#8220;&#8221;&#8221;
+Storer.__init__(self)
+foo_bar = &#8220;test&#8221;</dd>
+</dl>
+</div></blockquote>
+</dd>
+</dl>
+</div>
+<div class="section" id="editor-configuration">
+<h1>Editor configuration<a class="headerlink" href="#editor-configuration" title="Permalink to this headline">¶</a></h1>
+<p>How to set up your editor to follow indentation and possibly other
+parts of the coding conventions.</p>
+<div class="section" id="emacs">
+<h2>Emacs<a class="headerlink" href="#emacs" title="Permalink to this headline">¶</a></h2>
+<dl class="docutils">
+<dt>Add the following to <tt class="docutils literal"><span class="pre">$HOME/.emacs</span></tt>::</dt>
+<dd>(setq-default indent-tabs-mode nil)</dd>
+</dl>
+</div>
+</div>
+<div class="section" id="usage-of-todo-keywords">
+<h1>Usage of TODO keywords<a class="headerlink" href="#usage-of-todo-keywords" title="Permalink to this headline">¶</a></h1>
+<p>It is sometimes desireable to add a note in the source-code indicating
+that something should be done at a later point.  The folowing keywords
+should be used:</p>
+<dl class="docutils">
+<dt>TODO</dt>
+<dd>&#8220;To do&#8221; indicates that we have some idea of how to resolve a given
+task, but don&#8217;t have time to fix it right now.</dd>
+<dt>TBD</dt>
+<dd>&#8220;To be decided&#8221; indicates that some issue needs to be resolved
+before the code in question can be modified.</dd>
+<dt>FIXME</dt>
+<dd>Indicates a known bug/misfeature in the code that should be fixed.</dd>
+</dl>
+<p>It may sometimes be a bit unclear what keyword to use.  The main point
+is to use one of these and avoid inventing new.</p>
+<p>It is recomended to include a date and name when adding these keywords
+to make tracking easier.  For example:</p>
+<div class="highlight-python"><pre>TODO-2006-12-03 runefro: the code above may not behave correctly
+during a lunar eclipse</pre>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Coding conventions for Cerebrum</a></li>
+<li><a class="reference internal" href="#editor-configuration">Editor configuration</a><ul>
+<li><a class="reference internal" href="#emacs">Emacs</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#usage-of-todo-keywords">Usage of TODO keywords</a></li>
+</ul>
+
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/doc/devel/codestyle.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, University of Oslo.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

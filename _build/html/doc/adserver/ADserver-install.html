@@ -1,0 +1,254 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Installing the Cerebrum ADserver. &mdash; Cerebrum 0.9.16 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.9.16',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Cerebrum 0.9.16 documentation" href="../../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="installing-the-cerebrum-adserver">
+<h1>Installing the Cerebrum ADserver.<a class="headerlink" href="#installing-the-cerebrum-adserver" title="Permalink to this headline">¶</a></h1>
+<p>This documentation is written for and tested with revision 12264 of the
+code.</p>
+<p>ADserver was tested on Windows Server 2008 x64, Windows Server 2008 R2 x64 and Windows Server 2003 x86.</p>
+<p>A problem with x64 and python means there is currently no x64 support for Python for Windows Extensions (PyWin32), therefore all binaries must use 32bit versions.</p>
+<p>Install the following components on a domain member machine:</p>
+<p>ActivePython-2.5.4.4-win32-x86.msi from
+<a class="reference external" href="http://downloads.activestate.com/ActivePython/windows/2.5/">http://downloads.activestate.com/ActivePython/windows/2.5/</a>
+(A newer version 2.5 will most probably work)</p>
+<p>pywin32-214.win32-py2.5.exe from
+<a class="reference external" href="http://sourceforge.net/project/showfiles.php?group_id=78018&amp;package_id=79063&amp;release_id=616849">http://sourceforge.net/project/showfiles.php?group_id=78018&amp;package_id=79063&amp;release_id=616849</a></p>
+<p>pyOpenSSL-0.8.winxp32-py2.5.exe from
+<a class="reference external" href="http://sourceforge.net/project/showfiles.php?group_id=31249&amp;package_id=90289">http://sourceforge.net/project/showfiles.php?group_id=31249&amp;package_id=90289</a></p>
+<p>Win32 OpenSSL v0.9.8k Light
+<a class="reference external" href="http://www.slproweb.com/products/Win32OpenSSL.html">http://www.slproweb.com/products/Win32OpenSSL.html</a></p>
+<p>If OpenSSL is complaining about missing DLL, try to install
+Visual C++ 2008 Redistributables from
+<a class="reference external" href="http://www.slproweb.com/products/Win32OpenSSL.html">http://www.slproweb.com/products/Win32OpenSSL.html</a></p>
+<p>Download the components of the ADserver from sourceforge:
+The wanted components must be configured in the MixIn class in
+ADConstants.py</p>
+<ul class="simple">
+<li>ADconstants.py</li>
+<li>ADserver.py</li>
+<li>ADobject.py</li>
+<li>ADexchange.py</li>
+<li>ADaccountDir.py</li>
+</ul>
+<p>Download page:
+<a class="reference external" href="http://cerebrum.svn.sourceforge.net/viewvc/cerebrum/trunk/cerebrum/servers/ad/">http://cerebrum.svn.sourceforge.net/viewvc/cerebrum/trunk/cerebrum/servers/ad/</a></p>
+<p>place them in a suitable place (c:cerebrumpython)</p>
+<div class="section" id="settings-in-adconstants-py">
+<h2>Settings in ADconstants.py<a class="headerlink" href="#settings-in-adconstants-py" title="Permalink to this headline">¶</a></h2>
+<p>Edit the Constants in the file ADconstants.py, below is a description of
+each setting.</p>
+<ul class="simple">
+<li>Get a certificate for your installation, and place this in the path
+specified by KEYFILE and CERTFILE. The certificate can be generated with
+win32OpenSSL.</li>
+<li>LISTEN_HOST can be set to IP of local machine, or left blank.
+Default it is blank.</li>
+<li>Edit LISTEN_PORT to the portnumber specified on the cerebrum server.
+Default is 8000.</li>
+<li>Edit ACCESSLIST to the ip-address of the cerebrum server. This is a list
+and can contain more than one address.</li>
+<li>Edit DOMAIN to the domain you want to autenticate against. This
+might be a windows AD domain or the DN of the local macine. The
+windows domain is resolved by default.</li>
+<li>Edit AUTH to a valid user in the domain specified by the DOMAIN
+constant.  The default user is cerebrum. The password specified in
+the basic HTML autentication header sent in the XML-RPC request is
+used to autenticate the specified user. NB: avoid using chars not in
+7 bit ASCII in the password for the account.</li>
+<li>Configure the logger (see documentation of the python logger module)</li>
+<li>Configure the MixIn class. This class defines what modules the server will
+use. Here you can write your own classes and make them available for
+Cerebrum to access the methods.</li>
+</ul>
+</div>
+<div class="section" id="recomended-settings-on-the-domain-controller">
+<h2>Recomended settings on the Domain Controller:<a class="headerlink" href="#recomended-settings-on-the-domain-controller" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li>Create an user in AD, place the user in an OU Cerebrum is configured not to touch.
+Give this user the necessary rights to perform actions in Active Directory. Run the
+service in the context of this user. Remember to change password on the
+service if password is changed on the user AD. For security reasons
+This user should not be the user specified in the AUTH variable in the
+constants file. For test purposes it is advised that the user is a member of
+Domain Admins.</li>
+<li>Domain Functional level must be above 2000mixed mode to allow groups as
+groupmembers.</li>
+<li>The Group Policy Setting in Default Domain Policy:
+Computer Configuration -&gt; Windows Settings Security Settings -&gt;
+Account Policy -&gt; Password Policy -&gt; Password must meet complexity
+requirements should be disabled, else changing of password might fail.
+Password complexity requirements should be handled by Cerebrum.</li>
+<li>The Group Policy Setting in Default Domain Policy:
+User Configuration -&gt; Windows Settings -&gt;
+Administrative Template -&gt; System -&gt; Ctrl+Alt+Del Options -&gt;
+Remove Change Password should be disabled.</li>
+<li>Create OUs matching the AD_OU values in cerebrum for deleted objects,
+groups, user and so on.</li>
+<li>Remember to configure the firewall and accept communication through port
+8000, or the port specified by the PORT variable.</li>
+<li>The Machine must be member of the domain. The changes is done
+in the Active Directory domain through the Windows COM interface. The
+machine do not need to be a domain controller for the server work.</li>
+</ul>
+</div>
+</div>
+<div class="section" id="running-the-adserver">
+<h1>Running the ADserver.<a class="headerlink" href="#running-the-adserver" title="Permalink to this headline">¶</a></h1>
+<p>Start the server by running ADserver.py. The script have the following options.</p>
+<p>options:</p>
+<div class="highlight-python"><pre>--debug         Start the server in debug mode. Running the server
+                from CMD, displays all debug information.
+
+
+--service       Run the server as a service. The rest of the options
+                on the commandline is handed over and interpreted by the
+                pythonservice module. The service is logging to the
+                eventlog, so this is a good source for information.
+                Debug information from the service can also be caught
+                by running win32traceutil.py</pre>
+</div>
+<div class="section" id="some-exsamples">
+<h2>Some exsamples:<a class="headerlink" href="#some-exsamples" title="Permalink to this headline">¶</a></h2>
+<ul>
+<li><p class="first">Run in debug mode:
+ADserver.py &#8211;debug
+The server is writing output from the script to console.</p>
+</li>
+<li><p class="first">Install the server as a service:
+ADserver.py &#8211;service &#8211;startup auto install</p>
+<p>Remember to configure the service to Log On as a user with the autorization
+to make changes i Active Directory after install. The server run in the context
+of this user. Running as Local System Account will only work on a domain controller.</p>
+</li>
+<li><p class="first">Start the service:
+ADserver.py &#8211;service start</p>
+</li>
+<li><p class="first">Stop the service:
+ADserver.py &#8211;service stop</p>
+</li>
+<li><p class="first">Remove the service:
+The service must be stopped, then run
+ADserver.py &#8211;service remove</p>
+</li>
+</ul>
+</div>
+<div class="section" id="on-the-cerebrum-side">
+<h2>On the cerebrum side:<a class="headerlink" href="#on-the-cerebrum-side" title="Permalink to this headline">¶</a></h2>
+<p>A simple script to test contact with the server. The variables must be edited
+to match the installation:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="c">#!/usr/bin/env python</span>
+
+<span class="kn">import</span> <span class="nn">xmlrpclib</span>
+<span class="n">uname</span> <span class="o">=</span> <span class="s">&#39;user1&#39;</span>
+<span class="n">passwd</span> <span class="o">=</span> <span class="s">&#39;H3mm3lig!&#39;</span>
+<span class="n">ADserver</span> <span class="o">=</span> <span class="s">&#39;dctest.uio.no&#39;</span>
+<span class="n">port</span> <span class="o">=</span> <span class="mi">8000</span>
+
+<span class="n">server</span> <span class="o">=</span> <span class="n">xmlrpclib</span><span class="o">.</span><span class="n">Server</span><span class="p">(</span><span class="s">&#39;https://</span><span class="si">%s</span><span class="s">:</span><span class="si">%s</span><span class="s">@</span><span class="si">%s</span><span class="s">:</span><span class="si">%i</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">uname</span><span class="p">,</span> <span class="n">passwd</span><span class="p">,</span> <span class="n">ADserver</span><span class="p">,</span> <span class="n">port</span><span class="p">))</span>
+
+<span class="k">print</span> <span class="n">server</span><span class="o">.</span><span class="n">location</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The output should be the FQDN of the domain.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Installing the Cerebrum ADserver.</a><ul>
+<li><a class="reference internal" href="#settings-in-adconstants-py">Settings in ADconstants.py</a></li>
+<li><a class="reference internal" href="#recomended-settings-on-the-domain-controller">Recomended settings on the Domain Controller:</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#running-the-adserver">Running the ADserver.</a><ul>
+<li><a class="reference internal" href="#some-exsamples">Some exsamples:</a></li>
+<li><a class="reference internal" href="#on-the-cerebrum-side">On the cerebrum side:</a></li>
+</ul>
+</li>
+</ul>
+
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/doc/adserver/ADserver-install.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, University of Oslo.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

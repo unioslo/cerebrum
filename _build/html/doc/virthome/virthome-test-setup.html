@@ -1,0 +1,303 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Testoppsett for virthome-db &mdash; Cerebrum 0.9.16 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.9.16',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Cerebrum 0.9.16 documentation" href="../../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="testoppsett-for-virthome-db">
+<h1>Testoppsett for virthome-db<a class="headerlink" href="#testoppsett-for-virthome-db" title="Permalink to this headline">¶</a></h1>
+<p>F?lgende skritt m? tas for ? g? fra 0 til en fungerende
+VirtHome-database. &#8220;Fungerende&#8221; til testing, om ikke annet.</p>
+<div class="section" id="cereconf-variablene">
+<h2>cereconf-variablene<a class="headerlink" href="#cereconf-variablene" title="Permalink to this headline">¶</a></h2>
+<p>Disse variablene blir nevnt, p? en eller annen m?te, i virthomekoden:</p>
+<ul class="simple">
+<li>BOFHD_SUPERUSER_GROUP, navnet p? gruppen med superbrukere</li>
+<li>BOFHD_SUDOERS_GROUP, navnet p? gruppen med de som kan su-e til andre brukere
+(typisk bare webapp)</li>
+<li></li>
+</ul>
+</div>
+<div class="section" id="testprosedyren">
+<h2>Testprosedyren<a class="headerlink" href="#testprosedyren" title="Permalink to this headline">¶</a></h2>
+<p>S?, i rekkef?lge:</p>
+<blockquote>
+<div><ol class="arabic">
+<li><p class="first">Lage en tom database. For produksjonsmilj?et blir dette annerledes, men
+for testform?l er det enkleste ? koble seg inn mot default-databasen til
+brukeren cerebrum og lage en database til virthome, la oss kalle den
+&#8220;cerebrum_virthome&#8221;:</p>
+<div class="highlight-python"><pre>$ hostname
+cere-utv01.uio.no
+$ psql -h dbpg-cere-utv.uio.no -U cerebrum
+Password for user cerebrum:
+&lt;...&gt;
+cerebrum=&gt; create database cerebrum_virthome with encoding 'unicode' ;
+CREATE DATABASE</pre>
+</div>
+</li>
+<li><p class="first">Lage en passordfil til denne db-en:</p>
+<div class="highlight-python"><pre>$ whoami
+cerebrum
+$ cp /cerebrum/etc/passwords/passwd-cerebrum\@cerebrum_nmh_ivr\@dbpg-cereutv.uio.no \
+     '/cerebrum/etc/passwords/passwd-cerebrum@cerebrum_virthome@dbpg-cereutv.uio.no'</pre>
+</div>
+</li>
+<li><p class="first">Sette opp de n?dvendige konstant-variablene. VirtHome hanskes prim?rt med
+konti og grupper, og derfor m? vi sette minst disse cereconf-variablene:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="c"># Provide defaults for all settings.</span>
+<span class="kn">from</span> <span class="nn">Cerebrum.default_config</span> <span class="kn">import</span> <span class="o">*</span>
+
+<span class="c"># database</span>
+<span class="n">CEREBRUM_DATABASE_NAME</span><span class="o">=</span><span class="s">&quot;cerebrum_virthome&quot;</span>
+<span class="n">CLASS_DBDRIVER</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;Cerebrum.Database/PsycoPG2&#39;</span><span class="p">]</span>
+<span class="n">CEREBRUM_DATABASE_CONNECT_DATA</span><span class="p">[</span><span class="s">&quot;host&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s">&quot;dbpg-cereutv.uio.no&quot;</span>
+<span class="n">CEREBRUM_DATABASE_CONNECT_DATA</span><span class="p">[</span><span class="s">&quot;user&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s">&quot;cerebrum&quot;</span>
+<span class="n">DB_AUTH_DIR</span><span class="o">=</span><span class="s">&quot;/cerebrum/etc/passwords&quot;</span>
+<span class="n">CEREBRUM_DDL_DIR</span><span class="o">=</span><span class="s">&quot;/hom/ivr/work/cerebrum-virthome/design&quot;</span>
+
+<span class="c"># logging</span>
+<span class="n">LOGGING_CONFIGFILE</span><span class="o">=</span><span class="s">&quot;/hom/ivr/work/cerebrum-virthome/design/logging.ini&quot;</span>
+<span class="n">AUTOADMIN_LOG_DIR</span><span class="o">=</span><span class="s">&quot;/hom/ivr/work/cerebrum-virthome/logs/&quot;</span>
+
+<span class="c">#</span>
+<span class="c"># Names for Virt/FED accounts&#39; human owners.</span>
+<span class="n">ENTITY_TYPE_NAMESPACE</span><span class="p">[</span><span class="s">&quot;virthome_untrusted&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s">&quot;v_untrust_names&quot;</span>
+<span class="n">ENTITY_TYPE_NAMESPACE</span><span class="p">[</span><span class="s">&quot;virthome&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s">&quot;v_names&quot;</span>
+
+<span class="c"># core classes setup</span>
+<span class="n">CLASS_CONSTANTS</span> <span class="o">=</span> <span class="p">(</span><span class="c"># this one ought to be obvious...</span>
+            <span class="s">&#39;Cerebrum.modules.virthome.Constants/VirtHomeMiscConstants&#39;</span><span class="p">,</span>
+            <span class="c"># vh bofhd specific constants</span>
+            <span class="s">&#39;Cerebrum.modules.virthome.bofhd_auth/BofhdVirtHomeAuthConstants&#39;</span><span class="p">,</span>
+            <span class="c"># changelog events</span>
+            <span class="s">&#39;Cerebrum.modules.CLConstants/CLConstants&#39;</span><span class="p">,</span>
+            <span class="c"># bofhd events (auth-constants)</span>
+            <span class="s">&#39;Cerebrum.modules.bofhd.utils/Constants&#39;</span><span class="p">,</span>
+            <span class="c"># we use traits to confirm certain actions (account create)</span>
+            <span class="s">&#39;Cerebrum.modules.EntityTrait/TraitConstants&#39;</span><span class="p">,)</span>
+
+<span class="c"># This capture the common traits of Virt/FED accounts. When a distinction is</span>
+<span class="c"># important, grab the proper class manually. Since we have to types of</span>
+<span class="c"># accounts in virthome, CLASS_ACCOUNT on its own is a bit useless.</span>
+<span class="n">CLASS_ACCOUNT</span> <span class="o">=</span> <span class="p">(</span><span class="s">&#39;Cerebrum.modules.virthome.VirtAccount/BaseVirtHomeAccount&#39;</span><span class="p">,)</span>
+<span class="n">CLASS_GROUP</span> <span class="o">=</span> <span class="p">(</span><span class="s">&#39;Cerebrum.modules.virthome.VirtGroup/VirtGroup&#39;</span><span class="p">,)</span>
+<span class="n">CLASS_CHANGELOG</span> <span class="o">=</span> <span class="p">(</span><span class="s">&#39;Cerebrum.modules.virthome.ChangeLogVH/ChangeLogVH&#39;</span><span class="p">,)</span>
+
+<span class="c"># misc cerebrum tidbits -- which ones do we need?</span>
+<span class="n">SYSTEM_LOOKUP_ORDER</span><span class="o">=</span><span class="p">(</span><span class="s">&quot;system_virthome&quot;</span><span class="p">,)</span>
+
+<span class="c"># Some of the jobs need to send e-mails</span>
+<span class="n">SMTP_HOST</span> <span class="o">=</span> <span class="s">&quot;smtp.uio.no&quot;</span>
+
+<span class="c"># BOFH-magic</span>
+<span class="n">BOFHD_MOTD_FILE</span> <span class="o">=</span> <span class="bp">None</span>
+<span class="n">BOFHD_SUDOERS_GROUP</span> <span class="o">=</span> <span class="s">&quot;sudoers&quot;</span>
+<span class="n">BOFHD_NEW_GROUP_SPREADS</span> <span class="o">=</span> <span class="p">(</span><span class="s">&quot;group@ldap&quot;</span><span class="p">,)</span>
+<span class="n">BOFHD_NEW_USER_SPREADS</span> <span class="o">=</span> <span class="p">(</span><span class="s">&quot;account@ldap&quot;</span><span class="p">,)</span>
+
+<span class="c"># Realm for virtaccounts</span>
+<span class="n">VIRTHOME_REALM</span> <span class="o">=</span> <span class="s">&quot;VH&quot;</span>
+
+<span class="c"># Quarantines</span>
+<span class="n">QUARANTINE_RULES</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;nologin&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s">&#39;lock&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="p">},</span>
+                    <span class="s">&#39;autopassword&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s">&#39;lock&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
+                    <span class="s">&#39;pending&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s">&#39;lock&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
+                    <span class="s">&#39;disabled&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s">&#39;lock&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
+                   <span class="p">}</span>
+
+<span class="c">#</span>
+<span class="c"># LDAP-related configuration</span>
+<span class="n">LDAP</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s">&#39;dump_dir&#39;</span><span class="p">:</span> <span class="s">&#39;./&#39;</span><span class="p">,</span>
+    <span class="s">&#39;container_attrs&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s">&#39;objectClass&#39;</span><span class="p">:</span> <span class="p">(</span><span class="s">&#39;top&#39;</span><span class="p">,</span> <span class="s">&#39;uioUntypedObject&#39;</span><span class="p">)},</span>
+<span class="p">}</span>
+
+<span class="n">LDAP_ORG</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s">&#39;dn&#39;</span><span class="p">:</span> <span class="s">&#39;cn=virthome,dc=usit,dc=uio,dc=no&#39;</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="n">LDAP_USER</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s">&#39;dn&#39;</span><span class="p">:</span> <span class="s">&#39;cn=users,&#39;</span> <span class="o">+</span> <span class="n">LDAP_ORG</span><span class="p">[</span><span class="s">&#39;dn&#39;</span><span class="p">],</span>
+    <span class="s">&#39;spreads&#39;</span><span class="p">:</span> <span class="p">(</span><span class="s">&#39;account@ldap&#39;</span><span class="p">,),</span>
+    <span class="s">&#39;objectClass&#39;</span><span class="p">:</span> <span class="p">(</span><span class="s">&#39;top&#39;</span><span class="p">,</span> <span class="s">&#39;person&#39;</span><span class="p">,</span> <span class="s">&#39;organizationalPerson&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;inetOrgPerson&#39;</span><span class="p">,</span> <span class="s">&#39;uioPersonObject&#39;</span><span class="p">,),</span>
+<span class="p">}</span>
+
+<span class="n">LDAP_GROUP</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s">&#39;dn&#39;</span><span class="p">:</span> <span class="s">&#39;cn=groups,&#39;</span> <span class="o">+</span> <span class="n">LDAP_ORG</span><span class="p">[</span><span class="s">&#39;dn&#39;</span><span class="p">],</span>
+    <span class="s">&#39;spreads&#39;</span><span class="p">:</span> <span class="p">(</span><span class="s">&#39;group@ldap&#39;</span><span class="p">,),</span>
+    <span class="s">&#39;objectClass&#39;</span><span class="p">:</span> <span class="p">(</span><span class="s">&#39;top&#39;</span><span class="p">,</span> <span class="s">&#39;groupOfNames&#39;</span><span class="p">,),</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first">S?rg for at denne cereconf-en er p? rett sted (PYTHONPATH m? peke et sted
+der det finnes en cereconf.py som inneholder punktet over):</p>
+<div class="highlight-python"><pre>$ python -c 'import cerebrum_path, cereconf; print cereconf.CEREBRUM_DATABASE_NAME'</pre>
+</div>
+</li>
+<li><p class="first">S? kan vi populere databasen med tomme tabeller. Det enkleste er ?
+begynne fra scratch og bruke cere-utv01 / dbpg-cereutv.uio.no til
+form?let:</p>
+<div class="highlight-python"><pre>$ python makedb.py --extra-file design/mod_changelog.sql \
+                   --extra-file design/mod_entity_trait.sql \
+                   --extra-file design/mod_virthome.sql \
+                   --extra-file design/bofhd_tables.sql \
+                   --extra-file design/bofhd_auth.sql \
+                   --extra-file design/mod_password_history.sql \
+                   --extra-file design/mod_job_runner.sql</pre>
+</div>
+</li>
+<li><p class="first">Sette passord p? boostrap_account, slik at vi har en bruker med
+rettigheter til ? tildele andre rettigheter gjennom bofhd. Dette gj?res
+gjennom API-et:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">import</span> <span class="nn">cerebrum_path</span><span class="o">,</span> <span class="nn">cereconf</span>
+<span class="kn">from</span> <span class="nn">Cerebrum.Utils</span> <span class="kn">import</span> <span class="n">Factory</span>
+<span class="n">db</span> <span class="o">=</span> <span class="n">Factory</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&quot;Database&quot;</span><span class="p">)()</span>
+<span class="n">db</span><span class="o">.</span><span class="n">cl_init</span><span class="p">(</span><span class="n">change_program</span><span class="o">=</span><span class="s">&#39;manual hack&#39;</span><span class="p">)</span>
+<span class="n">acc</span> <span class="o">=</span> <span class="n">Factory</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&quot;Account&quot;</span><span class="p">)(</span><span class="n">db</span><span class="p">)</span>
+<span class="n">acc</span><span class="o">.</span><span class="n">find_by_name</span><span class="p">(</span><span class="n">cereconf</span><span class="o">.</span><span class="n">INITIAL_ACCOUNTNAME</span><span class="p">)</span>
+<span class="n">acc</span><span class="o">.</span><span class="n">set_password</span><span class="p">(</span><span class="s">&quot;let-me-in&quot;</span><span class="p">)</span>
+<span class="n">acc</span><span class="o">.</span><span class="n">write_db</span><span class="p">()</span>
+<span class="n">db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first">Lage webapp-brukeren, de n?dvendige opsets og tildele opsets:</p>
+<div class="highlight-python"><pre>$ python contrib/virthome/assign_permissions.py -w webapp</pre>
+</div>
+<p>Hvis alt ser fint ut, kj?r skriptet med commit:</p>
+<div class="highlight-python"><pre>$ python contrib/virthome/assign_permissions.py -w webapp -c</pre>
+</div>
+<p>deretter m? passordet settes for webapp-brukeren:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">import</span> <span class="nn">cerebrum_path</span><span class="o">,</span> <span class="nn">cereconf</span>
+<span class="kn">from</span> <span class="nn">Cerebrum.Utils</span> <span class="kn">import</span> <span class="n">Factory</span>
+<span class="n">db</span> <span class="o">=</span> <span class="n">Factory</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&quot;Database&quot;</span><span class="p">)()</span>
+<span class="n">db</span><span class="o">.</span><span class="n">cl_init</span><span class="p">(</span><span class="n">change_program</span><span class="o">=</span><span class="s">&#39;manual hack&#39;</span><span class="p">)</span>
+<span class="n">acc</span> <span class="o">=</span> <span class="n">Factory</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&quot;Account&quot;</span><span class="p">)(</span><span class="n">db</span><span class="p">)</span>
+<span class="n">acc</span><span class="o">.</span><span class="n">find_by_name</span><span class="p">(</span><span class="s">&#39;webapp&#39;</span><span class="p">)</span>
+<span class="n">acc</span><span class="o">.</span><span class="n">set_password</span><span class="p">(</span><span class="s">&quot;let-me-in&quot;</span><span class="p">)</span>
+<span class="n">acc</span><span class="o">.</span><span class="n">write_db</span><span class="p">()</span>
+<span class="n">db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first">Under en ekte installasjon b?r passordene for bootstrap og webapp legges
+under <tt class="docutils literal"><span class="pre">cereconf.DB_AUTH_DIR</span></tt> &#8211; det kan v?re nyttig ved senere
+anledninger.</p>
+</li>
+<li><p class="first">Lage konfigurasjonsfilen til bofhd: Trenger egentlig kun virthome sine
+kommandoer (den bofhd-en arver alle de andre):</p>
+<div class="highlight-python"><pre>$ cat design/config.dat
+
+Cerebrum.modules.virthome.bofhd_virthome_cmds/BofhdVirthomeCommands
+Cerebrum.modules.virthome.bofhd_virthome_cmds/BofhdVirthomeMiscCommands</pre>
+</div>
+</li>
+<li><p class="first">Starte bofhd:</p>
+<div class="highlight-python"><pre>$ python servers/bofhd/bofhd.py -c design/config.dat \
+         --logger-name console --port 8958</pre>
+</div>
+<p>Hva porten er er noks? uvesentlig, men det m? v?re en port som det er
+mulig ? koble til fra w3utv-ws01 som webappen er p? (8957/8958 skal v?re
+?pne (jfr
+&lt;URL:msgid:Pine.LNX.4.64-L.0910061119220.20367&#64;fruktkurv.uio.no&gt;).</p>
+</li>
+<li></li>
+</ol>
+</div></blockquote>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Testoppsett for virthome-db</a><ul>
+<li><a class="reference internal" href="#cereconf-variablene">cereconf-variablene</a></li>
+<li><a class="reference internal" href="#testprosedyren">Testprosedyren</a></li>
+</ul>
+</li>
+</ul>
+
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/doc/virthome/virthome-test-setup.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, University of Oslo.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

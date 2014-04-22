@@ -1,0 +1,378 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>1   The Cerebrum Core &mdash; Cerebrum 0.9.16 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.9.16',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Cerebrum 0.9.16 documentation" href="../../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="the-cerebrum-core">
+<h1><a class="toc-backref" href="#id1">1&nbsp;&nbsp;&nbsp;The Cerebrum Core</a><a class="headerlink" href="#the-cerebrum-core" title="Permalink to this headline">¶</a></h1>
+<div class="contents topic" id="contents">
+<p class="topic-title first">Contents</p>
+<ul class="auto-toc simple">
+<li><a class="reference internal" href="#the-cerebrum-core" id="id1">1&nbsp;&nbsp;&nbsp;The Cerebrum Core</a><ul class="auto-toc">
+<li><a class="reference internal" href="#configuration" id="id2">1.1&nbsp;&nbsp;&nbsp;Configuration</a><ul class="auto-toc">
+<li><a class="reference internal" href="#the-cerebrum-default-config-module" id="id3">1.1.1&nbsp;&nbsp;&nbsp;The <tt class="docutils literal"><span class="pre">Cerebrum.default_config</span></tt> module</a></li>
+<li><a class="reference internal" href="#the-cereconf-module" id="id4">1.1.2&nbsp;&nbsp;&nbsp;The <tt class="docutils literal"><span class="pre">cereconf</span></tt> module</a><ul class="auto-toc">
+<li><a class="reference internal" href="#cereconf-py-in-a-testing-environment" id="id5">1.1.2.1&nbsp;&nbsp;&nbsp;cereconf.py in a testing environment</a></li>
+<li><a class="reference internal" href="#common-configuration-parameters" id="id6">1.1.2.2&nbsp;&nbsp;&nbsp;Common configuration parameters</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#the-database-layer" id="id7">1.2&nbsp;&nbsp;&nbsp;The database layer</a><ul class="auto-toc">
+<li><a class="reference internal" href="#cerebrum-database" id="id8">1.2.1&nbsp;&nbsp;&nbsp;<tt class="docutils literal"><span class="pre">Cerebrum.Database</span></tt></a><ul class="auto-toc">
+<li><a class="reference internal" href="#extensions-to-sql-syntax" id="id9">1.2.1.1&nbsp;&nbsp;&nbsp;Extensions to SQL syntax</a></li>
+<li><a class="reference internal" href="#python-interface" id="id10">1.2.1.2&nbsp;&nbsp;&nbsp;Python interface</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#query-self-query-params-fetchall-true" id="id11">1.2.2&nbsp;&nbsp;&nbsp;query(self, query, params=(), fetchall=True)</a></li>
+<li><a class="reference internal" href="#query-1-self-query-params" id="id12">1.2.3&nbsp;&nbsp;&nbsp;query_1(self, query, params=())</a></li>
+<li><a class="reference internal" href="#execute-self-operation-parameters" id="id13">1.2.4&nbsp;&nbsp;&nbsp;execute(self, operation, parameters=())</a></li>
+<li><a class="reference internal" href="#connect-args-kws" id="id14">1.2.5&nbsp;&nbsp;&nbsp;connect(*args, **kws)</a><ul class="auto-toc">
+<li><a class="reference internal" href="#db-row" id="id15">1.2.5.1&nbsp;&nbsp;&nbsp;db_row</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#metainfo" id="id16">1.3&nbsp;&nbsp;&nbsp;Metainfo</a></li>
+<li><a class="reference internal" href="#utils" id="id17">1.4&nbsp;&nbsp;&nbsp;Utils</a></li>
+<li><a class="reference internal" href="#logging" id="id18">1.5&nbsp;&nbsp;&nbsp;logging</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="configuration">
+<h2><a class="toc-backref" href="#id2">1.1&nbsp;&nbsp;&nbsp;Configuration</a><a class="headerlink" href="#configuration" title="Permalink to this headline">¶</a></h2>
+<p>TODO: we need to read through table descriptions in design/core_tables.sql
+TODO: This section needs a re-write. The file should look something like this:</p>
+<ul>
+<li><p class="first">The <tt class="docutils literal"><span class="pre">Cerebrum.default_config</span></tt> module - general description, shorter</p>
+</li>
+<li><p class="first">The <tt class="docutils literal"><span class="pre">cereconf</span></tt> module - general description, shorter</p>
+</li>
+<li><p class="first">Common configuration parameters:</p>
+<blockquote>
+<div><ul class="simple">
+<li>examples of use of configuration parameters in configuration of own
+Cerebrum instalation</li>
+<li>description/illustration of usage of default values/overriding of
+parameters to gain flexibility/change the behavior of Cerebrum</li>
+<li>detailed description of the most important parameters and their
+function</li>
+<li>a reference to default_config.py for more information on other
+parameters.</li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+<div class="section" id="the-cerebrum-default-config-module">
+<h3><a class="toc-backref" href="#id3">1.1.1&nbsp;&nbsp;&nbsp;The <tt class="docutils literal"><span class="pre">Cerebrum.default_config</span></tt> module</a><a class="headerlink" href="#the-cerebrum-default-config-module" title="Permalink to this headline">¶</a></h3>
+<p>Cerebrum has fairly large number of configurable parameters that may
+be adjusted by the system administrator.  These parameters include
+things like the database name and driver.  <em>All</em> such parameters
+should have an entry with its default value in the module called
+<tt class="docutils literal"><span class="pre">Cerebrum.default_config</span></tt>, and every such entry should be
+accompanied by a comment on the intended purpose for that particular
+configurable.</p>
+<p>For parameters where no generally useful default can be found, the
+default value should be invalid for that parameter, and a statement to
+the effect of:</p>
+<blockquote>
+<div>If you want to use this functionality, you must override the default
+value in cereconf.py</div></blockquote>
+<p>should be included in the parameters comment.</p>
+</div>
+<div class="section" id="the-cereconf-module">
+<h3><a class="toc-backref" href="#id4">1.1.2&nbsp;&nbsp;&nbsp;The <tt class="docutils literal"><span class="pre">cereconf</span></tt> module</a><a class="headerlink" href="#the-cereconf-module" title="Permalink to this headline">¶</a></h3>
+<p>As the <tt class="docutils literal"><span class="pre">default_config</span></tt> module lives in the <tt class="docutils literal"><span class="pre">Cerebrum</span></tt> Python
+package, an upgrade of Cerebrum will replace the module.  Hence, if
+you want to change any of the default values, don&#8217;t change them in
+<tt class="docutils literal"><span class="pre">default_config</span></tt>; rather, you should set &#8220;your&#8221; values in the
+<tt class="docutils literal"><span class="pre">cereconf</span></tt> module.</p>
+<p>The <tt class="docutils literal"><span class="pre">cereconf</span></tt> module will typically reside in
+<tt class="docutils literal"><span class="pre">$CEREBRUM_ROOT/etc/cerebrum/cereconf.py</span></tt>.</p>
+<p>The file is a Python script, thus it must contain valid Python syntax.
+Most of the settings are of the type <tt class="docutils literal"><span class="pre">key</span> <span class="pre">=</span> <span class="pre">value</span></tt>.  On a fresh
+install, the file only contains the following line (excepting lines
+starting with #, which are Python comments):</p>
+<blockquote>
+<div><tt class="docutils literal"><span class="pre">from</span> <span class="pre">Cerebrum.default_config</span> <span class="pre">import</span> <span class="pre">*</span></tt></div></blockquote>
+<p>This imports all the default settings for Cerebrum.  Normally this
+line should never be changed or removed, and all your own settings
+should appear below it.</p>
+<div class="section" id="cereconf-py-in-a-testing-environment">
+<h4><a class="toc-backref" href="#id5">1.1.2.1&nbsp;&nbsp;&nbsp;cereconf.py in a testing environment</a><a class="headerlink" href="#cereconf-py-in-a-testing-environment" title="Permalink to this headline">¶</a></h4>
+<p>If you have one production, and one testing environment, and want to
+assert that your test environment allways includes the settings from
+the production environment, you can use a <tt class="docutils literal"><span class="pre">cereconf.py</span></tt> that looks
+something like this:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="c"># -*- coding: iso-8859-1 -*-</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="c"># Import settings from production environment</span>
+<span class="nb">execfile</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">__file_</span><span class="p">),</span>
+                      <span class="s">&quot;cereconf-production.py&quot;</span><span class="p">))</span>
+
+<span class="c"># Then override as needed</span>
+<span class="n">_hostname</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">uname</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span>
+<span class="k">if</span> <span class="n">_hostname</span> <span class="ow">in</span> <span class="p">(</span><span class="s">&#39;testmachine.foo.com&#39;</span><span class="p">,):</span>
+    <span class="n">CEREBRUM_DATABASE_NAME</span> <span class="o">=</span> <span class="s">&quot;cerebrum_testing&quot;</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="common-configuration-parameters">
+<h4><a class="toc-backref" href="#id6">1.1.2.2&nbsp;&nbsp;&nbsp;Common configuration parameters</a><a class="headerlink" href="#common-configuration-parameters" title="Permalink to this headline">¶</a></h4>
+<p>This section contains a brief explanation of some of the common
+parameters.  A description of all the available parameters is beyond
+the scope of this document; they are documented in
+<tt class="docutils literal"><span class="pre">Cerebrum/default_config.py</span></tt>.</p>
+<blockquote>
+<div><p><em>Note</em>: As mentioned in the Factory documentation, some classes are
+created dynamically from a list of classes.  The parameters
+specifying these class lists are named <tt class="docutils literal"><span class="pre">CLASS_*</span></tt>, e.g.:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">CLASS_DBDRIVER</span> <span class="o">=</span> <span class="p">(</span><span class="s">&#39;Cerebrum.Database/PostgreSQL&#39;</span><span class="p">,)</span>
+</pre></div>
+</div>
+<p>Observe the important comma just before the closing parenthesis &#8211;
+without that comma, Python would interpret that value as a string,
+and not a list, and things would stop working.</p>
+</div></blockquote>
+<p>TBD: Hvor mye tekst vil vi egentlig ha her?</p>
+<dl class="docutils">
+<dt><tt class="docutils literal"><span class="pre">CEREBRUM_DATABASE_NAME</span> <span class="pre">=</span> <span class="pre">'cerebrum_db'</span></tt></dt>
+<dd>Defines the name of the Cerebrum database to use.</dd>
+</dl>
+<p><tt class="docutils literal"><span class="pre">CEREBRUM_DATABASE_CONNECT_DATA['user']</span> <span class="pre">=</span> <span class="pre">'cerebrum'</span></tt></p>
+<blockquote>
+<div>Defines the (database) username used for connecting to the database.
+The corresponding password is stored in
+<tt class="docutils literal"><span class="pre">$CEREBRUM_ROOT/etc/passwords/passwd-&lt;user&gt;&#64;&lt;database_name&gt;</span></tt>
+(which must be readable by the (Operating System) user used for
+running Cerebrum&#8217;s Python scripts.</div></blockquote>
+<dl class="docutils">
+<dt><tt class="docutils literal"><span class="pre">CLASS_DBDRIVER</span> <span class="pre">=</span> <span class="pre">('Cerebrum.Database/PostgreSQL',)</span></tt></dt>
+<dd>Defines that Cerebrum (by default) should use PostgreSQL drivers
+when connecting to databases.</dd>
+<dt><tt class="docutils literal"><span class="pre">CLASS_CONSTANTS</span> <span class="pre">=</span> <span class="pre">('Cerebrum.modules.PosixUser/Constants',</span> <span class="pre">'Cerebrum.modules.CLConstants/CLConstants')</span></tt></dt>
+<dd>Defines which Cerebrum constants (&#8220;code values&#8221;) should be available.</dd>
+<dt><tt class="docutils literal"><span class="pre">CLASS_CHANGELOG</span> <span class="pre">=</span> <span class="pre">('Cerebrum.modules.ChangeLog/ChangeLog',)</span></tt></dt>
+<dd>Indicate which changelog class we want to use.  This one enables the
+changelog, while the default one is an empty implementation.</dd>
+<dt><tt class="docutils literal"><span class="pre">PERSON_NAME_SS_ORDER</span> <span class="pre">=</span> <span class="pre">(&quot;system_lt&quot;,</span> <span class="pre">&quot;system_fs&quot;,</span> <span class="pre">&quot;system_ureg&quot;)</span></tt></dt>
+<dd>The ordering in which we trust person names from source systems.
+Used when updating the names of the person in the magic source
+system named &#8216;cached&#8217;.</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="section" id="the-database-layer">
+<h2><a class="toc-backref" href="#id7">1.2&nbsp;&nbsp;&nbsp;The database layer</a><a class="headerlink" href="#the-database-layer" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="cerebrum-database">
+<h3><a class="toc-backref" href="#id8">1.2.1&nbsp;&nbsp;&nbsp;<tt class="docutils literal"><span class="pre">Cerebrum.Database</span></tt></a><a class="headerlink" href="#cerebrum-database" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li>Provides a compatibility wrapper around various python DB-API 2.0
+drivers.</li>
+<li>Currently has support for connecting to Oracle and PostgreSQL
+databases.</li>
+<li>Specific drivers supported:
+- <tt class="docutils literal"><span class="pre">pyPgSQL.PgSQL</span></tt> (fully supported)
+- <tt class="docutils literal"><span class="pre">psycopg</span></tt> (some support; probably still somewhat buggy)
+- <tt class="docutils literal"><span class="pre">DCOracle2</span></tt> (fully supported for connecting to non-Cerebrum
+Oracle databases)</li>
+</ul>
+<div class="section" id="extensions-to-sql-syntax">
+<h4><a class="toc-backref" href="#id9">1.2.1.1&nbsp;&nbsp;&nbsp;Extensions to SQL syntax</a><a class="headerlink" href="#extensions-to-sql-syntax" title="Permalink to this headline">¶</a></h4>
+<ul>
+<li><p class="first">The classes in the <tt class="docutils literal"><span class="pre">Database</span></tt> module implements some special SQL
+syntax extensions.  In SQL statements, these syntax extensions look
+like this:</p>
+<div class="highlight-python"><pre>[:function key1=val1 key2=val2]</pre>
+</div>
+<p>The Python code implementing these syntax extensions reside in
+methods called <tt class="docutils literal"><span class="pre">_sql_port_*</span></tt>, so that the <em>:function</em> extension
+resides in method <tt class="docutils literal"><span class="pre">_sql_port_function()</span></tt>.</p>
+<p>The following extensions are currently supported:</p>
+<ul>
+<li><p class="first">[:table schema=cerebrum name=entity_info]</p>
+<p>Expands to <tt class="docutils literal"><span class="pre">entity_info</span></tt> on PostgreSQL, but
+<tt class="docutils literal"><span class="pre">cerebrum.entity_name</span></tt> on Oracle.</p>
+</li>
+<li><p class="first">[:now]</p>
+<p>Expands to the current datetime.</p>
+</li>
+<li><p class="first">[:sequence schema=cerebrum name=entity_id_seq op=next]</p>
+<p>SQL sequence access; valid operations for <tt class="docutils literal"><span class="pre">op</span></tt> are <tt class="docutils literal"><span class="pre">current</span></tt>
+and <tt class="docutils literal"><span class="pre">next</span></tt>.</p>
+</li>
+<li><p class="first">[:from_dual]</p>
+<p>Oracle won&#8217;t accept SELECT queries with no FROM clause, and
+PostgreSQL doesn&#8217;t have anything curresponding to Oracle&#8217;s special
+DUAL table.</p>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="python-interface">
+<h4><a class="toc-backref" href="#id10">1.2.1.2&nbsp;&nbsp;&nbsp;Python interface</a><a class="headerlink" href="#python-interface" title="Permalink to this headline">¶</a></h4>
+<p>The module defines two main classes:
+<tt class="docutils literal"><span class="pre">Database</span></tt> and <tt class="docutils literal"><span class="pre">Cursor</span></tt>.</p>
+</div>
+</div>
+<div class="section" id="query-self-query-params-fetchall-true">
+<h3><a class="toc-backref" href="#id11">1.2.2&nbsp;&nbsp;&nbsp;query(self, query, params=(), fetchall=True)</a><a class="headerlink" href="#query-self-query-params-fetchall-true" title="Permalink to this headline">¶</a></h3>
+<p>(TODO: extract python method doc)</p>
+</div>
+<div class="section" id="query-1-self-query-params">
+<h3><a class="toc-backref" href="#id12">1.2.3&nbsp;&nbsp;&nbsp;query_1(self, query, params=())</a><a class="headerlink" href="#query-1-self-query-params" title="Permalink to this headline">¶</a></h3>
+<p>(TODO: extract python method doc)</p>
+</div>
+<div class="section" id="execute-self-operation-parameters">
+<h3><a class="toc-backref" href="#id13">1.2.4&nbsp;&nbsp;&nbsp;execute(self, operation, parameters=())</a><a class="headerlink" href="#execute-self-operation-parameters" title="Permalink to this headline">¶</a></h3>
+<p>(TODO: extract python method doc)</p>
+</div>
+<div class="section" id="connect-args-kws">
+<h3><a class="toc-backref" href="#id14">1.2.5&nbsp;&nbsp;&nbsp;connect(*args, **kws)</a><a class="headerlink" href="#connect-args-kws" title="Permalink to this headline">¶</a></h3>
+<p>(TODO: extract python method doc)</p>
+<div class="section" id="db-row">
+<h4><a class="toc-backref" href="#id15">1.2.5.1&nbsp;&nbsp;&nbsp;db_row</a><a class="headerlink" href="#db-row" title="Permalink to this headline">¶</a></h4>
+<p>Data returned from execute() are db_row objects, which makes it
+possible to reference them by column name.</p>
+</div>
+</div>
+</div>
+<div class="section" id="metainfo">
+<h2><a class="toc-backref" href="#id16">1.3&nbsp;&nbsp;&nbsp;Metainfo</a><a class="headerlink" href="#metainfo" title="Permalink to this headline">¶</a></h2>
+<p>Stores meta information about the database, such as the version number
+of the installed database schema, and the version of each &#8211;extra-file
+that was used when running <tt class="docutils literal"><span class="pre">makedb.py</span></tt></p>
+</div>
+<div class="section" id="utils">
+<h2><a class="toc-backref" href="#id17">1.4&nbsp;&nbsp;&nbsp;Utils</a><a class="headerlink" href="#utils" title="Permalink to this headline">¶</a></h2>
+<p>TBD: ettersom denne inneholder Factory, auto_super og mark_update b?r
+den kanskje dokumenteres der?</p>
+<p>Provides a number of general utility functions/classes.  We should
+probably consider splitting it into smaller pieces.</p>
+</div>
+<div class="section" id="logging">
+<h2><a class="toc-backref" href="#id18">1.5&nbsp;&nbsp;&nbsp;logging</a><a class="headerlink" href="#logging" title="Permalink to this headline">¶</a></h2>
+<p>&lt;her skal igorr&#8217;s dok inn&gt;</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">1&nbsp;&nbsp;&nbsp;The Cerebrum Core</a><ul>
+<li><a class="reference internal" href="#configuration">1.1&nbsp;&nbsp;&nbsp;Configuration</a><ul>
+<li><a class="reference internal" href="#the-cerebrum-default-config-module">1.1.1&nbsp;&nbsp;&nbsp;The <tt class="docutils literal"><span class="pre">Cerebrum.default_config</span></tt> module</a></li>
+<li><a class="reference internal" href="#the-cereconf-module">1.1.2&nbsp;&nbsp;&nbsp;The <tt class="docutils literal"><span class="pre">cereconf</span></tt> module</a><ul>
+<li><a class="reference internal" href="#cereconf-py-in-a-testing-environment">1.1.2.1&nbsp;&nbsp;&nbsp;cereconf.py in a testing environment</a></li>
+<li><a class="reference internal" href="#common-configuration-parameters">1.1.2.2&nbsp;&nbsp;&nbsp;Common configuration parameters</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#the-database-layer">1.2&nbsp;&nbsp;&nbsp;The database layer</a><ul>
+<li><a class="reference internal" href="#cerebrum-database">1.2.1&nbsp;&nbsp;&nbsp;<tt class="docutils literal"><span class="pre">Cerebrum.Database</span></tt></a><ul>
+<li><a class="reference internal" href="#extensions-to-sql-syntax">1.2.1.1&nbsp;&nbsp;&nbsp;Extensions to SQL syntax</a></li>
+<li><a class="reference internal" href="#python-interface">1.2.1.2&nbsp;&nbsp;&nbsp;Python interface</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#query-self-query-params-fetchall-true">1.2.2&nbsp;&nbsp;&nbsp;query(self, query, params=(), fetchall=True)</a></li>
+<li><a class="reference internal" href="#query-1-self-query-params">1.2.3&nbsp;&nbsp;&nbsp;query_1(self, query, params=())</a></li>
+<li><a class="reference internal" href="#execute-self-operation-parameters">1.2.4&nbsp;&nbsp;&nbsp;execute(self, operation, parameters=())</a></li>
+<li><a class="reference internal" href="#connect-args-kws">1.2.5&nbsp;&nbsp;&nbsp;connect(*args, **kws)</a><ul>
+<li><a class="reference internal" href="#db-row">1.2.5.1&nbsp;&nbsp;&nbsp;db_row</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#metainfo">1.3&nbsp;&nbsp;&nbsp;Metainfo</a></li>
+<li><a class="reference internal" href="#utils">1.4&nbsp;&nbsp;&nbsp;Utils</a></li>
+<li><a class="reference internal" href="#logging">1.5&nbsp;&nbsp;&nbsp;logging</a></li>
+</ul>
+</li>
+</ul>
+
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/doc/devel/cerebrum-core.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, University of Oslo.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

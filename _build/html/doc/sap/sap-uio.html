@@ -1,0 +1,273 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>1   SAP details for UiO &mdash; Cerebrum 0.9.16 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.9.16',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Cerebrum 0.9.16 documentation" href="../../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="sap-details-for-uio">
+<h1><a class="toc-backref" href="#id1">1&nbsp;&nbsp;&nbsp;SAP details for UiO</a><a class="headerlink" href="#sap-details-for-uio" title="Permalink to this headline">¶</a></h1>
+<div class="contents topic" id="table-of-contents">
+<p class="topic-title first">Table of contents</p>
+<ul class="auto-toc simple">
+<li><a class="reference internal" href="#sap-details-for-uio" id="id1">1&nbsp;&nbsp;&nbsp;SAP details for UiO</a><ul class="auto-toc">
+<li><a class="reference internal" href="#introduction" id="id2">1.1&nbsp;&nbsp;&nbsp;Introduction</a></li>
+<li><a class="reference internal" href="#overall-dataflow-description" id="id3">1.2&nbsp;&nbsp;&nbsp;Overall dataflow description</a></li>
+<li><a class="reference internal" href="#the-jobs-involved" id="id4">1.3&nbsp;&nbsp;&nbsp;The jobs involved</a></li>
+<li><a class="reference internal" href="#sap-data-files" id="id5">1.4&nbsp;&nbsp;&nbsp;SAP data files</a><ul class="auto-toc">
+<li><a class="reference internal" href="#sap2bas" id="id6">1.4.1&nbsp;&nbsp;&nbsp;sap2bas</a></li>
+<li><a class="reference internal" href="#abstractions" id="id7">1.4.2&nbsp;&nbsp;&nbsp;Abstractions</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="introduction">
+<h2><a class="toc-backref" href="#id2">1.1&nbsp;&nbsp;&nbsp;Introduction</a><a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p>This document describes data processing for the SAP-originated data at the
+University of Oslo. The main goal is to provide an overall description of the
+data exchanged, the jobs involved, the representation of data in-memory, and
+so forth.</p>
+<p>At UiO, SAP provides the employee data, which is used to populate Cerebrum
+with information ranging from names to affiliations, specific e-mail domains,
+and so on. Originally, LT (Lønns- og Trekksystemet) was the source of these
+data, so it was (and still is) important to introduce support for SAP
+gradually, so as to be able to import data from either source.</p>
+<p>Note that there are other Cerebrum installations that use SAP. However, the
+details between UiO and these installations vary to a great extent.</p>
+</div>
+<div class="section" id="overall-dataflow-description">
+<h2><a class="toc-backref" href="#id3">1.2&nbsp;&nbsp;&nbsp;Overall dataflow description</a><a class="headerlink" href="#overall-dataflow-description" title="Permalink to this headline">¶</a></h2>
+<p>Today, 2007-04-11, despite the fact that SAP is used for testing purposes
+only, all the major code parts are in place to switch between SAP and LT
+rather easily. This was also one of the main goals for the
+implementation. Whether the data originates from SAP or LT, does not really
+matter, although obtaining the data files is a bit different:</p>
+<div class="highlight-python"><pre>+---+ rsync +--------+
+|sap| ----&gt; |minister| -------------+---+
++---+       +--------+ rsync of SAP |   ^
+                               data |   | rsync of files back to SAP
+                                    |   |
+                                    |   |
+                                    |   |
++----+     import_from_LT.py        v   |
+| FS | ------------------------&gt; +----------+ /cerebrum/dumps/SAP
++----+                           |cerebellum| /cerebrum/dumps/LT
+fsprod.uio.no                    +----------+
+                                      |
+                                      | import_OU.py
+                                      | import_HR_person.py
+                                      v
+                               +-------------+
+                               |cerebrum_prod|
+                               +-------------+</pre>
+</div>
+<p><tt class="docutils literal"><span class="pre">import_OU.py</span></tt> (populates cerebrum with information about OUs) and
+<tt class="docutils literal"><span class="pre">import_HR_person.py</span></tt> (populates cerebrum with information about employees)
+can work on either LT or SAP files. There is an abstraction layer that hides
+the file specifics from these jobs and makes it possible to work with either
+data source.</p>
+<p>The data is fetches daily (or, rather, nightly). Fetching the files and
+importing HR system data into Cerebrum are about the very first nightly jobs
+that are run.</p>
+</div>
+<div class="section" id="the-jobs-involved">
+<h2><a class="toc-backref" href="#id4">1.3&nbsp;&nbsp;&nbsp;The jobs involved</a><a class="headerlink" href="#the-jobs-involved" title="Permalink to this headline">¶</a></h2>
+<p>Works with either input source:</p>
+<blockquote>
+<div><table border="1" class="docutils">
+<colgroup>
+<col width="41%" />
+<col width="59%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">import_OU.py</span></tt></td>
+<td>Importing OU-data/structure.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">import_HR_person.py</span></tt></td>
+<td>Importing employee data.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">update_employee_groups.py</span></tt></td>
+<td>Group updates for groups
+&#8220;uio-tils&#8221;/&#8221;uio-ans&#8221;.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">generate_frida_export.py</span></tt></td>
+<td>Export information to the FRIDA system.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">dump_to_UA.py</span></tt></td>
+<td>Export information to the access control
+system (keycards).</td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+<p>Works with LT only:</p>
+<blockquote>
+<div><table border="1" class="docutils">
+<colgroup>
+<col width="28%" />
+<col width="72%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">fnr_update.py</span></tt></td>
+<td>Updating fnr information from LT. This does not exist
+for SAP (it is unclear how SAP plans to maintain the
+fnr-changes).</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">quota_update.py</span></tt></td>
+<td>Printer quota information.</td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+</div>
+<div class="section" id="sap-data-files">
+<h2><a class="toc-backref" href="#id5">1.4&nbsp;&nbsp;&nbsp;SAP data files</a><a class="headerlink" href="#sap-data-files" title="Permalink to this headline">¶</a></h2>
+<p>The data files exchanged between Cerebrum and SAP are:</p>
+<blockquote>
+<div><ul>
+<li><p class="first"><tt class="docutils literal"><span class="pre">sap2bas_YYYY-MM-DD-num.xml</span></tt>, where:</p>
+<blockquote>
+<div><ul class="simple">
+<li>YYYY - 4-digit year</li>
+<li>MM - 1 or 2-digit month</li>
+<li>DD - 1 or 2-digit day</li>
+<li>num - random number (at least random to Cerebrum)</li>
+</ul>
+</div></blockquote>
+</li>
+<li><p class="first"><tt class="docutils literal"><span class="pre">bas2sap_data.xml</span></tt></p>
+</li>
+</ul>
+</div></blockquote>
+<p>The former contains <em>all</em> the information about employees and OUs in one file
+(with LT files, OU and person data are split). The latter has the
+fnr/name/e-mail/phone information.</p>
+<p>Both files are in XML. The DTD for the sap2bas files is useless, since every
+element is marked as carrying CDATA.</p>
+<div class="section" id="sap2bas">
+<h3><a class="toc-backref" href="#id6">1.4.1&nbsp;&nbsp;&nbsp;sap2bas</a><a class="headerlink" href="#sap2bas" title="Permalink to this headline">¶</a></h3>
+<p>sap2bas files are &#8220;containers&#8221; with all information about each entity packed
+inside one element. E.g. everything about a person is registed as subelements
+of <tt class="docutils literal"><span class="pre">&lt;sap_basPerson&gt;</span></tt>. There are roughly these categories:</p>
+<blockquote>
+<div><ul class="simple">
+<li>personal information and IDs (SAP ID number and fnr), all in <tt class="docutils literal"><span class="pre">&lt;person&gt;</span></tt>
+sublement</li>
+<li>various addresses in <tt class="docutils literal"><span class="pre">&lt;Adresse&gt;</span></tt> elements. The elements can be
+distinguished by looking at the <tt class="docutils literal"><span class="pre">&lt;AdressType&gt;</span></tt> subelement. There are no
+guarantees as to repetition/uniqueness of addresses.</li>
+<li>Various contact information entries, each in <tt class="docutils literal"><span class="pre">&lt;PersonKomm&gt;</span></tt>. We have
+information like phones numbers, e-mails, UNIX usernames, etc.</li>
+<li>Primary employment (hovedstilling) in a <tt class="docutils literal"><span class="pre">&lt;HovedStilling&gt;</span></tt>
+element. There can be at most one such element.</li>
+<li>Other employments (bistillinger) in <tt class="docutils literal"><span class="pre">&lt;Bistilling&gt;</span></tt> elements.</li>
+<li>Roles (roller) in <tt class="docutils literal"><span class="pre">&lt;Roller&gt;</span></tt> elements.</li>
+</ul>
+</div></blockquote>
+<p>Additionally, there are special &#8220;rules&#8221; for processing the content of
+some of the elements.</p>
+</div>
+<div class="section" id="abstractions">
+<h3><a class="toc-backref" href="#id7">1.4.2&nbsp;&nbsp;&nbsp;Abstractions</a><a class="headerlink" href="#abstractions" title="Permalink to this headline">¶</a></h3>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">1&nbsp;&nbsp;&nbsp;SAP details for UiO</a><ul>
+<li><a class="reference internal" href="#introduction">1.1&nbsp;&nbsp;&nbsp;Introduction</a></li>
+<li><a class="reference internal" href="#overall-dataflow-description">1.2&nbsp;&nbsp;&nbsp;Overall dataflow description</a></li>
+<li><a class="reference internal" href="#the-jobs-involved">1.3&nbsp;&nbsp;&nbsp;The jobs involved</a></li>
+<li><a class="reference internal" href="#sap-data-files">1.4&nbsp;&nbsp;&nbsp;SAP data files</a><ul>
+<li><a class="reference internal" href="#sap2bas">1.4.1&nbsp;&nbsp;&nbsp;sap2bas</a></li>
+<li><a class="reference internal" href="#abstractions">1.4.2&nbsp;&nbsp;&nbsp;Abstractions</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/doc/sap/sap-uio.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, University of Oslo.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

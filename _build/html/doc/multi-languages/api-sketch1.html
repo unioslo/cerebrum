@@ -1,0 +1,556 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Multiple language support API &mdash; Cerebrum 0.9.16 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.9.16',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Cerebrum 0.9.16 documentation" href="../../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="multiple-language-support-api">
+<h1>Multiple language support API<a class="headerlink" href="#multiple-language-support-api" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="introduction">
+<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p>This note describes the overall design of handling multiple languages in
+Cerebrum. The primary motivation for this patch is to support various names
+tagged with languages. We have an emerging need to process such data, and this
+extension provides the necessary support in the API and the databasen schema.</p>
+<p>The overall design has two distinct components &#8211; language data handling for
+constants and for entities (i.e. subclasses of <tt class="docutils literal"><span class="pre">_CerebrumCode</span></tt> and
+<tt class="docutils literal"><span class="pre">Entity</span></tt>).</p>
+</div>
+<div class="section" id="constants">
+<h2>Constants<a class="headerlink" href="#constants" title="Permalink to this headline">¶</a></h2>
+<p>Constant objects are fundamentally different from entities in that they do not
+change and each constant used in Cerebrum has a corresponding Python
+object. That is, there cannot be an update of any data related to a constant
+without a corresponding update in the code.</p>
+<p>For these reasons, we opted to store language information for constants in the
+code only. There is simply no reason to store anything language-related in the
+database (it would complicate the database schema without yielding any
+benefits).</p>
+<p>The code layout must be kept backward compatible, which means that any part of
+Cerebrum NOT wishing to deal with constants&#8217; language data must be allowed to
+ignore those parts of the API. For this reason, <tt class="docutils literal"><span class="pre">description</span></tt> field is still
+kept (and it remains &#8220;untagged&#8221; wrt language). Although no longer technically
+necessary, we would also keep the <tt class="docutils literal"><span class="pre">description</span></tt> column in the database to
+make browsing constants easier (the description column is more human-friendly,
+although unnecessary for the database schema).</p>
+<div class="section" id="python-code">
+<h3>Python code<a class="headerlink" href="#python-code" title="Permalink to this headline">¶</a></h3>
+<p>We have several constant classes, all inheriting from <tt class="docutils literal"><span class="pre">_CerebrumCode</span></tt>.
+Although the arguments may differ between classes, we can incorporate a
+default argument with the language dictionary, so that language data could be
+gradually introduced:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">system_fs</span> <span class="o">=</span> <span class="n">AuthoritativeSystem</span><span class="p">(</span>
+  <span class="s">&quot;FS&quot;</span><span class="p">,</span>   <span class="c"># &lt;-- code_str parameter</span>
+  <span class="s">&quot;FS&quot;</span><span class="p">,</span>   <span class="c"># &lt;-- description parameter</span>
+  <span class="p">{</span><span class="s">&quot;nb&quot;</span><span class="p">:</span> <span class="s">&quot;Felles StudentSystem&quot;</span><span class="p">,</span>
+   <span class="s">&quot;en&quot;</span><span class="p">:</span> <span class="s">&quot;Unified Student Registry (FS)&quot;</span><span class="p">,})</span>
+
+<span class="n">system_pbx</span> <span class="o">=</span> <span class="n">AuthoritativeSystem</span><span class="p">(</span>
+  <span class="s">&quot;PBX&quot;</span><span class="p">,</span> <span class="s">&quot;PBX&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><tt class="docutils literal"><span class="pre">system_fs</span></tt> has language data, while <tt class="docutils literal"><span class="pre">system_pbx</span></tt> does not. Both are
+expected to work.</p>
+<p>Additionally we need a number of constants representing various
+languages. That&#8217;s an additional class, just like any other constant type in
+Cerebrum.</p>
+</div>
+<div class="section" id="language-part-of-the-api">
+<h3>Language part of the API<a class="headerlink" href="#language-part-of-the-api" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">_CerebrumCode.__init__()</span></tt> gets an additional <tt class="docutils literal"><span class="pre">lang=None</span></tt>
+parameter. Constant classes wishing to register their respective names in
+various languages pass a dictionary from language codes to the name in that
+language. A subclass of <tt class="docutils literal"><span class="pre">_CerebrumCode</span></tt> must pass this parameter to
+<tt class="docutils literal"><span class="pre">_CerebrumCode.__init__()</span></tt> for initilization.</li>
+<li><tt class="docutils literal"><span class="pre">code_str</span></tt> and <tt class="docutils literal"><span class="pre">description</span></tt> are accessible as they have always been.</li>
+<li>Language strings are fetched via <tt class="docutils literal"><span class="pre">_CerebrumCode.lang(&lt;lang</span> <span class="pre">code&gt;)</span></tt>.</li>
+<li>If a constant is missing a name in a specific language, then <tt class="docutils literal"><span class="pre">lang()</span></tt>
+returns the value of the <tt class="docutils literal"><span class="pre">description</span></tt> column/field. The idea (apart from
+easier the transition to multiple languages) is that it&#8217;s better to provide
+some information in the wrong language than to return an empty string.</li>
+<li><tt class="docutils literal"><span class="pre">str(&lt;constant</span> <span class="pre">object&gt;)</span></tt> (i.e. <tt class="docutils literal"><span class="pre">__str__()</span></tt>) would still use
+<tt class="docutils literal"><span class="pre">description</span></tt>. The entire code base will continue to work as before wrt
+constant &#8220;stringifying&#8221;.</li>
+</ul>
+<p>An additional point merits special attention. The dictionary argument with
+language data passed to <tt class="docutils literal"><span class="pre">__init__</span></tt> is keyed by <tt class="docutils literal"><span class="pre">code_str</span></tt> attribute of
+language constants:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">language_nb</span> <span class="o">=</span> <span class="n">LanguageCode</span><span class="p">(</span><span class="s">&quot;nb&quot;</span><span class="p">,</span> <span class="s">&quot;Bokmål&quot;</span><span class="p">)</span>
+<span class="n">language_en</span> <span class="o">=</span> <span class="n">LanguageCode</span><span class="p">(</span><span class="s">&quot;en&quot;</span><span class="p">,</span> <span class="s">&quot;English&quot;</span><span class="p">)</span>
+<span class="n">language_de</span> <span class="o">=</span> <span class="n">LanguageCode</span><span class="p">(</span><span class="s">&quot;de&quot;</span><span class="p">,</span> <span class="s">&quot;Deutsch&quot;</span><span class="p">)</span>
+
+<span class="n">system_fs</span> <span class="o">=</span> <span class="n">AuthoritativeSystem</span><span class="p">(</span>
+  <span class="s">&quot;FS&quot;</span><span class="p">,</span> <span class="s">&quot;FS&quot;</span><span class="p">,</span>
+  <span class="p">{</span><span class="s">&quot;nb&quot;</span><span class="p">:</span> <span class="s">&quot;Felles Studentsystem&quot;</span><span class="p">,</span>
+   <span class="s">&quot;en&quot;</span><span class="p">:</span> <span class="s">&quot;Unified Student Registry (FS)&quot;</span><span class="p">,})</span>
+</pre></div>
+</div>
+<p>However, there is no mechanism prohibiting one to use <em>ANY</em> key (I am
+uncertain whether such a check could be integrated without rewriting a
+considerable part of constant bootstrapping; since languages themselves are
+constants, checking for the 2-letter code correspondence with existing
+constants requires that those constants already exist in the db. We <em>will</em> be
+able to check improper language reference during usage, though). I.e. we won&#8217;t
+detect an improper language code during a constant definition. However, in
+<tt class="docutils literal"><span class="pre">_CerebrumCode.lang()</span></tt> there is actually a check on the argument, so that
+strings are matched against actual <tt class="docutils literal"><span class="pre">LanguageCode</span></tt> constants.</p>
+</div>
+<div class="section" id="backward-compatibility">
+<h3>Backward compatibility<a class="headerlink" href="#backward-compatibility" title="Permalink to this headline">¶</a></h3>
+<p>Code that does not care about language data needs to specify neither the
+constant description in various languages nor to use them in any
+fashion. Constant objects&#8217; behaviour wrt <tt class="docutils literal"><span class="pre">int()</span></tt> and <tt class="docutils literal"><span class="pre">str()</span></tt> remains
+unaltered.</p>
+</div>
+<div class="section" id="database">
+<h3>Database<a class="headerlink" href="#database" title="Permalink to this headline">¶</a></h3>
+<p>Strictly speaking, we no longer need the <tt class="docutils literal"><span class="pre">description</span></tt> column in the
+database (to what end?). In the next iteration it may be sensible to move
+the <tt class="docutils literal"><span class="pre">description</span></tt> column out of the database (the constant object remain
+unchanged though, as seen from Python code).</p>
+<p>Additionally, since we have a new constant type (languages), we need a table
+for them as well. This has to be an integral part of the Cerebrum core.</p>
+<p>There are no tables to migrate to start using constants with languages.</p>
+</div>
+<div class="section" id="examples">
+<h3>Examples<a class="headerlink" href="#examples" title="Permalink to this headline">¶</a></h3>
+<p>And a sample run illustrating the new interface:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">Cerebrum.Utils</span> <span class="kn">import</span> <span class="n">Factory</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">co</span> <span class="o">=</span> <span class="n">Factory</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&quot;Constants&quot;</span><span class="p">)()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">co</span><span class="o">.</span><span class="n">system_cached</span>
+<span class="go">&lt;_AuthoritativeSystemCode instance code_str=&#39;Cached&#39; at 0x10997200&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">str</span><span class="p">(</span><span class="n">_</span><span class="p">)</span>
+<span class="go">&#39;Cached&#39;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">co</span><span class="o">.</span><span class="n">system_cached</span><span class="o">.</span><span class="n">description</span>
+<span class="go">&#39;Internally cached data&#39;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">co</span><span class="o">.</span><span class="n">system_cached</span><span class="o">.</span><span class="n">lang</span><span class="p">(</span><span class="s">&quot;nb&quot;</span><span class="p">)</span>
+<span class="go">&#39;Internt cachede data&#39;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">co</span><span class="o">.</span><span class="n">system_cached</span><span class="o">.</span><span class="n">lang</span><span class="p">(</span><span class="s">&quot;en&quot;</span><span class="p">)</span>
+<span class="go">&#39;Internally cached data&#39;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">co</span><span class="o">.</span><span class="n">system_cached</span><span class="o">.</span><span class="n">lang</span><span class="p">(</span><span class="n">co</span><span class="o">.</span><span class="n">language_en</span><span class="p">)</span>
+<span class="go">&#39;Internally cached data&#39;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">co</span><span class="o">.</span><span class="n">system_cached</span><span class="o">.</span><span class="n">lang</span><span class="p">(</span><span class="s">&quot;de&quot;</span><span class="p">)</span>
+<span class="go">&#39;Internally cached data&#39;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">co</span><span class="o">.</span><span class="n">system_cached</span><span class="o">.</span><span class="n">lang</span><span class="p">(</span><span class="s">&quot;habla&quot;</span><span class="p">)</span>
+<span class="gt">Traceback (most recent call last):</span>
+<span class="gr">  (...)</span>
+<span class="gr">Cerebrum.Errors.NotFoundError</span>: <span class="n">Could not find:</span>
+<span class="go">{&#39;int&#39;: None, &#39;_lang&#39;: {}, &#39;_desc&#39;: None, &#39;str&#39;: &#39;habla&#39;}</span>
+</pre></div>
+</div>
+<p>The last line shows that using unknown codes fails. Also, note that if there
+is no string specified for a specific language, one falls back to description
+(this is the case with &#8220;de&#8221;) &#8211; it&#8217;s better to have the message relayed in
+some default language, than to fail.</p>
+</div>
+</div>
+<div class="section" id="entity-and-subclasses">
+<h2>Entity and subclasses<a class="headerlink" href="#entity-and-subclasses" title="Permalink to this headline">¶</a></h2>
+<p>Short version: a new class similar to <tt class="docutils literal"><span class="pre">EntityName</span></tt> in interface and database
+backing.</p>
+<p>Onto the somewhat longer version, then. We need to represent the following
+tidbits in the database and offer a convenient interface. For each entity with
+name-in-language, we record:</p>
+<blockquote>
+<div><ul class="simple">
+<li>name data (the name itself)</li>
+<li>corresponding language data (Bokmål, Nynorsk, English, etc)</li>
+<li>corresponding name type (title, acronym, short name, etc)</li>
+<li>(in the future) source system for the name-in-language.</li>
+</ul>
+</div></blockquote>
+<p>We already have a template for such an interface in Cerebrum &#8211;
+<tt class="docutils literal"><span class="pre">EntityName</span></tt>. <tt class="docutils literal"><span class="pre">EntityName</span></tt> by itself offers an interface to names
+<strong>unique</strong> within a specific domain. Name-with-language needs do not not fit
+this requirement, but the overall design can be reused.</p>
+<p>For now there is no concept of name priorities. This is a possible extension
+for the future. Nor is there a concept of source system for names (there are
+simply no use cases for that at the moment, although it makes sense to
+register that). That, too, could be added without disruptive changes to the
+interface in the future.</p>
+<div class="section" id="id1">
+<h3>Database<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
+<p>As no table exists fitting the storage demands, <tt class="docutils literal"><span class="pre">entity_language_name</span></tt> has
+been added to the core database schema.</p>
+<p>Some of the name data would have to be migrated to this table.</p>
+<p>For now we&#8217;ll leave the source system out of the table, but that is a
+potential candidate for next extension.</p>
+</div>
+<div class="section" id="new-api">
+<h3>New API<a class="headerlink" href="#new-api" title="Permalink to this headline">¶</a></h3>
+<p>A new class, <tt class="docutils literal"><span class="pre">EntityNameWithLanguage</span></tt> becomes the interface to the
+name-with-language data in Cerebrum. Such names are not required to be
+unique. Nor is there a requirement to always have a specific name type in a
+specific language (this may become an issue, though &#8211; e.g. OUs used to always
+have at least one non-NULL name).</p>
+<p>The interface resembles that of <tt class="docutils literal"><span class="pre">EntityName</span></tt>:</p>
+<blockquote>
+<div><ul class="simple">
+<li><tt class="docutils literal"><span class="pre">find_by_name_with_language</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">add_name_with_language</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">delete_name_with_language</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">search_name_with_language</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">get_name_with_language</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">delete</span></tt></li>
+</ul>
+</div></blockquote>
+<p>A class needing support for names in various language can inherit from
+<tt class="docutils literal"><span class="pre">EntityNameWithLanguage</span></tt>. There is no <tt class="docutils literal"><span class="pre">populate</span></tt> step in this case &#8211;
+names are registered/updated and deleted with <tt class="docutils literal"><span class="pre">add_name_with_language</span></tt> and
+<tt class="docutils literal"><span class="pre">delete_name_with_language</span></tt> respectively.</p>
+</div>
+<div class="section" id="ou">
+<h3>OU<a class="headerlink" href="#ou" title="Permalink to this headline">¶</a></h3>
+<p>OU/Stedkode is the first target of this migration: we need to support
+organizational units&#8217; names in various languages.</p>
+<div class="section" id="api-changes">
+<h4>API changes<a class="headerlink" href="#api-changes" title="Permalink to this headline">¶</a></h4>
+<p>Previously OU instances had a number of name attributes (<tt class="docutils literal"><span class="pre">short_name</span></tt>,
+<tt class="docutils literal"><span class="pre">name</span></tt>, etc). These are no longer available. Name retrieval happens
+through <tt class="docutils literal"><span class="pre">get_name_with_language</span></tt>. However, in order to ease the transition
+period, accessing these attributes is still allowed, albeit with a warning via
+the logger framework (since such an access must have a language specified, the
+default assumption is Norwegian bokmål).</p>
+<p>As a consequence, the <tt class="docutils literal"><span class="pre">populate()</span></tt>-interface has changed. Names are no
+longer specified there (but rather added/modified via
+<tt class="docutils literal"><span class="pre">add_name_with_language</span></tt>). Searching for OUs by name has also changed: any
+by name lookup happens via
+<tt class="docutils literal"><span class="pre">search_name_with_language(entity_type=const.entity_ou)</span></tt>. The <tt class="docutils literal"><span class="pre">ou_info</span></tt>
+table no longer has any name data recorded. Please note that adding a
+name-with-language requires an existing ou_id. This means that for new OUs,
+one would have to call <tt class="docutils literal"><span class="pre">write_db()</span></tt> before registering the very first name.</p>
+<p>Removing name data has an additional challenge, since it&#8217;s possible to leave
+an OU nameless.</p>
+</div>
+<div class="section" id="data-migration">
+<h4>Data migration<a class="headerlink" href="#data-migration" title="Permalink to this headline">¶</a></h4>
+<p>We cannot allow OUs to lose names during data migration. Since the name
+columns are dropped from the <tt class="docutils literal"><span class="pre">ou_info</span></tt> table, we need to move the data from
+the columns to <tt class="docutils literal"><span class="pre">entity_language_name</span></tt> before dropping them.</p>
+<p>Additionally, the authoritative source for OU data must supply the necessary
+language data. If not, the exercise is somewhat pointless. Some of the code
+has been adapted to the older usage pattern under the assumption that the
+default language is Norwegian bokmål (not an unreasonable, but not necessarily
+a correct assumption).</p>
+</div>
+<div class="section" id="example">
+<h4>Example<a class="headerlink" href="#example" title="Permalink to this headline">¶</a></h4>
+<p>A sample snippet:</p>
+<div class="highlight-python"><pre>&gt;&gt;&gt; logger = Factory.get_logger("console")
+&gt;&gt;&gt; ou.find(572)
+&gt;&gt;&gt; ou.acronym
+WARNING Deprecated usage of OU: OU.acronym cannot be accessed directly.
+Use get/add/delete_name_with_language
+'GT'
+&lt;Cerebrum.Utils._dynamic_Constants object at 0x115297e8&gt;
+&gt;&gt;&gt; ou.get_name_with_language(co.ou_name_acronym, co.language_nb)
+'GT'
+&gt;&gt;&gt; ou.get_name_with_language(co.ou_name_acronym, co.language_de)
+Traceback (most recent call last):
+File "Cerebrum/Entity.py", line 628, in get_name_with_language
+  self.const.LanguageCode(name_language)))
+Cerebrum.Errors.NotFoundError: Could not find: Entity id=572 has no name OU
+acronym in lang=de
+&gt;&gt;&gt; ou.add_name_with_language(co.ou_name_acronym, co.language_nb, "GeTe")
+&gt;&gt;&gt; ou.clear(); ou.find(572)
+&gt;&gt;&gt; ou.get_name_with_language(co.ou_name_acronym, co.language_nb)
+'GeTe'</pre>
+</div>
+</div>
+</div>
+<div class="section" id="person">
+<h3>Person<a class="headerlink" href="#person" title="Permalink to this headline">¶</a></h3>
+<p>One of the branch goals for Person entities is to support personal and work
+titles in multiple languages. Unfortunately, <tt class="docutils literal"><span class="pre">Person</span></tt> class in itself
+presents a couple of challenges. People in Cerebrum have essentially 2 kind of
+names jammed into the same table &#8211; proper human names and work/personal
+titles. Conceptually, proper human names don&#8217;t really have a language (at
+least, they don&#8217;t from any of the source systems we are using). Such a
+division did not exist previously, as all person names were stored and
+accessed in the same fashion.</p>
+<p>Now there is a specific use case, and we want to support language information
+for titles. The bare minimum is to move <tt class="docutils literal"><span class="pre">name_personal_title</span></tt> and
+<tt class="docutils literal"><span class="pre">name_work_title</span></tt> out of the <tt class="docutils literal"><span class="pre">person_name</span></tt> table (and change these
+constants&#8217; type from <tt class="docutils literal"><span class="pre">_PersonNameCode</span></tt> to <tt class="docutils literal"><span class="pre">_EntityNameCode</span></tt>).</p>
+<p>Such a split will make it necessary to check the code for usage patterns
+(and look for places where titles and names are mixed within the same API
+calls). A review did not reveal any places where the name usage was
+overlapping (typically we fiddle either with human names or with titles, with
+a few exceptions).</p>
+<div class="section" id="id2">
+<h4>API changes<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h4>
+<p>Person names are still accessed through the previously existing API. I.e. the
+same procedure for retrieval and storage (plus the <tt class="docutils literal"><span class="pre">populate_name()</span></tt> magic)
+for names (first, last and full).</p>
+<p>Titles, however, will be retrieved and stored through the
+<tt class="docutils literal"><span class="pre">EntityNameWithLanguage</span></tt> class.</p>
+<p>For the sake of backward compatibility we could approach this differently. The
+split in name/title-handling could be internalized to the API methods in
+Person. It ought to be doable, but will be somewhat difficult for lookup
+methods that allow specifying multiple name variants (we&#8217;ll have to perform 2
+separate db lookups and join the results depending on the name variants
+specified).</p>
+<p>This duality is likely to cause confusion in the future, so the next
+appropriate step is to move all of people&#8217;s names into
+<tt class="docutils literal"><span class="pre">entity_language_name</span></tt>. That update, however, is for the next
+iteration.</p>
+</div>
+<div class="section" id="id3">
+<h4>Data migration<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h4>
+<p>Migration is somewhat different here. With OUs we needed to move the name
+data, whereas with personal titles we can simply drop them from the
+database. Since no titles have been registered manually, this can be done
+without any loss of data.</p>
+<p>It would be easiest to migrate the schema if we rename the title constants in
+the process (easiest to automate the transition), rather than delete
+them. That is, <tt class="docutils literal"><span class="pre">Constants.py</span></tt> would still contain <tt class="docutils literal"><span class="pre">_PersonNameCodes</span></tt> for
+titles, the data is migrated, and then the code base could be upgraded to a
+version without <tt class="docutils literal"><span class="pre">name_personal_title</span></tt> and <tt class="docutils literal"><span class="pre">name_work_title</span></tt>. I.e. the
+migration process runs thusly:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li>update the code base.</li>
+<li>DELETE * from person_name WHERE name_variant in (...) (part of the schema
+migration)</li>
+<li>update Constants.py (remove <tt class="docutils literal"><span class="pre">name_personal_title</span></tt> etc).</li>
+</ol>
+</div></blockquote>
+<p>Following that, we can run whichever job processes titles to populate the
+<tt class="docutils literal"><span class="pre">entity_language_name</span></tt> table.</p>
+</div>
+<div class="section" id="id4">
+<h4>Example<a class="headerlink" href="#id4" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">p</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="mi">20905</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">p</span><span class="o">.</span><span class="n">get_all_names</span><span class="p">()</span> <span class="k">if</span> <span class="n">x</span><span class="p">[</span><span class="s">&quot;name_variant&quot;</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span>
+<span class="go">    (co.name_first, co.name_last, co.name_full)]</span>
+<span class="go">[]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">p</span><span class="o">.</span><span class="n">add_name_with_language</span><span class="p">(</span><span class="n">co</span><span class="o">.</span><span class="n">work_title</span><span class="p">,</span> <span class="n">co</span><span class="o">.</span><span class="n">language_en</span><span class="p">,</span> <span class="s">&quot;Ruler of the world&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">p</span><span class="o">.</span><span class="n">get_all_names</span><span class="p">()</span> <span class="k">if</span> <span class="n">x</span><span class="p">[</span><span class="s">&quot;name_variant&quot;</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span>
+<span class="gp">... </span><span class="p">(</span><span class="n">co</span><span class="o">.</span><span class="n">name_first</span><span class="p">,</span> <span class="n">co</span><span class="o">.</span><span class="n">name_last</span><span class="p">,</span> <span class="n">co</span><span class="o">.</span><span class="n">name_full</span><span class="p">)]</span>
+<span class="go">[]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">p</span><span class="o">.</span><span class="n">search_name_with_language</span><span class="p">(</span><span class="n">entity_id</span><span class="o">=</span><span class="n">p</span><span class="o">.</span><span class="n">entity_id</span><span class="p">)</span>
+<span class="go">[(20905L, 102L, 835L, 824L, &#39;Ruler of the world&#39;),</span>
+<span class="go"> (20905L, 102L, 835L, 826L, &#39;Overingeni\xf8r&#39;),</span>
+<span class="go"> (20905L, 102L, 835L, 827L, &#39;Overingeni\xf8r&#39;),</span>
+<span class="go"> (20905L, 102L, 840L, 827L, &#39;Overingeni\xf8r&#39;),</span>
+<span class="go"> (20905L, 102L, 840L, 826L, &#39;Overingeni\xf8r&#39;),]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">p</span><span class="o">.</span><span class="n">get_name_with_language</span><span class="p">(</span><span class="n">co</span><span class="o">.</span><span class="n">work_title</span><span class="p">,</span> <span class="n">co</span><span class="o">.</span><span class="n">language_nb</span><span class="p">)</span>
+<span class="go">&#39;Overingeniør&#39;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">p</span><span class="o">.</span><span class="n">get_name_with_language</span><span class="p">(</span><span class="n">co</span><span class="o">.</span><span class="n">work_title</span><span class="p">,</span> <span class="n">co</span><span class="o">.</span><span class="n">language_en</span><span class="p">)</span>
+<span class="go">&#39;Ruler of the world&#39;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">db</span><span class="o">.</span><span class="n">rollback</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">p</span><span class="o">.</span><span class="n">get_name_with_language</span><span class="p">(</span><span class="n">co</span><span class="o">.</span><span class="n">work_title</span><span class="p">,</span> <span class="n">co</span><span class="o">.</span><span class="n">language_en</span><span class="p">)</span>
+<span class="gt">Traceback (most recent call last):</span>
+  File <span class="nb">&quot;&lt;stdin&gt;&quot;</span>, line <span class="m">1</span>, in <span class="n">&lt;module&gt;</span>
+  File <span class="nb">&quot;Cerebrum/Entity.py&quot;</span>, line <span class="m">628</span>, in <span class="n">get_name_with_language</span>
+<span class="gr">Cerebrum.Errors.NotFoundError</span>: <span class="n">Could not find:</span>
+<span class="go">Entity id=20905 has no name WORKTITLE in lang=en</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">print</span> <span class="n">p</span><span class="o">.</span><span class="n">get_name_with_language</span><span class="p">(</span><span class="n">co</span><span class="o">.</span><span class="n">work_title</span><span class="p">,</span> <span class="n">co</span><span class="o">.</span><span class="n">language_en</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+<span class="go">None</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="code-schema-migration">
+<h2>Code/schema migration<a class="headerlink" href="#code-schema-migration" title="Permalink to this headline">¶</a></h2>
+<p>All the migration magic is located in
+<tt class="docutils literal"><span class="pre">contrib/migrate_cerebrum_database.py</span></tt>. There is essentially one new table
+and a bit of data shuffling between <tt class="docutils literal"><span class="pre">ou_info</span></tt> and
+<tt class="docutils literal"><span class="pre">entity_language_name</span></tt>.</p>
+<p><strong>WARNING</strong>! Before using this patch in a production environment, make sure
+that the import routines do, in fact, fetch OU names and person titles and tag
+them with languages.</p>
+<p>Migration itself:</p>
+<blockquote>
+<div><ol class="arabic">
+<li><p class="first">Update the source tree:</p>
+<div class="highlight-python"><pre>svn up</pre>
+</div>
+</li>
+<li><p class="first">Check the current schema version:</p>
+<div class="highlight-python"><pre>$ python contrib/migrate_cerebrum_database.py --info
+Your current db-version is: 0.9.15
+(...)</pre>
+</div>
+</li>
+<li><p class="first">Migrate the database:</p>
+<div class="highlight-python"><pre>python contrib/migrate_cerebrum_database.py \
+       --from rel_0_9_15 --to rel_0_9_16 \
+       --makedb-path $(pwd) \
+       --design-path $(pwd)/design</pre>
+</div>
+<p>This will create the new tables, move OU names and drop person titles.</p>
+</li>
+<li><p class="first">(optional) svn up Constants.py (upgrade to the latest version of
+Constants.py, which does not have <tt class="docutils literal"><span class="pre">person_name_title</span></tt> and friends).</p>
+</li>
+<li><p class="first">Run OU import and person import to fetch new titles.</p>
+</li>
+</ol>
+</div></blockquote>
+<p>The patch is pretty large. An diff between trunk and branch can be fetched
+thusly:</p>
+<div class="highlight-python"><pre>$ svn diff --summarize \
+      'https://cerebrum.svn.sourceforge.net/svnroot/cerebrum/trunk/cerebrum' \
+      'https://cerebrum.svn.sourceforge.net/svnroot/cerebrum/branches/cerebrum-multi-language'</pre>
+</div>
+<p>Most of the changes are trivial. But do take a look.</p>
+<p>List of tested scripts, files, etc:</p>
+<blockquote>
+<div><ul class="simple">
+<li>generate_org_ldif.py</li>
+<li>uio/import_OU.py</li>
+<li>uio/import_HR_person.py</li>
+<li>contrib/generate_name_dictionary.py</li>
+<li>contrib/no/uio/generate_frida_export.py</li>
+<li>Cerebrum/modules/no/uio/bofhd_uio_cmds.py</li>
+<li>contrib/no/hia/import_FS.py</li>
+<li>contrib/no/hia/import_SAP_person.py</li>
+<li>Cerebrum/modules/no/hia/bofhd_hia_newcmds.py</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="future-work">
+<h2>Future work<a class="headerlink" href="#future-work" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li>Does db_clean.py needs fixing for new change_log event usage.</li>
+<li>How do we deal with this use case: &#8220;Give me a name of &lt;this type&gt;, I don&#8217;t
+care about the language&#8221;? What if there are multiple languages matching? Do
+we want a deterministic behaviour in such cases?</li>
+<li>How do we delete OU names during import? That is, assuming an OU which is no
+longer active, do we leave its names alone? Or are they removed from the
+db?</li>
+<li>Add source system to <tt class="docutils literal"><span class="pre">entity_language_name</span></tt>? For now, there are no use
+cases where it is needed, but it&#8217;s obviously a useful (and potentially
+necessary) extension.</li>
+<li>Tag <tt class="docutils literal"><span class="pre">_EntityNameCode</span></tt> with entity type they are applicable to. This would
+allow us to create schema constraints that prevent assigning wrong name
+codes (i.e. assigning <tt class="docutils literal"><span class="pre">ou_name_acronym</span></tt> to a Person instance).</li>
+<li>There is a potential overlap in functionality between
+<tt class="docutils literal"><span class="pre">entity_language_name</span></tt> and
+<tt class="docutils literal"><span class="pre">mod_employment:person_employment.description</span></tt>. This should be addressed
+(<tt class="docutils literal"><span class="pre">description</span></tt> does not necessary specify a title, but it is, in fact,
+used as such).</li>
+</ul>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Multiple language support API</a><ul>
+<li><a class="reference internal" href="#introduction">Introduction</a></li>
+<li><a class="reference internal" href="#constants">Constants</a><ul>
+<li><a class="reference internal" href="#python-code">Python code</a></li>
+<li><a class="reference internal" href="#language-part-of-the-api">Language part of the API</a></li>
+<li><a class="reference internal" href="#backward-compatibility">Backward compatibility</a></li>
+<li><a class="reference internal" href="#database">Database</a></li>
+<li><a class="reference internal" href="#examples">Examples</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#entity-and-subclasses">Entity and subclasses</a><ul>
+<li><a class="reference internal" href="#id1">Database</a></li>
+<li><a class="reference internal" href="#new-api">New API</a></li>
+<li><a class="reference internal" href="#ou">OU</a><ul>
+<li><a class="reference internal" href="#api-changes">API changes</a></li>
+<li><a class="reference internal" href="#data-migration">Data migration</a></li>
+<li><a class="reference internal" href="#example">Example</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#person">Person</a><ul>
+<li><a class="reference internal" href="#id2">API changes</a></li>
+<li><a class="reference internal" href="#id3">Data migration</a></li>
+<li><a class="reference internal" href="#id4">Example</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#code-schema-migration">Code/schema migration</a></li>
+<li><a class="reference internal" href="#future-work">Future work</a></li>
+</ul>
+</li>
+</ul>
+
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/doc/multi-languages/api-sketch1.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, University of Oslo.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

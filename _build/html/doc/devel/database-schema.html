@@ -1,0 +1,336 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>1   The cerebrum database schema &mdash; Cerebrum 0.9.16 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.9.16',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Cerebrum 0.9.16 documentation" href="../../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="the-cerebrum-database-schema">
+<h1><a class="toc-backref" href="#id2">1&nbsp;&nbsp;&nbsp;The cerebrum database schema</a><a class="headerlink" href="#the-cerebrum-database-schema" title="Permalink to this headline">¶</a></h1>
+<div class="contents topic" id="contents">
+<p class="topic-title first">Contents</p>
+<ul class="auto-toc simple">
+<li><a class="reference internal" href="#the-cerebrum-database-schema" id="id2">1&nbsp;&nbsp;&nbsp;The cerebrum database schema</a><ul class="auto-toc">
+<li><a class="reference internal" href="#introduction" id="id3">1.1&nbsp;&nbsp;&nbsp;Introduction</a><ul class="auto-toc">
+<li><a class="reference internal" href="#entity-info" id="id4">1.1.1&nbsp;&nbsp;&nbsp;entity_info</a></li>
+<li><a class="reference internal" href="#code-tables" id="id5">1.1.2&nbsp;&nbsp;&nbsp;code tables</a></li>
+<li><a class="reference internal" href="#database-independency" id="id6">1.1.3&nbsp;&nbsp;&nbsp;Database independency</a></li>
+<li><a class="reference internal" href="#constraints" id="id7">1.1.4&nbsp;&nbsp;&nbsp;Constraints</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#table-descriptions" id="id8">1.2&nbsp;&nbsp;&nbsp;table descriptions</a><ul class="auto-toc">
+<li><a class="reference internal" href="#id1" id="id9">1.2.1&nbsp;&nbsp;&nbsp;entity_info</a></li>
+<li><a class="reference internal" href="#entity-spread" id="id10">1.2.2&nbsp;&nbsp;&nbsp;entity_spread</a></li>
+<li><a class="reference internal" href="#entity-name" id="id11">1.2.3&nbsp;&nbsp;&nbsp;entity_name</a></li>
+<li><a class="reference internal" href="#entity-address" id="id12">1.2.4&nbsp;&nbsp;&nbsp;entity_address</a></li>
+<li><a class="reference internal" href="#entity-contact-info" id="id13">1.2.5&nbsp;&nbsp;&nbsp;entity_contact_info</a></li>
+<li><a class="reference internal" href="#host-info" id="id14">1.2.6&nbsp;&nbsp;&nbsp;host_info</a></li>
+<li><a class="reference internal" href="#disk-info" id="id15">1.2.7&nbsp;&nbsp;&nbsp;disk_info</a></li>
+<li><a class="reference internal" href="#account-info" id="id16">1.2.8&nbsp;&nbsp;&nbsp;account_info</a></li>
+<li><a class="reference internal" href="#account-home" id="id17">1.2.9&nbsp;&nbsp;&nbsp;account_home</a></li>
+<li><a class="reference internal" href="#cerebrum-metainfo" id="id18">1.2.10&nbsp;&nbsp;&nbsp;cerebrum_metainfo</a></li>
+<li><a class="reference internal" href="#entity-quarantine" id="id19">1.2.11&nbsp;&nbsp;&nbsp;entity_quarantine</a></li>
+<li><a class="reference internal" href="#ou-info" id="id20">1.2.12&nbsp;&nbsp;&nbsp;ou_info</a></li>
+<li><a class="reference internal" href="#ou-structure" id="id21">1.2.13&nbsp;&nbsp;&nbsp;ou_structure</a></li>
+<li><a class="reference internal" href="#person-info" id="id22">1.2.14&nbsp;&nbsp;&nbsp;person_info</a></li>
+<li><a class="reference internal" href="#person-external-id" id="id23">1.2.15&nbsp;&nbsp;&nbsp;person_external_id</a></li>
+<li><a class="reference internal" href="#person-name" id="id24">1.2.16&nbsp;&nbsp;&nbsp;person_name</a></li>
+<li><a class="reference internal" href="#person-affiliation" id="id25">1.2.17&nbsp;&nbsp;&nbsp;person_affiliation</a></li>
+<li><a class="reference internal" href="#person-affiliation-source" id="id26">1.2.18&nbsp;&nbsp;&nbsp;person_affiliation_source</a></li>
+<li><a class="reference internal" href="#account-type" id="id27">1.2.19&nbsp;&nbsp;&nbsp;account_type</a></li>
+<li><a class="reference internal" href="#account-authentication" id="id28">1.2.20&nbsp;&nbsp;&nbsp;account_authentication</a></li>
+<li><a class="reference internal" href="#group-info" id="id29">1.2.21&nbsp;&nbsp;&nbsp;group_info</a></li>
+<li><a class="reference internal" href="#group-member" id="id30">1.2.22&nbsp;&nbsp;&nbsp;group_member</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="introduction">
+<h2><a class="toc-backref" href="#id3">1.1&nbsp;&nbsp;&nbsp;Introduction</a><a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p>Cerebrum stores (most of) its information in a database.  The database
+consist of a set of core tables that are present in all cerebrum
+installations.  Some modules add additional tables to support data
+they need.  For example: if one wants support for unix users, one
+would need the posix module that has extra tables for posix specific
+attributes.</p>
+<p>A diagram of the core tables can be seen in &lt;TODO&gt;.  It is also
+available in <tt class="docutils literal"><span class="pre">design/cerebrum-core.dia</span></tt>, which may be loaded with
+the unix-program dia (<a class="reference external" href="http://www.lysator.liu.se/~alla/dia/">http://www.lysator.liu.se/~alla/dia/</a>) (due to a
+bug in dia, the fonts may have wrong size on some systems).</p>
+<p>The diagram contains several small boxes where the title represents
+the table name, and the rows below indicate the columns and their
+type.  For simplicity the tables are grouped in various areas with
+different colours, where each colour represent different types of
+information.  For instance the pink area contains tables that relate
+to organisational units.</p>
+<div class="section" id="entity-info">
+<h3><a class="toc-backref" href="#id4">1.1.1&nbsp;&nbsp;&nbsp;entity_info</a><a class="headerlink" href="#entity-info" title="Permalink to this headline">¶</a></h3>
+<p>Entities is a central concept in cerebrum.  Persons, user, groups
+etc. are examples of various entities.  Each entity has an entry in
+<tt class="docutils literal"><span class="pre">entity_info</span></tt>, which contains a numerical id, <tt class="docutils literal"><span class="pre">entity_id</span></tt>, as well as the
+type of entity, <tt class="docutils literal"><span class="pre">entity_type</span></tt>.  In addition the entity has entries in
+various tables depending on its type.  These tables will have the same
+value for <tt class="docutils literal"><span class="pre">entity_type</span></tt> and <tt class="docutils literal"><span class="pre">entity_id</span></tt>.  For example:</p>
+<blockquote>
+<div>An organicational unit would have an entry in <tt class="docutils literal"><span class="pre">entity_info</span> <span class="pre">ei</span></tt>, and
+<tt class="docutils literal"><span class="pre">ou_info</span> <span class="pre">oi</span></tt> where <tt class="docutils literal"><span class="pre">ei.entity_type=oi.entity_type</span></tt> and
+<tt class="docutils literal"><span class="pre">ei.entity_id=ou.ou_id</span></tt>.  In addition one could store address
+information for the ou in <tt class="docutils literal"><span class="pre">entity_address</span> <span class="pre">ea</span></tt> with
+<tt class="docutils literal"><span class="pre">ei.entity_id=ea.entity_id</span></tt> and <tt class="docutils literal"><span class="pre">ei.entity_type=ea.entity_type</span></tt>.</div></blockquote>
+<p>These foreign-keys are represented by the arrows in the diagram.  The
+core API in cerebrum limit what types of data that may be associated
+with each entity type.  Thus, while the database schema allows a disk
+to have an <tt class="docutils literal"><span class="pre">entity_address</span></tt>, the core API don&#8217;t allow it.</p>
+</div>
+<div class="section" id="code-tables">
+<h3><a class="toc-backref" href="#id5">1.1.2&nbsp;&nbsp;&nbsp;code tables</a><a class="headerlink" href="#code-tables" title="Permalink to this headline">¶</a></h3>
+<p>Cerebrum has extensive use of code tables which are used to limit the
+legal values for various types of data.  All code tables end with the
+string <tt class="docutils literal"><span class="pre">_code</span></tt>.</p>
+<p>For instance, the gender for a person is stored in
+<tt class="docutils literal"><span class="pre">person_info.gender</span></tt> which is a foreign key to <tt class="docutils literal"><span class="pre">gender_code</span></tt>.  The
+legal gender codes are maintained with the various Constants classes.
+Code tables avoids problems with the same code value being written in
+different ways, for instance &#8216;boy&#8217; or &#8216;male&#8217; for gender (TODO: bedre
+eksempel, boy er ikke et gender), while making it easy to introduce a
+new gender code &#8216;unknown&#8217;.</p>
+<p>Most code tables contains three columns:</p>
+<ul class="simple">
+<li>a numerical <tt class="docutils literal"><span class="pre">code</span></tt> that must always be constant, and which is used as
+a foreign key</li>
+<li>a string <tt class="docutils literal"><span class="pre">code_str</span></tt> which makes the code more easy to read for humans
+than a plain number</li>
+<li>a <tt class="docutils literal"><span class="pre">description</span></tt></li>
+</ul>
+</div>
+<div class="section" id="database-independency">
+<h3><a class="toc-backref" href="#id6">1.1.3&nbsp;&nbsp;&nbsp;Database independency</a><a class="headerlink" href="#database-independency" title="Permalink to this headline">¶</a></h3>
+<p>In Cerebrum, we have aimed at only using standard SQL, so that it may
+be used with any database backend that support a certain set of
+features.  These features includes, but are not limited to:</p>
+<ul class="simple">
+<li>inner selects</li>
+<li>transaction support</li>
+<li>foreign key support</li>
+</ul>
+<p>Currently only PostgreSQL and Oracle &gt;= 9 is supported by the database
+module <tt class="docutils literal"><span class="pre">Database.py</span></tt>.  Since we try to be fairly database
+independent, we do not use triggers or similar mecanisms.</p>
+</div>
+<div class="section" id="constraints">
+<h3><a class="toc-backref" href="#id7">1.1.4&nbsp;&nbsp;&nbsp;Constraints</a><a class="headerlink" href="#constraints" title="Permalink to this headline">¶</a></h3>
+<p>In order to assert that the database always is consistent, cerebrum
+relies heavily on foreign key, and unique constraints.  This prevents
+things like</p>
+<ul class="simple">
+<li>a <tt class="docutils literal"><span class="pre">person_info</span></tt> entry being registered with the same <tt class="docutils literal"><span class="pre">entity_id</span></tt>
+and <tt class="docutils literal"><span class="pre">entity_type</span></tt> as an <tt class="docutils literal"><span class="pre">ou_info</span></tt> entry.</li>
+<li>a <tt class="docutils literal"><span class="pre">group_info</span></tt> entry being deleted while it still has
+<tt class="docutils literal"><span class="pre">group_members</span></tt></li>
+<li>two accounts being registered with the same name</li>
+</ul>
+<p>... and so on</p>
+<p>Some constraints are too complex to express with these mecanisms (see
+above why we don&#8217;t use triggers).  For instance a unix username may
+only contain certain characters.  Such constraints are enforced by the
+API.  If users are allowed to use SQL to directly modify the cerebrum
+database, they should be careful not to violate any API constraints.</p>
+</div>
+</div>
+<div class="section" id="table-descriptions">
+<h2><a class="toc-backref" href="#id8">1.2&nbsp;&nbsp;&nbsp;table descriptions</a><a class="headerlink" href="#table-descriptions" title="Permalink to this headline">¶</a></h2>
+<p>TODO: Skal vi ta med beskrivelse av hver tabell her?  Tror det hadde
+v?rt fint, men vi vil _ikke_ duplisere informsajonen vi allerede har i
+core_tables.sql, s? den m? enten flyttes, eller s? m? vi finne p? noe
+lurt som kan ekstrahere den automagisk.</p>
+<div class="section" id="id1">
+<h3><a class="toc-backref" href="#id9">1.2.1&nbsp;&nbsp;&nbsp;entity_info</a><a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
+</div>
+<div class="section" id="entity-spread">
+<h3><a class="toc-backref" href="#id10">1.2.2&nbsp;&nbsp;&nbsp;entity_spread</a><a class="headerlink" href="#entity-spread" title="Permalink to this headline">¶</a></h3>
+</div>
+<div class="section" id="entity-name">
+<h3><a class="toc-backref" href="#id11">1.2.3&nbsp;&nbsp;&nbsp;entity_name</a><a class="headerlink" href="#entity-name" title="Permalink to this headline">¶</a></h3>
+</div>
+<div class="section" id="entity-address">
+<h3><a class="toc-backref" href="#id12">1.2.4&nbsp;&nbsp;&nbsp;entity_address</a><a class="headerlink" href="#entity-address" title="Permalink to this headline">¶</a></h3>
+</div>
+<div class="section" id="entity-contact-info">
+<h3><a class="toc-backref" href="#id13">1.2.5&nbsp;&nbsp;&nbsp;entity_contact_info</a><a class="headerlink" href="#entity-contact-info" title="Permalink to this headline">¶</a></h3>
+</div>
+<div class="section" id="host-info">
+<h3><a class="toc-backref" href="#id14">1.2.6&nbsp;&nbsp;&nbsp;host_info</a><a class="headerlink" href="#host-info" title="Permalink to this headline">¶</a></h3>
+</div>
+<div class="section" id="disk-info">
+<h3><a class="toc-backref" href="#id15">1.2.7&nbsp;&nbsp;&nbsp;disk_info</a><a class="headerlink" href="#disk-info" title="Permalink to this headline">¶</a></h3>
+</div>
+<div class="section" id="account-info">
+<h3><a class="toc-backref" href="#id16">1.2.8&nbsp;&nbsp;&nbsp;account_info</a><a class="headerlink" href="#account-info" title="Permalink to this headline">¶</a></h3>
+</div>
+<div class="section" id="account-home">
+<h3><a class="toc-backref" href="#id17">1.2.9&nbsp;&nbsp;&nbsp;account_home</a><a class="headerlink" href="#account-home" title="Permalink to this headline">¶</a></h3>
+</div>
+<div class="section" id="cerebrum-metainfo">
+<h3><a class="toc-backref" href="#id18">1.2.10&nbsp;&nbsp;&nbsp;cerebrum_metainfo</a><a class="headerlink" href="#cerebrum-metainfo" title="Permalink to this headline">¶</a></h3>
+</div>
+<div class="section" id="entity-quarantine">
+<h3><a class="toc-backref" href="#id19">1.2.11&nbsp;&nbsp;&nbsp;entity_quarantine</a><a class="headerlink" href="#entity-quarantine" title="Permalink to this headline">¶</a></h3>
+</div>
+<div class="section" id="ou-info">
+<h3><a class="toc-backref" href="#id20">1.2.12&nbsp;&nbsp;&nbsp;ou_info</a><a class="headerlink" href="#ou-info" title="Permalink to this headline">¶</a></h3>
+</div>
+<div class="section" id="ou-structure">
+<h3><a class="toc-backref" href="#id21">1.2.13&nbsp;&nbsp;&nbsp;ou_structure</a><a class="headerlink" href="#ou-structure" title="Permalink to this headline">¶</a></h3>
+</div>
+<div class="section" id="person-info">
+<h3><a class="toc-backref" href="#id22">1.2.14&nbsp;&nbsp;&nbsp;person_info</a><a class="headerlink" href="#person-info" title="Permalink to this headline">¶</a></h3>
+</div>
+<div class="section" id="person-external-id">
+<h3><a class="toc-backref" href="#id23">1.2.15&nbsp;&nbsp;&nbsp;person_external_id</a><a class="headerlink" href="#person-external-id" title="Permalink to this headline">¶</a></h3>
+</div>
+<div class="section" id="person-name">
+<h3><a class="toc-backref" href="#id24">1.2.16&nbsp;&nbsp;&nbsp;person_name</a><a class="headerlink" href="#person-name" title="Permalink to this headline">¶</a></h3>
+</div>
+<div class="section" id="person-affiliation">
+<h3><a class="toc-backref" href="#id25">1.2.17&nbsp;&nbsp;&nbsp;person_affiliation</a><a class="headerlink" href="#person-affiliation" title="Permalink to this headline">¶</a></h3>
+</div>
+<div class="section" id="person-affiliation-source">
+<h3><a class="toc-backref" href="#id26">1.2.18&nbsp;&nbsp;&nbsp;person_affiliation_source</a><a class="headerlink" href="#person-affiliation-source" title="Permalink to this headline">¶</a></h3>
+</div>
+<div class="section" id="account-type">
+<h3><a class="toc-backref" href="#id27">1.2.19&nbsp;&nbsp;&nbsp;account_type</a><a class="headerlink" href="#account-type" title="Permalink to this headline">¶</a></h3>
+</div>
+<div class="section" id="account-authentication">
+<h3><a class="toc-backref" href="#id28">1.2.20&nbsp;&nbsp;&nbsp;account_authentication</a><a class="headerlink" href="#account-authentication" title="Permalink to this headline">¶</a></h3>
+</div>
+<div class="section" id="group-info">
+<h3><a class="toc-backref" href="#id29">1.2.21&nbsp;&nbsp;&nbsp;group_info</a><a class="headerlink" href="#group-info" title="Permalink to this headline">¶</a></h3>
+</div>
+<div class="section" id="group-member">
+<h3><a class="toc-backref" href="#id30">1.2.22&nbsp;&nbsp;&nbsp;group_member</a><a class="headerlink" href="#group-member" title="Permalink to this headline">¶</a></h3>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">1&nbsp;&nbsp;&nbsp;The cerebrum database schema</a><ul>
+<li><a class="reference internal" href="#introduction">1.1&nbsp;&nbsp;&nbsp;Introduction</a><ul>
+<li><a class="reference internal" href="#entity-info">1.1.1&nbsp;&nbsp;&nbsp;entity_info</a></li>
+<li><a class="reference internal" href="#code-tables">1.1.2&nbsp;&nbsp;&nbsp;code tables</a></li>
+<li><a class="reference internal" href="#database-independency">1.1.3&nbsp;&nbsp;&nbsp;Database independency</a></li>
+<li><a class="reference internal" href="#constraints">1.1.4&nbsp;&nbsp;&nbsp;Constraints</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#table-descriptions">1.2&nbsp;&nbsp;&nbsp;table descriptions</a><ul>
+<li><a class="reference internal" href="#id1">1.2.1&nbsp;&nbsp;&nbsp;entity_info</a></li>
+<li><a class="reference internal" href="#entity-spread">1.2.2&nbsp;&nbsp;&nbsp;entity_spread</a></li>
+<li><a class="reference internal" href="#entity-name">1.2.3&nbsp;&nbsp;&nbsp;entity_name</a></li>
+<li><a class="reference internal" href="#entity-address">1.2.4&nbsp;&nbsp;&nbsp;entity_address</a></li>
+<li><a class="reference internal" href="#entity-contact-info">1.2.5&nbsp;&nbsp;&nbsp;entity_contact_info</a></li>
+<li><a class="reference internal" href="#host-info">1.2.6&nbsp;&nbsp;&nbsp;host_info</a></li>
+<li><a class="reference internal" href="#disk-info">1.2.7&nbsp;&nbsp;&nbsp;disk_info</a></li>
+<li><a class="reference internal" href="#account-info">1.2.8&nbsp;&nbsp;&nbsp;account_info</a></li>
+<li><a class="reference internal" href="#account-home">1.2.9&nbsp;&nbsp;&nbsp;account_home</a></li>
+<li><a class="reference internal" href="#cerebrum-metainfo">1.2.10&nbsp;&nbsp;&nbsp;cerebrum_metainfo</a></li>
+<li><a class="reference internal" href="#entity-quarantine">1.2.11&nbsp;&nbsp;&nbsp;entity_quarantine</a></li>
+<li><a class="reference internal" href="#ou-info">1.2.12&nbsp;&nbsp;&nbsp;ou_info</a></li>
+<li><a class="reference internal" href="#ou-structure">1.2.13&nbsp;&nbsp;&nbsp;ou_structure</a></li>
+<li><a class="reference internal" href="#person-info">1.2.14&nbsp;&nbsp;&nbsp;person_info</a></li>
+<li><a class="reference internal" href="#person-external-id">1.2.15&nbsp;&nbsp;&nbsp;person_external_id</a></li>
+<li><a class="reference internal" href="#person-name">1.2.16&nbsp;&nbsp;&nbsp;person_name</a></li>
+<li><a class="reference internal" href="#person-affiliation">1.2.17&nbsp;&nbsp;&nbsp;person_affiliation</a></li>
+<li><a class="reference internal" href="#person-affiliation-source">1.2.18&nbsp;&nbsp;&nbsp;person_affiliation_source</a></li>
+<li><a class="reference internal" href="#account-type">1.2.19&nbsp;&nbsp;&nbsp;account_type</a></li>
+<li><a class="reference internal" href="#account-authentication">1.2.20&nbsp;&nbsp;&nbsp;account_authentication</a></li>
+<li><a class="reference internal" href="#group-info">1.2.21&nbsp;&nbsp;&nbsp;group_info</a></li>
+<li><a class="reference internal" href="#group-member">1.2.22&nbsp;&nbsp;&nbsp;group_member</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/doc/devel/database-schema.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, University of Oslo.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

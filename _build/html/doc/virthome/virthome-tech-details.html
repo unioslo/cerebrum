@@ -1,0 +1,693 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>VirtHome &mdash; Cerebrum 0.9.16 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.9.16',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Cerebrum 0.9.16 documentation" href="../../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="virthome">
+<h1><a class="toc-backref" href="#id2">VirtHome</a><a class="headerlink" href="#virthome" title="Permalink to this headline">¶</a></h1>
+<div class="contents topic" id="innholdsfortegnelse">
+<p class="topic-title first">Innholdsfortegnelse</p>
+<ul class="simple">
+<li><a class="reference internal" href="#virthome" id="id2">VirtHome</a><ul>
+<li><a class="reference internal" href="#innledning" id="id3">Innledning</a></li>
+<li><a class="reference internal" href="#virthome-entiteter" id="id4">VirtHome-entiteter</a><ul>
+<li><a class="reference internal" href="#virtaccount" id="id5">VirtAccount</a></li>
+<li><a class="reference internal" href="#fedaccount" id="id6">FEDAccount</a></li>
+<li><a class="reference internal" href="#virtgroup" id="id7">VirtGroup</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#skjemautvidelsene" id="id8">Skjemautvidelsene</a></li>
+<li><a class="reference internal" href="#bofhd-kommunikasjon" id="id9">Bofhd-kommunikasjon</a><ul>
+<li><a class="reference internal" href="#innlogging" id="id10">Innlogging</a></li>
+<li><a class="reference internal" href="#hendelsesforl-p" id="id11">Hendelsesforl?p</a><ul>
+<li><a class="reference internal" href="#innlogging-av-va" id="id12">Innlogging av VA</a></li>
+<li><a class="reference internal" href="#innlogging-av-en-fa" id="id13">Innlogging av en FA</a></li>
+<li><a class="reference internal" href="#gruppeinvitasjon" id="id14">Gruppeinvitasjon</a></li>
+<li><a class="reference internal" href="#passordgjenopprettelse" id="id15">Passordgjenopprettelse</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#kommandoer-som-krever-bekreftelse" id="id16">Kommandoer som krever bekreftelse</a></li>
+<li><a class="reference internal" href="#rettighetsforvaltning-i-bofhd" id="id17">Rettighetsforvaltning i bofhd</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="innledning">
+<h2><a class="toc-backref" href="#id3">Innledning</a><a class="headerlink" href="#innledning" title="Permalink to this headline">¶</a></h2>
+<p>Dette dokumentet beskriver de tekniske detaljene p? Cerebrum-siden knyttet til
+implementasjonen av VirtHome-funksjonalitet.</p>
+<p>Hovedf?ringen for implementasjonen er ? gjenbruke s? mye av Cerebrum-kodebasen
+som overhodet mulig. Der hvor databaseskjema ikke tilbyr de n?dvendige
+skrankene, velger vi heller ? flytte h?ndteringen av skrankene inn i koden,
+heller en ? lage nye moduler.</p>
+</div>
+<div class="section" id="virthome-entiteter">
+<h2><a class="toc-backref" href="#id4">VirtHome-entiteter</a><a class="headerlink" href="#virthome-entiteter" title="Permalink to this headline">¶</a></h2>
+<p>Det er tre logiske enheter som utpeker seg som entiteter i VirtHome &#8211; brukere
+uten f?derert tilknytning (VirtAccount), brukere med f?derert tilknytning
+(FEDAccount) og grupper (VirtGroup) der de to f?rste entitetene kan v?re
+medlemmer. Alle de andre entitetene vi trenger er allerede i Cerebrum-kjernen.</p>
+<p>VirtAccounts (VA) er brukere som vi vet minst om, da all informasjon om disse
+kommer fra en ikke tiltrodd kilde (det er meningen av folk skal kunne lage
+sine egne VirtAccounts uten noe form for verifikasjon av opplysningene). Den
+eneste &#8220;merkelappen&#8221; vi har p? disse er e-postadressen.</p>
+<p>FEDAccounts (FA) er brukere som stammer fra en tilknyttet institusjon og disse
+besitter bl.a. en ID i Feide og antas videre til ? v?re verifiserte (dvs. vi
+antar at informasjonen lagret i VirtHome om disse brukere er til ? stole p?).</p>
+<p>VirtGroups (VG) er grupper der begge typer konti kan v?re medlemmer (og gjerne
+innen den samme gruppen).</p>
+<p>Det er intet poeng i ? finne p? nye entiteter i db-skjema, og f?lgelig lagrer
+vi informasjon om begge typer konti i <tt class="docutils literal"><span class="pre">code_tables.sql:account_info</span></tt>, og
+informasjon om grupper legges i <tt class="docutils literal"><span class="pre">core_tables.sql:group_info</span></tt>.</p>
+<div class="section" id="virtaccount">
+<h3><a class="toc-backref" href="#id5">VirtAccount</a><a class="headerlink" href="#virtaccount" title="Permalink to this headline">¶</a></h3>
+<p>Selv om vi gjenbruker <tt class="docutils literal"><span class="pre">account_info</span></tt>, m? det til en ny entitet i kodebasen
+for ? st?tte visse operasjoner p? VirtAccounts. Koden for VirtHome kontotyper
+ligger i <tt class="docutils literal"><span class="pre">Cerebrum/modules/virthome/VirtAccount.py</span></tt>. VirtAccount blir
+naturlig til egen klasse, <tt class="docutils literal"><span class="pre">VirtAccount</span></tt>. B?de <tt class="docutils literal"><span class="pre">VirtAccount</span></tt> og
+<tt class="docutils literal"><span class="pre">FEDAccount</span></tt> (se under) har noen fellestrekk og fellesbaseklassen for disse
+arver fra Account. Ideelt sett burde dette ha blitt l?st ved ? la
+<tt class="docutils literal"><span class="pre">AccountType</span></tt>, <tt class="docutils literal"><span class="pre">AccountHome</span></tt> og autentiseringsfunksjonaliteten v?re
+separate mixin-klasser som legges i <tt class="docutils literal"><span class="pre">CLASS_ACCOUNT</span></tt> ved behov, men det er
+dessverre ikke slik. Pga. litt uheldig arverekkef?lge til <tt class="docutils literal"><span class="pre">Account</span></tt> m? man
+reimplementere en del metoder vi kunne ellers ha greid oss uten. Disse kaster
+<tt class="docutils literal"><span class="pre">NotImplementedError</span></tt> dersom de blir brukt (det er ikke meningen at de skal
+kunne brukes).</p>
+<p>For hver VirtAccount lagrer vi f?lgende data i Cerebrum:</p>
+<blockquote>
+<div><ul class="simple">
+<li>E-postadresse (p?krevd, ikke unik). Denne lagres som egen
+<tt class="docutils literal"><span class="pre">contact_info</span></tt>. Det er ikke noe poeng i ? dra inn <tt class="docutils literal"><span class="pre">Email</span></tt>-modulen kun
+for ? lagre adressene.</li>
+<li>Brukernavn (p?krevd, unik) lagres som egen type <tt class="docutils literal"><span class="pre">entity_name</span></tt>.</li>
+<li>Opprettelsesdato (p?krevd), lagres i <tt class="docutils literal"><span class="pre">account_info</span></tt></li>
+<li>Sluttdato (p?krevd), lagres i <tt class="docutils literal"><span class="pre">account_info</span></tt>. DB-skjema har ikke
+NOT NULL skranken p? sluttdato, s? dette vil m?tte forsikres i koden.</li>
+<li>Navn p? eieren. Denne er valgfri. Et praktisk problem her er at
+<tt class="docutils literal"><span class="pre">entity_name</span></tt> har en unique-skranke p? navn av samme type og kan derfor
+ikke brukes til ? lagre eiernavn. Det greieste er ? lagre dette som
+entity_contact_info. Ideelt sett burde vi migrere Cerebrum til ? bruke
+unike og ikkeunike navn og ha dertil egnede tabeller i db-skjema. Dette
+l?ses dog ikke av/i VH.</li>
+<li>Passord. Denne kan lagres i <tt class="docutils literal"><span class="pre">account_authentication</span></tt> og
+<tt class="docutils literal"><span class="pre">password_history</span></tt>.</li>
+<li>Spread til LDAP (og sikkert en del andre). Dette l?ses enkelt
+vha. <tt class="docutils literal"><span class="pre">entity_spread</span></tt>.</li>
+<li>Karantener. Dette l?ses enkelt vha. <tt class="docutils literal"><span class="pre">entity_quarantine</span></tt>.</li>
+<li>Traits (litt uklart hvilke traits vi kan trenge akkurat n?, men det
+spiller liten rolle) &#8211; EntityTrait-modulen er veltestet.</li>
+</ul>
+</div></blockquote>
+<p>Siden vi ikke kan stole p? navn som folk skriver selv om seg selv, m? vi ha et
+system for ? merke alle navn p? VA-eiere slik at det fremg?r tydelig at
+informasjonen ikke er fra en tiltrodd kilde. Merk at dette gjelder kun
+eksporten til andre systemer (slik som LDAP). Dvs. at &#8220;Schnappi das Krokodil&#8221;
+vil m?tte merkes p? en eller annen m?te som tydeliggj?r at det navnet ikke
+stammer fra en tiltrodd kilde, slik som f.eks. &#8220;Schnappi das Krokodil
+(unverified)&#8221; <strong>kun</strong> ved eksport til andre systemer; internt i Cerebrum
+forblir navnet uendret (internt i Cerebrum vet man til enhver tid ut fra
+kontotypen om informasjonen om kontoen er fra en tiltrodd kilde).</p>
+<p>Videre er det slik at <tt class="docutils literal"><span class="pre">account_info</span></tt> alltid har en eier, som er enten en
+account eller en gruppe. Siden vi ikke har en entitet i Cerebrum som eier en
+VirtAccount, er det naturlig ? la &#8220;systemet&#8221; eie VAs. I dette tilfellet blir
+det <tt class="docutils literal"><span class="pre">cereconf.INITIAL_GROUPNAME/INITIAL_ACCOUNTNAME</span></tt> som eier alle VAs.</p>
+<p>Navn p? VAs (egentlig p? b?de VA og FA) i VirtHome har en indre struktur &#8211;
+&#8220;&lt;name&gt;&#64;&lt;realm&gt;&#8221;. For VirtAccount spesifikt er &lt;realm&gt; fastsatt
+(<tt class="docutils literal"><span class="pre">cereconf.VIRTHOME_REALM</span></tt> inneholder realm) &#8211; alle VA-brukernavn er p?
+formen &#8220;&lt;noe&gt;&#64;VH&#8221;. &#8220;&lt;noe&gt;&#8221;-delen er opptil hver enkel bruker ? bestemme,
+s?fremt det resulterende brukernavnet ikke er allerede tatt.
+<tt class="docutils literal"><span class="pre">VirtAccount:illegal_name()</span></tt> sjekker at det blir h?ndtert (vi har ingen
+db-skjemaskranker p? dette punktet).</p>
+<p>Et vesentlig punkt knyttet til alle VA-er er at en rekke kommandoer (ogs?
+opprettelse) krever et bekreftelsessteg. Dette er beskrevet senere i
+<a class="reference internal" href="#bofhd-kommunikasjon">Bofhd-kommunikasjon</a>.</p>
+<p>Det er litt uklart om VA m? kunne slettes komplett fra Cerebrum, dvs. om vi
+trenger en passende <tt class="docutils literal"><span class="pre">nuke()</span></tt>-funksjon. Imidlertid VA-er som ikke er
+bekreftet (se avsnittet om opprettelse) m? kunne slettes. Relatert til dette,
+<tt class="docutils literal"><span class="pre">is_active()</span></tt> for en VA m? ta hensyn til expire_date OG til hvorvidt kontoen
+er blitt bekreftet.</p>
+<p>En VA opprettes med en gang i VH, etter at brukeren ba om opprettelse av en ny
+VA, men settes med en gang i karantene, slik at nye brukere er n?dt til ?
+bekrefte opprettelsen f?r kontoen tas i bruk. I det en slik bekreftelse
+kommer, fjernes karantenen og VA gis spread til LDAP.</p>
+<p>For VA tar Cerebrum vare p? passord. Vi trenger ? definere hva et gyldig
+passord er og sjekket det i API-et (<tt class="docutils literal"><span class="pre">PasswordChecker</span></tt>-rammeverket er p?
+plass alt). Siden Cerebrum har oversikt over passord, kan vi autentisere
+VA-brukere ved innlogging gjennom bofhd/cerebrum.</p>
+<p>For selve passordkravet er det enkleste ? legge seg p? passphrases. Vi krever
+at passordet tilfredstiller samtlige av f?lgende krav:</p>
+<blockquote>
+<div><ul class="simple">
+<li>Minst 12 tegn.</li>
+<li>Ingen repetisjon p? 4 eller flere tegn. (&#8216;aaaa&#8217; &#8211; ikke tillatt)</li>
+<li>Ingen sekvenser p? 4 tegn eller lengre (&#8216;1234&#8217; og &#8216;qwerty&#8217; &#8211; ikke
+tillatt)</li>
+<li>Passord er fra alfabetet [a-zA-Z0-9] + et par spesialtegn.</li>
+</ul>
+</div></blockquote>
+<p>Vi krever opprettelses- og expire-dato for alle VA-er. DB-skjema st?tter ikke
+dette kravet, s? dette m? sjekkes i API-et. I utgangspunktet antar vi at en
+konto er ekspirert etter ett ?r. Uansett er expire_date aldri NULL/None.</p>
+<p>For ? logge seg inn i VirtHome skal folk bruke brukernavn. E-post, derimot, er
+den kommunikasjonskanalen som VH har til hver enkel bruker (det er i praksis
+den eneste m?ten systemet kan kommunisere med brukeren p?).</p>
+<p>Hver VA blir n?dt til ? bekrefte at kontoen er i bruk med jevne mellomrom. Det
+enkleste er ? gj?re dette ifm. passordbytte som skjer hver 6. m?ned. Som et
+ledd i oppryddingsrutinene, vil man sende rutinemessige varsler om
+passordbytte (ikke ulik slik det gj?re ved UiO i dag). Det er forel?pig uklart
+hva som skjer med VA, dersom brukeren unnlater ? bytte passordet (VA skal f?
+karantene og skal sperres fra eksport til eksterne systemer (f.eks. LDAP), men
+skal vi slette brukeren helt? Gj?re noe annet?)</p>
+<p>Et annet ?pent sp?rsm?l er hvordan selve passordbytte skal forl?pe seg. Vi m?
+hindre at uvedkommende DoS-er en VA, samtidig som det skal v?re mulig, etter ?
+ha glemt et passord, ? f? gjenopprettet tilgangen til kontoen.</p>
+</div>
+<div class="section" id="fedaccount">
+<h3><a class="toc-backref" href="#id6">FEDAccount</a><a class="headerlink" href="#fedaccount" title="Permalink to this headline">¶</a></h3>
+<p>Det er en del felles trekk mellom FA og VA, s? de begge bruker
+<tt class="docutils literal"><span class="pre">account_info</span></tt> og arver fra samme baseklasse. Likevel er det noen
+forskjeller, slik at hver av disse f?r egen klasse.</p>
+<p>For hver FEDAccount lagrer vi f?lgende data i Cerebrum:</p>
+<blockquote>
+<div><ul class="simple">
+<li>E-postadresse (p?krevd, ikke unik). Denne lagres som egen
+<tt class="docutils literal"><span class="pre">contact_info</span></tt>. Det er ikke noe poeng i ? dra inn <tt class="docutils literal"><span class="pre">Email</span></tt>-modulen kun
+for ? lagre adressene.</li>
+<li>Brukernavn (p?krevd, unik) lagres som egen type <tt class="docutils literal"><span class="pre">entity_name</span></tt>.</li>
+<li>Opprettelsesdato (p?krevd), lagres i <tt class="docutils literal"><span class="pre">account_info</span></tt></li>
+<li>Sluttdato (p?krevd), lagres i <tt class="docutils literal"><span class="pre">account_info</span></tt>. DB-skjema har ikke
+NOT NULL skranken p? sluttdato, s? dette vil m?tte forsikres i koden.</li>
+<li>Navn p? eieren. Denne er valgfri. Et praktisk problem her er at
+<tt class="docutils literal"><span class="pre">entity_name</span></tt> har en unique-skranke p? navn av samme type. I dette
+tilfellet blir vi n?dt til ? utvide skjema med en ny tabell for ? lagre
+ikke-unike navn av bestemt type &#8211; <tt class="docutils literal"><span class="pre">entity_non_unique_name</span></tt>.</li>
+<li>Spread til LDAP (og sikkert en del andre). Dette l?ses enkelt
+vha. <tt class="docutils literal"><span class="pre">entity_spread</span></tt>.</li>
+<li>Karantener. Dette l?ses enkelt vha. <tt class="docutils literal"><span class="pre">entity_quarantine</span></tt>.</li>
+<li>Traits (litt uklart hvilken traits vi kan trenge akkurat n?, men det
+spiller liten rolle) &#8211; EntityTrait-modulen er veltestet.</li>
+</ul>
+</div></blockquote>
+<p>Da data for FA antas til ? stamme fra en tiltrodd kilde, gj?res det ingen
+manipulasjoner med eiernavn for FA-er ved eksport til eksterne systemer slik
+det gj?res med VA. Videre er det ogs? slik at siden denne tiltrodde kilden er
+autoritativ for informasjonen om en FA, oppdateres data om FA-en i VH hver
+gang vedkommende logger seg inn i VH (slik at vi f.eks. automatisk oppdaterer
+eiernavnet for kontoen, dersom navnet endrer seg i Feide).</p>
+<p>I likhet med VA-er, eies FA-er av systemet
+(<tt class="docutils literal"><span class="pre">cereconf.INITIAL_GROUPNAME/ACCOUNTNAME</span></tt>).</p>
+<p>I likhet med VA-er, er navn p? FA-ene strukturert som
+<tt class="docutils literal"><span class="pre">&lt;name&gt;&#64;&lt;realm&gt;</span></tt>. Imidlertid f?r hver tilknyttet institusjon egen &#8220;&lt;realm&gt;&#8221;
+(dette sjekkes i API-et, siden db-skjema ikke har den type sjekke innebygd).</p>
+<p>En viktig forskjell mellom VA og FA er autentisering. VirtHome lagrer ikke
+passord for FA-ene &#8211; disse skal autentiseres eksternt, heller enn gjennom
+Cerebrum. Dette reiser en del andre problemstillingene, siden f.eks. bofhd
+(som er (om enn i en modifisert utgave og bak en web-applikasjon) det
+verkt?yet vi skal bruke for ? tilby et grensesnitt til brukere) alltid har
+gjort autentiseringen selv. Mer om dette i <a class="reference internal" href="#innlogging">Innlogging</a>. API-et b?r har en
+sperre for ? sette passord p? FA-ene.</p>
+<p>I likhet med FA f?r VA-brukere LDAP-spread etter f?rste innlogging.</p>
+<p>N?r det gjelder expire-dato, er det en utfordring knyttet til FA-er, siden de
+ikke har noe &#8220;bytt-passord-i-VH&#8221;-funksjon som man kan bruke som bekreftelse p?
+at kontoen fremdeles er i bruk. Det enkleste er ? sende ut bekreftelsese-post
+(ikke ulik passordvarsling) og be brukeren bekrefte bruken ved ? f?lge en
+link.</p>
+<p>Siden FA og VA deler den samme tabellen (<tt class="docutils literal"><span class="pre">account_info</span></tt>), og vi trenger ?
+skille mellom disse to typene, introduseres et par nye konstanter (for ?
+skille p? <tt class="docutils literal"><span class="pre">account_info.np_type</span></tt>) &#8211; <tt class="docutils literal"><span class="pre">virtaccount_type</span></tt> og
+<tt class="docutils literal"><span class="pre">fedaccount_type</span></tt>.</p>
+</div>
+<div class="section" id="virtgroup">
+<h3><a class="toc-backref" href="#id7">VirtGroup</a><a class="headerlink" href="#virtgroup" title="Permalink to this headline">¶</a></h3>
+<p>Den tredje og siste VirtHome-entiteten er VirtGroup &#8211; en gruppe der
+medlemmene er VA-er og FA-er. VG er ganske like gruppene i Cerebrum.</p>
+<p>Alle VG-er har en eier, en creator og fra 0 til flere moderatorer. Det er kun
+FA-er som kan v?re eier/creator/moderator; VA-er kan kun v?re medlemmer.</p>
+<p>For hver VirtGroup lagrer vi f?lgende data i Cerebrum:</p>
+<blockquote>
+<div><ul class="simple">
+<li>Gruppenavn (p?krevd) lagres i <tt class="docutils literal"><span class="pre">entity_name</span></tt>.</li>
+<li>Gruppebeskrivelse (p?krevd) lagres i <tt class="docutils literal"><span class="pre">group_info</span></tt>.</li>
+<li>Eier (p?krevd) lagres i bofhd_auth*. At eieren er p?krevd sikres via
+bofhd.</li>
+<li>Moderatorne for gruppen (valgfri), lagres i bofhd_auth*.</li>
+<li>Spreads lagres i <tt class="docutils literal"><span class="pre">entity_spread</span></tt> (f.eks. spread til LDAP).</li>
+<li>En gruppe&#8221;ressurs&#8221; (URL, forel?pig) som er ment til ? peke p?
+ekistensgrunnlaget for gruppen. F.eks. hvis gruppen representerer hvem som
+skal f? lov til ? kommentere p? en spesiell blogg, s? er ressursen URL til
+denne bloggen. Dette lagres som <tt class="docutils literal"><span class="pre">entity_contact_info</span></tt>.</li>
+</ul>
+</div></blockquote>
+<p>B?de VA og FA kan v?re medlemmer i den samme gruppen (vi burde dog legge inn
+sperre for alle andre account_typer i API-et). Dog, det er kun FA som kan v?re
+eiere og moderatorer av en VG. Igjen, dette sjekkes i API-et (siden db-skjema
+ikke st?tter det).</p>
+<p>Vi har allerede et opplegg for ? uttrykke eierskap og moderatorstatus gjennom
+rettighetsrammeverket til bofhd (<tt class="docutils literal"><span class="pre">bofhd_auth.sql</span></tt>). Vi kan endre eierskap og
+moderasjonsstatus p? samme m?te som rettighetene tildeles i dag, si, ved UiO.</p>
+<p>Gruppenavn i virthome m? ha en realm, p? samme m?te som VA sine navn &#8211; alle
+grupper kommer til ? hete &#8220;&lt;noe&gt;&#64;VH&#8221;, der &lt;noe&gt; er opptil FA-en som lager
+gruppen (s?fremt gruppenavnet ikke er tatt allerede).</p>
+<p>Det skal til enhver tid v?re eksakt 1 eier av en VG. Eierskapet kan imidlertid
+overdras til en annen bruker. Denne overdragelsen skjer gjennom et
+bekreftelsessteg (f.eks. p? samme m?te som registrering av nye VA-er). Det er
+kun n?v?rende eier som kan overdra eierskapet. Tilsvarende bekreftelse kreves
+n?r eier eller moderator ?nsker ? melde en annen bruker som moderator.</p>
+<p>Enhver bruker kan meldes inn i en gruppe (det kreves aktivt samtykke fra
+brukeren, dog). Brukeren selv, gruppeeier og gruppemoderator kan melde en
+bruker ut av gruppen. N?r brukeren meldes ut av gruppen av
+gruppeeier/moderator, skjer dette i stillhet for brukeren. Fjerning av
+medlemmer blir registrert i Cerebrum sitt change_log, s? vi har en oversikt
+over hvilken konto meldte en gitt konto ut av en gruppe til enhver tid.</p>
+<p>Gruppemedlemskap uttrykkes gjennom <tt class="docutils literal"><span class="pre">group_member</span></tt>, hvor det er helt
+uproblematisk ? blande sammen VA og FA innad samme gruppe.</p>
+</div>
+</div>
+<div class="section" id="skjemautvidelsene">
+<h2><a class="toc-backref" href="#id8">Skjemautvidelsene</a><a class="headerlink" href="#skjemautvidelsene" title="Permalink to this headline">¶</a></h2>
+<p>Det er n?dvendig med et lite supplement til Cerebrum-skjema. Vi trenger en
+unik identifikator for utest?ende change_log requests, og denne
+identifikatoren b?r v?re passe stor/tilfeldig (mao ikke en entity_id eller
+tstamp). Det er laget egen tabell, <tt class="docutils literal"><span class="pre">pending_change_log</span></tt> som knytter en slik
+unik id mot <tt class="docutils literal"><span class="pre">change_log(change_id)</span></tt>. Tabellen med alle skranker er i
+<tt class="docutils literal"><span class="pre">design/mod_virthome.sql</span></tt>. Utover dette er det ingen skjemaendringer.</p>
+<p>DB-modulene som vi trenger i VirtHome blir da:</p>
+<blockquote>
+<div><ul class="simple">
+<li><tt class="docutils literal"><span class="pre">mod_virthome.sql</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">bofhd_auth.sql</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">bofhd_tables.sql</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">core_tables.sql</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">mod_changelog.sql</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">mod_entity_trait.sql</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">mod_password_history.sql</span></tt></li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="bofhd-kommunikasjon">
+<h2><a class="toc-backref" href="#id9">Bofhd-kommunikasjon</a><a class="headerlink" href="#bofhd-kommunikasjon" title="Permalink to this headline">¶</a></h2>
+<p>I forhold til hvordan ting er blitt gjort tidligere, er det en rekke endringer
+som m? introduseres i bofhd.</p>
+<p>Den overordnede oversikten er angitt i <tt class="docutils literal"><span class="pre">over-communication-sketch.dia</span></tt>.</p>
+<p>Den spesifikk kommandosekvensen for de operasjonene som krever autorisasjon er
+skissert i <tt class="docutils literal"><span class="pre">command-with-login.dia</span></tt>.</p>
+<div class="section" id="innlogging">
+<h3><a class="toc-backref" href="#id10">Innlogging</a><a class="headerlink" href="#innlogging" title="Permalink to this headline">¶</a></h3>
+<p>Bofhd er kodet slik at alle brukere m? autentisere seg f?r de kj?rer noen
+kommandoer og privilegiene p? alle de p?f?lgende kommandoene sjekkes mot
+sesjon-ID-en gitt ved innlogging. Denne tiln?rmingen er ikke s? gunstig for
+VH: FA-er autentiserer seg mot Feide og VirtHome lagrer ikke deres passord
+engang. Mao. tillittskjeden m? utvides og bofhd m? stole p? at
+web-applikasjonen (web-frontend) har autentisert brukeren.</p>
+<p>Imidlertid er problemet fortsatt der &#8211; bofhd kan ikke bare kj?re vilk?rlige
+kommandoer sendt av en eller annen FA/VA p? den andre enden av
+oppkoblingen. Det foresl?s dermed ? autentisere samt utf?re kommandoene p?
+f?lgende m?te:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li>VA-er logger seg inn direkte i VH sin bofhd. Her kreves det ingen
+spesialtilpasninger.</li>
+</ol>
+</div></blockquote>
+<p>For FA-er, derimot, ser prosessen slik ut:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li>Web-frontenden s?rger for ? redirecte brukeren til rett
+autentiseringstjeneste (Moria? LDAP?) og f?r tilbake en bekreftelse p? at
+brukeren er autentisert <a class="footnote-reference" href="#auth1" id="id1">[1]</a>.</li>
+<li>Deretter logger web-frontenden seg mot bofhd som web-applikasjon. Det m?
+opprettes (p? forh?nd) egen bruker til web-applikasjonen med visse
+rettigheter i bofhd. Brukernavn/passord m? skrives (i klartekst) i en
+passende fil p? maskinen som kj?rer web-applikasjonen. Tilgangen til
+denne filen m? ikke gis til noen andre enn den brukeren som
+web-applikasjonen kj?rer som. Tanken med denne er ? kreve at den som
+kobler seg mot bofhd kjenner til en eller annen hemmelig n?kkel, slik at
+ikke hvem som helst skal kunne logge seg inn mot bofhd, enda bofhd st?r
+p? et nett med begrenset tilgang (forh?pentligvis).</li>
+<li>Deretter gj?r web-frontend en &#8220;su &lt;bruker&gt;&#8221; kommando, for ? registrere at
+alle de p?f?lgende kommandoene kj?res som &#8220;&lt;bruker&gt;&#8221;. Mao, bofhd
+tilordner den eksisterende web-frontend sesjon til en annen bruker. Det er
+viktig ? begrense mengden av brukere som f?r lov til ? bytte eierskapet
+til sesjonen mot bofhd (i prinsippet er det kun web-applikasjonen som
+skal trenge det).</li>
+<li>Deretter kan kommandoene fra brukeren sendes via web-applikasjonen til
+bofhd (slik det er i dag med jbofh, cweb, osv.).</li>
+</ol>
+</div></blockquote>
+<p>Siden kommunikasjonen mellom wep-applikasjonen foreg?r over HTTPS, er det
+ingen mulighet for ? avlytte sesjon-ID-en og misbruke den. Svakheten i denne
+l?sningen er at web-applikasjonen m? ha tilgang til sitt eget
+brukernavn/passord i klartekst. Blir web-applikasjonen eller web-tjeneren
+kompromittert, vil angriperen kunne endre sesjonseierskap (og dermed
+rettighetene knyttet til sesjonen) til hvilken som helst bruker i VirtHome.</p>
+<p>For ? oppsummere, dagens ordning med &#8220;innlogging f?r kommando&#8221; best?r, men i
+en noe endret form.</p>
+<p>En annen viktig del av saken er at i VirtHome m? det finnes en rekke
+kommandoer som ikke krever innlogging fra brukernes side (registrering av en
+ny VA, det ? bekrefte en foresp?rsel sendt per e-post). Per design er det slik
+at hvem som helst skal kunne opprette en ny VA uten noe tidligere tilknytningn
+til VirtHome. Dette betyr at web-applikasjonen m? kunne ikke bare gj?re &#8220;su
+&lt;bruker&gt;&#8221; men ogs? videreformidle slike
+kommandoer-fra-brukere-uten-autentisering. Naturligvis vil web-applikasjonen
+fremdeles m?tte logge seg inn til bofhd og s? sende en &#8220;opprett en ny
+VA&#8221;-kommando til bofhd (som seg selv, heller enn p? vegne av en annen bruker).</p>
+<table class="docutils footnote" frame="void" id="auth1" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id1">[1]</a></td><td>Akkurat hvordan dette gjennomf?res praktisk er ikke s? veldig
+interessant her. Vi bare antar at det finnes en tjeneste som
+web-applikasjonen kan bruke for ? f? en bekreftelse p? at brukeren
+som logger seg inn er den vedkommende p?st?r ? v?re.</td></tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="hendelsesforl-p">
+<h3><a class="toc-backref" href="#id11">Hendelsesforl?p</a><a class="headerlink" href="#hendelsesforl-p" title="Permalink to this headline">¶</a></h3>
+<p>La oss se p? hendelsesforl?p i f?lgende situasjoner knyttet til bofhd / dens
+bruk.</p>
+<div class="section" id="innlogging-av-va">
+<h4><a class="toc-backref" href="#id12">Innlogging av VA</a><a class="headerlink" href="#innlogging-av-va" title="Permalink to this headline">¶</a></h4>
+<blockquote>
+<div><ol class="arabic simple">
+<li>Brukeren velger den websiden der h*n kan logge seg inn som en VA.</li>
+<li>Brukeren blir presentert med en side der vedkommende fyller ut brukernavn
+og passord og sender disse til webappen.</li>
+<li>webapp logger seg inn i bofhd (<tt class="docutils literal"><span class="pre">bofhd_login</span></tt>) med det supplerte
+brukernavnet og passordet.</li>
+<li>bofhd sjekker brukernavnet/passordet, og tilordner sesjonen til den
+aktuelle brukeren.</li>
+</ol>
+</div></blockquote>
+<p>Fra det tidspunktet av er VA autentisert og kan utf?re kommandoer med dertil
+passende rettigheter/tilganger.</p>
+</div>
+<div class="section" id="innlogging-av-en-fa">
+<h4><a class="toc-backref" href="#id13">Innlogging av en FA</a><a class="headerlink" href="#innlogging-av-en-fa" title="Permalink to this headline">¶</a></h4>
+<blockquote>
+<div><ol class="arabic simple">
+<li>Brukeren velger den websiden der h*n kan logge seg inn som feide-bruker.</li>
+<li>Brukeren autentiserer seg mot feide</li>
+<li>webapp f?r en datablobb fra brukeren/feide</li>
+<li>webapp logger seg inn i bofhd med eget brukernavn/passord</li>
+<li>webapp kaller <tt class="docutils literal"><span class="pre">user_fedaccount_login</span></tt> med parametre fra blobben
+(brukernavn, e-post, personnavn. Vi krever minst disse 3)</li>
+<li>dersom det brukernavnet ikke finnes i virthome, opprettes det av bofhd.</li>
+<li>deretter tilordner bofhd sesjonen til den aktuelle brukeren (webapp
+eier ikke lenger sesjonen og alle kommandoer utf?res med privilegiene til
+brukeren).</li>
+</ol>
+</div></blockquote>
+</div>
+<div class="section" id="gruppeinvitasjon">
+<h4><a class="toc-backref" href="#id14">Gruppeinvitasjon</a><a class="headerlink" href="#gruppeinvitasjon" title="Permalink to this headline">¶</a></h4>
+<p>F?dererte brukere kan opprette grupper i virthome (f.eks. med det form?let ?
+styre tilgangen til blogg/wiki). En FA kan invitere i en gruppe som
+vedkommende eier/modererer andre brukere. Siden de inviterte er ikke
+n?dvendigvis registrert i virthome, baseres invitasjonsutsendelsen p?
+e-postadresser.</p>
+<p>Hendelsesforl?pet blir da:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li>En FA logger seg inn (beskrevet tidligere)</li>
+<li>FA velger ut gruppen og e-postadressene som skal inviteres til den.</li>
+<li>For hver e-postadresse lages det en invitasjon i bofhd (webapp kaller
+<tt class="docutils literal"><span class="pre">bofhd_group_invite</span></tt>)</li>
+<li>For hver slik invitasjon, lages det en bofhd_request og webappen f?r
+tilbake et engangspassord (OTP)</li>
+<li>Webapp sender e-post med invitasjonen til den gitte e-postadressen der
+OTP er bakt inn.</li>
+<li>E-postmottageren f?lger linken med OTP bakt inn.</li>
+</ol>
+</div></blockquote>
+<p>Deretter er det flere mulige scenarioer: den inviterte er en FA, er en VA som
+alt finnes i virthome eller er en VA som ikke er registrert i
+virthome. Hendelsesforl?pene blir da hhv:</p>
+<blockquote>
+<div><ul>
+<li><p class="first">For en FA:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li>logge seg inn i virthome (slik beskrevet tidligere)</li>
+<li><tt class="docutils literal"><span class="pre">user_confirm_request(OTP)</span></tt> som vil da melde FA-en (som eier
+bofhd-sesjonen) inn i den gruppen som er assosiert med OTP.</li>
+</ol>
+</div></blockquote>
+</li>
+<li><p class="first">For en VA som finnes:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li>logge seg inn i virthome (slik beskrevet tidligere)</li>
+<li><tt class="docutils literal"><span class="pre">user_confirm_request(OTP)</span></tt> p? samme m?te som for FA.</li>
+</ol>
+</div></blockquote>
+</li>
+<li><p class="first">For en VA som ikke finnes:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li>webapp finner ut hvilken e-postadresse OTP ble sendt til
+(<tt class="docutils literal"><span class="pre">request_parameters</span></tt>)</li>
+<li>Brukeren f?r beskjed om ? registrere seg, hvor vedkommende f?r fylle
+ut alle felt, bortsett fra e-post.</li>
+<li>Brukeren registrerer seg. P? dette tidspunkt er det ikke n?dvendig ?
+bekrefte e-postadressen (vi vet jo hvilken e-postadresse en gitt
+invitasjon er blitt sendt til)</li>
+<li>webappen kaller <tt class="docutils literal"><span class="pre">user_confirm_request(OTP)</span></tt> p? samme m?te som for
+FA for ? melde den nye VA inn i gruppen.</li>
+</ol>
+</div></blockquote>
+</li>
+</ul>
+<blockquote>
+<div>Legg merke til at dette er den eneste m?ten som nye VA-er kan oppst? i
+VirtHome. Det skal ikke finnes en annen m?te ? f? opprettet VA-er.</div></blockquote>
+</div></blockquote>
+</div>
+<div class="section" id="passordgjenopprettelse">
+<h4><a class="toc-backref" href="#id15">Passordgjenopprettelse</a><a class="headerlink" href="#passordgjenopprettelse" title="Permalink to this headline">¶</a></h4>
+<p>Naturlig nok m? vi ha et opplegg for passordgjenopprettelse. Ideen er at
+VA-brukerne som glemmer innloggingspassordet i VH skal kunne f? et nytt
+passord. Vi m? s?rge for at eksisterende brukere ikke kan bare bli DoS-et ut
+av VH, og derfor foreg?r passordbytte f?rst etter at vi f?r bekreftet at en
+gitt e-postadresse virkelig <em>?nsker</em> ? f? passordet byttet.</p>
+<p>For ordens skyld, passordet blir gjenopprettet i den forstand at det gamle
+passordet blir utlevert i klartekst; vi lager et nytt passord (n?r det blir
+aktuelt) og setter det. Brukeren f?r s? et nytt passord og kan da bytte
+det. Dersom vi lager tilstrekkelig kjipe automatiske passord, blir folk
+tvunget til ? bytte det autogenererte passordet med en gang selv :)</p>
+<p>Da foreg?r situasjonen slik:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li>Brukeren kommer til en webside der vedkommende fyller ut e-postadresse OG
+brukernavn og trykker p? &#8220;recover my password&#8221;</li>
+<li>webapp logger seg inn i bofhd (som seg selv) og kaller
+<tt class="docutils literal"><span class="pre">user_recover_password(email,</span> <span class="pre">uname)</span></tt></li>
+<li>bofhd lager en request, der email/uname noteres og returnerer OTP til
+webapp.</li>
+<li>webapp sender en e-post til den aktuelle e-postadressen med en link
+tilbake med OTP.</li>
+<li>Brukeren trykker p? linken og kommer til en side der vedkommende fyller
+ut det nye passordet sitt.</li>
+<li>webapp logger seg inn som seg selv og kj?rer
+<tt class="docutils literal"><span class="pre">user_confirm_request(OTP,</span> <span class="pre">nytt</span> <span class="pre">passord)</span></tt>.</li>
+<li>bofhd sjekker og setter det nye passordet.</li>
+</ol>
+</div></blockquote>
+</div>
+</div>
+<div class="section" id="kommandoer-som-krever-bekreftelse">
+<h3><a class="toc-backref" href="#id16">Kommandoer som krever bekreftelse</a><a class="headerlink" href="#kommandoer-som-krever-bekreftelse" title="Permalink to this headline">¶</a></h3>
+<p>En rekke kommandoer i VirtHome vil kreve et bekreftelsessteg, siden en
+trykkfeil vil potensielt kunne ?delegge for brukeren eller skape merarbeid for
+oss. Dette gjelder endring av e-post for VA-er, gruppeinvitasjon, overdragelse
+av eierskap til en gruppe, osv.</p>
+<p>I utgangspunktet var planen ? bruke traits til dette. Imidlertid kan det v?re
+mye tilstandsinformasjon knyttet til en bekreftelse, og da er det enklere ?
+bruke <tt class="docutils literal"><span class="pre">change_log</span></tt> til form?let (traits har ikke en CLOB/BLOB knyttet til
+seg som man kan stappe parametre i, change_log har det &#8211; <tt class="docutils literal"><span class="pre">change_params</span></tt>;
+vi trenger nok ? kunne lagre en del tilstandsinformasjon knyttet til en slik
+bekreftelseshendelse).</p>
+<p>S?, gitt en handling som krever en bekreftelse, der handlingen har en rekke
+parametre P, vil f?lgende skje i dag:</p>
+<blockquote>
+<div><ol class="arabic">
+<li><p class="first">Man lager en unik request-id, som skal identifiseres handlingen
+entydig. Vi bruker UUID4, men hva som helst langt og tilfeldig
+duger.</p>
+</li>
+<li><p class="first">Parametre P til handlingen samles i en dict</p>
+</li>
+<li><p class="first">Det lages en ny change_log event, som:</p>
+<blockquote>
+<div><ul class="simple">
+<li>... har <tt class="docutils literal"><span class="pre">change_params</span></tt> satt til <tt class="docutils literal"><span class="pre">pickle.dumps(P)</span></tt> (mao. den er satt
+til den picklede parameterdict-en (ja, det er brudd p? 1NF, og det er
+trist, men slik er det).</li>
+<li>... har <tt class="docutils literal"><span class="pre">subject_entity</span></tt> pekende p? den entiteten som bekreftelsen
+gjelder.</li>
+<li>... er forbundet med den unike request-id-en.</li>
+</ul>
+</div></blockquote>
+<p>Den siste biten er n?dvendig for ? kunne finne igjen en spesifikk
+change_log event senere.</p>
+</li>
+<li><p class="first">Den unike request-iden returneres tilbake til webapplikasjonen.</p>
+</li>
+</ol>
+</div></blockquote>
+<p>Planen er da som f?lgende. En bruker utf?rer en handling i webapp-en som
+krever bekreftelse. webapp-en kaller en kommando i bofhd som lager en slik
+bekreftelse (i change_log) og returnerer request-id til webappen. webappen
+sender en e-post til brukeren der det er bakt inn en URL tilbake til virthome
+med request-id som en parameter. N?r brukeren f?r e-post og trykker p? linken
+i e-posten, kaller webapp en kommando i bofhd med request-id-en (tatt fra
+HTTP-parameteren/URL-en) som argument. bofhd da utf?rer den aktuelle
+handlingen, og sletter change_log-eventen.</p>
+<p>Det alene er ikke tilstrekkelig, siden vi m? rydde opp i events som ikke er
+blitt bekreftet. <tt class="docutils literal"><span class="pre">reaper.py</span></tt> er ment til det form?let (siden alle
+<tt class="docutils literal"><span class="pre">change_log</span></tt>-hendelser har et tidsstempel). Det er slik at vi etterstreber ?
+ikke endre tilstanden i VH f?r en hendelse er blitt bekreftet; f.eks. gitt en
+foresp?rsel om ? bytte e-post for en VA, eksisterer VA-en med den gamle
+e-postadressen helt fram til bekreftelsesmeldingen mottas (e-postadressen
+skiftes f?rst da).</p>
+</div>
+<div class="section" id="rettighetsforvaltning-i-bofhd">
+<h3><a class="toc-backref" href="#id17">Rettighetsforvaltning i bofhd</a><a class="headerlink" href="#rettighetsforvaltning-i-bofhd" title="Permalink to this headline">¶</a></h3>
+<p>Per i dag er de aller fleste (alle?) kommandoer i bofhd implementert slik at
+det sjekkes om brukeren som utf?rer kommandoen har rett til ? utf?re
+den. Denne ordningen kan gjerne best? i VirtHome-utgaven ogs?. Imidlertid er
+det slik at noen av kommandoene skal kunne kj?res av VirtHome-brukere uten at
+de skal trenge ? logge seg inn. Alle kommandoene skal formidles via
+web-applikasjonen uansett. Dette betyr at for en rekke kommandoer (slik som
+opprettelse av nye VA-er), er det web-applikasjonen selv som vil utf?re dem
+(heller en eller annen spesifikk VA/FA). Rettighetene kan s?ledes hektes p?
+systemkontoen tildelt web-applikasjonen. Eksempelvis vil ikke noen andre
+trenge ? ha tilgang til opprettelse av virtaccount enn nettopp
+web-applikasjonen i VirtHome-bofhd.</p>
+<p>N? er det slik at bofhd er bygget rundt ideen om at enhver kommando (selv en
+uten restriksjoner) ikke kan kj?res uten at brukeren er loggen inn. For
+virthome passer dette en smule d?rlig. Det finnes dog en l?sning: kommandoer
+som ikke krever innlogging (f.eks. det ? lage en ny bruker eller ? utf?re en
+bekreftelse) utf?res av web-applikasjonen (som da alltid logger seg in);
+kommandoer som utf?res av en VA kan utf?res etter at vedkommende logget seg
+inn (vi har de krypterte passordene i Cerebrum, og autentisering er triviell);
+kommandoer som utf?res av en FA kan utf?res etter at webapp gir beskjed til
+bofhd om at brukeren er autentisert. Det siste krever naturligvis at bofhd
+stoler p? at webapp har rett n?r den sier at dens sesjon skal byttes til en
+annen bruker.</p>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">VirtHome</a><ul>
+<li><a class="reference internal" href="#innledning">Innledning</a></li>
+<li><a class="reference internal" href="#virthome-entiteter">VirtHome-entiteter</a><ul>
+<li><a class="reference internal" href="#virtaccount">VirtAccount</a></li>
+<li><a class="reference internal" href="#fedaccount">FEDAccount</a></li>
+<li><a class="reference internal" href="#virtgroup">VirtGroup</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#skjemautvidelsene">Skjemautvidelsene</a></li>
+<li><a class="reference internal" href="#bofhd-kommunikasjon">Bofhd-kommunikasjon</a><ul>
+<li><a class="reference internal" href="#innlogging">Innlogging</a></li>
+<li><a class="reference internal" href="#hendelsesforl-p">Hendelsesforl?p</a><ul>
+<li><a class="reference internal" href="#innlogging-av-va">Innlogging av VA</a></li>
+<li><a class="reference internal" href="#innlogging-av-en-fa">Innlogging av en FA</a></li>
+<li><a class="reference internal" href="#gruppeinvitasjon">Gruppeinvitasjon</a></li>
+<li><a class="reference internal" href="#passordgjenopprettelse">Passordgjenopprettelse</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#kommandoer-som-krever-bekreftelse">Kommandoer som krever bekreftelse</a></li>
+<li><a class="reference internal" href="#rettighetsforvaltning-i-bofhd">Rettighetsforvaltning i bofhd</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/doc/virthome/virthome-tech-details.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, University of Oslo.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

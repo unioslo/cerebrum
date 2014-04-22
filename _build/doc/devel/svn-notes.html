@@ -1,0 +1,235 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>1   SVN usage in Cerebrum &mdash; Cerebrum 0.9.16 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.9.16',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Cerebrum 0.9.16 documentation" href="../../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="svn-usage-in-cerebrum">
+<h1>1&nbsp;&nbsp;&nbsp;SVN usage in Cerebrum<a class="headerlink" href="#svn-usage-in-cerebrum" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="reposirory">
+<h2>1.1&nbsp;&nbsp;&nbsp;Reposirory<a class="headerlink" href="#reposirory" title="Permalink to this headline">¶</a></h2>
+<p>The main sourcecode repository for Cerebrum can be found at
+<a class="reference external" href="http://sourceforge.net/svn/?group_id=60830">Sourceforge</a>.  To check
+out the current sourcecode, simply:</p>
+<div class="highlight-python"><pre>svn co https://cerebrum.svn.sourceforge.net/svnroot/cerebrum/trunk/cerebrum cerebrum</pre>
+</div>
+<p><strong>If you plan to commit code to Cerebrum, please read</strong> <a class="reference external" href="codestyle.html">Coding
+conventions for Cerebrum</a></p>
+</div>
+<div class="section" id="repository-structure">
+<h2>1.2&nbsp;&nbsp;&nbsp;Repository structure<a class="headerlink" href="#repository-structure" title="Permalink to this headline">¶</a></h2>
+<p>The Cerebrum SVN repository was converted from CVS using
+<a class="reference external" href="http://cvs2svn.tigris.org/cvs2svn.html">cvs2svn</a> v1.5.0.  The resulting structure looked like this:</p>
+<div class="highlight-python"><pre>branches/
+   GREG_EWING            -- Cerebrum/extlib/Plex/
+   ntnu
+   VINAY_SAJIP           -- Cerebrum/extlib/logging.py
+tags/
+   initial
+   LOGGING_0_4_6
+   ntnu_started_separate_work
+   PLEX_1_1_3
+   REL_0_0_1
+   REL_0_0_2
+   REL_0_0_3
+   REL_0_9_0
+   REL_0_9_1
+trunk/
+   cerebrum</pre>
+</div>
+<p>The structure with <tt class="docutils literal"><span class="pre">tags</span></tt>, <tt class="docutils literal"><span class="pre">branches</span></tt> and <tt class="docutils literal"><span class="pre">trunk</span></tt> directories at
+the top-level directory is a common SVN convention.</p>
+<p>Cerebrum development primarily happens in <tt class="docutils literal"><span class="pre">trunk</span></tt>.  Tags and
+branches are currently used rarely.</p>
+<p>Unless you have a good reason not to, you should allways check out
+<tt class="docutils literal"><span class="pre">https://cerebrum.svn.sourceforge.net/svnroot/cerebrum/trunk/cerebrum</span></tt>.
+This way you will allways work on most resent version of the source
+code.</p>
+</div>
+<div class="section" id="svn-introduction">
+<h2>1.3&nbsp;&nbsp;&nbsp;SVN introduction<a class="headerlink" href="#svn-introduction" title="Permalink to this headline">¶</a></h2>
+<p><a class="reference external" href="http://subversion.tigris.org/">SVN</a> is a version control system.
+An extensive introduction to SVN is available as a book in <a class="reference external" href="http://svnbook.red-bean.com/">pdf and
+html</a>.  If you only plan to do simple
+checkout, the example below is probably sufficient.  If you plan to do
+more extensive work, you should consider atleast reading <a class="reference external" href="http://svnbook.red-bean.com/nightly/en/svn.tour.html">Chapter
+2. Basic Usage</a>.</p>
+<p>Users experienced with CVS, can read
+<a class="reference external" href="http://svnbook.red-bean.com/nightly/en/svn.forcvs.html">Subversion for CVS Users</a> or
+<a class="reference external" href="http://svn.collab.net/repos/svn/trunk/doc/user/cvs-crossover-guide.html">CVS to SVN Crossover Guide</a>
+for an overview of some of the differences.</p>
+<p>A typical SVN session may look something like this:</p>
+<div class="highlight-python"><pre># Access help information
+~/tmp/svn@dresden&gt; svn help co
+checkout (co): Check out a working copy from a repository.
+usage: checkout URL[@REV]... [PATH]
+...
+
+# Check out the repository:
+~/tmp/svn@dresden&gt;   svn co --username runefro https://cerebrum.svn.sourceforge.net/svnroot/cerebrum/trunk/cerebrum cerebrum
+A    cerebrum/java
+A    cerebrum/java/jbofh
+A    cerebrum/java/jbofh/fix_jbofh_jar.py
+...
+ U   cerebrum
+Checked out revision 7291.
+
+# Look at the contents
+~/tmp/svn@dresden&gt; cd cerebrum/
+~/tmp/svn/cerebrum@dresden&gt; ls
+adserver  Cerebrum   INSTALL README   ...
+
+# Simple change
+~/tmp/svn/cerebrum@dresden&gt; echo test &gt;&gt; README
+~/tmp/svn/cerebrum@dresden&gt; svn status
+M      README
+~/tmp/svn/cerebrum@dresden&gt; svn diff README
+Index: README
+===================================================================
+--- README      (revision 7291)
++++ README      (working copy)
+@@ -48,3 +48,4 @@
+   The documentation for the core api can be read using pydoc.
+
+ arch-tag: d628597f-d5cd-432a-8c67-62a1e0407c92
++test
+~/tmp/svn/cerebrum@dresden&gt; svn commit -m "added test" README
+Authentication realm: &lt;https://cerebrum.svn.sourceforge.net:443&gt; SourceForge Subversion area
+Password for 'runefro':
+Sending        README
+Transmitting file data .
+Committed revision 7292.</pre>
+</div>
+<p>Unfortunately, sourceforge does not support the <tt class="docutils literal"><span class="pre">svn+ssh</span></tt> protocol,
+thus the ssh-based authorized-keys authentication does not work.  It
+does, however cache the credentials used when committing, so that you
+on the second commit will not have to enter your password (note that
+if you do not specify a file/directory name to commit/diff/update, all
+files and directories will be affected):</p>
+<div class="highlight-python"><pre>~/tmp/svn/cerebrum@dresden&gt; svn commit -m "more test" README
+Sending        README
+Transmitting file data .
+Committed revision 7293.</pre>
+</div>
+<p>To see the difference between your checked out version and the newest version:</p>
+<div class="highlight-python"><pre>~/tmp/svn/cerebrum2@dresden&gt; svn diff -rBASE:HEAD README
+Index: README
+===================================================================
+--- README      (working copy)
++++ README      (revision 7294)
+@@ -50,3 +50,4 @@
+ arch-tag: d628597f-d5cd-432a-8c67-62a1e0407c92
+ test
+ test2
++test3</pre>
+</div>
+<p>Update your repository:</p>
+<div class="highlight-python"><pre>~/tmp/svn/cerebrum2@dresden&gt; svn update README
+U    README
+Updated to revision 7294.</pre>
+</div>
+<div class="section" id="other-tips-hints">
+<h3>1.3.1&nbsp;&nbsp;&nbsp;Other tips &amp; hints<a class="headerlink" href="#other-tips-hints" title="Permalink to this headline">¶</a></h3>
+<p>Emacs users may find <a class="reference external" href="http://svn.collab.net/repos/svn/trunk/contrib/client-side/vc-svn.el">vc-svn.el</a>
+useful to get things like &#8220;Ctrl-x v =&#8221; working.  This module is also
+available elsewhere, but this one works with emacs 21.3.1 (add
+<tt class="docutils literal"><span class="pre">(add-to-list</span> <span class="pre">'vc-handled-backends</span> <span class="pre">'SVN)</span></tt> to .emacs).</p>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">1&nbsp;&nbsp;&nbsp;SVN usage in Cerebrum</a><ul>
+<li><a class="reference internal" href="#reposirory">1.1&nbsp;&nbsp;&nbsp;Reposirory</a></li>
+<li><a class="reference internal" href="#repository-structure">1.2&nbsp;&nbsp;&nbsp;Repository structure</a></li>
+<li><a class="reference internal" href="#svn-introduction">1.3&nbsp;&nbsp;&nbsp;SVN introduction</a><ul>
+<li><a class="reference internal" href="#other-tips-hints">1.3.1&nbsp;&nbsp;&nbsp;Other tips &amp; hints</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/doc/devel/svn-notes.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, University of Oslo.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

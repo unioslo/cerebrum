@@ -1,0 +1,336 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Spesifikasjoner for kommandosettet til BOHFD til virthome &mdash; Cerebrum 0.9.16 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.9.16',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Cerebrum 0.9.16 documentation" href="../../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="spesifikasjoner-for-kommandosettet-til-bohfd-til-virthome">
+<h1><a class="toc-backref" href="#id1">Spesifikasjoner for kommandosettet til BOHFD til virthome</a><a class="headerlink" href="#spesifikasjoner-for-kommandosettet-til-bohfd-til-virthome" title="Permalink to this headline">¶</a></h1>
+<div class="contents topic" id="innholdsfortegnelse">
+<p class="topic-title first">Innholdsfortegnelse</p>
+<ul class="simple">
+<li><a class="reference internal" href="#spesifikasjoner-for-kommandosettet-til-bohfd-til-virthome" id="id1">Spesifikasjoner for kommandosettet til BOHFD til virthome</a><ul>
+<li><a class="reference internal" href="#forkortelser" id="id2">Forkortelser</a></li>
+<li><a class="reference internal" href="#bofhd-kommandoer" id="id3">BOFHD kommandoer</a><ul>
+<li><a class="reference internal" href="#user-confirm-request-otp" id="id4">user_confirm_request(OTP)</a></li>
+<li><a class="reference internal" href="#user-virtaccount-join-group-otp-brukernavn-e-postadresse-passord-expire-date-navn" id="id5">user_virtaccount_join_group(OTP, brukernavn, e-postadresse, passord, expire-date, navn)</a></li>
+<li><a class="reference internal" href="#user-fedaccount-nuke-brukernavn" id="id6">user_fedaccount_nuke(brukernavn)</a></li>
+<li><a class="reference internal" href="#user-fedaccount-login-brukernavn-e-postadresse-expire-date-navn" id="id7">user_fedaccount_login(brukernavn, e-postadresse, expire-date, navn)</a></li>
+<li><a class="reference internal" href="#user-su-brukernavn" id="id8">user_su(brukernavn)</a></li>
+<li><a class="reference internal" href="#user-request-info-otp" id="id9">user_request_info(OTP)</a></li>
+<li><a class="reference internal" href="#user-info-brukernavn" id="id10">user_info(brukernavn)</a></li>
+<li><a class="reference internal" href="#user-accept-eula-eula-type" id="id11">user_accept_eula(eula-type)</a></li>
+<li><a class="reference internal" href="#user-change-password-gammelt-passord-nytt-passord" id="id12">user_change_password(gammelt_passord, nytt_passord)</a></li>
+<li><a class="reference internal" href="#user-change-email-ny-e-postadresse" id="id13">user_change_email(ny_e-postadresse)</a></li>
+<li><a class="reference internal" href="#user-change-human-name-nytt-navn" id="id14">user_change_human_name(nytt_navn)</a></li>
+<li><a class="reference internal" href="#group-create-gruppenavn-beskrivelse-eier-url" id="id15">group_create(gruppenavn, beskrivelse, eier, URL)</a></li>
+<li><a class="reference internal" href="#group-disable-gruppenavn" id="id16">group_disable(gruppenavn)</a></li>
+<li><a class="reference internal" href="#group-remove-members-brukernavn-gruppenavn" id="id17">group_remove_members(brukernavn, gruppenavn)</a></li>
+<li><a class="reference internal" href="#group-list-gruppenavn" id="id18">group_list(gruppenavn)</a></li>
+<li><a class="reference internal" href="#user-list-memberships" id="id19">user_list_memberships</a></li>
+<li><a class="reference internal" href="#group-change-owner-e-postadresse-gruppenavn" id="id20">group_change_owner(e-postadresse, gruppenavn)</a></li>
+<li><a class="reference internal" href="#group-invite-moderator-e-postadresse-gruppenavn" id="id21">group_invite_moderator(e-postadresse, gruppenavn)</a></li>
+<li><a class="reference internal" href="#group-remove-moderator-brukernavn-gruppenavn" id="id22">group_remove_moderator(brukernavn, gruppenavn)</a></li>
+<li><a class="reference internal" href="#group-invite-user-e-postadresse-gruppenavn" id="id23">group_invite_user(e-postadresse, gruppenavn)</a></li>
+<li><a class="reference internal" href="#group-info-gruppenavn" id="id24">group_info(gruppenavn)</a></li>
+<li><a class="reference internal" href="#spread-add-type-entitet-spread" id="id25">spread_add(type, entitet, spread)</a></li>
+<li><a class="reference internal" href="#spread-remove-type-entitet-spread" id="id26">spread_remove(type, entitet, spread)</a></li>
+<li><a class="reference internal" href="#spread-list" id="id27">spread_list()</a></li>
+<li><a class="reference internal" href="#spread-entity-list-type-entitet" id="id28">spread_entity_list(type, entitet)</a></li>
+<li><a class="reference internal" href="#quarantine-add-entity-type-ident-karantenetype-grunn-sluttdato" id="id29">quarantine_add(entity_type, ident, karantenetype, grunn, sluttdato)</a></li>
+<li><a class="reference internal" href="#quarantine-remove-entity-type-entity-ident-karantenetype" id="id30">quarantine_remove(entity_type, entity_ident, karantenetype)</a></li>
+<li><a class="reference internal" href="#quarantine-list" id="id31">quarantine_list()</a></li>
+<li><a class="reference internal" href="#quarantine-show-entity-type-entity-id" id="id32">quarantine_show(entity_type, entity_id)</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="forkortelser">
+<h2><a class="toc-backref" href="#id2">Forkortelser</a><a class="headerlink" href="#forkortelser" title="Permalink to this headline">¶</a></h2>
+<blockquote>
+<div><ul class="simple">
+<li>OTP - One-Time password. Dette er en tilfeldig n?kkel som brukes for ?
+kjennetegne handlinger som krever en bekreftelse. Denne n?kkelen skal v?re
+et tilfeldig passord som er ment til ? brukes kun ?n gang for ? utf?re en
+spesifikk tilstandsendring (f.eks. skifte e-postadresse fra A til B).</li>
+<li>FA - Federated Account, alts?, en bruker med f?derert tilknytning.</li>
+<li>VA - VirtAccount, alts?, en bruker uten f?derert tilknytning.</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="bofhd-kommandoer">
+<h2><a class="toc-backref" href="#id3">BOFHD kommandoer</a><a class="headerlink" href="#bofhd-kommandoer" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="user-confirm-request-otp">
+<h3><a class="toc-backref" href="#id4">user_confirm_request(OTP)</a><a class="headerlink" href="#user-confirm-request-otp" title="Permalink to this headline">¶</a></h3>
+<p>Utf?r en bekreftelse av en handling. Det er slik at visse kommandoer
+resulterer i at en foresp?rsel om bekreftelse blir utsendt. Denne kommandoen
+brukes (kun av webapp) til ? be bofhd om ? faktisk utf?re handlingen som er
+blitt bedt bekreftet. OTP i seg selv er tilstrekkelig for ? finne ut hva slags
+foresp?rsel dette gjelder og hvilke entiteter omfattes av den.</p>
+</div>
+<div class="section" id="user-virtaccount-join-group-otp-brukernavn-e-postadresse-passord-expire-date-navn">
+<h3><a class="toc-backref" href="#id5">user_virtaccount_join_group(OTP, brukernavn, e-postadresse, passord, expire-date, navn)</a><a class="headerlink" href="#user-virtaccount-join-group-otp-brukernavn-e-postadresse-passord-expire-date-navn" title="Permalink to this headline">¶</a></h3>
+<p>Oppretter en ny VA. Den nye brukeren vil havne i korrekt gruppe automatisk
+(OTP-en brukes for ? finne hvilken gruppe en nyopprettet VA skal havne i).</p>
+</div>
+<div class="section" id="user-fedaccount-nuke-brukernavn">
+<h3><a class="toc-backref" href="#id6">user_fedaccount_nuke(brukernavn)</a><a class="headerlink" href="#user-fedaccount-nuke-brukernavn" title="Permalink to this headline">¶</a></h3>
+<p>Sletter en spesifikk FA fra VirtHome.</p>
+</div>
+<div class="section" id="user-fedaccount-login-brukernavn-e-postadresse-expire-date-navn">
+<h3><a class="toc-backref" href="#id7">user_fedaccount_login(brukernavn, e-postadresse, expire-date, navn)</a><a class="headerlink" href="#user-fedaccount-login-brukernavn-e-postadresse-expire-date-navn" title="Permalink to this headline">¶</a></h3>
+<p>Logger inn en f?derert bruker. Dersom ingen data om FA finnes i virthome,
+opprettes det automatisk en passende FA.</p>
+</div>
+<div class="section" id="user-su-brukernavn">
+<h3><a class="toc-backref" href="#id8">user_su(brukernavn)</a><a class="headerlink" href="#user-su-brukernavn" title="Permalink to this headline">¶</a></h3>
+<p>Bytte n?v?rende sesjonen til en annen bruker. Denne kommandoen er tilgjengelig
+kun for den brukeren som er spesiallaget til webapplikasjonen.</p>
+</div>
+<div class="section" id="user-request-info-otp">
+<h3><a class="toc-backref" href="#id9">user_request_info(OTP)</a><a class="headerlink" href="#user-request-info-otp" title="Permalink to this headline">¶</a></h3>
+<p>Returnerer info om requesten som er forbundet med OTP. Denne brukes der webapp
+trenger ? finne ut hvilken tilstandsendring en gitt OTP tilsvarer (f.eks. n?r
+nye brukere skal opprettes og bli med i en gruppe, brukes denne metoden for ?
+finne ut hvilken gruppe og e-postadresse invitasjonen som tilsvarer OTP
+gjelder)</p>
+</div>
+<div class="section" id="user-info-brukernavn">
+<h3><a class="toc-backref" href="#id10">user_info(brukernavn)</a><a class="headerlink" href="#user-info-brukernavn" title="Permalink to this headline">¶</a></h3>
+<p>Returnerer info om den gitte brukeren. Superbrukere og sudoers har lov til ? se
+informasjon om andre. Det listes opp e-postadresse, navn p? eieren, spreads,
+karantener, expire-dato, og gruppene vedkommende eier og modererer.</p>
+</div>
+<div class="section" id="user-accept-eula-eula-type">
+<h3><a class="toc-backref" href="#id11">user_accept_eula(eula-type)</a><a class="headerlink" href="#user-accept-eula-eula-type" title="Permalink to this headline">¶</a></h3>
+<p>Godkjenn reglementet for operatoren. &lt;eula-type&gt; spesifiserer hvilket
+reglement brukeren har godkjent.</p>
+</div>
+<div class="section" id="user-change-password-gammelt-passord-nytt-passord">
+<h3><a class="toc-backref" href="#id12">user_change_password(gammelt_passord, nytt_passord)</a><a class="headerlink" href="#user-change-password-gammelt-passord-nytt-passord" title="Permalink to this headline">¶</a></h3>
+<p>Bytter ut det gamle passordet med det nye s? lenge det gamle passordet stemmer,
+og det nye passordet f?lger passordreglene. Denne operasjonen endrer ogs?
+expire-dato til ? v?re 1 ?r i framtiden.</p>
+</div>
+<div class="section" id="user-change-email-ny-e-postadresse">
+<h3><a class="toc-backref" href="#id13">user_change_email(ny_e-postadresse)</a><a class="headerlink" href="#user-change-email-ny-e-postadresse" title="Permalink to this headline">¶</a></h3>
+<p>Oppretter en foresp?rsel om ? bytte e-postadressen til brukeren som er logget
+inn. Foresp?rselen m? bekreftes eksplisitt (jfr. user_confirm_request) og det
+er f?rst da at e-postadressen blir faktisk endret. Kommandoen returnerer en
+OTP, som er ment til ? brukes senere i user_confirm_request.</p>
+</div>
+<div class="section" id="user-change-human-name-nytt-navn">
+<h3><a class="toc-backref" href="#id14">user_change_human_name(nytt_navn)</a><a class="headerlink" href="#user-change-human-name-nytt-navn" title="Permalink to this headline">¶</a></h3>
+<p>Bytter eiernavnet registrert p? brukeren til det som er oppgitt.</p>
+</div>
+<div class="section" id="group-create-gruppenavn-beskrivelse-eier-url">
+<h3><a class="toc-backref" href="#id15">group_create(gruppenavn, beskrivelse, eier, URL)</a><a class="headerlink" href="#group-create-gruppenavn-beskrivelse-eier-url" title="Permalink to this headline">¶</a></h3>
+<p>Oppretter en ny gruppe med infoen som er gitt.</p>
+</div>
+<div class="section" id="group-disable-gruppenavn">
+<h3><a class="toc-backref" href="#id16">group_disable(gruppenavn)</a><a class="headerlink" href="#group-disable-gruppenavn" title="Permalink to this headline">¶</a></h3>
+<p>Melder alle medlemmene av gruppen og setter den inaktiv. Dette er essensielt
+&#8220;sletting&#8221;, bortsett fra at gruppeentiteten blir liggende igjen for ? ta vare
+p? gruppenavnet. Bare superbruker og eier kan gj?re dette.</p>
+</div>
+<div class="section" id="group-remove-members-brukernavn-gruppenavn">
+<h3><a class="toc-backref" href="#id17">group_remove_members(brukernavn, gruppenavn)</a><a class="headerlink" href="#group-remove-members-brukernavn-gruppenavn" title="Permalink to this headline">¶</a></h3>
+<p>Melder av brukeren av gruppen. Eiere/moderatorer kan melde hvem som helst ut
+av sine grupper. En vilk?rlig bruker kan melde seg selv ut av en gruppe der
+vedkommende er medlem.</p>
+</div>
+<div class="section" id="group-list-gruppenavn">
+<h3><a class="toc-backref" href="#id18">group_list(gruppenavn)</a><a class="headerlink" href="#group-list-gruppenavn" title="Permalink to this headline">¶</a></h3>
+<p>Lister medlemmer til gruppen.</p>
+</div>
+<div class="section" id="user-list-memberships">
+<h3><a class="toc-backref" href="#id19">user_list_memberships</a><a class="headerlink" href="#user-list-memberships" title="Permalink to this headline">¶</a></h3>
+<p>Lister alle gruppemedlemsskapene til brukeren som kaller funksjonen.</p>
+</div>
+<div class="section" id="group-change-owner-e-postadresse-gruppenavn">
+<h3><a class="toc-backref" href="#id20">group_change_owner(e-postadresse, gruppenavn)</a><a class="headerlink" href="#group-change-owner-e-postadresse-gruppenavn" title="Permalink to this headline">¶</a></h3>
+<p>Lager en foresp?rsel for at e-postadressen skal erstatte gruppens
+eier. Returnerer en n?kkel som m? bekreftest med user_confirm_request.</p>
+</div>
+<div class="section" id="group-invite-moderator-e-postadresse-gruppenavn">
+<h3><a class="toc-backref" href="#id21">group_invite_moderator(e-postadresse, gruppenavn)</a><a class="headerlink" href="#group-invite-moderator-e-postadresse-gruppenavn" title="Permalink to this headline">¶</a></h3>
+<p>Lager en request for at e-postadressen skal bli med i gruppen
+som moderator. Returnerer en n?kkel som m? bekreftes med
+user_confirm_request.</p>
+</div>
+<div class="section" id="group-remove-moderator-brukernavn-gruppenavn">
+<h3><a class="toc-backref" href="#id22">group_remove_moderator(brukernavn, gruppenavn)</a><a class="headerlink" href="#group-remove-moderator-brukernavn-gruppenavn" title="Permalink to this headline">¶</a></h3>
+<p>Fjerner brukeren fra gruppen som moderator.</p>
+</div>
+<div class="section" id="group-invite-user-e-postadresse-gruppenavn">
+<h3><a class="toc-backref" href="#id23">group_invite_user(e-postadresse, gruppenavn)</a><a class="headerlink" href="#group-invite-user-e-postadresse-gruppenavn" title="Permalink to this headline">¶</a></h3>
+<p>Kj?res n?r en eier/moderator vil invitere en bruker til sin gruppe.
+Funksjonen returnerer en key som senere m? bli brukt av brukeren med et kall
+p? user_confirm_request.</p>
+<p>Dette er i praksis den eneste m?ten hvordan nye VA-er kan oppst? i Cerebrum.</p>
+</div>
+<div class="section" id="group-info-gruppenavn">
+<h3><a class="toc-backref" href="#id24">group_info(gruppenavn)</a><a class="headerlink" href="#group-info-gruppenavn" title="Permalink to this headline">¶</a></h3>
+<p>Returnerer info om gruppen, eier, moderatorer og
+medlemmer.</p>
+</div>
+<div class="section" id="spread-add-type-entitet-spread">
+<h3><a class="toc-backref" href="#id25">spread_add(type, entitet, spread)</a><a class="headerlink" href="#spread-add-type-entitet-spread" title="Permalink to this headline">¶</a></h3>
+<p>Gi en gitt spread til en gitt entitet. Kommandoen er forbeholdt superbrukere.</p>
+</div>
+<div class="section" id="spread-remove-type-entitet-spread">
+<h3><a class="toc-backref" href="#id26">spread_remove(type, entitet, spread)</a><a class="headerlink" href="#spread-remove-type-entitet-spread" title="Permalink to this headline">¶</a></h3>
+<p>Det omvendte av spread_add().</p>
+</div>
+<div class="section" id="spread-list">
+<h3><a class="toc-backref" href="#id27">spread_list()</a><a class="headerlink" href="#spread-list" title="Permalink to this headline">¶</a></h3>
+<p>Liste alle spreads som finnes i VH.</p>
+</div>
+<div class="section" id="spread-entity-list-type-entitet">
+<h3><a class="toc-backref" href="#id28">spread_entity_list(type, entitet)</a><a class="headerlink" href="#spread-entity-list-type-entitet" title="Permalink to this headline">¶</a></h3>
+<p>Liste alle spreads for en gitt entitet. Kommandoen er forbeholdt superbrukeren
+og entiteten selv (man kan selv se egne spreads).</p>
+</div>
+<div class="section" id="quarantine-add-entity-type-ident-karantenetype-grunn-sluttdato">
+<h3><a class="toc-backref" href="#id29">quarantine_add(entity_type, ident, karantenetype, grunn, sluttdato)</a><a class="headerlink" href="#quarantine-add-entity-type-ident-karantenetype-grunn-sluttdato" title="Permalink to this headline">¶</a></h3>
+<p>Sette en gitt entitet i en gitt karantene. Forbeholdt superbrukeren.</p>
+</div>
+<div class="section" id="quarantine-remove-entity-type-entity-ident-karantenetype">
+<h3><a class="toc-backref" href="#id30">quarantine_remove(entity_type, entity_ident, karantenetype)</a><a class="headerlink" href="#quarantine-remove-entity-type-entity-ident-karantenetype" title="Permalink to this headline">¶</a></h3>
+<p>Det omvendte av quarantine_add().</p>
+</div>
+<div class="section" id="quarantine-list">
+<h3><a class="toc-backref" href="#id31">quarantine_list()</a><a class="headerlink" href="#quarantine-list" title="Permalink to this headline">¶</a></h3>
+<p>Lister opp alle karantener.</p>
+</div>
+<div class="section" id="quarantine-show-entity-type-entity-id">
+<h3><a class="toc-backref" href="#id32">quarantine_show(entity_type, entity_id)</a><a class="headerlink" href="#quarantine-show-entity-type-entity-id" title="Permalink to this headline">¶</a></h3>
+<p>Viser alle karantener til en gitt entitet.</p>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Spesifikasjoner for kommandosettet til BOHFD til virthome</a><ul>
+<li><a class="reference internal" href="#forkortelser">Forkortelser</a></li>
+<li><a class="reference internal" href="#bofhd-kommandoer">BOFHD kommandoer</a><ul>
+<li><a class="reference internal" href="#user-confirm-request-otp">user_confirm_request(OTP)</a></li>
+<li><a class="reference internal" href="#user-virtaccount-join-group-otp-brukernavn-e-postadresse-passord-expire-date-navn">user_virtaccount_join_group(OTP, brukernavn, e-postadresse, passord, expire-date, navn)</a></li>
+<li><a class="reference internal" href="#user-fedaccount-nuke-brukernavn">user_fedaccount_nuke(brukernavn)</a></li>
+<li><a class="reference internal" href="#user-fedaccount-login-brukernavn-e-postadresse-expire-date-navn">user_fedaccount_login(brukernavn, e-postadresse, expire-date, navn)</a></li>
+<li><a class="reference internal" href="#user-su-brukernavn">user_su(brukernavn)</a></li>
+<li><a class="reference internal" href="#user-request-info-otp">user_request_info(OTP)</a></li>
+<li><a class="reference internal" href="#user-info-brukernavn">user_info(brukernavn)</a></li>
+<li><a class="reference internal" href="#user-accept-eula-eula-type">user_accept_eula(eula-type)</a></li>
+<li><a class="reference internal" href="#user-change-password-gammelt-passord-nytt-passord">user_change_password(gammelt_passord, nytt_passord)</a></li>
+<li><a class="reference internal" href="#user-change-email-ny-e-postadresse">user_change_email(ny_e-postadresse)</a></li>
+<li><a class="reference internal" href="#user-change-human-name-nytt-navn">user_change_human_name(nytt_navn)</a></li>
+<li><a class="reference internal" href="#group-create-gruppenavn-beskrivelse-eier-url">group_create(gruppenavn, beskrivelse, eier, URL)</a></li>
+<li><a class="reference internal" href="#group-disable-gruppenavn">group_disable(gruppenavn)</a></li>
+<li><a class="reference internal" href="#group-remove-members-brukernavn-gruppenavn">group_remove_members(brukernavn, gruppenavn)</a></li>
+<li><a class="reference internal" href="#group-list-gruppenavn">group_list(gruppenavn)</a></li>
+<li><a class="reference internal" href="#user-list-memberships">user_list_memberships</a></li>
+<li><a class="reference internal" href="#group-change-owner-e-postadresse-gruppenavn">group_change_owner(e-postadresse, gruppenavn)</a></li>
+<li><a class="reference internal" href="#group-invite-moderator-e-postadresse-gruppenavn">group_invite_moderator(e-postadresse, gruppenavn)</a></li>
+<li><a class="reference internal" href="#group-remove-moderator-brukernavn-gruppenavn">group_remove_moderator(brukernavn, gruppenavn)</a></li>
+<li><a class="reference internal" href="#group-invite-user-e-postadresse-gruppenavn">group_invite_user(e-postadresse, gruppenavn)</a></li>
+<li><a class="reference internal" href="#group-info-gruppenavn">group_info(gruppenavn)</a></li>
+<li><a class="reference internal" href="#spread-add-type-entitet-spread">spread_add(type, entitet, spread)</a></li>
+<li><a class="reference internal" href="#spread-remove-type-entitet-spread">spread_remove(type, entitet, spread)</a></li>
+<li><a class="reference internal" href="#spread-list">spread_list()</a></li>
+<li><a class="reference internal" href="#spread-entity-list-type-entitet">spread_entity_list(type, entitet)</a></li>
+<li><a class="reference internal" href="#quarantine-add-entity-type-ident-karantenetype-grunn-sluttdato">quarantine_add(entity_type, ident, karantenetype, grunn, sluttdato)</a></li>
+<li><a class="reference internal" href="#quarantine-remove-entity-type-entity-ident-karantenetype">quarantine_remove(entity_type, entity_ident, karantenetype)</a></li>
+<li><a class="reference internal" href="#quarantine-list">quarantine_list()</a></li>
+<li><a class="reference internal" href="#quarantine-show-entity-type-entity-id">quarantine_show(entity_type, entity_id)</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/doc/virthome/virthome-bofhd-commands.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, University of Oslo.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

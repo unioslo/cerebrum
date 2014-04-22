@@ -1,0 +1,425 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Bofhd - development &mdash; Cerebrum 0.9.16 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.9.16',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Cerebrum 0.9.16 documentation" href="../../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="bofhd-development">
+<h1><a class="toc-backref" href="#id1">Bofhd - development</a><a class="headerlink" href="#bofhd-development" title="Permalink to this headline">¶</a></h1>
+<div class="contents topic" id="contents">
+<p class="topic-title first">Contents</p>
+<ul class="simple">
+<li><a class="reference internal" href="#bofhd-development" id="id1">Bofhd - development</a><ul>
+<li><a class="reference internal" href="#introduction" id="id2">Introduction</a></li>
+<li><a class="reference internal" href="#configuring-and-extending-bofhd" id="id3">Configuring and extending bofhd</a><ul>
+<li><a class="reference internal" href="#parameters-and-commands" id="id4">Parameters and commands</a></li>
+<li><a class="reference internal" href="#bofhd-uio-cmds-py" id="id5">bofhd_uio_cmds.py</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#example" id="id6">Example</a><ul>
+<li><a class="reference internal" href="#explanation" id="id7">Explanation</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#authorization" id="id8">Authorization</a></li>
+<li><a class="reference internal" href="#communication-protocol" id="id9">Communication protocol</a><ul>
+<li><a class="reference internal" href="#protocol-encoding" id="id10">Protocol encoding</a></li>
+<li><a class="reference internal" href="#xml-rpc-over-https" id="id11">XML-RPC over HTTPS</a></li>
+<li><a class="reference internal" href="#extension-to-xml-rpc" id="id12">Extension to XML-RPC</a></li>
+<li><a class="reference internal" href="#communicating-with-bofhd" id="id13">Communicating with bofhd</a><ul>
+<li><a class="reference internal" href="#bofhd-login-uname-password" id="id14">bofhd_login(uname, password)</a></li>
+<li><a class="reference internal" href="#bofhd-logout-session-id" id="id15">bofhd_logout(session_id)</a></li>
+<li><a class="reference internal" href="#bofhd-get-commands-session-id" id="id16">bofhd_get_commands(session_id)</a></li>
+<li><a class="reference internal" href="#bofhd-get-format-suggestion-cmd" id="id17">bofhd_get_format_suggestion(cmd)</a></li>
+<li><a class="reference internal" href="#bofhd-get-motd-client-id-none-client-version-none" id="id18">bofhd_get_motd(client_id=None, client_version=None)</a></li>
+<li><a class="reference internal" href="#bofhd-help-session-id-group" id="id19">bofhd_help(session_id, *group)</a></li>
+<li><a class="reference internal" href="#bofhd-run-command-session-id-cmd-args" id="id20">bofhd_run_command(session_id, cmd, *args)</a></li>
+<li><a class="reference internal" href="#bofhd-call-prompt-func-session-id-cmd-args" id="id21">bofhd_call_prompt_func(session_id, cmd, *args)</a></li>
+<li><a class="reference internal" href="#bofhd-get-default-param-session-id-cmd-args" id="id22">bofhd_get_default_param(session_id, cmd, *args)</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="introduction">
+<h2><a class="toc-backref" href="#id2">Introduction</a><a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p>Bofhd is the server used for remote administration in Cerebrum.  It
+provides both user authentication and authorization.</p>
+</div>
+<div class="section" id="configuring-and-extending-bofhd">
+<h2><a class="toc-backref" href="#id3">Configuring and extending bofhd</a><a class="headerlink" href="#configuring-and-extending-bofhd" title="Permalink to this headline">¶</a></h2>
+<p><tt class="docutils literal"><span class="pre">config.dat</span></tt> contains a list of the modules that should be loaded
+into bofhd on startup.  It contains a number of lines of the format:
+<tt class="docutils literal"><span class="pre">module_file</span></tt> module_file does not have a .py ending, and must
+contain a class named <tt class="docutils literal"><span class="pre">BofhdExtension</span></tt>.</p>
+<p>The following methods must be implemented (see
+<tt class="docutils literal"><span class="pre">Cerebrum/modules/no/bofhd_module_example.py</span></tt> for an example):</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">def</span> <span class="pre">get_commands(self,</span> <span class="pre">uname)</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">def</span> <span class="pre">get_help_strings(self)</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">def</span> <span class="pre">get_format_suggestion(self,</span> <span class="pre">cmd)</span></tt></li>
+</ul>
+<p>bofhds global dict <tt class="docutils literal"><span class="pre">all_commands</span></tt> is built up by first searching the
+bofhd module, and then all modules in the configfile.  Thus, a command
+in a module may override the default implementation.</p>
+<div class="section" id="parameters-and-commands">
+<h3><a class="toc-backref" href="#id4">Parameters and commands</a><a class="headerlink" href="#parameters-and-commands" title="Permalink to this headline">¶</a></h3>
+<p>As one can see from the <tt class="docutils literal"><span class="pre">bofhd_module_example</span></tt>, commands are defined
+with the <tt class="docutils literal"><span class="pre">Command</span></tt> class.  It formats the definitition of avilable
+commans in a way that the client can understand.  See
+<a class="reference external" href="-">bofhd_get_commands</a> for details.  The first argument to Command
+defines what the user has to type trigger the command, while the rest
+defines the types of each argument.  It may also specify that a prompt
+function should be used (for interactive commands where the next
+question depends on the answer to the previous one).</p>
+</div>
+<div class="section" id="bofhd-uio-cmds-py">
+<h3><a class="toc-backref" href="#id5">bofhd_uio_cmds.py</a><a class="headerlink" href="#bofhd-uio-cmds-py" title="Permalink to this headline">¶</a></h3>
+<p>The bofhd module that currently has the most features is
+<tt class="docutils literal"><span class="pre">Cerebrum/modules/no/uio/bofhd_uio_cmds.py</span></tt>.  Its original purpose
+was to support the jbofh client, but other clients has started using
+it as well.</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">get_commands()</span></tt> has a special feature where it doesn&#8217;t enable a
+given command in the client if the user logged in is not allowed to
+run the command.</li>
+</ul>
+<p>The module is nearly 5000 lines, and will hopefylle be cleaned up
+sometime in the hopefully near future:</p>
+<ul class="simple">
+<li>rename all commands to something like <tt class="docutils literal"><span class="pre">client_*</span></tt>.  Extract the
+part that actually does something to a new function with the old
+name, and use this from the <tt class="docutils literal"><span class="pre">client_</span></tt> function.  Thus separating
+presentation and logic.</li>
+<li>A number of useful <tt class="docutils literal"><span class="pre">_get</span></tt> methods should be moved up to a new
+utility class in <tt class="docutils literal"><span class="pre">Cerebrum/modules</span></tt>.</li>
+<li>Some of the more generic methods should be moved up.</li>
+<li>The remaining commands should probably be split into smaller classes.</li>
+</ul>
+</div>
+</div>
+<div class="section" id="example">
+<h2><a class="toc-backref" href="#id6">Example</a><a class="headerlink" href="#example" title="Permalink to this headline">¶</a></h2>
+<p>This example shows the <tt class="docutils literal"><span class="pre">Cerebrum/modules/no/bofhd_module_example.py</span></tt>
+module:</p>
+<blockquote>
+<div></div></blockquote>
+<div class="section" id="explanation">
+<h3><a class="toc-backref" href="#id7">Explanation</a><a class="headerlink" href="#explanation" title="Permalink to this headline">¶</a></h3>
+<p>We&#8217;ll briefly explain some parts of the above example.</p>
+<p>First note that we define the dict <tt class="docutils literal"><span class="pre">all_commands</span></tt> as an empty dict.
+This dict will map the name of a function, callable through
+<tt class="docutils literal"><span class="pre">run_comand</span></tt> to a function in this module.</p>
+<p>The line <tt class="docutils literal"><span class="pre">all_commands['user_info']</span></tt> defines a <tt class="docutils literal"><span class="pre">Command</span></tt> that
+should result in a call to the <tt class="docutils literal"><span class="pre">user_info</span></tt> method.  The <tt class="docutils literal"><span class="pre">Command</span></tt>
+constructor takes a tuple of the user-entered commands that should map
+to this method, and a list of class instances indicating the type of
+expected parameter.  It may also use the keyword-argument <tt class="docutils literal"><span class="pre">fs</span></tt> to
+define a <tt class="docutils literal"><span class="pre">FormatSuggestion</span></tt> which tells the client how it may format
+the return value of this method.  Please see the documentation on
+these classes for the full details.</p>
+<p>The <tt class="docutils literal"><span class="pre">get_help_strings</span></tt> method defines one group of commands,
+<tt class="docutils literal"><span class="pre">user</span></tt>, and help for one command in this group <tt class="docutils literal"><span class="pre">user_info</span></tt>.  Since
+this function takes an <tt class="docutils literal"><span class="pre">account_name</span></tt> as argument, one arg_help is
+also defined.  The string <tt class="docutils literal"><span class="pre">account_name</span></tt> is not refered in the
+construction of the <tt class="docutils literal"><span class="pre">AccountName</span></tt> object, but if you look at its
+implementation, you will se that it is the default value for its
+<tt class="docutils literal"><span class="pre">help_ref</span></tt>.  If the default help string is not apropriate for the
+argument, an alternative <tt class="docutils literal"><span class="pre">help_ref</span></tt> may be specified in the
+<tt class="docutils literal"><span class="pre">AccountName</span></tt> constructor.</p>
+<p><tt class="docutils literal"><span class="pre">get_format_suggestion</span></tt> simply uses the <tt class="docutils literal"><span class="pre">Command</span></tt> object
+constructed earlier to figure out which <tt class="docutils literal"><span class="pre">FormatSuggestion</span></tt> to return
+for a given method-name.</p>
+</div>
+</div>
+<div class="section" id="authorization">
+<h2><a class="toc-backref" href="#id8">Authorization</a><a class="headerlink" href="#authorization" title="Permalink to this headline">¶</a></h2>
+<p>Authorization in bofh is handled by the module
+<tt class="docutils literal"><span class="pre">Cerebrum.modules.bofhd.auth</span></tt>.  The class <tt class="docutils literal"><span class="pre">BofhdAuth</span></tt> defines a
+number of <tt class="docutils literal"><span class="pre">can_*</span></tt> methods that are called by bofhd when a client
+tries to perform an operation.  The methods returns True on success,
+and throws a <tt class="docutils literal"><span class="pre">PermissionDenied</span></tt> error on failure.</p>
+<p>To answer the various <tt class="docutils literal"><span class="pre">can_*</span></tt> questions, the auth module defines a
+datamodel shown in <a class="reference internal" href="#fig-auth">fig_auth</a>.</p>
+<p>The various operations that can be performed, such as set_password,
+create_user etc. are stored in <tt class="docutils literal"><span class="pre">auth_operation</span></tt>.  Since it is common
+to grant permission to more than one operation at a time,
+auth_operations are grouped into an <tt class="docutils literal"><span class="pre">auth_operation_set</span></tt>.</p>
+<p><tt class="docutils literal"><span class="pre">auth_op_target</span></tt> stores the targets that an operation may be
+performed on.  A target has a <tt class="docutils literal"><span class="pre">target_type</span></tt> that may be one of host,
+disk, group, global_host or global_group.  For a host
+<tt class="docutils literal"><span class="pre">auth_op_target_attrs</span></tt> may contain a regexp indicating which disks
+on the host the target actually covers.  global_host/global_group will
+not affect BOFHD_SUPERUSER_GROUP or its members.</p>
+<p><tt class="docutils literal"><span class="pre">auth_role</span></tt> maps an <tt class="docutils literal"><span class="pre">auth_operation_set</span></tt> to an <tt class="docutils literal"><span class="pre">auth_op_target</span></tt>
+for a given entity_id.  The current implementation of <tt class="docutils literal"><span class="pre">BofhdAuth</span></tt>
+allows entity_id to point to an account or a group.</p>
+<p>Modification of the above mentioned tables are done by a number of
+helper classes.  Please see their class documentation for details.</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">BofhdAuthOpSet</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">BofhdAuthOpTarget</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">BofhdAuthRole</span></tt></li>
+</ul>
+<p id="fig-auth">Figure: Diagram of the databaseschema for authorization</p>
+<img alt="../../_images/bofhd_auth.png" src="../../_images/bofhd_auth.png" />
+</div>
+<div class="section" id="communication-protocol">
+<h2><a class="toc-backref" href="#id9">Communication protocol</a><a class="headerlink" href="#communication-protocol" title="Permalink to this headline">¶</a></h2>
+<p>The current bofhd protocol is a typical request-response protocol,
+where the client is allowed to send messages, which the server replies
+to.  The server does not contact the client on its own.</p>
+<div class="section" id="protocol-encoding">
+<h3><a class="toc-backref" href="#id10">Protocol encoding</a><a class="headerlink" href="#protocol-encoding" title="Permalink to this headline">¶</a></h3>
+<p>Messages and responses are implemented using <a class="reference external" href="http://www.xml-rpc.com/">XML-RPC</a>, an open
+standard that allows clients to call methods on a server.  The method
+calls and the return values are encoded as XML.  All of this is
+automatically handled by xmlrpclib which is included in Python.</p>
+<p>XML-RPC was originally built for HTTP, but can also be used on top of
+other protocols.</p>
+<p>The advantage of using XML-RPC is that it is an open standard, and it
+allows returing numbers, strings, dates, lists and dicts.</p>
+</div>
+<div class="section" id="xml-rpc-over-https">
+<h3><a class="toc-backref" href="#id11">XML-RPC over HTTPS</a><a class="headerlink" href="#xml-rpc-over-https" title="Permalink to this headline">¶</a></h3>
+<p>The request-&gt;response behavior of a typical bofh client makes HTTP a
+suitable protocol for transfer of the XML-RPC messages.  However, for
+security reasons, <a class="reference external" href="http://www.ietf.org/rfc/rfc2818.txt">HTTPS</a> is used.</p>
+<p>In the future, we might decide to use another transfer protocol.  This
+should only require minor changes to clients/servers.</p>
+</div>
+<div class="section" id="extension-to-xml-rpc">
+<h3><a class="toc-backref" href="#id12">Extension to XML-RPC</a><a class="headerlink" href="#extension-to-xml-rpc" title="Permalink to this headline">¶</a></h3>
+<p>XML-RPC does not allow transfer of NULL values.  Bofhd allows this by
+encoding them as :None.  This means that any string starting with :,
+must be escaped.  For details, see
+<tt class="docutils literal"><span class="pre">Cerebrum.modules.bofhd.xmlutils:native_to_xmlrpc</span></tt>.</p>
+</div>
+<div class="section" id="communicating-with-bofhd">
+<h3><a class="toc-backref" href="#id13">Communicating with bofhd</a><a class="headerlink" href="#communicating-with-bofhd" title="Permalink to this headline">¶</a></h3>
+<p>Bofhd was primarily written to support a command-line client.  The
+client should be as simple as possible, and it should be possible to
+add new commands without updating the client.</p>
+<p>Bofhd itself only support a few commands.  Extensions to bofhd are
+called using the run_command wrapper that takes care of session-id
+validation and asserting that commands performed on multiple users are
+treated as an atomic operation.</p>
+<p>The commands that may be called are prefixed with bofhd_ in the server
+source.  Most commands require authentication, which is passed with
+the session-id parameter, and retrieved with login.</p>
+<div class="section" id="bofhd-login-uname-password">
+<h4><a class="toc-backref" href="#id14">bofhd_login(uname, password)</a><a class="headerlink" href="#bofhd-login-uname-password" title="Permalink to this headline">¶</a></h4>
+<blockquote>
+<div>login user with uname and password, return a session id</div></blockquote>
+</div>
+<div class="section" id="bofhd-logout-session-id">
+<h4><a class="toc-backref" href="#id15">bofhd_logout(session_id)</a><a class="headerlink" href="#bofhd-logout-session-id" title="Permalink to this headline">¶</a></h4>
+<blockquote>
+<div>tells bofhd to forget who session_id belongs to</div></blockquote>
+</div>
+<div class="section" id="bofhd-get-commands-session-id">
+<h4><a class="toc-backref" href="#id16">bofhd_get_commands(session_id)</a><a class="headerlink" href="#bofhd-get-commands-session-id" title="Permalink to this headline">¶</a></h4>
+<blockquote>
+<div><p>This command returns a tuple of tuples describing the commands
+available in the server for the user with the corresponding sessionid.
+The result is a dict formated as follows:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="p">{</span>
+  <span class="s">&#39;group_create&#39;</span><span class="p">:</span> <span class="p">((</span><span class="s">&#39;group&#39;</span><span class="p">,</span> <span class="s">&#39;create&#39;</span><span class="p">),</span> <span class="p">[</span>
+     <span class="p">{</span><span class="s">&#39;prompt&#39;</span><span class="p">:</span> <span class="s">&#39;Enter the new group name&#39;</span><span class="p">,</span> <span class="s">&#39;help_ref&#39;</span><span class="p">:</span> <span class="s">&#39;group_name_new&#39;</span><span class="p">,</span>
+      <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;groupName&#39;</span><span class="p">},</span>
+     <span class="p">{</span><span class="s">&#39;prompt&#39;</span><span class="p">:</span> <span class="s">&#39;Enter description&#39;</span><span class="p">,</span> <span class="s">&#39;help_ref&#39;</span><span class="p">:</span> <span class="s">&#39;string_description&#39;</span><span class="p">,</span>
+      <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;simpleString&#39;</span><span class="p">,</span> <span class="s">&#39;optional&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}]),</span>
+  <span class="s">&#39;user_create&#39;</span><span class="p">:</span> <span class="p">((</span><span class="s">&#39;user&#39;</span><span class="p">,</span> <span class="s">&#39;create&#39;</span><span class="p">),</span> <span class="s">&#39;prompt_func&#39;</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Each key represent a function that may be called with
+<tt class="docutils literal"><span class="pre">run_command</span></tt>.  The value, <tt class="docutils literal"><span class="pre">v</span></tt> is a <tt class="docutils literal"><span class="pre">list</span></tt>.  <tt class="docutils literal"><span class="pre">v[0]</span></tt> is a
+list, normally of length 2 that tells jbofh what command-line
+commands that should trigger this command.</p>
+<p><tt class="docutils literal"><span class="pre">v[1]</span></tt> can be the string &#8216;prompt_func&#8217;, which will make the
+client ask the server what to do for each argument entered.  More
+on this later.  <tt class="docutils literal"><span class="pre">v[1]</span></tt> may also be a tuple with hashes where
+each hash describes how an argument should be passed, and the
+number of hashes indicate the number of required arguments.  The
+hash consist of:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">prompt</span></tt>: The prompt-string to display</li>
+<li><tt class="docutils literal"><span class="pre">help_ref</span></tt>: References a help-string for this argument.  The actual help text can be fetched with <tt class="docutils literal"><span class="pre">bofhd_help</span></tt>.</li>
+<li><tt class="docutils literal"><span class="pre">type</span></tt>: indicate the datatype.  This argument is currently ignored.</li>
+<li><tt class="docutils literal"><span class="pre">optional</span></tt>: indicate that the argument is optional</li>
+<li><tt class="docutils literal"><span class="pre">default</span></tt>: indicate a defaul value for the argument</li>
+<li><tt class="docutils literal"><span class="pre">repeat</span></tt>: indicate that the argument is repeatable.  Obsolete.</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="bofhd-get-format-suggestion-cmd">
+<h4><a class="toc-backref" href="#id17">bofhd_get_format_suggestion(cmd)</a><a class="headerlink" href="#bofhd-get-format-suggestion-cmd" title="Permalink to this headline">¶</a></h4>
+<blockquote>
+<div>tells the command-line client how to format a response to a given
+command.  The data is returned by
+<tt class="docutils literal"><span class="pre">Cerebrum.modules.bofhd.cmd_param.FormatSuggestion.get_format</span></tt>:</div></blockquote>
+</div>
+<div class="section" id="bofhd-get-motd-client-id-none-client-version-none">
+<h4><a class="toc-backref" href="#id18">bofhd_get_motd(client_id=None, client_version=None)</a><a class="headerlink" href="#bofhd-get-motd-client-id-none-client-version-none" title="Permalink to this headline">¶</a></h4>
+<blockquote>
+<div>return message of the day as a string.</div></blockquote>
+</div>
+<div class="section" id="bofhd-help-session-id-group">
+<h4><a class="toc-backref" href="#id19">bofhd_help(session_id, *group)</a><a class="headerlink" href="#bofhd-help-session-id-group" title="Permalink to this headline">¶</a></h4>
+<blockquote>
+<div><p>gives help for the command indicates by the list group.</p>
+<ul class="simple">
+<li>With no args, returns general help.</li>
+<li>if <tt class="docutils literal"><span class="pre">arg[0]</span></tt> is <tt class="docutils literal"><span class="pre">arg_help</span></tt>, returns help string for the parameter help-ref indicated by <tt class="docutils literal"><span class="pre">arg[1]</span></tt>.</li>
+<li>if only one argument, return help string for the command-group indicated by <tt class="docutils literal"><span class="pre">arg[1]</span></tt>.</li>
+<li>if two arguments, return help string for the command indicated by <tt class="docutils literal"><span class="pre">arg[1:2]</span></tt>.</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="bofhd-run-command-session-id-cmd-args">
+<h4><a class="toc-backref" href="#id20">bofhd_run_command(session_id, cmd, *args)</a><a class="headerlink" href="#bofhd-run-command-session-id-cmd-args" title="Permalink to this headline">¶</a></h4>
+<blockquote>
+<div>Runs the command cmd, provided by a bofhd plugin.  If one or more of
+the arguments in args is a list, the command will be ran several times
+for each element, and commit/rollback will be performed after all
+operations has completed sucessfully.</div></blockquote>
+</div>
+<div class="section" id="bofhd-call-prompt-func-session-id-cmd-args">
+<h4><a class="toc-backref" href="#id21">bofhd_call_prompt_func(session_id, cmd, *args)</a><a class="headerlink" href="#bofhd-call-prompt-func-session-id-cmd-args" title="Permalink to this headline">¶</a></h4>
+<blockquote>
+<div>Allows the comand-line client to tell the server what the user has
+typed so far, and provides information about the next thing to prompt
+for.  Typically used in user creation where one has to select what
+person owns the account from a list.</div></blockquote>
+</div>
+<div class="section" id="bofhd-get-default-param-session-id-cmd-args">
+<h4><a class="toc-backref" href="#id22">bofhd_get_default_param(session_id, cmd, *args)</a><a class="headerlink" href="#bofhd-get-default-param-session-id-cmd-args" title="Permalink to this headline">¶</a></h4>
+<blockquote>
+<div>Used by the command-line client to ask for a suggestion for a
+default-parameter for a given function.  TODO: is this used?</div></blockquote>
+</div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Bofhd - development</a><ul>
+<li><a class="reference internal" href="#introduction">Introduction</a></li>
+<li><a class="reference internal" href="#configuring-and-extending-bofhd">Configuring and extending bofhd</a><ul>
+<li><a class="reference internal" href="#parameters-and-commands">Parameters and commands</a></li>
+<li><a class="reference internal" href="#bofhd-uio-cmds-py">bofhd_uio_cmds.py</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#example">Example</a><ul>
+<li><a class="reference internal" href="#explanation">Explanation</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#authorization">Authorization</a></li>
+<li><a class="reference internal" href="#communication-protocol">Communication protocol</a><ul>
+<li><a class="reference internal" href="#protocol-encoding">Protocol encoding</a></li>
+<li><a class="reference internal" href="#xml-rpc-over-https">XML-RPC over HTTPS</a></li>
+<li><a class="reference internal" href="#extension-to-xml-rpc">Extension to XML-RPC</a></li>
+<li><a class="reference internal" href="#communicating-with-bofhd">Communicating with bofhd</a><ul>
+<li><a class="reference internal" href="#bofhd-login-uname-password">bofhd_login(uname, password)</a></li>
+<li><a class="reference internal" href="#bofhd-logout-session-id">bofhd_logout(session_id)</a></li>
+<li><a class="reference internal" href="#bofhd-get-commands-session-id">bofhd_get_commands(session_id)</a></li>
+<li><a class="reference internal" href="#bofhd-get-format-suggestion-cmd">bofhd_get_format_suggestion(cmd)</a></li>
+<li><a class="reference internal" href="#bofhd-get-motd-client-id-none-client-version-none">bofhd_get_motd(client_id=None, client_version=None)</a></li>
+<li><a class="reference internal" href="#bofhd-help-session-id-group">bofhd_help(session_id, *group)</a></li>
+<li><a class="reference internal" href="#bofhd-run-command-session-id-cmd-args">bofhd_run_command(session_id, cmd, *args)</a></li>
+<li><a class="reference internal" href="#bofhd-call-prompt-func-session-id-cmd-args">bofhd_call_prompt_func(session_id, cmd, *args)</a></li>
+<li><a class="reference internal" href="#bofhd-get-default-param-session-id-cmd-args">bofhd_get_default_param(session_id, cmd, *args)</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/doc/devel/bofh.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, University of Oslo.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

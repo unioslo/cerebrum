@@ -1,0 +1,294 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Bofh - administration &mdash; Cerebrum 0.9.16 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.9.16',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Cerebrum 0.9.16 documentation" href="../../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="bofh-administration">
+<h1>Bofh - administration<a class="headerlink" href="#bofh-administration" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="introduction">
+<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p>This chapter covers the administrative parts of setting up a bofh
+server, like editing configuration files.</p>
+<p>For information about using bofh, see <a class="reference external" href="../user/bofh.html">Bofh user guide</a></p>
+<p>For information about developing bofh extensions and description of
+the network protocol, see <a class="reference external" href="../devel/bofh.html">Bofh developer guide</a></p>
+</div>
+<div class="section" id="configuring-bofhd">
+<h2>Configuring bofhd<a class="headerlink" href="#configuring-bofhd" title="Permalink to this headline">¶</a></h2>
+<p>When starting bofhd, a configuration file must be spesified.  This
+configuration file defines what modules this bofh server should
+contain.  If the configuration file is empty, the server will start,
+but very few comands will be available.</p>
+<p>The configuration file contains a number of lines on the format
+<tt class="docutils literal"><span class="pre">module_name/class_name</span></tt>, and thus points to python classes in
+various files.  Blank lines, and lines starting with <tt class="docutils literal"><span class="pre">#</span></tt> are
+ignored.  The files are loaded in consecutive order.  When
+name-clashes occours, the command from the file loaded last will be
+used.</p>
+<p>This is an example of a configuration file:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="c"># Load most of the commands used at UoO</span>
+<span class="n">Cerebrum</span><span class="o">.</span><span class="n">modules</span><span class="o">.</span><span class="n">no</span><span class="o">.</span><span class="n">uio</span><span class="o">.</span><span class="n">bofhd_uio_cmds</span><span class="o">/</span><span class="n">BofhdExtension</span>
+<span class="c"># The printer-quota commands are in a separate module</span>
+<span class="n">Cerebrum</span><span class="o">.</span><span class="n">modules</span><span class="o">.</span><span class="n">no</span><span class="o">.</span><span class="n">uio</span><span class="o">.</span><span class="n">printer_quota</span><span class="o">.</span><span class="n">bofhd_pq_cmds</span><span class="o">/</span><span class="n">BofhdExtension</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="starting-bofhd">
+<h2>Starting bofhd<a class="headerlink" href="#starting-bofhd" title="Permalink to this headline">¶</a></h2>
+<p>Bofhd can be started like: <tt class="docutils literal"><span class="pre">bofhd.py</span> <span class="pre">--config-file</span> <span class="pre">filename</span></tt>.  It
+will default to encrypted mode, using the certificates in
+<tt class="docutils literal"><span class="pre">cereconf.DB_AUTH_DIR/</span></tt> named <tt class="docutils literal"><span class="pre">server.cert</span></tt>, <tt class="docutils literal"><span class="pre">ca.pem</span></tt> and the
+<tt class="docutils literal"><span class="pre">dh1024.pem</span></tt> file (for information on generating these files, see
+below).</p>
+<p>By default, bofhd will use a logger named <tt class="docutils literal"><span class="pre">bofhd</span></tt> (see also TODO:
+logger-enduser-doc).  For testing, one might want to use
+<tt class="docutils literal"><span class="pre">--logger-name=console</span></tt> as the first command-line argument.</p>
+<p>By using the <tt class="docutils literal"><span class="pre">--port</span> <span class="pre">number</span></tt> argument, one may run multiple bofh
+servers at different ports with different configurations.</p>
+</div>
+<div class="section" id="distributing-the-jbofh-client">
+<h2>Distributing the jbofh client<a class="headerlink" href="#distributing-the-jbofh-client" title="Permalink to this headline">¶</a></h2>
+<p>The jbofh is distributed as a jar file.  A jar file is a normal zip
+file with some special files, and standard zip utilities can be used
+to modify its contents.  There are typicaly two changes one may want
+to do to the default jar file:</p>
+<p>1. Update/add the <tt class="docutils literal"><span class="pre">cacert.pem</span></tt> in its root-folder.  This cacert
+should match the one used by the server.</p>
+<p>2. Update <tt class="docutils literal"><span class="pre">jbofh.properties</span></tt>.  Atleast <tt class="docutils literal"><span class="pre">bofhd_url</span></tt> should be set
+to point to the default bofh server.  Also, if you use a comercial CA,
+whose root-certificate is in javas default keystore, you may wish to
+set <tt class="docutils literal"><span class="pre">InternalTrustManager.enable=false</span></tt></p>
+<p>For more information about jbofh, see (TODO)</p>
+</div>
+<div class="section" id="encrypted-bofhd">
+<h2>Encrypted bofhd<a class="headerlink" href="#encrypted-bofhd" title="Permalink to this headline">¶</a></h2>
+<p>You should run bofhd in its encrypted mode to avoid sending plaintext
+passwords and other sensitive data unprotected over the network.
+Since you have to distribute the jar file anyway, you may want to
+avoid the hazzle of buying a comercial certificate for use with your
+bofh server.  You can build your own certificate by following the
+instructions below.:</p>
+<div class="highlight-python"><pre>### Generate my own CA Authority.
+###
+luggage$ cd /tmp/
+luggage$ mkdir cert-test
+luggage$ cd cert-test
+luggage$ mkdir demoCA
+luggage$ mkdir demoCA/certs
+luggage$ mkdir demoCA/crl
+luggage$ mkdir demoCA/newcerts
+luggage$ mkdir demoCA/private
+luggage$ echo "01" &gt; demoCA/serial
+luggage$ touch demoCA/index.txt
+luggage$ openssl req -new -x509 -keyout demoCA/private/cakey.pem -out demoCA/cacert.pem -days 1825 -config /etc/ssl/openssl.cnf
+Generating a 1024 bit RSA private key
+.++++++
+.++++++
+writing new private key to 'demoCA/private/cakey.pem'
+Enter PEM pass phrase:
+Verifying - Enter PEM pass phrase:
+-----
+You are about to be asked to enter information that will be incorporated
+into your certificate request.
+What you are about to enter is what is called a Distinguished Name or a DN.
+There are quite a few fields but you can leave some blank
+For some fields there will be a default value,
+If you enter '.', the field will be left blank.
+-----
+Country Name (2 letter code) [AU]:NO
+State or Province Name (full name) [Some-State]:Oslo
+Locality Name (eg, city) []:
+Organization Name (eg, company) [Internet Widgits Pty Ltd]:Tveita Hybel-IT
+Organizational Unit Name (eg, section) []:
+Common Name (eg, YOUR name) []:Harald Meland
+Email Address []:harald.meland@usit.uio.no
+
+### Generate a certificate request for my server.  The servers FQDN
+### must be given as the sertificate's "Common Name".
+###
+luggage$ openssl req -new -keyout key.pem -out req.pem -days 1825 -config /etc/ssl/openssl.cnf -nodes
+Generating a 1024 bit RSA private key
+...............++++++
+...................++++++
+writing new private key to 'key.pem'
+-----
+You are about to be asked to enter information that will be incorporated
+into your certificate request.
+What you are about to enter is what is called a Distinguished Name or a DN.
+There are quite a few fields but you can leave some blank
+For some fields there will be a default value,
+If you enter '.', the field will be left blank.
+-----
+Country Name (2 letter code) [AU]:NO
+State or Province Name (full name) [Some-State]:Oslo
+Locality Name (eg, city) []:
+Organization Name (eg, company) [Internet Widgits Pty Ltd]:Tveita Hybel-IT
+Organizational Unit Name (eg, section) []:Mobile Gadgets 'n' Stuff
+Common Name (eg, YOUR name) []:luggage.dnsalias.org
+Email Address []:
+
+Please enter the following 'extra' attributes
+to be sent with your certificate request
+A challenge password []:
+An optional company name []:
+luggage$ cat req.pem key.pem &gt; full-req.pem
+
+### Use my own CA Authority to issue the new certificate.
+###
+luggage$ openssl ca -policy policy_match -out out.pem -config /etc/ssl/openssl.cnf -days 1825 -infiles full-req.pem
+Using configuration from /etc/ssl/openssl.cnf
+Enter pass phrase for ./demoCA/private/cakey.pem:
+Check that the request matches the signature
+Signature ok
+Certificate Details:
+        Serial Number: 1 (0x1)
+        Validity
+            Not Before: Dec 11 23:45:40 2003 GMT
+            Not After : Dec  9 23:45:40 2008 GMT
+        Subject:
+            countryName               = NO
+            stateOrProvinceName       = Oslo
+            organizationName          = Tveita Hybel-IT
+            organizationalUnitName    = Mobile Gadgets 'n' Stuff
+            commonName                = luggage.dnsalias.org
+        X509v3 extensions:
+            X509v3 Basic Constraints:
+                CA:FALSE
+            Netscape Comment:
+                OpenSSL Generated Certificate
+            X509v3 Subject Key Identifier:
+                9D:73:E4:2D:DE:A9:B4:29:1F:E6:84:12:2C:52:C0:F3:7E:CE:74:BB
+            X509v3 Authority Key Identifier:
+                keyid:04:7A:77:E6:C5:58:87:01:59:06:80:18:64:3E:41:69:9B:5F:58:36
+                DirName:/C=NO/ST=Oslo/O=Tveita Hybel-IT/CN=Harald Meland/emailAddress=harald.meland@usit.uio.no
+                serial:00
+
+Certificate is to be certified until Dec  9 23:45:40 2008 GMT (1825 days)
+Sign the certificate? [y/n]:y
+
+
+1 out of 1 certificate requests certified, commit? [y/n]y
+Write out database with 1 new entries
+Data Base Updated
+luggage$ cat out.pem key.pem &gt; server.cert
+
+### Generate a Diffie-Hellman symmetric cipher key, for use in
+### bofhd.py.
+###
+luggage$ openssl gendh -out dh1024.pem 1024
+Generating DH parameters, 1024 bit long safe prime, generator 2
+This is going to take a long time
+...........................................+...................+...............+......+.....................+...........................................................................+..................+................+...............................................................+............................................+............+....................+.+.......................................................................................................................................................+.............+.......+.......................................................................................................+................+..............+.........................+.............................................+.......................................................................................+....+...................................................+........................+...................................+....................+.............+....................+...+............+..............+.........+.................................................................+.................................+........+.......................................+..........+......+.....................................+.............................................+....................................................................................+.+.................................................................+...............................+................+.....................................+...............+...................................+.................................................+.........+............................................................+...........................................+..........................................+................+.....................+...............+..+...............................................................................................+...............................+.....................................................................................................................................................................................+..+.....+...............................................................+...................................................................................+...............................................+.................................................+.........+...............+..........+.......................................+..........+........................+.........+.....................+................................+.....................................................................................................................+....+.................................+....+...............................................+............................................................+....................................+.................................+....................................+.......+......+.....+...+...............................................................................................................................................+........................+....++*++*++*
+
+### Copy the various generated files into place, so that bofhd.py will
+### find them.
+###
+luggage$ cp dh1024.pem /home/hmeland/project/cerebrum/etc/
+luggage$ cp server.cert /home/hmeland/project/cerebrum/etc/
+luggage$ cp demoCA/cacert.pem /home/hmeland/project/cerebrum/etc/ca.pem
+
+### Include my own CA in JBofh, and make sure the default URL matches
+### the server name as given in the server certificate.
+###
+### Given an existing JBofh.jar, this is easy to do in Emacs; open the
+### .jar file, and modify the files 'cacert.pem' and
+### 'jbofh.properties' as needed.</pre>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Bofh - administration</a><ul>
+<li><a class="reference internal" href="#introduction">Introduction</a></li>
+<li><a class="reference internal" href="#configuring-bofhd">Configuring bofhd</a></li>
+<li><a class="reference internal" href="#starting-bofhd">Starting bofhd</a></li>
+<li><a class="reference internal" href="#distributing-the-jbofh-client">Distributing the jbofh client</a></li>
+<li><a class="reference internal" href="#encrypted-bofhd">Encrypted bofhd</a></li>
+</ul>
+</li>
+</ul>
+
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/doc/admin/bofh.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li><a href="../../index.html">Cerebrum 0.9.16 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, University of Oslo.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>
