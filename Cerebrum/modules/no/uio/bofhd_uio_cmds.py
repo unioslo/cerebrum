@@ -8571,7 +8571,7 @@ Addresses and settings:
         qconst = self._get_constant(self.const.Quarantine, qtype, "quarantine")
         self.ba.can_disable_quarantine(operator.get_entity_id(), entity, qtype)
 
-        if not entity.get_entity_quarantine(qconst):
+        if not entity.get_entity_quarantine(type=qconst):
             raise CerebrumError("%s does not have a quarantine of type %s" % (
                 self._get_name_from_object(entity), qtype))
 
