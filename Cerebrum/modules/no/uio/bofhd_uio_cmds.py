@@ -8571,6 +8571,10 @@ Addresses and settings:
         qconst = self._get_constant(self.const.Quarantine, qtype, "quarantine")
         self.ba.can_disable_quarantine(operator.get_entity_id(), entity, qtype)
 
+        if not entity.get_entity_quarantine(qtype):
+            raise CerebrumError("%s does not have a quarantine of type %s" % (
+                self._get_name_from_object(entity), qtype))
+
         limit = getattr(cereconf, 'BOFHD_QUARANTINE_DISABLE_LIMIT', None)
         if limit:
             if date > DateTime.today() + DateTime.RelativeDateTime(days=limit):
