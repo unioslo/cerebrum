@@ -8636,7 +8636,8 @@ Addresses and settings:
         self.ba.can_set_quarantine(operator.get_entity_id(), entity, qconst)
         rows = entity.get_entity_quarantine(type=qconst)
         if rows:
-            raise CerebrumError("User already has a quarantine of this type")
+            raise CerebrumError("%s already has a quarantine of type %s" % (
+                self._get_name_from_object(entity), qtype))
         try:
             entity.add_entity_quarantine(qconst, operator.get_entity_id(), why,
                                          date_start, date_end)
