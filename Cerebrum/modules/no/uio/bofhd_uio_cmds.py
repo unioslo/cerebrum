@@ -8571,6 +8571,10 @@ Addresses and settings:
         qconst = self._get_constant(self.const.Quarantine, qtype, "quarantine")
         self.ba.can_disable_quarantine(operator.get_entity_id(), entity, qtype)
 
+        if not entity.get_entity_quarantine(type=qconst):
+            raise CerebrumError("%s does not have a quarantine of type %s" % (
+                self._get_name_from_object(entity), qtype))
+
         limit = getattr(cereconf, 'BOFHD_QUARANTINE_DISABLE_LIMIT', None)
         if limit:
             if date > DateTime.today() + DateTime.RelativeDateTime(days=limit):
@@ -8615,6 +8619,11 @@ Addresses and settings:
         entity = self._get_entity(entity_type, id)
         qconst = self._get_constant(self.const.Quarantine, qtype, "quarantine")
         self.ba.can_remove_quarantine(operator.get_entity_id(), entity, qconst)
+
+        if not entity.get_entity_quarantine(type=qconst):
+            raise CerebrumError("%s does not have a quarantine of type %s" % (
+                self._get_name_from_object(entity), qtype))
+
         entity.delete_entity_quarantine(qconst)
         return "OK, removed quarantine %s for %s" % (
             qconst, self._get_name_from_object (entity))
@@ -8632,7 +8641,8 @@ Addresses and settings:
         self.ba.can_set_quarantine(operator.get_entity_id(), entity, qconst)
         rows = entity.get_entity_quarantine(type=qconst)
         if rows:
-            raise CerebrumError("User already has a quarantine of this type")
+            raise CerebrumError("%s already has a quarantine of type %s" % (
+                self._get_name_from_object(entity), qtype))
         try:
             entity.add_entity_quarantine(qconst, operator.get_entity_id(), why,
                                          date_start, date_end)
