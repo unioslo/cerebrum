@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002-2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,21 +16,75 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+""" Bofh client/server exceptions.
+
+The errors defined in this class, are errors that the bofhd server can
+communicate to the client.
+
+All client implementations should be aware of these exception types.
+
+"""
+
 
 class CerebrumError(StandardError):
-    """Signal a user-error"""
+
+    """ Signal a user-error. """
+
     pass
+
 
 class PermissionDenied(CerebrumError):
+
+    """ The operation was not permitted. """
+
     pass
+
+
+class UnknownError(CerebrumError):
+
+    """ An unknown error has occured. """
+
+    def __init__(self, type, value, msg=None):
+        """ Wrap a non-L{CerebrumError} in a L{CerebrumError} exception.
+
+        @type type: type
+        @param type: The exception class
+
+        @type value: Exception
+        @param value: The exception instance
+
+        @type msg: None or basestring
+        @param msg:
+            An additional error message. This message will be prepended to the
+            string value of this exception.
+
+        """
+        self._type = type
+        self._value = value
+        self._msg = msg or ''
+
+    def __str__(self):
+        return "Unknown error (%s): %s" % (getattr(self._type, '__name__', ''),
+                                           self._msg)
+
 
 class ServerRestartedError(CerebrumError):
-    """Notify the client that the server has restarted.  The client
-    should flush any cached data"""
+
+    """ Notify the client that the server has restarted.
+
+    When receiving this error, clients should flush any cached data.
+
+    """
+
     pass
+
 
 class SessionExpiredError(CerebrumError):
-    """The received session_id was unknown.  It was probably expired."""
-    pass
 
-# arch-tag: 5ea39013-bd1c-4e4c-94d6-0bcf2aa9a9c6
+    """ Indicate that the C{session_id} is expired.
+
+    This happens when the received C{session_id} is unknown.
+
+    """
+
+    pass
