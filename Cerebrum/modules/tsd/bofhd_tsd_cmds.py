@@ -1406,6 +1406,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                     status=self.const.affiliation_status_project_member)
         pe.write_db()
         # Update the account's affiliation:
+        ac.del_account_type(ou.entity_id, self.const.affiliation_pending)
         ac.set_account_type(ou.entity_id, self.const.affiliation_project)
         ac.write_db()
         # Remove the quarantine, if set:
