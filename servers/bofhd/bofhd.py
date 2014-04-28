@@ -510,12 +510,12 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             logger.warn("Unexpected exception", exc_info=1)
             raise UnknownError(sys.exc_info()[0],
                                sys.exc_info()[1],
-                               msg=" A server error has been logged.")
+                               msg="A server error has been logged.")
         except Exception, e:
             logger.warn("Unexpected exception", exc_info=1)
             raise UnknownError(sys.exc_info()[0],
                                sys.exc_info()[1],
-                               msg=" A server error has been logged.")
+                               msg="A server error has been logged.")
         return native_to_xmlrpc(ret)
 
     def handle(self):
