@@ -401,6 +401,7 @@ class Processor:
             logger.warn("Project mismatch for group %s" % self.pg.entity_id)
             # Deleting for now, would be created at next run of this script:
             self.gw.delete_group(pid, groupname)
+            return
 
         # Fixing the memberships. Only updating user members for now, and
         # therefore including indirect members. The GW might need other member
