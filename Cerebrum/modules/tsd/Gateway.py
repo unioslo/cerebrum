@@ -502,7 +502,7 @@ class GatewayClient(xmlrpclib.Server, object):
             The POSIX GID of the group.
 
         """
-        self.logger.info("Creating group: %s", groupname)
+        self.logger.info("Creating group: %s (%s)", groupname, pid)
         params = {'project': pid, 'groupname': groupname, 'gid': gid}
         if self.dryrun:
             return True
@@ -518,7 +518,7 @@ class GatewayClient(xmlrpclib.Server, object):
         @param groupname: The groupname of the group.
 
         """
-        self.logger.info("Deleting group: %s", groupname)
+        self.logger.info("Deleting group: %s (%s)", groupname, pid)
         params = {'project': pid, 'groupname': groupname}
         if self.dryrun:
             return True
