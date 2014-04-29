@@ -77,7 +77,7 @@ fi
 # Setup OK, run tests
 #
 info "Running nosetests"
-${env_dir}/bin/nosetests -c ${config}/noseconfig.cfg ${crb_src}/testsuite/tests/test_Cerebrum ${crb_src}/testsuite/tests/test_tsd
+${env_dir}/bin/nosetests -c ${config}/noseconfig.cfg ${crb_src}/testsuite/tests/test_tsd
 error=$(($? + $error))
 
 # TODO: More tests here?
@@ -131,6 +131,6 @@ error=$(($? + $error))
     #${env_dir}/bin/pylint --rcfile=${config}/pylintrc --errors-only  \
                           #$f >> ${root_dir}/pylint.txt
 #done
-popd
+#popd
 
 exit $error
