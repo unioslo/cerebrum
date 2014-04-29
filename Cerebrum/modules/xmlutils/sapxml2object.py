@@ -34,7 +34,7 @@ import cereconf
 
 from Cerebrum.modules.xmlutils.xml2object import \
      XMLDataGetter, XMLEntity2Object, HRDataPerson, DataAddress, \
-     DataEmployment, DataOU, DataContact, DataName
+     DataEmployment, DataOU, DataContact, DataName, DataExternalWork
 from Cerebrum.modules.no.fodselsnr import personnr_ok
 
 
@@ -87,12 +87,12 @@ class SAPXMLDataGetter(XMLDataGetter):
     """An abstraction layer for SAP XML files."""
 
     def iter_person(self):
-        return self._make_iterator("sap_basPerson", XMLPerson2Object)
+        return self._make_iterator("sap2bas_pers", XMLPerson2Object)
     # end iter_person
 
 
     def iter_ou(self):
-        return self._make_iterator("sap2bas_skode", XMLOU2Object)
+        return self._make_iterator("sap2bas_sted", XMLOU2Object)
     # end iter_ou
 
 # end SAPXMLDataGetter        
@@ -105,17 +105,17 @@ class XMLOU2Object(XMLEntity2Object):
     # TBD: Bind it to Cerebrum constants?
     tag2type = { "Stedkode" : DataOU.NO_SKO,
                  "Akronym"  : DataOU.NAME_ACRONYM,
-                 "Kortnavn" : DataOU.NAME_SHORT,
-                 "Langnavn" : DataOU.NAME_LONG,
+                 "Navn20" : DataOU.NAME_SHORT,
+                 "Navn120" : DataOU.NAME_LONG,
                  }
 
     def _make_contact(self, element):
-        comm_type = element.find("Stedknavn")
-        value = element.find("Stedkomm")
+        comm_type = element.find("Type")
+        value = element.find("Verdi")
         if comm_type is None or value is None or value.text is None:
             return None
 
-        priority = element.find("Stedprio")
+        priority = element.find("Prioritet")
         if (priority is not None and
             priority.text is not None and
             priority.text.isdigit()):
@@ -149,7 +149,7 @@ class XMLOU2Object(XMLEntity2Object):
             return ""
         # end
 
-        kind = ext("AdressType")
+        kind = ext("Type")
         if not kind: return None
 
         xml2kind = { "Besøksadresse" : DataAddress.ADDRESS_BESOK,
@@ -158,9 +158,9 @@ class XMLOU2Object(XMLEntity2Object):
             return None
 
         result = DataAddress(kind = xml2kind[kind],
-                             street = (ext("Cnavn"),
-                                       ext("Gatenavn1"),
-                                       ext("Gatenavn2")),
+                             street = (ext("CO"),
+                                       ext("Gateadresse"),
+                                       ext("Adressetillegg")),
                              zip = ext("Postnummer"),
                              city = ext("Poststed"),
                              country = ext("Landkode"))
@@ -172,10 +172,10 @@ class XMLOU2Object(XMLEntity2Object):
         """Extract name information from XML element sub."""
 
         tag2kind = {"Akronym": DataOU.NAME_ACRONYM,
-                    "Kortnavn": DataOU.NAME_SHORT,
-                    "Langnavn": DataOU.NAME_LONG, }
+                    "Navn20": DataOU.NAME_SHORT,
+                    "Navn120": DataOU.NAME_LONG, }
 
-        language = sub.findtext(".//Sap_navn_spraak")
+        language = sub.findtext(".//Sprak")
         # Accumulate the results. One <stednavn> gives rise to several
         # DataName instances.
         result = list()
@@ -218,33 +218,33 @@ class XMLOU2Object(XMLEntity2Object):
                 sko = make_sko(value)
                 if sko is not None:
                     result.add_id(self.tag2type[sub.tag], sko)
-            elif sub.tag == "Overordnetsted":
+            elif sub.tag == "Overordnetstedkode":
                 sko = make_sko(value)
                 if sko is not None:
                     result.parent = (result.NO_SKO, make_sko(value))
-            elif sub.tag == "stednavn":
+            elif sub.tag == "Navn":
                 for name in self._make_names(sub):
                     result.add_name(name)
-            elif sub.tag in ("stedadresse",):
+            elif sub.tag in ("Adresse",):
                 result.add_address(self._make_address(sub))
-            elif sub.tag in ("Start_Date", "End_Date"):
-                date = self._make_mxdate(sub.text)
-                if sub.tag == "Start_Date":
+            elif sub.tag in ("Startdato", "Sluttdato"):
+                date = self._make_mxdate(sub.text, format="%Y-%m-%d")
+                if sub.tag == "Startdato":
                     result.start_date = date
                 else:
                     result.end_date = date
 
         # Whether the OU can be published in various online directories
         result.publishable = False
-        for tmp in element.findall(".//stedbruk/StedType"):
-            if tmp.text == "Tillatt Organisasjon":
+        for tmp in element.findall(".//Bruksomrade/Type"):
+            if tmp.text == "ORGA":
                 result.publishable = True
             # <StedType> tell us how an OU can be used. This information is
             # represented in Cerebrum with the help of spreads and can be
             # accessed via the EntitySpread interface.
             result.add_usage_code(tmp.text)
 
-        celems = element.findall("stedkomm")
+        celems = element.findall("Kommunikasjon")
         for sub in celems:
             ct = self._make_contact(sub)
             if ct:
@@ -286,7 +286,7 @@ class XMLPerson2Object(XMLEntity2Object):
     # SAP should tag the employments as either VITENSKAPELIG or TEKADM/OEVRIG
     # themselves. Unfortunately, it does not always happen, and we are forced
     # to deduce the categories ourselves. This list of codes is derived from
-    # LT-data. Unless there is an <adm_forsk> element with the right values,
+    # LT-data. Unless there is an <AdmForsk> element with the right values,
     # this set will be used to determine vit/tekadm categories.
     #
     # Everything IN this set is tagged with KATEGORI_VITENSKAPLIG
@@ -303,9 +303,9 @@ class XMLPerson2Object(XMLEntity2Object):
                 "Mann": HRDataPerson.GENDER_MALE,
                 "Kvinne": HRDataPerson.GENDER_FEMALE,
                 "Ukjent": HRDataPerson.GENDER_UNKNOWN,
-                "HovedStilling": DataEmployment.HOVEDSTILLING,
+                "Hovedstilling": DataEmployment.HOVEDSTILLING,
                 "Bistilling": DataEmployment.BISTILLING,
-                "Ansattnr": SAPPerson.SAP_NR,}
+                "Ansattnummer": SAPPerson.SAP_NR,}
 
 
     def _make_address(self, addr_element):
@@ -326,7 +326,9 @@ class XMLPerson2Object(XMLEntity2Object):
                 continue
             value = sub.text.strip().encode("latin1")
 
-            if sub.tag in ("Gateadresse", "Adressetillegg"):
+            if sub.tag in ("Gateadresse",):
+                street.insert(0, value)
+            if sub.tag in ("Adressetillegg",):
                 street.append(value)
             elif sub.tag in ("Postnummer",):
                 zip = value
@@ -338,8 +340,7 @@ class XMLPerson2Object(XMLEntity2Object):
                 city = value
             elif sub.tag in ("Landkode",):
                 country = value
-            # IVR 2007-07-06 spelling-lol
-            elif sub.tag in ("AdressType",):
+            elif sub.tag in ("Type",):
                 addr_kind = sap2intern.get(value, "")
             elif sub.tag in ("CO",):
                 # CO-fields don't seem to be registered intentionally
@@ -376,7 +377,7 @@ class XMLPerson2Object(XMLEntity2Object):
 
 
     def _make_employment(self, emp_element):
-        """Make a DataEmployment instance of an <HovedStilling>, </Bistilling>.
+        """Make a DataEmployment instance of an <Hovedstilling>, </Bistilling>.
 
         emp_element is the XML-subtree representing the employment.
         """
@@ -393,15 +394,15 @@ class XMLPerson2Object(XMLEntity2Object):
             
             value = sub.text.strip().encode("latin1")
             
-            if sub.tag == "stillingsprosent":
+            if sub.tag == "Stillingsprosent":
                 percentage = float(value)
-            elif sub.tag == "stillingsgruppebetegnelse":
+            elif sub.tag == "SKO":
                 code = int(value[0:4])
 
                 # 0000 are to be discarded. This is by design.
                 if code == 0:
                     return None
-                # Some elements have the proper category set in adm_forsk
+                # Some elements have the proper category set in AdmForsk
                 if category is None:
                     category = self._code2category(code)
             elif sub.tag == "Stilling":
@@ -412,15 +413,15 @@ class XMLPerson2Object(XMLEntity2Object):
                     title = " ".join(tmp[1:])
                     if category is None:
                         category = self._code2category(tmp[0])
-            elif sub.tag == "Start_Date":
-                start_date = self._make_mxdate(value)
-            elif sub.tag == "End_Date":
-                end_date = self._make_mxdate(value)
+            elif sub.tag == "Startdato":
+                start_date = self._make_mxdate(value, format="%Y-%m-%d")
+            elif sub.tag == "Sluttdato":
+                end_date = self._make_mxdate(value, format="%Y-%m-%d")
             elif sub.tag == "Orgenhet":
                 sko = make_sko(value)
                 if sko is not None:
                     ou_id = (DataOU.NO_SKO, sko)
-            elif sub.tag == "adm_forsk":
+            elif sub.tag == "AdmForsk":
                 # if neither is specified, use, the logic in
                 # stillingsgruppebetegnelse to decide on the category
                 if value == "Vit":
@@ -432,7 +433,7 @@ class XMLPerson2Object(XMLEntity2Object):
                 # valid.
                 if value != "Aktiv":
                     return None
-            elif sub.tag == "Stillnum":
+            elif sub.tag == "Stillingsnummer":
                 # this code means that the employment has been terminated (why
                 # would there be two elements for that?)
                 if value == "99999999":
@@ -479,7 +480,7 @@ class XMLPerson2Object(XMLEntity2Object):
 
             value = sub.text.strip().encode("latin1")
 
-            if sub.tag == "Rolleid":
+            if sub.tag == "Navn":
                 code = value
 
                 if value == "BILAGSLØNN":
@@ -492,10 +493,10 @@ class XMLPerson2Object(XMLEntity2Object):
                 sko = make_sko(value)
                 if sko is not None:
                     ou_id = (DataOU.NO_SKO, sko)
-            elif sub.tag == "Start_Date":
-                start_date = self._make_mxdate(value)
-            elif sub.tag == "End_Date":
-                end_date = self._make_mxdate(value)
+            elif sub.tag == "Startdato":
+                start_date = self._make_mxdate(value, format="%Y-%m-%d")
+            elif sub.tag == "Sluttdato":
+                end_date = self._make_mxdate(value, format="%Y-%m-%d")
             # fi
         # od
 
@@ -521,13 +522,13 @@ class XMLPerson2Object(XMLEntity2Object):
                           "Arbeidstelefon 3": DataContact.CONTACT_PHONE,
                           "Mobilnummer, jobb": DataContact.CONTACT_MOBILE,}
 
-        ctype = elem.find("KOMMTYPE")
+        ctype = elem.find("Type")
         if (ctype is None or
             ctype.text.strip() not in kommtype2const):
             return None
 
         ctype = ctype.text.strip().encode("latin1")
-        cvalue = elem.find("KommVal").text.strip().encode("latin1")
+        cvalue = elem.find("Verdi").text.strip().encode("latin1")
         cvalue = deuglify_phone(cvalue)
         ctype = kommtype2const[ctype]
 
@@ -540,7 +541,7 @@ class XMLPerson2Object(XMLEntity2Object):
     def _make_title(self, title_kind, title_element):
         """Return a DataName representing title with language."""
 
-        language = title_element.findtext(".//Sap_navn_spraak")
+        language = title_element.findtext(".//Sprak")
         value = title_element.findtext(".//Navn").encode("latin1")
 
         if not (language and value):
@@ -550,6 +551,23 @@ class XMLPerson2Object(XMLEntity2Object):
         return x
     # end _make_title
         
+    def _make_sgm(self, element):
+        """Return a sgm object"""
+        name = element.findtext(".//OrgNavn")
+        type = element.findtext(".//OrgType")
+        extent = element.findtext(".//Omfang")
+        start = element.findtext(".//Startdato")
+        if start:
+            start = self._make_mxdate(start.encode("latin1"), format="%Y-%m-%d")
+        else:
+            start = None
+        end = element.findtext(".//Sluttdato")
+        if end:
+            end = self._make_mxdate(end.encode("latin1"), format="%Y-%m-%d")
+        else:
+            end = None
+        description = element.findtext(".//Tekst")
+        return DataExternalWork(name, type, extent, start, end, description)
     
     def next_object(self, element):
         """Return the next SAPPerson object.
@@ -565,7 +583,7 @@ class XMLPerson2Object(XMLEntity2Object):
 
         # Per baardj's request, we consider middle names as first names.
         middle = ""
-        middle = element.find("person/Mellomnavn")
+        middle = element.find("Person/Mellomnavn")
         if middle is not None and middle.text:
             middle = middle.text.encode("latin1").strip()
 
@@ -613,25 +631,26 @@ class XMLPerson2Object(XMLEntity2Object):
                 result.add_name(DataName(self.tag2type[sub.tag], value))
             elif sub.tag == "Fodselsnummer":
                 result.add_id(self.tag2type[sub.tag], personnr_ok(value))
-            elif sub.tag == "Ansattnr":
+            elif sub.tag == "Ansattnummer":
                 result.add_id(self.tag2type[sub.tag], value)
+                self.logger.debug(value)
             elif sub.tag == "Fodselsdato":
-                result.birth_date = self._make_mxdate(value)
+                result.birth_date = self._make_mxdate(value, format="%Y-%m-%d")
             elif sub.tag == "Kjonn":
                 result.gender = self.tag2type[value]
             elif sub.tag == "Adresse":
                 result.add_address(self._make_address(sub))
-            elif sub.tag in ("HovedStilling", "Bistilling"):
+            elif sub.tag in ("Hovedstilling", "Bistilling"):
                 emp = self._make_employment(sub)
                 if emp is not None:
                     result.add_employment(emp)
-                    if sub.tag == "HovedStilling":
+                    if sub.tag == "Hovedstilling":
                         main = emp
             elif sub.tag == "Roller" and sub.findtext("IKKE-ANGIT") is None:
                 emp = self._make_role(sub)
                 if emp is not None:
                     result.add_employment(emp)
-            elif sub.tag == "person":
+            elif sub.tag == "Person":
                 # Lots of the other entries above also are part of the
                 # "person"-firstlevel element, but we need to
                 # specifically look here for Tittel => personal title,
@@ -640,11 +659,15 @@ class XMLPerson2Object(XMLEntity2Object):
                     personal_title = self._make_title(HRDataPerson.NAME_TITLE, subsub)
                     if personal_title:
                         result.add_name(personal_title)
-
+            elif sub.tag == "SGM":
+                # New feature and unique (for now?) for UiO is SGM,
+                # external attachments for person.
+                self.logger.debug("SGM for %s", result)
+                result.add_external_work(self._make_sgm(sub))
         # We need to order 'Telefon 1' and 'Telefon 2' properly
-        celems = list(element.findall("PersonKomm"))
-        celems.sort(lambda x, y: cmp(x.find("KOMMTYPE").text,
-                                     y.find("KOMMTYPE").text))
+        celems = list(element.findall("Kommunikasjon"))
+        celems.sort(lambda x, y: cmp(x.find("Type").text,
+                                     y.find("Type").text))
         # TBD: Priorities!
         priority = 0
         for ct in celems:
@@ -674,9 +697,9 @@ class XMLPerson2Object(XMLEntity2Object):
         # proper "post/besøksaddresse" later. This code matches LT's behaviour
         # more closely (an employee 'inherits' the address of his/her
         # "primary" workplace.
-        for sub in element.getiterator("PersonKomm"):
-            txt = sub.findtext("KOMMTYPE")
-            val = sub.findtext("KommVal")
+        for sub in element.getiterator("Kommunikasjon"):
+            txt = sub.findtext("Type")
+            val = sub.findtext("Verdi")
             if (txt and txt.encode("latin1") == "Sted for lønnslipp" and val
                 # *some* of the entries have a space here and there.
                 # and some contain non-digit data

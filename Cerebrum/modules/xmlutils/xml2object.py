@@ -103,8 +103,8 @@ class DataAddress(object):
 
 
     def __str__(self):
-        return "%s, %s, %s, %s" % (self.street, self.zip,
-                                   self.city, self.country)
+        return "%s, %s, %s, %s, %s" % (self.kind, self.street, self.zip,
+                                       self.city, self.country)
     # end __str__
 # end DataAddress
 
@@ -132,7 +132,7 @@ class DataContact(object):
 
 
     def __str__(self):
-        return "contact (%s): %s" % (self.kind, self.value)
+        return "contact (%s %s): %s" % (self.kind, self.priority, self.value)
     # end __str__
 # end DataContact
 
@@ -161,8 +161,8 @@ class DataName(object):
 
     def __str__(self):
         if self.language:
-            return str((self.kind, self.value, self.language))
-        return str((self.kind, self.value))
+            return "%s: %s (%s)" % (self.kind, self.value, self.language)
+        return "%s: %s" % (self.kind, self.value)
 # end DataName
 
 
@@ -326,13 +326,26 @@ class DataEmployment(NameContainer):
     def __str__(self):
         return "(%s) Employment: %s%% %s [%s..%s @ %s]" % (
             self.kind, self.percentage,
-            ", ".join("%s:%s" % (x.language, x.value)
+            ", ".join("%s:%s" % (x[0], map(str, x[1]))
                       for x in self.iternames()),
             self.start, self.end, self.place)
     # end __str__
 # end DataEmployment
 
+class DataExternalWork(object):
+    """Representing external employment or affiliation registered following the
+    University of Oslo's regulations for external work."""
+    def __init__(self, organization, type, extent, start, end, description):
+        self.description = description
+        self.organization = organization
+        self.type = type
+        self.extent = extent
+        self.start = start
+        self.end = end
 
+    def __str__(self):
+        return "Org: %s Type: %s Extent: %s Start: %s End: %s" % (
+                self.organization, self.type, self.extent, self.start, self.end)
 
 class DataEntity(NameContainer):
     """Class for representing common traits of objects in a data source.
@@ -441,10 +454,12 @@ class DataOU(DataEntity):
 
 
     def __str__(self):
-        return "DataOU (valid: %s-%s): %s\n%s\n%s" % (
+        return "DataOU (valid: %s-%s): %s\n| %s\n| %s\n| %s\n__%s\n" % (
             self.start_date, self.end_date,
-            list(self.iterids()), list(self.iternames()),
-            list(self.itercontacts()))
+            list(self.iterids()), ["%s:%s" % (x, map(str, y)) for x, y in self.iternames()],
+            map(str, self.itercontacts()),
+            list(self._usage_codes),
+            ["%s:%s" % (x, str(y)) for x, y in self.iteraddress()])
     # end __str__
 # end DataOU
 
@@ -483,7 +498,9 @@ class DataPerson(DataEntity):
     def __str__(self):
         ret = "DataPerson: %s\n" % list(self.iterids())
         for kind, name in self.iternames():
-            ret += "%s: %s\n" % (kind, name.value)
+            #ret += "%s: %s\n" % (kind, name.value)
+            ret += "| %s: %s\n" % (kind, map(str, name))
+        ret += "__\n"
         return ret
     # end __str__
 # end DataPerson
@@ -500,6 +517,7 @@ class HRDataPerson(DataPerson):
         self.birth_date = None
         self.employments = list()
         self.reserved = None
+        self.external_work = list()
     # end __init__
 
 
@@ -507,6 +525,8 @@ class HRDataPerson(DataPerson):
         self.employments.append(emp)
     # end add_employment
 
+    def add_external_work(self, emp):
+        self.external_work.append(emp)
 
     # IVR 2007-03-06 FIXME: ugh! name consistency was not a top priority to
     # say the least :( There should be a "_" here.
@@ -534,15 +554,16 @@ class HRDataPerson(DataPerson):
     def __str__(self):
         spr = super(HRDataPerson, self).__str__()
         result = ("HRDataPerson: %s\n" 
-                  "\tgender: %s\n"
-                  "\tbirth: %s\n"
-                  "\taddress: %s\n"
-                  "\temployment: %s" % (spr, self.gender,
+                  "| gender: %s\n"
+                  "| birth: %s\n"
+                  "| address: %s\n"
+                  "| employment: %s\n__\n" % (spr, self.gender,
                                         self.birth_date,
-                                        [str(x) for x in
-                                         list(self.iteraddress())],
+                                        ['%s: %s' % x for x in self.iteraddress()],
                                         [str(x) for x in
                                          list(self.iteremployment())]))
+        #if self.external_work:
+        #    result += "\n| external work: %s" % map(str, self.external_work)
         return result
     # end __str__
 # end HRDataPerson
@@ -673,7 +694,8 @@ class XMLEntity2Object(object):
         helpful, but very ugly in this code. This should be implemented more
         elegantly.
         """
-        
+
+        import sys
         while 1:
             try:
                 # Fetch the next XML subtree...
