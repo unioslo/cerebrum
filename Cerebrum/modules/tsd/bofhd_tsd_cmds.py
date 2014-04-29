@@ -558,7 +558,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         'user_history', 'user_info', 'user_find', 'user_set_expire',
         '_user_create_set_account_type', 'user_set_owner', 
         'user_set_owner_prompt_func', 'user_affiliation_add',
-        'user_affiliation_remove',
+        'user_affiliation_remove', 'user_demote_posix',
         # Group
         'group_info', 'group_list', 'group_list_expanded', 'group_memberships',
         'group_delete', 'group_set_description', 'group_set_expire',
@@ -592,7 +592,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         # Entity
         'entity_history',
         # Helper functions
-        '_find_persons', '_get_disk', '_get_shell', '_get_account', 
+        '_find_persons', '_get_disk', '_get_shell',
         '_entity_info', 'num2str', '_get_affiliationid',
         '_get_affiliation_statusid', '_parse_date', '_today',
         '_format_changelog_entry', '_format_from_cl',
@@ -1414,6 +1414,16 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                                     only_active=True):
             ac.delete_entity_quarantine(self.const.quarantine_not_approved)
             ac.write_db()
+        # Promote posix
+        pu = Factory.get('PosixUser')(self.db)
+        try:
+            pu.find(ac.entity_id)
+        except Errors.NotFoundError:
+            pu.clear()
+            uid = pu.get_free_uid()
+            pu.populate(uid, None, None, self.const.posix_shell_bash, parent=ac,
+                        creator_id=operator.get_entity_id())
+            pu.write_db()
         return 'Approved %s for project %s' % (ac.account_name,
                                                ou.get_project_id())
 
