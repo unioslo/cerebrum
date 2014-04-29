@@ -300,7 +300,7 @@ class BofhdCommandBase(object):
           ID type for the account_id specified.
 
         @type actype: str
-        @param actype: 'Account' or 'PosixAccount'
+        @param actype: 'Account' or 'PosixUser'
 
         @rtype: self.Account_class instance l
         @return:
@@ -311,7 +311,7 @@ class BofhdCommandBase(object):
         account = None
         if actype == 'Account':
             account = self.Account_class(self.db)
-        elif actype == 'PosixAccount':
+        elif actype == 'PosixUser':
             account = Factory.get('PosixUser')(self.db)
         else:
             raise CerebrumError("Invalid account type %s" % actype)
