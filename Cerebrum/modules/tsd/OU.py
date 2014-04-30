@@ -444,7 +444,7 @@ class OUTSDMixin(OU):
             try:
                 host.find_by_dns_owner_id(dns_owner.entity_id)
             except Errors.NotFoundError:
-                host.populate(dnsowner.entity_id, hinfo)
+                host.populate(dns_owner.entity_id, hinfo)
             host.hinfo = hinfo
             host.write_db()
             # TODO: add dns-comment and/or dns-contact?
