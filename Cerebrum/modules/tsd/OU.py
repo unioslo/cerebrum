@@ -287,8 +287,8 @@ class OUTSDMixin(OU):
 
         @type creator_id: int
         @param creator_id:
-            The creator of the project. Eiter the entity_id of the administrator
-            that created the project or a system user.
+            The creator of the project. Either the entity_id of the
+            administrator that created the project or a system user.
 
         """
         if not self.is_approved():
@@ -303,8 +303,8 @@ class OUTSDMixin(OU):
 
         @type creator_id: int
         @param creator_id:
-            The creator of the project. Eiter the entity_id of the administrator
-            that created the project or a system user.
+            The creator of the project. Either the entity_id of the
+            administrator that created the project or a system user.
 
         """
         projectid = self.get_project_id()
