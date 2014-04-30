@@ -141,14 +141,20 @@ class BofhdExtension(BofhdCommandBase):
 
         """
         op_acc = self._get_account(operator.get_entity_id(), idtype='id')
-        op_spreads = (int(spread[0]) for spread in op_acc.get_spread())
+
         try:
-            op_acc.add_spread(op_spreads.next())
-        except StopIteration:
-            # 'op_spreads' is empty
+            maybe_spread = self.const.fetch_constants(None)[0]
+            for _ in range(2):
+                # Will cause IntegrityError because...
+                #  - maybe_spread is not a spread
+                #  - maybe_spread is not an account spread
+                #  - maybe_spread is an account spread, and is added twice
+                op_acc.add_spread(maybe_spread)
+        except IndexError:
             raise CerebrumError("Unable to cause IntegrityError. "
                                 "Check implementation for details "
                                 "(debug_cause_integrity_error)")
+
         # op had spreads, and adding them again did not fail. Something is
         # seriously wrong!
         raise CerebrumError("Should not be reached.")
