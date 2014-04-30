@@ -170,6 +170,19 @@ class OUTSDMixin(OU):
         projectid = self.get_project_id()
         return int(projectid[1:])
 
+    def is_approved(self):
+        """Check if this project is approved by TSD-admins.
+
+        The approval is registered through a quarantine.
+
+        @rtype: bool
+        @return: True if the project is approved.
+
+        """
+        return not tuple(self.get_entity_quarantine(
+                                type=self.const.quarantine_not_approved,
+                                only_active=True))
+
     def add_name_with_language(self, name_variant, name_language, name):
         """Override to be able to verify project names (acronyms).
 
@@ -278,12 +291,12 @@ class OUTSDMixin(OU):
             that created the project or a system user.
 
         """
-        if self.get_entity_quarantine(type=self.const.quarantine_not_approved,
-                only_active=True):
+        if not self.is_approved():
             raise Errors.CerebrumError("Project is not approved, cannot setup")
         self._setup_project_dns(creator_id)
         self._setup_project_hosts(creator_id)
         self._setup_project_groups(creator_id)
+        self._setup_project_posix(creator_id)
 
     def _setup_project_groups(self, creator_id):
         """Setup the groups belonging to the given project.
@@ -335,12 +348,11 @@ class OUTSDMixin(OU):
                 if not gr.has_spread(spr):
                     gr.add_spread(spr)
                     gr.write_db()
-            return True
 
         for suffix, desc, spreads in getattr(cereconf, 'TSD_PROJECT_GROUPS', ()):
             _create_group(suffix, desc, spreads)
 
-        def _get_accounts(person_id):
+        def _get_persons_accounts(person_id):
             """Helper method for getting this project's accounts for a person.
 
             Only the accounts related to this project OU are returned.
@@ -349,7 +361,7 @@ class OUTSDMixin(OU):
             @param person_id:
                 Only return the accounts belonging to the given person.
 
-            @rtype: generator of account_id
+            @rtype: generator (yielding ints)
             @return:
                 The persons accounts' entity_ids.
 
@@ -373,7 +385,8 @@ class OUTSDMixin(OU):
                 if memtype == 'group':
                     gr2 = Factory.get('Group')(self._db)
                     gr2.find_by_name('-'.join((projectid, memvalue)))
-                    gr.add_member(gr2.entity_id)
+                    if not gr.has_member(gr2.entity_id):
+                        gr.add_member(gr2.entity_id)
                 elif memtype == 'person_aff':
                     # Fetch the correct affiliation, handle both a single
                     # "AFFILIATION" and the "AFFILIATION/status" format:
@@ -388,7 +401,7 @@ class OUTSDMixin(OU):
                     for row in pe.list_affiliations(ou_id=self.entity_id,
                                                     affiliation=aff,
                                                     status=status):
-                        for a_id in _get_accounts(row['person_id']):
+                        for a_id in _get_persons_accounts(row['person_id']):
                             if not gr.has_member(a_id):
                                 gr.add_member(a_id)
                 else:
@@ -481,7 +494,11 @@ class OUTSDMixin(OU):
             # TODO: Need to confirm correct hostname
             hostname = '%s-project-l.tsd.usit.no.' % projectid
             dns_owner = self._populate_dnsowner(hostname)
-            host.populate(dns_owner.entity_id, hinfo)
+            try:
+                host.find_by_dns_owner_id(dns_owner.entity_id)
+            except Errors.NotFoundError:
+                host.populate(dnsowner.entity_id, hinfo)
+            host.hinfo = hinfo
             host.write_db()
             # TODO: add dns-comment and/or dns-contact?
         elif vm_type in ('linux_vm',):
@@ -489,6 +506,25 @@ class OUTSDMixin(OU):
             # TODO: Should we do this somewhere else instead, as it should be
             #       connected per account? E.g. in AccountTSDmixin.
             hinfo = 'IBM-PC\tLINUX'
+
+    def _setup_project_posix(self, creator_id):
+        """Setup POSIX data for the project."""
+        ac = Factory.get('Account')(self._db)
+        pu = Factory.get('PosixUser')(self._db)
+        for row in ac.list_accounts_by_type(
+                        ou_id=self.entity_id,
+                        affiliation=self.const.affiliation_project):
+            ac.clear()
+            ac.find(row['account_id'])
+            pu.clear()
+            try:
+                pu.find(ac.entity_id)
+            except Errors.NotFoundError:
+                pu.clear()
+                uid = pu.get_free_uid()
+                pu.populate(uid, None, None, self.const.posix_shell_bash,
+                            parent=ac, creator_id=creator_id)
+                pu.write_db()
 
     def _populate_dnsowner(self, hostname, ipv6_adr=None):
         """Create or update a DnsOwner connected to the given project.

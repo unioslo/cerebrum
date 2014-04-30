@@ -82,8 +82,8 @@ class VoipConstants(Constants.Constants):
         )
 
     voip_service_moterom = VoipServiceTypeCode(
-        "voip_service_møterom",
-        "møterom",
+        "voip_service_mÃ¸terom",
+        "mÃ¸terom",
         )
 
     voip_service_resepsjon = VoipServiceTypeCode(
@@ -147,8 +147,8 @@ class VoipConstants(Constants.Constants):
     )
 
     voip_service_tradlos = VoipServiceTypeCode(
-        "voip_service_trådløs",
-        "trådløs",
+        "voip_service_trÃ¥dlÃ¸s",
+        "trÃ¥dlÃ¸s",
     )
     
     ########################################################################

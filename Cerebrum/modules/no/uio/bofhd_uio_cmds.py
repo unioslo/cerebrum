@@ -5367,7 +5367,7 @@ Addresses and settings:
         return self._group_add_entity(operator, src_entity, dest_group)
 
     ## exchange-relatert-jazz
-    ## group distgroup_create
+    ## group exchangegroup_create
     # should probably ask about language for displayname, but we 
     # can let that be for now
     # perm_filter is now "is_postmaster" but it may be changed to
@@ -5675,7 +5675,7 @@ Addresses and settings:
             dl_group.write_db()
         return "Exchange group data removed for %s" % groupname
 
-    ## group distgroup_attr_set
+    ## group exchangegroup_attr_set
     #  Valid attributes are: 
     #    - depart_restriction (Open, Close, Approval, Required)
     #    - join_restriction (Open, Close, Approval, Required)
@@ -5904,7 +5904,7 @@ Addresses and settings:
         try:
             dl_group = self._get_group(groupname, 
                                        grtype="DistributionGroup")
-            return "Cannot delete distribution groups, use 'group distgroup_remove' to deactivate %s" % groupname
+            return "Cannot delete distribution groups, use 'group exchangegroup_remove' to deactivate %s" % groupname
         except CerebrumError:
             pass # not a distribution group
         if self._is_yes(force):
@@ -8571,6 +8571,10 @@ Addresses and settings:
         qconst = self._get_constant(self.const.Quarantine, qtype, "quarantine")
         self.ba.can_disable_quarantine(operator.get_entity_id(), entity, qtype)
 
+        if not entity.get_entity_quarantine(type=qconst):
+            raise CerebrumError("%s does not have a quarantine of type %s" % (
+                self._get_name_from_object(entity), qtype))
+
         limit = getattr(cereconf, 'BOFHD_QUARANTINE_DISABLE_LIMIT', None)
         if limit:
             if date > DateTime.today() + DateTime.RelativeDateTime(days=limit):
@@ -8615,6 +8619,11 @@ Addresses and settings:
         entity = self._get_entity(entity_type, id)
         qconst = self._get_constant(self.const.Quarantine, qtype, "quarantine")
         self.ba.can_remove_quarantine(operator.get_entity_id(), entity, qconst)
+
+        if not entity.get_entity_quarantine(type=qconst):
+            raise CerebrumError("%s does not have a quarantine of type %s" % (
+                self._get_name_from_object(entity), qtype))
+
         entity.delete_entity_quarantine(qconst)
         return "OK, removed quarantine %s for %s" % (
             qconst, self._get_name_from_object (entity))
@@ -8632,7 +8641,8 @@ Addresses and settings:
         self.ba.can_set_quarantine(operator.get_entity_id(), entity, qconst)
         rows = entity.get_entity_quarantine(type=qconst)
         if rows:
-            raise CerebrumError("User already has a quarantine of this type")
+            raise CerebrumError("%s already has a quarantine of type %s" % (
+                self._get_name_from_object(entity), qtype))
         try:
             entity.add_entity_quarantine(qconst, operator.get_entity_id(), why,
                                          date_start, date_end)
@@ -8683,7 +8693,7 @@ Addresses and settings:
         # dissallow spread-setting for distribution groups
         if cereconf.EXCHANGE_GROUP_SPREAD and \
                 str(spread) == cereconf.EXCHANGE_GROUP_SPREAD: 
-            return "Please create distribution group via *group distgroup_create* in bofh"
+            return "Please create distribution group via 'group exchangegroup_create' in bofh"
         try:
             if entity.has_spread(spread):
                 raise CerebrumError("entity id=%s already has spread=%s" %
@@ -8730,7 +8740,7 @@ Addresses and settings:
         self.ba.can_add_spread(operator.get_entity_id(), entity, spread)
         # exchange-relatert-jazz
         # make sure that if anyone uses spread remove instead of
-        # group distgroup_remove the appropriate clean-up is still 
+        # group exchangegroup_remove the appropriate clean-up is still 
         # done
         if entity_type == 'group' and \
                 entity.has_spread(cereconf.EXCHANGE_GROUP_SPREAD):

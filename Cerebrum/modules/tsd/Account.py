@@ -27,8 +27,6 @@ should refuse account_types from different OUs for a single account.
 """
 
 import base64
-import math
-#from mx import DateTime
 import re
 
 import cerebrum_path
@@ -105,7 +103,12 @@ class AccountTSDMixin(Account.Account):
             hostname = '%s-l.tsd.usit.no.' % self.account_name
             dnsowner = ou._populate_dnsowner(hostname)
             host = dns.HostInfo.HostInfo(self._db)
-            host.populate(dnsowner.entity_id, 'IBM-PC\tWINDOWS')
+            hinfo = 'IBM-PC\tLINUX'
+            try:
+                host.find_by_dns_owner_id(dnsowner.entity_id)
+            except Errors.NotFoundError:
+                host.populate(dnsowner.entity_id, hinfo)
+            host.hinfo = hinfo
             host.write_db()
 
     def get_tsd_project_id(self):
@@ -180,15 +183,17 @@ class AccountTSDMixin(Account.Account):
             hexadecimal value represent 8 bits.
 
         """
-        bytes = int(math.ceil(float(length) / 8))
+        # Round upwards to nearest full byte by adding 7 to the number of bits.
+        # This makes sure that it's always rounded upwards if not modulo 0 to 8.
+        bytes = (length + 7) / 8
         ret = ''
-        f = open('/dev/random', 'rb')
-        # f.read might return less than what is needed, so might need to fetch
-        # more random bits before we're done:
+        f = open('/dev/urandom', 'rb')
+        # f.read _could_ return less than what is needed, so need to make sure
+        # that we have enough data, in case the read should stop:
         while len(ret) < bytes:
-            ret += ''.join('%x' % ord(o) for o in f.read(bytes/2 + 1))
+            ret += f.read(bytes - len(ret))
         f.close()
-        return ret[:bytes]
+        return ret
 
     def regenerate_otpkey(self, tokentype=None):
         """Create a new OTP key for the account.
@@ -216,8 +221,8 @@ class AccountTSDMixin(Account.Account):
 
         """
         # Generate a new key:
-        key = self._generate_otpkey(getattr(cereconf, 'OTP_KEY_LENGTH', 160))
-        secret = base64.b32encode(key)
+        secret = base64.b32encode(self._generate_otpkey(
+                                    getattr(cereconf, 'OTP_KEY_LENGTH', 160)))
         # Get the tokentype
         if tokentype is None:
             tokentype = 'totp'
