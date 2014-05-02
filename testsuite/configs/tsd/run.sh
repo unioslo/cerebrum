@@ -27,7 +27,7 @@ fi
 # These tests should run in <root>/basetests
 # TODO: Should we create the virtual environment in the BUILD directory in
 # stead?
-env_name=basetests
+env_name=tsd
 env_dir=${root_dir}/${env_name}
 
 
