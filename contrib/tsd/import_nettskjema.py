@@ -740,7 +740,7 @@ class Processing(object):
         project approval.
 
         """
-        ou_is_quarantined = tuple(ou.get_entity_quarantine(only_active=True))
+        ou_is_approved = ou.is_approved()
         pid = ou.get_project_id()
         ac = Factory.get('Account')(db)
         # Not set usernames or invalid usernames gets ignored
@@ -748,7 +748,7 @@ class Processing(object):
         logger.info("Creating project user for person %s: %s", pe.entity_id,
                     username)
         # Check if the project has been accepted, i.e. is active:
-        if ou_is_quarantined:
+        if ou_is_approved:
             # The project is in quarantine, probably due to not accepted.
             # Should not start handing out posix data yet, then.
             ac.populate(name=username, owner_type=pe.entity_type,
@@ -772,7 +772,7 @@ class Processing(object):
                          pid)
             ac.set_account_type(ou.entity_id, co.affiliation_project)
             realname = pe.get_name(co.system_cached, co.name_full)
-            if ou_is_quarantined:
+            if ou_is_approved:
                 ac.add_entity_quarantine(type=co.quarantine_not_approved,
                                          creator=systemaccount_id,
                                          description='Project not yet approved',
@@ -1043,6 +1043,18 @@ class Processing(object):
             # Remove quarantine:
             ac.delete_entity_quarantine(co.quarantine_not_approved)
             ac.write_db()
+
+            # Promote posix:
+            if ou.is_approved():
+                pu = Factory.get('PosixUser')(db)
+                try:
+                    pu.find(ac.entity_id)
+                except Errors.NotFoundError:
+                    uid = pu.get_free_uid()
+                    pu.populate(uid, None, None, co.posix_shell_bash, parent=ac,
+                                creator_id=systemaccount_id)
+                    logger.debug("Promote POSIX, UID: %s", ac.entity_id, uid)
+                    pu.write_db()
 
             # Stop if person already is PA or owner, can't have member-aff at
             # the same time:

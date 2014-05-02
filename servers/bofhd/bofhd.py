@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002-2009 University of Oslo, Norway
+# Copyright 2002-2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -71,7 +71,7 @@ from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum import QuarantineHandler
 from Cerebrum.modules.bofhd.errors import CerebrumError, \
-     ServerRestartedError, SessionExpiredError
+    UnknownError, ServerRestartedError, SessionExpiredError
 from Cerebrum.modules.bofhd.help import Help
 from Cerebrum.modules.bofhd.xmlutils import \
      xmlrpc_to_native, native_to_xmlrpc
@@ -487,34 +487,35 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             # produce a UnicodeError when cast to str().  Fix by
             # encoding as utf-8
             if e.args:
-                ret = "%s: %s"  % (e.__class__.__name__, e.args[0])
+                ret = "%s: %s" % (e.__class__.__name__, e.args[0])
             else:
                 ret = e.__class__.__name__
             if isinstance(ret, unicode):
-                raise sys.exc_info()[0], ret.encode('utf-8')
+                raise CerebrumError(ret.encode('utf-8'))
             else:
                 # Some of our exceptions throws iso8859-1 encoded
                 # error-messages.  These must be encoded as utf-8 to
                 # avoid client-side:
                 #   org.xml.sax.SAXParseException: character not allowed
                 ret = ret.decode('iso8859-1').encode('utf-8')
-                raise sys.exc_info()[0], ret
+                raise CerebrumError(ret)
         except NotImplementedError, e:
             logger.warn("Not-implemented: ", exc_info=1)
-            raise CerebrumError, "NotImplemented: %s" % str(e)
+            raise CerebrumError("Not Implemented: %s" % str(e))
         except TypeError, e:
-            if (str(e).find("takes exactly") != -1 or
-                str(e).find("takes at least") != -1 or
-                str(e).find("takes at most") != -1):
-                raise CerebrumError, str(e)
+            if (str(e).find("takes exactly") != -1
+                    or str(e).find("takes at least") != -1
+                    or str(e).find("takes at most") != -1):
+                raise CerebrumError(str(e))
             logger.warn("Unexpected exception", exc_info=1)
-            ret = "Unknown error (a server error has been logged)."
-            raise sys.exc_info()[0], ret
+            raise UnknownError(sys.exc_info()[0],
+                               sys.exc_info()[1],
+                               msg="A server error has been logged.")
         except Exception, e:
             logger.warn("Unexpected exception", exc_info=1)
-            # ret = ":".join((":Exception:" + type(e).__name__, "Unknown error."))
-            ret = "Unknown error (a server error has been logged)."
-            raise sys.exc_info()[0], ret
+            raise UnknownError(sys.exc_info()[0],
+                               sys.exc_info()[1],
+                               msg="A server error has been logged.")
         return native_to_xmlrpc(ret)
 
     def handle(self):
@@ -570,29 +571,31 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
                 # CerebrumError so that the client can recognize this
                 # as a user-error.
                 # TODO: This is not a perfect solution...
-                if sys.exc_type in (ServerRestartedError, SessionExpiredError):
+                if sys.exc_type in (ServerRestartedError,
+                                    SessionExpiredError,
+                                    UnknownError):
                     error_class = sys.exc_type
                 else:
                     error_class = CerebrumError
                 response = xmlrpclib.dumps(
-                    xmlrpclib.Fault(1, "%s.%s:%s" % 
-                        (error_class.__module__, error_class.__name__, sys.exc_value))
-                    )                
+                    xmlrpclib.Fault(1, "%s.%s:%s" % (error_class.__module__,
+                                                     error_class.__name__,
+                                                     sys.exc_value)))
             except:
                 logger.warn(
                     "Unexpected exception 1 (client=%r, params=%r, method=%r)",
                     self.client_address, params, method,
-                    exc_info = True)
+                    exc_info=True)
                 # report exception back to server
                 response = xmlrpclib.dumps(
-                    xmlrpclib.Fault(1, "%s:%s" % (sys.exc_type, sys.exc_value))
-                    )
+                    xmlrpclib.Fault(1, "%s:%s" % (sys.exc_type,
+                                                  sys.exc_value)))
             else:
                 response = xmlrpclib.dumps(response, methodresponse=1)
         except:
             logger.warn("Unexpected exception 2 (client %r, data=%r)",
                         self.client_address, data,
-                        exc_info = True)
+                        exc_info=True)
             # internal error, report as HTTP server error
             self.send_response(500)
             self.end_headers()
@@ -608,7 +611,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             self.wfile.flush()
             self.connection.shutdown(1)
         logger.debug2("End of" + threading.currentThread().getName())
-        
+
     def finish(self):
         if self.use_encryption:
             self.request.set_shutdown(SSL.SSL_RECEIVED_SHUTDOWN |
@@ -616,7 +619,6 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             self.request.close()
         else:
             super(BofhdRequestHandler, self).finish()
-
 
     def bofhd_login(self, uname, password):
         account = Account_class(self.server.db)
@@ -627,7 +629,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
                 uname = uname.encode('utf-8')
             logger.info("Failed login for %s from %s" % (
                 uname, ":".join([str(x) for x in self.client_address])))
-            raise CerebrumError, "Unknown username or password"
+            raise CerebrumError("Unknown username or password")
 
         # Check quarantines
         quarantines = []      # TBD: Should the quarantine-check have a utility-API function?

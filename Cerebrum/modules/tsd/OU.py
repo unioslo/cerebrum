@@ -170,6 +170,19 @@ class OUTSDMixin(OU):
         projectid = self.get_project_id()
         return int(projectid[1:])
 
+    def is_approved(self):
+        """Check if this project is approved by TSD-admins.
+
+        The approval is registered through a quarantine.
+
+        @rtype: bool
+        @return: True if the project is approved.
+
+        """
+        return not tuple(self.get_entity_quarantine(
+                                type=self.const.quarantine_not_approved,
+                                only_active=True))
+
     def add_name_with_language(self, name_variant, name_language, name):
         """Override to be able to verify project names (acronyms).
 
@@ -278,8 +291,7 @@ class OUTSDMixin(OU):
             administrator that created the project or a system user.
 
         """
-        if self.get_entity_quarantine(type=self.const.quarantine_not_approved,
-                only_active=True):
+        if not self.is_approved():
             raise Errors.CerebrumError("Project is not approved, cannot setup")
         projectid = self.get_project_id()
         self._setup_project_dns(creator_id)
@@ -325,18 +337,19 @@ class OUTSDMixin(OU):
 
             for strcode in spreads:
                 spr = self.const.Spread(strcode)
-                gr.add_spread(spr)
-                gr.write_db()
+                if not gr.has_spread(spr):
+                    gr.add_spread(spr)
+                    gr.write_db()
 
-            return True
         # Create project groups
         for suffix, desc, spreads in getattr(cereconf, 'TSD_PROJECT_GROUPS', ()):
             _create_group(suffix, desc, self.const.trait_project_group, spreads)
         # Create machines:
         self._setup_project_hosts(creator_id)
+        # Promote POSIX data:
+        self._setup_posix(creator_id)
 
         # TODO: Add accounts to the various groups:
-        ac = Factory.get('Account')(self._db)
         gr.clear()
         #gr.find_by_name('%s_member' % projectid)
         #for row in ac.list_accounts_by_type(ou_id=self.entity_id):
@@ -428,7 +441,11 @@ class OUTSDMixin(OU):
             # TODO: Need to confirm correct hostname
             hostname = '%s-project-l.tsd.usit.no.' % projectid
             dns_owner = self._populate_dnsowner(hostname)
-            host.populate(dns_owner.entity_id, hinfo)
+            try:
+                host.find_by_dns_owner_id(dns_owner.entity_id)
+            except Errors.NotFoundError:
+                host.populate(dns_owner.entity_id, hinfo)
+            host.hinfo = hinfo
             host.write_db()
             # TODO: add dns-comment and/or dns-contact?
         elif vm_type in ('linux_vm',):
@@ -436,6 +453,26 @@ class OUTSDMixin(OU):
             # TODO: Should we do this somewhere else instead, as it should be
             #       connected per account? E.g. in AccountTSDmixin.
             hinfo = 'IBM-PC\tLINUX'
+
+    def _setup_posix(self, creator_id):
+        """Setup POSIX data for the project."""
+        ac = Factory.get('Account')(self._db)
+        pu = Factory.get('PosixUser')(self._db)
+
+        for row in ac.list_accounts_by_type(
+                        ou_id=self.entity_id,
+                        affiliation=self.const.affiliation_project):
+            ac.clear()
+            ac.find(row['account_id'])
+            pu.clear()
+            try:
+                pu.find(ac.entity_id)
+            except Errors.NotFoundError:
+                pu.clear()
+                uid = pu.get_free_uid()
+                pu.populate(uid, None, None, self.const.posix_shell_bash,
+                            parent=ac, creator_id=creator_id)
+                pu.write_db()
 
     def _populate_dnsowner(self, hostname, ipv6_adr=None):
         """Create or update a DnsOwner connected to the given project.

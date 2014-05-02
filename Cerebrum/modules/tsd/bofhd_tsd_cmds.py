@@ -558,7 +558,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         'user_history', 'user_info', 'user_find', 'user_set_expire',
         '_user_create_set_account_type', 'user_set_owner', 
         'user_set_owner_prompt_func', 'user_affiliation_add',
-        'user_affiliation_remove',
+        'user_affiliation_remove', 'user_demote_posix',
         # Group
         'group_info', 'group_list', 'group_list_expanded', 'group_memberships',
         'group_delete', 'group_set_description', 'group_set_expire',
@@ -592,7 +592,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         # Entity
         'entity_history',
         # Helper functions
-        '_find_persons', '_get_disk', '_get_shell', '_get_account', 
+        '_find_persons', '_get_disk', '_get_shell',
         '_entity_info', 'num2str', '_get_affiliationid',
         '_get_affiliation_statusid', '_parse_date', '_today',
         '_format_changelog_entry', '_format_from_cl',
@@ -1376,16 +1376,56 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     def user_approve(self, operator, accountname):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise CerebrumError('Only superusers could approve users')
-        account = self._get_account(accountname)
-        if not account.get_entity_quarantine(
-                type=self.const.quarantine_not_approved):
-            raise CerebrumError('Account does not need approval: %s' %
-                                accountname)
-        account.delete_entity_quarantine(self.const.quarantine_not_approved)
-        account.write_db()
-        return 'Approved account: %s' % account.account_name
-        # TODO: add more feedback, e.g. tell if account is expired or has other
-        # quarantines?
+        ac = self._get_account(accountname)
+        if ac.owner_type != self.const.entity_person:
+            raise CerebrumError('Non-personal account, use: quarantine remove')
+        rows = ac.list_accounts_by_type(
+                    account_id=ac.entity_id,
+                    affiliation=(self.const.affiliation_project,
+                                 self.const.affiliation_pending))
+        if not rows:
+            raise CerebrumError('Account not affiliated with any project')
+        if len(rows) != 1:
+            raise CerebrumError('Account has more than one affiliation')
+        ou = self._get_ou(rows[0]['ou_id'])
+        if not ou.is_approved():
+            raise CerebrumError('Project not approved: %s' %
+                                ou.get_project_id())
+        # Update the person affiliation, if not correct:
+        pe = Factory.get('Person')(self.db)
+        pe.find(ac.owner_id)
+        if pe.list_affiliations(pe.entity_id, ou_id=ou.entity_id,
+                                affiliation=self.const.affiliation_pending):
+            pe.delete_affiliation(ou.entity_id, self.const.affiliation_pending,
+                                  self.const.system_nettskjema)
+        if not pe.list_affiliations(pe.entity_id, ou_id=ou.entity_id,
+                                    affiliation=self.const.affiliation_project):
+            pe.populate_affiliation(
+                    source_system=self.const.system_manual, ou_id=ou.entity_id,
+                    affiliation=self.const.affiliation_project,
+                    status=self.const.affiliation_status_project_member)
+        pe.write_db()
+        # Update the account's affiliation:
+        ac.del_account_type(ou.entity_id, self.const.affiliation_pending)
+        ac.set_account_type(ou.entity_id, self.const.affiliation_project)
+        ac.write_db()
+        # Remove the quarantine, if set:
+        if ac.get_entity_quarantine(self.const.quarantine_not_approved,
+                                    only_active=True):
+            ac.delete_entity_quarantine(self.const.quarantine_not_approved)
+            ac.write_db()
+        # Promote posix
+        pu = Factory.get('PosixUser')(self.db)
+        try:
+            pu.find(ac.entity_id)
+        except Errors.NotFoundError:
+            pu.clear()
+            uid = pu.get_free_uid()
+            pu.populate(uid, None, None, self.const.posix_shell_bash, parent=ac,
+                        creator_id=operator.get_entity_id())
+            pu.write_db()
+        return 'Approved %s for project %s' % (ac.account_name,
+                                               ou.get_project_id())
 
     # user delete
     all_commands['user_delete'] = cmd.Command(

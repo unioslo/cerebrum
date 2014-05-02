@@ -35,14 +35,8 @@ new database.
 
 Get the sources
 ---------------
-You can either download a stable version, or use the SVN version.
 
-To get the latest stable version:
-  - Dowload Cerebrum-X.Y.tar.gz from http://sourceforge.net/projects/cerebrum/
-  - untar the sources into an empty directory
-
-Or get the SVN version:
-  - svn co https://cerebrum.svn.sourceforge.net/svnroot/cerebrum/trunk/cerebrum cerebrum
+  git clone https://utv.uio.no/stash/scm/crb/cerebrum.git
 
 
 Testing the distribution

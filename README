@@ -13,7 +13,7 @@ Requirements
 Mailing lists
 -------------
 
-     cerebrum-commits@usit.uio.no    - all CVS commit logs
+     cerebrum-commits@usit.uio.no    - all commit logs
      cerebrum-developers@usit.uio.no - the Cerebrum developers
 
   Report bugs and misfeatures to cerebrum-developers@usit.uio.no.
@@ -27,7 +27,7 @@ Fetching the source
 -------------------
 
   The latest source is available from
-  <URL:https://sourceforge.net/projects/cerebrum/>.
+  <URL:https://utv.uio.no/stash/projects/CRB/repos/cerebrum/browse>.
 
 Documentation
 -------------

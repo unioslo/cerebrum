@@ -728,6 +728,11 @@ class ADclient(PowershellClient):
         @type attrs: list
         @param attrs: List of attributes to update.
 
+        @rtype: bool
+        @return:
+            True if the command was run successfully (stderr is missing in the
+            command output). False otherwise.
+
         """
         cmd = self._generate_ad_command('Set-ADObject', 
                                         {'Identity' : ad_id, 
@@ -748,7 +753,7 @@ class ADclient(PowershellClient):
             return not out.get('stderr')
         else:
             # Strictly speaking, here we have to check if we have to perform
-            # 'Clear' operation, before we go into the loop belove to update 
+            # 'Clear' operation, before we go into the loop below to update 
             # attributes. However, the only realistic case here is that
             # the length is exceeded because we have to update too many
             # elements in the attributes, not to clear them.
@@ -832,10 +837,31 @@ class ADclient(PowershellClient):
         if fullupdates:
             # What attributes need to be cleared before adding the correct attr:
             clears = set(k for k in fullupdates)
-            if not self._setadobject_command_wrapper(ad_id, 'Clear', clears):
-                return False
-            if not self._setadobject_command_wrapper(ad_id, 'Add', fullupdates):
-                return False
+            # Try first to combine Clear and Add commands -- it might save a lot
+            # of time
+            cmds = []
+            cmds.append(self._generate_ad_command('Set-ADObject',
+                                                  {'Identity' : ad_id,
+                                                   'Clear': clears}, 
+                                                   'PassThru'))
+            cmds.append(self._generate_ad_command('Set-ADObject',
+                                                  {'Add': fullupdates}))
+            cmd = ' | '.join(cmds)
+            if len(cmd) < 8000:
+                self.logger.debug3("Command: %s" % cmd)
+                if self.dryrun:
+                    return True
+                out = self.run(cmd)
+                return not out.get('stderr')
+            else:
+                # Command is too long, need to use wrappers and execute
+                # commands separately
+                if not self._setadobject_command_wrapper(ad_id, 
+                                                         'Clear', clears):
+                    return False
+                if not self._setadobject_command_wrapper(ad_id, 
+                                                         'Add', fullupdates):
+                    return False
         
         return True
                 
