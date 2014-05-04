@@ -224,7 +224,7 @@ class AccountTSDMixin(Account.Account):
         secret = base64.b32encode(self._generate_otpkey(
                                     getattr(cereconf, 'OTP_KEY_LENGTH', 160)))
         # Get the tokentype
-        if tokentype is None:
+        if not tokentype:
             tokentype = 'totp'
             if self.owner_type == self.const.entity_person:
                 pe = Factory.get('Person')(self._db)
@@ -232,9 +232,13 @@ class AccountTSDMixin(Account.Account):
                 typetrait = pe.get_trait(self.const.trait_otp_device)
                 if typetrait:
                     tokentype = typetrait['strval']
+
         # A mapping from e.g. Nettskjema's smartphone_yes -> topt:
         mapping = getattr(cereconf, 'OTP_MAPPING_TYPES', {})
-        tokentype = mapping.get(tokentype, tokentype)
+        try:
+            tokentype = mapping[tokentype]
+        except KeyError:
+            raise Errors.CerebrumError('Invalid tokentype: %s' % tokentype)
         return cereconf.OTP_URI_FORMAT % {
                 'secret': secret,
                 'user': '%s@%s' % (self.account_name,
