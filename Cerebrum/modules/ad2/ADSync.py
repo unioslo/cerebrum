@@ -1700,6 +1700,8 @@ class UserSync(BaseSync):
         for setting in self.config['useraccountcontrol']:
             if setting not in self._useraccountcontrol_settings:
                 raise Exception('Unknown UserAccountControl: %s' % setting)
+        if 'forward_sync' in config_args:
+            self.config['forward_sync'] = config_args['forward_sync']
 
     def start_fetch_ad_data(self, object_class=None, attributes=dict()):
         """Ask AD to start generating the data we need about groups.
@@ -1720,6 +1722,20 @@ class UserSync(BaseSync):
         return super(UserSync, self).start_fetch_ad_data(
                                                 object_class=object_class,
                                                 attributes=attributes)
+
+    def fullsync(self):
+        super(UserSync, self).fullsync()
+        if self.config.has_key('forward_sync'):
+            self.logger.debug("Running forward sync")
+            forward_sync_class = self.get_class(
+                                     sync_type = self.config['forward_sync'])
+            forward_sync = forward_sync_class(self.db, self.logger)
+            forward_conf = adconf.SYNCS[self.config['sync_type']].copy()
+            for k, v in adconf.SYNCS[self.config['forward_sync']].iteritems():
+                forward_conf[k] = v
+            forward_conf['sync_type'] = self.config['sync_type']
+            forward_sync.configure(forward_conf)
+            forward_sync.fullsync()
 
     def fetch_cerebrum_data(self):
         """Fetch data from Cerebrum that is needed for syncing accounts.
