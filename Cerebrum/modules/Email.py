@@ -1863,8 +1863,18 @@ class EmailForward(EmailTarget):
         VALUES (:t_id, :forward, :enable)""", {'t_id': self.entity_id,
                                                'forward': forward,
                                                'enable': enable})
- 
+
     def _set_forward_enable(self, forward, enable):
+        if enable == 'F':
+            cat = self.const.email_forward_disable
+        else:
+            cat = self.const.email_forward_enable
+        # exchange-relevant-jazz
+        self._db.log_change(self.target_id,
+                            cat,
+                            self.entity_id,
+                            change_params={'forward': forward})
+
         return self.execute("""
         UPDATE [:table schema=cerebrum name=email_forward]
         SET enable=:enable
@@ -1872,15 +1882,6 @@ class EmailForward(EmailTarget):
               forward_to = :fwd""", {'enable': enable,
                                      'fwd': forward,
                                      't_id': self.entity_id})
-        if enable == 'F':
-            cat = const.email_forward_disable
-        else:
-            cat = const.email_forward_enable
-        # exchange-relevant-jazz
-        self._db.log_change(self.target_id,
-                            cat, 
-                            self.entity_id,
-                            change_params={'forward': forward})
 
     def enable_forward(self, forward):
         return self._set_forward_enable(forward, 'T')
@@ -1897,7 +1898,7 @@ class EmailForward(EmailTarget):
     def delete_forward(self, forward):
         # exchange-relevant-jazz
         self._db.log_change(self.entity_id,
-                            self.const.email_forward_rem, 
+                            self.const.email_forward_rem,
                             None,
                             change_params={'forward': forward})
         return self.execute("""
@@ -2053,7 +2054,7 @@ class EmailPrimaryAddressTarget(EmailTarget):
                             None,
                             change_params={'addr_id': 
                                            self.email_primaddr_id})
-        ret = self.execute("""
+        return self.execute("""
         DELETE FROM [:table schema=cerebrum name=email_primary_address]
         WHERE target_id=:e_id""", {'e_id': self.entity_id})
 

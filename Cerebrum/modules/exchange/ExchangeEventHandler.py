@@ -610,6 +610,101 @@ class ExchangeEventHandler(processing.Process):
                     % (event['event_id'], hard, soft, name, e))
             raise EventExecutionException
 
+    @EventDecorator.RegisterHandler(['email_forward:add_forward',
+                                     'email_forward:rem_forward',
+                                     'email_forward:enable_forward',
+                                     'email_forward:disable_forward'])
+    def set_mailbox_forward_addr(self, event):
+        """Event handler method used for handling setting of forward adresses.
+
+        :param event: The event returned from Change- or EventLog
+        :type event: Cerebrum.extlib.db_row.row
+        :raises ExchangeException: If the forward can't be set because of an
+            Exchange related error.
+        :raises EventExecutionException: If the event could not be processed
+            properly.
+        """
+        params = self.ut.unpickle_event_params(event)
+
+        et_eid, tid, tet, hq, sq = self.ut.get_email_target_info(
+            target_id=event['subject_entity'])
+        if tet == self.co.entity_account:
+            uname = self.ut.get_account_name(tid)
+        else:
+            # Skip all email targets that are not associated with an account
+            raise UnrelatedEvent
+
+        # If the adresses is an address that is associated with the email
+        # target, we throw the event away, since it is a local delivery
+        # setting that will be handled by another function.
+        if params['forward'] in self.ut.get_account_mailaddrs(tid):
+            raise UnrelatedEvent
+
+        address = None
+        if event['event_type'] in (self.co.email_forward_enable,
+                                   self.co.email_forward_add):
+            address = params['forward']
+
+        try:
+            self.ec.set_forward(uname, address)
+            self.logger.info('Set forward for %s to %s' % (uname, address))
+        except ExchangeException, e:
+            self.logger.warn(
+                'eid:%d: Can\'t set forward for %s to : %s' %
+                (event['event_id'], uname, str(address), e))
+            raise EventExecutionException
+
+    @EventDecorator.RegisterHandler(['email_forward:add_forward',
+                                     'email_forward:rem_forward',
+                                     'email_forward:enable_forward',
+                                     'email_forward:disable_forward'])
+    def set_local_delivery(self, event):
+        """Event handler method that sets the DeliverToMailboxAndForward option.
+
+        :param event: The EventLog entry to process
+        :type event: Cerebrum.extlib.db_row.row
+        :raises ExchangeException: If the forward can't be set because of an
+            Exchange related error.
+        :raises EventExecutionException: If the event could not be processed
+            properly.
+        """
+        et_eid, tid, tet, hq, sq = self.ut.get_email_target_info(
+            target_id=event['subject_entity'])
+        if tet == self.co.entity_account:
+            uname = self.ut.get_account_name(tid)
+        else:
+            # Skip all targets that are not account-related
+            raise UnrelatedEvent
+
+        params = self.ut.unpickle_event_params(event)
+        addrs = self.ut.get_account_mailaddrs(tid)
+
+        if ('forward' in params and 'enable' in params and
+                params['forward'] in addrs and params['enable'] == 'T'):
+            local_delivery = True
+        elif ('forward' in params and params['forward'] in addrs and
+                'enable' not in params):
+            local_delivery = False
+        else:
+            raise UnrelatedEvent
+
+        try:
+            self.ec.set_local_delivery(uname, local_delivery)
+            # TODO: RECIEPT?
+            self.logger.info(
+                '%s local delivery for %s' % (
+                    'Enabled' if local_delivery else 'Disabled',
+                    uname))
+        except ExchangeException, e:
+            self.logger.warn(
+                "eid:%d: Can't %s local delivery for %s: %s" % (
+                    event['event_id'],
+                    'enable' if local_delivery else 'disable',
+                    uname,
+                    e))
+            raise EventExecutionException
+
+
 # TODO: Are these so "generic"?
 ####
 # Generic functions

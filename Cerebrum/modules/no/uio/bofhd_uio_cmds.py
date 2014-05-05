@@ -1262,16 +1262,10 @@ class BofhdExtension(BofhdCommonMethods):
         AccountName(help_ref='account_name', repeat=True),
         EmailAddress(help_ref='email_address', repeat=True),
         perm_filter='can_email_forward_edit')
+
     def email_add_forward(self, operator, uname, address):
+        """Add an email-forward to a email-target asociated with an account."""
         et, acc = self.__get_email_target_and_account(uname)
-        # exchange-relatert-jazz
-        # For Exchange-mailboxes forward must be registered via 
-        # OWA since smart host solution for Exchange@UiO
-        # could not be implemented. When migration to Exchange 
-        # is completed this method should be changed and adding 
-        # forward for any account disallowed. Jazz (2013-11)
-        if acc.has_spread(self.const.spread_exchange_account):
-            return "Sorry, Exchange-users must add forwards via OWA!"
         if uname.count('@') and not acc:
             lp, dom = uname.split('@')
             ed = Email.EmailDomain(self.db)
@@ -1287,10 +1281,22 @@ class BofhdExtension(BofhdCommonMethods):
             if acc:
                 addr = acc.get_primary_mailaddress()
             else:
-                raise CerebrumError, ("Forward address '%s' does not make sense"
-                                      % addr)
+                raise CerebrumError(
+                    "Forward address '%s' does not make sense" % addr)
         if self._forward_exists(fw, addr):
-            raise CerebrumError, "Forward address added already (%s)" % addr
+            raise CerebrumError("Forward address added already (%s)" % addr)
+
+        # Here, we pull out the email addresses, and the forward addreses, and
+        # exclude local deliveries (trought the set difference operation),
+        # before checking if we should enforce the one-email-forward limit.
+        fwd_addrs = [x['forward_to'] for x in filter(lambda x:
+                     x['enable'] == 'T', fw.get_forward())]
+        existing_addrs = ['%s@%s' % (x['local_part'], x['domain']) for
+                          x in fw.get_addresses()]
+
+        if addr not in existing_addrs and set(fwd_addrs) - set(existing_addrs):
+            raise CerebrumError("Only one forward allowed at a time")
+
         fw.add_forward(addr)
         return "OK, added '%s' as forward-address for '%s'" % (
             address, uname)
