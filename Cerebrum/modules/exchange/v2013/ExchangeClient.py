@@ -684,6 +684,56 @@ class ExchangeClient(PowershellClient):
             raise ExchangeException(out['stderr'])
         else:
             return True
+
+    def set_forward(self, uname, address):
+        """Set forwarding address for a mailbox.
+
+        :type uname: string
+        :param uname: The users username
+
+        :type address: String or None
+        :param address: The forwarding address to set
+
+        :raises ExchangeException: If the command fails to run
+        """
+        if not address:
+            cmd = self._generate_exchange_command(
+                'Set-Mailbox',
+                {'Identity': uname},
+                ('ForwardingSmtpAddress $null',))
+        else:
+            cmd = self._generate_exchange_command(
+                'Set-Mailbox',
+                {'Identity': uname,
+                 'ForwardingSmtpAddress': address})
+        out = self.run(cmd)
+        if 'stderr' in out:
+            raise ExchangeException(out['stderr'])
+        else:
+            return True
+
+    def set_local_delivery(self, uname, local_delv):
+        """Set local delivery for a mailbox.
+
+        :type uname: string
+        :param uname: The users username
+
+        :type local_delivery: bool
+        :param local_delivery: Enable or disable local delivery
+
+        :raises ExchangeException: If the command fails to run
+        """
+        cmd = self._generate_exchange_command(
+            'Set-Mailbox',
+            {'Identity': uname,
+             'DeliverToMailboxAndForward': local_delv})
+        out = self.run(cmd)
+        if 'stderr' in out:
+            raise ExchangeException(out['stderr'])
+        else:
+            return True
+
+
     ######
     # General group operations
     ######
