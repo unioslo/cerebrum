@@ -193,7 +193,7 @@ class BofhdSession(object):
     # end _get_short_timeout_hosts
 
     _auth_timeout = 3600*24*7
-    _seen_timeout = 30
+    _seen_timeout = 3600*24
     _short_timeout_hosts = _get_short_timeout_hosts()
     _short_timeout = _get_short_timeout()
 
