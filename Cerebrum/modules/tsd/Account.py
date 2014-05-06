@@ -84,15 +84,7 @@ class AccountTSDMixin(Account.Account):
         ou = Factory.get('OU')(self._db)
 
         # The account and OU must be approved before we should set anything
-        is_approved = False
-        for row in self.get_account_types():
-            if row['affiliation'] != self.const.affiliation_project:
-                continue
-            ou.clear()
-            ou.find(row['ou_id'])
-            if not tuple(ou.get_entity_quarantine()):
-                is_approved = True
-        if not is_approved:
+        if not self.is_approved():
             return
 
         # If the given project is set up so that every project member should
@@ -259,3 +251,28 @@ class AccountTSDMixin(Account.Account):
         if re.search("[^A-Za-z0-9\-_]", name):
             return "contains illegal characters (%s)" % name
         return False
+
+    def is_approved(self):
+        """Return if the user is approved for a TSD project or not.
+
+        The approval is in two levels: First, the TSD project (OU) must be
+        approved, then the account must not be quarantined.
+
+        :rtype: bool
+        :return: True i
+
+        """
+        # Check user quarantine:
+        if self.get_entity_quarantine(type=self.const.quarantine_not_approved,
+                                      only_active=True):
+            return False
+        # Check if OU is approved:
+        try:
+            projectid = self.get_tsd_project_id()
+        except Errors.NotFoundError:
+            # Not affiliated with any project, therefore not approved
+            return False
+        ou = Factory.get('OU')(self._db)
+        ou.clear()
+        ou.find(projectid)
+        return ou.is_approved()

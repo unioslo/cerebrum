@@ -1277,6 +1277,12 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         """Set password for a user. A modified version of UiO's command."""
         account = self._get_account(accountname)
         self.ba.can_set_password(operator.get_entity_id(), account)
+
+        # TSD specific behaviour: Raise error if user isn't approved or
+        # shouldn't be in AD or the GW:
+        if not account.is_approved():
+            raise CerebrumError("User is not approved: %s" % accountname)
+
         if password is None:
             password = account.make_passwd(accountname)
         else:
@@ -1336,6 +1342,11 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     def user_generate_otpkey(self, operator, accountname):
         account = self._get_account(accountname)
         self.ba.can_generate_otpkey(operator.get_entity_id(), account)
+
+        # User must be approved first, to exist in the GW
+        if not account.is_approved():
+            raise CerebrumError("User is not approved: %s" % accountname)
+
         uri = account.regenerate_otpkey()
 
         # Generate a list of all the accounts for the person
