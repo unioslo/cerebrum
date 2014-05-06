@@ -284,11 +284,11 @@ class AccountHiOfMixin(Account.Account):
             if r['affiliation'] in (self.const.affiliation_ansatt,
                                     self.const.affiliation_tilknyttet):
                 # Highest priority, could be returned at once
-                return '\\LS01.hiof.no\HomeA\%s' % self.account_name
+                return r'\\LS01.hiof.no\HomeA\%s' % self.account_name
             elif r['affiliation'] == self.const.affiliation_student:
                 is_student = True
         if is_student:
-            return '\\LS02.hiof.no\HomeS\%s' % self.account_name
+            return r'\\LS02.hiof.no\HomeS\%s' % self.account_name
 
     def _calculate_scriptpath(self):
         """Calculate what a user should get as its ScriptPath in AD, according
