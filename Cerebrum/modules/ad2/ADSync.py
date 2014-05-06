@@ -1731,7 +1731,8 @@ class UserSync(BaseSync):
             self.logger.debug("Running forward sync")
             forward_sync_class = self.get_class(
                                      sync_type = self.config['forward_sync'])
-            forward_sync = forward_sync_class(self.db, self.logger)
+            forward_sync = forward_sync_class(self.entities, 
+                                              self.db, self.logger)
             forward_conf = adconf.SYNCS[self.config['sync_type']].copy()
             for k, v in adconf.SYNCS[self.config['forward_sync']].iteritems():
                 forward_conf[k] = v
@@ -3036,17 +3037,15 @@ class ForwardSync(BaseSync):
 
     default_ad_object_class = 'contact'
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, account_entities, *args, **kwargs):
         """Instantiate forward addresses specific functionality."""
         super(ForwardSync, self).__init__(*args, **kwargs)
         self.ac = Factory.get('Account')(self.db)
-        self.etarget = Email.EmailTarget(self.db)
-        self.eforward = Email.EmailForward(self.db)
-        self.eaddress = Email.EmailAddress(self.db)
+        self.accounts = account_entities
 
     def configure(self, config_args):
         """Override the configuration for setting forward specific variables.
-
+    
         """
         super(ForwardSync, self).configure(config_args)
         # Which spreads the accounts should have for their forward-addresses
@@ -3068,9 +3067,6 @@ class ForwardSync(BaseSync):
         extra functionality from AD and to override settings.
 
         """
-        self.logger.debug("Fetching forward addresses information")
-        subset = self.config.get('subset')
-        
         # Get accounts that have all the needed spreads
         self.logger.debug2("Fetching accounts with needed spreads")
         accounts_dict = {}
@@ -3080,55 +3076,23 @@ class ForwardSync(BaseSync):
                     list(self.ac.search(spread = spread))])
             account_sets_list.append(tmp_set)
         entity_id2uname = set.intersection(*account_sets_list)
-        for entity_id, username in entity_id2uname:
-            accounts_dict[entity_id] = {'uname': username,
-                                        'forward_addresses': [],
-                                        'local_addresses': []}
-
-        # Generate email target -> entity_id mapping
-        self.logger.debug2("Generating email target -> entity_id mapping")
-        target_id2target_entity_id = {}
-        for row in self.etarget.list_email_targets_ext():
-            if row['target_entity_id']:
-                target_id2target_entity_id[int(row['target_id'])] = \
-                    int(row['target_entity_id'])
-
-        # Fetch all local addresses for the accounts
-        # Forwarding enables local delivery also, but there is no need
-        # to create forward objects for local addresses. Such addresses
-        # should be filtered out.
-        for row in self.eaddress.search():
-            te_id = target_id2target_entity_id.get(int(row['target_id']))
-            if te_id in accounts_dict:
-                accounts_dict[te_id]['local_addresses'].append(
-                    '@'.join((row['local_part'], row['domain']))
-                )
-
-        # Fetch all email forwards and save all of them that are enabled,
-        # belong to the accounts with needed spreads, and are not local.
-        self.logger.debug2("Fetching forwards that belong to the accounts")
-        for row in self.eforward.list_email_forwards():
-            te_id = target_id2target_entity_id.get(int(row['target_id']))
-            if te_id in accounts_dict and row['enable'] == 'T' \
-                and row['forward_to'] \
-                    not in accounts_dict[te_id]['local_addresses']:
-                accounts_dict[te_id]['forward_addresses'].append(
-                                               row['forward_to']
-                )
 
         # Create an AD-object for every forward fetched.
-        self.logger.debug2("Creating AD-objects for forwards")
-        for key, value in accounts_dict.iteritems():
-            for tmp_addr in value['forward_addresses']:
-                name = ','.join((value['uname'], tmp_addr, str(key)))
-                if subset and name not in subset:
-                    continue
-                self.entities[name] = self.cache_entity(key, name)
-                # All the object attributes are composed based on the username
-                # and forwardname. Save it for future use
-                self.entities[name].ad_data['uname'] = value['uname']
-                self.entities[name].ad_data['faddr'] = tmp_addr
-
+        self.logger.debug("Making forward AD-objects")
+        for key, value in entity_id2uname:
+            ent = self.accounts.get(value)
+            if ent:
+                for tmp_addr in ent.maildata.get('forward', []):
+                    # Forwarding can sometimes be enabled to local address.
+                    # Local addresses then should be ignored
+                    if tmp_addr in ent.maildata.get('alias', []):
+                        continue
+                    name = ','.join((value, tmp_addr, str(ent.entity_id)))
+                    self.entities[name] = self.cache_entity(ent.entity_id, name)
+                    # All the object attributes are composed based on 
+                    # the username and forwardname. Save it for future use
+                    self.entities[name].ad_data['uname'] = value
+                    self.entities[name].ad_data['faddr'] = tmp_addr
 
 class ProxyAddressesCompare(BaseSync):
     """Entities that have ProxyAddresses attribute should have a special
