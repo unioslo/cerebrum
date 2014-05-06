@@ -1742,7 +1742,8 @@ class UserSync(BaseSync):
             self.logger.debug("Running distribution groups sync")
             distgroup_sync_class = self.get_class(
                                      sync_type = self.config['distgroup_sync'])
-            distgroup_sync = distgroup_sync_class(self.db, self.logger)
+            distgroup_sync = distgroup_sync_class(forward_sync.entities, 
+                                                  self.db, self.logger)
             distgroup_conf = adconf.SYNCS[self.config['sync_type']].copy()
             for k, v in adconf.SYNCS[self.config['distgroup_sync']].iteritems():
                 distgroup_conf[k] = v

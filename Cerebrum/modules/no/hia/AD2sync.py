@@ -88,98 +88,27 @@ class UiADistGroupSync(BaseSync):
     default_ad_object_class = 'group'
 
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, forward_objects, *args, **kwargs):
         """Instantiate forward addresses specific functionality."""
         super(UiADistGroupSync, self).__init__(*args, **kwargs)
-        self.ac = Factory.get('Account')(self.db)
-        self.etarget = Email.EmailTarget(self.db)
-        self.eforward = Email.EmailForward(self.db)
-        self.eaddress = Email.EmailAddress(self.db)
-        self.forwards = {}
-
-
-    def configure(self, config_args):
-        """Override the configuration for setting forward specific variables.
-
-        """
-        super(UiADistGroupSync, self).configure(config_args)
-        self.config['members_config'] = adconf.SYNCS[config_args['member_sync']]
+        self.forwards = forward_objects
 
 
     def fetch_cerebrum_entities(self):
-        """Fetch the forward addresses information from Cerebrum, and create
-        distribution groups out of it, that will be compared against AD. 
-        The forward addresses that belong to the accounts with specified 
-        spreads are fetched.
+        """Create distribution groups out of forward addresses information
+        to compare them against AD. The forward addresses are received upon
+        class' initialization.
         
         """
-        self.logger.debug("Fetching information and making distribution groups")
-        subset = self.config['members_config'].get('subset', None)
-        # Get accounts that have all the needed spreads
-        self.logger.debug2("Fetching accounts with needed spreads")
-        accounts_dict = {}
-        account_sets_list = []
-        for spread in self.config['members_config']['account_spreads']:
-            tmp_set = set([(row['account_id'], row['name']) for row in
-                    list(self.ac.search(spread = spread))])
-            account_sets_list.append(tmp_set)
-        entity_id2uname = set.intersection(*account_sets_list)
-        for entity_id, username in entity_id2uname:
-            accounts_dict[entity_id] = {'uname': username,
-                                        'forward_addresses': [],
-                                        'local_addresses': []}
-
-        # Generate email target -> entity_id mapping
-        self.logger.debug2("Generating email target -> entity_id mapping")
-        target_id2target_entity_id = {}
-        for row in self.etarget.list_email_targets_ext():
-            if row['target_entity_id']:
-                target_id2target_entity_id[int(row['target_id'])] = \
-                    int(row['target_entity_id'])
+        self.logger.debug("Making distribution groups")
         
-        # Fetch all local addresses for the accounts
-        # Forwarding enables local delivery also, but there is no need
-        # to create forward objects for local addresses. Such addresses
-        # should be filtered out.
-        for row in self.eaddress.search():
-            te_id = target_id2target_entity_id.get(int(row['target_id']))
-            if te_id in accounts_dict:
-                accounts_dict[te_id]['local_addresses'].append(
-                    '@'.join((row['local_part'], row['domain']))
-                )
-
-        # Fetch all email forwards and save all of them that are enabled,
-        # belong to the accounts with needed spreads, and are not local.
-        self.logger.debug2("Fetching forwards that belong to the accounts")
-        for row in self.eforward.list_email_forwards():
-            te_id = target_id2target_entity_id.get(int(row['target_id']))
-            if te_id in accounts_dict and row['enable'] == 'T' \
-                and row['forward_to'] \
-                    not in accounts_dict[te_id]['local_addresses']:
-                accounts_dict[te_id]['forward_addresses'].append(
-                                               row['forward_to']
-                )
-
-        # Create an AD-object for every forward fetched.
-        self.logger.debug2("Creating AD-objects for forwards")
-        for key, value in accounts_dict.iteritems():
-            for tmp_addr in value['forward_addresses']:
-                name = ','.join((value['uname'], tmp_addr, str(key)))
-                if subset and name not in subset:
-                    continue
-                ad_entity_class = self._generate_dynamic_class(
-                    self.config['members_config']['object_classes'],
-                    'forward_for_%s' % value['uname']
-                )
-                ad_entity_object = ad_entity_class(
-                    self.logger, self.config['members_config'], key, name
-                )
-                self.forwards.setdefault(','.join((value['uname'], str(key))), 
-                                         []).append(ad_entity_object)
-
         for key, value in self.forwards.iteritems():
-            name, ent_id = key.split(',')
-            self.entities[name] = self.cache_entity(ent_id, name, 
-                description = 'Samlegruppe for brukerens forwardadresser')
-            self.entities[name].ad_data['members'] = value
+            name, addr, ent_id = key.split(',')
+            if name in self.entities:
+                # Add the forward-object to the group
+                self.entities[name].ad_data['members'].append(value)
+            else:
+                self.entities[name] = self.cache_entity(ent_id, name, 
+                    description = 'Samlegruppe for brukerens forwardadresser')
+                self.entities[name].ad_data['members'] = [value,]
 
