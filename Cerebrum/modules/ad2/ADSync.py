@@ -1509,8 +1509,9 @@ class BaseSync(object):
 
         """
         dn = ad_object['DistinguishedName']
-        if dn.endswith(ou):
-            return # Already in the correct location
+        if ou == dn.split(',', 1):
+            # Already in the correct location
+            return
         try:
             self.server.move_object(dn, ou)
         except ADUtils.OUUnknownException:
