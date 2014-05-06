@@ -42,6 +42,8 @@ from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules import dns
 from Cerebrum.Utils import pgp_encrypt, Factory
 
+from Cerebrum.modules.tsd import TSDUtils
+
 class AccountTSDMixin(Account.Account):
     """Account mixin class for TSD specific behaviour.
 
@@ -102,6 +104,9 @@ class AccountTSDMixin(Account.Account):
                 host.populate(dnsowner.entity_id, hinfo)
             host.hinfo = hinfo
             host.write_db()
+            for comp in getattr(cereconf, 'TSD_HOSTPOLICIES_LINUX', ()):
+                TSDUtils.add_host_to_policy_component(self._db, host.entity_id,
+                                                      comp)
 
     def get_tsd_project_id(self):
         """Helper method for getting the ou_id for the account's project.

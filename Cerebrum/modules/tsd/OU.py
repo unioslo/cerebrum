@@ -39,6 +39,8 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules import dns
 from Cerebrum.modules import EntityTrait
 
+from Cerebrum.modules.tsd import TSDUtils
+
 class OUTSDMixin(OU):
     """Mixin of OU for TSD. Projects in TSD are stored as OUs, which then has to
     be unique.
@@ -490,9 +492,8 @@ class OUTSDMixin(OU):
 
         if vm_type in ('win_vm', 'win_and_linux_vm'):
             # Create a Windows host for the whole project
+            hostname = '%s-win01.tsd.usit.no.' % projectid
             hinfo = 'IBM-PC\tWINDOWS'
-            # TODO: Need to confirm correct hostname
-            hostname = '%s-project-l.tsd.usit.no.' % projectid
             dns_owner = self._populate_dnsowner(hostname)
             try:
                 host.find_by_dns_owner_id(dns_owner.entity_id)
@@ -501,11 +502,9 @@ class OUTSDMixin(OU):
             host.hinfo = hinfo
             host.write_db()
             # TODO: add dns-comment and/or dns-contact?
-        elif vm_type in ('linux_vm',):
-            # TODO: Create linux hosts per project user.
-            # TODO: Should we do this somewhere else instead, as it should be
-            #       connected per account? E.g. in AccountTSDmixin.
-            hinfo = 'IBM-PC\tLINUX'
+            for comp in getattr(cereconf, 'TSD_HOSTPOLICIES_WIN', ()):
+                TSDUtils.add_host_to_policy_component(self._db, host.entity_id,
+                                                      comp)
 
     def _setup_project_posix(self, creator_id):
         """Setup POSIX data for the project."""
