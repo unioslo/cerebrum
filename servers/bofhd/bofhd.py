@@ -670,7 +670,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
         if not enc_passwords:
             logger.info("Missing password for %s from %s" % (uname,
                         ":".join([str(x) for x in self.client_address])))
-            raise CerebrumError, "Unknown username or password"
+            raise CerebrumError("Unknown username or password")
         if isinstance(password, unicode):  # crypt.crypt don't like unicode
             # TODO: ideally we should not hardcode charset here.
             password = password.encode('iso8859-1')
@@ -694,7 +694,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
                                "', '".join(match), "', '".join(mismatch)))
             logger.info("Failed login for %s from %s" % (
                 uname, ":".join([str(x) for x in self.client_address])))
-            raise CerebrumError, "Unknown username or password"
+            raise CerebrumError("Unknown username or password")
         try:
             logger.info("Succesful login for %s from %s" % (
                 uname, ":".join([str(x) for x in self.client_address])))
@@ -766,12 +766,9 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             for line in f.readlines():
                 ret += line
         if (client_id is not None and
-            cereconf.BOFHD_CLIENTS.get(client_id, '') > client_version):
+                cereconf.BOFHD_CLIENTS.get(client_id, '') > client_version):
             ret += "You do not seem to run the latest version of the client\n"
         return ret[:-1]
-##     def validate(self, argtype, arg):
-##         """Check if arg is a legal value for the given argtype"""
-##         pass
 
     def bofhd_help(self, session_id, *group):
         logger.debug("Help: %s" % str(group))
@@ -785,7 +782,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
         elif len(group) == 2:
             ret = server.help.get_cmd_help(commands, *group)
         else:
-            raise CerebrumError, "Unexpected help request"
+            raise CerebrumError("Unexpected help request")
         return ret
 
     def _run_command_with_tuples(self, func, session, args, myret):
@@ -825,9 +822,6 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             raise ServerRestartedError()
 
         return entity_id
-    # end check_session_validity
-        
-    
 
     def bofhd_run_command(self, session_id, cmd, *args):
         """Execute the callable function (in the correct module) with
@@ -844,7 +838,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
         self.server.db.cl_init(change_by=entity_id)
         logger.debug("Run command: %s (%s) by %i" % (cmd, args, entity_id))
         if not self.server.cmd2instance.has_key(cmd):
-            raise CerebrumError, "Illegal command '%s'" % cmd
+            raise CerebrumError("Illegal command '%s'" % cmd)
         func = getattr(self.server.cmd2instance[cmd], cmd)
 
         try:
@@ -861,11 +855,6 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             # TBD: What should be returned if `args' contains tuple,
             # indicating that `func` should be called multiple times?
             return self.server.db.pythonify_data(ret)
-        except (self.server.db.IntegrityError,
-                self.server.db.OperationalError), m:
-            self.server.db.rollback()
-            logger.debug("db error: %s", m, exc_info=1)
-            raise CerebrumError, "DatabaseError: %s" % m
         except Exception:
             self.server.db.rollback()
             raise
@@ -893,14 +882,17 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             return getattr(instance, cmdObj._prompt_func.__name__)(session, *args)
         raise CerebrumError("Command %s has no prompt func" % (cmd,))
     # end bofhd_call_prompt_func
-    
-        
-    def bofhd_get_default_param(self, session_id, cmd, *args):
-        """Get default value for a parameter.  Returns a string.  The
-        client should append '[<returned_string>]: ' to its prompt.
 
-        Will either use the function defined in the command object, or
-        in the corresponding parameter object.
+
+    def bofhd_get_default_param(self, session_id, cmd, *args):
+        """ Get default value for a parameter.
+
+        Returns a string. The client should append '[<returned_string>]: ' to
+        its prompt.
+
+        Will either use the function defined in the command object, or in the
+        corresponding parameter object.
+
         """
         session = BofhdSession(self.server.db, session_id)
         instance, cmdObj = self.server.get_cmd_info(cmd)
@@ -913,7 +905,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             func = cmdObj._params[len(args)]._default
             if func is None:
                 return ""
-        return getattr(instance, func.__name__)(session, *args)  # TODO: er dette rett syntax?
+        return getattr(instance, func.__name__)(session, *args)
 
 
 class BofhdServerImplementation(object):
