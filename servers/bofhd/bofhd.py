@@ -140,9 +140,37 @@ def ip_to_long(ip_address):
 
 class BofhdSession(object):
 
-    # IVR 2008-09-02 yes, a plain function
+    """ Handle database sessions for the BofhdServer.
+
+    This object is used to store and retrieve sessions from the database, which
+    in turn is used to validate session_ids from clients.
+
+    A session_id is valid if it (a) exists in the database, and (b) is not
+    timed out. A session can time out in two ways:
+
+    If a certain time passes from the last time the client authenticated with a
+    username and password, the session is invalidated. The authentication
+    timeout is controlled by the _auth_timeout attribute.
+
+    The session tracks the last time an action was performed. If a certain time
+    passes from the last action (the client is idle), the session is also
+    invalidated.
+
+    The idle timeout is controlled by attributes _seen_timeout and
+    _short_timeout. The _short_timeout attribute applies to hosts in the
+    _short_timeout_hosts attribute, and is intended for web clients and other
+    clients that should not keep an idle session for too long.
+
+    """
+
     def _get_short_timeout():
-        """L{_get_short_timeout_hosts}'s complement."""
+        """ Get the shorter timeout for the short timeout hosts.
+
+        This method fetches and validates the BOFHD_SHORT_TIMEOUT cereconf
+        setting. The shorter timeout is used for hosts fetched by
+        L{_get_short_timeout_hosts}.
+
+        """
         if hasattr(cereconf, "BOFHD_SHORT_TIMEOUT"):
             timeout = int(cereconf.BOFHD_SHORT_TIMEOUT)
             if not (60 <= timeout <= 3600*24):
@@ -152,24 +180,23 @@ class BofhdSession(object):
                          timeout)
             return timeout
         return None
-    # end _build_short_timeout
 
     def _get_short_timeout_hosts():
-        """Build a list of hosts, where shorter session expiry is in place.
+        """ Build a list of hosts, where shorter session expiry is in place.
 
-        This static method populates with _short_timeout_hosts with a list of IP
-        address pairs. Each pair represents an IP range. All bofhd *clients*
+        This static method populates with _short_timeout_hosts with a list of
+        IP address pairs. Each pair represents an IP range. All bofhd *clients*
         connecting from addresses within this range will be timed out much
-        faster than the standard L{_auth_timeout}. The specific timeout value is
-        assigned here as well.
+        faster than the standard L{_auth_timeout}. The specific timeout value
+        is assigned here as well.
 
         This method has been made static for performance reasons.
 
         Caveat: It is probably a very bad idea to put a lot of IP addresses
         into BOFHD_SHORT_TIMEOUT_HOSTS. L{_short_timeout_hosts} is traversed
         to generate SQL once for every command received by bofhd.
-        """
 
+        """
         # Contains a list of pairs (first address, last address). Note that a
         # single IP X will be mapped to a pair (X, X) (a single IP is a range
         # with 1 element). Ranges are *inclusive* (as opposed to python's
@@ -187,18 +214,30 @@ class BofhdSession(object):
                 else:
                     addr_long = ip_to_long(ip)
                     hosts.append((addr_long, addr_long))
-                    logger.debug("Sessions from IP %s [%s, %s] "
-                                 "will be short-lived", ip, addr_long, addr_long)
+                    logger.debug("Sessions from IP %s [%s, %s] will be "
+                                 "short-lived", ip, addr_long, addr_long)
         return hosts
-    # end _get_short_timeout_hosts
 
     _auth_timeout = 3600*24*7
-    _seen_timeout = 3600*24
-    _short_timeout_hosts = _get_short_timeout_hosts()
-    _short_timeout = _get_short_timeout()
+    """ In seconds, how long a session should live after authentication. """
 
+    _seen_timeout = 3600*24
+    """ In seconds, how long a session should 'idle'. """
+
+    _short_timeout = _get_short_timeout()
+    """ In seconds, how long a session should 'idle' for certain clients. """
+
+    _short_timeout_hosts = _get_short_timeout_hosts()
+    """ Which clients should have the shorter timeout setting. """
 
     def __init__(self, database, session_id=None, remote_address=None):
+        """ Create a new session.
+
+        :param Database database: A database connection.
+        :param str session_id: The session_id for this session.
+        :param str remote_address: The IP of the client for this session.
+
+        """
         self._db = database
         if not isinstance(session_id, (types.NoneType, str, unicode)):
             raise CerebrumError("Wrong session id type: %s,"
@@ -207,43 +246,64 @@ class BofhdSession(object):
         self._entity_id = None
         self._owner_id = None
         self.remote_address = remote_address
-    # end __init__
 
+    def _get_timeout_timestamp(self, key):
+        """ Get the current timeout threshold for this session.
+
+        :param str key: Which threshold to get (auth, seen or short).
+
+        :return:
+            Returns the threshold timestamp for when this session is
+            invalidated, according to the _<key>_timeout class attribute.
+
+        """
+        try:
+            seconds = getattr(self, '_%s_timeout' % key)
+        except AttributeError:
+            raise RuntimeError("Invalid timeout setting '%s'" % key)
+        ticks = int(time.time() - seconds)
+        return self._db.TimestampFromTicks(ticks)
 
     def _remove_old_sessions(self):
-        """We remove any authenticated session-ids that was
-        authenticated more than 1 week ago, or hasn't been used
-        frequently enough to have last_seen < 1 day"""
-        auth_threshold = time.time() - self._auth_timeout
-        seen_threshold = time.time() - self._seen_timeout
-        auth_threshold = self._db.TimestampFromTicks(int(auth_threshold))
-        seen_threshold = self._db.TimestampFromTicks(int(seen_threshold))
+        """ Remove timed out sessions.
+
+        We remove any authenticated session-ids that was authenticated more
+        than _auth_timeout seconds ago, or hasn't been used in the last
+        _seen_timeout seconds.
+
+        """
+        thresholds = dict(((key, self._get_timeout_timestamp(key)) for key in
+                           ('auth', 'seen')))
+
+        # Clear any session_state data tied to the sessions
         self._db.execute("""
         DELETE FROM [:table schema=cerebrum name=bofhd_session_state]
         WHERE exists (SELECT 'foo'
                       FROM[:table schema=cerebrum name=bofhd_session]
-                      WHERE bofhd_session.session_id = bofhd_session_state.session_id AND
-                            (bofhd_session.auth_time < :auth OR
-                             bofhd_session.last_seen < :last))""",
-                         {'auth': auth_threshold,
-                          'last': seen_threshold})
+                      WHERE bofhd_session.session_id =
+                            bofhd_session_state.session_id
+                      AND (bofhd_session.auth_time < :auth
+                           OR bofhd_session.last_seen < :seen))""",
+                         thresholds)
+
+        # Clear the actual sessions.
         self._db.execute("""
         DELETE FROM [:table schema=cerebrum name=bofhd_session]
-        WHERE auth_time < :auth OR last_seen < :last""",
-                         {'auth': auth_threshold,
-                          'last': seen_threshold})
-        self.remove_short_timeout_sessions()
-    # end _remove_old_sessions
+        WHERE auth_time < :auth OR last_seen < :seen""",
+                         thresholds)
 
+        # Clear sessions for _short_timeout_hosts.
+        self.remove_short_timeout_sessions()
 
     def remove_short_timeout_sessions(self):
-        """Remove bofhd sessions with a very short timeout value.
+        """ Remove bofhd sessions with a shorter timeout value.
 
         For some clients, it is desireable to remove sessions much faster than
-        the standard self._auth_timeout value.
+        the standard _auth_timeout value.
+
         """
         if not self._short_timeout_hosts:
-            return 
+            return
 
         sql = []
         params = {}
@@ -251,21 +311,20 @@ class BofhdSession(object):
         for index, (ip_start, ip_stop) in enumerate(self._short_timeout_hosts):
             sql.append("(:start%d <= bs.ip_address AND "
                        " bs.ip_address <= :stop%d)" % (index, index))
-            params["start%d"%index] = ip_start
-            params["stop%d"%index] = ip_stop
+            params["start%d" % index] = ip_start
+            params["stop%d" % index] = ip_stop
 
         # first nuke all the associated session states
         stmt = """
         DELETE FROM [:table schema=cerebrum name=bofhd_session_state] bss
         WHERE EXISTS (SELECT 1
                       FROM [:table schema=cerebrum name=bofhd_session] bs
-                      WHERE bss.session_id = bs.session_id AND
-                            (%s) AND
-                            bs.last_seen < :last_seen
+                      WHERE bss.session_id = bs.session_id
+                      AND (%s)
+                      AND bs.last_seen < :last_seen
                       )
         """ % ' OR '.join(sql)
-        params["last_seen"] = self._db.TimestampFromTicks(int(time.time() -
-                                                              self._short_timeout))
+        params["last_seen"] = self._get_timeout_timestamp('short')
 
         self._db.execute(stmt, params)
 
@@ -275,8 +334,6 @@ class BofhdSession(object):
         WHERE bs.last_seen < :last_seen AND (%s)
         """ % ' AND '.join(sql)
         self._db.execute(stmt, params)
-    # end remove_short_timeout_sessions
-    
 
     # TODO: we should remove all state information older than N
     # seconds
@@ -316,10 +373,8 @@ class BofhdSession(object):
         self._id = session_id
         return self.get_session_id()
 
-
     def get_session_id(self):
-        """Return session_id that self is bound to.
-        """
+        """ Return session_id that self is bound to.  """
 
         if self._id is None:
             return self._id
@@ -328,39 +383,62 @@ class BofhdSession(object):
         # I.e. this function must not return anything else, so that
         # BofhdSession's users can rely on the session being a string.
         return str(self._id)
-    # end get_session_id
 
+    def get_entity_id(self, include_expired=False):
+        """ Get the entity_id of the user that owns this session.
 
-    def get_entity_id(self):
+        :param boolean include_expired:
+            If we should accept a session that is expired (default: False).
+
+        :rtype: int
+        :return: The entity id of the session owner.
+
+        :raises RuntimeError:
+            If this session does not have a session_id.
+        :raises SessionExpiredError:
+            If the session does not exist (in the database), or has timed out.
+            Note: If include_expired is True, we won't raise this exception for
+            timed out sessions.
+
+        """
         if self.get_session_id() is None:
             # TBD: Proper exception class?
             raise RuntimeError("Unable to get entity_id; "
                                "not associated with any session.")
         if self._entity_id is not None:
             return self._entity_id
+
+        binds = {'session_id': self.get_session_id(), }
+
+        not_expired_clause = ''
+        if include_expired is False:
+            not_expired_clause = ('AND auth_time >= :auth '
+                                  'AND last_seen >= :seen')
+            binds['auth'] = self._get_timeout_timestamp('auth')
+            binds['seen'] = self._get_timeout_timestamp('seen')
+
         try:
             self._entity_id = self._db.query_1("""
             SELECT account_id
             FROM [:table schema=cerebrum name=bofhd_session]
-            WHERE session_id=:session_id""", {'session_id': self.get_session_id()})
+            WHERE session_id=:session_id %s""" % not_expired_clause, binds)
 
             # Log that there was an activity from the client.
             self._db.execute("""
             UPDATE [:table schema=cerebrum name=bofhd_session]
             SET last_seen=[:now]
-            WHERE session_id=:session_id""", {'session_id': self.get_session_id()})
+            WHERE session_id=:session_id""",
+                             {'session_id': self.get_session_id()})
         except Errors.NotFoundError:
-            raise SessionExpiredError("Authentication failure: session expired."
-                                      " You must login again")
+            raise SessionExpiredError("Authentication failure: "
+                                      "session expired. You must login again")
         return self._entity_id
 
-
     def _fetch_account(self, account_id):
+        """ Get a populated Acccount object. """
         ac = Account_class(self._db)
         ac.find(account_id)
         return ac
-    # end _fetch_account
-
 
     def get_owner_id(self):
         if self._owner_id is None:
@@ -375,11 +453,10 @@ class BofhdSession(object):
         INSERT INTO [:table schema=cerebrum name=bofhd_session_state]
           (session_id, state_type, entity_id, state_data, set_time)
         VALUES (:session_id, :state_type, :entity_id, :state_data, [:now])""",
-                        {'session_id': self.get_session_id(),
-                         'state_type': state_type,
-                         'entity_id': entity_id,
-                         'state_data': pickle.dumps(state_data)
-                         })
+                                {'session_id': self.get_session_id(),
+                                 'state_type': state_type,
+                                 'entity_id': entity_id,
+                                 'state_data': pickle.dumps(state_data), })
 
     def get_state(self, state_type=None):
         """Retrieve all state tuples for ``session_id``."""
@@ -399,8 +476,12 @@ class BofhdSession(object):
         return ret
 
     def clear_state(self, state_types=None):
-        """Remove state in the server, such as cached passwords, or
-        when logging out."""
+        """ Remove session state data.
+
+        Session state data mainly constists of cached passwords for the
+        misc_list_passwords command.
+
+        """
         if state_types is None:
             state_types = ('*',)
         for state in state_types:
