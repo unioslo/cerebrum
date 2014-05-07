@@ -235,7 +235,6 @@ def test_db_exception_types():
 
     # We can't wrap methods that yield other functions.
     db = Factory.get('Database')()
-    gr = Factory.get('Group')(db)
 
     # We can't wrap a statement...
     def raise_exception(e):
@@ -245,21 +244,23 @@ def test_db_exception_types():
     # Wrap, to expect given exceptions
     assert_error = raises(Cerebrum.Database.Error)(raise_exception)
     assert_warn = raises(Cerebrum.Database.Warning)(raise_exception)
+    assert_inst = raises(db.Error)(raise_exception)
+    assert_mod = raises(db._mod.Error)(raise_exception)
 
     tests = [
-        (assert_error, db.IntegrityError('Should be expected')),
-        (assert_warn, db.Warning('Should be expected')),
-        (assert_error, gr._db.IntegrityError('Should be expected')),
-        (assert_warn, gr._db.Warning('Should be expected'))]
+        (assert_error, db.IntegrityError(
+            'Patched exception is not instance of Cerebrum.Database.Error')),
+        (assert_warn, db.Warning(
+            'Patched exception is not instance of Cerebrum.Database.Error')),
+        (assert_mod, db.IntegrityError(
+            'Patched exception is not instance of module exception.')),
+        (assert_inst, Cerebrum.Database.InternalError(
+            'Base exception is not instance of patched exception')),
+        (assert_inst, db._mod.IntegrityError(
+            'Module exception is not instance of patched exception')), ]
 
     for func, exc in tests:
         yield func, exc
-
-
-@raises(Cerebrum.Database.Error)
-@use_db()
-def test_raise_error(db):
-    raise db.IntegrityError('Should be expected')
 
 
 def test_sane_error_hierarchy():
