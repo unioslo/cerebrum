@@ -245,7 +245,7 @@ def test_db_exception_types():
     assert_error = raises(Cerebrum.Database.Error)(raise_exception)
     assert_warn = raises(Cerebrum.Database.Warning)(raise_exception)
     assert_inst = raises(db.Error)(raise_exception)
-    assert_mod = raises(db._mod.Error)(raise_exception)
+    assert_mod = raises(db._db_mod.Error)(raise_exception)
 
     tests = [
         (assert_error, db.IntegrityError(
@@ -256,7 +256,7 @@ def test_db_exception_types():
             'Patched exception is not instance of module exception.')),
         (assert_inst, Cerebrum.Database.InternalError(
             'Base exception is not instance of patched exception')),
-        (assert_inst, db._mod.IntegrityError(
+        (assert_inst, db._db_mod.IntegrityError(
             'Module exception is not instance of patched exception')), ]
 
     for func, exc in tests:
