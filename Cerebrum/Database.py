@@ -238,7 +238,7 @@ class DatabaseErrorWrapper(object):
     def __init__(self, database, module, **kwargs):
         """ Initialize wrapper.
 
-        @type database: Cererbum.Database
+        @type database: Cerebrum.Database
         @param database: The database wrapper object. This object contains
             monkey patched exceptions as attributes.
 
