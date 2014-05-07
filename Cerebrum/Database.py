@@ -760,19 +760,10 @@ class Database(object):
         # time; we need to import the DB-API 2.0 compliant module.
         self_class._db_mod = Utils.dyn_import(module_name)
 
-        # Assert that our database exceptions inherit from the modules
-        # exceptions. If not, we need to monkey patch them in.
+        # Make the API exceptions available
         for name in API_EXCEPTION_NAMES:
-            their = getattr(self._db_mod, name)
-            if hasattr(self_class, name):
-                our = getattr(self_class, name)
-                if issubclass(their, our):
-                    # Already patched
-                    continue
-            # Patch
             base = getattr(Utils.this_module(), name)
-            our = type(name, (base, their), {})
-            setattr(self_class, name, our)
+            setattr(self_class, name, base)
 
         # The type constructors provided by the driver module should
         # be accessible as (static) methods of the database's
