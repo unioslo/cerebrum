@@ -241,33 +241,31 @@ def test_db_exception_types():
         """ Raise a given exception. """
         raise e
 
-    # Wrap, to expect given exceptions
-    assert_error = raises(Cerebrum.Database.Error)(raise_exception)
-    assert_warn = raises(Cerebrum.Database.Warning)(raise_exception)
-    assert_inst = raises(db.Error)(raise_exception)
-    assert_mod = raises(db._db_mod.Error)(raise_exception)
-
     tests = [
-        (assert_error, db.IntegrityError(
+        (Cerebrum.Database.Error, db.IntegrityError(
             'Patched exception is not instance of Cerebrum.Database.Error')),
-        (assert_warn, db.Warning(
-            'Patched exception is not instance of Cerebrum.Database.Error')),
-        (assert_mod, db.IntegrityError(
-            'Patched exception is not instance of module exception.')),
-        (assert_inst, Cerebrum.Database.InternalError(
-            'Base exception is not instance of patched exception')),
-        (assert_inst, db._db_mod.IntegrityError(
-            'Module exception is not instance of patched exception')), ]
+        (Cerebrum.Database.Warning, db.Warning(
+            'Patched exception is not instance of Cerebrum.Database.Warning')),
+        (db._db_mod.Error, db.IntegrityError(
+            'Patched exception is not instance of module exception.')), ]
 
-    for func, exc in tests:
+    for test_crit, exc in tests:
+        func = raises(test_crit)(raise_exception)
         yield func, exc
 
 
-def test_sane_error_hierarchy():
-    """Check that exception hierarchy will work with >=2.5."""
-
-    db = Factory.get("Database")()
+@use_db()
+def test_exception_catch_base(db):
+    """ Catch exception raised by the db-driver with Database.Error. """
     assert_raises(Cerebrum.Database.Error,
+                  db.execute,
+                  "create table foo")
+
+
+@use_db()
+def test_exception_catch_inte(db):
+    """ Catch exception raised by the db-driver with db.Error. """
+    assert_raises(db.Error,
                   db.execute,
                   "create table foo")
 
