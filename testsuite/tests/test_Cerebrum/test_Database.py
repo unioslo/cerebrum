@@ -263,14 +263,6 @@ def test_exception_catch_base(db):
 
 
 @use_db()
-def test_exception_catch_inte(db):
-    """ Catch exception raised by the db-driver with db.Error. """
-    assert_raises(db.Error,
-                  db.execute,
-                  "create table foo")
-
-
-@use_db()
 @create_table('foo', 'x int not null', 'y int null')
 @create_table('bar', 'z int not null', 'y text null')
 def test_unions_with_numeric(db, bar_name, foo_name):
