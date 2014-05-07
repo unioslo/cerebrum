@@ -1509,7 +1509,7 @@ class BaseSync(object):
 
         """
         dn = ad_object['DistinguishedName']
-        if ou == dn.split(',', 1):
+        if ou == dn.split(',', 1)[1]:
             # Already in the correct location
             return
         try:
