@@ -231,33 +231,39 @@ def test_db_unicode_interaction(db, table_name):
 def test_db_exception_types():
     """ Database.Error, correct class types. """
 
-    # TODO: Compare instance db.Error, db._db_mod.Error
-
     # We can't wrap methods that yield other functions.
     db = Factory.get('Database')()
+
+    tests = [
+        (Cerebrum.Database.Error, db.IntegrityError(
+            'Database error is not instance of Cerebrum.Database.Error')),
+        (Cerebrum.Database.Warning, db.Warning(
+            'Database warning is not instance of Cerebrum.Database.Warning')),
+        (db.Error, db.IntegrityError(
+            'Database error is not instance of self.Error')), ]
 
     # We can't wrap a statement...
     def raise_exception(e):
         """ Raise a given exception. """
         raise e
 
-    tests = [
-        (Cerebrum.Database.Error, db.IntegrityError(
-            'Patched exception is not instance of Cerebrum.Database.Error')),
-        (Cerebrum.Database.Warning, db.Warning(
-            'Patched exception is not instance of Cerebrum.Database.Warning')),
-        (db._db_mod.Error, db.IntegrityError(
-            'Patched exception is not instance of module exception.')), ]
-
-    for test_crit, exc in tests:
-        func = raises(test_crit)(raise_exception)
-        yield func, exc
+    for catch_with, throw in tests:
+        func = raises(catch_with)(raise_exception)
+        yield func, throw
 
 
 @use_db()
 def test_exception_catch_base(db):
     """ Catch exception raised by the db-driver with Database.Error. """
     assert_raises(Cerebrum.Database.Error,
+                  db.execute,
+                  "create table foo")
+
+
+@use_db()
+def test_exception_catch_instance(db):
+    """ Catch exception raised by the db-driver with db.Error. """
+    assert_raises(db.Error,
                   db.execute,
                   "create table foo")
 
