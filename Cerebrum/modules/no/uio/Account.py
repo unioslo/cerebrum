@@ -575,7 +575,6 @@ class AccountUiOMixin(Account.Account):
                 ea.populate(self.account_name, ed.entity_id, et.entity_id,
                             expire=None)
                 ea.write_db()
-                ea.commit()
             return self.update_email_quota(
                 spread=self.const.spread_exchange_account)
 
