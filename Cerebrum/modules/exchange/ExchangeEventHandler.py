@@ -575,39 +575,51 @@ class ExchangeEventHandler(processing.Process):
         # TODO: Move this to the caller sometime
         self.ut.log_event_receipt(event, 'exchange:per_e_reserv')
 
-
-
     @EventDecorator.RegisterHandler(['email_quota:add_quota',
                                      'email_quota:mod_quota',
                                      'email_quota:rem_quota'])
     def set_mailbox_quota(self, event):
-        # TODO: Should we error check the reutrn from this method? Typewise that is
+        """Set quota on a mailbox.
+
+        :param event: The event returned from Change- or EventLog
+        :type event: Cerebrum.extlib.db_row.row
+        :raises ExchangeException: If the forward can't be set because of an
+            Exchange related error.
+        :raises EventExecutionException: If the event could not be processed
+            properly.
+        """
+        # TODO: Should we error check the reutrn from this method? Typewise
+        # that is
         try:
             et_eid, tid, tet, hq, sq = self.ut.get_email_target_info(
-                                            target_id=event['subject_entity'])
+                target_id=event['subject_entity'])
         except Errors.NotFoundError:
             # If we wind up here, we have recieved an event that is triggered
             # by entity:del or something. Is this a bug, or a feature? We'll
             # just define this event as unrelated.
             raise UnrelatedEvent
 
-        params = self.ut.unpickle_event_params(event)
+        # params = self.ut.unpickle_event_params(event)
         name = self.ut.get_account_name(tid)
-        if not self.mb_spread in self.ut.get_account_spreads(tid):
+        if self.mb_spread not in self.ut.get_account_spreads(tid):
             # If we wind up here, the user is not supposed to be in Exchange :S
             raise UnrelatedEvent
         try:
-            hard = params['hard']
-            soft = (params['hard'] * params['soft']) / 100
+            # Unordered events facilitates the need to use the values from
+            # storage.
+            # hard = params['hard']
+            # soft = (params['hard'] * params['soft']) / 100
+            soft = (hq * sq) / 100
+            hard = hq
 
             self.ec.set_mailbox_quota(name, soft, hard)
             self.logger.info(
-                    'eid:%d: Set quota (%d hard, %d soft) on mailbox for %s' \
-                    % (event['event_id'], hard, soft, name))
+                'eid:%d: Set quota (%d hard, %d soft) on mailbox for %s' %
+                (event['event_id'], hard, soft, name))
         except ExchangeException, e:
             self.logger.warn(
-                    'eid:%d: Can\'t set quota (%d hard, %d soft) for %s: %s)' \
-                    % (event['event_id'], hard, soft, name, e))
+                'eid:%d: Can\'t set quota (%d hard, %d soft) for %s: %s)' %
+                (event['event_id'], hard, soft, name, e))
             raise EventExecutionException
 
     @EventDecorator.RegisterHandler(['email_forward:add_forward',
