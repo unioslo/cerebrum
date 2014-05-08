@@ -117,3 +117,41 @@ class GroupUiOMixin(Group.Group):
             if len(name) > 64:
                 return "Name %s too long (64 char allowed)" % name
         return False
+
+    def delete(self):
+        """Delete the group, along with its EmailTarget."""
+        from Cerebrum.modules.Email import EmailTarget
+        from Cerebrum.modules.Email import EmailAddress
+        from Cerebrum.modules.Email import EmailPrimaryAddressTarget
+        et = EmailTarget(self._db)
+        ea = EmailAddress(self._db)
+        epat = EmailPrimaryAddressTarget(self._db)
+
+        # If there is not associated an EmailTarget with the group, call delete
+        # from the superclass.
+        try:
+            et.find_by_target_entity(self.entity_id)
+        except Errors.NotFoundError:
+            return super(GroupUiOMixin, self).delete()
+
+        # An EmailTarget exists, so we try to delete its primary address.
+        try:
+            epat.find(et.entity_id)
+            epat.delete()
+        except Errors.NotFoundError:
+            pass
+
+        # We remove all the EmailTargets addresses.
+        try:
+            for row in et.get_addresses():
+                ea.clear()
+                ea.find(row['address_id'])
+                ea.delete()
+        except Errors.NotFoundError:
+            pass
+
+        # Delete the 
+        et.delete()
+        
+        # Finally! Delete the group!
+        super(GroupUiOMixin, self).delete()
