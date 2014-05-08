@@ -558,7 +558,26 @@ class AccountUiOMixin(Account.Account):
             return self.__super.update_email_addresses()
         elif self.const.spread_exchange_account in spreads:
             self.__super.update_email_addresses()
-            return self.update_email_quota(spread=self.const.spread_exchange_account)
+            # Append the default domain for exchange accounts! This should
+            # probably be done elsewhere, but the code is so complex, that
+            # we'll have to live with this solution, until we redesign the
+            # email-module, or force the postmasters to write their own
+            # address-management system.
+            et = Factory.get('EmailTarget')(self._db)
+            ea = Email.EmailAddress(self._db)
+            ed = Email.EmailDomain(self._db)
+            ed.find_by_domain(cereconf.EXCHANGE_DEFAULT_ADDRESS_PLACEHOLDER)
+            et.find_by_target_entity(self.entity_id)
+            try:
+                ea.find_by_local_part_and_domain(self.account_name,
+                                                 ed.entity_id)
+            except Errors.NotFoundError:
+                ea.populate(self.account_name, ed.entity_id, et.entity_id,
+                            expire=None)
+                ea.write_db()
+                ea.commit()
+            return self.update_email_quota(
+                spread=self.const.spread_exchange_account)
 
     def is_employee(self):
         for r in self.get_account_types():
