@@ -24,6 +24,7 @@
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.Email import EmailDomain
 from Cerebrum.modules.Email import EmailQuota
+from Cerebrum.modules.Email import EmailForward
 from Cerebrum.modules.exchange.v2013.ExchangeGroups import DistributionGroup
 from Cerebrum import Errors
 #from Cerebrum.modules.exchange.Exceptions import ExchangeException
@@ -49,6 +50,7 @@ class CerebrumUtils(object):
         self.co = Factory.get('Constants')(self.db)
         self.ed = EmailDomain(self.db)
         self.eq = EmailQuota(self.db)
+        self.ef = EmailForward(self.db)
         self.et = Factory.get('EmailTarget')(self.db)
         self.dg = DistributionGroup(self.db)
 
@@ -163,6 +165,23 @@ class CerebrumUtils(object):
                 for x in self.et.get_addresses()]
         self.db.rollback()
         return addrs
+
+    def get_account_forwards(self, account_id):
+        """Collect an accounts forward addresses.
+
+        :param int account_id: The account_id representing the object.
+        :return: A list of forward addresses.
+        """
+        self.ef.clear()
+        self.ef.find_by_target_entity(account_id)
+        r = []
+        for fwd in self.ef.get_forward():
+            # Need to do keys() for now, db_row is stupid.
+            if 'enable' in fwd.keys() and fwd['enable'] == 'T':
+                r.append(fwd['forward_to'])
+        self.db.rollback()
+        return r
+
 
     def get_account_name(self, account_id):
         """Return information about the account.
