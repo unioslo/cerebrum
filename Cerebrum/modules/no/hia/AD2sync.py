@@ -58,6 +58,14 @@ class UiAUserSync(UserSync):
 
 
     def fullsync(self):
+        """Usually fullsync method is never subclassed. But for UiA there is
+        a need to do it because usersync is tightly connected with sync of
+        forward-addresses and distribution groups. All 3 syncs share information
+        and depend on each other. So UserSync for UiA now triggers ForwardSync
+        and DistGroupSync from inside itself, if the two latter are present
+        in the configuration.
+
+        """
         super(UiAUserSync, self).fullsync()
         if self.config.has_key('forward_sync'):
             self.logger.debug("Running forward sync")
