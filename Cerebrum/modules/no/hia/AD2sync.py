@@ -42,6 +42,49 @@ from Cerebrum.modules.ad2.ADSync import BaseSync, UserSync, GroupSync
 from Cerebrum.modules.ad2.CerebrumData import CerebrumUser, CerebrumGroup
 from Cerebrum.modules import Email
 
+class UiAUserSync(UserSync):
+
+    def configure(self, config_args):
+        """Override the configuration for setting specific variables for UiA
+        user sync.
+
+        """
+        super(UiAUserSync, self).configure(config_args)
+
+        if 'forward_sync' in config_args:
+            self.config['forward_sync'] = config_args['forward_sync']
+        if 'distgroup_sync' in config_args:
+            self.config['distgroup_sync'] = config_args['distgroup_sync']
+
+
+    def fullsync(self):
+        super(UserSync, self).fullsync()
+        if self.config.has_key('forward_sync'):
+            self.logger.debug("Running forward sync")
+            forward_sync_class = self.get_class(
+                                     sync_type = self.config['forward_sync'])
+            forward_sync = forward_sync_class(self.entities,
+                                              self.db, self.logger)
+            forward_conf = adconf.SYNCS[self.config['sync_type']].copy()
+            for k, v in adconf.SYNCS[self.config['forward_sync']].iteritems():
+                forward_conf[k] = v
+            forward_conf['sync_type'] = self.config['sync_type']
+            forward_sync.configure(forward_conf)
+            forward_sync.fullsync()
+        if self.config.has_key('distgroup_sync'):
+            self.logger.debug("Running distribution groups sync")
+            distgroup_sync_class = self.get_class(
+                                     sync_type = self.config['distgroup_sync'])
+            distgroup_sync = distgroup_sync_class(forward_sync.entities,
+                                                  self.db, self.logger)
+            distgroup_conf = adconf.SYNCS[self.config['sync_type']].copy()
+            for k, v in adconf.SYNCS[self.config['distgroup_sync']].iteritems():
+                distgroup_conf[k] = v
+            distgroup_conf['sync_type'] = self.config['sync_type']
+            distgroup_sync.configure(distgroup_conf)
+            distgroup_sync.fullsync()
+
+
 class UiACerebrumUser(CerebrumUser):
     """UiA specific behaviour and attributes for a user object."""
 
@@ -89,7 +132,7 @@ class UiAForwardSync(BaseSync):
 
     def __init__(self, account_entities, *args, **kwargs):
         """Instantiate forward addresses specific functionality."""
-        super(ForwardSync, self).__init__(*args, **kwargs)
+        super(UiAForwardSync, self).__init__(*args, **kwargs)
         self.ac = Factory.get('Account')(self.db)
         self.accounts = account_entities
 
@@ -97,7 +140,7 @@ class UiAForwardSync(BaseSync):
         """Override the configuration for setting forward specific variables.
     
         """
-        super(ForwardSync, self).configure(config_args)
+        super(UiAForwardSync, self).configure(config_args)
         # Which spreads the accounts should have for their forward-addresses
         # to be synchronized
         self.config['account_spreads'] = config_args['account_spreads']
