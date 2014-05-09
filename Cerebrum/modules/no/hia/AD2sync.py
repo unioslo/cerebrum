@@ -80,6 +80,70 @@ class UiACerebrumDistGroup(CerebrumGroup):
                                       for y in self.ad_data['members']])
 
 
+class UiAForwardSync(BaseSync):
+    """Sync for Cerebrum forward mail addresses in AD for UiA.
+
+    """
+
+    default_ad_object_class = 'contact'
+
+    def __init__(self, account_entities, *args, **kwargs):
+        """Instantiate forward addresses specific functionality."""
+        super(ForwardSync, self).__init__(*args, **kwargs)
+        self.ac = Factory.get('Account')(self.db)
+        self.accounts = account_entities
+
+    def configure(self, config_args):
+        """Override the configuration for setting forward specific variables.
+    
+        """
+        super(ForwardSync, self).configure(config_args)
+        # Which spreads the accounts should have for their forward-addresses
+        # to be synchronized
+        self.config['account_spreads'] = config_args['account_spreads']
+
+    def fetch_cerebrum_entities(self):
+        """Fetch the forward addresses information from Cerebrum, 
+        that should be compared against AD. The forward addresses that
+        belong to the accounts with specified spreads are fetched.
+        
+        The configuration is used to know what to cache. All data is put in a
+        list, and each entity is put into an object from
+        L{Cerebrum.modules.ad2.CerebrumData} or a subclass, to make it 
+        easier to later compare with AD objects.
+
+        Could be subclassed to fetch more data about each entity to support
+        extra functionality from AD and to override settings.
+
+        """
+        # Get accounts that have all the needed spreads
+        self.logger.debug2("Fetching accounts with needed spreads")
+        accounts_dict = {}
+        account_sets_list = []
+        for spread in self.config['account_spreads']:
+            tmp_set = set([(row['account_id'], row['name']) for row in
+                    list(self.ac.search(spread = spread))])
+            account_sets_list.append(tmp_set)
+        entity_id2uname = set.intersection(*account_sets_list)
+
+        # Create an AD-object for every forward fetched.
+        self.logger.debug("Making forward AD-objects")
+        for key, value in entity_id2uname:
+            ent = self.accounts.get(value)
+            if ent:
+                for tmp_addr in ent.maildata.get('forward', []):
+                    # Forwarding can sometimes be enabled to local address.
+                    # Local addresses then should be ignored
+                    if tmp_addr in ent.maildata.get('alias', []):
+                        continue
+                    name = ','.join((value, tmp_addr, str(ent.entity_id)))
+                    self.entities[name] = self.cache_entity(ent.entity_id, name)
+                    # All the object attributes are composed based on 
+                    # the username and forwardname. Save it for future use
+                    self.entities[name].ad_data['uname'] = value
+                    self.entities[name].ad_data['faddr'] = tmp_addr
+
+
 class UiADistGroupSync(BaseSync):
     """Sync for Cerebrum distribution groups in AD for UiA.
 
