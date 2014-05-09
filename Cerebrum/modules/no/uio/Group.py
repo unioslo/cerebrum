@@ -24,6 +24,7 @@ import cereconf
 from Cerebrum import Group
 from Cerebrum import Utils
 from Cerebrum.Database import Errors
+from Cerebrum.modules import Email
 
 class GroupUiOMixin(Group.Group):
     """Group mixin class providing functionality specific to UiO.
@@ -120,12 +121,9 @@ class GroupUiOMixin(Group.Group):
 
     def delete(self):
         """Delete the group, along with its EmailTarget."""
-        from Cerebrum.modules.Email import EmailTarget
-        from Cerebrum.modules.Email import EmailAddress
-        from Cerebrum.modules.Email import EmailPrimaryAddressTarget
-        et = EmailTarget(self._db)
-        ea = EmailAddress(self._db)
-        epat = EmailPrimaryAddressTarget(self._db)
+        et = Email.EmailTarget(self._db)
+        ea = Email.EmailAddress(self._db)
+        epat = Email.EmailPrimaryAddressTarget(self._db)
 
         # If there is not associated an EmailTarget with the group, call delete
         # from the superclass.
@@ -150,8 +148,8 @@ class GroupUiOMixin(Group.Group):
         except Errors.NotFoundError:
             pass
 
-        # Delete the 
+        # Delete the EmailTarget
         et.delete()
-        
+
         # Finally! Delete the group!
         super(GroupUiOMixin, self).delete()
