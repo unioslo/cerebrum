@@ -58,7 +58,7 @@ class UiAUserSync(UserSync):
 
 
     def fullsync(self):
-        super(UserSync, self).fullsync()
+        super(UiAUserSync, self).fullsync()
         if self.config.has_key('forward_sync'):
             self.logger.debug("Running forward sync")
             forward_sync_class = self.get_class(
