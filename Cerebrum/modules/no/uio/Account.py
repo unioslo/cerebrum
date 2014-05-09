@@ -566,15 +566,20 @@ class AccountUiOMixin(Account.Account):
             et = Factory.get('EmailTarget')(self._db)
             ea = Email.EmailAddress(self._db)
             ed = Email.EmailDomain(self._db)
-            ed.find_by_domain(cereconf.EXCHANGE_DEFAULT_ADDRESS_PLACEHOLDER)
-            et.find_by_target_entity(self.entity_id)
             try:
-                ea.find_by_local_part_and_domain(self.account_name,
-                                                 ed.entity_id)
+                ed.find_by_domain(
+                    cereconf.EXCHANGE_DEFAULT_ADDRESS_PLACEHOLDER)
+                et.find_by_target_entity(self.entity_id)
             except Errors.NotFoundError:
-                ea.populate(self.account_name, ed.entity_id, et.entity_id,
-                            expire=None)
-                ea.write_db()
+                pass
+            else:
+                try:
+                    ea.find_by_local_part_and_domain(self.account_name,
+                                                     ed.entity_id)
+                except Errors.NotFoundError:
+                    ea.populate(self.account_name, ed.entity_id, et.entity_id,
+                                expire=None)
+                    ea.write_db()
             return self.update_email_quota(
                 spread=self.const.spread_exchange_account)
 
