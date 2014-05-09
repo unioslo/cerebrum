@@ -83,8 +83,10 @@ class UiAUserSync(UserSync):
             self.logger.debug("Running distribution groups sync")
             distgroup_sync_class = self.get_class(
                                      sync_type = self.config['distgroup_sync'])
-            distgroup_sync = distgroup_sync_class(forward_sync.entities,
-                                                  self.db, self.logger)
+            distgroup_sync = distgroup_sync_class(
+                                            forward_sync.entities,
+                                            forward_sync.distgroup_user_members,
+                                            self.db, self.logger)
             distgroup_conf = adconf.SYNCS[self.config['sync_type']].copy()
             for k, v in adconf.SYNCS[self.config['distgroup_sync']].iteritems():
                 distgroup_conf[k] = v
@@ -143,6 +145,7 @@ class UiAForwardSync(BaseSync):
         super(UiAForwardSync, self).__init__(*args, **kwargs)
         self.ac = Factory.get('Account')(self.db)
         self.accounts = account_entities
+        self.distgroup_user_members = {}
 
     def configure(self, config_args):
         """Override the configuration for setting forward specific variables.
@@ -183,16 +186,30 @@ class UiAForwardSync(BaseSync):
             ent = self.accounts.get(value)
             if ent:
                 for tmp_addr in ent.maildata.get('forward', []):
-                    # Forwarding can sometimes be enabled to local address.
-                    # Local addresses then should be ignored
+                    # Forwarding can sometimes be enabled to the address which
+                    # is simply alias for the default email. Such addresses
+                    # are ignored
                     if tmp_addr in ent.maildata.get('alias', []):
                         continue
-                    name = ','.join((value, tmp_addr, str(ent.entity_id)))
-                    self.entities[name] = self.cache_entity(ent.entity_id, name)
-                    # All the object attributes are composed based on 
-                    # the username and forwardname. Save it for future use
-                    self.entities[name].ad_data['uname'] = value
-                    self.entities[name].ad_data['faddr'] = tmp_addr
+                    # Check if forwarding is enabled to an address in 'uia.no'
+                    # domain.
+                    nickname, domain = tmp_addr.split('@')
+                    if domain == 'uia.no':
+                        # The forward addresses in the local domain should not 
+                        # have a corresponding forward object created in AD.
+                        # Instead, we have to mark the user entity that owns
+                        # the mail for the inclusion to a corresponding 
+                        # distribution group.
+                        self.distgroup_user_members[value] = ent
+                    else:
+                        # Create an AD-object for the forward address
+                        name = ','.join((value, tmp_addr, str(ent.entity_id)))
+                        self.entities[name] = self.cache_entity(ent.entity_id, 
+                                                                name)
+                        # All the object attributes are composed based on 
+                        # the username and forwardname. Save it for future use
+                        self.entities[name].ad_data['uname'] = value
+                        self.entities[name].ad_data['faddr'] = tmp_addr
 
 
 class UiADistGroupSync(BaseSync):
@@ -203,11 +220,14 @@ class UiADistGroupSync(BaseSync):
     default_ad_object_class = 'group'
 
 
-    def __init__(self, forward_objects, *args, **kwargs):
+    def __init__(self, forward_objects, user_objects, *args, **kwargs):
         """Instantiate forward addresses specific functionality."""
         super(UiADistGroupSync, self).__init__(*args, **kwargs)
         self.forwards = forward_objects
-
+        # For local forward addresses we have to include a corresponding
+        # user object in AD as a member of the group. Such objects are
+        # passed through this variable.
+        self.user_members = user_objects
 
     def fetch_cerebrum_entities(self):
         """Create distribution groups out of forward addresses information
@@ -227,3 +247,12 @@ class UiADistGroupSync(BaseSync):
                     description = 'Samlegruppe for brukerens forwardadresser')
                 self.entities[name].ad_data['members'] = [value,]
 
+        # For local forward addresses we have to include user objects, 
+        # as members to a distribution group
+        for key, value in self.user_members.iteritems():
+            if key in self.entities:
+                self.entities[key].ad_data['members'].append(value)
+            else:
+                self.entities[key] = self.cache_entity(value.entity_id, key, 
+                    description = 'Samlegruppe for brukerens forwardadresser')
+                self.entities[key].ad_data['members'] = [value,]
