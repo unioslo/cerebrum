@@ -1733,6 +1733,12 @@ class UserSync(BaseSync):
         """
         super(UserSync, self).fetch_cerebrum_data()
 
+        # No need to fetch Cerebrum data if there are no entities to add them
+        # to. Some methods in the Cerebrum API also raises an exception if given
+        # an empty list of entities.
+        if not self.entities:
+            return
+
         # Create a mapping of owner id to user objects
         self.logger.debug("Fetch owner information...")
         self.owner2ent = dict()
