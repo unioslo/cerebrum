@@ -866,7 +866,7 @@ class BaseSync(object):
         self.logger.debug("Fetched %d SIDs from Cerebrum" % i)
 
     def fetch_names(self):
-        """Get all the entity names for the entitites from Cerebrum.
+        """Get all the entity names for the entities from Cerebrum.
 
         """
         self.logger.debug("Fetch name information...")
@@ -2722,7 +2722,7 @@ class GroupSync(BaseSync):
         groups = dict()
         mem2group = dict()
         for row in self.gr.search_members():
-            # TODO: Should we skip entitites not in either self.id2entity nor
+            # TODO: Should we skip entities not in either self.id2entity nor
             # self.id2extraentity?
             groups.setdefault(row['group_id'], set()).add(row['member_id'])
             if person2primary and row['member_type'] == self.co.entity_person:

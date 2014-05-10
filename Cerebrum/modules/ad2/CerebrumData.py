@@ -443,7 +443,7 @@ class CerebrumEntity(object):
 
             'group-%(ad_id)s'
 
-        could for different entitites be returned as:
+        could for different entities be returned as:
 
             'group-cerebrum'
             'group-root'
