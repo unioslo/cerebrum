@@ -1089,31 +1089,47 @@ class BaseSync(object):
         # Compare attributes:
         changes = self.get_mismatch_attributes(ent, ad_object)
         if changes:
+            # Save the list of changes for possible future use
+            ent.changes = changes
             self.server.update_attributes(dn, changes, ad_object)
         # Store SID in Cerebrum
         self.store_sid(ent, ad_object.get('SID'))
         return True
 
     def get_mismatch_attributes(self, ent, ad_object):
-        """Compare entity's attributes between Cerebrum and AD.
-
-        If the attributes exists in both places, it should be updated if it
-        doesn't match. If it only exists
+        """Return the attribute mismatch between an entity and its AD object.
 
         The changes gets appended to the entity's change list for further
         processing.
 
-        @type ent: CerebrumEntity
-        @param ent:
+        :type ent: CerebrumEntity
+        :param ent:
             The given entity from Cerebrum, with calculated attributes.
 
-        @type ad_object: dict (an object in the future?)
-        @param ad_object: 
+        :type ad_object: dict (an object in the future?)
+        :param ad_object:
             The given attributes from AD for the target object.
 
-        @rtype: dict
-        @return:
-            The list of attributes that doesn't match and should be updated.
+        :rtype: dict
+        :return:
+            The list of attributes that doesn't match and should be updated. The
+            key is the name of the attribute, and the value is a dict with the
+            elements:
+
+            - *add*: For elements that should be added to the attribute in AD.
+            - *remove*: For elements that should be removed from the attribute.
+            - *fullupdate*: For attributes that should be fully replaced.
+
+            The result could be something like::
+
+                {'Member': {
+                        'add': ('userX', 'userY',),
+                        'remove': ('userZ',),
+                        },
+                 'Description': {
+                        'fullupdate': 'New description',
+                        },
+                 }
 
         """
         ret = {}
@@ -1143,8 +1159,6 @@ class BaseSync(object):
                                       """with a new value '%s'""",
                                       ent.entity_name, atr, ad_value, value)
                     ret[atr]['fullupdate'] = value
-        # Save the list of changes for possible future use
-        ent.changes = ret
         return ret
 
     def attribute_mismatch(self, ent, atr, c, a):
@@ -1157,28 +1171,31 @@ class BaseSync(object):
         The attributes are matched in different ways. The order does for example
         not matter for multivalued attributes, i.e. lists.
 
-        @type ent: CerebrumEntity
-        @param ent:
+        :type ent: CerebrumEntity
+        :param ent:
             The given entity from Cerebrum, with calculated attributes.
 
-        @type atr: str
-        @param atr: The name of the attribute to compare
+        :type atr: str
+        :param atr: The name of the attribute to compare
 
-        @type c: mixed
-        @param c: The value from Cerebrum for the given attribute
+        :type c: mixed
+        :param c: The value from Cerebrum for the given attribute
 
-        @type a: mixed
-        @param a: The value from AD for the given attribute
+        :type a: mixed
+        :param a: The value from AD for the given attribute
 
-        @rtype: (bool, list, list)
-        @return:
-            A tuple of three values.
-            The first value is True if the attribute from Cerebrum and AD 
-            does not match and should be updated in AD.
-            If the attribute is a list and only some of its elements should
-            be updated, the second and the third values list the elements
-            that should be respectively added or removed.
-        
+        :rtype: tuple(bool, list, list)
+        :return:
+            A tuple with three elements::
+
+                (<bool:is_mismatching>, <set:to_add>, <set:to_remove>)
+
+            The first value is True if the attribute from Cerebrum and AD does
+            not match and should be updated in AD. If the attribute is a list
+            and only some of its elements should be updated, the second and the
+            third values list the elements that should be respectively added or
+            removed.
+
         """
 
         # TODO: Should we care about case sensitivity?
@@ -1199,7 +1216,7 @@ class BaseSync(object):
         if atr.lower() == 'samaccountname':
             if a is None or c.lower() != a.lower():
                 return (True, None, None)
-        # Order does not matter in multivalued attributes:
+        # Order does not matter in multivalued attributes
         types = (list, tuple, set)
         if isinstance(c, types) and isinstance(a, types):
             # TODO: Do we in some cases need to unicodify strings before
