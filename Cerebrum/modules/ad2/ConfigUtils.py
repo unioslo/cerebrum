@@ -324,6 +324,30 @@ class AddressAttr(AttrConfig):
         self.address_types = _prepare_constants(address_types,
                                                      const.Address)
 
+class ADAttributeAttr(AttrConfig):
+
+    """ Config for attributes fetched from the AD attribute table in Cerebrum.
+
+    Certain attributes could be stored inside the attribute table in Cerebrum,
+    if there are nowhere else to put the data. This should not be used that
+    often, but is needed in some situations where no other options are
+    available.
+
+    """
+    def __init__(self, attributename, *args, **kwargs):
+        """Initiate an AD attribute attribute.
+
+        :type attributename: TODO some constant type
+        :param attributename:
+            The name of the attribute constant. This is normally the same name
+            as the name of the attribute, but not always.
+
+        """
+        super(ADAttributeAttr, self).__init__(*args, **kwargs)
+        self.attributename = _prepare_constants(attributename,
+                                                const.TODO)
+        # TODO
+
 class ExternalIdAttr(AttrConfig):
     """Config for attributes using external IDs.
 
