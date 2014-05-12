@@ -2208,8 +2208,6 @@ class UserSync(BaseSync):
                     ent.maildata.setdefault('forward', []).append(
                                                              row['forward_to'])
                     i += 1
-                    self.addr2username[row['forward_to'].lower()] = (
-                                                                ent.entity_name)
             self.logger.debug("Found %d forward addresses" % i)
 
     def fetch_homes(self):
