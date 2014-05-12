@@ -97,11 +97,11 @@ class BaseAD2SyncTest(unittest.TestCase):
 
         # Add some constanst for the tests
         cls.const_spread_ad_user = cls.db_tools.insert_constant(
-                Constant._SpreadCode, 'account@ad_test',
-                Constants.Constants.entity_account, 'User in test AD')
+                Constants._SpreadCode, 'account@ad_test',
+                cls._co.entity_account, 'User in test AD')
         cls.const_spread_ad_group = cls.db_tools.insert_constant(
-                Constant._SpreadCode, 'group@ad_test',
-                Constants.Constants.entity_group, 'Group in test AD')
+                Constants._SpreadCode, 'group@ad_test',
+                cls._co.entity_group, 'Group in test AD')
 
         # Creating a sample config to be tweaked on in the different test cases.
         # Override for the different tests.
@@ -201,11 +201,10 @@ class UserAD2SyncTest(BaseAD2SyncTest):
             account['entity_id'] = entity_id
             self._accounts.append(account)
             self.addCleanup(self.db_tools.delete_account_id, entity_id)
-
-            ac = self.db_tools.get_account_object()
-            # TODO: this only works for account number: 1, 3, 4, 6, 7, 9, etc.
-            # Why?!?
-            ac.add_spread(self.const_spread_ad_user)
+        for account in self._accounts:
+            self._ac.clear()
+            self._ac.find(account['entity_id'])
+            self._ac.add_spread(self.const_spread_ad_user)
 
         # Setup the sync
         conf = self.standard_config.copy()
