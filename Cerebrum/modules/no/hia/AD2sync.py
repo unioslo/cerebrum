@@ -221,7 +221,7 @@ class UiAForwardSync(BaseSync):
                             owner_ent = self.accounts.get(owner_name)
                             if owner_ent:
                                 print owner_ent.entity_name
-                                self.distgroup_user_members[owner_name] = (
+                                self.distgroup_user_members[username] = (
                                                                       owner_ent)
                                 continue
                     # Create an AD-object for the forward address
