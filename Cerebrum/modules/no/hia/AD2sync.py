@@ -214,11 +214,14 @@ class UiAForwardSync(BaseSync):
                         # Instead, we have to mark the user entity that owns
                         # the mail for the inclusion to a corresponding 
                         # distribution group.
+                        print tmp_addr
                         owner_name = self.addr2username.get(tmp_addr.lower())
+                        print owner_name
                         if owner_name:
                             owner_ent = self.accounts.get(owner_name)
                             if owner_ent:
-                                self.distgroup_user_members[username] = (
+                                print owner_ent.entity_name
+                                self.distgroup_user_members[owner_name] = (
                                                                       owner_ent)
                                 continue
                     # Create an AD-object for the forward address
