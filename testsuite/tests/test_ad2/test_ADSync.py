@@ -66,15 +66,6 @@ class MockADclient(ADUtils.ADclient):
         self.db = Factory.get('Database')()
         self.co = Factory.get('Constants')(self.db)
 
-class TestADConstants(Constants.Constants):
-    """Constants for being able to test different behaviour.
-
-    """
-    spread_ad_test_account = Constants._SpreadCode(
-                                'account@ad_test',
-                                Constants.Constants.entity_account,
-                                'User in test AD')
-
 class BaseAD2SyncTest(unittest.TestCase):
 
     """ Testcase for Cerebrum.modules.ad2.ADSync.BaseSync class.
@@ -93,17 +84,7 @@ class BaseAD2SyncTest(unittest.TestCase):
         cls._db = Factory.get('Database')()
         cls._db.cl_init(change_program='nosetests')
         cls._db.commit = cls._db.rollback  # Let's try not to screw up the db
-
-        const_class = Factory.get('Constants')
-        # TODO: Not sure if this is a good idea. Done for importing the
-        # constants for the test cases, but this file might not be in the path.
-        const_class = type('_test_Constants', (const_class, TestADConstants),
-                           {})
-        cls._co = const_class(cls._db)
-        # TODO: Also need to create the new constants, which is normally done by
-        # makedb...
-        cls._co.initialize(delete=False)
-
+        cls._co = Factory.get('Constants')(cls._db)
         cls._ac = Factory.get('Account')(cls._db)
         cls._gr = Factory.get('Group')(cls._db)
 
@@ -113,6 +94,14 @@ class BaseAD2SyncTest(unittest.TestCase):
 
         # Tools for creating and destroying temporary db items
         cls.db_tools = DatabaseTools(cls._db)
+
+        # Add some constanst for the tests
+        cls.const_spread_ad_user = cls.db_tools.insert_constant(
+                Constant._SpreadCode, 'account@ad_test',
+                Constants.Constants.entity_account, 'User in test AD')
+        cls.const_spread_ad_group = cls.db_tools.insert_constant(
+                Constant._SpreadCode, 'group@ad_test',
+                Constants.Constants.entity_group, 'Group in test AD')
 
         # Creating a sample config to be tweaked on in the different test cases.
         # Override for the different tests.
@@ -216,12 +205,12 @@ class UserAD2SyncTest(BaseAD2SyncTest):
             ac = self.db_tools.get_account_object()
             # TODO: this only works for account number: 1, 3, 4, 6, 7, 9, etc.
             # Why?!?
-            ac.add_spread(self._co.spread_ad_test_account)
+            ac.add_spread(self.const_spread_ad_user)
 
         # Setup the sync
         conf = self.standard_config.copy()
         conf['object_classes'] = self.object_classes
-        conf['target_spread'] = self._co.spread_ad_test_account
+        conf['target_spread'] = self.const_spread_ad_user
         self.sync = self.get_adsync_object(self.base_sync, conf)
 
 
@@ -254,7 +243,7 @@ class UserAD2SyncTest(BaseAD2SyncTest):
                 account, person_owner_id=person_id)
             ac = self.db_tools.get_account_object()
             # TODO: This fails for some of the entities! Why???
-            ac.add_spread(self._co.spread_ad_test_account)
+            ac.add_spread(self.const_spread_ad_user)
             self.addCleanup(self.db_tools.delete_account_id, account_id)
             yes_ids.append(account_id)
         # Add some accounts without the spread:
