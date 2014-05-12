@@ -208,19 +208,17 @@ class UiAForwardSync(BaseSync):
                     # Check if forwarding is enabled to an address in 'uia.no'
                     # domain.
                     nickname, domain = tmp_addr.split('@')
-                    if domain == 'uia.no':
-                        # The forward addresses in the local domain should not 
-                        # have a corresponding forward object created in AD.
-                        # Instead, we have to mark the user entity that owns
-                        # the mail for the inclusion to a corresponding 
-                        # distribution group.
-                        owner_name = self.addr2username.get(tmp_addr.lower())
-                        if owner_name:
-                            owner_ent = self.accounts.get(owner_name)
-                            if owner_ent:
-                                self.distgroup_user_members[username] = (
-                                                                      owner_ent)
-                                continue
+                    # The forward addresses in the local domain should not 
+                    # have a corresponding forward object created in AD.
+                    # Instead, we have to mark the user entity that owns
+                    # the mail for the inclusion to a corresponding 
+                    # distribution group.
+                    owner_name = self.addr2username.get(tmp_addr.lower())
+                    if owner_name:
+                        owner_ent = self.accounts.get(owner_name)
+                        if owner_ent:
+                            self.distgroup_user_members[username] = (owner_ent)
+                            continue
                     # Create an AD-object for the forward address
                     name = ','.join((username, tmp_addr, str(ent.entity_id)))
                     self.entities[name] = self.cache_entity(ent.entity_id, name)
