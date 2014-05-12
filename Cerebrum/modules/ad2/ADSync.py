@@ -1687,6 +1687,7 @@ class UserSync(BaseSync):
     def __init__(self, *args, **kwargs):
         """Instantiate user specific functionality."""
         super(UserSync, self).__init__(*args, **kwargs)
+        self.addr2username = {}
         self.ac = Factory.get("Account")(self.db)
         self.pe = Factory.get("Person")(self.db)
 
@@ -2175,6 +2176,7 @@ class UserSync(BaseSync):
                     adrid2email[row['address_id']] = adr
                     ent.maildata.setdefault('alias', []).append(adr)
                     i += 1
+                    self.addr2username[adr.lower()] = ent.entity_name
             self.logger.debug("Found %d email addresses", i)
 
             epat = Email.EmailPrimaryAddressTarget(self.db)
