@@ -62,9 +62,8 @@ class MockADclient(ADUtils.ADclient):
     """
     def __init__(self, *args, **kwargs):
         """Override to avoid trying to connect to some AD server."""
-        # TODO: reuse the cls._db from test!
-        self.db = Factory.get('Database')()
-        self.co = Factory.get('Constants')(self.db)
+        # TODO: get the cls._db from test!
+        pass
 
 class BaseAD2SyncTest(unittest.TestCase):
 
