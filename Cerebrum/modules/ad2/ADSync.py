@@ -1121,8 +1121,9 @@ class BaseSync(object):
             value = ent.attributes.get(atr, None)
             ad_value = ad_object.get(atr, None)
             # Filter/convert the value from AD before getting compared:
-            if ad_value and atrconfig and atrconfig.ad_transform:
-                ad_value = atrconfig.ad_transform(ad_value)
+            if ad_value and isinstance(atrconfig, ConfigUtils.AttrConfig):
+                if atrconfig.ad_transform:
+                    ad_value = atrconfig.ad_transform(ad_value)
             mismatch, add_elements, remove_elements = \
                 self.attribute_mismatch(ent, atr, value, ad_value)
             if mismatch:
