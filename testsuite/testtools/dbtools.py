@@ -130,7 +130,7 @@ class DatabaseTools(object):
 
     def clear_constants(self):
         """ Delete all constants created by this class. """
-        for constant in self.constants:
+        for constant in self.constants[:]:
             self.delete_constant(constant)
 
         for constant in self.constants:
