@@ -80,7 +80,8 @@ class Mobile(Parameter):
 
 class BofhdExtension(BofhdCommonMethods,
                      BofhdEmailMixin,
-                     BofhdEmailMailmanMixin):
+                     BofhdEmailMailmanMixin,
+                     BofhdEmailSympaMixin):
 
     """ The main UiA BofhdExtension. """
 
@@ -204,11 +205,19 @@ class BofhdExtension(BofhdCommonMethods,
                             'email_forward', 'email_info', 'email_move',
                             'email_quota', 'email_update', )
 
-    # Decide which email list mixins to use?
+    # Decide which mailman list commands to use?
     email_mailman_mixin_commands = ('mailman_create_list',
                                     'mailman_remove_list',
                                     'mailman_create_list_alias',
                                     'mailman_remove_list_alias')
+
+    # Decide which sympa list commands to use?
+    email_sympa_mixin_commands = ('sympa_create_list',
+                                  'sympa_remove_list',
+                                  'sympa_create_list_alias',
+                                  'sympa_remove_list_alias',
+                                  'sympa_create_list_in_cerebrum',
+                                  'sympa_reassign_mailman_list')
 
     def __new__(cls, *arg, **karg):
         # A bit hackish.  A better fix is to split bofhd_uio_cmds.py
@@ -266,6 +275,10 @@ class BofhdExtension(BofhdCommonMethods,
         # ...and the desired email list mixin commands
         for key in self.email_mailman_mixin_commands:
             self.all_commands[key] = self.default_mailman_commands[key]
+
+        # ...and the desired email list mixin commands
+        for key in self.email_sympa_mixin_commands:
+            self.all_commands[key] = self.default_sympa_commands[key]
 
     def get_help_strings(self):
         return bofhd_hia_help.get_help_strings(self)
