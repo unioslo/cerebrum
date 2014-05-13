@@ -164,6 +164,12 @@ class ExchangeClient(PowershellClient):
 
             Invoke-Command { Import-Module ActiveDirectory } -Session $ses;
 
+            # Redefine get-credential so it returns the appropriate credential
+            # that is defined earlier. This allows us to avoid patching
+            # Connect-ExchangeServer for each damn update.
+            Invoke-Command { function get-credential () { return $cred;} } `
+            -Session $ses;
+
             Invoke-Command { Connect-ExchangeServer `
             -ServerFqdn %(management_server)s -UserName %(ex_user)s } `
             -Session $ses;
@@ -219,6 +225,9 @@ class ExchangeClient(PowershellClient):
             %(ad_domain_user)s, $ad_pass) } -Session $ses;
 
             Invoke-Command { Import-Module ActiveDirectory } -Session $ses;
+            
+            Invoke-Command { function get-credential () { return $cred;} } `
+            -Session $ses;
 
             Invoke-Command { Connect-ExchangeServer `
             -ServerFqdn %(management_server)s -UserName %(ex_user)s } `
