@@ -1095,7 +1095,7 @@ class BaseSync(object):
         return True
 
     def get_mismatch_attributes(self, ent, ad_object):
-        """Compare entity's attributes between Cerebrum and AD.
+        """Compare an entity's attributes between Cerebrum and AD.
 
         If the attributes exists in both places, it should be updated if it
         doesn't match. If it only exists
@@ -1103,23 +1103,26 @@ class BaseSync(object):
         The changes gets appended to the entity's change list for further
         processing.
 
-        @type ent: CerebrumEntity
-        @param ent:
+        :type ent: CerebrumEntity
+        :param ent:
             The given entity from Cerebrum, with calculated attributes.
 
-        @type ad_object: dict (an object in the future?)
-        @param ad_object: 
+        :type ad_object: dict
+        :param ad_object:
             The given attributes from AD for the target object.
 
-        @rtype: dict
-        @return:
+        :rtype: dict
+        :return:
             The list of attributes that doesn't match and should be updated.
 
         """
         ret = {}
-        for atr in self.config['attributes']:
+        for atr, atrconfig in self.config['attributes'].iteritems():
             value = ent.attributes.get(atr, None)
             ad_value = ad_object.get(atr, None)
+            # Filter/convert the value from AD before getting compared:
+            if ad_value and atrconfig.ad_transform:
+                ad_value = atrconfig.ad_transform(ad_value)
             mismatch, add_elements, remove_elements = \
                 self.attribute_mismatch(ent, atr, value, ad_value)
             if mismatch:
@@ -1128,20 +1131,22 @@ class BaseSync(object):
                     self.logger.debug("Mismatch attr for %s: %s.", 
                                       ent.entity_name, atr)
                     if add_elements:
-                        self.logger.debug(" - adding: %s",
-                                          '; '.join(str(m) for m in
-                                                    add_elements))
+                        self.logger.debug(
+                                " - adding: %s",
+                                '; '.join('%s (%s)' % (str(m), type(m)) for m in
+                                          add_elements))
                         ret[atr]['add'] = add_elements
                     if remove_elements:
-                        self.logger.debug(" - removing: %s",
-                                          '; '.join(str(m) for m in
-                                                    remove_elements))
+                        self.logger.debug(
+                                " - removing: %s",
+                                '; '.join('%s (%s)' % (str(m), type(m)) for m in
+                                          remove_elements))
                         ret[atr]['remove'] = remove_elements
                 else:
-                    self.logger.debug("""Mismatch attr for %s: %s: """
-                                      """Need to replace current value '%s' """
-                                      """with a new value '%s'""",
-                                      ent.entity_name, atr, ad_value, value)
+                    self.logger.debug(
+                            "Mismatch attr %s for %s: '%s' (%s) -> '%s' (%s)",
+                            atr, ent.entity_name, ad_value, type(ad_value),
+                            value, type(value))
                     ret[atr]['fullupdate'] = value
         # Save the list of changes for possible future use
         ent.changes = ret
