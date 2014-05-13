@@ -194,7 +194,7 @@ class DatabaseTools(object):
 
     def clear_accounts(self):
         """ Clear accounts created by this class. """
-        for entity_id in self.account_ids:
+        for entity_id in self.account_ids[:]:
             self.delete_account_id(entity_id)
 
         for entity_id in self.account_ids:
@@ -245,7 +245,7 @@ class DatabaseTools(object):
 
     def clear_persons(self):
         """ Clear accounts created by this class. """
-        for entity_id in self.person_ids:
+        for entity_id in self.person_ids[:]:
             self.delete_person_id(entity_id)
 
         for entity_id in self.person_ids:
@@ -290,7 +290,7 @@ class DatabaseTools(object):
 
     def clear_groups(self):
         """ Delete all groups created by a DatabaseTools object. """
-        for entity_id in self.group_ids:
+        for entity_id in self.group_ids[:]:
             self.delete_group_id(entity_id)
 
         for entity_id in self.group_ids:
