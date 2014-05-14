@@ -1609,13 +1609,13 @@ class EmailTargetFilter(EmailTarget):
         self._db.log_change(self.entity_id,
                             self.const.email_tfilter_rem,
                             None,
-                            change_params={'filter': filter})
+                            change_params={'filter': int(filter)})
         return self.execute("""
         DELETE FROM [:table schema=cerebrum name=email_target_filter]
         WHERE target_id=:t_id AND filter=:filter""",
                             {'t_id': self.entity_id,
                              'filter': filter})
-            
+
     def list_email_target_filter(self, target_id=None, filter=None):
         """List all registered email_target_filters, filtered on target_id
         and/or filter_type."""
