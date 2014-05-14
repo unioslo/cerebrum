@@ -148,18 +148,19 @@ class BofhdSession(object):
     A session_id is valid if it (a) exists in the database, and (b) is not
     timed out. A session can time out in two ways:
 
-    If a certain time passes from the last time the client authenticated with a
-    username and password, the session is invalidated. The authentication
-    timeout is controlled by the _auth_timeout attribute.
+    * If a certain time passes from the last time the client authenticated with
+      a username and password, the session is invalidated.
 
-    The session tracks the last time an action was performed. If a certain time
-    passes from the last action (the client is idle), the session is also
-    invalidated.
+      The authentication timeout is controlled by the _auth_timeout attribute.
 
-    The idle timeout is controlled by attributes _seen_timeout and
-    _short_timeout. The _short_timeout attribute applies to hosts in the
-    _short_timeout_hosts attribute, and is intended for web clients and other
-    clients that should not keep an idle session for too long.
+    * The session tracks the last time an action was performed. If a certain
+      time passes from the last action (the client is idle), the session is
+      also invalidated.
+
+      The idle timeout is controlled by attributes _seen_timeout and
+      _short_timeout. The _short_timeout attribute applies to hosts in the
+      _short_timeout_hosts attribute, and is intended for web clients and other
+      clients that should not keep an idle session for too long.
 
     """
 
