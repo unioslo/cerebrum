@@ -21,32 +21,38 @@
 
 """Commands used for listing and managing events."""
 
-from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.errors import CerebrumError
-from Cerebrum import Utils
 from Cerebrum import Errors
 
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.cmd_param import Command, Parameter, \
-        FormatSuggestion, SimpleString
+    FormatSuggestion, SimpleString
 
 import eventconf
 
+
 # Event spesific params
 class TargetSystem(Parameter):
+
+    """Parameter type used for carrying target system names to commands."""
+
     _type = 'targetSystem'
     _help_ref = 'target_system'
 
+
 class EventId(Parameter):
+
+    """Parameter type used for carrying event ids to commands."""
+
     _type = 'eventId'
     _help_ref = 'event_id'
 
-class EventId(Parameter):
-    _type = 'eventId'
-    _help_ref = 'event_id'
 
 class BofhdExtension(BofhdCommandBase):
+
+    """Commands used for managing and inspecting events."""
+
     all_commands = {}
 
     def __init__(self, server):
@@ -54,6 +60,7 @@ class BofhdExtension(BofhdCommandBase):
         self.ba = BofhdAuth(self.db)
 
     def get_help_strings(self):
+        """Definition of the help text for event-related commands."""
         group_help = {
             'event': "Event related commands",
             }
@@ -68,6 +75,7 @@ class BofhdExtension(BofhdCommandBase):
                 'event_force': 'Force processing of a terminally failed event',
                 'event_unlock': 'Unlock a previously locked event',
                 'event_delete': 'Delete an event',
+                'event_search': 'Search for events'
             },
         }
 
@@ -80,8 +88,18 @@ class BofhdExtension(BofhdCommandBase):
                 ['event_id',
                  'Event Id',
                  'The numerical identificator of an event'],
+            'search_pattern':
+            ['search_pattern',
+                'Search pattern',
+                'Patterns that can be used:\n'
+                '  id:0\t\t\tReturns all events where dest- or subject_entity '
+                    'is set to 0\n'
+                '  type:spread:add\tReturns all events of type spread:add\n'
+                '  param:Joe\t\tReturns all events where the string "Joe" is '
+                    'found in the change params\n'
+                'In combination, these patterns form a boolean AND expression']
         }
-        
+
         return (group_help, command_help,
                 arg_help)
 
@@ -218,3 +236,73 @@ class BofhdExtension(BofhdCommandBase):
             raise CerebrumError('Error: No such event exists!')
         return {'event': str(ev)}
 
+    # event search
+    all_commands['event_search'] = Command(
+        ('event', 'search',), SimpleString(repeat=True,
+                                           help_ref='search_pattern'),
+        fs=FormatSuggestion(
+            '%-8d %-35s %-15s %-15s %-25s %d',
+            ('id', 'type', 'subject_type', 'dest_type', 'taken', 'failed',),
+            hdr='%-8s %-35s %-15s %-15s %-25s %s' % ('Id',
+                                                     'Type',
+                                                     'SubjectType',
+                                                     'DestinationType',
+                                                     'Taken',
+                                                     'Failed',),
+        ),
+        perm_filter='is_postmaster')
+
+    def event_search(self, operator, *args):
+        """Search for events in the database.
+
+        :param str search_str: A pattern to search for.
+        """
+        self.ba.is_postmaster(operator.get_entity_id())
+        # TODO: Fetch an ACL of which target systems can be searched by this
+        # operator
+        params = {}
+        # Parse search patterns
+        for arg in args:
+            tmp = arg.split(':', 1)
+            try:
+                if tmp[0] == 'type':
+                    cat, typ = tmp[1].split(':')
+                    type_code = int(self.const.ChangeType(cat, typ))
+                    params['type'] = type_code
+                else:
+                    params[tmp[0]] = tmp[1]
+            except IndexError:
+                # TODO: Add errror message
+                pass
+
+        # Raise if we do not have any search patterns
+        if not params:
+            raise CerebrumError('Must specify search pattern.')
+
+        ids = self.db.search_events(**params)
+
+        r = []
+        for id in ids:
+            ev = self.db.get_event(id['event_id'])
+            types = self.db.get_event_target_type(id['event_id'])
+
+            tmp = {'id': ev['event_id'],
+                   # TODO: Change this when we create TargetType()
+                   'type': str(self.const.ChangeType(ev['event_type'])),
+                   'taken': str(ev['taken_time']).replace(' ', '_'),
+                   'failed': ev['failed']
+                   }
+
+            if 'dest_type' in types:
+                tmp['dest_type'] = str(self.const.EntityType(
+                    types['dest_type']))
+            else:
+                tmp['dest_type'] = None
+
+            if 'subject_type' in types:
+                tmp['subject_type'] = str(self.const.EntityType(
+                    types['subject_type']))
+            else:
+                tmp['subject_type'] = None
+            r.append(tmp)
+        return r
