@@ -571,70 +571,122 @@ class ExchangeEventHandler(processing.Process):
     def set_address_book_visibility(self, event):
         """Set the visibility of a persons accounts in the address book.
 
-        @type event: Cerebrum.extlib.db_row.row
-        @param event: The event returned from Change- or EventLog
-        
-        @raises ExchangeException: If all accounts could not be updated.
+        The primary accounts visibility is determined by consulting the
+        following sources, in order:
+
+        1. If the owning person is a member of the
+           randzone exclusion group, the primary account will always be shown.
+        2. The reserve_public trait on the person.
+
+        If any of the settings fail to be proceessed, the event will be
+        re-tried later on.
+
+        :type event: Cerebrum.extlib.db_row.row
+        :param event: The event returned from Change- or EventLog
+
+        :raises ExchangeException: If all accounts could not be updated.
         """
+        # TODO: This function operates on multiple accounts in Exchange. Should
+        # we split the event in an agent, somewhere, so we generate an event
+        # for each account? There are both pros and cons to this approch.
+
+        # Check if the entity we target with this event is a person. If it is
+        # not, we throw away the event.
         try:
             et = self.ut.get_entity_type(event['subject_entity'])
             params = self.ut.unpickle_event_params(event)
             if not et == self.co.entity_person:
                 raise Errors.NotFoundError
-            # If we can't find a person with this entity id, we silently
-            # discard the event by doing nothing.
         except Errors.NotFoundError:
             raise EntityTypeError
-        
-        # TODO: Rework the following code, so it checks for where to look up
-        # by EventType. That might be more efficient and result in fewer actions
 
-        hidden_from_address_book = True
-        # Handle the override for randzone-units
-        if self.randzone_unreserve_group in \
-                self.ut.get_person_membership_groupnames(
-                                                    event['subject_entity']):
-            hidden_from_address_book = False
-        elif params and params.has_key('code') and \
-                params['code'] == self.co.trait_public_reservation:
-            # We pull this from the DB, since it is imperative that we are in
-            # sync.
-            hidden_from_address_book = self.ut.is_electronic_reserved(
-                                            person_id=event['subject_entity'])
+        # Extract event-type for readability
+        ev_type = event['event_type']
+        # Handle group additions
+        if ev_type in (self.co.group_add, self.co.group_rem,):
+            # Check if this group addition operation is related to
+            # the randzone group. If not, raise the UnrelatedEvent exception.
+            # If it is related to randzones, and the person is a member of the
+            # randzone group, show the person in the address list. If the
+            # person has been removed from the randzone group, load the state
+            # from the database.
 
-        # We set visibility on all accounts the person owns, that has an
-        # Exchange-spread
-        for aid, uname in self.ut.get_person_accounts(event['subject_entity'],
-                                             self.mb_spread):
-            if not self.mb_spread in self.ut.get_account_spreads(aid):
-                # If we wind up here, the user is not supposed to be in
-                # Exchange :S
+            member_of = self.ut.get_parent_groups(event['dest_entity'])
+            if self.randzone_unreserve_group not in member_of:
                 raise UnrelatedEvent
-            if hidden_from_address_book:
-                try:
-                    self.ec.set_mailbox_visibility(uname, visible=False)
-                    self.logger.info('eid:%d: Hiding id:%d in address book..' \
-                                % (event['event_id'], event['subject_entity']))
-                except ExchangeException, e:
-                    self.logger.warn(
-                            "eid:%d: Can't hide %d in address book: %s",
-                            event['event_id'], event['subject_entity'], e)
-                    raise EventExecutionException
             else:
-                try:
-                    self.ec.set_mailbox_visibility(uname, visible=True)
-                    self.logger.info(
-                            'eid:%d: Publishing id:%d in address book..' \
-                                % (event['event_id'], event['subject_entity']))
-                except ExchangeException, e:
-                    self.logger.warn(
-                            'eid:%d: Can\'t publish %d in address book: %s' % \
-                            (event['event_id'], event['subject_entity'], e))
-                    raise EventExecutionException
+                if (self.randzone_unreserve_group in
+                        self.ut.get_person_membership_groupnames(
+                            event['subject_entity'])):
+                    hidden_from_address_book = False
+                else:
+                    hidden_from_address_book = self.ut.is_electronic_reserved(
+                        person_id=event['subject_entity'])
+        # Handle trait settings
+        else:
+            # Check if this is a reservation-related trait operation. If it is
+            # not, we raise the UnrelatedEvent exception since we don't have
+            # anything to do. If it is a reservation-related trait, load the
+            # reservation status from the database.
+            if params['code'] != self.co.trait_public_reservation:
+                raise UnrelatedEvent
+            else:
+                hidden_from_address_book = self.ut.is_electronic_reserved(
+                    person_id=event['subject_entity'])
 
-        # Log a reciept that represents completion of the operation in
-        # ChangeLog.
-        # TODO: Move this to the caller sometime
+        # Utility function for setting visibility on accounts in Exchange.
+        def _set_visibility(uname, vis):
+            state = 'Hiding' if vis else 'Publishing'
+            fail_state = 'hide' if vis else 'publish'
+            try:
+                # We do a not-operation here, since the
+                # set_mailbox_visibility-methods logic about wheter an account
+                # should be hidden or not, is inverse in regards to what we do
+                # above :S
+                self.ec.set_mailbox_visibility(uname, not vis)
+                self.logger.info('eid:%d: %s %s in address book..' %
+                                 (event['event_id'],
+                                  state,
+                                  uname))
+                return True
+            except ExchangeException, e:
+                self.logger.warn("eid:%d: Can't %s %s in address book: %s" %
+                                 (event['event_id'],
+                                  fail_state,
+                                  uname,
+                                  e))
+                return False
+
+        # Parameter used to decide if any calls to Exchange fails. In order to
+        # ensure correct state (this is imperative in regards to visibility),
+        # we must always raise EventExecutionException in case one (or more) of
+        # the calls fail).
+        no_fail = True
+
+        # Fetch the primary accounts entity_id
+        primary_account_id = self.ut.get_primary_account(
+            event['subject_entity'])
+
+        # Loop trough all the persons accounts, and set the appropriate
+        # visibility state for them.
+        for aid, uname in self.ut.get_person_accounts(event['subject_entity'],
+                                                      self.mb_spread):
+            # Set the state we deduced earlier on the primary account.
+            if aid == primary_account_id:
+                tmp_no_fail = _set_visibility(uname, hidden_from_address_book)
+            # Unprimary-accounts should never be shown in the address book.
+            else:
+                tmp_no_fail = _set_visibility(uname, True)
+            # Save the potential failure-state
+            if not tmp_no_fail:
+                no_fail = False
+
+        # Raise EventExecutionException, if any of the calls to Exchange
+        # has failed.
+        if not no_fail:
+            raise EventExecutionException
+
+        # Log a reciept for this change.
         self.ut.log_event_receipt(event, 'exchange:per_e_reserv')
 
     @EventDecorator.RegisterHandler(['email_quota:add_quota',
@@ -1247,7 +1299,7 @@ class ExchangeEventHandler(processing.Process):
 
         if not self.group_spread in group_spreads:
             self.logger.debug2('eid:%d: Unsupported group type for gid=%s!' % \
-                              (event['event_id'], event['subject_entity']))
+                              (event['event_id'], event['dest_entity']))
             # Silently discard it
             raise UnrelatedEvent
         
