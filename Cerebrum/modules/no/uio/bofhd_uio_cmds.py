@@ -2142,6 +2142,28 @@ class BofhdExtension(BofhdCommonMethods):
 
         return True
 
+    # email show_reservation_status
+    all_commands['email_show_reservation_status'] = Command(
+        ('email', 'show_reservation_status'), AccountName(),
+        fs=FormatSuggestion(
+            [("%-9s %s", ("uname", "hide"))]),
+        perm_filter='is_postmaster')
+
+    def email_show_reservation_status(self, operator, uname):
+        """Display reservation status for a person."""
+        self.ba.is_postmaster(operator.get_entity_id())
+        hidden = True
+        account = self._get_account(uname)
+        if account.owner_type == self.const.entity_person:
+            person = self._get_person('entity_id', account.owner_id)
+            if person.has_e_reservation():
+                hidden = True
+            elif person.get_primary_account() != account.entity_id:
+                hidden = True
+            else:
+                hidden = False
+        return {'uname': uname, 'hide': 'hidden' if hidden else 'visible'}
+
     # email create_archive <list-address>
     all_commands['email_create_archive'] = Command(
         ("email", "create_archive"),
