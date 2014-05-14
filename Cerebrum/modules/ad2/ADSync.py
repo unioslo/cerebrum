@@ -1095,7 +1095,7 @@ class BaseSync(object):
         return True
 
     def get_mismatch_attributes(self, ent, ad_object):
-        """Compare entity's attributes between Cerebrum and AD.
+        """Compare an entity's attributes between Cerebrum and AD.
 
         If the attributes exists in both places, it should be updated if it
         doesn't match. If it only exists
@@ -1103,23 +1103,27 @@ class BaseSync(object):
         The changes gets appended to the entity's change list for further
         processing.
 
-        @type ent: CerebrumEntity
-        @param ent:
+        :type ent: CerebrumEntity
+        :param ent:
             The given entity from Cerebrum, with calculated attributes.
 
-        @type ad_object: dict (an object in the future?)
-        @param ad_object: 
+        :type ad_object: dict
+        :param ad_object:
             The given attributes from AD for the target object.
 
-        @rtype: dict
-        @return:
+        :rtype: dict
+        :return:
             The list of attributes that doesn't match and should be updated.
 
         """
         ret = {}
-        for atr in self.config['attributes']:
+        for atr, atrconfig in self.config['attributes'].iteritems():
             value = ent.attributes.get(atr, None)
             ad_value = ad_object.get(atr, None)
+            # Filter/convert the value from AD before getting compared:
+            if ad_value and isinstance(atrconfig, ConfigUtils.AttrConfig):
+                if atrconfig.ad_transform:
+                    ad_value = atrconfig.ad_transform(ad_value)
             mismatch, add_elements, remove_elements = \
                 self.attribute_mismatch(ent, atr, value, ad_value)
             if mismatch:
@@ -1128,20 +1132,22 @@ class BaseSync(object):
                     self.logger.debug("Mismatch attr for %s: %s.", 
                                       ent.entity_name, atr)
                     if add_elements:
-                        self.logger.debug(" - adding: %s",
-                                          '; '.join(str(m) for m in
-                                                    add_elements))
+                        self.logger.debug(
+                                " - adding: %s",
+                                '; '.join('%s (%s)' % (str(m), type(m)) for m in
+                                          add_elements))
                         ret[atr]['add'] = add_elements
                     if remove_elements:
-                        self.logger.debug(" - removing: %s",
-                                          '; '.join(str(m) for m in
-                                                    remove_elements))
+                        self.logger.debug(
+                                " - removing: %s",
+                                '; '.join('%s (%s)' % (str(m), type(m)) for m in
+                                          remove_elements))
                         ret[atr]['remove'] = remove_elements
                 else:
-                    self.logger.debug("""Mismatch attr for %s: %s: """
-                                      """Need to replace current value '%s' """
-                                      """with a new value '%s'""",
-                                      ent.entity_name, atr, ad_value, value)
+                    self.logger.debug(
+                            "Mismatch attr %s for %s: '%s' (%s) -> '%s' (%s)",
+                            atr, ent.entity_name, ad_value, type(ad_value),
+                            value, type(value))
                     ret[atr]['fullupdate'] = value
         # Save the list of changes for possible future use
         ent.changes = ret
@@ -1509,8 +1515,9 @@ class BaseSync(object):
 
         """
         dn = ad_object['DistinguishedName']
-        if dn.endswith(ou):
-            return # Already in the correct location
+        if ou == dn.split(',', 1)[1]:
+            # Already in the correct location
+            return
         try:
             self.server.move_object(dn, ou)
         except ADUtils.OUUnknownException:
@@ -1687,6 +1694,7 @@ class UserSync(BaseSync):
     def __init__(self, *args, **kwargs):
         """Instantiate user specific functionality."""
         super(UserSync, self).__init__(*args, **kwargs)
+        self.addr2username = {}
         self.ac = Factory.get("Account")(self.db)
         self.pe = Factory.get("Person")(self.db)
 
@@ -1731,6 +1739,12 @@ class UserSync(BaseSync):
 
         """
         super(UserSync, self).fetch_cerebrum_data()
+
+        # No need to fetch Cerebrum data if there are no entities to add them
+        # to. Some methods in the Cerebrum API also raises an exception if given
+        # an empty list of entities.
+        if not self.entities:
+            return
 
         # Create a mapping of owner id to user objects
         self.logger.debug("Fetch owner information...")
@@ -2175,6 +2189,7 @@ class UserSync(BaseSync):
                     adrid2email[row['address_id']] = adr
                     ent.maildata.setdefault('alias', []).append(adr)
                     i += 1
+                    self.addr2username[adr.lower()] = ent.entity_name
             self.logger.debug("Found %d email addresses", i)
 
             epat = Email.EmailPrimaryAddressTarget(self.db)
@@ -2994,110 +3009,6 @@ class MailListSync(BaseSync):
             if subset and name not in subset:
                 continue
             self.entities[name] = self.cache_entity(int(row["target_id"]), name)
-
-
-class ForwardSync(BaseSync):
-    """Sync for Cerebrum forward mail addresses in AD.
-
-    This contains generic functionality for handling forward addresses AD,
-    to add more functionality you need to subclass this.
-
-    """
-
-    default_ad_object_class = 'contact'
-
-    def __init__(self, *args, **kwargs):
-        """Instantiate forward addresses specific functionality."""
-        super(ForwardSync, self).__init__(*args, **kwargs)
-        self.ac = Factory.get('Account')(self.db)
-        self.etarget = Email.EmailTarget(self.db)
-        self.eforward = Email.EmailForward(self.db)
-        self.eaddress = Email.EmailAddress(self.db)
-
-    def configure(self, config_args):
-        """Override the configuration for setting forward specific variables.
-
-        """
-        super(ForwardSync, self).configure(config_args)
-        # Which spreads the accounts should have for their forward-addresses
-        # to be synchronized
-        self.config['account_spreads'] = config_args['account_spreads']
-
-
-    def fetch_cerebrum_entities(self):
-        """Fetch the forward addresses information from Cerebrum, 
-        that should be compared against AD. The forward addresses that
-        belong to the accounts with specified spreads are fetched.
-        
-        The configuration is used to know what to cache. All data is put in a
-        list, and each entity is put into an object from
-        L{Cerebrum.modules.ad2.CerebrumData} or a subclass, to make it 
-        easier to later compare with AD objects.
-
-        Could be subclassed to fetch more data about each entity to support
-        extra functionality from AD and to override settings.
-
-        """
-        self.logger.debug("Fetching forward addresses information")
-        subset = self.config.get('subset')
-        
-        # Get accounts that have all the needed spreads
-        self.logger.debug2("Fetching accounts with needed spreads")
-        accounts_dict = {}
-        account_sets_list = []
-        for spread in self.config['account_spreads']:
-            tmp_set = set([(row['account_id'], row['name']) for row in
-                    list(self.ac.search(spread = spread))])
-            account_sets_list.append(tmp_set)
-        entity_id2uname = set.intersection(*account_sets_list)
-        for entity_id, username in entity_id2uname:
-            accounts_dict[entity_id] = {'uname': username,
-                                        'forward_addresses': [],
-                                        'local_addresses': []}
-
-        # Generate email target -> entity_id mapping
-        self.logger.debug2("Generating email target -> entity_id mapping")
-        target_id2target_entity_id = {}
-        for row in self.etarget.list_email_targets_ext():
-            if row['target_entity_id']:
-                target_id2target_entity_id[int(row['target_id'])] = \
-                    int(row['target_entity_id'])
-
-        # Fetch all local addresses for the accounts
-        # Forwarding enables local delivery also, but there is no need
-        # to create forward objects for local addresses. Such addresses
-        # should be filtered out.
-        for row in self.eaddress.search():
-            te_id = target_id2target_entity_id.get(int(row['target_id']))
-            if te_id in accounts_dict:
-                accounts_dict[te_id]['local_addresses'].append(
-                    '@'.join((row['local_part'], row['domain']))
-                )
-
-        # Fetch all email forwards and save all of them that are enabled,
-        # belong to the accounts with needed spreads, and are not local.
-        self.logger.debug2("Fetching forwards that belong to the accounts")
-        for row in self.eforward.list_email_forwards():
-            te_id = target_id2target_entity_id.get(int(row['target_id']))
-            if te_id in accounts_dict and row['enable'] == 'T' \
-                and row['forward_to'] \
-                    not in accounts_dict[te_id]['local_addresses']:
-                accounts_dict[te_id]['forward_addresses'].append(
-                                               row['forward_to']
-                )
-
-        # Create an AD-object for every forward fetched.
-        self.logger.debug2("Creating AD-objects for forwards")
-        for key, value in accounts_dict.iteritems():
-            for tmp_addr in value['forward_addresses']:
-                name = ','.join((value['uname'], tmp_addr, str(key)))
-                if subset and name not in subset:
-                    continue
-                self.entities[name] = self.cache_entity(key, name)
-                # All the object attributes are composed based on the username
-                # and forwardname. Save it for future use
-                self.entities[name].ad_data['uname'] = value['uname']
-                self.entities[name].ad_data['faddr'] = tmp_addr
 
 
 class ProxyAddressesCompare(BaseSync):
