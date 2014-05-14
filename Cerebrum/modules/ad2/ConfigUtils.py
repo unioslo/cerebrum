@@ -203,8 +203,10 @@ def _prepare_constants(input, const_class):
         If a sequence is given, the constants must be an instance of one of the
         classes.
 
-    @rtype: sequence of Cerebrum constants
-    @return: Return the given input, but makes sure that it is iterable.
+    :rtype: sequence of Cerebrum constants
+    :return:
+        Return the given input, but makes sure that it is iterable. If it is not
+        iterable, it is returned as a tuple with one element.
 
     """
     if input:
@@ -342,6 +344,36 @@ class AddressAttr(AttrConfig):
         super(AddressAttr, self).__init__(*args, **kwargs)
         self.address_types = _prepare_constants(address_types,
                                                      const.Address)
+
+class ADAttributeAttr(AttrConfig):
+
+    """ Config for attributes fetched from the AD attribute table in Cerebrum.
+
+    Certain attributes could be stored in the AD attribute table in Cerebrum, if
+    there are nowhere else to put the data. This table should not be used that
+    often, since most of the data Cerebrum should know about is put in other,
+    more proper places. Sometimes this table is needed for data that doesn't
+    belong anywhere else and no other easy options are available.
+
+    The AD attribute table sorts the attributes by spread. You could for
+    instance have a different `RoamingProfile` in two different AD domains.
+
+    """
+    def __init__(self, attributes, *args, **kwargs):
+        """Initiate an AD attribute attribute.
+
+        Might want to be able to override the spread setting in the future, but
+        that is not an option at the moment.
+
+        :type attributes:
+            Cerebrum.modules.ad2.Entity/ADAttribute or sequence thereof
+        :param attributes:
+            The name of the AD attribute constant(s) to use, in prioritized
+            order. The first available attribute that is found is used.
+
+        """
+        super(ADAttributeAttr, self).__init__(*args, **kwargs)
+        self.attributes = _prepare_constants(attributes, const.ADAttribute)
 
 class ExternalIdAttr(AttrConfig):
     """Config for attributes using external IDs.
