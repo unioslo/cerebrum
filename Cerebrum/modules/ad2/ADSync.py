@@ -804,7 +804,15 @@ class BaseSync(object):
         entities.
 
         """
-        self.logger.debug("Fetch attributes...")
+        # Check if data from the attribute table is needed:
+        attrtypes = set()
+        for c in ConfigUtils.get_config_by_type(self.config['attributes'],
+                                                ConfigUtils.ADAttributeAttr):
+            attrtypes.update(c.attributes)
+        if not attrtypes:
+            return
+        self.logger.debug("Fetch from attribute table: %s",
+                          ', '.join(str(a) for a in attrtypes))
         ids = None
         if self.config['subset']:
             ids = self.id2entity.keys()
@@ -813,19 +821,18 @@ class BaseSync(object):
                 return
         i = 0
         # TODO: fetch only the attributes defined in config - would be faster
-        for row in self.ent.list_ad_attributes(entity_id=ids,
-                                               spread=self.config['target_spread']):
-            # TODO: is co caching such attributes? if not, we should prefetch
-            # it, or make the new list method support fetching it:
-            attr = self.co.ADAttribute(int(row['attr_code']))
-            if str(attr) not in self.config['attributes']:
-                continue
+        for row in self.ent.list_ad_attributes(
+                                entity_id=ids,
+                                spread=self.config['target_spread'],
+                                attribute=attrtypes):
             e = self.id2entity.get(row['entity_id'], None)
             if e:
-                if attr.multivalued:
-                    e.attributes.setdefault(str(attr), []).append(row['value'])
+                attr = int(row['attr_code'])
+                attrcode = self.co.ADAttribute(attr)
+                if attrcode.multivalued:
+                    e.cere_attributes.setdefault(attr, []).append(row['value'])
                 else:
-                    e.attributes[str(attr)] = row['value']
+                    e.cere_attributes[attr] = row['value']
                 i += 1
         self.logger.debug("Fetched %d AD attributes from Cerebrum" % i)
 

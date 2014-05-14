@@ -135,21 +135,28 @@ class EntityADMixin(Entity):
     def list_ad_attributes(self, entity_id=None, spread=None, attribute=None):
         """List all stored AD-attributes that matches the given criterias.
 
-        @type entity_id: int or list/tuple thereof
-        @param entity_id: If the list of attributes should be limited to given
+        :type entity_id: int or list/tuple thereof
+        :param entity_id: If the list of attributes should be limited to given
             entitites.
 
-        @type spread: constant, int or list/tuple thereof
-        @param spread: If the list of attributes should be limited to given
+        :type spread: constant, int or list/tuple thereof
+        :param spread: If the list of attributes should be limited to given
             spread types.
 
-        @type attribute: constant, int or list/tuple thereof
-        @param attribute: If given, the result would be limited to only the
+        :type attribute: constant, int or list/tuple thereof
+        :param attribute: If given, the result would be limited to only the
             given attribute types.
 
-        @rtype: iterable of db-rows
-        @return: All the attributes from the database, limited to the input
-            variables.
+        :rtype: iterable of db-rows
+        :return:
+            All the attributes from the database, limited to the input
+            variables. The row elements are:
+
+            - `entity_id`: What entity the attribute is registered for
+            - `attr_code`: The attribute's attribute code
+            - `spread_code`: What spread the attribute is set up for
+            - `subattr_id`: Number for separating multivalued elements.
+            - `value`: The string with the attribute value.
 
         """
         binds = dict()
@@ -167,7 +174,6 @@ class EntityADMixin(Entity):
             SELECT DISTINCT at.*
             FROM  [:table schema=cerebrum name=ad_attribute] at
             %s""" % (where,), binds)
-            # TBD: should we have 'order by' in the return?
 
     def delete_ad_attribute(self, spread, attribute, subattr_id=None):
         """Remove an attribute from the active entity.

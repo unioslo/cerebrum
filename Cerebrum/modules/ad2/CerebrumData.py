@@ -161,10 +161,19 @@ class CerebrumEntity(object):
         # filled with spreads if not needed, this depends on the configuration.
         self.spreads = []
 
-        # Other information that _could_ get registered for the entity:
+        # Other information that _could_ get registered for the entity,
+        # depending on what is needed by adconf, and what is hardcoded in the
+        # sync's subclasses:
+
+        # Attributes from the AD attribute table in Cerebrum
+        self.cere_attributes = dict()
+        # Names with language, e.g. for OUs and person titles
         self.entity_name_with_language = dict()
+        # Postal addresses
         self.addresses = dict()
+        # External IDs, like fnr and student number
         self.external_ids = dict()
+        # Traits needed e.g. for attributes
         self.traits = dict()
 
         # TODO: Move extra settings to subclasses. This should not be here!
@@ -316,6 +325,12 @@ class CerebrumEntity(object):
                     # default order from cereconf!
                     for s in ainfos.itervalues():
                         return s
+        elif isinstance(config, ConfigUtils.ADAttributeAttr):
+            # AD attributes from Cerebrum's attribute table
+            for attr in config.attributes:
+                a = self.cere_attributes.get(int(attr))
+                if a:
+                    return a
         elif isinstance(config, ConfigUtils.TraitAttr):
             # Traits
             for code in config.traitcodes:
