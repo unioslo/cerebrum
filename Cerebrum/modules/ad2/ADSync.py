@@ -1411,9 +1411,8 @@ class BaseSync(object):
             if self.config['store_sid'] and 'SID' not in attrs:
                 attrs['SID'] = None
             # TODO: Change to self.server.find_object here?
-            obj = self.server.get_object(ent.ad_id,
-                                         object_class=self.ad_object_class,
-                                         attributes=attrs)
+            obj = self.server.find_object(name = ent.entity_name,
+                                          object_class=self.ad_object_class)
         except Exception, e:
             self.logger.exception("Failed creating %s" % ent.ad_id)
             return False
@@ -2410,6 +2409,11 @@ class UserSync(BaseSync):
                 # account after a valid password has been set.
                 if ent.active:
                     self.server.enable_object(ret['DistinguishedName'])
+        else:
+            # This is an existing user which is under wrong OU.
+            # Just pass it to a processing method.
+            self.process_ad_object(ret)
+            
         # If more functionality gets put here, you should check if the entity is
         # active, and not update it if the config says so (downgrade).
         return ret
