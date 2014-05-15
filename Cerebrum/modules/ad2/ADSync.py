@@ -1412,6 +1412,7 @@ class BaseSync(object):
                 attrs['SID'] = None
             # TODO: Change to self.server.find_object here?
             obj = self.server.find_object(name = ent.entity_name,
+                                          attributes = ent.attributes,
                                           object_class=self.ad_object_class)
         except Exception, e:
             self.logger.exception("Failed creating %s" % ent.ad_id)
