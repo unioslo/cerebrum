@@ -178,7 +178,7 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
                 if retur[e_name]['title'] == 'Elev':
                     retur[e_name]['homeDrive'] = cereconf.AD_HOME_DRIVE
                     retur[e_name]['profilePath'] = '\\\\vipe\\profiler\\%s' % e_name
-                    retur[e_name]['homeDirectory'] = '\\\\vipe\\elever\\%s' % e_name
+                    retur[e_name]['homeDirectory'] = '\\\\G13E-FS01.giske.eks.lan\\Elever\\%s' % e_name
                     retur[e_name]['msRTCSIP-PrimaryUserAddress'] = 'SIP:%s@skule.giske.no' % e_name
                 elif retur[e_name]['title'] == 'Foresatt':
                     retur[e_name]['msRTCSIP-PrimaryUserAddress'] = 'SIP:%s@skule.giske.no' % e_name
@@ -187,7 +187,7 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
                     # stop updating profile path for employees
                     # requested by Magnus Dyrøy
                     # retur[e_name]['profilePath'] = '\\\\spurv\\profiler\\%s' % e_name
-                    retur[e_name]['homeDirectory'] = '\\\\spurv\\tilsette\\%s' % e_name
+                    retur[e_name]['homeDirectory'] = '\\\\G13L-FS01.giske.eks.lan\\Tilsette\\%s' % e_name
                     retur[e_name]['msRTCSIP-PrimaryUserAddress'] = 'SIP:%s@skule.giske.no' % e_name
                 else:
                     self.logger.info("unknown title field: %s" % retur[e_name]['title'])
@@ -264,16 +264,16 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
                 ret = self.run_cmd('createDir', dry_run, 'profilePath')						
                 if not ret[0]:
                     self.logger.warning("createDir on %s failed: %r", uname, ret)
-                else:	
+                #else:	
                     #Checking existence of profileDir.
-                    ret = self.run_cmd('checkDir', dry_run, "profilePath")
-                    if not ret:
-                        self.logger.warning("ProfileDir for %s not found: %r", uname,
-                                                ret)
+                #    ret = self.run_cmd('checkDir', dry_run, "profilePath")
+                #    if not ret:
+                #        self.logger.warning("ProfileDir for %s not found: %r", uname,
+                #                                ret)
                 #Creating mailbox in Exchange
-                ret = self.run_cmd('createMDB', dry_run)
-                if not ret[0]:
-                    self.logger.warning("Create exchange mailbox for %s failed: %r", uname,
+                #ret = self.run_cmd('createMDB', dry_run)
+                #if not ret[0]:
+                #    self.logger.warning("Create exchange mailbox for %s failed: %r", uname,
                                          ret)
 
 class ADfgSync(ADutilMixIn.ADgroupUtil):
