@@ -494,17 +494,16 @@ class OUTSDMixin(OU):
             # Create a Windows host for the whole project
             hostname = '%s-win01.tsd.usit.no.' % projectid
             hinfo = 'IBM-PC\tWINDOWS'
-            dns_owner = self._populate_dnsowner(hostname)
+            dnsowner = self._populate_dnsowner(hostname)
             try:
-                host.find_by_dns_owner_id(dns_owner.entity_id)
+                host.find_by_dns_owner_id(dnsowner.entity_id)
             except Errors.NotFoundError:
-                host.populate(dns_owner.entity_id, hinfo)
+                host.populate(dnsowner.entity_id, hinfo)
             host.hinfo = hinfo
             host.write_db()
-            # TODO: add dns-comment and/or dns-contact?
             for comp in getattr(cereconf, 'TSD_HOSTPOLICIES_WIN', ()):
-                TSDUtils.add_host_to_policy_component(self._db, host.entity_id,
-                                                      comp)
+                TSDUtils.add_host_to_policy_component(self._db,
+                                                      dnsowner.entity_id, comp)
 
     def _setup_project_posix(self, creator_id):
         """Setup POSIX data for the project."""

@@ -105,8 +105,8 @@ class AccountTSDMixin(Account.Account):
             host.hinfo = hinfo
             host.write_db()
             for comp in getattr(cereconf, 'TSD_HOSTPOLICIES_LINUX', ()):
-                TSDUtils.add_host_to_policy_component(self._db, host.entity_id,
-                                                      comp)
+                TSDUtils.add_host_to_policy_component(self._db,
+                                                      dnsowner.entity_id, comp)
 
     def get_tsd_project_id(self):
         """Helper method for getting the ou_id for the account's project.
