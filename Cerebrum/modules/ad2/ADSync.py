@@ -1410,9 +1410,15 @@ class BaseSync(object):
             attrs = self.config['attributes'].copy()
             if self.config['store_sid'] and 'SID' not in attrs:
                 attrs['SID'] = None
+            search_attributes = {}
+            # TODO! Are there more unique attributes that can be used to search?
+            for unique_attribute in ['SamAccountName']:
+                if ent.attributes.get(unique_attribute):
+                    search_attributes[unique_attribute] = (
+                                               ent.attributes[unique_attribute])
             # TODO: Change to self.server.find_object here?
             obj = self.server.find_object(name = ent.entity_name,
-                                          attributes = ent.attributes,
+                                          attributes = search_attributes,
                                           object_class=self.ad_object_class)
         except Exception, e:
             self.logger.exception("Failed creating %s" % ent.ad_id)
