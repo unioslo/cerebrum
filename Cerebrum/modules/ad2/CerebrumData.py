@@ -175,6 +175,7 @@ class CerebrumEntity(object):
         self.external_ids = dict()
         # Traits needed e.g. for attributes
         self.traits = dict()
+        self.forwards_data = {}
 
         # TODO: Move extra settings to subclasses. This should not be here!
         self.update_recipient = False # run update_Recipients?
