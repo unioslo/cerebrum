@@ -66,6 +66,7 @@ from Cerebrum.modules.ad2.CerebrumData import CerebrumEntity
 from Cerebrum.modules.ad2.CerebrumData import CerebrumUser
 from Cerebrum.modules.ad2.CerebrumData import CerebrumGroup
 from Cerebrum.modules.ad2.CerebrumData import CerebrumDistGroup
+from Cerebrum.modules.ad2.ConfigUtils import ConfigError
 from Cerebrum.modules.ad2.winrm import PowershellException, CRYPTO
 
 class BaseSync(object):
@@ -308,20 +309,22 @@ class BaseSync(object):
         for key, default in self.settings_with_default:
             self.config[key] = config_args.get(key, default)
 
-        # Set what object class in AD to use, either the config or what is set
-        # in any of the subclasses of the ADSync. Most subclasses should set a
-        # default object class.
+        # Set what object class type in AD to use, either the config or what is
+        # set in any of the subclasses of the ADSync. Most subclasses should set
+        # a default object class.
         self.ad_object_class = config_args.get('ad_object_class',
                                                self.default_ad_object_class)
 
         # The object class is generated dynamically, depending on the given list
         # of classes:
-        self.logger.debug("Using object classes: %s",
-                          ', '.join(config_args['object_classes']))
+        self.logger.debug2("Using object classes: %s",
+                           ', '.join(config_args['object_classes']))
         self._object_class = self._generate_dynamic_class(
                 config_args['object_classes'], 
                 '_dynamic_adobject_%s' % self.config['sync_type'])
-
+        if not issubclass(self._object_class, CerebrumEntity):
+            raise ConfigError(
+                    'Given object_classes not subclass of %s' % CerebrumEntity)
 
         # Calculate target spread and target entity_type, depending on what
         # settings that exists:
@@ -870,7 +873,7 @@ class BaseSync(object):
         self.logger.debug("Fetched %d SIDs from Cerebrum" % i)
 
     def fetch_names(self):
-        """Get all the entity names for the entitites from Cerebrum.
+        """Get all the entity names for the entities from Cerebrum.
 
         """
         self.logger.debug("Fetch name information...")
@@ -2761,7 +2764,7 @@ class GroupSync(BaseSync):
         groups = dict()
         mem2group = dict()
         for row in self.gr.search_members():
-            # TODO: Should we skip entitites not in either self.id2entity nor
+            # TODO: Should we skip entities not in either self.id2entity nor
             # self.id2extraentity?
             groups.setdefault(row['group_id'], set()).add(row['member_id'])
             if person2primary and row['member_type'] == self.co.entity_person:

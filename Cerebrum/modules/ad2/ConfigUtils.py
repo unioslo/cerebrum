@@ -134,7 +134,7 @@ class AttrConfig(object):
 
             If set, defines what spread the entity must have for the value to be
             set. If a sequence is given, the entity must have at least one of
-            the spreads. Entitites without any of the given spreads would get
+            the spreads. Entities without any of the given spreads would get
             this attribute blanked out.
 
             Note that spreads were originally meant to control what systems
