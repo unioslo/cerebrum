@@ -407,6 +407,10 @@ class CerebrumEntity(object):
         @param config:
             If set, the tweaks from the config is used, e.g. L{transform}.
 
+            TODO: We should probably always fetch and use the configuration, if
+            set in `adconf`. We might still want to be able to override by this
+            parameter, though.
+
         @type force: bool
         @param force:
             If the attribute should be set even though it has already been set.
