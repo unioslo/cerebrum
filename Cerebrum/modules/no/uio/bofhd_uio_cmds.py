@@ -2151,7 +2151,8 @@ class BofhdExtension(BofhdCommonMethods):
 
     def email_show_reservation_status(self, operator, uname):
         """Display reservation status for a person."""
-        self.ba.is_postmaster(operator.get_entity_id())
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied('Access to this command is restricted')
         hidden = True
         account = self._get_account(uname)
         if account.owner_type == self.const.entity_person:
