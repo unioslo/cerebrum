@@ -349,7 +349,7 @@ class EventLog(object):
         :rtype: list
         :return: A list of event ids.
         """
-        q = "SELECT event_id FROM event_log WHERE "
+        q = "SELECT event_id FROM event_log"
         tmp_q = []
         parm = {}
         if id:
@@ -361,7 +361,9 @@ class EventLog(object):
         if param:
             tmp_q.append("change_params LIKE :param")
             parm['param'] = "%%%s%%" % param
-        q += ' AND '.join(tmp_q)
+        if parm:
+            q += " WHERE "
+            q += ' AND '.join(tmp_q)
 
         return self.query(q, parm, fetchall=True)
 
