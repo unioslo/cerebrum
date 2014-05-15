@@ -217,7 +217,7 @@ class UiAForwardSync(BaseSync):
                     if owner_name:
                         owner_ent = self.accounts.get(owner_name)
                         if owner_ent:
-                            self.distgroup_user_members[username] = (owner_ent)
+                            self.distgroup_user_members[username] = owner_ent
                             continue
                     # Create an AD-object for the forward address.
                     # The name is composed according to UiA's requirements.
@@ -281,7 +281,7 @@ class UiADistGroupSync(BaseSync):
                 self.entities[name] = self.cache_entity(
                     forward_entity.entity_id, name, 
                     description = 'Samlegruppe for brukerens forwardadresser')
-                self.entities[name].forwards_data['members'] = [forward_entity,]
+                self.entities[name].forwards_data['members'] = [forward_entity]
 
         # For local forward addresses we have to include user objects, 
         # as members to a distribution group
