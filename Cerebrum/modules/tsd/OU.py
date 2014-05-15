@@ -527,22 +527,22 @@ class OUTSDMixin(OU):
     def _populate_dnsowner(self, hostname, ipv6_adr=None):
         """Create or update a DnsOwner connected to the given project.
 
+        The DnsOwner is given a trait, to affiliate it with this project-OU.
+
         This should rather be put in the DNS module, but due to its complexity,
         its weird layout, and my lack of IQ points to understand it, I started
         just using its API instead.
 
-        @type hostname: str
-        @param hostname: The given FQDN for the host.
+        :param str hostname: The given *FQDN* for the host.
 
-        @type ipv6_adr: str
-        @param ipv6_adr:
+        :param str ipv6_adr:
             The given IPv6 address to set for the host. Only IPv6 addresses are
             needed for projects in TSD, so IPv4 addresses must be added
             manually. If not given, a free IP address in the project's subnet
             will be used.
 
-        @rtype: DnsOwner object
-        @return:
+        :rtype: DnsOwner object
+        :return:
             The DnsOwner object that is created or updated.
 
         """

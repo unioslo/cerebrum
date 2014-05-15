@@ -78,17 +78,19 @@ class AccountTSDMixin(Account.Account):
     def setup_for_project(self):
         """Set up different config and attributes for a project account. 
 
+        The account, and its project, must be approved for a project before
+        anything is set up. Projects and accounts should not be visible in any
+        other system before they are approved.
+
         When a user is added to a project, we should also give the account extra
         functionality related to the project, like a linux machine if the
         project is set to use that.
 
         """
-        ou = Factory.get('OU')(self._db)
-
-        # The account and OU must be approved before we should set anything
         if not self.is_approved():
             return
-
+        ou = Factory.get('OU')(self._db)
+        ou.find(self.get_tsd_project_id())
         # If the given project is set up so that every project member should
         # have their own virtual linux machine, we need to create this host for
         # the account:
