@@ -504,6 +504,7 @@ class HostpolicySync(ADSync.GroupSync, TSDUtils):
                 if mem:
                     members.add('CN=%s,%s' % (mem.ad_id, mem.ou))
 
-            ent.set_attribute('Member', members)
+            ent.set_attribute('Member', members,
+                              self.config['attributes'].get('Member'))
             i += len(members)
         self.logger.debug2("Found in total %d hostpolicy members", i)
