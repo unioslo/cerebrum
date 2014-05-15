@@ -4612,7 +4612,7 @@ Addresses and settings:
         perm_filter='is_postmaster')
     def email_add_filter(self, operator, filter, address):
         """Add a filter to an existing e-mail target"""
-        if not self.ba.is_postmaster((operator.get_entity_id()):
+        if not self.ba.is_postmaster(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
         etf = Email.EmailTargetFilter(self.db)
         filter_code = self._get_constant(self.const.EmailTargetFilter, filter)
@@ -4650,7 +4650,7 @@ Addresses and settings:
         SimpleString(help_ref='string_email_target_name', repeat="True"),
         perm_filter='is_postmaster')
     def email_remove_filter(self, operator, filter, address):
-        if not self.ba.is_postmaster((operator.get_entity_id()):
+        if not self.ba.is_postmaster(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
         etf = Email.EmailTargetFilter(self.db)
         filter_code = self._get_constant(self.const.EmailTargetFilter, filter)
