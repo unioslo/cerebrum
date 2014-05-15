@@ -111,7 +111,8 @@ class BofhdExtension(BofhdCommandBase):
                 perm_filter='is_postmaster'
     )
     def event_stat(self, operator, target_sys):
-        self.ba.is_postmaster(operator.get_entity_id())
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied('No access to event')
         ts = self._validate_target_system(operator, target_sys)
         
         fail_limit = eventconf.CONFIG[str(ts)]['fail_limit']
@@ -128,7 +129,8 @@ class BofhdExtension(BofhdCommandBase):
                                     ,),
                                     perm_filter='is_postmaster')
     def event_list(self, operator, target_sys, args='failed'):
-        self.ba.is_postmaster(operator.get_entity_id())
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied('No access to event')
         ts = self._validate_target_system(operator, target_sys)
         
         r = []
@@ -161,7 +163,8 @@ class BofhdExtension(BofhdCommandBase):
             fs=FormatSuggestion('Forcing %s', ('state',)),
             perm_filter='is_postmaster')
     def event_force(self, operator, target_sys, id):
-        self.ba.is_postmaster(operator.get_entity_id())
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied('No access to event')
         ts = self._validate_target_system(operator, target_sys)
 
         try:
@@ -177,7 +180,8 @@ class BofhdExtension(BofhdCommandBase):
             fs=FormatSuggestion('Unlock %s', ('state',)),
                 perm_filter='is_postmaster')
     def event_unlock(self, operator, target_sys, id):
-        self.ba.is_postmaster(operator.get_entity_id())
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied('No access to event')
         ts = self._validate_target_system(operator, target_sys)
 
         try:
@@ -193,7 +197,8 @@ class BofhdExtension(BofhdCommandBase):
             fs=FormatSuggestion('Deleted %s', ('state',)),
             perm_filter='is_postmaster')
     def event_delete(self, operator, target_sys, id):
-        self.ba.is_postmaster(operator.get_entity_id())
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied('No access to event')
         ts = self._validate_target_system(operator, target_sys)
 
         try:
@@ -209,7 +214,8 @@ class BofhdExtension(BofhdCommandBase):
             fs=FormatSuggestion('%s', ('event',)),
             perm_filter='is_postmaster')
     def event_info(self, operator, target_sys, id):
-        self.ba.is_postmaster(operator.get_entity_id())
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied('No access to event')
         # TODO: Add handlers for printing out different events in a pretty manner
         ts = self._validate_target_system(operator, target_sys)
         try:
