@@ -1376,20 +1376,22 @@ class BofhdAuth(DatabaseAccessor):
                               query_run_any=False):
         if query_run_any or account and operator == account.entity_id:
             return True
-        if not self._is_local_postmaster(operator,
-                                         self.const.auth_email_info_detail,
-                                         account, None, query_run_any):
-            raise PermissionDenied("Currently limited to superusers")
+        if self._is_local_postmaster(operator,
+                                     self.const.auth_email_info_detail,
+                                     account, None, query_run_any):
+            return True
+        raise PermissionDenied("Currently limited to postmasters")
 
 
     # the user, local sysadmin, and helpdesk can ask for migration
     def can_email_migrate(self, operator, account=None, query_run_any=False):
         if query_run_any or account and operator == account.entity_id:
             return True
-        if not self._is_local_postmaster(operator,
-                                         self.const.auth_email_migrate,
-                                         account, None, query_run_any):
-            raise PermissionDenied("Currently limited to superusers")
+        if self._is_local_postmaster(operator,
+                                     self.const.auth_email_migrate,
+                                     account, None, query_run_any):
+            return True
+        raise PermissionDenied("Currently limited to postmasters")
 
     # not even the user is allowed this operation
     def can_email_move(self, operator, account=None, query_run_any=False):
@@ -1402,10 +1404,13 @@ class BofhdAuth(DatabaseAccessor):
         raise PermissionDenied("Currently limited to superusers")
 
     def can_email_set_quota(self, operator, account=None, query_run_any=False):
-        if not self._is_local_postmaster(operator,
-                                         self.const.auth_email_quota_set,
-                                         account, None, query_run_any):
-            raise PermissionDenied("Currently limited to superusers")
+        if self._is_local_postmaster(operator,
+                                     self.const.auth_email_quota_set,
+                                     account, None, query_run_any):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied("Currently limited to superusers")
     
     # not even the user is allowed this operation
     def can_email_pause(self, operator, account=None, query_run_any=False):
@@ -1423,10 +1428,11 @@ class BofhdAuth(DatabaseAccessor):
                                  query_run_any=False):
         if query_run_any or account and operator == account.entity_id:
             return True
-        if not self._is_local_postmaster(operator,
-                                         self.const.auth_email_forward_off,
-                                         account, None, query_run_any):
-            raise PermissionDenied("Currently limited to superusers")
+        if self._is_local_postmaster(operator,
+                                     self.const.auth_email_forward_off,
+                                     account, None, query_run_any):
+            return True
+        raise PermissionDenied("Currently limited to superusers")
 
     def can_email_spam_settings(self, operator, account=None, target=None,
                                 query_run_any=False):
@@ -1444,10 +1450,11 @@ class BofhdAuth(DatabaseAccessor):
                                   query_run_any=False):
         if query_run_any or account and operator == account.entity_id:
             return True
-        if not self._is_local_postmaster(operator,
-                                         self.const.auth_email_vacation_off,
-                                         account, None, query_run_any):
-            raise PermissionDenied("Currently limited to superusers")
+        if self._is_local_postmaster(operator,
+                                     self.const.auth_email_vacation_off,
+                                     account, None, query_run_any):
+            return True
+        raise PermissionDenied("Currently limited to superusers")
 
     # only the user may add or remove forward addresses.
     def can_email_forward_edit(self, operator, account=None, domain=None,
@@ -1536,38 +1543,52 @@ class BofhdAuth(DatabaseAccessor):
     def can_email_multi_create(self, operator, domain=None, group=None,
                                query_run_any=False):
         # not sure if we'll ever look at the group
-        if not self._is_local_postmaster(operator, self.const.auth_email_create,
-                None, domain, query_run_any):
-            raise PermissionDenied("Currently limited to superusers")
-
+        if self._is_local_postmaster(operator, self.const.auth_email_create,
+                                     None, domain, query_run_any):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied("Currently limited to postmasters")
 
     def can_email_multi_delete(self, operator, domain=None, group=None,
                                query_run_any=False):
-        if not self._is_local_postmaster(operator, self.const.auth_email_delete,
-                None, domain, query_run_any):
-            raise PermissionDenied("Currently limited to superusers")
+        if self._is_local_postmaster(operator, self.const.auth_email_delete,
+                                     None, domain, query_run_any):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied("Currently limited to superusers")
 
     # create/delete e-mail targets of type "forward"
     def can_email_forward_create(self, operator, domain=None,
                                  query_run_any=False):
-        if not self._is_local_postmaster(operator, self.const.auth_email_create,
-                None, domain, query_run_any):
-            raise PermissionDenied("Currently limited to superusers")
+        if self._is_local_postmaster(operator, self.const.auth_email_create,
+                                     None, domain, query_run_any):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied("Currently limited to superusers")
 
     # associate a new e-mail address with an account, or other target.
     def can_email_address_add(self, operator, account=None, domain=None,
                               query_run_any=False):
-        if not self._is_local_postmaster(operator, self.const.auth_email_create,
-                account, domain, query_run_any):
-            raise PermissionDenied("Currently limited to superusers")
+        if self._is_local_postmaster(operator, self.const.auth_email_create,
+                                     account, domain, query_run_any):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied("Currently limited to superusers")
 
     def can_email_address_delete(self, operator, account=None, domain=None,
                                  query_run_any=False):
         # TBD: should the full email address be added to the parameters, instead
         #      of just its domain?
-        if not self._is_local_postmaster(operator, self.const.auth_email_delete,
-                account, domain, query_run_any):
-            raise PermissionDenied("Currently limited to superusers")
+        if self._is_local_postmaster(operator, self.const.auth_email_delete,
+                                     account, domain, query_run_any):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied("Currently limited to superusers")
 
     def can_email_address_reassign(self, operator, account=None, domain=None,
                                    query_run_any=False):
@@ -1597,10 +1618,10 @@ class BofhdAuth(DatabaseAccessor):
                              domain=None, query_run_any=False):
         if self.is_superuser(operator):
             return True
-        if query_run_any:
-            return self._has_operation_perm_somewhere(operator, operation)
         if self.is_postmaster(operator):
             return True
+        if query_run_any:
+            return self._has_operation_perm_somewhere(operator, operation)
         if domain:
             self._query_maildomain_permissions(operator, operation,
                                                domain, None)
