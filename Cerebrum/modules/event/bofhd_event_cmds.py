@@ -241,14 +241,16 @@ class BofhdExtension(BofhdCommandBase):
         ('event', 'search',), SimpleString(repeat=True,
                                            help_ref='search_pattern'),
         fs=FormatSuggestion(
-            '%-8d %-35s %-15s %-15s %-25s %d',
-            ('id', 'type', 'subject_type', 'dest_type', 'taken', 'failed',),
-            hdr='%-8s %-35s %-15s %-15s %-25s %s' % ('Id',
-                                                     'Type',
-                                                     'SubjectType',
-                                                     'DestinationType',
-                                                     'Taken',
-                                                     'Failed',),
+            '%-8d %-35s %-15s %-15s %-25s %-6d %s',
+            ('id', 'type', 'subject_type', 'dest_type', 'taken',
+                'failed', 'params'),
+            hdr='%-8s %-35s %-15s %-15s %-25s %-6s %s' % ('Id',
+                                                          'Type',
+                                                          'SubjectType',
+                                                          'DestinationType',
+                                                          'Taken',
+                                                          'Failed',
+                                                          'Params'),
         ),
         perm_filter='is_postmaster')
 
@@ -259,6 +261,7 @@ class BofhdExtension(BofhdCommandBase):
         """
         self.ba.is_postmaster(operator.get_entity_id())
         # TODO: Fetch an ACL of which target systems can be searched by this
+        # TODO: Make the param-search handle spaces and stuff?
         # operator
         params = {}
         # Parse search patterns
@@ -266,31 +269,52 @@ class BofhdExtension(BofhdCommandBase):
             tmp = arg.split(':', 1)
             try:
                 if tmp[0] == 'type':
-                    cat, typ = tmp[1].split(':')
-                    type_code = int(self.const.ChangeType(cat, typ))
+                    try:
+                        cat, typ = tmp[1].split(':')
+                    except ValueError:
+                        raise CerebrumError('Search pattern incomplete')
+                    try:
+                        type_code = int(self.const.ChangeType(cat, typ))
+                    except Errors.NotFoundError:
+                        raise CerebrumError('EventType does not exist')
                     params['type'] = type_code
                 else:
                     params[tmp[0]] = tmp[1]
             except IndexError:
-                # TODO: Add errror message
+                # We just pass on, won't regard the param.
                 pass
 
         # Raise if we do not have any search patterns
         if not params:
             raise CerebrumError('Must specify search pattern.')
 
-        ids = self.db.search_events(**params)
+        # Fetch matching event ids
+        try:
+            ids = self.db.search_events(**params)
+        except TypeError:
+            # If the user spells an argument wrong, we tell them that they have
+            # done so. They can always type '?' at the pattern-prompt to get
+            # help.
+            raise CerebrumError('Invalid arguments')
 
+        # Fetch information about the event ids, and present it to the user.
         r = []
         for id in ids:
             ev = self.db.get_event(id['event_id'])
-            types = self.db.get_event_target_type(id['event_id'])
+            try:
+                types = self.db.get_event_target_type(id['event_id'])
+            except Errors.NotFoundError:
+                # If we wind up here, both the subject- or destination-entity
+                # has been deleted, or the event does not carry information
+                # about a subject- or destination-entity.
+                types = []
 
             tmp = {'id': ev['event_id'],
                    # TODO: Change this when we create TargetType()
                    'type': str(self.const.ChangeType(ev['event_type'])),
                    'taken': str(ev['taken_time']).replace(' ', '_'),
-                   'failed': ev['failed']
+                   'failed': ev['failed'],
+                   'params': repr(ev['change_params'])
                    }
 
             if 'dest_type' in types:
