@@ -274,7 +274,7 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
                 #ret = self.run_cmd('createMDB', dry_run)
                 #if not ret[0]:
                 #    self.logger.warning("Create exchange mailbox for %s failed: %r", uname,
-                                         ret)
+                #                         ret)
 
 class ADfgSync(ADutilMixIn.ADgroupUtil):
     #Groupsync
