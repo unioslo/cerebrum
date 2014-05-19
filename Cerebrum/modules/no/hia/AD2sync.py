@@ -41,6 +41,7 @@ from Cerebrum.modules.Email import EmailTarget, EmailQuota
 from Cerebrum.modules.ad2.ADSync import BaseSync, UserSync, GroupSync
 from Cerebrum.modules.ad2.CerebrumData import CerebrumUser, CerebrumGroup
 from Cerebrum.modules import Email
+from Cerebrum.modules.ad2.ConfigUtils import ConfigError
 
 class UiAUserSync(UserSync):
 
@@ -52,8 +53,26 @@ class UiAUserSync(UserSync):
         super(UiAUserSync, self).configure(config_args)
 
         if 'forward_sync' in config_args:
+            if config_args['forward_sync'] not in adconf.SYNCS:
+                raise ConfigError("Illegal name for 'forward_sync' parameter: "
+                                  "%s. The sync with this name is not found in "
+                                  "the configuration file." 
+                                  % config_args['forward_sync'])
             self.config['forward_sync'] = config_args['forward_sync']
         if 'distgroup_sync' in config_args:
+            if config_args['distgroup_sync'] not in adconf.SYNCS:
+                raise ConfigError("Illegal name for 'distgroup_sync' parameter:"
+                                  " %s. The sync with this name is not found in"
+                                  " the configuration file." 
+                                  % config_args['distgroup_sync'])
+            # No sense in running distgroupsync without running forward_sync
+            # first.
+            if not 'forward_sync' in self.config:
+                raise ConfigError("'distgroup_sync' parameter is defined in the"
+                                  " configuration, while 'forward_sync'"
+                                  " parameter is missing. 'distgroup_sync'"
+                                  " depends on 'forward_sync' and cannot be run"
+                                  " if the latter is missing.")
             self.config['distgroup_sync'] = config_args['distgroup_sync']
 
 
