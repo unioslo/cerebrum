@@ -28,6 +28,7 @@ from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.cmd_param import Command, Parameter, \
     FormatSuggestion, SimpleString
+from Cerebrum.modules.bofhd.errors import PermissionDenied
 
 import eventconf
 
@@ -92,11 +93,11 @@ class BofhdExtension(BofhdCommandBase):
             ['search_pattern',
                 'Search pattern',
                 'Patterns that can be used:\n'
-                '  id:0\t\t\tReturns all events where dest- or subject_entity '
-                    'is set to 0\n'
-                '  type:spread:add\tReturns all events of type spread:add\n'
-                '  param:Joe\t\tReturns all events where the string "Joe" is '
-                    'found in the change params\n'
+                '  id:0             Returns all events where dest- or '
+                'subject_entity is set to 0\n'
+                '  type:spread:add  Returns all events of type spread:add\n'
+                '  param:Joe        Returns all events where the string "Joe" '
+                'is found in the change params\n'
                 'In combination, these patterns form a boolean AND expression']
         }
 
@@ -265,7 +266,8 @@ class BofhdExtension(BofhdCommandBase):
 
         :param str search_str: A pattern to search for.
         """
-        self.ba.is_postmaster(operator.get_entity_id())
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied('No access to event')
         # TODO: Fetch an ACL of which target systems can be searched by this
         # TODO: Make the param-search handle spaces and stuff?
         # operator
@@ -296,7 +298,7 @@ class BofhdExtension(BofhdCommandBase):
 
         # Fetch matching event ids
         try:
-            ids = self.db.search_events(**params)
+            event_ids = self.db.search_events(**params)
         except TypeError:
             # If the user spells an argument wrong, we tell them that they have
             # done so. They can always type '?' at the pattern-prompt to get
@@ -305,10 +307,10 @@ class BofhdExtension(BofhdCommandBase):
 
         # Fetch information about the event ids, and present it to the user.
         r = []
-        for id in ids:
-            ev = self.db.get_event(id['event_id'])
+        for event_id in event_ids:
+            ev = self.db.get_event(event_id['event_id'])
             try:
-                types = self.db.get_event_target_type(id['event_id'])
+                types = self.db.get_event_target_type(event_id['event_id'])
             except Errors.NotFoundError:
                 # If we wind up here, both the subject- or destination-entity
                 # has been deleted, or the event does not carry information
