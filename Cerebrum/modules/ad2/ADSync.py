@@ -1412,14 +1412,32 @@ class BaseSync(object):
                 attrs['SID'] = None
             search_attributes = {}
             # TODO! Are there more unique attributes that can be used to search?
+            # For user objects it seems it is enough with 'SamAccountName' only.
+            # See http://blogs.msdn.com/b/openspecification/archive/2009/07/10/
+            #     understanding-unique-attributes-in-active-directory.aspx
             for unique_attribute in ['SamAccountName']:
                 if ent.attributes.get(unique_attribute):
                     search_attributes[unique_attribute] = (
                                                ent.attributes[unique_attribute])
-            # TODO: Change to self.server.find_object here?
-            obj = self.server.find_object(name = ent.entity_name,
-                                          attributes = search_attributes,
-                                          object_class=self.ad_object_class)
+            objects = self.server.find_object(name = ent.entity_name,
+                                              attributes = search_attributes,
+                                              object_class=self.ad_object_class)
+            if len(objects) == 1:
+                # Found only one object, and it is most likely the one we need
+                obj = objects[0]
+            elif len(objects) == 0:
+                # Strange, we can't find the object though AD says it exists!
+                self.logger.error("Cannot find %s, though AD says it exists" 
+                                                                    % ent.ad_id)
+                return False
+            else:
+                # Found several objects that satisfy the search criterias.
+                # Unfortunately, in this case we can't determine which one
+                # we actually need.
+                self.logger.error("""Ambiguous object %s. Found several with """
+                                  """the same name. Cannot determine which """
+                                  """one is the right one.""" % ent.ad_id)
+                return False
         except Exception, e:
             self.logger.exception("Failed creating %s" % ent.ad_id)
             return False
