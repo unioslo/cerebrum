@@ -1,0 +1,37 @@
+# Set up and run tests
+# 
+# Required vars:
+#  - virtualenv
+#      Where the virtualenv should be placed.
+#  - crb_src_dir
+#      The source directory for cerebrum.
+#  - crb_tests
+#      The test folders, relative to {{ crb_src_dir }}/testsuite/tests
+
+
+- name: Place nose config
+  template: src={{ item }}
+            dest=/tmp/noseconfig_{{ virtualenv | replace('/', '_') }}.cfg
+  with_first_found:
+    - "../templates/{{ templates|default('.') }}/noseconfig.j2"
+    - "../templates/noseconfig.j2"
+
+- name: Place pylint config
+  template: src={{ item }}
+            dest=/tmp/pylintrc_{{ virtualenv | replace('/', '_') }}.cfg
+  with_first_found:
+    - "../templates/{{ templates|default('.') }}/pylintrc.j2"
+    - "../templates/pylintrc.j2"
+
+- name: Build test list
+  set_fact: _nosetest_args={{ crb_tests | default([]) | map("replace", "", crb_src_dir + "/testsuite/tests/", 1) | join(" ") }}
+
+- name: Run test
+  action: command {{ virtualenv }}/bin/nosetests 
+                  -c /tmp/noseconfig_{{ virtualenv | replace('/', '_') }}.cfg
+                  {{ _nosetest_args }}
+  register: _test_result
+  ignore_errors: yes
+
+- name: Print test output
+  debug: msg={{ _test_result.stderr | pprint }}

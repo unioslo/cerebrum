@@ -1,0 +1,12 @@
+# TODO: This file is intended for post-test tasks.
+#
+#       We could use this if we need to e.g.:
+#         - Handle the test reports in some way. We might want to:
+#           - Move/rename test reports for jenkins
+#           - Search-and-replace reference strings in the test reports, like
+#             site-packages/Cerebrum -> src/cerebrum/Cerebrum (if that works?)
+#         - Remove temporary files created by the tests
+#         - More?
+# 
+# Actually, we might also need to do this in the main playbook, as these tasks
+# would vary too much in behaviour.
