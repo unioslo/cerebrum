@@ -134,15 +134,23 @@
 # TODO: If no path (only basename) is given as value for an --extra-file
 #       option *AND* that file does not exist in the CWD, `makedb.py' should
 #       look for that file in the cereconf.CEREBRUM_DDL_DIR.
+- name: Copy helper script for makedb-args
+  copy: src=makedb_args.sh
+        dest=/tmp/makedb_args_{{ virtualenv | replace('/', '_') }}.sh
+        mode=0700
+  when: _db_created|changed
+  #set_fact: _makedb_extra_files='{{ crb_extra_files | default([]) | map("replace", "", "--extra-file " + virtualenv + "/share/cerebrum/design/", 1) | join(" ") }}'
+
 - name: Build sql file args for makedb.py
   when: _db_created|changed
-  set_fact: _makedb_extra_files='{{ crb_extra_files | default([]) | map("replace", "", "--extra-file " + virtualenv + "/share/cerebrum/design/", 1) | join(" ") }}'
+  command: /tmp/makedb_args_{{ virtualenv | replace('/', '_') }}.sh {{ virtualenv + "/share/cerebrum/design" }} {{ crb_extra_files | default([]) | join(" ") }}
+  register: _makedb_extra_files
 
 - name: Debug makedb args
   when: _makedb_extra_files is defined
-  debug: var=_makedb_extra_files
+  debug: var=_makedb_extra_files.stdout
 
 - name: Create Cerebrum schema with makedb.py
   when: _db_created|changed
-  action: command {{ virtualenv }}/bin/python makedb.py {{ _makedb_extra_files }}
+  action: command {{ virtualenv }}/bin/python makedb.py {{ _makedb_extra_files.stdout }}
           chdir={{ virtualenv }}/sbin
