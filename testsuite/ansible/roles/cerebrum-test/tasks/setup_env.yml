@@ -136,9 +136,11 @@
 #       look for that file in the cereconf.CEREBRUM_DDL_DIR.
 - name: Build sql file args for makedb.py
   when: _db_created|changed
-  set_fact: 
-    _makedb_extra_files:
-      '{{ crb_extra_files | default([]) | map("replace", "", "--extra-file " + virtualenv + "/share/cerebrum/design/", 1) | join(" ") }}'
+  set_fact: _makedb_extra_files='{{ crb_extra_files | default([]) | map("replace", "", "--extra-file " + virtualenv + "/share/cerebrum/design/", 1) | join(" ") }}'
+
+- name: Debug makedb args
+  when: _makedb_extra_files is defined
+  debug: var=_makedb_extra_files
 
 - name: Create Cerebrum schema with makedb.py
   when: _db_created|changed
