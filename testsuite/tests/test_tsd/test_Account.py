@@ -18,14 +18,6 @@ from datasource import BasicAccountSource, BasicPersonSource
 from dbtools import DatabaseTools
 from datasource import expired_filter, nonexpired_filter
 
-# Simple lamda-function to create a set of account_ids/entity_ids from a
-# sequence of dicts (or dict-like objects).
-# Lookup order is 'entity_id' -> 'account_id'. If none of the keys exist or
-# if a key exist but doesn't have an intval, a ValueError is raised.
-_set_of_ids = lambda accs: \
-    set((int(a.get('entity_id', a.get('account_id'))) for a in accs))
-
-
 class TSDAccountTest(unittest.TestCase):
 
     """ This is a testcase for TSD's Account class.
@@ -47,7 +39,9 @@ class TSDAccountTest(unittest.TestCase):
         cls._db.cl_init(change_program='nosetests')
         cls._db.commit = cls._db.rollback  # Let's try not to screw up the db
 
+        cls._pe = Factory.get('Person')(cls._db)
         cls._ac = Factory.get('Account')(cls._db)
+        cls._ou = Factory.get('OU')(cls._db)
         cls._co = Factory.get('Constants')(cls._db)
 
         # Data sources
@@ -65,8 +59,8 @@ class TSDAccountTest(unittest.TestCase):
         cls.db_tools.clear_accounts()
         cls.db_tools.clear_persons()
         cls.db_tools.clear_constants()
+        cls.db_tools.clear_ous()
         cls._db.rollback()
-
 
 class SimpleAccountsTest(TSDAccountTest):
 
@@ -83,3 +77,60 @@ class SimpleAccountsTest(TSDAccountTest):
                                     ):
             key = self._ac._generate_otpkey(bytes)
             self.assertEqual(len(key), expected_len)
+
+    def test_not_part_of_project(self):
+        """Account should not be approved for project"""
+        account_id = self.db_tools.create_account(self.account_ds().next())
+        self._ac.clear()
+        self._ac.find(account_id)
+        self.assertFalse(self._ac.is_approved())
+        self.assertRaises(Errors.NotFoundError, self._ac.get_tsd_project_id)
+
+    @unittest.skip
+    def test_unapproved_project(self):
+        """Account is not approved if project is not approved."""
+        raise Exception('not implemented yet')
+
+    def test_only_one_project(self):
+        """One account can only be part of *one* project."""
+        # Create TSD projects:
+        # TODO: This could be implemented in db_tools
+        ouids = []
+        self._ou.clear()
+        self._ou.create_project('test1')
+        ouids.append(self._ou.entity_id)
+        self._ou.clear()
+        pid = self._ou.create_project('test2')
+        ouids.append(self._ou.entity_id)
+
+        person_id = self.db_tools.create_person(self.person_ds().next())
+        self._pe.clear()
+        self._pe.find(person_id)
+        for ouid in ouids:
+            self._pe.populate_affiliation(
+                            source_system=self._co.system_nettskjema,
+                            ou_id=ouid,
+                            affiliation=self._co.affiliation_project,
+                            status=self._co.affiliation_status_project_member)
+            self._pe.write_db()
+
+        account = self.account_ds().next()
+        account['entity_id'] = self.db_tools.create_account(account, person_id)
+
+        self._ac.clear()
+        self._ac.find(account['entity_id'])
+        self._ac.set_account_type(ouids[0], self._co.affiliation_project)
+        self._ac.write_db()
+        self.assertRaises(Errors.CerebrumError, self._ac.set_account_type,
+                          ouids[1], self._co.affiliation_project)
+
+    def test_get_username_without_projectid(self):
+        """Get username without project-ID."""
+        for username, stripped in (
+                ('p22-ola', 'ola'),
+                ('p01-nordmann', 'nordmann'),
+                # Add more formats here when the we reach p99 and changes the
+                # name format.
+                ('p99-ola-nordmann-hansen', 'ola-nordmann-hansen')):
+            self.assertEqual(self._ac.get_username_without_project(username),
+                             stripped)

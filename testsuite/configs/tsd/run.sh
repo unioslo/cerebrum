@@ -80,57 +80,7 @@ info "Running nosetests"
 ${env_dir}/bin/nosetests -c ${config}/noseconfig.cfg ${crb_src}/testsuite/tests/test_tsd
 error=$(($? + $error))
 
-# TODO: More tests here?
-
-
-# The jenkins cobertura expects to find the coverage report in the SCM path, and
-# refuse to accept any other addressing.
-#
-# TODO: Something is odd with this. Maybe the tests should be done with
-# ${crb_src} in the path, and not the installed copy. It *should* be the same...
-#
-# Either way, this report is useless without the Jenkins cobertura plugin.
-#ln -sf ${root_dir}/coverage.xml ${crb_src}/coverage.xml
-
-
-#
-# Run pep8 syntax check
-# 
-#info "Running static test: pep8"
-#pushd ${root_dir}
-## The violations plugin (and sanity in general) expects the pep8 report to be
-## relative to the workspace root.
-#${env_dir}/bin/pep8 --format=default --exclude=extlib \
-#                    src/cerebrum/Cerebrum src/cerebum/contrib > ${root_dir}/pep8_report.txt
-#popd
-#
-## Run pylint error checks
-#info "Running static test: pylint"
-#pushd ${root_dir}
-## As with the pep8 static check, we need the reports to be relative to the
-## workspace root
-##
-## Also, we have to do some path manipulation to make pylint check the Cerebrum
-## module in the checked out source tree, and not the installed cerebrum module.
-#export PYTHONPATH=$( prepare_pypath ${env_dir}/etc/cerebrum ${crb_src} )
-
-#pylint_init="f='${env_dir}/bin/activate_this.py';execfile(f, dict(__file__=f))"
-
-# Note that we ignore E1101(no-member), as pylint won't recognize mixins that
-# aren't named '*mixin'. Maybe we should solve this better by setting
-# 'ignored-classes' in pylintrc? Not entirely sure what effect that has, but
-# it's recommended to do that for 'classes with dynamically set attributes'
-#${env_dir}/bin/pylint --rcfile=${config}/pylintrc --errors-only \
-                      #--disable=E1101 Cerebrum > ${root_dir}/pylint.txt
-
-# Contrib and other python files outside Cerebrum are not in our path. They need
-# to be checked individually. Let's do just that, and append to the pylint
-# report
-#for f in $( find src/cerebrum/contrib -name *.py )
-#do
-    #${env_dir}/bin/pylint --rcfile=${config}/pylintrc --errors-only  \
-                          #$f >> ${root_dir}/pylint.txt
-#done
-#popd
+# TODO: Where should the coverage report for Jenkins go?
+ln -sf ${root_dir}/coverage.xml ${crb_src}/coverage.${env_name}.xml
 
 exit $error
