@@ -631,7 +631,7 @@ class ADclient(PowershellClient):
         res_list = []
         json_output = self.get_output_json(out,dict())
         if json_output:
-            if type(json_output) is dict:
+            if isinstance(json_output, dict):
                 # In case there is found only one object, get_output_json will
                 # return a single dictionary. This method however needs to 
                 # return a list, so we have to make a list of one element.
