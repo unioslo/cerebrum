@@ -18,7 +18,14 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Script that checks the state between Cerebrum and Exchange"""
+"""Script that checks the state of dist.groups between Cerebrum and Exchange.
+
+This is done by:
+    - Pulling out all related attributes from Exchange, via LDAP.
+    - Pulling out all related information from Cerebrum, via API.
+    - Compare the two above.
+    - Send a report by mail/file.
+"""
 
 import cerebrum_path
 import cereconf
@@ -34,12 +41,26 @@ from Cerebrum.modules.Email import EmailAddress
 from Cerebrum.modules.exchange.CerebrumUtils import CerebrumUtils
 from Cerebrum import Utils
 from Cerebrum.Utils import read_password
+from Cerebrum import Errors
 import ldap
 
 logger = Utils.Factory.get_logger('cronjob')
 
+
 class StateChecker(object):
+
+    """Wrapper class for state-checking functions.
+
+    The StateChecker class wraps all the functions we need in order to
+    verify and report deviances between Cerebrum and Exchange.
+    """
+
     def __init__(self, logger, conf):
+        """Initzialize a new instance of out state-checker.
+
+        :param logger logger: The logger to use.
+        :param dict conf: Our StateCheckers configuration.
+        """
         self.db = Factory.get('Database')(client_encoding='UTF-8')
         self.co = Factory.get('Constants')(self.db)
         self.dg = Factory.get('DistributionGroup')(self.db)
@@ -51,18 +72,21 @@ class StateChecker(object):
 
         self.config = conf
         self.logger = logger
-        
+
         self._ldap_page_size = 1000
 
     def init_ldap(self):
+        """Initzialize LDAP connection."""
         self.ldap_srv = ldap.ldapobject.ReconnectLDAPObject(
-                                'ldap://%s/' % self.config['ldap_server'])
+            '%s://%s/' % (self.config['ldap_proto'],
+                          self.config['ldap_server']),
+            retry_max=5, retry_delay=60)
         usr = self.config['ldap_user'].split('\\')[1]
-        self.ldap_srv.bind(self.config['ldap_user'], read_password(usr,
-                                                    self.config['ldap_server']))
+        self.ldap_srv.bind_s(self.config['ldap_user'], read_password(
+            usr, self.config['ldap_server']))
 
         self.ldap_lc = ldap.controls.SimplePagedResultsControl(
-                ldap.LDAP_CONTROL_PAGE_OID, True, (self._ldap_page_size, ''))
+            ldap.LDAP_CONTROL_PAGE_OID, True, (self._ldap_page_size, ''))
 
     # Wrapping the search with retries if the server is busy or similar errors
     def _searcher(self, ou, scope, attrs, ctrls):
@@ -70,8 +94,8 @@ class StateChecker(object):
         e_save = None
         while c_fail <= 3:
             try:
-                return self.ldap_srv.search_ext(ou, scope,
-                                attrlist=attrs, serverctrls=ctrls)
+                return self.ldap_srv.search_ext(
+                    ou, scope, attrlist=attrs, serverctrls=ctrls)
                 c_fail = 0
                 e_save = None
             except ldap.LDAPError, e:
@@ -80,8 +104,8 @@ class StateChecker(object):
                 self.logger.debug('Caught %s in _searcher' % str(e))
                 time.sleep(30)
         if e_save:
-            raise e_save 
-    
+            raise e_save
+
     # Wrapping the fetch with retries if the server is busy or similar errors
     def _recvr(self, msgid):
         c_fail = 0
@@ -97,24 +121,36 @@ class StateChecker(object):
                 self.logger.debug('Caught %s in _recvr' % str(e))
                 time.sleep(30)
         if e_save:
-            raise e_save 
+            raise e_save
 
     # This is a paging searcher, that should be used for large amounts of data
     def search(self, ou, attrs, scope=ldap.SCOPE_SUBTREE):
+        """Wrapper for the search- and result-calls.
+
+        Implements paged searching.
+
+        :param str ou: The OU to search in.
+        :param list attrs: The attributes to fetch.
+        :param int scope: Our search scope, default is subtree.
+        :rtype: list
+        :return: List of objects.
+        """
         # Implementing paging, taken from
         # http://www.novell.com/coolsolutions/tip/18274.html
         msgid = self._searcher(ou, scope, attrs, [self.ldap_lc])
 
         data = []
         while True:
+            time.sleep(1)
             rtype, rdata, rmsgid, sc = self._recvr(msgid)
             data.extend(rdata)
-            pctrls = [c for c in sc if \
-                    c.controlType == ldap.LDAP_CONTROL_PAGE_OID]
+            pctrls = [c for c in sc if
+                      c.controlType == ldap.LDAP_CONTROL_PAGE_OID]
             if pctrls:
                 est, cookie = pctrls[0].controlValue
                 if cookie:
                     self.ldap_lc.controlValue = (self._ldap_page_size, cookie)
+                    time.sleep(1)
                     msgid = self._searcher(ou, scope, attrs, [self.ldap_lc])
                 else:
                     break
@@ -125,6 +161,14 @@ class StateChecker(object):
 
     # This search wrapper should be used for fetching members
     def member_searcher(self, dn, scope, attrs):
+        """Utility method for searching for group members.
+
+        :param str dn: The groups distinguished name.
+        :param int scope: Which scope to search by, should be BASE.
+        :param list attrs: A list of attributes to fetch.
+        :rtype: tuple
+        :return: The return-type and the result.
+        """
         # Wrapping the search, try three times
         c_fail = 0
         e_save = None
@@ -140,12 +184,22 @@ class StateChecker(object):
                 e_save = e
                 self.logger.debug('Caught %s in member_searcher' % str(e))
                 time.sleep(30)
-        raise e_save 
+        raise e_save
 
     # We need to implement a special function to pull out all the members from
     # a group, since the idiots at M$ forces us to select a range...
     # Fucking asswipes will burn in hell.
     def collect_members(self, dn):
+        """Fetch a groups members.
+
+        This method picks out members in slices, since AD LDAP won't give us
+        more than 1500 users at a time. If the range-part of the attribute name
+        ends with a star, we know that we need to look for more members...
+
+        :param str dn: The groups distinguished name.
+        :rtype: list
+        :return: A list of the members.
+        """
         # We are searching trough a range. 0 is the start point.
         low = str(0)
         members = []
@@ -155,6 +209,7 @@ class StateChecker(object):
             # the start point defined by the low-param
             attr = ['member;range=%s-*' % low]
             # Search'n fetch
+            time.sleep(1)  # Be polite
             rtype, r = self.member_searcher(dn, ldap.SCOPE_BASE, attr)
             # If this shit hits, no members exists. Break of.
             if not r[0][1]:
@@ -177,12 +232,19 @@ class StateChecker(object):
         return members
 
     def close(self):
-        self.ldap_srv.unbind()
+        """Close the connection to the LDAP server."""
+        self.ldap_srv.unbind_s()
 
 ###
 # Group related fetching & comparison
 ###
     def collect_exchange_group_info(self, group_ou):
+        """Collect group-information from Exchange, via LDAP.
+
+        :param str group_ou: The OrganizationalUnit to search for groups.
+        :rtype: dict
+        :return: A dict with the group attributes. The key is the group name.
+        """
         attrs = ['displayName',
                  'info',
                  'proxyAddresses',
@@ -190,9 +252,9 @@ class StateChecker(object):
                  'msExchHideFromAddressLists',
                  'msExchModeratedByLink',
                  'msExchEnableModeration']
-        
+
         r = self.search(group_ou, attrs)
-        
+
         ret = {}
         for cn, data in r:
             tmp = {}
@@ -208,8 +270,8 @@ class StateChecker(object):
                         if addr.startswith('SMTP:'):
                             tmp[u'Primary'] = addr[5:].decode('UTF-8')
                         # TODO: Correct var?
-                        if not cereconf.EXCHANGE_DEFAULT_ADDRESS_PLACEHOLDER \
-                                in addr:
+                        if (cereconf.EXCHANGE_DEFAULT_ADDRESS_PLACEHOLDER not
+                                in addr):
                             addrs.append(addr[5:].decode('UTF-8'))
                     tmp[u'Aliases'] = sorted(addrs)
                 elif key == 'managedBy':
@@ -223,18 +285,26 @@ class StateChecker(object):
                         mods.append(mod[3:].split(',')[0].decode('UTF-8'))
                     tmp[u'ModeratedBy'] = sorted(mods)
                 elif key == 'msExchEnableModeration':
-                    tmp[u'ModerationEnabled'] = True if \
-                            data[key][0].decode('UTF-8') == 'TRUE' else False
+                    tmp[u'ModerationEnabled'] = (
+                        True if data[key][0].decode('UTF-8') == 'TRUE' else
+                        False)
 
-            # Pulling 'em out the logical way... S..
-            tmp['Members'] = [ m[3:].split(',')[0] for m in \
-                                                    self.collect_members(cn) ]
+            # Skip reporting memberships for roomlists, since we don't manage
+            # those memberships.
+            # TODO: Generalize this
+            if name.startswith('rom-'):
+                tmp['Members'] = []
+            else:
+                # Pulling 'em out the logical way... S..
+                tmp['Members'] = sorted([m[3:].split(',')[0] for m in
+                                        self.collect_members(cn)])
 
             # Non-existent attribute means that the value is false. Fuckers.
-            if data.has_key('msExchHideFromAddressLists'):
+            if 'msExchHideFromAddressLists' in data:
                 tmp_key = 'msExchHideFromAddressLists'
-                tmp[u'HiddenFromAddressListsEnabled'] = True if \
-                        data[tmp_key][0].decode('UTF-8') == 'TRUE' else False
+                tmp[u'HiddenFromAddressListsEnabled'] = (
+                    True if data[tmp_key][0].decode('UTF-8') == 'TRUE' else
+                    False)
             else:
                 tmp[u'HiddenFromAddressListsEnabled'] = False
 
@@ -242,9 +312,13 @@ class StateChecker(object):
         return ret
 
     def collect_cerebrum_group_info(self, mb_spread, ad_spread):
-        # TODO: This entire function is so darn ugly. Rewrite EVERYTHING related
-        # to Exchange some day!
+        """Collect distgroup related information from Cerebrum.
 
+        :param int/str mb_spread: Spread of mailboxes in exchange.
+        :param int/str ad_spread: Spread of accounts in AD.
+        :rtype: dict
+        :return: A dict of users attributes. Uname is key.
+        """
         mb_spread = self.co.Spread(mb_spread)
         ad_spread = self.co.Spread(ad_spread)
 
@@ -263,7 +337,7 @@ class StateChecker(object):
             self.dg.find(dg['group_id'])
             roomlist = _true_or_false(self.dg.roomlist)
             data = self.dg.get_distgroup_attributes_and_targetdata(
-                                                            roomlist=roomlist)
+                roomlist=roomlist)
 
             # Yes. We must look up the user/group name......!!11
             try:
@@ -275,7 +349,8 @@ class StateChecker(object):
                     self.gr.clear()
                     self.gr.find(self.et.email_target_entity_id)
                     manager = self.gr.group_name
-                elif self.et.email_target_entity_type == self.co.entity_account:
+                elif (self.et.email_target_entity_type ==
+                        self.co.entity_account):
                     self.ac.clear()
                     self.ac.find(self.et.email_target_entity_id)
                     manager = self.ac.account_name
@@ -284,37 +359,67 @@ class StateChecker(object):
             except:
                 manager = u'Unknown'
 
-
             tmp[self.dg.group_name] = {
-                        u'Description': self.dg.description,
-                        u'DisplayName': data['displayname'],
-                        u'ManagedBy': [manager],
+                u'Description': self.dg.description,
+                u'DisplayName': data['displayname'],
+                u'ManagedBy': [manager],
             }
 
             if not roomlist:
+                # Split up the moderated by field, and resolve group members
+                # from groups if there are groups in the moderated by field!
+                moderators = []
+                for mod in data['modby']:
+                    try:
+                        self.gr.clear()
+                        self.gr.find_by_name(mod)
+                        membs = self.gr.search_members(
+                            group_id=self.gr.entity_id,
+                            indirect_members=True,
+                            member_spread=self.co.spread_exchange_account,
+                            include_member_entity_name=True)
+                        for row in membs:
+                            moderators.append(row['member_name'])
+                    except Errors.NotFoundError:
+                        moderators.append(mod)
+
                 tmp[self.dg.group_name].update({
-                            u'ModerationEnabled': \
-                                    _true_or_false(data['modenable']),
-                            u'ModeratedBy': sorted(data['modby']),
-                            u'HiddenFromAddressListsEnabled': \
-                                    _true_or_false(data['hidden']),
-                            u'Primary': data['primary'],
-                            u'Aliases': sorted(data['aliases'])
+                    u'ModerationEnabled': _true_or_false(data['modenable']),
+                    u'ModeratedBy': sorted(moderators),
+                    u'HiddenFromAddressListsEnabled':
+                        _true_or_false(data['hidden']),
+                    u'Primary': data['primary'],
+                    u'Aliases': sorted(data['aliases'])
                 })
 
             # Collect members
-            membs_unfiltered = self.ut.get_group_members(self.dg.entity_id,
-                                                        spread=mb_spread,
-                                                        filter_spread=ad_spread)
+            membs_unfiltered = self.ut.get_group_members(
+                self.dg.entity_id,
+                spread=mb_spread,
+                filter_spread=ad_spread
+            )
             members = [member['name'] for member in membs_unfiltered]
             tmp[self.dg.group_name].update({u'Members': sorted(members)})
+
         return tmp
 
     def compare_group_state(self, ex_group_info, cere_group_info, state,
-                                config):
-        # TODO: This is mostly copypasta fra compare_mailbox_state, refactor
-        # and generalize
-        
+                            config):
+        """Compare the information fetched from Cerebrum and Exchange.
+
+        This method produces a dict with the state between the systems,
+        and a report that will be sent to the appropriate target system
+        administrators.
+
+        :param dict ex_state: The state in Exchange.
+        :param dict ce_state: The state in Cerebrum.
+        :param dict state: The previous state generated by this method.
+        :param dict config: Configuration of reporting delays for various
+            attributes.
+        :rtype: tuple
+        :return: A tuple consisting of the new difference-state and a
+            human-readable report of differences.
+        """
         s_ce_keys = set(cere_group_info.keys())
         s_ex_keys = set(ex_group_info.keys())
         diff_group = {}
@@ -331,7 +436,7 @@ class StateChecker(object):
                 diff_stale[ident] = state['stale_group'][ident]
             else:
                 diff_stale[ident] = time.time()
-        
+
         # Groups in Cerebrum, but not in Exchange
         new_keys = list(s_ce_keys - s_ex_keys)
         for ident in new_keys:
@@ -341,34 +446,40 @@ class StateChecker(object):
                 diff_new[ident] = time.time()
 
         # Check groups that exists in both Cerebrum and Exchange for
-        # difference (& is union, in case you wondered). If an attribute is not
-        # in it's desired state in both this and the last run, save the
-        # timestamp from the last run. This is used for calculating when we nag
-        # to someone about stuff not beeing in sync.
+        # difference (& is union, in case you wondered). If an attribute is
+        # not in it's desired state in both this and the last run, save the
+        # timestamp from the last run. This is used for calculating when we
+        # nag to someone about stuff not beeing in sync.
         for key in s_ex_keys & s_ce_keys:
             for attr in cere_group_info[key]:
+                tmp = {}
                 if state and key in state['group'] and \
                         attr in state['group'][key]:
                     t_0 = state['group'][key][attr][u'Time']
                 else:
                     t_0 = time.time()
-                diff_group.setdefault(key, {})
+
                 if attr not in ex_group_info[key]:
-                    diff_group[key][attr] = {
-                         u'Exchange': None,
-                         u'Cerebrum': cere_group_info[key][attr],
-                         u'Time': t_0
+                    tmp = {
+                        u'Exchange': None,
+                        u'Cerebrum': cere_group_info[key][attr],
+                        u'Time': t_0
                         }
                 elif cere_group_info[key][attr] != ex_group_info[key][attr]:
-                    diff_group[key][attr] = {
-                         u'Exchange': ex_group_info[key][attr],
-                         u'Cerebrum': cere_group_info[key][attr],
-                         u'Time': t_0
+                    tmp = {
+                        u'Exchange': ex_group_info[key][attr],
+                        u'Cerebrum': cere_group_info[key][attr],
+                        u'Time': t_0
                         }
 
-        ret = { 'new_group': diff_new,
-                'stale_group':diff_stale,
-                'group': diff_group }
+                if tmp:
+                    diff_group.setdefault(key, {})[attr] = tmp
+
+        ret = {
+            'new_group': diff_new,
+            'stale_group': diff_stale,
+            'group': diff_group
+            }
 
         if not state:
             return ret, []
@@ -381,8 +492,8 @@ class StateChecker(object):
         # Report attribute mismatches for groups
         for key in diff_group:
             for attr in diff_group[key]:
-                delta = config.get(attr) if attr in config else \
-                                                config.get('UndefinedAttribute')
+                delta = (config.get(attr) if attr in config else
+                         config.get('UndefinedAttribute'))
                 if diff_group[key][attr][u'Time'] < now - delta:
                     t = time.strftime(u'%d%m%Y-%H:%M', time.localtime(
                         diff_group[key][attr][u'Time']))
@@ -396,21 +507,23 @@ class StateChecker(object):
                             s_ex_attr = set([])
                         new_attr = list(s_ce_attr - s_ex_attr)
                         stale_attr = list(s_ex_attr - s_ce_attr)
+                        if new_attr == stale_attr:
+                            continue
                         tmp = u'%-10s %-30s %s +%s:-%s' % (key, attr, t,
-                                                          str(new_attr),
-                                                          str(stale_attr))
+                                                           str(new_attr),
+                                                           str(stale_attr))
                     else:
-                        tmp = u'%-10s %-30s %s %s:%s' % (key, attr, t,
-                                    repr(diff_group[key][attr][u'Cerebrum']),
-                                    repr(diff_group[key][attr][u'Exchange']))
+                        tmp = u'%-10s %-30s %s %s:%s' % (
+                            key, attr, t,
+                            repr(diff_group[key][attr][u'Cerebrum']),
+                            repr(diff_group[key][attr][u'Exchange']))
                     report += [tmp]
-
 
         # Report uncreated groups
         report += ['\n# Uncreated groups (uname, time)']
         attr = 'UncreatedGroup'
-        delta = config.get(attr) if attr in config else \
-                                                config.get('UndefinedAttribute')
+        delta = (config.get(attr) if attr in config else
+                 config.get('UndefinedAttribute'))
         for key in diff_new:
             if diff_new[key] < now - delta:
                 t = time.strftime(u'%d%m%Y-%H:%M', time.localtime(
@@ -420,8 +533,8 @@ class StateChecker(object):
         # Report stale groups
         report += ['\n# Stale groups (uname, time)']
         attr = 'StaleGroup'
-        delta = config.get(attr) if attr in config else \
-                                                config.get('UndefinedAttribute')
+        delta = (config.get(attr) if attr in config else
+                 config.get('UndefinedAttribute'))
         for key in diff_stale:
             t = time.strftime(u'%d%m%Y-%H:%M', time.localtime(
                 diff_stale[key]))
@@ -436,12 +549,12 @@ class StateChecker(object):
 if __name__ == '__main__':
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                                    't:f:s:m:r:',
-                                    ['type=',
-                                     'file=',
-                                     'sender=',
-                                     'mail=',
-                                     'report-file='])
+                                   't:f:s:m:r:',
+                                   ['type=',
+                                    'file=',
+                                    'sender=',
+                                    'mail=',
+                                    'report-file='])
     except getopt.GetoptError, err:
         logger.warn(str(err))
 
@@ -468,7 +581,7 @@ if __name__ == '__main__':
     # TODO: Check if state file is defined here. If it does not contain any
     # data, or it is not defined trough the command line, create an empty data
     # structure
-    
+
     try:
         f = open(state_file, 'r')
         state = pickle.load(f)
@@ -492,7 +605,7 @@ if __name__ == '__main__':
                                                cere_group_info,
                                                state,
                                                attr_config)
-    
+
     try:
         rep = u'\n'.join(report)
     except UnicodeDecodeError, e:
@@ -504,7 +617,7 @@ if __name__ == '__main__':
     # Send a report by mail
     if mail and sender:
         Utils.sendmail(mail, sender, 'Exchange group state report',
-                                                            rep.encode('utf-8'))
+                       rep.encode('utf-8'))
 
     # Write report to file
     if repfile:
@@ -516,4 +629,3 @@ if __name__ == '__main__':
     f = open(state_file, 'w')
     pickle.dump(new_state, f)
     f.close()
-
