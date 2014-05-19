@@ -1451,6 +1451,14 @@ class BaseSync(object):
             #    self.logger.info("Sleeping, wait for AD to sync the controllers...")
             #    time.sleep(5)
             self.script('new_object', obj, ent)
+        else:
+            # It is an existing object, but under wrong OU (otherwise it would
+            # have been fetched earlier). It should be therefore passed to 
+            # process_ad_object, like it was done before for all found objects.
+            # NB! For some upper classes process_ad_object is overridden and
+            # performs extra actions. In this case they will not be performed,
+            # but the next iteration of sync should fix this.
+            self.process_ad_object(obj)
         return obj
 
     def create_ou(self, dn):
@@ -2434,10 +2442,6 @@ class UserSync(BaseSync):
                 # account after a valid password has been set.
                 if ent.active:
                     self.server.enable_object(ret['DistinguishedName'])
-        else:
-            # This is an existing user which is under wrong OU.
-            # Just pass it to a processing method.
-            self.process_ad_object(ret)
             
         # If more functionality gets put here, you should check if the entity is
         # active, and not update it if the config says so (downgrade).
@@ -2631,30 +2635,6 @@ class GroupSync(BaseSync):
         if self.config['group_scope'] not in ('global', 'universal'):
             raise Exception('Invalid group scope: %s' %
                             self.config['group_scope'])
-
-    def process_entity_not_in_ad(self, ent):
-        """Process a group that doesn't exist in AD, yet.
-
-        We should create and update a Group object in AD for those who are 
-        not in AD yet. The object should then be updated as normal objects.
-
-        @type: CerebrumEntity
-        @param: An object representing an entity in Cerebrum.
-
-        """
-        ret = super(GroupSync, self).process_entity_not_in_ad(ent)
-        if not ret:
-            self.logger.warn("What to do? Got None from super for: %s" %
-                             ent.entity_name)
-            return
-        if not ent.ad_new:
-            # This is an existing group which is under wrong OU.
-            # Just pass it to a processing method.
-            self.process_ad_object(ret)
-            
-        # If more functionality gets put here, you should check if the entity is
-        # active, and not update it if the config says so (downgrade).
-        return ret
 
     def process_ad_object(self, ad_object):
         """Process a Group object retrieved from AD.
