@@ -270,7 +270,7 @@ class OUTSDMixin(OU):
         self.write_db()
         return pid
 
-    def setup_project(self, creator_id):
+    def setup_project(self, creator_id, vlan=None):
         """Set up an approved project properly.
 
         By setting up a project we mean:
@@ -283,19 +283,21 @@ class OUTSDMixin(OU):
         called from all imports and jobs that creates TSD projects.
 
         Note that the given OU must have been set up with a proper project ID,
-        stored as an external_id, and a project name, stored as an acronym,
+        stored as an `external_id`, and a project name, stored as an acronym,
         before this method could be called. The project must already be
         approved for this to happen, i.e. not in quarantine.
 
-        @type creator_id: int
-        @param creator_id:
-            The creator of the project. Either the entity_id of the
+        :param int creator_id:
+            The creator of the project. Either the `entity_id` of the
             administrator that created the project or a system user.
+
+        :param int vlan:
+            If given, sets the VLAN number to give to the project's subnets.
 
         """
         if not self.is_approved():
             raise Errors.CerebrumError("Project is not approved, cannot setup")
-        self._setup_project_dns(creator_id)
+        self._setup_project_dns(creator_id, vlan)
         self._setup_project_hosts(creator_id)
         self._setup_project_groups(creator_id)
         self._setup_project_posix(creator_id)
@@ -410,8 +412,20 @@ class OUTSDMixin(OU):
                     raise Exception("Unknown member type in: %s" % mem)
             gr.write_db()
 
-    def _setup_project_dns(self, creator_id):
-        """Setup a new project's DNS info, like subnet and VLAN."""
+    def _setup_project_dns(self, creator_id, vlan=None):
+        """Setup a new project's DNS info, like subnet and VLAN.
+
+        :param int creator_id:
+            The entity_id for the user who executes this.
+        :param int vlan:
+            If given, overrides what VLAN number to set for the project's
+            subnets. The VLAN number is set by default to::
+
+                cereconf.SUBNET_START + projectID
+
+            e.g: `1200 + p22 = 1222`.
+
+        """
         projectid = self.get_project_id()
         subnet = dns.Subnet.Subnet(self._db)
         subnet6 = dns.IPv6Subnet.IPv6Subnet(self._db)
@@ -421,7 +435,13 @@ class OUTSDMixin(OU):
         # only cut out the first character, which is normally 'p', and the rest
         # _should_ be digits:
         intpid = self.get_project_int()
-        vlan = intpid + cereconf.VLAN_START
+        if not vlan:
+            # TODO: Is it okay to choose the VLAN by the project ID.
+            vlan = intpid + cereconf.VLAN_START
+        try:
+            vlan = int(vlan)
+        except ValueError:
+            raise Errors.CerebrumError('VLAN not valid: %s' % (vlan,))
 
         # Check that the VLAN is not already in use. TBD: Or is this acceptable
         # in TSD?

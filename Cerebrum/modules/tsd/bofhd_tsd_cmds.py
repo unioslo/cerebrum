@@ -144,6 +144,13 @@ class SubnetParam(cmd.Parameter):
     _type = 'subnet'
     _help_ref = 'subnet'
 
+class VLANParam(cmd.Parameter):
+
+    """ A VLAN number """
+
+    _type = 'vlan'
+    _help_ref = 'vlan'
+
 
 class TSDBofhdExtension(BofhdCommonMethods):
 
@@ -633,13 +640,20 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     all_commands['project_create'] = cmd.Command(
         ('project', 'create'), ProjectName(), ProjectLongName(),
         ProjectShortName(), cmd.Date(help_ref='project_start_date'),
-        cmd.Date(help_ref='project_end_date'),
+        cmd.Date(help_ref='project_end_date'), VLANParam(optional=True),
         perm_filter='is_superuser')
 
     @superuser
     def project_create(self, operator, projectname, longname, shortname,
-                       startdate, enddate):
-        """Create a new project."""
+                       startdate, enddate, vlan=None):
+        """Create a new TSD project.
+
+        :param BofhdSession operator:
+            The operator's Session, i.e. the user which executes the command.
+        :param int vlan:
+            If given, sets what VLAN the project's subnet should be set in.
+
+        """
         start = self._parse_date(startdate)
         end = self._parse_date(enddate)
         if end < DateTime.now():
@@ -674,9 +688,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                                  creator=operator.get_entity_id(), start=end,
                                  description='Initial end set by superuser')
         ou.write_db()
-        ou.setup_project(operator.get_entity_id())
-        #if not ou.get_entity_quarantine(only_active=True):
-        #    self.gateway.create_project(pid)
+        ou.setup_project(operator.get_entity_id(), vlan)
         return "New project created: %s" % pid
 
     all_commands['project_terminate'] = cmd.Command(
@@ -699,11 +711,11 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         return "Project terminated: %s" % projectid
 
     all_commands['project_approve'] = cmd.Command(
-        ('project', 'approve'), ProjectID(),
+        ('project', 'approve'), ProjectID(), VLANParam(optional=True),
         perm_filter='is_superuser')
 
     @superuser
-    def project_approve(self, operator, projectid):
+    def project_approve(self, operator, projectid, vlan=None):
         """Approve an existing project that is not already approved. A project
         is created after we get metadata for it from the outside world, but is
         only visible inside of Cerebrum. When a superuser approves the project,
@@ -721,7 +733,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
         project.delete_entity_quarantine(type=self.const.quarantine_not_approved)
         project.write_db()
-        project.setup_project(operator.get_entity_id())
+        project.setup_project(operator.get_entity_id(), vlan)
         if not project.get_entity_quarantine(only_active=True):
             # Active project only if no other quarantines
             #self.gateway.create_project(projectid)
