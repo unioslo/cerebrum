@@ -23,15 +23,22 @@
     - "../templates/{{ templates|default('.') }}/pylintrc.j2"
     - "../templates/pylintrc.j2"
 
-- name: Build test list
-  set_fact: _nosetest_args={{ crb_tests | default([]) | map("replace", "", crb_src_dir + "/testsuite/tests/", 1) | join(" ") }}
+# Build test list.
+# This could probably be prettier, and more efficient...
+#- name: Build test list
+  #set_fact: _nosetest_args={{ crb_tests | default([]) | map("replace", "", crb_src_dir + "/testsuite/tests/", 1) | join(" ") }}
+- name: Copy helper script for nosetest-args
+  copy: src=nosetest_args.sh
+        dest=/tmp/nosetest_args_{{ virtualenv | replace('/', '_') }}.sh
+        mode=0700
+
+- name: Build test list for nosetests
+  command: /tmp/nosetest_args_{{ virtualenv | replace('/', '_') }}.sh {{ crb_src_dir + "/testsuite/tests" }} {{ crb_tests | default([]) | join(" ") }}
+  register: _nosetest_tests
 
 - name: Run test
   action: command {{ virtualenv }}/bin/nosetests 
                   -c /tmp/noseconfig_{{ virtualenv | replace('/', '_') }}.cfg
-                  {{ _nosetest_args }}
+                  {{ _nosetest_tests.stdout }}
   register: _test_result
-  ignore_errors: yes
-
-- name: Print test output
-  debug: msg={{ _test_result.stderr | pprint }}
+  #ignore_errors: yes
