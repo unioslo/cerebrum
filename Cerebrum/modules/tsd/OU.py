@@ -39,6 +39,8 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules import dns
 from Cerebrum.modules import EntityTrait
 
+from Cerebrum.modules.tsd import TSDUtils
+
 class OUTSDMixin(OU):
     """Mixin of OU for TSD. Projects in TSD are stored as OUs, which then has to
     be unique.
@@ -293,12 +295,26 @@ class OUTSDMixin(OU):
         """
         if not self.is_approved():
             raise Errors.CerebrumError("Project is not approved, cannot setup")
-        projectid = self.get_project_id()
         self._setup_project_dns(creator_id)
+        self._setup_project_hosts(creator_id)
+        self._setup_project_groups(creator_id)
+        self._setup_project_posix(creator_id)
 
+    def _setup_project_groups(self, creator_id):
+        """Setup the groups belonging to the given project.
+
+        @type creator_id: int
+        @param creator_id:
+            The creator of the project. Either the entity_id of the
+            administrator that created the project or a system user.
+
+        """
+        projectid = self.get_project_id()
         gr = Factory.get("PosixGroup")(self._db)
+        ac = Factory.get('Account')(self._db)
+        pe = Factory.get('Person')(self._db)
 
-        def _create_group(groupname, desc, trait, spreads):
+        def _create_group(groupname, desc, spreads):
             """Helper function for creating a group.
             
             @type groupname: string
@@ -308,11 +324,6 @@ class OUTSDMixin(OU):
             @type desc: string
             @param desc: The description that should get stored at the new
                 group.
-
-            @type trait: TraitConstant
-            @param trait: The type of trait that should be stored at the group,
-                to affiliate the group with the current project. The
-                L{target_id} gets set to the project, i.e. L{self}.
 
             @type spreads: list of str
             @param spreads:
@@ -329,31 +340,75 @@ class OUTSDMixin(OU):
                 gr.populate(creator_id, self.const.group_visibility_all,
                             groupname, desc)
                 gr.write_db()
-
             # Each group is linked to the project by a project trait:
-            gr.populate_trait(code=trait, target_id=self.entity_id,
-                              date=DateTime.now())
+            gr.populate_trait(code=self.const.trait_project_group,
+                              target_id=self.entity_id, date=DateTime.now())
             gr.write_db()
-
+            # Add defined spreads:
             for strcode in spreads:
                 spr = self.const.Spread(strcode)
                 if not gr.has_spread(spr):
                     gr.add_spread(spr)
                     gr.write_db()
 
-        # Create project groups
         for suffix, desc, spreads in getattr(cereconf, 'TSD_PROJECT_GROUPS', ()):
-            _create_group(suffix, desc, self.const.trait_project_group, spreads)
-        # Create machines:
-        self._setup_project_hosts(creator_id)
-        # Promote POSIX data:
-        self._setup_posix(creator_id)
+            _create_group(suffix, desc, spreads)
 
-        # TODO: Add accounts to the various groups:
-        gr.clear()
-        #gr.find_by_name('%s_member' % projectid)
-        #for row in ac.list_accounts_by_type(ou_id=self.entity_id):
-        #    pass
+        def _get_persons_accounts(person_id):
+            """Helper method for getting this project's accounts for a person.
+
+            Only the accounts related to this project OU are returned.
+
+            @type person_id: int
+            @param person_id:
+                Only return the accounts belonging to the given person.
+
+            @rtype: generator (yielding ints)
+            @return:
+                The persons accounts' entity_ids.
+
+            """
+            return (r['account_id'] for r in
+                    ac.list_accounts_by_type(person_id=person_id,
+                                             ou_id=self.entity_id))
+
+        # Update group memberships:
+        for grname, members in getattr(cereconf, 'TSD_GROUP_MEMBERS',
+                                       dict()).iteritems():
+            grname = '-'.join((projectid, grname))
+            gr.clear()
+            try:
+                gr.find_by_name(grname)
+            except Errors.NotFoundError:
+                # Group not created, skipping
+                continue
+            for mem in members:
+                memtype, memvalue = mem.split(':')
+                if memtype == 'group':
+                    gr2 = Factory.get('Group')(self._db)
+                    gr2.find_by_name('-'.join((projectid, memvalue)))
+                    if not gr.has_member(gr2.entity_id):
+                        gr.add_member(gr2.entity_id)
+                elif memtype == 'person_aff':
+                    # Fetch the correct affiliation, handle both a single
+                    # "AFFILIATION" and the "AFFILIATION/status" format:
+                    try:
+                        af, st = memvalue.split('/')
+                    except ValueError:
+                        aff = self.const.PersonAffiliation(memvalue)
+                        status = None
+                    else:
+                        aff = self.const.PersonAffiliation(af)
+                        status = self.const.PersonAffStatus(aff, st)
+                    for row in pe.list_affiliations(ou_id=self.entity_id,
+                                                    affiliation=aff,
+                                                    status=status):
+                        for a_id in _get_persons_accounts(row['person_id']):
+                            if not gr.has_member(a_id):
+                                gr.add_member(a_id)
+                else:
+                    raise Exception("Unknown member type in: %s" % mem)
+            gr.write_db()
 
     def _setup_project_dns(self, creator_id):
         """Setup a new project's DNS info, like subnet and VLAN."""
@@ -437,28 +492,23 @@ class OUTSDMixin(OU):
 
         if vm_type in ('win_vm', 'win_and_linux_vm'):
             # Create a Windows host for the whole project
+            hostname = '%s-win01.tsd.usit.no.' % projectid
             hinfo = 'IBM-PC\tWINDOWS'
-            # TODO: Need to confirm correct hostname
-            hostname = '%s-project-l.tsd.usit.no.' % projectid
-            dns_owner = self._populate_dnsowner(hostname)
+            dnsowner = self._populate_dnsowner(hostname)
             try:
-                host.find_by_dns_owner_id(dns_owner.entity_id)
+                host.find_by_dns_owner_id(dnsowner.entity_id)
             except Errors.NotFoundError:
-                host.populate(dns_owner.entity_id, hinfo)
+                host.populate(dnsowner.entity_id, hinfo)
             host.hinfo = hinfo
             host.write_db()
-            # TODO: add dns-comment and/or dns-contact?
-        elif vm_type in ('linux_vm',):
-            # TODO: Create linux hosts per project user.
-            # TODO: Should we do this somewhere else instead, as it should be
-            #       connected per account? E.g. in AccountTSDmixin.
-            hinfo = 'IBM-PC\tLINUX'
+            for comp in getattr(cereconf, 'TSD_HOSTPOLICIES_WIN', ()):
+                TSDUtils.add_host_to_policy_component(self._db,
+                                                      dnsowner.entity_id, comp)
 
-    def _setup_posix(self, creator_id):
+    def _setup_project_posix(self, creator_id):
         """Setup POSIX data for the project."""
         ac = Factory.get('Account')(self._db)
         pu = Factory.get('PosixUser')(self._db)
-
         for row in ac.list_accounts_by_type(
                         ou_id=self.entity_id,
                         affiliation=self.const.affiliation_project):
@@ -477,22 +527,22 @@ class OUTSDMixin(OU):
     def _populate_dnsowner(self, hostname, ipv6_adr=None):
         """Create or update a DnsOwner connected to the given project.
 
+        The DnsOwner is given a trait, to affiliate it with this project-OU.
+
         This should rather be put in the DNS module, but due to its complexity,
         its weird layout, and my lack of IQ points to understand it, I started
         just using its API instead.
 
-        @type hostname: str
-        @param hostname: The given FQDN for the host.
+        :param str hostname: The given *FQDN* for the host.
 
-        @type ipv6_adr: str
-        @param ipv6_adr:
+        :param str ipv6_adr:
             The given IPv6 address to set for the host. Only IPv6 addresses are
             needed for projects in TSD, so IPv4 addresses must be added
             manually. If not given, a free IP address in the project's subnet
             will be used.
 
-        @rtype: DnsOwner object
-        @return:
+        :rtype: DnsOwner object
+        :return:
             The DnsOwner object that is created or updated.
 
         """

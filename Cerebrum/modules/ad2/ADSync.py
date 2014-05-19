@@ -66,6 +66,7 @@ from Cerebrum.modules.ad2.CerebrumData import CerebrumEntity
 from Cerebrum.modules.ad2.CerebrumData import CerebrumUser
 from Cerebrum.modules.ad2.CerebrumData import CerebrumGroup
 from Cerebrum.modules.ad2.CerebrumData import CerebrumDistGroup
+from Cerebrum.modules.ad2.ConfigUtils import ConfigError
 from Cerebrum.modules.ad2.winrm import PowershellException, CRYPTO
 
 class BaseSync(object):
@@ -308,20 +309,22 @@ class BaseSync(object):
         for key, default in self.settings_with_default:
             self.config[key] = config_args.get(key, default)
 
-        # Set what object class in AD to use, either the config or what is set
-        # in any of the subclasses of the ADSync. Most subclasses should set a
-        # default object class.
+        # Set what object class type in AD to use, either the config or what is
+        # set in any of the subclasses of the ADSync. Most subclasses should set
+        # a default object class.
         self.ad_object_class = config_args.get('ad_object_class',
                                                self.default_ad_object_class)
 
         # The object class is generated dynamically, depending on the given list
         # of classes:
-        self.logger.debug("Using object classes: %s",
-                          ', '.join(config_args['object_classes']))
+        self.logger.debug2("Using object classes: %s",
+                           ', '.join(config_args['object_classes']))
         self._object_class = self._generate_dynamic_class(
                 config_args['object_classes'], 
                 '_dynamic_adobject_%s' % self.config['sync_type'])
-
+        if not issubclass(self._object_class, CerebrumEntity):
+            raise ConfigError(
+                    'Given object_classes not subclass of %s' % CerebrumEntity)
 
         # Calculate target spread and target entity_type, depending on what
         # settings that exists:
@@ -804,7 +807,15 @@ class BaseSync(object):
         entities.
 
         """
-        self.logger.debug("Fetch attributes...")
+        # Check if data from the attribute table is needed:
+        attrtypes = set()
+        for c in ConfigUtils.get_config_by_type(self.config['attributes'],
+                                                ConfigUtils.ADAttributeAttr):
+            attrtypes.update(c.attributes)
+        if not attrtypes:
+            return
+        self.logger.debug("Fetch from attribute table: %s",
+                          ', '.join(str(a) for a in attrtypes))
         ids = None
         if self.config['subset']:
             ids = self.id2entity.keys()
@@ -813,19 +824,18 @@ class BaseSync(object):
                 return
         i = 0
         # TODO: fetch only the attributes defined in config - would be faster
-        for row in self.ent.list_ad_attributes(entity_id=ids,
-                                               spread=self.config['target_spread']):
-            # TODO: is co caching such attributes? if not, we should prefetch
-            # it, or make the new list method support fetching it:
-            attr = self.co.ADAttribute(int(row['attr_code']))
-            if str(attr) not in self.config['attributes']:
-                continue
+        for row in self.ent.list_ad_attributes(
+                                entity_id=ids,
+                                spread=self.config['target_spread'],
+                                attribute=attrtypes):
             e = self.id2entity.get(row['entity_id'], None)
             if e:
-                if attr.multivalued:
-                    e.attributes.setdefault(str(attr), []).append(row['value'])
+                attr = int(row['attr_code'])
+                attrcode = self.co.ADAttribute(attr)
+                if attrcode.multivalued:
+                    e.cere_attributes.setdefault(attr, []).append(row['value'])
                 else:
-                    e.attributes[str(attr)] = row['value']
+                    e.cere_attributes[attr] = row['value']
                 i += 1
         self.logger.debug("Fetched %d AD attributes from Cerebrum" % i)
 
@@ -863,7 +873,7 @@ class BaseSync(object):
         self.logger.debug("Fetched %d SIDs from Cerebrum" % i)
 
     def fetch_names(self):
-        """Get all the entity names for the entitites from Cerebrum.
+        """Get all the entity names for the entities from Cerebrum.
 
         """
         self.logger.debug("Fetch name information...")
@@ -1089,13 +1099,15 @@ class BaseSync(object):
         # Compare attributes:
         changes = self.get_mismatch_attributes(ent, ad_object)
         if changes:
+            # Save the list of changes for possible future use
+            ent.changes = changes
             self.server.update_attributes(dn, changes, ad_object)
         # Store SID in Cerebrum
         self.store_sid(ent, ad_object.get('SID'))
         return True
 
     def get_mismatch_attributes(self, ent, ad_object):
-        """Compare entity's attributes between Cerebrum and AD.
+        """Compare an entity's attributes between Cerebrum and AD.
 
         If the attributes exists in both places, it should be updated if it
         doesn't match. If it only exists
@@ -1103,23 +1115,44 @@ class BaseSync(object):
         The changes gets appended to the entity's change list for further
         processing.
 
-        @type ent: CerebrumEntity
-        @param ent:
+        :type ent: CerebrumEntity
+        :param ent:
             The given entity from Cerebrum, with calculated attributes.
 
-        @type ad_object: dict (an object in the future?)
-        @param ad_object: 
+        :type ad_object: dict
+        :param ad_object:
             The given attributes from AD for the target object.
 
-        @rtype: dict
-        @return:
-            The list of attributes that doesn't match and should be updated.
+        :rtype: dict
+        :return:
+            The list of attributes that doesn't match and should be updated. The
+            key is the name of the attribute, and the value is a dict with the
+            elements:
+
+            - *add*: For elements that should be added to the attribute in AD.
+            - *remove*: For elements that should be removed from the attribute.
+            - *fullupdate*: For attributes that should be fully replaced.
+
+            The result could be something like::
+
+                {'Member': {
+                        'add': ('userX', 'userY',),
+                        'remove': ('userZ',),
+                        },
+                 'Description': {
+                        'fullupdate': 'New description',
+                        },
+                 }
 
         """
         ret = {}
-        for atr in self.config['attributes']:
+        for atr, atrconfig in self.config['attributes'].iteritems():
             value = ent.attributes.get(atr, None)
             ad_value = ad_object.get(atr, None)
+            # Filter/convert the value from AD before getting compared:
+            if ad_value and isinstance(atrconfig, ConfigUtils.AttrConfig):
+                if atrconfig.ad_transform:
+                    ad_value = atrconfig.ad_transform(ad_value)
             mismatch, add_elements, remove_elements = \
                 self.attribute_mismatch(ent, atr, value, ad_value)
             if mismatch:
@@ -1128,23 +1161,23 @@ class BaseSync(object):
                     self.logger.debug("Mismatch attr for %s: %s.", 
                                       ent.entity_name, atr)
                     if add_elements:
-                        self.logger.debug(" - adding: %s",
-                                          '; '.join(str(m) for m in
-                                                    add_elements))
+                        self.logger.debug(
+                                " - adding: %s",
+                                '; '.join('%s (%s)' % (m, type(m)) for m in
+                                          add_elements))
                         ret[atr]['add'] = add_elements
                     if remove_elements:
-                        self.logger.debug(" - removing: %s",
-                                          '; '.join(str(m) for m in
-                                                    remove_elements))
+                        self.logger.debug(
+                                " - removing: %s",
+                                '; '.join('%s (%s)' % (m, type(m)) for m in
+                                          remove_elements))
                         ret[atr]['remove'] = remove_elements
                 else:
-                    self.logger.debug("""Mismatch attr for %s: %s: """
-                                      """Need to replace current value '%s' """
-                                      """with a new value '%s'""",
-                                      ent.entity_name, atr, ad_value, value)
+                    self.logger.debug(
+                            "Mismatch attr %s for %s: '%s' (%s) -> '%s' (%s)",
+                            atr, ent.entity_name, ad_value, type(ad_value),
+                            value, type(value))
                     ret[atr]['fullupdate'] = value
-        # Save the list of changes for possible future use
-        ent.changes = ret
         return ret
 
     def attribute_mismatch(self, ent, atr, c, a):
@@ -1157,28 +1190,31 @@ class BaseSync(object):
         The attributes are matched in different ways. The order does for example
         not matter for multivalued attributes, i.e. lists.
 
-        @type ent: CerebrumEntity
-        @param ent:
+        :type ent: CerebrumEntity
+        :param ent:
             The given entity from Cerebrum, with calculated attributes.
 
-        @type atr: str
-        @param atr: The name of the attribute to compare
+        :type atr: str
+        :param atr: The name of the attribute to compare
 
-        @type c: mixed
-        @param c: The value from Cerebrum for the given attribute
+        :type c: mixed
+        :param c: The value from Cerebrum for the given attribute
 
-        @type a: mixed
-        @param a: The value from AD for the given attribute
+        :type a: mixed
+        :param a: The value from AD for the given attribute
 
-        @rtype: (bool, list, list)
-        @return:
-            A tuple of three values.
-            The first value is True if the attribute from Cerebrum and AD 
-            does not match and should be updated in AD.
-            If the attribute is a list and only some of its elements should
-            be updated, the second and the third values list the elements
-            that should be respectively added or removed.
-        
+        :rtype: tuple(bool, list, list)
+        :return:
+            A tuple with three elements::
+
+                (<bool:is_mismatching>, <set:to_add>, <set:to_remove>)
+
+            The first value is True if the attribute from Cerebrum and AD does
+            not match and should be updated in AD. If the attribute is a list
+            and only some of its elements should be updated, the second and the
+            third values list the elements that should be respectively added or
+            removed.
+
         """
 
         # TODO: Should we care about case sensitivity?
@@ -1199,7 +1235,7 @@ class BaseSync(object):
         if atr.lower() == 'samaccountname':
             if a is None or c.lower() != a.lower():
                 return (True, None, None)
-        # Order does not matter in multivalued attributes:
+        # Order does not matter in multivalued attributes
         types = (list, tuple, set)
         if isinstance(c, types) and isinstance(a, types):
             # TODO: Do we in some cases need to unicodify strings before
@@ -1509,8 +1545,9 @@ class BaseSync(object):
 
         """
         dn = ad_object['DistinguishedName']
-        if dn.endswith(ou):
-            return # Already in the correct location
+        if ou == dn.split(',', 1)[1]:
+            # Already in the correct location
+            return
         try:
             self.server.move_object(dn, ou)
         except ADUtils.OUUnknownException:
@@ -1687,6 +1724,7 @@ class UserSync(BaseSync):
     def __init__(self, *args, **kwargs):
         """Instantiate user specific functionality."""
         super(UserSync, self).__init__(*args, **kwargs)
+        self.addr2username = {}
         self.ac = Factory.get("Account")(self.db)
         self.pe = Factory.get("Person")(self.db)
 
@@ -1731,6 +1769,12 @@ class UserSync(BaseSync):
 
         """
         super(UserSync, self).fetch_cerebrum_data()
+
+        # No need to fetch Cerebrum data if there are no entities to add them
+        # to. Some methods in the Cerebrum API also raises an exception if given
+        # an empty list of entities.
+        if not self.entities:
+            return
 
         # Create a mapping of owner id to user objects
         self.logger.debug("Fetch owner information...")
@@ -2175,6 +2219,7 @@ class UserSync(BaseSync):
                     adrid2email[row['address_id']] = adr
                     ent.maildata.setdefault('alias', []).append(adr)
                     i += 1
+                    self.addr2username[adr.lower()] = ent.entity_name
             self.logger.debug("Found %d email addresses", i)
 
             epat = Email.EmailPrimaryAddressTarget(self.db)
@@ -2690,61 +2735,138 @@ class GroupSync(BaseSync):
         self.logger.debug2('Found %d persons mapped to a primary account',
                            len(self.personid2primary))
 
-    def fetch_members_by_spread(self):
-        """Fetch the group members of given type that have given spread.
+    def _get_group_hierarchy(self, person2primary=False):
+        """Get mappings of every group and every membership.
 
-        Is not run if a member attribute is not defined in configuration.
+        This is a costly method, as its fetches _all_ groups and _all_ its
+        memberships from the database. This took for instance 25 seconds for
+        10000 groups in the test environment. The advantage of this is that we
+        cache the data you would otherwise need to ask the db about for each
+        group.
+
+        TODO: Note that we are, by specifying L{person2primary} here, overriding
+        the person2primary setting for all member attributes, and does not
+        respect each attribute's setting of this. Might need to handle this
+        later, and not set it globally.
+
+        @type person2primary: bool
+        @param person2primary:
+            If set to True, every person that is a member is swapped out with
+            its primary account from the L{self.personid2primary} dict.
+
+        @rtype: tuple(dict, dict)
+        @return:
+            Two mappings, one from group_id to all its member_ids, and one from
+            member_id to all its group_ids. Both dicts contain the same data,
+            but both is returned for convenience.
+
+        """
+        groups = dict()
+        mem2group = dict()
+        for row in self.gr.search_members():
+            # TODO: Should we skip entities not in either self.id2entity nor
+            # self.id2extraentity?
+            groups.setdefault(row['group_id'], set()).add(row['member_id'])
+            if person2primary and row['member_type'] == self.co.entity_person:
+                # Add persons by their primary account. Note that the primary
+                # account must also have the correct AD spread to be added.
+                account_id = self.personid2primary.get(row['member_id'])
+                if account_id:
+                    self.logger.debug3("Adding person %s by primary: %s",
+                                       row['member_id'], account_id)
+                    mem2group.setdefault(account_id, set()).add(row['group_id'])
+                else:
+                    self.logger.debug2("Person %s has no primary account",
+                                       row['member_id'])
+            else:
+                mem2group.setdefault(row['member_id'], set()).add(row['group_id'])
+        return groups, mem2group
+
+    def fetch_members_by_spread(self):
+        """Fetch the group members by the member spreads defined by the config.
+
+        This method only fetches what is needed. It will not fetch anything if
+        no L{MemberAttr} attribute is defined.
 
         """
         if not ConfigUtils.has_config(self.config['attributes'], 
                                   ConfigUtils.MemberAttr):
             # No need for such data
             return
-        self.logger.debug("Fetch group members of predefined types with " 
-                          "predefined spreads...")
-
+        self.logger.debug("Fetch group members by spreads...")
         self._configure_group_member_spreads()
         self._fetch_group_member_entities()
-
-        i = 0
-        for member in self.gr.search_members(
-                          member_spread = [elem['spread'] for elem in 
-                               self.config['group_member_spreads'].itervalues()]):
-            ent = self.id2entity.get(member['group_id'], None)
-            if ent:
-                if not hasattr(ent, 'members_by_spread'):
-                    ent.members_by_spread = []
-                # We have to translate member_id's to names.
-                ent2 = self.id2extraentity.get(member['member_id'], None)
-                if ent2:
-                    ent.members_by_spread.append(ent2)
-                    i += 1
-        # Check if persons should be included:
-        # TODO: Note that we are now overriding the person2primary setting for
-        # all member attributes, and does not respect each attribute's setting
-        # of this. Needs to be fixed.
+        person2primary = False
         if any(c.person2primary for c in ConfigUtils.get_config_by_type(
                                             self.config['attributes'],
                                             ConfigUtils.MemberAttr)):
+            person2primary = True
             self._fetch_person2primary_mapping()
-            for r in self.gr.search_members(member_type=self.co.entity_person):
-                ent = self.id2entity.get(r['group_id'], None)
-                if not ent:
+        # Cache all group memberships:
+        groups, mem2group = self._get_group_hierarchy(person2primary)
+        self.logger.debug2("Mapped %d groups with members", len(groups))
+        self.logger.debug2("Mapped %d groups with AD spread",
+                           len(filter(lambda x: x in self.id2entity, groups)))
+        self.logger.debug2("Mapped %d members in total", len(mem2group))
+
+        def get_parents_in_ad(groupid):
+            """Helper method for returning a group's parent AD groups.
+
+            You will get a list of all the groups that is in this AD-sync, i.e.
+            has the correct AD spread, and which has the given group as a direct
+            or indirect member.
+
+            @type groupid: int
+            @param groupid:
+                The given group's entity_id.
+
+            @rtype: set
+            @return:
+                List of all the group-ids of the groups that has the given group
+                as a member, either direct or indirect. Could return an empty
+                set if no parents were found, or none of the parent groups were
+                targeted in the AD sync.
+
+            """
+            ret = set()
+            for parent in mem2group.get(groupid, ()):
+                # Check if already processed, to avoid loops caused by two
+                # groups being (indirect) members of each others:
+                if parent in ret:
                     continue
-                account_id = self.personid2primary.get(r['member_id'])
-                if not account_id:
-                    self.logger.debug2("Person %s has no primary account",
-                                       r['member_id'])
+                if parent in self.id2entity:
+                    ret.add(parent)
+                ret.update(get_parents_in_ad(parent))
+            return ret
+
+        # Go through all group memberships and add those relevant for AD in the
+        # proper groups, either directly or indirectly:
+        i = 0
+        for group_id, members in groups.iteritems():
+            # Target the parent groups if the group is not supposed to be in AD:
+            if group_id in self.id2entity:
+                target_groups = (group_id,)
+            else:
+                target_groups = get_parents_in_ad(group_id)
+            if not target_groups:
+                continue
+            # Go through each member in the group and add it to all the parent
+            # groups that should be in AD:
+            for mem in members:
+                member = self.id2extraentity.get(mem)
+                # TODO: persons to primary account mapping here?
+                if not member:
                     continue
-                if not hasattr(ent, 'members_by_spread'):
-                    ent.members_by_spread = []
-                # We have to translate member_id's to names.
-                ent2 = self.id2extraentity.get(account_id)
-                if ent2:
-                    ent.members_by_spread.append(ent2)
+                for t_id in target_groups:
+                    ent = self.id2entity[t_id]
+                    if not hasattr(ent, 'members_by_spread'):
+                        # TODO: might want a set or something similar:
+                        ent.members_by_spread = []
+                    ent.members_by_spread.append(member)
+                    self.logger.debug3("Added %s to group %s (originally in %s)",
+                                       member, ent, group_id)
                     i += 1
-        self.logger.debug("Found %d members of needed types that have "
-                          "needed spreads", i)
+        self.logger.debug2("Fetched %d memberships", i)
 
     def fetch_posix(self):
         """Fetch the POSIX data for groups, if needed.
@@ -2917,110 +3039,6 @@ class MailListSync(BaseSync):
             if subset and name not in subset:
                 continue
             self.entities[name] = self.cache_entity(int(row["target_id"]), name)
-
-
-class ForwardSync(BaseSync):
-    """Sync for Cerebrum forward mail addresses in AD.
-
-    This contains generic functionality for handling forward addresses AD,
-    to add more functionality you need to subclass this.
-
-    """
-
-    default_ad_object_class = 'contact'
-
-    def __init__(self, *args, **kwargs):
-        """Instantiate forward addresses specific functionality."""
-        super(ForwardSync, self).__init__(*args, **kwargs)
-        self.ac = Factory.get('Account')(self.db)
-        self.etarget = Email.EmailTarget(self.db)
-        self.eforward = Email.EmailForward(self.db)
-        self.eaddress = Email.EmailAddress(self.db)
-
-    def configure(self, config_args):
-        """Override the configuration for setting forward specific variables.
-
-        """
-        super(ForwardSync, self).configure(config_args)
-        # Which spreads the accounts should have for their forward-addresses
-        # to be synchronized
-        self.config['account_spreads'] = config_args['account_spreads']
-
-
-    def fetch_cerebrum_entities(self):
-        """Fetch the forward addresses information from Cerebrum, 
-        that should be compared against AD. The forward addresses that
-        belong to the accounts with specified spreads are fetched.
-        
-        The configuration is used to know what to cache. All data is put in a
-        list, and each entity is put into an object from
-        L{Cerebrum.modules.ad2.CerebrumData} or a subclass, to make it 
-        easier to later compare with AD objects.
-
-        Could be subclassed to fetch more data about each entity to support
-        extra functionality from AD and to override settings.
-
-        """
-        self.logger.debug("Fetching forward addresses information")
-        subset = self.config.get('subset')
-        
-        # Get accounts that have all the needed spreads
-        self.logger.debug2("Fetching accounts with needed spreads")
-        accounts_dict = {}
-        account_sets_list = []
-        for spread in self.config['account_spreads']:
-            tmp_set = set([(row['account_id'], row['name']) for row in
-                    list(self.ac.search(spread = spread))])
-            account_sets_list.append(tmp_set)
-        entity_id2uname = set.intersection(*account_sets_list)
-        for entity_id, username in entity_id2uname:
-            accounts_dict[entity_id] = {'uname': username,
-                                        'forward_addresses': [],
-                                        'local_addresses': []}
-
-        # Generate email target -> entity_id mapping
-        self.logger.debug2("Generating email target -> entity_id mapping")
-        target_id2target_entity_id = {}
-        for row in self.etarget.list_email_targets_ext():
-            if row['target_entity_id']:
-                target_id2target_entity_id[int(row['target_id'])] = \
-                    int(row['target_entity_id'])
-
-        # Fetch all local addresses for the accounts
-        # Forwarding enables local delivery also, but there is no need
-        # to create forward objects for local addresses. Such addresses
-        # should be filtered out.
-        for row in self.eaddress.search():
-            te_id = target_id2target_entity_id.get(int(row['target_id']))
-            if te_id in accounts_dict:
-                accounts_dict[te_id]['local_addresses'].append(
-                    '@'.join((row['local_part'], row['domain']))
-                )
-
-        # Fetch all email forwards and save all of them that are enabled,
-        # belong to the accounts with needed spreads, and are not local.
-        self.logger.debug2("Fetching forwards that belong to the accounts")
-        for row in self.eforward.list_email_forwards():
-            te_id = target_id2target_entity_id.get(int(row['target_id']))
-            if te_id in accounts_dict and row['enable'] == 'T' \
-                and row['forward_to'] \
-                    not in accounts_dict[te_id]['local_addresses']:
-                accounts_dict[te_id]['forward_addresses'].append(
-                                               row['forward_to']
-                )
-
-        # Create an AD-object for every forward fetched.
-        self.logger.debug2("Creating AD-objects for forwards")
-        for key, value in accounts_dict.iteritems():
-            for tmp_addr in value['forward_addresses']:
-                name = ','.join((value['uname'], tmp_addr, str(key)))
-                if subset and name not in subset:
-                    continue
-                self.entities[name] = self.cache_entity(key, name)
-                # All the object attributes are composed based on the username
-                # and forwardname. Save it for future use
-                self.entities[name].ad_data['uname'] = value['uname']
-                self.entities[name].ad_data['faddr'] = tmp_addr
 
 
 class ProxyAddressesCompare(BaseSync):

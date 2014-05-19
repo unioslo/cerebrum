@@ -88,6 +88,34 @@ class OUUnknownException(PowershellException):
     """
     pass
 
+class SetAttributeException(PowershellException):
+    """Exception for when updating attributes failed.
+
+    Failing to add an attribute for an object could come of many reasons.
+
+    One example could be that the given attribute element is required to refer
+    to another AD object, which doesn't exist in the given location. This is for
+    instance a common error for the Member attribute.
+
+    """
+    pass
+
+class CommandTooLongException(Exception):
+    """If the given command is too long to be run through WinRM.
+
+    The commands could be limited either by Powershell's command line, cmd's
+    command line, or even WinRM. The maximum length for cmd.exe is 8191 for
+    modern Windows versions (http://support.microsoft.com/kb/830473).
+
+    This is not always enforced in our code, as we are not always sure when it
+    happens, and what situations in the Windows environment that could cause it.
+    It is, for now, only enforced in the more common situations where we could
+    handle it. In the future, we might want to move this into `winrm.py` as one
+    of the regular ExitCodeExceptions.
+
+    """
+    pass
+
 class ADclient(PowershellClient):
     """Client that sends commands to AD for the AD-sync.
 
@@ -311,6 +339,8 @@ class ADclient(PowershellClient):
                 raise ObjectAlreadyExistsException(code, stderr, output)
             if re.search(': The specified \w+ already exists', stderr):
                 raise ObjectAlreadyExistsException(code, stderr, output)
+            if 'Set-ADObject : The specified account does not exist' in stderr:
+                raise SetAttributeException(code, stderr, output)
             if re.search("Move-ADObject : .+object's paren.+is either "
                          "uninstantiated or deleted",
                          stderr, re.DOTALL):
@@ -715,67 +745,118 @@ class ADclient(PowershellClient):
         out = self.run(cmd)
         return not out.get('stderr')
 
-    def _setadobject_command_wrapper(self, ad_id, action, attrs):
-        """Generate and execute a Set-ADObject command on a remote AD server
-        to update the object' attributes.
+    def _setadobject_command_wrapper(self, ad_id, action, attributes):
+        """Run Set-ADObject on a given object and update its attributes.
 
-        @type ad_id: string
-        @param ad_id: The ID of the object whose attributes will be updated.
+        If the list of attributes to update makes the query too long, it is
+        split up and run in several commands.
+
+        This method makes sure that if some of the attributes or attributes'
+        elements are not accepted by AD, all of the elements are tried to be set
+        again. This is making this method even more complicated, and could slow
+        the sync down when this situation occurs, but at least we make sure that
+        one single, bogus element will not be able to block the update of the
+        whole AD object.
+
+        :type ad_id: str
+        :param ad_id: The ID of the object whose attributes will be updated.
         
-        @type action: string
-        @param action: What to perform with the object' attributes.
+        :type action: str
+        :param action:
+            What to perform with the object' attributes. Could for instance be
+            `Clear`, `Add` or `Remove`.
 
-        @type attrs: list
-        @param attrs: List of attributes to update.
+        :type attributes: list
+        :param attributes:
+            List of attributes to update. The keys are the name of the
+            attribute, while the value
 
-        @rtype: bool
-        @return:
-            True if the command was run successfully (stderr is missing in the
-            command output). False otherwise.
+        :rtype: bool
+        :return:
+            True if the *all* the given attribute elements  were updated
+            properly.
 
         """
-        cmd = self._generate_ad_command('Set-ADObject', 
-                                        {'Identity' : ad_id, 
-                                         action: attrs})
-        
-        self.logger.debug3("Command: %s" % cmd)
-        if self.dryrun:
-            return True
+        if action.lower() not in ('add', 'clear', 'remove', 'replace'):
+            raise Exception("Invalid action for updating %s: %s" % (ad_id,
+                            action))
+        def run_setadobject(attrs):
+            """Helper method for running the Set-ADObject command"""
+            cmd = self._generate_ad_command('Set-ADObject',
+                                            {'Identity': ad_id,
+                                             action: attrs})
+            # PowerShell commands are executed through Windows command line. The
+            # maximum length of the command there is 8191 for modern Windows
+            # versions (http://support.microsoft.com/kb/830473). Due to
+            # additional parameters that other methods add to the command, the
+            # part of it which is generated here has to be even shorter. The
+            # limit at 8000 bytes seems to be working.
+            # TODO: This should be checked for in winrm.py.
+            if len(cmd) > 8000:
+                raise CommandTooLongException('Too long')
+            self.logger.debug3("Command: %s", cmd)
+            if self.dryrun:
+                return True
+            self.run(cmd)
 
-        # PowerShell commands are executed through Windows command line.
-        # The maximum length of the command there is 8191 
-        # for modern Windows versions (http://support.microsoft.com/kb/830473).
-        # Due to additional parameters that other methods add to the command,
-        # the part of it which is generated here has to be even shorter.
-        # The limit at 8000 bytes seems to be working.
-        if len(cmd) < 8000:
-            out = self.run(cmd)
-            return not out.get('stderr')
-        else:
+        def wrap_setadobject(attrs):
+            """Run Set-ADObject aggresively, retrying if it fails.
+
+            The retry is attempted by running separate commands per element per
+            attribute. This could be a slow process if many attributes have
+            failed, but at least we make sure that the valid attribute elements
+            really gets set.
+
+            :raise CommandTooLongException:
+                If the given attributes makes the command too long for WinRM to
+                execute.
+
+            :rtype: bool
+            :return: If *all* the attributes were updated in AD.
+
+            """
+            try:
+                return run_setadobject(attrs)
+            except SetAttributeException:
+                # Not giving up yet! We retry by adding each attribute's
+                # elements separately.
+                self.logger.debug2("Failed updating all attributes, splitting")
+                success = True
+                for atrname, values in attrs.iteritems():
+                    for element in values:
+                        try:
+                            run_setadobject({atrname: element})
+                        except SetAttributeException, e:
+                            success = False
+                            self.logger.warn(
+                                "Failed updating %s for %s with element: '%s'"
+                                " error: %s", atrname, ad_id, element, e)
+                return success
+
+        try:
+            return wrap_setadobject(attributes)
+        except CommandTooLongException:
             # Strictly speaking, here we have to check if we have to perform
             # 'Clear' operation, before we go into the loop below to update 
             # attributes. However, the only realistic case here is that
             # the length is exceeded because we have to update too many
             # elements in the attributes, not to clear them.
-            self.logger.debug3("""Command exceeded the maximum length. """
-                              """Trying to break it into smaller chunks.""")
-            for k, v in attrs.iteritems():
+            self.logger.debug3("Command too long, splitting")
+            success = True
+            for k, v in attributes.iteritems():
                 # Elements of the list are approximately the same length
-                # 5000 is empyrically chosen to have some length reserve
+                # 5000 is empirically chosen to have some length reserve
+                # TODO: 5000 is not always enough, we need to be more generic
                 splits = sum(len(elem) for elem in v) / 5000 + 1
                 elems_in_split = len(v) / splits + 1 
                 newattrs = {}
                 for i in range(0, splits):
                     newattrs[k] = v[i * elems_in_split:(i+1) * elems_in_split]
-                    cmd = self._generate_ad_command('Set-ADObject', 
-                                                    {'Identity' : ad_id, 
-                                                     action: newattrs})
-                    out = self.run(cmd)
-                    if out.get('stderr'):
-                        return False
-                    self.logger.debug3("Attribute %s partially updated." % k)
-                self.logger.debug3("Attribute %s fully updated" % k)
-            return True
+                    if not wrap_setadobject(newattrs):
+                        success = False
+                    self.logger.debug3("Attribute %s partially updated.", k)
+                self.logger.debug3("Attribute %s fully updated", k)
+            return success
 
     def update_attributes(self, ad_id, attributes, old_attributes=None):
         """Update an AD object with the given attributes.
@@ -792,30 +873,43 @@ class ADclient(PowershellClient):
           -Add      Add an extra value to the attribute.
           -Remove   Remove a given value from the attribute.
 
-        This method only uses -Clear first and then -Add to avoid getting a too
-        complicated method that is still generic.
+        Are there any easier way in AD to modify objects, I wonder?
 
-        @type ad_id: string
-        @param ad_id: The Id of the object to update. Normally the
-            DistinguishedName. A SamAccountName is often not enough to find it.
+        :type ad_id: str
+        :param ad_id:
+            The Id of the object to update. Normally the DistinguishedName. A
+            SamAccountName is often not enough to find it.
 
-        @type attributes: dict
-        @param attributes: The attributes that should be updated in AD.
+        :type attributes: dict
+        :param attributes:
+            The attributes that should be updated in AD. The keys are the name
+            of the attribute, while the value is a dict with different elements
+            for what should be done with elements of the specific attribute,
+            e.g. add, remove or fullupdate.
+
             If an attribute's value is None, it will instead be removed.
 
-        @type old_attributes: dict
-        @param old_attributes: The existing attribute set for the object in AD.
-            This is needed to know how the attribute should be modified in AD,
-            e.g. replaced or added.
+        :type old_attributes: dict
+        :param old_attributes:
+            The existing attribute set for the object in AD. This is needed to
+            know how the attributes should be modified in AD, e.g. replaced or
+            added.
+
+        :rtype: bool
+        :return:
+            True if the object got *fully* updated in AD. False means that the
+            object didn't get updated at all, or that only some of the
+            attributes got updated.
 
         """
-        self.logger.info(u'Updating attributes for %s: %s' % (ad_id,
-                                                            attributes.keys()))
-
+        self.logger.info(u'Updating attributes for %s: %s', ad_id,
+                         ', '.join(attributes.keys()))
+        success = True
         removes = dict()
         adds = dict()
         fullupdates = dict()
-        # Some attributes are named differently when reading and writing, so we
+        # Sort the attributes in what to add, remove or fully update. Some
+        # attributes are named differently when reading and writing in AD, so we
         # need to map them properly.
         for k, v in attributes.iteritems():
             if 'remove' in v:
@@ -829,42 +923,21 @@ class ADclient(PowershellClient):
         if removes:
             if not self._setadobject_command_wrapper(ad_id, 'Remove', removes):
                 return False
-
         if adds:
             if not self._setadobject_command_wrapper(ad_id, 'Add', adds):
-                return False
-
+                success = False
         if fullupdates:
-            # What attributes need to be cleared before adding the correct attr:
-            clears = set(k for k in fullupdates)
-            # Try first to combine Clear and Add commands -- it might save a lot
-            # of time
-            cmds = []
-            cmds.append(self._generate_ad_command('Set-ADObject',
-                                                  {'Identity' : ad_id,
-                                                   'Clear': clears}, 
-                                                   'PassThru'))
-            cmds.append(self._generate_ad_command('Set-ADObject',
-                                                  {'Add': fullupdates}))
-            cmd = ' | '.join(cmds)
-            if len(cmd) < 8000:
-                self.logger.debug3("Command: %s" % cmd)
-                if self.dryrun:
-                    return True
-                out = self.run(cmd)
-                return not out.get('stderr')
-            else:
-                # Command is too long, need to use wrappers and execute
-                # commands separately
-                if not self._setadobject_command_wrapper(ad_id, 
-                                                         'Clear', clears):
-                    return False
-                if not self._setadobject_command_wrapper(ad_id, 
-                                                         'Add', fullupdates):
-                    return False
-        
-        return True
-                
+            # What attributes need to be cleared before adding the correct attr.
+            # No need to clear already empty attributes.
+            clears = set(a for a in fullupdates if old_attributes.get(a))
+            # We could save runtime on combining Clear and Add in the same
+            # commands, but at the cost of more complexity. This should normally
+            # not happen, maybe except for the initial sync for an instance.
+            if clears:
+                self._setadobject_command_wrapper(ad_id, 'Clear', clears)
+            if not self._setadobject_command_wrapper(ad_id, 'Add', fullupdates):
+                success = False
+        return success
 
     def get_ad_attribute(self, adid, attributename):
         """Start generating a list of a given object's given AD attribute.

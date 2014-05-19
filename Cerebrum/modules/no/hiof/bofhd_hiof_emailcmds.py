@@ -260,6 +260,8 @@ class BofhdExtension(BofhdCommandBase, BofhdEmailMixin):
 
     def email_replace_server(self, operator, user, server_name):
         """ Replace the server for an email target. """
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         #et, acc = self._get_email_target_and_account(user)
         et = self._get_email_target_for_account(user)
         es = Email.EmailServer(self.db)

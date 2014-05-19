@@ -517,13 +517,15 @@ class DistributionGroup(Group_class):
 
     # set e-mail target for this group to deleted
     def deactivate_dl_mailtarget(self):
+        """Set the associated EmailTargets type to deleted."""
         et = Email.EmailTarget(self._db)
         # we are not supposed to remove e-mail targets because
-        # of the danger of re-using 
+        # of the danger of re-using
         target_type = self.const.email_target_deleted
         try:
-            et.find_by_email_target_attrs(target_entity_id = self.entity_id)
+            et.find_by_email_target_attrs(target_entity_id=self.entity_id)
             et.email_target_type = target_type
+            et.write_db()
         except Errors.NotFoundError:
             # no such target, nothing to do
             # TBD: should we raise an exception?

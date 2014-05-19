@@ -24,6 +24,7 @@ import cereconf
 from Cerebrum import Group
 from Cerebrum import Utils
 from Cerebrum.Database import Errors
+from Cerebrum.modules import Email
 
 class GroupUiOMixin(Group.Group):
     """Group mixin class providing functionality specific to UiO.
@@ -117,3 +118,38 @@ class GroupUiOMixin(Group.Group):
             if len(name) > 64:
                 return "Name %s too long (64 char allowed)" % name
         return False
+
+    def delete(self):
+        """Delete the group, along with its EmailTarget."""
+        et = Email.EmailTarget(self._db)
+        ea = Email.EmailAddress(self._db)
+        epat = Email.EmailPrimaryAddressTarget(self._db)
+
+        # If there is not associated an EmailTarget with the group, call delete
+        # from the superclass.
+        try:
+            et.find_by_target_entity(self.entity_id)
+        except Errors.NotFoundError:
+            return super(GroupUiOMixin, self).delete()
+
+        # An EmailTarget exists, so we try to delete its primary address.
+        try:
+            epat.find(et.entity_id)
+            epat.delete()
+        except Errors.NotFoundError:
+            pass
+
+        # We remove all the EmailTargets addresses.
+        try:
+            for row in et.get_addresses():
+                ea.clear()
+                ea.find(row['address_id'])
+                ea.delete()
+        except Errors.NotFoundError:
+            pass
+
+        # Delete the EmailTarget
+        et.delete()
+
+        # Finally! Delete the group!
+        super(GroupUiOMixin, self).delete()

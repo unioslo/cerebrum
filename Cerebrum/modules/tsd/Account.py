@@ -42,6 +42,8 @@ from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules import dns
 from Cerebrum.Utils import pgp_encrypt, Factory
 
+from Cerebrum.modules.tsd import TSDUtils
+
 class AccountTSDMixin(Account.Account):
     """Account mixin class for TSD specific behaviour.
 
@@ -76,25 +78,19 @@ class AccountTSDMixin(Account.Account):
     def setup_for_project(self):
         """Set up different config and attributes for a project account. 
 
+        The account, and its project, must be approved for a project before
+        anything is set up. Projects and accounts should not be visible in any
+        other system before they are approved.
+
         When a user is added to a project, we should also give the account extra
         functionality related to the project, like a linux machine if the
         project is set to use that.
 
         """
-        ou = Factory.get('OU')(self._db)
-
-        # The account and OU must be approved before we should set anything
-        is_approved = False
-        for row in self.get_account_types():
-            if row['affiliation'] != self.const.affiliation_project:
-                continue
-            ou.clear()
-            ou.find(row['ou_id'])
-            if not tuple(ou.get_entity_quarantine()):
-                is_approved = True
-        if not is_approved:
+        if not self.is_approved():
             return
-
+        ou = Factory.get('OU')(self._db)
+        ou.find(self.get_tsd_project_id())
         # If the given project is set up so that every project member should
         # have their own virtual linux machine, we need to create this host for
         # the account:
@@ -110,6 +106,9 @@ class AccountTSDMixin(Account.Account):
                 host.populate(dnsowner.entity_id, hinfo)
             host.hinfo = hinfo
             host.write_db()
+            for comp in getattr(cereconf, 'TSD_HOSTPOLICIES_LINUX', ()):
+                TSDUtils.add_host_to_policy_component(self._db,
+                                                      dnsowner.entity_id, comp)
 
     def get_tsd_project_id(self):
         """Helper method for getting the ou_id for the account's project.
@@ -224,7 +223,7 @@ class AccountTSDMixin(Account.Account):
         secret = base64.b32encode(self._generate_otpkey(
                                     getattr(cereconf, 'OTP_KEY_LENGTH', 160)))
         # Get the tokentype
-        if tokentype is None:
+        if not tokentype:
             tokentype = 'totp'
             if self.owner_type == self.const.entity_person:
                 pe = Factory.get('Person')(self._db)
@@ -232,9 +231,13 @@ class AccountTSDMixin(Account.Account):
                 typetrait = pe.get_trait(self.const.trait_otp_device)
                 if typetrait:
                     tokentype = typetrait['strval']
+
         # A mapping from e.g. Nettskjema's smartphone_yes -> topt:
         mapping = getattr(cereconf, 'OTP_MAPPING_TYPES', {})
-        tokentype = mapping.get(tokentype, tokentype)
+        try:
+            tokentype = mapping[tokentype]
+        except KeyError:
+            raise Errors.CerebrumError('Invalid tokentype: %s' % tokentype)
         return cereconf.OTP_URI_FORMAT % {
                 'secret': secret,
                 'user': '%s@%s' % (self.account_name,
@@ -259,3 +262,28 @@ class AccountTSDMixin(Account.Account):
         if re.search("[^A-Za-z0-9\-_]", name):
             return "contains illegal characters (%s)" % name
         return False
+
+    def is_approved(self):
+        """Return if the user is approved for a TSD project or not.
+
+        The approval is in two levels: First, the TSD project (OU) must be
+        approved, then the account must not be quarantined.
+
+        :rtype: bool
+        :return: True i
+
+        """
+        # Check user quarantine:
+        if self.get_entity_quarantine(type=self.const.quarantine_not_approved,
+                                      only_active=True):
+            return False
+        # Check if OU is approved:
+        try:
+            projectid = self.get_tsd_project_id()
+        except Errors.NotFoundError:
+            # Not affiliated with any project, therefore not approved
+            return False
+        ou = Factory.get('OU')(self._db)
+        ou.clear()
+        ou.find(projectid)
+        return ou.is_approved()

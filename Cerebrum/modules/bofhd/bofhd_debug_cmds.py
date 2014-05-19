@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
-# Copyright 2012 University of Oslo, Norway
+# Copyright 2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """ This is a bofhd module for debug commands.
 
 It is used to implement behaviour that is useful for testing, but never
@@ -78,6 +77,8 @@ class BofhdExtension(BofhdCommandBase):
                     'Raise a bofhd.errors.CerebrumError exception',
                 'debug_raise_exception_multiple_args':
                     'Raise an exception with multiple args',
+                'debug_cause_integrity_error':
+                    'Cause the database to raise an IntegrityError',
             }
         }
 
@@ -94,10 +95,11 @@ class BofhdExtension(BofhdCommandBase):
     #
     all_commands['debug_raise_cerebrum_error'] = Command(
         ("debug", "raise_cerebrum_error"),
-        SimpleString(help_ref='exc_strval', optional=True), )
+        SimpleString(help_ref='exc_strval', optional=True),
+    )
 
     def debug_raise_cerebrum_error(self, operator, strval="Foo Bar"):
-        """ Raise an exception that takes multiple args. """
+        """ Raise a generic Cerebrum.Errors.CerebrumError. """
         raise Errors.CerebrumError(strval)
 
     #
@@ -105,10 +107,11 @@ class BofhdExtension(BofhdCommandBase):
     #
     all_commands['debug_raise_bofhd_cerebrum_error'] = Command(
         ("debug", "raise_bofhd_cerebrum_error"),
-        SimpleString(help_ref='exc_strval', optional=True), )
+        SimpleString(help_ref='exc_strval', optional=True),
+    )
 
     def debug_raise_bofhd_cerebrum_error(self, operator, strval="Foo Bar"):
-        """ Raise an exception that takes multiple args. """
+        """ Raise an bofhd.errors.CerebrumError. """
         raise CerebrumError(strval)
 
     #
@@ -117,9 +120,46 @@ class BofhdExtension(BofhdCommandBase):
     all_commands['debug_raise_exception_multiple_args'] = Command(
         ("debug", "raise_exception_multiple_args"),
         SimpleString(help_ref='exc_strval', optional=True),
-        Integer(help_ref='exc_intval', optional=True), )
+        Integer(help_ref='exc_intval', optional=True),
+    )
 
     def debug_raise_exception_multiple_args(self, operator, strval="Foo Bar",
                                             intval=10):
-        """ Raise an exception that takes multiple args. """
+        """ Raise an exception that takes multiple args.
+
+        This is useful when we want to see what gets transferred to the client.
+
+        """
+        intval = int(intval)
         raise ExceptionMultipleArgs(strval, intval)
+
+    #
+    # debug cause_integrity_error
+    #
+    all_commands['debug_cause_integrity_error'] = Command(
+        ("debug", "cause_integrity_error"), )
+
+    def debug_cause_integrity_error(self, operator):
+        """ Cause the db-driver to raise an IntegrityError.
+
+        This is done by adding an existing spread to the operator account.
+
+        """
+        op_acc = self._get_account(operator.get_entity_id(), idtype='id')
+
+        try:
+            maybe_spread = self.const.fetch_constants(None)[0]
+            for _ in range(2):
+                # Will cause IntegrityError because...
+                #  - maybe_spread is not a spread
+                #  - maybe_spread is not an account spread
+                #  - maybe_spread is an account spread, and is added twice
+                op_acc.add_spread(maybe_spread)
+        except IndexError:
+            raise CerebrumError("Unable to cause IntegrityError. "
+                                "Check implementation for details "
+                                "(debug_cause_integrity_error)")
+
+        # op had spreads, and adding them again did not fail. Something is
+        # seriously wrong!
+        raise CerebrumError("Should not be reached.")

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013 University of Oslo, Norway
+# Copyright 2013, 2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -348,7 +348,7 @@ class TSDBofhdExtension(BofhdCommonMethods):
                 map.append((("%-12s %s", row['account_id'], row['operation']), n))
                 n += 1
             if n == 1:
-                raise CerebrumError, "no users"
+                raise CerebrumError("no users")
             return {'prompt': 'Velg bruker(e)', 'last_arg': True,
                     'map': map, 'raw': True,
                     'help_ref': 'print_select_range',
@@ -1267,6 +1267,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             posix_user.add_spread(self.const.Spread(spread))
         operator.store_state("new_account_passwd", {'account_id': int(posix_user.entity_id),
                                                     'password': passwd})
+        # Set up TSD specific functionality, if not already set
+        posix_user.setup_for_project()
         return "Ok, created %s, UID: %s" % (posix_user.account_name, uid)
 
     # user password
@@ -1277,6 +1279,12 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         """Set password for a user. A modified version of UiO's command."""
         account = self._get_account(accountname)
         self.ba.can_set_password(operator.get_entity_id(), account)
+
+        # TSD specific behaviour: Raise error if user isn't approved or
+        # shouldn't be in AD or the GW:
+        if not account.is_approved():
+            raise CerebrumError("User is not approved: %s" % accountname)
+
         if password is None:
             password = account.make_passwd(accountname)
         else:
@@ -1331,12 +1339,21 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
     # user password
     all_commands['user_generate_otpkey'] = cmd.Command(
-        ('user', 'generate_otpkey'), cmd.AccountName())
+        ('user', 'generate_otpkey'), cmd.AccountName(),
+        cmd.SimpleString(help_ref='otp_type', optional=True))
 
-    def user_generate_otpkey(self, operator, accountname):
+    def user_generate_otpkey(self, operator, accountname, otp_type=None):
         account = self._get_account(accountname)
         self.ba.can_generate_otpkey(operator.get_entity_id(), account)
-        uri = account.regenerate_otpkey()
+
+        # User must be approved first, to exist in the GW
+        if not account.is_approved():
+            raise CerebrumError("User is not approved: %s" % accountname)
+
+        try:
+            uri = account.regenerate_otpkey(otp_type)
+        except Errors.CerebrumError, e:
+            raise CerebrumError("Failed generating OTP-key: %s" % e)
 
         # Generate a list of all the accounts for the person
         ac = Factory.get('Account')(self.db)
