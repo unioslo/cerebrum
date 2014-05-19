@@ -1,0 +1,42 @@
+# This is the main file for setting up a remote host
+#
+
+# To set up ident authentication for a different set of users, we should
+# overload the system_users variable in the top playbook.
+- include: setup_host.yml
+  vars:
+    system_users: []
+  tags:
+    - host
+
+# To set up a different database schema, we should overload the crb_extra_files
+# in the top playbook.
+- include: setup_env.yml
+  vars:
+    crb_extra_files:
+     - "mod_changelog.sql"
+     - "mod_password_history.sql"
+  tags:
+    - env
+
+
+# To run with other tests, we should overload the crb_tests in the top playbook
+# file. The same goes for the report files.
+- include: run_nosetests.yml
+  vars:
+    crb_tests:
+      - "test_Cerebrum/test_Database.py"
+      - "test_Cerebrum/test_Group.py"
+    coverage_report: "coverage.xml"
+    xunit_report: "xunit.xml"
+  tags:
+    - test
+    - nose
+
+# Some testing. Could we do a conditional import of variables, and import good
+# default values from ../vars/<config>.yml?
+#- include: test.yml
+  #vars_files:
+    #- "../vars/common.yml"
+    #- "../vars/test.yml"
+    #- "../vars/doesntexist.yml"

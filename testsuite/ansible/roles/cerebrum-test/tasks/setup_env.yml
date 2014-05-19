@@ -1,0 +1,146 @@
+# Set up a virtualenv test environment for Cerebrum.
+# 
+# Required vars:
+#  - virtualenv
+#      Where the virtualenv should be placed.
+#  - pip_requirements
+#      PIP requirements file, decides which packages to install in the
+#      virtualenv.
+#  - crb_db_name
+#      What database to use for the cerebrum test installation.
+#  - crb_db_use
+#      What postgres-user to use for the crb_db_name.
+#  - crb_src_dir
+#      The source directory for cerebrum.
+#
+# Optional vars:
+#  - pip_offline
+#      Do not download packages, look for the packages in the specified
+#      directory, e.g. `pip_offline=/path/to/packages'.
+#  - pip_cache
+#      Cache downloaded packages in the specified directory for later use, e.g.
+#      `pip_cache=/tmp/pip_cache'. Excluded by the pip_offline option.
+
+
+#
+# Set up virtualevn and install packages
+#
+- name: Decide on PIP offline install
+  when: pip_offline is defined
+  set_fact: _extra_args="--no-index --find-links={{ pip_offline }}"
+
+- name: Decide on PIP download cache
+  when: pip_cache is defined and pip_extra_args is not defined
+  set_fact: _extra_args="--download-cache={{ pip_cache }}"
+
+- name: Move requirements file to host
+  copy: src={{ item }}
+        dest=/tmp/requirements_{{ virtualenv | replace('/', '_') }}.txt
+        backup=yes
+  with_first_found:
+    - "{{ config|default('.') }}/pip_requirements.txt"
+    - "pip_requirements.txt"
+
+# TODO: Should we here:
+#   - validate that pip_offline exists if defined?
+#   - verify that we have the mandatory arguments?
+#   - validate that the mandatory arguments makes sense?
+
+- name: Set up test environment
+  pip: virtualenv="{{ virtualenv }}"
+       requirements=/tmp/requirements_{{ virtualenv | replace('/', '_') }}.txt
+       extra_args="{{ _extra_args|default(None) }}"
+
+#
+# Drop database
+#
+#- name: Check database schema difference
+  # TODO: How do we do this?!!
+  #shell: diff {{ item }} {{ virtualenv }}/share/cerebrum/design/$( basename {{ item }} )
+  #register: crb_db_diff_result
+  #failed_when: False
+  #changed_when: "crb_db_diff_result.rc != 0"
+  #with_fileglob:
+   #- "{{ crb_src_dir }}/design/*.sql"
+  #changed_when: True
+  #register: _db_drop
+  #
+  # TODO/TBD: makedb should work more like `doctrine' - we should be able to
+  # just fetch the SQL that would be executed, so that we could test the
+  # db-difference.
+
+- name: Drop Cerebrum database
+  when: _db_drop is not defined or _db_drop|changed
+  postgresql_db: name={{ crb_db_name }}
+                 login_user={{ crb_db_user }}
+                 state=absent
+
+#
+# Install cerebrum
+#
+- name: Install Cerebrum
+  action: command {{ virtualenv }}/bin/python setup.py install --prefix={{ virtualenv }}
+          chdir={{ crb_src_dir }}
+
+- name: Locate virtualenv site-packages
+  command: "{{ virtualenv }}/bin/python -c 'from distutils.sysconfig import get_python_lib; print(get_python_lib())'"
+  register: _virtualenv_site_packages
+
+# In stead of manipulating the PYTHONPATH, we use the cerebrum_path module
+# If we decide to get rid of this in Cerebrum, we'll have to look at how we set
+# environment variables with ansible
+- name: Place cerebrum_path module
+  template: src={{ item }}
+            dest={{ _virtualenv_site_packages.stdout }}/cerebrum_path.py
+            validate='{{ virtualenv }}/bin/python -B %s'
+  with_first_found:
+    - "../templates/{{ config|default('.') }}/cerebrum_path.j2"
+    - "../templates/cerebrum_path.j2"
+
+- name: Place cereconf
+  template: src={{ item }}
+            dest={{ virtualenv }}/etc/cerebrum/cereconf.py
+            validate='{{ virtualenv }}/bin/python -B %s'
+  with_first_found:
+    - "../templates/{{ config|default('.') }}/cereconf.j2"
+    - "../templates/cereconf.j2"
+
+- name: Place log config
+  template: src=logging.j2
+            dest={{ virtualenv }}/etc/cerebrum/logging.ini
+            validate="python -c \"import ConfigParser;c=ConfigParser.ConfigParser();assert len(c.read(['%s', ]))==1\""
+  with_first_found:
+    - "../templates/{{ config|default('.') }}/logging.j2"
+    - "../templates/logging.j2"
+
+- name: Create dummy file for database password
+  template: src={{ item }}
+            dest={{ virtualenv }}/etc/cerebrum/passwd-{{ crb_db_user }}@{{ crb_db_name }}@localhost
+            validate='grep {{crb_db_user}} %s'
+  with_first_found:
+    - "../templates/{{ config|default('.') }}/passwd.j2"
+    - "../templates/passwd.j2"
+
+#
+# Create and build database
+#
+- name: Create Cerebrum database
+  postgresql_db: name={{ crb_db_name }}
+                 login_user={{ crb_db_user }}
+                 owner={{ crb_db_user }}
+                 state=present
+  register: _db_created
+
+# TODO: If no path (only basename) is given as value for an --extra-file
+#       option *AND* that file does not exist in the CWD, `makedb.py' should
+#       look for that file in the cereconf.CEREBRUM_DDL_DIR.
+- name: Build sql file args for makedb.py
+  when: _db_created|changed
+  set_fact: 
+    _makedb_extra_files:
+      '{{ crb_extra_files | default([]) | map("replace", "", "--extra-file " + virtualenv + "/share/cerebrum/design/", 1) | join(" ") }}'
+
+- name: Create Cerebrum schema with makedb.py
+  when: _db_created|changed
+  action: command {{ virtualenv }}/bin/python makedb.py {{ _makedb_extra_files }}
+          chdir={{ virtualenv }}/sbin

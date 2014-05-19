@@ -1,0 +1,8 @@
+[localhost]
+localhost ansible_connection=local
+
+[cere-utv01]
+cere-utv01.uio.no
+
+[cerebrum-test-node]
+cere-utv02.uio.no
