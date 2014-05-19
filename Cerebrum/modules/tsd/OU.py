@@ -494,17 +494,16 @@ class OUTSDMixin(OU):
             # Create a Windows host for the whole project
             hostname = '%s-win01.tsd.usit.no.' % projectid
             hinfo = 'IBM-PC\tWINDOWS'
-            dns_owner = self._populate_dnsowner(hostname)
+            dnsowner = self._populate_dnsowner(hostname)
             try:
-                host.find_by_dns_owner_id(dns_owner.entity_id)
+                host.find_by_dns_owner_id(dnsowner.entity_id)
             except Errors.NotFoundError:
-                host.populate(dns_owner.entity_id, hinfo)
+                host.populate(dnsowner.entity_id, hinfo)
             host.hinfo = hinfo
             host.write_db()
-            # TODO: add dns-comment and/or dns-contact?
             for comp in getattr(cereconf, 'TSD_HOSTPOLICIES_WIN', ()):
-                TSDUtils.add_host_to_policy_component(self._db, host.entity_id,
-                                                      comp)
+                TSDUtils.add_host_to_policy_component(self._db,
+                                                      dnsowner.entity_id, comp)
 
     def _setup_project_posix(self, creator_id):
         """Setup POSIX data for the project."""
@@ -528,22 +527,22 @@ class OUTSDMixin(OU):
     def _populate_dnsowner(self, hostname, ipv6_adr=None):
         """Create or update a DnsOwner connected to the given project.
 
+        The DnsOwner is given a trait, to affiliate it with this project-OU.
+
         This should rather be put in the DNS module, but due to its complexity,
         its weird layout, and my lack of IQ points to understand it, I started
         just using its API instead.
 
-        @type hostname: str
-        @param hostname: The given FQDN for the host.
+        :param str hostname: The given *FQDN* for the host.
 
-        @type ipv6_adr: str
-        @param ipv6_adr:
+        :param str ipv6_adr:
             The given IPv6 address to set for the host. Only IPv6 addresses are
             needed for projects in TSD, so IPv4 addresses must be added
             manually. If not given, a free IP address in the project's subnet
             will be used.
 
-        @rtype: DnsOwner object
-        @return:
+        :rtype: DnsOwner object
+        :return:
             The DnsOwner object that is created or updated.
 
         """

@@ -28,7 +28,7 @@ Example usage and extension:
         some_mixin_setting = 'setting'
 
     datasource = _MyDataSource()
-    items = [d for d in datasource(num=10)]
+    items = [d for d in datasource(limit=10)]
 
     infinite_source = datasource()
     another_item = infinite_source.next()

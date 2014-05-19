@@ -66,6 +66,7 @@ from Cerebrum.modules.ad2.CerebrumData import CerebrumEntity
 from Cerebrum.modules.ad2.CerebrumData import CerebrumUser
 from Cerebrum.modules.ad2.CerebrumData import CerebrumGroup
 from Cerebrum.modules.ad2.CerebrumData import CerebrumDistGroup
+from Cerebrum.modules.ad2.ConfigUtils import ConfigError
 from Cerebrum.modules.ad2.winrm import PowershellException, CRYPTO
 
 class BaseSync(object):
@@ -308,20 +309,22 @@ class BaseSync(object):
         for key, default in self.settings_with_default:
             self.config[key] = config_args.get(key, default)
 
-        # Set what object class in AD to use, either the config or what is set
-        # in any of the subclasses of the ADSync. Most subclasses should set a
-        # default object class.
+        # Set what object class type in AD to use, either the config or what is
+        # set in any of the subclasses of the ADSync. Most subclasses should set
+        # a default object class.
         self.ad_object_class = config_args.get('ad_object_class',
                                                self.default_ad_object_class)
 
         # The object class is generated dynamically, depending on the given list
         # of classes:
-        self.logger.debug("Using object classes: %s",
-                          ', '.join(config_args['object_classes']))
+        self.logger.debug2("Using object classes: %s",
+                           ', '.join(config_args['object_classes']))
         self._object_class = self._generate_dynamic_class(
                 config_args['object_classes'], 
                 '_dynamic_adobject_%s' % self.config['sync_type'])
-
+        if not issubclass(self._object_class, CerebrumEntity):
+            raise ConfigError(
+                    'Given object_classes not subclass of %s' % CerebrumEntity)
 
         # Calculate target spread and target entity_type, depending on what
         # settings that exists:
@@ -804,7 +807,15 @@ class BaseSync(object):
         entities.
 
         """
-        self.logger.debug("Fetch attributes...")
+        # Check if data from the attribute table is needed:
+        attrtypes = set()
+        for c in ConfigUtils.get_config_by_type(self.config['attributes'],
+                                                ConfigUtils.ADAttributeAttr):
+            attrtypes.update(c.attributes)
+        if not attrtypes:
+            return
+        self.logger.debug("Fetch from attribute table: %s",
+                          ', '.join(str(a) for a in attrtypes))
         ids = None
         if self.config['subset']:
             ids = self.id2entity.keys()
@@ -813,19 +824,18 @@ class BaseSync(object):
                 return
         i = 0
         # TODO: fetch only the attributes defined in config - would be faster
-        for row in self.ent.list_ad_attributes(entity_id=ids,
-                                               spread=self.config['target_spread']):
-            # TODO: is co caching such attributes? if not, we should prefetch
-            # it, or make the new list method support fetching it:
-            attr = self.co.ADAttribute(int(row['attr_code']))
-            if str(attr) not in self.config['attributes']:
-                continue
+        for row in self.ent.list_ad_attributes(
+                                entity_id=ids,
+                                spread=self.config['target_spread'],
+                                attribute=attrtypes):
             e = self.id2entity.get(row['entity_id'], None)
             if e:
-                if attr.multivalued:
-                    e.attributes.setdefault(str(attr), []).append(row['value'])
+                attr = int(row['attr_code'])
+                attrcode = self.co.ADAttribute(attr)
+                if attrcode.multivalued:
+                    e.cere_attributes.setdefault(attr, []).append(row['value'])
                 else:
-                    e.attributes[str(attr)] = row['value']
+                    e.cere_attributes[attr] = row['value']
                 i += 1
         self.logger.debug("Fetched %d AD attributes from Cerebrum" % i)
 
@@ -863,7 +873,7 @@ class BaseSync(object):
         self.logger.debug("Fetched %d SIDs from Cerebrum" % i)
 
     def fetch_names(self):
-        """Get all the entity names for the entitites from Cerebrum.
+        """Get all the entity names for the entities from Cerebrum.
 
         """
         self.logger.debug("Fetch name information...")
@@ -1089,6 +1099,8 @@ class BaseSync(object):
         # Compare attributes:
         changes = self.get_mismatch_attributes(ent, ad_object)
         if changes:
+            # Save the list of changes for possible future use
+            ent.changes = changes
             self.server.update_attributes(dn, changes, ad_object)
         # Store SID in Cerebrum
         self.store_sid(ent, ad_object.get('SID'))
@@ -1113,7 +1125,24 @@ class BaseSync(object):
 
         :rtype: dict
         :return:
-            The list of attributes that doesn't match and should be updated.
+            The list of attributes that doesn't match and should be updated. The
+            key is the name of the attribute, and the value is a dict with the
+            elements:
+
+            - *add*: For elements that should be added to the attribute in AD.
+            - *remove*: For elements that should be removed from the attribute.
+            - *fullupdate*: For attributes that should be fully replaced.
+
+            The result could be something like::
+
+                {'Member': {
+                        'add': ('userX', 'userY',),
+                        'remove': ('userZ',),
+                        },
+                 'Description': {
+                        'fullupdate': 'New description',
+                        },
+                 }
 
         """
         ret = {}
@@ -1134,13 +1163,13 @@ class BaseSync(object):
                     if add_elements:
                         self.logger.debug(
                                 " - adding: %s",
-                                '; '.join('%s (%s)' % (str(m), type(m)) for m in
+                                '; '.join('%s (%s)' % (m, type(m)) for m in
                                           add_elements))
                         ret[atr]['add'] = add_elements
                     if remove_elements:
                         self.logger.debug(
                                 " - removing: %s",
-                                '; '.join('%s (%s)' % (str(m), type(m)) for m in
+                                '; '.join('%s (%s)' % (m, type(m)) for m in
                                           remove_elements))
                         ret[atr]['remove'] = remove_elements
                 else:
@@ -1149,8 +1178,6 @@ class BaseSync(object):
                             atr, ent.entity_name, ad_value, type(ad_value),
                             value, type(value))
                     ret[atr]['fullupdate'] = value
-        # Save the list of changes for possible future use
-        ent.changes = ret
         return ret
 
     def attribute_mismatch(self, ent, atr, c, a):
@@ -1163,28 +1190,31 @@ class BaseSync(object):
         The attributes are matched in different ways. The order does for example
         not matter for multivalued attributes, i.e. lists.
 
-        @type ent: CerebrumEntity
-        @param ent:
+        :type ent: CerebrumEntity
+        :param ent:
             The given entity from Cerebrum, with calculated attributes.
 
-        @type atr: str
-        @param atr: The name of the attribute to compare
+        :type atr: str
+        :param atr: The name of the attribute to compare
 
-        @type c: mixed
-        @param c: The value from Cerebrum for the given attribute
+        :type c: mixed
+        :param c: The value from Cerebrum for the given attribute
 
-        @type a: mixed
-        @param a: The value from AD for the given attribute
+        :type a: mixed
+        :param a: The value from AD for the given attribute
 
-        @rtype: (bool, list, list)
-        @return:
-            A tuple of three values.
-            The first value is True if the attribute from Cerebrum and AD 
-            does not match and should be updated in AD.
-            If the attribute is a list and only some of its elements should
-            be updated, the second and the third values list the elements
-            that should be respectively added or removed.
-        
+        :rtype: tuple(bool, list, list)
+        :return:
+            A tuple with three elements::
+
+                (<bool:is_mismatching>, <set:to_add>, <set:to_remove>)
+
+            The first value is True if the attribute from Cerebrum and AD does
+            not match and should be updated in AD. If the attribute is a list
+            and only some of its elements should be updated, the second and the
+            third values list the elements that should be respectively added or
+            removed.
+
         """
 
         # TODO: Should we care about case sensitivity?
@@ -1205,7 +1235,7 @@ class BaseSync(object):
         if atr.lower() == 'samaccountname':
             if a is None or c.lower() != a.lower():
                 return (True, None, None)
-        # Order does not matter in multivalued attributes:
+        # Order does not matter in multivalued attributes
         types = (list, tuple, set)
         if isinstance(c, types) and isinstance(a, types):
             # TODO: Do we in some cases need to unicodify strings before
@@ -2734,7 +2764,7 @@ class GroupSync(BaseSync):
         groups = dict()
         mem2group = dict()
         for row in self.gr.search_members():
-            # TODO: Should we skip entitites not in either self.id2entity nor
+            # TODO: Should we skip entities not in either self.id2entity nor
             # self.id2extraentity?
             groups.setdefault(row['group_id'], set()).add(row['member_id'])
             if person2primary and row['member_type'] == self.co.entity_person:

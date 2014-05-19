@@ -35,27 +35,28 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.modules.hostpolicy import PolicyComponent
 
-def add_host_to_policy_component(db, host_id, policy_name):
-    """Helper method for giving a host a hostpolicy role.
+def add_host_to_policy_component(db, dnsowner_id, policy_name):
+    """ Helper method for giving a host a hostpolicy role.
 
-    Note that this method does not fail if the given L{policy_name} doesn't
-    exist. Hostpolicies could dissapear, or be renamed, which we would not want
-    to break the system. Instead, unknown policies are simply not added.
+    Note that this method does not fail if the given `policy_name` doesn't
+    exist. Hostpolicies could disappear, or be renamed, which we would not want
+    to break the system. Instead, unknown policies are simply not added, i.e.
+    this method does nothing in such scenarios.
 
-    If the policy component doesn't exists, this method does nothing.
+    :param Cerebrum.Database db:
+        The Cerebrum database connector.
 
-    @type host_id: int
-    @param host_id:
-        The entity_id of the host that should get the role.
+    :param int dnsowner_id:
+        The `entity_id` of the host that should get the role.
 
-    @type policy_name: str
-    @param policy_name:
+    :param str policy_name:
         The name of the policy role or atom. If it does not exist, it will not
         be given to the host, but no exception will be raised.
 
-    @rtype: bool
-    @return:
-        True if the policy was found and registered for the host.
+    :rtype: bool
+    :return:
+        True if the policy was found and registered for the host. False if the
+        policy weren't added, e.g. because the policy didn't exist.
 
     """
     pc = PolicyComponent.PolicyComponent(db)
@@ -64,7 +65,7 @@ def add_host_to_policy_component(db, host_id, policy_name):
     except Errors.NotFoundError:
         return False
     if not pc.search_hostpolicies(policy_id=pc.entity_id,
-                                  dns_owner_id=host_id):
-        pc.add_to_host(host_id)
+                                  dns_owner_id=dnsowner_id):
+        pc.add_to_host(dnsowner_id)
     pc.write_db()
     return True

@@ -2224,7 +2224,9 @@ class BofhdExtension(BofhdCommonMethods):
         fs=FormatSuggestion([("New primary address: '%s'", ("address", ))]),
         perm_filter="is_postmaster")
     def email_primary_address(self, operator, addr):
-        self.ba.is_postmaster(operator.get_entity_id())
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
+            
         et, ea = self.__get_email_target_and_address(addr)
         if et.email_target_type == self.const.email_target_dl_group:
             return "Cannot change primary for distribution group %s" % addr
@@ -2346,6 +2348,8 @@ class BofhdExtension(BofhdCommonMethods):
         SimpleString(help_ref="email_failure_message"),
         perm_filter="can_email_set_failure")
     def email_failure_message(self, operator, uname, message):
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         et, acc = self.__get_email_target_and_account(uname)
         if et.email_target_type != self.const.email_target_deleted:
             raise CerebrumError, ("You can only set the failure message "
@@ -4608,6 +4612,8 @@ Addresses and settings:
         perm_filter='is_postmaster')
     def email_add_filter(self, operator, filter, address):
         """Add a filter to an existing e-mail target"""
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         etf = Email.EmailTargetFilter(self.db)
         filter_code = self._get_constant(self.const.EmailTargetFilter, filter)
         et, addr = self.__get_email_target_and_address(address)
@@ -4644,6 +4650,8 @@ Addresses and settings:
         SimpleString(help_ref='string_email_target_name', repeat="True"),
         perm_filter='is_postmaster')
     def email_remove_filter(self, operator, filter, address):
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         etf = Email.EmailTargetFilter(self.db)
         filter_code = self._get_constant(self.const.EmailTargetFilter, filter)
         et, addr = self.__get_email_target_and_address(address)
@@ -5394,7 +5402,8 @@ Addresses and settings:
         perm_filter='is_postmaster')
     def group_exchangegroup_create(self, operator, groupname, displayname, description, managedby, moderatedby, from_existing=None):
         # check for appropriate priviledge
-        self.ba.is_postmaster(operator.get_entity_id())
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied('No access to group')
         existing_group = False
         modby_unames = []
         mngdby_addr = None
@@ -5552,7 +5561,8 @@ Addresses and settings:
                                  ('aliases',))]))
     def group_exchangegroup_info(self, operator, groupname):
         # check for appropriate priviledge
-        self.ba.is_postmaster(operator.get_entity_id())
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied('No access to group')
         
         try:
             grp = self._get_group(groupname, grtype="DistributionGroup")
@@ -5665,7 +5675,8 @@ Addresses and settings:
         perm_filter='is_postmaster')
     def group_exchangegroup_remove(self, operator, groupname, expire_group=None):
         # check for appropriate priviledge
-        self.ba.is_postmaster(operator.get_entity_id())
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied('No access to group')
         dl_group = self._get_group(groupname, idtype='name', 
                                    grtype="DistributionGroup")
         try:
@@ -5702,7 +5713,8 @@ Addresses and settings:
         # and distributions group and we therefore don't support
         # making existing distribution groups into roomlists. 
         # check for appropriate priviledges
-        self.ba.is_postmaster(operator.get_entity_id())
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied('No access to group')
         modby_unames = []
         dl_group = self._get_group(groupname, idtype='name', 
                                    grtype="DistributionGroup")
@@ -5752,7 +5764,8 @@ Addresses and settings:
         perm_filter='is_postmaster')
     def group_roomlist_create(self, operator, groupname, displayname, description):
         # check for appropriate priviledge
-        self.ba.is_postmaster(operator.get_entity_id())
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied('No access to group')
         grp = Utils.Factory.get("Group")(self.db)
         try:
             grp.find_by_name(groupname)
@@ -6045,6 +6058,7 @@ Addresses and settings:
     all_commands['group_remove_entity'] = None
     def group_remove_entity(self, operator, member_entity, group_entity):
         group = self._get_entity(ident=group_entity)
+        self.ba.can_alter_group(operator.get_entity_id(), group)
         member = self._get_entity(ident=member_entity)
         return self._group_remove_entity(operator, member, group)
                                
@@ -6317,6 +6331,7 @@ Addresses and settings:
                             hdr="%8s %-16s %s" % ("Id", "Name", "Description")),
         perm_filter='can_search_group')
     def group_search(self, operator, filter=""):
+        self.ba.can_search_group(operator.get_entity_id())
         group = self.Group_class(self.db)
         if filter == "":
             raise CerebrumError, "No filter specified"
@@ -6377,7 +6392,8 @@ Addresses and settings:
     def group_set_displayname(self, operator, gname, disp_name, name_lang):
         # if this methos is to be made generic use
         # _get_group(grptype="Group")
-        self.ba.is_postmaster(operator.get_entity_id())
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied('No access to group')
         name_variant = self.const.dl_group_displ_name
         self._set_display_name(gname, disp_name, name_variant, name_lang)
         return "Registered display name %s for %s" % (disp_name, gname)
@@ -6570,6 +6586,8 @@ Addresses and settings:
     all_commands['misc_samba_mount'] = Command(
         ("misc", "samba_mount"), DiskId(),DiskId())
     def misc_samba_mount(self, operator, hostname, mountname):
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         from Cerebrum.modules import MountHost
         mount_host = MountHost.MountHost(self.db)       
         
@@ -7047,7 +7065,7 @@ Addresses and settings:
         ("misc", "list_bofhd_request_types"),
         fs=FormatSuggestion("%-20s %s", ("code_str", "description"),
                             hdr="%-20s %s" % ("Code", "Description")),
-        perm_filter='is_superuser')
+        )
     def misc_list_bofhd_request_types(self, operator):
         br = BofhdRequests(self.db, self.const)
         
@@ -7883,6 +7901,7 @@ Addresses and settings:
         ("person", "set_bdate"), PersonId(help_ref="id:target:person"),
         Date(help_ref='date_birth'), perm_filter='can_create_person')
     def person_set_bdate(self, operator, person_id, bdate):
+        self.ba.can_create_person(operator.get_entity_id())        
         try:
             person = self.util.get_target(person_id, restrict_to=['Person'])
         except Errors.TooManyRowsError:
@@ -8307,9 +8326,9 @@ Addresses and settings:
     # person set_id
     all_commands['person_set_id'] = Command(
         ("person", "set_id"), PersonId(help_ref="person_id:current"),
-        PersonId(help_ref="person_id:new"), SourceSystem(help_ref="source_system", optional=True))
+        PersonId(help_ref="person_id:new"), SourceSystem(help_ref="source_system"))
     def person_set_id(self, operator, current_id, new_id, source_system):
-        if source_system and not self.ba.is_superuser(operator.get_entity_id()):
+        if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
         person = self._get_person(*self._map_person_id(current_id))
         idtype, id = self._map_person_id(new_id)
@@ -8438,7 +8457,8 @@ Addresses and settings:
         har_opptak = {}
         ret = []
         try:
-            db = Database.connect(user="I0185_ureg2000", service="FSPROD.uio.no",
+            db = Database.connect(user=cereconf.FS_USER,
+                                  service=cereconf.FS_DATABASE_NAME,
                                   DB_driver=cereconf.DB_DRIVER_ORACLE)
         except Database.DatabaseError, e:
             self.logger.warn("Can't connect to FS (%s)" % e)
@@ -10241,6 +10261,8 @@ Password altered. Use misc list_password to print or view the new password.%s'''
     all_commands['get_persdata'] = None
 
     def get_persdata(self, operator, uname):
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         ac = self._get_account(uname)
         person_id = "entity_id:%i" % ac.owner_id
         person = self._get_person(*self._map_person_id(person_id))

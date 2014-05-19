@@ -130,7 +130,7 @@ class UiACerebrumDistGroup(CerebrumGroup):
         """
         super(UiACerebrumDistGroup, self).calculate_ad_values()
         self.set_attribute('Member', ["CN=" + y.ad_id + "," + y.ou
-                                      for y in self.ad_data['members']])
+                                      for y in self.forwards_data['members']])
 
 
 class UiAForwardSync(BaseSync):
@@ -217,15 +217,19 @@ class UiAForwardSync(BaseSync):
                     if owner_name:
                         owner_ent = self.accounts.get(owner_name)
                         if owner_ent:
-                            self.distgroup_user_members[username] = (owner_ent)
+                            self.distgroup_user_members[username] = owner_ent
                             continue
-                    # Create an AD-object for the forward address
-                    name = ','.join((username, tmp_addr, str(ent.entity_id)))
+                    # Create an AD-object for the forward address.
+                    # The name is composed according to UiA's requirements.
+                    name = "Forward_for_%s__%s" % (username, tmp_addr)
+                    if len(name) > 64:
+                        name = "Forward_for_%s__%s" % (username, ent.entity_id)
                     self.entities[name] = self.cache_entity(ent.entity_id, name)
-                    # All the object attributes are composed based on 
-                    # the username and forwardname. Save it for future use
-                    self.entities[name].ad_data['uname'] = username
-                    self.entities[name].ad_data['faddr'] = tmp_addr
+                    # Some of the forward object attributes are composed based 
+                    # on the owner's username and forward address itself, 
+                    # so save it for future use.
+                    self.entities[name].forwards_data['uname'] = username
+                    self.entities[name].forwards_data['addr'] = tmp_addr
 
 
 class UiADistGroupSync(BaseSync):
@@ -267,23 +271,27 @@ class UiADistGroupSync(BaseSync):
         """
         self.logger.debug("Making distribution groups")
         
-        for key, value in self.forwards.iteritems():
-            name, addr, ent_id = key.split(',')
+        for forward_name, forward_entity in self.forwards.iteritems():
+            name = forward_entity.forwards_data['uname']
             if name in self.entities:
                 # Add the forward-object to the group
-                self.entities[name].ad_data['members'].append(value)
+                self.entities[name].forwards_data['members'].append(
+                                                                 forward_entity)
             else:
-                self.entities[name] = self.cache_entity(ent_id, name, 
+                self.entities[name] = self.cache_entity(
+                    forward_entity.entity_id, name, 
                     description = 'Samlegruppe for brukerens forwardadresser')
-                self.entities[name].ad_data['members'] = [value,]
+                self.entities[name].forwards_data['members'] = [forward_entity]
 
         # For local forward addresses we have to include user objects, 
         # as members to a distribution group
         for username, user_entity in self.user_members.iteritems():
             if username in self.entities:
-                self.entities[username].ad_data['members'].append(user_entity)
+                self.entities[username].forwards_data['members'].append(
+                                                                    user_entity)
             else:
                 self.entities[username] = self.cache_entity(
                     user_entity.entity_id, username, 
                     description = 'Samlegruppe for brukerens forwardadresser')
-                self.entities[username].ad_data['members'] = [user_entity,]
+                self.entities[username].forwards_data['members'] = [
+                                                                   user_entity,]

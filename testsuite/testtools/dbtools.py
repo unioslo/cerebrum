@@ -72,23 +72,23 @@ class DatabaseTools(object):
     # Cerebrum objects.
 
     def get_database_object(self):
-        """ Return a initialized, dynamic Cererbum.Database object. """
+        """ Return a initialized, dynamic Cerebrum.Database object. """
         return self._db
 
-    def get_person_obejct(self):
-        """ Return a initialized, dynamic Cererbum.Account object. """
+    def get_person_object(self):
+        """ Return a initialized, dynamic Cerebrum.Account object. """
         return self._pe
 
-    def get_account_obejct(self):
-        """ Return a initialized, dynamic Cererbum.Account object. """
+    def get_account_object(self):
+        """ Return a initialized, dynamic Cerebrum.Account object. """
         return self._ac
 
     def get_group_object(self):
-        """ Return a initialized, dynamic Cererbum.Group object. """
+        """ Return a initialized, dynamic Cerebrum.Group object. """
         return self._gr
 
     def get_constants_object(self):
-        """ Return a initialized, dynamic Cererbum.Constants object. """
+        """ Return a initialized, dynamic Cerebrum.Constants object. """
         return self._co
 
     def get_initial_account_id(self):
@@ -130,7 +130,7 @@ class DatabaseTools(object):
 
     def clear_constants(self):
         """ Delete all constants created by this class. """
-        for constant in self.constants:
+        for constant in self.constants[:]:
             self.delete_constant(constant)
 
         for constant in self.constants:
@@ -194,7 +194,7 @@ class DatabaseTools(object):
 
     def clear_accounts(self):
         """ Clear accounts created by this class. """
-        for entity_id in self.account_ids:
+        for entity_id in self.account_ids.copy():
             self.delete_account_id(entity_id)
 
         for entity_id in self.account_ids:
@@ -245,7 +245,7 @@ class DatabaseTools(object):
 
     def clear_persons(self):
         """ Clear accounts created by this class. """
-        for entity_id in self.person_ids:
+        for entity_id in self.person_ids.copy():
             self.delete_person_id(entity_id)
 
         for entity_id in self.person_ids:
@@ -290,7 +290,7 @@ class DatabaseTools(object):
 
     def clear_groups(self):
         """ Delete all groups created by a DatabaseTools object. """
-        for entity_id in self.group_ids:
+        for entity_id in self.group_ids.copy():
             self.delete_group_id(entity_id)
 
         for entity_id in self.group_ids:

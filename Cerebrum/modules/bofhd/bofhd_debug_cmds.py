@@ -95,11 +95,11 @@ class BofhdExtension(BofhdCommandBase):
     #
     all_commands['debug_raise_cerebrum_error'] = Command(
         ("debug", "raise_cerebrum_error"),
-        SimpleString(help_ref='exc_strval', optional=True, default="Foo Bar"),
+        SimpleString(help_ref='exc_strval', optional=True),
     )
 
-    def debug_raise_cerebrum_error(self, operator, strval):
-        """ Raise an exception that takes multiple args. """
+    def debug_raise_cerebrum_error(self, operator, strval="Foo Bar"):
+        """ Raise a generic Cerebrum.Errors.CerebrumError. """
         raise Errors.CerebrumError(strval)
 
     #
@@ -107,11 +107,11 @@ class BofhdExtension(BofhdCommandBase):
     #
     all_commands['debug_raise_bofhd_cerebrum_error'] = Command(
         ("debug", "raise_bofhd_cerebrum_error"),
-        SimpleString(help_ref='exc_strval', optional=True, default="Foo Bar"),
+        SimpleString(help_ref='exc_strval', optional=True),
     )
 
-    def debug_raise_bofhd_cerebrum_error(self, operator, strval):
-        """ Raise an exception that takes multiple args. """
+    def debug_raise_bofhd_cerebrum_error(self, operator, strval="Foo Bar"):
+        """ Raise an bofhd.errors.CerebrumError. """
         raise CerebrumError(strval)
 
     #
@@ -119,12 +119,17 @@ class BofhdExtension(BofhdCommandBase):
     #
     all_commands['debug_raise_exception_multiple_args'] = Command(
         ("debug", "raise_exception_multiple_args"),
-        SimpleString(help_ref='exc_strval', optional=True, default="Foo Bar"),
-        Integer(help_ref='exc_intval', optional=True, default=10),
+        SimpleString(help_ref='exc_strval', optional=True),
+        Integer(help_ref='exc_intval', optional=True),
     )
 
-    def debug_raise_exception_multiple_args(self, operator, strval, intval):
-        """ Raise an exception that takes multiple args. """
+    def debug_raise_exception_multiple_args(self, operator, strval="Foo Bar",
+                                            intval=10):
+        """ Raise an exception that takes multiple args.
+
+        This is useful when we want to see what gets transferred to the client.
+
+        """
         intval = int(intval)
         raise ExceptionMultipleArgs(strval, intval)
 
