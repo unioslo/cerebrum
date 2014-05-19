@@ -13,7 +13,8 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.Account import Account
+from Cerebrum.modules import dns
+
 from datasource import BasicAccountSource, BasicPersonSource
 from dbtools import DatabaseTools
 from datasource import expired_filter, nonexpired_filter
@@ -41,6 +42,7 @@ class TSDAccountTest(unittest.TestCase):
 
         cls._pe = Factory.get('Person')(cls._db)
         cls._ac = Factory.get('Account')(cls._db)
+        cls._gr = Factory.get('Group')(cls._db)
         cls._ou = Factory.get('OU')(cls._db)
         cls._co = Factory.get('Constants')(cls._db)
 
@@ -134,3 +136,53 @@ class SimpleAccountsTest(TSDAccountTest):
                 ('p99-ola-nordmann-hansen', 'ola-nordmann-hansen')):
             self.assertEqual(self._ac.get_username_without_project(username),
                              stripped)
+
+    def test_setup_for_project(self):
+        """Approved accounts should be set up with host and groups."""
+        old_cereconf_groups = cereconf.TSD_PROJECT_GROUPS[:]
+        cereconf.TSD_PROJECT_GROUPS = (
+                ('member-group', 'All members', ()),)
+        old_cereconf_members = cereconf.TSD_GROUP_MEMBERS.copy()
+        cereconf.TSD_GROUP_MEMBERS['member-group'] = ('person_aff:PROJECT',)
+
+        self._ou.clear()
+        pid = self._ou.create_project('tsthst')
+        self._ou.populate_trait(self._co.trait_project_vm_type,
+                                strval='linux_vm')
+        self._ou.setup_project(self.db_tools.get_initial_account_id())
+        self._ou.write_db()
+
+        # TODO: Create helper methods for this, if needed in more tests:
+        person_id = self.db_tools.create_person(self.person_ds().next())
+        self._pe.clear()
+        self._pe.find(person_id)
+        self._pe.populate_affiliation(
+                            source_system=self._co.system_nettskjema,
+                            ou_id=self._ou.entity_id,
+                            affiliation=self._co.affiliation_project,
+                            status=self._co.affiliation_status_project_member)
+        self._pe.write_db()
+
+        account = self.account_ds().next()
+        account_id = self.db_tools.create_account(account, person_id)
+        self._ac.clear()
+        self._ac.find(account_id)
+        self._ac.set_account_type(self._ou.entity_id,
+                                  self._co.affiliation_project)
+        self._ac.write_db()
+        self._ac.setup_for_project()
+        # Check data
+        dnsowner = dns.DnsOwner.DnsOwner(self._db)
+        # User should have its own host:
+        dnsowner.find_by_name('%s-l.tsd.usit.no.' % self._ac.account_name)
+
+        # User should be member of some groups:
+        for grname in ('member-group',):
+            self._gr.clear()
+            self._gr.find_by_name('-'.join((pid, grname)))
+            self.assertTrue(self._gr.has_member(self._ac.entity_id))
+
+        # TODO: This should rather be in the teardown, to avoid trouble in later
+        # tests:
+        cereconf.TSD_PROJECT_GROUPS = old_cereconf_groups
+        cereconf.TSD_GROUP_MEMBERS = old_cereconf_members
