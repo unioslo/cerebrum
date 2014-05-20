@@ -319,7 +319,9 @@ def process_person_callback(person_info):
     # Iterate over all person_info entries and extract relevant data    
     if person_info.has_key('aktiv'):
         for row in person_info['aktiv']:
-            if studieprog2sko[row['studieprogramkode']] is not None:
+            if row['studieprogramkode'] not in studieprog2sko:
+                logger.warn('Studieprogramkode %s eksisterer ikke.')
+            elif studieprog2sko[row['studieprogramkode']] is not None:
                 aktiv_sted.append(int(studieprog2sko[row['studieprogramkode']]))
                 logger.debug("App2akrivts")
 
