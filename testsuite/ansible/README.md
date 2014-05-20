@@ -30,11 +30,16 @@ should be used:
 
 1. Set global fact/variable *config* to the value *name* that you gave your
    subfolder(s).
-2. When fetching the file, use this `with_first_found` pattern:
+2. When fetching the file, use the *with_file_overload* lookup plugin:
 
     - name: Name of task
       action: sometask with={{ item }}
-      with_first_found:
-        - "../templates/{{ config|default('.') }}/template.j2"
-        - "../templates/template.j2"
+      with_file_overload:
+        - file: 'template.j2'
+        - base: 'templates',
+        - alt: "{{ config | default(None) }}"
 
+
+## Ansible extensions
+
+TODO: document modules, lookup
