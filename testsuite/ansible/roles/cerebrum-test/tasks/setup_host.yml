@@ -83,6 +83,7 @@
   sudo: yes
   sudo_user: postgres
 
+# TODO: Should we allow overload for db configs?
 - name: Place postgres auth config
   template: src=pg_hba.j2
             dest=/var/lib/pgsql/data/pg_hba.conf
