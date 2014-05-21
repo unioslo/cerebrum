@@ -524,7 +524,7 @@ class OUTSDMixin(OU):
                             parent=ac, creator_id=creator_id)
                 pu.write_db()
 
-    def _populate_dnsowner(self, hostname, ipv6_adr=None):
+    def _populate_dnsowner(self, hostname):
         """Create or update a DnsOwner connected to the given project.
 
         The DnsOwner is given a trait, to affiliate it with this project-OU.
@@ -535,12 +535,6 @@ class OUTSDMixin(OU):
 
         :param str hostname: The given *FQDN* for the host.
 
-        :param str ipv6_adr:
-            The given IPv6 address to set for the host. Only IPv6 addresses are
-            needed for projects in TSD, so IPv4 addresses must be added
-            manually. If not given, a free IP address in the project's subnet
-            will be used.
-
         :rtype: DnsOwner object
         :return:
             The DnsOwner object that is created or updated.
@@ -550,10 +544,13 @@ class OUTSDMixin(OU):
         dnsfind = dns.Utils.Find(self._db, cereconf.DNS_DEFAULT_ZONE)
         ipv6number = dns.IPv6Number.IPv6Number(self._db)
         aaaarecord = dns.AAAARecord.AAAARecord(self._db)
+        ipnumber = dns.IPNumber.IPNumber(self._db)
+        arecord = dns.ARecord.ARecord(self._db)
 
         projectid = self.get_project_id()
         intpid = self.get_project_int()
-        subnetstart = cereconf.SUBNET_START_6 % intpid
+        subnetstart6 = cereconf.SUBNET_START_6 % intpid
+        subnetstart = cereconf.SUBNET_START % intpid
 
         try:
             dns_owner.find_by_name(hostname)
@@ -563,18 +560,25 @@ class OUTSDMixin(OU):
                                hostname)
             dns_owner.write_db()
 
-        # Only IPv6 is needed for projects in TSD
-        if not ipv6_adr:
-            ipv6_adr = dnsfind.find_free_ip(subnetstart, no_of_addrs=1)[0]
+        # Affiliate with project:
+        dns_owner.populate_trait(self.const.trait_project_host,
+                                 target_id=self.entity_id)
+        dns_owner.write_db()
+
         # TODO: check if dnsowner already has an ipv6 address.
-        ip = dnsfind.find_free_ip(subnetstart, no_of_addrs=1)[0]
+        ip = dnsfind.find_free_ip(subnetstart6, no_of_addrs=1)[0]
         ipv6number.populate(ip)
         ipv6number.write_db()
         aaaarecord.populate(dns_owner.entity_id, ipv6number.entity_id)
         aaaarecord.write_db()
-        dns_owner.populate_trait(self.const.trait_project_host,
-                                 target_id=self.entity_id)
-        dns_owner.write_db()
+
+        # TODO: check if dnsowner already has an ip address.
+        ip = dnsfind.find_free_ip(subnetstart, no_of_addrs=1)[0]
+        ipnumber.populate(ip)
+        ipnumber.write_db()
+        arecord.populate(dns_owner.entity_id, ipnumber.entity_id)
+        arecord.write_db()
+
         return dns_owner
 
     def get_pre_approved_persons(self):
