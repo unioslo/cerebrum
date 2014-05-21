@@ -368,7 +368,6 @@ def process_person_callback(person_info):
     # until written to the database.
     op = new_person.write_db()
 
-####################################3
     # Iterate over all person_info entries and extract relevant data
     if person_info.has_key('aktiv'):
         for row in person_info['aktiv']:
@@ -419,9 +418,6 @@ def process_person_callback(person_info):
             except KeyError:
                 logger.warn('EVU: Person id %d har stud.prog.kode %s som ikke eksisterer.',
                             new_person.entity_id, row['studieprogramkode'])
-
-
-######################################33333
 
     for a in filter_affiliations(affiliations):
         ou, aff, aff_status = a
