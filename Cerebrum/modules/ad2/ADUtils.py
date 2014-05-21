@@ -619,7 +619,7 @@ class ADclient(PowershellClient):
         if name:
             filters['Name'] = name
         if ad_object_class:
-            filter['ObjectClass'] = ad_object_class
+            filters['ObjectClass'] = ad_object_class
         extra = {}
         if filters:
             extra = 'Filter {%s}' % ' -and '.join("%s -eq '%s'" % (k, v)
@@ -628,7 +628,19 @@ class ADclient(PowershellClient):
         cmd = ("if ($str = %s | ConvertTo-Json) { $str -replace '$', ';' }" %
                self._generate_ad_command('Get-ADObject', parameters, extra))
         out = self.run(cmd)
-        return list(self.get_output_json(out, dict()))
+        res_list = []
+        json_output = self.get_output_json(out,dict())
+        if json_output:
+            if isinstance(json_output, dict):
+                # In case there is found only one object, get_output_json will
+                # return a single dictionary. This method however needs to 
+                # return a list, so we have to make a list of one element.
+                res_list.append(json_output)
+            else:
+                # With several objects found, get_output_json returns a list of
+                # dicts. No additional transformation needed.
+                res_list = json_output
+        return res_list
 
     def create_object(self, name, path, object_class, attributes=None,
                       parameters=None):
