@@ -84,15 +84,16 @@
           chdir={{ crb_src_dir }}
 
 - name: Locate virtualenv site-packages
-  command: "{{ virtualenv }}/bin/python -c 'from distutils.sysconfig import get_python_lib; print(get_python_lib())'"
-  register: _virtualenv_site_packages
+  virtualenv_info: env={{ virtualenv }}
+                   info=site
+  register: _virtualenv_info
 
 # In stead of manipulating the PYTHONPATH, we use the cerebrum_path module
 # If we decide to get rid of this in Cerebrum, we'll have to look at how we set
 # environment variables with ansible
 - name: Place cerebrum_path module
   template: src={{ item }}
-            dest={{ _virtualenv_site_packages.stdout }}/cerebrum_path.py
+            dest={{ _virtualenv_info.site }}/cerebrum_path.py
             validate='{{ virtualenv }}/bin/python -B %s'
   with_file_overload:
     - base: 'templates'
