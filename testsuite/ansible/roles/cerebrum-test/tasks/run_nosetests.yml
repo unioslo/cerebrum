@@ -1,44 +1,48 @@
 # Set up and run tests
+#
+# Will run tests from the file `nosetests.txt' either in `files/<config>/' or
+# `files/'.
+#
+# The file should contain one test file or test folder per line, relative to
+# `<crb_src_dir>/testsuite/tests/'.
 # 
 # Required vars:
 #  - virtualenv
-#      Where the virtualenv should be placed.
+#      Where our virtualenv is. `nosetests' should be installed in the
+#      virtualenv.
 #  - crb_src_dir
-#      The source directory for cerebrum.
-#  - crb_tests
-#      The test folders, relative to {{ crb_src_dir }}/testsuite/tests
+#      The source directory for Cerebrum.
+#  - crb_tests  TODO: Not currently in use, should we accept tests from this
+#                     variable as well?
+#      The test folders/files to run, relative to {{ crb_src_dir }}/testsuite/tests
 
+# TODO: Should we write a module for this?
 
 - name: Place nose config
   template: src={{ item }}
-            dest=/tmp/noseconfig_{{ virtualenv | replace('/', '_') }}.cfg
-  with_first_found:
-    - "../templates/{{ templates|default('.') }}/noseconfig.j2"
-    - "../templates/noseconfig.j2"
+            dest={{ item | tmpfile }}
+  with_file_overload:
+    - base: 'templates'
+    - file: 'noseconfig.j2'
+    - alt: '{{ config | default(None) }}'
+  register: _noseconfig
 
-- name: Place pylint config
-  template: src={{ item }}
-            dest=/tmp/pylintrc_{{ virtualenv | replace('/', '_') }}.cfg
-  with_first_found:
-    - "../templates/{{ templates|default('.') }}/pylintrc.j2"
-    - "../templates/pylintrc.j2"
-
-# Build test list.
-# This could probably be prettier, and more efficient...
-#- name: Build test list
-  #set_fact: _nosetest_args={{ crb_tests | default([]) | map("replace", "", crb_src_dir + "/testsuite/tests/", 1) | join(" ") }}
-- name: Copy helper script for nosetest-args
-  copy: src=nosetest_args.sh
-        dest=/tmp/nosetest_args_{{ virtualenv | replace('/', '_') }}.sh
-        mode=0700
-
-- name: Build test list for nosetests
-  command: /tmp/nosetest_args_{{ virtualenv | replace('/', '_') }}.sh {{ crb_src_dir + "/testsuite/tests" }} {{ crb_tests | default([]) | join(" ") }}
-  register: _nosetest_tests
+# Should we use crb_tests? Maybe do a list join?
+#- name: debug tests
+  #debug: var=crb_tests
 
 - name: Run test
   action: command {{ virtualenv }}/bin/nosetests 
-                  -c /tmp/noseconfig_{{ virtualenv | replace('/', '_') }}.cfg
-                  {{ _nosetest_tests.stdout }}
+                  -c {{ _noseconfig | dest }}
+                  {{ lookup('file', item) | split | prefix(crb_src_dir + "/testsuite/tests/") | join(" ") }}
+  with_file_overload:
+    - base: 'files'
+    - file: 'nosetests.txt'
+    - alt: '{{ config | default(None) }}'
   register: _test_result
-  #ignore_errors: yes
+  ignore_errors: yes
+
+- name: Write test output
+  debug: var=_test_result.stderr
+  failed_when: _test_result.rc != 0
+
