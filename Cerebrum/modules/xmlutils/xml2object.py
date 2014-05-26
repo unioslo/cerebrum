@@ -242,35 +242,74 @@ class NameContainer(object):
             return None
     # end get_name_with_lang
 # end class NameContainer
-    
 
 
 class DataEmployment(NameContainer):
-    """Class for representing employment information.
 
-    TBD: Do we validate (the parts of) the information against Cerebrum?
-    """
+    """ Class for representing employment information. """
 
+    # Employment types
     HOVEDSTILLING = "hovedstilling"
-    BISTILLING    = "bistilling"
-    GJEST         = "gjest"
-    BILAG         = "bilag"
-    KATEGORI_OEVRIG = "tekadm-øvrig"
-    KATEGORI_VITENSKAPLIG  = "vitenskaplig"
-    WORK_TITLE    = "stillingstittel"
+    BISTILLING = "bistilling"
+    GJEST = "gjest"
+    BILAG = "bilag"
 
-    
+    # Emplyment categories
+    KATEGORI_OEVRIG = "tekadm-øvrig"
+    KATEGORI_VITENSKAPLIG = "vitenskaplig"
+
+    # Work title string
+    WORK_TITLE = "stillingstittel"
+
     def __init__(self, kind, percentage, code, start, end, place, category,
-                 leave=None):
+                 leave=None, mg=None, mug=None):
+        """ Create a new Employment object.
+
+        :type kind: basestring
+        :param kind: Employment type, one of the attributes of this class.
+
+        :type percentage: float
+        :param percentage: Employment percentage, 0.0 - 100.0
+
+        :type code: int
+        :param code: Employment code (stillingskode)
+
+        :type start: mx.DateTime
+        :param start: Start date of the employment
+
+        :type end: mx.DateTime
+        :param end: End date of the employment
+
+        :type place: tuple
+        :param place:
+            Organizational unit where the employment belongs. A tuple
+            consisting of (id-type, id). The id-type should be an attribute of
+            DataOU.
+
+        :type category: basestring
+        :param category:
+            Employment category, one of the attributes of this class.
+
+        :type leave: list
+        :param leave:
+            Periods where the employment is inactive. List of dict(-like)
+            objects. Each object should contain the keys 'start_date' and
+            'end_date', with a mx.DateTime value.
+
+        :type mg: int
+        :param mg: (MEGType, medarbeidergruppe)
+
+        :type mug: int
+        :param mug: (MUGType, medarbeiderundergruppe)
+
+        """
         super(DataEmployment, self).__init__()
         # TBD: Subclass?
         self.kind = kind
         assert self.kind in (self.HOVEDSTILLING, self.BISTILLING,
                              self.GJEST, self.BILAG)
-        # It can be a floating point value.
         self.percentage = percentage
         self.code = code
-        # start/end are mx.DateTime objects (well, only the Date part is used)
         self.start = start
         self.end = end
         # Associated OU identified with (kind, value)-tuple.
@@ -282,20 +321,16 @@ class DataEmployment(NameContainer):
             self.leave = list()
         else:
             self.leave = copy.deepcopy(leave)
-    # end __init__
+        self.mg = mg
+        self.mug = mug
 
-    
     def is_main(self):
         return self.kind == self.HOVEDSTILLING
-    # end is_main
 
-    
     def is_guest(self):
         return self.kind == self.GJEST
-    # end is_guest
 
-    
-    def is_active(self, date = Date(*time.localtime()[:3])):
+    def is_active(self, date=Date(*time.localtime()[:3])):
         # IVR 2009-04-29 Lars Gustav Gudbrandsen requested on 2009-04-22 that
         # all employment-related info should be considered active 14 days
         # prior to the actual start day.
@@ -308,10 +343,8 @@ class DataEmployment(NameContainer):
                     ((not self.end) or (date <= self.end + DateTimeDelta(3))))
 
         return ((not self.end) or (date <= self.end + DateTimeDelta(3)))
-    # end is_active
 
-
-    def has_leave(self, date = Date(*time.localtime()[:3])):
+    def has_leave(self, date=Date(*time.localtime()[:3])):
         """If the employment is on leave, e.g. working somewhere else
         temporarily.
 
@@ -320,8 +353,6 @@ class DataEmployment(NameContainer):
             if l['start_date'] <= date and (date <= l['end_date']):
                 return True
         return False
-    # end has_leave
-
 
     def __str__(self):
         return "(%s) Employment: %s%% %s [%s..%s @ %s]" % (
@@ -329,8 +360,7 @@ class DataEmployment(NameContainer):
             ", ".join("%s:%s" % (x[0], map(str, x[1]))
                       for x in self.iternames()),
             self.start, self.end, self.place)
-    # end __str__
-# end DataEmployment
+
 
 class DataExternalWork(object):
     """Representing external employment or affiliation registered following the

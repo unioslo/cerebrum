@@ -69,18 +69,12 @@ from Cerebrum.modules.xmlutils.xml2object import DataAddress
 from Cerebrum.modules.xmlutils.xml2object import DataContact
 
 
-
-
-
 logger = Factory.get_logger("cronjob")
 cerebrum_db = Factory.get("Database")()
 constants = Factory.get("Constants")(cerebrum_db)
 ou_db = Factory.get("OU")(cerebrum_db)
 person_db = Factory.get("Person")(cerebrum_db)
 source_system = None
-
-
-
 
 
 def output_element(writer, value, element, attributes = dict()):
@@ -483,7 +477,6 @@ def output_employments(writer, person, ou_cache):
 # end output_employments
 
 
-
 def output_person(writer, person, phd_cache, ou_cache):
     """Output all information pertinent to a particular person.
 
@@ -505,27 +498,14 @@ def output_person(writer, person, phd_cache, ou_cache):
         ...
       </gjester>
     <person>
+
     """
-
-    employments = filter(lambda x: x.kind in (x.HOVEDSTILLING,
-                                              x.BISTILLING) and
-                                   x.is_active(),
-                         person.iteremployment())
-    guests = filter(lambda x: x.kind == x.GJEST and x.is_active(),
-                    person.iteremployment())
-
-    if not (employments or guests):
-        logger.info("person_id %s has no suitable tils/gjest records",
-                    list(person.iterids()))
-        return
-    # fi
-
     reserved = {True: "J",
                 False: "N",
-                None: "N",}[person.reserved]
+                None: "N", }[person.reserved]
     fnr = person.get_id(person.NO_SSN)
-    writer.startElement("person", { "fnr" : fnr,
-                                    "reservert" : reserved })
+    writer.startElement("person", {"fnr": fnr,
+                                   "reservert": reserved, })
     for attribute, element in ((person.NAME_LAST, "etternavn"),
                                (person.NAME_FIRST, "fornavn")):
         name = person.get_name(attribute, None)
@@ -558,7 +538,9 @@ def output_person(writer, person, phd_cache, ou_cache):
                    (DataContact.CONTACT_URL, "URL"))
 
     output_employments(writer, person, ou_cache)
-    
+
+    guests = filter(lambda x: x.kind == x.GJEST and x.is_active(),
+                    person.iteremployment())
     if guests or phds:
         writer.startElement("gjester")
         names = dict((("start", "datoFra"),
@@ -571,9 +553,7 @@ def output_person(writer, person, phd_cache, ou_cache):
         output_assignments(writer, phds, ou_cache, None, "gjest", names)
         writer.endElement("gjester")
 
-        
     writer.endElement("person")
-# end output_person
 
 
 def cache_phd_students():
@@ -683,6 +663,42 @@ def output_phd_students(writer, sysname, phd_students, ou_cache):
         writer.endElement("person")
 # end output_phd_students
 
+def should_export_person(person):
+    """ Test to decide whether a person should be exported.
+
+    Returns True by default, unless some exception rule matches.
+
+    """
+    # This step is added for clarity in the logs.
+    employments = [e for e in person.iteremployment()]
+    if not employments:
+        logger.info("Skipping, person_id %s has no employment records",
+                    list(person.iterids()))
+        return False
+
+    # All employments that are *NOT* MG/MUG 4/04
+    # TODO/TBD: Should we consider kind (Hoved/Bi), or is_active()?
+    employments = filter(lambda x: not (x.mg == 4 and x.mug == 4),
+                         person.iteremployment())
+    if not employments:
+        logger.info("Skipping, person_id %s only has MG/MUG 404 records",
+                    list(person.iterids()))
+        return False
+
+    # Filter moved from output_person
+    employments = filter(lambda x: (x.kind in (x.HOVEDSTILLING, x.BISTILLING)
+                                    and x.is_active()),
+                         person.iteremployment())
+    guests = filter(lambda x: x.kind == x.GJEST and x.is_active(),
+                    person.iteremployment())
+    if not (employments or guests):
+        logger.info("Skipping, person_id %s has no active tils/gjest records",
+                    list(person.iterids()))
+        return False
+
+    # Future filters?
+
+    return True
 
 
 def output_people(writer, sysname, personfile, ou_cache):
@@ -692,8 +708,8 @@ def output_people(writer, sysname, personfile, ou_cache):
     (tilsetting) or active guest records (gjest). A record is considered
     active, if it has a start date in the past (compared to the moment when
     the script is run) and the end date is either unknown or in the future.
-    """
 
+    """
     logger.info("extracting people from %s", personfile)
 
     phd_students = cache_phd_students()
@@ -702,6 +718,9 @@ def output_people(writer, sysname, personfile, ou_cache):
     writer.startElement("personer")
     parser = system2parser(sysname)(personfile, logger, False)
     for person in parser.iter_person():
+        if not should_export_person(person):
+            continue
+
         # NB! phd_students is updated destructively
         output_person(writer, person, phd_students, ou_cache)
 
