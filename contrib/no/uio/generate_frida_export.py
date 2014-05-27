@@ -663,37 +663,45 @@ def output_phd_students(writer, sysname, phd_students, ou_cache):
         writer.endElement("person")
 # end output_phd_students
 
+
 def should_export_person(person):
     """ Test to decide whether a person should be exported.
 
-    Returns True by default, unless some exception rule matches.
+    Returns True by default, unless some exception rule matches (i.e. any
+    person from the SAP import file is exported, unless a filter rule applies).
+
+    NOTE: Any person filtered out by this method can still get exported, if the
+    person has a PhD-affiliation in Cerebrum. PhD-students gets processed
+    separately.
 
     """
     # This step is added for clarity in the logs.
+    # Filter out any person that has no employment record.
     employments = [e for e in person.iteremployment()]
     if not employments:
-        logger.info("Skipping, person_id %s has no employment records",
-                    list(person.iterids()))
+        logger.debug2("Skipping, person_id %s has no employment records",
+                      list(person.iterids()))
         return False
 
-    # All employments that are *NOT* MG/MUG 4/04
-    # TODO/TBD: Should we consider kind (Hoved/Bi), or is_active()?
+    # All employments that are *NOT* MG/MUG 4;04
+    # Filters out persons that *only* has 4;04 employment records
     employments = filter(lambda x: not (x.mg == 4 and x.mug == 4),
                          person.iteremployment())
     if not employments:
-        logger.info("Skipping, person_id %s only has MG/MUG 404 records",
-                    list(person.iterids()))
+        logger.debug2("Skipping, person_id %s only has MG/MUG 404 records",
+                      list(person.iterids()))
         return False
 
-    # Filter moved from output_person
-    employments = filter(lambda x: (x.kind in (x.HOVEDSTILLING, x.BISTILLING)
-                                    and x.is_active()),
-                         person.iteremployment())
-    guests = filter(lambda x: x.kind == x.GJEST and x.is_active(),
+    # Filters out persons that has no *active* employment of types
+    # 'Hovedstilling', 'Bistilling' or 'Gjest'.
+    active = filter(lambda x: (x.is_active() and x.kind in (x.HOVEDSTILLING,
+                                                            x.BISTILLING,
+                                                            x.GJEST)),
                     person.iteremployment())
-    if not (employments or guests):
-        logger.info("Skipping, person_id %s has no active tils/gjest records",
-                    list(person.iterids()))
+    if not (active):
+        logger.debug2(
+            "Skipping, person_id %s has no active tils/gjest records",
+            list(person.iterids()))
         return False
 
     # Future filters?
