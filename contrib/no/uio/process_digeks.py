@@ -63,7 +63,8 @@ Program flow:
 import getopt
 import sys
 import re
-from os.path import basename
+from os.path import basename, dirname, exists
+from os import makedirs
 
 import cereconf
 
@@ -1160,12 +1161,18 @@ def main():
             semester = val
         elif opt in ('-c', '--candidate-file'):
             try:
+                candidatedirectory = dirname(val)
+                if not exists(candidatedirectory):
+                    makedirs(candidatedirectory)
                 candidatefile = open(val, 'w')
             except IOError:
                 logger.error('Unable to open candidate file (%s)' % val)
                 sys.exit(1)
         elif opt in ('-e', '--exam-file'):
             try:
+                examdirectory = dirname(val)
+                if not exists(examdirectory):
+                    makedirs(examdirectory)
                 examfile = open(val, 'w')
             except IOError:
                 logger.error('Unable to open exam file (%s)' % val)
