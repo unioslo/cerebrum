@@ -146,7 +146,7 @@ def _calc_address(person_info):
     # FS.DELTAKER   *_hjem (5) 
     rules = [
         ('fagperson', ('_arbeide', '_hjemsted', '_besok_adr')),
-        ('aktiv', ('_hjemsted', None)),
+        ('aktiv', ('_hjemsted', '_semadr', None)),
         ('evu', ('_job', '_hjem', None)),
         ]
     adr_map = {
@@ -164,13 +164,12 @@ def _calc_address(person_info):
         '_besok_adr': ('institusjonsnr', 'faknr', 'instituttnr', 'gruppenr')
         }
     logger.debug("Getting address for person %s%s" % (person_info['fodselsdato'], person_info['personnr']))
+
     ret = [None, None, None]
     for key, addr_src in rules:
         if not person_info.has_key(key):
             continue
         tmp = person_info[key][0].copy()
-        if key == 'aktiv':
-            tmp = person_info['aktiv'][0].copy()
         for i in range(len(addr_src)):
             addr_cols = adr_map.get(addr_src[i], None)
             if (ret[i] is not None) or not addr_cols:
@@ -381,6 +380,7 @@ def process_person_callback(person_info):
         if address_info is not None:
             logger.debug("Populating address...")
             new_person.populate_address(co.system_fs, ad_const, **address_info)
+
     # if this is a new Person, there is no entity_id assigned to it
     # until written to the database.
     op = new_person.write_db()
@@ -422,6 +422,7 @@ def process_person_callback(person_info):
             # question at all, or has given an explicit "I don't
             # want to appear in the directory" answer.
             _rem_res(new_person.entity_id)
+
     db.commit()
 
 def register_fagomrade(person, person_info):

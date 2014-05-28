@@ -132,9 +132,32 @@ class AccountHiAMixin(Account.Account):
                 return "must start with a character (%s)" % name
             if re.search("[^A-Za-z0-9\-_]", name):
                 return "contains illegal characters (%s)" % name
-        return False    
+        return False
 
     def _autopick_homeMDB(self):
+        """Return a valid HomeMDB database.
+
+        The available databases are fetched from
+        `cereconf.EXCHANGE_HOMEMDB_VALID`. We pick the database which has the
+        lowest *weight*, which is calculated by::
+
+            number_of_users_with_given_database / max_users_set_for_db
+
+        The `max_users_set_for_db` is the number that is registered for the
+        database in `cereconf.EXCHANGE_HOMEMDB_VALID`. A smaller number will
+        increase the weight, and makes the database less likely to be chosen.
+
+        Note that the value set per database in
+        `cereconf.EXCHANGE_HOMEMDB_VALID` will *not* block the database from
+        being chosen if the database has more than the set number of users on
+        it.
+
+        :rtype: str
+        :return:
+            The name of a valid Exchange Database, fetched from
+            cereconf.EXCHANGE_HOMEMDB_VALID.
+
+        """
         mdb_candidates = set(cereconf.EXCHANGE_HOMEMDB_VALID.keys())
         mdb_count = dict()
         for candidate in mdb_candidates:

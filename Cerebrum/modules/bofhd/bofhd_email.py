@@ -1158,7 +1158,8 @@ class BofhdEmailMixin(BofhdEmailMixinBase):
 
     def email_primary_address(self, operator, addr):
         """ Set primary email address. """
-        self.ba.is_postmaster(operator.get_entity_id())
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
 
         ea = self._get_email_address_from_str(addr)
         et = self._get_email_target_for_address(ea)
@@ -1178,6 +1179,8 @@ class BofhdEmailMixin(BofhdEmailMixinBase):
         perm_filter='is_superuser')
 
     def email_set_primary_address(self, operator, uname, address):
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         et, acc = self._get_email_target_and_account(uname)
         ea = Email.EmailAddress(self.db)
         if address == '':
@@ -2174,7 +2177,8 @@ Addresses and settings:
 
     def email_add_filter(self, operator, filter, address):
         """ Add a filter to an existing e-mail target. """
-
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         etf = Email.EmailTargetFilter(self.db)
         filter_code = self._get_constant(self.const.EmailTargetFilter, filter)
         et, addr = self._get_email_target_and_address(address)
@@ -2216,6 +2220,8 @@ Addresses and settings:
 
     def email_remove_filter(self, operator, filter, address):
         """ Remove filter. """
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         etf = Email.EmailTargetFilter(self.db)
         filter_code = self._get_constant(self.const.EmailTargetFilter, filter)
         et, addr = self._get_email_target_and_address(address)

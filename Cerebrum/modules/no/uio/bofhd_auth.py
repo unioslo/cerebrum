@@ -188,4 +188,10 @@ class BofhdAuth(auth.BofhdAuth):
                 raise PermissionDenied('Unregistered name: %s' % n)
         return True
 
-# arch-tag: 4ab0350c-d3a0-11da-9a00-b0596eba3453
+    def can_show_history(self, operator, entity=None, query_run_any=False):
+        """UiO-specific history-specific authentication rules."""
+        if (entity and entity.entity_type == self.const.entity_email_target and
+                self.is_postmaster(operator)):
+            return True
+        return super(BofhdAuth, self).can_show_history(
+            operator, entity, query_run_any)

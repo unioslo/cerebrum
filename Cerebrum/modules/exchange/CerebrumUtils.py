@@ -24,6 +24,7 @@
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.Email import EmailDomain
 from Cerebrum.modules.Email import EmailQuota
+from Cerebrum.modules.Email import EmailForward
 from Cerebrum.modules.exchange.v2013.ExchangeGroups import DistributionGroup
 from Cerebrum import Errors
 #from Cerebrum.modules.exchange.Exceptions import ExchangeException
@@ -49,6 +50,7 @@ class CerebrumUtils(object):
         self.co = Factory.get('Constants')(self.db)
         self.ed = EmailDomain(self.db)
         self.eq = EmailQuota(self.db)
+        self.ef = EmailForward(self.db)
         self.et = Factory.get('EmailTarget')(self.db)
         self.dg = DistributionGroup(self.db)
 
@@ -102,6 +104,22 @@ class CerebrumUtils(object):
         self.db.rollback()
         return ret
 
+    def get_person_membership_groupnames(self, person_id):
+        """List all the groups the person is a member of
+        
+        @type person_id: int
+        @param person_id: The persons entity_id
+        
+        @rtype: list
+        @return: list(string) of groupnames
+        """
+        ret = [x['group_name'] for x in self.gr.search_members(
+                                    member_id=person_id, indirect_members=True)]
+        self.db.rollback()
+        return ret
+
+
+
     def is_electronic_reserved(self, person_id=None, account_id=None):
         """Check if a person has reserved themself from listing
 
@@ -147,6 +165,23 @@ class CerebrumUtils(object):
                 for x in self.et.get_addresses()]
         self.db.rollback()
         return addrs
+
+    def get_account_forwards(self, account_id):
+        """Collect an accounts forward addresses.
+
+        :param int account_id: The account_id representing the object.
+        :return: A list of forward addresses.
+        """
+        self.ef.clear()
+        self.ef.find_by_target_entity(account_id)
+        r = []
+        for fwd in self.ef.get_forward():
+            # Need to do keys() for now, db_row is stupid.
+            if 'enable' in fwd.keys() and fwd['enable'] == 'T':
+                r.append(fwd['forward_to'])
+        self.db.rollback()
+        return r
+
 
     def get_account_name(self, account_id):
         """Return information about the account.
@@ -258,12 +293,14 @@ class CerebrumUtils(object):
 
         # Fetch the groups the person is a member of
         if self.ac.owner_type == self.co.entity_person:
-            for group in self.gr.search(member_id=self.ac.owner_id, spread=group_spread,
-                                       indirect_members=True):
+            for group in self.gr.search(member_id=self.ac.owner_id,
+                                        spread=group_spread,
+                                        indirect_members=True):
                 groups.append((group['name'], group['group_id']))
 
         # Fetch the groups the account is a member of
-        for group in self.gr.search(member_id=self.ac.entity_id, spread=group_spread,
+        for group in self.gr.search(member_id=self.ac.entity_id,
+                                    spread=group_spread,
                                     indirect_members=True):
             groups.append((group['name'], group['group_id']))
 
@@ -290,6 +327,21 @@ class CerebrumUtils(object):
         self.db.rollback()
         return ret
     
+    def get_group_id(self, group_name):
+        """Get a groups entity_id
+
+        @type group_name: str
+        @param group_name: The groups name
+
+        @rtype: int
+        @return: The groups entity_id
+        """
+        self.gr.clear()
+        self.gr.find_by_name(group_name)
+        ret = self.gr.entity_id
+        self.db.rollback()
+        return ret
+
     def get_group_spreads(self, group_id):
         """Return the groupss spread codes.
 
@@ -362,6 +414,33 @@ class CerebrumUtils(object):
                         found_accounts.append(self.ac.entity_id)
         self.db.rollback()
         return r
+    
+    def get_parent_groups(self, id, spread=None, name_prefix=None):
+        """Return all groups that the group is an indirect member of. Filter
+        by spread and the start of the group name.
+
+        @type id: int
+        @param id: The entity_id
+
+        @type spread: _SpreadCode
+        @param _SpreadCode: The spread code to filter by, default is None
+
+        @type name_prefix: str
+        @param name_prefix: Check if the group starts with this, default None
+
+        @rtype: list
+        @return: A list of appropriate groups
+        """
+        if name_prefix:
+            np = '%s%%' % name_prefix
+        else:
+            np = None
+        groups = []
+        for group in self.gr.search(member_id=id, indirect_members=True,
+                                    spread=spread, name=np):
+            groups.append(group['name'])
+        self.db.rollback()
+        return groups
 
 ####
 # Other utility methods

@@ -306,7 +306,8 @@ class NISGroupUtil(object):
                 pos = 0
             else:
                 pos = line.index(delim, len(line) - maxlen)
-            ret += "%s%s%s\n" % (tmp_gname, g_separator, line[pos+1:])
+            ret += "%s%s%s\n" % (tmp_gname, g_separator,
+                                 line[pos:].strip(delim))
             line = line[:pos]
             if is_ng:
                 line = "%s %s" % (tmp_gname, line)

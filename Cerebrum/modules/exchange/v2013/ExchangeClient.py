@@ -164,6 +164,12 @@ class ExchangeClient(PowershellClient):
 
             Invoke-Command { Import-Module ActiveDirectory } -Session $ses;
 
+            # Redefine get-credential so it returns the appropriate credential
+            # that is defined earlier. This allows us to avoid patching
+            # Connect-ExchangeServer for each damn update.
+            Invoke-Command { function get-credential () { return $cred;} } `
+            -Session $ses;
+
             Invoke-Command { Connect-ExchangeServer `
             -ServerFqdn %(management_server)s -UserName %(ex_user)s } `
             -Session $ses;
@@ -219,6 +225,9 @@ class ExchangeClient(PowershellClient):
             %(ad_domain_user)s, $ad_pass) } -Session $ses;
 
             Invoke-Command { Import-Module ActiveDirectory } -Session $ses;
+            
+            Invoke-Command { function get-credential () { return $cred;} } `
+            -Session $ses;
 
             Invoke-Command { Connect-ExchangeServer `
             -ServerFqdn %(management_server)s -UserName %(ex_user)s } `
@@ -684,6 +693,56 @@ class ExchangeClient(PowershellClient):
             raise ExchangeException(out['stderr'])
         else:
             return True
+
+    def set_forward(self, uname, address):
+        """Set forwarding address for a mailbox.
+
+        :type uname: string
+        :param uname: The users username
+
+        :type address: String or None
+        :param address: The forwarding address to set
+
+        :raises ExchangeException: If the command fails to run
+        """
+        if not address:
+            cmd = self._generate_exchange_command(
+                'Set-Mailbox',
+                {'Identity': uname},
+                ('ForwardingSmtpAddress $null',))
+        else:
+            cmd = self._generate_exchange_command(
+                'Set-Mailbox',
+                {'Identity': uname,
+                 'ForwardingSmtpAddress': address})
+        out = self.run(cmd)
+        if 'stderr' in out:
+            raise ExchangeException(out['stderr'])
+        else:
+            return True
+
+    def set_local_delivery(self, uname, local_delv):
+        """Set local delivery for a mailbox.
+
+        :type uname: string
+        :param uname: The users username
+
+        :type local_delivery: bool
+        :param local_delivery: Enable or disable local delivery
+
+        :raises ExchangeException: If the command fails to run
+        """
+        cmd = self._generate_exchange_command(
+            'Set-Mailbox',
+            {'Identity': uname,
+             'DeliverToMailboxAndForward': local_delv})
+        out = self.run(cmd)
+        if 'stderr' in out:
+            raise ExchangeException(out['stderr'])
+        else:
+            return True
+
+
     ######
     # General group operations
     ######

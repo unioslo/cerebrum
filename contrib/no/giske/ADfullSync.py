@@ -87,14 +87,14 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
                                               'title' : 'Tilsett',
                                               'url' : urls,
                                               #Constraint i AD, homeMDB must be valid LDAP path.  
-                                              'homeMDB' : 'CN=Tilsette,CN=Mail Storage,CN=InformationStore,CN=LOMVI,CN=Servers,CN=Exchange Administrative Group (FYDIBOHF23SPDLT),CN=Administrative Groups,CN=Giske grunnskule,CN=Microsoft Exchange,CN=Services,CN=Configuration,DC=skule,DC=giske,DC=no'}
+                                              'homeMDB' : 'CN=Tilsette,CN=Mail Storage,CN=InformationStore,CN=LOMVI,CN=Servers,CN=Exchange Administrative Group (FYDIBOHF23SPDLT),CN=Administrative Groups,CN=Giske grunnskule,CN=Microsoft Exchange,CN=Services,CN=Configuration,DC=giske,DC=eks,DC=lan'}
                 # all this will be tested tommorow, uncomment after testing
             elif row['affiliation'] == co.affiliation_foresatt:
                 # experimental
                 urls =[]
                 title = 'Foresatt'
                 ad_ou = 'OU=FORESATTE,%s' % cereconf.AD_LDAP
-                home_mdb = 'CN=Foresatte,CN=Mail Storage,CN=InformationStore,CN=LOMVI,CN=Servers,CN=Exchange Administrative Group (FYDIBOHF23SPDLT),CN=Administrative Groups,CN=Giske grunnskule,CN=Microsoft Exchange,CN=Services,CN=Configuration,DC=skule,DC=giske,DC=no'
+                home_mdb = 'CN=Foresatte,CN=Mail Storage,CN=InformationStore,CN=LOMVI,CN=Servers,CN=Exchange Administrative Group (FYDIBOHF23SPDLT),CN=Administrative Groups,CN=Giske grunnskule,CN=Microsoft Exchange,CN=Services,CN=Configuration,DC=giske,DC=eks,DC=lan'
                 # find all person affs in order to build appropriate urls
                 self.person.clear()
                 try:
@@ -107,7 +107,7 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
                            r['affiliation'] == co.affiliation_teacher:
                         title = 'Tilsett'
                         ad_ou = 'OU=TILSETTE,%s' % cereconf.AD_LDAP
-                        home_mdb = 'CN=Tilsette,CN=Mail Storage,CN=InformationStore,CN=LOMVI,CN=Servers,CN=Exchange Administrative Group (FYDIBOHF23SPDLT),CN=Administrative Groups,CN=Giske grunnskule,CN=Microsoft Exchange,CN=Services,CN=Configuration,DC=skule,DC=giske,DC=no'
+                        home_mdb = 'CN=Tilsette,CN=Mail Storage,CN=InformationStore,CN=LOMVI,CN=Servers,CN=Exchange Administrative Group (FYDIBOHF23SPDLT),CN=Administrative Groups,CN=Giske grunnskule,CN=Microsoft Exchange,CN=Services,CN=Configuration,DC=giske,DC=eks,DC=lan'
                         tils_skole = id2ou[r['ou_id']]['acronym']
                         urls.append('https://portal.skule.giske.no/skule/' + tils_skole + '/tilsette')
                     elif r['affiliation'] == co.affiliation_foresatt:
@@ -130,7 +130,7 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
                                                   'url' : ['https://portal.skule.giske.no/skule/%s/elever'
                                                            % id2ou[row['ou_id']]['acronym']],
                                                   #Constraint i AD, homeMDB must be valid LDAP path.	  
-                                                  'homeMDB' : 'CN=Elever,CN=Mail Storage,CN=InformationStore,CN=LOMVI,CN=Servers,CN=Exchange Administrative Group (FYDIBOHF23SPDLT),CN=Administrative Groups,CN=Giske grunnskule,CN=Microsoft Exchange,CN=Services,CN=Configuration,DC=skule,DC=giske,DC=no'}
+                                                  'homeMDB' : 'CN=Elever,CN=Mail Storage,CN=InformationStore,CN=LOMVI,CN=Servers,CN=Exchange Administrative Group (FYDIBOHF23SPDLT),CN=Administrative Groups,CN=Giske grunnskule,CN=Microsoft Exchange,CN=Services,CN=Configuration,DC=giske,DC=eks,DC=lan'}
                 else:
                     miss_OU = miss_OU + 1
                     #self.logger.info('%s missing OU info, skipping' % row['account_id'])
@@ -169,16 +169,16 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
                 retur[e_name] = accinfo[row['entity_id']]
                 retur[e_name]['company'] = 'Giske kommune'
                 retur[e_name]['co'] = 'Norway'
-                retur[e_name]['userPrincipalName'] = '%s@skule.giske.no' % e_name
+                retur[e_name]['userPrincipalName'] = '%s@giske.eks.lan' % e_name
                 retur[e_name]['mailNickname'] = e_name
                 retur[e_name]['mDBUseDefaults'] = True
                 #Constraint in AD, must be a valid dn in AD.
-                retur[e_name]['msRTCSIP-PrimaryHomeServer'] = 'CN=LC Services,CN=Microsoft,CN=skule01,CN=Pools,CN=RTC Service,CN=Microsoft,CN=System,DC=skule,DC=giske,DC=no'
+                retur[e_name]['msRTCSIP-PrimaryHomeServer'] = 'CN=LC Services,CN=Microsoft,CN=skule01,CN=Pools,CN=RTC Service,CN=Microsoft,CN=System,DC=giske,DC=eks,DC=lan'
                 #Filtering roles on title field defined earlier.
                 if retur[e_name]['title'] == 'Elev':
                     retur[e_name]['homeDrive'] = cereconf.AD_HOME_DRIVE
                     retur[e_name]['profilePath'] = '\\\\vipe\\profiler\\%s' % e_name
-                    retur[e_name]['homeDirectory'] = '\\\\vipe\\elever\\%s' % e_name
+                    retur[e_name]['homeDirectory'] = '\\\\G13E-FS01.giske.eks.lan\\Elever\\%s' % e_name
                     retur[e_name]['msRTCSIP-PrimaryUserAddress'] = 'SIP:%s@skule.giske.no' % e_name
                 elif retur[e_name]['title'] == 'Foresatt':
                     retur[e_name]['msRTCSIP-PrimaryUserAddress'] = 'SIP:%s@skule.giske.no' % e_name
@@ -187,7 +187,7 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
                     # stop updating profile path for employees
                     # requested by Magnus Dyrøy
                     # retur[e_name]['profilePath'] = '\\\\spurv\\profiler\\%s' % e_name
-                    retur[e_name]['homeDirectory'] = '\\\\spurv\\tilsette\\%s' % e_name
+                    retur[e_name]['homeDirectory'] = '\\\\G13L-FS01.giske.eks.lan\\Tilsette\\%s' % e_name
                     retur[e_name]['msRTCSIP-PrimaryUserAddress'] = 'SIP:%s@skule.giske.no' % e_name
                 else:
                     self.logger.info("unknown title field: %s" % retur[e_name]['title'])
@@ -264,17 +264,17 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
                 ret = self.run_cmd('createDir', dry_run, 'profilePath')						
                 if not ret[0]:
                     self.logger.warning("createDir on %s failed: %r", uname, ret)
-                else:	
+                #else:	
                     #Checking existence of profileDir.
-                    ret = self.run_cmd('checkDir', dry_run, "profilePath")
-                    if not ret:
-                        self.logger.warning("ProfileDir for %s not found: %r", uname,
-                                                ret)
+                #    ret = self.run_cmd('checkDir', dry_run, "profilePath")
+                #    if not ret:
+                #        self.logger.warning("ProfileDir for %s not found: %r", uname,
+                #                                ret)
                 #Creating mailbox in Exchange
-                ret = self.run_cmd('createMDB', dry_run)
-                if not ret[0]:
-                    self.logger.warning("Create exchange mailbox for %s failed: %r", uname,
-                                         ret)
+                #ret = self.run_cmd('createMDB', dry_run)
+                #if not ret[0]:
+                #    self.logger.warning("Create exchange mailbox for %s failed: %r", uname,
+                #                         ret)
 
 class ADfgSync(ADutilMixIn.ADgroupUtil):
     #Groupsync

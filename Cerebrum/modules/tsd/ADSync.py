@@ -449,102 +449,62 @@ class HostpolicySync(ADSync.GroupSync, TSDUtils):
                              data['entity_type'])
         return ent
 
-    def sync_groups_members(self):
-        """Override, to simulate hostpolicies as groups in AD."""
-        self._roledns = {}
-        self._atomdns = {}
-        self._hostdns = {}
+    def fetch_cerebrum_data(self):
+        """Extend with fetching extra hostpolicy data, like members.
 
-        # TODO: The hardcoded functionality here should be generalized and be
-        # modifiable through adconf.
+        We simulate the hostpolicy relations through group memberships. The
+        relation from source component to target component is translated to the
+        source being a member of target. You would instinctively think that it
+        should be the other way around, but in this way it is easier in the AD
+        environment to fetch indirect relationships, as indirect group
+        memberships are easier to fetch than indirect parents.
 
-        # Fetch roles
-        cmd = self.server.start_list_objects(self.rolepath,
-                                             ('Name', 'DistinguishedName',),
-                                             'group')
-        for obj in self.server.get_list_objects(cmd):
-            name = obj['Name']
-            dn = obj['DistinguishedName']
-            if name in self._roledns:
-                self.logger.warn("Skipping, more than one member match "
-                                 "for: %s (%s)", name, dn)
-                continue
-            self._roledns[name] = dn
-        # Fetch atoms
-        cmd = self.server.start_list_objects(self.atompath,
-                                             ('Name', 'DistinguishedName',),
-                                             'group')
-        for obj in self.server.get_list_objects(cmd):
-            name = obj['Name']
-            dn = obj['DistinguishedName']
-            if name in self._atomdns:
-                self.logger.warn("Skipping, more than one member match "
-                                 "for: %s (%s)", name, dn)
-                continue
-            self._atomdns[name] = dn
-        self.logger.debug("Found %d roles and %d atoms in AD", len(self._roledns),
-                          len(self._atomdns))
-
-        # Fetch hosts:
-        cmd = self.server.start_list_objects(adconf.SYNCS['hosts']['target_ou'],
-                                             ('Name', 'DistinguishedName',),
-                                             'computer') 
-        # TODO: The hosts config should be fetched from the hosts sync and not
-        # hardcoded.
-        for obj in self.server.get_list_objects(cmd):
-            name = obj['Name'].lower()
-            dn = obj['DistinguishedName']
-            if name in self._hostdns:
-                self.logger.warn("Skipping, more than one member match in AD "
-                                 "for: %s (%s)", name, dn)
-                continue
-            self._hostdns[name] = dn
-        self.logger.debug("Found %d hosts in AD", len(self._hostdns))
-
-        return super(HostpolicySync, self).sync_groups_members()
-
-    def get_group_members(self, ent):
-        """Override the default member retrieval to fetch policy relations.
-
-        We need to fetch both policy components and hosts they are connected to.
+        We only sync the related hosts that are affiliated with a project. This
+        is by design.
 
         """
-        # TODO: This is hardcoded for now, should be changed when we find a
-        # generic solution for specifying the OU path of member objects in AD:
-        hostpath = adconf.SYNCS['hosts']['target_ou']
+        ret = super(HostpolicySync, self).fetch_cerebrum_data()
 
-        # Get policy members of the component:
-        members = set()
-        for row in self.component.search_relations(
-                               target_id=ent.entity_id,
-                               relationship_code=self.co.hostpolicy_contains,
-                               indirect_relations=False):
-            name = self.config['name_format'] % row['source_name']
-            dn = None
-            if row['source_entity_type'] == self.co.entity_hostpolicy_role:
-                dn = self._roledns.get(name)
-                if not dn:
-                    self.logger.warn("No such role in AD: %s", name)
-                    continue
-            elif row['source_entity_type'] == self.co.entity_hostpolicy_atom:
-                dn = self._atomdns.get(name)
-                if not dn:
-                    self.logger.warn("No such atom in AD: %s", name)
-                    continue
-            else:
-                self.logger.warn("Unknown entity_type %s for relation: %s",
-                                 row['source_entity_type'], row['source_name'])
-                continue
-            members.add(dn)
-        # Get host members of the component:
-        hostname_format = adconf.SYNCS['hosts'].get('name_format', '%s')
-        for row in self.component.search_hostpolicies(policy_id=ent.entity_id):
-            name = hostname_format % row['dns_owner_name']
-            name = name.lower()
-            name = self._hostname2adid(name)
-            dn = self._hostdns.get(name)
-            if not dn:
-                self.logger.warn("No such host in AD: %s" % name)
-            else:
-                members.add(dn)
-        return members
+        # Simulate the host sync to get the correct member data (OU) for hosts:
+        self.logger.debug2("Simulating host sync")
+        host_sync = self.get_class(sync_type='hosts')(self.db, self.logger)
+        host_config = adconf.SYNCS['hosts'].copy()
+        host_config['attributes'] = {}
+        host_config['sync_type'] = 'hosts'
+        host_sync.configure(host_config)
+        host_sync.fetch_cerebrum_data()
+        host_sync.calculate_ad_values()
+        self.logger.debug2("Host sync simulation done, found %d hosts",
+                           len(host_sync.id2entity))
+
+        # Fetch the memberships per component. This is a rather slow process,
+        # but we know that we are not getting that many different hostpolicies
+        # and we could live with this running for a few minutes.
+        i = 0
+        for ent in self.entities.itervalues():
+            # The list of members is fed with the full DN of each object, as
+            # registered in Cerebrum. It _should_ be the same in AD, otherwise
+            # the update of a given object would fail until the path is in sync.
+            members = set()
+            for row in self.component.search_relations(
+                                   target_id=ent.entity_id,
+                                   relationship_code=self.co.hostpolicy_contains,
+                                   indirect_relations=False):
+                mem = self.id2entity.get(row['source_id'])
+                if mem:
+                    members.add('CN=%s,%s' % (mem.ad_id, mem.ou))
+                else:
+                    self.logger.warn("Unknown member component: %s",
+                                     row['source_id'])
+            # Get host members of the component:
+            # TODO: We might want to run the hosts' AD-sync class to fetch all
+            # needed data, but this works for now.
+            for row in self.component.search_hostpolicies(policy_id=ent.entity_id):
+                mem = host_sync.owner2entity.get(row['dns_owner_id'])
+                if mem:
+                    members.add('CN=%s,%s' % (mem.ad_id, mem.ou))
+
+            ent.set_attribute('Member', members,
+                              self.config['attributes'].get('Member'))
+            i += len(members)
+        self.logger.debug2("Found in total %d hostpolicy members", i)

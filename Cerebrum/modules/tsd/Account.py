@@ -27,8 +27,7 @@ should refuse account_types from different OUs for a single account.
 """
 
 import base64
-import math
-#from mx import DateTime
+import re
 
 import cerebrum_path
 import cereconf
@@ -42,6 +41,8 @@ from Cerebrum.modules.no.uio.DiskQuota import DiskQuota
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules import dns
 from Cerebrum.Utils import pgp_encrypt, Factory
+
+from Cerebrum.modules.tsd import TSDUtils
 
 class AccountTSDMixin(Account.Account):
     """Account mixin class for TSD specific behaviour.
@@ -77,25 +78,19 @@ class AccountTSDMixin(Account.Account):
     def setup_for_project(self):
         """Set up different config and attributes for a project account. 
 
+        The account, and its project, must be approved for a project before
+        anything is set up. Projects and accounts should not be visible in any
+        other system before they are approved.
+
         When a user is added to a project, we should also give the account extra
         functionality related to the project, like a linux machine if the
         project is set to use that.
 
         """
-        ou = Factory.get('OU')(self._db)
-
-        # The account and OU must be approved before we should set anything
-        is_approved = False
-        for row in self.get_account_types():
-            if row['affiliation'] != self.const.affiliation_project:
-                continue
-            ou.clear()
-            ou.find(row['ou_id'])
-            if not tuple(ou.get_entity_quarantine()):
-                is_approved = True
-        if not is_approved:
+        if not self.is_approved():
             return
-
+        ou = Factory.get('OU')(self._db)
+        ou.find(self.get_tsd_project_id())
         # If the given project is set up so that every project member should
         # have their own virtual linux machine, we need to create this host for
         # the account:
@@ -104,8 +99,69 @@ class AccountTSDMixin(Account.Account):
             hostname = '%s-l.tsd.usit.no.' % self.account_name
             dnsowner = ou._populate_dnsowner(hostname)
             host = dns.HostInfo.HostInfo(self._db)
-            host.populate(dnsowner.entity_id, 'IBM-PC\tWINDOWS')
+            hinfo = 'IBM-PC\tLINUX'
+            try:
+                host.find_by_dns_owner_id(dnsowner.entity_id)
+            except Errors.NotFoundError:
+                host.populate(dnsowner.entity_id, hinfo)
+            host.hinfo = hinfo
             host.write_db()
+            for comp in getattr(cereconf, 'TSD_HOSTPOLICIES_LINUX', ()):
+                TSDUtils.add_host_to_policy_component(self._db,
+                                                      dnsowner.entity_id, comp)
+
+    def get_tsd_project_id(self):
+        """Helper method for getting the ou_id for the account's project.
+
+        @rtype: int
+        @return:
+            The entity_id for the TSD project the account is affiliated with.
+
+        @raise NotFoundError:
+            If the account is not affiliated with any project.
+
+        @raise Exception:
+            If the account has more than one project affiliation, which is not
+            allowed in TSD, or if the account is not affiliated with any
+            project.
+
+        """
+        rows = self.list_accounts_by_type(
+                    account_id=self.entity_id,
+                    affiliation=self.const.affiliation_project)
+        assert len(rows) < 2, "Account affiliated with more than one project"
+        for row in rows:
+            return row['ou_id']
+        raise Errors.NotFoundError('Account not affiliated with any project')
+
+    def get_username_without_project(self, username=None):
+        """Helper method for fetching the username without the project prefix.
+
+        This was originally not needed, but due to changes in the requirements
+        we unfortunately need to a downstripped username from time to time.
+
+        If the format of the project prefix changes in the future, we need to
+        expand this method later.
+
+        @type username: str
+        @param username:
+            A username with a project prefix. If not given, we expect that
+            L{self.account_name} is available.
+
+        @rtype: str
+        @return:
+            The username without the project prefix.
+
+        @raise Exception:
+            If the username does not have the format of project accounts.
+
+        """
+        if username is None:
+            username = self.account_name
+        # Users that not fullfill the project format
+        if '-' not in username:
+            raise Exception("User is not a project account: %s" % username)
+        return username[4:]
 
     def delete_entity_quarantine(self, *args, **kwargs):
         """Override to also setup the project account."""
@@ -126,22 +182,35 @@ class AccountTSDMixin(Account.Account):
             hexadecimal value represent 8 bits.
 
         """
-        bytes = int(math.ceil(float(length) / 8))
+        # Round upwards to nearest full byte by adding 7 to the number of bits.
+        # This makes sure that it's always rounded upwards if not modulo 0 to 8.
+        bytes = (length + 7) / 8
         ret = ''
-        f = open('/dev/random', 'rb')
-        # f.read might return less than what is needed, so might need to fetch
-        # more random bits before we're done:
+        f = open('/dev/urandom', 'rb')
+        # f.read _could_ return less than what is needed, so need to make sure
+        # that we have enough data, in case the read should stop:
         while len(ret) < bytes:
-            ret += ''.join('%x' % ord(o) for o in f.read(bytes/2 + 1))
+            ret += f.read(bytes - len(ret))
         f.close()
-        return ret[:bytes]
+        return ret
 
-    def regenerate_otpkey(self):
-        """Create a new OTP key and store it for the account.
+    def regenerate_otpkey(self, tokentype=None):
+        """Create a new OTP key for the account.
 
-        TODO: Note that we do not store the OTP key in Cerebrum, for now. We
-        should only pass it on to the Gateway, so it's only stored in one place.
-        Other requirements could change this in the future.
+        Note that we do not store the OTP key in Cerebrum. We only pass it on to
+        the Gateway, so it's only stored one place. Other requirements could
+        change this in the future.
+
+        The OTP type, e.g. hotp or totp, is retrieved from the person's trait.
+
+        @type tokentype: str
+        @param tokentype:
+            What token type the OTP should become, e.g. 'totp' or 'hotp'. Note
+            that it could also be translated by L{cereconf.OTP_MAPPING_TYPES} if
+            it matches a value there.
+
+            If this parameter is None, the person's default OTP type will be
+            used, or 'totp' by default if no value is set for the person.
 
         @rtype: string
         @return:
@@ -150,16 +219,71 @@ class AccountTSDMixin(Account.Account):
             https://code.google.com/p/google-authenticator/wiki/KeyUriFormat
 
         """
-        key = self._generate_otpkey(getattr(cereconf, 'OTP_KEY_LENGTH', 160))
-        secret = base64.b32encode(key)
-        # Get the token type from trait, e.g. totp or hotp.
-        tokentype = 'totp'
-        typetrait = self.get_trait(self.const.trait_otp_device)
-        if typetrait:
-            tokentype = typetrait['strval']
+        # Generate a new key:
+        secret = base64.b32encode(self._generate_otpkey(
+                                    getattr(cereconf, 'OTP_KEY_LENGTH', 160)))
+        # Get the tokentype
+        if not tokentype:
+            tokentype = 'totp'
+            if self.owner_type == self.const.entity_person:
+                pe = Factory.get('Person')(self._db)
+                pe.find(self.owner_id)
+                typetrait = pe.get_trait(self.const.trait_otp_device)
+                if typetrait:
+                    tokentype = typetrait['strval']
+
+        # A mapping from e.g. Nettskjema's smartphone_yes -> topt:
+        mapping = getattr(cereconf, 'OTP_MAPPING_TYPES', {})
+        try:
+            tokentype = mapping[tokentype]
+        except KeyError:
+            raise Errors.CerebrumError('Invalid tokentype: %s' % tokentype)
         return cereconf.OTP_URI_FORMAT % {
                 'secret': secret,
                 'user': '%s@%s' % (self.account_name,
                                    cereconf.INSTITUTION_DOMAIN_NAME),
                 'type': tokentype,
                 }
+
+    def illegal_name(self, name):
+        """TSD's checks on what is a legal username.
+
+        This checks both project accounts and system accounts, so the project
+        prefix is not checked.
+
+        """
+        tmp = super(AccountTSDMixin, self).illegal_name(name)
+        if tmp:
+            return tmp
+        if len(name) > getattr(cereconf, 'USERNAME_MAX_LENGTH', 12):
+            return "too long (%s)" % name
+        if re.search("^[^A-Za-z]", name):
+            return "must start with a character (%s)" % name
+        if re.search("[^A-Za-z0-9\-_]", name):
+            return "contains illegal characters (%s)" % name
+        return False
+
+    def is_approved(self):
+        """Return if the user is approved for a TSD project or not.
+
+        The approval is in two levels: First, the TSD project (OU) must be
+        approved, then the account must not be quarantined.
+
+        :rtype: bool
+        :return: True i
+
+        """
+        # Check user quarantine:
+        if self.get_entity_quarantine(type=self.const.quarantine_not_approved,
+                                      only_active=True):
+            return False
+        # Check if OU is approved:
+        try:
+            projectid = self.get_tsd_project_id()
+        except Errors.NotFoundError:
+            # Not affiliated with any project, therefore not approved
+            return False
+        ou = Factory.get('OU')(self._db)
+        ou.clear()
+        ou.find(projectid)
+        return ou.is_approved()

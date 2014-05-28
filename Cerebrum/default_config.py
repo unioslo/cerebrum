@@ -420,8 +420,20 @@ AUTOADMIN_PRINT_LETTER_DIRECTORY = 'no_NO/letter'
 # Default message for
 AUTOADMIN_WELCOME_SMS = 'Welcome\nYour username is: %(username)s'
 
-# The default directory for where the data from FS is put.
+# The default directory for where the data from FS is put. This could be used by
+# jobs that needs to get many of the XML files with data from FS. If this is not
+# defined, you need to specify the absolute path to each XML file.
 FS_DATADIR = None
+
+# Sets the number of days after a student is considered not active anymore,
+# before the STUDENT affiliation gets removed. This is not the correct way of
+# solving the problem with students loosing their affiliations too quick - a
+# alumni solution would be preferred, but requires more work, so this is a quick
+# way out. The default value, 0, removes the affiliations at once after the end
+# date for the student.
+# Note: The instance' import_FS script must be updated to handle this, this is
+# mainly implemented for UiO (and UiA).
+FS_STUDENT_REMOVE_AFF_GRACE_DAYS = 0
 
 # make autostud use studentnr as uname
 USE_STUDENTNR_AS_UNAME = False

@@ -1262,16 +1262,10 @@ class BofhdExtension(BofhdCommonMethods):
         AccountName(help_ref='account_name', repeat=True),
         EmailAddress(help_ref='email_address', repeat=True),
         perm_filter='can_email_forward_edit')
+
     def email_add_forward(self, operator, uname, address):
+        """Add an email-forward to a email-target asociated with an account."""
         et, acc = self.__get_email_target_and_account(uname)
-        # exchange-relatert-jazz
-        # For Exchange-mailboxes forward must be registered via 
-        # OWA since smart host solution for Exchange@UiO
-        # could not be implemented. When migration to Exchange 
-        # is completed this method should be changed and adding 
-        # forward for any account disallowed. Jazz (2013-11)
-        if acc.has_spread(self.const.spread_exchange_account):
-            return "Sorry, Exchange-users must add forwards via OWA!"
         if uname.count('@') and not acc:
             lp, dom = uname.split('@')
             ed = Email.EmailDomain(self.db)
@@ -1287,10 +1281,22 @@ class BofhdExtension(BofhdCommonMethods):
             if acc:
                 addr = acc.get_primary_mailaddress()
             else:
-                raise CerebrumError, ("Forward address '%s' does not make sense"
-                                      % addr)
+                raise CerebrumError(
+                    "Forward address '%s' does not make sense" % addr)
         if self._forward_exists(fw, addr):
-            raise CerebrumError, "Forward address added already (%s)" % addr
+            raise CerebrumError("Forward address added already (%s)" % addr)
+
+        # Here, we pull out the email addresses, and the forward addreses, and
+        # exclude local deliveries (trought the set difference operation),
+        # before checking if we should enforce the one-email-forward limit.
+        fwd_addrs = [x['forward_to'] for x in filter(lambda x:
+                     x['enable'] == 'T', fw.get_forward())]
+        existing_addrs = ['%s@%s' % (x['local_part'], x['domain']) for
+                          x in fw.get_addresses()]
+
+        if addr not in existing_addrs and set(fwd_addrs) - set(existing_addrs):
+            raise CerebrumError("Only one forward allowed at a time")
+
         fw.add_forward(addr)
         return "OK, added '%s' as forward-address for '%s'" % (
             address, uname)
@@ -2136,6 +2142,29 @@ class BofhdExtension(BofhdCommonMethods):
 
         return True
 
+    # email show_reservation_status
+    all_commands['email_show_reservation_status'] = Command(
+        ('email', 'show_reservation_status'), AccountName(),
+        fs=FormatSuggestion(
+            [("%-9s %s", ("uname", "hide"))]),
+        perm_filter='is_postmaster')
+
+    def email_show_reservation_status(self, operator, uname):
+        """Display reservation status for a person."""
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied('Access to this command is restricted')
+        hidden = True
+        account = self._get_account(uname)
+        if account.owner_type == self.const.entity_person:
+            person = self._get_person('entity_id', account.owner_id)
+            if person.has_e_reservation():
+                hidden = True
+            elif person.get_primary_account() != account.entity_id:
+                hidden = True
+            else:
+                hidden = False
+        return {'uname': uname, 'hide': 'hidden' if hidden else 'visible'}
+
     # email create_archive <list-address>
     all_commands['email_create_archive'] = Command(
         ("email", "create_archive"),
@@ -2218,7 +2247,9 @@ class BofhdExtension(BofhdCommonMethods):
         fs=FormatSuggestion([("New primary address: '%s'", ("address", ))]),
         perm_filter="is_postmaster")
     def email_primary_address(self, operator, addr):
-        self.ba.is_postmaster(operator.get_entity_id())
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
+            
         et, ea = self.__get_email_target_and_address(addr)
         if et.email_target_type == self.const.email_target_dl_group:
             return "Cannot change primary for distribution group %s" % addr
@@ -2340,6 +2371,8 @@ class BofhdExtension(BofhdCommonMethods):
         SimpleString(help_ref="email_failure_message"),
         perm_filter="can_email_set_failure")
     def email_failure_message(self, operator, uname, message):
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         et, acc = self.__get_email_target_and_account(uname)
         if et.email_target_type != self.const.email_target_deleted:
             raise CerebrumError, ("You can only set the failure message "
@@ -4602,6 +4635,8 @@ Addresses and settings:
         perm_filter='is_postmaster')
     def email_add_filter(self, operator, filter, address):
         """Add a filter to an existing e-mail target"""
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         etf = Email.EmailTargetFilter(self.db)
         filter_code = self._get_constant(self.const.EmailTargetFilter, filter)
         et, addr = self.__get_email_target_and_address(address)
@@ -4638,6 +4673,8 @@ Addresses and settings:
         SimpleString(help_ref='string_email_target_name', repeat="True"),
         perm_filter='is_postmaster')
     def email_remove_filter(self, operator, filter, address):
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         etf = Email.EmailTargetFilter(self.db)
         filter_code = self._get_constant(self.const.EmailTargetFilter, filter)
         et, addr = self.__get_email_target_and_address(address)
@@ -5367,7 +5404,7 @@ Addresses and settings:
         return self._group_add_entity(operator, src_entity, dest_group)
 
     ## exchange-relatert-jazz
-    ## group distgroup_create
+    ## group exchangegroup_create
     # should probably ask about language for displayname, but we 
     # can let that be for now
     # perm_filter is now "is_postmaster" but it may be changed to
@@ -5388,7 +5425,8 @@ Addresses and settings:
         perm_filter='is_postmaster')
     def group_exchangegroup_create(self, operator, groupname, displayname, description, managedby, moderatedby, from_existing=None):
         # check for appropriate priviledge
-        self.ba.is_postmaster(operator.get_entity_id())
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied('No access to group')
         existing_group = False
         modby_unames = []
         mngdby_addr = None
@@ -5546,7 +5584,8 @@ Addresses and settings:
                                  ('aliases',))]))
     def group_exchangegroup_info(self, operator, groupname):
         # check for appropriate priviledge
-        self.ba.is_postmaster(operator.get_entity_id())
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied('No access to group')
         
         try:
             grp = self._get_group(groupname, grtype="DistributionGroup")
@@ -5659,7 +5698,8 @@ Addresses and settings:
         perm_filter='is_postmaster')
     def group_exchangegroup_remove(self, operator, groupname, expire_group=None):
         # check for appropriate priviledge
-        self.ba.is_postmaster(operator.get_entity_id())
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied('No access to group')
         dl_group = self._get_group(groupname, idtype='name', 
                                    grtype="DistributionGroup")
         try:
@@ -5675,7 +5715,7 @@ Addresses and settings:
             dl_group.write_db()
         return "Exchange group data removed for %s" % groupname
 
-    ## group distgroup_attr_set
+    ## group exchangegroup_attr_set
     #  Valid attributes are: 
     #    - depart_restriction (Open, Close, Approval, Required)
     #    - join_restriction (Open, Close, Approval, Required)
@@ -5696,7 +5736,8 @@ Addresses and settings:
         # and distributions group and we therefore don't support
         # making existing distribution groups into roomlists. 
         # check for appropriate priviledges
-        self.ba.is_postmaster(operator.get_entity_id())
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied('No access to group')
         modby_unames = []
         dl_group = self._get_group(groupname, idtype='name', 
                                    grtype="DistributionGroup")
@@ -5746,7 +5787,8 @@ Addresses and settings:
         perm_filter='is_postmaster')
     def group_roomlist_create(self, operator, groupname, displayname, description):
         # check for appropriate priviledge
-        self.ba.is_postmaster(operator.get_entity_id())
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied('No access to group')
         grp = Utils.Factory.get("Group")(self.db)
         try:
             grp.find_by_name(groupname)
@@ -5904,7 +5946,7 @@ Addresses and settings:
         try:
             dl_group = self._get_group(groupname, 
                                        grtype="DistributionGroup")
-            return "Cannot delete distribution groups, use 'group distgroup_remove' to deactivate %s" % groupname
+            return "Cannot delete distribution groups, use 'group exchangegroup_remove' to deactivate %s" % groupname
         except CerebrumError:
             pass # not a distribution group
         if self._is_yes(force):
@@ -6039,6 +6081,7 @@ Addresses and settings:
     all_commands['group_remove_entity'] = None
     def group_remove_entity(self, operator, member_entity, group_entity):
         group = self._get_entity(ident=group_entity)
+        self.ba.can_alter_group(operator.get_entity_id(), group)
         member = self._get_entity(ident=member_entity)
         return self._group_remove_entity(operator, member, group)
                                
@@ -6311,6 +6354,7 @@ Addresses and settings:
                             hdr="%8s %-16s %s" % ("Id", "Name", "Description")),
         perm_filter='can_search_group')
     def group_search(self, operator, filter=""):
+        self.ba.can_search_group(operator.get_entity_id())
         group = self.Group_class(self.db)
         if filter == "":
             raise CerebrumError, "No filter specified"
@@ -6371,7 +6415,8 @@ Addresses and settings:
     def group_set_displayname(self, operator, gname, disp_name, name_lang):
         # if this methos is to be made generic use
         # _get_group(grptype="Group")
-        self.ba.is_postmaster(operator.get_entity_id())
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied('No access to group')
         name_variant = self.const.dl_group_displ_name
         self._set_display_name(gname, disp_name, name_variant, name_lang)
         return "Registered display name %s for %s" % (disp_name, gname)
@@ -6564,6 +6609,8 @@ Addresses and settings:
     all_commands['misc_samba_mount'] = Command(
         ("misc", "samba_mount"), DiskId(),DiskId())
     def misc_samba_mount(self, operator, hostname, mountname):
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         from Cerebrum.modules import MountHost
         mount_host = MountHost.MountHost(self.db)       
         
@@ -7041,7 +7088,7 @@ Addresses and settings:
         ("misc", "list_bofhd_request_types"),
         fs=FormatSuggestion("%-20s %s", ("code_str", "description"),
                             hdr="%-20s %s" % ("Code", "Description")),
-        perm_filter='is_superuser')
+        )
     def misc_list_bofhd_request_types(self, operator):
         br = BofhdRequests(self.db, self.const)
         
@@ -7877,6 +7924,7 @@ Addresses and settings:
         ("person", "set_bdate"), PersonId(help_ref="id:target:person"),
         Date(help_ref='date_birth'), perm_filter='can_create_person')
     def person_set_bdate(self, operator, person_id, bdate):
+        self.ba.can_create_person(operator.get_entity_id())        
         try:
             person = self.util.get_target(person_id, restrict_to=['Person'])
         except Errors.TooManyRowsError:
@@ -8301,9 +8349,9 @@ Addresses and settings:
     # person set_id
     all_commands['person_set_id'] = Command(
         ("person", "set_id"), PersonId(help_ref="person_id:current"),
-        PersonId(help_ref="person_id:new"), SourceSystem(help_ref="source_system", optional=True))
+        PersonId(help_ref="person_id:new"), SourceSystem(help_ref="source_system"))
     def person_set_id(self, operator, current_id, new_id, source_system):
-        if source_system and not self.ba.is_superuser(operator.get_entity_id()):
+        if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
         person = self._get_person(*self._map_person_id(current_id))
         idtype, id = self._map_person_id(new_id)
@@ -8432,7 +8480,8 @@ Addresses and settings:
         har_opptak = {}
         ret = []
         try:
-            db = Database.connect(user="I0185_ureg2000", service="FSPROD.uio.no",
+            db = Database.connect(user=cereconf.FS_USER,
+                                  service=cereconf.FS_DATABASE_NAME,
                                   DB_driver=cereconf.DB_DRIVER_ORACLE)
         except Database.DatabaseError, e:
             self.logger.warn("Can't connect to FS (%s)" % e)
@@ -8571,6 +8620,10 @@ Addresses and settings:
         qconst = self._get_constant(self.const.Quarantine, qtype, "quarantine")
         self.ba.can_disable_quarantine(operator.get_entity_id(), entity, qtype)
 
+        if not entity.get_entity_quarantine(type=qconst):
+            raise CerebrumError("%s does not have a quarantine of type %s" % (
+                self._get_name_from_object(entity), qtype))
+
         limit = getattr(cereconf, 'BOFHD_QUARANTINE_DISABLE_LIMIT', None)
         if limit:
             if date > DateTime.today() + DateTime.RelativeDateTime(days=limit):
@@ -8615,6 +8668,11 @@ Addresses and settings:
         entity = self._get_entity(entity_type, id)
         qconst = self._get_constant(self.const.Quarantine, qtype, "quarantine")
         self.ba.can_remove_quarantine(operator.get_entity_id(), entity, qconst)
+
+        if not entity.get_entity_quarantine(type=qconst):
+            raise CerebrumError("%s does not have a quarantine of type %s" % (
+                self._get_name_from_object(entity), qtype))
+
         entity.delete_entity_quarantine(qconst)
         return "OK, removed quarantine %s for %s" % (
             qconst, self._get_name_from_object (entity))
@@ -8632,7 +8690,8 @@ Addresses and settings:
         self.ba.can_set_quarantine(operator.get_entity_id(), entity, qconst)
         rows = entity.get_entity_quarantine(type=qconst)
         if rows:
-            raise CerebrumError("User already has a quarantine of this type")
+            raise CerebrumError("%s already has a quarantine of type %s" % (
+                self._get_name_from_object(entity), qtype))
         try:
             entity.add_entity_quarantine(qconst, operator.get_entity_id(), why,
                                          date_start, date_end)
@@ -8683,7 +8742,7 @@ Addresses and settings:
         # dissallow spread-setting for distribution groups
         if cereconf.EXCHANGE_GROUP_SPREAD and \
                 str(spread) == cereconf.EXCHANGE_GROUP_SPREAD: 
-            return "Please create distribution group via *group distgroup_create* in bofh"
+            return "Please create distribution group via 'group exchangegroup_create' in bofh"
         try:
             if entity.has_spread(spread):
                 raise CerebrumError("entity id=%s already has spread=%s" %
@@ -8730,7 +8789,7 @@ Addresses and settings:
         self.ba.can_add_spread(operator.get_entity_id(), entity, spread)
         # exchange-relatert-jazz
         # make sure that if anyone uses spread remove instead of
-        # group distgroup_remove the appropriate clean-up is still 
+        # group exchangegroup_remove the appropriate clean-up is still 
         # done
         if entity_type == 'group' and \
                 entity.has_spread(cereconf.EXCHANGE_GROUP_SPREAD):
@@ -10225,6 +10284,8 @@ Password altered. Use misc list_password to print or view the new password.%s'''
     all_commands['get_persdata'] = None
 
     def get_persdata(self, operator, uname):
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         ac = self._get_account(uname)
         person_id = "entity_id:%i" % ac.owner_id
         person = self._get_person(*self._map_person_id(person_id))
