@@ -312,9 +312,7 @@ class ExchangeEventHandler(processing.Process):
 
             # Create the mailbox
             try:
-                self.ec.new_mailbox(uname, full_name,
-                                    first_name, last_name,
-                                    ou=self.config['mailbox_path'])
+                self.ec.new_mailbox(uname)
                 self.logger.info('eid:%d: Created new mailbox for %s' %
                                  (event['event_id'], uname))
                 # TODO: Should we log a receipt for hiding the mbox in the
