@@ -138,7 +138,7 @@ class UiAExchangeClient(ExchangeClient):
 
         if (($? -and ! $ses) -or ! $?) {
             $ses = New-PSSession -ComputerName %(management_server)s `
-            -Credential $cred -Name %(session_key)s -ConfigurationName Cerebrum;
+            -Credential $cred -Name %(session_key)s;
             
             Import-Module ActiveDirectory 2> $null > $null;
             
@@ -176,48 +176,6 @@ class UiAExchangeClient(ExchangeClient):
     # As with the post execution code, we want to clean up after us, when
     # the client terminates, hence the termination code
     _termination_code = u"""; Remove-PSSession -Session $ses 2> $null > $null;"""
-
-    def execute(self, *args, **kwargs):
-        """Override the execute command with all the startup and teardown
-        commands for Exchange.
-
-        @type kill_session: bool
-        @param kill_session: If True, run Remove-PSSession instead of
-            Disconnect-PSSession.
-
-        @rtype: tuple
-        @return: A two element tuple: (ShellId, CommandId). Could later be used
-            to get the result of the command.
-        """
-        setup = self._pre_execution_code % {
-                    'session_key': self.session_key,
-                    'ad_domain_user': self.escape_to_string('%s\\%s' % 
-                                        (self.ad_domain, self.ad_user)),
-                    'ad_user': self.escape_to_string(self.ad_user),
-                    'ad_pasw': self.escape_to_string(self.ad_user_password),
-                    'ex_domain_user': self.escape_to_string('%s\\%s' % 
-                                        (self.ex_domain, self.ex_user)),
-                    'ex_user': self.escape_to_string(self.ex_user),
-                    'ex_pasw': self.escape_to_string(self.ex_user_password),
-                    'management_server': self.escape_to_string(
-                                                self.management_server)}
-        # TODO: Fix this on a lower level
-        if kwargs.has_key('kill_session') and kwargs['kill_session']:
-            args = (args[0] + self._termination_code, )
-        else:
-            args = (args[0] + self._post_execution_code, )
-
-        try:
-            return super(UiAExchangeClient, self).execute(setup, *args, **kwargs)
-        except WinRMServerException, e:
-            raise ExchangeException(e)
-        except URLError, e:
-            # We can expect that the servers go up-and-down a bit.
-            # We need to tell the caller about this. For example, events
-            # should be queued for later attempts.
-            raise ServerUnavailableException(e)
-
-
     ######
     # Mailbox-specific operations
     ######
