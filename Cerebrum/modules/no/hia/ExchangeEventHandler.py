@@ -290,7 +290,6 @@ class ExchangeEventHandler(processing.Process):
                     person_id=eid)
 
                 hide_from_address_book = (
-                    self.ut.is_electronic_reserved(person_id=eid) or
                     not event['subject_entity'] ==
                     self.ut.get_primary_account(person_id=eid))
 
@@ -618,8 +617,10 @@ class ExchangeEventHandler(processing.Process):
                             event['subject_entity'])):
                     hidden_from_address_book = False
                 else:
-                    hidden_from_address_book = self.ut.is_electronic_reserved(
-                        person_id=event['subject_entity'])
+                    hidden_from_address_book = (
+                                           not event['subject_entity'] ==
+                                           self.ut.get_primary_account(
+                                           person_id = event['subject_entity']))
         # Handle trait settings
         else:
             # Check if this is a reservation-related trait operation. If it is
@@ -629,8 +630,10 @@ class ExchangeEventHandler(processing.Process):
             if params['code'] != self.co.trait_public_reservation:
                 raise UnrelatedEvent
             else:
-                hidden_from_address_book = self.ut.is_electronic_reserved(
-                    person_id=event['subject_entity'])
+                hidden_from_address_book = (
+                                           not event['subject_entity'] ==
+                                           self.ut.get_primary_account(
+                                           person_id = event['subject_entity']))
 
         # Utility function for setting visibility on accounts in Exchange.
         def _set_visibility(uname, vis):

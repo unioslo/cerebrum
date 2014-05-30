@@ -138,7 +138,7 @@ class UiAExchangeClient(ExchangeClient):
 
         if (($? -and ! $ses) -or ! $?) {
             $ses = New-PSSession -ComputerName %(management_server)s `
-            -Credential $cred -Name %(session_key)s;
+            -Credential $cred -Name %(session_key)s -ConfigurationName Cerebrum;
             
             Import-Module ActiveDirectory 2> $null > $null;
             
