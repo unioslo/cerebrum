@@ -512,12 +512,10 @@ class BofhdExtension(BofhdCommandBase):
             # We don't require forcing if there does not exist a IPv6 subnet
             # for the address, if this is allowed in cereconf.
             # TODO: This is technical debt and should be fixed!
-            skip = False
-            if (hasattr(cereconf, 'DNS_ACCEPT_MISSING_IPV6_SUBNET') and
-                cereconf.DNS_ACCEPT_MISSING_IPV6_SUBNET is True and
-                ':' in subnet_or_ip):
-                skip = True
-            if not force and not skip:
+            if (not force and
+                    not (getattr(cereconf,
+                                 'DNS_HOST_A_ADD_ACCEPT_MISSING_IPV6_SUBNET')
+                         and ':' in subnet_or_ip)):
                 raise SubnetError("Unknown subnet; must force")
             if subnet_or_ip.find('/') > 0:
                 raise SubnetError("Unknown subnet; must use specific ip")
