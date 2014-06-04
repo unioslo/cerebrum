@@ -547,6 +547,7 @@ class AccountUiOMixin(Account.Account):
     # may be dropped as using super will be sufficient. Jazz (2013-11)
     #
     def update_email_addresses(self):
+        """Update an accounts email addresses and quotas."""
         spreads = [r['spread'] for r in self.get_spread()]
         if self.const.spread_uio_imap in spreads:
             # Make sure the email target of this account is associated
@@ -571,7 +572,10 @@ class AccountUiOMixin(Account.Account):
                     cereconf.EXCHANGE_DEFAULT_ADDRESS_PLACEHOLDER)
                 et.find_by_target_entity(self.entity_id)
             except Errors.NotFoundError:
-                pass
+                et.populate(self.const.email_target_account,
+                            self.entity_id,
+                            self.const.entity_account)
+                et.write_db()
             else:
                 try:
                     ea.find_by_local_part_and_domain(self.account_name,
