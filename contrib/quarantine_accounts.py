@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
-# Copyright 2013 University of Oslo, Norway
+# Copyright 2013-2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -46,6 +46,9 @@ The flow of the script is something like this:
 
 import sys
 import getopt
+import smtplib
+import email
+from mx import DateTime
 
 import cerebrum_path
 import cereconf
@@ -53,10 +56,6 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum import Utils
-
-from mx import DateTime
-import smtplib
-import email
 
 logger = Factory.get_logger('cronjob')
 
@@ -83,6 +82,11 @@ def usage(exitcode=0):
                 affiliations here, like 'STUDENT'. The list should be comma
                 separated.
 
+--grace DAYS    The number of days to still consider a person affiliation as
+                valid after it has been removed. This is to support glitches in
+                the systems, where persons are temporarily removed due to known
+                or unknown flaws in the registrations.
+
 -m TEMPLATEFILE Specify the file containing the full template of the message to
                 be sent, including headers. The file must be parseable by the
                 python module email's "message_from_file(FILE)".
@@ -90,12 +94,14 @@ def usage(exitcode=0):
                 Note: If no templatefile is given, the users will not be given
                 e-mails.
 
--e              Also print out content of all e-mails that is sent out, to
-                stdout.
+-e              Print out the content of all e-mails that is sent out, to
+                stdout. Note: To avoid sending out e-mails, use --dryrun.
 
--d              Dryrun, will not send out e-mails to the users.
+-d --dryrun     Dryrun mode. Quarantines will not be set, and e-mails will not
+                be sent to the users.
 
--h              Show this and quit.
+-h --help       Show this and quit.
+
     """ % sys.argv[0]
     sys.exit(exitcode)
 
@@ -127,11 +133,11 @@ def send_mail(mail_to, mail_from, subject, body, mail_cc=None):
         ret = Utils.sendmail(mail_to, mail_from, subject, body,
                              cc=mail_cc, debug=dryrun)
         if debug_verbose:
-            print "---- Mail: ---- \n"+ ret
+            print "---- Mail: ---- \n" + ret
     except smtplib.SMTPRecipientsRefused, e:
         failed_recipients = e.recipients
         logger.info("Failed to notify <%d> users", len(failed_recipients))
-        for email, condition in failed_recipients.iteritems():
+        for _, condition in failed_recipients.iteritems():
             logger.info("Failed to notify: %s", condition)
     except smtplib.SMTPException, msg:
         logger.warn("Error sending to %s: %s" % (mail_to, msg))
@@ -139,8 +145,7 @@ def send_mail(mail_to, mail_from, subject, body, mail_cc=None):
     return True
 
 def notify_users(ac_id, quar_start_in_days):
-    """
-    Sends an email to users, telling them that a quarantine has been set.
+    """Send a mail to the given users about the quarantine.
 
     @type ac_id: int
     @param ac_ids: The account ID to notify
@@ -173,49 +178,70 @@ def notify_users(ac_id, quar_start_in_days):
 
     return send_mail(addr, email_info['From'], subject, body, email_info['Cc'])
 
-def find_candidates(exclude_aff=[]):
+def find_candidates(exclude_aff=[], grace=0):
     """Find persons who should be quarantined and dequarantined.
 
-    @type exclude_aff: list
-    @param exclude_aff: A list of tuples with affiliation- or affiliation- and
+    :param list exclude_aff:
+        A list of affiliations/statuses that should be ignored when finding the
+        candidates. Persons with only affiliations from this list will be
+        considered as not affiliated.
+
+        The list contains tuples, either with affiliation or affiliation- and
         status-codes.
 
-    @rtype: dict
-    @return: C{{'affiliated': set(), 'not_affiliated': set()}}
+    :param int grace:
+        Defines a grace period for when affiliations are still considered
+        active, after their end period.
+
+    :rtype: dict
+    :return: 
+        Three elements are included in the dict:
+
+        - `affiliated`: A set with person-IDs for those considered affiliatied.
+        - `not_affiliated`: A set with person-IDs for those *not* affiliatied.
+        - `quarantined`: A set with account-IDs for all quarantined accounts.
+
     """
-    affs = filter(lambda x: not ((x['affiliation'], x['status']) in exclude_aff
-                            or (x['affiliation'],) in exclude_aff),
-                            pe.list_affiliations())
+    datelimit = DateTime.now() - int(grace)
+    logger.debug2("Including affiliations deleted after: %s", datelimit)
+    def is_aff_considered(row):
+        """Check for if an affiliation should be considered or not."""
+        # Exclude affiliations deleted before the datelimit:
+        if row['deleted_date'] and row['deleted_date'] < datelimit:
+            return False
+        if (row['affiliation'], row['status']) in exclude_aff:
+            return False
+        if (row['affiliation'],) in exclude_aff:
+            return False
+        return True
+
+    affs = filter(is_aff_considered, pe.list_affiliations(include_deleted=True))
     affed = set(x['person_id'] for x in affs)
+    logger.debug('Found %d persons with affiliations', len(affed))
     naffed = set(x['person_id'] for x in pe.list_persons()) - affed
-    logger.info('Found %d persons with affiliations' % len(affed))
-    logger.info('Found %d persons without affiliations' % len(naffed))
-    
+    logger.debug('Found %d persons without affiliations', len(naffed))
+
     quarantined = set(x['entity_id'] for x in ac.list_entity_quarantines(
                           entity_types=co.entity_account, only_active=True))
-    logger.info('Found %d quarantined accounts' % len(quarantined))
-
+    logger.debug('Found %d quarantined accounts', len(quarantined))
     return {'affiliated': affed, 'not_affiliated': naffed,
             'quarantined': quarantined}
 
 def set_quarantine(pids, quar, offset, quarantined):
     """Set a given quarantine on a the accounts of all the given persons.
 
-    @type pids: list
-    @param pids: A list of person IDs that will be evaluated for quarantine.
+    :param list pids: Person IDs that will be evaluated for quarantine.
     
-    @type quar: _QuarantineCode
-    @param quar: The quarantine that will be set on accounts referenced in
-        C{pids}.
+    :param _QuarantineCode quar:
+        The quarantine that will be set on accounts referenced in `pids`.
 
-    @type offset: int
-    @param offset: The number of days until the quarantine starts.
+    :param int offset: The number of days until the quarantine starts.
 
-    @type quarantined: set
-    @param quarantined: A list of all accounts that are already quarantined.
+    :param set quarantined: Account IDs for those already in quarantine.
 
-    @rtype: dict
-    @return: C{{'quarantined': [], 'failed_notify': []}}
+    :rtype: dict
+    :return: C{{'quarantined': [], 'failed_notify': []}}
+
     """
     ac.clear()
     ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
@@ -225,15 +251,13 @@ def set_quarantine(pids, quar, offset, quarantined):
     accounts = 0
     date = DateTime.today() + offset
 
-    for x in pids:
-        pe.clear()
-        pe.find(x)
-        for y in pe.get_accounts():
+    for pid in pids:
+        for row in ac.search(owner_id=pid):
             accounts += 1
-            if y['account_id'] in quarantined:
+            if row['account_id'] in quarantined:
                 continue
             ac.clear()
-            ac.find(y['account_id'])
+            ac.find(row['account_id'])
             if filter(lambda x: x['start_date'] <= date,
                       ac.get_entity_quarantine(type=quar)):
                 logger.info('Already got the quarantine: %s' % ac.account_name)
@@ -255,7 +279,7 @@ def set_quarantine(pids, quar, offset, quarantined):
                 quarantined.append(ac.account_name)
             else:
                 failed_notify.append(ac.account_name)
-    logger.debug('SQ checked %d accounts' % accounts)
+    logger.debug('SQ checked %d accounts', accounts)
     return {'quarantined': quarantined, 'failed_notify': failed_notify}
 
 def remove_quarantine(pids, quar):
@@ -276,13 +300,11 @@ def remove_quarantine(pids, quar):
     dequarantined = []
     accounts = 0
     
-    for x in pids:
-        pe.clear()
-        pe.find(x)
-        for y in pe.get_accounts():
+    for pid in pids:
+        for row in ac.search(owner_id=pid):
             accounts += 1
             ac.clear()
-            ac.find(y['account_id'])
+            ac.find(row['account_id'])
 
             if ac.get_entity_quarantine(type=quar):
                 logger.info('Deleting quarantine on %s' % ac.account_name)
@@ -332,9 +354,13 @@ def main():
     email_info = None
     remove = False
     ignore_aff = []
+    grace = 0
 
     try:
-        opts, j = getopt.getopt(sys.argv[1:], 'q:rdo:m:eha:')
+        opts, j = getopt.getopt(sys.argv[1:], 'q:rdo:m:eha:',
+                                ['dryrun',
+                                 'grace=',
+                                 'help'])
     except getopt.GetoptError, e:
         print e
         usage(1)
@@ -348,7 +374,7 @@ def main():
                 raise Exception("Invalid quarantine: %s" % val)
         elif opt in ('-r',):
             remove = True
-        elif opt in ('-d',):
+        elif opt in ('-d', '--dryrun'):
             db.commit = db.rollback
             dryrun = True
             logger.info("In dryrun mode, will rollback and not send e-mail")
@@ -375,12 +401,14 @@ def main():
                     'Body': msg.get_payload(decode=1)
                 }
             except IOError, e:
-                logger.error('Mail body file: \'%s\'' % e)
+                print 'Mail body file: %s' % e
                 sys.exit(2)
-        elif opt in ('-h',):
+        elif opt in ('--grace',):
+            grace = int(val)
+        elif opt in ('-h', '--help'):
             usage()
         else:
-            logger.error('Invalid argument: \'%s\'' % val)
+            print "Invalid argument: %s" % val
             usage(1)
 
     if not email_info:
@@ -390,7 +418,7 @@ def main():
         quarantine = co.quarantine_auto_no_aff
 
     logger.debug('Finding candidates for addition/removal of quarantine...')
-    cands = find_candidates(ignore_aff)
+    cands = find_candidates(ignore_aff, grace)
     logger.debug('Setting/removing quarantine on accounts')
     r = set_quarantine(cands['not_affiliated'], quarantine, quarantine_offset,
                        quarantined=cands['quarantined'])
