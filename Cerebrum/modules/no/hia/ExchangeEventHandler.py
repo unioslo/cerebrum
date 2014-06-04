@@ -112,6 +112,7 @@ class ExchangeEventHandler(processing.Process):
                      domain_admin=self.config['domain_admin'],
                      ex_domain_admin=self.config['ex_domain_admin'],
                      management_server=self.config['management_server'],
+                     exchange_server=self.config['exchange_server'],
                      encrypted=self.config['encrypted'],
                      session_key=gen_key())
 
