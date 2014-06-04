@@ -513,9 +513,8 @@ class BofhdExtension(BofhdCommandBase):
             # for the address, if this is allowed in cereconf.
             # TODO: This is technical debt and should be fixed!
             if (not force and
-                    not (getattr(cereconf,
-                                 'DNS_HOST_A_ADD_ACCEPT_MISSING_IPV6_SUBNET')
-                         and ':' in subnet_or_ip)):
+                    not (cereconf.DNS_HOST_A_ADD_ACCEPT_MISSING_IPV6_SUBNET and
+                         ':' in subnet_or_ip)):
                 raise SubnetError("Unknown subnet; must force")
             if subnet_or_ip.find('/') > 0:
                 raise SubnetError("Unknown subnet; must use specific ip")
