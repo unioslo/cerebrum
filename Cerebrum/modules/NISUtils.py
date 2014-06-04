@@ -19,6 +19,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import with_statement
+
 import mx, sys
 
 import cerebrum_path
@@ -430,24 +432,18 @@ class FileGroup(NISGroupUtil):
         return filegroups
 
     def write_filegroup(self, filename, e_o_f=False):
+        """Write the filegroups to the given filename.
+        If e_o_f is True, "E_O_F" is written after every written file group.
+        """
         logger.debug("write_filegroup: %s" % filename)
-        f = Utils.SimilarSizeWriter(filename, "w")
-        f.set_size_change_limit(5)
 
-        filegroups = self.generate_filegroup()
+        with Utils.SimilarSizeWriter(filename, "w") as f:
+            f.set_size_change_limit(5)
+            for group_name, gid, users in self.generate_filegroup():
+                f.write(self._wrap_line(group_name, ",".join(users), ':*:%i:' % gid))
+            if e_o_f:
+                f.write('E_O_F\n')
 
-        for group_name, gid, users in filegroups:
-            # Special treatment for the groups "ucore" and "hh"
-            # related to testing stuff for the new HNAS storage
-            # system.
-            if group_name in ('hh', 'ucore'):
-                f.write(self._wrap_line(group_name + '-gruppe', ",".join(users),
-                                        ':*:%i:' % gid))
-            f.write(self._wrap_line(group_name, ",".join(users),
-                                  ':*:%i:' % gid))
-        if e_o_f:
-            f.write('E_O_F\n')
-        f.close()
 
 
 class UserNetGroup(NISGroupUtil):
