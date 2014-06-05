@@ -54,7 +54,7 @@ class GroupUiOMixin(Group.Group):
 
         pg = PosixGroup.PosixGroup(self._db)
         for g in self.search(member_id=member_id,
-                             indirect_members=False,
+                             indirect_members=True,
                              filter_expired=False):
             try:
                 pg.clear()
@@ -65,9 +65,11 @@ class GroupUiOMixin(Group.Group):
             except Errors.NotFoundError:
                 pass
         for k in counts.keys():
-            if counts[k] > 16:
+            if counts[k] > 15:
                 raise self._db.IntegrityError(
-                    "Member of too many groups (%i)" % counts[k])
+                    "Member of too many NIS groups (%i) with the same spread. "
+                    "A user can not be a member of more than 16 groups "
+                    "with the same NIS spread" % (counts[k]))
         super(GroupUiOMixin, self).add_member(member_id)
 
     def add_spread(self, spread):

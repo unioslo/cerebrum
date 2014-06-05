@@ -5371,9 +5371,11 @@ Addresses and settings:
                 if row['spread'] == fg_spread:
                     count = self._group_count_memberships(src_entity.entity_id,
                                                           fg_spread)
-                    if count > 16:
-                        return ("WARNING: %s is a member of %d groups with "
-                                "spread %s" % (src_name, count, fg_spread))
+                    if count > 15:
+                        return ("WARNING: %s is now a member of %d NIS groups "
+                                "with spread %s. A user can be a member of max "
+                                "16 NIS groups with the same spread"
+                                % (src_name, count, fg_spread))
         return "OK, added %s to %s" % (src_name, dest_group)
 
     def _group_count_memberships(self, entity_id, spread):
