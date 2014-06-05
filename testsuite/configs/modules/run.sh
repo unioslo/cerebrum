@@ -19,8 +19,8 @@ crb_src=${root_dir}/src/cerebrum
 
 # The list of test directories with modules to be tested.
 # Update this list when new modules gets their own tests:
-test_dirs=${crb_src}/testsuite/tests/test_ad2 \
-          ${crb_src}/testsuite/tests/test_cis
+test_dirs=${crb_src}/testsuite/tests/test_ad2 
+          #${crb_src}/testsuite/tests/test_cis
 
 # If the folder ${HOME}/pypi exists, we expect to find all the relevant packages
 # there, and we'll install packages in 'offline mode' (pip --no-index)
