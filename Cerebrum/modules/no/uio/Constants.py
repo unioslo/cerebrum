@@ -373,6 +373,8 @@ automatically generated from FS.''')
                                                'Ikke ordinær student, tilgang til bare e-post')
     quarantine_auto_inaktiv = _QuarantineCode('auto_inaktiv', 
                                              'Ikke aktiv student, utestengt')
+    quarantine_auto_no_aff = _QuarantineCode('auto_no_aff',
+                                             'Ikke tilknyttet person, utestengt')
     quarantine_autoekstern = _QuarantineCode('autoekstern',
                                             'Ekstern konto gått ut på dato')
     quarantine_autointsomm = _QuarantineCode('autointsomm',
