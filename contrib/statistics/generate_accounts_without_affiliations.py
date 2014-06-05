@@ -83,7 +83,7 @@ class CSVDialect(csv.excel):
 
     """
     delimiter = ';'    
-
+    lineterminator = '\n'
 
 def usage(exitcode=0):
     print """Usage:
