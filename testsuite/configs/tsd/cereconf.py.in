@@ -14,8 +14,8 @@ LOGGING_ROOT_DIR = '@test_base@/var/log/cerebrum'
 
 CEREBRUM_DATABASE_NAME = 'testdb_tsd'
 
-CEREBRUM_DATABASE_CONNECT_DATA = {'user': 'pg-ceretest',
-                                  'table_owner': 'pg-ceretest',
+CEREBRUM_DATABASE_CONNECT_DATA = {'user': 'ceretest',
+                                  'table_owner': 'ceretest',
                                   'host': 'localhost'}
 # Default bind name for Cerebrum
 #CEREBRUM_SERVER_IP = ""
