@@ -144,32 +144,26 @@ def send_mail(mail_to, mail_from, subject, body, mail_cc=None):
         return False
     return True
 
-def notify_users(ac_id, quar_start_in_days):
+def notify_users(ac, quar_start_in_days):
     """Send a mail to the given users about the quarantine.
 
-    @type ac_id: int
-    @param ac_ids: The account ID to notify
+    :param Cerebrum._Account ac: The initiated Account object to notify
 
-    @type email_info: dict
-    @param email_info: A dictionary containing the Email-message to send.
+    :param dict email_info: A dictionary containing the Email-message to send.
 
-    @type quar_start_in_days: int
-    @param quar_start_in_days: An integer representing the number of days
-        until the quarantine will be enforced.
+    :param int quar_start_in_days:
+        The number of days until the quarantine will be enforced.
 
-    @rtype: bool
-    @return: Returns True or False depending on if the user could be notified
+    :rtype: bool
+    :return: If the notification were successfully sent or not.
+
     """
-
-    ac.clear()
-    ac.find(ac_id)
     try:
         addr = ac.get_primary_mailaddress()
     except Errors.NotFoundError:
         # TODO: accept getting e-mail addresses from ContactInfo
-        logger.warn('No email address for %s, can\'t notify.' % ac.account_name)
+        logger.warn("No email address for %s, can't notify", ac.account_name)
         return False
-
 
     body = email_info['Body']
     body = body.replace('${USERNAME}', ac.account_name)
@@ -239,80 +233,105 @@ def set_quarantine(pids, quar, offset, quarantined):
 
     :param set quarantined: Account IDs for those already in quarantine.
 
-    :rtype: dict
-    :return: C{{'quarantined': [], 'failed_notify': []}}
+    :rtype: set
+    :return: The account IDs for those that were quarantined in this round.
 
     """
     ac.clear()
     ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
     creator = ac.entity_id
-    quarantined = []
-    failed_notify = []
-    accounts = 0
+
+    success = set()
+    failed_notify = 0
+    no_processed = 0
     date = DateTime.today() + offset
 
+    # Cache what entities has the target quarantine:
+    with_target_quar = set(
+                    r['entity_id'] for r in
+                    ac.list_entity_quarantines(quarantine_types=quar,
+                                               only_active=False,
+                                               entity_types=co.entity_account)
+                    if r['start_date'] <= date)
+    logger.debug2('Accounts with target quarantine: %d', len(with_target_quar))
+    # Cache the owner to account relationship:
+    pid2acs = {}
+    for row in ac.search(owner_type=co.entity_person):
+        pid2acs.setdefault(row['owner_id'], []).append(row)
+    logger.debug2('Mapped %d persons to accounts', len(pid2acs))
+
     for pid in pids:
-        for row in ac.search(owner_id=pid):
-            accounts += 1
-            if row['account_id'] in quarantined:
+        for row in pid2acs.get(pid, ()):
+            if row['account_id'] in quarantined or row['account_id'] in success:
                 continue
+            no_processed += 1
+
+            if row['account_id'] in with_target_quar:
+                logger.debug2('Already got the quarantine: %s', row['name'])
+                continue
+
             ac.clear()
             ac.find(row['account_id'])
-            if filter(lambda x: x['start_date'] <= date,
-                      ac.get_entity_quarantine(type=quar)):
-                logger.info('Already got the quarantine: %s' % ac.account_name)
-                continue
 
             if not dryrun and email_info:
-                qr = notify_users(ac.entity_id, offset)
+                notified = notify_users(ac, offset)
             else:
-                qr = True
-            if qr:
-                # Refreshing/setting the quarantine
+                notified = True
+            if notified:
                 ac.delete_entity_quarantine(type=quar)
                 ac.add_entity_quarantine(quar, creator, start=date)
-
-                # We'll need to commit here. Would be silly to send multiple
-                # emails about the same thing.
+                # Commiting here to avoid that users get multiple emails if the
+                # script is stopped before it's done.
                 ac.commit()
-                logger.info('%s acquires new quarantine' % ac.account_name)
-                quarantined.append(ac.account_name)
+                logger.info('Added quarantine for: %s', ac.account_name)
+                success.add(ac.entity_id)
             else:
-                failed_notify.append(ac.account_name)
-    logger.debug('SQ checked %d accounts', accounts)
-    return {'quarantined': quarantined, 'failed_notify': failed_notify}
+                failed_notify += 1
+    logger.debug('Accounts processed: %d', no_processed)
+    logger.debug('Quarantines added: %d', len(success))
+    logger.debug('Accounts failed: %d', failed_notify)
+    return success
 
 def remove_quarantine(pids, quar):
-    """
-    This method removes quarantines on a set of accounts.
+    """Assert that the given quarantine is removed from the given persons.
 
-    @type pids: list
-    @param pids: A list of person IDs that will have quar removed from their
-        accounts.
-    
-    @type quar: _QuarantineCode
-    @param quar: The quarantine that will be removed from accounts referenced
-        in C{pids}.
+    :param list pids:
+        A list of person IDs that will have the quarantine removed from all
+        their accounts.
 
-    @rtype: dict
-    @return: C{{'dequarantined': []}}
+    :param _QuarantineCode quar:
+        The quarantine that will be removed from accounts referenced in `pids`.
+
+    :rtype: list
+    :return:
+        The entity name of all the accounts that had a quarantine which got
+        removed.
+
     """
     dequarantined = []
-    accounts = 0
+
+    # Cache the owner to account relationship:
+    pid2acs = {}
+    for row in ac.search(owner_type=co.entity_person):
+        pid2acs.setdefault(row['owner_id'], []).append(row)
+
+    with_quar = set(r['entity_id'] for r in
+                    ac.list_entity_quarantines(quarantine_types=quar,
+                                               only_active=False,
+                                               entity_types=co.entity_account))
     
     for pid in pids:
-        for row in ac.search(owner_id=pid):
-            accounts += 1
+        for row in pid2acs.get(pid, ()):
+            if row['account_id'] not in with_quar:
+                continue
+            logger.info('Deleting quarantine from: %s', row['name'])
             ac.clear()
             ac.find(row['account_id'])
-
-            if ac.get_entity_quarantine(type=quar):
-                logger.info('Deleting quarantine on %s' % ac.account_name)
-                ac.delete_entity_quarantine(type=quar)
-                ac.write_db()
-                dequarantined.append(ac.account_name)
-    logger.debug('RQ checked %d accounts' % accounts)
-    return {'dequarantined': dequarantined}
+            ac.delete_entity_quarantine(type=quar)
+            ac.write_db()
+            dequarantined.append(row['name'])
+    logger.debug('Quarantines removed in total: %d', len(dequarantined))
+    return dequarantined
 
 def parse_affs(affs):
     """
@@ -420,14 +439,11 @@ def main():
     logger.debug('Finding candidates for addition/removal of quarantine...')
     cands = find_candidates(ignore_aff, grace)
     logger.debug('Setting/removing quarantine on accounts')
-    r = set_quarantine(cands['not_affiliated'], quarantine, quarantine_offset,
-                       quarantined=cands['quarantined'])
-    logger.info('%d quarantines added, %d users skipped' %
-                (len(r['quarantined']), len(r['failed_notify']),))
+    set_quarantine(cands['not_affiliated'], quarantine, quarantine_offset,
+                   quarantined=cands['quarantined'])
 
     if remove:
-        r = remove_quarantine(cands['affiliated'], quarantine)
-        logger.info('%d quarantines removed' % len(r['dequarantined']))
+        remove_quarantine(cands['affiliated'], quarantine)
 
     if dryrun:
         logger.info('This is a dryrun, rolling back DB')
