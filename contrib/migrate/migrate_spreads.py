@@ -116,6 +116,10 @@ def mangle(from_spread, to_spread, file,
 ###
         from Cerebrum.modules.exchange.CerebrumUtils import CerebrumUtils
         cu = CerebrumUtils()
+        # Fetch the accounts memberships
+        # Fetch the persons memberships IF the account is the primary account
+        # Combine the two above
+        # Generate events
         for gname, gid in cu.get_account_group_memberships(ac.account_name,
                                                 co.spread_exchange_group):
             ct = co.ChangeType('e_group', 'add')

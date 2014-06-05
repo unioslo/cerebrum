@@ -316,13 +316,6 @@ def process_person_callback(person_info):
     address_info = None
     aktiv_sted = []
 
-    # Iterate over all person_info entries and extract relevant data    
-    if person_info.has_key('aktiv'):
-        for row in person_info['aktiv']:
-            if studieprog2sko[row['studieprogramkode']] is not None:
-                aktiv_sted.append(int(studieprog2sko[row['studieprogramkode']]))
-                logger.debug("App2akrivts")
-
     for dta_type in person_info.keys():
         x = person_info[dta_type]
         p = x[0]
@@ -334,32 +327,6 @@ def process_person_callback(person_info):
             fornavn = p['fornavn']
         if p.has_key('studentnr_tildelt'):
             studentnr = '%06d' % int(p['studentnr_tildelt'])
-    
-        # Get affiliations
-        if dta_type in ('fagperson',):
-            _process_affiliation(co.affiliation_tilknyttet,
-                                 co.affiliation_status_tilknyttet_fagperson,
-                                 affiliations, _get_sko(p, 'faknr',
-                                 'instituttnr', 'gruppenr', 'institusjonsnr'))
-        elif dta_type in ('aktiv', ):
-            for row in x:
-                # aktiv_sted is necessary in order to avoid different affiliation statuses
-                # to a same 'stedkode' to be overwritten 
-                # e.i. if a person has both affiliations status 'evu' and
-                # aktive to a single stedkode we want to register the status 'aktive'
-                # in cerebrum
-                if studieprog2sko[row['studieprogramkode']] is not None:
-                    aktiv_sted.append(int(studieprog2sko[row['studieprogramkode']]))
-                _process_affiliation(co.affiliation_student,
-                                     co.affiliation_status_student_aktiv, affiliations,
-                                     studieprog2sko[row['studieprogramkode']])
-        elif dta_type in ('evu',):
-            subtype = co.affiliation_status_student_evu
-            if studieprog2sko[row['studieprogramkode']] in aktiv_sted:
-                subtype = co.affiliation_status_student_aktiv
-            _process_affiliation(co.affiliation_student,
-                                 subtype, affiliations,
-                                 studieprog2sko[row['studieprogramkode']])
 
     if etternavn is None:
         logger.debug("Ikke noe navn på %s" % fnr)
@@ -400,6 +367,58 @@ def process_person_callback(person_info):
     # if this is a new Person, there is no entity_id assigned to it
     # until written to the database.
     op = new_person.write_db()
+
+    # Iterate over all person_info entries and extract relevant data
+    if person_info.has_key('aktiv'):
+        for row in person_info['aktiv']:
+            try:
+                if studieprog2sko[row['studieprogramkode']] is not None:
+                    aktiv_sted.append(
+                        int(studieprog2sko[row['studieprogramkode']]))
+                    logger.debug("App2akrivts")
+            except KeyError:
+                logger.warn('App2akrivts: Person id %d har stud.prog.kode %s som ikke eksisterer.',
+                            new_person.entity_id, row['studieprogramkode'])
+
+    for dta_type in person_info.keys():
+        # Get affiliations
+        if dta_type in ('fagperson',):
+            _process_affiliation(co.affiliation_tilknyttet,
+                                 co.affiliation_status_tilknyttet_fagperson,
+                                 affiliations, _get_sko(p, 'faknr',
+                                 'instituttnr', 'gruppenr', 'institusjonsnr'))
+        elif dta_type in ('aktiv', ):
+            for row in x:
+                # aktiv_sted is necessary in order to avoid different affiliation statuses
+                # to a same 'stedkode' to be overwritten 
+                # e.i. if a person has both affiliations status 'evu' and
+                # aktive to a single stedkode we want to register the status 'aktive'
+                # in cerebrum
+                try:
+                    if studieprog2sko[row['studieprogramkode']] is not None:
+                        aktiv_sted.append(
+                            int(studieprog2sko[row['studieprogramkode']]))
+                    _process_affiliation(co.affiliation_student,
+                                         co.affiliation_status_student_aktiv,
+                                         affiliations,
+                                         studieprog2sko[
+                                             row['studieprogramkode']])
+                except KeyError:
+                    logger.warn('AKTIV: Person id %d har stud.prog.kode %s som ikke eksisterer.',
+                                new_person.entity_id, row['studieprogramkode'])
+
+        elif dta_type in ('evu',):
+            subtype = co.affiliation_status_student_evu
+            try:
+                if studieprog2sko[row['studieprogramkode']] in aktiv_sted:
+                    subtype = co.affiliation_status_student_aktiv
+                _process_affiliation(co.affiliation_student,
+                                     subtype, affiliations,
+                                     studieprog2sko[row['studieprogramkode']])
+            except KeyError:
+                logger.warn('EVU: Person id %d har stud.prog.kode %s som ikke eksisterer.',
+                            new_person.entity_id, row['studieprogramkode'])
+
     for a in filter_affiliations(affiliations):
         ou, aff, aff_status = a
         new_person.populate_affiliation(co.system_fs, ou, aff, aff_status)

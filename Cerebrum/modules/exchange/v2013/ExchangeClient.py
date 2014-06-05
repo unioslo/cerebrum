@@ -1,6 +1,6 @@
-#!/usr/bin/env python
+#! /usr/bin/env python
 # -*- coding: utf-8 -*-
-# 
+#
 # Copyright 2013-2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -36,10 +36,13 @@ import re
 
 
 class ExchangeClient(PowershellClient):
+
+    """A PowerShell client implementing function calls against Exchange."""
+
     def __init__(self, auth_user, domain_admin, ex_domain_admin,
-                    management_server, session_key=None, *args, **kwargs):
+                 management_server, session_key=None, *args, **kwargs):
         """Set up the WinRM client to be used with running Exchange commands.
-        
+
         @type auth_user: string
         @param auth_user: The username of the account we use to connect to the
             server.
@@ -49,40 +52,35 @@ class ExchangeClient(PowershellClient):
             the AD domain we are going to synchronize with.
 
         """
-
         # TODO: THIS IS ONLY FOR TESTING DNC, REMOVE AFTER THAT
         self.deliberate_failure = 0
 
-
-#TODO: Bad hack, cleanup and fix
         super(ExchangeClient, self).__init__(*args, **kwargs)
-#super(ExchangeClient, self).__init__(kwargs['host'], ex_domain_admin,
-#        identity_file='dsfdfsdf',
-#        logger=kwargs['logger'], timeout=60)
-        self.add_credentials(username=auth_user,
-                password=unicode(read_password(auth_user, self.host), 'utf-8'))
+        self.add_credentials(
+            username=auth_user,
+            password=unicode(read_password(auth_user, self.host), 'utf-8'))
 
         self.ignore_stdout_pattern = re.compile('.*EOB\n', flags=re.DOTALL)
+        self.wash_output_patterns = [
+            re.compile('ConvertTo-SecureString.*\\w*...', flags=re.DOTALL)]
         self.management_server = management_server
         self.session_key = session_key if session_key else 'cereauth'
 
-#self.auth_user_password = unicode(read_password(auth_user, management_server),
-#                                                    'utf-8')
         # TODO: Make the following line pretty
         self.auth_user_password = unicode(
-                read_password(auth_user, kwargs['host']), 'utf-8')
+            read_password(auth_user, kwargs['host']), 'utf-8')
         # Note that we save the user's password by domain and not the host. It
         # _could_ be the wrong way to do it. TBD: Maybe both host and domain?
         self.ad_user, self.ad_domain = self._split_domain_username(
-                                                            domain_admin)
-        self.ad_user_password = unicode(read_password(self.ad_user,
-                                                            self.ad_domain),
-                                                            'utf-8')
+            domain_admin)
+        self.ad_user_password = unicode(
+            read_password(self.ad_user, self.ad_domain),
+            'utf-8')
         self.ex_user, self.ex_domain = self._split_domain_username(
-                                                            ex_domain_admin)
-        self.ex_user_password = unicode(read_password(self.ex_user,
-                                                            self.ex_domain),
-                                                            'utf-8')
+            ex_domain_admin)
+        self.ex_user_password = unicode(
+            read_password(self.ex_user, self.ex_domain),
+            'utf-8')
         # Set up the winrm / PowerShell connection
         self.connect()
 
@@ -293,7 +291,6 @@ class ExchangeClient(PowershellClient):
 #            self.deliberate_failure += 1
 #        return super(ExchangeClient, self).run(*args, **kwargs)
 
-
     def get_output(self, commandid=None, signal=True, timeout_retries=50):
         """Override the output getter to remove unwanted output.
 
@@ -301,8 +298,8 @@ class ExchangeClient(PowershellClient):
         from write-host.
         """
         hit_eob = False
-        for code, out in super(PowershellClient, self).get_output(commandid,
-                                                    signal, timeout_retries):
+        for code, out in super(PowershellClient, self).get_output(
+                commandid, signal, timeout_retries):
             out['stdout'] = out.get('stdout', '')
             if 'EOB\n' in out['stdout']:
                 hit_eob = True
@@ -310,7 +307,10 @@ class ExchangeClient(PowershellClient):
                                        out['stdout'])
             elif not hit_eob:
                 out['stdout'] = ''
-
+            if 'stderr' in out:
+                for pat in self.wash_output_patterns:
+                    out['stderr'] = re.sub(pat, 'PATTERN EXCLUDED',
+                                           out['stderr'])
             yield code, out
 
     def _generate_exchange_command(self, command, kwargs={}, novalueargs=()):
