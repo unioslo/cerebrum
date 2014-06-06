@@ -281,6 +281,20 @@ class ExchangeClient(PowershellClient):
             # should be queued for later attempts.
             raise ServerUnavailableException(e)
 
+    def escape_to_string(self, data):
+        """Override PowershellClient and return appropriate empty strings.
+
+        :type data: mixed (dict, list, tuple, string or int)
+        :param data: The data that must be escaped to be usable in powershell.
+
+        :rtype: string
+        :return: A string that could be used in powershell commands directly.
+        """
+        if isinstance(data, basestring) and data == '':
+            return "''"
+        else:
+            return super(ExchangeClient, self).escape_to_string(data)
+
 #    # TODO THIS IS ONLY FOR TESTING THE DELAYED NOTIFICATION COLLECTOR
 #    def run(self, *args, **kwargs):
 #        # Fail one out of three times. Seems like a good number for test?
@@ -884,15 +898,15 @@ class ExchangeClient(PowershellClient):
         cmd = self._generate_exchange_command(
             'Set-Group',
             {'Identity': gname},
-            ('Notes "%s"' % description.strip(),))
+            ('Notes %s' % self.escape_to_string(description.strip()),))
+
         # TODO: On the line above, we strip of the leading and trailing
         # whitespaces. We need to do this, as leading and trailing whitespaces
         # triggers an error when we set the "description" when creating the
         # mailboxes. But, we don't need to do this if we change the description
         # after the mailbox has been created! Very strange behaviour. Think
         # about this and fix it (whatever that means).
-        # TODO: Fix the code above when the transport can handle empty strings
-        # as args.
+
         out = self.run(cmd)
         if 'stderr' in out:
             raise ExchangeException(out['stderr'])
