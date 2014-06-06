@@ -207,7 +207,11 @@ class SocketHandling(object):
         ret += "Post-jobs: %s\n" % job.post
         ret += "Non-concurrent jobs: %s\n" % job.nonconcurrent
         ret += "When: %s, max-freq: %s\n" % (job.when, job.max_freq)
-        ret += "Max duration: %s minutes\n" % (job.max_duration/60)
+        ret += "Max duration: %s%s\n" % (job.max_duration/60 if
+                                         job.max_duration else
+                                         job.max_duration,
+                                         ' minutes' if job.max_duration else
+                                         '')
         return ret
         
         
