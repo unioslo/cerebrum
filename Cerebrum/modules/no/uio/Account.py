@@ -571,7 +571,7 @@ class AccountUiOMixin(Account.Account):
                     cereconf.EXCHANGE_DEFAULT_ADDRESS_PLACEHOLDER)
                 et.find_by_target_entity(self.entity_id)
             except Errors.NotFoundError:
-                pass
+                return
             else:
                 try:
                     ea.find_by_local_part_and_domain(self.account_name,
