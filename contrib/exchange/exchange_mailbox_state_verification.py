@@ -87,6 +87,7 @@ class StateChecker(object):
         self._cache_quotas = self._populate_quota_cache()
         self._cache_targets = self._populate_target_cache()
         self._cache_names = self._populate_name_cache()
+        self._cache_group_names = self._populate_group_name_cache()
         self._cache_no_reservation = self._populate_no_reservation_cache()
         self._cache_primary_accounts = self._populate_primary_account_cache()
 
@@ -238,6 +239,12 @@ class StateChecker(object):
                     name['person_id'], {})[name['name_variant']] = name['name']
         return tmp
 
+    def _populate_group_name_cache(self):
+        tmp = {}
+        for eid, dom, name in self.gr.list_names(self.co.group_namespace):
+            tmp[eid] = name
+        return tmp
+
     def _populate_no_reservation_cache(self):
         unreserved = []
         for r in self.pe.list_traits(self.co.trait_public_reservation,
@@ -280,9 +287,13 @@ class StateChecker(object):
                 tmp[u'DisplayName'] = \
                     self._cache_names[acc['owner_id']][int(self.co.name_full)]
             else:
-                tmp[u'FirstName'] = ''
-                tmp[u'LastName'] = ''
-                tmp[u'DisplayName'] = ''
+                fn = acc['name']
+                ln = '(owner: %s)' % self._cache_group_names.get(
+                    acc['owner_id'], None)
+                dn = '%s %s' % (fn, ln)
+                tmp[u'FirstName'] = fn
+                tmp[u'LastName'] = ln
+                tmp[u'DisplayName'] = dn
 
             # Fetch quotas
             hard = self._cache_quotas[tid]['hard'] * 1024
