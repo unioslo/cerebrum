@@ -929,8 +929,7 @@ class ADclient(PowershellClient):
             elif 'add' in v:
                 adds[self.attribute_write_map.get(k, k)] = v['add']
             else:
-                fullupdates[self.attribute_write_map.get(k, k)] = \
-                    v['fullupdate']
+                fullupdates[k] = v['fullupdate']
 
         if removes:
             if not self._setadobject_command_wrapper(ad_id, 'Remove', removes):
@@ -945,12 +944,12 @@ class ADclient(PowershellClient):
                 # What attributes need to be cleared before adding the correct 
                 # ones. No need to clear already empty attributes.
                 if old_attributes.get(k):
-                    clears.add(k)
+                    clears.add(self.attribute_write_map.get(k, k))
                 # Do not update attributes if they are "None" in Cerebrum.
                 # It may lead to strange values in AD in the future.
                 # Just leave them cleared.
                 if v:
-                    updates[k] = v 
+                    updates[self.attribute_write_map.get(k, k)] = v 
             # We could save runtime on combining Clear and Add in the same
             # commands, but at the cost of more complexity. This should normally
             # not happen, maybe except for the initial sync for an instance.
