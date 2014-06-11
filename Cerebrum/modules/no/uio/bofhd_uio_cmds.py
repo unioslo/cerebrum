@@ -5781,13 +5781,16 @@ Addresses and settings:
     # create roomlists, which are a special kind of distribution group
     # no re-use of existing groups allowed
     all_commands['group_roomlist_create'] = Command(
-        ("group", "roomlist_create"), 
+        ("group", "roomlist_create"),
         GroupName(help_ref="group_name_new"),
         SimpleString(help_ref="group_disp_name", optional='true'),
         SimpleString(help_ref="string_description"),
         fs=FormatSuggestion("Group created, internal id: %i", ("group_id",)),
         perm_filter='is_postmaster')
-    def group_roomlist_create(self, operator, groupname, displayname, description):
+
+    def group_roomlist_create(self, operator, groupname, displayname,
+                              description):
+        """Create a new roomlist for Exchange."""
         # check for appropriate priviledge
         if not self.ba.is_postmaster(operator.get_entity_id()):
             raise PermissionDenied('No access to group')
@@ -5802,7 +5805,7 @@ Addresses and settings:
         # although cerebrum supports different visibility levels
         # all groups are created visibile for all, and that vis
         # type is hardcoded. if the situation should change group
-        # vis may be made into a parametar 
+        # vis may be made into a parameter
         group_vis = self.const.group_visibility_all
         # the following attributes is not used and don't need to
         # be registered correctly
@@ -5813,7 +5816,7 @@ Addresses and settings:
         disp_name_language = room_list.ret_standard_language()
         disp_name_variant = self.const.dl_group_displ_name
         # we could use _valid_address_exchange here in stead,
-        # I'll leave as an exercise for a willing developer 
+        # I'll leave as an exercise for a willing developer
         # :-) (Jazz, 2013-12)
         ea = Email.EmailAddress(self.db)
         try:
@@ -5821,24 +5824,44 @@ Addresses and settings:
         except Errors.NotFoundError:
             # should never happen unless default admin
             # dist group is deleted from Cerebrum
-            return "Default admin address does not exist, please contact cerebrum-drift@usit.uio.no for help!"
+            return "Default admin address does not exist, please contact" + \
+                " cerebrum-drift@usit.uio.no for help!"
         if not displayname:
             displayname = groupname
         # using DistributionGroup.new(...)
-        room_list.new(operator.get_entity_id(), 
-                      group_vis, 
+        room_list.new(operator.get_entity_id(),
+                      group_vis,
                       groupname, description=description,
-                      roomlist=std_values['roomlist'], 
+                      roomlist=std_values['roomlist'],
                       mngdby_addrid=ea.entity_id,
-                      modenable=std_values['modenable'], 
-                      deprestr=std_values['deprestr'], 
-                      joinrestr=std_values['joinrestr'], 
-                      hidden=std_values['hidden']) 
+                      modenable=std_values['modenable'],
+                      deprestr=std_values['deprestr'],
+                      joinrestr=std_values['joinrestr'],
+                      hidden=std_values['hidden'])
         room_list.write_db()
         room_list.add_spread(self.const.Spread(cereconf.EXCHANGE_GROUP_SPREAD))
         self._set_display_name(groupname, displayname, disp_name_variant,
                                disp_name_language)
         room_list.write_db()
+
+        # Try to set the default group moderator
+        try:
+            grp.clear()
+            grp.find_by_name(cereconf.EXCHANGE_ROOMLIST_OWNER)
+        except (Errors.NotFoundError, AttributeError):
+            # If the group moderator group does not exist, or is not defined,
+            # we won't set a group owner.
+            pass
+        else:
+            op_set = BofhdAuthOpSet(self.db)
+            op_set.find_by_name(cereconf.BOFHD_AUTH_GROUPMODERATOR)
+            op_target = BofhdAuthOpTarget(self.db)
+            op_target.populate(room_list.entity_id, 'group')
+            op_target.write_db()
+            role = BofhdAuthRole(self.db)
+            role.grant_auth(grp.entity_id, op_set.op_set_id,
+                            op_target.op_target_id)
+
         return "Made roomlist %s" % groupname
 
     ## group create
