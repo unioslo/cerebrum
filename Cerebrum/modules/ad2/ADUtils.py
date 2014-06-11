@@ -695,7 +695,8 @@ class ADclient(PowershellClient):
         # TODO: this might be moved into subclasses of ADclient, one per object
         # type? Would probably make easier code... Or we could just depend on
         # the configuration for this behaviour, at least for the attributes.
-        if str(object_class).lower() == 'account':
+        if (str(object_class).lower() == 'account' or 
+            str(object_class).lower() == 'group'):
             # SAMAccountName is mandatory for some object types:
             # TODO: check if this is not necessary any more...
             if 'SamAccountName' not in attributes:
