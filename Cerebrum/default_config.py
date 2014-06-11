@@ -865,6 +865,11 @@ DNS_DEFAULT_ZONE = 'uio'
 DEFAULT_RESERVED_BY_IPv6_NET_SIZE = {64: 4}
 DEFAULT_IPv6_SUBNET_ALLOCATION_START = 0x256
 
+# Suppress the force-option for unknown IPv6 subnets.
+# This needs to be done if an instance does not have any subnets defined.
+# TODO: Remove this at an appropriate time!
+DNS_HOST_A_ADD_ACCEPT_MISSING_IPV6_SUBNET = False
+
 # Location of documentation concerning import of subnets for DNS.
 # Added to mails sent when errors occur.
 DNS_SUBNETIMPORT_ERRORDOC_URL = None
