@@ -287,10 +287,9 @@ class StateChecker(object):
                 tmp[u'DisplayName'] = \
                     self._cache_names[acc['owner_id']][int(self.co.name_full)]
             else:
-                fn = acc['name']
-                ln = '(owner: %s)' % self._cache_group_names.get(
-                    acc['owner_id'], None)
-                dn = '%s %s' % (fn, ln)
+                fn, ln, dn = self.cu.construct_group_names(
+                    acc['name'], self._cache_group_names.get(acc['owner_id'],
+                                                             None))
                 tmp[u'FirstName'] = fn
                 tmp[u'LastName'] = ln
                 tmp[u'DisplayName'] = dn

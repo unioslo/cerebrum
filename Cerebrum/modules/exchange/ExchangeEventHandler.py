@@ -286,7 +286,7 @@ class ExchangeEventHandler(processing.Process):
             # Collect information needed to create mailbox.
             # First for accounts owned by persons
             if et == self.co.entity_person:
-                first_name, last_name, full_name = self.ut.get_person_names(
+                firstname, lastname, fullname = self.ut.get_person_names(
                     person_id=eid)
 
                 hide_from_address_book = (
@@ -297,9 +297,8 @@ class ExchangeEventHandler(processing.Process):
             # Then for accounts owned by groups
             elif et == self.co.entity_group:
                 gname, desc = self.ut.get_group_information(eid)
-                first_name = uname
-                last_name = '(owner: %s)' % gname
-                full_name = '%s (owner: %s)' % (uname, gname)
+                firstname, lastname, fullname = self.ut.construct_group_names(
+                    uname, gname)
                 # TODO: Is this ok?
                 hide_from_address_book = False
             else:
@@ -312,8 +311,8 @@ class ExchangeEventHandler(processing.Process):
 
             # Create the mailbox
             try:
-                self.ec.new_mailbox(uname, full_name,
-                                    first_name, last_name,
+                self.ec.new_mailbox(uname, fullname,
+                                    firstname, lastname,
                                     ou=self.config['mailbox_path'])
                 self.logger.info('eid:%d: Created new mailbox for %s' %
                                  (event['event_id'], uname))

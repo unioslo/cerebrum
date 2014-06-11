@@ -671,9 +671,9 @@ class ExchangeClient(PowershellClient):
         """
         # TODO: When empty strings as args to the keyword args are handled
         # appropriatly, change this back.
-        args = ["FirstName '%s'" % first_name,
-                "LastName '%s'" % last_name,
-                "DisplayName '%s'" % full_name]
+        args = ["FirstName %s" % self.escape_to_string(first_name),
+                "LastName %s" % self.escape_to_string(last_name),
+                "DisplayName %s" % self.escape_to_string(full_name)]
 
         cmd = self._generate_exchange_command(
             'Set-User',
