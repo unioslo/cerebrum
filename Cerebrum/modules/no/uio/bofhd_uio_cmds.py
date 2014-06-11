@@ -10122,6 +10122,9 @@ Addresses and settings:
             self.db.rollback()
             raise CerebrumError('Please contact brukerreg in order to restore')
 
+        # Unset the expire date
+        ac.expire_date = None
+
         # Add them spreads
         for s in cereconf.BOFHD_NEW_USER_SPREADS:
             if not ac.has_spread(self.const.Spread(s)):
@@ -10142,9 +10145,6 @@ Addresses and settings:
             disk_id=disk_id, home=home,
             status=self.const.home_status_not_created)
         pu.set_home(default_home_spread, homedir_id)
-
-        # And «unset» the expire date
-        ac.expire_date = None
 
         # We'll set a new password and store it for printing
         passwd = ac.make_passwd(ac.account_name)
