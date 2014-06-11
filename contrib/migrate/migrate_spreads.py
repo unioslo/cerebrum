@@ -231,7 +231,6 @@ if __name__ == '__main__':
                 if x:
                     exclude_events += [x.strip()]
         elif opt in ('-u', '--users'):
-            print val
             users_file = val
         elif opt in ('-h', '--help'):
             usage(0)
