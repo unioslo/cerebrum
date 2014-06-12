@@ -110,18 +110,14 @@ class Updater(object):
         self._find = Utils.Find(self._db, None)
 
     def remove_arecord(self, a_record_id, try_dns_remove=False):
-        """Remove an a-record identified by a_record_id.
+        """Remove an a-record identified by a_record_id.  Will also
+        update override_revmap and remove the entry in ip_number if it
+        is no longer referred to by other tables."""
 
-        Will also update override_revmap and remove the entry in ip_number if
-        it is no longer referred to by other tables.
-
-        :param int a_record_id: The ARecords id.
-        :param bool try_dns_remove: Remove the DNSOwner too.
-        """
         ip_type = dns.IP_NUMBER
         record_type = dns.A_RECORD
         arecord = ARecord.ARecord(self._db)
-
+        
         try:
             arecord.find(a_record_id)
             ip_number_id = arecord.ip_number_id
@@ -133,7 +129,7 @@ class Updater(object):
             record_type = dns.AAAA_RECORD
             ip_number_id = arecord.ipv6_number_id
             ipnumber = IPv6Number.IPv6Number(self._db)
-
+        
         ipnumber.find(ip_number_id)
 
         dns_owner_id = arecord.dns_owner_id
@@ -157,8 +153,10 @@ class Updater(object):
         # to always enforce this constraint.
         refs = self._find.find_referers(dns_owner_id=dns_owner_id,
                                         ip_type=ip_type)
-        if record_type not in refs:
-            if dns.SRV_TARGET in refs or dns.CNAME_TARGET in refs:
+        if not record_type in refs:
+            if dns.HOST_INFO in refs:
+                raise DNSError("Host is used as home server (use misc hrem)")
+            elif dns.SRV_TARGET in refs or dns.CNAME_TARGET in refs:
                 raise DNSError("Host is used as target for CNAME or SRV")
 
         if try_dns_remove:
