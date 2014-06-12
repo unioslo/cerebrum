@@ -1441,7 +1441,8 @@ class BaseSync(object):
                                   """the same name. Cannot determine which """
                                   """one is the right one.""" % ent.ad_id)
                 return False
-        except Exception, e:
+        except (ADUtils.SetAttributeException, 
+                ADUtils.CommandTooLongException), e:
             # The creation of the object may have failed because of entity's
             # attributes. It may have been too many of them and the command
             # became too long, or they contained (yet) invalid paths in AD.
@@ -1461,6 +1462,10 @@ class BaseSync(object):
                 return False
             else:
                 ent.ad_new = True 
+        except Exception, e:
+            # Unforeseen exception; traceback will be logged
+            self.logger.exception("Failed creating %s." % ent.ad_id)
+            return False
         else:
             ent.ad_new = True
         ent.in_ad = True
