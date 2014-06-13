@@ -61,8 +61,11 @@ class ExchangeClient(PowershellClient):
             password=unicode(read_password(auth_user, self.host), 'utf-8'))
 
         self.ignore_stdout_pattern = re.compile('.*EOB\n', flags=re.DOTALL)
+        # Patterns used to filter out passwords.
         self.wash_output_patterns = [
             re.compile('ConvertTo-SecureString.*\\w*...', flags=re.DOTALL)]
+        # Pattern used to match user and group names.
+        self.name_pat = '[a-zA-Z0-9-]+'
         self.management_server = management_server
         self.session_key = session_key if session_key else 'cereauth'
 
@@ -1008,24 +1011,35 @@ class ExchangeClient(PowershellClient):
             return True
 
     def add_distgroup_member(self, gname, member):
-        """Add member(s) to a distgroup.
+        """Add member to a distgroup.
 
-        @type gname: string
-        @param gname: The groups name
-        
-        @type member: string or list
-        @param member: The members name, or a list of meber names
+        :type gname: string
+        :param gname: The groups name
 
-        @raise ExchangeException: If it fails to run
+        :type member: string
+        :param member: The members name
+
+        :rtype: bool
+        :return: Returns True if the operation resulted in an update, False if
+            it does not.
+
+        :raise ExchangeException: If it fails to run
         """
         cmd = self._generate_exchange_command(
-                'Add-DistributionGroupMember',
-                {'Identity': gname,
-                 'Member': member},
-                ('BypassSecurityGroupManagerCheck',))
+            'Add-DistributionGroupMember',
+            {'Identity': gname,
+             'Member': member},
+            ('BypassSecurityGroupManagerCheck',))
         out = self.run(cmd)
-        if out.has_key('stderr'):
-            raise ExchangeException(out['stderr'])
+        if 'stderr' in out:
+            # If this matches, we have performed a duplicate operation. Notify
+            # the caller of this trough raise.
+            if re.match(
+                ("Can't add %s to %s: The recipient \"%s\" is already a "
+                 "member of the group") % ((self.name_pat,)*3), out['stderr']):
+                raise ExchangeOperationDuplicate
+            else:
+                raise ExchangeException(out['stderr'])
         else:
             return True
 
