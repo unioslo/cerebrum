@@ -1368,6 +1368,10 @@ class ExchangeEventHandler(processing.Process):
                 # If we wind up here, the user was allready added. We might, in
                 # some circumstances, want to discard the event completly, but
                 # for now, we just pass along.
+                self.logger.debug1(
+                    'eid:%d: Discarding e_group:add (%s into %s)' %
+                    (event['event_id'], uname, gname))
+                # Explicit pass
                 pass
 
     @EventDecorator.RegisterHandler(['e_group:rem'])

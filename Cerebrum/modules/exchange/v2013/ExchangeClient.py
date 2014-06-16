@@ -64,8 +64,6 @@ class ExchangeClient(PowershellClient):
         # Patterns used to filter out passwords.
         self.wash_output_patterns = [
             re.compile('ConvertTo-SecureString.*\\w*...', flags=re.DOTALL)]
-        # Pattern used to match user and group names.
-        self.name_pat = '[a-zA-Z0-9-]+'
         self.management_server = management_server
         self.session_key = session_key if session_key else 'cereauth'
 
@@ -1034,11 +1032,10 @@ class ExchangeClient(PowershellClient):
         if 'stderr' in out:
             # If this matches, we have performed a duplicate operation. Notify
             # the caller of this trough raise.
-            if re.match(
-                ("Can't add %s to %s: The recipient \"%s\" is already a "
-                 "member of the group") % ((self.name_pat,)*3), out['stderr']):
+            if 'MemberAlreadyExistsException' in out['stderr']:
                 raise ExchangeOperationDuplicate
             else:
+                print repr(out['stderr'])
                 raise ExchangeException(out['stderr'])
         else:
             return True

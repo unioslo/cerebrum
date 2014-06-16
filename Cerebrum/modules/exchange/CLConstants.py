@@ -93,9 +93,9 @@ class CLConstants(CLConstants):
                                       'group remove distribution %(subject)s')
 
     dl_group_add = _ChangeTypeCode('dlgroup', 'add',
-                                   'dlgroup added %(subject)s to %(dest)s')
+                                   'added %(subject)s to %(dest)s')
     dl_group_rem = _ChangeTypeCode('dlgroup', 'rem',
-                                   'dlgroup removed %(subject)s from %(dest)s')
+                                   'removed %(subject)s from %(dest)s')
 
     dl_group_primary = _ChangeTypeCode('dlgroup', 'primary',
                                        'group set primary for %(subject)s')
