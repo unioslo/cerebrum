@@ -341,6 +341,8 @@ class ADclient(PowershellClient):
                 raise ObjectAlreadyExistsException(code, stderr, output)
             if 'Set-ADObject : The specified account does not exist' in stderr:
                 raise SetAttributeException(code, stderr, output)
+            if 'The command line is too long' in stderr:
+                raise CommandTooLongException(code, stderr, output)
             if re.search("Move-ADObject : .+object's paren.+is either "
                          "uninstantiated or deleted",
                          stderr, re.DOTALL):
@@ -695,7 +697,8 @@ class ADclient(PowershellClient):
         # TODO: this might be moved into subclasses of ADclient, one per object
         # type? Would probably make easier code... Or we could just depend on
         # the configuration for this behaviour, at least for the attributes.
-        if str(object_class).lower() == 'account':
+        if (str(object_class).lower() == 'account' or 
+            str(object_class).lower() == 'group'):
             # SAMAccountName is mandatory for some object types:
             # TODO: check if this is not necessary any more...
             if 'SamAccountName' not in attributes:
