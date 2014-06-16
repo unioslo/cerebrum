@@ -695,11 +695,13 @@ class ADclient(PowershellClient):
         # TODO: this might be moved into subclasses of ADclient, one per object
         # type? Would probably make easier code... Or we could just depend on
         # the configuration for this behaviour, at least for the attributes.
-        if str(object_class).lower() == 'account':
+        if str(object_class).lower() == 'user':
             # SAMAccountName is mandatory for some object types:
             # TODO: check if this is not necessary any more...
             if 'SamAccountName' not in attributes:
                 attributes['SamAccountName'] = name
+            parameters['CannotChangePassword'] = True 
+            parameters['PasswordNeverExpires'] = True
 
         # Add the attributes, but mapped to correctly name used in AD:
         if attributes:
@@ -711,7 +713,12 @@ class ADclient(PowershellClient):
         parameters['Name'] = name
         parameters['Path'] = path
         parameters['Type'] = object_class
-        cmd = self._generate_ad_command('New-ADObject', parameters, 'PassThru')
+        if str(object_class).lower() == 'user':
+            cmd = self._generate_ad_command('New-ADUser', 
+                                            parameters, 'PassThru')
+        else:
+            cmd = self._generate_ad_command('New-ADObject', 
+                                            parameters, 'PassThru')
         cmd = '''if ($str = %s | ConvertTo-Json) {
             $str -replace '$',';'
             }''' % cmd
