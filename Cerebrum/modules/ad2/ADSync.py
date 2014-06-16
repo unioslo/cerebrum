@@ -1453,7 +1453,14 @@ class BaseSync(object):
             self.logger.error("""Failed creating %s. """
                               """Trying to create it without attributes""" 
                               % ent.ad_id)
-            ent.attributes = {}
+            # SamAccountName is needed to be present upon object's creation.
+            # It will default to name if it is not present. But if it is --
+            # it has to be preserved.
+            original_samaccountname = ent.attributes.get('SamAccountName')
+            if original_samaccountname:
+                ent.attributes = { 'SamAccountName': original_samaccountname }
+            else:
+                ent.attributes = {}
             try:
                 obj = self.create_object(ent)
             except Exception, e:
