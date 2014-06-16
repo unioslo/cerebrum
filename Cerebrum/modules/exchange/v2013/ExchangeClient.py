@@ -1035,7 +1035,6 @@ class ExchangeClient(PowershellClient):
             if 'MemberAlreadyExistsException' in out['stderr']:
                 raise ExchangeOperationDuplicate
             else:
-                print repr(out['stderr'])
                 raise ExchangeException(out['stderr'])
         else:
             return True
