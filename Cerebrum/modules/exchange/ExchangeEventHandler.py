@@ -194,7 +194,6 @@ class ExchangeEventHandler(processing.Process):
                 # functions called. That is a tad innapropriate, but also
                 # correct. Hard choices.
                 self.db.commit()
-            # If the event fails, we append the event to the queue
             # If an event fails, we just release it, and let the
             # DelayedNotificationCollector enqueue it when appropriate
             except EventExecutionException, e:
@@ -203,7 +202,12 @@ class ExchangeEventHandler(processing.Process):
                 try:
                     self.db.release_event(ev['event_id'])
                 except Errors.NotFoundError:
-                    pass
+                    # In this case, the event has been deleted while running,
+                    # therefore, we cannot release it.
+                    # TODO: Implement something that will lock events for
+                    # deletion while they are beeing processed. If that is
+                    # implemented, this could be removed.
+                    self.db.rollback()
                 else:
                     self.db.commit()
             except EventHandlerNotImplemented:
@@ -226,7 +230,7 @@ class ExchangeEventHandler(processing.Process):
                 #
                 # We don't release the "lock" on the event, since the event
                 # will probably fail the next time around. Manual intervention
-                # IS therefore REQUIRED!!!!!!1
+                # IS therefore REQUIRED!
                 #
                 # Get the traceback, put some tabs in front, and log it.
                 tb = traceback.format_exc()
@@ -234,13 +238,13 @@ class ExchangeEventHandler(processing.Process):
                 self.logger.error(
                     'Oops! Didn\'t see that one coming! :)\n%s\n%s' %
                     (str(ev), tb))
-                # We unlock the event, so it can be retried
-                try:
-                    self.db.release_event(ev['event_id'])
-                except Errors.NotFoundError:
-                    pass
-                else:
-                    self.db.commit()
+#                # We unlock the event, so it can be retried
+#                try:
+#                    self.db.release_event(ev['event_id'])
+#                except Errors.NotFoundError:
+#                    self.db.rollback()
+#                else:
+#                    self.db.commit()
 
         # When the run-state has been set to 0, we kill the pssession
         self.ec.kill_session()
