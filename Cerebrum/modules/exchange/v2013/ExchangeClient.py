@@ -82,7 +82,20 @@ class ExchangeClient(PowershellClient):
             read_password(self.ex_user, self.ex_domain),
             'utf-8')
         # Set up the winrm / PowerShell connection
-        self.connect()
+        while True:
+            try:
+                self.connect()
+            except URLError:
+                # Here, we handle the rare circumstance that the springboard is
+                # down when we connect to it. We log an error so someone can
+                # act upon this if it is appropriate.
+                l = kwargs.get('logger')
+                l.error(
+                    "Can't connect to springboard! Please notify postmaster!")
+                import time
+                time.sleep(5*60)
+            else:
+                break
 
         # Collect AD-controllers
         controllers = self._get_domain_controllers(self.ad_domain,
