@@ -42,14 +42,23 @@
   register: _test_result
   ignore_errors: yes
 
+
+# Note: The with_file_overload causes the result to be wrapped in a list
+# (results)
+- name: _test_result_var
+  debug: var=_test_result
+
 - name: Write test output stdout
-  copy: content={{ _test_result.stdout }} dest=/tmp/test_result.stdout
+  local_action: copy content="{{ _test_result.results | map(attribute='stdout') | join('\n\n') }}"
+                     dest=/tmp/test_result.stdout
 
 - name: Write test output stderr
-  copy: content={{ _test_result.stderr }} dest=/tmp/test_result.stderr
+  local_action: copy content="{{ _test_result.results | map(attribute='stderr') | join('\n\n') }}"
+                     dest=/tmp/test_result.stderr
 
 # Cause playbook to fail, if test has failed.
 - name: Foul play
-  debug: msg="fail"
-  failed_when: _test_result.rc != 0
+  when: _test_result.results | sum(attribute='rc') != 0
+  debug: msg="Nosetests rc != 0, tests failed. Check output files for errors."
+  failed_when: true
 
