@@ -135,7 +135,7 @@ def main():
             'rc': rc, }
 
     # Did the command fail?
-    if err or (rc != 0):
+    if rc != 0:
         json['msg'] = "makedb failed"
         module.fail_json(**json)
 
