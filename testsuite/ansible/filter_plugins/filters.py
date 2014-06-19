@@ -154,22 +154,32 @@ def tmpfile(filename, prefix='ansible-', remote_tmp='/tmp'):
         "%s%s_%x%s" % (prefix, base, us, ext))
 
 
-def dest(result):
-    """ Take a result dict from a task, and looks for a `dest' keyword. """
-    if isinstance(result, dict):
-        result = result.get('results', [])
-    if not isinstance(result, list):
-        return None
+def dest(register):
+    """ Filter destination from a result.
 
-    # We now have a results list
-    if len(result) < 1:
-        return None
-    if len(result) > 1:
-        return [dest([r, ]) for r in result]
+    Get the 'dest' or 'path' value from a dict procuded by the `register' task
+    keyword.
 
-    # One result
-    result = result[0]
-    return result.get('path', result.get('dest', None))
+    :param dict register: The result of a task `register' keyword.
+
+    :returns str: The found destination
+
+    :raise AnsibleFilterError:
+        If no destination is found, multiple destinations are found, or if the
+        input is not a proper result dict.
+
+    """
+    for word in ('dest', 'path', ):
+        out = _result_key(register, word, 'dest')
+        if len(out) == 1:
+            return out[0]  # Found dest, return result
+        if len(out) == 0:
+            continue  # Didn't find, try next keyword
+        # Found multiple, don't know what to return!
+        raise errors.AnsibleFilterError("|dest found multiple destinations")
+
+    # Didn't find any of the keywords
+    raise errors.AnsibleFilterError("|dest found no destination")
 
 
 class FilterModule(object):
