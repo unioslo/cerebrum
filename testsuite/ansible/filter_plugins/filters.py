@@ -3,6 +3,7 @@
 import string
 import os.path
 from datetime import datetime
+from ansible import errors
 
 
 def prefix(input, pre):
@@ -55,6 +56,82 @@ def postfix(input, post):
     if not isinstance(input, basestring):
         input = str(input)
     return (input + post)
+
+
+def _result_key(register, key, filter_name):
+    """ Filter out a given key from a registered result variable.
+
+    :param dict register: The result of a task `register' keyword.
+    :param str key: A dict key to look for.
+    :param str filter_name: Name of the caller filter, for errors.
+
+    :returns list: A list containing one or more results.
+
+    :raises AnsibleFilterError: If an invalid dict is given as input
+
+    """
+
+    if type(register) != dict:
+        raise errors.AnsibleFilterError("|%s expects a dictionary" %
+                                        filter_name)
+
+    # ONE key, directly in the register dict
+    if key in register:
+        return [register.get(key), ]
+    elif 'results' in register:
+        # A list of result dicts, in a list under the 'results' key
+        return filter(lambda x: x is not None,
+                      [x.get(key) for x in register.get('results')])
+    raise errors.AnsibleFilterError("|%s expects a dictionary with '%s'" %
+                                    (filter_name, key))
+
+
+def stdout(register):
+    """ Filter stdout from result.
+
+    Get a string of one or more stdout values from a dict produced by the
+    `register' task keyword.
+
+    :param dict register: The result of a task `register' keyword.
+
+    :returns str: A string of stdout messages.
+
+    """
+    out = _result_key(register, 'stdout', 'stdout')
+    return u'\n\n'.join([x.strip() for x in out])
+
+
+def stderr(register):
+    """ Filter stderr from result.
+
+    Get a string of one or more stderr values from a dict produced by the
+    `register' task keyword.
+
+    :param dict register: The result of a task `register' keyword.
+
+    :returns str: A string of stderr messages.
+
+    """
+    out = _result_key(register, 'stderr', 'stderr')
+    return u'\n\n'.join([x.strip() for x in out])
+
+
+def rc_or(register):
+    """ An `OR' of all found return codes.
+
+    Get an `OR'-ed value of one or more rc values from a dict produced by the
+    `register' task keyword.
+
+    :param dict register: The result of a task `register' keyword.
+
+    :returns int: A combination of all return codes
+
+    """
+    out = _result_key(register, 'rc', 'rc_or')
+    rc = 0
+    for c in out:
+        rc |= int(c)
+    return rc
 
 
 def tmpfile(filename, prefix='ansible-', remote_tmp='/tmp'):
@@ -112,6 +189,12 @@ class FilterModule(object):
         Generate a remote tmp filename in the `remote_tmp' folder
     dest:
         Parse the `dest' value from a `template' or `copy' task result
+    stdout:
+        Parse and join the `stdout' value from a command task
+    stderr:
+        Parse and join the `stdout' value from a command task
+    rc:
+        Parse and OR the `rc' value from a command task
 
     """
 
@@ -123,4 +206,7 @@ class FilterModule(object):
             'split': string.split,
             'tmpfile': tmpfile,
             'dest': dest,
+            'stdout': stdout,
+            'stderr': stderr,
+            'rc_or': rc_or,
         }
