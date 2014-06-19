@@ -48,17 +48,17 @@
 - name: _test_result_var
   debug: var=_test_result
 
+# This will help when figuring out what goes wrong -- pure dumps of
+# stdout/stderr from nosetests
 - name: Write test output stdout
-  local_action: copy content="{{ _test_result.results | map(attribute='stdout') | join('\n\n') }}"
-                     dest=/tmp/test_result.stdout
+  local_action: copy content="{{ _test_result | stdout }}" dest=/tmp/test_result.stdout
 
 - name: Write test output stderr
-  local_action: copy content="{{ _test_result.results | map(attribute='stderr') | join('\n\n') }}"
-                     dest=/tmp/test_result.stderr
+  local_action: copy content="{{ _test_result | stderr }}" dest=/tmp/test_result.stderr
 
 # Cause playbook to fail, if test has failed.
 - name: Foul play
-  when: _test_result.results | sum(attribute='rc') != 0
+  when: _test_result | rc_or != 0
   debug: msg="Nosetests rc != 0, tests failed. Check output files for errors."
   failed_when: true
 
