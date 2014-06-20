@@ -35,7 +35,7 @@ from Cerebrum.modules.exchange.v2013.ExchangeClient import ExchangeClient
 
 from Cerebrum.modules.exchange.Exceptions import ExchangeException
 from Cerebrum.modules.exchange.Exceptions import ServerUnavailableException
-from Cerebrum.modules.exchange.Exceptions import ExchangeOperationDuplicate
+from Cerebrum.modules.exchange.Exceptions import AlreadyPerformedException
 from Cerebrum.modules.event.EventExceptions import EventExecutionException
 from Cerebrum.modules.event.EventExceptions import EventHandlerNotImplemented
 from Cerebrum.modules.event.EventExceptions import EntityTypeError
@@ -1364,15 +1364,21 @@ class ExchangeEventHandler(processing.Process):
                 self.logger.debug1('eid:%d: Creating event: Adding %s to %s' %
                                    (event['event_id'], uname, gname))
                 self.ut.log_event(ev_mod, 'e_group:add')
-            except ExchangeOperationDuplicate:
+            except AlreadyPerformedException:
                 # If we wind up here, the user was allready added. We might, in
                 # some circumstances, want to discard the event completly, but
                 # for now, we just pass along.
                 self.logger.debug1(
                     'eid:%d: Discarding e_group:add (%s into %s)' %
                     (event['event_id'], uname, gname))
-                # Explicit pass
-                pass
+                # Copy & mangle the event, so we can log it correctly
+                # TBD: Should we also log the parent group id in change params?
+                mod_ev = event.copy()
+                # TODO: Cache group ids instead of looking it up like this.
+                mod_ev['dest_entity'] = self.ut.get_group_id(group)
+                mod_ev['change_params'] = pickle.dumps({'AlreadyPerformed':
+                                                        True})
+                self.ut.log_event_receipt(mod_ev, 'dlgroup:add')
 
     @EventDecorator.RegisterHandler(['e_group:rem'])
     def remove_group_member(self, event):

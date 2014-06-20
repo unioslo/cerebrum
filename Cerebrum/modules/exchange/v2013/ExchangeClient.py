@@ -1033,7 +1033,7 @@ class ExchangeClient(PowershellClient):
             # If this matches, we have performed a duplicate operation. Notify
             # the caller of this trough raise.
             if 'MemberAlreadyExistsException' in out['stderr']:
-                raise ExchangeOperationDuplicate
+                raise AlreadyPerformedException
             else:
                 raise ExchangeException(out['stderr'])
         else:
