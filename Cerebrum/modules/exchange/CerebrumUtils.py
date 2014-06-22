@@ -311,6 +311,21 @@ class CerebrumUtils(object):
 # Group related methods
 ####
 
+    def construct_group_names(self, uname, gname):
+        """Construct Exchange related group names.
+
+        :param str uname: The users username.
+        :param str gname: The owning groups groupname.
+
+        :rtype: tuple(str)
+        :return: A tuple consisting of FirstName, LastName and DisplayName.
+        """
+        fn = uname
+        ln = '(owner: %s)' % gname
+        dn = '%s (owner: %s)' % (uname, gname)
+        return (fn, ln, dn)
+
+
     def get_group_information(self, group_id):
         """Get a groups name and description
 

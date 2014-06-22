@@ -282,6 +282,20 @@ class ExchangeClient(PowershellClient):
             # should be queued for later attempts.
             raise ServerUnavailableException(e)
 
+    def escape_to_string(self, data):
+        """Override PowershellClient and return appropriate empty strings.
+
+        :type data: mixed (dict, list, tuple, string or int)
+        :param data: The data that must be escaped to be usable in powershell.
+
+        :rtype: string
+        :return: A string that could be used in powershell commands directly.
+        """
+        if isinstance(data, basestring) and data == '':
+            return "''"
+        else:
+            return super(ExchangeClient, self).escape_to_string(data)
+
 #    # TODO THIS IS ONLY FOR TESTING THE DELAYED NOTIFICATION COLLECTOR
 #    def run(self, *args, **kwargs):
 #        # Fail one out of three times. Seems like a good number for test?
@@ -438,51 +452,45 @@ class ExchangeClient(PowershellClient):
     # Mailbox-specific operations
     ######
 
-    def new_mailbox(self, uname, display_name, first_name, last_name, db=None, ou=None):
+    def new_mailbox(self, uname, display_name, first_name, last_name, db=None,
+                    ou=None):
         """Create a new mailbox in Exchange.
 
-        @type username: string
-        @param username: The users username
+        :type username: string
+        :param username: The users username
 
-        @type display_name: string
-        @param display_name: The users full name
-        
-        @type first_name: string
-        @param first_name: The users given name
+        :type display_name: string
+        :param display_name: The users full name
 
-        @type last_name: string
-        @param last_name: The users family name
+        :type first_name: string
+        :param first_name: The users given name
 
-        @type db: string
-        @param db: The DB the user should reside on
-        
-        @type ou: string
-        @param ou: The container that the mailbox should be organized in
+        :type last_name: string
+        :param last_name: The users family name
 
-        @rtype: bool
-        @return: Return True if success
-        
-        @raise ExchangeException: If the command failed to run for some reason
+        :type db: string
+        :param db: The DB the user should reside on
+
+        :type ou: string
+        :param ou: The container that the mailbox should be organized in
+
+        :rtype: bool
+        :return: Return True if success
+
+        :raise ExchangeException: If the command failed to run for some reason
         """
-
-        """New-Mailbox
-        -LinkedDomainController $ad_contoller
-        -LinkedMasterAccount uio\jsama
-        -LinkedCredential $ad_cred
-        -Name jsama
-        -DisplayName "Jo Sama"
-        -FirstName Jo
-        -LastName Sama"""
-
         kwargs = {'LinkedDomainController': self.ad_server,
-                 'LinkedMasterAccount': '%s\%s' % (self.ad_domain, uname),
-                 'Alias': uname,
-                 #'Alias': uname,
-                 'Name': uname,
-                 'DisplayName': display_name,
-                 'FirstName': first_name,
-                 'LastName': last_name
-        }
+                  'LinkedMasterAccount': '%s\%s' % (self.ad_domain, uname),
+                  'Alias': uname,
+                  'Name': uname,
+                  'DisplayName': display_name,
+                  }
+
+        if first_name:
+            kwargs['FirstName'] = first_name
+        if last_name:
+            kwargs['LastName'] = last_name
+
         if db:
             kwargs['Database'] = db
         if ou:
@@ -496,12 +504,12 @@ class ExchangeClient(PowershellClient):
         # crashes in between new-mailbox and set-mailbox.
 
         cmd += '; ' + self._generate_exchange_command(
-                'Set-Mailbox',
-                {'Identity': uname,
-                 'HiddenFromAddressListsEnabled': True})
+            'Set-Mailbox',
+            {'Identity': uname,
+             'HiddenFromAddressListsEnabled': True})
 
         out = self.run(cmd)
-        if out.has_key('stderr'):
+        if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         else:
             return True
@@ -646,33 +654,38 @@ class ExchangeClient(PowershellClient):
             return True
 
     def set_mailbox_names(self, uname, first_name, last_name, full_name):
-        """Set a users name
+        """Set a users name.
 
-        @type uname: string
-        @param uname: The uname to select account by
+        :type uname: string
+        :param uname: The uname to select account by
 
-        @type first_name: string
-        @param first_name: The persons first name
+        :type first_name: string
+        :param first_name: The persons first name
 
-        @type last_name: string
-        @param last_name: The persons last name
+        :type last_name: string
+        :param last_name: The persons last name
 
-        @type full_name: string
-        @param full_name: The persons full name, to use as display name
+        :type full_name: string
+        :param full_name: The persons full name, to use as display name
 
-        @raises ExchangeException: Raised upon errors
+        :raises ExchangeException: Raised upon errors
         """
-        cmd = self._generate_exchange_command('Set-User',
-                {'Identity': uname,
-                 'FirstName': first_name,
-                 'LastName': last_name,
-                 'DisplayName': full_name})
+        # TODO: When empty strings as args to the keyword args are handled
+        # appropriatly, change this back.
+        args = ["FirstName %s" % self.escape_to_string(first_name),
+                "LastName %s" % self.escape_to_string(last_name),
+                "DisplayName %s" % self.escape_to_string(full_name)]
+
+        cmd = self._generate_exchange_command(
+            'Set-User',
+            {'Identity': uname},
+            (' -'.join(args),))
         out = self.run(cmd)
-        if out.has_key('stderr'):
+        if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         else:
             return True
-    
+
     def export_mailbox(self, uname):
         raise NotImplementedError
 
@@ -871,30 +884,32 @@ class ExchangeClient(PowershellClient):
             raise ExchangeException(out['stderr'])
         else:
             return True
-   
+
     def set_distgroup_description(self, gname, description):
         """Set a distributiongroups description.
 
-        @type gname: string
-        @param gname: The groups name
+        :type gname: string
+        :param gname: The groups name
 
-        @type description: str
-        @param description: The groups description
+        :type description: str
+        :param description: The groups description
 
-        @raises ExchangeException: If the command fails to run
+        :raises ExchangeException: If the command fails to run
         """
         cmd = self._generate_exchange_command(
-                'Set-Group',
-               {'Identity': gname,
-                'Notes': description.strip()})
+            'Set-Group',
+            {'Identity': gname},
+            ('Notes %s' % self.escape_to_string(description.strip()),))
+
         # TODO: On the line above, we strip of the leading and trailing
         # whitespaces. We need to do this, as leading and trailing whitespaces
         # triggers an error when we set the "description" when creating the
         # mailboxes. But, we don't need to do this if we change the description
         # after the mailbox has been created! Very strange behaviour. Think
         # about this and fix it (whatever that means).
+
         out = self.run(cmd)
-        if out.has_key('stderr'):
+        if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         else:
             return True

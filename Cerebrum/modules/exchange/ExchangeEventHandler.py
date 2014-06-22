@@ -23,7 +23,6 @@
 import cereconf
 import cerebrum_path
 
-import random
 import processing
 
 from Queue import Empty
@@ -36,6 +35,7 @@ from Cerebrum.modules.exchange.v2013.ExchangeClient import ExchangeClient
 from Cerebrum.modules.exchange.Exceptions import ExchangeException
 from Cerebrum.modules.exchange.Exceptions import ServerUnavailableException
 from Cerebrum.modules.exchange.Exceptions import AlreadyPerformedException
+from Cerebrum.modules.exchange.Exceptions import URLError
 from Cerebrum.modules.event.EventExceptions import EventExecutionException
 from Cerebrum.modules.event.EventExceptions import EventHandlerNotImplemented
 from Cerebrum.modules.event.EventExceptions import EntityTypeError
@@ -107,15 +107,36 @@ class ExchangeEventHandler(processing.Process):
         gen_key = lambda: 'CB%s' \
                 % hex(os.getpid())[2:].upper()
         self.key = gen_key
-        self.ec = ExchangeClient(logger=self.logger,
-                     host=self.config['server'],
-                     port=self.config['port'],
-                     auth_user=self.config['auth_user'],
-                     domain_admin=self.config['domain_admin'],
-                     ex_domain_admin=self.config['ex_domain_admin'],
-                     management_server=self.config['management_server'],
-                     encrypted=self.config['encrypted'],
-                     session_key=gen_key())
+
+        # Try to connect to Exchange.
+        # We do this in a loop, since if we connect while the springboard is
+        # down, we need to re-try connecting. Also, the while depens on the run
+        # state, so we will shut down if we are signaled to do so.
+        self.ec = None
+        while self.run_state.value:
+            try:
+                self.ec = ExchangeClient(
+                    logger=self.logger,
+                    host=self.config['server'],
+                    port=self.config['port'],
+                    auth_user=self.config['auth_user'],
+                    domain_admin=self.config['domain_admin'],
+                    ex_domain_admin=self.config['ex_domain_admin'],
+                    management_server=self.config['management_server'],
+                    encrypted=self.config['encrypted'],
+                    session_key=gen_key())
+            except URLError:
+                # Here, we handle the rare circumstance that the springboard is
+                # down when we connect to it. We log an error so someone can
+                # act upon this if it is appropriate.
+                self.logger.error(
+                    "Can't connect to springboard! Please notify postmaster!")
+                # If we shut down, we don't want to wait X minutes :)
+                if self.run_state.value:
+                    import time
+                    time.sleep(3*60)
+            else:
+                break
 
         # Initialize the Database and Constants object
         self.db = Factory.get('Database')(client_encoding='UTF-8')
@@ -228,8 +249,12 @@ class ExchangeEventHandler(processing.Process):
                 self.db.commit()
 
         # When the run-state has been set to 0, we kill the pssession
-        self.ec.kill_session()
-        self.ec.close()
+        # We check for existance, before tearing down the connection, in the
+        # rare case that we shut down without having established a connection,
+        # we'll get a crash if we don't do this.
+        if self.ec:
+            self.ec.kill_session()
+            self.ec.close()
         self.logger.info('ExchangeEventHandler stopped')
 
     def handle_event(self, event):
@@ -288,7 +313,7 @@ class ExchangeEventHandler(processing.Process):
             # Collect information needed to create mailbox.
             # First for accounts owned by persons
             if et == self.co.entity_person:
-                first_name, last_name, full_name = self.ut.get_person_names(
+                firstname, lastname, fullname = self.ut.get_person_names(
                     person_id=eid)
 
                 hide_from_address_book = (
@@ -298,10 +323,9 @@ class ExchangeEventHandler(processing.Process):
 
             # Then for accounts owned by groups
             elif et == self.co.entity_group:
-                first_name = last_name = ''
                 gname, desc = self.ut.get_group_information(eid)
-                full_name = '%s (owner: %s)' % (uname, gname)
-
+                firstname, lastname, fullname = self.ut.construct_group_names(
+                    uname, gname)
                 # TODO: Is this ok?
                 hide_from_address_book = False
             else:
@@ -314,8 +338,8 @@ class ExchangeEventHandler(processing.Process):
 
             # Create the mailbox
             try:
-                self.ec.new_mailbox(uname, full_name,
-                                    first_name, last_name,
+                self.ec.new_mailbox(uname, fullname,
+                                    firstname, lastname,
                                     ou=self.config['mailbox_path'])
                 self.logger.info('eid:%d: Created new mailbox for %s' %
                                  (event['event_id'], uname))
