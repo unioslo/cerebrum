@@ -698,8 +698,11 @@ class ADclient(PowershellClient):
         if str(object_class).lower() == 'user':
             # SAMAccountName is mandatory for some object types:
             # TODO: check if this is not necessary any more...
-            if 'SamAccountName' not in attributes:
-                attributes['SamAccountName'] = name
+            # User objects on creation should not have SamAccountName in 
+            # attributes. They should have it in parameters instead.
+            if 'SamAccountName' in attributes:
+                del attributes['SamAccountName']
+            parameters['SamAccountName'] = name
             parameters['CannotChangePassword'] = True 
             parameters['PasswordNeverExpires'] = True
 
