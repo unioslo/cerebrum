@@ -187,7 +187,13 @@ class ExchangeEventHandler(processing.Process):
                 self.handle_event(ev)
                 # When the command(s) have run sucessfully, we remove the
                 # the triggering event.
-                self.db.remove_event(ev['event_id'])
+                try:
+                    self.db.remove_event(ev['event_id'])
+                except Errors.NotFoundError:
+                    self.logger.debug3('Event deleted while processing: %s' % str(ev))
+                    self.db.rollback()
+                    continue
+
                 # TODO: Store the receipt in ChangeLog! We need to handle
                 # EntityTypeError and UnrelatedEvent in a appropriate manner
                 # for this to work. Now we always store the reciept in the
