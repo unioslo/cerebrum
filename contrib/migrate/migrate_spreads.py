@@ -33,12 +33,16 @@ from mx.DateTime import now
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 
+
 def mangle(from_spread, to_spread, file,
            commit=False, log_event=False,
            exclude_events=[], disable_requests=True):
+    """Remove and add spreads. Generate events."""
     print('%s: Starting to migrate spreads' % str(now()))
 
     db = Factory.get('Database')()
+    en = Factory.get('Entity')(db)
+    pe = Factory.get('Person')(db)
     ac = Factory.get('Account')(db)
     co = Factory.get('Constants')(db)
     db.cl_init(change_program='migrate_spreads')
@@ -47,12 +51,13 @@ def mangle(from_spread, to_spread, file,
     if exclude_events:
         tmp = []
         for x in exclude_events:
-            tmp += [ int(co.ChangeType(*x.split(':'))) ]
+            tmp += [int(co.ChangeType(*x.split(':')))]
         exclude_events = tmp
 
     # Monkeypatch in a function that avoids creating events for certain
     # change types
     log_it = db.log_change
+
     def filter_out_types(*args, **kwargs):
         if int(args[1]) in exclude_events or not log_event:
             kwargs['change_only'] = True
@@ -64,7 +69,6 @@ def mangle(from_spread, to_spread, file,
     from_spread = co.Spread(from_spread)
     to_spread = co.Spread(to_spread)
 
-
     # TODO: You whom are reading this in the future should make this more
     # generic!  You can for example replace 'ac' with 'locals()[object]',
     # where 'object' defines the object to act on. Then you should use
@@ -72,7 +76,18 @@ def mangle(from_spread, to_spread, file,
     # If you dare!
     if disable_requests:
         ac._UiO_order_cyrus_action = lambda *args, **kwargs: True
-    
+
+    # Cache all auto groups ids.
+    exclude_gids = []
+    # Cache auto_group and meta_auto_group traits.
+    for trait in en.list_traits(code=[co.trait_auto_group,
+                                      co.trait_auto_meta_group]):
+        exclude_gids.append(trait['entity_id'])
+
+    # Import the Exchange-related utils.
+    from Cerebrum.modules.exchange.CerebrumUtils import CerebrumUtils
+    cu = CerebrumUtils()
+
     f = open(file, 'r')
     for line in f:
         uname = line.strip()
@@ -109,19 +124,33 @@ def mangle(from_spread, to_spread, file,
             db.execute('RELEASE SAVEPOINT migrate_spread')
             ac.write_db()
 
+        # Figure out if we should add this user to an auto_group.
+        # We should only do this for primary accounts.
+        add_to_auto_group = False
+        try:
+            pe.clear()
+            pe.find(ac.owner_id)
+        except Errors.NotFoundError:
+            pass
+        else:
+            if ac.entity_id == pe.get_primary_account():
+                add_to_auto_group = True
+
 # TODO: Factor out this and generalize it! This is a BAD hack
 # We really need to generate some faux events. For example, when a user is
 # migrated from cyrus to exchange, we must generate events for addition of
 # the user into groups :S
 ###
-        from Cerebrum.modules.exchange.CerebrumUtils import CerebrumUtils
-        cu = CerebrumUtils()
         # Fetch the accounts memberships
         # Fetch the persons memberships IF the account is the primary account
         # Combine the two above
         # Generate events
-        for gname, gid in cu.get_account_group_memberships(ac.account_name,
-                                                co.spread_exchange_group):
+        for gname, gid in cu.get_account_group_memberships(
+                ac.account_name, co.spread_exchange_group):
+            # Skip all auto-groups if this is not the primary account.
+            if gid in exclude_gids and not add_to_auto_group:
+                continue
+
             ct = co.ChangeType('e_group', 'add')
             db.log_change(ac.entity_id,
                           int(ct),
@@ -129,13 +158,12 @@ def mangle(from_spread, to_spread, file,
                           None,
                           event_only=True)
 
-            print('Creating e_group:add event for %s -> %s' % (
-                                                            ac.account_name,
-                                                            gname))
+            print('Creating e_group:add event for %s -> %s' %
+                  (ac.account_name, gname))
 ###
 
-        print('%-9s: removed %s, added %s' % \
-                (uname, str(from_spread), str(to_spread)))
+        print('%-9s: removed %s, added %s' %
+              (uname, str(from_spread), str(to_spread)))
     f.close()
 
     if commit:
@@ -148,16 +176,17 @@ def mangle(from_spread, to_spread, file,
 
 
 def usage(code=0):
+    """Print usage text."""
     print('Usage: migrate_spreads.py -f IMAP@uio -t exchange_acc@uio -d '
-            '-u <name>')
+          '-u <name>')
     print('    --from           (-f) spread to migrate from')
     print('    --to             (-t) spread to migrate to')
     print('    --commit         (-c) Commit-mode on')
     print('    --dis-reqs       (-d) Disable bofhd requests?')
     print('    --log-event      (-e) Log events for spread removal and '
-            'addition')
+          'addition')
     print('    --exclude-events (-x) Events to exclude from logging '
-            '(i.e. spread:add,spread;delete)')
+          '(i.e. spread:add,spread;delete)')
     print('    --users          (-u) File containig users to do this on')
     print('    --help           (-h) This help')
     sys.exit(code)
@@ -165,15 +194,15 @@ def usage(code=0):
 if __name__ == '__main__':
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                'f:t:cdeu:hx:',
-                                    ['from=',
-                                     'to=',
-                                     'commit',
-                                     'dis-reqs',
-                                     'log-event',
-                                     'exclude-events=',
-                                     'users=',
-                                     'help'])
+                                   'f:t:cdeu:hx:',
+                                   ['from=',
+                                    'to=',
+                                    'commit',
+                                    'dis-reqs',
+                                    'log-event',
+                                    'exclude-events=',
+                                    'users=',
+                                    'help'])
     except getopt.GetoptError:
         usage(3)
 
@@ -209,7 +238,6 @@ if __name__ == '__main__':
             print('Error: Unknown argument')
             usage(3)
 
-
     if not from_spread and not to_spread:
         print('Plz define from- and to-spread!!!')
         usage(3)
@@ -219,4 +247,4 @@ if __name__ == '__main__':
         usage(3)
 
     mangle(from_spread, to_spread, users_file, commit, log_events,
-            exclude_events, disable_requests)
+           exclude_events, disable_requests)

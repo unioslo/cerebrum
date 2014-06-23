@@ -1441,8 +1441,37 @@ class BaseSync(object):
                                   """the same name. Cannot determine which """
                                   """one is the right one.""" % ent.ad_id)
                 return False
+        except (ADUtils.SetAttributeException, 
+                ADUtils.CommandTooLongException), e:
+            # The creation of the object may have failed because of entity's
+            # attributes. It may have been too many of them and the command
+            # became too long, or they contained (yet) invalid paths in AD.
+            # In many cases update_attributes function for existing objects
+            # can fix attributes problem. So it's good to try to create an
+            # object without attributes now and wait until the next round for
+            # its attributes to be updated.
+            self.logger.error("""Failed creating %s. """
+                              """Trying to create it without attributes""" 
+                              % ent.ad_id)
+            # SamAccountName is needed to be present upon object's creation.
+            # It will default to name if it is not present. But if it is --
+            # it has to be preserved.
+            original_samaccountname = ent.attributes.get('SamAccountName')
+            if original_samaccountname:
+                ent.attributes = { 'SamAccountName': original_samaccountname }
+            else:
+                ent.attributes = {}
+            try:
+                obj = self.create_object(ent)
+            except Exception, e:
+                # Really failed
+                self.logger.exception("Failed creating %s." % ent.ad_id)
+                return False
+            else:
+                ent.ad_new = True 
         except Exception, e:
-            self.logger.exception("Failed creating %s" % ent.ad_id)
+            # Unforeseen exception; traceback will be logged
+            self.logger.exception("Failed creating %s." % ent.ad_id)
             return False
         else:
             ent.ad_new = True
