@@ -185,6 +185,10 @@ class ADclient(PowershellClient):
         else:
             self.logger.debug2("Not using a domain account")
         self.dryrun = dryrun
+        # Pattern to exclude passwords in plaintext from the server output.
+        # Such passwords usually 
+        self.exclude_password_patterns =  [
+            re.compile('ConvertTo-SecureString.*?\.\.\.', flags=re.DOTALL)]
         self.db = Factory.get('Database')()
         self.co = Factory.get('Constants')(self.db)
         self.connect()
@@ -398,6 +402,11 @@ class ADclient(PowershellClient):
             if first_round:
                 out['stdout'] = out.get('stdout', 
                                         '').replace(self.ignore_stdout, '')
+            # Exclude password in plaintext from the output
+            if 'stderr' in out:
+                for pat in self.exclude_password_patterns:
+                    out['stderr'] = re.sub(pat, 'PASSWORD HIDDEN',
+                                           out['stderr'])
                 first_round = False
             yield code, out
 
