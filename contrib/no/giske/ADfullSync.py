@@ -24,6 +24,14 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
         self.qua = Entity.EntityQuarantine(self.db)
         self.ou =  Factory.get('OU')(self.db)
 
+    def fetch_ad_data(self):
+        """Fetch users from AD."""
+        # Setting the userattributes to be fetched.
+        self.server.setUserAttributes(cereconf.AD_ATTRIBUTES,
+                                      cereconf.AD_ACCOUNT_CONTROL)
+
+        return self.server.listObjects('user', True, cereconf.AD_LDAP)
+
     def fetch_cerebrum_data(self, spread):
         """For all accounts that has spread, returns a list of dicts with
         the keys: uname, fullname, account_id, person_id, host_name

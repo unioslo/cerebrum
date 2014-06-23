@@ -341,6 +341,8 @@ class ADclient(PowershellClient):
                 raise ObjectAlreadyExistsException(code, stderr, output)
             if 'Set-ADObject : The specified account does not exist' in stderr:
                 raise SetAttributeException(code, stderr, output)
+            if 'The command line is too long' in stderr:
+                raise CommandTooLongException(code, stderr, output)
             if re.search("Move-ADObject : .+object's paren.+is either "
                          "uninstantiated or deleted",
                          stderr, re.DOTALL):
@@ -705,6 +707,9 @@ class ADclient(PowershellClient):
             parameters['SamAccountName'] = name
             parameters['CannotChangePassword'] = True 
             parameters['PasswordNeverExpires'] = True
+        elif str(object_class).lower() == 'group':
+            if 'SamAccountName' not in attributes:
+                attributes['SamAccountName'] = name
 
         # Add the attributes, but mapped to correctly name used in AD:
         if attributes:
@@ -939,8 +944,7 @@ class ADclient(PowershellClient):
             elif 'add' in v:
                 adds[self.attribute_write_map.get(k, k)] = v['add']
             else:
-                fullupdates[self.attribute_write_map.get(k, k)] = \
-                    v['fullupdate']
+                fullupdates[k] = v['fullupdate']
 
         if removes:
             if not self._setadobject_command_wrapper(ad_id, 'Remove', removes):
@@ -949,15 +953,25 @@ class ADclient(PowershellClient):
             if not self._setadobject_command_wrapper(ad_id, 'Add', adds):
                 success = False
         if fullupdates:
-            # What attributes need to be cleared before adding the correct attr.
-            # No need to clear already empty attributes.
-            clears = set(a for a in fullupdates if old_attributes.get(a))
+            clears = set()
+            updates = dict()
+            for k, v in fullupdates.iteritems():
+                # What attributes need to be cleared before adding the correct 
+                # ones. No need to clear already empty attributes.
+                if old_attributes.get(k):
+                    clears.add(self.attribute_write_map.get(k, k))
+                # Do not update attributes if they are "None" in Cerebrum.
+                # It may lead to strange values in AD in the future.
+                # Just leave them cleared.
+                if v:
+                    updates[self.attribute_write_map.get(k, k)] = v 
             # We could save runtime on combining Clear and Add in the same
             # commands, but at the cost of more complexity. This should normally
             # not happen, maybe except for the initial sync for an instance.
             if clears:
                 self._setadobject_command_wrapper(ad_id, 'Clear', clears)
-            if not self._setadobject_command_wrapper(ad_id, 'Add', fullupdates):
+            if updates and not self._setadobject_command_wrapper(ad_id, 
+                                                                'Add', updates):
                 success = False
         return success
 
