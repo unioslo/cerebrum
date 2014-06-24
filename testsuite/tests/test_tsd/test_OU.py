@@ -73,11 +73,15 @@ class SimpleOUTests(TSDOUTest):
         """Create a simple project OU."""
         self._ou.clear()
         pid = self._ou.create_project('tstcr2')
-        self.assertTrue(self._ou.entity_id > 0)
+        eid = self._ou.entity_id
+        self.assertTrue(eid > 0)
 
         self._ou.clear()
         self._ou.find_by_tsd_projectid(pid)
 
+        self._ou.clear()
+        self._ou.find(eid)
+        self.assertEqual(self._ou.get_project_id(), pid)
 
     def test_setup_project(self):
         """Setup a full project"""
