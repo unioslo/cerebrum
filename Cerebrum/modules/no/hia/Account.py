@@ -165,12 +165,15 @@ class AccountHiAMixin(Account.Account):
                                                         strval=candidate, fetchall=True))
         mdb_choice, smallest_mdb_weight = None, 1.0
         for m in mdb_candidates:
+            # DBs weighted to zero in cereconf should not be chosen
+            # automatically:
+            if cereconf.EXCHANGE_HOMEMDB_VALID[m] == 0:
+                continue
             m_weight = (mdb_count.get(m, 0)*1.0)/cereconf.EXCHANGE_HOMEMDB_VALID[m]
             if m_weight < smallest_mdb_weight:
                 mdb_choice, smallest_mdb_weight = m, m_weight
         if mdb_choice is None:
-            raise self._db.IntegrityError, \
-                  "Cannot assign mdb"
+            raise self._db.IntegrityError("Cannot assign mdb")
         return mdb_choice
     
     def update_email_addresses(self, set_primary = False):

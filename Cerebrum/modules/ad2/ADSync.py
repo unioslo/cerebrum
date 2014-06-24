@@ -1413,12 +1413,65 @@ class BaseSync(object):
             attrs = self.config['attributes'].copy()
             if self.config['store_sid'] and 'SID' not in attrs:
                 attrs['SID'] = None
-            # TODO: Change to self.server.find_object here?
-            obj = self.server.get_object(ent.ad_id,
-                                         object_class=self.ad_object_class,
-                                         attributes=attrs)
+            search_attributes = {}
+            # TODO! Are there more unique attributes that can be used to search?
+            # For user objects it seems it is enough with 'SamAccountName' only.
+            # See http://blogs.msdn.com/b/openspecification/archive/2009/07/10/
+            #     understanding-unique-attributes-in-active-directory.aspx
+            for unique_attribute in ['SamAccountName']:
+                if ent.attributes.get(unique_attribute):
+                    search_attributes[unique_attribute] = (
+                                               ent.attributes[unique_attribute])
+            objects = self.server.find_object(name = ent.entity_name,
+                                              attributes = search_attributes,
+                                              object_class=self.ad_object_class)
+            if len(objects) == 1:
+                # Found only one object, and it is most likely the one we need
+                obj = objects[0]
+            elif len(objects) == 0:
+                # Strange, we can't find the object though AD says it exists!
+                self.logger.error("Cannot find %s, though AD says it exists" 
+                                                                    % ent.ad_id)
+                return False
+            else:
+                # Found several objects that satisfy the search criterias.
+                # Unfortunately, in this case we can't determine which one
+                # we actually need.
+                self.logger.error("""Ambiguous object %s. Found several with """
+                                  """the same name. Cannot determine which """
+                                  """one is the right one.""" % ent.ad_id)
+                return False
+        except (ADUtils.SetAttributeException, 
+                ADUtils.CommandTooLongException), e:
+            # The creation of the object may have failed because of entity's
+            # attributes. It may have been too many of them and the command
+            # became too long, or they contained (yet) invalid paths in AD.
+            # In many cases update_attributes function for existing objects
+            # can fix attributes problem. So it's good to try to create an
+            # object without attributes now and wait until the next round for
+            # its attributes to be updated.
+            self.logger.error("""Failed creating %s. """
+                              """Trying to create it without attributes""" 
+                              % ent.ad_id)
+            # SamAccountName is needed to be present upon object's creation.
+            # It will default to name if it is not present. But if it is --
+            # it has to be preserved.
+            original_samaccountname = ent.attributes.get('SamAccountName')
+            if original_samaccountname:
+                ent.attributes = { 'SamAccountName': original_samaccountname }
+            else:
+                ent.attributes = {}
+            try:
+                obj = self.create_object(ent)
+            except Exception, e:
+                # Really failed
+                self.logger.exception("Failed creating %s." % ent.ad_id)
+                return False
+            else:
+                ent.ad_new = True 
         except Exception, e:
-            self.logger.exception("Failed creating %s" % ent.ad_id)
+            # Unforeseen exception; traceback will be logged
+            self.logger.exception("Failed creating %s." % ent.ad_id)
             return False
         else:
             ent.ad_new = True
@@ -1430,6 +1483,14 @@ class BaseSync(object):
             #    self.logger.info("Sleeping, wait for AD to sync the controllers...")
             #    time.sleep(5)
             self.script('new_object', obj, ent)
+        else:
+            # It is an existing object, but under wrong OU (otherwise it would
+            # have been fetched earlier). It should be therefore passed to 
+            # process_ad_object, like it was done before for all found objects.
+            # NB! For some upper classes process_ad_object is overridden and
+            # performs extra actions. In this case they will not be performed,
+            # but the next iteration of sync should fix this.
+            self.process_ad_object(obj)
         return obj
 
     def create_ou(self, dn):
@@ -2413,6 +2474,7 @@ class UserSync(BaseSync):
                 # account after a valid password has been set.
                 if ent.active:
                     self.server.enable_object(ret['DistinguishedName'])
+            
         # If more functionality gets put here, you should check if the entity is
         # active, and not update it if the config says so (downgrade).
         return ret

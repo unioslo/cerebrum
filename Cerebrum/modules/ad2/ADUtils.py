@@ -341,6 +341,8 @@ class ADclient(PowershellClient):
                 raise ObjectAlreadyExistsException(code, stderr, output)
             if 'Set-ADObject : The specified account does not exist' in stderr:
                 raise SetAttributeException(code, stderr, output)
+            if 'The command line is too long' in stderr:
+                raise CommandTooLongException(code, stderr, output)
             if re.search("Move-ADObject : .+object's paren.+is either "
                          "uninstantiated or deleted",
                          stderr, re.DOTALL):
@@ -619,7 +621,7 @@ class ADclient(PowershellClient):
         if name:
             filters['Name'] = name
         if ad_object_class:
-            filter['ObjectClass'] = ad_object_class
+            filters['ObjectClass'] = ad_object_class
         extra = {}
         if filters:
             extra = 'Filter {%s}' % ' -and '.join("%s -eq '%s'" % (k, v)
@@ -628,7 +630,19 @@ class ADclient(PowershellClient):
         cmd = ("if ($str = %s | ConvertTo-Json) { $str -replace '$', ';' }" %
                self._generate_ad_command('Get-ADObject', parameters, extra))
         out = self.run(cmd)
-        return list(self.get_output_json(out, dict()))
+        res_list = []
+        json_output = self.get_output_json(out,dict())
+        if json_output:
+            if isinstance(json_output, dict):
+                # In case there is found only one object, get_output_json will
+                # return a single dictionary. This method however needs to 
+                # return a list, so we have to make a list of one element.
+                res_list.append(json_output)
+            else:
+                # With several objects found, get_output_json returns a list of
+                # dicts. No additional transformation needed.
+                res_list = json_output
+        return res_list
 
     def create_object(self, name, path, object_class, attributes=None,
                       parameters=None):
@@ -683,7 +697,8 @@ class ADclient(PowershellClient):
         # TODO: this might be moved into subclasses of ADclient, one per object
         # type? Would probably make easier code... Or we could just depend on
         # the configuration for this behaviour, at least for the attributes.
-        if str(object_class).lower() == 'account':
+        if (str(object_class).lower() == 'account' or 
+            str(object_class).lower() == 'group'):
             # SAMAccountName is mandatory for some object types:
             # TODO: check if this is not necessary any more...
             if 'SamAccountName' not in attributes:
@@ -917,8 +932,7 @@ class ADclient(PowershellClient):
             elif 'add' in v:
                 adds[self.attribute_write_map.get(k, k)] = v['add']
             else:
-                fullupdates[self.attribute_write_map.get(k, k)] = \
-                    v['fullupdate']
+                fullupdates[k] = v['fullupdate']
 
         if removes:
             if not self._setadobject_command_wrapper(ad_id, 'Remove', removes):
@@ -927,15 +941,25 @@ class ADclient(PowershellClient):
             if not self._setadobject_command_wrapper(ad_id, 'Add', adds):
                 success = False
         if fullupdates:
-            # What attributes need to be cleared before adding the correct attr.
-            # No need to clear already empty attributes.
-            clears = set(a for a in fullupdates if old_attributes.get(a))
+            clears = set()
+            updates = dict()
+            for k, v in fullupdates.iteritems():
+                # What attributes need to be cleared before adding the correct 
+                # ones. No need to clear already empty attributes.
+                if old_attributes.get(k):
+                    clears.add(self.attribute_write_map.get(k, k))
+                # Do not update attributes if they are "None" in Cerebrum.
+                # It may lead to strange values in AD in the future.
+                # Just leave them cleared.
+                if v:
+                    updates[self.attribute_write_map.get(k, k)] = v 
             # We could save runtime on combining Clear and Add in the same
             # commands, but at the cost of more complexity. This should normally
             # not happen, maybe except for the initial sync for an instance.
             if clears:
                 self._setadobject_command_wrapper(ad_id, 'Clear', clears)
-            if not self._setadobject_command_wrapper(ad_id, 'Add', fullupdates):
+            if updates and not self._setadobject_command_wrapper(ad_id, 
+                                                                'Add', updates):
                 success = False
         return success
 

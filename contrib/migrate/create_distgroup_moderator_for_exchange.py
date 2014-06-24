@@ -21,6 +21,8 @@
 """Simple script that creates the first distributiongroup in Cerebrum.
 If you want some other group name, you will add getopt-stuff to this script! Or else!!1
 """
+import sys
+
 import cerebrum_path
 import cereconf
 
@@ -43,6 +45,11 @@ ea = EmailAddress(db)
 
 group_name = 'groupadmin'
 
+if len(sys.argv) > 1:
+    group_domain = sys.argv[1]
+else:
+    group_domain = 'groups.uio.no'
+
 ac.clear()
 ac.find_by_name('bootstrap_account')
 
@@ -56,7 +63,7 @@ et.populate(co.email_target_dl_group, gr.entity_id, co.entity_group)
 et.write_db()
 
 ed.clear()
-ed.find_by_domain('groups.uio.no')
+ed.find_by_domain(group_domain)
 lp = 'dl-admin'
 
 ea.clear()

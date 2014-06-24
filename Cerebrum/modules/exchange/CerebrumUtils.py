@@ -311,6 +311,21 @@ class CerebrumUtils(object):
 # Group related methods
 ####
 
+    def construct_group_names(self, uname, gname):
+        """Construct Exchange related group names.
+
+        :param str uname: The users username.
+        :param str gname: The owning groups groupname.
+
+        :rtype: tuple(str)
+        :return: A tuple consisting of FirstName, LastName and DisplayName.
+        """
+        fn = uname
+        ln = '(owner: %s)' % gname
+        dn = '%s (owner: %s)' % (uname, gname)
+        return (fn, ln, dn)
+
+
     def get_group_information(self, group_id):
         """Get a groups name and description
 
@@ -400,12 +415,15 @@ class CerebrumUtils(object):
                 self.ac.clear()
                 self.ac.find(aid)
                 if self.ac.entity_id not in found_accounts:
-                    # TODO: This is gonna make it fail sometime, since it won't
-                    # look up people if we dont give any spreads.
-                    # Do this in a wiser way
+                    # If/elif used to allow usage without filter and
+                    # filter_spread params
                     if spreads and \
                         set(spreads).issubset(set([x['spread']
                                             for x in self.ac.get_spread()])):
+                        r.append({'name': self.ac.account_name,
+                                  'account_id': self.ac.entity_id})
+                        found_accounts.append(self.ac.entity_id)
+                    elif not spreads:
                         r.append({'name': self.ac.account_name,
                                   'account_id': self.ac.entity_id})
                         found_accounts.append(self.ac.entity_id)
@@ -496,16 +514,15 @@ class CerebrumUtils(object):
                            param,
                            event_only=True)
         self.db.commit()
-    
-    def log_event_receipt(self, event, trigger):
-        """Utility method used to log the "receipt" of a completed event
-        in the ChangeLog.
-        
-        @type event: dict
-        @param event: Dict representing an event (as returned from get_event).
 
-        @param trigger: str or list or tuple
-        @param trigger: The change type code we want to associate with the
+    def log_event_receipt(self, event, trigger):
+        """Utility method used to log the "receipt" of a completed event in CL.
+
+        :type event: dict
+        :param event: Dict representing an event (as returned from get_event).
+
+        :param trigger: str or list or tuple
+        :param trigger: The change type code we want to associate with the
             event. Only the first value will be used.
         """
         # TODO: Set change_program from a sensible source to something smart
@@ -513,12 +530,18 @@ class CerebrumUtils(object):
             trigger = trigger[0]
         trigger = trigger.split(':')
         ct = self.co.ChangeType(trigger[0], trigger[1])
+        parm = {'change_program': 'ExchangeIntegration',
+                'change_only': True}
+
+        # Only log params if they actually contain something.
+        param = self.unpickle_event_params(event)
+        if param:
+            parm['change_params'] = param
+
         self.db.log_change(event['subject_entity'],
                            int(ct),
                            event['dest_entity'],
-                           event['change_params'],
-                           change_program='ExchangeIntegration',
-                           change_only=True)
+                           **parm)
         self.db.commit()
 
 ####
