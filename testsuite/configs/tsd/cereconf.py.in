@@ -89,9 +89,8 @@ OTP_MAPPING_TYPES = {'smartphone_yes': 'totp',
                      'smartphone_no': 'hotp',
                      }
 
-
-# The start number for VLAN numbers:
-VLAN_START = 100
+# The available range of VLANs:
+VLAN_RANGES = ((100, 200), (400, 600), (1800, 1810),)
 # Default subnet prefix and mask used for new projects. '%d' gets swapped out
 # with the project ID:
 SUBNET_START = '192.168.%d.0/24'

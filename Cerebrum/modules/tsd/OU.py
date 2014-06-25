@@ -37,11 +37,11 @@ from Cerebrum import Errors
 from Cerebrum.OU import OU
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import dns
-from Cerebrum.modules import EntityTrait
+from Cerebrum.modules.EntityTrait import EntityTrait
 
 from Cerebrum.modules.tsd import TSDUtils
 
-class OUTSDMixin(OU):
+class OUTSDMixin(OU, EntityTrait):
     """Mixin of OU for TSD. Projects in TSD are stored as OUs, which then has to
     be unique.
 
@@ -238,22 +238,22 @@ class OUTSDMixin(OU):
     def create_project(self, project_name):
         """Shortcut for creating a project in TSD with necessary data.
 
-        Note that this method calls L{write_db}.
+        Note that this method calls `write_db`.
 
-        @type project_name: str
-        @param project_name: A unique, short project name to use to identify
-            the project. This is not the project ID, that is created
-            automatically.
+        :param str project_name:
+            A unique, short project name to use to identify the project. This is
+            not the *project ID*, which is created automatically.
 
-        @rtype: str
-        @return: The generated project ID for the new project. Also, the project
-            is created and written to database.
+        :rtype: str
+        :return:
+            The generated project ID for the new project. `self` is populated
+            with the new project.
 
         """
         # Check if given project name is already in use:
         if tuple(self.search_tsd_projects(name=project_name, exact_match=True)):
             raise Errors.CerebrumError('Project name already taken: %s' %
-                    project_name)
+                                       project_name)
         self.populate()
         self.write_db()
         # Generate a project ID:
@@ -412,55 +412,69 @@ class OUTSDMixin(OU):
                     raise Exception("Unknown member type in: %s" % mem)
             gr.write_db()
 
+    def get_next_free_vlan(self):
+        """Get the first VLAN number that is not in use.
+
+        :rtype: int
+        :return: An available VLAN number not used by anyone.
+
+        :raise Errors.CerebrumError: If no VLAN is available.
+
+        """
+        taken_vlans = set()
+        subnet = dns.Subnet.Subnet(self._db)
+        for row in subnet.search():
+            taken_vlans.add(row['vlan_number'])
+        subnet6 = dns.IPv6Subnet.IPv6Subnet(self._db)
+        for row in subnet6.search():
+            taken_vlans.add(row['vlan_number'])
+        # TODO: Do we need a max value?
+        for min, max in getattr(cereconf, 'VLAN_RANGES', ()):
+            i = min
+            while i <= max:
+                if i not in taken_vlans:
+                    return i
+                i += 1
+        raise Errors.CerebrumError("No free VLAN left")
+
     def _setup_project_dns(self, creator_id, vlan=None):
         """Setup a new project's DNS info, like subnet and VLAN.
 
         :param int creator_id:
             The entity_id for the user who executes this.
+
         :param int vlan:
             If given, overrides what VLAN number to set for the project's
-            subnets. The VLAN number is set by default to::
-
-                cereconf.SUBNET_START + projectID
-
-            e.g: `1200 + p22 = 1222`.
+            subnets, as long as it is larger than `cereconf.SUBNET_START`.
+            If set to None, the first free VLAN will be chosen.
 
         """
         projectid = self.get_project_id()
         subnet = dns.Subnet.Subnet(self._db)
         subnet6 = dns.IPv6Subnet.IPv6Subnet(self._db)
-        etrait = EntityTrait.EntityTrait(self._db)
+        etrait = EntityTrait(self._db)
 
-        # TODO: Find a better way for mapping between project ID and VLAN. Now I
-        # only cut out the first character, which is normally 'p', and the rest
-        # _should_ be digits:
-        intpid = self.get_project_int()
-        if not vlan:
-            # TODO: Is it okay to choose the VLAN by the project ID.
-            vlan = intpid + cereconf.VLAN_START
+        if vlan is None:
+            vlan = self.get_next_free_vlan()
         try:
             vlan = int(vlan)
         except ValueError:
             raise Errors.CerebrumError('VLAN not valid: %s' % (vlan,))
+        # Checking if the VLAN is in one of the ranges
+        in_range = False
+        for min, max in getattr(cereconf, 'VLAN_RANGES', ()):
+            if vlan >= min and vlan <= max:
+                in_range = True
+                break
+        if not in_range:
+            raise Errors.CerebrumError('VLAN out of range: %s' % vlan)
 
-        # Check that the VLAN is not already in use. TBD: Or is this acceptable
-        # in TSD?
         my_subnets = set(row['entity_id'] for row in
                          self.list_traits(code=(self.const.trait_project_subnet,
                                                 self.const.trait_project_subnet6),
                                  target_id=self.entity_id))
-        for row in subnet.search():
-            if row['entity_id'] in my_subnets:
-                continue
-            if row['vlan_number'] and int(row['vlan_number']) == vlan:
-                raise Errors.CerebrumError('VLAN %s already in use: %s/%s' %
-                        (vlan, row['subnet_ip'], row['subnet_mask']))
-        for row in subnet6.search():
-            if row['entity_id'] in my_subnets:
-                continue
-            if row['vlan_number'] and int(row['vlan_number']) == vlan:
-                raise Errors.CerebrumError('VLAN %s already in use: %s/%s' %
-                        (vlan, row['subnet_ip'], row['subnet_mask']))
+        # TODO: Find a better way for mapping between project ID and VLAN:
+        intpid = self.get_project_int()
         subnetstart = cereconf.SUBNET_START % intpid
         # The Subnet module should in populate/write_db know if the subnet
         # already exists and handle that, but we need to fix this manually here
@@ -601,6 +615,30 @@ class OUTSDMixin(OU):
 
         return dns_owner
 
+    def get_project_subnets(self):
+        """Get the subnets that are affiliated with the given project.
+
+        This is mostly a wrapper around `list_traits` for fetching the
+        affiliations traits for subnets, as that is how
+        subnet-to-project-affiliations are represented.
+
+        Both IPv4 and IPv6 subnets are returned. The type could be identified by
+        each returned element's item `entity_type` (and `code`, as it's two
+        different trait types).
+
+        :rtype: generator
+        :return: A list of traits db-rows for each subnet. Each element's values
+            that might be relevant are `entity_id`, `entity_type`, `code` and
+            `date`. The other values might not be used.
+
+        """
+        subnet = dns.Subnet.Subnet(self._db)
+        subnet6 = dns.IPv6Subnet.IPv6Subnet(self._db)
+        for row in self.list_traits(code=(self.const.trait_project_subnet6,
+                                          self.const.trait_project_subnet),
+                                    target_id=self.entity_id):
+            yield row
+
     def get_pre_approved_persons(self):
         """Get a list of pre approved persons by their fnr.
 
@@ -644,7 +682,7 @@ class OUTSDMixin(OU):
 
         """
         self.write_db()
-        ent = EntityTrait.EntityTrait(self._db)
+        ent = EntityTrait(self._db)
 
         # Delete affiliated entities
         # Delete the project's users:
