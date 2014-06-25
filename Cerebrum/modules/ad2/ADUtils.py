@@ -339,7 +339,9 @@ class ADclient(PowershellClient):
                 raise ObjectAlreadyExistsException(code, stderr, output)
             if re.search(': The specified \w+ already exists', stderr):
                 raise ObjectAlreadyExistsException(code, stderr, output)
-            if 'Set-ADObject : The specified account does not exist' in stderr:
+            if ('Set-ADObject : The specified account does not exist' in stderr
+               or 
+               'New-ADObject : The specified account does not exist' in stderr):
                 raise SetAttributeException(code, stderr, output)
             if 'The command line is too long' in stderr:
                 raise CommandTooLongException(code, stderr, output)
