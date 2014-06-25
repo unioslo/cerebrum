@@ -688,7 +688,11 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                                  creator=operator.get_entity_id(), start=end,
                                  description='Initial end set by superuser')
         ou.write_db()
-        ou.setup_project(operator.get_entity_id(), vlan)
+        try:
+            ou.setup_project(operator.get_entity_id(), vlan)
+        except Errors.CerebrumError, e:
+            raise CerebrumError(e)
+
         return "New project created: %s" % pid
 
     all_commands['project_terminate'] = cmd.Command(
@@ -733,7 +737,11 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
         project.delete_entity_quarantine(type=self.const.quarantine_not_approved)
         project.write_db()
-        project.setup_project(operator.get_entity_id(), vlan)
+        try:
+            project.setup_project(operator.get_entity_id(), vlan)
+        except Errors.CerebrumError, e:
+            raise CerebrumError(e)
+
         if not project.get_entity_quarantine(only_active=True):
             # Active project only if no other quarantines
             #self.gateway.create_project(projectid)
