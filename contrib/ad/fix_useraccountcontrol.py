@@ -35,7 +35,7 @@ from Cerebrum.modules.ad2 import ADUtils
 from Cerebrum.modules.ad2.winrm import PowershellException
 from Cerebrum.modules.ad2.ADSync import BaseSync
 
-logger = Factory.get_logger('ad_sync')
+logger = Factory.get_logger('cronjob')
 db = Factory.get('Database')(client_encoding='UTF-8')
 
 
@@ -159,7 +159,9 @@ class UserAccountControlFix(BaseSync):
             parameters.update(changes)
             cmd = self.server._generate_ad_command('Set-ADUser', parameters)
             self.logger.debug("Updating UserAccessControl settings for %s" % dn)
-            return self.server.run(cmd)
+            if not self.config.get('dryrun'):
+                print "DRYRUN"
+                return self.server.run(cmd)
         return True
 
     def get_mismatch_attributes(self, ad_object):
@@ -192,6 +194,8 @@ def usage(exitcode=0):
     --type TYPE     Configuration of what type of AD-sync has to be used. The
                     sync has to be defined in the config file.
 
+    -d, --dryrun    Do not write changes back to AD, but log them. Usable for
+                    testing. Note that the sync is still reading data from AD.
 
     --logger-level LEVEL What log level should it start logging. This is handled
                          by Cerebrum's logger. Default: DEBUG.
@@ -214,6 +218,7 @@ def main():
         opts, args = getopt.getopt(sys.argv[1:],
                                    "hd",
                                    ["help",
+                                    "dryrun",
                                     "type="])
     except getopt.GetoptError, e:
         print e
@@ -230,6 +235,8 @@ def main():
         # General options
         if opt in ('-h', '--help'):
             usage()
+        elif opt in ('-d', '--dryrun'):
+            configuration['dryrun'] = True
         elif opt == '--type':
             if val not in adconf.SYNCS:
                 print "Sync type '%s' not found in config" % val

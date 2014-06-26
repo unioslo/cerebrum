@@ -703,8 +703,10 @@ class ADclient(PowershellClient):
             # User objects on creation should not have SamAccountName in 
             # attributes. They should have it in parameters instead.
             if 'SamAccountName' in attributes:
+                parameters['SamAccountName'] = attributes['SamAccountName']
                 del attributes['SamAccountName']
-            parameters['SamAccountName'] = name
+            else:
+                parameters['SamAccountName'] = name
             parameters['CannotChangePassword'] = True 
             parameters['PasswordNeverExpires'] = True
         elif str(object_class).lower() == 'group':
