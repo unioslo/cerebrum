@@ -291,7 +291,7 @@ class ADfgSync(ADutilMixIn.ADgroupUtil):
 		
     def get_default_ou(self, change = None):
         #Returns default OU in AD.
-        return "OU=GRUPPER,%s" % cereconf.AD_LDAP
+        return "OU=Grupper,%s" % cereconf.AD_LDAP
 
     def fetch_cerebrum_data(self, spread):		
         all_groups = []
