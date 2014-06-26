@@ -339,7 +339,8 @@ class ADclient(PowershellClient):
                 raise ObjectAlreadyExistsException(code, stderr, output)
             if re.search(': The specified \w+ already exists', stderr):
                 raise ObjectAlreadyExistsException(code, stderr, output)
-            if ' : The specified account does not exist' in stderr:
+            if re.search('(Set-ADObject|New-ADGroup|New-ADObject) '
+                         ': The specified account does not exist', stderr):
                 raise SetAttributeException(code, stderr, output)
             if 'The command line is too long' in stderr:
                 raise CommandTooLongException(code, stderr, output)
@@ -710,8 +711,10 @@ class ADclient(PowershellClient):
             parameters['PasswordNeverExpires'] = True
         elif str(object_class).lower() == 'group':
             if 'SamAccountName' in attributes:
+                parameters['SamAccountName'] = attributes['SamAccountName']
                 del attributes['SamAccountName']
-            parameters['SamAccountName'] = name
+            else:
+                parameters['SamAccountName'] = name
 
         # Add the attributes, but mapped to correctly name used in AD:
         if attributes:
