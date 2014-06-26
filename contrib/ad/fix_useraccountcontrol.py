@@ -160,7 +160,6 @@ class UserAccountControlFix(BaseSync):
             cmd = self.server._generate_ad_command('Set-ADUser', parameters)
             self.logger.debug("Updating UserAccessControl settings for %s" % dn)
             if not self.config.get('dryrun'):
-                print "DRYRUN"
                 return self.server.run(cmd)
         return True
 
