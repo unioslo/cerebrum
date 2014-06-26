@@ -91,7 +91,7 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
                     elif r['affiliation'] == co.affiliation_foresatt:
                         for_skole = id2ou[r['ou_id']]['acronym']
                         urls.append('https://portal.skule.giske.no/skule/' + for_skole + '/foresatte')
-                accinfo[row['account_id']] = {'OU' : 'OU=TILSETTE,%s' % cereconf.AD_LDAP,
+                accinfo[row['account_id']] = {'OU' : 'OU=Tilsette,%s' % cereconf.AD_LDAP,
                                               'title' : 'Tilsett',
                                               'url' : urls,
                                               #Constraint i AD, homeMDB must be valid LDAP path.  
@@ -114,7 +114,7 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
                     if r['affiliation'] == co.affiliation_ansatt or \
                            r['affiliation'] == co.affiliation_teacher:
                         title = 'Tilsett'
-                        ad_ou = 'OU=TILSETTE,%s' % cereconf.AD_LDAP
+                        ad_ou = 'OU=Tilsette,%s' % cereconf.AD_LDAP
                         home_mdb = 'CN=Tilsette,CN=Mail Storage,CN=InformationStore,CN=LOMVI,CN=Servers,CN=Exchange Administrative Group (FYDIBOHF23SPDLT),CN=Administrative Groups,CN=Giske grunnskule,CN=Microsoft Exchange,CN=Services,CN=Configuration,DC=giske,DC=eks,DC=lan'
                         tils_skole = id2ou[r['ou_id']]['acronym']
                         urls.append('https://portal.skule.giske.no/skule/' + tils_skole + '/tilsette')
