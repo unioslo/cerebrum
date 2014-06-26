@@ -96,20 +96,6 @@ database.cl_init(change_program="pop-auto-groups")
 constants = Factory.get("Constants")(database)
 INDENT_STEP = 2
 
-#
-# List of legal group prefixes and the corresponding human descriptions.
-#
-legal_prefixes = {
-    "ansatt": "Tilsatte ved %s",
-    "ansatt-vitenskapelig": "Vitenskapelige tilsatte ved %s",
-    "ansatt-tekadm": "Teknisk-administrativt tilsatte ved %s",
-    "ansatt-bilag": "Bilagslønnede ved %s",
-    "meta-ansatt": "Tilsatte ved %s og underordnede organisatoriske enheter",
-    # TBD: Find out what is the best prefix name for "tilknyttede"
-    #"tilknyttet": "Tilknyttede ved %s",
-}
-
-
 class group_attributes(object):
 
     """This is named-tuple like object for holding a few of group's cached
@@ -376,7 +362,7 @@ def _load_selection_helper(iterable):
       An iterator over (human representation of aff/status, group
       prefix). human representation may be whatever
       L{ConstantsBase.human2constant} accepts. group prefix is the prefix for
-      a group an aff/status holder is to be a member of. L{legal_prefixes}
+      a group an aff/status holder is to be a member of. L{cereconf.AUTOMATIC_GROUP_LEGAL_PREFIXES}
       lists the permissible values.
 
     @rtype: dict (PersonAffiliation/PersonAffStatus -> str)
@@ -388,7 +374,7 @@ def _load_selection_helper(iterable):
     result = dict()
     co = Factory.get("Constants")()
     for human_repr, prefix in iterable:
-        if prefix not in legal_prefixes:
+        if prefix not in cereconf.AUTOMATIC_GROUP_LEGAL_PREFIXES:
             logger.warn("Prefix '%s' is illegal for automatic groups. Ignored",
                         prefix)
             continue
@@ -420,7 +406,7 @@ def load_registration_criteria(criteria):
 
     The resulting data structure is a dict, mapping affiliation, or
     affiliation status to a group prefix for an automatically administered
-    group. L{legal_prefixes} lists the valid prefixes. 'ansatt'-groups are
+    group. L{cereconf.AUTOMATIC_GROUP_LEGAL_PREFIXES} lists the valid prefixes. 'ansatt'-groups are
     special: they are ALSO members of the corresponding 'meta-ansatt' groups.
     """
 
@@ -495,7 +481,7 @@ def affiliation2groups(row, current_groups, select_criteria, perspective):
             continue
 
         group_prefix = select_criteria[key]
-        description = legal_prefixes[group_prefix] % ou_info["name"]
+        description = cereconf.AUTOMATIC_GROUP_LEGAL_PREFIXES[group_prefix] % ou_info["name"]
         group_name = group_prefix + suffix
         group_id = group_name2group_id(group_name,
                                        description,
@@ -526,7 +512,7 @@ def affiliation2groups(row, current_groups, select_criteria, perspective):
             parent_name = prefix + "-" + parent_info["sko"]
             meta_parent_id = group_name2group_id(
                 parent_name,
-                legal_prefixes[prefix] % parent_info["name"],
+                cereconf.AUTOMATIC_GROUP_LEGAL_PREFIXES[prefix] % parent_info["name"],
                 current_groups,
                 constants.trait_auto_meta_group)
             result.append((employee_group_id, meta_parent_id))
@@ -1201,7 +1187,7 @@ def output_group_forest(filters, perspective):
         sko = current_ou["sko"]
         # Output all groups for this sko (recursively)
         existing_groups = list()
-        for prefix in legal_prefixes:
+        for prefix in cereconf.AUTOMATIC_GROUP_LEGAL_PREFIXES:
             gname = prefix + "-" + sko
             if gname not in group_forest:
                 continue
