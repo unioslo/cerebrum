@@ -745,6 +745,10 @@ LDAP_PERSON = {
     #   'ANSATT': {'tekadm': (100, 'employee'),
     #              'vitenskapelig': (50, 'faculty')}
     #
+    # Lowest numbers win, i.e. have the highest priority. If a person has both
+    # statuses as in the example above, it would get `faculty` in its
+    # eduPersonPrimaryAffiliation, as 50 is lower than 100.
+    #
     # Note that only the affiliations set to True in 'affiliation_selector'
     # needs to be defined in eduPersonPrimaryAffiliation.
     'eduPersonPrimaryAffiliation_selector': {},
