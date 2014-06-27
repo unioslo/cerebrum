@@ -215,8 +215,9 @@ class ExchangeEventHandler(processing.Process):
                 try:
                     self.db.remove_event(ev['event_id'])
                 except Errors.NotFoundError:
-                    self.logger.debug3('Event deleted while processing: %s' % str(ev))
-                    self.db.rollback()
+                    self.logger.debug3('Event deleted while processing: %s' %
+                                       str(ev))
+                    self.db.commit()
                     continue
 
                 # TODO: Store the receipt in ChangeLog! We need to handle
