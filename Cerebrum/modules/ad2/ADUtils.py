@@ -343,7 +343,8 @@ class ADclient(PowershellClient):
                 raise ObjectAlreadyExistsException(code, stderr, output)
             if re.search(': The specified \w+ already exists', stderr):
                 raise ObjectAlreadyExistsException(code, stderr, output)
-            if 'Set-ADObject : The specified account does not exist' in stderr:
+            if re.search('(Set-ADObject|New-ADGroup|New-ADObject) '
+                         ': The specified account does not exist', stderr):
                 raise SetAttributeException(code, stderr, output)
             if 'The command line is too long' in stderr:
                 raise CommandTooLongException(code, stderr, output)
@@ -709,8 +710,9 @@ class ADclient(PowershellClient):
         if str(object_class).lower() == 'user':
             # SAMAccountName is mandatory for some object types:
             # TODO: check if this is not necessary any more...
-            # User objects on creation should not have SamAccountName in 
-            # attributes. They should have it in parameters instead.
+            # User and group objects on creation should not have 
+            # SamAccountName in attributes. They should have it in 
+            # parameters instead.
             if 'SamAccountName' in attributes:
                 parameters['SamAccountName'] = attributes['SamAccountName']
                 del attributes['SamAccountName']
@@ -719,8 +721,11 @@ class ADclient(PowershellClient):
             parameters['CannotChangePassword'] = True 
             parameters['PasswordNeverExpires'] = True
         elif str(object_class).lower() == 'group':
-            if 'SamAccountName' not in attributes:
-                attributes['SamAccountName'] = name
+            if 'SamAccountName' in attributes:
+                parameters['SamAccountName'] = attributes['SamAccountName']
+                del attributes['SamAccountName']
+            else:
+                parameters['SamAccountName'] = name
 
         # Add the attributes, but mapped to correctly name used in AD:
         if attributes:
@@ -731,11 +736,16 @@ class ADclient(PowershellClient):
 
         parameters['Name'] = name
         parameters['Path'] = path
-        parameters['Type'] = object_class
         if str(object_class).lower() == 'user':
+            parameters['Type'] = object_class
             cmd = self._generate_ad_command('New-ADUser', 
                                             parameters, 'PassThru')
+        elif str(object_class).lower() == 'group':
+            # For some reason, New-ADGroup does not accept -Type parameter
+            cmd = self._generate_ad_command('New-ADGroup', 
+                                            parameters, 'PassThru')
         else:
+            parameters['Type'] = object_class
             cmd = self._generate_ad_command('New-ADObject', 
                                             parameters, 'PassThru')
         cmd = '''if ($str = %s | ConvertTo-Json) {

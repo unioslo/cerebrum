@@ -1535,6 +1535,8 @@ class BaseSync(object):
 
         """
         try:
+            if self.ad_object_class == 'group':
+                parameters['GroupScope'] = self.new_group_scope
             return self.server.create_object(ent.ad_id, ent.ou,
                                              self.ad_object_class,
                                              attributes=ent.attributes,
@@ -2664,9 +2666,10 @@ class GroupSync(BaseSync):
             raise Exception('Invalid group type: %s' %
                             self.config['group_type'])
         # Check if the group scope is a valid scope:
-        if self.config['group_scope'] not in ('global', 'universal'):
+        if self.config['group_scope'].lower() not in ('global', 'universal'):
             raise Exception('Invalid group scope: %s' %
                             self.config['group_scope'])
+        self.new_group_scope = self.config['group_scope'].lower()
 
     def process_ad_object(self, ad_object):
         """Process a Group object retrieved from AD.
