@@ -303,8 +303,9 @@ class ADfgSync(ADutilMixIn.ADgroupUtil):
 
     def fetch_ad_data(self):
         """Fetch all group objects from AD."""
-        self.server.setGroupAttributes([]) # trying an empty list
-        return super(ADfgSync, self).fetch_ad_data()
+        # Empty list for now, as it failed to fetch all the attributes:
+        self.server.setGroupAttributes([])
+        return self.server.listObjects('group', True, self.get_default_ou())
 
 def usage(exitcode=0):
     print """Usage:
