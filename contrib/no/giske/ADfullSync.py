@@ -185,7 +185,7 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
                 #Filtering roles on title field defined earlier.
                 if retur[e_name]['title'] == 'Elev':
                     retur[e_name]['homeDrive'] = cereconf.AD_HOME_DRIVE
-                    retur[e_name]['profilePath'] = '\\\\vipe\\profiler\\%s' % e_name
+                    #retur[e_name]['profilePath'] = '\\\\vipe\\profiler\\%s' % e_name
                     retur[e_name]['homeDirectory'] = '\\\\G13E-FS01.giske.eks.lan\\Elever\\%s' % e_name
                     retur[e_name]['msRTCSIP-PrimaryUserAddress'] = 'SIP:%s@skule.giske.no' % e_name
                 elif retur[e_name]['title'] == 'Foresatt':
@@ -269,9 +269,9 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
                     if not ret:
                         self.logger.warning("HomeDir for %s not found: %r", uname, ret)
 
-                ret = self.run_cmd('createDir', dry_run, 'profilePath')						
-                if not ret[0]:
-                    self.logger.warning("createDir on %s failed: %r", uname, ret)
+                #ret = self.run_cmd('createDir', dry_run, 'profilePath')
+                #if not ret[0]:
+                #    self.logger.warning("createDir on %s failed: %r", uname, ret)
                 #else:	
                     #Checking existence of profileDir.
                 #    ret = self.run_cmd('checkDir', dry_run, "profilePath")
