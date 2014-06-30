@@ -900,12 +900,8 @@ class ConstantsBase(DatabaseAccessor):
             obj = self.map_const(human_repr)
         elif isinstance(human_repr, str):
 
-            # assume it's a textual representation of the code int...
-            if human_repr.isdigit():
-                obj = self.map_const(int(human_repr))
-
             # ok, that failed, so assume this is a constant name ...
-            if obj is None and hasattr(self, human_repr):
+            if hasattr(self, human_repr):
                 obj = getattr(self, human_repr)
 
             # ok, that failed too, we can only compare stringified version of
@@ -914,6 +910,10 @@ class ConstantsBase(DatabaseAccessor):
                 for const_obj in self.__iterate_constants(const_type):
                     if str(const_obj) == human_repr:
                         obj = const_obj
+
+            # assume it's a textual representation of the code int...
+            if obj is None and human_repr.isdigit():
+                obj = self.map_const(int(human_repr))
 
         # Make sure it's of the right type...
         if obj is not None and const_type is not None:
