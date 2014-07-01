@@ -922,6 +922,16 @@ DB_DRIVER_ORACLE = "cx_Oracle"
 #
 AUTOMATIC_GROUPS = {}
 
+# Prefixes that define which groups should be added as members of meta-groups.
+# E.g. ['ansatt', 'tilknyttet']
+AUTOMATIC_GROUP_POPULATE_META_PREFIX = []
+
+# Prefix to description mapping for automatic groups.
+# E.g. {"ansatt": "Tilsatte ved %s",
+#       "meta-ansatt":
+#           "Tilsatte ved %s og underordnede organisatoriske enheter",}
+AUTOMATIC_GROUP_LEGAL_PREFIXES = {}
+
 
 # Mapping of affiliations and groups, used for automatic group membership
 # based on person affiliations.
