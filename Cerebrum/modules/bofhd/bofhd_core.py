@@ -817,6 +817,7 @@ class BofhdCommonMethods(BofhdCommandBase):
             ))
 
         # check that the specified contact info type exists
+        contact_type = contact_type.upper()
         contact_type_code = co.human2constant(contact_type, co.ContactInfo)
         if not contact_type_code:
             raise CerebrumError('Invalid contact info type "%s", try one of %s' % (
