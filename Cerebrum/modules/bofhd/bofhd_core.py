@@ -722,10 +722,11 @@ class BofhdCommonMethods(BofhdCommandBase):
         entity = self.util.get_target(entity_target, restrict_to=[])
 
         # validate contact info type
+        contact_type = contact_type.upper()
         contact_type_code = co.human2constant(contact_type, co.ContactInfo)
         if not contact_type_code:
             raise CerebrumError('Invalid contact info type "%s", try one of %s' % (
-                contact_info_type, 
+                contact_type, 
                 ", ".join(str(x) for x in co.fetch_constants(co.ContactInfo))
             ))
 
@@ -749,7 +750,7 @@ class BofhdCommonMethods(BofhdCommandBase):
                                 co.contact_phone_private,
                                 co.contact_mobile_phone,
                                 co.contact_private_mobile):
-            # match an 8-digit phone number
+            # allows digits and a prefixed '+'
             if not re.match(r"^\+?\d+$", contact_value):
                 raise CerebrumError("Invalid phone number: %s. The number can contain only digits with possible '+' for prefix."
                     % contact_value)
