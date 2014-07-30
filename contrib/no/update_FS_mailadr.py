@@ -96,8 +96,8 @@ def synchronize_attribute(cerebrum_lookup, fs_lookup,
         # Cerebrum has a record of this fnr
         if cere_attribute is not None:
             if fs_attribute is None:
-                logger.debug1("Will add address for %s: %s",
-                              fnr, cere_attribute)
+                logger.debug1("Will add %s for %s: %s",
+                              index, fnr, cere_attribute)
                 additions[cere_attribute] = [row['fodselsdato'],
                                              row['personnr']]
             # We update only when the values differ, but we can't do
@@ -114,8 +114,8 @@ def synchronize_attribute(cerebrum_lookup, fs_lookup,
         else:
 
             if fs_attribute is not None:
-                logger.debug1("Deleting address for %s: %s",
-                              fnr, fs_attribute)
+                logger.debug1("Deleting %s for %s: %s",
+                              index, fnr, fs_attribute)
 
                 # None in FS means "no value"
                 fs_update(row['fodselsdato'], row['personnr'], None)
@@ -136,15 +136,15 @@ def synchronize_attribute(cerebrum_lookup, fs_lookup,
         if cere_value in updates:
             u_fs_value = cere_value
             u_fdato, u_persnr, u_cere_value = updates[u_fs_value]
-            logger.debug1("Changing cascading address for %06d%05d: %s -> %s",
-                          u_fdato, u_persnr, u_fs_value, u_cere_value)
+            logger.debug1("Changing cascading %s for %06d%05d: %s -> %s",
+                          index, u_fdato, u_persnr, u_fs_value, u_cere_value)
             fs_update(u_fdato, u_persnr, u_cere_value)
             attempt_commit()
             # Mark it as done
             updates[cere_value] = None
 
-        logger.debug1("Changing address for %06d%05d: %s -> %s",
-                      fdato, persnr, fs_value, cere_value)
+        logger.debug1("Changing %s for %06d%05d: %s -> %s",
+                      index, fdato, persnr, fs_value, cere_value)
         try:
             fs_update(fdato, persnr, cere_value)
             attempt_commit()
@@ -157,14 +157,14 @@ def synchronize_attribute(cerebrum_lookup, fs_lookup,
 
     for cere_value in additions.keys():
         fdato, persnr = additions[cere_value]
-        logger.debug1("Adding address for %06d%05d: %s", fdato, persnr,
+        logger.debug1("Adding %s for %06d%05d: %s", index, fdato, persnr,
                       cere_value)
         try:
             fs_update(fdato, persnr, cere_value)
             attempt_commit()
         except Exception, e:
-            logger.error("Failed adding mailaddr for %06d%05d to %s: %s",
-                         fdato, persnr, cere_value, e)
+            logger.error("Failed adding %s for %06d%05d to %s: %s",
+                         index, fdato, persnr, cere_value, e)
 
     logger.debug("Done updating attributes")
 
