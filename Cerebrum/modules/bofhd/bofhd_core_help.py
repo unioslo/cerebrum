@@ -188,6 +188,9 @@ command_help = {
         "email_primary_address":
             "Changes the primary address for the e-mail target to the specified "
             "value",
+        "email_set_primary_address":
+            "Changes the primary address for the e-mail target to the specified "
+            "value",
         "email_quota":
             "Change a user's storage quota for e-mail",
         "email_rt_add_address":
