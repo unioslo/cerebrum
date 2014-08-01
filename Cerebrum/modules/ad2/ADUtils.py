@@ -185,6 +185,10 @@ class ADclient(PowershellClient):
         else:
             self.logger.debug2("Not using a domain account")
         self.dryrun = dryrun
+        # Pattern to exclude passwords in plaintext from the server output.
+        # Such passwords usually 
+        self.exclude_password_patterns =  [
+            re.compile('ConvertTo-SecureString.*?\.\.\.', flags=re.DOTALL)]
         self.db = Factory.get('Database')()
         self.co = Factory.get('Constants')(self.db)
         self.connect()
@@ -339,7 +343,8 @@ class ADclient(PowershellClient):
                 raise ObjectAlreadyExistsException(code, stderr, output)
             if re.search(': The specified \w+ already exists', stderr):
                 raise ObjectAlreadyExistsException(code, stderr, output)
-            if 'Set-ADObject : The specified account does not exist' in stderr:
+            if re.search('(Set-ADObject|New-ADGroup|New-ADObject) '
+                         ': The specified account does not exist', stderr):
                 raise SetAttributeException(code, stderr, output)
             if 'The command line is too long' in stderr:
                 raise CommandTooLongException(code, stderr, output)
@@ -398,6 +403,11 @@ class ADclient(PowershellClient):
             if first_round:
                 out['stdout'] = out.get('stdout', 
                                         '').replace(self.ignore_stdout, '')
+            # Exclude password in plaintext from the output
+            if 'stderr' in out:
+                for pat in self.exclude_password_patterns:
+                    out['stderr'] = re.sub(pat, 'PASSWORD HIDDEN',
+                                           out['stderr'])
                 first_round = False
             yield code, out
 
@@ -697,12 +707,25 @@ class ADclient(PowershellClient):
         # TODO: this might be moved into subclasses of ADclient, one per object
         # type? Would probably make easier code... Or we could just depend on
         # the configuration for this behaviour, at least for the attributes.
-        if (str(object_class).lower() == 'account' or 
-            str(object_class).lower() == 'group'):
+        if str(object_class).lower() == 'user':
             # SAMAccountName is mandatory for some object types:
             # TODO: check if this is not necessary any more...
-            if 'SamAccountName' not in attributes:
-                attributes['SamAccountName'] = name
+            # User and group objects on creation should not have 
+            # SamAccountName in attributes. They should have it in 
+            # parameters instead.
+            if 'SamAccountName' in attributes:
+                parameters['SamAccountName'] = attributes['SamAccountName']
+                del attributes['SamAccountName']
+            else:
+                parameters['SamAccountName'] = name
+            parameters['CannotChangePassword'] = True 
+            parameters['PasswordNeverExpires'] = True
+        elif str(object_class).lower() == 'group':
+            if 'SamAccountName' in attributes:
+                parameters['SamAccountName'] = attributes['SamAccountName']
+                del attributes['SamAccountName']
+            else:
+                parameters['SamAccountName'] = name
 
         # Add the attributes, but mapped to correctly name used in AD:
         if attributes:
@@ -713,8 +736,18 @@ class ADclient(PowershellClient):
 
         parameters['Name'] = name
         parameters['Path'] = path
-        parameters['Type'] = object_class
-        cmd = self._generate_ad_command('New-ADObject', parameters, 'PassThru')
+        if str(object_class).lower() == 'user':
+            parameters['Type'] = object_class
+            cmd = self._generate_ad_command('New-ADUser', 
+                                            parameters, 'PassThru')
+        elif str(object_class).lower() == 'group':
+            # For some reason, New-ADGroup does not accept -Type parameter
+            cmd = self._generate_ad_command('New-ADGroup', 
+                                            parameters, 'PassThru')
+        else:
+            parameters['Type'] = object_class
+            cmd = self._generate_ad_command('New-ADObject', 
+                                            parameters, 'PassThru')
         cmd = '''if ($str = %s | ConvertTo-Json) {
             $str -replace '$',';'
             }''' % cmd
