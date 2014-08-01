@@ -82,7 +82,7 @@ fi
 # Setup OK, run tests
 #
 info "Running nosetests"
-"$env_dir/bin/nosetests" -c "$config/noseconfig.cfg" "$crb_src/testsuite/tests/test_ad2" "$crb_src/testsuite/tests/test_NIS"
+$env_dir/bin/nosetests -c "$config/noseconfig.cfg" "$crb_src/testsuite/tests/test_ad2"
 error=$(($? + $error))
 
 exit $error
