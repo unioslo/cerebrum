@@ -99,6 +99,10 @@ If you want to setup the test environment for yourself, you need to:
 
     - postgres-server
 
+    - python-virtualenv
+
+    - python-pip
+
     - TODO
 
 - Setup postgres-server:
