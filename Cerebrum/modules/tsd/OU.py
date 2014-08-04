@@ -461,12 +461,10 @@ class OUTSDMixin(OU, EntityTrait):
         except ValueError:
             raise Errors.CerebrumError('VLAN not valid: %s' % (vlan,))
         # Checking if the VLAN is in one of the ranges
-        in_range = False
         for min, max in getattr(cereconf, 'VLAN_RANGES', ()):
             if vlan >= min and vlan <= max:
-                in_range = True
                 break
-        if not in_range:
+        else:
             raise Errors.CerebrumError('VLAN out of range: %s' % vlan)
 
         my_subnets = set(row['entity_id'] for row in
