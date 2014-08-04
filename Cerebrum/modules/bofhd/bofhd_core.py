@@ -722,13 +722,15 @@ class BofhdCommonMethods(BofhdCommandBase):
         entity = self.util.get_target(entity_target, restrict_to=[])
 
         # validate contact info type
-        contact_type = contact_type.upper()
         contact_type_code = co.human2constant(contact_type, co.ContactInfo)
         if not contact_type_code:
-            raise CerebrumError('Invalid contact info type "%s", try one of %s' % (
-                contact_type, 
-                ", ".join(str(x) for x in co.fetch_constants(co.ContactInfo))
-            ))
+            # let's try the code in uppercase
+            contact_type_code = co.human2constant(contact_type.upper(), co.ContactInfo)
+            if not contact_type_code:
+                raise CerebrumError('Invalid contact info type "%s", try one of %s' % (
+                    contact_type, 
+                    ", ".join(str(x) for x in co.fetch_constants(co.ContactInfo))
+                ))
 
         # check permissions
         self.ba.can_add_contact_info(operator.get_entity_id(),
@@ -817,13 +819,15 @@ class BofhdCommonMethods(BofhdCommandBase):
             ))
 
         # check that the specified contact info type exists
-        contact_type = contact_type.upper()
         contact_type_code = co.human2constant(contact_type, co.ContactInfo)
         if not contact_type_code:
-            raise CerebrumError('Invalid contact info type "%s", try one of %s' % (
-                contact_type, 
-                ", ".join(str(x) for x in co.fetch_constants(co.ContactInfo))
-            ))
+            # let's try the code in uppercase
+            contact_type_code = co.human2constant(contact_type.upper(), co.ContactInfo)
+            if not contact_type_code:
+                raise CerebrumError('Invalid contact info type "%s", try one of %s' % (
+                    contact_type, 
+                    ", ".join(str(x) for x in co.fetch_constants(co.ContactInfo))
+                ))
 
         # check permissions
         self.ba.can_remove_contact_info(operator.get_entity_id(),
