@@ -42,7 +42,8 @@ class AccountHiAMixin(Account.Account):
                 raise self._db.IntegrityError, \
                       "Can't add NIS spread to an account with illegal name."
             
-        if spread == self.const.spread_exchange_account:
+        if spread in (self.const.spread_exchange_account,
+                      self.const.spread_exchange_acc_old):
             if self.has_spread(self.const.spread_hia_email):
                 raise self._db.IntegrityError, \
                           "Cannot add Exchange-spread to an IMAP-account, use email exchange_migrate"
@@ -52,7 +53,8 @@ class AccountHiAMixin(Account.Account):
             self.populate_trait(self.const.trait_exchange_mdb, strval=mdb)
             self.write_db()
         if spread == self.const.spread_hia_email:
-            if self.has_spread(self.const.spread_exchange_account):
+            if (self.has_spread(self.const.spread_exchange_account) or
+                    self.has_spread(self.const.spread_exchange_acc_old)):
                 # Accounts with Exchange can't have IMAP too. Should raise an
                 # exception, but process_students tries to add IMAP spreads,
                 # which would then fail, so it just returns instead.
@@ -85,7 +87,7 @@ class AccountHiAMixin(Account.Account):
         spreads = [int(r['spread']) for r in self.get_spread()]
         if not spread in spreads:  # user doesn't have this spread
             return
-        if spread == self.const.spread_exchange_account:
+        if spread == self.const.spread_exchange_acc_old:
             self.delete_trait(self.const.trait_exchange_mdb)
             self.write_db()
 
@@ -179,8 +181,9 @@ class AccountHiAMixin(Account.Account):
     def update_email_addresses(self, set_primary = False):
         # check if an e-mail spread is registered yet, if not don't
         # update
-        if not (self.has_spread(self.const.spread_exchange_account) or \
-                self.has_spread(self.const.spread_hia_email)):
+        if not (self.has_spread(self.const.spread_exchange_account) or
+                self.has_spread(self.const.spread_exchange_acc_old or
+                self.has_spread(self.const.spread_hia_email))):
             return
         # Find, create or update a proper EmailTarget for this
         # account.
@@ -218,9 +221,9 @@ class AccountHiAMixin(Account.Account):
         if not et.email_server_id:
             if self.get_account_types() or self.owner_type == self.const.entity_group:
                 for s in self.get_spread():
-                    if s['spread'] == int(self.const.spread_exchange_account):
-                        spread = s['spread']
-                    elif s['spread'] == int(self.const.spread_hia_email):
+                    if s['spread'] in (int(self.const.spread_exchange_account),
+                                       int(self.const.spread_exchange_acc_old),
+                                       int(self.const.spread_hia_email)):
                         spread = s['spread']
                 et = self._update_email_server(spread)
             else:
@@ -303,6 +306,8 @@ class AccountHiAMixin(Account.Account):
         et = Email.EmailTarget(self._db)
         server_name = 'mail-imap2'
         if spread == int(self.const.spread_exchange_account):
+            server_name = 'exchkrs01.uia.no'
+        if spread == int(self.const.spread_exchange_acc_old):
             server_name = 'exchkrs01.uia.no'
         es.find_by_name(server_name)
         try:
