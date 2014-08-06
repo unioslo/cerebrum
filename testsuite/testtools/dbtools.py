@@ -16,6 +16,7 @@ from Cerebrum.Errors import NotFoundError
 from Cerebrum.Account import Account
 from Cerebrum.Person import Person
 from Cerebrum.Group import Group
+from Cerebrum.OU import OU
 from Cerebrum.Constants import Constants
 
 
@@ -54,6 +55,10 @@ class DatabaseTools(object):
             gr_cls = Factory.get('Group')
         self._gr = gr_cls(self._db)
 
+        if not isinstance(gr_cls, OU):
+            ou_cls = Factory.get('OU')
+        self._ou = ou_cls(self._db)
+
         if not isinstance(co_cls, Constants):
             co_cls = Factory.get('Constants')
         self._co = co_cls(self._db)
@@ -65,6 +70,7 @@ class DatabaseTools(object):
         self.account_ids = set()
         self.person_ids = set()
         self.group_ids = set()
+        self.ou_ids = set()
 
     # Shared objects save time.
     # As long as we don't mind the objects being cleared by this objects,
@@ -295,3 +301,57 @@ class DatabaseTools(object):
 
         for entity_id in self.group_ids:
             assert False, "All groups should be deleted"
+
+    # Helpers to create and remove OUs
+
+    def create_ou(self, ou_dict):
+        """ Create an OU based on dict values.
+
+        :type dict ou_dict:
+            Given values to set for the OU that should get created. Values that
+            are used:
+
+            - name
+            - acronym
+            - short_name
+            - display_name
+
+        :rtype: int
+        :return: The entity_id for the new OU
+
+        """
+        creator_id = self.get_initial_account_id()
+        self._ou.clear()
+        self._ou.populate()
+        self._ou.write_db()
+        for nametype in (self._co.ou_name, self._co.ou_name_acronym,
+                         self._co.ou_name_short, self._co.ou_name_display):
+            if str(nametype) in ou_dict:
+                self._ou.add_name_with_language(
+                                name_variant=nametype,
+                                name_language=self._co.language_en,
+                                name=ou_dict[str(nametype)])
+                self._ou.write_db()
+        self.ou_ids.add(self._ou.entity_id)
+        return self._ou.entity_id
+
+    def delete_ou_id(self, entity_id):
+        """ Delete OU with given entity_id. """
+        self._ou.clear()
+        try:
+            self._ou.find(entity_id)
+        except NotFoundError:
+            pass
+        else:
+            self._ou.delete()
+        finally:
+            if entity_id in self.ou_ids:
+                self.ou_ids.remove(entity_id)
+
+    def clear_ous(self):
+        """ Delete all OUs created by a DatabaseTools object. """
+        for entity_id in self.ou_ids.copy():
+            self.delete_ou_id(entity_id)
+
+        for entity_id in self.ou_ids:
+            assert False, "All OUs should be deleted"
