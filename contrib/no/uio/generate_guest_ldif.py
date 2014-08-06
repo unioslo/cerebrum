@@ -27,10 +27,10 @@ This script take the following arguments:
 
 -h, --help : this message
 -s, --spread : Which spread to identify guests by.
-               Defaults to guestconfig.LDAP['spread']
+               Defaults to guestconfig.LDAP_GUESTS['spread']
 -f, --filename : LDIF file to write
-                 Defaults to guestconfig.LDAP['file'] in
-                 cereconf.LDAP['dump_dir']
+                 Defaults to guestconfig.LDAP_GEUSTS['file'] in
+                 guestconfig.LDAP['dump_dir']
 -b, --base : base DN for the objects
              Defaults to guestconfig.LDAP['dn']
 
@@ -42,7 +42,7 @@ import sys
 import getopt
 
 from Cerebrum.Utils import Factory, SimilarSizeWriter
-from Cerebrum.modules.LDIFutils import entry_string
+from Cerebrum.modules.LDIFutils import entry_string, LDIFWriter
 from Cerebrum.Errors import CerebrumError, NotFoundError
 from Cerebrum.QuarantineHandler import QuarantineHandler
 
@@ -53,70 +53,40 @@ def usage(exitcode=0):
     sys.exit(exitcode)
 
 
-def get_config(item):
-    """ Get an item from the config. """
-    try:
-        config = guestconfig.LDAP
-    except AttributeError:
-        raise CerebrumError(
-            "No LDAP settings in guestconfig (%s)" % guestconfig.__file__)
-
-    return config[item]
-
-
 class GuestLDIF(object):
 
     """ Generate ldif file with guest accounts. """
 
-    def __init__(self, logger=None, spread=None, base_dn=None):
+    def __init__(self, ldif, logger=None, spread=None):
         """ Set up object with ldap config.
 
+        :param ldif: The LDIFWriter object that contains our settings
         :param logger: The logger to use. Default: Create a new logger that
                        logs to console.
         :param spread: The spread that identifies guests. Default: Fetch spread
                        from guestconfig.LDAP['spread']
-        :param base_dn: The base DN to give the guest entries in LDAP. Default:
-                        Fetch DN from guestconfig.LDAP['dn']
 
         """
-
         self.db = Factory.get('Database')()
         self.co = Factory.get('Constants')(self.db)
         self.ac = Factory.get('Account')(self.db)
-        self.logger = logger or Factory.get_logger('console')
 
-        self.object_class = get_config('objectClass')
-        self.auth_attrs = get_config('auth')
-        self.base_dn = base_dn or get_config('dn')
-        self.spread = self.get_const(spread or get_config('spread'),
+        self.logger = logger or Factory.get_logger('console')
+        self.spread = self.get_const(spread or ldif.getconf('spread'),
                                      self.co.Spread)
 
+        self.object_class = ldif.getconf('objectClass')
+        self.auth_attrs = ldif.getconf('auth_attr')
+
     def get_const(self, const_str, const_type):
-        """ Look up constant, either by strval or by attribute name.
-
-        We cache the values, so that the price of fetching the same constant
-        twice is minimal.
-
-        :param const_str: The constant name (strval or attribute name)
-        :param const_type: The constant type
-
-        :returns: The correct instance of the constant type, if it exists.
-
-        """
+        """ Wrap h2c with caching, and raise error if not found. """
         if not hasattr(self, '_co_cache'):
-            self._const_cache = dict()
-        if (const_str, const_type) in self._const_cache:
-            return self._const_cache[(const_str, const_type)]
-
-        const = (self.co.human2constant(const_str, const_type) or
-                 getattr(self.co, const_str, None))
+            self._co_cache = dict()
+        if (const_str, const_type) in self._co_cache:
+            return self._co_cache[(const_str, const_type)]
+        const = self.co.human2constant(const_str, const_type)
         if const:
-            try:
-                assert isinstance(const, const_type) and int(const)
-                self._const_cache[(const_str, const_type)] = const
-                return const
-            except (AssertionError, NotFoundError):
-                pass
+            return self._co_cache.setdefault((const_str, const_type), const)
         raise CerebrumError("No constant '%s' of type '%s'" % (const_str,
                                                                const_type))
 
@@ -134,9 +104,9 @@ class GuestLDIF(object):
 
         return entry
 
-    def dn_for_entry(self, entry):
+    def dn_for_entry(self, entry, dn):
         """ Return the dn for a given entry. """
-        return "uid=%s,%s" % (entry['uid'], self.base_dn)
+        return
 
     def generate_guests(self):
         """ Guest account generator.
@@ -193,25 +163,25 @@ def main():
 
     logger.info("Configuring export")
 
-    filename = filename or get_config('file')
+    ldif = LDIFWriter('GUESTS', filename, module=guestconfig)
+    base = base or ldif.getconf('dn')
+    spread = spread or ldif.getconf('spread')
+    dn = lambda e: "uid=%s,%s" % (e['uid'], base)
 
-    exporter = GuestLDIF(spread=spread, base_dn=base, logger=logger)
-
+    exporter = GuestLDIF(ldif, spread=spread, logger=logger)
     logger.info("Starting guest account ldap export.")
     count = 0
+
     try:
-        f = SimilarSizeWriter(filename, 'w')
-        f.set_size_change_limit(90)
         for entry in exporter.generate_guests():
-            dn = exporter.dn_for_entry(entry)
-            f.write(entry_string(dn, entry, False))
+            ldif.write_entry(dn(entry), entry)
             count += 1
     except Exception, e:
         logger.error("Error: Unable to export: %s" % e, exc_info=1)
         raise
     finally:
-        f.close()
-        logger.info("Done, %d accounts dumped to '%s'" % (count, filename))
+        ldif.close()
+        logger.info("Done, %d accounts dumped to ldif" % count)
 
 
 if __name__ == '__main__':
