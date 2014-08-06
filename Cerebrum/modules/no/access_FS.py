@@ -357,14 +357,15 @@ class Student(FSObject):
         SELECT DISTINCT
           r.regformkode, r.betformkode, r.dato_betaling,
           r.dato_regform_endret, r.status_bet_ok, r.status_reg_ok,
-          f.dato_endring
-        FROM fs.registerkort r, fs.person p, fs.fakturareskontro f
+          (SELECT f.dato_endring
+           FROM fs.fakturareskontro f
+           WHERE f.fodselsdato = :fnr AND
+                 f.personnr = :pnr AND
+                 f.terminkode = '%(semester)s' AND
+                 f.arstall = %(year)s) dato_endring
+        FROM fs.registerkort r, fs.person p
         WHERE r.fodselsdato = :fnr AND
               r.personnr = :pnr AND
-              r.fodselsdato = f.fodselsdato AND
-              r.personnr = f.personnr AND
-              f.terminkode = '%(semester)s' AND
-              f.arstall = %(year)s AND
               %(termin)s AND
               %(sjekk_betaling)s
               NVL(r.status_ugyldig, 'N') = 'N' AND
