@@ -23,6 +23,7 @@ from __future__ import with_statement
 
 import mx
 import sys
+from contextlib import closing
 
 import cerebrum_path
 from Cerebrum import Errors
@@ -456,7 +457,7 @@ class FileGroup(NISGroupUtil):
         """
         logger.debug("write_filegroup: %s" % filename)
 
-        with Utils.SimilarSizeWriter(filename, "w") as f:
+        with closing(Utils.SimilarSizeWriter(filename, "w")) as f:
             f.set_size_change_limit(5)
             for group_name, gid, users in self.generate_filegroup():
                 f.write(self._wrap_line(group_name, ",".join(users), ':*:%i:' % gid))
