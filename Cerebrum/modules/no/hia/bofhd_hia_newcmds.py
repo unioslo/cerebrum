@@ -387,8 +387,9 @@ class BofhdExtension(BofhdCommonMethods,
         acc = self._get_account(uname)
         self.ba.can_email_move(operator.get_entity_id(), acc)
         # raise error if no e-mail account exist in IMAP
-        if not acc.has_spread(self.const.spread_hia_email):
-            raise CerebrumError("Cannot migrate non-IMAP account %s", uname)
+        if (not acc.has_spread(self.const.spread_hia_email) or 
+                not acc.has_spread(self.const.spread_exchange_acc_old)):
+            raise CerebrumError("No mail spread to migrate from for %s" % uname)
         et = Email.EmailTarget(self.db)
         et.find_by_target_entity(acc.entity_id)
         # raise error if e-mail target is deleted
@@ -400,8 +401,9 @@ class BofhdExtension(BofhdCommonMethods,
         es.find_by_name('exchkrs01.uia.no')
         et.email_server_id = es.entity_id
         et.write_db()
-        # remove IMAP-spread
+        # remove IMAP- and old Exchange-spread
         acc.delete_spread(self.const.spread_hia_email)
+        acc.delete_spread(self.const.spread_exchange_acc_old)
         acc.write_db()
         # add exchange-spread
         if not acc.has_spread(self.const.spread_exchange_account):
@@ -1324,8 +1326,9 @@ class BofhdExtension(BofhdCommonMethods,
             posix_user.set_password(passwd)
             if email_spread:
                 if not int(self.const.Spread(email_spread)) in \
-                   [int(self.const.spread_exchange_account),
-                    int(self.const.spread_hia_email)]:
+                                [int(self.const.spread_exchange_account),
+                                 int(self.const.spread_exchange_acc_old),
+                                 int(self.const.spread_hia_email)]:
                     raise CerebrumError, "Not an e-mail spread: %s!" % email_spread
             try:
                 posix_user.add_spread(self.const.Spread(email_spread))

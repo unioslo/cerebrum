@@ -146,7 +146,8 @@ def process_delete_requests():
                     et.email_target_type = const.email_target_deleted
                     et.write_db()
                 account.delete_spread(row['spread'])
-            elif row['spread'] == const.spread_exchange_account:
+            elif row['spread'] in (const.spread_exchange_account,
+                                   const.spread_exchange_acc_old):
                 et = Email.EmailTarget(db)
                 try:
                     et.find_by_target_entity(account.entity_id)

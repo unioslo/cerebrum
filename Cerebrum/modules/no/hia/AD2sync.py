@@ -121,7 +121,7 @@ class UiACerebrumUser(CerebrumUser):
         """Adding UiA specific attributes."""
         super(UiACerebrumUser, self).calculate_ad_values()
         co = Factory.get('Constants')(Factory.get('Database'))
-        has_exchange = co.spread_exchange_account in self.spreads
+        has_exchange = co.spread_exchange_acc_old in self.spreads
 
         # Hide all accounts that are not primary accounts:
         self.set_attribute('MsExchHideFromAddressLists',
