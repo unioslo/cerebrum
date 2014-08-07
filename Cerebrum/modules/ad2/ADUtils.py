@@ -185,6 +185,10 @@ class ADclient(PowershellClient):
         else:
             self.logger.debug2("Not using a domain account")
         self.dryrun = dryrun
+        # Pattern to exclude passwords in plaintext from the server output.
+        # Such passwords usually 
+        self.exclude_password_patterns =  [
+            re.compile('ConvertTo-SecureString.*?\.\.\.', flags=re.DOTALL)]
         self.db = Factory.get('Database')()
         self.co = Factory.get('Constants')(self.db)
         self.connect()
@@ -339,8 +343,11 @@ class ADclient(PowershellClient):
                 raise ObjectAlreadyExistsException(code, stderr, output)
             if re.search(': The specified \w+ already exists', stderr):
                 raise ObjectAlreadyExistsException(code, stderr, output)
-            if 'Set-ADObject : The specified account does not exist' in stderr:
+            if re.search('(Set-ADObject|New-ADGroup|New-ADObject) '
+                         ': The specified account does not exist', stderr):
                 raise SetAttributeException(code, stderr, output)
+            if 'The command line is too long' in stderr:
+                raise CommandTooLongException(code, stderr, output)
             if re.search("Move-ADObject : .+object's paren.+is either "
                          "uninstantiated or deleted",
                          stderr, re.DOTALL):
@@ -396,6 +403,11 @@ class ADclient(PowershellClient):
             if first_round:
                 out['stdout'] = out.get('stdout', 
                                         '').replace(self.ignore_stdout, '')
+            # Exclude password in plaintext from the output
+            if 'stderr' in out:
+                for pat in self.exclude_password_patterns:
+                    out['stderr'] = re.sub(pat, 'PASSWORD HIDDEN',
+                                           out['stderr'])
                 first_round = False
             yield code, out
 
@@ -695,11 +707,25 @@ class ADclient(PowershellClient):
         # TODO: this might be moved into subclasses of ADclient, one per object
         # type? Would probably make easier code... Or we could just depend on
         # the configuration for this behaviour, at least for the attributes.
-        if str(object_class).lower() == 'account':
+        if str(object_class).lower() == 'user':
             # SAMAccountName is mandatory for some object types:
             # TODO: check if this is not necessary any more...
-            if 'SamAccountName' not in attributes:
-                attributes['SamAccountName'] = name
+            # User and group objects on creation should not have 
+            # SamAccountName in attributes. They should have it in 
+            # parameters instead.
+            if 'SamAccountName' in attributes:
+                parameters['SamAccountName'] = attributes['SamAccountName']
+                del attributes['SamAccountName']
+            else:
+                parameters['SamAccountName'] = name
+            parameters['CannotChangePassword'] = True 
+            parameters['PasswordNeverExpires'] = True
+        elif str(object_class).lower() == 'group':
+            if 'SamAccountName' in attributes:
+                parameters['SamAccountName'] = attributes['SamAccountName']
+                del attributes['SamAccountName']
+            else:
+                parameters['SamAccountName'] = name
 
         # Add the attributes, but mapped to correctly name used in AD:
         if attributes:
@@ -710,8 +736,18 @@ class ADclient(PowershellClient):
 
         parameters['Name'] = name
         parameters['Path'] = path
-        parameters['Type'] = object_class
-        cmd = self._generate_ad_command('New-ADObject', parameters, 'PassThru')
+        if str(object_class).lower() == 'user':
+            parameters['Type'] = object_class
+            cmd = self._generate_ad_command('New-ADUser', 
+                                            parameters, 'PassThru')
+        elif str(object_class).lower() == 'group':
+            # For some reason, New-ADGroup does not accept -Type parameter
+            cmd = self._generate_ad_command('New-ADGroup', 
+                                            parameters, 'PassThru')
+        else:
+            parameters['Type'] = object_class
+            cmd = self._generate_ad_command('New-ADObject', 
+                                            parameters, 'PassThru')
         cmd = '''if ($str = %s | ConvertTo-Json) {
             $str -replace '$',';'
             }''' % cmd
@@ -929,8 +965,7 @@ class ADclient(PowershellClient):
             elif 'add' in v:
                 adds[self.attribute_write_map.get(k, k)] = v['add']
             else:
-                fullupdates[self.attribute_write_map.get(k, k)] = \
-                    v['fullupdate']
+                fullupdates[k] = v['fullupdate']
 
         if removes:
             if not self._setadobject_command_wrapper(ad_id, 'Remove', removes):
@@ -939,15 +974,25 @@ class ADclient(PowershellClient):
             if not self._setadobject_command_wrapper(ad_id, 'Add', adds):
                 success = False
         if fullupdates:
-            # What attributes need to be cleared before adding the correct attr.
-            # No need to clear already empty attributes.
-            clears = set(a for a in fullupdates if old_attributes.get(a))
+            clears = set()
+            updates = dict()
+            for k, v in fullupdates.iteritems():
+                # What attributes need to be cleared before adding the correct 
+                # ones. No need to clear already empty attributes.
+                if old_attributes.get(k):
+                    clears.add(self.attribute_write_map.get(k, k))
+                # Do not update attributes if they are "None" in Cerebrum.
+                # It may lead to strange values in AD in the future.
+                # Just leave them cleared.
+                if v:
+                    updates[self.attribute_write_map.get(k, k)] = v 
             # We could save runtime on combining Clear and Add in the same
             # commands, but at the cost of more complexity. This should normally
             # not happen, maybe except for the initial sync for an instance.
             if clears:
                 self._setadobject_command_wrapper(ad_id, 'Clear', clears)
-            if not self._setadobject_command_wrapper(ad_id, 'Add', fullupdates):
+            if updates and not self._setadobject_command_wrapper(ad_id, 
+                                                                'Add', updates):
                 success = False
         return success
 
