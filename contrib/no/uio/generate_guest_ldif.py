@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
-# Copyright 2010 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -41,10 +41,13 @@ import guestconfig  # Need guest config for this
 import sys
 import getopt
 
-from Cerebrum.Utils import Factory, SimilarSizeWriter
-from Cerebrum.modules.LDIFutils import entry_string, LDIFWriter
-from Cerebrum.Errors import CerebrumError, NotFoundError
+from Cerebrum.Utils import Factory
+from Cerebrum.modules.LDIFutils import LDIFWriter
+from Cerebrum.Errors import CerebrumError
 from Cerebrum.QuarantineHandler import QuarantineHandler
+
+
+logger = Factory.get_logger('cronjob')
 
 
 def usage(exitcode=0):
@@ -57,7 +60,7 @@ class GuestLDIF(object):
 
     """ Generate ldif file with guest accounts. """
 
-    def __init__(self, ldif, logger=None, spread=None):
+    def __init__(self, ldif, spread=None):
         """ Set up object with ldap config.
 
         :param ldif: The LDIFWriter object that contains our settings
@@ -71,7 +74,6 @@ class GuestLDIF(object):
         self.co = Factory.get('Constants')(self.db)
         self.ac = Factory.get('Account')(self.db)
 
-        self.logger = logger or Factory.get_logger('console')
         self.spread = self.get_const(spread or ldif.getconf('spread'),
                                      self.co.Spread)
 
@@ -127,10 +129,10 @@ class GuestLDIF(object):
             # NOTE: We might want to export accounts that is_locked(), but
             #       without passwords.
             if qh.should_skip() or qh.is_locked():
-                self.logger.debug("Skipping %s, quarantined: %r",
-                                  self.ac.account_name,
-                                  [str(self.co.Quarantine(q)) for q in
-                                      qh.quarantines])
+                logger.debug("Skipping %s, quarantined: %r",
+                             self.ac.account_name,
+                             [str(self.co.Quarantine(q)) for q in
+                              qh.quarantines])
                 continue
 
             entry = self.ac2entry(self.ac)
@@ -142,7 +144,6 @@ class GuestLDIF(object):
 
 def main():
     filename = spread = base = None
-    logger = Factory.get_logger('cronjob')
     logger.info("Script start: '%s'" % sys.argv[0])
 
     try:
@@ -164,15 +165,15 @@ def main():
     logger.info("Configuring export")
 
     ldif = LDIFWriter('GUESTS', filename, module=guestconfig)
-    base = base or ldif.getconf('dn')
-    spread = spread or ldif.getconf('spread')
-    dn = lambda e: "uid=%s,%s" % (e['uid'], base)
-
-    exporter = GuestLDIF(ldif, spread=spread, logger=logger)
-    logger.info("Starting guest account ldap export.")
-    count = 0
-
     try:
+        base = base or ldif.getconf('dn')
+        spread = spread or ldif.getconf('spread')
+        dn = lambda e: "uid=%s,%s" % (e['uid'], base)
+
+        exporter = GuestLDIF(ldif, spread=spread)
+        logger.info("Starting guest account ldap export.")
+        count = 0
+
         for entry in exporter.generate_guests():
             ldif.write_entry(dn(entry), entry)
             count += 1
@@ -181,7 +182,8 @@ def main():
         raise
     finally:
         ldif.close()
-        logger.info("Done, %d accounts dumped to ldif" % count)
+
+    logger.info("Done, %d accounts dumped to ldif" % count)
 
 
 if __name__ == '__main__':
