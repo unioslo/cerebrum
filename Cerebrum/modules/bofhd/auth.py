@@ -1956,7 +1956,7 @@ class BofhdAuth(DatabaseAccessor):
 
     def _entity_is_guestuser(self, entity):
         try:
-            if entity.get_trait(self.const.trait_guest_owner):
+            if entity.get_trait(self.const.trait_uio_guest_owner):
                 return True
         except AttributeError:
             pass

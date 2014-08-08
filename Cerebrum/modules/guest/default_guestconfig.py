@@ -71,4 +71,15 @@ The account will expire at %(expire)s"""
 GUEST_MAX_LENGTH_USERNAME = 19
 
 # Require mobile number when creating a guest
-QUEST_REQUIRE_MOBILE = False
+GUEST_REQUIRE_MOBILE = False
+
+# LDAP export stuff
+
+LDAP = {'dump_dir': '/cerebrum/dumps/LDAP/',
+        'max_change': 10, }
+
+LDAP_GUESTS = {'file': 'guests.ldif',
+               'spread': None,
+               #'dn': 'dc=no',
+               #'auth_attr': {'userPassword': ('crypt3-DES', '{crypt}%s'), },
+               'objectClass': [], }

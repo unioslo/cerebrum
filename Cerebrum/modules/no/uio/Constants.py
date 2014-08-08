@@ -60,7 +60,7 @@ class Constants(Constants.Constants):
 
     account_test = _AccountCode('testbruker', 'Testkonto')
     account_kurs = _AccountCode('kursbruker','Kurskonto')
-    account_uio_guest = _AccountCode('gjestebruker', 'Manuell gjestekonto')
+    account_uio_guest = _AccountCode('gjestebruker_uio', 'Manuell gjestekonto')
 
     affiliation_ansatt = _PersonAffiliationCode(
         'ANSATT', 'Registrert som aktiv ansatt ved UiO')
@@ -466,7 +466,7 @@ class Constants(Constants.Constants):
 
     # Owner trait for GuestUsers module.
     trait_uio_guest_owner = _EntityTraitCode(
-        'guest_owner', Constants.Constants.entity_account,
+        'guest_owner_uio', Constants.Constants.entity_account,
         "When a guest account is requested a group must be set as "
         "owner for the account for the given time.")
 
