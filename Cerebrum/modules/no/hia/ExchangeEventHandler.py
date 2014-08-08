@@ -23,6 +23,7 @@
 import cereconf
 import cerebrum_path
 
+import time
 import random
 import processing
 
@@ -35,6 +36,7 @@ from Cerebrum.modules.no.hia.ExchangeClient import UiAExchangeClient
 from Cerebrum.modules.exchange.Exceptions import ExchangeException
 #from Cerebrum.modules.exchange.Exceptions import ObjectNotFoundException
 #from Cerebrum.modules.exchange.Exceptions import ADError
+from Cerebrum.modules.exchange.Exceptions import URLError
 from Cerebrum.modules.exchange.CerebrumUtils import CerebrumUtils
 from Cerebrum.modules.event.EventExceptions import EventExecutionException
 from Cerebrum.modules.event.EventExceptions import EventHandlerNotImplemented
@@ -105,16 +107,41 @@ class ExchangeEventHandler(processing.Process):
         gen_key = lambda: 'CB%s' \
                 % hex(os.getpid())[2:].upper()
         self.key = gen_key
-        self.ec = UiAExchangeClient(logger=self.logger,
-                     host=self.config['server'],
-                     port=self.config['port'],
-                     auth_user=self.config['auth_user'],
-                     domain_admin=self.config['domain_admin'],
-                     ex_domain_admin=self.config['ex_domain_admin'],
-                     management_server=self.config['management_server'],
-                     exchange_server=self.config['exchange_server'],
-                     encrypted=self.config['encrypted'],
-                     session_key=gen_key())
+
+        # Try to connect to Exchange.
+        # We do this in a loop, since if we connect while the springboard is
+        # down, we need to re-try connecting. Also, the while depens on the run
+        # state, so we will shut down if we are signaled to do so.
+        self.ec = None
+        while self.run_state.value:
+            try:
+                self.ec = UiAExchangeClient(logger=self.logger,
+                             host=self.config['server'],
+                             port=self.config['port'],
+                             auth_user=self.config['auth_user'],
+                             domain_admin=self.config['domain_admin'],
+                             ex_domain_admin=self.config['ex_domain_admin'],
+                             management_server=self.config['management_server'],
+                             exchange_server=self.config['exchange_server'],
+                             encrypted=self.config['encrypted'],
+                             session_key=gen_key())
+            except URLError:
+                # Here, we handle the rare circumstance that the springboard is
+                # down when we connect to it. We log an error so someone can
+                # act upon this if it is appropriate.
+                self.logger.error(
+                    "Can't connect to springboard! Please notify postmaster!")
+                # If we shut down, we don't want to wait X minutes :)
+                if self.run_state.value:
+                    time.sleep(3*60)
+            except Exception, e:
+                self.logger.error("ExchangeClient failed setup: %s" % e)
+                # If we shut down, we don't want to wait X minutes :)
+                if self.run_state.value:
+                    time.sleep(3*60)
+            else:
+                break
+
 
         # Initialize the Database and Constants object
         self.db = Factory.get('Database')(client_encoding='UTF-8')
