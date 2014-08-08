@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
-# Copyright 2012 University of Oslo, Norway
+# Copyright 2012-2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -44,8 +44,9 @@ from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.cmd_param import Parameter, Command, AccountName, \
     Integer, GroupName, PersonName, FormatSuggestion
 
+
 def format_day(field):
-    fmt = "yyyy-MM-dd"                  # 10 characters wide
+    fmt = "yyyy-MM-dd"  # 10 characters wide
     return ":".join((field, "date", fmt))
 
 
@@ -65,17 +66,12 @@ class BofhdExtension(BofhdCommandBase):
 
     def __init__(self, server):
         super(BofhdExtension, self).__init__(server)
-        # TODO: need to be able to change BofhdAuth dynamically for each
-        # instance
         self.ba = BofhdAuth(self.db)
 
     def get_help_strings(self):
-        group_help = {
-            'guest': "Commands for handling guest users",
-            }
+        """ Help strings for our commands and arguments. """
+        group_help = {'guest': "Commands for handling guest users", }
 
-        # The texts in command_help are automatically line-wrapped, and should
-        # not contain \n
         command_help = {
             'guest': {
                 'guest_create': 'Create a new guest user',
@@ -86,26 +82,21 @@ class BofhdExtension(BofhdCommandBase):
             }
 
         arg_help = {
-            'guest_days':
-            ['days', 'Enter number of days',
-             'Enter the number of days the guest user should be active'],
-            'guest_fname':
-            ['given_name', "Enter guest's given name",
-             "Enter the guest's first and middle name"],
-            'guest_lname':
-            ['family_name', "Enter guest's family name",
-             "Enter the guest's (last) family name"],
-            'guest_responsible':
-            ['responsible', "Enter the responsible user",
-             "Enter the user that will be set as the responsible for the "
-             "guest"],
-            'group_name':
-            ['group', 'Enter group name',
-             "Enter the group the guest should belong to"],
-            'mobile_number':
-            ['mobile', 'Enter mobile number',
-             "Enter the guest's mobile number, where the username and "
-             "password will be sent"],
+            'guest_days': ['days', 'Enter number of days',
+                           'Enter the number of days the guest user should be '
+                           'active'],
+            'guest_fname': ['given_name', "Enter guest's given name",
+                            "Enter the guest's first and middle name"],
+            'guest_lname': ['family_name', "Enter guest's family name",
+                            "Enter the guest's (last) family name"],
+            'guest_responsible': ['responsible', "Enter the responsible user",
+                                  "Enter the user that will be set as the "
+                                  "responsible for the guest"],
+            'group_name': ['group', 'Enter group name',
+                           "Enter the group the guest should belong to"],
+            'mobile_number': ['mobile', 'Enter mobile number',
+                              "Enter the guest's mobile number, where the "
+                              "username and password will be sent"],
             }
         return (group_help, command_help, arg_help)
 
@@ -155,7 +146,7 @@ class BofhdExtension(BofhdCommandBase):
         @return: The Group object that was found/created.
 
         """
-        if not guestconfig.GUEST_TYPES.has_key(groupname):
+        if not groupname in guestconfig.GUEST_TYPES:
             raise CerebrumError('Given group not defined as a guest group')
         try:
             return self._get_group(groupname)
@@ -195,7 +186,8 @@ class BofhdExtension(BofhdCommandBase):
         if include_expired:
             return all
         # Get entity_ids for expired guests, and filter them out
-        expired = [q['entity_id'] for q in ac.list_entity_quarantines(
+        expired = [q['entity_id'] for q in
+                   ac.list_entity_quarantines(
                        entity_types=self.const.entity_account,
                        quarantine_types=self.const.quarantine_guest_old,
                        only_active=True)]
@@ -278,7 +270,7 @@ class BofhdExtension(BofhdCommandBase):
         PersonName(help_ref='guest_fname'),
         PersonName(help_ref='guest_lname'),
         GroupName(default=guestconfig.GUEST_TYPES_DEFAULT),
-        Mobile(optional=True, default=''),
+        Mobile(optional=(not guestconfig.GUEST_REQUIRE_MOBILE), default=''),
         AccountName(help_ref='guest_responsible', optional=True),
         fs=FormatSuggestion([('Created user %s.', ('username',)),
                              (('SMS sent to %s.'), ('sms_to',))]),
@@ -314,9 +306,6 @@ class BofhdExtension(BofhdCommandBase):
         guest_group = self._get_guest_group(groupname,
                                             operator.get_entity_id())
         # the method raises exception if groupname is not defined
-
-        if mobile and not (len(mobile) == 8 and mobile.isdigit()):
-            raise CerebrumError('Invalid phone number, must be 8 digits')
 
         if responsible:
             if not self.ba.is_superuser(operator.get_entity_id()):

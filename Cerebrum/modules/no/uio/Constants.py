@@ -16,13 +16,13 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """Access to Cerebrum code values.
 
 The Constants class defines a set of methods that should be used to
 get the actual database code/code_str representing a given Entity,
-Address, Gender etc. type."""
+Address, Gender etc. type.
 
+"""
 from Cerebrum import Constants
 from Cerebrum.Constants import \
      _AccountCode, \
@@ -60,10 +60,10 @@ class Constants(Constants.Constants):
 
     account_test = _AccountCode('testbruker', 'Testkonto')
     account_kurs = _AccountCode('kursbruker','Kurskonto')
-    account_guest = _AccountCode('gjestebruker','Gjestekonto')
+    account_uio_guest = _AccountCode('gjestebruker', 'Manuell gjestekonto')
 
-    affiliation_ansatt = _PersonAffiliationCode('ANSATT',
-                                                'Registrert som aktiv ansatt ved UiO')
+    affiliation_ansatt = _PersonAffiliationCode(
+        'ANSATT', 'Registrert som aktiv ansatt ved UiO')
     affiliation_status_ansatt_vit = _PersonAffStatusCode(
         affiliation_ansatt, 'vitenskapelig', 'Vitenskapelig ansatt')
     affiliation_status_ansatt_bil = _PersonAffStatusCode(
@@ -179,8 +179,8 @@ class Constants(Constants.Constants):
     affiliation_manuell_notur = _PersonAffStatusCode(
         affiliation_manuell, 'notur', 'Notur')
     affiliation_manuell_nikk = _PersonAffStatusCode(
-        affiliation_manuell, 'nikk', 
-	'Norsk senter for kjønn- og kvinneforskning')
+        affiliation_manuell, 'nikk',
+        'Norsk senter for kjønn- og kvinneforskning')
     affiliation_manuell_gjest = _PersonAffStatusCode(
         affiliation_manuell, 'gjest', 'Gjest')
     affiliation_manuell_unirand = _PersonAffStatusCode(
@@ -245,78 +245,102 @@ class Constants(Constants.Constants):
     posix_shell_ksh = _PosixShellCode('ksh', '/bin/ksh')
     posix_shell_ma104 = _PosixShellCode('ma104', '/local/bin/ma104')
     posix_shell_nologin = _PosixShellCode('nologin', '/local/etc/nologin')
-    posix_shell_nologin_autostud = _PosixShellCode('nologin.autostud',
-                                                   '/local/etc/shells/nologin.autostud')
-    posix_shell_nologin_brk = _PosixShellCode('nologin.brk',
-                                              '/local/etc/shells/nologin.brk')
-    posix_shell_nologin_chpwd = _PosixShellCode('nologin.chpwd',
-                                                '/local/etc/shells/nologin.chpwd')
-    posix_shell_nologin_ftpuser = _PosixShellCode('nologin.ftpuser',
-                                                  '/local/etc/shells/nologin.ftpuser')
-    posix_shell_nologin_nystudent = _PosixShellCode('nologin.nystuden',
-                                                    '/local/etc/shells/nologin.nystudent')
-    posix_shell_nologin_permisjon = _PosixShellCode('nologin.permisjo',
-                                                    '/local/etc/shells/nologin.permisjon')
-    posix_shell_nologin_pwd = _PosixShellCode('nologin.pwd',
-                                              '/local/etc/shells/nologin.pwd')
-    posix_shell_nologin_sh = _PosixShellCode('nologin.sh',
-                                             '/local/etc/shells/nologin.sh')
-    posix_shell_nologin_sluttet = _PosixShellCode('nologin.sluttet',
-                                                  '/local/etc/shells/nologin.sluttet')
-    posix_shell_nologin_stengt = _PosixShellCode('nologin.stengt',
-                                                 '/local/etc/shells/nologin.stengt')
-    posix_shell_nologin_teppe = _PosixShellCode('nologin.teppe',
-                                                '/local/etc/shells/nologin.teppe')
-    posix_shell_puberos = _PosixShellCode('puberos', '/local/bin/puberos')
-    posix_shell_pwsh = _PosixShellCode('pwsh', '/etc/pw/sh')
-    posix_shell_sftp_server = _PosixShellCode('sftp-server',
-                                              '/local/openssh/libexec/sftp-server')
+    posix_shell_nologin_autostud = _PosixShellCode(
+        'nologin.autostud', '/local/etc/shells/nologin.autostud')
+    posix_shell_nologin_brk = _PosixShellCode(
+        'nologin.brk', '/local/etc/shells/nologin.brk')
+    posix_shell_nologin_chpwd = _PosixShellCode(
+        'nologin.chpwd', '/local/etc/shells/nologin.chpwd')
+    posix_shell_nologin_ftpuser = _PosixShellCode(
+        'nologin.ftpuser', '/local/etc/shells/nologin.ftpuser')
+    posix_shell_nologin_nystudent = _PosixShellCode(
+        'nologin.nystuden', '/local/etc/shells/nologin.nystudent')
+    posix_shell_nologin_permisjon = _PosixShellCode(
+        'nologin.permisjo', '/local/etc/shells/nologin.permisjon')
+    posix_shell_nologin_pwd = _PosixShellCode(
+        'nologin.pwd', '/local/etc/shells/nologin.pwd')
+    posix_shell_nologin_sh = _PosixShellCode(
+        'nologin.sh', '/local/etc/shells/nologin.sh')
+    posix_shell_nologin_sluttet = _PosixShellCode(
+        'nologin.sluttet', '/local/etc/shells/nologin.sluttet')
+    posix_shell_nologin_stengt = _PosixShellCode(
+        'nologin.stengt', '/local/etc/shells/nologin.stengt')
+    posix_shell_nologin_teppe = _PosixShellCode(
+        'nologin.teppe', '/local/etc/shells/nologin.teppe')
+    posix_shell_puberos = _PosixShellCode(
+        'puberos', '/local/bin/puberos')
+    posix_shell_pwsh = _PosixShellCode(
+        'pwsh', '/etc/pw/sh')
+    posix_shell_sftp_server = _PosixShellCode(
+        'sftp-server', '/local/openssh/libexec/sftp-server')
+    posix_shell_simonshell = _PosixShellCode(
+        'simonshell', '/hom/simon/simonshell')
     posix_shell_sh = _PosixShellCode('sh', '/bin/sh')
-    posix_shell_simonshell = _PosixShellCode('simonshell',
-                                             '/hom/simon/simonshell')
     posix_shell_sync = _PosixShellCode('sync', '/bin/sync')
     posix_shell_tcsh = _PosixShellCode('tcsh', '/local/bin/tcsh')
     posix_shell_true = _PosixShellCode('true', '/bin/true')
     posix_shell_zsh = _PosixShellCode('zsh', '/local/bin/zsh')
 
-    spread_uio_nis_user = _SpreadCode('NIS_user@uio', Constants.Constants.entity_account,
-                                      'User in NIS domain "uio"')
-    spread_uio_nis_fg = _SpreadCode('NIS_fg@uio', Constants.Constants.entity_group,
-                                    'File group in NIS domain "uio"')
-    spread_uio_nis_ng = _SpreadCode('NIS_ng@uio', Constants.Constants.entity_group,
-                                    'Net group in NIS domain "uio"')
-    spread_ifi_nis_user = _SpreadCode('NIS_user@ifi', Constants.Constants.entity_account,
-                                      'User in NIS domain "ifi"')
-    spread_ifi_nis_fg = _SpreadCode('NIS_fg@ifi', Constants.Constants.entity_group,
-                                    'File group in NIS domain "ifi"')
-    spread_ifi_nis_ng = _SpreadCode('NIS_ng@ifi', Constants.Constants.entity_group,
-                                    'Net group in NIS domain "ifi"')
-    spread_hpc_nis_user = _SpreadCode('NIS_user@hpc', Constants.Constants.entity_account,
-                                      'User in NIS domain, exported to HPC')
-    spread_hpc_nis_fg = _SpreadCode('NIS_fg@hpc', Constants.Constants.entity_group,
-                                    'File group in NIS domain "uio" exported to HPC')    
-    spread_uio_ldap_person = _SpreadCode('LDAP_person', Constants.Constants.entity_person,
-                                         'Person included in LDAP directory')
-    spread_isf_ldap_person = _SpreadCode('LDAP_isf_person', Constants.Constants.entity_person,
-                                         'Person included in ISF-s LDAP directory')
-    spread_uio_ldap_ou = _SpreadCode('LDAP_OU', Constants.Constants.entity_ou,
-                                     'OU included in LDAP directory')
-    spread_uio_ldap_account = _SpreadCode('LDAP_account', Constants.Constants.entity_account,
-                                     'Account included the LDAP directory')
-    spread_uio_org_ou = _SpreadCode('ORG_OU', Constants.Constants.entity_ou,
-                                    'OU defined as part of UiOs org.structure proper')    
-    spread_uio_ad_account = _SpreadCode('AD_account', Constants.Constants.entity_account, 'Account included in Active Directory at UiO')
-    spread_uio_ad_group = _SpreadCode('AD_group', Constants.Constants.entity_group, 'Group included in Active Directory at UiO')
-    spread_uio_ua = _SpreadCode('UA@uio', Constants.Constants.entity_person,
-                                'Person exported to UA')
+    spread_uio_nis_user = _SpreadCode(
+        'NIS_user@uio', Constants.Constants.entity_account,
+        'User in NIS domain "uio"')
+    spread_uio_nis_fg = _SpreadCode(
+        'NIS_fg@uio', Constants.Constants.entity_group,
+        'File group in NIS domain "uio"')
+    spread_uio_nis_ng = _SpreadCode(
+        'NIS_ng@uio', Constants.Constants.entity_group,
+        'Net group in NIS domain "uio"')
+    spread_ifi_nis_user = _SpreadCode(
+        'NIS_user@ifi', Constants.Constants.entity_account,
+        'User in NIS domain "ifi"')
+    spread_ifi_nis_fg = _SpreadCode(
+        'NIS_fg@ifi', Constants.Constants.entity_group,
+        'File group in NIS domain "ifi"')
+    spread_ifi_nis_ng = _SpreadCode(
+        'NIS_ng@ifi', Constants.Constants.entity_group,
+        'Net group in NIS domain "ifi"')
+    spread_hpc_nis_user = _SpreadCode(
+        'NIS_user@hpc', Constants.Constants.entity_account,
+        'User in NIS domain, exported to HPC')
+    spread_hpc_nis_fg = _SpreadCode(
+        'NIS_fg@hpc', Constants.Constants.entity_group,
+        'File group in NIS domain "uio" exported to HPC')    
+    spread_uio_ldap_person = _SpreadCode(
+        'LDAP_person', Constants.Constants.entity_person,
+        'Person included in LDAP directory')
+    spread_isf_ldap_person = _SpreadCode(
+        'LDAP_isf_person', Constants.Constants.entity_person,
+        'Person included in ISF-s LDAP directory')
+    spread_uio_ldap_ou = _SpreadCode(
+        'LDAP_OU', Constants.Constants.entity_ou,
+        'OU included in LDAP directory')
+    spread_uio_ldap_account = _SpreadCode(
+        'LDAP_account', Constants.Constants.entity_account,
+        'Account included the LDAP directory')
+    spread_uio_org_ou = _SpreadCode(
+        'ORG_OU', Constants.Constants.entity_ou,
+        'OU defined as part of UiOs org.structure proper')    
+    spread_uio_ad_account = _SpreadCode(
+        'AD_account', Constants.Constants.entity_account,
+        'Account included in Active Directory at UiO')
+    spread_uio_ad_group = _SpreadCode(
+        'AD_group', Constants.Constants.entity_group,
+        'Group included in Active Directory at UiO')
+    spread_uio_ua = _SpreadCode(
+        'UA@uio', Constants.Constants.entity_person,
+        'Person exported to UA')
 
     # Spreads for Exchange
-    spread_exchange_account = _SpreadCode('exchange_acc@uio',
-                                          Constants.Constants.entity_account,
-                                          'An account with an Exchange-mailbox at UiO')
-    spread_exchange_group = _SpreadCode('exch_group@uio',
-                                          Constants.Constants.entity_group,
-                                          'A mail enabled security group for Exchange')
+    spread_exchange_account = _SpreadCode(
+        'exchange_acc@uio', Constants.Constants.entity_account,
+        'An account with an Exchange-mailbox at UiO')
+    spread_exchange_group = _SpreadCode(
+        'exch_group@uio', Constants.Constants.entity_group,
+        'A mail enabled security group for Exchange')
+
+    spread_uio_ldap_guest = _SpreadCode(
+        'guest@ldap', Constants.Constants.entity_account,
+        'LDAP/RADIUS spread for wireless accounts')
 
     # exchange-related-jazz
     # this code should be removed from the cerebrum-db as soon as
@@ -324,34 +348,32 @@ class Constants(Constants.Constants):
     # purposes; firstly as a code clean-up, secondly as a check that
     # the migration was completed properly and no mailboxes are
     # registered as IMAP-accounts.
-    spread_uio_imap = _SpreadCode('IMAP@uio', Constants.Constants.entity_account,
-                                  'E-mail user at UiO')
-    spread_uio_notes_account = _SpreadCode('Notes_user', Constants.Constants.entity_account,
-                                           'Notes user at UiO')
-    spread_fronter_kladdebok = _SpreadCode('CF@uio_kladdebok',
-                                           Constants.Constants.entity_group,
-                                           '''Group representing a course \
-that should be exported to the ClassFronter instance on \
-kladdebok.uio.no.  Should only be given to groups that have been \
-automatically generated from FS.''')
-    spread_fronter_blyant = _SpreadCode('CF@uio_blyant',
-                                           Constants.Constants.entity_group,
-                                           '''Group representing a course \
-that should be exported to the ClassFronter instance on \
-blyant.uio.no.  Should only be given to groups that have been \
-automatically generated from FS.''')
-    spread_fronter_petra = _SpreadCode('CF@uio_petra',
-                                           Constants.Constants.entity_group,
-                                           '''Group representing a course \
-that should be exported to the ClassFronter instance on \
-petra.uio.no.  Should only be given to groups that have been \
-automatically generated from FS.''')
-    spread_fronter_dotcom = _SpreadCode('CF@fronter.com',
-                                           Constants.Constants.entity_group,
-                                           '''Group representing a course \
-that should be exported to the ClassFronter instance on \
-fronter.com.  Should only be given to groups that have been \
-automatically generated from FS.''')
+    spread_uio_imap = _SpreadCode(
+        'IMAP@uio', Constants.Constants.entity_account,
+        'E-mail user at UiO')
+    spread_uio_notes_account = _SpreadCode(
+        'Notes_user', Constants.Constants.entity_account,
+        'Notes user at UiO')
+    spread_fronter_kladdebok = _SpreadCode(
+        'CF@uio_kladdebok', Constants.Constants.entity_group,
+        'Group representing a course that should be exported to the '
+        'ClassFronter instance on kladdebok.uio.no. Should only be given to '
+        'groups that have been automatically generated from FS.')
+    spread_fronter_blyant = _SpreadCode(
+        'CF@uio_blyant', Constants.Constants.entity_group,
+        'Group representing a course that should be exported to the '
+        'ClassFronter instance on blyant.uio.no. Should only be given to '
+        'groups that have been automatically generated from FS.''')
+    spread_fronter_petra = _SpreadCode(
+        'CF@uio_petra', Constants.Constants.entity_group,
+        'Group representing a course that should be exported to the '
+        'ClassFronter instance on petra.uio.no. Should only be given to '
+        'groups that have been automatically generated from FS.')
+    spread_fronter_dotcom = _SpreadCode(
+        'CF@fronter.com', Constants.Constants.entity_group,
+        'Group representing a course that should be exported to the '
+        'ClassFronter instance on fronter.com. Should only be given to '
+        'groups that have been automatically generated from FS.')
 
     # LDAP: Brukere, grupper
 
@@ -443,7 +465,7 @@ automatically generated from FS.''')
         "quota value is taken from the host_disk_quota trait.")
 
     # Owner trait for GuestUsers module.
-    trait_guest_owner = _EntityTraitCode(
+    trait_uio_guest_owner = _EntityTraitCode(
         'guest_owner', Constants.Constants.entity_account,
         "When a guest account is requested a group must be set as "
         "owner for the account for the given time.")
@@ -456,7 +478,6 @@ automatically generated from FS.''')
         'student_disk', Constants.Constants.entity_disk,
         "When set, the disk in question is designated as hosting students' home areas")
 
-
     # Trait for tagging a person's primary affiliation, to be used by the web
     # presentations.
     trait_primary_aff = _EntityTraitCode(
@@ -465,4 +486,3 @@ automatically generated from FS.''')
 
     address_other_street = _AddressCode('OTHER_STREET', 'Other street address')
     address_other_post = _AddressCode('OTHER_POST', 'Other post address')
-
