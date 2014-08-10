@@ -47,10 +47,21 @@ class AccountHiAMixin(Account.Account):
             if self.has_spread(self.const.spread_hia_email):
                 raise self._db.IntegrityError, \
                           "Cannot add Exchange-spread to an IMAP-account, use email exchange_migrate"
+            # To be available in Exchange, you need to be in AD
             if not self.has_spread(self.const.spread_hia_ad_account):
                 self.add_spread(self.const.spread_hia_ad_account)
-            mdb = self._autopick_homeMDB()
-            self.populate_trait(self.const.trait_exchange_mdb, strval=mdb)
+
+            if spread == self.const.spread_exchange_acc_old:
+                if self.has_spread(self.const.spread_exchange_account):
+                    raise self._db.IntegrityError("User already has new "
+                                                  "exchange spread")
+                mdb = self._autopick_homeMDB()
+                self.populate_trait(self.const.trait_exchange_mdb, strval=mdb)
+            elif spread == self.const.spread_exchange_account:
+                if self.has_spread(self.const.spread_exchange_acc_old):
+                    raise self._db.IntegrityError("User has old exchange "
+                                              "spread, cannot add new spread")
+                self._update_email_server(spread, force=True)
             self.write_db()
         if spread == self.const.spread_hia_email:
             if (self.has_spread(self.const.spread_exchange_account) or
@@ -301,12 +312,32 @@ class AccountHiAMixin(Account.Account):
 		self.update_email_quota()
 
     # TODO: check this method, may probably be done better
-    def _update_email_server(self, spread):
+    def _update_email_server(self, spread, force=False):
+        """ Update `email_server` for the Account to a value based on spread.
+
+        The `email_server` for the account's `EmailTarget` is set to an
+        appropriate server, depending on the given spread. IMAP users will for
+        instance be given an IMAP server, while Exchange 2013 users gets an
+        Exchange 2013 server.
+
+        Note: If the account doesn't have an `EmailTarget`, a new one will be
+        created, which normally affects the mail systems. Use with care.
+
+        :param _SpreadCode spread:
+            The given spread, which could affect what server that gets chosen.
+
+        :param bool force:
+            If False, the server is not updated if it is already set.
+
+        :rtype: `Email.EmailTarget`
+        :return: The affected `EmailTarget`.
+
+        """
         es = Email.EmailServer(self._db)
         et = Email.EmailTarget(self._db)
         server_name = 'mail-imap2'
         if spread == int(self.const.spread_exchange_account):
-            server_name = 'exchkrs01.uia.no'
+            server_name = 'excas-grm01.uia.no'
         if spread == int(self.const.spread_exchange_acc_old):
             server_name = 'exchkrs01.uia.no'
         es.find_by_name(server_name)
@@ -320,8 +351,8 @@ class AccountHiAMixin(Account.Account):
                         self.entity_id,
                         self.const.entity_account)
             et.write_db()
-        if not et.email_server_id:
-            et.email_server_id=es.entity_id
+        if force or not et.email_server_id:
+            et.email_server_id = es.entity_id
             et.write_db()
         return et
 
