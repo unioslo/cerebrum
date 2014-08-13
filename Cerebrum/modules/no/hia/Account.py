@@ -193,8 +193,8 @@ class AccountHiAMixin(Account.Account):
         # check if an e-mail spread is registered yet, if not don't
         # update
         if not (self.has_spread(self.const.spread_exchange_account) or
-                self.has_spread(self.const.spread_exchange_acc_old or
-                self.has_spread(self.const.spread_hia_email))):
+                self.has_spread(self.const.spread_exchange_acc_old) or
+                self.has_spread(self.const.spread_hia_email)):
             return
         # Find, create or update a proper EmailTarget for this
         # account.
