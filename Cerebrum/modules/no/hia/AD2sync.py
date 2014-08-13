@@ -189,6 +189,18 @@ class UiAForwardSync(BaseSync):
         # to be synchronized
         self.config['account_spreads'] = config_args['account_spreads']
 
+        # TODO: Should we inherit from GroupSync instead of BaseSync, and get
+        # the following trough the super-call?
+        # Check if the group type is a valid type:
+        if self.config['group_type'] not in ('security', 'distribution'):
+            raise Exception('Invalid group type: %s' %
+                            self.config['group_type'])
+        # Check if the group scope is a valid scope:
+        if self.config['group_scope'].lower() not in ('global', 'universal'):
+            raise Exception('Invalid group scope: %s' %
+                            self.config['group_scope'])
+        self.new_group_scope = self.config['group_scope'].lower()
+
     def fetch_cerebrum_entities(self):
         """Fetch the forward addresses information from Cerebrum, 
         that should be compared against AD. The forward addresses that
