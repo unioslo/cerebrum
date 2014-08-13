@@ -189,6 +189,10 @@ class UiAForwardSync(BaseSync):
         # to be synchronized
         self.config['account_spreads'] = config_args['account_spreads']
 
+        # TODO: Should we inherit from GroupSync instead of BaseSync, and get
+        # the following trough the super-call?
+        self.new_group_scope = self.config['group_scope'].lower()
+
     def fetch_cerebrum_entities(self):
         """Fetch the forward addresses information from Cerebrum, 
         that should be compared against AD. The forward addresses that
