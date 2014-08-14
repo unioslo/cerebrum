@@ -395,6 +395,12 @@ class BaseSync(object):
                         self.co.EntityExternalId(sid_type)
             self.sidtype_map = converted
 
+        # We define the group scope for new distribution groups.
+        # This should probably be moved to UiADistGroupSync, and so should the
+        # code that touches new_group_scope in the create_object-method (in
+        # this class).
+        self.new_group_scope = self.config['group_scope'].lower()
+
         # Check the config
         self.config_check()
 
