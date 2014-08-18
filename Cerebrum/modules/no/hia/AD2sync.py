@@ -181,17 +181,11 @@ class UiAForwardSync(BaseSync):
         self.addr2username = addr2username
 
     def configure(self, config_args):
-        """Override the configuration for setting forward specific variables.
-    
-        """
+        """Override the configuration for setting forward specific vars."""
         super(UiAForwardSync, self).configure(config_args)
         # Which spreads the accounts should have for their forward-addresses
         # to be synchronized
         self.config['account_spreads'] = config_args['account_spreads']
-
-        # TODO: Should we inherit from GroupSync instead of BaseSync, and get
-        # the following trough the super-call?
-        self.new_group_scope = self.config['group_scope'].lower()
 
     def fetch_cerebrum_entities(self):
         """Fetch the forward addresses information from Cerebrum, 
