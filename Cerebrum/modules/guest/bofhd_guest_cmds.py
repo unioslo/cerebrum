@@ -464,10 +464,10 @@ class BofhdExtension(BofhdCommandBase):
 
         """
         account = self._get_account(username)
-        self.ba.can_remove_personal_guest(operator, guest=account)
+        self.ba.can_remove_personal_guest(operator.get_entity_id(),
+                                          guest=account)
 
         # Deactivate the account (expedite quarantine) and adjust expire_date
-        operator_id = operator.get_entity_id()
         try:
             end_date = account.get_entity_quarantine(
                 self.const.quarantine_guest_old)[0]['start_date']
@@ -479,7 +479,7 @@ class BofhdExtension(BofhdCommandBase):
             self.logger.warn('Guest %s didn\'t have expire quarantine, '
                              'deactivated anyway.', account.account_name)
         account.add_entity_quarantine(type=self.const.quarantine_guest_old,
-                                      creator=operator_id,
+                                      creator=operator.get_entity_id(),
                                       description='New guest account',
                                       start=DateTime.now())
         account.expire_date = DateTime.now()
@@ -508,7 +508,8 @@ class BofhdExtension(BofhdCommandBase):
     def guest_info(self, operator, username):
         """ Print stored information about a guest account. """
         account = self._get_account(username)
-        self.ba.can_remove_personal_guest(operator, guest=account)
+        self.ba.can_remove_personal_guest(operator.get_entity_id(),
+                                          guest=account)
         return [self._get_guest_info(account.entity_id)]
 
     #
@@ -532,7 +533,7 @@ class BofhdExtension(BofhdCommandBase):
         Defaults to listing guests owned by operator, if no username is given.
 
         """
-        self.ba.can_create_personal_guest(operator)
+        self.ba.can_create_personal_guest(operator.get_entity_id())
         if not username:
             target_id = operator.get_entity_id()
         else:
