@@ -506,7 +506,14 @@ def process_person_callback(person_info):
             new_person.populate_address(co.system_fs, ad_const, **address_info)
     # if this is a new Person, there is no entity_id assigned to it
     # until written to the database.
-    op = new_person.write_db()
+    try:
+        op = new_person.write_db()
+    except Exception, e:
+        logger.exception("write_db failed for person %s: %s", fnr, e)
+        # Roll back in case of db exceptions:
+        db.rollback()
+        return
+
     for a in filter_affiliations(affiliations):
         ou, aff, aff_status = a
         new_person.populate_affiliation(co.system_fs, ou, aff, aff_status)
