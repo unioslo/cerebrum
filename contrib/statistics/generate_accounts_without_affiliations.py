@@ -21,6 +21,7 @@
 
 import sys
 import getopt
+from mx.DateTime import now
 
 import cerebrum_path
 import cereconf
@@ -282,20 +283,23 @@ def gen_affles_users_report(output, no_aff):
 
         # For each user on disk (sorted by sa-function)
         for i in sorted(no_aff[key], cmp=sa):
-            output.write('<tr>\n<td>%s</td>\n' % i['account_name'])
-            output.write('<td>%s</td>\n' % i['full_name'])
+            output.write('<tr>\n')
+            output.write('<td>%s</td>' % i['account_name'])
+            output.write('<td>%s</td>' % i['full_name'])
 
             # Try to print out quarantine-information. If the account isn't
             # quarantined, print out a placeholder.
             try:
-                output.write('<td>%s</td>\n' % i['quarantine']['type'])
-                output.write('<td>%s</td>\n' % i['quarantine']['description'])
-                output.write('<td>%s</td>\n' % i['quarantine']['date_set'])
+                output.write('<td>%s</td>' % i['quarantine']['type'])
+                output.write('<td>%s</td>' % i['quarantine']['description'])
+                output.write('<td>%s</td>' % i['quarantine']['date_set'])
             except KeyError:
-                output.write('<td></td>\n' * 3)
-            output.write('</tr>\n')
+                output.write('<td></td>' * 3)
+            output.write('\n</tr>\n')
 
         output.write('</table>\n')
+    output.write('<p class="meta">Generert: %s</p>\n' %
+                                    now().strftime('%Y-%m-%d kl %H:%M'))
     output.write('</body></html>\n')
 
 # The main function. This is where the database connection, logger and various
