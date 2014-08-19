@@ -1955,11 +1955,12 @@ class BofhdAuth(DatabaseAccessor):
         return disk
 
     def _entity_is_guestuser(self, entity):
-        try:
-            if entity.get_trait(self.const.trait_uio_guest_owner):
-                return True
-        except AttributeError:
-            pass
+        for trait in ('trait_guest_owner', 'trait_uio_guest_owner'):
+            try:
+                if entity.get_trait(getattr(self.const, trait)):
+                    return True
+            except AttributeError:
+                pass
         return None
 
 # end class BofhdAuth
