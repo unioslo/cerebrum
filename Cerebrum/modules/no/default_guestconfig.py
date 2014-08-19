@@ -69,17 +69,3 @@ The account will expire at %(expire)s"""
 # Limit user names to 20 characters, RT #1077796
 # sAMAccountName must be less than 20 chars
 GUEST_MAX_LENGTH_USERNAME = 19
-
-#
-# LDAP stuff for separate guest exports.
-#
-# Common stuff
-LDAP = {'dump_dir': '/cerebrum/dumps/ldap',
-        'auth_attr': dict(),
-        'max_change': 10, }
-
-# Guest specific
-LDAP_GUESTS = {'file': 'guests.ldif',
-               #'dn': 'dc=uio,dc=no',
-               #'spread': 'guest@ldap',
-               'objectClass': [], }
