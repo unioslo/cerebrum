@@ -417,7 +417,7 @@ AUTOADMIN_MAKE_ABROAD_LETTERS = False
 # directory where the letter templates used by proc_stud are found
 AUTOADMIN_PRINT_LETTER_DIRECTORY = 'no_NO/letter'
 
-# Default message for
+# Default message: can contain either of those 2 variables: 'username' / 'email'
 AUTOADMIN_WELCOME_SMS = 'Welcome\nYour username is: %(username)s'
 
 # The default directory for where the data from FS is put. This could be used by
