@@ -60,6 +60,7 @@ class ConstantsActiveDirectory(Constants.Constants):
 
 
 class ConstantsCommon(Constants.Constants):
+    """ Constants that every instance should have. """
 
     # external id definitions (NO_NIN, norwegian national id number)
     externalid_fodselsnr = _EntityExternalIdCode('NO_BIRTHNO',
@@ -155,6 +156,10 @@ class ConstantsCommon(Constants.Constants):
         'sap_mug', Constants.Constants.entity_account,
         "MUG from SAP - medarbeiderundergruppe")
 
+    # Quarantine to be set automatically when cleaning up in persons that are no
+    # longer affiliated with the instance
+    quarantine_auto_no_aff = _QuarantineCode('auto_no_aff',
+                                            'Ikke tilknyttet person, utestengt')
 
 class ConstantsHigherEdu(Constants.Constants):
 
@@ -286,8 +291,6 @@ class ConstantsUniversityColleges(Constants.Constants):
                                            'Sted fjernet fra autoritativ kildesystem')
     quarantine_guest_old = _QuarantineCode('guest_old',
                                            'Old guest accounts are automatically quarantined')
-    quarantine_auto_no_aff = _QuarantineCode('auto_no_aff',
-                                             'Ikke tilknyttet person, utestengt')
 
     # Non-personal account codes
     account_test = _AccountCode('testbruker', 'Testkonto')
