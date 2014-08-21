@@ -4632,14 +4632,16 @@ Addresses and settings:
         ('email', 'add_filter'),
         SimpleString(help_ref='string_email_filter'),
         SimpleString(help_ref='string_email_target_name', repeat="True"),
-        perm_filter='is_postmaster')
+        perm_filter='can_email_spam_settings') # _is_local_postmaster')
+
     def email_add_filter(self, operator, filter, address):
-        """Add a filter to an existing e-mail target"""
-        if not self.ba.is_postmaster(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
+        """Add a filter to an existing e-mail target."""
+        et, acc = self.__get_email_target_and_account(address)
+        self.ba.can_email_spam_settings(operator.get_entity_id(),
+                                        acc, et)
         etf = Email.EmailTargetFilter(self.db)
         filter_code = self._get_constant(self.const.EmailTargetFilter, filter)
-        et, addr = self.__get_email_target_and_address(address)
+
         target_ids = [et.entity_id]
         if int(et.email_target_type) in (self.const.email_target_Mailman,
                                          self.const.email_target_Sympa):
@@ -4664,20 +4666,22 @@ Addresses and settings:
                 etf.write_db()
         return "Ok, registered filter %s for %s" % (filter, address)
     # end email_add_filter
-    
 
     # email remove_filter filter address
     all_commands['email_remove_filter'] = Command(
         ('email', 'remove_filter'),
         SimpleString(help_ref='string_email_filter'),
         SimpleString(help_ref='string_email_target_name', repeat="True"),
-        perm_filter='is_postmaster')
+        perm_filter='can_email_spam_settings') # _is_local_postmaster')
+
     def email_remove_filter(self, operator, filter, address):
-        if not self.ba.is_postmaster(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
+        """Remove email fitler for account."""
+        et, acc = self.__get_email_target_and_account(address)
+        self.ba.can_email_spam_settings(operator.get_entity_id(),
+                                        acc, et)
+
         etf = Email.EmailTargetFilter(self.db)
         filter_code = self._get_constant(self.const.EmailTargetFilter, filter)
-        et, addr = self.__get_email_target_and_address(address)
         target_ids = [et.entity_id]
         if int(et.email_target_type) in (self.const.email_target_Mailman,
                                          self.const.email_target_Sympa):
@@ -4702,7 +4706,7 @@ Addresses and settings:
                                 "(or any related targets)" % (filter, address))
 
         return "Ok, removed filter %s for %s" % (filter, address)
-    
+
     # email spam_level <level> <name>+
     # exchange-relatert-jazz
     # made it possible to use this cmd for adding spam_level
