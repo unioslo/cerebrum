@@ -307,7 +307,8 @@ def gen_affles_users_report(output, no_aff, output_format):
 
         # For each user on disk (sorted by sa-function)
         for i in sorted(no_aff[key], cmp=sa):
-            output.write('<tr><td>%s</td>' % i['account_name'])
+            output.write('<tr>\n')
+            output.write('<td>%s</td>' % i['account_name'])
             output.write('<td>%s</td>' % i['full_name'])
 
             # Try to print out quarantine-information. If the account isn't
@@ -318,8 +319,7 @@ def gen_affles_users_report(output, no_aff, output_format):
                 output.write('<td>%s</td>' % i['quarantine']['date_set'])
             except KeyError:
                 output.write('<td></td>' * 3)
-            output.write('</tr>\n')
-
+            output.write('\n</tr>\n')
         output.write('</table>\n')
 
     output.write('<p class="meta">Generert: %s</p>\n' % 
