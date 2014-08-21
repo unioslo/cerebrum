@@ -417,7 +417,7 @@ AUTOADMIN_MAKE_ABROAD_LETTERS = False
 # directory where the letter templates used by proc_stud are found
 AUTOADMIN_PRINT_LETTER_DIRECTORY = 'no_NO/letter'
 
-# Default message for
+# Default message: can contain either of those 2 variables: 'username' / 'email'
 AUTOADMIN_WELCOME_SMS = 'Welcome\nYour username is: %(username)s'
 
 # The default directory for where the data from FS is put. This could be used by
@@ -745,6 +745,10 @@ LDAP_PERSON = {
     #   'ANSATT': {'tekadm': (100, 'employee'),
     #              'vitenskapelig': (50, 'faculty')}
     #
+    # Lowest numbers win, i.e. have the highest priority. If a person has both
+    # statuses as in the example above, it would get `faculty` in its
+    # eduPersonPrimaryAffiliation, as 50 is lower than 100.
+    #
     # Note that only the affiliations set to True in 'affiliation_selector'
     # needs to be defined in eduPersonPrimaryAffiliation.
     'eduPersonPrimaryAffiliation_selector': {},
@@ -865,6 +869,11 @@ DNS_DEFAULT_ZONE = 'uio'
 DEFAULT_RESERVED_BY_IPv6_NET_SIZE = {64: 4}
 DEFAULT_IPv6_SUBNET_ALLOCATION_START = 0x256
 
+# Suppress the force-option for unknown IPv6 subnets.
+# This needs to be done if an instance does not have any subnets defined.
+# TODO: Remove this at an appropriate time!
+DNS_HOST_A_ADD_ACCEPT_MISSING_IPV6_SUBNET = False
+
 # Location of documentation concerning import of subnets for DNS.
 # Added to mails sent when errors occur.
 DNS_SUBNETIMPORT_ERRORDOC_URL = None
@@ -917,6 +926,24 @@ DB_DRIVER_ORACLE = "cx_Oracle"
 #
 AUTOMATIC_GROUPS = {}
 
+# Prefixes that define which groups should be added as members of meta-groups.
+# E.g. ['ansatt', 'tilknyttet']
+AUTOMATIC_GROUP_POPULATE_META_PREFIX = []
+
+# Prefix to description mapping for automatic groups.
+# E.g. {"ansatt": "Tilsatte ved %s",
+#       "meta-ansatt":
+#           "Tilsatte ved %s og underordnede organisatoriske enheter",}
+AUTOMATIC_GROUP_LEGAL_PREFIXES = {}
+
+# Groups populated by contrib/populate-collection-groups.py
+# E.g. [('uio-tilk', ['system_sap:affiliation_tilknyttet',
+#                     'system_fs:affiliation_student',
+#                     'affiliation_tilknyttet_bilag'])]
+# Will result in the group 'uio-tilk' beeing filled with primary accounts who
+# have TILKNYTTET affiliations from SAP, STUDENT-affiliations from FS and
+# TILKNYTTET/bilag from all source systems.
+COLLECTION_GROUPS = []
 
 # Mapping of affiliations and groups, used for automatic group membership
 # based on person affiliations.

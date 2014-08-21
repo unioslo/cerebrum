@@ -87,3 +87,58 @@ Unit tests
 ============
 
 TODO
+
+Setup
+=====
+
+TODO: Move this to its own file?
+
+If you want to setup the test environment for yourself, you need to:
+
+- Install some dependencies:
+
+    - postgres-server
+
+    - TODO
+
+- Setup postgres-server:
+
+  - Give local access in `pg_hba.conf`.
+
+  - Create a user mapping in `pg_ident.conf`.
+
+  - Create a ceretest user in postgres' db::
+
+        # su postgres
+        $ createuser -d ceretest
+
+  - Reload postgres-server::
+
+        sudo service postgresql reload
+
+- TODO: more setup
+
+postgres
+--------
+
+Some tips for the postresql setup:
+
+- On RHEL, the file `/var/lib/pgsql/data/pg_hba.conf` contains settings for how
+  to get access to postgres. Here you would probably like to have the line::
+
+    local   all         all                               ident map=usermap
+
+  which gives local access.
+
+- On RHEL, the file `/var/lib/pgsql/data/pg_ident.conf` contains a user name
+  mapping for granting access to postgres. You would probably like::
+
+    usermap  ceretest  ceretest
+    usermap  YOURUSERNAME  ceretest
+
+  to give you and the test user direct access to local test databases.
+
+When doing changes, don't forget to run::
+
+    sudo service postgresql restart
+

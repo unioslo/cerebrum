@@ -1,6 +1,6 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-#
+# 
 # Copyright 2013-2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -35,14 +35,12 @@ from Cerebrum.modules.exchange.Exceptions import *
 import re
 
 
-class ExchangeClient(PowershellClient):
-
-    """A PowerShell client implementing function calls against Exchange."""
-
+class UiAExchangeClient(PowershellClient):
     def __init__(self, auth_user, domain_admin, ex_domain_admin,
-                 management_server, session_key=None, *args, **kwargs):
+                    management_server, exchange_server, session_key=None, 
+                    *args, **kwargs):
         """Set up the WinRM client to be used with running Exchange commands.
-
+        
         @type auth_user: string
         @param auth_user: The username of the account we use to connect to the
             server.
@@ -52,36 +50,41 @@ class ExchangeClient(PowershellClient):
             the AD domain we are going to synchronize with.
 
         """
+
         # TODO: THIS IS ONLY FOR TESTING DNC, REMOVE AFTER THAT
         self.deliberate_failure = 0
 
-        super(ExchangeClient, self).__init__(*args, **kwargs)
-        self.add_credentials(
-            username=auth_user,
-            password=unicode(read_password(auth_user, self.host), 'utf-8'))
+
+#TODO: Bad hack, cleanup and fix
+        super(UiAExchangeClient, self).__init__(*args, **kwargs)
+#super(ExchangeClient, self).__init__(kwargs['host'], ex_domain_admin,
+#        identity_file='dsfdfsdf',
+#        logger=kwargs['logger'], timeout=60)
+        self.add_credentials(username=auth_user,
+                password=unicode(read_password(auth_user, self.host), 'utf-8'))
 
         self.ignore_stdout_pattern = re.compile('.*EOB\n', flags=re.DOTALL)
-        # Patterns used to filter out passwords.
-        self.wash_output_patterns = [
-            re.compile('ConvertTo-SecureString.*\\w*...', flags=re.DOTALL)]
         self.management_server = management_server
+        self.exchange_server = exchange_server
         self.session_key = session_key if session_key else 'cereauth'
 
+#self.auth_user_password = unicode(read_password(auth_user, management_server),
+#                                                    'utf-8')
         # TODO: Make the following line pretty
         self.auth_user_password = unicode(
-            read_password(auth_user, kwargs['host']), 'utf-8')
+                read_password(auth_user, kwargs['host']), 'utf-8')
         # Note that we save the user's password by domain and not the host. It
         # _could_ be the wrong way to do it. TBD: Maybe both host and domain?
         self.ad_user, self.ad_domain = self._split_domain_username(
-            domain_admin)
-        self.ad_user_password = unicode(
-            read_password(self.ad_user, self.ad_domain),
-            'utf-8')
+                                                            domain_admin)
+        self.ad_user_password = unicode(read_password(self.ad_user,
+                                                            self.ad_domain),
+                                                            'utf-8')
         self.ex_user, self.ex_domain = self._split_domain_username(
-            ex_domain_admin)
-        self.ex_user_password = unicode(
-            read_password(self.ex_user, self.ex_domain),
-            'utf-8')
+                                                            ex_domain_admin)
+        self.ex_user_password = unicode(read_password(self.ex_user,
+                                                            self.ex_domain),
+                                                            'utf-8')
         # Set up the winrm / PowerShell connection
         self.connect()
 
@@ -118,64 +121,6 @@ class ExchangeClient(PowershellClient):
                 return user, domain
         # Guess the domain is not set then:
         return name, ''
-    
-    _pre_execution_code_commented = u"""
-        # Create credentials for the new-PSSession
-        $pass = ConvertTo-SecureString -Force -AsPlainText %(ex_pasw)s;
-        $cred = New-Object System.Management.Automation.PSCredential( `
-        %(ex_domain_user)s, $pass);
-
-        # We collect any existing sessions, and connect to the first one.
-        # TODO: Filter them based on availability and state
-        $sessions = Get-PSSession -ComputerName %(management_server)s `
-        -Credential $cred -Name %(session_key)s 2> $null;
-
-        if ( $sessions ) {
-            $ses = $sessions[0];
-            Connect-PSSession -Session $ses 2> $null > $null;
-        }
-
-        # If Get-PSSession or Connect-PSSession fails, make a new one!
-        if (($? -and ! $ses) -or ! $?) {
-            $ses = New-PSSession -ComputerName %(management_server)s `
-            -Credential $cred -Name %(session_key)s;
-            
-            # We need to access Active-directory in order to find out if a
-            # user is in AD:
-            Import-Module ActiveDirectory 2> $null > $null;
-            
-            # Import Exchange stuff or everything else:
-            Invoke-Command { . RemoteExchange.ps1 } -Session $ses;
-           
-            Invoke-Command { $pass = ConvertTo-SecureString -Force `
-            -AsPlainText %(ex_pasw)s } -Session $ses;
-
-            Invoke-Command { $cred = New-Object `
-            System.Management.Automation.PSCredential(%(ex_user)s, $pass) } `
-            -Session $ses;
-            
-            Invoke-Command { $ad_pass = ConvertTo-SecureString -Force `
-            -AsPlainText %(ad_pasw)s } -Session $ses;
-
-            Invoke-Command { $ad_cred = New-Object `
-            System.Management.Automation.PSCredential(`
-            %(ad_domain_user)s, $ad_pass) } -Session $ses;
-
-            Invoke-Command { Import-Module ActiveDirectory } -Session $ses;
-
-            # Redefine get-credential so it returns the appropriate credential
-            # that is defined earlier. This allows us to avoid patching
-            # Connect-ExchangeServer for each damn update.
-            Invoke-Command { function get-credential () { return $cred;} } `
-            -Session $ses;
-
-            Invoke-Command { Connect-ExchangeServer `
-            -ServerFqdn %(management_server)s -UserName %(ex_user)s } `
-            -Session $ses;
-        }
-        # We want to have something to search for when removing all the crap
-        # we can't redirect.
-        write-output EOB;"""
 
     # The pre-execution code is run when a command is run. This is what it does
     # in a nutshell:
@@ -203,7 +148,7 @@ class ExchangeClient(PowershellClient):
 
         if (($? -and ! $ses) -or ! $?) {
             $ses = New-PSSession -ComputerName %(management_server)s `
-            -Credential $cred -Name %(session_key)s;
+            -Credential $cred -Name %(session_key)s -ConfigurationName Cerebrum;
             
             Import-Module ActiveDirectory 2> $null > $null;
             
@@ -229,7 +174,7 @@ class ExchangeClient(PowershellClient):
             -Session $ses;
 
             Invoke-Command { Connect-ExchangeServer `
-            -ServerFqdn %(management_server)s -UserName %(ex_user)s } `
+            -ServerFqdn %(exchange_server)s -UserName %(ex_user)s } `
             -Session $ses;
         }
         write-output EOB;"""
@@ -265,7 +210,9 @@ class ExchangeClient(PowershellClient):
                     'ex_user': self.escape_to_string(self.ex_user),
                     'ex_pasw': self.escape_to_string(self.ex_user_password),
                     'management_server': self.escape_to_string(
-                                                self.management_server)}
+                                                self.management_server),
+                    'exchange_server': self.escape_to_string(
+                                                          self.exchange_server)}
         # TODO: Fix this on a lower level
         if kwargs.has_key('kill_session') and kwargs['kill_session']:
             args = (args[0] + self._termination_code, )
@@ -273,7 +220,7 @@ class ExchangeClient(PowershellClient):
             args = (args[0] + self._post_execution_code, )
 
         try:
-            return super(ExchangeClient, self).execute(setup, *args, **kwargs)
+            return super(UiAExchangeClient, self).execute(setup, *args, **kwargs)
         except WinRMServerException, e:
             raise ExchangeException(e)
         except URLError, e:
@@ -281,20 +228,6 @@ class ExchangeClient(PowershellClient):
             # We need to tell the caller about this. For example, events
             # should be queued for later attempts.
             raise ServerUnavailableException(e)
-
-    def escape_to_string(self, data):
-        """Override PowershellClient and return appropriate empty strings.
-
-        :type data: mixed (dict, list, tuple, string or int)
-        :param data: The data that must be escaped to be usable in powershell.
-
-        :rtype: string
-        :return: A string that could be used in powershell commands directly.
-        """
-        if isinstance(data, basestring) and data == '':
-            return "''"
-        else:
-            return super(ExchangeClient, self).escape_to_string(data)
 
 #    # TODO THIS IS ONLY FOR TESTING THE DELAYED NOTIFICATION COLLECTOR
 #    def run(self, *args, **kwargs):
@@ -306,6 +239,7 @@ class ExchangeClient(PowershellClient):
 #            self.deliberate_failure += 1
 #        return super(ExchangeClient, self).run(*args, **kwargs)
 
+
     def get_output(self, commandid=None, signal=True, timeout_retries=50):
         """Override the output getter to remove unwanted output.
 
@@ -313,8 +247,8 @@ class ExchangeClient(PowershellClient):
         from write-host.
         """
         hit_eob = False
-        for code, out in super(PowershellClient, self).get_output(
-                commandid, signal, timeout_retries):
+        for code, out in super(PowershellClient, self).get_output(commandid,
+                                                    signal, timeout_retries):
             out['stdout'] = out.get('stdout', '')
             if 'EOB\n' in out['stdout']:
                 hit_eob = True
@@ -322,10 +256,7 @@ class ExchangeClient(PowershellClient):
                                        out['stdout'])
             elif not hit_eob:
                 out['stdout'] = ''
-            if 'stderr' in out:
-                for pat in self.wash_output_patterns:
-                    out['stderr'] = re.sub(pat, 'PATTERN EXCLUDED',
-                                           out['stderr'])
+
             yield code, out
 
     def _generate_exchange_command(self, command, kwargs={}, novalueargs=()):
@@ -452,67 +383,36 @@ class ExchangeClient(PowershellClient):
     # Mailbox-specific operations
     ######
 
-    def new_mailbox(self, uname, display_name, first_name, last_name, db=None,
-                    ou=None):
+    def new_mailbox(self, uname):
         """Create a new mailbox in Exchange.
 
-        :type username: string
-        :param username: The users username
+        @type uname: string
+        @param uname: The users username
 
-        :type display_name: string
-        :param display_name: The users full name
-
-        :type first_name: string
-        :param first_name: The users given name
-
-        :type last_name: string
-        :param last_name: The users family name
-
-        :type db: string
-        :param db: The DB the user should reside on
-
-        :type ou: string
-        :param ou: The container that the mailbox should be organized in
-
-        :rtype: bool
-        :return: Return True if success
-
-        :raise ExchangeException: If the command failed to run for some reason
+        @rtype: bool
+        @return: Return True if success
+        
+        @raise ExchangeException: If the command failed to run for some reason
         """
-        kwargs = {'LinkedDomainController': self.ad_server,
-                  'LinkedMasterAccount': '%s\%s' % (self.ad_domain, uname),
-                  'Alias': uname,
-                  'Name': uname,
-                  'DisplayName': display_name,
-                  }
 
-        if first_name:
-            kwargs['FirstName'] = first_name
-        if last_name:
-            kwargs['LastName'] = last_name
-
-        if db:
-            kwargs['Database'] = db
-        if ou:
-            kwargs['OrganizationalUnit'] = ou
-
-        nva = ('LinkedCredential $ad_cred',)
-        cmd = self._generate_exchange_command('New-Mailbox', kwargs, nva)
+        cmd = self._generate_exchange_command('Enable-Mailbox',
+                                                            {'Identity': uname})
 
         # We set the mailbox as hidden, in the same call. We won't
         # risk exposing in the really far-fetched case that the integration
         # crashes in between new-mailbox and set-mailbox.
 
         cmd += '; ' + self._generate_exchange_command(
-            'Set-Mailbox',
-            {'Identity': uname,
-             'HiddenFromAddressListsEnabled': True})
+                'Set-Mailbox',
+                {'Identity': uname,
+                 'HiddenFromAddressListsEnabled': True})
 
         out = self.run(cmd)
-        if 'stderr' in out:
+        if out.has_key('stderr'):
             raise ExchangeException(out['stderr'])
         else:
             return True
+
 
     def set_primary_mailbox_address(self, uname, address):
         """Set primary email addresses from a mailbox
@@ -654,38 +554,33 @@ class ExchangeClient(PowershellClient):
             return True
 
     def set_mailbox_names(self, uname, first_name, last_name, full_name):
-        """Set a users name.
+        """Set a users name
 
-        :type uname: string
-        :param uname: The uname to select account by
+        @type uname: string
+        @param uname: The uname to select account by
 
-        :type first_name: string
-        :param first_name: The persons first name
+        @type first_name: string
+        @param first_name: The persons first name
 
-        :type last_name: string
-        :param last_name: The persons last name
+        @type last_name: string
+        @param last_name: The persons last name
 
-        :type full_name: string
-        :param full_name: The persons full name, to use as display name
+        @type full_name: string
+        @param full_name: The persons full name, to use as display name
 
-        :raises ExchangeException: Raised upon errors
+        @raises ExchangeException: Raised upon errors
         """
-        # TODO: When empty strings as args to the keyword args are handled
-        # appropriatly, change this back.
-        args = ["FirstName %s" % self.escape_to_string(first_name),
-                "LastName %s" % self.escape_to_string(last_name),
-                "DisplayName %s" % self.escape_to_string(full_name)]
-
-        cmd = self._generate_exchange_command(
-            'Set-User',
-            {'Identity': uname},
-            (' -'.join(args),))
+        cmd = self._generate_exchange_command('Set-User',
+                {'Identity': uname,
+                 'FirstName': first_name,
+                 'LastName': last_name,
+                 'DisplayName': full_name})
         out = self.run(cmd)
-        if 'stderr' in out:
+        if out.has_key('stderr'):
             raise ExchangeException(out['stderr'])
         else:
             return True
-
+    
     def export_mailbox(self, uname):
         raise NotImplementedError
 
@@ -884,32 +779,30 @@ class ExchangeClient(PowershellClient):
             raise ExchangeException(out['stderr'])
         else:
             return True
-
+   
     def set_distgroup_description(self, gname, description):
         """Set a distributiongroups description.
 
-        :type gname: string
-        :param gname: The groups name
+        @type gname: string
+        @param gname: The groups name
 
-        :type description: str
-        :param description: The groups description
+        @type description: str
+        @param description: The groups description
 
-        :raises ExchangeException: If the command fails to run
+        @raises ExchangeException: If the command fails to run
         """
         cmd = self._generate_exchange_command(
-            'Set-Group',
-            {'Identity': gname},
-            ('Notes %s' % self.escape_to_string(description.strip()),))
-
+                'Set-Group',
+               {'Identity': gname,
+                'Notes': description.strip()})
         # TODO: On the line above, we strip of the leading and trailing
         # whitespaces. We need to do this, as leading and trailing whitespaces
         # triggers an error when we set the "description" when creating the
         # mailboxes. But, we don't need to do this if we change the description
         # after the mailbox has been created! Very strange behaviour. Think
         # about this and fix it (whatever that means).
-
         out = self.run(cmd)
-        if 'stderr' in out:
+        if out.has_key('stderr'):
             raise ExchangeException(out['stderr'])
         else:
             return True
@@ -1024,33 +917,24 @@ class ExchangeClient(PowershellClient):
             return True
 
     def add_distgroup_member(self, gname, member):
-        """Add member to a distgroup.
+        """Add member(s) to a distgroup.
 
-        :type gname: string
-        :param gname: The groups name
+        @type gname: string
+        @param gname: The groups name
+        
+        @type member: string or list
+        @param member: The members name, or a list of meber names
 
-        :type member: string
-        :param member: The members name
-
-        :rtype: bool
-        :return: Returns True if the operation resulted in an update, False if
-            it does not.
-
-        :raise ExchangeException: If it fails to run
+        @raise ExchangeException: If it fails to run
         """
         cmd = self._generate_exchange_command(
-            'Add-DistributionGroupMember',
-            {'Identity': gname,
-             'Member': member},
-            ('BypassSecurityGroupManagerCheck',))
+                'Add-DistributionGroupMember',
+                {'Identity': gname,
+                 'Member': member},
+                ('BypassSecurityGroupManagerCheck',))
         out = self.run(cmd)
-        if 'stderr' in out:
-            # If this matches, we have performed a duplicate operation. Notify
-            # the caller of this trough raise.
-            if 'MemberAlreadyExistsException' in out['stderr']:
-                raise AlreadyPerformedException
-            else:
-                raise ExchangeException(out['stderr'])
+        if out.has_key('stderr'):
+            raise ExchangeException(out['stderr'])
         else:
             return True
 
@@ -1373,4 +1257,5 @@ class ExchangeClient(PowershellClient):
                     % (gname, str(out)))
         else:
             return ret
+
 

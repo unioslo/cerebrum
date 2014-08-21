@@ -184,9 +184,12 @@ class Constants(Constants.Constants):
     spread_hia_ad_account = _SpreadCode(
         'account@ad', Constants.Constants.entity_account,
         'Account included in Active Directory')
+    spread_exchange_acc_old = _SpreadCode(
+        'account@exch_old', Constants.Constants.entity_account,
+        'Account in old Exchange env')
     spread_exchange_account = _SpreadCode(
         'account@exchange', Constants.Constants.entity_account,
-        'Exchange-enabled account')
+        'Account in Exchange')
     spread_hia_ad_group = _SpreadCode(
         'group@ad', Constants.Constants.entity_group,
         'group included in Active Directory')

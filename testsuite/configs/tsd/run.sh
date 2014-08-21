@@ -17,11 +17,6 @@ root_dir=${WORKSPACE:-/tmp}
 # TODO: Should we check out cerebrum directly into WORKSPACE?
 crb_src=${root_dir}/src/cerebrum
 
-# The list of test directories with modules to be tested.
-# Update this list when new modules gets their own tests:
-test_dirs=${crb_src}/testsuite/tests/test_ad2 
-          #${crb_src}/testsuite/tests/test_cis
-
 # If the folder ${HOME}/pypi exists, we expect to find all the relevant packages
 # there, and we'll install packages in 'offline mode' (pip --no-index)
 if [ -d "${HOME}/pypi" ]
@@ -32,7 +27,7 @@ fi
 # These tests should run in <root>/basetests
 # TODO: Should we create the virtual environment in the BUILD directory in
 # stead?
-env_name=basetests
+env_name=tsd
 env_dir=${root_dir}/${env_name}
 
 
@@ -82,7 +77,10 @@ fi
 # Setup OK, run tests
 #
 info "Running nosetests"
-${env_dir}/bin/nosetests -c ${config}/noseconfig.cfg ${crb_src}/testsuite/tests/test_ad2
+${env_dir}/bin/nosetests -c ${config}/noseconfig.cfg ${crb_src}/testsuite/tests/test_tsd
 error=$(($? + $error))
+
+# TODO: Where should the coverage report for Jenkins go?
+ln -sf ${root_dir}/coverage.xml ${crb_src}/coverage.${env_name}.xml
 
 exit $error

@@ -124,22 +124,20 @@ class BofhdVoipCommands(BofhdCommandBase):
 
 
     
-    def _get_constant(self, designation, const_type=None):
+    def _get_constant(self, designation, const_type):
         """Fetch a single constant based on some human designation.
 
-        We accept a number of variations for 'designation' (see
-        Constants.py:human2constant).
+        Return the first match given by 'designation' (see
+        Constants.py:fetch_constants).
 
         FIXME: refactor this to bofhd_core.py ?
         """
 
-        cnst = self.const.human2constant(designation, const_type)
-        if cnst is None:
-            raise CerebrumError("Unknown %sconstant: %s" %
-                                (const_type is not None and
-                                 str(const_type) + " " or "",
-                                 designation))
-        return cnst
+        cnst = self.const.fetch_constants(const_type, designation)
+        if len(cnst) == 0:
+            raise CerebrumError("Unknown %s constant: %s" % 
+                                (str(const_type),designation))
+        return cnst[0]
     # end _get_constant
 
 
@@ -831,12 +829,6 @@ class BofhdVoipCommands(BofhdCommandBase):
         # Check that info/type_code make sense...
         ct = self._get_constant(client_type, self.const.VoipClientTypeCode)
         ci = self._get_constant(client_info, self.const.VoipClientInfoCode)
-        if ci is None:
-            raise CerebrumError("Unknown voip client info code: %s" %
-                                str(client_info))
-        if ct is None:
-            raise CerebrumError("Unknown voip client type code: %s" %
-                                str(client_type))
 
         if not ((ct == self.const.voip_client_type_softphone and not mac_address)
                 or

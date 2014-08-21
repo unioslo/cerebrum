@@ -19,14 +19,27 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""This file generates an XML file destined for the Cristin publishing system.
+"""This script generates an XML file destined for the Cristin publishing system.
+
+The export contains information about:
+
+- OU: All OUs in the given perspective that are not in quarantine.
+
+- Persons: We fetch a union of persons by different criterias:
+
+  #. All persons that has an *employment* from the given source system. To fetch
+     employments we use the Cerebrum module `PersonEmployment`.
+
+  #. All persons that has a *TILKNYTTET* affiliation from the given source
+     system.
 
 Relevant docs:
 
 * <http://frida.usit.uio.no/prosjektet/dok/import/institusjonsdata/index.html>
 * CVS: cerebrum-sites/doc/intern/uio/archive/frida
-* <http://www.cristin.no/import/institusjonsdata/eksempel.xml>
-* <http://www.cristin.no/import/institusjonsdata/>
+* <http://www.cristin.no/institusjonsdata/eksempel.xml>
+* <http://www.cristin.no/institusjonsdata/>
+
 """
 
 import getopt
@@ -414,6 +427,7 @@ def _cache_person_info(perspective, source_system):
     
     # ... and the "rest" -- ph.d students and the like.
     # IVR 2011-02-17 FIXME: Should this be affiliation-based?
+    # TODO: Should probably be configurable what affiliations we choose.
     for row in person.list_affiliations(source_system=source_system,
                                         affiliation=const.affiliation_tilknyttet):
         if row["ou_id"] not in ous:

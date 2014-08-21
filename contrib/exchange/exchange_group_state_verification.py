@@ -284,10 +284,6 @@ class StateChecker(object):
                     for mod in data[key]:
                         mods.append(mod[3:].split(',')[0].decode('UTF-8'))
                     tmp[u'ModeratedBy'] = sorted(mods)
-                elif key == 'msExchEnableModeration':
-                    tmp[u'ModerationEnabled'] = (
-                        True if data[key][0].decode('UTF-8') == 'TRUE' else
-                        False)
 
             # Skip reporting memberships for roomlists, since we don't manage
             # those memberships.
@@ -307,6 +303,14 @@ class StateChecker(object):
                     False)
             else:
                 tmp[u'HiddenFromAddressListsEnabled'] = False
+
+            if 'msExchEnableModeration' in data:
+                tmp_key = 'msExchEnableModeration'
+                tmp[u'ModerationEnabled'] = (
+                    True if data[tmp_key][0].decode('UTF-8') == 'TRUE' else
+                    False)
+            else:
+                tmp[u'ModerationEnabled'] = False
 
             ret[name] = tmp
         return ret

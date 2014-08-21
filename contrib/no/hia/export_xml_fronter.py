@@ -650,7 +650,7 @@ def output_group_xml():
         parent = data['parent']
         if parent <> id:
             output(parent)
-        fxml.group_to_XML(data['CFid'], fronter_lib.Fronter.STATUS_UPDATE,
+        fxml.group_to_XML(data['CFid'], fronter_lib.Fronter.STATUS_ADD,
                           data)
         done[id] = True
     for group in new_group.iterkeys():
@@ -848,20 +848,20 @@ def main():
 
     output_group_xml()
     for room, data in new_rooms.iteritems():
-        fxml.room_to_XML(data['CFid'], fronter_lib.Fronter.STATUS_UPDATE, data)
+        fxml.room_to_XML(data['CFid'], fronter_lib.Fronter.STATUS_ADD, data)
 
     for node, data in new_acl.iteritems():
-        fxml.acl_to_XML(node, fronter_lib.Fronter.STATUS_UPDATE, data)
+        fxml.acl_to_XML(node, fronter_lib.Fronter.STATUS_ADD, data)
 
     for gname, members in new_groupmembers.iteritems():
         person_members = members.get(int(const.entity_account), ())
         group_members = members.get(int(const.entity_group), ())
-        fxml.personmembers_to_XML(gname, fronter_lib.Fronter.STATUS_UPDATE,
+        fxml.personmembers_to_XML(gname, fronter_lib.Fronter.STATUS_ADD,
                                   person_members)
         if group_members:
             # IVR 2008-01-29 Just to be sure...
             assert gname.split(':')[-1] == "student"
-            fxml.groupmembers_to_XML(gname, fronter_lib.Fronter.STATUS_UPDATE,
+            fxml.groupmembers_to_XML(gname, fronter_lib.Fronter.STATUS_ADD,
                                      group_members)
     fxml.end()
 

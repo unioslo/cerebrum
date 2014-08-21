@@ -544,7 +544,7 @@ USAGE
     local test_env=${root_dir}/${env_name}  # Working directory for our env
 
     local pip_requirements=${config_dir}/pip.txt
-    local pip_cache=${test_env}/cache}
+    local pip_cache=${test_env}/cache
 
     local crb_db_extras=${config_dir}/extras.txt
     local crb_path_config=${config_dir}/cerebrum_path.py.in
