@@ -796,7 +796,9 @@ LDAP_USER = {
     #       ('account@radius', 'account@radius_student',)
     #
     # 'spread2vlan' (dict): A mapping from spread to a VLAN value that
-    #   could be put in entities' attributes. Example::
+    #   could be put in entities' attributes. Note that every spread
+    #   defined in 'spreads' must exist in this mapping. Example on
+    #   format::
     #
     #       {'account@ad': '101', 'account@ad_stud': '102'}
     #
@@ -806,7 +808,9 @@ LDAP_USER = {
     #       radiusClass: 101 or 102
     #
     # 'spread2vpn' (dict): A mapping from spread to a VPN value that
-    #   could be added to attributes in the output file. Example::
+    #   could be added to attributes in the output file. Note that every
+    #   spread defined in 'spreads' must exist in this mapping. Example
+    #   on format::
     #
     #       {'account@ad': 'A', 'account@ad_stud': 'B'}
     #
