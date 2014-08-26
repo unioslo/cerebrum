@@ -237,7 +237,7 @@ class XMLOU2Object(XMLEntity2Object):
         # Whether the OU can be published in various online directories
         result.publishable = False
         for tmp in element.findall(".//Bruksomrade/Type"):
-            if tmp.text == "ORGA":
+            if tmp.text == "Tillatt Organisasjon":
                 result.publishable = True
             # <StedType> tell us how an OU can be used. This information is
             # represented in Cerebrum with the help of spreads and can be
