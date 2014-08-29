@@ -16,42 +16,40 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Common POSIX LDIF generator. """
+ 
+"""
+ 
+"""
 
-import time
-import sys
+import time, sys
 import mx
-
+ 
 import cereconf
 from Cerebrum.modules import LDIFutils
 from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.Utils import Factory, latin1_to_iso646_60, auto_super
 from Cerebrum import Errors
-
-
+ 
+ 
 # logger = Factory.get_logger("cronjob")
+ 
 
 
 class PosixLDIF(object):
-
-    """ Generates posix-user, -filegroups and -netgroups.
-
+    """Generates posix-user, -filegroups and -netgroups. 
     Does not support hosts in netgroups.
-
     """
 
     __metaclass__ = auto_super
-
-    def __init__(self, db, logger, u_sprd=None, g_sprd=None, n_sprd=None,
-                 fd=None):
-        """ Initiate database and import modules.
-
+ 
+    def __init__(self, db, logger, u_sprd = None, g_sprd = None, n_sprd = None, fd=None):
+        """Initiate database and import modules. 
         Spreads are given in initiation and general constants which is
         used in more than one method.
-
         """
         super(PosixLDIF, self).__init__(db)
         from Cerebrum.modules import PosixGroup
+        from Cerebrum.QuarantineHandler import QuarantineHandler
         self.db = db
         self.logger = logger
         self.const = Factory.get('Constants')(self.db)
@@ -60,46 +58,43 @@ class PosixLDIF(object):
         self.user_dn = LDIFutils.ldapconf('USER', 'dn', None)
         self.get_name = True
         self.fd = fd
-
+        
         self.spread_d = {}
         # Validate spread from arg or from cereconf
-        for x, y in zip(['USER', 'FILEGROUP', 'NETGROUP'],
-                        [u_sprd, g_sprd, n_sprd]):
+        for x,y in zip(['USER','FILEGROUP','NETGROUP'],[u_sprd,g_sprd,n_sprd]):
             spread = LDIFutils.map_spreads(
                 y or getattr(cereconf, 'LDAP_' + x).get('spread'), list)
             if spread:
                 self.spread_d[x.lower()] = spread
-        if 'user' not in self.spread_d:
-            raise Errors.ProgrammingError(
-                "Must specify spread-value as 'arg' or in cereconf")
-        self.id2uname = {}
+        if not self.spread_d.has_key('user'):
+            raise Errors.ProgrammingError, "Must specify spread-value as 'arg' or in cereconf"
+        self.id2uname        = {}
 
         # preload id->name mapping for later. This is potentially somewhat
         # memory expensive.
         # FIXME: do id2uname and entity2name have the same content?
         if self.get_name:
-            self.entity2name = dict([
-                (x["entity_id"], x["entity_name"]) for x in
-                self.posgrp.list_names(self.const.account_namespace)])
-            self.entity2name.update([
-                (x["entity_id"], x["entity_name"]) for x in
-                self.posgrp.list_names(self.const.group_namespace)])
+            self.entity2name = dict([(x["entity_id"], x["entity_name"]) for x in
+                              self.posgrp.list_names(self.const.account_namespace)])
+            self.entity2name.update([(x["entity_id"], x["entity_name"]) for x in
+                              self.posgrp.list_names(self.const.group_namespace)])
     # end __init__
 
-    def user_ldif(self, filename=None, auth_meth=None):
+
+    def user_ldif(self, filename=None, auth_meth = None):
         """Generate posix-user."""
         f = LDIFutils.ldif_outfile('USER', filename, self.fd)
         self.init_user(auth_meth)
         f.write(LDIFutils.container_entry_string('USER'))
         for row in self.posuser.list_extended_posix_users(
-                self.user_auth,
-                spread=self.spread_d['user'],
-                include_quarantines=False):
-            dn, entry = self.user_object(row)
+                                    self.user_auth ,
+                                spread = self.spread_d['user'],
+                                include_quarantines = False):
+            dn,entry = self.user_object(row)
             if dn:
                 f.write(LDIFutils.entry_string(dn, entry, False))
-        self.user_ldif_mixin(f)
         LDIFutils.end_ldif_outfile('USER', f, self.fd)
+        
 
     def init_user(self, auth_meth=None):
         self.get_name = False
@@ -122,18 +117,18 @@ class PosixLDIF(object):
         # auth_meth_l is a list sent to load_auth_tab and contains
         # all methods minus primary which is called by 
         auth = auth_meth or cereconf.LDAP['auth_attr']
-        if isinstance(auth, dict):
+        if isinstance(auth,dict):
             if not auth.has_key('userPassword'):
                 self.logger.warn("Only support 'userPassword'-attribute")
                 return None
             default_auth = auth['userPassword'][:1][0]
             self.user_auth = LDIFutils.map_constants(code, default_auth[0])
             if len(default_auth) == 2:
-                format = default_auth[1]
-            else:
+                format = default_auth[1]                                         
+            else: 
                 format = None
-            self.auth_format[int(self.user_auth)] = {'attr': 'userPassword',
-                                                     'format': format}
+            self.auth_format[int(self.user_auth)] = {'attr':'userPassword',
+                                                     'format':format}
             for entry in auth['userPassword'][1:]:
                 auth_t = LDIFutils.map_constants(code, entry[0])
                 if len(entry) == 2:
@@ -141,31 +136,32 @@ class PosixLDIF(object):
                 else:
                     format = None
                 auth_meth_l.append(auth_t)
-                self.auth_format[int(auth_t)] = {'attr': 'userPassword',
-                                                 'format': format}
-        if isinstance(auth, (list, tuple)):
-            self.user_auth = int(getattr(self.const, auth[:1][0]))
-            for entry in auth[1:]:
-                auth_meth_l.append(int(getattr(self.const, entry)))
-        elif isinstance(auth, str):
-            self.user_auth = int(getattr(self.const, auth))
+                self.auth_format[int(auth_t)] = {'attr':'userPassword',
+                                                 'format':format}
+        if isinstance(auth,(list,tuple)):
+             self.user_auth = int(getattr(self.const,auth[:1][0]))
+             for entry in auth[1:]:
+                auth_meth_l.append(int(getattr(self.const,entry)))
+        elif isinstance(auth,str):
+            self.user_auth = int(getattr(self.const,auth))
         return auth_meth_l
 
-    def load_auth_tab(self, auth_meth=None):
+    def load_auth_tab(self,auth_meth=None):
         self.auth_data = {}
         self.a_meth = self.auth_methods(auth_meth)
         if self.a_meth:
             for x in self.posuser.list_account_authentication(auth_type=self.a_meth):
                 if not x['account_id'] or not x['method']:
                     continue
-                acc_id, meth = int(x['account_id']), int(x['method'])
+                acc_id, meth = int(x['account_id']), int(x['method']) 
                 if not self.auth_data.has_key(acc_id):
-                    self.auth_data[acc_id] = {meth: x['auth_data']}
+                    self.auth_data[acc_id] = {meth : x['auth_data']}
                 else:
                     self.auth_data[acc_id][meth] = x['auth_data']
+        
 
     def load_disk_tab(self):
-        #from Cerebrum import Disk
+        from Cerebrum import Disk
         self.disk = Factory.get('Disk')(self.db)
         self.disk_tab = {}
         for hd in self.disk.list():
@@ -180,17 +176,17 @@ class PosixLDIF(object):
         self.quarantines = {}
         now = mx.DateTime.now()
         for row in self.posuser.list_entity_quarantines(
-                entity_types=self.const.entity_account):
-            # Is the quarantine currently active?
-            if (row['start_date'] <= now
-                and (row['end_date'] is None or row['end_date'] >= now)
-                and (row['disable_until'] is None
-                     or row['disable_until'] < now)):
-                    # Yes, the quarantine in this row is currently active.
+                            entity_types = self.const.entity_account):
+            if (row['start_date'] <= now and (row['end_date'] is None
+                                        or row['end_date'] >= now)
+                                        and (row['disable_until'] is None
+                                        or row['disable_until'] < now)):
+                # The quarantine in this row is currently active.
                     self.quarantines.setdefault(int(row['entity_id']), []).append(
-                        int(row['quarantine_type']))
+                                int(row['quarantine_type']))
 
-    def user_object(self, row):
+
+    def user_object(self,row):
         account_id = int(row['account_id'])
         uname = row['entity_name']
         passwd = '{crypt}*Invalid'
@@ -209,10 +205,10 @@ class PosixLDIF(object):
                     if self.auth_format[uauth]['format']:
                         passwd = self.auth_format[uauth]['format'] % \
                                  self.auth_data[account_id][uauth]
-                        passwd_attr = self.auth_format[uauth]['attr']
-                    else:
+                        passwd_attr = self.auth_format[uauth]['attr'] 
+                    else:         
                         passwd = self.auth_data[account_id][uauth]
-
+                            
                 except KeyError:
                     pass
         if not row['shell']:
@@ -234,8 +230,7 @@ class PosixLDIF(object):
                 disk_path = self.disk_tab[int(row['disk_id'])]
             else:
                 disk_path = None
-            home = self.posuser.resolve_homedir(account_name=uname,
-                                                home=row['home'],
+            home = self.posuser.resolve_homedir(account_name=uname, home=row['home'],
                                                 disk_path=disk_path)
             # 22.07.2013: Jira, CRB-98
             # Quick fix, treat empty "home" as an error, to make
@@ -248,27 +243,26 @@ class PosixLDIF(object):
 
         except (Errors.NotFoundError, Exception):
             self.logger.warn("User %s has no home-directory!" % uname)
-            return None, None
+            return None,None
         cn = row['name'] or row['gecos'] or uname
         gecos = latin1_to_iso646_60(row['gecos'] or cn)
-        entry = {'objectClass': ['top', 'account', 'posixAccount'],
-                 'cn': (LDIFutils.iso2utf(cn),),
-                 'uid': (uname,),
-                 'uidNumber': (str(int(row['posix_uid'])),),
-                 'gidNumber': (str(int(row['posix_gid'])),),
-                 'homeDirectory': (home,),
-                 'userPassword': (passwd,),
-                 'loginShell': (shell,),
-                 'gecos': (gecos,)}
+        entry = {'objectClass':['top','account','posixAccount'],
+                        'cn':(LDIFutils.iso2utf(cn),),
+                        'uid':(uname,),
+                        'uidNumber':(str(int(row['posix_uid'])),),
+                        'gidNumber':(str(int(row['posix_gid'])),),
+                        'homeDirectory':(home,),      
+                        'userPassword':(passwd,),
+                        'loginShell': (shell,),
+                        'gecos':(gecos,)}     
         self.update_user_entry(account_id, entry, row)
         if not self.id2uname.has_key(account_id):
             self.id2uname[account_id] = uname
         else:
-            self.logger.warn('Duplicate user-entry: (%s,%s)!',
-                             account_id, uname)
-            return None, None
-        dn = ','.join((('uid=' + uname), self.user_dn))
-        return dn, entry
+            self.logger.warn('Duplicate user-entry: (%s,%s)!' % (account_id,uname)) 
+            return None,None
+        dn = ','.join((('uid=' + uname),self.user_dn))
+        return dn,entry
 
     def update_user_entry(self,account_id,entry,row):
         """To call Mixin-class. 
@@ -277,13 +271,12 @@ class PosixLDIF(object):
         # FIXME: useless documentation string
         pass
 
-    def filegroup_ldif(self, filename=None):
-        """ Generate filegroup.
 
+
+    def filegroup_ldif(self,filename=None):
+        """Generate filegroup. 
         Groups without group and expanded members from both external and
-        internal groups.
-
-        """
+        internal groups."""
         f = LDIFutils.ldif_outfile('FILEGROUP', filename, self.fd)
         self.init_filegroup()
         if not self.spread_d.has_key('filegroup'):
@@ -296,7 +289,9 @@ class PosixLDIF(object):
                 if dn:
                     f.write(LDIFutils.entry_string(dn, entry, False))
         LDIFutils.end_ldif_outfile('FILEGROUP', f, self.fd)
-
+            
+            
+        
     def init_filegroup(self):
         """Initiate modules and constants for posixgroup"""
         from Cerebrum.modules import PosixGroup
@@ -323,10 +318,10 @@ class PosixLDIF(object):
             entry['description'] = (LDIFutils.iso2utf(self.posgrp.description),)
 
         for member_row in self.posgrp.search_members(
-                group_id=self.posgrp.entity_id,
-                indirect_members=True,
-                member_type=self.const.entity_account,
-                member_spread=self.spread_d["user"][0]):
+                                        group_id=self.posgrp.entity_id,
+                                        indirect_members=True,
+                                        member_type=self.const.entity_account,
+                                        member_spread=self.spread_d["user"][0]):
             uname_id = int(member_row["member_id"])
             if not self.id2uname.has_key(uname_id) or self.get_name:
                 # Have find a way to resolve this problem later
@@ -340,11 +335,12 @@ class PosixLDIF(object):
         entry['memberUid'] = list(set(members))
         self.update_filegroup_entry(entry, row)
         dn = ','.join((('cn=' + gname), self.fgrp_dn))
-        return dn, entry
+        return dn,entry
 
     def update_filegroup_entry(self, entry, row):
         """Future use of mixin-classes"""
         pass
+
 
     def netgroup_ldif(self, filename=None):
         """Generate netgroup with only users."""
@@ -360,12 +356,13 @@ class PosixLDIF(object):
                 if dn:
                     f.write(LDIFutils.entry_string(dn, entry, False))
         LDIFutils.end_ldif_outfile('NETGROUP', f, self.fd)
-
+        
+        
     def init_netgroup(self):
         """Initiate modules and constants."""
         self.ngrp_dn = LDIFutils.ldapconf('NETGROUP', 'dn')
         self.grp = Factory.get('Group')(self.db)
-
+        
     def netgroup_object(self, row):
         """Generate netgroup objects."""
         self._gmemb = {}
@@ -386,12 +383,12 @@ class PosixLDIF(object):
         dn = ','.join((('cn=' + netgrp_name), self.ngrp_dn))
         return dn, entry
 
+
     def get_netgrp(self, triples, memgrp):
         """Recursive method to get members and groups in netgroup."""
-        for row in self.grp.search_members(
-                group_id=self.grp.entity_id,
-                member_spread=self.spread_d["user"][0],
-                member_type=self.const.entity_account):
+        for row in self.grp.search_members(group_id=self.grp.entity_id,
+                                         member_spread=self.spread_d["user"][0],
+                                         member_type=self.const.entity_account):
             if self.get_name:
                 uname_id, uname = (int(row["member_id"]),
                                    self.entity2name[int(row["member_id"])])
@@ -403,7 +400,7 @@ class PosixLDIF(object):
                     self.logger.warn("Cache enabled but user id=%s not found",
                                      uname_id)
                     continue
-
+        
             if uname_id in self._gmemb or "_" in uname:
                 continue
             triples.append("(,%s,)" % uname)
@@ -421,13 +418,13 @@ class PosixLDIF(object):
 
 
 class PosixLDIFRadius(PosixLDIF):
-    """ General mixin for Radius type attributes. """
+    """General mixin for Radius type attributes."""
 
-    def auth_methods(self, auth_meth=None):
-        # Also fetch NT password, for attribute sambaNTPassword.
-        meth = self.__super.auth_methods(auth_meth)
-        meth.append(int(self.const.auth_type_md4_nt))
-        return meth
+    def auth_methods(self, auth_meth= None):
+	# Also fetch NT password, for attribute sambaNTPassword.
+	meth = self.__super.auth_methods(auth_meth)
+	meth.append(int(self.const.auth_type_md4_nt))
+	return meth
 
     def update_user_entry(self, account_id, entry, row):
         # sambaNTPassword (used by FreeRadius)
@@ -437,7 +434,7 @@ class PosixLDIFRadius(PosixLDIF):
             pass
         else:
             skip = False
-            if account_id in self.quarantines:
+            if self.quarantines.has_key(account_id):
                 qh = QuarantineHandler(self.db, self.quarantines[account_id])
                 if qh.should_skip() or qh.is_locked():
                     skip = True
@@ -447,4 +444,4 @@ class PosixLDIFRadius(PosixLDIF):
                 entry['objectClass'].append('sambaSamAccount')
                 entry['sambaSID'] = entry['uidNumber']
                 added = True
-        return self.__super.update_user_entry(account_id, entry, row)
+        return self.__super.update_user_entry(account_id,entry, row)
