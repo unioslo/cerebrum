@@ -19,7 +19,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Default configuration for guest users.
 
-This config applies to the Cerebrum.modules.no.bofhd_guest_cmds module.
+This config applies to the .bofhd_guest_cmds module.
 
 """
 
@@ -69,3 +69,17 @@ The account will expire at %(expire)s"""
 # Limit user names to 20 characters, RT #1077796
 # sAMAccountName must be less than 20 chars
 GUEST_MAX_LENGTH_USERNAME = 19
+
+# Require mobile number when creating a guest
+GUEST_REQUIRE_MOBILE = False
+
+# LDAP export stuff
+
+LDAP = {'dump_dir': '/cerebrum/dumps/LDAP/',
+        'max_change': 10, }
+
+LDAP_GUESTS = {'file': 'guests.ldif',
+               'spread': None,
+               #'dn': 'dc=no',
+               #'auth_attr': {'userPassword': ('crypt3-DES', '{crypt}%s'), },
+               'objectClass': [], }
