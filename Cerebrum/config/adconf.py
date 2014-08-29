@@ -322,9 +322,10 @@ SYNCS = dict()
 #   This variable is only available for the GroupSync. Defines the scope of the
 #   group, i.e. where the group is available. Values:
 #
-#   - 'global': The group is available in the given AD domain.
+#   - 'global': The group is available in the given AD domain. It could not have
+#     universal groups as members, and accounts must be from the same domain.
 #
-#   - 'universal': The group is available in the AD forest(?).
+#   - 'universal': The group is available in all AD domains in the same forest.
 #
 #   Note that there are many constraints to e.g. membership for groups with
 #   different scope. See more information in
