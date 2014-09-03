@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2002-2011 University of Oslo, Norway
 #
@@ -28,7 +28,7 @@ NOTE: At least while developing, I recommend using "--prefix
 otherwise noted.
 
 /
-  README:       usr/share/cerebrum/doc/
+  README.md:       usr/share/cerebrum/doc/
   COPYING:      usr/share/cerebrum/doc/
 
 Cerebrum/
@@ -100,7 +100,6 @@ import os
 import sys
 import pwd
 from glob import glob
-from types import StringType
 
 from distutils import sysconfig
 from distutils.command import install_data
@@ -278,7 +277,7 @@ data_files = [
      [('design/cerebrum-core.dia', 0o644),
       ('design/cerebrum-core.html', 0o644),
       ('design/adminprotocol.html', 0o644),
-      ('README', 0o644),
+      ('README.md', 0o644),
       ('COPYING', 0o644), ]),
     ({'path': sbindir,
       'owner': cerebrum_user,
