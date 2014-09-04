@@ -55,7 +55,6 @@ The date format is: YYYY-MM-DD
 
 import sys
 import os
-import getopt
 
 import cerebrum_path
 import cereconf
