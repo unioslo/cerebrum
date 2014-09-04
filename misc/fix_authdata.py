@@ -62,4 +62,5 @@ def usage():
     is not desired."""
     
 if  __name__=='__main__':
+    main()
 
