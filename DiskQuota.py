@@ -167,4 +167,3 @@ class DiskQuota(DatabaseAccessor):
             'value_domain': int(self.co.account_namespace),
             'spread': spread})
     
-# arch-tag: 4b6c5df8-8100-4fd3-b679-bc8224f5b0df
