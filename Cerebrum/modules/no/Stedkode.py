@@ -192,4 +192,3 @@ class Stedkode(OU):
             sql += "AND avdeling = :avdeling "
         return self.query(sql, locals())
 
-# arch-tag: 99dde402-1e0c-47c7-b3ee-19aad9f3096c

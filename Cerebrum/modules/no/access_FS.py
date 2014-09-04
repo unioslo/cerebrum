@@ -1585,4 +1585,3 @@ class deltaker_xml_parser(xml.sax.ContentHandler, object):
 
         
 
-# arch-tag: 15c18bb0-05e8-4c3b-a47c-c84566e57803

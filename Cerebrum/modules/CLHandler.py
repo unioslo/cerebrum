@@ -176,4 +176,3 @@ class CLHandler(DatabaseAccessor):
         SET last_id=:value
         WHERE evthdlr_key=:key""", {'key': key, 'value': value})
 
-# arch-tag: cde3aa4b-cc65-4ba4-9229-5508ec3ad1d6

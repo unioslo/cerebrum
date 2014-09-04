@@ -708,4 +708,3 @@ def usage(exitcode=0):
 if __name__ == '__main__':
     main()
 
-# arch-tag: 9f9190ab-cabd-4e4d-b8ec-399edc87b3fc

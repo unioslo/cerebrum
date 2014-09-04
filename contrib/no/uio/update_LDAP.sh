@@ -32,4 +32,3 @@ cat $PT/org.ldif $PT/pers.ldif $PT/posixgroup.ldif $PT/posixnetgroup.ldif $PT/po
 /local/bin/ssh marvin     /ldap/sbin/updateLDAP.sh 
 /local/bin/ssh beeblebrox /ldap/sbin/updateLDAP.sh 
 
-# arch-tag: 88c515b4-50f7-40be-9234-e868ead59304

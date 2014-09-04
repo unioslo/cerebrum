@@ -32,4 +32,3 @@ if __name__ == '__main__':
     # the Cerebrum release number.
     print __version__
 
-# arch-tag: b0961329-08b6-40ac-884c-52d29232a992

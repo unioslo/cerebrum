@@ -187,4 +187,3 @@ class ABCAnalyzer(object):
                                               elem)
         return ABCFactory.get('RelationParser')(iter(it))
 
-# arch-tag: fbc06fb2-6995-11da-9e69-236a367b236e

@@ -664,4 +664,3 @@ def main():
 if __name__ == '__main__':
     main()
 
-# arch-tag: ff3b202c-7ed2-4744-ac53-cad23a8adeeb
