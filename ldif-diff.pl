@@ -261,4 +261,3 @@ sub bad_entry {
     die "$filename:entry \#$num: $message.\n";
 }
 
-# arch-tag: b6f6e0ba-b426-11da-9482-1d5a0f5505a3
