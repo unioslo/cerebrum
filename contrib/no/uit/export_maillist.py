@@ -56,4 +56,5 @@ for grp in grps:
     grp_items = grpname.split(':')
 
     fname = grp_items[7]  # 7'th item is name of the group. list is zero based
+    print "emne %s, length=%d" % (fname , len(grp_items))
 
