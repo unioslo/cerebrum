@@ -221,7 +221,7 @@ def read_country_file(fname):
     for line in f.readlines():
         if line[0] == '#':
             continue
-        dta = [x.strip() for x in line.split("\t") if x.strip() <> ""]
+        dta = [x.strip() for x in line.split("\t") if x.strip() != ""]
         if len(dta) == 4:
             code_str, foo, country, phone_prefix = dta
             code_obj = const.Country(code_str, country, phone_prefix,
@@ -325,7 +325,7 @@ def check_schema_versions(db, strict=False):
                     exit(1)
         elif name[:10] == 'sqlmodule_':
             name = name[10:]
-            if not modules.has_key(name):
+            if name not in modules:
                 # print "WARNING: unknown module %s" % name
                 # if strict: exit(1)
                 continue
@@ -369,6 +369,7 @@ def get_filelist(db, extra_files=[]):
             else:
                 ret.append(f)
     return ret
+
 
 def parsefile(fname):
     """Parse an SQL definition file and return the statements and categories.
@@ -461,6 +462,7 @@ def parsefile(fname):
     f.close()
     return ret
 
+
 def runfile(fname, db, debug, phase):
     """Execute an SQL definition file.
 
@@ -495,7 +497,7 @@ def runfile(fname, db, debug, phase):
     for stmt in statements:
         if state == NO_CATEGORY:
             (type_id, for_phase) = stmt.split(":", 1)
-            if type_id <> 'category':
+            if type_id != 'category':
                 raise ValueError, \
                     "Illegal type_id in file %s: %s" % (fname, type_id)
             for_rdbms = None
@@ -562,7 +564,7 @@ def runfile(fname, db, debug, phase):
             version = metainfo['version']
         meta.set_metainfo(name, version)
         db.commit()
-    if state <> NO_CATEGORY:
+    if state != NO_CATEGORY:
         raise ValueError, \
             "Found more category specs than statements in file %s." % fname
     if output_col is not None:
