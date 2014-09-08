@@ -84,7 +84,6 @@ class PosixLDIF(object):
             self.entity2name.update([
                 (x["entity_id"], x["entity_name"]) for x in
                 self.posgrp.list_names(self.const.group_namespace)])
-    # end __init__
 
     def user_ldif(self, filename=None, auth_meth=None):
         """Generate posix-user."""
@@ -98,7 +97,6 @@ class PosixLDIF(object):
             dn, entry = self.user_object(row)
             if dn:
                 f.write(LDIFutils.entry_string(dn, entry, False))
-        self.user_ldif_mixin(f)
         LDIFutils.end_ldif_outfile('USER', f, self.fd)
 
     def init_user(self, auth_meth=None):

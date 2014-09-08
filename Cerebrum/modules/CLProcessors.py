@@ -409,7 +409,7 @@ class CreatePersonProcessor(EventProcessor):
                 continue
             p_ids.append(entity_id)
         if p_ids:
-            print "Enitity ids for created persons:"
+            print "Entity ids for created persons:"
             print textwrap.fill(" ".join(map(str,p_ids)), 76)
         else:
             print "No new persons."

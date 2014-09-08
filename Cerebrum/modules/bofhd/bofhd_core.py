@@ -724,10 +724,13 @@ class BofhdCommonMethods(BofhdCommandBase):
         # validate contact info type
         contact_type_code = co.human2constant(contact_type, co.ContactInfo)
         if not contact_type_code:
-            raise CerebrumError('Invalid contact info type "%s", try one of %s' % (
-                contact_info_type, 
-                ", ".join(str(x) for x in co.fetch_constants(co.ContactInfo))
-            ))
+            # let's try the code in uppercase
+            contact_type_code = co.human2constant(contact_type.upper(), co.ContactInfo)
+            if not contact_type_code:
+                raise CerebrumError('Invalid contact info type "%s", try one of %s' % (
+                    contact_type, 
+                    ", ".join(str(x) for x in co.fetch_constants(co.ContactInfo))
+                ))
 
         # check permissions
         self.ba.can_add_contact_info(operator.get_entity_id(),
@@ -749,7 +752,7 @@ class BofhdCommonMethods(BofhdCommandBase):
                                 co.contact_phone_private,
                                 co.contact_mobile_phone,
                                 co.contact_private_mobile):
-            # match an 8-digit phone number
+            # allows digits and a prefixed '+'
             if not re.match(r"^\+?\d+$", contact_value):
                 raise CerebrumError("Invalid phone number: %s. The number can contain only digits with possible '+' for prefix."
                     % contact_value)
@@ -818,10 +821,13 @@ class BofhdCommonMethods(BofhdCommandBase):
         # check that the specified contact info type exists
         contact_type_code = co.human2constant(contact_type, co.ContactInfo)
         if not contact_type_code:
-            raise CerebrumError('Invalid contact info type "%s", try one of %s' % (
-                contact_type, 
-                ", ".join(str(x) for x in co.fetch_constants(co.ContactInfo))
-            ))
+            # let's try the code in uppercase
+            contact_type_code = co.human2constant(contact_type.upper(), co.ContactInfo)
+            if not contact_type_code:
+                raise CerebrumError('Invalid contact info type "%s", try one of %s' % (
+                    contact_type, 
+                    ", ".join(str(x) for x in co.fetch_constants(co.ContactInfo))
+                ))
 
         # check permissions
         self.ba.can_remove_contact_info(operator.get_entity_id(),
