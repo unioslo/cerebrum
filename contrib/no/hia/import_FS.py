@@ -221,10 +221,8 @@ def rem_old_aff():
             continue
         logger.info("Removing aff %s for person=%s, at ou_id=%s",
                     co.PersonAffiliation(affi), ent_id, ou)
-# Temporary commenting in order to not exclude users who should not be excluded!
-# CRB-490
-#        person.delete_affiliation(ou_id=ou, affiliation=affi,
-#                                  source=co.system_fs)
+        person.delete_affiliation(ou_id=ou, affiliation=affi,
+                                  source=co.system_fs)
 
 def register_cellphone(person, person_info):
     """Register person's cell phone number from person_info.
