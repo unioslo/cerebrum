@@ -19,18 +19,17 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""
-This script sets a quarantine on users without affiliations.
+""" Quarantine accounts without person affiliations.
+
+The accounts are warned, by e-mail, unless they are reserved, i.e. are not
+registered with any spread.
 
 NOTE! The script will delete and re-set quarantines that are temporarily
 disabled! Only quarantines of the type supplied to the -q flag are checked
-and set. With the -r option, quarantines of the defined type are removed if
-the person is affiliated.
+and set.
 
 The script should be extended to do the following:
     - Send an SMS to account owners.
-    - Introduce a new command-line option that allows a given set
-        of expired affiliations to be extempted by the check.
 
 The flow of the script is something like this:
     1. Parse args and initzialise globals in the main-function. This is
@@ -39,7 +38,7 @@ The flow of the script is something like this:
         affiliated and are not affiliated.
     3. Call the set_quarantine-function. This sets a given quarantine on
         all accounts associated with the persons collected in step 2 if
-        the notify_users-function sucessfully sends an email to the user.
+        the notify_user-function sucessfully sends an email to the user.
     4. Optionally call the remopve_quarantine-function, in order to remove
         quarantines set on persons who are affiliated.
 """
@@ -144,8 +143,8 @@ def send_mail(mail_to, mail_from, subject, body, mail_cc=None):
         return False
     return True
 
-def notify_users(ac, quar_start_in_days):
-    """Send a mail to the given users about the quarantine.
+def notify_user(ac, quar_start_in_days):
+    """Send a mail to the given user about the quarantine.
 
     :param Cerebrum._Account ac: The initiated Account object to notify
 
@@ -222,7 +221,7 @@ def find_candidates(exclude_aff=[], grace=0):
             'quarantined': quarantined}
 
 def set_quarantine(pids, quar, offset, quarantined):
-    """Set a given quarantine on a the accounts of all the given persons.
+    """Quarantine the given persons' accounts.
 
     :param list pids: Person IDs that will be evaluated for quarantine.
     
@@ -231,7 +230,9 @@ def set_quarantine(pids, quar, offset, quarantined):
 
     :param int offset: The number of days until the quarantine starts.
 
-    :param set quarantined: Account IDs for those already in quarantine.
+    :param set quarantined:
+        Account IDs for those already in any active quarantine. Any account in
+        here will neither be warned nor quarantined.
 
     :rtype: set
     :return: The account IDs for those that were quarantined in this round.
@@ -273,10 +274,16 @@ def set_quarantine(pids, quar, offset, quarantined):
             ac.clear()
             ac.find(row['account_id'])
 
-            if not dryrun and email_info:
-                notified = notify_users(ac, offset)
-            else:
+            # We will not send any warning if
+            # - In dryrun mode
+            # - No mail template is set
+            # - The account is reserved, i.e. has no spreads. This is in effect,
+            #   at least for the user, about the same as being in quarantine.
+            if ac.is_reserved() or not email_info or dryrun:
                 notified = True
+            else:
+                notified = notify_user(ac, offset)
+
             if notified:
                 ac.delete_entity_quarantine(type=quar)
                 ac.add_entity_quarantine(quar, creator, start=date)
