@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
-# Copyright 2013 University of Oslo, Norway
+# Copyright 2013-2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,18 +19,17 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""
-This script sets a quarantine on users without affiliations.
+""" Quarantine accounts without person affiliations.
+
+The accounts are warned, by e-mail, unless they are reserved, i.e. are not
+registered with any spread.
 
 NOTE! The script will delete and re-set quarantines that are temporarily
 disabled! Only quarantines of the type supplied to the -q flag are checked
-and set. With the -r option, quarantines of the defined type are removed if
-the person is affiliated.
+and set.
 
 The script should be extended to do the following:
     - Send an SMS to account owners.
-    - Introduce a new command-line option that allows a given set
-        of expired affiliations to be extempted by the check.
 
 The flow of the script is something like this:
     1. Parse args and initzialise globals in the main-function. This is
@@ -39,13 +38,16 @@ The flow of the script is something like this:
         affiliated and are not affiliated.
     3. Call the set_quarantine-function. This sets a given quarantine on
         all accounts associated with the persons collected in step 2 if
-        the notify_users-function sucessfully sends an email to the user.
+        the notify_user-function sucessfully sends an email to the user.
     4. Optionally call the remopve_quarantine-function, in order to remove
         quarantines set on persons who are affiliated.
 """
 
 import sys
 import getopt
+import smtplib
+import email
+from mx import DateTime
 
 import cerebrum_path
 import cereconf
@@ -53,10 +55,6 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum import Utils
-
-from mx import DateTime
-import smtplib
-import email
 
 logger = Factory.get_logger('cronjob')
 
@@ -83,6 +81,11 @@ def usage(exitcode=0):
                 affiliations here, like 'STUDENT'. The list should be comma
                 separated.
 
+--grace DAYS    The number of days to still consider a person affiliation as
+                valid after it has been removed. This is to support glitches in
+                the systems, where persons are temporarily removed due to known
+                or unknown flaws in the registrations.
+
 -m TEMPLATEFILE Specify the file containing the full template of the message to
                 be sent, including headers. The file must be parseable by the
                 python module email's "message_from_file(FILE)".
@@ -90,12 +93,14 @@ def usage(exitcode=0):
                 Note: If no templatefile is given, the users will not be given
                 e-mails.
 
--e              Also print out content of all e-mails that is sent out, to
-                stdout.
+-e              Print out the content of all e-mails that is sent out, to
+                stdout. Note: To avoid sending out e-mails, use --dryrun.
 
--d              Dryrun, will not send out e-mails to the users.
+-d --dryrun     Dryrun mode. Quarantines will not be set, and e-mails will not
+                be sent to the users.
 
--h              Show this and quit.
+-h --help       Show this and quit.
+
     """ % sys.argv[0]
     sys.exit(exitcode)
 
@@ -127,44 +132,37 @@ def send_mail(mail_to, mail_from, subject, body, mail_cc=None):
         ret = Utils.sendmail(mail_to, mail_from, subject, body,
                              cc=mail_cc, debug=dryrun)
         if debug_verbose:
-            print "---- Mail: ---- \n"+ ret
+            print "---- Mail: ---- \n" + ret
     except smtplib.SMTPRecipientsRefused, e:
         failed_recipients = e.recipients
         logger.info("Failed to notify <%d> users", len(failed_recipients))
-        for email, condition in failed_recipients.iteritems():
+        for _, condition in failed_recipients.iteritems():
             logger.info("Failed to notify: %s", condition)
     except smtplib.SMTPException, msg:
         logger.warn("Error sending to %s: %s" % (mail_to, msg))
         return False
     return True
 
-def notify_users(ac_id, quar_start_in_days):
+def notify_user(ac, quar_start_in_days):
+    """Send a mail to the given user about the quarantine.
+
+    :param Cerebrum._Account ac: The initiated Account object to notify
+
+    :param dict email_info: A dictionary containing the Email-message to send.
+
+    :param int quar_start_in_days:
+        The number of days until the quarantine will be enforced.
+
+    :rtype: bool
+    :return: If the notification were successfully sent or not.
+
     """
-    Sends an email to users, telling them that a quarantine has been set.
-
-    @type ac_id: int
-    @param ac_ids: The account ID to notify
-
-    @type email_info: dict
-    @param email_info: A dictionary containing the Email-message to send.
-
-    @type quar_start_in_days: int
-    @param quar_start_in_days: An integer representing the number of days
-        until the quarantine will be enforced.
-
-    @rtype: bool
-    @return: Returns True or False depending on if the user could be notified
-    """
-
-    ac.clear()
-    ac.find(ac_id)
     try:
         addr = ac.get_primary_mailaddress()
     except Errors.NotFoundError:
         # TODO: accept getting e-mail addresses from ContactInfo
-        logger.warn('No email address for %s, can\'t notify.' % ac.account_name)
+        logger.warn("No email address for %s, can't notify", ac.account_name)
         return False
-
 
     body = email_info['Body']
     body = body.replace('${USERNAME}', ac.account_name)
@@ -173,124 +171,174 @@ def notify_users(ac_id, quar_start_in_days):
 
     return send_mail(addr, email_info['From'], subject, body, email_info['Cc'])
 
-def find_candidates(exclude_aff=[]):
+def find_candidates(exclude_aff=[], grace=0):
     """Find persons who should be quarantined and dequarantined.
 
-    @type exclude_aff: list
-    @param exclude_aff: A list of tuples with affiliation- or affiliation- and
+    :param list exclude_aff:
+        A list of affiliations/statuses that should be ignored when finding the
+        candidates. Persons with only affiliations from this list will be
+        considered as not affiliated.
+
+        The list contains tuples, either with affiliation or affiliation- and
         status-codes.
 
-    @rtype: dict
-    @return: C{{'affiliated': set(), 'not_affiliated': set()}}
+    :param int grace:
+        Defines a grace period for when affiliations are still considered
+        active, after their end period.
+
+    :rtype: dict
+    :return: 
+        Three elements are included in the dict:
+
+        - `affiliated`: A set with person-IDs for those considered affiliatied.
+        - `not_affiliated`: A set with person-IDs for those *not* affiliatied.
+        - `quarantined`: A set with account-IDs for all quarantined accounts.
+
     """
-    affs = filter(lambda x: not ((x['affiliation'], x['status']) in exclude_aff
-                            or (x['affiliation'],) in exclude_aff),
-                            pe.list_affiliations())
+    datelimit = DateTime.now() - int(grace)
+    logger.debug2("Including affiliations deleted after: %s", datelimit)
+    def is_aff_considered(row):
+        """Check for if an affiliation should be considered or not."""
+        # Exclude affiliations deleted before the datelimit:
+        if row['deleted_date'] and row['deleted_date'] < datelimit:
+            return False
+        if (row['affiliation'], row['status']) in exclude_aff:
+            return False
+        if (row['affiliation'],) in exclude_aff:
+            return False
+        return True
+
+    affs = filter(is_aff_considered, pe.list_affiliations(include_deleted=True))
     affed = set(x['person_id'] for x in affs)
+    logger.debug('Found %d persons with affiliations', len(affed))
     naffed = set(x['person_id'] for x in pe.list_persons()) - affed
-    logger.info('Found %d persons with affiliations' % len(affed))
-    logger.info('Found %d persons without affiliations' % len(naffed))
-    
+    logger.debug('Found %d persons without affiliations', len(naffed))
+
     quarantined = set(x['entity_id'] for x in ac.list_entity_quarantines(
                           entity_types=co.entity_account, only_active=True))
-    logger.info('Found %d quarantined accounts' % len(quarantined))
-
+    logger.debug('Found %d quarantined accounts', len(quarantined))
     return {'affiliated': affed, 'not_affiliated': naffed,
             'quarantined': quarantined}
 
 def set_quarantine(pids, quar, offset, quarantined):
-    """Set a given quarantine on a the accounts of all the given persons.
+    """Quarantine the given persons' accounts.
 
-    @type pids: list
-    @param pids: A list of person IDs that will be evaluated for quarantine.
+    :param list pids: Person IDs that will be evaluated for quarantine.
     
-    @type quar: _QuarantineCode
-    @param quar: The quarantine that will be set on accounts referenced in
-        C{pids}.
+    :param _QuarantineCode quar:
+        The quarantine that will be set on accounts referenced in `pids`.
 
-    @type offset: int
-    @param offset: The number of days until the quarantine starts.
+    :param int offset: The number of days until the quarantine starts.
 
-    @type quarantined: set
-    @param quarantined: A list of all accounts that are already quarantined.
+    :param set quarantined:
+        Account IDs for those already in any active quarantine. Any account in
+        here will neither be warned nor quarantined.
 
-    @rtype: dict
-    @return: C{{'quarantined': [], 'failed_notify': []}}
+    :rtype: set
+    :return: The account IDs for those that were quarantined in this round.
+
     """
     ac.clear()
     ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
     creator = ac.entity_id
-    quarantined = []
-    failed_notify = []
-    accounts = 0
+
+    success = set()
+    failed_notify = 0
+    no_processed = 0
     date = DateTime.today() + offset
 
-    for x in pids:
-        pe.clear()
-        pe.find(x)
-        for y in pe.get_accounts():
-            accounts += 1
-            if y['account_id'] in quarantined:
+    # Cache what entities has the target quarantine:
+    with_target_quar = set(
+                    r['entity_id'] for r in
+                    ac.list_entity_quarantines(quarantine_types=quar,
+                                               only_active=False,
+                                               entity_types=co.entity_account)
+                    if r['start_date'] <= date)
+    logger.debug2('Accounts with target quarantine: %d', len(with_target_quar))
+    # Cache the owner to account relationship:
+    pid2acs = {}
+    for row in ac.search(owner_type=co.entity_person):
+        pid2acs.setdefault(row['owner_id'], []).append(row)
+    logger.debug2('Mapped %d persons to accounts', len(pid2acs))
+
+    for pid in pids:
+        for row in pid2acs.get(pid, ()):
+            if row['account_id'] in quarantined or row['account_id'] in success:
                 continue
-            ac.clear()
-            ac.find(y['account_id'])
-            if filter(lambda x: x['start_date'] <= date,
-                      ac.get_entity_quarantine(type=quar)):
-                logger.info('Already got the quarantine: %s' % ac.account_name)
+            no_processed += 1
+
+            if row['account_id'] in with_target_quar:
+                logger.debug2('Already got the quarantine: %s', row['name'])
                 continue
 
-            if not dryrun and email_info:
-                qr = notify_users(ac.entity_id, offset)
+            ac.clear()
+            ac.find(row['account_id'])
+
+            # We will not send any warning if
+            # - In dryrun mode
+            # - No mail template is set
+            # - The account is reserved, i.e. has no spreads. This is in effect,
+            #   at least for the user, about the same as being in quarantine.
+            if ac.is_reserved() or not email_info or dryrun:
+                notified = True
             else:
-                qr = True
-            if qr:
-                # Refreshing/setting the quarantine
+                notified = notify_user(ac, offset)
+
+            if notified:
                 ac.delete_entity_quarantine(type=quar)
                 ac.add_entity_quarantine(quar, creator, start=date)
-
-                # We'll need to commit here. Would be silly to send multiple
-                # emails about the same thing.
+                # Commiting here to avoid that users get multiple emails if the
+                # script is stopped before it's done.
                 ac.commit()
-                logger.info('%s acquires new quarantine' % ac.account_name)
-                quarantined.append(ac.account_name)
+                logger.info('Added quarantine for: %s', ac.account_name)
+                success.add(ac.entity_id)
             else:
-                failed_notify.append(ac.account_name)
-    logger.debug('SQ checked %d accounts' % accounts)
-    return {'quarantined': quarantined, 'failed_notify': failed_notify}
+                failed_notify += 1
+    logger.debug('Accounts processed: %d', no_processed)
+    logger.debug('Quarantines added: %d', len(success))
+    logger.debug('Accounts failed: %d', failed_notify)
+    return success
 
 def remove_quarantine(pids, quar):
-    """
-    This method removes quarantines on a set of accounts.
+    """Assert that the given quarantine is removed from the given persons.
 
-    @type pids: list
-    @param pids: A list of person IDs that will have quar removed from their
-        accounts.
-    
-    @type quar: _QuarantineCode
-    @param quar: The quarantine that will be removed from accounts referenced
-        in C{pids}.
+    :param list pids:
+        A list of person IDs that will have the quarantine removed from all
+        their accounts.
 
-    @rtype: dict
-    @return: C{{'dequarantined': []}}
+    :param _QuarantineCode quar:
+        The quarantine that will be removed from accounts referenced in `pids`.
+
+    :rtype: list
+    :return:
+        The entity name of all the accounts that had a quarantine which got
+        removed.
+
     """
     dequarantined = []
-    accounts = 0
-    
-    for x in pids:
-        pe.clear()
-        pe.find(x)
-        for y in pe.get_accounts():
-            accounts += 1
-            ac.clear()
-            ac.find(y['account_id'])
 
-            if ac.get_entity_quarantine(type=quar):
-                logger.info('Deleting quarantine on %s' % ac.account_name)
-                ac.delete_entity_quarantine(type=quar)
-                ac.write_db()
-                dequarantined.append(ac.account_name)
-    logger.debug('RQ checked %d accounts' % accounts)
-    return {'dequarantined': dequarantined}
+    # Cache the owner to account relationship:
+    pid2acs = {}
+    for row in ac.search(owner_type=co.entity_person):
+        pid2acs.setdefault(row['owner_id'], []).append(row)
+
+    with_quar = set(r['entity_id'] for r in
+                    ac.list_entity_quarantines(quarantine_types=quar,
+                                               only_active=False,
+                                               entity_types=co.entity_account))
+    
+    for pid in pids:
+        for row in pid2acs.get(pid, ()):
+            if row['account_id'] not in with_quar:
+                continue
+            logger.info('Deleting quarantine from: %s', row['name'])
+            ac.clear()
+            ac.find(row['account_id'])
+            ac.delete_entity_quarantine(type=quar)
+            ac.write_db()
+            dequarantined.append(row['name'])
+    logger.debug('Quarantines removed in total: %d', len(dequarantined))
+    return dequarantined
 
 def parse_affs(affs):
     """
@@ -332,9 +380,13 @@ def main():
     email_info = None
     remove = False
     ignore_aff = []
+    grace = 0
 
     try:
-        opts, j = getopt.getopt(sys.argv[1:], 'q:rdo:m:eha:')
+        opts, j = getopt.getopt(sys.argv[1:], 'q:rdo:m:eha:',
+                                ['dryrun',
+                                 'grace=',
+                                 'help'])
     except getopt.GetoptError, e:
         print e
         usage(1)
@@ -348,7 +400,7 @@ def main():
                 raise Exception("Invalid quarantine: %s" % val)
         elif opt in ('-r',):
             remove = True
-        elif opt in ('-d',):
+        elif opt in ('-d', '--dryrun'):
             db.commit = db.rollback
             dryrun = True
             logger.info("In dryrun mode, will rollback and not send e-mail")
@@ -375,12 +427,14 @@ def main():
                     'Body': msg.get_payload(decode=1)
                 }
             except IOError, e:
-                logger.error('Mail body file: \'%s\'' % e)
+                print 'Mail body file: %s' % e
                 sys.exit(2)
-        elif opt in ('-h',):
+        elif opt in ('--grace',):
+            grace = int(val)
+        elif opt in ('-h', '--help'):
             usage()
         else:
-            logger.error('Invalid argument: \'%s\'' % val)
+            print "Invalid argument: %s" % val
             usage(1)
 
     if not email_info:
@@ -390,16 +444,13 @@ def main():
         quarantine = co.quarantine_auto_no_aff
 
     logger.debug('Finding candidates for addition/removal of quarantine...')
-    cands = find_candidates(ignore_aff)
+    cands = find_candidates(ignore_aff, grace)
     logger.debug('Setting/removing quarantine on accounts')
-    r = set_quarantine(cands['not_affiliated'], quarantine, quarantine_offset,
-                       quarantined=cands['quarantined'])
-    logger.info('%d quarantines added, %d users skipped' %
-                (len(r['quarantined']), len(r['failed_notify']),))
+    set_quarantine(cands['not_affiliated'], quarantine, quarantine_offset,
+                   quarantined=cands['quarantined'])
 
     if remove:
-        r = remove_quarantine(cands['affiliated'], quarantine)
-        logger.info('%d quarantines removed' % len(r['dequarantined']))
+        remove_quarantine(cands['affiliated'], quarantine)
 
     if dryrun:
         logger.info('This is a dryrun, rolling back DB')
