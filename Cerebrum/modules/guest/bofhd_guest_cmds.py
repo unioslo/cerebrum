@@ -40,12 +40,13 @@ from Cerebrum.Utils import NotSet, SMSSender
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.guest.bofhd_guest_auth import BofhdAuth
 
-from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.cmd_param import Parameter, Command, AccountName, \
     Integer, GroupName, PersonName, FormatSuggestion
 
 
-def format_day(field):
+def format_date(field):
+    """ Date format for FormatSuggestion. """
     fmt = "yyyy-MM-dd"  # 10 characters wide
     return ":".join((field, "date", fmt))
 
@@ -58,7 +59,7 @@ class Mobile(Parameter):
     _help_ref = 'mobile_number'
 
 
-class BofhdExtension(BofhdCommandBase):
+class BofhdExtension(BofhdCommonMethods):
 
     """ Guest commands. """
 
@@ -291,13 +292,13 @@ class BofhdExtension(BofhdCommandBase):
         if not (0 < days <= guestconfig.GUEST_MAX_DAYS):
             raise CerebrumError('Invalid number of days, must be in the '
                                 'range 1-%d' % guestconfig.GUEST_MAX_DAYS)
-        if not fname or len(fname) < 2:
+        if (not fname) or len(fname) < 2:
             raise CerebrumError(
                 'First name must be at least 2 characters long')
-        if not lname or len(lname) < 1:
+        if (not lname) or len(lname) < 1:
             raise CerebrumError(
                 'Last name must be at least one character long')
-        if len(fname) + len(lname) + 1 > 512:
+        if len(fname) + len(lname) >= 512:
             raise CerebrumError('Full name must not exceed 512 characters')
         if guestconfig.GUEST_REQUIRE_MOBILE and not mobile:
             raise CerebrumError('Mobile phone number required')
@@ -309,7 +310,6 @@ class BofhdExtension(BofhdCommandBase):
 
         guest_group = self._get_guest_group(groupname,
                                             operator.get_entity_id())
-        # the method raises exception if groupname is not defined
 
         if responsible:
             if not self.ba.is_superuser(operator.get_entity_id()):
@@ -362,13 +362,8 @@ class BofhdExtension(BofhdCommandBase):
         # Store password in session for misc_list_passwords
         operator.store_state("user_passwd", {'account_id': int(ac.entity_id),
                                              'password': password})
-
-        # Return values, sms_sent will be changed to True if a message is sent.
-        # sms_to will be None, or the mobile number we will send the sms to.
         ret = {'username': ac.account_name,
-               'expire': end_date.strftime('%Y-%m-%d'),
-               'sms_to': mobile,
-               'sms_sent': False, }
+               'expire': end_date.strftime('%Y-%m-%d'), }
 
         if mobile:
             msg = guestconfig.GUEST_WELCOME_SMS % {
@@ -376,12 +371,15 @@ class BofhdExtension(BofhdCommandBase):
                 'expire': end_date.strftime('%Y-%m-%d'),
                 'password': password}
             if getattr(cereconf, 'SMS_DISABLE', False):
-                self.logger.info("""SMS disabled in cereconf, would send to
-                '%s':\n%s\n""" % (mobile, msg))
-                ret['sms_sent'] = True
+                self.logger.info(
+                    "SMS disabled in cereconf, would send to '%s':\n%s\n",
+                    mobile, msg)
             else:
                 sms = SMSSender(logger=self.logger)
-                ret['sms_sent'] = sms(mobile, msg)
+                if not sms(mobile, msg):
+                    raise CerebrumError(
+                        "Unable to send message to '%s', aborting" % mobile)
+                ret['sms_to'] = mobile
 
         return ret
 
@@ -500,8 +498,8 @@ class BofhdExtension(BofhdCommandBase):
              'Expires on:     %s\n' +
              'Status:         %s\n' +
              'Contact:        %s', ('username', 'name', 'responsible',
-                                    format_day('created'),
-                                    format_day('expires'),
+                                    format_date('created'),
+                                    format_date('expires'),
                                     'status', 'contact'))
         ]))
 
@@ -521,8 +519,8 @@ class BofhdExtension(BofhdCommandBase):
         perm_filter='can_create_personal_guest',
         fs=FormatSuggestion([
             ('%-25s %-30s %-10s %-10s', ('username', 'name',
-                                         format_day('created'),
-                                         format_day('expires')))],
+                                         format_date('created'),
+                                         format_date('expires')))],
             hdr='%-25s %-30s %-10s %-10s' % ('Username', 'Name', 'Created',
                                              'Expires')
         ))
@@ -555,8 +553,8 @@ class BofhdExtension(BofhdCommandBase):
         fs=FormatSuggestion([
             ('%-25s %-30s %-15s %-10s %-10s', ('username', 'name',
                                                'responsible',
-                                               format_day('created'),
-                                               format_day('expires')))],
+                                               format_date('created'),
+                                               format_date('expires')))],
             hdr='%-25s %-30s %-15s %-10s %-10s' % ('Username', 'Name',
                                                    'Responsible', 'Created',
                                                    'End date')),
