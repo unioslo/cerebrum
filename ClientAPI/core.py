@@ -16,9 +16,10 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Core functionality an utilities for the ClientAPI."""
+"""Core functionality and utilities for the ClientAPI."""
 
 from Cerebrum.Utils import Factory
+from Cerebrum import Errors
 import twisted.python.log
 
 
@@ -83,33 +84,106 @@ class ClientAPI(object):
 # TODO: Should this be here?
 class Utils(object):
     @staticmethod
-    def get_entity(db, entity_id):
-        """Fetch an entity.
+    def get_entity_by_id(db, entity_id):
+        """Fetch an entity by ID.
 
         :type db: <Cerebrum.Database.Database>
         :param db: A Cerebrum database object.
 
         :type entity_id: int
-        :param entity_id: The entitys id.
+        :param entity_id: The entity ID.
         """
         en = Factory.get('Entity')(db)
-        # TODO: How do we handle NotFoundErrors?
-        en.find(entity_id)
+        try:
+            en.find(entity_id)
+        except Errors.NotFoundError:
+            return None
         return en
 
     @staticmethod
-    def get_group(db, id_type, group_id):
+    def get(db, entity_type, id_type, entity):
+        """Fetch an entity by entity and identifier type.
+
+        :type db: <Cerebrum.Database.Database>
+        :param db: A Cerebrum database object
+
+        :type etype: str
+        :param etype: Type of entity to find
+                      Valid entity types: 'entity', 'account', 'group'
+
+
+        :type id_type: str
+        :param id_type: The type of the identifier
+                        Valid identifiers: 'id', 'account_name', 'group_name'
+
+        :type entity: str
+        :param entity: The identifier for the entity we want
+        """
+        obj = None
+
+        if id_type == 'id':
+            if entity_type == 'account':
+                obj = Utils.get_account(db=db, id_type='id', account=entity)
+
+            elif entity_type == 'group':
+                obj = Utils.get_group(db=db, id_type='id', group=entity)
+
+            else:
+                obj = Utils.get_entity_by_id(db=db, entity_id=entity)
+
+        elif id_type == 'group_name':
+            obj = Utils.get_group(db=db, id_type='name', group=entity)
+
+        elif id_type == 'account_name':
+            obj = Utils.get_account(db=db, id_type='name', account=entity)
+
+        return obj
+
+    @staticmethod
+    def get_account(db, id_type, account):
         """Fetch a group by id.
 
         :type db: <Cerebrum.Database.Database>
         :param db: A Cerebrum database object.
 
         :type id_type: str
-        :param id_type: The identificators type, i.e. 'name'
+        :param id_type: The identifier type, 'name' or 'id'
 
-        :param group_id: The groups idebtificator.
+        :type id_type: str or int
+        :param group: The account identifier
+
+        :rtype: Account or None
         """
-        from Cerebrum import Errors
+        ac = Factory.get('Account')(db)
+
+        if id_type == 'name':
+            lookup = ac.find_by_name
+        elif id_type == 'id':
+            lookup = ac.find
+        else:
+            raise Errors.CerebrumRPCException('Invalid id_type.')
+
+        try:
+            lookup(account)
+        except Errors.NotFoundError:
+            return None
+        return ac
+
+    @staticmethod
+    def get_group(db, id_type, group):
+        """Fetch a group by id.
+
+        :type db: <Cerebrum.Database.Database>
+        :param db: A Cerebrum database object.
+
+        :type id_type: str
+        :param id_type: The identifier type, 'name' or 'id'
+
+        :type group: str or int
+        :param group: The group identifier
+
+        :rtype: Group or None
+        """
         gr = Factory.get('Group')(db)
 
         # Determine lookup type
@@ -123,7 +197,7 @@ class Utils(object):
         # Perform actual lookup
         # TODO: How do we handle NotFoundErrors? Is this correct?
         try:
-            lookup(group_id)
+            lookup(group)
         except Errors.NotFoundError:
             return None
         return gr

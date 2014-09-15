@@ -43,10 +43,10 @@ class Group(ClientAPI):
         """Init the API.
 
         :type operator_id: int
-        :param operator_id: The operators id, used for auth.
+        :param operator_id: The operator ID, used for auth
 
         :type service_name: str
-        :param service_name: The calling serices name.
+        :param service_name: The calling service name
         """
         super(Group, self).__init__(service_name)
         self.operator_id = operator_id
@@ -107,3 +107,85 @@ class Group(ClientAPI):
 #        if self.config.get('GROUP_OWNER_OPSET', None):
 #            GroupAPI.grant_auth(en, gr, self.config.get('GROUP_OWNER_OPSET'))
         return gr.entity_id
+
+    @commit_handler()
+    def group_add_member(self, group_id_type, group_id, member_id_type, member_id):
+        """Add a member to a group.
+
+        :type group_id_type: str
+        :param group_id_type: Group identifier type, 'id' or 'group_name'
+
+        :type group_id: str
+        :param group_id: Group identifier
+
+        :type member_id_type: str
+        :param member_id_type: Member identifier type, 'id' or 'account_name'
+
+        :type member_id: str
+        :param member_id: Member identifier
+
+        :rtype: boolean
+        """
+        # Get the group
+        gr = Utils.get(self.db, 'group', group_id_type, group_id)
+
+        if not gr:
+            raise Errors.CerebrumRPCException(
+                'Group %s:%s does not exist.' % (group_id_type, group_id))
+
+        # Perform auth check
+        self.ba.can_alter_group(self.operator_id, gr)
+
+        # Get the member we want to add
+        member = Utils.get(self.db, 'entity', member_id_type, member_id)
+
+        if not member:
+            raise Errors.CerebrumRPCException(
+                'Entity %s:%s does not exist.' % (member_id_type, member_id))
+
+        if gr.has_member(member.entity_id):
+            return False
+
+        GroupAPI.add_member(gr, member.entity_id)
+        return True
+
+    @commit_handler()
+    def group_remove_member(self, group_id_type, group_id, member_id_type, member_id):
+        """Remove a member from a group.
+
+        :type group_id_type: str
+        :param group_id_type: Group identifier type, 'id' or 'group_name'
+
+        :type group_id: str
+        :param group_id: Group identifier
+
+        :type member_id_type: str
+        :param member_id_type: Member identifier type, 'id' or 'account_name'
+
+        :type member_id: str
+        :param member_id: Member identifier
+
+        :rtype: boolean
+        """
+        # Get the group
+        gr = Utils.get(self.db, 'group', group_id_type, group_id)
+
+        if not gr:
+            raise Errors.CerebrumRPCException(
+                'Group %s:%s does not exist.' % (group_id_type, group_id))
+
+        # Perform auth check
+        self.ba.can_alter_group(self.operator_id, gr)
+
+        # Get the member we want to add
+        member = Utils.get(self.db, 'entity', member_id_type, member_id)
+
+        if not member:
+            raise Errors.CerebrumRPCException(
+                'Entity %s:%s does not exist.' % (member_id_type, member_id))
+
+        if not gr.has_member(member.entity_id):
+            return False
+
+        GroupAPI.remove_member(gr, member.entity_id)
+        return True

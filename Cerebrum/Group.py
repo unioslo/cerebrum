@@ -884,6 +884,32 @@ class GroupAPI(object):
         gr.write_db()
 
     @staticmethod
+    def add_member(gr, member_id):
+        """Add a member to a group.
+
+        :type gr: <Cerebrum.Group.Group>
+        :param gr: A Cerebrum group object.
+
+        :type member_id: int
+        :param member_id: Entity ID of the member to be added
+        """
+        gr.add_member(member_id)
+        gr.write_db()
+
+    @staticmethod
+    def remove_member(gr, member_id):
+        """Remove a member from a group.
+
+        :type gr: <Cerebrum.Group.Group>
+        :param gr: A Cerebrum group object.
+
+        :type member_id: int
+        :param member_id: Entity ID of the member to be removed
+        """
+        gr.remove_member(member_id)
+        gr.write_db()
+
+    @staticmethod
     def grant_auth(en, gr, opset):
         """Grant authorization to a group.
 
