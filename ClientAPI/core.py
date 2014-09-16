@@ -67,6 +67,7 @@ class ClientAPI(object):
         """
         self.db = Factory.get('Database')()
         self.db.cl_init(change_program=name)
+        self.constants = Factory.get('Constants')(db)
         # TODO: pythons logger?
         self.log = SimpleLogger()
         self.operator_id = None
