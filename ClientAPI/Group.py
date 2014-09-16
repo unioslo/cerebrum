@@ -23,6 +23,7 @@
 import cerebrum_path
 getattr(cerebrum_path, '', None)  # Silence the linter.
 import cereconf
+getattr(cereconf, '', None)  # Silence the linter.
 
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
@@ -100,7 +101,7 @@ class Group(ClientAPI):
         # TODO: use the commented version when we pass the config as a dict.
         if getattr(self.config, 'GROUP_OWNER_OPSET', None):
             # Fetch operator.
-            en = Utils.get_entity(self.db, self.operator_id)
+            en = Utils.get_entity_by_id(self.db, self.operator_id)
             # Grant auth
             GroupAPI.grant_auth(en, gr, getattr(self.config,
                                 'GROUP_OWNER_OPSET'))
@@ -128,7 +129,8 @@ class Group(ClientAPI):
         return GroupAPI.group_info(gr)
 
     @commit_handler()
-    def group_add_member(self, group_id_type, group_id, member_id_type, member_id):
+    def group_add_member(self, group_id_type, group_id,
+                         member_id_type, member_id):
         """Add a member to a group.
 
         :type group_id_type: str
@@ -169,7 +171,8 @@ class Group(ClientAPI):
         return True
 
     @commit_handler()
-    def group_remove_member(self, group_id_type, group_id, member_id_type, member_id):
+    def group_remove_member(self, group_id_type, group_id,
+                            member_id_type, member_id):
         """Remove a member from a group.
 
         :type group_id_type: str
