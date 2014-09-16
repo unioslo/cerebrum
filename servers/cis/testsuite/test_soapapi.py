@@ -25,6 +25,8 @@ import sys
 import getopt
 import suds
 import logging
+import string
+import random
 
 
 class TestSoapAPI:
@@ -95,11 +97,8 @@ class TestSoapAPI:
 
     def test_GroupAPIService_group_create(self):
         from datetime import datetime
-        import string
-        import random
 
         random_group_name = 'test_group_' + ''.join(random.sample(string.lowercase, 10))
-
         print "\tCreating a group that does not exist:", random_group_name
         self.test_method(
             method_name='group_create',
@@ -118,9 +117,8 @@ class TestSoapAPI:
             visibility='A',
         )
 
-        random_group_name = 'test_group_' + ''.join(random.sample(string.lowercase, 10))
-
         print "\tCreating a group with invalid group visibility:"
+        random_group_name = 'test_group_' + ''.join(random.sample(string.lowercase, 10))
         self.test_method(
             method_name='group_create',
             group_name=random_group_name,
@@ -130,15 +128,23 @@ class TestSoapAPI:
         )
 
     def test_GroupAPIService_group_info(self):
-        print "\tGetting group information about bootstrap_account:"
+        print "\tGetting group information about group_name:bootstrap_group:"
         self.test_method(
             method_name='group_info',
             group_id_type='group_name',
             group_id='bootstrap_group',
         )
 
+        random_group_name = 'test_group_' + ''.join(random.sample(string.lowercase, 10))
+        print "\tGetting group information about a non-existing group:", random_group_name
+        self.test_method(
+            method_name='group_info',
+            group_id_type='group_name',
+            group_id=random_group_name,
+        )
+
     def test_GroupAPIService_group_add_member(self):
-        print "\tAdding member bootstrap_account to testgruppe"
+        print "\tAdding member account_name:bootstrap_account to group_name:testgruppe"
         self.test_method(
             method_name='group_add_member',
             group_id_type='group_name',
@@ -148,7 +154,7 @@ class TestSoapAPI:
         )
 
     def test_GroupAPIService_group_remove_member(self):
-        print "\tRemoving member bootstrap_account from testgruppe"
+        print "\tRemoving member account_name:bootstrap_account from group_name:testgruppe"
         self.test_method(
             method_name='group_remove_member',
             group_id_type='group_name',
