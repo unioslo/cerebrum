@@ -502,7 +502,7 @@ class BofhdExtension(BofhdCommonMethods):
     #
     all_commands['guest_info'] = Command(
         ("guest", "info"), AccountName(),
-        perm_filter='can_remove_personal_guest',
+        perm_filter='can_view_personal_guest',
         fs=FormatSuggestion([
             ('Username:       %s\n' +
              'Name:           %s\n' +
@@ -519,8 +519,8 @@ class BofhdExtension(BofhdCommonMethods):
     def guest_info(self, operator, username):
         """ Print stored information about a guest account. """
         account = self._get_account(username)
-        self.ba.can_remove_personal_guest(operator.get_entity_id(),
-                                          guest=account)
+        self.ba.can_view_personal_guest(operator.get_entity_id(),
+                                        guest=account)
         return [self._get_guest_info(account.entity_id)]
 
     #
