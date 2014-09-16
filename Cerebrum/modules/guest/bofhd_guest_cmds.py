@@ -598,9 +598,12 @@ class BofhdExtension(BofhdCommandBase):
         perm_filter='can_reset_guest_password')
 
     def guest_reset_password(self, operator, username):
-        """ Return a list of guest accounts owned by an entity.
+        """ Reset the password of a guest account.
 
-        Defaults to listing guests owned by operator, if no username is given.
+        :param BofhdSession operator: The operator
+        :param string username: The username of the guest account
+
+        :return dict: A dictionary with keys 'username' and 'mobile'
 
         """
         account = self._get_account(username)
