@@ -48,17 +48,19 @@ class BofhdAuth(auth.BofhdAuth):
                     person_id=ac.owner_id,
                     affiliation=self.const.affiliation_ansatt):
                 return True
+        return False
 
     def _is_personal_guest_owner(self, operator, guest):
         """ Check if operator is the owner of guest. """
+        if not self._is_employee(operator):
+            return False
         try:
             real_owner = guest.get_trait(
                 self.const.trait_guest_owner)['target_id']
             if real_owner == operator:
                 return True
         except:
-            return False
-
+            pass
         return False
 
     def can_create_personal_guest(self, operator, query_run_any=False):
@@ -71,6 +73,13 @@ class BofhdAuth(auth.BofhdAuth):
             return False
         raise PermissionDenied(
             "Guest accounts are only available to employees.")
+
+    def can_reset_guest_password(self, operator, guest=None,
+                                 query_run_any=False):
+        """ If the operator can re-set the password for a guest. """
+        return self.can_remove_personal_guest(operator, guest=guest,
+                                              query_run_any=query_run_any)
+        raise PermissionDenied("")  # Not reached
 
     def can_remove_personal_guest(self, operator, guest=None,
                                   query_run_any=False):
