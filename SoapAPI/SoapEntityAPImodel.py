@@ -16,22 +16,26 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Group models."""
+"""Entity models."""
 
 from rpclib.model.complex import ComplexModel
 # TODO: Fix'n move
 from Cerebrum.modules.cis.Utils import Unicode, DateTime
-from rpclib.model.primitive import String
+from rpclib.model.primitive import String, Boolean
 
-NAMESPACE = 'GroupAPI'
+NAMESPACE = 'EntityAPI'
 
 
-class GroupInfo(ComplexModel):
-    """Information about a group."""
+class QuarantineInfo(ComplexModel):
+    """Information about an entitys quarantines."""
     __namespace__ = NAMESPACE
     __tns__ = NAMESPACE
 
-    name = String
+    quarantine_type = String
     description = Unicode
-    expire_date = DateTime
-    visibility = String
+    start_date = DateTime
+    end_date = DateTime
+    disable_until = DateTime
+    is_active = Boolean
+    lock_out = Boolean
+    auto = Boolean

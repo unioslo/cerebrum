@@ -44,7 +44,7 @@ def _event_setup(ctx):
     operator_id = ctx.udc['session'].get('authenticated', None)
     if operator_id:
         operator_id = operator_id.id
-    ctx.udc[cisconf.NAMESPACE] = ctx.service_class.cere_class(
+    ctx.udc[ctx.service_class.__namespace__] = ctx.service_class.cere_class(
         operator_id, cisconf.SERVICE_NAME, cisconf)
 
 
@@ -52,8 +52,7 @@ def _event_cleanup(ctx):
     """Event for cleaning up the instances.
 
     I.e. close the database connections."""
-    if cisconf.NAMESPACE in ctx.udc:
-        ctx.udc[cisconf.NAMESPACE].close()
+    ctx.udc[ctx.service_class.__namespace__].close()
 
 
 class Service(object):
@@ -96,10 +95,6 @@ Starts up the webservice on a given port. Please note that config
   -l
   --logfile:        Where to log. Overrides cisconf.LOG_FILE.
 
-  --instance        The individuation instance which should be used. Defaults
-                    to what is defined in cisconf.CEREBRUM_CLASS, e.g:
-                        Cerebrum.modules.cis.GroupInfo/GroupInfo
-
   --service-name    The service configuration to load, e.g. 'digeks'
 
   --unencrypted     Don't use HTTPS. All communications goes unencrypted, and
@@ -115,7 +110,7 @@ if __name__ == '__main__':
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'p:l:hd',
                                    ['port=', 'unencrypted', 'logfile=',
-                                    'help', 'instance=', 'interface=',
+                                    'help', 'interface=',
                                     'service-name=', 'dry-run'])
     except getopt.GetoptError, e:
         print e
@@ -141,12 +136,6 @@ if __name__ == '__main__':
                   % service)
             usage(3)
 
-    # Import the service class
-    ServiceCls = import_class(cisconf.SERVICE_CLASS)
-
-    # Configure / prepare the service class
-    Service(ServiceCls)
-
     use_encryption = True
     port = getattr(cisconf, 'PORT', 0)
     logfilename = getattr(cisconf, 'LOG_FILE', None)
@@ -163,8 +152,6 @@ if __name__ == '__main__':
             port = int(val)
         elif opt in ('--unencrypted',):
             use_encryption = False
-        elif opt in ('--instance',):
-            instance = val
         elif opt in ('--interface',):
             interface = val
         elif opt in ('-h', '--help'):
@@ -177,15 +164,20 @@ if __name__ == '__main__':
             print "Unknown argument: %s" % opt
             usage(1)
 
-    # Get the service tier class and give it to the server
-    ServiceCls.cere_class = import_class(instance)
-    ServiceCls.cere_class.dryrun = dryrun
     private_key_file = None
     certificate_file = None
     client_ca = None
     fingerprints = None
 
-    services = [ServiceCls]
+    services = []
+    # Get the service tier classes and give it to the server
+    for key in getattr(cisconf, 'CLASS_CONFIG'):
+        srv_cls = import_class(key)
+        srv_cls.cere_class = import_class(
+            getattr(cisconf, 'CLASS_CONFIG').get(key))
+        srv_cls.dryrun = dryrun
+        Service(srv_cls)
+        services.append(srv_cls)
 
     # Add password authentication, if specified in config.
     if cisconf.AUTH:
@@ -219,8 +211,8 @@ if __name__ == '__main__':
             log_formatters=log_formatters)
 
     # Making stuff reachable
-    ServiceCls.site = server.site
-    auth.PasswordAuthenticationService.site = server.site
+    for srv in services:
+        srv.site = server.site
 
     # We want the sessions to be simple dicts, for now:
     server.site.sessionFactory = SoapListener.SessionCacher

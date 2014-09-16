@@ -16,23 +16,19 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Account client stuff."""
-
-# TODO: Describe the above better.
+"""Generalized Entity operations presented in a functional API."""
 
 import cerebrum_path
 getattr(cerebrum_path, '', None)  # Silence the linter.
 import cereconf
 
-from Cerebrum.Utils import Factory
 from Cerebrum import Errors
+from Cerebrum.Utils import Factory
+
 from ClientAPI.core import ClientAPI
 from ClientAPI.core import Utils
 
 from Cerebrum.modules.bofhd.auth import BofhdAuth
-
-# TODO: move this?
-from Cerebrum.modules.cis.Utils import commit_handler
 
 
 class Entity(ClientAPI):
@@ -72,15 +68,20 @@ class Entity(ClientAPI):
             lock_out: boolean (if the quarantine means entity is locked out)
             auto: boolean (if the quarantine is set by automatic scripts)
         """
+        import mx
+        from Cerebrum.QuarantineHandler import QuarantineHandler
+
+        co = Factory.get('Constants')(self.db)
         # q[i] = {quarantine_type: int, creator_id: int, description: string,
-        #         create_date: DateTime, start_date: DateTime, disable_until: DateTime, 
-        #         DateTime: end_date}
+        #         create_date: DateTime, start_date: DateTime,
+        #         disable_until: DateTime, DateTime: end_date}
         e = Utils.get(self.db, 'entity', id_type, entity_id)
         q = e.get_entity_quarantine()
 
         types = dict()
         qhandlers = dict()
         now = mx.DateTime.now()
+
         def fixer(row):
             # Use code string for quarantine type
             new = dict()
@@ -89,32 +90,43 @@ class Entity(ClientAPI):
                 new['quarantine_type'] = str(types[qt])
                 new['lock_out'] = qhandlers[qt].is_locked()
             else:
-                qtype = self.constants.map_const(qt)
+                qtype = co.map_const(qt)
                 types[qt] = qtype
-                qhandlers[qt] = QuarantineHandler(self.db, qtype)
+                qhandlers[qt] = QuarantineHandler(self.db, [qtype])
                 new['quarantine_type'] = str(qtype)
-                new['lock_out'] = qtype.is_locked()
-            new['is_active'] = (row['start_date'] <= now and 
-                    (row['end_date'] is None or row['end_date'] > now) and
-                    (row['disable_until'] is Null or row['disable_until'] <= now))
-            new['auto'] = (str(types[qt]) in cereconf.QUARANTINE_AUTOMATIC
-                    or str(types[qt]) in cereconf.QUARANTINE_STRICTLY_AUTOMATIC)
-            for i in ('description', 'start_date', 'end_date', 'disable_until'):
+                new['lock_out'] = qhandlers[qt].is_locked()
+            new['is_active'] = (row['start_date'] <= now and
+                                (row['end_date'] is None or
+                                    row['end_date'] > now) and
+                                (row['disable_until'] is None or
+                                    row['disable_until'] <= now))
+            new['auto'] = (str(types[qt]) in cereconf.QUARANTINE_AUTOMATIC or
+                           str(types[qt]) in
+                           cereconf.QUARANTINE_STRICTLY_AUTOMATIC)
+            for i in ('description', 'start_date',
+                      'end_date', 'disable_until'):
                 new[i] = row[i]
             return new
         return map(fixer, q)
 
     def spread_list(self, id_type, entity_id):
-        """List account's spreads"""
+        """List account's spreads.
+
+        :type id_type: basestring
+        :param id_type: The id-type to look-up by.
+
+        :type entity_id: basestring
+        :param entity_id: The entitys id."""
+        co = Factory.get('Constants')(self.db)
         e = Utils.get(self.db, 'entity', id_type, entity_id)
         spreads = dict()
+
         def fixer(id):
-            if id in spreads:
-                return str(spreads[id])
-            s = spreads[id] = self.constants.map_const(id)
-            return s
+            if id[0] in spreads:
+                return str(spreads[id[0]])
+            s = spreads[id[0]] = co.map_const(id[0])
+            return str(s)
         try:
-            return map(fixer, e.get_spread())
+            return map(fixer, e.get_subclassed_object().get_spread())
         except NameError:
             raise Errors.CerebrumRPCException("No spreads in entity")
-

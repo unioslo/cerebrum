@@ -17,16 +17,17 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""Generalized SOAP interface for Cerebrums group functionality."""
+"""Generalized SOAP interface for Cerebrums Entity functionality."""
 
 from Cerebrum.modules.cis import SoapListener, faults
-from rpclib.model.primitive import String, DateTime, Integer
+from rpclib.model.primitive import String
 from rpclib.model.complex import Array
 from rpclib.decorator import rpc
 
-#from SoapAPI.SoapGroupAPImodel import GroupInfo
+from SoapAPI.SoapEntityAPImodel import QuarantineInfo
 
 NAMESPACE = 'EntityAPI'
+
 
 class EntityAPIService(SoapListener.BasicSoapServer):
     """Function definitions for the service."""
@@ -47,8 +48,9 @@ class EntityAPIService(SoapListener.BasicSoapServer):
 
     @rpc(String, String, _throws=faults.EndUserFault, _returns=Array(String))
     def spread_list(ctx, id_type, entity_id):
-        return ctx.udc[NAMESPACE].get_spreads(id_type, entity_id)
+        return ctx.udc[NAMESPACE].spread_list(id_type, entity_id)
 
-    @rpc(String, String, _throws=faults.EndUserFault, _returns=Array(String))
+    @rpc(String, String, _throws=faults.EndUserFault,
+         _returns=Array(QuarantineInfo))
     def quarantine_list(ctx, id_type, entity_id):
-        return ctx.udc[NAMESPACE].get_spreads(id_type, entity_id)
+        return ctx.udc[NAMESPACE].quarantine_list(id_type, entity_id)

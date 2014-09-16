@@ -977,6 +977,8 @@ class CoreConstants(ConstantsBase):
 
 class CommonConstants(ConstantsBase):
 
+    quarantine_auto_no_aff = _QuarantineCode(
+        'auto_no_aff', 'Ikke tilknyttet person, utestengt')
     auth_type_md5_crypt = _AuthenticationCode(
         'MD5-crypt',
         "MD5-derived password hash as implemented by crypt(3) on some Unix"

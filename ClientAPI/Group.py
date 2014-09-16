@@ -105,8 +105,6 @@ class Group(ClientAPI):
             # Grant auth
             GroupAPI.grant_auth(en, gr, getattr(self.config,
                                 'GROUP_OWNER_OPSET'))
-#        if self.config.get('GROUP_OWNER_OPSET', None):
-#            GroupAPI.grant_auth(en, gr, self.config.get('GROUP_OWNER_OPSET'))
         return gr.entity_id
 
     @commit_handler()

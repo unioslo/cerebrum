@@ -47,19 +47,22 @@ class GroupAPIService(SoapListener.BasicSoapServer):
 
     @rpc(String, String, DateTime, String,
          _throws=faults.EndUserFault, _returns=Integer)
-    def group_create(ctx, group_name, description, expire_date=None, visibility=None):
+    def group_create(ctx, group_name, description,
+                     expire_date=None, visibility=None):
         return ctx.udc[NAMESPACE].group_create(
             group_name, description, expire_date, visibility)
 
     @rpc(String, String, String, String,
          _throws=faults.EndUserFault, _returns=Boolean)
-    def group_add_member(ctx, group_id_type, group_id, member_id_type, member_id):
+    def group_add_member(ctx, group_id_type, group_id,
+                         member_id_type, member_id):
         return ctx.udc[NAMESPACE].group_add_member(
             group_id_type, group_id, member_id_type, member_id)
 
     @rpc(String, String, String, String,
          _throws=faults.EndUserFault, _returns=Boolean)
-    def group_remove_member(ctx, group_id_type, group_id, member_id_type, member_id):
+    def group_remove_member(ctx, group_id_type, group_id,
+                            member_id_type, member_id):
         return ctx.udc[NAMESPACE].group_remove_member(
             group_id_type, group_id, member_id_type, member_id)
 
