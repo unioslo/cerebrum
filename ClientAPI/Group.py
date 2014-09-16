@@ -109,6 +109,25 @@ class Group(ClientAPI):
         return gr.entity_id
 
     @commit_handler()
+    def group_info(self, group_id_type, group_id):
+        """Get information about a group.
+
+        :type group_id_type: str
+        :param group_id_type: Group identifier type, 'id' or 'group_name'
+
+        :type group_id: str
+        :param group_id: Group identifier
+        """
+        gr = Utils.get(self.db, 'group', group_id_type, group_id)
+
+        # Check if group exists
+        if not gr:
+            raise Errors.CerebrumRPCException(
+                'Group %s:%s does not exist.' % (group_id_type, group_id))
+
+        return GroupAPI.group_info(gr)
+
+    @commit_handler()
     def group_add_member(self, group_id_type, group_id, member_id_type, member_id):
         """Add a member to a group.
 

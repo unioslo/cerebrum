@@ -23,7 +23,7 @@ from Cerebrum.modules.cis import SoapListener, faults
 from rpclib.model.primitive import String, DateTime, Integer, Boolean
 from rpclib.decorator import rpc
 
-# from SoapAPI.SoapGroupAPImodel import GroupInfo
+from SoapAPI.SoapGroupAPImodel import GroupInfo
 
 NAMESPACE = 'GroupAPI'
 
@@ -47,10 +47,9 @@ class GroupAPIService(SoapListener.BasicSoapServer):
 
     @rpc(String, String, DateTime, String,
          _throws=faults.EndUserFault, _returns=Integer)
-    def group_create(ctx, group_name, description,
-                     expire_date=None, visibility=None):
-        return ctx.udc[NAMESPACE].group_create(group_name, description,
-                                               expire_date, visibility)
+    def group_create(ctx, group_name, description, expire_date=None, visibility=None):
+        return ctx.udc[NAMESPACE].group_create(
+            group_name, description, expire_date, visibility)
 
     @rpc(String, String, String, String,
          _throws=faults.EndUserFault, _returns=Boolean)
@@ -63,3 +62,9 @@ class GroupAPIService(SoapListener.BasicSoapServer):
     def group_remove_member(ctx, group_id_type, group_id, member_id_type, member_id):
         return ctx.udc[NAMESPACE].group_remove_member(
             group_id_type, group_id, member_id_type, member_id)
+
+    @rpc(String, String,
+         _throws=faults.EndUserFault, _returns=GroupInfo)
+    def group_info(ctx, group_id_type, group_id):
+        return ctx.udc[NAMESPACE].group_info(
+            group_id_type, group_id)

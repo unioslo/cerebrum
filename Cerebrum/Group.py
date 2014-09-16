@@ -857,6 +857,26 @@ class GroupAPI(object):
     """Functional and generalized API that provides common operations."""
 
     @staticmethod
+    def group_info(gr):
+        """Get information about a group.
+
+          :type gr: <Cerebrum.Group.Group>
+          :param gr: A Cerebrum group object.
+
+          :rtype: dict
+        """
+        co = Utils.Factory.get('Constants')(gr._db)
+
+        info = {
+            'name': gr.group_name,
+            'description': gr.description,
+            'expire_date': gr.expire_date,
+            'visibility': str(co.GroupVisibility(gr.visibility)) if gr.visibility else None,
+        }
+
+        return info
+
+    @staticmethod
     def group_create(gr, creator, visibility, name, description,
                      expire_date=None):
         """Create a group.

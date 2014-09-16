@@ -34,6 +34,6 @@ class GroupInfo(ComplexModel):
     name = String
     description = Unicode
     expire_date = DateTime
-    group_type = String
-    count = Integer
+    #group_type = String
+    #count = Integer
     visibility = String
