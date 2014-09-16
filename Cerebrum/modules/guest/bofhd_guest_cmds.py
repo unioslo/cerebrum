@@ -62,6 +62,8 @@ class BofhdExtension(BofhdCommandBase):
 
     """ Guest commands. """
 
+    hidden_commands = {}  # Not accessible through bofh
+
     all_commands = {}
 
     def __init__(self, server):
@@ -78,7 +80,9 @@ class BofhdExtension(BofhdCommandBase):
                 'guest_remove': 'Deactivate a guest user',
                 'guest_info': 'View information about a guest user',
                 'guest_list': 'List out all guest users for a given owner',
-                'guest_list_all': 'List out all guest users', },
+                'guest_list_all': 'List out all guest users',
+                'guest_reset_password':
+                    'Reset the password of a guest user, and nootify by SMS', }
             }
 
         arg_help = {
@@ -405,6 +409,15 @@ class BofhdExtension(BofhdCommandBase):
                                  maxlen=guestconfig.GUEST_MAX_LENGTH_USERNAME,
                                  prefix=settings['prefix'],
                                  suffix='')[0]
+        if settings['prefix'] and not name.startswith(settings['prefix']):
+            # TODO/FIXME: Seems suggest_unames ditches the prefix setting if
+            # there's not a lot of good usernames left with the given
+            # constraints.
+            # We could either fix suggest_uname (but that could lead to
+            # complications with the imports), or we could try to mangle the
+            # name and come up with new suggestions.
+            raise Errors.RealityError("No potential usernames available")
+
         # TODO: make use of ac.create() instead, when it has been defined
         # properly.
         ac.populate(name=name, owner_type=self.const.entity_group,
@@ -565,7 +578,7 @@ class BofhdExtension(BofhdCommandBase):
     def guest_list_all(self, operator):
         """ Return a list of all personal guest accounts in Cerebrum. """
         if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied('Only superuser can list all guests') 
+            raise PermissionDenied('Only superuser can list all guests')
         ret = []
         for row in self._get_guests():
             try:
@@ -576,3 +589,57 @@ class BofhdExtension(BofhdCommandBase):
         if not ret:
             raise CerebrumError("Found no guest accounts.")
         return ret
+
+    hidden_commands['guest_reset_password'] = Command(
+        ('guest', 'reset_password'),
+        AccountName(),
+        fs=FormatSuggestion([('New password for user %s, notified %s by SMS.',
+                              ('username', 'mobile', )), ]),
+        perm_filter='can_reset_guest_password')
+
+    def guest_reset_password(self, operator, username):
+        """ Reset the password of a guest account.
+
+        :param BofhdSession operator: The operator
+        :param string username: The username of the guest account
+
+        :return dict: A dictionary with keys 'username' and 'mobile'
+
+        """
+        account = self._get_account(username)
+        self.ba.can_reset_guest_password(operator.get_entity_id(),
+                                         guest=account)
+        operator_name = self._get_account_name(operator.get_entity_id())
+
+        try:
+            mobile = account.get_contact_info(
+                source=self.const.system_manual,
+                type=self.const.contact_mobile_phone)[0]['contact_value']
+        except (IndexError, KeyError):
+            raise CerebrumError(
+                "No contact info registered for %s" % account.account_name)
+
+        password = account.make_passwd(account.account_name)
+        account.set_password(password)
+        account.write_db()
+
+        # Store password in session for misc_list_passwords
+        operator.store_state("user_passwd",
+                             {'account_id': int(account.entity_id),
+                              'password': password})
+
+        msg = guestconfig.GUEST_PASSWORD_SMS % {
+            'changeby': operator_name,
+            'username': account.account_name,
+            'password': password}
+        if getattr(cereconf, 'SMS_DISABLE', False):
+            self.logger.info("""SMS disabled in cereconf, would send to
+            '%s':\n%s\n""" % (mobile, msg))
+        else:
+            sms = SMSSender(logger=self.logger)
+            if not sms(mobile, msg):
+                raise CerebrumError(
+                    "Unable to send SMS to registered number '%s'" % mobile)
+
+        return {'username': account.account_name,
+                'mobile': mobile}
