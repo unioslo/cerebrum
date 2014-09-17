@@ -376,6 +376,31 @@ class BofhdExtension(BofhdCommonMethods,
             pass
         return info
 
+    # Help function for adding entity notes in info-commands.
+    # Appends tuples to the passed list with every note related
+    # to the specified entity_id, if the current operator
+    # has permission to view notes. If permission check fails,
+    # it will do so silently and make no changes to the list.
+    def _append_entity_notes(self, info_list, operator, entity_id):
+        try:
+            self.ba.can_show_notes(operator.get_entity_id())
+
+            enote = Note.EntityNote(self.db)
+            enote.find(entity_id)
+
+            for n in enote.get_notes():
+                info_list.append({
+                    'note_id':
+                    n['note_id'],
+                    'note_subject':
+                    n['subject'] if len(n['subject']) > 0 else '<not set>',
+                    'note_description':
+                    n['description'] if len(n['description']) > 0
+                    else '<not set>'
+                })
+        except:
+            pass
+
     # email migrate
     # will be used for migretion of mail accounts from IMAP to Exchange
     #
@@ -446,7 +471,7 @@ class BofhdExtension(BofhdCommonMethods,
     # These are just for show, UiA is not really using this
     _mailman_pipe = "|/fake %(interface)s %(listname)s"
     _mailman_patt = r'\|/fake (\S+) (\S+)$'
-    
+
     # person info
     all_commands['person_info'] = Command(
         ("person", "info"), PersonId(help_ref="id:target:person"),
@@ -473,7 +498,11 @@ class BofhdExtension(BofhdCommonMethods,
                                                       "office_source")),
             ("Contact:       %s: %s [from %s]", ("contact_type", "contact",
                                                  "contact_src")),
+            ("Note:          (#%d) %s: %s", ('note_id',
+                                             'note_subject',
+                                             'note_description'))
         ]))
+
     def person_info(self, operator, person_id):
         try:
             person = self.util.get_target(person_id, restrict_to=['Person'])
@@ -481,7 +510,8 @@ class BofhdExtension(BofhdCommonMethods,
             raise CerebrumError("Unexpectedly found more than one person")
         try:
             p_name = person.get_name(self.const.system_cached,
-                                     getattr(self.const, cereconf.DEFAULT_GECOS_NAME))
+                                     getattr(self.const,
+                                             cereconf.DEFAULT_GECOS_NAME))
             p_name = p_name + ' [from Cached]'
         except Errors.NotFoundError:
             raise CerebrumError("No name is registered for this person")
@@ -603,17 +633,40 @@ class BofhdExtension(BofhdCommonMethods,
                                                self.const.contact_phone_private,
                                                self.const.contact_private_mobile):
                     continue
+
+                # Get string values of row['source_system'] and
+                # row['contact_type']to avoid insanely long
+                # lines that breaks PEP-8 standards
+                source_system_string = str(self.const.AuthoritativeSystem(
+                                           row['source_system']))
+                contact_type_string = str(self.const.ContactInfo(
+                                          row['contact_type']))
+
+                # Skip phone, private phone and private mobile values from SAP
+                if (source_system_string == 'SAP' and
+                    row['contact_type'] in (self.const.contact_phone_private,
+                                            self.const.contact_private_mobile,
+                                            self.const.contact_phone)):
+                    continue
+
                 data.append({'contact': row['contact_value'],
-                             'contact_src': str(self.const.AuthoritativeSystem(row['source_system'])),
-                             'contact_type': str(self.const.ContactInfo(row['contact_type']))})
+                             'contact_src': source_system_string,
+                             'contact_type': contact_type_string})
 
             # Office addresses
             for row in person.get_contact_info(self.const.system_sap,
                                                self.const.contact_office):
+
+                source_system_string = str(self.const.AuthoritativeSystem(
+                                           row['source_system']))
+
                 # TODO: add office address here too?
                 data.append({'office_code': row['contact_value'],
                              'office_room': row['contact_alias'],
-                             'office_source': str(self.const.AuthoritativeSystem(row['source_system']))})
+                             'office_source': source_system_string})
+
+        # Append entity notes to data
+        self._append_entity_notes(data, operator, person.entity_id)
 
         return data
 
@@ -894,20 +947,8 @@ class BofhdExtension(BofhdCommonMethods,
         if quarantined:
             ret.append({'quarantined': quarantined})
 
-        try:
-            self.ba.can_show_notes(operator.get_entity_id())
-
-            enote = Note.EntityNote(self.db)
-            enote.find(account.entity_id)
-
-            for n in enote.get_notes():
-                ret.append({
-                    'note_id': n['note_id'],
-                    'note_subject': n['subject'] if len(n['subject']) > 0 else '<not set>',
-                    'note_description': n['description'] if len(n['description']) > 0 else '<not set>',
-                })
-        except:
-            pass
+        # Append notes-info to ret
+        self._append_entity_notes(ret, operator, account.entity_id)
 
         return ret
 
