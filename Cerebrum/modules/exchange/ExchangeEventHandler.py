@@ -1390,7 +1390,7 @@ class ExchangeEventHandler(processing.Process):
                 self.ut.log_event(ev_mod, 'e_group:add')
             except AlreadyPerformedException:
                 # If we wind up here, the user was allready added. We might, in
-                # some circumstances, want to discard the event completly, but
+                # some circumstances, want to discard the event completely, but
                 # for now, we just pass along.
                 self.logger.debug1(
                     'eid:%d: Discarding e_group:add (%s into %s)' %
