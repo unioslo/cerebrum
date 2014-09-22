@@ -114,8 +114,12 @@ class LMSExport(object):
 
         account.find(primary_account_id)
         data["username"] = account.get_account_name()
-        data["email"] = account.get_contact_info(type=constants.contact_email)[0]["contact_value"]
-            
+
+        try:
+            data["email"] = account.get_contact_info(type=constants.contact_email)[0]["contact_value"]
+        except IndexError:
+            data["email"] = None
+
         self.user_entity_id2fnr[primary_account_id] = data["fnr"]
         self.user_entity_id2account[primary_account_id] = data["username"]
 
