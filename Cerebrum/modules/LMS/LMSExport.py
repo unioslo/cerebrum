@@ -118,6 +118,10 @@ class LMSExport(object):
         try:
             data["email"] = account.get_contact_info(type=constants.contact_email)[0]["contact_value"]
         except IndexError:
+            if entity_id is None:
+                identifier = "fnr:'%s'" % fnr
+            else:
+                identifier = "ent_id:'%s'" % entity_id
             logger.warning("Email not found for person:%s account:%s. Ignoring person" % (
                 identifier, primary_account_id))
             return None
