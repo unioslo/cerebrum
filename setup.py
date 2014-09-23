@@ -277,7 +277,7 @@ data_files = [
      [('design/cerebrum-core.dia', 0644),
       ('design/cerebrum-core.html', 0644),
       ('design/adminprotocol.html', 0644),
-      ('README', 0644),
+      ('README.md', 0644),
       ('COPYING', 0644), ]),
     ({'path': sbindir,
       'owner': cerebrum_user,
