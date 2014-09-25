@@ -20,7 +20,7 @@
 """Generalized SOAP interface for Cerebrums Entity functionality."""
 
 from Cerebrum.modules.cis import SoapListener, faults
-from rpclib.model.primitive import String
+from rpclib.model.primitive import String, Boolean
 from rpclib.model.complex import Array
 from rpclib.decorator import rpc
 
@@ -54,3 +54,11 @@ class EntityAPIService(SoapListener.BasicSoapServer):
          _returns=Array(QuarantineInfo))
     def quarantine_list(ctx, id_type, entity_id):
         return ctx.udc[NAMESPACE].quarantine_list(id_type, entity_id)
+
+    @rpc(String, String, String, _throws=faults.EndUserFault, _returns=Boolean)
+    def in_system(ctx, id_type, entity_id, system):
+        return ctx.udc[NAMESPACE].in_system(id_type, entity_id, system)
+
+    @rpc(String, String, String, _throws=faults.EndUserFault, _returns=Boolean)
+    def active_in_system(ctx, id_type, entity_id, system):
+        return ctx.udc[NAMESPACE].active_in_system(id_type, entity_id, system)

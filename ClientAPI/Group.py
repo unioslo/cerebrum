@@ -209,3 +209,28 @@ class Group(ClientAPI):
 
         GroupAPI.remove_member(gr, member.entity_id)
         return True
+
+    @commit_handler()
+    def group_set_expire(self, group_id_type, group_id, expire_date=None):
+        """Set an expire-date on a group.
+
+        :type group_id_type: str
+        :param group_id_type: Group identifier type, 'id' or 'group_name'
+
+        :type group_id: str
+        :param group_id: Group identifier
+
+        :type expire_date: <mx.DateTime>
+        :param expire_date: The expire-date to set, or None.
+        """
+        # Get group
+        gr = Utils.get(self.db, 'group', group_id_type, group_id)
+
+        if not gr:
+            raise Errors.CerebrumRPCException(
+                'Group %s:%s does not exist.' % (group_id_type, group_id))
+
+        # Perform auth check
+        self.ba.can_alter_group(self.operator_id, gr)
+
+        GroupAPI.set_expire_date(gr, expire_date)

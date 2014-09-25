@@ -130,3 +130,57 @@ class Entity(ClientAPI):
             return map(fixer, e.get_subclassed_object().get_spread())
         except NameError:
             raise Errors.CerebrumRPCException("No spreads in entity")
+
+    def in_system(self, id_type, entity_id, system):
+        """Check if a user is represented in a system.
+
+        :type id_type: basestring
+        :param id_type: The id-type to look-up by.
+
+        :type entity_id: basestring
+        :param entity_id: The entitys id.
+
+        :type system: basestring
+        :param system: The system to check."""
+        co = Factory.get('Constants')(self.db)
+
+        # Fetch entity
+        e = Utils.get(self.db, 'entity', id_type, entity_id)
+        if not e:
+            # TODO: Should this be raised in the Utils-module/class/whatever?
+            raise Errors.CerebrumRPCException('Entity does not exist')
+
+        try:
+            sys = co.Spread(system)
+            int(sys)
+        except Errors.NotFoundError:
+            raise Errors.CerebrumRPCException('System does not exist')
+
+        try:
+            return bool(e.get_subclassed_object().has_spread(sys))
+        except AttributeError:
+            # If we wind up here, the entity does not have the EntitySpread
+            # class mixed into itself. When the EntitySpread-class is not mixed
+            # in, we get an AttributeError since has_spread() is not defined.
+            # TBD: Return false, or raise something?
+            return False
+
+    def active_in_system(self, id_type, entity_id, system):
+        """Check if a user is represented and active in a system.
+
+        :type id_type: basestring
+        :param id_type: The id-type to look-up by.
+
+        :type entity_id: basestring
+        :param entity_id: The entitys id.
+
+        :type system: basestring
+        :param system: The system to check."""
+        # Check for existing quarantines on the entity that are locking the
+        # entity out, and also check if the entity is in the system.
+        if (filter(lambda x: bool(x['lock_out']) is True,
+            self.quarantine_list(id_type, entity_id)) or not
+                self.in_system(id_type, entity_id, system)):
+            return False
+        else:
+            return True

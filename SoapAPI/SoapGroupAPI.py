@@ -71,3 +71,9 @@ class GroupAPIService(SoapListener.BasicSoapServer):
     def group_info(ctx, group_id_type, group_id):
         return ctx.udc[NAMESPACE].group_info(
             group_id_type, group_id)
+
+    @rpc(String, String, DateTime, _throws=faults.EndUserFault)
+    def group_set_expire(ctx, group_id_type, group_id, expire_date=None):
+        return ctx.udc[NAMESPACE].group_set_expire(group_id_type,
+                                                   group_id,
+                                                   expire_date)

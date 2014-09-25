@@ -871,7 +871,8 @@ class GroupAPI(object):
             'name': gr.group_name,
             'description': gr.description,
             'expire_date': gr.expire_date,
-            'visibility': str(co.GroupVisibility(gr.visibility)) if gr.visibility else None,
+            'visibility': (str(co.GroupVisibility(gr.visibility)) if
+                           gr.visibility else None),
         }
 
         return info
@@ -954,3 +955,16 @@ class GroupAPI(object):
         role = BofhdAuthRole(en._db)
         role.grant_auth(en.entity_id, op_set.op_set_id,
                         op_target.op_target_id)
+
+    @staticmethod
+    def set_expire_date(gr, expire_date=None):
+        """Set expire-date on a group.
+
+        :type gr: <Cerebrum.Group.Group>
+        :param gr: A Cerebrum group object.
+
+        :type expire_date: <mx.DateTime>
+        :param expire_date: The expire-date to set, or None.
+        """
+        gr.expire_date = expire_date
+        gr.write_db()
