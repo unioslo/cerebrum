@@ -76,6 +76,10 @@ class Entity(ClientAPI):
         #         create_date: DateTime, start_date: DateTime,
         #         disable_until: DateTime, DateTime: end_date}
         e = Utils.get(self.db, 'entity', id_type, entity_id)
+
+        # Check if the user should be able to see the quarantine.
+        self.ba.can_show_quarantines(self.operator_id, e)
+
         q = e.get_entity_quarantine()
 
         types = dict()
