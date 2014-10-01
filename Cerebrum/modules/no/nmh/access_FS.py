@@ -23,7 +23,7 @@ from Cerebrum.modules.no import access_FS
 
 class NMHStudent(access_FS.Student):
     def list_aktiv(self):
-        """ Hent opplysninger om studenter definert som aktive 
+        """ Hent opplysninger om studenter definert som aktive
         ved NMH. En aktiv student er en student som har et gyldig
         opptak til et studieprogram der studentstatuskode er 'AKTIV'
         eller 'PERMISJON' og sluttdatoen er enten i fremtiden eller
@@ -58,7 +58,7 @@ class NMHStudent(access_FS.Student):
         qry = """
         SELECT p.fodselsdato, p.personnr, vm.emnekode, vm.studieprogramkode
         FROM fs.person p, fs.vurdkombmelding vm,
-        fs.vurderingskombinasjon vk, fs.vurderingstid vt, 
+        fs.vurderingskombinasjon vk, fs.vurderingstid vt,
         fs.vurdkombenhet ve
         WHERE p.fodselsdato=vm.fodselsdato AND
               p.personnr=vm.personnr AND
@@ -71,7 +71,7 @@ class NMHStudent(access_FS.Student):
               vm.vurdtidkode = vt.vurdtidkode AND
               ve.emnekode = vm.emnekode AND
               ve.versjonskode = vm.versjonskode AND
-              ve.vurdkombkode = vm.vurdkombkode AND 
+              ve.vurdkombkode = vm.vurdkombkode AND
               ve.vurdtidkode = vm.vurdtidkode AND
               ve.institusjonsnr = vm.institusjonsnr AND
               ve.arstall = vt. arstall AND
@@ -79,14 +79,14 @@ class NMHStudent(access_FS.Student):
               ve.arstall_reell = %s
               AND %s
         ORDER BY fodselsdato, personnr
-        """ % (self.year, self._is_alive())                            
+        """ % (self.year, self._is_alive())
         return self.db.query(qry)
 
 class NMHUndervisning(access_FS.Undervisning):
     ## TBD: avskaffe UiO-spesifikke søk for list_undervisningsenheter
     ##      og list_studenter_underv_enhet.
     ##      Prøve å lage generell list_studenter_kull.
-    ##      Prøve å fjerne behov for override-metoder her 
+    ##      Prøve å fjerne behov for override-metoder her
     def list_undervisningenheter(self, sem=None):
         """Henter undervisningsenheter i nåverende (current) og/eller neste
         (next) semester. Default er både nåværende og neste semeter, så en får
@@ -99,17 +99,17 @@ class NMHUndervisning(access_FS.Undervisning):
         qry = """
         SELECT DISTINCT
           r.institusjonsnr, r.emnekode, r.versjonskode, e.emnenavnfork,
-          e.emnenavn_bokmal, e.faknr_kontroll, e.instituttnr_kontroll, 
+          e.emnenavn_bokmal, e.faknr_kontroll, e.instituttnr_kontroll,
           e.gruppenr_kontroll, r.terminnr, r.terminkode, r.arstall,
           r.status_eksport_lms
-        FROM 
+        FROM
           fs.emne e, fs.undervisningsenhet r
         WHERE
           r.emnekode = e.emnekode AND
-          r.versjonskode = e.versjonskode AND """ 
+          r.versjonskode = e.versjonskode AND """
         if (sem == "current"):
             qry +="""%s""" % self._get_termin_aar(only_current=1)
-        elif (sem == 'next'): 
+        elif (sem == 'next'):
             qry +="""%s""" % self._get_next_termin_aar()
         else:
             qry +="""(%s OR %s)""" % (self._get_termin_aar(only_current=1),
@@ -127,7 +127,7 @@ class NMHUndervisning(access_FS.Undervisning):
         if start_semester is None:
             start_semester = self.semester
         return self.db.query("""
-        SELECT  
+        SELECT
           ua.institusjonsnr, ua.emnekode, ua.versjonskode,
           ua.terminkode, ua.arstall, ua.terminnr, ua.aktivitetkode,
           ua.undpartilopenr, ua.disiplinkode, ua.undformkode,
@@ -152,7 +152,7 @@ class NMHUndervisning(access_FS.Undervisning):
 
     def list_studenter_underv_enhet(self, institusjonsnr, emnekode, versjonskode,
                                     terminkode, arstall, terminnr):
-        """Finn fødselsnumrene til alle studenter på et gitt 
+        """Finn fødselsnumrene til alle studenter på et gitt
         undervisningsenhet. Skal brukes til å generere grupper for
         adgang til CF."""
         qry = """
@@ -205,14 +205,14 @@ class NMHUndervisning(access_FS.Undervisning):
         # if you select from more than one table, which is why we need to
         # explicitly do a JOIN with the regular table fs.fagperson:
         qry = """
-        SELECT DISTINCT 
+        SELECT DISTINCT
               fp.fodselsdato, fp.personnr, p.etternavn, p.fornavn,
               fp.adrlin1_arbeide, fp.adrlin2_arbeide, fp.postnr_arbeide,
               fp.adrlin3_arbeide, fp.adresseland_arbeide,
               fp.telefonnr_arbeide, fp.telefonnr_fax_arb,
               p.adrlin1_hjemsted, p.adrlin2_hjemsted, p.postnr_hjemsted,
-              p.adrlin3_hjemsted, p.adresseland_hjemsted, 
-              p.telefonnr_hjemsted, fp.stillingstittel_engelsk, 
+              p.adrlin3_hjemsted, p.adresseland_hjemsted,
+              p.telefonnr_hjemsted, fp.stillingstittel_engelsk,
               fp.institusjonsnr_ansatt AS institusjonsnr,
               fp.faknr_ansatt AS faknr,
               fp.instituttnr_ansatt AS instituttnr,
@@ -232,7 +232,7 @@ class NMHUndervisning(access_FS.Undervisning):
               fp.faknr_ansatt IS NOT NULL AND
               fp.instituttnr_ansatt IS NOT NULL AND
               fp.gruppenr_ansatt IS NOT NULL
-        """ 
+        """
         return self.db.query(qry)
 
 class NMHStudieInfo(access_FS.StudieInfo):
@@ -259,7 +259,7 @@ class FS(access_FS.FS):
         self.year = t[0]
         self.mndnr = t[1]
         self.dday = t[2]
-        
+
         # Override with nmh-spesific classes
         self.student = NMHStudent(self.db)
         self.undervisning = NMHUndervisning(self.db)
