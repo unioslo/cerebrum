@@ -1,4 +1,5 @@
-# -*- coding: iso-8859-1 -*-
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 # Copyright 2002, 2003, 2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -27,10 +28,10 @@ class NMHStudent(access_FS.Student):
 
         En aktiv student er en student som har et gyldig opptak til et
         studieprogram der sluttdatoen er enten i fremtiden eller ikke satt.
-        Studentstatuskode kan vere av forskjellige typer, NMH ønsker også at
-        studenter som har sluttet på et program fremdeles skal ha tilgang til
+        Studentstatuskode kan vere av forskjellige typer, NMH Ã¸nsker ogsÃ¥ at
+        studenter som har sluttet pÃ¥ et program fremdeles skal ha tilgang til
         sluttdatoen er passert. Som rutine i FS skal alltid sluttdatoen
-        oppdateres når status endres, så dette gjør at de kan styre når
+        oppdateres nÃ¥r status endres, sÃ¥ dette gjÃ¸r at de kan styre nÃ¥r
         studenten mister IT-tilgangen, til etter at alt er oppdatert i
         studentweb.
 
@@ -54,14 +55,14 @@ class NMHStudent(access_FS.Student):
           p.personnr = s.personnr AND
           %s AND
           sps.status_privatist = 'N' AND
-          sps.studentstatkode IN ('AKTIV', 'PERMISJON', 'FULLFØRT',
+          sps.studentstatkode IN ('AKTIV', 'PERMISJON', 'FULLFÃ˜RT',
                                   'OVERGANG', 'SLUTTET') AND
           NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE
           """ % (self._is_alive())
         return self.db.query(qry)
 
     def list_eksamensmeldinger(self):  # GetAlleEksamener
-        """Hent ut alle eksamensmeldinger i nåværende sem."""
+        """Hent ut alle eksamensmeldinger i nÃ¥vÃ¦rende sem."""
 
         qry = """
         SELECT p.fodselsdato, p.personnr, vm.emnekode, vm.studieprogramkode
@@ -91,17 +92,17 @@ class NMHStudent(access_FS.Student):
         return self.db.query(qry)
 
 class NMHUndervisning(access_FS.Undervisning):
-    ## TBD: avskaffe UiO-spesifikke søk for list_undervisningsenheter
+    ## TBD: avskaffe UiO-spesifikke sÃ¸k for list_undervisningsenheter
     ##      og list_studenter_underv_enhet.
-    ##      Prøve å lage generell list_studenter_kull.
-    ##      Prøve å fjerne behov for override-metoder her
+    ##      PrÃ¸ve Ã¥ lage generell list_studenter_kull.
+    ##      PrÃ¸ve Ã¥ fjerne behov for override-metoder her
     def list_undervisningenheter(self, sem=None):
-        """Henter undervisningsenheter i nåverende (current) og/eller neste
-        (next) semester. Default er både nåværende og neste semeter, så en får
-        med enhetene til undervisningsaktiviteter som går over to semester.
+        """Henter undervisningsenheter i nÃ¥verende (current) og/eller neste
+        (next) semester. Default er bÃ¥de nÃ¥vÃ¦rende og neste semeter, sÃ¥ en fÃ¥r
+        med enhetene til undervisningsaktiviteter som gÃ¥r over to semester.
 
         For hver undervisningsenhet henter vi institusjonsnr, emnekode,
-        versjonskode, terminkode + årstall, terminnr samt hvorvidt enheten skal
+        versjonskode, terminkode + Ã¥rstall, terminnr samt hvorvidt enheten skal
         eksporteres til LMS."""
 
         qry = """
@@ -126,10 +127,10 @@ class NMHUndervisning(access_FS.Undervisning):
 
     def list_aktiviteter(self, start_aar=time.localtime()[0],
                          start_semester=None):
-        """Henter info om undervisningsaktiviteter for inneværende
+        """Henter info om undervisningsaktiviteter for innevÃ¦rende
         semester. For hver undervisningsaktivitet henter vi
-        institusjonsnr, emnekode, versjonskode, terminkode + årstall,
-        terminnr, aktivitetskode, underpartiløpenummer, disiplinkode,
+        institusjonsnr, emnekode, versjonskode, terminkode + Ã¥rstall,
+        terminnr, aktivitetskode, underpartilÃ¸penummer, disiplinkode,
         kode for undervisningsform, aktivitetsnavn samt hvorvidt
         enheten skal eksporteres til LMS."""
         if start_semester is None:
@@ -147,7 +148,7 @@ class NMHUndervisning(access_FS.Undervisning):
           ua.undpartilopenr IS NOT NULL AND
           ua.disiplinkode IS NOT NULL AND
           ua.undformkode IS NOT NULL AND
-          ua.terminkode IN ('VÅR', 'HØST') AND
+          ua.terminkode IN ('VÃ…R', 'HÃ˜ST') AND
           ua.terminkode = t.terminkode AND
           ((ua.arstall = :aar AND
             EXISTS (SELECT 'x' FROM fs.arstermin tt
@@ -160,8 +161,8 @@ class NMHUndervisning(access_FS.Undervisning):
 
     def list_studenter_underv_enhet(self, institusjonsnr, emnekode, versjonskode,
                                     terminkode, arstall, terminnr):
-        """Finn fødselsnumrene til alle studenter på et gitt
-        undervisningsenhet. Skal brukes til å generere grupper for
+        """Finn fÃ¸dselsnumrene til alle studenter pÃ¥ et gitt
+        undervisningsenhet. Skal brukes til Ã¥ generere grupper for
         adgang til CF."""
         qry = """
         SELECT DISTINCT
@@ -184,7 +185,7 @@ class NMHUndervisning(access_FS.Undervisning):
 
 
     def list_studenter_kull(self, studieprogramkode, terminkode, arstall):
-        """Hent alle studentene som er oppført på et gitt kull."""
+        """Hent alle studentene som er oppfÃ¸rt pÃ¥ et gitt kull."""
 
         query = """
         SELECT DISTINCT
@@ -204,7 +205,7 @@ class NMHUndervisning(access_FS.Undervisning):
                                      "arstall_kull"      : arstall})
 
     def list_fagperson_semester(self):
-        """Hent ut data om fagpersoner. NMH har et tilleggsbehov for å hente ut
+        """Hent ut data om fagpersoner. NMH har et tilleggsbehov for Ã¥ hente ut
         fagfelt og instrument for fagpersonene.
 
         """
