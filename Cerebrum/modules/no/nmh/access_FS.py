@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002, 2003, 2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -23,11 +23,18 @@ from Cerebrum.modules.no import access_FS
 
 class NMHStudent(access_FS.Student):
     def list_aktiv(self):
-        """ Hent opplysninger om studenter definert som aktive
-        ved NMH. En aktiv student er en student som har et gyldig
-        opptak til et studieprogram der studentstatuskode er 'AKTIV'
-        eller 'PERMISJON' og sluttdatoen er enten i fremtiden eller
-        ikke satt."""
+        """ Hent opplysninger om studenter definert som aktive ved NMH.
+
+        En aktiv student er en student som har et gyldig opptak til et
+        studieprogram der sluttdatoen er enten i fremtiden eller ikke satt.
+        Studentstatuskode kan vere av forskjellige typer, NMH ønsker også at
+        studenter som har sluttet på et program fremdeles skal ha tilgang til
+        sluttdatoen er passert. Som rutine i FS skal alltid sluttdatoen
+        oppdateres når status endres, så dette gjør at de kan styre når
+        studenten mister IT-tilgangen, til etter at alt er oppdatert i
+        studentweb.
+
+        """
         qry = """
         SELECT DISTINCT
           s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
@@ -47,7 +54,8 @@ class NMHStudent(access_FS.Student):
           p.personnr = s.personnr AND
           %s AND
           sps.status_privatist = 'N' AND
-          sps.studentstatkode IN ('AKTIV', 'PERMISJON') AND
+          sps.studentstatkode IN ('AKTIV', 'PERMISJON', 'FULLFØRT',
+                                  'OVERGANG', 'SLUTTET') AND
           NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE
           """ % (self._is_alive())
         return self.db.query(qry)
