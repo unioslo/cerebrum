@@ -54,14 +54,24 @@ class Constants(Constants.Constants):
         'PAGA_ANSATTNR',
         Constants.Constants.entity_person,
         'Internal PAGA identifier')
+    externalid_sito_ansattnr = _EntityExternalIdCode(
+        'SITO_ANSATTNR',
+        Constants.Constants.entity_person,
+        'Internal SITO identifier')
+    externalid_sito_ou = _EntityExternalIdCode(
+        'SITO_OU',
+        Constants.Constants.entity_ou,
+        'internal sito ou identifier')
 
     # Authoritative systems
+    system_hifm = _AuthoritativeSystemCode('HIFM', 'Høgskolen i Alta')
     system_hitos = _AuthoritativeSystemCode('HITOS', 'Høgskolen i Tromsø')
     system_lt = _AuthoritativeSystemCode('SLP4', 'SLP4')
     system_x = _AuthoritativeSystemCode('SYS_X', 'Manuelt personal system')
     system_tlf = _AuthoritativeSystemCode('TLF', 'Telefoni system')
     system_sysacc = _AuthoritativeSystemCode('SYSACC', 'System Accounts')
     system_paga = _AuthoritativeSystemCode('PAGA', 'PAGA')
+    system_sito = _AuthoritativeSystemCode('SITO', 'SITO')
 
     # Account codes
     account_test = _AccountCode('T', 'Testkonto')
@@ -77,6 +87,8 @@ class Constants(Constants.Constants):
     contact_room = _ContactInfoCode('ROOM@UIT', 'Location and room number')
     contact_building = _ContactInfoCode('BYGG@UIT', 'Building name')
 
+    # OU Structure perspective
+    perspective_sito = _OUPerspectiveCode('SITO', 'SITO')
 
     # Ansatt affiliation and status
     affiliation_ansatt = _PersonAffiliationCode(
@@ -86,6 +98,20 @@ class Constants(Constants.Constants):
         affiliation_ansatt, 
         'sys_x-ansatt',
         'Manuelt gitt tilgang til AD (bør nyanseres)')
+    affiliation_ansatt_sito = _PersonAffiliationCode(
+        'SITO',
+        'Ansatt ved studentsamskipnaden i tromso')
+
+    # Affiliation status
+    affiliation_status_ansatt_sito_sterk = _PersonAffStatusCode(
+        affiliation_ansatt_sito,
+        'sito_sterk',
+        'Ansatt med sterk uit tilknytning')
+
+    affiliation_status_ansatt_sito_svak = _PersonAffStatusCode(
+        affiliation_ansatt_sito,
+        'sito_svak',
+        'Ansatt med svak uit tilknytning')
 
     # Student affiliation and status
     affiliation_student = _PersonAffiliationCode(

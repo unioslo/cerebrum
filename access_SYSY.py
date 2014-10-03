@@ -39,7 +39,7 @@ class SystemY(object):
             user = user or cereconf.SYSY_USER
             database = database or cereconf.SYSY_DATABASE_NAME
             db = Database.connect(user=user, service=database, 
-                                  host=host, DB_driver = 'PsycoPG')
+                                  host=host, DB_driver = 'PsycoPG2')
         self.db = db
 
 

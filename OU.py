@@ -181,6 +181,13 @@ class OUEntityExpireMixin(EntityExpire, OU):
                                               recursive,expired_before))
         return ret
 
+    def list_all_with_perspective(self, perspective):
+        extra = "WHERE eln.entity_id = os.ou_id"
+        return self.query("""
+        SELECT os.ou_id, eln.name FROM [:table schema=cerebrum name=ou_structure] os, [:table schema=cerebrum name=entity_language_name] eln \
+        WHERE os.perspective=:perspective and os.ou_id = eln.entity_id""",
+                          {'perspective': int(perspective)})
+                          
     # Will only list non-expired entities
     def list_all(self, filter_quarantined=False, expired_before=None):
     

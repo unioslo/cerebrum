@@ -1,0 +1,21 @@
+2014-09-05  Karen   <cerebrum@metius.uit.no>
+
+    * Account.py (AccountUiTMixin): Now using md5 from the hashlib library instead of the deprecated md5 library.
+
+2014-08-26  Karen   <cerebrum@metius.uit.no>
+
+    * access_SYSY.py (SystemY): Changed DB_driver to PsycoPG2.
+
+2014-05-23  Karen   <cerebrum@metius.uit.no>
+
+    * Constants.py (Constants): Added externalid_sito_ou and perspective_sito.
+        
+    * OU.py (OUEntityExpireMixin): Added list_all_with_perspective().
+
+2014-03-27  Karen   <cerebrum@metius.uit.no>
+
+    * Constants.py (Constants): Added system_sito as an authoritative system.
+
+2014-03-18  Karen   <cerebrum@metius.uit.no>
+
+    * Database.py: Made change so that cx_Oracle is used instead of DCOracle2.
