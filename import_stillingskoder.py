@@ -41,7 +41,6 @@ import getopt
 import time
 import os
 import csv
-from sets import Set
 
 import cerebrum_path
 import cereconf
@@ -130,8 +129,8 @@ class stillingskoder(object):
         
 def sync_skoder(current,new):
     
-    current_set=Set(current.keys())
-    new_set=Set(new.keys())
+    current_set=set(current.keys())
+    new_set=set(new.keys())
     
     to_add=new_set.difference(current_set)
     to_delete=current_set.difference(new_set)

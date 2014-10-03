@@ -49,7 +49,7 @@ import csv
 import getopt
 import csv
 import mx.DateTime
-from sets import Set
+import datetime
 
 import cerebrum_path
 import cereconf
@@ -95,7 +95,11 @@ def init_cache(checknames,checkmail):
     logger.info("Caching account owners")
     uname2ownerid=dict()
     uname2expire=dict()
-    for a in ac.search(expire_start=None,expire_stop=mx.DateTime.MaxDateTime):
+    
+    # for a in ac.search(expire_start=None,expire_stop=mx.DateTime.MaxDateTime):
+    # KEB: replaced the above line with the line below as there is a problem with using 
+    #      mx.DateTime.MaxDateTime on metius.
+    for a in ac.search(expire_start=None,expire_stop=mx.DateTime.DateTime(datetime.MAXYEAR,12,31)):
         uname2ownerid[a['name']]=a['owner_id']
         uname2expire[a['name']]=a['expire_date']
     if checknames:
@@ -216,8 +220,8 @@ def process_contact(userid,data,checknames,checkmail):
                         "Name spelling differ: yours=%s %s, ours=%s %s" %
                         (tlf_fname,tlf_lname,cb_fname,cb_lname))
 
-    db_idx = Set(cinfo.keys())
-    src_idx= Set(idxlist)
+    db_idx = set(cinfo.keys())
+    src_idx= set(idxlist)
     for idx in db_idx-src_idx:
         changes.append(('del_contact', (idx,None)))
     
@@ -241,7 +245,7 @@ def process_telefoni(filename,checknames,checkmail):
     for userid,pdata in phonedata.items():
         process_contact(userid, pdata,checknames,checkmail)
 
-    unprocessed = Set(person2contact.keys()) - Set(processed)
+    unprocessed = set(person2contact.keys()) - set(processed)
     for p_id in unprocessed:
         changes=list()
         contact_info=person2contact[p_id]
@@ -292,6 +296,7 @@ def usage(exitcode=0,msg=None):
 
 def main():
     global dryrun
+
     default_phonefile='%s/telefoni/user_%s.txt' % (cereconf.DUMPDIR,
                                                    time.strftime("%Y%m%d"))
     phonefile=dryrun=checknames=checkmail=False

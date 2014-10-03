@@ -217,7 +217,7 @@ def main():
 
     dryrun = False
     tmpfile = '/tmp/last_portal_dump'
-    url = 'http://www2.uit.no/portal/page/portal/UiT%20Administrator%20verktoy/navnalias'
+    url = 'http://wlp1n1.uit.no:7000/navnealias'
     outfile = default_outfile
 
     for opt,val in opts:

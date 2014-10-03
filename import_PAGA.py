@@ -38,9 +38,9 @@ import mx.DateTime
 import datetime
 import xml.sax
 
-from Cerebrum.modules.no.uit.PagaDataParser import PagaDataParserClass
 import cerebrum_path
 import cereconf
+from Cerebrum.modules.no.uit.PagaDataParser import PagaDataParserClass
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
@@ -297,7 +297,8 @@ def process_person(person):
     new_person.clear()
 
     try:
-        new_person.find_by_external_id(const.externalid_paga_ansattnr, paga_nr)
+        new_person.find_by_external_id(const.externalid_paga_ansattnr, str(paga_nr)) 
+        #KEB: added str() "around" paga_nr to the above line
     except Errors.NotFoundError:
         if person.get('fnr',''):
             try:

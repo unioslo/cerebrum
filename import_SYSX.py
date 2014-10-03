@@ -119,8 +119,8 @@ def create_sysx_person(sxp):
     fullt_navn = "%s %s" % (fornavn,etternavn)
     approved = sxp['approved']
 
-    #logger.debug("Trying to process %s %s ID=%s, national_id=%s,approved=%s" % \ 
-    #                       (fornavn,etternavn,id,national_id,approved))
+    #logger.debug("Trying to process %s %s ID=%s,approved=%s" %
+    #                       (fornavn,etternavn,id,approved))
     if check_expired_sourcedata(sxp['expire_date']):
        logger.info("Skip %s (SysXId=%s)(pnr=%s), it is expired %s" % (fullt_navn, 
                                                                       id, 
@@ -229,7 +229,13 @@ def create_sysx_person(sxp):
     fak = sxp['ou'][0:2]
     ins = sxp['ou'][2:4]
     avd = sxp['ou'][4:6]
-
+    
+    #KEB
+    if fak == '0':
+        logger.warn("Person with SysX id=%s and fnr=%s, has invalid stedkode: %s%s%s" 
+        % (id, personnr, fak, ins, avd));
+        ins = fak
+        avd = fak
     try:
         my_stedkode.find_stedkode(fak,ins,avd,cereconf.DEFAULT_INSTITUSJONSNR)
     except EntityExpiredError, err:

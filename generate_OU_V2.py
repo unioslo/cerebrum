@@ -25,7 +25,7 @@
 # right ou information from that file. For stedkoder who doesnt
 # exist in the FS file, default data is inserted
 #
-
+import pprint
 import getopt
 import sys
 import string
@@ -33,13 +33,15 @@ import os
 import time
 import cerebrum_path
 import cereconf
-from Cerebrum.Utils import Factory
+from Cerebrum.Utils import Factory #KEB: this is imported 3 lines below here...
 from Cerebrum import Database
 from Cerebrum.modules.no.uit.access_FS import FS
 from Cerebrum.Utils import Factory, AtomicFileWriter
 from Cerebrum.extlib import xmlprinter
 
+pp = pprint.PrettyPrinter(indent=4)
 logger = Factory.get_logger("cronjob")
+
 
 # Default file locations
 t = time.localtime()
@@ -54,16 +56,20 @@ class ou:
     def __init__(self,ou_files):
         for file in ou_files:
             if not(os.path.isfile(file)):
-                logger.error("ou file:%s does not exist\n" % file)
-                sys.exit(1)
+                logger.warn("ou file:%s does not exist\n" % file)
+                ou_files.remove(file)
+                #KEB: What if we end up with an empty list? 
+                #     Looks like it should be ok, but haven't tested this
+        
         self.ou_files = ou_files
+        
         # BAS
 	logger.info("Connecting to BAS DB")
         self.db = Factory.get('Database')()
 
         # FS 
         user="fsbas"
-        service="fsprod"
+        service="fskurs"
         logger.info("Connecting to FS db")
         self.fs_db = Database.connect(user=user,service=service,DB_driver='Oracle')
         self.fs = FS(self.fs_db)
@@ -146,106 +152,82 @@ class ou:
     def get_authoritative_ou(self):
         authoritative_ou=dict()
         # positions in file
-        FAKNR=0
-        FAKNAME=1
-        INSTNR=2
-        INSTNAME=3
-        GRPNR=4
-        GRPNAME=5
-        PORTAL=8
-        #NODE_FOR_PERSON=7
-        SHORTNAME=6        
-        #STED_ORGCARD_NAME=9
-        STED_AKRONYM=7
-        #LEVEL=11
-        #LEVEL_SPES=12
-        SORT_KEY=9
-        num_fields=11        
+        STEDKODE = 0
+        AKRONYM = 1
+        STEDNAVN = 2
+        KORTNAVN = 3
+        FULTNAVN = 4
+        num_fields = 5
+        sort_key = 1
         import codecs
 
-        # BEGIN
         for file in self.ou_files:
-        
-            logger.info("Reading authoritative OU file %s" % file)
-            fileObj = codecs.open(file, "r", "iso-8859-1" )
+            logger.info("Reading authoritative OU file: %s" % file)
+            fileObj = codecs.open(file,"r","iso-8859-1")
             for line in fileObj:
                 line = line.encode('iso-8859-1')
-                if line and not line.startswith("#"):
-                    items=line.rstrip().split(";")
-                    if len(items)!=num_fields:
-                        logger.critical("Wrong length: got %d, ekspected %d\nLine=%s" % \
-                                        (len(items),num_fields,line.rstrip()))
-                        sys.exit(1)
-                        
-                    faknr=items[FAKNR].strip("\"").strip()
-#                    faknr=items[FAKNR].strip()
-                    fakultet=items[FAKNAME].strip("\"").strip()
-#                    fakultet=items[FAKNAME].strip()
-                    instnr=items[INSTNR].strip("\"").strip()
-#                    instnr=items[INSTNR].strip()
-                    avdnr=items[GRPNR].strip("\"").strip()
-#                    avdnr=items[GRPNR].strip()
-                    avdeling=items[GRPNAME].strip("\"").strip()
-#                    avdeling=items[GRPNAME].strip()
-                    shortname=items[SHORTNAME].strip("\"").strip()
-#                    shortname=items[SHORTNAME].strip()
-                    portal=items[PORTAL].strip("\"").strip()
-#                    portal=items[PORTAL].strip()
-                    akronym=items[STED_AKRONYM].strip("\"").strip()
-#                    akronym=items[STED_AKRONYM].strip()
-                    sort_key=items[SORT_KEY].strip("\"").strip()
-#                    sort_key=items[SORT_KEY].strip()
+                if ((line) and ((not line.startswith("#")) and (not line.startswith("\n")) and (not line.startswith(";")))):
+                    items = line.rstrip().split(";")
+                    if len(items) != num_fields:
+                        logger.critical("Wrong length: got %d, expected: %d" %(len(items),num_fields))
 
-                    if ((avdnr[4:6] == '00') and(instnr[2:4] == '00')):
+                    fakultetskode = items[STEDKODE].strip("\"").strip()
+                    faknr = fakultetskode[0:2]
+                    instituttnummer = items[STEDKODE].strip("\"").strip()
+                    instnr = instituttnummer[2:4]
+                    avdelingsnummer = items[STEDKODE].strip("\"").strip()
+                    avdnr = avdelingsnummer[4:6]
+                    fulltnavn= items[FULTNAVN].strip("\"").strip()
+                    akronym = items[AKRONYM].strip("\"").strip()
+                    kortnavn = items[KORTNAVN].strip("\"").strip()
+                    found = 0
+                    if ((avdnr == '00') and(instnr == '00')):
                         # we have a fakulty, must reference the uit institution
                         faknr_org_under = '00'
                         instituttnr_org_under = '00'
                         gruppenr_org_under= '00'
-                    
-                    if((avdnr[4:6] != '00') and (instnr != '00')):
+                        
+                        
+                    if((avdnr != '00') and (instnr != '00')):
                         # we have a group, must reference the institute
                         faknr_org_under= faknr
-                        instituttnr_org_under = instnr[2:4]
+                        instituttnr_org_under = instnr
                         gruppenr_org_under='00'
-
-                    if (((instnr[2:4] == '00')and(avdnr[4:6] != '00')) or
-                        ((instnr[2:4] != '00')and(avdnr[4:6] =='00'))):
+                        
+                        
+                    if (((instnr == '00')and(avdnr != '00')) or
+                        ((instnr != '00')and(avdnr  =='00'))):
                         # we have either a institute or a group directly under a 
                         # faculty. in either case it should reference he faculty
                         faknr_org_under = faknr
                         instituttnr_org_under = '00'
                         gruppenr_org_under = '00'
-
-
+    
+                        
                     katalog_merke='F'
-                    if portal.find('JA')>=0:
-                        katalog_merke='T'
-
-                    authoritative_ou[avdnr]  = {
-                        'fakultetnr' : faknr,
-                        'instituttnr' : instnr[2:4],
-                        'gruppenr' : avdnr[4:6],
-                        'stednavn' : avdeling,
-                        'display_name' : avdeling,
-                        'forkstednavn' : shortname,
-                        'stedlangnavn_bokmal': avdeling,
-                        'fakultetnr_for_org_sted' : faknr_org_under,
-                        'instituttnr_for_org_sted': instituttnr_org_under,
-                        'gruppenr_for_org_sted' : gruppenr_org_under,
+                   
+                    authoritative_ou[fakultetskode] = {
+                        'fakultetnr' : str(faknr).zfill(2),
+                        'instituttnr' : str(instnr).zfill(2),
+                        'gruppenr' : str(avdnr).zfill(2),
+                        'stednavn' : str(fulltnavn),
+                        'display_name': str(fulltnavn),
+                        'forkstednavn': str(kortnavn),
+                        'akronym': str(akronym),
+                        'stedlangnavn_bokmal': str(fulltnavn),
+                        'fakultetnr_for_org_sted' : str(faknr_org_under),
+                        'instituttnr_for_org_sted': str(instituttnr_org_under),
+                        'gruppenr_for_org_sted' : str(gruppenr_org_under),
                         'adresselinje1_intern_adr' : 'Universitetet i Tromsø',
-                        'adresselinje2_intern_adr': avdeling,
+                        'adresselinje2_intern_adr': str(fulltnavn),
                         'poststednr_intern_adr': '9037',
                         'poststednavn_intern_adr': 'Tromsø',
-                        'opprettetmerke_for_oppf_i_kat' : katalog_merke,
+                        'opprettetmerke_for_oppf_i_kat' : str(katalog_merke),
                         'telefonnr' : "77644000",
-                        'sort_key': sort_key
+                        'sort_key': str(sort_key)
                         }
-                    if akronym:
-                        authoritative_ou[avdnr]['akronym']=akronym
-
-            fileObj.close()
-        # END
-        
+            
+            fileObj.close()        
         return authoritative_ou
 
         
@@ -258,22 +240,23 @@ class ou:
                 # eqivalent data in authoritative ou file
                 for k,v in f_ou.items():
                     if not a_ou_data.has_key(k):
-                        #logger.debug("no reinert data for %s: use '%s' from FS" % (k,v))
-                        a_ou_data[k]=v
+                        #logger.debug("stedkode:%s in auth xml file is missing data  for %s. using '%s' from FS" % (a_ou,k,v))
+                        a_ou_data[k]=str(v)
                 del fs_ou[a_ou]
             else:
-                logger.warn("OU %s not in FS, only using steddata from Reinert" % a_ou)
+                pass
+                #logger.warn("OU %s not in FS, only using steddata from auth xml file" % a_ou)
 
             result_ou[a_ou]= a_ou_data
 
         # log remaining FS ou's as errors
-        for f_ou,f_ou_data in fs_ou.items():            
-            logger.error("OU in FS not in Reinert file: %s-%s" % (f_ou, f_ou_data['stednavn']))
+        #for f_ou,f_ou_data in fs_ou.items():            
+            #logger.error("OU in FS not in Reinert file: %s-%s" % (f_ou, f_ou_data['stednavn']))
         return result_ou
 
 
     def print_ou(self,final_ou,out_file):
-        logger.info("Wrinting OU file %s" % out_file)
+        logger.info("Writing OU file %s" % out_file)
         stream = AtomicFileWriter(out_file, "w")
         writer = xmlprinter.xmlprinter(stream,
                                        indent_level = 2,
@@ -282,7 +265,8 @@ class ou:
         writer.startDocument(encoding = "iso-8859-1")
         writer.startElement("data")
         for ou,ou_data in final_ou.items():
-            writer.emptyElement("sted",ou_data)
+            #pp.pprint(ou_data)
+            writer.emptyElement("sted",(ou_data))
         writer.endElement("data")
         writer.endDocument()
         stream.close()
@@ -310,10 +294,14 @@ def main():
     my_ou = ou(ou_files)
     # get ou from FS.
     fs_ou = my_ou.get_fs_ou()
+    
     # get OU from the authoritative file
     auth_ou = my_ou.get_authoritative_ou()
+    
     # generate the final ou list based on the authoritative ou list and data from FS
     final_ou = my_ou.generate_ou(fs_ou,auth_ou)
+    #pp.pprint(final_ou)
+
     # print the ou xml file
     my_ou.print_ou(final_ou,out_file)
 

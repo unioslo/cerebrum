@@ -1,0 +1,3 @@
+2014-05-23      Karen   <cerebrum@metius.uit.no>
+
+        * Utils.py (Factory.get): Added Stedkode (CLASS_STEDKODE) as a possible component.

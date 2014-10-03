@@ -1,0 +1,53 @@
+2014-10-02  Karen   <cerebrum@metius.uit.no>
+
+    * update_displayname.py: Updated Portal url.
+
+2014-10-02  Karen   <cerebrum@metius.uit.no>
+
+    * import_stillingskoder.py (sync_skoder): Now using the built in 'set' instead of the deprecated sets.Set.
+
+2014-09-30  Karen   <cerebrum@metius.uit.no>
+
+    * import_exchange_email.py (set_mail): Corrected a spelling error (from "logger.errir" to "logger.error")
+
+2014-09-01  Karen   <cerebrum@metius.uit.no>
+
+    * import_tlf.py (init_cache): Fixed a problem with using mx.DateTime.MaxDateTime, replaced it with 
+    mx.DateTime.DateTime(datetime.MAXYEAR,12,31)
+
+    * import_tlf.py (process_contact and process_telefoni): Now using the built in 'set' instead of the deprecated sets.Set.
+
+2014-05-23  Karen   <cerebrum@metius.uit.no>
+
+    * import_sito.py (import_OU): ou.populate() no longer sets name, acronym, short_name, 
+    display_name or sort_name, they must be set with add_name_with_language(). Added code 
+    to handle this.
+
+    * import_sito.py (import_OU): Fixed a bug that occurred if an ou was in the expired list 
+    but had already expired (EntityExpiredError was thrown). Nothing was done and the later 
+    call to ou.write_db() failed since the ou object was empty. This occurred when an ou was 
+    in the expired list twice. The code has been changed so that ou.write_db() isn't called if 
+    EntityExpiredError is thrown.
+
+2014-03-28  Karen   <cerebrum@metius.uit.no>
+
+    * import_SYSX.py (create_sysx_person): now handles situations where a person has a 
+    stedkode with value '0'. This is logged as a warning.
+
+2014-03-25  Karen   <cerebrum@metius.uit.no>
+
+    * generate_OU_V2.py (ou.__init__): Now using fskurs instead of fstest
+
+2014-03-14  Karen   <cerebrum@metius.uit.no>
+
+    * import_PAGA.py: Import of PagaDataParserClass was above import of cerebrum_path and 
+    cereconf, causing the script to fail, fixed this by moving the import below the 
+    import of cerebrum_path and cereconf.
+
+    * import_PAGA.py (process_person): Fixed a bug where a query was failing because an 
+    int was being compared to a string.
+
+2014-02-25  Karen   <cerebrum@metius.uit.no>
+
+    * generate_OU_V2.py (ou.__init__): Previosly logged an error and exited if one of the 
+    input files was missing, now it logs a warning and continues running.
