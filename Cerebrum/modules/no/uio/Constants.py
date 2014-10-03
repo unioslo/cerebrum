@@ -52,7 +52,7 @@ class Constants(Constants.Constants):
     system_lt = _AuthoritativeSystemCode('LT', 'LT')
     system_ureg = _AuthoritativeSystemCode('Ureg', 'Migrerte data, utdatert')
     system_fs_derived = _AuthoritativeSystemCode('FS-auto',
-                                                 'Utledet av FS data')
+                                                 'Utledet av FS-data')
     system_folk_uio_no = _AuthoritativeSystemCode('folk.uio.no',
                                                   'http://folk.uio.no/')
 
@@ -104,25 +104,25 @@ class Constants(Constants.Constants):
         affiliation_tilknyttet, 'fagperson', 'Registrert som fagperson i FS')
     affiliation_tilknyttet_emeritus = _PersonAffStatusCode(
         affiliation_tilknyttet, 'emeritus',
-        'Registrert med EMERITUS rolle i SAPUiO')
+        'Registrert med EMERITUS-rolle i SAPUiO')
     affiliation_tilknyttet_bilag = _PersonAffStatusCode(
         affiliation_tilknyttet, 'bilag',
-        'Registrert med BILAGSLØN rolle i SAPUiO')
+        'Registrert med BILAGSLØN-rolle i SAPUiO')
     affiliation_tilknyttet_ekst_forsker = _PersonAffStatusCode(
         affiliation_tilknyttet, 'ekst_forsker',
-        'Registrert med EF-FORSKER eller SENIORFORS rolle i SAPUiO')
+        'Registrert med EF-FORSKER- eller SENIORFORS-rolle i SAPUiO')
     affiliation_tilknyttet_gjesteforsker = _PersonAffStatusCode(
         affiliation_tilknyttet, 'gjesteforsker',
-        'Registrert med GJ-FORSKER rolle i SAPUiO')
+        'Registrert med GJ-FORSKER-rolle i SAPUiO')
     affiliation_tilknyttet_assosiert_person = _PersonAffStatusCode(
         affiliation_tilknyttet, 'assosiert_person',
         'Registrert med ASSOSIERT rolle i SAPUiO')
     affiliation_tilknyttet_frida_reg = _PersonAffStatusCode(
         affiliation_tilknyttet, 'frida_reg',
-        'Registrert med REGANSV og REG-ANSV rolle i SAPUiO')
+        'Registrert med REGANSV- og REG-ANSV-rolle i SAPUiO')
     affiliation_tilknyttet_ekst_stip = _PersonAffStatusCode(
         affiliation_tilknyttet, 'ekst_stip',
-        'Registrert med EF-STIP rolle i SAPUiO')
+        'Registrert med EF-STIP-rolle i SAPUiO')
     affiliation_tilknyttet_sivilarbeider = _PersonAffStatusCode(
         affiliation_tilknyttet, 'sivilarbeider',
         'Personer registrert i LT med gjestetypekode=SIVILARB')
@@ -149,7 +149,7 @@ class Constants(Constants.Constants):
         'Personer registrert i LT med gjestetypekode=ST-ORG FRI eller ST-ORG UTV')
     affiliation_tilknyttet_innkjoper = _PersonAffStatusCode(
         affiliation_tilknyttet, 'innkjoper',
-        'Registrert med INNKJØPER rolle i SAPUiO')
+        'Registrert med INNKJØPER-rolle i SAPUiO')
     affiliation_tilknyttet_isf = _PersonAffStatusCode(
         affiliation_tilknyttet, 'isf',
         'Person tilknyttet Institutt for samfunnsforskning')
@@ -224,11 +224,11 @@ class Constants(Constants.Constants):
     affiliation_upersonlig = _PersonAffiliationCode(
         'UPERSONLIG', 'Fellesbrukere, samt andre brukere uten eier')
     affiliation_upersonlig_felles = _PersonAffStatusCode(
-        affiliation_upersonlig, 'felles', 'Felleskonti')
+        affiliation_upersonlig, 'felles', 'Felleskonto')
     affiliation_upersonlig_kurs = _PersonAffStatusCode(
-        affiliation_upersonlig, 'kurs', 'Kurskonti')
+        affiliation_upersonlig, 'kurs', 'Kurskonto')
     affiliation_upersonlig_pvare = _PersonAffStatusCode(
-        affiliation_upersonlig, 'pvare', 'Programvarekonti')
+        affiliation_upersonlig, 'pvare', 'Programvarekonto')
     affiliation_upersonlig_term_maskin = _PersonAffStatusCode(
         affiliation_upersonlig, 'term_maskin', 'Terminalstuemaskin')
     affiliation_upersonlig_bib_felles = _PersonAffStatusCode(
