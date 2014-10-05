@@ -639,7 +639,8 @@ class BofhdCommonMethods(BofhdCommandBase):
         spreads as defined in L{cereconf.BOFHD_NEW_GROUP_SPREADS}.
 
         """
-        self.ba.can_create_group(operator.get_entity_id())
+        self.ba.can_create_group(operator.get_entity_id(),
+                                 groupname=groupname)
         g = self.Group_class(self.db)
         g.populate(creator_id=operator.get_entity_id(),
                    visibility=self.const.group_visibility_all,
