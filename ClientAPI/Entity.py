@@ -30,6 +30,9 @@ from ClientAPI.core import Utils
 
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 
+# TODO: move this?
+from Cerebrum.modules.cis.Utils import commit_handler
+
 
 class Entity(ClientAPI):
     """Exposing API for Account functions."""
@@ -80,7 +83,11 @@ class Entity(ClientAPI):
         # Check if the user should be able to see the quarantine.
         self.ba.can_show_quarantines(self.operator_id, e)
 
-        q = e.get_entity_quarantine()
+        try:
+            q = e.get_entity_quarantine()
+        except AttributeError:
+            raise Errors.CerebrumRPCException(
+                'Quarantines not applicable for entity.')
 
         types = dict()
         qhandlers = dict()
@@ -188,3 +195,43 @@ class Entity(ClientAPI):
             return False
         else:
             return True
+
+    @commit_handler()
+    def add_to_system(self, id_type, entity_id, system):
+        """Add an entity to a system.
+
+        :type id_type: basestring
+        :param id_type: The id-type to look-up by.
+
+        :type entity_id: basestring
+        :param entity_id: The entitys id.
+
+        :type system: basestring
+        :param system: The system the entity should be added to."""
+        # Fetch entity
+        en = Utils.get(self.db, 'entity', id_type, entity_id)
+        if not en:
+            # TODO: Should this be raised in the Utils-module/class/whatever?
+            raise Errors.CerebrumRPCException('Entity does not exist')
+
+        co = Factory.get('Constants')(self.db)
+
+        try:
+            sys = co.Spread(system)
+            int(sys)
+        except Errors.NotFoundError:
+            raise Errors.CerebrumRPCException('System does not exist')
+
+        self.ba.can_add_spread(self.operator_id, en, sys)
+
+        try:
+            if en.get_subclassed_object().has_spread(sys):
+                return
+
+            en.get_subclassed_object().add_spread(sys)
+        except AttributeError:
+            raise Errors.CerebrumRPCException('Can\'t add entity to system.')
+        except self.db.IntegrityError:
+            # TODO: This seems correct?
+            raise Errors.CerebrumRPCException(
+                'Entity not applicable for system.')

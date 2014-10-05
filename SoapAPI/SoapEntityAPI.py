@@ -62,3 +62,8 @@ class EntityAPIService(SoapListener.BasicSoapServer):
     @rpc(String, String, String, _throws=faults.EndUserFault, _returns=Boolean)
     def active_in_system(ctx, id_type, entity_id, system):
         return ctx.udc[NAMESPACE].active_in_system(id_type, entity_id, system)
+
+    @rpc(String, String, String, _throws=faults.EndUserFault)
+    def add_to_system(ctx, id_type, entity_id, system):
+        return ctx.udc[NAMESPACE].add_to_system(id_type, entity_id, system)
+
