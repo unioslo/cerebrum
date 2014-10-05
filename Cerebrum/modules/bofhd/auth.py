@@ -1,6 +1,7 @@
-# -*- coding: iso-8859-1 -*-
-
-# Copyright 2003-2010 University of Oslo, Norway
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Copyright 2003-2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,9 +18,81 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""The functionality to be used for bofhd and other services for handling access
-control for viewing and editing data in Cerebrum. The control could be quite
-fine grained, with the downside of being a bit complex.
+""" Module for access control in Cerebrum.
+
+This module was mainly written for use with `bofhd`, given its name, but its
+functionality is *independent* of `bofhd`. You could use this module for every
+Cerebrum service that needs access control.
+
+This authorization module is quite fine grained, making it a bit complex.
+
+Summary
+=======
+
+How the access control works:
+
+- When access control is needed for some functionality, you call a method from
+  the `BofhdAuth` class, e.g. `BofhdAuth.can_set_trait`.
+
+- The `BofhdAuth` then checks various things, like the operator's group
+  memberships, to see if the account is part of a superuser group, or if any of
+  the groups have some auth operations set to it.
+
+Terminology
+===========
+
+- **authentication**: This module does not check the *operator*. We expect the
+  account to have been fully authenticated before this module is reached.
+
+- **operator**: The entity that has requested access to some operation or
+  function. This is normally an account.
+
+- **operation**: A single operation, for some specific task, e.g. to create a
+  group, to expire an account og to see personal information. Operations does
+  ideally, and normally, only refer to *one single action*.
+
+  Operations are registered in the database, and should not be confused with the
+  access methods on `BofhdAuth`. The methods here checks the operations from db,
+  but they also include more checks, and often add some hardcoded checks. The
+  superuser access control is for instance hardcoded, and that the operator is
+  able to see its own personal data.
+
+- **OpSet**: A collection of various operations, with their parameters. The
+  *OpSet* makes it easier to give groups of people access to a set of various
+  actions they need in their role. Local IT needs to do some specific tasks,
+  while student-IT needs something else.
+
+  OpSets are registered in the database, but they are normally set up and
+  configured through a configuration file, `opset_config.py` from the
+  configuration repo. See `contrib/permission_updates.py` for more info.
+
+Auth model
+==========
+
+How authorization is registered for the operator - see `design/bofhd_auth.sql`
+for the database model.
+
+- *Operations* are defined constants.
+
+- *OpSets* are created and consists of references to various operations. Each
+  operation could be configured with some parameters. For example the operation
+  to add a spread includes a parametere where you could define *what* spread is
+  allowed.
+
+- *Operators* are then authorized, i.e. *granted* access, to OpSets. Note that
+  the OpSet is limited to targets, for instance all entities on a given
+  disk/host, a given affiliation/OU, by a spread, or even globally.
+
+  This makes it possible to give one local IT department access to the accounts
+  on *their* disks/OUs without another local IT department interfering.
+
+  Normally the authorization is added per group, and not to operators directly.
+  This is to ease later configuration, as its easier to updated group
+  memberships than to modify the authorization lists.
+
+- When checking an operator's access, the method in `BofhdAuth` checks its
+  direct operations, its groups' operations, and also some hardcoded values,
+  for example that the operator has access to see its own personal data.
 
 Overview
 ========
@@ -826,7 +899,7 @@ class BofhdAuth(DatabaseAccessor):
         if str(qtype) in getattr(cereconf, 'QUARANTINE_AUTOMATIC', ()):
             raise PermissionDenied('Not allowed to set automatic quarantine')
 
-        # TODO 2003-07-04: Bård is going to comment this
+        # TODO 2003-07-04: BÃ¥rd is going to comment this
         if not(isinstance(entity, Factory.get('Account'))):
             raise PermissionDenied("No access")
         else:
@@ -973,6 +1046,29 @@ class BofhdAuth(DatabaseAccessor):
     
 
     def can_create_group(self, operator, query_run_any=False):
+        """ If an account should be allowed to create a group.
+
+        We allow accounts with the operation `create_group` access, if the
+        groupname matches the given operation's whitelist. Superusers are always
+        allowed access.
+
+        :param int operator:
+            The `entity_id` of the account that we check the access for.
+
+        :param bool query_run_any:
+            If True, we only check if the account has access to the operation,
+            *somewhere*.
+
+        :rtype: bool
+        :return: 
+            True if the account is allowed access. If, *and only if*, the
+            parameter `query_run_any` is True, we return False if the account
+            does not have access. Normally we raise a PermissionDenied instead.
+
+        :raise PermissionDenied:
+            If the account is not allowed access for the operation.
+
+        """
         if self.is_superuser(operator):
             return True
         # auth_create_group is not tied to a target
@@ -1261,7 +1357,7 @@ class BofhdAuth(DatabaseAccessor):
         if (operator == account.entity_id and shell and
             shell.description.find("/bin/") <> -1):
             return True
-        # TODO 2003-07-04: Bård is going to comment this
+        # TODO 2003-07-04: BÃ¥rd is going to comment this
         return self.is_account_owner(operator, self.const.auth_set_password,
                                      account)
 
