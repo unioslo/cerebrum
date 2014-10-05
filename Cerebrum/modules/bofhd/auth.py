@@ -66,14 +66,27 @@ Terminology
   configured through a configuration file, `opset_config.py` from the
   configuration repo. See `contrib/permission_updates.py` for more info.
 
-- **target**: This could mean two things, depending on the situation. It is
-  either the target entity, i.e. the *victim* of the operation, or it could be
-  the *operation target*, which is the collection of information for finding a
-  target which could either be an entity, a constant, or even something else.
-  The *operation target* also includes *how* the target could be found, e.g.
-  through a disk, group or OU.
+- **role**: In this module, roles are quite lightweight, and are only connecting
+  an operator together with an OpSet and a target. When an operator gets a role,
+  it is then allowed to do what the OpSet says, but only on the entities defined
+  by the given target, e.g. only users on a given disk.
 
-- **victim**: The target entity that the operator wants to process a certain
+  Targets could also be *global*, which means that the role is valid everywhere,
+  for all entities. As a security measure, superusers are excluded from global
+  targets, so the operator is not allowed to modify superusers.
+
+- **target**: In *this* module, we refer to *target* as to where a role is
+  valid. An operator could have many roles and OpSets, but the target defines
+  where, i.e. what entities, the operations could be performed on. The target
+  defines a subset of entities to perform operations on.
+
+  Examples on targets are:
+  - All users on a given disk.
+  - All entities with a given spread.
+  - All users on a given host, but where the disk path is on the form
+    `student-u.*`.
+
+- **victim**: A specific entity that the operator wants to process a certain
   operation on.
 
 Auth model
@@ -142,61 +155,36 @@ The auth module consists of the parts:
   roles and OpSets, but instead the superuser group is given hardcoded access in
   the different auth commands. You would therefore not find any superuser role.
 
-Operations (BofhdAuth)
-----------------------
+- Services that uses BofhdAuth would only see different auth methods, e.g.
+  can_view_trait(). The operations and OpSets are then checked internally, the
+  service does not need to know about these details.
 
-The different operations for what is allowed to be done. The operations are only
-handled inside the BofhdAuth methods. Services that uses BofhdAuth would only
-see different auth methods, e.g. can_view_trait(), which is itself making use of
-operations to check if the operator have the requested access.
+  An example is the bofhd command 'user_history', which calls
+  BofhdAuth.can_show_history(). The auth method will check if the operator has
+  access to the user by the operation 'auth_view_history' (or 'view_history')
+  through either an OU or a disk.
 
-An example is the bofhd command 'user_history', which calls
-BofhdAuth.can_show_history(). The auth method will check if the operator has
-access to the user by the operation 'auth_view_history' (or 'view_history')
-through either an OU or a disk.
+  Some operations have the need for *attributes*. An example of this is the
+  operation 'modify_spread', where the attribute decide what kind of spread it
+  should be allowed to modify. Note that the attributes could change between the
+  OpSets.
 
-Some operations have the need for *attributes*. An example of this is the
-operation 'modify_spread', where the attribute decide what kind of spread it
-should be allowed to modify. Note that the attributes could change between the
-OpSets.
-
-The different auth methods rely on some common methods for querying for the
-permissions. The methods start with '_query', in addition to methods like
-_list_target_permissions.
-
-Operation Sets (BofhdAuthOpSet)
--------------------------------
-
-Sets of operations for making it easier to delegate access control. For
-instance, a specific group or account could be delegated an OpSet 'LocalIT',
-which could be an operation set with all the different operations the staff at
-local IT would need in their work.
-
-OpSets are handled by BofhdAuthOpSet, and is stored in the table
-*auth_operation_set*, while the operations that belongs to an OpSet is
-referenced to in the table L{auth_operation}. Operation attributes, e.g. for
-setting constraints for an operation, is put in L{auth_op_attrs}.
-
-Roles (BofhdAuthRole)
----------------------
-
-Roles are authorizations given to entities. The role gives an entity access to a
-given OpSet for either a given target or globally. The entity could for instance
-be an account or a group (which gives all direct members of the group access),
-and the target could for instance be an OU, group or a disk.
+  The different auth methods rely on some common methods for querying for the
+  permissions. The methods start with '_query', in addition to methods like
+  _list_target_permissions.
 
 In the database
 ===============
 
 The operations are Cerebrum constants, but is also put in the table
-L{auth_operation}
+`auth_operation`.
 
-- Operations are put in L{auth_operation}. Some operations have certain
-  attributes, which are put in L{auth_op_attrs}.
+- Operations are put in `auth_operation`. Some operations have certain
+  attributes, which are put in `auth_op_attrs`.
 
-- OpSets are put in L{auth_operation_set}.
+- OpSets are put in `auth_operation_set`.
 
-- Roles are put in L{auth_role}, and their targets are put in L{auth_op_target}.
+- Roles are put in `auth_role`, and their targets are put in `auth_op_target`.
 
 """
 
@@ -216,14 +204,38 @@ from Cerebrum.modules.bofhd.utils import BofhdRequests
 
 
 class AuthConstants(Constants._CerebrumCode):
-    # TODO: this looks like a duplicate of utils._AuthRoleOpCode.  Cleanup!
-    _lookup_table = '[:table schema=cerebrum name=auth_op_code]'
-    pass
+    """ Defines an operation constant.
 
+    # TODO: this looks like a duplicate of utils._AuthRoleOpCode.  Cleanup!
+
+    Operations are saying what an operator is allowed to do. The operations are
+    handled inside the `BofhdAuth` class' methods.
+
+    Note that operations are not connected to operators directly. The operations
+    are put inside *operation sets* (OpSets), which again are linked to
+    operation targets, and is then either connected to the operator directly, or
+    is most likely connected through a regular group the operator is member of.
+
+    """
+    _lookup_table = '[:table schema=cerebrum name=auth_op_code]'
 
 class BofhdAuthOpSet(DatabaseAccessor):
-    """Methods for updating auth_operation_set, auth_operation and
-    auth_op_attrs which specifies what operations may be performed."""
+    """ Operation Set (OpSet) management.
+
+    Operations could be put into different groups (sets) of operations. These
+    sets are here called *OpSets*. OpSets are making it easier to administrate
+    the authorizations. For instance, a specific group or account could be
+    delegated an OpSet 'LocalIT', which could be an operation set with all the
+    different operations the staff at local IT would need in their work.
+
+    This class contains methods for updating the tables `auth_operation_set`,
+    `auth_operation` and `auth_op_attrs` which specifies what operations may be
+    performed. OpSets are handled by BofhdAuthOpSet, and is stored in the table
+    `auth_operation_set`, while the operations that belongs to an OpSet is
+    referenced to in the table `auth_operation`. Operation attributes, e.g. for
+    setting constraints for an operation, is put in `auth_op_attrs`.
+
+    """
     __metaclass__ = mark_update
     __read_attr__ = ('__in_db', 'const')
     __write_attr__ = ('op_set_id', 'name')
@@ -458,8 +470,17 @@ class BofhdAuthOpTarget(DatabaseAccessor):
             'attr': attr})
 
 class BofhdAuthRole(DatabaseAccessor):
-    """Methods for updating the auth_role table with information
-    about who has certain permissions to certain targets."""
+    """ Role management, telling who has permission to what targets.
+
+    The data about roles are stored in the `auth_role` table, containing
+    information about who has certain permissions to certain targets.
+
+    Roles are authorizations given to entities. The role gives an entity access
+    to a given OpSet for either a given target, or globally. The entity could
+    for instance be an account or a group (which gives all direct members of the
+    group access), and the target could for instance be an OU, group or a disk.
+
+    """
 
     def __init__(self, database):
         super(BofhdAuthRole, self).__init__(database)
@@ -515,11 +536,12 @@ class BofhdAuth(DatabaseAccessor):
     """Defines methods that are used by bofhd to determine whether an operator
     is allowed to perform a given action.
 
-    The query_run_any parameter is used to determine if operator has this
-    permission somewhere. It is used to filter available commands in bofhds
-    get_commands(), and if it is True, the method should return either True or
-    False, and not throw PermissionDenied exceptions. Note that this variable
-    should NOT be used a security measure!
+    The `query_run_any` parameter used throughout in the methods is used to
+    determine if operator has this permission *somewhere*. It is used to filter
+    available commands in bofhds `get_commands()`, and if it is `True`, the
+    method should return either `True` or `False`, and not raise
+    `PermissionDenied`. Note that `query_run_any` should NOT be used a security
+    measure, as you are still able to call the command if not in jbofh!
 
     """
 
@@ -627,11 +649,9 @@ class BofhdAuth(DatabaseAccessor):
         :param int operator: The operator's `entity_id`.
         :param int operation: The operation constant's `intval`.
         :param Cerebrum.Entity entity:
-            The entity's Entity object. Here it could be a *Person* or *Account*
-            object.
+            The victim's Entity object, a *Person* or *Account* object.
         :param str operation_attr:
-            Any attribute TODO
-
+            Limit the operation check to a specific operation attribute.
         :rtype: bool
         :raise PermissionDenied:
             If the operator doesn't have access to the entity.
@@ -1067,7 +1087,7 @@ class BofhdAuth(DatabaseAccessor):
                                 "op_set_id": opset.op_set_id})
 
     def can_create_group(self, operator, groupname=None, query_run_any=False):
-        """ If an account should be allowed to create a group.
+        """If an account should be allowed to create a group.
 
         We allow accounts with the operation `create_group` access, if the
         groupname matches the given operation's whitelist. Superusers are always
@@ -1096,33 +1116,7 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return self._has_operation_perm_somewhere(
                                 operator, self.const.auth_create_group)
-
-        # TODO: Skip these to checks? They might not make any sense...
-        if self._has_target_permissions(operator, operation,
-                                        self.const.auth_target_type_group,
-                                        None, None,
-                                        operation_attr=operation_attr):
-            return True
-        if self._has_global_access(operator, self.const.auth_create_group,
-                                   self.const.auth_target_type_global_group,
-                                   None,
-                                   operation_attr=operation_attr):
-            return True
-        # Check regexp on group names:
-        # TODO jokim: Check the whitelists!!!
-        # TODO: This might only be globally available?
-        for r in self._list_target_permissions(operator,
-                                               self.const.auth_create_group,
-                                               self.const.auth_target_type_group,
-                                               None,
-                                               operation_attr=operation_attr):
-            # Defaults to allow everything, as this is backwards compatible:
-            if not r['attr']:
-                return True
-            # TODO: Get the prefix - could be "pre" and
-            m = re.compile(r['attr']).match(groupname)
-            if m != None:
-                return True
+        # TODO: Check regexp on group names
         raise PermissionDenied("Permission denied")
 
     def can_create_personal_group(self, operator, account=None,
@@ -1795,7 +1789,8 @@ class BofhdAuth(DatabaseAccessor):
             The Disk object to check the permissions for.
         :param int victim_id:
             The victim's `entity_id`.
-        :param str operation_attr: TODO
+        :param str operation_attr:
+            Limit the operation check to a specific operation attribute.
         :rtype: bool
         :returns: True if the operator has access.
         :raise PermissionDenied: If the operator doesn't have the access.
@@ -1904,12 +1899,13 @@ class BofhdAuth(DatabaseAccessor):
             operation_attr)
 
     def _has_target_permissions(self, operator, operation, target_type,
-                                  target_id, victim_id, operation_attr=None):
-        """Check if operator has (global) access to `operation` for a target.
+                                target_id, victim_id, operation_attr=None):
+        """Check if operator has access to `operation` for a given target.
 
         This method checks if the `operator` has been given the `operation`, and
         that the `operation` is either global or granted to a subset that
-        includes the given `target`.
+        includes the given `target`. Access is checked through global operation
+        targets too.
 
         :param int operator: The operator's `entity_id`.
         :param int operation: The operation constant's `intval`.
@@ -1924,7 +1920,7 @@ class BofhdAuth(DatabaseAccessor):
             internal, unique id of the target in the target table.
         :param int victim_id: The affected entity's `entity_id`.
         :param str operation_attr:
-            Any operation attribute. TODO
+            Limit the permission check to a specific operation attribute.
         :rtype: bool
         :return:
             If the operator is permitted for the given operation, on the given
@@ -1959,15 +1955,15 @@ class BofhdAuth(DatabaseAccessor):
                                            victim_id, operation_attr=operation_attr):
                     return True
 
-        if self._list_target_permissions(
-            operator, operation, target_type, target_id,  operation_attr):
+        if self._list_target_permissions(operator, operation, target_type,
+                                         target_id,  operation_attr):
             return True
         else:
             return False
 
     def _list_target_permissions(self, operator, operation, target_type,
                                  target_id,  operation_attr=None):
-        """ List operator's permission by given criterias.
+        """List operator's permission by given criterias.
 
         Both direct permissions and those registered at the groups the operator
         is member of are returned.
@@ -1987,8 +1983,7 @@ class BofhdAuth(DatabaseAccessor):
             `intval`. Do not confuse this with the target's id, which is the
             internal, unique id of the target in the target table.
         :param str operation_attr:
-            Any operation attribute. TODO
-
+            If only operations with a given attribute should be returned.
         :rtype: sequence of db-rows
         :return:
             A sequence of dbrows which can be checked for `dbrow['attr']`. The
@@ -2031,8 +2026,8 @@ class BofhdAuth(DatabaseAccessor):
            ar.entity_id IN (%s) AND
            ar.op_target_id=aot.op_target_id AND
            aot.target_type=:target_type %s
-          """ % (", ".join(
-            ["%i" % x for x in self._get_users_auth_entities(operator)]),
+          """ % (", ".join(["%i" % x for x in
+                            self._get_users_auth_entities(operator)]),
                  ewhere)
         return self.query(sql,
                           {'opcode': int(operation),
@@ -2120,7 +2115,7 @@ class BofhdAuth(DatabaseAccessor):
             The victim's `entity_id`. This is needed to avoid that superusers
             are affected.
         :param str operation_attr:
-            TODO
+            Limit the access check to a specific operation attribute.
         :rtype: bool
 
         """
@@ -2137,8 +2132,25 @@ class BofhdAuth(DatabaseAccessor):
         return False
 
     def _get_users_auth_entities(self, entity_id):
-        """Return all entity_ids that may be relevant in auth_role for
-        this user"""
+        """Get all entities that the given entity could represent, auth.wise.
+
+        An account could represent itself, but it could also be part of groups
+        with privileges. This method returns all these entities that may be
+        relevant for `auth_role` for the accounaccount. Only *direct*
+        memberships are considered in our authorization model.
+
+        The memberships are cached.
+
+        :param int entity_id:
+            The entity to fetch the auth related entities for. This is normally
+            an account.
+
+        :rtype: list
+        :returns:
+            `entity_id` for the account itself and all the groups it is a direct
+            member of.
+
+        """
         entity_id = int(entity_id)
         try:
             return self._users_auth_entities_cache[entity_id]

@@ -43,7 +43,7 @@ DROP TABLE auth_operation_set;
 category:drop;
 DROP TABLE auth_op_code;
 
-/* 
+/*
  * The single operation code (constants).
  *
  * Each code represents a single operation that account may or not may be
@@ -89,7 +89,7 @@ CREATE TABLE auth_operation_set (
   description      CHAR VARYING(512)
 );
 
-/* 
+/*
  * Defines an operation within an OpSet.
  *
  * This defines what an OpSet consists of, e.g. that the OpSet "StudenIT" gives
@@ -117,7 +117,7 @@ CREATE INDEX auth_operation_set_id ON auth_operation(op_set_id);
  * Defines attributes associated with an operation inside an OpSet.
  *
  * The attributes could for instance set constraints on what the operation could
- * be used for. 
+ * be used for.
  *
  * Some examples:
  * - The operation "spread_add" could have an attribute for what spread that is
@@ -155,15 +155,15 @@ CREATE TABLE auth_op_attrs (
  * is because this table is used a bit... flexible. It could for instance refer
  * to constants, like spreads, instead of real entities - this example makes you
  * able to target all entities which have a given spread.
- * 
+ *
  * Examples:
- * 
+ *
  *   Users on a disk:
  *     op_target_type = 'disk'     entity_id=<disk.entity_id>
  *   Users on a host:
  *     op_target_type = 'host'     entity_id=<host.entity_id>
  *   Users on a host:/path/host/sv-l*
- *     op_target_type = 'host'     entity_id=<host.entity_id> 
+ *     op_target_type = 'host'     entity_id=<host.entity_id>
  *     attr = 'sv-l.*' (note: regular expression, and only leaf directory)
  *   Allowed to set/clear spread X
  *     op_target_type = 'spread'   entity_id = <spread_code.code>
@@ -181,7 +181,7 @@ CREATE TABLE auth_op_target (
 category:main;
 CREATE INDEX auth_op_target_entity_id ON auth_op_target(entity_id);
 
-/* 
+/*
  * Roles
  *
  * A role associates an OpSet with a target, and affiliates this with an entity.

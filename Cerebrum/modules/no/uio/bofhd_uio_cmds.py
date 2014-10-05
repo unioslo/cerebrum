@@ -632,8 +632,21 @@ class BofhdExtension(BofhdCommonMethods):
         return change_func(gr.entity_id, opset, target_id, target_type, attr,
                            group, target_name)
 
-
     def _get_access_id(self, target_type, target_name):
+        """Get required data for granting access to an operation target.
+
+        :param str target_type: The type of
+
+        :rtype: tuple
+        :returns:
+            A three element tuple with information about the operation target:
+
+              1. The entity_id of the target entity (int)
+              2. The target type (str)
+              3. The `intval` of the operation constant for granting access to
+                 the given target entity.
+
+        """
         func_name = "_get_access_id_%s" % target_type
         if not func_name in dir(self):
             raise CerebrumError, "Unknown id type %s" % target_type
