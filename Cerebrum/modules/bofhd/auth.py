@@ -198,6 +198,7 @@ from Cerebrum import Cache
 from Cerebrum import Errors
 from Cerebrum import Person
 from Cerebrum.Utils import Factory, mark_update
+from Cerebrum.Utils import argument_to_sql, prepare_string
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 
@@ -570,8 +571,6 @@ class BofhdAuth(DatabaseAccessor):
             return account.account_name
         except Errors.NotFoundError:
             return "id=" + str(entity_id)
-    # end _get_uname
-
 
     def _get_gname(self, entity_id):
         try:
@@ -580,7 +579,6 @@ class BofhdAuth(DatabaseAccessor):
             return group.group_name
         except Errors.NotFoundError:
             return "id=" + str(entity_id)
-    # end _get_gname
 
     def is_superuser(self, operator_id, query_run_any=False):
         if operator_id in self._get_group_members(cereconf.BOFHD_SUPERUSER_GROUP):
@@ -615,9 +613,26 @@ class BofhdAuth(DatabaseAccessor):
         return False
 
     def is_group_owner(self, operator, operation, entity, operation_attr=None):
+        """See if operator has access to a certain `operation` on a given group.
+
+        :param int operator: The operator's `entity_id`.
+        :param int operation: The operation constant's `intval`.
+        :param Cerebrum.Entity entity:
+            The victim's Entity object, here normally a *Group* object.
+        :param str operation_attr:
+            Limit the operation check to a specific operation attribute.
+        :rtype: bool
+        :returns:
+            True if access is permitted. False is undetermined, as an exception
+            is raised instead.
+        :raise PermissionDenied:
+            If the operator doesn't have access to the entity.
+
+        """
         if self._has_target_permissions(operator, operation,
                                         self.const.auth_target_type_group,
-                                        int(entity.entity_id), None,
+                                        target_id=int(entity.entity_id),
+                                        victim_id=None,
                                         operation_attr=operation_attr):
             return True
         if self._has_global_access(operator, operation,
@@ -638,13 +653,14 @@ class BofhdAuth(DatabaseAccessor):
     def is_account_owner(self, operator, operation, entity, operation_attr=None):
         """See if operator has access to an account or a person.
 
-        What is checked:
+        Operation targets that are checked:
 
         #. Is operator allowed to perform operation on one of the **OUs**
-           associated with Person or Account.
+           associated with Person or Account?
         #. If the entity is an *Account* and the account is owned by a group: Is
-           the operator a member of that group?
-        #. Has operator access to the account's disk.
+           the operator a member of the owner group? If so, the operator has
+           _full_ access.
+        #. Has operator (local or global) access to the account's disk?
 
         :param int operator: The operator's `entity_id`.
         :param int operation: The operation constant's `intval`.
@@ -653,6 +669,9 @@ class BofhdAuth(DatabaseAccessor):
         :param str operation_attr:
             Limit the operation check to a specific operation attribute.
         :rtype: bool
+        :returns:
+            True if access is permitted. False is undetermined, as an exception
+            is raised instead.
         :raise PermissionDenied:
             If the operator doesn't have access to the entity.
 
@@ -1017,8 +1036,6 @@ class BofhdAuth(DatabaseAccessor):
                                (self._get_uname(operator),
                                 group is None and "N/A" or
                                 self._get_gname(group.entity_id)))
-    # end can_alter_group
-
 
     def can_add_notes(self, operator, query_run_any=False):
         if self.is_superuser(operator):
@@ -1093,6 +1110,9 @@ class BofhdAuth(DatabaseAccessor):
         groupname matches the given operation's whitelist. Superusers are always
         allowed access.
 
+        Access could be checked based on the groupname format, depending on how
+        the OpSet is defined.
+
         :param int operator: The operator's `entity_id`.
         :param str groupname:
             The requested groupname of the group we want to create. Note that
@@ -1116,7 +1136,22 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return self._has_operation_perm_somewhere(
                                 operator, self.const.auth_create_group)
-        # TODO: Check regexp on group names
+        for row in self._list_target_permissions(
+                    operator, self.const.auth_create_group,
+                    self.const.auth_target_type_global_group,
+                    None, get_all_op_attrs=True):
+            attr = row.get('operation_attr')
+            # No operation attribute means that all groupnames are allowed:
+            if not attr:
+                return True
+            # Check if the groupname matches the pattern defined in the
+            # operation
+            checktype, pattern = attr.split(':', 1)
+            m = re.compile(pattern)
+            if checktype == 'pre' and m != None:
+                return True
+            #elif checktype == 're' and m != None and m.end() == len(groupname):
+            #    return True
         raise PermissionDenied("Permission denied")
 
     def can_create_personal_group(self, operator, account=None,
@@ -1857,6 +1892,7 @@ class BofhdAuth(DatabaseAccessor):
         target - that is not checked here. The method is therefore useful if you
         only want to know what the operator is allowed to do (`query_run_any`)
         or if you check for operations that are not bound to specific targets.
+        Global permissions are also considered.
 
         The checks are cached, so this method could be called numerously.
 
@@ -1903,9 +1939,8 @@ class BofhdAuth(DatabaseAccessor):
         """Check if operator has access to `operation` for a given target.
 
         This method checks if the `operator` has been given the `operation`, and
-        that the `operation` is either global or granted to a subset that
-        includes the given `target`. Access is checked through global operation
-        targets too.
+        that the `operation` is granted to a target subset that includes the
+        given `target`. Access is checked through global operation targets too.
 
         :param int operator: The operator's `entity_id`.
         :param int operation: The operation constant's `intval`.
@@ -1918,7 +1953,10 @@ class BofhdAuth(DatabaseAccessor):
             use `entity_id`. If the target is a Cerebrum constants, use its
             `intval`. Do not confuse this with the target's id, which is the
             internal, unique id of the target in the target table.
-        :param int victim_id: The affected entity's `entity_id`.
+        :param int victim_id:
+            The affected entity's `entity_id`. This is used when the `target_id`
+            is not the same as the victim, and is essential for avoiding that
+            operators have access to superusers.
         :param str operation_attr:
             Limit the permission check to a specific operation attribute.
         :rtype: bool
@@ -1962,11 +2000,14 @@ class BofhdAuth(DatabaseAccessor):
             return False
 
     def _list_target_permissions(self, operator, operation, target_type,
-                                 target_id,  operation_attr=None):
+                                 target_id, operation_attr=None,
+                                 get_all_op_attrs=False):
         """List operator's permission by given criterias.
 
         Both direct permissions and those registered at the groups the operator
-        is member of are returned.
+        is member of are returned. Global permissions have different
+        `target_type`s, so you need to call this once for local and once for
+        global target types.
 
         This method could be used instead of `_has_target_permissions` if you
         would like to accept more than one exact `operation_attr`.
@@ -1974,16 +2015,26 @@ class BofhdAuth(DatabaseAccessor):
         :param int operator: The operator's `entity_id`.
         :param int operation: The operation constant's `intval`.
         :param str target_type:
-            The type of target. These are hardcoded strings, which are used as
+            The type of target. These are hard coded strings, which are used as
             constants. Examples are "group", "disk", and "spread". See
             `Cerebrum/modules/bofhd/utils.py` for target type definitions.
         :param int target_id:
             The target entity's unique ID. If the target entity is an entity,
             use `entity_id`. If the target is a Cerebrum constants, use its
-            `intval`. Do not confuse this with the target's id, which is the
+            `intval`. The target entity might not be needed if a global target
+            is requested. Do not confuse this with the target's id, which is the
             internal, unique id of the target in the target table.
         :param str operation_attr:
-            If only operations with a given attribute should be returned.
+            Fetch operations with the given operation attribute. The attribute
+            must be the exact value for the operation to be returned. If this is
+            set to None, you will not get operations that are set up with an
+            attribute.
+        :param bool get_all_op_attrs:
+            In some cases, the operation attributes can't just be string
+            compared, but has more functionality to it. In these cases you could
+            set this parameter to `True` to fetch all attributes for the
+            relevant operations, and process them further in the code. This
+            makes `operation_attr` unnecessary.
         :rtype: sequence of db-rows
         :return:
             A sequence of dbrows which can be checked for `dbrow['attr']`. The
@@ -1991,49 +2042,66 @@ class BofhdAuth(DatabaseAccessor):
 
             - `op_id`: The operation constant's `intval`.
             - `op_target_id`: The target ID's unique ID.
-            - `attr`: The operation's attribute, to specify/limit the
-              permission.
+            - `attr`: The target's attribute, to specify/limit the subset the
+              target is valid for.
+            - `operation_attr`: If `get_all_op_attrs` is True, the operation
+              attribute is returned as well.
 
         """
-        ewhere = ""
+        tables = ["""[:table schema=cerebrum name=auth_operation] ao
+                     JOIN [:table schema=cerebrum name=auth_operation_set] AS aos
+                        ON ao.op_set_id = aos.op_set_id
+                     JOIN [:table schema=cerebrum name=auth_role] AS ar
+                        ON aos.op_set_id = ar.op_set_id
+                     JOIN [:table schema=cerebrum name=auth_op_target] AS aot
+                        ON aot.op_target_id = ar.op_target_id
+                     """,
+                  ]
+        select = ['ao.op_id AS op_id',
+                  'aot.attr AS attr',
+                  'aot.op_target_id AS op_target_id',
+                  ]
+        where = ['ao.op_code=:opcode',
+                 'aot.target_type=:target_type',
+                 ]
+        binds = {'opcode': int(operation),
+                 'target_type': target_type,
+                 'target_id': target_id,
+                 'operation_attr': operation_attr,
+                 }
+        # Add the operators auth related entities (group memberships) to the
+        # check for relevant roles:
+        where.append(argument_to_sql(self._get_users_auth_entities(operator),
+                                     'ar.entity_id', binds, int))
         if target_id is not None:
-            ewhere = "AND aot.entity_id=:target_id"
-        # Connect auth_operation and auth_op_target
-        # Relevant entries in auth_operation are:
-        #
-        # - all with correct op_code that either:
-        #   o  has no entries in auth_op_attrs
-        #   o  or has correct entry in auth_op_attrs
+            where.append(argument_to_sql(target_id, "aot.entity_id", binds,
+                                         int))
 
-        sql = """
-        SELECT aot.attr, ao.op_id, aot.op_target_id
-        FROM [:table schema=cerebrum name=auth_operation] ao,
-             [:table schema=cerebrum name=auth_operation_set] aos,
-             [:table schema=cerebrum name=auth_role] ar,
-             [:table schema=cerebrum name=auth_op_target] aot
-        WHERE
-           ao.op_code=:opcode AND
-           ((EXISTS (
-              SELECT 'foo'
-              FROM [:table schema=cerebrum name=auth_op_attrs] aoa
-              WHERE ao.op_id=aoa.op_id AND aoa.attr=:operation_attr)) OR
-            NOT EXISTS (
-              SELECT 'foo'
-              FROM [:table schema=cerebrum name=auth_op_attrs] aoa
-              WHERE ao.op_id=aoa.op_id)) AND
-           ao.op_set_id=aos.op_set_id AND
-           aos.op_set_id=ar.op_set_id AND
-           ar.entity_id IN (%s) AND
-           ar.op_target_id=aot.op_target_id AND
-           aot.target_type=:target_type %s
-          """ % (", ".join(["%i" % x for x in
-                            self._get_users_auth_entities(operator)]),
-                 ewhere)
-        return self.query(sql,
-                          {'opcode': int(operation),
-                           'target_type': target_type,
-                           'target_id': target_id,
-                           'operation_attr': operation_attr})
+        # Connect auth_operation and auth_op_target
+
+        if get_all_op_attrs:
+            tables.append("""
+                LEFT OUTER JOIN [:table schema=cerebrum name=auth_op_attrs] aoa
+                ON aoa.op_id = ao.op_id""")
+            select.append('aoa.attr AS operation_attr')
+        else:
+            # Only fetch operations that have the exact operation attribute as
+            # specified, or if it doesn't have any registered operation
+            # (auth_op_attrs) attribute at all:
+            where.append("""
+               ((EXISTS (
+                  SELECT 'foo'
+                  FROM [:table schema=cerebrum name=auth_op_attrs] aoa
+                  WHERE ao.op_id=aoa.op_id AND aoa.attr=:operation_attr)) OR
+                NOT EXISTS (
+                  SELECT 'foo'
+                  FROM [:table schema=cerebrum name=auth_op_attrs] aoa
+                  WHERE ao.op_id=aoa.op_id))""")
+
+        sql = "SELECT DISTINCT %s FROM %s WHERE %s" % (', '.join(select),
+                                                       ' '.join(tables),
+                                                       ' AND '.join(where))
+        return self.query(sql, binds)
 
     def _has_access_to_entity_via_ou(self, operator, operation, entity,
                                      operation_attr=None):
@@ -2214,5 +2282,3 @@ class BofhdAuth(DatabaseAccessor):
             except AttributeError:
                 pass
         return None
-
-# end class BofhdAuth
