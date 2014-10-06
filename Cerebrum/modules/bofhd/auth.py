@@ -1147,11 +1147,15 @@ class BofhdAuth(DatabaseAccessor):
             # Check if the groupname matches the pattern defined in the
             # operation
             checktype, pattern = attr.split(':', 1)
-            m = re.compile(pattern)
-            if checktype == 'pre' and m != None:
+            p = re.compile(pattern)
+            if checktype == 'pre' and p.match(groupname) != None:
+                # Prefix definitions
                 return True
-            #elif checktype == 're' and m != None and m.end() == len(groupname):
-            #    return True
+            elif checktype == 're':
+                # Regular regex definitions
+                m = p.match(groupname)
+                if m and m.end() == len(groupname):
+                    return True
         raise PermissionDenied("Permission denied")
 
     def can_create_personal_group(self, operator, account=None,
