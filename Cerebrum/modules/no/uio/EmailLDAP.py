@@ -44,6 +44,11 @@ class EmailLDAPUiOMixin(EmailLDAP):
         # will use this list to exclude forwards and vacation messages for
         # accounts with Exchange-mailbox
         self.targ2spread = self.target2spread_populate()
+
+        # this set gets populated with the ids of account email targets that have pending
+        # events of type 'email_primary_address' in the event log
+        # read_pending_primary_email() is called by read_addr()
+        self.pending_primary_email = set()
     # end __init__
 
     spam_act2dig = {'noaction':   '0',
@@ -200,6 +205,9 @@ class EmailLDAPUiOMixin(EmailLDAP):
                 continue
             self.targ2addr.setdefault(t_id, []).append(addr)
 
+        # look for primary email changes that are still pending in the event log
+        self.read_pending_primary_email()
+
 
     def read_target_auth_data(self):
         a = Factory.get('Account')(self._db)
@@ -329,4 +337,24 @@ class EmailLDAPUiOMixin(EmailLDAP):
                                             row['end_date'],
                                             enable)
 
+    def read_pending_primary_email(self):
+        """Fetches the subject ids (email target ids) that have unprocessed
+        email_primary_address events for target system Exchange."""
+        # fetch event ids
+        pending_events = [int(row['event_id']) for row in self._db.search_events(
+            type=(self.const.email_primary_address_mod,
+                  self.const.email_primary_address_add,
+                  self.const.email_primary_address_rem),
+            target_system=self.const.target_system_exchange)]
 
+        pending_targets = []
+
+        # add each email target id to our list of pending targets
+        for event_id in pending_events:
+            try:
+                event = self._db.get_event(event_id=event_id)
+                pending_targets.append(int(event['subject_entity']))
+            except Errors.NotFoundError:
+                continue
+
+        self.pending_primary_email = set(pending_targets)

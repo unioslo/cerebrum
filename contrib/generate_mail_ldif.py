@@ -173,6 +173,11 @@ def write_ldif():
                 if ei in ldap.pending:
                     rest += "mailPause: TRUE\n"
 
+            # Does the event log have an unprocessed primary email change for this email target?
+            # pending_primary_email is populated by EmailLDAPUiOMixin
+            if hasattr(ldap, 'pending_primary_email') and t in ldap.pending_primary_email:
+                rest += "mailPausePendingEvent: TRUE\n"
+
             # Any server info?
             rest += dict_to_ldif_string(ldap.get_server_info(row))
 
@@ -451,7 +456,11 @@ def main():
 
     db = Factory.get('Database')()
     co = Factory.get('Constants')(db)
+
+    if verbose:
+        logger.debug("Loading the EmailLDAP module...")
     ldap = Factory.get('EmailLDAP')(db)
+
     if spread is not None:
         spread = map_spreads(spread, int)
 
