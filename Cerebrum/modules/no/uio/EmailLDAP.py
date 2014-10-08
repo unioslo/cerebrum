@@ -48,7 +48,7 @@ class EmailLDAPUiOMixin(EmailLDAP):
         # this set gets populated with the ids of account email targets that have pending
         # events of type 'email_primary_address' in the event log
         # read_pending_primary_email() is called by read_addr()
-        self.pending_primary_email = set()
+        self.pending_primary_email = {}
     # end __init__
 
     spam_act2dig = {'noaction':   '0',
@@ -347,14 +347,13 @@ class EmailLDAPUiOMixin(EmailLDAP):
                   self.const.email_primary_address_rem),
             target_system=self.const.target_system_exchange)]
 
-        pending_targets = []
-
         # add each email target id to our list of pending targets
         for event_id in pending_events:
             try:
                 event = self._db.get_event(event_id=event_id)
-                pending_targets.append(int(event['subject_entity']))
+                target = int(event['subject_entity'])
+                if not target in self.pending_primary_email:
+                    self.pending_primary_email[target] = []
+                self.pending_primary_email[target].append(event_id)
             except Errors.NotFoundError:
                 continue
-
-        self.pending_primary_email = set(pending_targets)
