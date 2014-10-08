@@ -680,12 +680,12 @@ class BofhdAuth(DatabaseAccessor):
                                         self.const.auth_view_contactinfo,
                                         self.const.auth_target_type_host,
                                         person.entity_id, person.entity_id,
-                                        contact_type) or
+                                        str(contact_type)) or
             self._has_target_permissions(operator,
                                         self.const.auth_view_contactinfo,
                                         self.const.auth_target_type_disk,
                                         person.entity_id, person.entity_id,
-                                        contact_type)):
+                                        str(contact_type))):
             return True
         # The person itself should be able to see it:
         account = Factory.get('Account')(self._db)
@@ -709,12 +709,12 @@ class BofhdAuth(DatabaseAccessor):
                                         self.const.auth_add_contactinfo,
                                         self.const.auth_target_type_host,
                                         entity_id, entity_id,
-                                        contact_type) or
+                                        str(contact_type)) or
             self._has_target_permissions(operator,
                                         self.const.auth_add_contactinfo,
                                         self.const.auth_target_type_disk,
                                         entity_id, entity_id,
-                                        contact_type)):
+                                        str(contact_type))):
             return True
         raise PermissionDenied("Not allowed to add contact info")
 
@@ -733,12 +733,12 @@ class BofhdAuth(DatabaseAccessor):
                                         self.const.auth_remove_contactinfo,
                                         self.const.auth_target_type_host,
                                         entity_id, entity_id,
-                                        contact_type) or
+                                        str(contact_type)) or
             self._has_target_permissions(operator,
                                         self.const.auth_remove_contactinfo,
                                         self.const.auth_target_type_disk,
                                         entity_id, entity_id,
-                                        contact_type)):
+                                        str(contact_type))):
             return True
         raise PermissionDenied("Not allowed to remove contact info")
 
