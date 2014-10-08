@@ -915,7 +915,6 @@ class GroupAPI(object):
         :param member_id: Entity ID of the member to be added
         """
         gr.add_member(member_id)
-        gr.write_db()
 
     @staticmethod
     def remove_member(gr, member_id):
@@ -928,7 +927,6 @@ class GroupAPI(object):
         :param member_id: Entity ID of the member to be removed
         """
         gr.remove_member(member_id)
-        gr.write_db()
 
     @staticmethod
     def grant_auth(en, gr, opset):
