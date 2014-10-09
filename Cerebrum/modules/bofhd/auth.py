@@ -813,10 +813,16 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return True
         # check for permission through opset
-        if self._has_target_permissions(operator,
+        if (self._has_target_permissions(operator,
                                         self.const.auth_view_contactinfo,
                                         self.const.auth_target_type_host,
-                                        person.entity_id, person.entity_id):
+                                        person.entity_id, person.entity_id,
+                                        str(contact_type)) or
+            self._has_target_permissions(operator,
+                                        self.const.auth_view_contactinfo,
+                                        self.const.auth_target_type_disk,
+                                        person.entity_id, person.entity_id,
+                                        str(contact_type))):
             return True
         # The person itself should be able to see it:
         account = Factory.get('Account')(self._db)
@@ -832,9 +838,21 @@ class BofhdAuth(DatabaseAccessor):
         # Superusers can see and run command
         if self.is_superuser(operator):
             return True
-        # Hide command if not in the above groups
         if query_run_any:
-            return False
+            return self._has_operation_perm_somewhere(
+                operator, self.const.auth_add_contactinfo)
+        # check for permission through opset
+        if (self._has_target_permissions(operator,
+                                         self.const.auth_add_contactinfo,
+                                         self.const.auth_target_type_host,
+                                         entity_id, entity_id,
+                                         str(contact_type)) or
+            self._has_target_permissions(operator,
+                                         self.const.auth_add_contactinfo,
+                                         self.const.auth_target_type_disk,
+                                         entity_id, entity_id,
+                                         str(contact_type))):
+            return True
         raise PermissionDenied("Not allowed to add contact info")
 
     def can_remove_contact_info(self, operator, entity_id=None,
@@ -844,9 +862,21 @@ class BofhdAuth(DatabaseAccessor):
         # Superusers can see and run command
         if self.is_superuser(operator):
             return True
-        # Hide command if not in the above groups
         if query_run_any:
-            return False
+            return self._has_operation_perm_somewhere(
+                operator, self.const.auth_remove_contactinfo)
+        # check for permission through opset
+        if (self._has_target_permissions(operator,
+                                        self.const.auth_remove_contactinfo,
+                                        self.const.auth_target_type_host,
+                                        entity_id, entity_id,
+                                        str(contact_type)) or
+            self._has_target_permissions(operator,
+                                        self.const.auth_remove_contactinfo,
+                                        self.const.auth_target_type_disk,
+                                        entity_id, entity_id,
+                                        str(contact_type))):
+            return True
         raise PermissionDenied("Not allowed to remove contact info")
 
     def can_create_person(self, operator, ou=None, affiliation=None,
