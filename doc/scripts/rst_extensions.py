@@ -67,4 +67,3 @@ sysinclude.arguments = (0, 1, 1)
 sysinclude.options = {'literal': directives.flag,
                       'vardef': directives.unchanged}
 
-# arch-tag: c2dc2937-492d-4066-bdf4-2569685e9413

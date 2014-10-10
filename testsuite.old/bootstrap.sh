@@ -42,4 +42,3 @@ EXTRA="\
 
 $MAKEDB --drop $EXTRA && $MAKEDB $EXTRA
 
-# arch-tag: 1034aa73-c943-4a0d-a638-d057175c9c11

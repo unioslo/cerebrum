@@ -125,4 +125,3 @@ elif sys.argv[1] == '--build':
 elif sys.argv[1] == '--diff':
     do_diff(src_dir, tgt_dir)
 
-# arch-tag: dfc54693-f7c1-4c6a-b97c-a0f3450b3696

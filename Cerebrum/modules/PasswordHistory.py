@@ -118,4 +118,3 @@ class PasswordHistory(DatabaseAccessor):
                      FROM password_history ph
                      WHERE ai.account_id=ph.entity_id)""")
 
-# arch-tag: 6a8a8481-9b44-423e-bbb6-cbc99f4586c0

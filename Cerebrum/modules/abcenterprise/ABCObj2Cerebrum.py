@@ -281,4 +281,3 @@ class ABCObj2Cerebrum(object):
             self._o2c.commit()
             self.logger.debug("commit()")
 
-# arch-tag: fc250d64-6995-11da-8e2e-62c416f986a0

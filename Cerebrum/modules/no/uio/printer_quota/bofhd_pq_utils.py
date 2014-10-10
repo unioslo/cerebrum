@@ -185,4 +185,3 @@ class BofhdUtils(object):
                 "Could not find Account with %s=%s" % (id_type, id_data))
         return account
 
-# arch-tag: dc4ba69e-a2ac-4597-8bf2-87a9b1fb761b

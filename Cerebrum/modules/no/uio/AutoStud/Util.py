@@ -122,4 +122,3 @@ class LookupHelper(object):
                 self._cached_affiliations = (person_id, ret)                
         return self._cached_affiliations[1]
 
-# arch-tag: 7e54eddf-3b3d-4fb3-87b6-1a4ca9122157
