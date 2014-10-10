@@ -8710,7 +8710,7 @@ Addresses and settings:
     all_commands['quarantine_set'] = Command(
         ("quarantine", "set"), EntityType(default="account"), Id(repeat=True),
         QuarantineType(), SimpleString(help_ref="string_why"),
-        SimpleString(help_ref="string_from_to"),
+        SimpleString(help_ref="string_from_to", optional=True),
         perm_filter='can_set_quarantine')
     def quarantine_set(self, operator, entity_type, id, qtype, why, date):
         date_start, date_end = self._parse_date_from_to(date)
