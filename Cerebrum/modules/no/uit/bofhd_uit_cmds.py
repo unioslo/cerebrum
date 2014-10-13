@@ -6310,4 +6310,3 @@ class BofhdExtension(object):
             uid = pickle.loads(r['change_params'])['uid']
         return uid
 
-# arch-tag: 98930b8a-4170-453a-a5db-34177f3ac40f

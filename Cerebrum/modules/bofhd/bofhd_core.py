@@ -642,13 +642,18 @@ class BofhdCommonMethods(BofhdCommandBase):
         self.ba.can_create_group(operator.get_entity_id(),
                                  groupname=groupname)
         g = self.Group_class(self.db)
+
+        # Check if group name is already in use, raise error if so
+        duplicate_test = g.search(name=groupname, filter_expired=False)
+        if len(duplicate_test) > 0:
+            raise CerebrumError("Group name is already in use")
+
         g.populate(creator_id=operator.get_entity_id(),
                    visibility=self.const.group_visibility_all,
                    name=groupname, description=description)
-        try:
-            g.write_db()
-        except self.db.DatabaseError, m:
-            raise CerebrumError("Database error: %s" % m)
+
+        g.write_db()
+
         for spread in cereconf.BOFHD_NEW_GROUP_SPREADS:
             g.add_spread(self.const.Spread(spread))
             g.write_db()

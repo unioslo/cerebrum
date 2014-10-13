@@ -251,4 +251,3 @@ cn: %s
 
 write_mail_dns()
 
-# arch-tag: 2c36018d-930a-4894-8a51-39af6847a10c

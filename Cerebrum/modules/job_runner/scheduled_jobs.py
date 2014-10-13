@@ -74,4 +74,3 @@ def get_jobs():
                               max_freq=5*60, when=When(freq=30*60))
         }
 
-# arch-tag: b678d411-6b71-4c47-a5e6-4c2bf6b42d58
