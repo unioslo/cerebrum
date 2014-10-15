@@ -410,4 +410,3 @@ class Object2Cerebrum(object):
 
 
 
-# arch-tag: fda7302c-6995-11da-943c-1c905588559b

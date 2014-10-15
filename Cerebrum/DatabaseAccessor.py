@@ -72,4 +72,3 @@ class DatabaseAccessor(object):
     logger = property(_get_logger, None, None,
                       "Cerebrum logger object for use from library methods.")
 
-# arch-tag: 00d1fe61-c527-4159-9f4f-74510846d83d

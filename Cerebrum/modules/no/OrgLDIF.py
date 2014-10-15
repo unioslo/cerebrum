@@ -398,4 +398,3 @@ class norEduLDIFMixin(OrgLDIF):
                 entry['norEduPersonBirthDate'] = ("%04d%02d%02d" % (
                     birth_date.year, birth_date.month, birth_date.day),)
 
-# arch-tag: f895ee98-7185-40df-83bb-96aa506d8b21

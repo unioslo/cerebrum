@@ -80,4 +80,3 @@ class AutoPriorityAccountMixin(Account.Account):
             new_pri -= 1
         raise ValueError, "No free priorities for that account_type!"
 
-# arch-tag: 47a2c496-b8e5-4674-a3ef-6f5745b91e0c

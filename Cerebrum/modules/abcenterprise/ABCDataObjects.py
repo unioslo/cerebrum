@@ -152,4 +152,3 @@ class DataAddress(object):
                    self.country))
         return result
 
-# arch-tag: fb615900-6995-11da-9b5c-329d892ac5ab

@@ -309,3 +309,24 @@ SYNCS = dict()
 #   - new_object: When an object has been created in AD.
 #   - TODO
 #
+# - group_type: str
+#
+#   This settings is only available for the GroupSync. Defines the group type.
+#   Normal values are 'security' (default) and 'distribution'. Groups that
+#   should be used for access control must be security groups, distribution
+#   groups are mainly only for e-mail lists. See more information in
+#   http://technet.microsoft.com/en-us/library/cc781446.aspx.
+#
+# - group_scope: str
+#
+#   This variable is only available for the GroupSync. Defines the scope of the
+#   group, i.e. where the group is available. Values:
+#
+#   - 'global': The group is available in the given AD domain. It could not have
+#     universal groups as members, and accounts must be from the same domain.
+#
+#   - 'universal': The group is available in all AD domains in the same forest.
+#
+#   Note that there are many constraints to e.g. membership for groups with
+#   different scope. See more information in
+#   http://technet.microsoft.com/en-us/library/cc755692.aspx.

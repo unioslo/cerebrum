@@ -107,4 +107,3 @@ if __name__ == '__main__':  # For testing
     print svr.run_command(secret, 'new_data', PPQUtil.EPAY, data)
     # select * from person_external_id where source_system=(select code from authoritative_system_code where code_str='FS');
 
-# arch-tag: 1ae465b8-d991-4437-ba55-b6b1ab947ec9

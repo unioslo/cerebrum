@@ -36,6 +36,7 @@ from Cerebrum.modules.exchange.Exceptions import ExchangeException
 from Cerebrum.modules.exchange.Exceptions import ServerUnavailableException
 from Cerebrum.modules.exchange.Exceptions import AlreadyPerformedException
 from Cerebrum.modules.exchange.Exceptions import URLError
+
 from Cerebrum.modules.event.EventExceptions import EventExecutionException
 from Cerebrum.modules.event.EventExceptions import EventHandlerNotImplemented
 from Cerebrum.modules.event.EventExceptions import EntityTypeError
@@ -52,33 +53,43 @@ from Cerebrum import Errors
 # The following code can be used for quick testing of the Cerebrum side
 # of stuff. We fake the client, and always return True :D This way, we
 # can quickly run through a fuckton of events.
-class PI(object):
-    def __init__(self, *args, **kwargs):
-        pass
+# class PI(object):
+#     def __init__(self, *args, **kwargs):
+#         pass
+#
+#     def __getattr__(self, a):
+#         return lambda *args, **kwargs: True
+# ExchangeClient = PI
 
-    def __getattr__(self, a):
-        return lambda *args, **kwargs: True
-#ExchangeClient = PI
 
 class ExchangeEventHandler(processing.Process):
+
+    """Event handler for Exchange.
+
+    This event handler is started by the event daemon.
+    It implements functions that are called based on wich ChangeTypes they are
+    associated with, trough the EventDecorator.RegisterHandler decorator.
+    """
+
     # Event to method lookup table. Populated by decorators.
     _lut_type2meth = {}
-    def __init__(self, config, event_queue, logger_queue, run_state):
-        """ExchangeEventHandler initialization routine
 
-        @type config: dict
-        @param config: Dict containing the config for the ExchangeClient
+    def __init__(self, config, event_queue, logger_queue, run_state):
+        """ExchangeEventHandler initialization routine.
+
+        :type config: dict
+        :param config: Dict containing the config for the ExchangeClient
             and handler
 
-        @type event_queue: processing.Queue
-        @param event_queue: The queue that events get queued on
-        
-        @type logger: processing.Queue
-        @param logger: Put tuples like ('warn', 'my message') onto this
+        :type event_queue: processing.Queue
+        :param event_queue: The queue that events get queued on
+
+        :type logger: processing.Queue
+        :param logger: Put tuples like ('warn', 'my message') onto this
             queue in order to have them logged
 
-        @type run_state: processing.Value(ctypes.c_int)
-        @param run_state: A shared object used to determine if we should
+        :type run_state: processing.Value(ctypes.c_int)
+        :param run_state: A shared object used to determine if we should
             stop execution or not
         """
         self.event_queue = event_queue
@@ -87,11 +98,11 @@ class ExchangeEventHandler(processing.Process):
         # TODO: This is a hack. Fix it
         self.logger_queue = logger_queue
         self.logger = Logger(self.logger_queue)
-        
+
         super(ExchangeEventHandler, self).__init__()
 
     def _post_fork_init(self):
-        """Post-fork init method.
+        r"""Post-fork init method.
 
         We need to initialize the database-connection after we fork,
         or else we will get random errors since all the threads share
@@ -104,8 +115,7 @@ class ExchangeEventHandler(processing.Process):
         """
         # fhl said I shoul rather use the PID or something truly unique here.
         # That sounds acceptable.
-        gen_key = lambda: 'CB%s' \
-                % hex(os.getpid())[2:].upper()
+        gen_key = lambda: 'CB%s' % hex(os.getpid())[2:].upper()
         self.key = gen_key
 
         # Try to connect to Exchange.
@@ -141,7 +151,7 @@ class ExchangeEventHandler(processing.Process):
         # Initialize the Database and Constants object
         self.db = Factory.get('Database')(client_encoding='UTF-8')
         self.co = Factory.get('Constants')(self.db)
-        
+
         # Spreads to use!
         self.mb_spread = self.co.Spread(self.config['mailbox_spread'])
         self.group_spread = self.co.Spread(self.config['group_spread'])
@@ -160,7 +170,9 @@ class ExchangeEventHandler(processing.Process):
         self.ut = CerebrumUtils()
 
     def run(self):
-        """Main event-processing loop. Spawned by processing.Process.__init__
+        """Main event-processing loop.
+
+        Spawned by processing.Process.__init__
         """
         # When we execute code here, we have forked. We can now initialize
         # the database (and more)
@@ -173,7 +185,6 @@ class ExchangeEventHandler(processing.Process):
         while self.run_state.value:
             # Collect a new event.
             try:
-                #raw_ev = self.event_queue.get(self.key, block=True, timeout=5)
                 raw_ev = self.event_queue.get(block=True, timeout=5)
                 ev = raw_ev['event']
             except Empty:
@@ -181,7 +192,7 @@ class ExchangeEventHandler(processing.Process):
                 # at times.
                 continue
             self.logger.debug3('Got a new event: %s' % str(ev))
-            
+
             # Try to lock the event
             try:
                 self.db.lock_event(ev['event_id'])
@@ -201,21 +212,36 @@ class ExchangeEventHandler(processing.Process):
                 self.handle_event(ev)
                 # When the command(s) have run sucessfully, we remove the
                 # the triggering event.
-                self.db.remove_event(ev['event_id'])
+                try:
+                    self.db.remove_event(ev['event_id'])
+                except Errors.NotFoundError:
+                    self.logger.debug3('Event deleted while processing: %s' %
+                                       str(ev))
+                    self.db.commit()
+                    continue
+
                 # TODO: Store the receipt in ChangeLog! We need to handle
                 # EntityTypeError and UnrelatedEvent in a appropriate manner
                 # for this to work. Now we always store the reciept in the
                 # functions called. That is a tad innapropriate, but also
                 # correct. Hard choices.
                 self.db.commit()
-            # If the event fails, we append the event to the queue
             # If an event fails, we just release it, and let the
             # DelayedNotificationCollector enqueue it when appropriate
             except EventExecutionException, e:
-                self.logger.debug('Failed to process event %d: %s' % \
-                                        (ev['event_id'], str(e)))
-                self.db.release_event(ev['event_id'])
-                self.db.commit()
+                self.logger.debug('Failed to process event %d: %s' %
+                                  (ev['event_id'], str(e)))
+                try:
+                    self.db.release_event(ev['event_id'])
+                except Errors.NotFoundError:
+                    # In this case, the event has been deleted while running,
+                    # therefore, we cannot release it.
+                    # TODO: Implement something that will lock events for
+                    # deletion while they are beeing processed. If that is
+                    # implemented, this could be removed.
+                    self.db.rollback()
+                else:
+                    self.db.commit()
             except EventHandlerNotImplemented:
                 self.logger.debug3('Event Handler Not Implemented!')
                 # We remove the event for now.. Or else it will just
@@ -236,17 +262,21 @@ class ExchangeEventHandler(processing.Process):
                 #
                 # We don't release the "lock" on the event, since the event
                 # will probably fail the next time around. Manual intervention
-                # IS therefore REQUIRED!!!!!!1
+                # IS therefore REQUIRED!
                 #
                 # Get the traceback, put some tabs in front, and log it.
                 tb = traceback.format_exc()
                 tb = '\t' + tb.replace('\n', '\t\n')
                 self.logger.error(
-                        'Oops! Didn\'t see that one coming! :)\n%s\n%s' % \
-                                (str(ev), tb))
-                # We unlock the event, so it can be retried
-                self.db.release_event(ev['event_id'])
-                self.db.commit()
+                    'Oops! Didn\'t see that one coming! :)\n%s\n%s' %
+                    (str(ev), tb))
+#                # We unlock the event, so it can be retried
+#                try:
+#                    self.db.release_event(ev['event_id'])
+#                except Errors.NotFoundError:
+#                    self.db.rollback()
+#                else:
+#                    self.db.commit()
 
         # When the run-state has been set to 0, we kill the pssession
         # We check for existance, before tearing down the connection, in the
@@ -258,6 +288,7 @@ class ExchangeEventHandler(processing.Process):
         self.logger.info('ExchangeEventHandler stopped')
 
     def handle_event(self, event):
+        """Call the appropriate handlers."""
         # TODO: try/except this?
         key = str(self.co.ChangeType(event['event_type']))
         self.logger.debug3('Got event key: %s' % key)
@@ -1390,7 +1421,7 @@ class ExchangeEventHandler(processing.Process):
                 self.ut.log_event(ev_mod, 'e_group:add')
             except AlreadyPerformedException:
                 # If we wind up here, the user was allready added. We might, in
-                # some circumstances, want to discard the event completly, but
+                # some circumstances, want to discard the event completely, but
                 # for now, we just pass along.
                 self.logger.debug1(
                     'eid:%d: Discarding e_group:add (%s into %s)' %

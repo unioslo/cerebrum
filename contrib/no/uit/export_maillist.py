@@ -56,6 +56,5 @@ for grp in grps:
     grp_items = grpname.split(':')
 
     fname = grp_items[7]  # 7'th item is name of the group. list is zero based
-    print "emne %s, length=%d" % (fname , len(grp_items)) # arch-tag: ae92be3a-b426-11da-840c-baf9fd918da5
+    print "emne %s, length=%d" % (fname , len(grp_items))
 
-# arch-tag: 70e92b5c-b429-11da-9313-e147d4db9286

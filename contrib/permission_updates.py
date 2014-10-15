@@ -1,7 +1,7 @@
 #! /usr/bin/env python
-# -*- coding: iso-8859-1 -*-
-# 
-# Copyright 2012 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+#
+# Copyright 2012, 2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -139,12 +139,12 @@ def fix_opset(name, contents):
         for a in contents[k].get('attrs', []):
             if a not in current_attrs:
                 baos.add_op_attrs(current_op_id, a)
-                # logger.debug('OpSet %s\'s operation %s got attr. %s', name, k, a)
+                logger.info("Add attr for %s:%s: %s", name, k, a)
             else:
                 current_attrs.remove(a)
         for a in current_attrs:
             baos.del_op_attrs(current_op_id, a)
-            logger.info("OpSet %s's op %s shouldn't have attr. %s, removed it", name, k, a)
+            logger.info("Remove attr for %s:%s: %s", name, k, a)
     for op in current_operations:
        baos.del_operation(op)  # TBD: In theory this should be op_id, should
                                # the DB have a unique constraint?

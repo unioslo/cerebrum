@@ -139,4 +139,3 @@ class MountHost(Host):
         FROM [:table schema=cerebrum name=mount_host]""")
 
 
-# arch-tag: 4bdd1435-a85a-4d9d-85df-bf9d91e6261b
