@@ -76,7 +76,7 @@ class Group(ClientAPI):
             'N'  None
         """
         # Perform auth-check
-        self.ba.can_create_group(self.operator_id)
+        self.ba.can_create_group(self.operator_id, groupname=name)
 
         # Check if group exists
         if Utils.get_group(self.db, 'name', name):
