@@ -261,6 +261,7 @@ if (install_servers):
     sbin_files.append(('servers/cis/SoapGroupServer.py', 0755))
     sbin_files.append(('servers/cis/SoapGroupPublish.py', 0755))
     sbin_files.append(('servers/cis/SoapVirthomeServer.py', 0755))
+    sbin_files.append(('servers/cis/SoapServer.py', 0755))
 
 bin_files = []
 
