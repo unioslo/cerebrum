@@ -474,3 +474,6 @@ setup(name="Cerebrum", version=Cerebrum.__version__,
       # Overridden command classes
       cmdclass={'install_data': my_install_data, },
       )
+
+setup(name='SoapAPI', packages = ['SoapAPI'])
+setup(name='ClientAPI', packages = ['ClientAPI'])
