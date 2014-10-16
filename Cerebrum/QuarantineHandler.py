@@ -149,10 +149,14 @@ class QuarantineHandler(object):
     def is_locked(self):
         """The account should be known, but the account locked"""
         # Note that if any matching quaratine specifies lock, lock
-        # will be used.
-        for m in self._get_matches():
-            if m.get('lock', 0):
-                return 1
+        # will be used. If no rules are set up for the quarantine, always
+        # signal locked.
+        try:
+            for m in self._get_matches():
+                if m.get('lock', 0):
+                    return 1
+        except KeyError:
+            return 1
         return 0
 
     def check_entity_quarantines(db, entity_id, spreads=None):
