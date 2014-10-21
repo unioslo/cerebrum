@@ -20,7 +20,6 @@
 
 import cerebrum_path
 getattr(cerebrum_path, '', None)  # Silence the linter.
-import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -51,74 +50,6 @@ class Entity(ClientAPI):
         self.config = config
 
         self.ba = BofhdAuth(self.db)
-
-    def quarantine_list(self, id_type, entity_id):
-        """Retrieve a list of entity's quarantines.
-
-        :type id_type: basestring
-        :param id_type: one of "id", "name", "uname", "gname"
-
-        :type entity_id: basestring
-        :param entity_id: textual representatiod of id in given type
-
-        :rtype: list of dicts {
-            quarantine_type: str (code)
-            description: unicode
-            start_date: datetime
-            end_date: datetime
-            disable_until: datetime
-            is_active: boolean (if quarantine is active now)
-            lock_out: boolean (if the quarantine means entity is locked out)
-            auto: boolean (if the quarantine is set by automatic scripts)
-        """
-        import mx
-        from Cerebrum.QuarantineHandler import QuarantineHandler
-
-        co = Factory.get('Constants')(self.db)
-        # q[i] = {quarantine_type: int, creator_id: int, description: string,
-        #         create_date: DateTime, start_date: DateTime,
-        #         disable_until: DateTime, DateTime: end_date}
-        e = Utils.get(self.db, 'entity', id_type, entity_id)
-
-        # Check if the user should be able to see the quarantine.
-        self.ba.can_show_quarantines(self.operator_id, e)
-
-        try:
-            q = e.get_entity_quarantine()
-        except AttributeError:
-            raise Errors.CerebrumRPCException(
-                'Quarantines not applicable for entity.')
-
-        types = dict()
-        qhandlers = dict()
-        now = mx.DateTime.now()
-
-        def fixer(row):
-            # Use code string for quarantine type
-            new = dict()
-            qt = row['quarantine_type']
-            if qt in types:
-                new['quarantine_type'] = str(types[qt])
-                new['lock_out'] = qhandlers[qt].is_locked()
-            else:
-                qtype = co.map_const(qt)
-                types[qt] = qtype
-                qhandlers[qt] = QuarantineHandler(self.db, [qtype])
-                new['quarantine_type'] = str(qtype)
-                new['lock_out'] = qhandlers[qt].is_locked()
-            new['is_active'] = (row['start_date'] <= now and
-                                (row['end_date'] is None or
-                                    row['end_date'] > now) and
-                                (row['disable_until'] is None or
-                                    row['disable_until'] <= now))
-            new['auto'] = (str(types[qt]) in cereconf.QUARANTINE_AUTOMATIC or
-                           str(types[qt]) in
-                           cereconf.QUARANTINE_STRICTLY_AUTOMATIC)
-            for i in ('description', 'start_date',
-                      'end_date', 'disable_until'):
-                new[i] = row[i]
-            return new
-        return map(fixer, q)
 
     def spread_list(self, id_type, entity_id):
         """List account's spreads.
@@ -188,10 +119,42 @@ class Entity(ClientAPI):
         :type system: basestring
         :param system: The system to check."""
         # Check for existing quarantines on the entity that are locking the
-        # entity out, and also check if the entity is in the system.
-        if (filter(lambda x: bool(x['lock_out']) is True,
-            self.quarantine_list(id_type, entity_id)) or not
-                self.in_system(id_type, entity_id, system)):
+        # entity out (if the quarantine is active), and also check if the
+        # entity is in the system.
+        # TODO: Should this evaluate the shell set by quarantine rules? Some
+        #       quarantines does not result in a locked-status, but has
+        #       nologin-shells associated with them..
+        import mx
+        from Cerebrum.QuarantineHandler import QuarantineHandler
+
+        co = Factory.get('Constants')(self.db)
+        # q[i] = {quarantine_type: int, creator_id: int, description: string,
+        #         create_date: DateTime, start_date: DateTime,
+        #         disable_until: DateTime, DateTime: end_date}
+        e = Utils.get(self.db, 'entity', id_type, entity_id)
+
+        # Fetch quarantines if applicable
+        try:
+            quars = e.get_entity_quarantine()
+        except AttributeError:
+            quars = []
+
+        now = mx.DateTime.now()
+
+        locked = False
+        for q in quars:
+            # Use code string for quarantine type
+            qt = q['quarantine_type']
+            qtype = co.map_const(qt)
+            qhandler = QuarantineHandler(self.db, [qtype])
+            if (qhandler.is_locked() and
+                    (q['start_date'] <= now and
+                     (q['end_date'] is None or
+                      q['end_date'] > now) and
+                     (q['disable_until'] is None or
+                      q['disable_until'] <= now))):
+                locked = True
+        if (locked or not self.in_system(id_type, entity_id, system)):
             return False
         else:
             return True

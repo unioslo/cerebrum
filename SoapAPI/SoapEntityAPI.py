@@ -24,8 +24,6 @@ from rpclib.model.primitive import String, Boolean
 from rpclib.model.complex import Array
 from rpclib.decorator import rpc
 
-from SoapAPI.SoapEntityAPImodel import QuarantineInfo
-
 NAMESPACE = 'EntityAPI'
 
 
@@ -50,11 +48,6 @@ class EntityAPIService(SoapListener.BasicSoapServer):
     def spread_list(ctx, id_type, entity_id):
         return ctx.udc[NAMESPACE].spread_list(id_type, entity_id)
 
-    @rpc(String, String, _throws=faults.EndUserFault,
-         _returns=Array(QuarantineInfo))
-    def quarantine_list(ctx, id_type, entity_id):
-        return ctx.udc[NAMESPACE].quarantine_list(id_type, entity_id)
-
     @rpc(String, String, String, _throws=faults.EndUserFault, _returns=Boolean)
     def in_system(ctx, id_type, entity_id, system):
         return ctx.udc[NAMESPACE].in_system(id_type, entity_id, system)
@@ -66,4 +59,3 @@ class EntityAPIService(SoapListener.BasicSoapServer):
     @rpc(String, String, String, _throws=faults.EndUserFault)
     def add_to_system(ctx, id_type, entity_id, system):
         return ctx.udc[NAMESPACE].add_to_system(id_type, entity_id, system)
-
