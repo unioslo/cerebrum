@@ -45,7 +45,8 @@ in other ways, and not by this script.
 import sys
 import getopt
 
-import time, mx.DateTime as dt
+import time
+import mx.DateTime as dt
 
 import cerebrum_path
 import cereconf
@@ -72,31 +73,23 @@ def fetch_all_relevant_accounts(qua_type, since):
         The number of days a quarantine must have been active for the account to
         be targeted.
 
-    :rtype: list
+    :rtype: set
     :returns: The `entity_id` for all the accounts that match the criterias.
 
     """
-    logger.debug("only quarantines older than %s days", since)
-    has_quarantine = account.list_entity_quarantines(entity_types=constants.entity_account,
-                                                     quarantine_types=qua_type,
-                                                     only_active=True)
-    relevant_accounts = []
+    max_date = dt.now() - since
+    logger.debug("Search quarantines older than %s days, i.e. before %s", since,
+                 max_date.strftime('%Y-%m-%d'))
+    quarantined = set(row['entity_id'] for row in
+                      account.list_entity_quarantines(
+                            entity_types=constants.entity_account,
+                            quarantine_types=qua_type, only_active=True)
+                      if row['start_date'] <= max_date)
+    logger.debug("Found %d quarantine targets", len(quarantined))
 
-    for x in has_quarantine:
-        tmp = today - x['start_date']
-        since_start = int(tmp.days)
-        logger.debug2("Days since quarantine started: %s", since_start)
-        delta = int(since) - since_start
-        if delta <= 0:
-            logger.debug2("in range; quarantine %s days old, %s days required; "
-                          "adding %s to deactivate list",
-                          since_start, since, x['entity_id'])
-            relevant_accounts.append(x['entity_id'])
-        else:
-            logger.debug("Quarantine for %s is only %s days old (should be %s), skipping",
-                         x['entity_id'], since_start, since)
-            continue
-    return relevant_accounts
+    # TODO: Check person affiliations
+
+    return quarantined
 
 def process_account(account, delete=False):
     """Deactivate the given account.
