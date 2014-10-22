@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
-# 
-# Copyright 2011, 2012 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+#
+# Copyright 2011, 2012, 2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,7 +19,9 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""This script checks all accounts for a given type of quarantine. If such
+"""Deactivate accounts with a given quarantine.
+
+This script checks all accounts for a given type of quarantine. If such
 quarantine exists and it has been created before the date implied by the
 since-parameter the account is deactivated. Only active quarantines are
 considered.
@@ -32,6 +34,11 @@ Cerebrum/modules/no/INST/Account.py - before this script would work.
 The script also supports deleting (nuking) accounts instead of just deactivating
 them.  You should be absolutely sure before you run it with nuking, as this
 deletes all the details around the user accounts, even its change log.
+
+Note: If a quarantine has been temporarily disabled, it would not be found by
+this script. This would make it possible to let accounts live for prolonged
+periods, without getting deactivated. This is a problem which should be solved
+in other ways, and not by this script.
 
 """
 
@@ -56,15 +63,25 @@ today = dt.today()
 
 
 def fetch_all_relevant_accounts(qua_type, since):
-    # by using only_active we may inadverently allow accounts with
-    # disabled quarantines to live for prolonged periods of
-    # time. TODO: is this actually a problem? Jazz, 2011-11-03
+    """Fetch all accounts that matches the criterias for deactivation.
+
+    :param QuarantineCode qua_type:
+        The quarantine that the accounts must have to be targeted.
+
+    :param int since:
+        The number of days a quarantine must have been active for the account to
+        be targeted.
+
+    :rtype: list
+    :returns: The `entity_id` for all the accounts that match the criterias.
+
+    """
     logger.debug("only quarantines older than %s days", since)
-    has_quarantine = account.list_entity_quarantines(entity_types=constants.entity_account, 
-                                                     quarantine_types=qua_type, 
+    has_quarantine = account.list_entity_quarantines(entity_types=constants.entity_account,
+                                                     quarantine_types=qua_type,
                                                      only_active=True)
     relevant_accounts = []
-    
+
     for x in has_quarantine:
         tmp = today - x['start_date']
         since_start = int(tmp.days)
@@ -82,43 +99,55 @@ def fetch_all_relevant_accounts(qua_type, since):
     return relevant_accounts
 
 def process_account(account, delete=False):
-    """Process a given account. If delete is False, the account will get
-    deactivated. If delete is True, everything about the account will be
-    deleted from the database, even the log events."""
+    """Deactivate the given account.
+
+    :param Cerebrum.Account: The account that should get deactivated.
+
+    :param bool delete:
+        If True, the account will be totally deleted instead of just
+        deactivated.
+
+    :rtype: bool
+    :returns: If the account really got deactivated/deleted.
+
+    """
     if delete:
         logger.info("Terminating account: %s", account.account_name)
         account.terminate()
-        return
-
-    # else: Only deactivating
+        return True
     if account.is_deleted():
         logger.debug2("Account %s already deleted", account.account_name)
-        return
+        return False
     account.deactivate()
     logger.info("Deactivated account: %s", account.account_name)
+    return True
 
 def usage(exitcode=0):
     print """Usage: deactivate_quarantined_accounts.py -q quarantine_type -s #days [-d]
 
 Deactivate all accounts where given quarantine has been set for at least #days.
-    
+
 %s
 
-    -q, --quarantine: Quarantine type. Default: quarantine_generell.
+    -q, --quarantine QUAR   Quarantine type. Default: generell
 
-    -s, --since:      Number of days since quarantine started. Default: 30
+    -s, --since DAYS        Number of days since quarantine started. Default: 30
 
-    -d, --dryrun:     Do a roll-back instead of writing to the database.
+    -l, --limit LIMIT       Limit the number of deactivations by the script.
+                            This is to prevent too much changes in the system,
+                            as archiving could take time. Defaults to no limit.
 
-        --terminate:  *Delete* the account instead of just deactivating it.
-                      Warning: This deletes *everything* about the accounts
-                      with active quarantines, even their logs. This can not
-                      be undone, so use with care!
+    -d, --dryrun            Do not commit changes to the database
 
-    -h, --help:       show this and quit.
+        --terminate         *Delete* the account instead of just deactivating
+                            it. Warning: This deletes *everything* about the
+                            accounts with active quarantines, even their logs.
+                            This can not be undone, so use with care!
+
+    -h, --help              show this and quit.
     """ % __doc__
     sys.exit(exitcode)
-    
+
 def main():
     options, junk = getopt.getopt(sys.argv[1:],
                                   "q:s:dh",
@@ -128,41 +157,52 @@ def main():
                                    "terminate",
                                    "since=",))
     dryrun = False
+    limit = None
     # default quarantine type
     quarantine = int(constants.quarantine_generell)
     # number of days since quarantine has started
     since = 30
     delete = False
-    
+
     for option, value in options:
-        if option in ("-q", "--quarantine",):
+        if option in ("-q", "--quarantine"):
             quarantine = int(constants.Quarantine(value))
-        elif option in ("-d", "--dryrun",):
+        elif option in ("-d", "--dryrun"):
             dryrun = True
-        elif option in ("-s", "--since",):
+        elif option in ("-s", "--since"):
             since = value
+        elif option in ("-l", "--limit"):
+            limit = int(value)
         elif option in ("--terminate",):
             logger.info('Set to delete accounts and not just deactivating!')
             delete = True
-        elif option in ("-h", "--help",):
+        elif option in ("-h", "--help"):
             usage()
         else:
-            usage()
-    
+            print "Unknown argument: %s" % option
+            usage(1)
+
+    logger.info("Start deactivate_quarantined_accounts")
     logger.info("Fetching relevant accounts")
     rel_accounts = fetch_all_relevant_accounts(quarantine, since)
     logger.info("Got %s accounts to process", len(rel_accounts))
 
+    i = 0
     for a in rel_accounts:
+        if limit and i >= limit:
+            logger.debug("Limit of deactivations reached (%d), stopping", limit)
+            break
         account.clear()
         try:
             account.find(int(a))
         except Errors.NotFoundError:
             logger.warn("Could not find account_id %s, skipping", a)
             continue
-        logger.debug('Processing account %s', account.account_name)
+        logger.debug('Processing account %s (%s)', account.account_name,
+                     account.entity_id)
         try:
             process_account(account, delete)
+            i += 1
         except Exception, e:
             # Add debug info
             logger.warn("Failed processing account: %s" % account.account_name)
@@ -174,6 +214,7 @@ def main():
     else:
         database.commit()
         logger.info("changes commited")
+    logger.info("Done deactivate_quarantined_accounts")
 
 if __name__ == '__main__':
     main()
