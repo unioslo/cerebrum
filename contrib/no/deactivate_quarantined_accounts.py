@@ -52,6 +52,7 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.bofhd.utils import BofhdRequests
 
 logger = Factory.get_logger("cronjob")
 database = Factory.get("Database")()
@@ -62,6 +63,9 @@ constants = Factory.get("Constants")(database)
 account = Factory.get("Account")(database)
 today = dt.today()
 
+account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
+operator_id = account.entity_id
+account.clear()
 
 def fetch_all_relevant_accounts(qua_type, since):
     """Fetch all accounts that matches the criterias for deactivation.
@@ -87,11 +91,11 @@ def fetch_all_relevant_accounts(qua_type, since):
                       if row['start_date'] <= max_date)
     logger.debug("Found %d quarantine targets", len(quarantined))
 
-    # TODO: Check person affiliations
+    # TODO: Check person affiliations here
 
     return quarantined
 
-def process_account(account, delete=False):
+def process_account(account, delete=False, bofhdreq=False):
     """Deactivate the given account.
 
     :param Cerebrum.Account: The account that should get deactivated.
@@ -100,19 +104,38 @@ def process_account(account, delete=False):
         If True, the account will be totally deleted instead of just
         deactivated.
 
+    :param bool bofhdreq:
+        If True, the account will be given to BofhdRequest for further
+        processing. It will then not be deactivated by this script.
+
     :rtype: bool
     :returns: If the account really got deactivated/deleted.
 
     """
-    if delete:
-        logger.info("Terminating account: %s", account.account_name)
-        account.terminate()
-        return True
     if account.is_deleted():
         logger.debug2("Account %s already deleted", account.account_name)
         return False
-    account.deactivate()
-    logger.info("Deactivated account: %s", account.account_name)
+    logger.info('Deactivating account: %s (%s)', account.account_name,
+                account.entity_id)
+    if delete:
+        logger.info("Terminating account: %s", account.account_name)
+        account.terminate()
+    elif bofhdreq:
+        logger.debug("Send to BofhdRequest: %s", account.account_name)
+        br = BofhdRequests(database, constants)
+        try:
+            reqid = br.add_request(operator_id, when=br.now,
+                                   op_code=constants.bofh_delete_user,
+                                   entity_id=account.entity_id,
+                                   destination_id=None)
+            logger.debug("BofhdRequest-Id: %s", reqid)
+        except CerebrumError, e:
+            # A CerebrumError is thrown if there exists some move_user for the
+            # same user...
+            logger.warn("Couldn't delete %s: %s", account.account_name, e)
+            return False
+    else:
+        account.deactivate()
     return True
 
 def usage(exitcode=0):
@@ -130,6 +153,12 @@ Deactivate all accounts where given quarantine has been set for at least #days.
                             This is to prevent too much changes in the system,
                             as archiving could take time. Defaults to no limit.
 
+        --bofhdrequest      If specified, instead of deactivating the account
+                            directly, it is handed over to BofhdRequest for
+                            further processing. This is needed e.g. when we need
+                            to archive the home directory before the account
+                            gets deactivated.
+
     -d, --dryrun            Do not commit changes to the database
 
         --terminate         *Delete* the account instead of just deactivating
@@ -143,10 +172,12 @@ Deactivate all accounts where given quarantine has been set for at least #days.
 
 def main():
     options, junk = getopt.getopt(sys.argv[1:],
-                                  "q:s:dh",
+                                  "q:s:dhl:",
                                   ("quarantine=",
                                    "dryrun",
                                    "help",
+                                   "limit=",
+                                   "bofhdrequest",
                                    "terminate",
                                    "since=",))
     dryrun = False
@@ -155,7 +186,7 @@ def main():
     quarantine = int(constants.quarantine_generell)
     # number of days since quarantine has started
     since = 30
-    delete = False
+    delete = bofhdreq = False
 
     for option, value in options:
         if option in ("-q", "--quarantine"):
@@ -163,11 +194,14 @@ def main():
         elif option in ("-d", "--dryrun"):
             dryrun = True
         elif option in ("-s", "--since"):
-            since = value
+            since = int(value)
         elif option in ("-l", "--limit"):
             limit = int(value)
+        elif option in ("--bofhdrequest",):
+            logger.debug('Set to use BofhdRequest for deactivation')
+            bofhdreq = True
         elif option in ("--terminate",):
-            logger.info('Set to delete accounts and not just deactivating!')
+            logger.debug('Set to delete accounts and not just deactivating!')
             delete = True
         elif option in ("-h", "--help"):
             usage()
@@ -175,7 +209,9 @@ def main():
             print "Unknown argument: %s" % option
             usage(1)
 
-    logger.info("Start deactivate_quarantined_accounts")
+    logger.info("Start deactivation, quar=%s, since=%s, terminate=%s, "
+                "bofhdreq=%s, limit=%d", quarantine, since, delete, bofhdreq,
+                limit)
     logger.info("Fetching relevant accounts")
     rel_accounts = fetch_all_relevant_accounts(quarantine, since)
     logger.info("Got %s accounts to process", len(rel_accounts))
@@ -191,15 +227,12 @@ def main():
         except Errors.NotFoundError:
             logger.warn("Could not find account_id %s, skipping", a)
             continue
-        logger.debug('Processing account %s (%s)', account.account_name,
-                     account.entity_id)
         try:
-            process_account(account, delete)
-            i += 1
+            if process_account(account, delete=delete, bofhdreq=bofhdreq):
+                i += 1
         except Exception, e:
-            # Add debug info
-            logger.warn("Failed processing account: %s" % account.account_name)
-            raise
+            logger.exception("Failed deactivating account: %s (%s)" %
+                             (account.account_name, account.entity_id))
 
     if dryrun:
         database.rollback()
