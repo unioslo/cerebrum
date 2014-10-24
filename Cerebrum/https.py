@@ -38,7 +38,7 @@ try:
     from backports import ssl_match_hostname
 except ImportError:
     from Cerebrum.extlib import ssl_match_hostname
-    warn(ImportWarning(u"Using extlib ssl_match_hostname backport"))
+    warn(ImportWarning(u'Using extlib ssl_match_hostname backport'))
 
 
 HostnameError = ssl_match_hostname.CertificateError
@@ -104,31 +104,39 @@ class SSLConfig(object):
         self.set_ssl_version(SSLConfig.TLSv1)
 
     def set_ca_chain(self, ca_certs):
-        u""" Set the peer certificate. """
+        u""" Set the peer certificate.
+
+        :param str ca_certs: The path to a file that contains CA certificates.
+            This parameter is used as 'ca_certs' in the ssl.wrap_socket call.
+
+        """
         if not os.path.exists(ca_certs):
             raise ValueError(u"No CA file '%s'" % ca_certs)
         self._wrap_param['ca_certs'] = ca_certs
 
-    def set_ca_validate(self, requirement):
+    def set_ca_validate(self, req):
         u""" If peer certificates should be validated.
 
-        :param str requirement: The validate requirement, must be one of
-            the constants: 'REQUIRE', 'OPTIONAL', 'NONE'.
+        :param str req: The validate requirement, must be one of the constants:
+            'REQUIRE', 'OPTIONAL', 'NONE'. This decides if certificates should
+            be checked against a CA certificate. See the documentation for the
+            ssl module for more info.
 
         """
-        if requirement not in (SSLConfig.NONE, SSLConfig.OPTIONAL,
-                               SSLConfig.REQUIRED):
-            raise TypeError(u"Invalid validate setting '%s'" % requirement)
-        self._wrap_param['cert_reqs'] = requirement
+        if req not in (SSLConfig.NONE, SSLConfig.OPTIONAL, SSLConfig.REQUIRED):
+            raise TypeError(u"Invalid validate setting '%s'" % req)
+        self._wrap_param['cert_reqs'] = req
 
     def set_cert(self, certfile, keyfile=None, password=None):
         u""" Set certificate.
 
         :param str certfile: Path to a certificate file in PEM format. If the
             certificate contains a key, there's no need to set keyfile
-            separately
+            separately. This parameter is used as 'certfile' in the
+            ssl.wrap_socket call.
         :param str keyfile: Path to a private key file in PEM format. If the
             certfile does not contain a private key, this settings is required.
+            This parameter is used as 'certfile' in the ssl.wrap_socket call.
         :param str password: A password that decrypts the private key, if
             required. Currently unsupported.
 
@@ -158,29 +166,43 @@ class SSLConfig(object):
         u""" Set the minimum ssl protocol version to accept.
 
         :param str ssl_version: The version to accept. Must be one of
-            the constants 'SSLv2', 'SSLv3', 'SSLv23', 'TLSv1'.
+            the constants 'SSLv2', 'SSLv3', 'SSLv23', 'TLSv1'. This affects
+            the selection of ssl protocols that are reported when attempting
+            to set up the ssl connection. See the documentation for the ssl
+            module for more info.
 
         """
         if ssl_version not in (SSLConfig.SSLv2, SSLConfig.SSLv3,
                                SSLConfig.SSLv23, SSLConfig.TLSv1):
-            raise TypeError(u"Invalid SSL version %s" % ssl_version)
+            raise TypeError(u'Invalid SSL version %s' % ssl_version)
         self._wrap_param['ssl_version'] = ssl_version
 
-    def set_verify_hostname(self, enable):
-        u""" Set enable/disable hostname validation.
+    def set_verify_hostname(self, do_verify):
+        u""" Enable or disable hostname validation.
 
-        :param bool enable: True if the hostname should be verified,
-            False if it should be ignored.
+        If enabled, an error (HostnameError) is raised if the certificate is
+        not valid for the hostname we connected to. If disabled, invalid
+        hostnames will only cause a RuntimeWarning.
+
+        :param bool do_verify: True if certificate must be valid for the
+            hostname. If False, an invalid hostname will only cause a warning.
 
         """
-        self._do_verify_hostname = enable
+        self._do_verify_hostname = do_verify
 
     def verify_hostname(self, sock, hostname):
-        u""" Attempt to match the peer hostname and certificate, if a certificate
-        was provided, and we've set hostname verify to True.
+        u""" Attempt to match the peer hostname and certificate.
+
+        If a certificate was not provided, and we don't require a certificate,
+        this function will report a warning if the hostname doesn't match. This
+        is also true if we disable hostname verification with
+        set_verify_hostname(False). If we require peer certificates and
+        hostname verification, this function will raise a
+        HostnameError/ssl_match_hostname.CertificateError if the hostname
+        doesn't match.
 
         :param ssl.SSLSocket sock: The connected socket we want to verify
-        :param string hostname: The hostname that we connected to
+        :param string hostname: The hostname that should match the certificate
 
         """
         cert = sock.getpeercert()
@@ -210,23 +232,29 @@ class SSLConfig(object):
             raise
 
     def wrap_socket(self, sock):
-        u""" Wrap socket with SSLSocket, with the provided settings. """
-        # Warn about bad decision making:
+        u""" Wrap socket with SSLSocket, with the provided settings.
 
+        Calls ssl.wrap_socket with ssl parameters from this object.
+
+        """
+        # Warn about bad decision making:
         if self._wrap_param.get('cert_reqs', None) != SSLConfig.REQUIRED:
             warn(RuntimeWarning(u'Peer certificate not required'))
-
         if not self._do_verify_hostname:
             warn(RuntimeWarning(u'Certificate hostname validation disabled'))
 
         return ssl.wrap_socket(sock, **self._wrap_param)
 
-    def __str__(self):
-        u""" Return a string representation of this object. """
+    def __unicode__(self):
+        u""" Return a unicode representation of this object. """
         return u'SSLConfig(%s, %s)' % (
             u', '.join(('%s=%s' % (k, v) for k, v in
                        self._wrap_param.iteritems())),
             u'verify_hostname=%s' % self._do_verify_hostname)
+
+    def __str__(self):
+        u""" Return a string representation of this object. """
+        return unicode(self).encode('utf-8')
 
 
 class HTTPSConnection(httplib.HTTPSConnection, object):
@@ -291,7 +319,6 @@ class HTTPSConnection(httplib.HTTPSConnection, object):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((self.host, self.port))
         if self._timeout is not None:
-            warn('setting timeout to %ss' % self._timeout)
             sock.settimeout(float(self._timeout))
 
         self.sock = self._ssl_config.wrap_socket(sock)
@@ -340,7 +367,7 @@ class HTTPSHandler(urllib2.HTTPSHandler, object):
         except urllib2.URLError, err:
             # I want to throw SSLErrors! This means SSLErrors will start their
             # tracebacks here but all other exceptions should be fine.
-            if hasattr(err, u'reason') and isinstance(err.reason, ssl.SSLError):
+            if hasattr(err, 'reason') and isinstance(err.reason, ssl.SSLError):
                 raise err.reason
             else:
                 raise
