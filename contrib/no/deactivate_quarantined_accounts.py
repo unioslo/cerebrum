@@ -77,7 +77,8 @@ account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
 operator_id = account.entity_id
 account.clear()
 
-def fetch_all_relevant_accounts(qua_type, since, ignore_affs=None):
+def fetch_all_relevant_accounts(qua_type, since, ignore_affs,
+                                system_accounts):
     """Fetch all accounts that matches the criterias for deactivation.
 
     :param QuarantineCode qua_type:
@@ -92,6 +93,10 @@ def fetch_all_relevant_accounts(qua_type, since, ignore_affs=None):
         A given list of `PersonAffiliationCode`. If given, we will ignore them,
         and process the persons' accounts as if they didn't have an affiliation,
         and could therefore be targeted for deactivation.
+
+    :param bool system_accounts:
+        If True, accounts owned by groups are also included in the resulting
+        target list.
 
     :rtype: set
     :returns: The `entity_id` for all the accounts that match the criterias.
@@ -109,18 +114,24 @@ def fetch_all_relevant_accounts(qua_type, since, ignore_affs=None):
     if len(targets) == 0:
         return targets
 
-    # Ignore those with the given person affiliations:
-    if ignore_affs:
-        persons = set(r['person_id'] for r in
-                      person.list_affiliations(include_deleted=False)
-                      if r['affiliation'] not in ignore_affs)
-        logger.debug2("Found %d persons with affiliations", len(persons))
-        # List of accounts which should be ignored:
-        accounts_to_ignore = set(r['account_id'] for r in
-                                 account.search(owner_type=constants.entity_person)
-                                 if r['owner_id'] in persons)
-        targets.difference_update(accounts_to_ignore)
-        logger.debug2("Targets reduced to: %d", len(targets))
+    # Ignore those with person affiliations:
+    persons = set(r['person_id'] for r in
+                  person.list_affiliations(include_deleted=False)
+                  if r['affiliation'] not in ignore_affs)
+    logger.debug2("Found %d persons with affiliations", len(persons))
+    accounts_to_ignore = set(r['account_id'] for r in
+                             account.search(owner_type=constants.entity_person)
+                             if r['owner_id'] in persons)
+    targets.difference_update(accounts_to_ignore)
+    logger.debug2("Removed targets with person-affs (%d). Result: %d",
+                  len(accounts_to_ignore), len(targets))
+
+    # Ignore accounts owned by groups:
+    if not system_accounts:
+        targets.difference_update(r['account_id'] for r in
+                                  account.search(
+                                      owner_type=constants.entity_group))
+        logger.debug2("Removed system accounts. Result: %d", len(targets))
     return targets
 
 def process_account(account, delete=False, bofhdreq=False):
@@ -171,8 +182,9 @@ def usage(exitcode=0):
 
 Deactivate all accounts where given quarantine has been set for at least #days.
 
-Accounts will NOT be deactivated if their persons are registered with
-affiliations.
+Accounts will NOT be deactivated by default if their persons are registered with
+affiliations, or if the account is a system account, i.e. owned by a group and
+not a person.
 
 %s
 
@@ -199,6 +211,9 @@ affiliations.
 
                             Note: Affiliation status types are not supported.
 
+        --include-system-accounts If set, system accounts with the quarantine
+                            will also de deactivated.
+
     -d, --dryrun            Do not commit changes to the database
 
         --terminate         *Delete* the account instead of just deactivating
@@ -219,6 +234,7 @@ def main():
                                    "help",
                                    "limit=",
                                    "bofhdrequest",
+                                   "include-system-accounts",
                                    "terminate",
                                    "since=",))
     dryrun = False
@@ -228,6 +244,7 @@ def main():
     # number of days since quarantine has started
     since = 30
     delete = bofhdreq = False
+    system_accounts = False
     affiliations = set()
 
     for option, value in options:
@@ -242,6 +259,8 @@ def main():
         elif option in ("--bofhdrequest",):
             logger.debug('Set to use BofhdRequest for deactivation')
             bofhdreq = True
+        elif option in ("--include-system-accounts",):
+            system_accounts = True
         elif option in ("--terminate",):
             logger.debug('Set to delete accounts and not just deactivating!')
             delete = True
@@ -267,7 +286,8 @@ def main():
                  ', '.join(str(a) for a in affiliations))
     logger.info("Fetching relevant accounts")
     rel_accounts = fetch_all_relevant_accounts(quarantine, since,
-                                               ignore_affs=affiliations)
+                                               ignore_affs=affiliations,
+                                               system_accounts=system_accounts)
     logger.info("Got %s accounts to process", len(rel_accounts))
 
     i = 0
