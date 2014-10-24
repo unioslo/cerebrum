@@ -42,7 +42,14 @@ except ImportError:
 
 
 HostnameError = ssl_match_hostname.CertificateError
-u""" A known name for match_hostname errors. """
+u""" Alternate name for match_hostname errors. This name adjusts to the
+ssl_match_hostname module that is actually used, so that it's possible to do
+
+  try:
+      <use Cerebrum.https.HTTPSConnection>
+  except Cerebrum.https.HostnameError:
+      <handle>
+"""
 
 
 class SSLConfig(object):
@@ -53,12 +60,14 @@ class SSLConfig(object):
     class in this module.
 
     Typical use:
+
       conf = SSLConfig()
-      conn = HTTPSConnection('localhost', 80, ssl_config=c)
+      conn = HTTPSConnection('localhost', 80, ssl_config=conf)
 
     If you need pass off the type to another class that does the init call,
     you'll need to build a configured HTTPSConnection class. This is needed
     with urllib2, for example:
+
       cls = HTTPSConnection.configure(conf)
       handler = HTTPSHandler(ssl_connection=cls)
       opener = urllib2.build_opener(handler)
@@ -83,9 +92,9 @@ class SSLConfig(object):
 
         Initializes a new settings object, with healthy defaults.
 
-        :params str ca_certs: see set_ca_chain
-        :params str certfile: see set_cert
-        :params str keyfile: see set_cert
+        :param str ca_certs: see set_ca_chain
+        :param str certfile: see set_cert
+        :param str keyfile: see set_cert
 
         """
         self._wrap_param = dict()
@@ -124,7 +133,7 @@ class SSLConfig(object):
 
         """
         if req not in (SSLConfig.NONE, SSLConfig.OPTIONAL, SSLConfig.REQUIRED):
-            raise TypeError(u"Invalid validate setting '%s'" % req)
+            raise ValueError(u"Invalid validate setting '%s'" % req)
         self._wrap_param['cert_reqs'] = req
 
     def set_cert(self, certfile, keyfile=None, password=None):
@@ -153,7 +162,7 @@ class SSLConfig(object):
             raise NotImplementedError(u'The password argument is not supported')
 
         if certfile is None and keyfile is not None:
-            raise TypeError(u'Cannot specify keyfile without certfile')
+            raise ValueError(u'Cannot specify keyfile without certfile')
 
         for ftype, path in ((u'certificate', certfile),
                             (u'private key', keyfile)):
@@ -174,7 +183,7 @@ class SSLConfig(object):
         """
         if ssl_version not in (SSLConfig.SSLv2, SSLConfig.SSLv3,
                                SSLConfig.SSLv23, SSLConfig.TLSv1):
-            raise TypeError(u'Invalid SSL version %s' % ssl_version)
+            raise ValueError(u'Invalid SSL version %r' % ssl_version)
         self._wrap_param['ssl_version'] = ssl_version
 
     def set_verify_hostname(self, do_verify):
@@ -271,14 +280,14 @@ class HTTPSConnection(httplib.HTTPSConnection, object):
 
     If not set, the socket will fall back to a global default timeout. This can
     be changed with socket.setdefaulttimeout(timeout). The default global
-    timeout is None, which never times out. """
+    timeout is None (never times out). """
 
     def __init__(self, *args, **kwargs):
         u""" Initialize the connection
 
         :param SSLConfig ssl_config: The SSL configuration for this connection.
             Default value is the ssl_config attribute of the class.
-        :param float timeout: Timeout of the socket in seconds.
+        :param float timeout: Timeout of the socket, in seconds. Default: None.
 
         Note: In addition, this function accepts all arguments that
         HTTPConnection accepts, including mandatory, positional arguments.
@@ -308,7 +317,7 @@ class HTTPSConnection(httplib.HTTPSConnection, object):
             return
 
         if not isinstance(self._ssl_config, SSLConfig):
-            raise TypeError(u'ssl_config must be of type SSLConfig')
+            raise TypeError(u'ssl_config must be an instance of SSLConfig')
 
         # TODO/PY26: Do this...
         # sock = socket.create_connection((self.host, self.port), self.timeout)
@@ -330,12 +339,17 @@ class HTTPSConnection(httplib.HTTPSConnection, object):
 
         :param type cls: The type we call this function on.
         :param SSLConfig ssl_config: The configuration to use with the class.
+        :param int,float,None timeout: Default socket timeout for the
+            connection, in seconds. If None, the default, global socket timeout
+            will be used in stead. Default: None.
 
-        :return type: A subclass of cls with a static set ssl_config attribute
+        :return type: A subclass of cls with a static set ssl_config attribute.
 
         """
         if not isinstance(ssl_config, SSLConfig):
-            raise TypeError(u'Invalid SSL config object')
+            raise TypeError(u'ssl_config must be an instance of SSLConfig')
+        if not isinstance(timeout, (int, float, type(None))):
+            raise TypeError(u'timeout must be an int, float or None')
         return type('ConfiguredHTTPSConnection',
                     tuple(cls.mro()),
                     dict(ssl_config=ssl_config, default_timeout=timeout))
@@ -343,7 +357,7 @@ class HTTPSConnection(httplib.HTTPSConnection, object):
 
 class HTTPSHandler(urllib2.HTTPSHandler, object):
 
-    u""" HTTPSHandler for using ValidatedHTTPSConnection.
+    u""" HTTPSHandler that enables use of any HTTPConnection-like class.
 
     Note: This class re-raises urllib2.URLError as ssl.SSLError on SSL-related
     failures. """
