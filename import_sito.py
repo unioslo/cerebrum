@@ -38,8 +38,11 @@ from Cerebrum import Utils
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 from Cerebrum.modules.no import fodselsnr
-from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
+from Cerebrum.modules.no.Person import PersonFnrMixin
+#from Cerebrum.modules.no.EntityExpire import EntityExpire
 from Cerebrum.modules.no.uit.EntityExpire import EntityExpire
+from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
+
 
 
 
@@ -970,8 +973,8 @@ def usage(exitcode=0,msg=None):
 
 def main():
     global cere_list
-    personfile = '/cerebrum/var/source/sito/gjeldende_person'
-    oufile = '/cerebrum/var/source/sito/gjeldende_unit'
+    personfile = '/cerebrum/var/dumps/sito/gjeldende_person'
+    oufile = '/cerebrum/var/dumps/sito/gjeldende_unit'
     execute_ou = False
     execute_person = False
     dryrun = False
