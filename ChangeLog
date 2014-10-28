@@ -1,3 +1,7 @@
+2014-10-28    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* generate_OU_V2.py (ou.__init__): updated connection type to use xc_Oracle instead of DCOracle
+
 2014-10-27    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* import_sito.py: oppdaterte source path to use the dumps dir (which it should have been all along)

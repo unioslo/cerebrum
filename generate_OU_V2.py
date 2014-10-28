@@ -71,7 +71,7 @@ class ou:
         user="fsbas"
         service="fskurs"
         logger.info("Connecting to FS db")
-        self.fs_db = Database.connect(user=user,service=service,DB_driver='Oracle')
+        self.fs_db = Database.connect(user=user,service=service,DB_driver='cx_Oracle')
         self.fs = FS(self.fs_db)
         self.fs_data=dict()
 	logger.info("Connections ok")
