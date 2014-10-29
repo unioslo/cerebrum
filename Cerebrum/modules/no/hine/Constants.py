@@ -33,4 +33,4 @@ class Constants(Constants.Constants):
     # AD Ansatte
     spread_ad_account = _SpreadCode(
         'account@ad', Constants.Constants.entity_account,
-        'Brukeren kjent i i AD domenet ved HiNesna')
+        'Brukeren kjent i i AD domenet lab.hinesna.no ved HiNesna')
