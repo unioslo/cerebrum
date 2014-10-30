@@ -1,3 +1,7 @@
+2014-10-30    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* import_flyt.py: sko will now be derived from ou class. we no longer have a stedkode class
+
 2014-10-28    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* generate_OU_V2.py (ou.__init__): updated connection type to use xc_Oracle instead of DCOracle
