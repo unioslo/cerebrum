@@ -32,6 +32,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uit import Email
+#from Cerebrum.modules import Email
 
 
 logger=Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
@@ -43,6 +44,7 @@ db.cl_init(change_program=progname)
 ac = Factory.get('Account')(db)
 co = Factory.get('Constants')(db)
 em = Email.email_address(db, logger=logger)
+#em = Email.EmailAddress(db)
 
 valid_exchange_domains = cereconf.EXCHANGE_CONTROLLED_DOMAINS
 default_import_file = os.path.join(cereconf.CB_SOURCEDATA_PATH, 'ad', 'AD_Emaildump.cvs')

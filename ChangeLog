@@ -1,3 +1,11 @@
+2014-10-31    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* import_exchange_email.py: Need to use uit email module.
+
+	* import_OU.py: replaced old uit import_OU.py with uio import_OU.py
+
+	* import_FS.py: Updated filepaths to reflect uit installation
+
 2014-10-30    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* import_flyt.py: sko will now be derived from ou class. we no longer have a stedkode class
