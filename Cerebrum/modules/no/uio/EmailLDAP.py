@@ -45,8 +45,8 @@ class EmailLDAPUiOMixin(EmailLDAP):
         # accounts with Exchange-mailbox
         self.targ2spread = self.target2spread_populate()
 
-        # this set gets populated with the ids of account email targets that have pending
-        # events of type 'email_primary_address' in the event log
+        # keys: account email target ids with pending 'email_primary_address' events
+        # values: list of event ids
         # read_pending_primary_email() is called by read_addr()
         self.pending_primary_email = {}
     # end __init__
