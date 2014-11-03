@@ -1,3 +1,9 @@
+2014-11-03    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* Constants.py: Added new Constants
+
+	* access_FS.py (UiOStudieInfo): Copied newest access_FS from uio and added UiTOU class
+
 2014-09-05  Karen   <cerebrum@metius.uit.no>
 
     * Account.py (AccountUiTMixin): Now using md5 from the hashlib library instead of the deprecated md5 library.

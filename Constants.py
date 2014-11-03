@@ -25,23 +25,28 @@ Address, Gender etc. type."""
 
 from Cerebrum import Constants
 from Cerebrum.Constants import \
+     _AccountCode, \
+     _AccountHomeStatusCode, \
+     _AuthenticationCode, \
      _AuthoritativeSystemCode, \
-     _OUPerspectiveCode, \
-     _SpreadCode, \
-     _QuarantineCode, \
      _EntityExternalIdCode, \
+     _OUPerspectiveCode, \
      _PersonAffiliationCode, \
      _PersonAffStatusCode, \
-     _AccountCode, \
-     _ContactInfoCode, \
-     _CerebrumCode, \
-     _AuthenticationCode
+     _QuarantineCode, \
+     _SpreadCode, \
+     _AddressCode
 from Cerebrum.modules.PosixUser import \
      _PosixShellCode
 from Cerebrum.modules.Email import \
-     _EmailServerTypeCode
+     _EmailSpamLevelCode, \
+     _EmailSpamActionCode, \
+     _EmailDomainCategoryCode, \
+     EmailConstants
 from Cerebrum.modules.EntityTrait import \
      _EntityTraitCode
+from Cerebrum.modules.bofhd.utils import \
+     _AuthRoleOpCode
 
 class Constants(Constants.Constants):
 
@@ -75,12 +80,13 @@ class Constants(Constants.Constants):
 
     # Account codes
     account_test = _AccountCode('T', 'Testkonto')
-    account_felles_drift = _AccountCode('FD','Felles Drift') 
-    account_felles_intern = _AccountCode('FI','Felles Intern') 
+    #account_felles_drift = _AccountCode('FD','Felles Drift') 
+    #account_felles_intern = _AccountCode('FI','Felles Intern') 
     account_kurs = _AccountCode('K','Kurs') 
     account_forening = _AccountCode('F','Forening') 
     account_maskin = _AccountCode('M','Maskin') 
     account_prosess = _AccountCode('P','Prosess') 
+    account_uit_guest = _AccountCode('gjestebruker_uit','Manuell gjestekonto')
 
     # Contact codes
     contact_workphone2 = _ContactInfoCode('PHONE_WORK_2', 'Secondary Work Phone')
@@ -91,6 +97,10 @@ class Constants(Constants.Constants):
     perspective_sito = _OUPerspectiveCode('SITO', 'SITO')
 
     # Ansatt affiliation and status
+    affiliation_status_ansatt_perm = _PersonAffStatusCode(
+        affiliation_ansatt, 'permisjon', 'Ansatt, for tiden i permisjon')
+
+
     affiliation_ansatt = _PersonAffiliationCode(
         'ANSATT',
         'Ansatt ved UiT (i følge LT)') 
@@ -114,6 +124,16 @@ class Constants(Constants.Constants):
         'Ansatt med svak uit tilknytning')
 
     # Student affiliation and status
+    affiliation_status_student_evu = _PersonAffStatusCode(
+        affiliation_student, 'evu', 'Registrert som EVU-student i FS')
+    affiliation_status_student_privatist = _PersonAffStatusCode(
+        affiliation_student, 'privatist', 'Registrert som privatist i FS')
+    affiliation_status_student_aktiv = _PersonAffStatusCode(
+        affiliation_student, 'aktiv', 'Registrert som aktiv student i FS')
+    affiliation_status_student_emnestud = _PersonAffStatusCode(
+        affiliation_student, 'emnestud', 'Registrert som aktiv emnestudent i FS')        
+    affiliation_status_student_soker = _PersonAffStatusCode(
+        affiliation_student, 'soker', 'Registrert med søknad i FS')
     affiliation_student = _PersonAffiliationCode(
         'STUDENT', 
         'Student ved UiT (i følge FS)') 
@@ -129,6 +149,8 @@ class Constants(Constants.Constants):
         affiliation_student, 
         'opptak', 
         'Har studierett ved studieprogram')
+    affiliation_status_student_aktiv = _PersonAffStatusCode(
+        affiliation_student, 'aktiv', 'Registrert som aktiv student i FS')
     affiliation_status_student_perm = _PersonAffStatusCode(
         affiliation_student, 
         'permisjon', 
@@ -154,6 +176,8 @@ class Constants(Constants.Constants):
         affiliation_tilknyttet, 
         'emeritus',
         'Registrert i LT med gjestetypekode EMERITUS')
+    affiliation_tilknyttet_ekst_forsker = _PersonAffStatusCode(
+        affiliation_tilknyttet, 'ekst_forsker',
     affiliation_tilknyttet_ekst_stip = _PersonAffStatusCode(
         affiliation_tilknyttet, 
         'ekst_stip',
@@ -196,7 +220,12 @@ class Constants(Constants.Constants):
     affiliation_manuell_konsulent = _PersonAffStatusCode(
         affiliation_manuell, 'konsulent',
         'Konsulent (under utfasing)')
-
+    affiliation_tilknyttet_assosiert_person = _PersonAffStatusCode(
+        affiliation_tilknyttet, 'assosiert_person',
+        'Registrert med ASSOSIERT rolle i SAPUiO')
+    affiliation_tilknyttet_frida_reg = _PersonAffStatusCode(
+        affiliation_tilknyttet, 'frida_reg',
+        'Registrert med REGANSV og REG-ANSV rolle i SAPUiO')
     # We override the default settings for shells, thus this file
     # should be before PosixUser in cereconf.CLASS_CONSTANTS
     posix_shell_bash = _PosixShellCode(
