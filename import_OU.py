@@ -365,7 +365,7 @@ def send_notify_email(new_cere_ous, to_email_addrs):
     ous = OU_class(db)
 
     # Set up email
-    sender = 'cerebrum@ulrik.uio.no'
+    sender = 'cerebrum@cleomedes.uit.no'
     subject = 'New OUs added to Cerebrum'
     body = '%(num)d OUs added to Cerebrum on %(time)s\n\n' % \
            {'num': len(new_cere_ous), \
