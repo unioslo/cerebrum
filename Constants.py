@@ -176,13 +176,15 @@ class Constants(Constants.Constants):
         affiliation_tilknyttet, 
         'emeritus',
         'Registrert i LT med gjestetypekode EMERITUS')
+
     affiliation_tilknyttet_ekst_forsker = _PersonAffStatusCode(
         affiliation_tilknyttet, 'ekst_forsker',
+        'Personer registrert i LT med gjestetypekode=EF-STIP')
+
     affiliation_tilknyttet_ekst_stip = _PersonAffStatusCode(
         affiliation_tilknyttet, 
-        'ekst_stip',
-        'Personer registrert i LT med gjestetypekode=EF-STIP')
-    
+        'ekst_stip', 'Registrert med EF-STIP rolle i SAPUiO')        
+
     affiliation_manuell = _PersonAffiliationCode(
         'MANUELL', 
         'Tilknyttet enheter/instutusjoner som UiT har avtale med')
