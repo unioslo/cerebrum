@@ -25,7 +25,7 @@
 # right ou information from that file. For stedkoder who doesnt
 # exist in the FS file, default data is inserted
 #
-import pprint
+from pprint import pprint
 import getopt
 import sys
 import string
@@ -39,7 +39,7 @@ from Cerebrum.modules.no.uit.access_FS import FS
 from Cerebrum.Utils import Factory, AtomicFileWriter
 from Cerebrum.extlib import xmlprinter
 
-pp = pprint.PrettyPrinter(indent=4)
+#pp = pprint.PrettyPrinter(indent=4)
 logger = Factory.get_logger("cronjob")
 
 
@@ -68,7 +68,7 @@ class ou:
         self.db = Factory.get('Database')()
 
         # FS 
-        user="fsbas"
+        user="UIT_BAS"
         service="fskurs"
         logger.info("Connecting to FS db")
         self.fs_db = Database.connect(user=user,service=service,DB_driver='cx_Oracle')
@@ -79,8 +79,7 @@ class ou:
     # lets collect data about all active ou's from FS.
     def get_fs_ou(self):
         logger.info("Reading OU's from FS")
-        #ouer = self.fs.ou.GetAlleOUer(institusjonsnr=186)
-        ouer = self.fs.ou.GetAktiveOUer(institusjonsnr=186)
+        ouer = self.fs.ou.GetAlleOUer(institusjonsnr=186)
         poststednr_besok_adr=''
         poststednr_alternativ_adr=''
         for i in ouer:
