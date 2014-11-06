@@ -198,10 +198,10 @@ class norEduLDIFMixin(OrgLDIF):
         if not ou_names:
             self.logger.warn("No names could be located for ou_id=%s", ou_id)
             return parent_dn, None
-        
+
         ldap_ou_id = self.get_orgUnitUniqueID()
         self.ou_uniq_id2ou_id[ldap_ou_id] = ou_id
-        self.ou_id2ou_uniq_id[ou_id] = ldap_ou_id        
+        self.ou_id2ou_uniq_id[ou_id] = ldap_ou_id
         entry = {
             'objectClass': ['top', 'organizationalUnit', 'norEduOrgUnit'],
             self.FEIDE_attr_ou_id:  (ldap_ou_id,)}
@@ -287,7 +287,7 @@ class norEduLDIFMixin(OrgLDIF):
             selector = cereconf.LDAP_PERSON.get('eduPersonPrimaryAffiliation_selector')
             if selector and aff in selector and status in selector[aff]:
                 return selector[aff][status]
-            return (None, None) 
+            return (None, None)
 
         if not self.affiliations.has_key(p_id):
             return None
@@ -296,7 +296,7 @@ class norEduLDIFMixin(OrgLDIF):
         pri_ou = None
         pri_edu_aff = None
         for aff, status, ou in self.affiliations[p_id]:
-            # populate the caches 
+            # populate the caches
             if self.aff_cache.has_key(aff):
                 aff_str = self.aff_cache[aff]
             else:
@@ -321,7 +321,7 @@ class norEduLDIFMixin(OrgLDIF):
                 pri_edu_aff = a
         if pri_aff == None:
             self.logger.warn("Person '%s' did not get eduPersonPrimaryAffiliation. Check his/her affiliations and eduPersonPrimaryAffiliation_selector in cereconf.", p_id)
-        return pri_edu_aff, pri_ou, pri_aff 
+        return pri_edu_aff, pri_ou, pri_aff
 
     def init_person_basic(self):
         self.__super.init_person_basic()
@@ -357,7 +357,7 @@ class norEduLDIFMixin(OrgLDIF):
         """Populate dicts with a person's entitlement information."""
         timer = self.make_timer("Processing person entitlements...")
         self.person2entitlements = pickle.load(file(
-            os.path.join(ldapconf(None, 'dump_dir'), 
+            os.path.join(ldapconf(None, 'dump_dir'),
                        ldapconf('PERSON', 'entitlements_pickle_file'))))
         timer("...person entitlements done.")
 
