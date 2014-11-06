@@ -89,17 +89,14 @@ class Constants(Constants.Constants):
     account_uit_guest = _AccountCode('gjestebruker_uit','Manuell gjestekonto')
 
     # Contact codes
-    contact_workphone2 = _ContactInfoCode('PHONE_WORK_2', 'Secondary Work Phone')
-    contact_room = _ContactInfoCode('ROOM@UIT', 'Location and room number')
-    contact_building = _ContactInfoCode('BYGG@UIT', 'Building name')
+    #contact_workphone2 = _ContactInfoCode('PHONE_WORK_2', 'Secondary Work Phone')
+    #contact_room = _ContactInfoCode('ROOM@UIT', 'Location and room number')
+    #contact_building = _ContactInfoCode('BYGG@UIT', 'Building name')
 
     # OU Structure perspective
     perspective_sito = _OUPerspectiveCode('SITO', 'SITO')
 
     # Ansatt affiliation and status
-    affiliation_status_ansatt_perm = _PersonAffStatusCode(
-        affiliation_ansatt, 'permisjon', 'Ansatt, for tiden i permisjon')
-
 
     affiliation_ansatt = _PersonAffiliationCode(
         'ANSATT',
@@ -113,6 +110,10 @@ class Constants(Constants.Constants):
         'Ansatt ved studentsamskipnaden i tromso')
 
     # Affiliation status
+    affiliation_status_ansatt_perm = _PersonAffStatusCode(
+        affiliation_ansatt, 'permisjon', 'Ansatt, for tiden i permisjon')
+
+
     affiliation_status_ansatt_sito_sterk = _PersonAffStatusCode(
         affiliation_ansatt_sito,
         'sito_sterk',
@@ -124,6 +125,9 @@ class Constants(Constants.Constants):
         'Ansatt med svak uit tilknytning')
 
     # Student affiliation and status
+    affiliation_student = _PersonAffiliationCode(
+        'STUDENT', 
+        'Student ved UiT (i følge FS)') 
     affiliation_status_student_evu = _PersonAffStatusCode(
         affiliation_student, 'evu', 'Registrert som EVU-student i FS')
     affiliation_status_student_privatist = _PersonAffStatusCode(
@@ -134,9 +138,7 @@ class Constants(Constants.Constants):
         affiliation_student, 'emnestud', 'Registrert som aktiv emnestudent i FS')        
     affiliation_status_student_soker = _PersonAffStatusCode(
         affiliation_student, 'soker', 'Registrert med søknad i FS')
-    affiliation_student = _PersonAffiliationCode(
-        'STUDENT', 
-        'Student ved UiT (i følge FS)') 
+
     affiliation_status_student_sys_x = _PersonAffStatusCode(
         affiliation_student, 
         'sys_x-student',
@@ -319,9 +321,9 @@ class Constants(Constants.Constants):
         'IMAP@uit', 
         Constants.Constants.entity_account,
         'IMAP account')
-    email_server_type_exchange_imap= _EmailServerTypeCode(
-            'exchange_imap',
-            "Server is an Exchange server")
+#    email_server_type_exchange_imap= _EmailServerTypeCode(
+#            'exchange_imap',
+#            "Server is an Exchange server")
 
     # Quarantine constants
     quarantine_tilbud = _QuarantineCode(
