@@ -68,12 +68,12 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
             self.ou_quarantined.get(self.ou.entity_id,False)
 
     def get_ou_quarantines(self):
-        for row in self.ou.list_entity_quarantines( 
+        for row in self.ou.list_entity_quarantines(
                 entity_types = self.const.entity_ou,
                 quarantine_types = self.const.quarantine_ou_notvalid,
                 only_active=True):
             self.ou_quarantined[int(row['entity_id'])] = True
-                
+
     def make_ou_dn(self, entry, parent_dn):
         # Change from superclass:
         # Replace special characters with spaces instead of escaping them.
@@ -142,14 +142,14 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         timer = self.make_timer("Processing person courses...")
         self.ownerid2urnlist = pickle.load(file(
             join_paths(ldapconf(None, 'dump_dir'), "ownerid2urnlist.pickle")))
-        timer("...person courses done.") 
+        timer("...person courses done.")
 
     def init_person_groups(self):
         """Populate dicts with a person's group information."""
         timer = self.make_timer("Processing person groups...")
         self.person2group = pickle.load(file(
             join_paths(ldapconf(None, 'dump_dir'), "personid2group.pickle")))
-        timer("...person groups done.") 
+        timer("...person groups done.")
 
     def init_person_dump(self, use_mail_module):
         """Suplement the list of things to run before printing the
@@ -179,7 +179,7 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         ret = []
         pri_aff_str, pri_status_str = pri_aff
         for aff, status, ou in self.affiliations[p_id]:
-            # populate the caches 
+            # populate the caches
             if self.aff_cache.has_key(aff):
                 aff_str = self.aff_cache[aff]
             else:
@@ -197,7 +197,7 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
             if ou:
                 ret.append(''.join((p,':',aff_str,'/',status_str,'@',ou)))
         return ret
-                                    
+
     def make_person_entry(self, row):
         """Add data from person_course to a person entry."""
         dn, entry, alias_info = self.__super.make_person_entry(row)
@@ -208,7 +208,7 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
             # Some of the chars in the entitlements are outside ascii
             if entry.has_key('eduPersonEntitlement'):
                 entry['eduPersonEntitlement'].extend(self.ownerid2urnlist[p_id])
-            else:    
+            else:
                 entry['eduPersonEntitlement'] = self.ownerid2urnlist[p_id]
         entry['uioPersonID'] = str(p_id)
         if self.person2group.has_key(p_id):
@@ -220,7 +220,7 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         entry['uioPersonScopedAffiliation'] = self.make_uioPersonScopedAffiliation(p_id, pri_aff, pri_ou)
         if 'uioPersonObject' not in entry['objectClass']:
             entry['objectClass'].extend(('uioPersonObject',))
-            
+
         # Check if there exists «avvikende» addresses, if so, export them instead:
         addrs = self.addr_info.get(p_id)
         post  = addrs and addrs.get(int(self.const.address_other_post))
@@ -259,7 +259,7 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         # TODO: this could be changed to check the trait 'reserve_public'
         # later, so we don't have to check group memberships.
         #
-        # The trait behaves in the followin manner: 
+        # The trait behaves in the followin manner:
         # Every person should be 'invisible', except if:
         #  * The person has a trait of the type 'reserve_public', and
         #  * The trait's numval is set to 0
