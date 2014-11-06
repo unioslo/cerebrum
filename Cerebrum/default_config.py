@@ -984,13 +984,16 @@ AUTOMATIC_GROUP_POPULATE_META_PREFIX = []
 #           "Tilsatte ved %s og underordnede organisatoriske enheter",}
 AUTOMATIC_GROUP_LEGAL_PREFIXES = {}
 
-# Groups populated by contrib/populate-collection-groups.py
+# Groups who has memberships populated by contrib/populate-collection-groups.py
 # E.g. [('uio-tilk', ['system_sap:affiliation_tilknyttet',
 #                     'system_fs:affiliation_student',
 #                     'affiliation_tilknyttet_bilag'])]
 # Will result in the group 'uio-tilk' beeing filled with primary accounts who
 # have TILKNYTTET affiliations from SAP, STUDENT-affiliations from FS and
 # TILKNYTTET/bilag from all source systems.
+#
+# The groups you specify in this configuration, must be created BEFORE
+# populate-collection-groups.py is run!!!
 COLLECTION_GROUPS = []
 
 # Mapping of affiliations and groups, used for automatic group membership
