@@ -1,5 +1,5 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2004-2012 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2004-2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -243,10 +243,32 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
 
 
     def init_person_selections(self, *args, **kwargs):
-        """Set up data for no.uio.OrgLDIF.is_person_visible()"""
+        """ Extend with UiO settings for person selections.
+
+        This is especially for `no.uio.OrgLDIF.is_person_visible()`, as UiO has
+        some special needs in how to interpret visibility of persons due to
+        affiliations for reservation and consent, which behaves differently in
+        SAPUiO and FS.
+
+        """
         self.__super.init_person_selections(*args, **kwargs)
-        self.visible_sap_affs = (int(self.const.affiliation_ansatt),
-                                 int(self.const.affiliation_tilknyttet))
+        # Set what affiliations that should be checked for visibility from SAP
+        # and FS. The default is to set the person to NOT visible, which happens
+        # for all persons that doesn't have _any_ of the affiliations defined
+        # here.
+        self.visible_sap_affs = (int(self.const.affiliation_ansatt),)
+        tilkn_aff = int(self.const.affiliation_tilknyttet)
+        self.visible_sap_statuses = (
+            (tilkn_aff, int(self.const.affiliation_tilknyttet_ekst_stip)),
+            (tilkn_aff, int(self.const.affiliation_tilknyttet_frida_reg)),
+            (tilkn_aff, int(self.const.affiliation_tilknyttet_innkjoper)),
+            (tilkn_aff, int(self.const.affiliation_tilknyttet_assosiert_person)),
+            (tilkn_aff, int(self.const.affiliation_tilknyttet_ekst_forsker)),
+            (tilkn_aff, int(self.const.affiliation_tilknyttet_emeritus)),
+            (tilkn_aff, int(self.const.affiliation_tilknyttet_gjesteforsker)),
+            (tilkn_aff, int(self.const.affiliation_tilknyttet_bilag)),
+            (tilkn_aff, int(self.const.affiliation_tilknyttet_ekst_partner)),
+            )
         student = int(self.const.affiliation_student)
         self.fs_aff_statuses = (
             (student, int(self.const.affiliation_status_student_aktiv)),
@@ -255,21 +277,39 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         self.fs_samtykke = self.init_person_group("FS-aktivt-samtykke")
 
     def is_person_visible(self, person_id):
-        """Override cereconf.LDAP_PERSON['visible_selector']"""
+        """ Override with UiO specific visibility.
+
+        At UiO, visibility is controlled differently depending on what source
+        system the person is from. SAPUiO has reservations, while FS has active
+        consents. Since we don't fetch source systems per affiliation from
+        Cerebrum in `OrgLDIF`, we only guess.
+
+        The reason for this override, is to support priority. SAP has priority
+        over FS, which can't be implemented through the configuration as of
+        today.
+
+        Note that the settings in `cereconf.LDAP_PERSON['visible_selector']` is
+        ignored by this override. The list of affiliations are hardcoded in the
+        method `init_person_selections`.
+
+        """
         # TODO: this could be changed to check the trait 'reserve_public'
         # later, so we don't have to check group memberships.
         #
-        # The trait behaves in the followin manner:
+        # The trait behaves in the following manner:
         # Every person should be 'invisible', except if:
         #  * The person has a trait of the type 'reserve_public', and
         #  * The trait's numval is set to 0
         # This means that a missing trait should be considered as a reservation.
 
+
         p_affs = self.affiliations[person_id]
-        # If there is an affiliation from SAP (ANSATT, TILKNYTTET),
-        # then consider reservations/permissions from SAP only.
+        # If there is an affiliation from SAP then consider
+        # reservations/permissions from SAP only.
         for (aff, status, ou) in p_affs:
             if aff in self.visible_sap_affs:
+                return person_id not in self.sap_res
+            if (aff, status) in self.visible_sap_statuses:
                 return person_id not in self.sap_res
         # Otherwise, if there is an affiliaton STUDENT/<aktiv or drgrad>,
         # check for permission from FS to make the person visible.
