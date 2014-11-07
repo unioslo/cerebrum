@@ -1,5 +1,5 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2004-2012 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2004-2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -68,12 +68,12 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
             self.ou_quarantined.get(self.ou.entity_id,False)
 
     def get_ou_quarantines(self):
-        for row in self.ou.list_entity_quarantines( 
+        for row in self.ou.list_entity_quarantines(
                 entity_types = self.const.entity_ou,
                 quarantine_types = self.const.quarantine_ou_notvalid,
                 only_active=True):
             self.ou_quarantined[int(row['entity_id'])] = True
-                
+
     def make_ou_dn(self, entry, parent_dn):
         # Change from superclass:
         # Replace special characters with spaces instead of escaping them.
@@ -142,14 +142,14 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         timer = self.make_timer("Processing person courses...")
         self.ownerid2urnlist = pickle.load(file(
             join_paths(ldapconf(None, 'dump_dir'), "ownerid2urnlist.pickle")))
-        timer("...person courses done.") 
+        timer("...person courses done.")
 
     def init_person_groups(self):
         """Populate dicts with a person's group information."""
         timer = self.make_timer("Processing person groups...")
         self.person2group = pickle.load(file(
             join_paths(ldapconf(None, 'dump_dir'), "personid2group.pickle")))
-        timer("...person groups done.") 
+        timer("...person groups done.")
 
     def init_person_dump(self, use_mail_module):
         """Suplement the list of things to run before printing the
@@ -179,7 +179,7 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         ret = []
         pri_aff_str, pri_status_str = pri_aff
         for aff, status, ou in self.affiliations[p_id]:
-            # populate the caches 
+            # populate the caches
             if self.aff_cache.has_key(aff):
                 aff_str = self.aff_cache[aff]
             else:
@@ -197,7 +197,7 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
             if ou:
                 ret.append(''.join((p,':',aff_str,'/',status_str,'@',ou)))
         return ret
-                                    
+
     def make_person_entry(self, row):
         """Add data from person_course to a person entry."""
         dn, entry, alias_info = self.__super.make_person_entry(row)
@@ -208,7 +208,7 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
             # Some of the chars in the entitlements are outside ascii
             if entry.has_key('eduPersonEntitlement'):
                 entry['eduPersonEntitlement'].extend(self.ownerid2urnlist[p_id])
-            else:    
+            else:
                 entry['eduPersonEntitlement'] = self.ownerid2urnlist[p_id]
         entry['uioPersonID'] = str(p_id)
         if self.person2group.has_key(p_id):
@@ -220,7 +220,7 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         entry['uioPersonScopedAffiliation'] = self.make_uioPersonScopedAffiliation(p_id, pri_aff, pri_ou)
         if 'uioPersonObject' not in entry['objectClass']:
             entry['objectClass'].extend(('uioPersonObject',))
-            
+
         # Check if there exists «avvikende» addresses, if so, export them instead:
         addrs = self.addr_info.get(p_id)
         post  = addrs and addrs.get(int(self.const.address_other_post))
@@ -243,10 +243,32 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
 
 
     def init_person_selections(self, *args, **kwargs):
-        """Set up data for no.uio.OrgLDIF.is_person_visible()"""
+        """ Extend with UiO settings for person selections.
+
+        This is especially for `no.uio.OrgLDIF.is_person_visible()`, as UiO has
+        some special needs in how to interpret visibility of persons due to
+        affiliations for reservation and consent, which behaves differently in
+        SAPUiO and FS.
+
+        """
         self.__super.init_person_selections(*args, **kwargs)
-        self.visible_sap_affs = (int(self.const.affiliation_ansatt),
-                                 int(self.const.affiliation_tilknyttet))
+        # Set what affiliations that should be checked for visibility from SAP
+        # and FS. The default is to set the person to NOT visible, which happens
+        # for all persons that doesn't have _any_ of the affiliations defined
+        # here.
+        self.visible_sap_affs = (int(self.const.affiliation_ansatt),)
+        tilkn_aff = int(self.const.affiliation_tilknyttet)
+        self.visible_sap_statuses = (
+            (tilkn_aff, int(self.const.affiliation_tilknyttet_ekst_stip)),
+            (tilkn_aff, int(self.const.affiliation_tilknyttet_frida_reg)),
+            (tilkn_aff, int(self.const.affiliation_tilknyttet_innkjoper)),
+            (tilkn_aff, int(self.const.affiliation_tilknyttet_assosiert_person)),
+            (tilkn_aff, int(self.const.affiliation_tilknyttet_ekst_forsker)),
+            (tilkn_aff, int(self.const.affiliation_tilknyttet_emeritus)),
+            (tilkn_aff, int(self.const.affiliation_tilknyttet_gjesteforsker)),
+            (tilkn_aff, int(self.const.affiliation_tilknyttet_bilag)),
+            (tilkn_aff, int(self.const.affiliation_tilknyttet_ekst_partner)),
+            )
         student = int(self.const.affiliation_student)
         self.fs_aff_statuses = (
             (student, int(self.const.affiliation_status_student_aktiv)),
@@ -255,21 +277,39 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         self.fs_samtykke = self.init_person_group("FS-aktivt-samtykke")
 
     def is_person_visible(self, person_id):
-        """Override cereconf.LDAP_PERSON['visible_selector']"""
+        """ Override with UiO specific visibility.
+
+        At UiO, visibility is controlled differently depending on what source
+        system the person is from. SAPUiO has reservations, while FS has active
+        consents. Since we don't fetch source systems per affiliation from
+        Cerebrum in `OrgLDIF`, we only guess.
+
+        The reason for this override, is to support priority. SAP has priority
+        over FS, which can't be implemented through the configuration as of
+        today.
+
+        Note that the settings in `cereconf.LDAP_PERSON['visible_selector']` is
+        ignored by this override. The list of affiliations are hardcoded in the
+        method `init_person_selections`.
+
+        """
         # TODO: this could be changed to check the trait 'reserve_public'
         # later, so we don't have to check group memberships.
         #
-        # The trait behaves in the followin manner: 
+        # The trait behaves in the following manner:
         # Every person should be 'invisible', except if:
         #  * The person has a trait of the type 'reserve_public', and
         #  * The trait's numval is set to 0
         # This means that a missing trait should be considered as a reservation.
 
+
         p_affs = self.affiliations[person_id]
-        # If there is an affiliation from SAP (ANSATT, TILKNYTTET),
-        # then consider reservations/permissions from SAP only.
+        # If there is an affiliation from SAP then consider
+        # reservations/permissions from SAP only.
         for (aff, status, ou) in p_affs:
             if aff in self.visible_sap_affs:
+                return person_id not in self.sap_res
+            if (aff, status) in self.visible_sap_statuses:
                 return person_id not in self.sap_res
         # Otherwise, if there is an affiliaton STUDENT/<aktiv or drgrad>,
         # check for permission from FS to make the person visible.
