@@ -1306,7 +1306,7 @@ if __name__ == '__main__':
             ctx.set_info_callback()
             return ctx
 
-        ctx = init_context('sslv23', '%s/server.cert' % cereconf.DB_AUTH_DIR,
+        ctx = init_context('tlsv1', '%s/server.cert' % cereconf.DB_AUTH_DIR,
                            '%s/ca.pem' % cereconf.DB_AUTH_DIR,
                            SSL.verify_none)
         ctx.set_tmp_dh('%s/dh1024.pem' % cereconf.DB_AUTH_DIR)
