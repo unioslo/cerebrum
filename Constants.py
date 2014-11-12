@@ -91,8 +91,8 @@ class Constants(Constants.Constants):
 
     # Contact codes
     contact_workphone2 = _ContactInfoCode('PHONE_WORK_2', 'Secondary Work Phone')
-    #contact_room = _ContactInfoCode('ROOM@UIT', 'Location and room number')
-    #contact_building = _ContactInfoCode('BYGG@UIT', 'Building name')
+    contact_room = _ContactInfoCode('ROOM@UIT', 'Location and room number')
+    contact_building = _ContactInfoCode('BYGG@UIT', 'Building name')
 
     # OU Structure perspective
     perspective_sito = _OUPerspectiveCode('SITO', 'SITO')
