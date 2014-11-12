@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# -*- coding: iso8859-1 -*-
+# -*- coding: iso-8859-1 -*-
 #
 # Copyright 2004 University of Oslo, Norway
 #
@@ -113,7 +113,7 @@ system_accounts_cache = []
 
 logger = None
 default_logger = 'cronjob'
-default_source_dir = '%s/var/source' %  (cereconf.CB_PREFIX)
+default_source_dir = '%s/var/source/system_accounts' %  (cereconf.CB_PREFIX)
 default_system_accounts_file = 'system_accounts.xml'
 default_stay_alive_time = 4 #Weeks
 

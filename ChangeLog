@@ -1,5 +1,7 @@
 2014-11-12    <cerebrum@cleomedes.uit.no-cleomedes>
 
+	* import_system_accounts.py: updated source path. also fixed file encoding
+
 	* import_tlf.py: commented function which notifies phone-admin whenever new persons are added
 
 2014-11-04    <cerebrum@cleomedes.uit.no-cleomedes>
