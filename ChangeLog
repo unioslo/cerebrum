@@ -1,3 +1,7 @@
+2014-11-12    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* import_tlf.py: commented function which notifies phone-admin whenever new persons are added
+
 2014-11-04    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* generate_OU.py (ou.get_fs_ou): updated function to get uit ou and FS username

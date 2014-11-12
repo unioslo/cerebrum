@@ -272,7 +272,7 @@ def process_telefoni(filename,checknames,checkmail):
             for i in msg[k]:
                 mailmsg+=i
 
-        notify_phoneadmin(mailmsg)
+        #notify_phoneadmin(mailmsg)
 
 
 def notify_phoneadmin(msg):    
