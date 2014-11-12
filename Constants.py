@@ -26,6 +26,7 @@ Address, Gender etc. type."""
 from Cerebrum import Constants
 from Cerebrum.Constants import \
      _AccountCode, \
+     _ContactInfoCode, \
      _AccountHomeStatusCode, \
      _AuthenticationCode, \
      _AuthoritativeSystemCode, \
@@ -89,7 +90,7 @@ class Constants(Constants.Constants):
     account_uit_guest = _AccountCode('gjestebruker_uit','Manuell gjestekonto')
 
     # Contact codes
-    #contact_workphone2 = _ContactInfoCode('PHONE_WORK_2', 'Secondary Work Phone')
+    contact_workphone2 = _ContactInfoCode('PHONE_WORK_2', 'Secondary Work Phone')
     #contact_room = _ContactInfoCode('ROOM@UIT', 'Location and room number')
     #contact_building = _ContactInfoCode('BYGG@UIT', 'Building name')
 
