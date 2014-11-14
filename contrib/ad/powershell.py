@@ -73,12 +73,12 @@ import sys
 import cerebrum_path
 import adconf
 from Cerebrum.Utils import Factory
-from Cerebrum import Errors
 from Cerebrum.modules.ad2.ADUtils import ADclient
 
 logger = Factory.get_logger('console')
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
+
 
 def usage(exitcode=0):
     print """Usage: powershell.py [OPTIONS] CODE...
@@ -123,10 +123,15 @@ def usage(exitcode=0):
     --unencrypted   If the communication should go unencrypted. This should only
                     be used for testing!
 
+    --ca_cert FILE  Use a given CA certificate chain for testing. If --type is
+                    given, the default value will fall back to the setting from
+                    adconf.
+
     -h, --help      Show this and quit.
 
     """ % {'doc': __doc__}
     sys.exit(exitcode)
+
 
 def main():
     try:
@@ -139,6 +144,7 @@ def main():
                                     "clean",
                                     "port=",
                                     "auth_user=",
+                                    "ca_cert=",
                                     "domain_user="])
     except getopt.GetoptError, e:
         print e
@@ -148,6 +154,7 @@ def main():
     sync = None
     host = port = None
     auth_user = domain_user = domain = None
+    ca = None
 
     for opt, val in opts:
         # General options
@@ -171,6 +178,8 @@ def main():
             auth_user = val
         elif opt == '--domain_user':
             domain_user = val
+        elif opt == '--ca_cert':
+            ca = val
         elif opt == '--clean':
             # Drain the client for pre-code:
             ADclient._pre_execution_code = u''
@@ -197,11 +206,12 @@ def main():
             domain_user = sync['domain_admin']
         if not domain:
             domain = sync['domain']
+        if encrypted and not ca:
+            ca = sync.get('ca')
     else:
         if not auth_user:
             print "If no specific sync, --auth_user is required"
             usage(1)
-
 
     client = ADclient(logger=logger,
                       host=host,
@@ -210,6 +220,7 @@ def main():
                       domain_admin=domain_user,
                       domain=domain,
                       encrypted=encrypted,
+                      ca=ca,
                       dryrun=False)
 
     code = ' '.join(args)
@@ -228,4 +239,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

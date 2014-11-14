@@ -9,6 +9,23 @@ Requirements
 * Python 2.2.1
 * SQL Database (PostgreSQL, Oracle)
 
+
+Dependencies
+-------------
+
+* M2Crypto
+* twisted
+* soaplib
+* rpclib
+* lxml
+* psycopg2
+* smbpasswd
+* ldap
+* processing
+* mx (egenix-mx-base)
+* ssl (backport)
+
+
 Mailing lists
 -------------
 
