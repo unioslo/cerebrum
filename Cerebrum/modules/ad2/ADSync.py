@@ -646,9 +646,18 @@ class BaseSync(object):
 
         # We do it in the correct order, as the changes could be dependend of
         # each other.
-        events = cl.get_events(changekey, changetypes)
-        self.logger.debug("Processing changekey: %s" % changekey)
-        self.logger.debug("Found %d of changes to process", len(events))
+        if changekey:
+            self.logger.debug("Processing changekey: %s", changekey)
+            events = cl.get_events(changekey, changetypes)
+            self.logger.debug("Found %d of changes to process", len(events))
+        elif change_ids:
+            self.logger.debug("Processing given change_ids: %s", change_ids)
+            events = []
+            for i in change_ids:
+                events.extend(self.db.get_log_events(start_id=i, max_id=i))
+        else:
+            raise Exception("Missing changekey or change_ids")
+
         nr_processed = 0
         for row in events:
             # Ignore too old changes:
