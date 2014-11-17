@@ -6566,7 +6566,6 @@ Addresses and settings:
             raise CerebrumError('Request id required')
         if not datetime:
             raise CerebrumError('Date required')
-        print datetime
         datetime = self._parse_date(datetime)
         br = BofhdRequests(self.db, self.const)
         old_req = br.get_requests(request_id=request_id)
