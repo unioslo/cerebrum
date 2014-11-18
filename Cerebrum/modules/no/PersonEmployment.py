@@ -165,7 +165,7 @@ class PersonEmploymentMixin(object):
     
     def search_employment(self, person_id=None, ou_id=None, description=None,
                           source_system=None, employment_code=None,
-                          include_expired=True):
+                          include_expired=True, main_employment=None):
         """Look for employment entries matching certain criteria.
 
         @type person_id: int or a sequence thereof or None.
@@ -204,6 +204,9 @@ class PersonEmploymentMixin(object):
         if employment_code is not None:
             where.append(argument_to_sql(employment_code, "employment_code",
                                          binds, str))
+        if main_employment is not None:
+          where.append(argument_to_sql(main_employment, "main_employment",
+                                       binds, str))
         if not include_expired:
             where.append('(end_date IS NULL OR end_date > [:now])')
 

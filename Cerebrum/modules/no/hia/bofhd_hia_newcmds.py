@@ -500,7 +500,9 @@ class BofhdExtension(BofhdCommonMethods,
                                                  "contact_src")),
             ("Note:          (#%d) %s: %s", ('note_id',
                                              'note_subject',
-                                             'note_description'))
+                                             'note_description')),
+            ("Title:         %s [from %s]", ("employment_title",
+                                             "source_system"))
         ]))
 
     def person_info(self, operator, person_id):
@@ -611,6 +613,7 @@ class BofhdExtension(BofhdCommonMethods,
                                  'extid_src': str(
                         self.const.AuthoritativeSystem(row['source_system']))})
 
+            # TODO: remove?
             # mobile number
             #systems = getattr(cereconf, 'INDIVIDUATION_PHONE_TYPES', {})
             #for sys in systems:
@@ -643,7 +646,7 @@ class BofhdExtension(BofhdCommonMethods,
                                           row['contact_type']))
 
                 # Skip phone, private phone and private mobile values from SAP
-                if (source_system_string == 'SAP' and
+                if (source_system_string == str(self.const.system_sap) and
                     row['contact_type'] in (self.const.contact_phone_private,
                                             self.const.contact_private_mobile,
                                             self.const.contact_phone)):
@@ -668,10 +671,30 @@ class BofhdExtension(BofhdCommonMethods,
         # Append entity notes to data
         self._append_entity_notes(data, operator, person.entity_id)
 
+        # This returns an iterator over matching db rows.
+        # Since we filter on main_employment, this should always return
+        # a maximum of 1 row. If the iterator does not return any elements
+        # (the person has no main employment status), no employment info is
+        # added to the returned data.
+        employment_query = person.search_employment(
+            person_id=person.entity_id,
+            main_employment='T'
+        )
+        try:
+            employment_row = employment_query.next()
+            employment_description = employment_row.fields['description']
+            source_system_code = employment_row.fields['source_system']
+            source_system_string = str(
+                self.const.AuthoritativeSystem(source_system_code)
+            )
+            data.append({'employment_title': str(employment_description),
+                         'source_system': source_system_string})
+        except StopIteration:
+            pass
+
         return data
 
 
-    
     # person student_info
     all_commands['person_student_info'] = Command(
         ("person", "student_info"), PersonId(),
