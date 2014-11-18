@@ -1,3 +1,7 @@
+2014-11-18    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* process_students.py: replaced old process_students.py with new from uio
+
 2014-11-12    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* import_system_accounts.py: updated source path. also fixed file encoding
