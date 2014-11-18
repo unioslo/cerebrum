@@ -1,3 +1,11 @@
+2014-11-18    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* Person.py (UiTPersonMixin.has_e_reservation): updated with new function from uio person.py
+
+	* Constants.py: updated with new constants required by new cerebrum installation
+
+	* Account.py: Added new functions from uio.account.py
+
 2014-11-12    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* Constants.py: Added ContactInfoCode as new constant type. Also added workPhone2 as new contactinfocode

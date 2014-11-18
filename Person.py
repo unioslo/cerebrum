@@ -34,6 +34,14 @@ class UiTPersonMixin(Person.Person):
   This class provides an UiT-specific extension to the core Person class.
   """
 
+  # check if a person has an electronic listing reservation
+  def has_e_reservation(self):
+    # this method may be applied to any Cerebrum-instances that
+    # use trait_public_reservation
+    r = self.get_trait(self.const.trait_public_reservation)
+    if r and r['numval'] == 0:
+      return False
+    return True
 
   # We want to raise an error when person.populate is called on a person with
   # deceased_date set in the DB.

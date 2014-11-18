@@ -25,29 +25,24 @@ Address, Gender etc. type."""
 
 from Cerebrum import Constants
 from Cerebrum.Constants import \
-     _AccountCode, \
-     _ContactInfoCode, \
-     _AccountHomeStatusCode, \
-     _AuthenticationCode, \
      _AuthoritativeSystemCode, \
-     _EntityExternalIdCode, \
      _OUPerspectiveCode, \
+     _SpreadCode, \
+     _QuarantineCode, \
+     _EntityExternalIdCode, \
      _PersonAffiliationCode, \
      _PersonAffStatusCode, \
-     _QuarantineCode, \
-     _SpreadCode, \
-     _AddressCode
+     _AccountCode, \
+     _ContactInfoCode, \
+     _CerebrumCode, \
+     _AddressCode, \
+     _AuthenticationCode
 from Cerebrum.modules.PosixUser import \
      _PosixShellCode
 from Cerebrum.modules.Email import \
-     _EmailSpamLevelCode, \
-     _EmailSpamActionCode, \
-     _EmailDomainCategoryCode, \
-     EmailConstants
+     _EmailServerTypeCode
 from Cerebrum.modules.EntityTrait import \
      _EntityTraitCode
-from Cerebrum.modules.bofhd.utils import \
-     _AuthRoleOpCode
 
 class Constants(Constants.Constants):
 
@@ -60,6 +55,10 @@ class Constants(Constants.Constants):
         'PAGA_ANSATTNR',
         Constants.Constants.entity_person,
         'Internal PAGA identifier')
+    externalid_hifm_ansattnr = _EntityExternalIdCode(
+        'HIFM_ANSATTNR',
+        Constants.Constants.entity_person,
+        'Internal HIFM identifier')
     externalid_sito_ansattnr = _EntityExternalIdCode(
         'SITO_ANSATTNR',
         Constants.Constants.entity_person,
@@ -68,6 +67,7 @@ class Constants(Constants.Constants):
         'SITO_OU',
         Constants.Constants.entity_ou,
         'internal sito ou identifier')
+
 
     # Authoritative systems
     system_hifm = _AuthoritativeSystemCode('HIFM', 'Høgskolen i Alta')
@@ -78,65 +78,79 @@ class Constants(Constants.Constants):
     system_sysacc = _AuthoritativeSystemCode('SYSACC', 'System Accounts')
     system_paga = _AuthoritativeSystemCode('PAGA', 'PAGA')
     system_sito = _AuthoritativeSystemCode('SITO', 'SITO')
-
+    system_flyt = _AuthoritativeSystemCode('FLYT', 'FLYT')
+    system_fs_derived = _AuthoritativeSystemCode('FS-auto','Utledet av FS data')
     # Account codes
     account_test = _AccountCode('T', 'Testkonto')
-    #account_felles_drift = _AccountCode('FD','Felles Drift') 
-    #account_felles_intern = _AccountCode('FI','Felles Intern') 
+    account_felles_drift = _AccountCode('FD','Felles Drift') 
+    account_felles_intern = _AccountCode('FI','Felles Intern') 
     account_kurs = _AccountCode('K','Kurs') 
     account_forening = _AccountCode('F','Forening') 
     account_maskin = _AccountCode('M','Maskin') 
     account_prosess = _AccountCode('P','Prosess') 
-    account_uit_guest = _AccountCode('gjestebruker_uit','Manuell gjestekonto')
+    account_uit_guest = _AccountCode('gjestebruker_uit', 'Manuell gjestekonto')
 
     # Contact codes
     contact_workphone2 = _ContactInfoCode('PHONE_WORK_2', 'Secondary Work Phone')
     contact_room = _ContactInfoCode('ROOM@UIT', 'Location and room number')
     contact_building = _ContactInfoCode('BYGG@UIT', 'Building name')
 
+
+    # address codes
+    address_location = _AddressCode('Lokasjon', 'Campus')
+    
     # OU Structure perspective
     perspective_sito = _OUPerspectiveCode('SITO', 'SITO')
 
-    # Ansatt affiliation and status
-
-    affiliation_ansatt = _PersonAffiliationCode(
-        'ANSATT',
-        'Ansatt ved UiT (i følge LT)') 
-    affiliation_status_ansatt_sys_x = _PersonAffStatusCode(
-        affiliation_ansatt, 
-        'sys_x-ansatt',
-        'Manuelt gitt tilgang til AD (bør nyanseres)')
     affiliation_ansatt_sito = _PersonAffiliationCode(
         'SITO',
         'Ansatt ved studentsamskipnaden i tromso')
 
+    affiliation_ansatt = _PersonAffiliationCode(
+        'ANSATT',
+        'Ansatt ved UiT (i følge LT)') 
+    affiliation_flyt_ansatt_hih = _PersonAffiliationCode('ANSATT_HIH','Ansatt ved HiH')
+    affiliation_flyt_student_hih = _PersonAffiliationCode('STUDENT_HIH','Student ved HiH') 
+
+    #
     # Affiliation status
+    #
+    affiliation_status_flyt_hih_ansatt_faculty = _PersonAffStatusCode(affiliation_ansatt,'ansatt HiH','Vitenskapelig')
+    affiliation_status_flyt_hih_ansatt_tekadm = _PersonAffStatusCode(affiliation_ansatt,'ansatt HiH','Teknisk/administrativt')
+
     affiliation_status_ansatt_perm = _PersonAffStatusCode(
         affiliation_ansatt, 'permisjon', 'Ansatt, for tiden i permisjon')
 
-
+    affiliation_status_flyt_ansatt_hifm = _PersonAffStatusCode(
+    affiliation_ansatt,
+    'ansatt HIFm',
+    'Ansatte fra Høyskolen i Alta')
+    
     affiliation_status_ansatt_sito_sterk = _PersonAffStatusCode(
         affiliation_ansatt_sito,
         'sito_sterk',
         'Ansatt med sterk uit tilknytning')
-
+    
     affiliation_status_ansatt_sito_svak = _PersonAffStatusCode(
         affiliation_ansatt_sito,
         'sito_svak',
         'Ansatt med svak uit tilknytning')
 
+    affiliation_status_ansatt_sys_x = _PersonAffStatusCode(
+        affiliation_ansatt, 
+        'sys_x-ansatt',
+        'Manuelt gitt tilgang til AD (bør nyanseres)')
+
     # Student affiliation and status
     affiliation_student = _PersonAffiliationCode(
         'STUDENT', 
-        'Student ved UiT (i følge FS)') 
-    affiliation_status_student_evu = _PersonAffStatusCode(
-        affiliation_student, 'evu', 'Registrert som EVU-student i FS')
-    affiliation_status_student_privatist = _PersonAffStatusCode(
-        affiliation_student, 'privatist', 'Registrert som privatist i FS')
-    affiliation_status_student_aktiv = _PersonAffStatusCode(
-        affiliation_student, 'aktiv', 'Registrert som aktiv student i FS')
-    affiliation_status_student_emnestud = _PersonAffStatusCode(
-        affiliation_student, 'emnestud', 'Registrert som aktiv emnestudent i FS')        
+        'Student ved UiT (i følge FS)')
+    affiliation_status_flyt_hih_student_aktiv = _PersonAffStatusCode(
+        affiliation_student,'student HiH','Aktiv student')
+    affiliation_status_flyt_student_hifm = _PersonAffStatusCode(
+        affiliation_student,
+        'student HIFm',
+        'Student fra Høyskolen i Alta')
     affiliation_status_student_soker = _PersonAffStatusCode(
         affiliation_student, 'soker', 'Registrert med søknad i FS')
 
@@ -152,8 +166,6 @@ class Constants(Constants.Constants):
         affiliation_student, 
         'opptak', 
         'Har studierett ved studieprogram')
-    affiliation_status_student_aktiv = _PersonAffStatusCode(
-        affiliation_student, 'aktiv', 'Registrert som aktiv student i FS')
     affiliation_status_student_perm = _PersonAffStatusCode(
         affiliation_student, 
         'permisjon', 
@@ -166,7 +178,10 @@ class Constants(Constants.Constants):
         affiliation_student, 
         'drgrad', 
         'Registrert student på doktorgrad')
-    
+    affiliation_status_student_emnestud = _PersonAffStatusCode(
+        affiliation_student, 'emnestud', 'Registrert som aktiv emnestudent i FS') 
+
+
     #Tilknyttet affiliation and status
     affiliation_tilknyttet = _PersonAffiliationCode(
         'TILKNYTTET', 
@@ -179,22 +194,25 @@ class Constants(Constants.Constants):
         affiliation_tilknyttet, 
         'emeritus',
         'Registrert i LT med gjestetypekode EMERITUS')
-
-    affiliation_tilknyttet_ekst_forsker = _PersonAffStatusCode(
-        affiliation_tilknyttet, 'ekst_forsker',
-        'Personer registrert i LT med gjestetypekode=EF-STIP')
-
     affiliation_tilknyttet_ekst_stip = _PersonAffStatusCode(
         affiliation_tilknyttet, 
-        'ekst_stip', 'Registrert med EF-STIP rolle i SAPUiO')        
-
+        'ekst_stip',
+        'Personer registrert i LT med gjestetypekode=EF-STIP')    
+    
+    # Manuell affiliation
     affiliation_manuell = _PersonAffiliationCode(
         'MANUELL', 
         'Tilknyttet enheter/instutusjoner som UiT har avtale med')
+    affiliation_manuell_alumni = _PersonAffStatusCode(
+        affiliation_manuell, 'alumni', 'Uteksaminerte studenter')
     affiliation_manuell_sito = _PersonAffStatusCode(
         affiliation_manuell, 
         'sito', 
         'Sito')
+    affiliation_manuell_gjest_u_konto = _PersonAffStatusCode(
+        affiliation_manuell,
+        'gjest_u_konto',
+        'gjest uten konto')
     affiliation_manuell_unn = _PersonAffStatusCode(
         affiliation_manuell,
         'UNN',
@@ -225,12 +243,26 @@ class Constants(Constants.Constants):
     affiliation_manuell_konsulent = _PersonAffStatusCode(
         affiliation_manuell, 'konsulent',
         'Konsulent (under utfasing)')
-    affiliation_tilknyttet_assosiert_person = _PersonAffStatusCode(
-        affiliation_tilknyttet, 'assosiert_person',
-        'Registrert med ASSOSIERT rolle i SAPUiO')
-    affiliation_tilknyttet_frida_reg = _PersonAffStatusCode(
-        affiliation_tilknyttet, 'frida_reg',
-        'Registrert med REGANSV og REG-ANSV rolle i SAPUiO')
+    affiliation_status_gjest_u_account = _PersonAffStatusCode(
+        affiliation_manuell,
+        'gjest_u_konto',
+        'Gjest uten konto')
+
+    # upersonlige kontoer
+    affiliation_upersonlig = _PersonAffiliationCode(
+        'UPERSONLIG', 'Fellesbrukere, samt andre brukere uten eier')
+    affiliation_upersonlig_felles = _PersonAffStatusCode(
+        affiliation_upersonlig, 'felles', 'Felleskonti')
+    affiliation_upersonlig_kurs = _PersonAffStatusCode(
+        affiliation_upersonlig, 'kurs', 'Kurskonti')
+    affiliation_upersonlig_pvare = _PersonAffStatusCode(
+        affiliation_upersonlig, 'pvare', 'Programvarekonti')
+    affiliation_upersonlig_term_maskin = _PersonAffStatusCode(
+        affiliation_upersonlig, 'term_maskin', 'Terminalstuemaskin')
+    affiliation_upersonlig_bib_felles = _PersonAffStatusCode(
+        affiliation_upersonlig, 'bib_felles', 'Bibliotek felles')
+
+
     # We override the default settings for shells, thus this file
     # should be before PosixUser in cereconf.CLASS_CONSTANTS
     posix_shell_bash = _PosixShellCode(
@@ -253,6 +285,10 @@ class Constants(Constants.Constants):
         '/local/bin/zsh')
     
     # Spread constants
+    spread_uit_student_disk = _SpreadCode(
+        'student_disk@uit',
+        Constants.Constants.entity_disk,
+        'Student disk spread')
     spread_uit_fronter = _SpreadCode(
         'fronter@uit', 
         Constants.Constants.entity_group,
@@ -265,22 +301,10 @@ class Constants(Constants.Constants):
         'evu@uit', 
         Constants.Constants.entity_account,
         'evu person')
-    spread_uit_frida = _SpreadCode(
-        'frida@uit',
+    spread_uit_cristin = _SpreadCode(
+        'cristin@uit',
         Constants.Constants.entity_account,
-        'Accounts with FRIDA spread')
-    spread_uit_fd = _SpreadCode(
-        'fd@uit',
-        Constants.Constants.entity_account,
-        'Accounts with FD spread')
-    spread_uit_nis_user = _SpreadCode(
-        'NIS_user@uit',
-        Constants.Constants.entity_account,
-        'User in NIS domain "uit"')
-    spread_uit_sut_user = _SpreadCode(
-        'SUT@uit',
-        Constants.Constants.entity_account,
-        'Accounts with SUT spread')    
+        'Accounts with CRISTIN spread')
     spread_uit_ldap_account = _SpreadCode(
         'ldap@uit',
         Constants.Constants.entity_account,
@@ -288,6 +312,9 @@ class Constants(Constants.Constants):
     spread_uit_ldap_person = _SpreadCode(
         'LDAP_person', Constants.Constants.entity_person,
         'Person included in LDAP directory')
+    spread_uit_ldap_guest = _SpreadCode(
+        'guest@ldap', Constants.Constants.entity_account,
+        'LDAP/RADIUS spread for wireless accounts')
     spread_uit_ad_account = _SpreadCode(
         'AD_account',
         Constants.Constants.entity_account,
@@ -316,15 +343,19 @@ class Constants(Constants.Constants):
         'sut_mailbox',
         Constants.Constants.entity_account,
         'Accounts with sut mailbox')
+    spread_sito = _SpreadCode(
+        'SITO',
+        Constants.Constants.entity_account,
+        'Accounts generated for sito users')
 
     # Email constants
     spread_uit_imap = _SpreadCode(
         'IMAP@uit', 
         Constants.Constants.entity_account,
         'IMAP account')
-#    email_server_type_exchange_imap= _EmailServerTypeCode(
-#            'exchange_imap',
-#            "Server is an Exchange server")
+    email_server_type_exchange_imap= _EmailServerTypeCode(
+            'exchange_imap',
+            "Server is an Exchange server")
 
     # Quarantine constants
     quarantine_tilbud = _QuarantineCode(
@@ -369,6 +400,16 @@ class Constants(Constants.Constants):
 
 
     # Trait codes
+    trait_sito_registrar_notified = _EntityTraitCode(
+        'sito_req_mailed', Constants.Constants.entity_account,
+        "Trait set on account when sito processing is done"
+        )
+
+    trait_sito_user_notified = _EntityTraitCode(
+        'sito_user_mailed', Constants.Constants.entity_account,
+        "Trait set on account after account created mail is sent to user"
+        )
+    
     trait_sysx_registrar_notified = _EntityTraitCode(
         'sysx_reg_mailed', Constants.Constants.entity_account,
         "Trait set on account when systemx processing is done"
