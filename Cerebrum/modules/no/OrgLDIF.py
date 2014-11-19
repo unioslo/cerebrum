@@ -51,15 +51,18 @@ class norEduLDIFMixin(OrgLDIF):
 
     FEIDE_schema_version = cereconf.LDAP.get('FEIDE_schema_version', '1.1')
     FEIDE_obsolete_version = cereconf.LDAP.get('FEIDE_obsolete_schema_version')
+
     if isinstance(FEIDE_schema_version, (tuple, list)):
         FEIDE_obsolete_version = min(*FEIDE_schema_version)
         FEIDE_schema_version = max(*FEIDE_schema_version)
-    FEIDE_attr_org_id, FEIDE_attr_ou_id = {
-        '1.1': ('norEduOrgUniqueNumber',     'norEduOrgUnitUniqueNumber'),
-        '1.3': ('norEduOrgUniqueIdentifier', 'norEduOrgUnitUniqueIdentifier'),
-        '1.4': ('norEduOrgUniqueIdentifier', 'norEduOrgUnitUniqueIdentifier'),
-        '1.5': ('norEduOrgUniqueIdentifier', 'norEduOrgUnitUniqueIdentifier'),
-    }[FEIDE_schema_version]
+
+    if FEIDE_schema_version == '1.1':
+        FEIDE_attr_org_id = 'norEduOrgUniqueNumber'
+        FEIDE_attr_ou_id = 'norEduOrgUnitUniqueNumber'
+    else:
+        FEIDE_attr_org_id = 'norEduOrgUniqueIdentifier'
+        FEIDE_attr_ou_id = 'norEduOrgUnitUniqueIdentifier'
+
     FEIDE_class_obsolete = None
     if FEIDE_obsolete_version:
         if FEIDE_schema_version >= '1.4':
@@ -389,13 +392,17 @@ class norEduLDIFMixin(OrgLDIF):
         uname = entry.get('uid')
         person_id = int(row['person_id'])
         fnr = self.fodselsnrs.get(person_id)
-        if uname and fnr:
-            entry['objectClass'].append('norEduPerson')
+        entry['objectClass'].append('norEduPerson')
+
+        birth_date = self.birth_dates.get(person_id)
+        if birth_date:
+            entry['norEduPersonBirthDate'] = ("%04d%02d%02d" % (
+                birth_date.year, birth_date.month, birth_date.day),)
+
+        if fnr:
+            entry['norEduPersonNIN'] = (str(fnr),)
+
+        if uname:
             if self.FEIDE_schema_version >= '1.5':
                 entry['displayName'] = entry['norEduPersonLegalName'] = entry['cn']
             entry['eduPersonPrincipalName'] = (uname[0] + self.eduPPN_domain,)
-            entry['norEduPersonNIN'] = (str(fnr),)
-            birth_date = self.birth_dates.get(person_id)
-            if birth_date:
-                entry['norEduPersonBirthDate'] = ("%04d%02d%02d" % (
-                    birth_date.year, birth_date.month, birth_date.day),)
