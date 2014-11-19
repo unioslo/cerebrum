@@ -392,17 +392,31 @@ class norEduLDIFMixin(OrgLDIF):
         uname = entry.get('uid')
         person_id = int(row['person_id'])
         fnr = self.fodselsnrs.get(person_id)
-        entry['objectClass'].append('norEduPerson')
-
         birth_date = self.birth_dates.get(person_id)
-        if birth_date:
-            entry['norEduPersonBirthDate'] = ("%04d%02d%02d" % (
-                birth_date.year, birth_date.month, birth_date.day),)
 
-        if fnr:
-            entry['norEduPersonNIN'] = (str(fnr),)
+        # uid is mandatory for norEduPerson
+        if not uname:
+            return
 
-        if uname:
+        # Prior to norEdu 1.5.1, fnr is mandatory
+        if self.FEIDE_schema_version <= '1.5' and fnr:
+            entry['objectClass'].append('norEduPerson')
             if self.FEIDE_schema_version >= '1.5':
                 entry['displayName'] = entry['norEduPersonLegalName'] = entry['cn']
             entry['eduPersonPrincipalName'] = (uname[0] + self.eduPPN_domain,)
+            entry['norEduPersonNIN'] = (str(fnr),)
+
+            if birth_date:
+                entry['norEduPersonBirthDate'] = ("%04d%02d%02d" % (
+                    birth_date.year, birth_date.month, birth_date.day),)
+        elif self.FEIDE_schema_version >= '1.5.1':
+            entry['objectClass'].append('norEduPerson')
+            entry['displayName'] = entry['norEduPersonLegalName'] = entry['cn']
+            entry['eduPersonPrincipalName'] = (uname[0] + self.eduPPN_domain,)
+
+            if fnr:
+                entry['norEduPersonNIN'] = (str(fnr),)
+
+            if birth_date:
+                entry['norEduPersonBirthDate'] = ("%04d%02d%02d" % (
+                    birth_date.year, birth_date.month, birth_date.day),)
