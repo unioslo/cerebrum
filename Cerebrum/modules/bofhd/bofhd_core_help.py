@@ -454,6 +454,10 @@ arg_help = {
     'date':
         ['date', 'Enter date (YYYY-MM-DD)',
          "The legal date format is 2003-12-31"],
+    'datetime':
+        ['datetime', 'Enter datetime YYYY-MM-DD(THH:MM)',
+         "The legal datetime format is 2003-12-31T16:00,\n"
+         "or simply 2003-12-31 (time then defaults to 00:00)"],
     'date_birth':
         ['date', 'Enter date of birth(YYYY-MM-DD)',
          "The legal date format is 2003-12-31"],

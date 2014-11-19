@@ -6571,13 +6571,15 @@ Addresses and settings:
         return ret
 
     all_commands['misc_change_request'] = Command(
-        ("misc", "change_request"), Id(help_ref="id:request_id"), Date())
-    def misc_change_request(self, operator, request_id, date):
+        ("misc", "change_request"),
+        Id(help_ref="id:request_id"), DateTimeString())
+
+    def misc_change_request(self, operator, request_id, datetime):
         if not request_id:
             raise CerebrumError('Request id required')
-        if not date:
+        if not datetime:
             raise CerebrumError('Date required')
-        date = self._parse_date(date)
+        datetime = self._parse_date(datetime)
         br = BofhdRequests(self.db, self.const)
         old_req = br.get_requests(request_id=request_id)
         if not old_req:
@@ -6588,7 +6590,7 @@ Addresses and settings:
         # If you are allowed to cancel a request, you can change it :)
         self.ba.can_cancel_request(operator.get_entity_id(), request_id)
         br.delete_request(request_id=request_id)
-        br.add_request(operator.get_entity_id(), date,
+        br.add_request(operator.get_entity_id(), datetime,
                        old_req['operation'], old_req['entity_id'],
                        old_req['destination_id'],
                        old_req['state_data'])

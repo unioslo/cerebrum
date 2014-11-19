@@ -99,6 +99,14 @@ class Date(Parameter):
     _type = 'date'
     _help_ref = 'date'
 
+
+# named DateTimeString due to namespace conflicts with DateTime
+# import from mx module.
+class DateTimeString(Parameter):
+    _type = 'datetime'
+    _help_ref = 'datetime'
+
+
 class DiskId(Parameter):
     _type = 'disk'
     _help_ref = 'disk'
