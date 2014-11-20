@@ -1481,9 +1481,42 @@ class BofhdAuth(DatabaseAccessor):
                 return True
             return self.is_account_owner(operator, self.const.auth_view_history,
                                          entity)
-        elif entity.entity_type == self.const.entity_group:
-            return self.is_group_owner(operator, self.const.auth_view_history,
-                                       entity)
+
+        # Check if user has been granted an op-set that allows viewing the
+        # entity's history.
+        for row in self._list_target_permissions(
+                operator, self.const.auth_view_history,
+                self.const.auth_target_type_global_group,
+                None, get_all_op_attrs=True):
+            attr = row.get('operation_attr')
+            print attr
+
+            # Op-set allows viewing history for this entity type
+            # We need try/except here as self.const.EntityType will throw
+            # exceptions if attr is something else than an entity-type
+            # (for example a spread-type).
+            try:
+                if entity.entity_type == int(self.const.EntityType(attr)):
+                    return True
+            except:
+                pass
+
+            # For groups we use the op-set attribute to specify groups that has
+            # specified spreads (for example, postmasters are permitted to view
+            # the entity history of groups with the exchange_group spread).
+            # try/except is needed here for the same reasons as above.
+            if entity.entity_type == self.const.entity_group:
+                try:
+                    spread_type = int(self.const.Spread(attr))
+                    if entity.has_spread(spread_type):
+                        return True
+                except:
+                    pass
+
+        if self.is_group_owner(operator,
+                               self.const.auth_view_history,
+                               entity):
+            return True
         raise PermissionDenied("no access for that entity_type")
 
     def can_cancel_request(self, operator, req_id, query_run_any=False):
