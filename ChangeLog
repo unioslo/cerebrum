@@ -1,3 +1,7 @@
+2014-11-20    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* generate_OU.py: updated sourcepath
+
 2014-11-18    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* process_students.py: replaced old process_students.py with new from uio

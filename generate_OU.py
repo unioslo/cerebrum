@@ -45,7 +45,7 @@ logger = Factory.get_logger("cronjob")
 
 # Default file locations
 t = time.localtime()
-sourcedir = cereconf.CB_SOURCEDATA_PATH
+sourcedir = "%s/steder" % cereconf.CB_SOURCEDATA_PATH
 default_input_files = [os.path.join(sourcedir, 'stedtre-gjeldende.csv'), os.path.join(sourcedir, 'stedtre-eksterne.csv')]
 
 dumpdir = os.path.join(cereconf.DUMPDIR,"ou")
