@@ -25,9 +25,9 @@ import sys
 import xml.sax
 import pprint
 from Cerebrum.modules.xmlutils.GeneralXMLParser import GeneralXMLParser
-from Cerebrum.modules.no.uio.AutoStud.Util import LookupHelper
-from Cerebrum.modules.no.uio.AutoStud.Select import SelectTool
-from Cerebrum.modules.no.uio.AutoStud import DiskTool
+from Cerebrum.modules.no.uit.AutoStud.Util import LookupHelper
+from Cerebrum.modules.no.uit.AutoStud.Select import SelectTool
+from Cerebrum.modules.no.uit.AutoStud import DiskTool
 from Cerebrum.modules import PosixGroup
 from Cerebrum import Errors
 

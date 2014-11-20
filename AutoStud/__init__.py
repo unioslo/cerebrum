@@ -27,10 +27,10 @@ import pprint
 import cereconf
 from Cerebrum.Utils import Factory
 
-from Cerebrum.modules.no.uio.AutoStud import ProfileConfig
-from Cerebrum.modules.no.uio.AutoStud import ProfileHandler
-from Cerebrum.modules.no.uio.AutoStud import StudentInfo
-from Cerebrum.modules.no.uio.AutoStud.DiskTool import DiskTool
+from Cerebrum.modules.no.uit.AutoStud import ProfileConfig
+from Cerebrum.modules.no.uit.AutoStud import ProfileHandler
+from Cerebrum.modules.no.uit.AutoStud import StudentInfo
+from Cerebrum.modules.no.uit.AutoStud.DiskTool import DiskTool
 
 pp = pprint.PrettyPrinter(indent=4)
 
