@@ -1489,7 +1489,6 @@ class BofhdAuth(DatabaseAccessor):
                 self.const.auth_target_type_global_group,
                 None, get_all_op_attrs=True):
             attr = row.get('operation_attr')
-            print attr
 
             # Op-set allows viewing history for this entity type
             # We need try/except here as self.const.EntityType will throw
