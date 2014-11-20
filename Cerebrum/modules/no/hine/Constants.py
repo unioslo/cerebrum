@@ -34,3 +34,6 @@ class Constants(Constants.Constants):
     spread_ad_account = _SpreadCode(
         'account@ad', Constants.Constants.entity_account,
         'Brukeren kjent i i AD domenet lab.hinesna.no ved HiNesna')
+    spread_ad_group = _SpreadCode(
+        'group@ad', Constants.Constants.entity_group,
+        'Group included in domain in Active Directory')
