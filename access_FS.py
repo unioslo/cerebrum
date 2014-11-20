@@ -712,7 +712,7 @@ class UiOStudent(access_FS.Student):
 
 class UiOPortal(access_FS.FSObject):
     """Denne funksjonen er ikke lenger i bruk, da portal-ting ikke er i bruk
-    lenger. Dersom jobben cerebrum/contrib/no/uio/generate_portal_export.py
+    lenger. Dersom jobben cerebrum/contrib/no/uit/generate_portal_export.py
     skal settes i produksjon igjen, må denne funksjonen oppdateres til
     gjeldende FS versjon, med vurderingsmodul, og deretter hentes fra
     svn-loggen, for eksempel r15833.
@@ -1119,7 +1119,7 @@ class FS(access_FS.FS):
     def __init__(self, db=None, user=None, database=None):
         super(FS, self).__init__(db=db, user=user, database=database)
 
-        # Override with uio-spesific classes
+        # Override with uit-spesific classes
         self.person = UiOPerson(self.db)
         self.student = UiOStudent(self.db)
         self.portal = UiOPortal(self.db)

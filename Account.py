@@ -75,11 +75,11 @@ class AccountUiTMixin(Account.Account):
         #
         spreads = [int(r['spread']) for r in self.get_spread()]
         # All users in the 'ifi' NIS domain must also exist in the
-        # 'uio' NIS domain.
+        # 'uit' NIS domain.
         if spread == self.const.spread_ifi_nis_user \
-               and int(self.const.spread_uio_nis_user) not in spreads:
+               and int(self.const.spread_uit_nis_user) not in spreads:
             raise self._db.IntegrityError, \
-                  "Can't add ifi spread to an account without uio spread."
+                  "Can't add ifi spread to an account without uit spread."
 
         # Gather information on present state, to be used later.  Note
         # that this information gathering must be done before we pass
@@ -93,7 +93,7 @@ class AccountUiTMixin(Account.Account):
         # mailboxes restored to Exchange
         # Jazz (2013-11)
         state = {}
-        if spread == self.const.spread_uio_imap:
+        if spread == self.const.spread_uit_imap:
             # exchange-relatert-jazz
             # no account should have both IMAP and Exchange spread at the
             # same time, as this will create a double mailbox
@@ -113,7 +113,7 @@ class AccountUiTMixin(Account.Account):
         if spread == self.const.spread_exchange_account:
             # no account should have both IMAP and Exchange spread at the
             # same time, as this will create a double mailbox
-            if self.has_spread(self.const.spread_uio_imap):
+            if self.has_spread(self.const.spread_uit_imap):
                 raise self._db.IntegrityError, \
                     "Can't add Exchange-spread to an account with IMAP-spread."
         # (Try to) perform the actual spread addition.
@@ -179,7 +179,7 @@ class AccountUiTMixin(Account.Account):
         # decided that all new mail-boxes will be created in Exchange
         # and any old mailboxes restored to Exchange
         # Jazz (2013-11)
-        if spread == self.const.spread_uio_imap:
+        if spread == self.const.spread_uit_imap:
             # Unless this account already has been associated with an
             # Cyrus EmailTarget, we need to do so.
             if et.email_server_id:
@@ -201,13 +201,13 @@ class AccountUiTMixin(Account.Account):
             self.update_email_addresses()
         elif spread == self.const.spread_ifi_nis_user:
             # Add an account_home entry pointing to the same disk as
-            # the uio spread
+            # the uit spread
             try:
-                tmp = self.get_home(self.const.spread_uio_nis_user)
+                tmp = self.get_home(self.const.spread_uit_nis_user)
                 self.set_home(spread, tmp['homedir_id'])
             except Errors.NotFoundError:
                 pass  # User has no homedir for this spread yet
-        elif spread == self.const.spread_uio_notes_account:
+        elif spread == self.const.spread_uit_notes_account:
             if self.owner_type == self.const.entity_group:
                 raise self._db.IntegrityError, \
                       "Cannot add Notes-spread to a non-personal account."
@@ -237,7 +237,7 @@ class AccountUiTMixin(Account.Account):
     def wants_auth_type(self, method):
         if method == self.const.Authentication("PGP-guest_acc"):
             # only store this type for guest accounts
-            return self.get_trait(self.const.trait_uio_guest_owner) is not None
+            return self.get_trait(self.const.trait_uit_guest_owner) is not None
         return self.__super.wants_auth_type(method)
 
     def clear_home(self, spread):
@@ -812,14 +812,14 @@ class AccountUiTMixin(Account.Account):
         if not spread in spreads:  # user doesn't have this spread
             return
         # All users in the 'ifi' NIS domain must also exist in the
-        # 'uio' NIS domain.
-        if spread == self.const.spread_uio_nis_user \
+        # 'uit' NIS domain.
+        if spread == self.const.spread_uit_nis_user \
                and int(self.const.spread_ifi_nis_user) in spreads:
             raise self._db.IntegrityError, \
-                  "Can't remove uio spread to an account with ifi spread."
+                  "Can't remove uit spread to an account with ifi spread."
 
         if spread == self.const.spread_ifi_nis_user \
-               or spread == self.const.spread_uio_nis_user:
+               or spread == self.const.spread_uit_nis_user:
             self.clear_home(spread)
 
         # Remove IMAP user
@@ -831,8 +831,8 @@ class AccountUiTMixin(Account.Account):
         # when migration to Exchange is completed as it wil no longer
         # be needed. Jazz (2013-11)
         # 
-        if (spread == self.const.spread_uio_imap and
-            int(self.const.spread_uio_imap) in spreads):
+        if (spread == self.const.spread_uit_imap and
+            int(self.const.spread_uit_imap) in spreads):
             et = Email.EmailTarget(self._db)
             et.find_by_target_entity(self.entity_id)
             self._UiO_order_cyrus_action(self.const.bofh_email_delete,

@@ -17,7 +17,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""DiskQuotas as specified in uiocerebrum/doc/spec/disk_kvoter.rst"""
+"""DiskQuotas as specified in uitcerebrum/doc/spec/disk_kvoter.rst"""
 
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory

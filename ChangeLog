@@ -1,3 +1,11 @@
+2014-11-20    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* access_FS.py:changed all references to uio to uit
+
+	* DiskQuota.py:changed all references to uio to uit
+
+	* Account.py:changed all references to uio to uit
+
 2014-11-18    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* ADsync.py: added to repo (from uio code)
