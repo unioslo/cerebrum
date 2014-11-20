@@ -358,6 +358,11 @@ class Constants(Constants.Constants):
             "Server is an Exchange server")
 
     # Quarantine constants
+    quarantine_auto_emailonly = _QuarantineCode('auto_kunepost', 
+                                                'Ikke ordin<E6>r student, tilgang til bare e-post')
+    
+    quarantine_auto_inaktiv = _QuarantineCode('auto_inaktiv', 
+                                             'Ikke aktiv student, utestengt')
     quarantine_tilbud = _QuarantineCode(
             'Tilbud',
             "Pre-generert konto til studenter som har fått studietilbud,"
