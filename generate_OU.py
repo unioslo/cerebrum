@@ -68,8 +68,9 @@ class ou:
         self.db = Factory.get('Database')()
 
         # FS 
-        user="UIT_BAS"
-        service="fskurs"
+        user="I0186_UIT_BAS"
+        #user="i0186_uit_bas"
+        service="fsdemo.uio.no"
         logger.info("Connecting to FS db")
         self.fs_db = Database.connect(user=user,service=service,DB_driver='cx_Oracle')
         self.fs = FS(self.fs_db)
