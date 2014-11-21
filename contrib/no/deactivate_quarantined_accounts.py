@@ -249,7 +249,9 @@ def main():
 
     for option, value in options:
         if option in ("-q", "--quarantine"):
-            quarantine = int(constants.Quarantine(value))
+            target = str(val).split(",")
+            for i in target:
+             quarantine.append(int(constants.Quarantine(i)))
         elif option in ("-d", "--dryrun"):
             dryrun = True
         elif option in ("-s", "--since"):
@@ -304,7 +306,7 @@ def main():
         try:
             if process_account(account, delete=delete, bofhdreq=bofhdreq):
                 i += 1
-        except Exception, e:
+        except Exception:
             logger.exception("Failed deactivating account: %s (%s)" %
                              (account.account_name, account.entity_id))
 
