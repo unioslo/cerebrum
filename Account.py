@@ -44,6 +44,7 @@ from Cerebrum import Utils
 from Cerebrum.Utils import NotSet
 from Cerebrum.modules import Email
 from Cerebrum.modules import PasswordHistory
+from Cerebrum.modules.no.uio.DiskQuota import DiskQuota
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.Utils import pgp_encrypt, Factory, prepare_string
 from Cerebrum.modules.Email import EmailAddress
@@ -849,7 +850,7 @@ class AccountUiTMixin(Account.Account):
         # time. This will however remove the e-mailaddresses assigned
         # to the target and make their re-use possible. Jazz (2013-11)
         # 
-        if spread == self.const.spread_exchange_account:
+        if spread == self.const.spread_uit_exchange:
             et = Email.EmailTarget(self._db)
             et.find_by_target_entity(self.entity_id)
             et.email_target_type = self.const.email_target_deleted

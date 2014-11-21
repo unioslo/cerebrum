@@ -1,3 +1,10 @@
+2014-11-21    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* Constants.py (Constants): added new spreads needed by new Account code
+	added new quarantine constant
+
+	* Account.py (AccountUiTMixin.delete_spread): updated spreadname to reflect uit spreadname
+
 2014-11-20    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* Constants.py: added quarantine_auto_emailonly and quarantine_auto_inaktiv constants

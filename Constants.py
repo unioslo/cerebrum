@@ -285,6 +285,18 @@ class Constants(Constants.Constants):
         '/local/bin/zsh')
     
     # Spread constants
+    spread_ifi_nis_user = _SpreadCode(
+        'NIS_user@ifi', 
+        Constants.Constants.entity_account,
+        'User in NIS domain "ifi"')
+    spread_uio_nis_user = _SpreadCode(
+        'NIS_user@uit', 
+        Constants.Constants.entity_account,
+        'User in NIS domain "uit"')
+    spread_uit_nis_user = _SpreadCode(
+        'NIS_user@uit', 
+        Constants.Constants.entity_account,
+        'User in NIS domain "uit"')
     spread_uit_student_disk = _SpreadCode(
         'student_disk@uit',
         Constants.Constants.entity_disk,
@@ -358,6 +370,9 @@ class Constants(Constants.Constants):
             "Server is an Exchange server")
 
     # Quarantine constants
+    quarantine_ou_notvalid = _QuarantineCode('ou_notvalid',
+                                             'OU not valid from external source')
+
     quarantine_auto_emailonly = _QuarantineCode('auto_kunepost', 
                                                 'Ikke ordin<E6>r student, tilgang til bare e-post')
     
