@@ -188,7 +188,9 @@ not a person.
 
 %s
 
-    -q, --quarantine QUAR   Quarantine type. Default: generell
+    -q, --quarantine QUAR   Quarantine types, to find out the exact names type:
+                            "jbofh> quarantine list". If muliple values provided
+                            those should be comma separated. Default: generell
 
     -s, --since DAYS        Number of days since quarantine started. Default: 30
 
@@ -240,7 +242,7 @@ def main():
     dryrun = False
     limit = None
     # default quarantine type
-    quarantine = int(constants.quarantine_generell)
+    quarantine = [int(constants.quarantine_generell),]
     # number of days since quarantine has started
     since = 30
     delete = bofhdreq = False
@@ -249,7 +251,8 @@ def main():
 
     for option, value in options:
         if option in ("-q", "--quarantine"):
-            target = str(val).split(",")
+            quarantine = []
+            target = str(value).split(",")
             for i in target:
              quarantine.append(int(constants.Quarantine(i)))
         elif option in ("-d", "--dryrun"):
