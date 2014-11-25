@@ -288,12 +288,12 @@ def main():
             usage(1)
 
     logger.info("Start deactivation, quar=%s, since=%s, terminate=%s, "
-                "bofhdreq=%s, limit=%s", quarantine, since, delete, bofhdreq,
+                "bofhdreq=%s, limit=%s", quarantines, since, delete, bofhdreq,
                 limit)
     logger.debug("Ignoring those with person-affilations: %s",
                  ', '.join(str(a) for a in affiliations))
     logger.info("Fetching relevant accounts")
-    rel_accounts = fetch_all_relevant_accounts(quarantine, since,
+    rel_accounts = fetch_all_relevant_accounts(quarantines, since,
                                                ignore_affs=affiliations,
                                                system_accounts=system_accounts)
     logger.info("Got %s accounts to process", len(rel_accounts))
