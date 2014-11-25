@@ -411,7 +411,8 @@ def make_reservation(to_be_reserved, p_id, group):
 # end make_reservation
 
 
-def parse_data(parser, source_system, group, gen_groups, old_affs, old_traits):
+def parse_data(parser, source_system, group, gen_groups, old_affs, old_traits,
+               dryrun=True):
     """Process all people data available.
 
     For each person extracted from XML, register the changes in Cerebrum.  We
@@ -447,6 +448,10 @@ def parse_data(parser, source_system, group, gen_groups, old_affs, old_traits):
       are removed from old_traits. Whatever old_traits is left with, when we
       are done here, are the traits that have no longer basis in the
       authoritative system data. Thus, they can be deleted.
+
+    :type dryrun: bool
+    :param dryrun: To run in dryrun-mode or not. Defaults to true. Will then
+      roll-back all changes.
     """
 
     logger.info("processing file %s for system %s", parser, source_system)
@@ -527,7 +532,10 @@ def parse_data(parser, source_system, group, gen_groups, old_affs, old_traits):
         logger.info("**** %s (%s) %s ****", p_id, dict(xmlperson.iterids()),
                     status)
         # Commit the changes
-        attempt_commit()
+        if dryrun:
+            db.rollback()
+        else:
+            db.commit()
 # end parse_data
 
 
@@ -777,11 +785,6 @@ def main():
     }
 
     logger.debug("sources is %s", sources)
-    global attempt_commit
-    if dryrun:
-        attempt_commit = db.rollback
-    else:
-        attempt_commit = db.commit
 
     # Load current automatic traits (AFFILIATE_TRAITS)
     if include_del:
@@ -807,7 +810,8 @@ def main():
                        group,
                        gen_groups,
                        include_del and cerebrum_affs or dict(),
-                       include_del and cerebrum_traits or dict())
+                       include_del and cerebrum_traits or dict(),
+                       dryrun)
 
         if include_del:
             clean_old_affiliations(source_system, cerebrum_affs)
@@ -816,10 +820,10 @@ def main():
         remove_traits(cerebrum_traits)
 
     if dryrun:
-        attempt_commit()
+        db.rollback()
         logger.info("All changes rolled back")
     else:
-        attempt_commit()
+        db.commit()
         logger.info("All changes committed")
 # end main
 
