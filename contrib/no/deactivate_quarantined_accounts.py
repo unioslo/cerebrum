@@ -53,6 +53,7 @@ script.
 
 import sys
 import getopt
+import re
 
 import time
 import mx.DateTime as dt
@@ -188,7 +189,11 @@ not a person.
 
 %s
 
-    -q, --quarantine QUAR   Quarantine type. Default: generell
+    -q, --quarantines QUAR  Quarantine types, to find out the exact names run
+                            the following command: "jbofh> quarantine list". If
+                            muliple values are to be provided those should be
+                            comma separated with no spaces in between. If not
+                            provided it defaults to the "generell" quarantine.
 
     -s, --since DAYS        Number of days since quarantine started. Default: 30
 
@@ -228,7 +233,7 @@ not a person.
 def main():
     options, junk = getopt.getopt(sys.argv[1:],
                                   "q:s:dhl:a:",
-                                  ("quarantine=",
+                                  ("quarantines=",
                                    "dryrun",
                                    "affiliations=",
                                    "help",
@@ -240,16 +245,19 @@ def main():
     dryrun = False
     limit = None
     # default quarantine type
-    quarantine = int(constants.quarantine_generell)
-    # number of days since quarantine has started
+    quarantines = [int(constants.quarantine_generell)]
+    # number of days since the quarantines have started
     since = 30
     delete = bofhdreq = False
     system_accounts = False
     affiliations = set()
 
     for option, value in options:
-        if option in ("-q", "--quarantine"):
-            quarantine = int(constants.Quarantine(value))
+        if option in ("-q", "--quarantines"):
+            quarantines = []
+            target = re.sub("\,$", "", value)
+            for i in target.split(","):
+                quarantines.append(int(constants.Quarantine(i)))
         elif option in ("-d", "--dryrun"):
             dryrun = True
         elif option in ("-s", "--since"):
@@ -280,12 +288,12 @@ def main():
             usage(1)
 
     logger.info("Start deactivation, quar=%s, since=%s, terminate=%s, "
-                "bofhdreq=%s, limit=%s", quarantine, since, delete, bofhdreq,
+                "bofhdreq=%s, limit=%s", quarantines, since, delete, bofhdreq,
                 limit)
     logger.debug("Ignoring those with person-affilations: %s",
                  ', '.join(str(a) for a in affiliations))
     logger.info("Fetching relevant accounts")
-    rel_accounts = fetch_all_relevant_accounts(quarantine, since,
+    rel_accounts = fetch_all_relevant_accounts(quarantines, since,
                                                ignore_affs=affiliations,
                                                system_accounts=system_accounts)
     logger.info("Got %s accounts to process", len(rel_accounts))
@@ -304,7 +312,7 @@ def main():
         try:
             if process_account(account, delete=delete, bofhdreq=bofhdreq):
                 i += 1
-        except Exception, e:
+        except Exception:
             logger.exception("Failed deactivating account: %s (%s)" %
                              (account.account_name, account.entity_id))
 
