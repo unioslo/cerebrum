@@ -8366,7 +8366,11 @@ Addresses and settings:
                     self.const.AuthoritativeSystem(row['source_system']))})
             # Show external id from FS and SAP
             for extid in ('externalid_sap_ansattnr',
-                          'externalid_studentnr'):
+                          'externalid_studentnr',
+                          'externalid_pass_number',
+                          'externalid_social_security_number',
+                          'externalid_tax_identification_number',
+                          'externalid_value_added_tax_number'):
                 extid = getattr(self.const, extid, None)
                 if extid:
                     for row in person.get_external_id(id_type=extid):
