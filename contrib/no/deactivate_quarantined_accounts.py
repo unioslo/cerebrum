@@ -53,6 +53,7 @@ script.
 
 import sys
 import getopt
+import re
 
 import time
 import mx.DateTime as dt
@@ -188,9 +189,11 @@ not a person.
 
 %s
 
-    -q, --quarantine QUAR   Quarantine types, to find out the exact names type:
-                            "jbofh> quarantine list". If muliple values provided
-                            those should be comma separated. Default: generell
+    -q, --quarantines QUAR  Quarantine types, to find out the exact names run
+                            the following command: "jbofh> quarantine list". If
+                            muliple values are to be provided those should be
+                            comma separated with no spaces in between. If not
+                            provided it defaults to the "generell" quarantine.
 
     -s, --since DAYS        Number of days since quarantine started. Default: 30
 
@@ -230,7 +233,7 @@ not a person.
 def main():
     options, junk = getopt.getopt(sys.argv[1:],
                                   "q:s:dhl:a:",
-                                  ("quarantine=",
+                                  ("quarantines=",
                                    "dryrun",
                                    "affiliations=",
                                    "help",
@@ -242,19 +245,19 @@ def main():
     dryrun = False
     limit = None
     # default quarantine type
-    quarantine = [int(constants.quarantine_generell),]
-    # number of days since quarantine has started
+    quarantines = [int(constants.quarantine_generell)]
+    # number of days since the quarantines have started
     since = 30
     delete = bofhdreq = False
     system_accounts = False
     affiliations = set()
 
     for option, value in options:
-        if option in ("-q", "--quarantine"):
-            quarantine = []
-            target = str(value).split(",")
-            for i in target:
-             quarantine.append(int(constants.Quarantine(i)))
+        if option in ("-q", "--quarantines"):
+            quarantines = []
+            target = re.sub("\,$","",value)
+            for i in target.split(","):
+                quarantines.append(int(constants.Quarantine(i)))
         elif option in ("-d", "--dryrun"):
             dryrun = True
         elif option in ("-s", "--since"):
