@@ -151,16 +151,16 @@ def determine_traits(xmlperson, source_system):
     person, based on the information obtained from the authoritative system
     data.
 
-    @type xmlperson: xml2object.DataHRPerson instance
-    @param xmlperson:
+    :type xmlperson: xml2object.DataHRPerson instance
+    :param xmlperson:
       Next person to process
 
-    @type source_system: ??
-    @param source_system:
+    :type source_system: ??
+    :param source_system:
       Source system where the data originated from (useful for OU-lookup).
 
-    @rtype: set of triples
-    @return:
+    :rtype: set of triples
+    :return:
       A sequence of traits to adorn the corresponding cerebrum person object
       with. If no traits could be assigned, an empty sequence is returned. The
       only guarantee made about the sequence is that it is without duplicates
@@ -219,16 +219,16 @@ def determine_traits(xmlperson, source_system):
 def determine_affiliations(xmlperson, source_system):
     """Determine affiliations for person p_id/xmlperson in order of significance.
 
-    @type xmlperson: instance of xmlutils.HRDataPerson
-    @param xmlperson:
+    :type xmlperson: instance of xmlutils.HRDataPerson
+    :param xmlperson:
       An object representing an XML-subtree with personal information.
 
-    @type source_system: AuthoritativeSystem instance
-    @param source_system:
+    :type source_system: AuthoritativeSystem instance
+    :param source_system:
       Source system where L{xmlperson} originated.
 
-    @rtype: set (of triples)
-    @return:
+    :rtype: set (of triples)
+    :return:
       All affiliations for L{xmlperson} collected in a set. Each item is a
       triple structured thus::
 
@@ -417,28 +417,28 @@ def parse_data(parser, source_system, group, gen_groups, old_affs, old_traits):
     For each person extracted from XML, register the changes in Cerebrum.  We
     try to treat all sources uniformly here.
 
-    @type parser: instance of xmlutils.XMLDataGetter
-    @param parser:
+    :type parser: instance of xmlutils.XMLDataGetter
+    :param parser:
       Suitable parser for the given XML source file.
 
-    @type source_system: instance of AuthoritativeSystem (or int)
-    @param source_system:
+    :type source_system: instance of AuthoritativeSystem (or int)
+    :param source_system:
       Source system where the data being parsed originated.
 
-    @type group: instance of Factory.get('Group')
-    @param group:
+    :type group: instance of Factory.get('Group')
+    :param group:
       Group for reservations for online directory publishing. For each person,
       his/her reservations for online directory publishing are expressed as
       the membership in this group.
 
-    @type old_affs: dict
-    @param old_affs:
+    :type old_affs: dict
+    :param old_affs:
       This mapping contains affiliations for every person currently present in
       Cerebrum. It is used to synchronise affiliation information (clean up
       'old' affiliations that are no longer present in the employee data).
 
-    @type old_traits: dict (person_id -> set(trait_code1, ... trait_codeN))
-    @param old_traits:
+    :type old_traits: dict (person_id -> set(trait_code1, ... trait_codeN))
+    :param old_traits:
       This mapping containts traits for every person currently present in
       Cerebrum. It is used to synchronise trait information (clean up 'old'
       auto person traits that are no longer present in the employee data).
@@ -539,12 +539,12 @@ def clean_old_affiliations(source_system, aff_set):
     affiliations remaining in the aff_set have no data basis in the file that
     has been processed.
 
-    @type source_system: AuthoritativeSystem instance.
-    @param source_system:
+    :type source_system: AuthoritativeSystem instance.
+    :param source_system:
       The authoritative system for the affiliations to delete (in the db).
 
-    @type aff_set: set (of triplets)
-    @param aff_set:
+    :type aff_set: set (of triplets)
+    :param aff_set:
       A set of 'remaining' affiliations registered in Cerebrum. These are the
       affiliations that existed before this job started, but that no longer
       should exist, since they are not backed up by data (anymore).
@@ -566,13 +566,13 @@ def clean_old_affiliations(source_system, aff_set):
 def load_old_affiliations(source_system):
     """Load all affiliations from Cerebrum registered to source_system.
 
-    @type source_system: AuthoritativeSystem instance.
-    @param source_system:
+    :type source_system: AuthoritativeSystem instance.
+    :param source_system:
       The authoritative system to extract affiliations from (in the
       database).
 
-    @rtype: set (of triplets)
-    @return:
+    :rtype: set (of triplets)
+    :return:
       A set of current affiliations registered in Cerebrum. Each entry in the
       set is a triple::
 
@@ -612,8 +612,8 @@ def load_old_traits():
     trait. That is fine, given that removing a trait from code (and from
     AFFILIATE_TRAITS) requires a cleanup stage anyway.
 
-    @rtype: dict
-    @return:
+    :rtype: dict
+    :return:
       A mapping person_id -> set, where each set contains the known auto
       traits for a given person (trait codes, specifically).
     """
@@ -671,8 +671,8 @@ def remove_traits(leftover_traits):
     So, this function sweeps through leftover_traits and removes the traits
     from Cerebrum.
 
-    @type leftover_traits: dict (see L{load_old_traits})
-    @param leftover_traits:
+    :type leftover_traits: dict (see L{load_old_traits})
+    :param leftover_traits:
       Cache of no longer relevant traits that should be removed.
     """
 
