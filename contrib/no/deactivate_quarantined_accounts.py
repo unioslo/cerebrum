@@ -255,7 +255,7 @@ def main():
     for option, value in options:
         if option in ("-q", "--quarantines"):
             quarantines = []
-            target = re.sub("\,$","",value)
+            target = re.sub("\,$", "", value)
             for i in target.split(","):
                 quarantines.append(int(constants.Quarantine(i)))
         elif option in ("-d", "--dryrun"):
