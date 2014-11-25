@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
-# Copyright 2005 University of Oslo, Norway
+# Copyright 2005-2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -32,6 +32,7 @@ modules.xmlutils.*)
 """
 
 import cerebrum_path
+getattr(cerebrum_path, "Silence the linters", None)
 import cereconf
 
 import sys
@@ -41,7 +42,9 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.xmlutils.system2parser import system2parser
 from Cerebrum.modules.xmlutils.object2cerebrum import XML2Cerebrum
-from Cerebrum.modules.xmlutils.xml2object import DataEmployment, DataOU, DataAddress
+from Cerebrum.modules.xmlutils.xml2object import DataEmployment
+from Cerebrum.modules.xmlutils.xml2object import DataOU
+from Cerebrum.modules.xmlutils.xml2object import DataAddress
 
 
 db = Factory.get('Database')()
@@ -52,10 +55,9 @@ person = Factory.get("Person")(db)
 logger = Factory.get_logger("cronjob")
 
 
-
-
-
 ou_cache = {}
+
+
 def get_sko((fakultet, institutt, gruppe), system):
     """Lookup the information on a sko, and cache it for later.
 
@@ -68,14 +70,14 @@ def get_sko((fakultet, institutt, gruppe), system):
     :Returns:
       A dictionary with entity_id, fax, and addresses.
     """
-    
+
     fakultet, institutt, gruppe = int(fakultet), int(institutt), int(gruppe)
     stedkode = (fakultet, institutt, gruppe)
     system = int(system)
     system2perspective = {int(const.system_lt): const.perspective_lt,
-                          int(const.system_sap): const.perspective_sap,}
-    
-    if not ou_cache.has_key((stedkode, system)):
+                          int(const.system_sap): const.perspective_sap}
+
+    if not (stedkode, system) in ou_cache:
         ou = Factory.get('OU')(db)
         try:
             ou.find_stedkode(fakultet, institutt, gruppe,
@@ -90,20 +92,20 @@ def get_sko((fakultet, institutt, gruppe), system):
             if len(addr_street) > 0:
                 addr_street = addr_street[0]
                 #
-                # Web-people have asked us to refrain from adding 
+                # Web-people have asked us to refrain from adding
                 # OU-name to street-addresses. Keeping the code in
-                # case someone else asks as to insert the names 
+                # case someone else asks as to insert the names
                 # again :-). Jazz 2011-09-09
                 #
                 address_text = addr_street['address_text']
                 #
-                #if not addr_street['country']:
-                #    ou_name = ou.get_name_with_language(
-                #                     name_variant=const.ou_name,
-                #                     name_language=const.language_nb,
-                #                     default="")
-                #        address_text = "\n".join(
-                #        filter(None, (ou_name, address_text)))
+                # if not addr_street['country']:
+                #     ou_name = ou.get_name_with_language(
+                #                      name_variant=const.ou_name,
+                #                      name_language=const.language_nb,
+                #                      default="")
+                #         address_text = "\n".join(
+                #         filter(None, (ou_name, address_text)))
                 addr_street = {'address_text': address_text,
                                'p_o_box': addr_street['p_o_box'],
                                'postal_number': addr_street['postal_number'],
@@ -140,7 +142,6 @@ def get_sko((fakultet, institutt, gruppe), system):
 
     return ou_cache[stedkode, system]
 # end get_sko
-
 
 
 def determine_traits(xmlperson, source_system):
@@ -181,7 +182,7 @@ def determine_traits(xmlperson, source_system):
     answer = set()
     available_roles = [x for x in xmlperson.iteremployment()
                        if x.kind in (x.BILAG, x.GJEST) and
-                          x.is_active()]
+                       x.is_active()]
     for role in available_roles:
         roleid = role.code
         if roleid not in emp_traits:
@@ -215,13 +216,12 @@ def determine_traits(xmlperson, source_system):
 # end determine_traits
 
 
-
 def determine_affiliations(xmlperson, source_system):
     """Determine affiliations for person p_id/xmlperson in order of significance.
 
     @type xmlperson: instance of xmlutils.HRDataPerson
     @param xmlperson:
-      An object representing an XML-subtree with personal information. 
+      An object representing an XML-subtree with personal information.
 
     @type source_system: AuthoritativeSystem instance
     @param source_system:
@@ -243,34 +243,36 @@ def determine_affiliations(xmlperson, source_system):
     # str_id
 
     ret = set()
+
     def adjoin_affiliation(ou_id, affiliation, status):
         value = (int(ou_id), int(affiliation), int(status))
         ret.add(value)
     # end adjoin_affiliation
 
-    kind2affstat = { DataEmployment.KATEGORI_OEVRIG :
-                         const.affiliation_status_ansatt_tekadm,
-                     DataEmployment.KATEGORI_VITENSKAPLIG :
-                         const.affiliation_status_ansatt_vit, }
+    kind2affstat = {DataEmployment.KATEGORI_OEVRIG:
+                    const.affiliation_status_ansatt_tekadm,
+                    DataEmployment.KATEGORI_VITENSKAPLIG:
+                    const.affiliation_status_ansatt_vit}
     gjest2affstat = {'EMERITUS': const.affiliation_tilknyttet_emeritus,
                      'PCVAKT': const.affiliation_tilknyttet_pcvakt,
                      'UNIRAND': const.affiliation_tilknyttet_unirand,
-                     'GRP-LÆRER': const.affiliation_tilknyttet_grlaerer,
+                     'GRP-LÃ†RER': const.affiliation_tilknyttet_grlaerer,
                      'EF-STIP': const.affiliation_tilknyttet_ekst_stip,
-                     'BILAGSLØN': const.affiliation_tilknyttet_bilag,
+                     'BILAGSLÃ˜N': const.affiliation_tilknyttet_bilag,
                      'EF-FORSKER': const.affiliation_tilknyttet_ekst_forsker,
                      'SENIORFORS': const.affiliation_tilknyttet_ekst_forsker,
                      'GJ-FORSKER': const.affiliation_tilknyttet_gjesteforsker,
                      'SIVILARB': const.affiliation_tilknyttet_sivilarbeider,
                      'EKST. PART': const.affiliation_tilknyttet_ekst_partner,
                      'EKST-PART': const.affiliation_tilknyttet_ekst_partner,
-                     'ASSOSIERT':const.affiliation_tilknyttet_assosiert_person,
+                     'ASSOSIERT':
+                     const.affiliation_tilknyttet_assosiert_person,
                      'ST-POL FRI': const.affiliation_tilknyttet_studpol,
                      'ST-POL UTV': const.affiliation_tilknyttet_studpol,
                      'ST-POL-UTV': const.affiliation_tilknyttet_studpol,
                      'ST-ORG FRI': const.affiliation_tilknyttet_studorg,
                      'ST-ORG UTV': const.affiliation_tilknyttet_studorg,
-                     'INNKJØPER': const.affiliation_tilknyttet_innkjoper,
+                     'INNKJÃ˜PER': const.affiliation_tilknyttet_innkjoper,
 
                      # IVR 2007-07-11 These should be ignored
                      # eventually, according to baardj
@@ -284,7 +286,7 @@ def determine_affiliations(xmlperson, source_system):
     # ignore. Everything not in gjest2affstat or this sequence is deemed to be
     # an error.
     ignored_guest_codes = ("POLS-ANSAT",)
-    
+
     #
     # #1 -- Tilsettinger
     tils_types = (DataEmployment.HOVEDSTILLING, DataEmployment.BISTILLING)
@@ -309,10 +311,11 @@ def determine_affiliations(xmlperson, source_system):
         # which in turn resulted in some professors getting the title from
         # their bistilling instead of from their hovedstilling, when they
         # are registred as 50/50 between the positions. Now, we'll pick the
-        # hovedstilling if that position is the larger part of their work 
+        # hovedstilling if that position is the larger part of their work
         # (the reason for checking for hovedstilling, and comparing with >=),
         # in other cases, we select the bistilling they work the most in.
-        if t.kind == DataEmployment.HOVEDSTILLING and t.percentage >= max_so_far:
+        if (t.kind == DataEmployment.HOVEDSTILLING and
+                t.percentage >= max_so_far):
             max_so_far = t.percentage
             titles = t.get_name(t.WORK_TITLE)
         elif t.percentage > max_so_far:
@@ -325,9 +328,9 @@ def determine_affiliations(xmlperson, source_system):
 
         adjoin_affiliation(place["id"], const.affiliation_ansatt,
                            kind2affstat[t.category])
-    
+
     #
-    # #2 -- Bilagslønnede
+    # #2 -- BilagslÃ¸nnede
     bilag = [x for x in xmlperson.iteremployment()
              if x.kind == DataEmployment.BILAG and
              x.is_active() and
@@ -347,15 +350,15 @@ def determine_affiliations(xmlperson, source_system):
     # #3 -- Gjester
     gjest = [x for x in xmlperson.iteremployment()
              if x.kind == DataEmployment.GJEST and
-                x.is_active() and
-                x.place]
+             x.is_active() and
+             x.place]
     for g in gjest:
         assert g.place[0] == DataOU.NO_SKO
         if g.place[1] is None:
             logger.error("Defective guest entry for %s (missing sko)",
                          str_pid())
             continue
-    
+
         place = get_sko(g.place[1], source_system)
         if place is None:
             logger.info("Person id=%s has unknown sko=%s in guest ",
@@ -375,7 +378,7 @@ def determine_affiliations(xmlperson, source_system):
             logger.info("Unknown gjestetypekode %s for person %s",
                         g.code, str_pid())
             continue
-    
+
     return ret, titles
 # end determine_affiliations
 
@@ -396,7 +399,7 @@ def make_reservation(to_be_reserved, p_id, group):
       group : Group instance
         Special group for reservations.
     """
-    
+
     if to_be_reserved and not group.has_member(p_id):
         group.add_member(p_id)
         group.write_db()
@@ -406,7 +409,6 @@ def make_reservation(to_be_reserved, p_id, group):
         group.write_db()
         logger.info("Reservation removed for %s", p_id)
 # end make_reservation
-
 
 
 def parse_data(parser, source_system, group, gen_groups, old_affs, old_traits):
@@ -463,7 +465,7 @@ def parse_data(parser, source_system, group, gen_groups, old_affs, old_traits):
             sko_dta = get_sko(xmlperson.primary_ou[1:], source_system)
             for src_key, kind in (
                 ('addr_street', DataAddress.ADDRESS_BESOK),
-                ('addr_post', DataAddress.ADDRESS_POST)):
+                    ('addr_post', DataAddress.ADDRESS_POST)):
                 if xmlperson.get_address(kind) is not None:
                     continue
                 if not sko_dta:
@@ -472,11 +474,11 @@ def parse_data(parser, source_system, group, gen_groups, old_affs, old_traits):
                 if addr is None:
                     continue
                 xmlperson.add_address(
-                    DataAddress(kind = kind,
-                                street = addr['address_text'],
-                                zip = addr['postal_number'] or '',
-                                city = addr['city'] or '',
-                                country = addr['country'] or ''))
+                    DataAddress(kind=kind,
+                                street=addr['address_text'],
+                                zip=addr['postal_number'] or '',
+                                city=addr['city'] or '',
+                                country=addr['country'] or ''))
         try:
             status, p_id = xml2db.store_person(xmlperson, work_titles,
                                                affiliations,
@@ -484,12 +486,12 @@ def parse_data(parser, source_system, group, gen_groups, old_affs, old_traits):
         except:
             etype, evalue, tb = sys.exc_info()
             logger.exception("Something went very wrong: etype=%s, value=%s. "
-                        "Person id=%s will not be updated/inserted",
-                        etype, str(evalue), list(xmlperson.iterids()))
+                             "Person id=%s will not be updated/inserted",
+                             etype, str(evalue), list(xmlperson.iterids()))
             # Prevent partial person writes
             db.rollback()
             continue
-            
+
         if p_id is None:
             logger.warn("Skipping person %s (invalid information on file)",
                         list(xmlperson.iterids()))
@@ -529,7 +531,6 @@ def parse_data(parser, source_system, group, gen_groups, old_affs, old_traits):
 # end parse_data
 
 
-
 def clean_old_affiliations(source_system, aff_set):
     """Remove affiliations which have no basis in the data set imported in
     this run.
@@ -562,7 +563,6 @@ def clean_old_affiliations(source_system, aff_set):
 # end clean_old_affiliations
 
 
-
 def load_old_affiliations(source_system):
     """Load all affiliations from Cerebrum registered to source_system.
 
@@ -588,7 +588,6 @@ def load_old_affiliations(source_system):
         all_affiliations.add(key)
     return all_affiliations
 # end load_old_affiliations
-
 
 
 def load_old_traits():
@@ -668,7 +667,7 @@ def remove_traits(leftover_traits):
     function is called, whatever is left in cache is considered to be traits
     that have been assigned to people, but which should no longer exist, since
     the data from the authoritative source system says so.
-    
+
     So, this function sweeps through leftover_traits and removes the traits
     from Cerebrum.
 
@@ -707,7 +706,6 @@ def remove_traits(leftover_traits):
 # end remove_traits
 
 
-
 def locate_and_build((group_name, group_desc)):
     """Locate a group named groupname in Cerebrum and build it if necessary.
 
@@ -734,7 +732,6 @@ def locate_and_build((group_name, group_desc)):
 # end locate_and_build
 
 
-
 def usage(exitcode=0):
     print """Usage: %s -s system:filename [-g] [-d] [-r]""" % sys.argv[0]
     sys.exit(exitcode)
@@ -753,7 +750,6 @@ def main():
         usage(1)
 
     gen_groups = 0
-    verbose = 0
     sources = list()
     include_del = False
     dryrun = False
@@ -769,12 +765,16 @@ def main():
         elif option in ("-r", "--dryrun"):
             dryrun = True
 
-    system2group = {"system_lt":
-                    ("LT-elektroniske-reservasjoner",
-                     "Internal group for people from LT which will not be shown online"),
-                    "system_sap":
-                    ("SAP-elektroniske-reservasjoner",
-                     "Internal group for people from SAP which will not be shown online"), }
+    system2group = {
+        "system_lt":
+            ("LT-elektroniske-reservasjoner",
+             "Internal group for people from LT which will not be "
+             "shown online"),
+        "system_sap":
+            ("SAP-elektroniske-reservasjoner",
+             "Internal group for people from SAP which will not be "
+             "shown online")
+    }
 
     logger.debug("sources is %s", sources)
     global attempt_commit
@@ -786,12 +786,12 @@ def main():
     # Load current automatic traits (AFFILIATE_TRAITS)
     if include_del:
         cerebrum_traits = load_old_traits()
-    
+
     for system_name, filename in sources:
         # Locate the appropriate Cerebrum constant
         source_system = getattr(const, system_name)
         parser = system2parser(system_name)
-        
+
         # Locate the proper reservation group
         group = locate_and_build(system2group[system_name])
 
@@ -824,9 +824,5 @@ def main():
 # end main
 
 
-
-
-
 if __name__ == "__main__":
     main()
-
