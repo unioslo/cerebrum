@@ -8194,6 +8194,15 @@ Addresses and settings:
                                       "need to quote the arguments?)" % filter)
         person = Utils.Factory.get('Person')(self.db)
         person.clear()
+        extids = {
+                'fnr':    'externalid_fodselsnr',
+                'passnr': 'externalid_pass_number',
+                'ssn':    'externalid_social_security_number',
+                'taxid':  'externalid_tax_identification_number',
+                'vatnr':  'externalid_value_added_tax_number',
+                'studnr': 'externalid_studentnr',
+                'sapnr':  'externalid_sap_ansattnr'
+                }
         if search_type == 'name':
             if filter is not None:
                 raise CerebrumError("Can't filter by affiliation "
@@ -8206,11 +8215,15 @@ Addresses and settings:
                                     source_system=self.const.system_cached,
                                     exact_match=False,
                                     case_sensitive=(value != value.lower()))
-        elif search_type == 'fnr':
-            matches = person.list_external_ids(
-                id_type=self.const.externalid_fodselsnr,
-                external_id=value)
-            idcol = 'entity_id'
+        elif search_type in extids:
+            idtype = getattr(self.const, extids[search_type], None)
+            if idtype:
+                matches = person.list_external_ids(
+                    id_type=idtype,
+                    external_id=value)
+                idcol = 'entity_id'
+            else:
+                raise CerebrumError, "Unknown search type (%s)" % search_type
         elif search_type == 'date':
             matches = person.find_persons_by_bdate(self._parse_date(value))
         elif search_type == 'stedkode':
@@ -8366,7 +8379,11 @@ Addresses and settings:
                     self.const.AuthoritativeSystem(row['source_system']))})
             # Show external id from FS and SAP
             for extid in ('externalid_sap_ansattnr',
-                          'externalid_studentnr'):
+                          'externalid_studentnr',
+                          'externalid_pass_number',
+                          'externalid_social_security_number',
+                          'externalid_tax_identification_number',
+                          'externalid_value_added_tax_number'):
                 extid = getattr(self.const, extid, None)
                 if extid:
                     for row in person.get_external_id(id_type=extid):
