@@ -638,6 +638,16 @@ class XMLPerson2Object(XMLEntity2Object):
                     personal_title = self._make_title(HRDataPerson.NAME_TITLE, subsub)
                     if personal_title:
                         result.add_name(personal_title)
+            elif sub.tag == "PersonligID":
+                # Store additional person ids, like passport numbers.
+                # Handle passport numbers
+                if sub.find('Type').text == HRDataPerson.PASSNR:
+                    # Fetch the country code
+                    cc = sub.find('Land').text
+                    # Fetch the passport number
+                    pn = sub.find('Verdi').text
+                    # Add the passport number to the data-structure
+                    result.add_id(HRDataPerson.PASSNR, "%s-%s" % (cc, pn))
             elif sub.tag == "SGM":
                 # New feature and unique (for now?) for UiO is SGM,
                 # external attachments for person.
