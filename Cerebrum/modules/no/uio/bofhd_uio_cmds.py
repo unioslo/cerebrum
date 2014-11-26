@@ -8712,7 +8712,7 @@ Addresses and settings:
         QuarantineType(), SimpleString(help_ref="string_why"),
         SimpleString(help_ref="string_from_to", optional=True),
         perm_filter='can_set_quarantine')
-    def quarantine_set(self, operator, entity_type, id, qtype, why, date):
+    def quarantine_set(self, operator, entity_type, id, qtype, why, date=None):
         date_start, date_end = self._parse_date_from_to(date)
         entity = self._get_entity(entity_type, id)
         qconst = self._get_constant(self.const.Quarantine, qtype, "quarantine")
