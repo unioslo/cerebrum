@@ -507,7 +507,8 @@ class DataPerson(DataEntity):
     GENDER_MALE   = "M"
     GENDER_FEMALE = "F"
     GENDER_UNKNOWN = "X"
-    PASSNR = "02"
+
+    PASSNR = "Passport ID"
 
     def __init__(self):
         super(DataPerson, self).__init__()
