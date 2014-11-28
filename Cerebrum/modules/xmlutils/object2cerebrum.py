@@ -76,6 +76,7 @@ class XML2Cerebrum:
                 DataAddress.ADDRESS_OTHER_BESOK] = const.address_other_street
 
         self.idxml2db = {HRDataPerson.NO_SSN: const.externalid_fodselsnr,
+                         HRDataPerson.PASSNR: const.externalid_pass_number,
                          SAPPerson.SAP_NR: const.externalid_sap_ansattnr, }
     # end __init__
 
