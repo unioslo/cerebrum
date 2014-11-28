@@ -60,7 +60,7 @@ def get_member_names(group_name):
 
 
 host_config = {
-    'internkurs.uit.no': { 'DBinst': 'DLOUIO.uit.no',
+    'internkurs.uit.no': { 'DBinst': 'DLOUIT.uit.no',
                            'admins':
                            get_member_names('classfronter-internkurs-drift'),
                            'export': ['All_users'],

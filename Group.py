@@ -26,8 +26,8 @@ from Cerebrum import Utils
 from Cerebrum.Database import Errors
 from Cerebrum.modules import Email
 
-class GroupUiOMixin(Group.Group):
-    """Group mixin class providing functionality specific to UiO.
+class GroupUiTMixin(Group.Group):
+    """Group mixin class providing functionality specific to UiT.
     """
 
     def add_member(self, member_id):
@@ -70,7 +70,7 @@ class GroupUiOMixin(Group.Group):
                     "Member of too many NIS groups (%i) with the same spread. "
                     "A user can not be a member of more than 16 groups "
                     "with the same NIS spread" % (counts[k]))
-        super(GroupUiOMixin, self).add_member(member_id)
+        super(GroupUiTMixin, self).add_member(member_id)
 
     def add_spread(self, spread):
         # Avoid circular import dependency
@@ -132,7 +132,7 @@ class GroupUiOMixin(Group.Group):
         try:
             et.find_by_target_entity(self.entity_id)
         except Errors.NotFoundError:
-            return super(GroupUiOMixin, self).delete()
+            return super(GroupUiTMixin, self).delete()
 
         # An EmailTarget exists, so we try to delete its primary address.
         try:
@@ -154,4 +154,4 @@ class GroupUiOMixin(Group.Group):
         et.delete()
 
         # Finally! Delete the group!
-        super(GroupUiOMixin, self).delete()
+        super(GroupUiTMixin, self).delete()

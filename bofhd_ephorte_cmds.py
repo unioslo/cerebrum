@@ -30,8 +30,8 @@ from Cerebrum.modules.no.uit.Ephorte import EphorteRole
 from Cerebrum.modules.no.uit.Ephorte import EphortePermission
 
 
-class UiOEphorteAuth(BofhdAuth):
-    """Authorisation. UiO ePhorte specific operations."""
+class UiTEphorteAuth(BofhdAuth):
+    """Authorisation. UiT ePhorte specific operations."""
 
     def can_add_ephorte_role(self, operator, query_run_any=False):
         if self.is_superuser(operator):
@@ -70,11 +70,11 @@ class BofhdExtension(BofhdCommonMethods):
         # A bit hackish.  A better fix is to split bofhd_uit_cmds.py
         # into seperate classes.
         from Cerebrum.modules.no.uit.bofhd_uit_cmds import BofhdExtension as \
-             UiOBofhdExtension
+             UiTBofhdExtension
 
         for func in ('_format_changelog_entry', '_format_from_cl',
                      '_format_ou_name', '_get_account'):
-            setattr(cls, func, UiOBofhdExtension.__dict__.get(func))
+            setattr(cls, func, UiTBofhdExtension.__dict__.get(func))
         x = object.__new__(cls)
         return x
 
@@ -84,7 +84,7 @@ class BofhdExtension(BofhdCommonMethods):
         self.util = server.util
         self.ephorte_role = EphorteRole(self.db)
         self.ephorte_perm = EphortePermission(self.db)
-        self.ba = UiOEphorteAuth(self.db)
+        self.ba = UiTEphorteAuth(self.db)
     # end __init__
 
 

@@ -30,7 +30,7 @@ class _EphorteRoleTypeCode(_CerebrumCode):
     pass
 
 class _EphortePermTypeCode(_CerebrumCode):
-    "Mappings stored for 'tilgangskoder' i UiOs Ephorte"
+    "Mappings stored for 'tilgangskoder' i UiTs Ephorte"
     _lookup_table = ' [:table schema=cerebrum name=ephorte_perm_type_code]'
     pass
 
@@ -88,19 +88,19 @@ class EphorteConstants(ConstantsBase):
     
     # Values from the ePhorte table ARKIVDEL
     ephorte_arkivdel_avtale_uit = _EphorteArkivdelCode(
-        'AVTALE UIO', 'Avtalearkiv ved Universitetet i Oslo')
+        'AVTALE UIT', 'Avtalearkiv ved Universitetet i Oslo')
     ephorte_arkivdel_cristin = _EphorteArkivdelCode(
         'CRISTIN', 'Current Research Information System in Norway')
     ephorte_arkivdel_fs = _EphorteArkivdelCode(
         'FS', 'FS - Felles studentsystem')
     ephorte_arkivdel_eiend_uit = _EphorteArkivdelCode(
-        'EIEND UIO', 'Eiendomsarkiv ved Universitetet i Oslo')
+        'EIEND UIT', 'Eiendomsarkiv ved Universitetet i Oslo')
     ephorte_arkivdel_khm_forn = _EphorteArkivdelCode(
         'KHM FORN', 'KHM (Kulturhistorisk museum) - Fornminnneforvaltning')
     ephorte_arkivdel_pers_uit = _EphorteArkivdelCode(
-        'PERS UIO', 'Personalarkiv ved Universitetet i Oslo')
+        'PERS UIT', 'Personalarkiv ved Universitetet i Oslo')
     ephorte_arkivdel_persav_uit = _EphorteArkivdelCode(
-        'PERSAV UIO', 'Avsluttede personalmapper ved UiO')
+        'PERSAV UIT', 'Avsluttede personalmapper ved UiT')
     ephorte_arkivdel_sak_romani = _EphorteArkivdelCode(
         'ROMANI', 'Romani og taterutvalget')
     ephorte_arkivdel_sak_nikk = _EphorteArkivdelCode(
@@ -108,15 +108,15 @@ class EphorteConstants(ConstantsBase):
     ephorte_arkivdel_sak_so = _EphorteArkivdelCode(
         'SAK SO', 'Saksarkiv ved Samordna Opptak')
     ephorte_arkivdel_sak_uit = _EphorteArkivdelCode(
-        'SAK UIO', 'Saksarkiv ved Universitetet i Oslo')
+        'SAK UIT', 'Saksarkiv ved Universitetet i Oslo')
     ephorte_arkivdel_stud_uit = _EphorteArkivdelCode(
-        'STUD UIO', 'Studentarkiv ved Universitetet i Oslo')
+        'STUD UIT', 'Studentarkiv ved Universitetet i Oslo')
     ephorte_arkivdel_studav_uit = _EphorteArkivdelCode(
-        'STUDAV UIO', 'Avsluttede studentmapper ved UiO')
+        'STUDAV UIT', 'Avsluttede studentmapper ved UiT')
 
     # Values from the ePhorte table JOURNENHET
     ephorte_journenhet_uit = _EphorteJournalenhetCode(
-        'J-UIO', 'Journalenhet for UiO - Universitetet i Oslo')
+        'J-UIT', 'Journalenhet for UiT - Universitetet i Oslo')
     ephorte_journenhet_so = _EphorteJournalenhetCode(
         'J-SO', 'Journalenhet for SO - Samordna Opptak')
     ephorte_journenhet_nikk = _EphorteJournalenhetCode(

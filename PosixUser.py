@@ -25,8 +25,8 @@ from Cerebrum.modules import PosixUser
 from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet, \
      BofhdAuthOpTarget, BofhdAuthRole
 
-class PosixUserUiOMixin(PosixUser.PosixUser):
-    """This mixin overrides PosixUser for the UiO instance, and automatically
+class PosixUserUiTMixin(PosixUser.PosixUser):
+    """This mixin overrides PosixUser for the UiT instance, and automatically
     creates a personal file group for each user created. It also makes sure
     the group is deleted when POSIX is demoted for a user.
 

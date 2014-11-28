@@ -31,8 +31,8 @@ from Cerebrum.modules.EmailLDAP import EmailLDAP
 from Cerebrum.modules.LDIFutils import iso2utf
 
 
-class EmailLDAPUiOMixin(EmailLDAP):
-    """Methods specific for UiO."""
+class EmailLDAPUiTMixin(EmailLDAP):
+    """Methods specific for UiT."""
 
     def __init__(self, db):
         self.__super.__init__(db)
@@ -113,14 +113,14 @@ class EmailLDAPUiOMixin(EmailLDAP):
           EmailTarget in L{row}. 
         """
 
-        sdict = super(EmailLDAPUiOMixin, self).get_target_info(row)
+        sdict = super(EmailLDAPUiTMixin, self).get_target_info(row)
         target_type = self.const.EmailTarget(int(row['target_type']))
         target_id = int(row["target_id"])
         if target_type in (self.const.email_target_Sympa,):
             # host info
             # IVR 2008-07-24 FIXME: This is really ugly. For now there is no
             # connection between email server and its name in the DNS
-            # module. We have to hack our way around it. For UiO, simply
+            # module. We have to hack our way around it. For UiT, simply
             # appending ".uit.no" should work, but this is a highly
             # unnecessary assumption. When the DNS module is revamped, we
             # should be able to replace this ugliness.
@@ -178,12 +178,12 @@ class EmailLDAPUiOMixin(EmailLDAP):
                 # override addresses.
                 for lp, row2 in lp_dict.items():
                     # Use 'row', and not 'row2', for domain.  Using 'dom2'
-                    # would give us 'UIO_GLOBALS'.
+                    # would give us 'UIT_GLOBALS'.
                     addr = self._build_addr(lp, row['domain'])
                     t_id = int(row2['target_id'])
                     self.targ2addr.setdefault(t_id, []).append(addr)
                     # Note: We don't need to update aid2addr here, as
-                    # addresses @UIO_GLOBALS aren't allowed to be primary
+                    # addresses @UIT_GLOBALS aren't allowed to be primary
                     # addresses.
         for row in mail_addr.list_email_addresses_ext():
             lp, dom = row['local_part'], row['domain']

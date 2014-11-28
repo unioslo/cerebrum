@@ -19,7 +19,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""Module with functions for cerebrum export to Active Directory at UiO
+"""Module with functions for cerebrum export to Active Directory at UiT
 
 Extends the functionality provided in the general AD-export module 
 ADutilMixIn.py to work with the AD setup at the University of Oslo.

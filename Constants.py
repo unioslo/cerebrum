@@ -289,7 +289,7 @@ class Constants(Constants.Constants):
         'NIS_user@ifi', 
         Constants.Constants.entity_account,
         'User in NIS domain "ifi"')
-    spread_uio_nis_user = _SpreadCode(
+    spread_uit_nis_user = _SpreadCode(
         'NIS_user@uit', 
         Constants.Constants.entity_account,
         'User in NIS domain "uit"')

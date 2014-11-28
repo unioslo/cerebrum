@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Site specific auth.py for UiO. """
+""" Site specific auth.py for UiT. """
 
 import cereconf
 from Cerebrum.Errors import NotFoundError
@@ -31,7 +31,7 @@ class BofhdAuth(auth.BofhdAuth):
     """Defines methods that are used by bofhd to determine wheter
     an operator is allowed to perform a given action.
 
-    This class only contains special cases for UiO.
+    This class only contains special cases for UiT.
     """
 
     # Temporary owner group is specified in trait_uit_guest_owner trait,
@@ -191,7 +191,7 @@ class BofhdAuth(auth.BofhdAuth):
         return True
 
     def can_show_history(self, operator, entity=None, query_run_any=False):
-        """UiO-specific history-specific authentication rules."""
+        """UiT-specific history-specific authentication rules."""
         if (entity and entity.entity_type == self.const.entity_email_target and
                 self.is_postmaster(operator)):
             return True

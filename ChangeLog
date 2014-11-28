@@ -1,3 +1,6 @@
+2014-11-28    <cerebrum@cleomedes.uit.no-cleomedes>
+
+ 	* ADsync.py: replaced all references to uio with uit in the following files:	ADsync.py, Account.py, Constants.py, Disk.py, EmailLDAP.py, Ephorte.py, Group.py, OrgLDIF.py, PosixExport.py, PosixLDIF.py, PosixUser.py, access_FS.py, bofhd_auth.py, bofhd_ephorte_cmds.py, bofhd_guestaccounts_cmds.py, bofhd_uit_cmds.py, fronter_lib.py
 2014-11-21    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* Constants.py (Constants): added new spreads needed by new Account code

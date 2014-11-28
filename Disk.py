@@ -20,7 +20,7 @@
 from Cerebrum import Disk
 from Cerebrum.Utils import Factory
 
-class DiskUiOMixin(Disk.Disk):
+class DiskUiTMixin(Disk.Disk):
 
     def get_default_quota(self):
         """Returns the quota, False if the disk has no quotas, or

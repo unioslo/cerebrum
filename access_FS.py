@@ -25,7 +25,7 @@ from Cerebrum import Errors
 
 from Cerebrum.modules.no import access_FS
 
-class UiOStudent(access_FS.Student):
+class UiTStudent(access_FS.Student):
     def list(self, **kwargs): # GetStudent_50
         """Hent personer med opptak til et studieprogram ved
         institusjonen og som enten har vært registrert siste året
@@ -710,7 +710,7 @@ class UiOStudent(access_FS.Student):
         #return self.db.query(qry, {'last_updated': last_updated})
 
 
-class UiOPortal(access_FS.FSObject):
+class UiTPortal(access_FS.FSObject):
     """Denne funksjonen er ikke lenger i bruk, da portal-ting ikke er i bruk
     lenger. Dersom jobben cerebrum/contrib/no/uit/generate_portal_export.py
     skal settes i produksjon igjen, må denne funksjonen oppdateres til
@@ -720,7 +720,7 @@ class UiOPortal(access_FS.FSObject):
     """
     pass
 
-class UiOBetaling(access_FS.FSObject):
+class UiTBetaling(access_FS.FSObject):
     """Kopiavgift. Ny ordning fra høsten 2004."""
     def list_utskrifts_betaling(self, days_past=180): # GetUtskriftsBetaling
         """Lister fødselsnummer, betalingsinformasjon og beløp for de
@@ -822,7 +822,7 @@ class UiOBetaling(access_FS.FSObject):
                                    'year': self.year,
                                    'year2': self.year})
 
-class UiOUndervisning(access_FS.Undervisning):
+class UiTUndervisning(access_FS.Undervisning):
     def list_undervisningenheter(self, year=None, sem=None): # GetUndervEnhetAll
         if year is None:
             year = self.year
@@ -980,7 +980,7 @@ class UiOUndervisning(access_FS.Undervisning):
         return result
     # end list_studenter_underv_enhet
 
-class UiOEVU(access_FS.EVU):
+class UiTEVU(access_FS.EVU):
     def list(self):  # GetDeltaker_50
         """Hent info om personer som er ekte EVU-studenter ved
         dvs. er registrert i EVU-modulen i tabellen 
@@ -1087,10 +1087,10 @@ class UiOEVU(access_FS.EVU):
         """
         return self.db.query(qry)
     # end list_studenter_alle_kursakt
-# end UiOEVU
+# end UiTEVU
 
 
-class UiOStudieInfo(access_FS.StudieInfo):
+class UiTStudieInfo(access_FS.StudieInfo):
 
     def list_kull(self):
         """Henter informasjon om aktive studiekull."""
@@ -1112,7 +1112,7 @@ class UiOStudieInfo(access_FS.StudieInfo):
         """
         return self.db.query(qry)
     # end list_kull
-# end UiOStudieInfo
+# end UiTStudieInfo
 
 
 class FS(access_FS.FS):
@@ -1120,13 +1120,13 @@ class FS(access_FS.FS):
         super(FS, self).__init__(db=db, user=user, database=database)
 
         # Override with uit-spesific classes
-        self.person = UiOPerson(self.db)
-        self.student = UiOStudent(self.db)
-        self.portal = UiOPortal(self.db)
-        self.betaling = UiOBetaling(self.db)
-        self.undervisning = UiOUndervisning(self.db)
-        self.evu = UiOEVU(self.db)
-        self.info = UiOStudieInfo(self.db)
+        self.person = UiTPerson(self.db)
+        self.student = UiTStudent(self.db)
+        self.portal = UiTPortal(self.db)
+        self.betaling = UiTBetaling(self.db)
+        self.undervisning = UiTUndervisning(self.db)
+        self.evu = UiTEVU(self.db)
+        self.info = UiTStudieInfo(self.db)
         self.ou = UiTOU(self.db)
 
 
@@ -1174,7 +1174,7 @@ class FS(access_FS.FS):
             pass
         return ''
 
-class UiOPerson(access_FS.Person):
+class UiTPerson(access_FS.Person):
     def set_ansattnr(self, fnr, pnr, asn):
         """Sets the ansattnr for a person"""
         return self.db.execute("""

@@ -44,7 +44,7 @@ from Cerebrum import Utils
 from Cerebrum.Utils import NotSet
 from Cerebrum.modules import Email
 from Cerebrum.modules import PasswordHistory
-from Cerebrum.modules.no.uio.DiskQuota import DiskQuota
+from Cerebrum.modules.no.uit.DiskQuota import DiskQuota
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.Utils import pgp_encrypt, Factory, prepare_string
 from Cerebrum.modules.Email import EmailAddress
@@ -167,9 +167,9 @@ class AccountUiTMixin(Account.Account):
             self.update_email_quota(force=True, 
                                     spread=self.const.spread_exchange_account)
             # register default spam and filter settings
-            self._UiO_default_spam_settings(et)
+            self._UiT_default_spam_settings(et)
             if is_new:
-                self._UiO_default_filter_settings(et)
+                self._UiT_default_filter_settings(et)
             # The user's email target is now associated with an email
             # server, try generating email addresses connected to the
             # target.
@@ -185,7 +185,7 @@ class AccountUiTMixin(Account.Account):
             # Cyrus EmailTarget, we need to do so.
             if et.email_server_id:
                 old_server = et.email_server_id
-            et = self._UiO_update_email_server(self.const.email_server_type_cyrus)
+            et = self._UiT_update_email_server(self.const.email_server_type_cyrus)
             # Make sure that Cyrus is told about the quota, the
             # previous call probably didn't change the database value
             # and therefore didn't add a request.
@@ -194,8 +194,8 @@ class AccountUiTMixin(Account.Account):
             # order_cyrus_action in general.
             self.update_email_quota(force=True)
             # register default spam and filter settings
-            self._UiO_default_spam_settings(et)
-            self._UiO_default_filter_settings(et)
+            self._UiT_default_spam_settings(et)
+            self._UiT_default_filter_settings(et)
             # The user's email target is now associated with an email
             # server; try generating email addresses connected to the
             # target.
@@ -836,7 +836,7 @@ class AccountUiTMixin(Account.Account):
             int(self.const.spread_uit_imap) in spreads):
             et = Email.EmailTarget(self._db)
             et.find_by_target_entity(self.entity_id)
-            self._UiO_order_cyrus_action(self.const.bofh_email_delete,
+            self._UiT_order_cyrus_action(self.const.bofh_email_delete,
                                          et.email_server_id)
             # TBD: should we also perform a "cascade delete" from EmailTarget?
         # exchange-relatert-jazz

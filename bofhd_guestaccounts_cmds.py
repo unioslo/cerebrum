@@ -48,14 +48,14 @@ class BofhdExtension(BofhdCommandBase):
         # A bit hackish.  A better fix is to split bofhd_uit_cmds.py
         # into seperate classes.
         from Cerebrum.modules.no.uit.bofhd_uit_cmds import BofhdExtension as \
-             UiOBofhdExtension
+             UiTBofhdExtension
 
         non_all_cmds = ('num2str', 'user_set_owner_prompt_func',
                         'user_create_basic_prompt_func',)
         for func in BofhdExtension.copy_commands:
-            setattr(cls, func, UiOBofhdExtension.__dict__.get(func))
+            setattr(cls, func, UiTBofhdExtension.__dict__.get(func))
             if func[0] != '_' and func not in non_all_cmds:
-                BofhdExtension.all_commands[func] = UiOBofhdExtension.all_commands[func]
+                BofhdExtension.all_commands[func] = UiTBofhdExtension.all_commands[func]
         x = object.__new__(cls)
         return x
 

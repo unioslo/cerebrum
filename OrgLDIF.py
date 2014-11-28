@@ -27,8 +27,8 @@ from Cerebrum.Constants import _PersonAffiliationCode, _PersonAffStatusCode
 # Replace these characters with spaces in OU RDNs.
 ou_rdn2space_re = re.compile('[#\"+,;<>\\\\=\0\\s]+')
 
-class OrgLDIFUiOMixin(norEduLDIFMixin):
-    """Mixin class for norEduLDIFMixin(OrgLDIF) with UiO modifications."""
+class OrgLDIFUiTMixin(norEduLDIFMixin):
+    """Mixin class for norEduLDIFMixin(OrgLDIF) with UiT modifications."""
 
     from cereconf import LDAP_PERSON
     if not LDAP_PERSON['dn'].startswith('ou='):
@@ -243,12 +243,12 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
 
 
     def init_person_selections(self, *args, **kwargs):
-        """ Extend with UiO settings for person selections.
+        """ Extend with UiT settings for person selections.
 
-        This is especially for `no.uit.OrgLDIF.is_person_visible()`, as UiO has
+        This is especially for `no.uit.OrgLDIF.is_person_visible()`, as UiT has
         some special needs in how to interpret visibility of persons due to
         affiliations for reservation and consent, which behaves differently in
-        SAPUiO and FS.
+        SAPUiT and FS.
 
         """
         self.__super.init_person_selections(*args, **kwargs)
@@ -277,10 +277,10 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         self.fs_samtykke = self.init_person_group("FS-aktivt-samtykke")
 
     def is_person_visible(self, person_id):
-        """ Override with UiO specific visibility.
+        """ Override with UiT specific visibility.
 
-        At UiO, visibility is controlled differently depending on what source
-        system the person is from. SAPUiO has reservations, while FS has active
+        At UiT, visibility is controlled differently depending on what source
+        system the person is from. SAPUiT has reservations, while FS has active
         consents. Since we don't fetch source systems per affiliation from
         Cerebrum in `OrgLDIF`, we only guess.
 

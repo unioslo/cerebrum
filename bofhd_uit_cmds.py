@@ -95,9 +95,9 @@ class RTQueue(Parameter):
     _type = 'rtQueue'
     _help_ref = 'rt_queue'
 
-# TODO: move more UiO cruft from bofhd/auth.py in here
-class UiOAuth(BofhdAuth):
-    """Authorisation.  UiO specific operations and business logic."""
+# TODO: move more UiT cruft from bofhd/auth.py in here
+class UiTAuth(BofhdAuth):
+    """Authorisation.  UiT specific operations and business logic."""
 
     def can_rt_create(self, operator, domain=None, query_run_any=False):
         if self.is_superuser(operator, query_run_any):
@@ -200,12 +200,12 @@ class BofhdExtension(BofhdCommonMethods):
             self.name_codes[int(t['code'])] = t['description']
         self.external_id_mappings['fnr'] = self.const.externalid_fodselsnr
         # exchange-relatert-jazz
-        # currently valid language variants for UiO-Cerebrum
+        # currently valid language variants for UiT-Cerebrum
         # although these codes are used for distribution groups
         # they are not directly related to them. maybe these should be
         # put in a cereconf-variable somewhere in the future? (Jazz, 2013-12)
         self.language_codes = ['nb', 'nn', 'en']
-        self.ba = UiOAuth(self.db)
+        self.ba = UiTAuth(self.db)
         aos = BofhdAuthOpSet(self.db)
         self.num2op_set_name = {}
         for r in aos.list():
@@ -4452,7 +4452,7 @@ Addresses and settings:
             spreads = [int(r['spread']) for r in acc.get_spread()]
             br = BofhdRequests(self.db, self.const)
             if not self.const.spread_uit_imap in spreads:
-                # UiO's add_spread mixin will not do much since
+                # UiT's add_spread mixin will not do much since
                 # email_server_id is set to a Cyrus server already.
                 acc.add_spread(self.const.spread_uit_imap)
             # Create the mailbox.
@@ -4877,7 +4877,7 @@ Addresses and settings:
         acc = self._get_account(uname)
         # exchange-relatert-jazz
         # For Exchange-mailboxes vacation must be registered via
-        # Outlook/OWA since smart host solution for Exchange@UiO
+        # Outlook/OWA since smart host solution for Exchange@UiT
         # could not be implemented. When migration to Exchange
         # is completed this method should be changed and adding
         # vacation for any account disallowed. Jazz (2013-11)
@@ -4976,7 +4976,7 @@ Addresses and settings:
         acc = self._get_account(uname)
         # exchange-relatert-jazz
         # For Exchange-mailboxes vacation must be registered via
-        # OWA since smart host solution for Exchange@UiO
+        # OWA since smart host solution for Exchange@UiT
         # could not be implemented. When migration to Exchange
         # is completed this method should be changed and adding
         # vacation for any account disallowed. Jazz (2013-11)
@@ -10557,7 +10557,7 @@ Password altered. Use misc list_password to print or view the new password.%s'''
     def _get_entity_name(self, entity_id, entity_type=None):
         """Fetch a human-friendly name for the specified entity.
 
-        Overridden to return names only used at UiO.
+        Overridden to return names only used at UiT.
 
         @type entity_id: int
         @param entity_id:
