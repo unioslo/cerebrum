@@ -27,6 +27,8 @@ import getopt
 import sys
 import os
 import mx.DateTime
+import datetime
+import time
 
 import cerebrum_path
 import cereconf
@@ -60,7 +62,7 @@ CHARSEP=';'
 dumpdir_employees = os.path.join(cereconf.DUMPDIR, "employees")
 dumpdir_paga = os.path.join(cereconf.DUMPDIR, "paga")
 default_employee_file = 'paga_persons_%s.xml' % (TODAY,)
-default_paga_file = 'uit_paga_%s.csv' % (TODAY,)
+default_paga_file = 'uit_paga_last.csv'
 
 # some common vars
 db = Factory.get('Database')()
@@ -93,6 +95,7 @@ KEY_UNIKAT='Univkat'
 KEY_UITKAT='UITkat'
 KEY_KJONN='Kjønn'
 KEY_FODSELSDATO='Fødselsdato'
+KEY_LOKASJON='Lokasjon'
 
 def parse_paga_csv(pagafile):
     import csv
@@ -100,6 +103,7 @@ def parse_paga_csv(pagafile):
     tilsettinger=dict()
     permisjoner=dict()
     dupes=list()
+    logger.info ("Reading %s",(pagafile,))
     for detail in csv.DictReader(open(pagafile,'r'),delimiter=CHARSEP):
         ssn=detail[KEY_FNR]        
         
@@ -121,7 +125,8 @@ def parse_paga_csv(pagafile):
             'epost': detail[KEY_EPOST],
             'brukernavn': detail[KEY_BRUKERNAVN], 
             'kjonn': detail[KEY_KJONN], 
-            'fodselsdato': detail[KEY_FODSELSDATO], 
+            'fodselsdato': detail[KEY_FODSELSDATO],
+            'lokasjon' : detail[KEY_LOKASJON]
         }
         tilskey="%s:%s"  % (detail[KEY_NR], detail[KEY_AV])
         tils_data={
@@ -136,7 +141,8 @@ def parse_paga_csv(pagafile):
             'dbh_kat':detail[KEY_DBHKAT],
             'hovedarbeidsforhold':detail[KEY_HOVEDARBFORH],
             'forhold_nr':detail[KEY_NR],
-            'forhold_av':detail[KEY_AV]
+            'forhold_av':detail[KEY_AV],
+            'permisjonskode':detail[KEY_PERMISJONKODE]
         }
         stedkode=detail[KEY_ORGSTED]
         # check if stedkode should be mapped to something else
@@ -165,18 +171,80 @@ def parse_paga_csv(pagafile):
         #logger.debug('Person %s' % person_data)
         #tilsettinger we have seen before
         current=tilsettinger.get(ssn,dict())
+        
         if not current:
             # sted not seen before, insert
             tilsettinger[ssn]={stedkode: tils_data}
+            #logger.debug("ssn:%s has not been mapped to stedkode:%s before" %(ssn,stedkode))
         else:
             tmp=current.get(stedkode)
             if tmp:
                 logger.warn("Several tilsettiger to same place for %s" % (ssn))
+                #
                 #several tilsettinger to same place. Decide which to keep.
-                #pers.dir says: Use lowest forhold_nr 
-                if tils_data['forhold_nr']<tmp.get(tils_data['forhold_nr']):
-                    logger.info("New aff at same place for %s, used new: %s" % (ssn,tils_data))
+                #
+                # - Get affiliation where hovedarbeidsforhold == H and where dato_til is in the future
+                #   - if the above line fails try the following:
+                #     get affiliation where dato_fra is in the past and where dato_fra is later than dato_til in
+                #     already registered affiliation and where dato_til is in the future
+                #     - if the above test fails,try the following
+                #          get affiliation where permisjonskode is being changed from somevalue to 0 (zero)
+                #
+                
+                insert_person = False
+                
+                if tils_data['dato_til'] == '':
+                    tils_dato_til_konverted = '20700101'
+                else:
+                    tils_dato_til_konverted = "%s%s%s" %(tils_data['dato_til'][0:4],tils_data['dato_til'][5:7],tils_data['dato_til'][8:11])
+
+                    
+                if tmp['dato_til'] == '':
+                    tmp_dato_til_konverted = '20700101'
+                else:
+                    tmp_dato_til_konverted = "%s%s%s" % (tmp['dato_til'][0:4],tmp['dato_til'][5:7],tmp['dato_til'][8:11])
+
+
+                    
+                #konverted to a format easily tested on
+
+                tils_dato_fra_konverted = "%s%s%s" %(tils_data['dato_fra'][0:4],tils_data['dato_fra'][5:7],tils_data['dato_fra'][8:11])
+                tmp_dato_fra_konverted = "%s%s%s" % (tmp['dato_fra'][0:4],tmp['dato_fra'][5:7],tmp['dato_fra'][8:11])
+                
+                TODAY_konverted = "%s%s%s" % (TODAY[0:4],TODAY[5:7],TODAY[8:11])
+                #print "tmp not converted:%s" % tmp['dato_til']
+                #print "tmp_konverted =%s" % tmp_dato_til_konverted
+                #print "dato_til etter kovertering:'%s'" % dato_til_konverted
+                #print "TODAY etter kovertering:'%s'" % TODAY_konverted
+
+                #print "hovedarbeidsforhold:%s, tils_data['dato_til']:%s, TODAY:%s" %(tils_data['hovedarbeidsforhold'],tils_data['dato_til'], TODAY)
+                #print "KONVERTED: hovedarbeidsforhold:%s, tils_data['dato_til']:%s, TODAY:%s" %(tils_data['hovedarbeidsforhold'],tils_dato_til_konverted, TODAY_konverted)
+                if((tils_data['hovedarbeidsforhold'] == 'H') and (int(tils_dato_til_konverted) > int(TODAY_konverted))):
+                    logger.debug("on_hovedarbeidsforhold: inserting person:%s" % tils_data)
+                    insert_person = True
+
+                elif((tmp['hovedarbeidsforhold'] == 'H') and (int(tmp_dato_til_konverted) < int(TODAY_konverted))):
+                    if((int(tils_dato_fra_konverted) < int(TODAY_konverted)) and (int(tils_dato_fra_konverted)) >= int(tmp_dato_til_konverted) and (int(tils_dato_til_konverted) > int(TODAY_konverted))):
+                        logger.error("generating person object with ssn:%s ,based on dato_fra/dato_til. Verify this"% ssn)
+                        insert_person = True
+
+#                 if((tils_data['hovedarbeidsforhold'] == 'H') and (til_data['dato_til'] > TODAY)):
+#                     logger.debug("on_hovedarbeidsforhold: inserting person:%s" % tils_data)
+#                     insert_person = True
+
+#                 elif((tmp['hovedarbeidsforhold'] =='H') and (tmp['dato_til'] < TODAY)):
+#                     if((tils_data['dato_fra'] < TODAY) and (tils_data['dato_fra'] >= tmp['dato_til']) and(tils_data['dato_til'] > TODAY)):
+#                         logger.error("generating person object based on dato_fra/dato_til. Verify this")
+#                         insert_person = True
+                    
+                elif(tmp['permisjonskode'] != '0') and (tils_data['permisjonskode'] == '0'):
+                     logger.debug("on_permisjonskode: inserting person:%s" % tils_data)
+                     insert_person = True
+                   
+                if(insert_person == True):
                     tilsettinger[ssn][stedkode]=tils_data
+                    #logger.debug("INSERTING:%s" % tils_data)
+
                 else:
                     logger.info("Skipped aff at same place for %s, data: %s" % (ssn,tils_data))
             else:
