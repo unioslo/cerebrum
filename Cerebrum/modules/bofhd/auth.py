@@ -1110,13 +1110,18 @@ class BofhdAuth(DatabaseAccessor):
                                                   self.const.auth_add_affiliation):
                 return True
             return False
+        if aff_status is None:
+            raise PermissionDenied("Affiliation status required")
+        aff_with_status = "%s/%s" % (aff, aff_status)
         if self._has_target_permissions(operator,
                                         self.const.auth_add_affiliation,
                                         self.const.auth_target_type_ou,
                                         person.entity_id, person.entity_id,
-                                        aff):
+                                        aff_with_status):
             return True
-        raise PermissionDenied("No access for that person affiliation combination")
+        raise PermissionDenied("No access for combination %s on person %s in "
+                               "OU %s%s%s" % (aff_with_status, person.entity_id,
+                               ou.fakultet, ou.institutt, ou.avdeling))
 
     def can_remove_affiliation(self, operator, person=None, ou=None,
                                aff=None, query_run_any=False):
@@ -1132,7 +1137,9 @@ class BofhdAuth(DatabaseAccessor):
                                         person.entity_id, person.entity_id,
                                         aff):
             return True
-        raise PermissionDenied("No access for that person affiliation combination")
+        raise PermissionDenied("No access for affiliation %s on person %s in "
+                               "OU %s%s%s" % (aff, person.entity_id,
+                               ou.fakultet, ou.institutt, ou.avdeling))
 
     def can_create_user(self, operator, person=None, disk=None,
                         query_run_any=False):
