@@ -20,7 +20,7 @@
 
 """Client for connecting and consuming Ephorte-webservices."""
 import types
-import socket
+from socket import timeout as TimeoutError
 from functools import wraps
 import urllib2
 from Cerebrum import https
@@ -101,7 +101,7 @@ class SudsClient(object):
                                              cache=None, transport=transport)
         except urllib2.URLError, e:
             raise EphorteWSError(str(e))
-        except socket.timeout:
+        except TimeoutError:
             raise EphorteWSError('Timed out connecting to %s' % wsdl)
         except ssl.SSLError, e:
             raise EphorteWSError('Error in TLS communication: %s' % str(e))
@@ -120,7 +120,7 @@ class SudsClient(object):
         def wrapper(*args, **kwargs):
             try:
                 r = f(*args, **kwargs)
-            except socket.timeout:
+            except TimeoutError:
                 raise EphorteWSError(
                     'Timeout while calling %s with args %s and kwargs %s' %
                     (name, args, kwargs))
