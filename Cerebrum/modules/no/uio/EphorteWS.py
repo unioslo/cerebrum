@@ -147,6 +147,20 @@ class SudsClient(object):
             return r
 
 
+class Cerebrum2EphorteClientMock(object):
+    """Mock client for "simulating" provisioning in ePhorte."""
+    # TODO: Use somethin' like suds SimClient?
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def ensure_user(self, user_id, first_name=None, middle_name=None,
+                    last_name=None, full_name=None, initials=None,
+                    email_address=None, telephone=None, mobile=None,
+                    street_address=None, zip_code=None,
+                    city=None):
+        pass
+
+
 class Cerebrum2EphorteClient(object):
     """Client for connecting and consuming the Cerebrum2Ephorte web-service."""
     def __init__(self, wsdl, customer_id, database, timeout=None,
@@ -172,6 +186,7 @@ class Cerebrum2EphorteClient(object):
         self.wsdl = wsdl
         self.customer_id = customer_id
         self.database = database
+        # TODO: Make client choice configurable
         self.client = SudsClient(wsdl, timeout=timeout,
                                  client_key=client_key,
                                  client_cert=client_cert,
