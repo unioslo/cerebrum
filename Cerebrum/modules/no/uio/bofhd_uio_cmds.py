@@ -6074,7 +6074,7 @@ Addresses and settings:
 
     # group premove
     all_commands['group_premove'] = Command(
-        ("group", "premove"), GroupName(help_ref="group_name_src", repeat=True),
+        ("group", "premove"), MemberName(help_ref='member_name_src', repeat=True),
         GroupName(help_ref="group_name_dest", repeat=True),
         perm_filter='can_alter_group')
     def group_premove(self, operator, src_name, dest_group):
