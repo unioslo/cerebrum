@@ -19,12 +19,12 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 """Client for connecting and consuming Ephorte-webservices."""
-import suds
 import types
 import socket
 from functools import wraps
 import urllib2
 from Cerebrum import https
+import suds
 from xml.sax import SAXParseException
 
 
@@ -324,8 +324,6 @@ class Cerebrum2EphorteClient(object):
         """
         # TODO: Should we rather return a dict, than a tuple? Or maybee a named
         # TODO: tuple? Named tuples are kind of cute.
-        # We call upper() since ePhorte uses uppercase user ids, and they are
-        # case sensitive :)
         r = self.client.GetUserDetails(self.customer_id,
                                        self.database,
                                        user_id)
