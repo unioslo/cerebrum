@@ -26,6 +26,7 @@ import urllib2
 from Cerebrum import https
 import suds
 from xml.sax import SAXParseException
+import ssl
 
 
 class EphorteWSError(Exception):
@@ -105,6 +106,8 @@ class SudsClient(object):
             raise EphorteWSError(str(e))
         except socket.timeout:
             raise EphorteWSError('Timed out connecting to %s' % wsdl)
+        except ssl.SSLError, e:
+            raise EphorteWSError('Error in TLS communication: %s' % str(e))
         # TODO: Moar error handling?
 
     # TODO: Do something smart with the call stack, so this don't show up in
