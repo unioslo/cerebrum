@@ -38,7 +38,8 @@ class HTTPSClientCertTransport(suds.transport.http.HttpTransport):
     """Transport wrapper for TLS."""
     # Partial copypasta from
     # http://stackoverflow.com/questions/6277027/suds-over-https-with-cert
-    def __init__(self, ca_certs, cert_file, key_file, *args, **kwargs):
+    def __init__(self, ca_certs, cert_file, key_file, timeout=None,
+                 *args, **kwargs):
         """Instantiate TLS transport wrapper.
 
         :type ca_certs: str
@@ -47,11 +48,13 @@ class HTTPSClientCertTransport(suds.transport.http.HttpTransport):
         :param cert_file: Path to client certificate
         :type key_file: str
         :param key_file: Path to client key
+        :type timeout: int
+        :param timeout: Seconds before request (socket) timeout. Default off.
         """
         suds.transport.http.HttpTransport.__init__(self, *args, **kwargs)
-        self.ca_certs = ca_certs
-        self.certfile = cert_file
-        self.keyfile = key_file
+        # TODO: Catch exceptions related to nonexistent files?
+        self.ssl_conf = https.SSLConfig(ca_certs, cert_file, key_file,
+                                        timeout=timeout)
 
     def u2open(self, u2request):
         """
@@ -61,16 +64,10 @@ class HTTPSClientCertTransport(suds.transport.http.HttpTransport):
         :return: The opened file-like urllib2 object.
         :rtype: fp
         """
-        tm = self.options.timeout
-        ssl_conf = https.SSLConfig(self.ca_certs, self.certfile, self.keyfile)
-        hc_cls = https.HTTPSConnection.configure(ssl_conf)
+        hc_cls = https.HTTPSConnection.configure(self.ssl_conf)
         ssl_conn = https.HTTPSHandler(ssl_connection=hc_cls)
         url = urllib2.build_opener(ssl_conn)
-        if self.u2ver() < 2.6:
-            socket.setdefaulttimeout(tm)
-            return url.open(u2request)
-        else:
-            return url.open(u2request, timeout=tm)
+        return url.open(u2request)
 
 
 class SudsClient(object):
