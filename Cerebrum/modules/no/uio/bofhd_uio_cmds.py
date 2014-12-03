@@ -6072,6 +6072,17 @@ Addresses and settings:
         return self._group_remove(operator, src_name, dest_group,
                                   member_type="group")
 
+    # group premove
+    all_commands['group_premove'] = Command(
+        ("group", "premove"), MemberName(help_ref='member_name_src', repeat=True),
+        GroupName(help_ref="group_name_dest", repeat=True),
+        perm_filter='can_alter_group')
+    def group_premove(self, operator, src_name, dest_group):
+        self.ba.can_alter_group(operator.get_entity_id(),
+                                self._get_group(dest_group))
+        return self._group_remove(operator, src_name, dest_group,
+                                  member_type="person")
+
     def _group_remove(self, operator, src_name, dest_group, member_type=None):
         # jokim 2008-12-02 TBD: Is this bad? Added support for removing
         # members by their entity_id, as 'brukerinfo' (wofh) only knows

@@ -252,6 +252,7 @@ command_help = {
             'List all members of a group, direct and indirect',
         'group_memberships': 'List all groups an entity is a member of',
         'group_padd': 'Let a person join a group',
+        'group_premove': 'Remove a person from a group',
         'group_personal': 'Create a new personal filegroup for an account',
         'group_promote_posix': 'Make an existing group into a POSIX-group',
         'group_roomlist_create': 
