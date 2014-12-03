@@ -59,7 +59,6 @@ def get_email_address(pe):
     :return: The persons primary email address
     """
     ac = Factory.get('Account')(db)
-    ac.clear()
     ac.find(pe.get_primary_account())
     return ac.get_primary_mailaddress()
 
