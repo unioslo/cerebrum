@@ -133,7 +133,7 @@ def update_person(pe, client):
     else:
         street_address = zip_code = city = None
 
-    logger.info('Ensureing %ss existence, with params: %s', user_id, str((
+    logger.info('Ensuring existence of %s, with params: %s', user_id, str((
         first_name, None, initials, last_name, full_name, initials,
         email_address, telephone, mobile, street_address, zip_code, city)))
     try:
@@ -141,7 +141,7 @@ def update_person(pe, client):
                            initials, email_address, telephone, mobile,
                            street_address, zip_code, city)
     except EphorteWSError, e:
-        logger.warn('Could not ensure %ss existence in ePhorte: %s',
+        logger.warn('Could not ensure existence of %s in ePhorte: %s',
                     user_id, str(e))
 
 
