@@ -135,10 +135,10 @@ def update_person(pe, client):
         street_address = zip_code = city = None
 
     logger.info('Ensureing %ss existence, with params: %s', user_id, str((
-        first_name, initials, last_name, full_name, initials, email_address,
-        telephone, mobile, street_address, zip_code, city)))
+        first_name, None, initials, last_name, full_name, initials,
+        email_address, telephone, mobile, street_address, zip_code, city)))
     try:
-        client.ensure_user(user_id, first_name, initials, last_name, full_name,
+        client.ensure_user(user_id, first_name, None, last_name, full_name,
                            initials, email_address, telephone, mobile,
                            street_address, zip_code, city)
     except EphorteWSError, e:
