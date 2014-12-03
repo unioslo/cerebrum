@@ -214,7 +214,22 @@ def main():
         help='Config file to use (default: sync_ephorte.cfg)')
     parser.add_argument(
         '--commit', help='Run in commit mode', action='store_true')
+    parser.add_argument(
+        '--config_help', help='Show configuration help', action='store_true')
     args = parser.parse_args()
+
+    if args.config_help:
+        print("""Example configuration:
+
+  [DEFAULT]
+  wsdl=http://example.com/?wsdl
+  customer_id=CustomerID
+  database=DatabaseName
+  client_key=None
+  client_cert=None
+  ca_certs=None
+  selection_spread=ePhorte_person""")
+        sys.exit(0)
 
     # Select proper client depending on commit-argument
     if args.commit:
