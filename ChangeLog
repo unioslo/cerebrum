@@ -1,3 +1,7 @@
+2014-12-04    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* generate_OU.py (ou.__init__): fixed typo in servername used in cx_oracle.connect() command
+
 2014-11-28    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* process_uit_email.py: added to repository
