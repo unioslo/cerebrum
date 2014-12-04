@@ -594,8 +594,7 @@ def _populate_caches(selection_criteria, authoritative_system, email_cache,
         _fnr2ansattnr = dict()
     else:
         eid2fnr = person.getdict_fodselsnr()
-
-        _fnr2ansattnr_temp = list()
+        _fnr2ansattnr = dict()
 
         # External employees may be missing external_id 'fnr', and will throw
         # errors. These should not be exported anyway, and will be skipped.
@@ -603,11 +602,12 @@ def _populate_caches(selection_criteria, authoritative_system, email_cache,
                 source_system=authoritative_system,
                 id_type=ansattnr_code):
             try:
-                _fnr2ansattnr_temp.append((eid2fnr[row['entity_id']],
-                                          row['external_id']))
+                #_fnr2ansattnr_temp.append((eid2fnr[row['entity_id']],
+                #                          row['external_id']))
+                _fnr2ansattnr[eid2fnr[row['entity_id']]] = row['external_id']
             except:
                 pass
-        _fnr2ansattnr = dict(_fnr2ansattnr_temp)
+        #_fnr2ansattnr = dict(_fnr2ansattnr_temp)
 
     global find_ansattnr
     find_ansattnr = lambda p: _fnr2ansattnr.get(p)
