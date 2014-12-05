@@ -111,7 +111,8 @@ class AccountUiTMixin(Account.Account):
             except Errors.NotFoundError:
                 pass
 
-        if spread == self.const.spread_exchange_account:
+        #if spread == self.const.spread_exchange_account:
+        if spread == self.const.spread_uit_exchange:
             # no account should have both IMAP and Exchange spread at the
             # same time, as this will create a double mailbox
             if self.has_spread(self.const.spread_uit_imap):
@@ -123,7 +124,7 @@ class AccountUiTMixin(Account.Account):
         # Additional post-add magic
         #
         # exchange-relatert-jazz
-        if spread == self.const.spread_exchange_account:
+        if spread == self.const.spread_uit_exchange:
             # exchange-relatert-jazz
             es = Email.EmailServer(self._db)
             es.clear()
@@ -164,8 +165,10 @@ class AccountUiTMixin(Account.Account):
                 # mangle filters
                 is_new = True
             et.write_db()   
-            self.update_email_quota(force=True, 
-                                    spread=self.const.spread_exchange_account)
+            #self.update_email_quota(force=True, 
+            #                        spread=self.const.spread_uit_exchange)
+            self.update_email_quota(force=True)
+                                    
             # register default spam and filter settings
             self._UiT_default_spam_settings(et)
             if is_new:
@@ -208,10 +211,10 @@ class AccountUiTMixin(Account.Account):
                 self.set_home(spread, tmp['homedir_id'])
             except Errors.NotFoundError:
                 pass  # User has no homedir for this spread yet
-        elif spread == self.const.spread_uit_notes_account:
-            if self.owner_type == self.const.entity_group:
-                raise self._db.IntegrityError, \
-                      "Cannot add Notes-spread to a non-personal account."
+        #elif spread == self.const.spread_uit_notes_account:
+        #    if self.owner_type == self.const.entity_group:
+        #        raise self._db.IntegrityError, \
+        #              "Cannot add Notes-spread to a non-personal account."
         return ret
     
     # exchange-relatert-jazz
@@ -441,18 +444,18 @@ class AccountUiTMixin(Account.Account):
         WHERE ssn=:ssn and type=:type
         ORDER BY source,user_name
         """
-        legacy_binds = { 'ssn': fnr,
-                         'type': legacy_type}
+        legacy_binds = { 'ssn': str(fnr),
+                         'type': str(legacy_type)}
 
         legacy_data=self._db.query(legacy_sql,legacy_binds)
 
         new_ac=Factory.get('Account')(self._db)
         p = Factory.get('Person')(self._db)
         try:
-            p.find_by_external_id(self.const.externalid_fodselsnr,fnr)
+            p.find_by_external_id(self.const.externalid_fodselsnr,str(fnr))
         except Errors.NotFoundError:
             try:
-                p.find_by_external_id(self.const.externalid_sys_x_id,fnr)
+                p.find_by_external_id(self.const.externalid_sys_x_id,str(fnr))
             except Errors.NotFoundError:
                 raise Errors.ProgrammingError("Trying to create account for person:%s that does not exist!" % fnr)
             else:
@@ -858,6 +861,284 @@ class AccountUiTMixin(Account.Account):
         # (Try to) perform the actual spread removal.
         ret = self.__super.delete_spread(spread)
         return ret
+
+    # exchange-relatert-jazz 
+    # update_email_quota is very different for Exchange and we
+    # therefore have to override the method defined in
+    # Email.AccountEmailQuotaMixin. After migration to Exchange is
+    # completed the method should be updated as documented there and
+    # this override removed. Jazz (2013-11)
+    #
+    def update_email_quota(self, force=False, spread=None):
+        if spread == None or spread == self.const.spread_uit_imap:
+            return self.__super.update_email_quota()
+        if spread == self.const.spread_exchange_account:
+            change = force
+            quota = self._calculate_account_emailquota()
+            eq = Email.EmailQuota(self._db)
+            try:
+                eq.find_by_target_entity(self.entity_id)
+            except Errors.NotFoundError:
+                if quota is not None:
+                    change = True
+                    eq.populate(cereconf.EMAIL_SOFT_QUOTA, quota)
+                    eq.write_db()
+            else:
+                # We never decrease quota, because of manual overrides
+                if quota is None:
+                    eq.delete()
+                elif quota > eq.email_quota_hard:
+                    change = True
+                    eq.email_quota_hard = quota
+                    eq.write_db()
+
+    def create(self, owner_type, owner_id, np_type, creator_id,
+               expire_date=None, parent=None, name=None):
+        """UiT specific functionality for creating a regular account."""
+        self.__super.create(name=name, owner_type=owner_type, owner_id=owner_id,
+                            np_type=np_type, creator_id=creator_id,
+                            expire_date=expire_date, parent=parent)
+        # TODO: use BofhdRequest
+
+    def set_home(self, spread, homedir_id):
+        ret = self.__super.set_home(spread, homedir_id)
+        spreads = [int(r['spread']) for r in self.get_spread()]
+        if spread == self.const.spread_uit_nis_user \
+           and int(self.const.spread_ifi_nis_user) in spreads:
+            self.__super.set_home(self.const.spread_ifi_nis_user, homedir_id)
+
+    # exchange-realatert-jazz
+    # this method should not have to be changes after Exchange roll-out
+    # or at migration completion. Jazz (2013-11)
+    def _UiT_default_filter_settings(self, email_target):
+        t_id = email_target.entity_id
+        tt_str = str(Email._EmailTargetCode(email_target.email_target_type))
+        # Set default filters if none found on this target
+        etf = Email.EmailTargetFilter(self._db)
+        if cereconf.EMAIL_DEFAULT_FILTERS.has_key(tt_str):
+            for f in cereconf.EMAIL_DEFAULT_FILTERS[tt_str]:
+                f_id = int(Email._EmailTargetFilterCode(f))
+                try:
+                    etf.clear()
+                    etf.find(t_id, f_id)
+                except Errors.NotFoundError:
+                    etf.clear()
+                    etf.populate(f_id, parent=email_target)
+                    etf.write_db()
+
+    # exchange-realatert-jazz
+    # this method should not have to be changes after Exchange roll-out
+    # or at migration completion. Jazz (2013-11)        
+    def _UiT_default_spam_settings(self, email_target):
+        t_id = email_target.entity_id
+        tt_str = str(Email._EmailTargetCode(email_target.email_target_type))
+        # Set default spam settings if none found on this target
+        esf = Email.EmailSpamFilter(self._db)
+        if cereconf.EMAIL_DEFAULT_SPAM_SETTINGS.has_key(tt_str):
+            if not len(cereconf.EMAIL_DEFAULT_SPAM_SETTINGS[tt_str]) == 2:
+                raise Errors.CerebrumError, "Error in " +\
+                      "cereconf.EMAIL_DEFAULT_SPAM_SETTINGS. Expected 'key': " +\
+                      "('val', 'val')"
+            l, a = cereconf.EMAIL_DEFAULT_SPAM_SETTINGS[tt_str]
+            lvl = int(Email._EmailSpamLevelCode(l))
+            act = int(Email._EmailSpamActionCode(a))
+            try:
+                esf.find(t_id)
+            except Errors.NotFoundError:
+                esf.clear()
+                esf.populate(lvl, act, parent=email_target)
+                esf.write_db()
+
+    # exchange-relatert-jazz
+    # after Exchange migration is completed this method should be
+    # removed as it will no longer be necessary due to the Exchange
+    # updates being event based. It may even be possible to remove the
+    # method after Exchange roll-out and before migration is completed
+    # if we are sure that no imap-accounts will be moved between
+    # servers after roll-out. Jazz (2013-11)
+    def _UiT_order_cyrus_action(self, action, destination, state_data=None):
+        br = BofhdRequests(self._db, self.const)
+        # If there are any registered BofhdRequests for this account
+        # that would conflict with 'action', remove them.
+        for anti_action in br.get_conflicts(action):
+            for r in br.get_requests(entity_id=self.entity_id,
+                                     operation=anti_action):
+                self.logger.info("Removing BofhdRequest #%d: %r",
+                                 r['request_id'], r)
+                br.delete_request(request_id=r['request_id'])
+        # If the ChangeLog module knows who the user requesting this
+        # change is, use that knowledge.  Otherwise, set requestor to
+        # None; it's the best we can do.
+        requestor = getattr(self._db, 'change_by', None)
+        # Register a BofhdRequest to create the mailbox.
+        reqid = br.add_request(requestor,
+                               br.now, action, self.entity_id, destination,
+                               state_data=state_data)
+
+    # exchange-relatert-jazz
+    # added a check for reservation from electronic listing
+    def owner_has_e_reservation(self):
+        # this method may be applied to any Cerebrum-instances that
+        # use trait_public_reservation
+        person = Factory.get('Person')(self._db)
+        try:
+            person.find(self.owner_id)
+        except Errors.NotFoundError:
+            # no reservation may exist unless account is owned by a
+            # person-object 
+            return False
+        return person.has_e_reservation()
+
+    def set_password(self, plaintext):
+        # Override Account.set_password so that we get a copy of the
+        # plaintext password
+        self.__plaintext_password = plaintext
+        self.__super.set_password(plaintext)
+
+    def populate(self, name, owner_type, owner_id, np_type, creator_id,
+                 expire_date, parent=None):
+        """Override to check that the account name is not already taken by a
+        group.
+        """
+        gr = Factory.get('Group')(self._db)
+        try:
+            gr.find_by_name(name)
+        except Errors.NotFoundError:
+            pass
+        else:
+            raise self._db.IntegrityError('Account name taken by group: %s' %
+                                          name)
+        return self.__super.populate(name, owner_type, owner_id, np_type,
+                                     creator_id, expire_date, parent=parent)
+
+    def write_db(self):
+        try:
+            plain = self.__plaintext_password
+        except AttributeError:
+            plain = None
+        ret = self.__super.write_db()
+        if plain is not None:
+            ph = PasswordHistory.PasswordHistory(self._db)
+            ph.add_history(self, plain)
+        return ret
+
+    # exchange-relatert-jazz
+    # after Exchange roll-out this method should be removed as it will
+    # no longer be necessary due to the server-data not being kept in
+    # Cerebrum for Exchange mailboxes. This method must not be used at
+    # restore of mailboxes after Exchange roll-out or at creation of
+    # Exchange mailboxes. The method is made void by 'add_spread
+    # override here. Jazz (2013-11)
+    #
+    def _UiT_update_email_server(self, server_type):
+        """Due to diverse legacy stuff and changes in server types as
+           well as requirements for assigning e-mail accounts this
+           process is getting rather complicated. The email servers are
+           now assigned as follows:
+
+            - create on new server, update target_type = CNS
+            - create on old server, update target_type = COS
+            - move to new server   = MNS
+
+       t_type/srv_type| none| cyrus, active| cyrus,non-active| non-cyrus 
+       ------------------------------------------------------------------
+       target_deleted | CNS | COS          | CNS             | CNS
+       ------------------------------------------------------------------
+       target_account | MNS | PASS         | MNS             | MNS
+       ------------------------------------------------------------------
+        """
+
+        et = Email.EmailTarget(self._db)
+        es = Email.EmailServer(self._db)
+        new_server = None
+        old_server = None
+        srv_is_cyrus = False
+        email_server_in_use = False
+        target_type = self.const.email_target_account
+        # Find the account's EmailTarget
+        try:
+            et.find_by_target_entity(self.entity_id)
+            if et.email_target_type == self.const.email_target_deleted:
+                target_type = self.const.email_target_deleted
+        except Errors.NotFoundError:
+            # No EmailTarget found for account, creating one
+            et.populate(self.const.email_target_account,
+                        self.entity_id,
+                        self.const.entity_account)
+            et.write_db()
+        # Find old server id and type
+        try:
+            old_server = et.email_server_id
+            es.find(old_server)
+            if es.email_server_type == self.const.email_server_type_cyrus:
+                srv_is_cyrus = True
+            email_server_in_use = es.get_trait(self.const.trait_email_server_weight)
+        except Errors.NotFoundError:
+            pass
+        # Different actions for target_type deleted and account
+        if target_type == self.const.email_target_account:
+            if srv_is_cyrus and email_server_in_use:
+                # both target and server type er ok, do nothing
+                pass
+            elif old_server == None:
+                # EmailTarget with no registered server
+                new_server = self._pick_email_server()
+                et.email_server_id = new_server
+                et.write_db()
+                self._UiT_order_cyrus_action(self.const.bofh_email_create,
+                                             new_server)
+            else:
+                # cyrus_nonactive or non_cyrus
+                new_server = self._pick_email_server()
+                et.email_server_id = new_server
+                et.write_db()
+                self._UiT_order_cyrus_action(self.const.bofh_email_move,
+                                             new_server)
+        elif target_type == self.const.email_target_deleted:
+            if srv_is_cyrus and email_server_in_use:
+                # Create cyrus account on active server
+                self._UiT_order_cyrus_action(self.const.bofh_email_create,
+                                             old_server)
+            else:
+                # Pick new server and create cyrus account
+                new_server = self._pick_email_server()
+                et.email_server_id = new_server
+                et.write_db()
+                self._UiT_order_cyrus_action(self.const.bofh_email_create,
+                                             new_server)
+        return et
+
+    # exchange-relatert-jazz
+    # after Exchange roll-out this method should be removed as it will
+    # no longer be necessary due to the server-data not being kept in
+    # Cerebrum for Exchange mailboxes. See also
+    # _UiT_update_email_server() Jazz (2013-11)
+    #
+    def _pick_email_server(self):
+            # We try to spread the usage across servers, but want a
+            # random component to the choice of server.  The choice is
+            # weighted, although the determination of weights happens
+            # externally to Cerebrum since it is a relatively
+            # expensive operation (can take several seconds).
+            # Typically the weight will vary with the amount of users
+            # already assigned, the disk space available or similar
+            # criteria.
+            #
+            # Servers MUST have a weight trait to be considered for
+            # allocation.
+        es = Email.EmailServer(self._db)
+        user_weight = {}
+        total_weight = 0
+        for row in es.list_traits(self.const.trait_email_server_weight):
+            total_weight += row['numval']
+            user_weight[row['entity_id']] = row['numval']
+            
+        pick = random.randint(0, total_weight - 1)
+        for svr_id in user_weight:
+            pick -= user_weight[svr_id]
+            if pick <= 0:
+                break
+        return svr_id
 
     def illegal_name(self, name):
         # Avoid circular import dependency

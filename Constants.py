@@ -313,6 +313,10 @@ class Constants(Constants.Constants):
         'evu@uit', 
         Constants.Constants.entity_account,
         'evu person')
+    spread_uit_frida = _SpreadCode(
+        'frida@uit',
+        Constants.Constants.entity_account,
+        'Accounts with FRIDA spread')
     spread_uit_cristin = _SpreadCode(
         'cristin@uit',
         Constants.Constants.entity_account,
@@ -444,3 +448,11 @@ class Constants(Constants.Constants):
                                         Constants.Constants.entity_person,
                                         'Person included in ePhorte export')
                                         
+    trait_sysx_registrar_notified = _EntityTraitCode(
+        'sysx_reg_mailed', Constants.Constants.entity_account,
+        "Trait set on account when systemx processing is done"
+        )
+    trait_sysx_user_notified = _EntityTraitCode(
+        'sysx_user_mailed', Constants.Constants.entity_account,
+        "Trait set on account after account created mail is sent to user"
+        )
