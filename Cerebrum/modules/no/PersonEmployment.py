@@ -184,6 +184,10 @@ class PersonEmploymentMixin(object):
         @param include_expired:
           Filter out results that has an end date in the past.
 
+        @type main_employment: bool
+        @param main_employment:
+          Only return results defined as the person's main employment.
+
         @rtype: iterable over db_rows
         @return:
           Whichever rows match the filters specified. Without any filters,
@@ -204,8 +208,8 @@ class PersonEmploymentMixin(object):
         if employment_code is not None:
             where.append(argument_to_sql(employment_code, "employment_code",
                                          binds, str))
-        if main_employment is not None:
-          where.append(argument_to_sql(main_employment, "main_employment",
+        if main_employment:
+          where.append(argument_to_sql('T', "main_employment",
                                        binds, str))
         if not include_expired:
             where.append('(end_date IS NULL OR end_date > [:now])')

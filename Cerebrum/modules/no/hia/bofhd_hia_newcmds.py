@@ -678,7 +678,7 @@ class BofhdExtension(BofhdCommonMethods,
         # added to the returned data.
         employment_query = person.search_employment(
             person_id=person.entity_id,
-            main_employment='T'
+            main_employment=True
         )
         try:
             employment_row = employment_query.next()
