@@ -467,13 +467,15 @@ class OUTSDMixin(OU, EntityTrait):
         else:
             raise Errors.CerebrumError('VLAN out of range: %s' % vlan)
 
-        my_subnets = set(row['entity_id'] for row in
-                         self.list_traits(code=(self.const.trait_project_subnet,
-                                                self.const.trait_project_subnet6),
-                                 target_id=self.entity_id))
+        my_subnets = set(row['entity_id'] for row in self.list_traits(
+                         code=(self.const.trait_project_subnet,
+                               self.const.trait_project_subnet6),
+                         target_id=self.entity_id))
+
         # TODO: Find a better way for mapping between project ID and VLAN:
         intpid = self.get_project_int()
-        subnetstart = cereconf.SUBNET_START % intpid
+        subnetstart, subnet6start = self._get_subnet_by_project_id(project_id=intpid)
+
         # The Subnet module should in populate/write_db know if the subnet
         # already exists and handle that, but we need to fix this manually here
         # instead.
@@ -492,11 +494,10 @@ class OUTSDMixin(OU, EntityTrait):
                               target_id=self.entity_id)
         etrait.write_db()
 
-        subnetstart = cereconf.SUBNET_START_6 % intpid
         try:
-            subnet6.find(subnetstart)
+            subnet6.find(subnet6start)
         except dns.Errors.SubnetError, e:
-            subnet6.populate(subnetstart, "Subnet for project %s" % projectid, vlan)
+            subnet6.populate(subnet6start, "Subnet for project %s" % projectid, vlan)
         else:
             if subnet6.entity_id not in my_subnets:
                 raise Exception("Subnet %s exists, but does not belong to %s" %
@@ -510,11 +511,28 @@ class OUTSDMixin(OU, EntityTrait):
 
         # TODO: Reserve 10 PTR addresses in the start of the subnet!
 
+    def _get_subnet_by_project_id(project_id):
+        """Calculate which IPv4 and IPv6 subnet should be assigned to a project.
+
+        :param int project_id:
+            The entity ID of the project.
+
+        :rtype: tuple of strings
+        :return: The (ipv4, ipv6) subnet.
+        """
+        if project_id > 32767:
+            raise Errors.CerebrumError('Project ID cannot be higher than 32767')
+
+        n = 32768 + project_id
+        nh = n / 256
+        nl = n % 256
+
+        return (cereconf.SUBNET_START % (nh, nl),
+                cereconf.SUBNET_START_6 % hex(n)[2:])
+
     def _setup_project_hosts(self, creator_id):
         """Setup the hosts initially needed for the given project."""
         projectid = self.get_project_id()
-        intpid = self.get_project_int()
-        subnetstart = cereconf.SUBNET_START_6 % intpid
         host = dns.HostInfo.HostInfo(self._db)
 
         vm_trait = self.get_trait(self.const.trait_project_vm_type)
@@ -579,10 +597,8 @@ class OUTSDMixin(OU, EntityTrait):
         ipnumber = dns.IPNumber.IPNumber(self._db)
         arecord = dns.ARecord.ARecord(self._db)
 
-        projectid = self.get_project_id()
-        intpid = self.get_project_int()
-        subnetstart6 = cereconf.SUBNET_START_6 % intpid
-        subnetstart = cereconf.SUBNET_START % intpid
+        project_id = self.get_project_int()
+        subnetstart, subnet6start = self._get_subnet_by_project_id(project_id=intpid)
 
         try:
             dns_owner.find_by_name(hostname)
@@ -598,13 +614,13 @@ class OUTSDMixin(OU, EntityTrait):
         dns_owner.write_db()
 
         # TODO: check if dnsowner already has an ipv6 address.
-        ip = dnsfind.find_free_ip(subnetstart6, no_of_addrs=1)[0]
+        ip = dnsfind.find_free_ip(subnet6start, no_of_addrs=1)[0]
         ipv6number.populate(ip)
         ipv6number.write_db()
         aaaarecord.populate(dns_owner.entity_id, ipv6number.entity_id)
         aaaarecord.write_db()
 
-        # TODO: check if dnsowner already has an ip address.
+        # TODO: check if dnsowner already has an ipv4 address.
         ip = dnsfind.find_free_ip(subnetstart, no_of_addrs=1)[0]
         ipnumber.populate(ip)
         ipnumber.write_db()
@@ -630,8 +646,6 @@ class OUTSDMixin(OU, EntityTrait):
             `date`. The other values might not be used.
 
         """
-        subnet = dns.Subnet.Subnet(self._db)
-        subnet6 = dns.IPv6Subnet.IPv6Subnet(self._db)
         for row in self.list_traits(code=(self.const.trait_project_subnet6,
                                           self.const.trait_project_subnet),
                                     target_id=self.entity_id):
