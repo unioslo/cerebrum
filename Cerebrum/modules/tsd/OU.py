@@ -41,6 +41,7 @@ from Cerebrum.modules.EntityTrait import EntityTrait
 
 from Cerebrum.modules.tsd import TSDUtils
 
+
 class OUTSDMixin(OU, EntityTrait):
     """Mixin of OU for TSD. Projects in TSD are stored as OUs, which then has to
     be unique.
@@ -53,15 +54,16 @@ class OUTSDMixin(OU, EntityTrait):
         an external ID.
 
         """
-        return self.find_by_external_id(entity_type=self.const.entity_ou,
-                id_type=self.const.externalid_project_id, 
-                external_id=project_id)
+        return self.find_by_external_id(
+            entity_type=self.const.entity_ou,
+            id_type=self.const.externalid_project_id,
+            external_id=project_id)
 
     def find_by_tsd_projectname(self, project_name):
         """TSD specific helper method for finding an OU by the project's name.
 
         In TSD, each project is stored as an OU, with the acronym as the unique
-        project name. 
+        project name.
 
         TODO: All project OUs could be stored under the same OU, if we need
         other OUs than project OUs.
@@ -71,8 +73,7 @@ class OUTSDMixin(OU, EntityTrait):
         if not matched:
             raise Errors.NotFoundError("Unknown project: %s" % project_name)
         if len(matched) != 1:
-            raise Errors.TooManyRowsError("Found several OUs with given name: %s"
-                    % project_name)
+            raise Errors.TooManyRowsError("Found several OUs with given name: %s" % project_name)
         return self.find(matched[0]['entity_id'])
 
     def search_tsd_projects(self, name=None, exact_match=True):
@@ -96,10 +97,10 @@ class OUTSDMixin(OU, EntityTrait):
 
         """
         return self.search_name_with_language(
-                        entity_type=self.const.entity_ou,
-                        name_variant=self.const.ou_name_acronym,
-                        # TODO: name_language=self.const.language_en,
-                        name=name, exact_match=exact_match)
+            entity_type=self.const.entity_ou,
+            name_variant=self.const.ou_name_acronym,
+            # TODO: name_language=self.const.language_en,
+            name=name, exact_match=exact_match)
 
     def _validate_project_name(self, name):
         """Check if a given project name is valid.
@@ -139,11 +140,10 @@ class OUTSDMixin(OU, EntityTrait):
         # with characters I've forgotten:
         m = re.search('[^A-Za-z0-9_\-:;\*"\'\#\&\=!\?]', name)
         if m:
-            raise Errors.CerebrumError('Invalid characters in projectname: %s' %
-                                m.group())
+            raise Errors.CerebrumError('Invalid characters in projectname: %s' % m.group())
         if len(name) < 3:
             raise Errors.CerebrumError('Project name too short')
-        if len(name) > 8: # TBD: or 6?
+        if len(name) > 8:  # TBD: or 6?
             raise Errors.CerebrumError('Project name is too long')
         return True
 
@@ -157,8 +157,7 @@ class OUTSDMixin(OU, EntityTrait):
         ret = self.get_external_id(id_type=self.const.externalid_project_id)
         if ret:
             return ret[0]['external_id']
-        raise Errors.NotFoundError('Mandatory project ID not found for %s' %
-                self.entity_id)
+        raise Errors.NotFoundError('Mandatory project ID not found for %s' % self.entity_id)
 
     def get_project_int(self):
         """Shortcut for getting the "integer" for the project.
@@ -181,9 +180,8 @@ class OUTSDMixin(OU, EntityTrait):
         @return: True if the project is approved.
 
         """
-        return not tuple(self.get_entity_quarantine(
-                                type=self.const.quarantine_not_approved,
-                                only_active=True))
+        return not tuple(self.get_entity_quarantine(type=self.const.quarantine_not_approved,
+                                                    only_active=True))
 
     def add_name_with_language(self, name_variant, name_language, name):
         """Override to be able to verify project names (acronyms).
@@ -199,10 +197,10 @@ class OUTSDMixin(OU, EntityTrait):
 
             # TODO: check name_language too
             matched = self.search_name_with_language(
-                                    entity_type=self.const.entity_ou,
-                                    name_variant=self.const.ou_name_acronym,
-                                    # TODO: name_language
-                                    name=name)
+                entity_type=self.const.entity_ou,
+                name_variant=self.const.ou_name_acronym,
+                # TODO: name_language
+                name=name)
             if any(r['name'] == name for r in matched):
                 raise Errors.CerebrumError('Acronym already in use: %s' % name)
         return self.__super.add_name_with_language(name_variant, name_language,
@@ -217,7 +215,7 @@ class OUTSDMixin(OU, EntityTrait):
         number of available VLANs, which are only at 99.
 
         """
-        all_ids = set(r['external_id'] for r in 
+        all_ids = set(r['external_id'] for r in
                       self.list_external_ids(id_type=self.const.externalid_project_id))
         for i in xrange(0, 99):
             pid = 'p%02d' % i
@@ -229,11 +227,10 @@ class OUTSDMixin(OU, EntityTrait):
         """Subclass to avoid changing the project IDs and reuse them."""
         # Check that the ID is not in use:
         if id_type == self.const.externalid_project_id:
-            for row in self.list_external_ids(id_type=id_type,
-                    external_id=external_id):
+            for row in self.list_external_ids(id_type=id_type, external_id=external_id):
                 raise Errors.CerebrumError("Project ID already in use")
-        return self.__super.populate_external_id(source_system, id_type,
-                external_id)
+
+        return self.__super.populate_external_id(source_system, id_type, external_id)
 
     def create_project(self, project_name):
         """Shortcut for creating a project in TSD with necessary data.
@@ -318,7 +315,7 @@ class OUTSDMixin(OU, EntityTrait):
 
         def _create_group(groupname, desc, spreads):
             """Helper function for creating a group.
-            
+
             @type groupname: string
             @param groupname: The name of the new group. Gets prefixed by the
                 project-ID.
@@ -481,7 +478,7 @@ class OUTSDMixin(OU, EntityTrait):
         # instead.
         try:
             subnet.find(subnetstart)
-        except dns.Errors.SubnetError, e:
+        except dns.Errors.SubnetError:
             subnet.populate(subnetstart, "Subnet for project %s" % projectid, vlan)
         else:
             if subnet.entity_id not in my_subnets:
@@ -496,7 +493,7 @@ class OUTSDMixin(OU, EntityTrait):
 
         try:
             subnet6.find(subnet6start)
-        except dns.Errors.SubnetError, e:
+        except dns.Errors.SubnetError:
             subnet6.populate(subnet6start, "Subnet for project %s" % projectid, vlan)
         else:
             if subnet6.entity_id not in my_subnets:
@@ -505,8 +502,9 @@ class OUTSDMixin(OU, EntityTrait):
         subnet6.write_db()
         etrait.clear()
         etrait.find(subnet6.entity_id)
-        etrait.populate_trait(self.const.trait_project_subnet6, date=DateTime.now(),
-                               target_id=self.entity_id)
+        etrait.populate_trait(code=self.const.trait_project_subnet6,
+                              date=DateTime.now(),
+                              target_id=self.entity_id)
         etrait.write_db()
 
         # TODO: Reserve 10 PTR addresses in the start of the subnet!
@@ -559,9 +557,8 @@ class OUTSDMixin(OU, EntityTrait):
         """Setup POSIX data for the project."""
         ac = Factory.get('Account')(self._db)
         pu = Factory.get('PosixUser')(self._db)
-        for row in ac.list_accounts_by_type(
-                        ou_id=self.entity_id,
-                        affiliation=self.const.affiliation_project):
+        for row in ac.list_accounts_by_type(ou_id=self.entity_id,
+                                            affiliation=self.const.affiliation_project):
             ac.clear()
             ac.find(row['account_id'])
             pu.clear()
@@ -597,7 +594,7 @@ class OUTSDMixin(OU, EntityTrait):
         ipnumber = dns.IPNumber.IPNumber(self._db)
         arecord = dns.ARecord.ARecord(self._db)
 
-        project_id = self.get_project_int()
+        intpid = self.get_project_int()
         subnetstart, subnet6start = self._get_subnet_by_project_id(project_id=intpid)
 
         try:
@@ -761,7 +758,7 @@ class OUTSDMixin(OU, EntityTrait):
             ent.write_db()
             dnsowner.clear()
             dnsowner.find(row['entity_id'])
-            dnwowner.delete()
+            dnsowner.delete()
 
         # Remove all data from the OU except for the project ID and project name
         for tr in tuple(self.get_traits()):
@@ -771,8 +768,7 @@ class OUTSDMixin(OU, EntityTrait):
         for row in self.get_contact_info():
             self.delete_contact_info(row['source_system'], row['contact_type'])
         for row in self.get_entity_address():
-            self.delete_entity_address(row['source_system'],
-                    row['address_type'])
+            self.delete_entity_address(row['source_system'], row['address_type'])
         for row in self.search_name_with_language(entity_id=self.entity_id):
             # The project name must not be removed, to avoid reuse
             if row['name_variant'] == self.const.ou_name_acronym:
