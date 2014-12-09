@@ -1,3 +1,8 @@
+2014-12-09    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* process_students.py (AccountUtil.create_user): set account expire_date the uit way
+	(get_existing_accounts): make sure to also include expired accounts when setting new expire_date
+
 2014-12-04    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* generate_OU.py (ou.__init__): fixed typo in servername used in cx_oracle.connect() command

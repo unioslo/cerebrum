@@ -30,6 +30,7 @@ import traceback
 from time import localtime, strftime, time
 from mx.DateTime import now
 import pprint
+import datetime
 
 import cerebrum_path
 import cereconf
@@ -166,6 +167,7 @@ class AccountUtil(object):
             uname = account.suggest_unames(const.account_namespace,
                                            first_name, last_name)[0]
         logger.info("uname %s will be used", uname) 
+        default_expire_date = get_default_expire_date()
         account.populate(uname,
                          const.entity_person,
                          person.entity_id,
@@ -231,7 +233,7 @@ class AccountUtil(object):
             account_obj.clear()
             account_obj.find(account_id)
             user.populate(uid, changes[0][1], None, shell, 
-                          parent=account_obj, expire_date=default_expire_date)
+                          parent=account_obj, expire_date=get_default_expire_date())
             user.write_db()
             logger.debug("Used dfg2: "+str(changes[0][1]))
             accounts[account_id].append_group(changes[0][1])
@@ -373,7 +375,7 @@ class AccountUtil(object):
             # we no longer want to change the default-group if already set
             if (ac.get_gid() is None): # or ac['gid'] != gid):
                 changes.append(('dfg', gid))
-
+        default_expire_date = get_default_expire_date()
         if ac.get_expire_date() != default_expire_date:
             changes.append(('expire', default_expire_date))
 
@@ -885,6 +887,33 @@ def start_process_students(recalc_pq=False, update_create=False):
         BuildAccounts.update_accounts_main()
     logger.info("process_students finished")
 
+def get_semester():
+    import time
+    t = time.localtime()[0:2]
+    this_year = t[0]
+    if t[1] <= 6:
+        this_sem = 'vår'
+        next_year = this_year
+        next_sem = 'høst'
+    else:
+        this_sem = 'høst'
+        next_year = this_year + 1
+        next_sem = 'vår'
+    return ((str(this_year), this_sem), (str(next_year), next_sem))
+
+
+def get_default_expire_date():
+    this_sem, next_sem = get_semester()
+    sem = this_sem[1]
+    if (sem=='vår'):
+        month = 9
+    else:
+        month = 2
+    year = int(next_sem[0])
+    day = 16
+    expire_date = datetime.date(year,month,day).isoformat()
+    return expire_date
+
 def bootstrap():
     global default_creator_id, default_expire_date, default_shell
     for t in ('PRINT_PRINTER', 'PRINT_BARCODE', 'AUTOADMIN_LOG_DIR',
@@ -895,7 +924,7 @@ def bootstrap():
     account = Factory.get('Account')(db)
     account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
     default_creator_id = account.entity_id
-    default_expire_date = None
+    default_expire_date = get_default_expire_date()
     if posix_tables:
         default_shell = const.posix_shell_bash
 
@@ -994,7 +1023,7 @@ def get_existing_accounts():
             if tmp is not None:
                 tmp.append_spread(spread_id)
     # Account homes
-    for row in account_obj.list_account_home():
+    for row in account_obj.list_account_home(include_nohome=True,filter_expired=False):
         tmp = tmp_ac.get(int(row['account_id']), None)
         if tmp is not None and row['disk_id']:
             tmp.set_home(int(row['home_spread']), int(row['disk_id']),
