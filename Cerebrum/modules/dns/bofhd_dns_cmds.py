@@ -625,7 +625,7 @@ class BofhdExtension(BofhdCommandBase):
         if not isinstance (obj_ref, CNameRecord.CNameRecord):
             raise CerebrumError("No such cname")
         self.mb_utils.ip_free(dns.DNS_OWNER, cname_name, False)
-        return "OK, cname %s completly removed" % cname_name
+        return "OK, cname %s completely removed" % cname_name
 
     # host comment
     all_commands['host_comment'] = Command(
@@ -749,7 +749,7 @@ class BofhdExtension(BofhdCommandBase):
             self.logger.warn(e)
             self.logger.warn(traceback.format_exc())
         self.mb_utils.ip_free(dns.DNS_OWNER, host_id, force)
-        return "OK, DNS-owner %s completly removed" % host_id
+        return "OK, DNS-owner %s completely removed" % host_id
 
     # host hinfo_list
     all_commands['host_hinfo_list'] = Command(

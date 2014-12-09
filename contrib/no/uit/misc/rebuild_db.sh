@@ -15,4 +15,3 @@ psql < /cerebrum/share/cerebrum/contrib/no/uit/misc/analyze.sql
 #python fix_authdata.py
 #python fix_homedir.py
 
-# arch-tag: 436b97ca-b42c-11da-8552-4a8a6c8a3466

@@ -173,4 +173,3 @@ class DiskQuota(DatabaseAccessor):
                            'spread': spread,
                            'disk_id': disk_id})
 
-# arch-tag: 4b6c5df8-8100-4fd3-b679-bc8224f5b0df

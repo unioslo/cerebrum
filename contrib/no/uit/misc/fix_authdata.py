@@ -62,6 +62,5 @@ def usage():
     is not desired."""
     
 if  __name__=='__main__':
-    main()# arch-tag: 405dc422-b42c-11da-908d-e5c2771b7e86
+    main()
 
-# arch-tag: 4ac5a876-b42c-11da-9bcc-5e21d49d096d

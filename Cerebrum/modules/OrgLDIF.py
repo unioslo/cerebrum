@@ -1092,4 +1092,3 @@ from None and LDAP_PERSON['dn'].""")
         timer.start = time.time()
         return timer
 
-# arch-tag: 3081b642-8577-4f6f-bc98-b9a144bbb2c1

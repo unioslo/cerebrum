@@ -34,4 +34,3 @@ publish_cmdline(writer_name='docbook', description=description)
 
 # :indentSize=4:lineSeparator=\n:noTabs=true:tabSize=4:
 
-# arch-tag: c064b0cf-b91e-414d-b451-e0ee3c42aae2

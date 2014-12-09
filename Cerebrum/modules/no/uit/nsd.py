@@ -37,4 +37,3 @@ class nsd:
         except:# Errors.DatabaseException():
             print "already inserted %s" % query
         
-# arch-tag: 8673830e-b4f2-11da-94f8-e0e97f4a22bc

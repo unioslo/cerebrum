@@ -603,4 +603,3 @@ class XMLRelation2Object(XMLEntity2Object):
         element.clear()
         return result
 
-# arch-tag: fce4714a-6995-11da-9335-31e799a56356

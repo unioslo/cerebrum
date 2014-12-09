@@ -572,4 +572,3 @@ class _TemporarilyImmutableSet(BaseSet):
     def __hash__(self):
         return self._set._compute_hash()
 
-# arch-tag: c43fcac0-31c2-4fa3-99ae-612d6f231c4f

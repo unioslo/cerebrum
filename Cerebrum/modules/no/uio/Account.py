@@ -593,7 +593,7 @@ class AccountUiOMixin(Account.Account):
     def wants_auth_type(self, method):
         if method == self.const.Authentication("PGP-guest_acc"):
             # only store this type for guest accounts
-            return self.get_trait(self.const.trait_guest_owner) is not None
+            return self.get_trait(self.const.trait_uio_guest_owner) is not None
         return self.__super.wants_auth_type(method)
 
     def clear_home(self, spread):
@@ -646,4 +646,3 @@ class AccountUiOMixin(Account.Account):
                         dq.clear(kw['current_id'])
         return ret
 
-# arch-tag: 7bc3f7a8-183f-45c7-8a8f-f2ffff5029c5

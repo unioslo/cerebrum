@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# 
+#
 # Copyright 2013 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -45,6 +45,8 @@ from Cerebrum.modules.ad2.ConfigUtils import ConfigError
 
 class UiAUserSync(UserSync):
 
+    """ Override of the Usersync, for UiA specific, complex behaviour. """
+
     def configure(self, config_args):
         """Override the configuration for setting specific variables for UiA
         user sync.
@@ -56,14 +58,14 @@ class UiAUserSync(UserSync):
             if config_args['forward_sync'] not in adconf.SYNCS:
                 raise ConfigError("Illegal name for 'forward_sync' parameter: "
                                   "%s. The sync with this name is not found in "
-                                  "the configuration file." 
+                                  "the configuration file."
                                   % config_args['forward_sync'])
             self.config['forward_sync'] = config_args['forward_sync']
         if 'distgroup_sync' in config_args:
             if config_args['distgroup_sync'] not in adconf.SYNCS:
                 raise ConfigError("Illegal name for 'distgroup_sync' parameter:"
                                   " %s. The sync with this name is not found in"
-                                  " the configuration file." 
+                                  " the configuration file."
                                   % config_args['distgroup_sync'])
             # No sense in running distgroupsync without running forward_sync
             # first.
@@ -113,6 +115,46 @@ class UiAUserSync(UserSync):
             distgroup_sync.configure(distgroup_conf)
             distgroup_sync.fullsync()
 
+    def attribute_mismatch(self, ent, atr, c, a):
+        """Compare an attribute between Cerebrum and AD, UiA-wize.
+
+        This method ignores certain Exchange attributes if the user has the
+        spread `account@exchange`. For anything else, `super` is doing the rest.
+
+        This is a temporary hack, while waiting for the functionality in
+        CRB-523. Users with the spread "account@exchange" will be provisioned
+        through the new Exchange integration for Exchange 2013. The regular
+        AD-sync updated attributes for Exchange 2010 (spread account@exch_old).
+        The two Exchange versions are using some of the same AD attributes, but
+        they're using them differently, which creates conflicts with the two
+        syncs. The quick solution here is to ignore certain exchange attributes
+        if the user has the new Exchange spread.
+
+        """
+        # List of the attributes that Exchange 2013 needs, and which we
+        # therefore should ignore:
+        exch2013attrs = ('homemdb', 'msexchhomeservername', 'mdbusedefaults',
+                         'deliverandredirect', 'mdboverquotalimit',
+                         'mdboverhardquotalimit', 'mdbstoragequota',
+                         'proxyaddresses', 'targetaddress', 'homemta',
+                         'legacyexchangedn', 'mail', 'msexchmailboxguid',
+                         'msexchpoliciesexcluded', 'msexchpoliciesincluded',
+                         'msexchuserculture',
+                         )
+        # Force not updating certain Exchange attributes when user has spread
+        # for Exchange 2013 (which are updated through event_daemon):
+        if (self.co.spread_exchange_account in ent.spreads and
+                atr.lower() in exch2013attrs):
+            self.logger.debug3('Ignoring Exchange 2013 attribute "%s" for %s',
+                               atr, ent)
+            return (False, None, None)
+        # Also do some ignoring for Office 365 accounts
+        if (self.co.spread_uia_office_365 in ent.spreads and
+                atr.lower() in exch2013attrs):
+            self.logger.debug3('Ignoring Office365 attribute "%s" for %s',
+                               atr, ent)
+            return (False, None, None)
+        return super(UiAUserSync, self).attribute_mismatch(ent, atr, c, a)
 
 class UiACerebrumUser(CerebrumUser):
     """UiA specific behaviour and attributes for a user object."""
@@ -120,8 +162,6 @@ class UiACerebrumUser(CerebrumUser):
     def calculate_ad_values(self):
         """Adding UiA specific attributes."""
         super(UiACerebrumUser, self).calculate_ad_values()
-        co = Factory.get('Constants')(Factory.get('Database'))
-        has_exchange = co.spread_exchange_account in self.spreads
 
         # Hide all accounts that are not primary accounts:
         self.set_attribute('MsExchHideFromAddressLists',
@@ -133,11 +173,11 @@ class UiACerebrumDistGroup(CerebrumGroup):
     This class represent a virtual Cerebrum distribution group that
     contain contact objecs per user at UiA.
     """
-    def __init__(self, logger, config, entity_id, entity_name, 
+    def __init__(self, logger, config, entity_id, entity_name,
                  description = None):
         """
         CerebrumDistGroup constructor
-        
+
         """
         super(UiACerebrumDistGroup, self).__init__(logger, config, entity_id,
                                                    entity_name, description)
@@ -145,7 +185,7 @@ class UiACerebrumDistGroup(CerebrumGroup):
     def calculate_ad_values(self):
         """
         Calculate AD attrs from Cerebrum data.
-        
+
         """
         super(UiACerebrumDistGroup, self).calculate_ad_values()
         self.set_attribute('Member', ["CN=" + y.ad_id + "," + y.ou
@@ -163,15 +203,15 @@ class UiAForwardSync(BaseSync):
         """Instantiate forward addresses specific functionality.
 
         @type account_entities: dict of user entities
-        @param account_entities: 
-            AD-entities that are created by the user sync, that is run 
+        @param account_entities:
+            AD-entities that are created by the user sync, that is run
             before this sync. These objects contain information about all
             forward addresses that need to be synchronized in this sync.
 
         @type addr2username: string -> string dict
         @param addr2username:
             The mapping of email address to the name of the account,
-            that owns it. 
+            that owns it.
 
         """
         super(UiAForwardSync, self).__init__(*args, **kwargs)
@@ -181,22 +221,20 @@ class UiAForwardSync(BaseSync):
         self.addr2username = addr2username
 
     def configure(self, config_args):
-        """Override the configuration for setting forward specific variables.
-    
-        """
+        """Override the configuration for setting forward specific vars."""
         super(UiAForwardSync, self).configure(config_args)
         # Which spreads the accounts should have for their forward-addresses
         # to be synchronized
         self.config['account_spreads'] = config_args['account_spreads']
 
     def fetch_cerebrum_entities(self):
-        """Fetch the forward addresses information from Cerebrum, 
+        """Fetch the forward addresses information from Cerebrum,
         that should be compared against AD. The forward addresses that
         belong to the accounts with specified spreads are fetched.
-        
+
         The configuration is used to know what to cache. All data is put in a
         list, and each entity is put into an object from
-        L{Cerebrum.modules.ad2.CerebrumData} or a subclass, to make it 
+        L{Cerebrum.modules.ad2.CerebrumData} or a subclass, to make it
         easier to later compare with AD objects.
 
         Could be subclassed to fetch more data about each entity to support
@@ -227,10 +265,10 @@ class UiAForwardSync(BaseSync):
                     # Check if forwarding is enabled to an address in 'uia.no'
                     # domain.
                     nickname, domain = tmp_addr.split('@')
-                    # The forward addresses in the local domain should not 
+                    # The forward addresses in the local domain should not
                     # have a corresponding forward object created in AD.
                     # Instead, we have to mark the user entity that owns
-                    # the mail for the inclusion to a corresponding 
+                    # the mail for the inclusion to a corresponding
                     # distribution group.
                     owner_name = self.addr2username.get(tmp_addr.lower())
                     if owner_name:
@@ -244,8 +282,8 @@ class UiAForwardSync(BaseSync):
                     if len(name) > 64:
                         name = "Forward_for_%s__%s" % (username, ent.entity_id)
                     self.entities[name] = self.cache_entity(ent.entity_id, name)
-                    # Some of the forward object attributes are composed based 
-                    # on the owner's username and forward address itself, 
+                    # Some of the forward object attributes are composed based
+                    # on the owner's username and forward address itself,
                     # so save it for future use.
                     self.entities[name].forwards_data['uname'] = username
                     self.entities[name].forwards_data['addr'] = tmp_addr
@@ -263,8 +301,8 @@ class UiADistGroupSync(BaseSync):
         """Instantiate forward addresses specific functionality.
 
         @type forward_objects: dict of forward entities
-        @param forward_objects: 
-            AD-entities that are created by the forward sync, that is run 
+        @param forward_objects:
+            AD-entities that are created by the forward sync, that is run
             before this sync. These objects will be used as members of
             distribution groups.
 
@@ -286,10 +324,10 @@ class UiADistGroupSync(BaseSync):
         """Create distribution groups out of forward addresses information
         to compare them against AD. The forward addresses are received upon
         class' initialization.
-        
+
         """
         self.logger.debug("Making distribution groups")
-        
+
         for forward_name, forward_entity in self.forwards.iteritems():
             name = forward_entity.forwards_data['uname']
             if name in self.entities:
@@ -298,11 +336,11 @@ class UiADistGroupSync(BaseSync):
                                                                  forward_entity)
             else:
                 self.entities[name] = self.cache_entity(
-                    forward_entity.entity_id, name, 
+                    forward_entity.entity_id, name,
                     description = 'Samlegruppe for brukerens forwardadresser')
                 self.entities[name].forwards_data['members'] = [forward_entity]
 
-        # For local forward addresses we have to include user objects, 
+        # For local forward addresses we have to include user objects,
         # as members to a distribution group
         for username, user_entity in self.user_members.iteritems():
             if username in self.entities:
@@ -310,7 +348,7 @@ class UiADistGroupSync(BaseSync):
                                                                     user_entity)
             else:
                 self.entities[username] = self.cache_entity(
-                    user_entity.entity_id, username, 
+                    user_entity.entity_id, username,
                     description = 'Samlegruppe for brukerens forwardadresser')
                 self.entities[username].forwards_data['members'] = [
                                                                    user_entity,]

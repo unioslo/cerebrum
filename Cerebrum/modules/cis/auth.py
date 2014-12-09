@@ -246,6 +246,8 @@ class PasswordAuthenticationService(AuthenticationService):
             account.find_by_name(username)
         except Errors.NotFoundError:
             log.msg("INFO: auth: no such user: %s" % username)
+            # Close the database-connection
+            db.close()
             raise AuthenticationError(ctx.service_class.error_msg)
 
         # TODO: bofhd.py's bofhd_login has much functionality - put much of it
@@ -279,6 +281,8 @@ class PasswordAuthenticationService(AuthenticationService):
                                  for q in quarantines)
             log.msg("INFO: user has active quarantine. Access denied: %s" 
                     %qua_repr)
+            # Close the database-connection
+            db.close()
             raise AuthenticationError(ctx.service_class.error_msg)
         # User exists here, check password 
         # Check password
@@ -291,6 +295,8 @@ class PasswordAuthenticationService(AuthenticationService):
                     enc_passwords.append(enc_pass)
             except Errors.NotFoundError:
                 pass
+        # Close the database-connection
+        db.close()
         if not enc_passwords:
             log.msg("INFO: Missing password for %s from %s" % (username,
                         ":".join([str(x) for x in self.client_address])))

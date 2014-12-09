@@ -33,4 +33,3 @@ class GroupNoturMixin(Group.Group):
         return self.__super.illegal_name(name)
 
 
-# arch-tag: e7512ad4-d606-11da-9749-96469d6e4a57

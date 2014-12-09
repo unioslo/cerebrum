@@ -380,4 +380,3 @@ class StudconfigParser(object):
                     ename, repr(elem_stack)))
         self._config.profiles.append(in_profil)
 
-# arch-tag: 8d52e58e-fdc3-456f-a9d0-7fe2d2281398

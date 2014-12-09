@@ -145,7 +145,7 @@ class BofhdExtension(BofhdCommandBase):
         owner_type = self.const.entity_group
         owner_id = self.util.get_target(owner_group_name,
                                         default_lookup="group").entity_id
-        np_type = self.const.account_guest
+        np_type = self.const.account_uio_guest
         group = self.util.get_target(filegroup, default_lookup="group")
         posix_user = Factory.get('PosixUser')(self.db)
         shell = self._get_shell(shell)
@@ -180,7 +180,7 @@ class BofhdExtension(BofhdCommandBase):
             except self.db.DatabaseError, m:
                 raise CerebrumError, "Database error: %s" % m
             self.bgu.update_group_memberships(posix_user.entity_id)
-            posix_user.populate_trait(self.const.trait_guest_owner, target_id=None)
+            posix_user.populate_trait(self.const.trait_uio_guest_owner, target_id=None)
             # The password must be set _after_ the trait, or else it
             # won't be stored using the 'PGP-guest_acc' method.
             posix_user.set_password(posix_user.make_passwd(uname))
@@ -361,4 +361,3 @@ class BofhdExtension(BofhdCommandBase):
             ret.append(tmp)
         return '\n'.join(ret)
 
-# arch-tag: bddd54d2-6272-11da-906d-7a8b01ac279a

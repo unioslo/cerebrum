@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
-# Copyright 2012 University of Oslo, Norway
+# Copyright 2012-2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -38,14 +38,16 @@ import guestconfig
 from Cerebrum import Errors
 from Cerebrum.Utils import NotSet, SMSSender
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
-from Cerebrum.modules.bofhd.auth import BofhdAuth
+from Cerebrum.modules.guest.bofhd_guest_auth import BofhdAuth
 
-from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.cmd_param import Parameter, Command, AccountName, \
     Integer, GroupName, PersonName, FormatSuggestion
 
-def format_day(field):
-    fmt = "yyyy-MM-dd"                  # 10 characters wide
+
+def format_date(field):
+    """ Date format for FormatSuggestion. """
+    fmt = "yyyy-MM-dd"  # 10 characters wide
     return ":".join((field, "date", fmt))
 
 
@@ -57,55 +59,49 @@ class Mobile(Parameter):
     _help_ref = 'mobile_number'
 
 
-class BofhdExtension(BofhdCommandBase):
+class BofhdExtension(BofhdCommonMethods):
 
     """ Guest commands. """
+
+    hidden_commands = {}  # Not accessible through bofh
 
     all_commands = {}
 
     def __init__(self, server):
         super(BofhdExtension, self).__init__(server)
-        # TODO: need to be able to change BofhdAuth dynamically for each
-        # instance
         self.ba = BofhdAuth(self.db)
 
     def get_help_strings(self):
-        group_help = {
-            'guest': "Commands for handling guest users",
-            }
+        """ Help strings for our commands and arguments. """
+        group_help = {'guest': "Commands for handling guest users", }
 
-        # The texts in command_help are automatically line-wrapped, and should
-        # not contain \n
         command_help = {
             'guest': {
                 'guest_create': 'Create a new guest user',
                 'guest_remove': 'Deactivate a guest user',
                 'guest_info': 'View information about a guest user',
                 'guest_list': 'List out all guest users for a given owner',
-                'guest_list_all': 'List out all guest users', },
+                'guest_list_all': 'List out all guest users',
+                'guest_reset_password':
+                    'Reset the password of a guest user, and nootify by SMS', }
             }
 
         arg_help = {
-            'guest_days':
-            ['days', 'Enter number of days',
-             'Enter the number of days the guest user should be active'],
-            'guest_fname':
-            ['given_name', "Enter guest's given name",
-             "Enter the guest's first and middle name"],
-            'guest_lname':
-            ['family_name', "Enter guest's family name",
-             "Enter the guest's (last) family name"],
-            'guest_responsible':
-            ['responsible', "Enter the responsible user",
-             "Enter the user that will be set as the responsible for the "
-             "guest"],
-            'group_name':
-            ['group', 'Enter group name',
-             "Enter the group the guest should belong to"],
-            'mobile_number':
-            ['mobile', 'Enter mobile number',
-             "Enter the guest's mobile number, where the username and "
-             "password will be sent"],
+            'guest_days': ['days', 'Enter number of days',
+                           'Enter the number of days the guest user should be '
+                           'active'],
+            'guest_fname': ['given_name', "Enter guest's given name",
+                            "Enter the guest's first and middle name"],
+            'guest_lname': ['family_name', "Enter guest's family name",
+                            "Enter the guest's (last) family name"],
+            'guest_responsible': ['responsible', "Enter the responsible user",
+                                  "Enter the user that will be set as the "
+                                  "responsible for the guest"],
+            'group_name': ['group', 'Enter group name',
+                           "Enter the group the guest should belong to"],
+            'mobile_number': ['mobile', 'Enter mobile number',
+                              "Enter the guest's mobile number, where the "
+                              "username and password will be sent"],
             }
         return (group_help, command_help, arg_help)
 
@@ -155,7 +151,7 @@ class BofhdExtension(BofhdCommandBase):
         @return: The Group object that was found/created.
 
         """
-        if not guestconfig.GUEST_TYPES.has_key(groupname):
+        if not groupname in guestconfig.GUEST_TYPES:
             raise CerebrumError('Given group not defined as a guest group')
         try:
             return self._get_group(groupname)
@@ -195,7 +191,8 @@ class BofhdExtension(BofhdCommandBase):
         if include_expired:
             return all
         # Get entity_ids for expired guests, and filter them out
-        expired = [q['entity_id'] for q in ac.list_entity_quarantines(
+        expired = [q['entity_id'] for q in
+                   ac.list_entity_quarantines(
                        entity_types=self.const.entity_account,
                        quarantine_types=self.const.quarantine_guest_old,
                        only_active=True)]
@@ -278,7 +275,7 @@ class BofhdExtension(BofhdCommandBase):
         PersonName(help_ref='guest_fname'),
         PersonName(help_ref='guest_lname'),
         GroupName(default=guestconfig.GUEST_TYPES_DEFAULT),
-        Mobile(optional=True, default=''),
+        Mobile(optional=(not guestconfig.GUEST_REQUIRE_MOBILE)),
         AccountName(help_ref='guest_responsible', optional=True),
         fs=FormatSuggestion([('Created user %s.', ('username',)),
                              (('SMS sent to %s.'), ('sms_to',))]),
@@ -299,24 +296,24 @@ class BofhdExtension(BofhdCommandBase):
         if not (0 < days <= guestconfig.GUEST_MAX_DAYS):
             raise CerebrumError('Invalid number of days, must be in the '
                                 'range 1-%d' % guestconfig.GUEST_MAX_DAYS)
-        if not fname or len(fname) < 2:
+        if (not fname) or len(fname) < 2:
             raise CerebrumError(
                 'First name must be at least 2 characters long')
-        if not lname or len(lname) < 1:
+        if (not lname) or len(lname) < 1:
             raise CerebrumError(
                 'Last name must be at least one character long')
-        if len(fname) + len(lname) + 1 > 512:
+        if len(fname) + len(lname) >= 512:
             raise CerebrumError('Full name must not exceed 512 characters')
+        if guestconfig.GUEST_REQUIRE_MOBILE and not mobile:
+            raise CerebrumError('Mobile phone number required')
+
+        # TODO/TBD: Change to cereconf.SMS_ACCEPT_REGEX?
         if mobile and not (len(mobile) == 8 and mobile.isdigit()):
             raise CerebrumError(
                 'Invalid phone number, must be 8 digits, no spaces')
 
         guest_group = self._get_guest_group(groupname,
                                             operator.get_entity_id())
-        # the method raises exception if groupname is not defined
-
-        if mobile and not (len(mobile) == 8 and mobile.isdigit()):
-            raise CerebrumError('Invalid phone number, must be 8 digits')
 
         if responsible:
             if not self.ba.is_superuser(operator.get_entity_id()):
@@ -366,24 +363,29 @@ class BofhdExtension(BofhdCommandBase):
         ac.set_password(password)
         ac.write_db()
 
+        # Store password in session for misc_list_passwords
+        operator.store_state("user_passwd", {'account_id': int(ac.entity_id),
+                                             'password': password})
+        ret = {'username': ac.account_name,
+               'expire': end_date.strftime('%Y-%m-%d'), }
+
         if mobile:
             msg = guestconfig.GUEST_WELCOME_SMS % {
                 'username': ac.account_name,
                 'expire': end_date.strftime('%Y-%m-%d'),
                 'password': password}
             if getattr(cereconf, 'SMS_DISABLE', False):
-                self.logger.info("""SMS disabled in cereconf, would send to
-                '%s':\n%s\n""" % (mobile, msg))
+                self.logger.info(
+                    "SMS disabled in cereconf, would send to '%s':\n%s\n",
+                    mobile, msg)
             else:
                 sms = SMSSender(logger=self.logger)
-                sms(mobile, msg)
-            return {'username': ac.account_name, 'sms_to': mobile}
+                if not sms(mobile, msg):
+                    raise CerebrumError(
+                        "Unable to send message to '%s', aborting" % mobile)
+                ret['sms_to'] = mobile
 
-        # Not mobile delivery - store password in session for
-        # misc_list_passwords
-        operator.store_state("user_passwd", {'account_id': int(ac.entity_id),
-                                             'password': password})
-        return {'username': ac.account_name}
+        return ret
 
     def _create_guest_account(self, responsible_id, end_date, fname, lname,
                               mobile, guest_group):
@@ -405,6 +407,15 @@ class BofhdExtension(BofhdCommandBase):
                                  maxlen=guestconfig.GUEST_MAX_LENGTH_USERNAME,
                                  prefix=settings['prefix'],
                                  suffix='')[0]
+        if settings['prefix'] and not name.startswith(settings['prefix']):
+            # TODO/FIXME: Seems suggest_unames ditches the prefix setting if
+            # there's not a lot of good usernames left with the given
+            # constraints.
+            # We could either fix suggest_uname (but that could lead to
+            # complications with the imports), or we could try to mangle the
+            # name and come up with new suggestions.
+            raise Errors.RealityError("No potential usernames available")
+
         # TODO: make use of ac.create() instead, when it has been defined
         # properly.
         ac.populate(name=name, owner_type=self.const.entity_group,
@@ -454,7 +465,8 @@ class BofhdExtension(BofhdCommandBase):
     #
     all_commands['guest_remove'] = Command(
         ("guest", "remove"),
-        AccountName())
+        AccountName(),
+        perm_filter='can_remove_personal_guest')
 
     def guest_remove(self, operator, username):
         """ Set a new expire-quarantine that starts now.
@@ -463,19 +475,9 @@ class BofhdExtension(BofhdCommandBase):
 
         """
         account = self._get_account(username)
-        operator_id = operator.get_entity_id()
-        # Verify that 'username' is a guest account, and get 'guest_owner'
-        try:
-            responsible = account.get_trait(
-                self.const.trait_guest_owner)['target_id']
-        except TypeError:
-            self.logger.warn('%s is missing guest trait, not a guest',
-                             account.account_name)
-            raise CerebrumError('%s is not a guest' % account.account_name)
-        # Permission: Only superuser and guest creator can deactivate
-        if not (self.ba.is_superuser(operator_id) or
-                responsible == operator_id):
-            raise PermissionDenied("You're not the owner of guest '%s'")
+        self.ba.can_remove_personal_guest(operator.get_entity_id(),
+                                          guest=account)
+
         # Deactivate the account (expedite quarantine) and adjust expire_date
         try:
             end_date = account.get_entity_quarantine(
@@ -488,7 +490,7 @@ class BofhdExtension(BofhdCommandBase):
             self.logger.warn('Guest %s didn\'t have expire quarantine, '
                              'deactivated anyway.', account.account_name)
         account.add_entity_quarantine(type=self.const.quarantine_guest_old,
-                                      creator=operator_id,
+                                      creator=operator.get_entity_id(),
                                       description='New guest account',
                                       start=DateTime.now())
         account.expire_date = DateTime.now()
@@ -500,6 +502,7 @@ class BofhdExtension(BofhdCommandBase):
     #
     all_commands['guest_info'] = Command(
         ("guest", "info"), AccountName(),
+        perm_filter='can_view_personal_guest',
         fs=FormatSuggestion([
             ('Username:       %s\n' +
              'Name:           %s\n' +
@@ -508,14 +511,16 @@ class BofhdExtension(BofhdCommandBase):
              'Expires on:     %s\n' +
              'Status:         %s\n' +
              'Contact:        %s', ('username', 'name', 'responsible',
-                                    format_day('created'),
-                                    format_day('expires'),
+                                    format_date('created'),
+                                    format_date('expires'),
                                     'status', 'contact'))
         ]))
 
     def guest_info(self, operator, username):
         """ Print stored information about a guest account. """
         account = self._get_account(username)
+        self.ba.can_view_personal_guest(operator.get_entity_id(),
+                                        guest=account)
         return [self._get_guest_info(account.entity_id)]
 
     #
@@ -524,10 +529,11 @@ class BofhdExtension(BofhdCommandBase):
     all_commands['guest_list'] = Command(
         ("guest", "list"),
         AccountName(optional=True),
+        perm_filter='can_create_personal_guest',
         fs=FormatSuggestion([
             ('%-25s %-30s %-10s %-10s', ('username', 'name',
-                                         format_day('created'),
-                                         format_day('expires')))],
+                                         format_date('created'),
+                                         format_date('expires')))],
             hdr='%-25s %-30s %-10s %-10s' % ('Username', 'Name', 'Created',
                                              'Expires')
         ))
@@ -538,6 +544,7 @@ class BofhdExtension(BofhdCommandBase):
         Defaults to listing guests owned by operator, if no username is given.
 
         """
+        self.ba.can_create_personal_guest(operator.get_entity_id())
         if not username:
             target_id = operator.get_entity_id()
         else:
@@ -559,22 +566,78 @@ class BofhdExtension(BofhdCommandBase):
         fs=FormatSuggestion([
             ('%-25s %-30s %-15s %-10s %-10s', ('username', 'name',
                                                'responsible',
-                                               format_day('created'),
-                                               format_day('expires')))],
+                                               format_date('created'),
+                                               format_date('expires')))],
             hdr='%-25s %-30s %-15s %-10s %-10s' % ('Username', 'Name',
                                                    'Responsible', 'Created',
                                                    'End date')),
         perm_filter='is_superuser')
 
     def guest_list_all(self, operator):
-        """ Return a list of all guest accounts in Cerebrum. """
-
-        #TODO: TBD:
+        """ Return a list of all personal guest accounts in Cerebrum. """
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied('Only superuser can list all guests')
         ret = []
         for row in self._get_guests():
-            ret.append(self._get_guest_info(row['entity_id']))
+            try:
+                ret.append(self._get_guest_info(row['entity_id']))
+            except CerebrumError, e:
+                print "Error: %s" % e
+                continue
         if not ret:
             raise CerebrumError("Found no guest accounts.")
         return ret
+
+    hidden_commands['guest_reset_password'] = Command(
+        ('guest', 'reset_password'),
+        AccountName(),
+        fs=FormatSuggestion([('New password for user %s, notified %s by SMS.',
+                              ('username', 'mobile', )), ]),
+        perm_filter='can_reset_guest_password')
+
+    def guest_reset_password(self, operator, username):
+        """ Reset the password of a guest account.
+
+        :param BofhdSession operator: The operator
+        :param string username: The username of the guest account
+
+        :return dict: A dictionary with keys 'username' and 'mobile'
+
+        """
+        account = self._get_account(username)
+        self.ba.can_reset_guest_password(operator.get_entity_id(),
+                                         guest=account)
+        operator_name = self._get_account_name(operator.get_entity_id())
+
+        try:
+            mobile = account.get_contact_info(
+                source=self.const.system_manual,
+                type=self.const.contact_mobile_phone)[0]['contact_value']
+        except (IndexError, KeyError):
+            raise CerebrumError(
+                "No contact info registered for %s" % account.account_name)
+
+        password = account.make_passwd(account.account_name)
+        account.set_password(password)
+        account.write_db()
+
+        # Store password in session for misc_list_passwords
+        operator.store_state("user_passwd",
+                             {'account_id': int(account.entity_id),
+                              'password': password})
+
+        msg = guestconfig.GUEST_PASSWORD_SMS % {
+            'changeby': operator_name,
+            'username': account.account_name,
+            'password': password}
+        if getattr(cereconf, 'SMS_DISABLE', False):
+            self.logger.info("""SMS disabled in cereconf, would send to
+            '%s':\n%s\n""" % (mobile, msg))
+        else:
+            sms = SMSSender(logger=self.logger)
+            if not sms(mobile, msg):
+                raise CerebrumError(
+                    "Unable to send SMS to registered number '%s'" % mobile)
+
+        return {'username': account.account_name,
+                'mobile': mobile}

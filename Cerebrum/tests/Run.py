@@ -33,4 +33,3 @@ if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromNames(modules)
     unittest.TextTestRunner(verbosity=1).run(suite)
 
-# arch-tag: 0a2c5fe2-c56e-43a0-b072-90e6d3fbe5b6

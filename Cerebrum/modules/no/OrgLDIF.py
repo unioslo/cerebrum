@@ -21,6 +21,7 @@ from Cerebrum.modules.OrgLDIF import *
 import pickle
 import os.path
 
+
 class norEduLDIFMixin(OrgLDIF):
     """Mixin class for OrgLDIF, adding FEIDE attributes to the LDIF output.
 
@@ -50,15 +51,18 @@ class norEduLDIFMixin(OrgLDIF):
 
     FEIDE_schema_version = cereconf.LDAP.get('FEIDE_schema_version', '1.1')
     FEIDE_obsolete_version = cereconf.LDAP.get('FEIDE_obsolete_schema_version')
+
     if isinstance(FEIDE_schema_version, (tuple, list)):
         FEIDE_obsolete_version = min(*FEIDE_schema_version)
-        FEIDE_schema_version   = max(*FEIDE_schema_version)
-    FEIDE_attr_org_id, FEIDE_attr_ou_id = {
-        '1.1': ('norEduOrgUniqueNumber',     'norEduOrgUnitUniqueNumber'),
-        '1.3': ('norEduOrgUniqueIdentifier', 'norEduOrgUnitUniqueIdentifier'),
-        '1.4': ('norEduOrgUniqueIdentifier', 'norEduOrgUnitUniqueIdentifier'),
-        '1.5': ('norEduOrgUniqueIdentifier', 'norEduOrgUnitUniqueIdentifier'),
-        }[FEIDE_schema_version]
+        FEIDE_schema_version = max(*FEIDE_schema_version)
+
+    if FEIDE_schema_version == '1.1':
+        FEIDE_attr_org_id = 'norEduOrgUniqueNumber'
+        FEIDE_attr_ou_id = 'norEduOrgUnitUniqueNumber'
+    else:
+        FEIDE_attr_org_id = 'norEduOrgUniqueIdentifier'
+        FEIDE_attr_ou_id = 'norEduOrgUnitUniqueIdentifier'
+
     FEIDE_class_obsolete = None
     if FEIDE_obsolete_version:
         if FEIDE_schema_version >= '1.4':
@@ -111,7 +115,7 @@ class norEduLDIFMixin(OrgLDIF):
             entry['norEduOrgSchemaVersion'] = (self.FEIDE_schema_version,)
         elif self.FEIDE_schema_version > '1.1' and self.extensibleObject:
             entry['objectClass'].append(self.extensibleObject)
-            entry['federationFeideSchemaVersion']= (self.FEIDE_schema_version,)
+            entry['federationFeideSchemaVersion'] = (self.FEIDE_schema_version,)
         uri = entry.get('labeledURI') or entry.get('eduOrgHomePageURI')
         if uri:
             entry.setdefault('eduOrgHomePageURI', uri)
@@ -159,10 +163,10 @@ class norEduLDIFMixin(OrgLDIF):
             if contact:
                 entry[attr] = contact
         entry['mail'] = self.get_contacts(
-            entity_id    = ou_id,
-            contact_type = int(self.const.contact_email),
-            verify       = verify_IA5String,
-            normalize    = normalize_IA5String)
+            entity_id=ou_id,
+            contact_type=int(self.const.contact_email),
+            verify=verify_IA5String,
+            normalize=normalize_IA5String)
         post_string, street_string = self.make_entity_addresses(
             self.ou, self.system_lookup_order)
         if post_string:
@@ -192,22 +196,22 @@ class norEduLDIFMixin(OrgLDIF):
                 name_variant=name_variants):
             name = iso2utf(row["name"].strip())
             if name:
-                pref   = var2pref[int(row['name_variant'])]
+                pref = var2pref[int(row['name_variant'])]
                 lnames = ou_names.setdefault(pref, [])
                 lnames.append((int(row['name_language']), name))
         if not ou_names:
             self.logger.warn("No names could be located for ou_id=%s", ou_id)
             return parent_dn, None
-        
+
         ldap_ou_id = self.get_orgUnitUniqueID()
         self.ou_uniq_id2ou_id[ldap_ou_id] = ou_id
-        self.ou_id2ou_uniq_id[ou_id] = ldap_ou_id        
+        self.ou_id2ou_uniq_id[ou_id] = ldap_ou_id
         entry = {
             'objectClass': ['top', 'organizationalUnit', 'norEduOrgUnit'],
             self.FEIDE_attr_ou_id:  (ldap_ou_id,)}
         if 0 in ou_names:
             self.add_lang_names(entry, 'norEduOrgAcronym', ou_names[0])
-        ou_names = [names for pref, names in sorted(ou_names.items())]
+        ou_names = [names for ou_pref, names in sorted(ou_names.items())]
         for names in ou_names:
             self.add_lang_names(entry, 'ou', names)
         self.add_lang_names(entry, 'cn',               ou_names[-1])
@@ -238,10 +242,9 @@ class norEduLDIFMixin(OrgLDIF):
         if pri_edu_aff:
             entry['eduPersonPrimaryAffiliation'] = pri_edu_aff
             entry['eduPersonPrimaryOrgUnitDN'] = self.ou2DN.get(int(pri_ou)) or self.dummy_ou_dn
-        if ldapconf('PERSON', 'entitlements_pickle_file') and self.person2entitlements.has_key(p_id):
+        if ldapconf('PERSON', 'entitlements_pickle_file') and p_id in self.person2entitlements:
             entry['eduPersonEntitlement'] = self.person2entitlements[p_id]
         return dn, entry, alias_info
-
 
     def make_ou_dn(self, entry, parent_dn):
         # Change from superclass:
@@ -287,22 +290,22 @@ class norEduLDIFMixin(OrgLDIF):
             selector = cereconf.LDAP_PERSON.get('eduPersonPrimaryAffiliation_selector')
             if selector and aff in selector and status in selector[aff]:
                 return selector[aff][status]
-            return (None, None) 
+            return (None, None)
 
-        if not self.affiliations.has_key(p_id):
+        if p_id not in self.affiliations:
             return None
         pri_aff = None
         pri = None
         pri_ou = None
         pri_edu_aff = None
         for aff, status, ou in self.affiliations[p_id]:
-            # populate the caches 
-            if self.aff_cache.has_key(aff):
+            # populate the caches
+            if aff in self.aff_cache:
                 aff_str = self.aff_cache[aff]
             else:
                 aff_str = str(self.const.PersonAffiliation(aff))
                 self.aff_cache[aff] = aff_str
-            if self.status_cache.has_key(status):
+            if status in self.status_cache:
                 status_str = self.status_cache[status]
             else:
                 status_str = str(self.const.PersonAffStatus(status).str)
@@ -314,14 +317,16 @@ class norEduLDIFMixin(OrgLDIF):
                     if p:
                         return a, ou, (aff_str, status_str)
             p, a = lookup_cereconf(aff_str, status_str)
-            if p and (pri == None or p < pri):
+            if p and (pri is None or p < pri):
                 pri = p
                 pri_aff = (aff_str, status_str)
                 pri_ou = ou
                 pri_edu_aff = a
-        if pri_aff == None:
-            self.logger.warn("Person '%s' did not get eduPersonPrimaryAffiliation. Check his/her affiliations and eduPersonPrimaryAffiliation_selector in cereconf.", p_id)
-        return pri_edu_aff, pri_ou, pri_aff 
+        if pri_aff is None:
+            self.logger.warn(
+                "Person '%s' did not get eduPersonPrimaryAffiliation. Check his/her affiliations "
+                "and eduPersonPrimaryAffiliation_selector in cereconf.", p_id)
+        return pri_edu_aff, pri_ou, pri_aff
 
     def init_person_basic(self):
         self.__super.init_person_basic()
@@ -342,8 +347,8 @@ class norEduLDIFMixin(OrgLDIF):
             val = row['strval']
             m = re.match(r"(\w+)\/(\w+)@(\w+)", val)
             if m and m.group(3) in self.ou_uniq_id2ou_id:
-                self.primary_aff_traits[p_id] = (m.group(1), m.group(2),
-                                           self.ou_uniq_id2ou_id[m.group(3)])
+                self.primary_aff_traits[p_id] = (
+                    m.group(1), m.group(2), self.ou_uniq_id2ou_id[m.group(3)])
         timer("...primary aff traits done.")
 
     def init_person_dump(self, use_mail_module):
@@ -357,8 +362,9 @@ class norEduLDIFMixin(OrgLDIF):
         """Populate dicts with a person's entitlement information."""
         timer = self.make_timer("Processing person entitlements...")
         self.person2entitlements = pickle.load(file(
-            os.path.join(ldapconf(None, 'dump_dir'), 
-                       ldapconf('PERSON', 'entitlements_pickle_file'))))
+            os.path.join(
+                ldapconf(None, 'dump_dir'),
+                ldapconf('PERSON', 'entitlements_pickle_file'))))
         timer("...person entitlements done.")
 
     def init_person_fodselsnrs(self):
@@ -386,16 +392,31 @@ class norEduLDIFMixin(OrgLDIF):
         uname = entry.get('uid')
         person_id = int(row['person_id'])
         fnr = self.fodselsnrs.get(person_id)
-        if uname and fnr:
+        birth_date = self.birth_dates.get(person_id)
+
+        # uid is mandatory for norEduPerson
+        if not uname:
+            return
+
+        # Prior to norEdu 1.5.1, fnr is mandatory
+        if self.FEIDE_schema_version <= '1.5' and fnr:
             entry['objectClass'].append('norEduPerson')
             if self.FEIDE_schema_version >= '1.5':
-                entry['displayName'] = entry['norEduPersonLegalName'] = \
-                                       entry['cn']
+                entry['displayName'] = entry['norEduPersonLegalName'] = entry['cn']
             entry['eduPersonPrincipalName'] = (uname[0] + self.eduPPN_domain,)
             entry['norEduPersonNIN'] = (str(fnr),)
-            birth_date = self.birth_dates.get(person_id)
+
             if birth_date:
                 entry['norEduPersonBirthDate'] = ("%04d%02d%02d" % (
                     birth_date.year, birth_date.month, birth_date.day),)
+        elif self.FEIDE_schema_version >= '1.5.1':
+            entry['objectClass'].append('norEduPerson')
+            entry['displayName'] = entry['norEduPersonLegalName'] = entry['cn']
+            entry['eduPersonPrincipalName'] = (uname[0] + self.eduPPN_domain,)
 
-# arch-tag: f895ee98-7185-40df-83bb-96aa506d8b21
+            if fnr:
+                entry['norEduPersonNIN'] = (str(fnr),)
+
+            if birth_date:
+                entry['norEduPersonBirthDate'] = ("%04d%02d%02d" % (
+                    birth_date.year, birth_date.month, birth_date.day),)

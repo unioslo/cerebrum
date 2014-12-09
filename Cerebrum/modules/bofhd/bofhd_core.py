@@ -639,15 +639,21 @@ class BofhdCommonMethods(BofhdCommandBase):
         spreads as defined in L{cereconf.BOFHD_NEW_GROUP_SPREADS}.
 
         """
-        self.ba.can_create_group(operator.get_entity_id())
+        self.ba.can_create_group(operator.get_entity_id(),
+                                 groupname=groupname)
         g = self.Group_class(self.db)
+
+        # Check if group name is already in use, raise error if so
+        duplicate_test = g.search(name=groupname, filter_expired=False)
+        if len(duplicate_test) > 0:
+            raise CerebrumError("Group name is already in use")
+
         g.populate(creator_id=operator.get_entity_id(),
                    visibility=self.const.group_visibility_all,
                    name=groupname, description=description)
-        try:
-            g.write_db()
-        except self.db.DatabaseError, m:
-            raise CerebrumError("Database error: %s" % m)
+
+        g.write_db()
+
         for spread in cereconf.BOFHD_NEW_GROUP_SPREADS:
             g.add_spread(self.const.Spread(spread))
             g.write_db()
@@ -724,10 +730,13 @@ class BofhdCommonMethods(BofhdCommandBase):
         # validate contact info type
         contact_type_code = co.human2constant(contact_type, co.ContactInfo)
         if not contact_type_code:
-            raise CerebrumError('Invalid contact info type "%s", try one of %s' % (
-                contact_info_type, 
-                ", ".join(str(x) for x in co.fetch_constants(co.ContactInfo))
-            ))
+            # let's try the code in uppercase
+            contact_type_code = co.human2constant(contact_type.upper(), co.ContactInfo)
+            if not contact_type_code:
+                raise CerebrumError('Invalid contact info type "%s", try one of %s' % (
+                    contact_type, 
+                    ", ".join(str(x) for x in co.fetch_constants(co.ContactInfo))
+                ))
 
         # check permissions
         self.ba.can_add_contact_info(operator.get_entity_id(),
@@ -749,7 +758,7 @@ class BofhdCommonMethods(BofhdCommandBase):
                                 co.contact_phone_private,
                                 co.contact_mobile_phone,
                                 co.contact_private_mobile):
-            # match an 8-digit phone number
+            # allows digits and a prefixed '+'
             if not re.match(r"^\+?\d+$", contact_value):
                 raise CerebrumError("Invalid phone number: %s. The number can contain only digits with possible '+' for prefix."
                     % contact_value)
@@ -818,10 +827,13 @@ class BofhdCommonMethods(BofhdCommandBase):
         # check that the specified contact info type exists
         contact_type_code = co.human2constant(contact_type, co.ContactInfo)
         if not contact_type_code:
-            raise CerebrumError('Invalid contact info type "%s", try one of %s' % (
-                contact_type, 
-                ", ".join(str(x) for x in co.fetch_constants(co.ContactInfo))
-            ))
+            # let's try the code in uppercase
+            contact_type_code = co.human2constant(contact_type.upper(), co.ContactInfo)
+            if not contact_type_code:
+                raise CerebrumError('Invalid contact info type "%s", try one of %s' % (
+                    contact_type, 
+                    ", ".join(str(x) for x in co.fetch_constants(co.ContactInfo))
+                ))
 
         # check permissions
         self.ba.can_remove_contact_info(operator.get_entity_id(),

@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
-# 
-# Copyright 2003-2012 University of Oslo, Norway
+#
+# Copyright 2003-2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,11 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-"""
-Site specific auth.py for UiO
-
-"""
+""" Site specific auth.py for UiO. """
 
 import cereconf
 from Cerebrum.Errors import NotFoundError
@@ -38,28 +34,34 @@ class BofhdAuth(auth.BofhdAuth):
     This class only contains special cases for UiO.
     """
 
-    # Temporary owner group is specified in trait_guest_owner trait,
+    # Temporary owner group is specified in trait_uio_guest_owner trait,
     # and members of owner groups should be allowed to change password
     # for their guest users
-
     def _is_guest_owner(self, operator, account):
-        # First check that account is a guest_account
-        owner = account.get_trait(self.const.trait_guest_owner)
-        if not owner or not owner['target_id']:
-            return None
-        # Lets check if operator is the guest account owner
-        if operator == owner['target_id']:
-            return True
+        """ Return if the operator is the owner of *guest* account. """
+        owner_uio = owner_personal = None
 
-        # Let members of temporary owner group for guest accounts set password
-        # Guests can now have other types of owners than groups:
-        grp = Factory.get("Group")(self._db)
-        try:
-            grp.find(owner['target_id'])
-        except NotFoundError:
-            return False
-        return self.is_group_member(operator, grp.group_name)
-    
+        # Personal guest account owner
+        if hasattr(self.const, 'trait_guest_owner'):
+            owner_personal = account.get_trait(
+                getattr(self.const, 'trait_guest_owner'))
+        if owner_personal:
+            if operator == owner_personal['target_id']:
+                return True
+
+        # Old uio guest account owner
+        if hasattr(self.const, 'trait_uio_guest_owner'):
+            owner_uio = account.get_trait(
+                getattr(self.const, 'trait_uio_guest_owner'))
+        if owner_uio:
+            grp = Factory.get("Group")(self._db)
+            try:
+                grp.find(owner_uio['target_id'])
+            except NotFoundError:
+                return False
+            return self.is_group_member(operator, grp.group_name)
+        return False
+
     def can_set_password(self, operator, account=None,
                          query_run_any=False):
         if self.is_superuser(operator):
@@ -69,7 +71,7 @@ class BofhdAuth(auth.BofhdAuth):
         if operator == account.entity_id:
             return True
         if self._no_account_home(operator, account):
-           return True
+            return True
         if self._is_guest_owner(operator, account):
             return True
         return self.is_account_owner(operator, self.const.auth_set_password,

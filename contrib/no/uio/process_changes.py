@@ -133,7 +133,7 @@ class MakeUser(EvtHandler):
                          params['homedir_id'], evt['subject_entity'])
             return True
         acc.find(accid)
-        guest_trait = acc.get_trait(const.trait_guest_owner)
+        guest_trait = acc.get_trait(const.trait_uio_guest_owner)
         if (guest_trait and status == const.home_status_archived and
             not acc.is_expired()):
             logger.debug("Creating fresh home directory for guest %d" % accid)
@@ -330,4 +330,3 @@ def main():
 if __name__ == '__main__':
     main()
 
-# arch-tag: e4f70b5b-763e-485c-9f2e-6d49ccbe320c

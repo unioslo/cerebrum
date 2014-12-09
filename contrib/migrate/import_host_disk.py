@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
-# Copyright 2006 University of Oslo, Norway
+# Copyright 2006, 2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,6 +19,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+""" Register hosts, disks or e-mail servers in Cerebrum from input file. """
+
 import getopt
 import sys
 import string
@@ -31,16 +33,38 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 
-def usage():
+def usage(exitcode=0):
     print """Usage: import_host_disk.py -h hostname -d diskpath
                     import_host_disk.py -f filename
-    -d, --disk         : register a disk in cerebrum
-    -h, --host         : register a host in cerebrum
-    -e, --email-server : register email servers in cerebrum  
-    -f, --file         : parse file and register hosts/disks in cerebrum
-                         [hostname:disk_path\n | hostname]
+
+    Register hosts, disks or e-mail servers in Cerebrum from input file.
+
+    -h, --host HOSTNAME Register a host in Cerebrum with the given hostname.
+    -d, --disk PATH     Register a disk in Cerebrum with the given path.
+    -e, --email-server  Register email servers in Cerebrum. The servers need to
+                        be given through the --file argument.
+    -f, --file FILE     Parse file and register hosts/disks/servers in Cerebrum.
+                        Available line formats::
+
+                            HOSTNAME:DISK_PATH:DESCRIPTION
+
+                            HOSTNAME:DISK_PATH
+
+                            HOSTNAME
+
+                        For email servers the line format is a bit different::
+
+                           SERVER_TYPE:NAME:DESCRIPTION
+
+                        where SERVER_TYPE must exist in Cerebrum, e.g.
+                        'exchange'.
+
+                        Comments could be added with #.
+
+    --dryrun            Do not commit the changes
+    --help              Show this and quit
     """
-    sys.exit(0)
+    sys.exit(exitcode)
 
 def register_host(hname, description="A host"):
     host = Factory.get('Host')(db)
@@ -68,7 +92,7 @@ def register_email_server(email_srv_type, email_srv_name, description):
         logger.error("Unknown email server type: %s. Entry skipped",
                      email_srv_type)
         return
-    
+
     try:
         email_server.find_by_name(email_srv_name)
         email_server.email_server_type=email_srv_type
@@ -78,7 +102,7 @@ def register_email_server(email_srv_type, email_srv_name, description):
             host = Factory.get('Host')(db)
             host.find_by_name(email_srv_name)
             email_server.populate(email_srv_type, parent=host.entity_id)
-        except Errors.NotFoundError:        
+        except Errors.NotFoundError:
             email_server.populate(email_srv_type, name=email_srv_name, description=description)
     try:
         email_server.write_db()
@@ -86,10 +110,10 @@ def register_email_server(email_srv_type, email_srv_name, description):
     except Errors.DatabaseException:
         logger.error("Could not write to the Cerebrum-database")
         sys.exit(3)
-        
+
 def register_disk(host_name, disk_path, description="A disk"):
     disk = Factory.get('Disk')(db)
-    host = Factory.get('Host')(db)            
+    host = Factory.get('Host')(db)
     try:
         host.find_by_name(host_name)
     except Errors.NotFoundError:
@@ -111,17 +135,27 @@ def register_disk(host_name, disk_path, description="A disk"):
         sys.exit(2)
 
 def process_line(infile, emailsvr):
-    stream = open(infile, 'r')        
+    """Parse given file and
+
+    :param str infile: The input file that should contain the hosts.
+
+    :param bool emailsvr:
+        If the hosts from file should be registered as email servers. The input
+        format is a bit different.
+
+    """
+    stream = open(infile, 'r')
     disk = None
     if emailsvr:
         for l in stream:
-            l=l.split("#",1)[0]
-            if not l.strip():
+            l = l.split("#",1)[0]
+            l = l.strip()
+            if not l:
                 continue
-            logger.debug("Next is <%s>", l.strip())
-            server_type, name, description = l.strip().split(":")
+            logger.debug("Next is <%s>", l)
+            server_type, name, description = l.split(":")
             register_email_server(server_type, name, description)
-        return None
+        return
     for l in stream:
         l=l.split("#",1)[0].strip()
         if l=="":
@@ -147,8 +181,8 @@ def process_line(infile, emailsvr):
 
 def main():
     global db, logger, const, emailsrv
-    
-    logger = Factory.get_logger("console")    
+
+    logger = Factory.get_logger("console")
     db = Factory.get("Database")()
     const = Factory.get("Constants")(db)
     db.cl_init(change_program="email_dom")
@@ -158,7 +192,7 @@ def main():
     infile = None
     emailsrv = False
     disk_in = host_in = False
-    
+
     try:
         opts, args = getopt.getopt(sys.argv[1:],
                                    'f:h:d:e',
@@ -166,9 +200,11 @@ def main():
                                     'disk=',
                                     'host=',
                                     'email-server',
+                                    'help',
                                     'dryrun'])
-    except getopt.GetoptError:
-        usage()
+    except getopt.GetoptError, e:
+        print e
+        usage(1)
 
     dryrun = False
     for opt, val in opts:
@@ -187,9 +223,12 @@ def main():
             emailsrv = True
         elif opt in ('--dryrun',):
             dryrun = True
-            
+        elif opt in ('--help',):
+            usage()
+
     if not (host_in or disk_in) and infile == None:
-        usage()
+        print "Missing input file and/or -d or -h"
+        usage(1)
 
     if infile and (host_in or disk_in):
         logger.error('Cannot use both -h and -f options.')
@@ -197,12 +236,12 @@ def main():
 
     if emailsrv and infile == None:
         logger.error('You may only register email servers from file')
-        usage()
-        
+        usage(1)
+
     if infile:
         process_line(infile, emailsrv)
 
-    if host_in: 
+    if host_in:
         register_host(host_name)
 
     if disk_in:	

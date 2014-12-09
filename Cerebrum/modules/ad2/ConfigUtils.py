@@ -105,10 +105,11 @@ class AttrConfig(object):
 
             Use these through regular substition, e.g. "`%(ad_id)s`".
 
-            Also note that default values will also be using the L{transform}
-            function for its data, so if you set up a config with special
-            elements like dicts, you need to feed the default value with the
-            same format.
+            Also note that default values will also be passed through the
+            L{transform} function, if defined. If you set up a config with
+            special elements, like dicts, you need to feed the default value
+            with the same format to avoid type conflicts when transforming the
+            values.
 
             Note that L{default} is NOT set if the given criterias is not
             matched for the entity. L{default} is only used if the criterias are
