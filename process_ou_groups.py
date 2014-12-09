@@ -77,6 +77,11 @@ member_type_mappings = {'VITENSKAPELIG': [int(co.affiliation_tilknyttet_fagperso
                         'STUDENT':[int(co.affiliation_status_student_aktiv),],
                         'DRGRAD': [int(co.affiliation_status_student_drgrad),]}
 
+def ou_name(ou):
+    return ou.get_name_with_language(name_variant=co.ou_name,
+                                     name_language=co.language_nb,
+                                     default="")
+# end ou_name
 
 def process_ou_groups(ou, perspective):
     """Recursive function that will create groups and add spreads and members to them."""
@@ -85,29 +90,29 @@ def process_ou_groups(ou, perspective):
            db, default_logger, default_group_visibility, default_creator, default_spread, \
            group_type_id, default_memberop, account_type_id, description_group_dict
 
-    logger.info("Now processing OU %s (%s)" % (ou.ou_id, ou.name))
+    logger.info("Now processing OU %s (%s)" % (ou.entity_id, ou_name(ou)))
 
     gr = PosixGroup.PosixGroup(db)
     aux_gr = PosixGroup.PosixGroup(db)
 
-    if not group_dict.has_key(ou.ou_id):
+    if not group_dict.has_key(ou.entity_id):
         logger.info("Create PosixGroup and give spread")
         # create group and give spread
-        gr_name = ou.name + ' (' + stedkode_dict[ou.ou_id] + ')'
+        gr_name = ou_name(ou) + ' (' + stedkode_dict[ou.entity_id] + ')'
         gr.populate(creator_id = default_creator,
                visibility = default_group_visibility,
                name = gr_name,
-               description = 'ou_group:'+stedkode_dict[ou.ou_id])
+               description = 'ou_group:'+stedkode_dict[ou.entity_id])
         gr.write_db()
         #gr.add_spread(default_spread) #SPREAD DISABLED UNTIL AD IS READY. RMI000 - 20080207
         current_group = gr.entity_id
-        group_dict[ou.ou_id] = current_group
+        group_dict[ou.entity_id] = current_group
         group_description_dict[current_group] = gr.description
         description_group_dict[gr.description] = current_group
     else:
         # remove from delete dict
         logger.info("PosixGroup already exists")
-        current_group = group_dict[ou.ou_id]
+        current_group = group_dict[ou.entity_id]
         group_delete_list.remove(current_group)
    
     # if loaded ou has parent ou
@@ -134,11 +139,11 @@ def process_ou_groups(ou, perspective):
             
 
     # for each affiliated person on loaded ou
-    if not ou_affiliates_dict.has_key(ou.ou_id):
+    if not ou_affiliates_dict.has_key(ou.entity_id):
         logger.info("No affiliates on current OU")
     else:
         logger.info("Cycling affiliates of current OU")
-        for affiliate in ou_affiliates_dict[ou.ou_id]:
+        for affiliate in ou_affiliates_dict[ou.entity_id]:
             # if person and its affiliation does not exist on group corresponding to loaded ou, add membership*
         
             if not members_dict.has_key(current_group):
@@ -158,11 +163,11 @@ def process_ou_groups(ou, perspective):
                 # Create container group
                 if not container_exists:
                     gr.clear()
-                    gr_name = ou.name + ' (' + stedkode_dict[ou.ou_id] + ')' + ' - ' + affiliate[1]
+                    gr_name = ou_name(ou) + ' (' + stedkode_dict[ou.entity_id] + ')' + ' - ' + affiliate[1]
                     gr.populate(creator_id = default_creator,
                            visibility = default_group_visibility,
                            name = gr_name,
-                           description = 'ou_group:'+stedkode_dict[ou.ou_id]+':'+affiliate[1])
+                           description = 'ou_group:'+stedkode_dict[ou.entity_id]+':'+affiliate[1])
                     gr.write_db()
                     #gr.add_spread(default_spread) # SPREAD DISABLED UNTIL AD IS READY. RMI000 - 20080207
                     aux_gr.clear()
@@ -171,7 +176,7 @@ def process_ou_groups(ou, perspective):
                     members_dict[current_group].append((gr.entity_id, None))
                 else:
                     gr.clear()
-                    gr.find(description_group_dict['ou_group:'+stedkode_dict[ou.ou_id]+':'+affiliate[1]])
+                    gr.find(description_group_dict['ou_group:'+stedkode_dict[ou.entity_id]+':'+affiliate[1]])
                 
                 gr.add_member(affiliate[0])
                 
@@ -443,7 +448,7 @@ def main():
     ou.find(default_start_ou)
 
     # Enter recursive function to process groups
-    logger.info("Starting to process groups, first out is: %s" % ou.name)
+    logger.info("Starting to process groups, first out is: %s" % ou_name(ou))
     process_ou_groups(ou = ou, perspective = perspective)
     logger.info("Finished processing groups")
 
