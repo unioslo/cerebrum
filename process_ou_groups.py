@@ -42,7 +42,6 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixGroup
 from Cerebrum.Constants import Constants
 from Cerebrum import Entity
-from Cerebrum.modules.no.uit.Stedkode import StedkodeMixin
 
 logger = db = None
 group_dict = members_dict = ou_affiliates_dict = group_description_dict = stedkode_dict = description_group_dict = {}
@@ -287,7 +286,6 @@ def main():
             dryrun = 1
 
     ou = Factory.get('OU')(db)
-    sko_mixin = StedkodeMixin(db)
     gr = PosixGroup.PosixGroup(db)
 
     # Load default constant values
@@ -306,7 +304,7 @@ def main():
     group_dict = {}
     group_description_dict = {}
     group_delete_list = []
-    stedkoder = sko_mixin.get_stedkoder(expired_before = '19680328') # No OU can be expired before UiT's birthday!
+    stedkoder = ou.get_stedkoder(expired_before = '19680328') # No OU can be expired before UiT's birthday!
     groups = gr.search(description = 'ou_group:*')
 
     for stedkode in stedkoder:
