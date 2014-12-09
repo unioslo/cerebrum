@@ -471,7 +471,7 @@ class OUTSDMixin(OU, EntityTrait):
 
         # TODO: Find a better way for mapping between project ID and VLAN:
         intpid = self.get_project_int()
-        subnetstart, subnet6start = self._get_subnet_by_project_id(project_id=intpid)
+        subnetstart, subnet6start = self._get_subnets_by_project_id(project_id=intpid)
 
         # The Subnet module should in populate/write_db know if the subnet
         # already exists and handle that, but we need to fix this manually here
@@ -509,8 +509,8 @@ class OUTSDMixin(OU, EntityTrait):
 
         # TODO: Reserve 10 PTR addresses in the start of the subnet!
 
-    def _get_subnet_by_project_id(project_id):
-        """Calculate which IPv4 and IPv6 subnet should be assigned to a project.
+    def _get_subnets_by_project_id(self, project_id):
+        """Calculate which IPv4 and IPv6 subnets should be assigned to a project.
 
         :param int project_id:
             The entity ID of the project.
@@ -518,11 +518,16 @@ class OUTSDMixin(OU, EntityTrait):
         :rtype: tuple of strings
         :return: The (ipv4, ipv6) subnet.
         """
+        # This algorithm will only work until we hit project number 32768, at that
+        # point the subnets will be invalid, like: 10.256.0.0/24
         if project_id > 32767:
             raise Errors.CerebrumError('Project ID cannot be higher than 32767')
 
+        # we start at 10.128.0.0/24 for project_id=0
         n = 32768 + project_id
+        # second octet
         nh = n / 256
+        # third octet
         nl = n % 256
 
         return (cereconf.SUBNET_START % (nh, nl),
@@ -595,7 +600,7 @@ class OUTSDMixin(OU, EntityTrait):
         arecord = dns.ARecord.ARecord(self._db)
 
         intpid = self.get_project_int()
-        subnetstart, subnet6start = self._get_subnet_by_project_id(project_id=intpid)
+        subnetstart, subnet6start = self._get_subnets_by_project_id(project_id=intpid)
 
         try:
             dns_owner.find_by_name(hostname)
