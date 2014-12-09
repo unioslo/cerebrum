@@ -498,7 +498,7 @@ class OUTSDMixin(OU, EntityTrait):
         else:
             if subnet6.entity_id not in my_subnets:
                 raise Exception("Subnet %s exists, but does not belong to %s" %
-                                (subnetstart, projectid))
+                                (subnet6start, projectid))
         subnet6.write_db()
         etrait.clear()
         etrait.find(subnet6.entity_id)
