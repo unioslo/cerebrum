@@ -34,6 +34,7 @@ from mx import DateTime
 import cerebrum_path
 import cereconf
 from Cerebrum import Errors
+from Cerebrum.Database import DatabaseError
 from Cerebrum.OU import OU
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import dns
@@ -207,21 +208,19 @@ class OUTSDMixin(OU, EntityTrait):
                                                    name)
 
     def get_next_free_project_id(self):
-        """Return the next project ID that is not in use.
-
-        The proper way to do this would be to create a db sequence, but this
-        goes only from p01 to p99. After this, we need to find a new sequence
-        to use, e.g. q01 to q99. Not the best algorithm, but it is due to the
-        number of available VLANs, which are only at 99.
-
-        """
-        all_ids = set(r['external_id'] for r in
-                      self.list_external_ids(id_type=self.const.externalid_project_id))
-        for i in xrange(0, 99):
-            pid = 'p%02d' % i
-            if pid not in all_ids:
-                return pid
-        raise Errors.CerebrumError('No more available project IDs!')
+        """Return the next project ID that is not in use."""
+        while True:
+            try:
+                candidate = 'p%02d' % self.nextval('tsd_project_id_seq')
+            except DatabaseError:
+                # Raised by tsd_project_id_seq
+                raise Errors.CerebrumError('No more available project IDs!')
+            # The next test seems silly, but the sequence object is new compared to
+            # TSD. It doesn't do much extra to have this test + loop, and it is
+            # a simple method to sync tsd_project_id_seq with old project ids.
+            if not list(self.list_external_ids(id_type=self.const.externalid_project_id,
+                        external_id=candidate)):
+                return candidate
 
     def populate_external_id(self, source_system, id_type, external_id):
         """Subclass to avoid changing the project IDs and reuse them."""
