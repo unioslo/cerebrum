@@ -525,12 +525,11 @@ class OUTSDMixin(OU, EntityTrait):
 
         # we start at 10.128.0.0/24 for project_id=0
         n = 32768 + project_id
-        # second octet
-        nh = n / 256
-        # third octet
-        nl = n % 256
 
-        return (cereconf.SUBNET_START % (nh, nl),
+        # second octet, third octet
+        quotient, remainder = divmod(n, 256)
+
+        return (cereconf.SUBNET_START % (quotient, remainder),
                 cereconf.SUBNET_START_6 % hex(n)[2:])
 
     def _setup_project_hosts(self, creator_id):
