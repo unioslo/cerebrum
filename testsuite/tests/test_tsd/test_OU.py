@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 #
-""" Tests for TSD's OU mixin - Cerebrum/modules/tsd/OU.py.
+"""Tests for TSD's OU mixin - Cerebrum/modules/tsd/OU.py.
 
 Each TSD project is represented by an OU.
-
 """
 
 import unittest2 as unittest
@@ -16,11 +15,10 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import dns
-from Cerebrum.modules.EntityTrait import EntityTrait
 
 from datasource import BasicAccountSource, BasicPersonSource
 from dbtools import DatabaseTools
-from datasource import expired_filter, nonexpired_filter
+
 
 class TSDOUTest(unittest.TestCase):
 
@@ -36,7 +34,6 @@ class TSDOUTest(unittest.TestCase):
         *once* before running any of the tests within this class.
 
         """
-
         # TODO: We might want this basic class setup in other TestCases. Maybe
         #       set up a generic TestCase class to inherit common stuff from?
         cls._db = Factory.get('Database')()
@@ -67,9 +64,9 @@ class TSDOUTest(unittest.TestCase):
         cls.db_tools.clear_ous()
         cls._db.rollback()
 
-class SimpleOUTests(TSDOUTest):
 
-    """ Test case for simple scenarios. """
+class SimpleOUTests(TSDOUTest):
+    """Test case for simple scenarios."""
 
     def setUp(self):
         # Save the previous values from cereconf, to add them back in when done:
@@ -117,14 +114,13 @@ class SimpleOUTests(TSDOUTest):
                                 strval='win_and_linux_vm')
         # Add quarantine:
         self._ou.add_entity_quarantine(
-                type=self._co.quarantine_not_approved,
-                creator=self.db_tools.get_initial_account_id(),
-                description='Project not approved yet',
-                start=DateTime.now())
+            type=self._co.quarantine_not_approved,
+            creator=self.db_tools.get_initial_account_id(),
+            description='Project not approved yet',
+            start=DateTime.now())
         self._ou.write_db()
         self._ou.setup_project(self.db_tools.get_initial_account_id())
         # TODO: Check that nothing has been setup!
-
 
     def setup_project(self, name, vlan=None):
         """Helper for standard setup of a project.
@@ -170,11 +166,12 @@ class SimpleOUTests(TSDOUTest):
 
         # No accounts:
         self.assertEqual(0, len(self._ac.list_accounts_by_type(
-                                    ou_id=eid, filter_expired=False)))
+            ou_id=eid,
+            filter_expired=False)))
         # No groups:
         self.assertEqual(0, len(self._gr.list_traits(
-                                  code=self._co.trait_project_group,
-                                  target_id=eid)))
+            code=self._co.trait_project_group,
+            target_id=eid)))
         # TODO: No persons should be affiliated to it anymore
         # TODO: No subnets
         # TODO: No hosts
@@ -216,8 +213,8 @@ class SimpleOUTests(TSDOUTest):
     def test_new_project_reuse_vlan(self):
         """Two projects could share the same VLAN."""
         cereconf.VLAN_RANGES = ((100, 110),)
-        subnet = dns.Subnet.Subnet(self._db)
-        subnet6 = dns.IPv6Subnet.IPv6Subnet(self._db)
+        #subnet = dns.Subnet.Subnet(self._db)
+        #subnet6 = dns.IPv6Subnet.IPv6Subnet(self._db)
 
         self.setup_project('reuse1', vlan=105)
         # This should not fail:
