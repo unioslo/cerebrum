@@ -153,6 +153,33 @@ class SimpleOUTests(TSDOUTest):
                 vlans.add(subnet6.vlan_number)
         return vlans
 
+    def test_calculate_subnets_for_project():
+        """Subnets for projects with ID 0-32767 should be automatically generated."""
+        cereconf.SUBNET_START = '10.%d.%d.0/24'
+        cereconf.SUBNET_START_6 = '2001:700:111:%s::/64'
+
+        # project_id=0
+        self.assertEqual(
+            ('10.128.0.0/24', '2001:700:111:8000::/64'),
+            self._ou._get_subnets_by_project_id(0))
+
+        # project_id=3000
+        self.assertEqual(
+            ('10.139.184.0/24', '2001:700:111:8bb8::/64'),
+            self._ou._get_subnets_by_project_id(3000))
+
+        # project_id=32767
+        self.assertEqual(
+            ('10.255.255.0/24', '2001:700:111:ffff::/64'),
+            self._ou._get_subnets_by_project_id(32767))
+
+    def test_calculate_subnets_for_project_out_of_range():
+        """Generating a subnet for a project with ID > 32767 should fail."""
+        # project_id=100000
+        self.assertRaises(
+            Errors.CerebrumError,
+            self._ou._get_subnets_by_project_id(100000))
+
     @unittest.skip
     def test_project_termination(self):
         """Terminated projects should remove its attributes."""
