@@ -251,12 +251,17 @@ def write_ldif():
 
             if et == co.entity_group:
                 try:
-                    addrs = ldap.read_multi_target(ei)
+                    addrs, missing = ldap.read_multi_target(ei, ignore_missing=True)
                 except ValueError, e:
                     logger.warn("Target id=%s (type %s): %s", t, tt, e)
                     continue
                 for addr in addrs:
                     rest += "forwardDestination: %s\n" % addr
+                for addr in missing:
+                    logger.warn("Target id=%s (type %s): "
+                                "Multitarget group id %s: "
+                                "account %s has no primary address",
+                                t, tt, ei, addr)
             else:
                 # A 'multi' target with no forwarding; seems odd.
                 logger.warn("Target id=%s (type %s) no forwarding found", t, tt)
