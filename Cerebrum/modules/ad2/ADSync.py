@@ -1625,7 +1625,7 @@ class BaseSync(object):
 
         """
         dn = ad_object['DistinguishedName']
-        self.logger.debug4("Trying to move %s to %s", dn, ou)
+        self.logger.debug3("Trying to move %s to %s", dn, ou)
         if ou == dn.split(',', 1)[1]:
             # Already in the correct location
             return

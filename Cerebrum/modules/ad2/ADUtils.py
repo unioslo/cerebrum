@@ -372,6 +372,8 @@ class ADclient(PowershellClient):
                         'ad_pasw': self.escape_to_string(self.ad_account_password)}
         #for a in args:
         #    print a
+        self.logger.debug4(u'Executing powershell command: %s',
+                           u' '.join(args).replace('\n', ' '))
         return super(ADclient, self).execute(setup, *args, **kwargs)
 
     # Standard lines in powershell that we can't get rid of by powershell code.
@@ -788,6 +790,7 @@ class ADclient(PowershellClient):
         self.logger.info("Moving %s to OU: %s", ad_id, ou)
         cmd = self._generate_ad_command('Move-ADObject', {'Identity': ad_id,
                                                           'TargetPath': ou})
+        self.logger.debug3("Move command: %s", cmd)
         if self.dryrun:
             return True
         out = self.run(cmd)
