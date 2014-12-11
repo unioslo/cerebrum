@@ -439,36 +439,20 @@ def get_data(spread):
         logger.debug("  done in %d sec." % (now() - curr))
         logger.debug("Total time: %d" % (now() - start))
 
-
 def main():
     global verbose, f, db, co, ldap, auth
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], "vm:s:iha",
-                                   ("verbose", "mail-file=", "spread=",
-                                    "ignore-size", "help", "no-auth-data"))
-    except getopt.GetoptError, e:
-        usage(str(e))
-    if args:
-        usage("Invalid arguments: " + " ".join(args))
 
-    verbose = 0
-    mail_file = None
-    spread = ldapconf('MAIL', 'spread', None)
-    max_change = None
-    auth = True
-    for opt, val in opts:
-        if opt in ("-v", "--verbose"):
-            verbose += 1
-        elif opt in ("-m", "--mail-file"):
-            mail_file = val
-        elif opt in ("-s", "--spread"):
-            spread = val
-        elif opt in ("-i", "--ignore-size"):
-            max_change = 100
-        elif opt in ("-h", "--help"):
-            usage()
-        elif opt in ("-a", "--no-auth-data"):
-            auth = False
+    import Cerebrum.extlib.argparse as argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-v', "--verbose", action="count", default=0)
+    parser.add_argument('-m', "--mail-file")
+    parser.add_argument('-s', "--spread", default=ldapconf('MAIL', 'spread', None))
+    parser.add_argument('-i', "--ignore-size", dest="max_change", action="store_const", const=100)
+    parser.add_argument('-a', "--no-auth-data", dest="auth", action="store_false", default=True)
+    args = parser.parse_args()
+
+    verbose = args.verbose
+    auth = args.auth
 
     db = Factory.get('Database')()
     co = Factory.get('Constants')(db)
@@ -477,23 +461,13 @@ def main():
         logger.debug("Loading the EmailLDAP module...")
     ldap = Factory.get('EmailLDAP')(db)
 
+    spread = args.spread
     if spread is not None:
         spread = map_spreads(spread, int)
 
-    f = ldif_outfile('MAIL', mail_file, max_change=max_change)
+    f = ldif_outfile('MAIL', args.mail_file, max_change=args.max_change)
     get_data(spread)
     end_ldif_outfile('MAIL', f)
-# end main
-
-
-def usage(err=0):
-    if err:
-        logger.error("%s", err)
-
-    logger.error(__doc__)
-    sys.exit(bool(err))
-# end usage
-
 
 if __name__ == '__main__':
     main()
