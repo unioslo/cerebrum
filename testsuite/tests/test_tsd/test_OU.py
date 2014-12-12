@@ -178,7 +178,7 @@ class SimpleOUTests(TSDOUTest):
         # project_id=100000
         self.assertRaises(
             Errors.CerebrumError,
-            self._ou._get_subnets_by_project_id(100000))
+            self._ou._get_subnets_by_project_id, 100000)
 
     @unittest.skip
     def test_project_termination(self):
