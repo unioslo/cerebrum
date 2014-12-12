@@ -107,6 +107,11 @@ class SimpleOUTests(TSDOUTest):
         # TODO: Check for host, groups, etc
         #self.assertTrue(
 
+    def test_setup_101_projects(self):
+        """With new logic for more than 100 projects, setup 101"""
+        for i in range(101):
+            self.setup_project("seq%s" % i)
+
     @unittest.skip
     def test_quarantined_project(self):
         """Quarantined projects should not be set up."""
