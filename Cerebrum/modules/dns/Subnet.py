@@ -447,16 +447,23 @@ class Subnet(Entity):
         binds = {}
 
         if identifier is None:
-            raise SubnetError("Unable to find subnet identified by '%s'" % identifier)
-            
+            raise SubnetError("Unable to find IPv4 subnet identified by '%s'" % identifier)
+
+        if identifier.find(':') >= 2:
+            # This is probably an IPv6 subnet
+            raise SubnetError("Unable to find IPv4 subnet identified by '%s'" % identifier)
+
         if isinstance(identifier, (int, long)):
             # The proper way of running find()
             where_param = "entity_id = :e_id"
             binds['e_id'] = identifier
-        elif identifier.find(':') > 0:
-            # E.g. 'id:X' or 'entity_id:X'; we don't really care which
+        elif identifier.startswith('id:') or identifier.startswith('entity_id:'):
+            # E.g. 'id:X' or 'entity_id:X';
             where_param = "entity_id = :e_id"
-            binds['e_id'] = int(identifier.split(':')[1])
+            try:
+                binds['e_id'] = int(identifier.split(':')[1])
+            except ValueError:
+                raise SubnetError("Entity ID must be an integer")
         elif identifier.find('/') > 0:
             # A '/' indicates a subnet spec: just need the ip
             where_param = "subnet_ip = :subnet_ip"
@@ -484,7 +491,7 @@ class Subnet(Entity):
             self.calculate_reserved_addresses()
             
         except NotFoundError, nfe:
-            raise SubnetError("Unable to find subnet identified by '%s'" % identifier)
+            raise SubnetError("Unable to find IPv4 subnet identified by '%s'" % identifier)
 
         self.__in_db = True
         self.__updated = []
