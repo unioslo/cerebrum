@@ -95,4 +95,4 @@ VLAN_RANGES = ((100, 200), (400, 600), (1800, 1810),)
 # Default subnet prefix and mask used for new projects
 SUBNET_START = '10.%d.%d.0/24'
 # Default subnet prefix for IPv6:
-SUBNET_START_6 = '1:2:3:%s::/64'
+SUBNET_START_6 = 'fd00:code:cafe:%s::/64'

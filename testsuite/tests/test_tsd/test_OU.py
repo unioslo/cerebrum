@@ -157,17 +157,17 @@ class SimpleOUTests(TSDOUTest):
         """Subnets for projects with ID 0-32767 should be automatically generated."""
         # project_id=0
         self.assertEqual(
-            ('10.128.0.0/24', '1:2:3:8000::/64'),
+            ('10.128.0.0/24', 'fd00:code:cafe:8000::/64'),
             self._ou._get_subnets_by_project_id(0))
 
         # project_id=3000
         self.assertEqual(
-            ('10.139.184.0/24', '1:2:3:8bb8::/64'),
+            ('10.139.184.0/24', 'fd00:code:cafe:8bb8::/64'),
             self._ou._get_subnets_by_project_id(3000))
 
         # project_id=32767
         self.assertEqual(
-            ('10.255.255.0/24', '1:2:3:ffff::/64'),
+            ('10.255.255.0/24', 'fd00:code:cafe:ffff::/64'),
             self._ou._get_subnets_by_project_id(32767))
 
     def test_calculate_subnets_for_project_out_of_range(self):
