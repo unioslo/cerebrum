@@ -91,8 +91,8 @@ OTP_MAPPING_TYPES = {'smartphone_yes': 'totp',
 
 # The available range of VLANs:
 VLAN_RANGES = ((100, 200), (400, 600), (1800, 1810),)
-# Default subnet prefix and mask used for new projects. '%d' gets swapped out
-# with the project ID:
-SUBNET_START = '192.168.%d.0/24'
+
+# Default subnet prefix and mask used for new projects
+SUBNET_START = '10.%d.%d.0/24'
 # Default subnet prefix for IPv6:
-SUBNET_START_6 = '1:2:3:%d::/64'
+SUBNET_START_6 = 'fd00:c0de:cafe:%s::/64'
