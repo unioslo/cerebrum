@@ -106,8 +106,9 @@ class SimpleOUTests(TSDOUTest):
 
     def test_setup_101_projects(self):
         """With new logic for more than 100 projects, setup 101"""
+        vlan = self._ou.get_next_free_vlan()
         for i in range(101):
-            self.setup_project("seq%s" % i)
+            self.setup_project("seq%s" % i, vlan)
 
     @unittest.skip
     def test_quarantined_project(self):
