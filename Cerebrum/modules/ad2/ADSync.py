@@ -1423,7 +1423,7 @@ class BaseSync(object):
             # It exists in AD, but is probably somewhere out of our search_base.
             # Will try to get it, so we could still update it, and maybe even
             # move it to the correct OU.
-            self.logger.info("Entity already exists: %s", ent.entity_name)
+            self.logger.debug("Entity already exists: %s", ent.entity_name)
             ent.in_ad = True
             attrs = self.config['attributes'].copy()
             if self.config['store_sid'] and 'SID' not in attrs:
@@ -1443,6 +1443,8 @@ class BaseSync(object):
             if len(objects) == 1:
                 # Found only one object, and it is most likely the one we need
                 obj = objects[0]
+                self.logger.debug("Found entity %s (%s)", ent.entity_name,
+                                  obj['DistinguishedName'])
             elif len(objects) == 0:
                 # Strange, we can't find the object though AD says it exists!
                 self.logger.error("Cannot find %s, though AD says it exists"
@@ -1623,6 +1625,7 @@ class BaseSync(object):
 
         """
         dn = ad_object['DistinguishedName']
+        self.logger.debug3("Trying to move %s to %s", dn, ou)
         if ou == dn.split(',', 1)[1]:
             # Already in the correct location
             return
