@@ -113,6 +113,8 @@ class EphorteConstants(ConstantsBase):
         'STUD UIO', 'Studentarkiv ved Universitetet i Oslo')
     ephorte_arkivdel_studav_uio = _EphorteArkivdelCode(
         'STUDAV UIO', 'Avsluttede studentmapper ved UiO')
+    ephorte_arkivdel_sak_fsat = _EphorteArkivdelCode(
+        'SAK FSAT', 'Saksarkiv ved Felles studieadministrativt tjenestesenter')
 
     # Values from the ePhorte table JOURNENHET
     ephorte_journenhet_uio = _EphorteJournalenhetCode(
@@ -123,6 +125,8 @@ class EphorteConstants(ConstantsBase):
         'J-NIKK', 'Journalenhet for NIKK - Nordisk institutt for kvinne- og kjønnsforskn')
     ephorte_journenhet_romani = _EphorteJournalenhetCode(
         'J-ROMANI', 'Journalenhet for ROMANI - prosjektet')
+    ephorte_journenhet_fsat = _EphorteJournalenhetCode(
+        'J-FSAT', 'Journalenhet for FSAT - Felles studieadministrativt tjenestesenter')
 
     # Spreads relevant for ephorte
     spread_ephorte_person = _SpreadCode('ePhorte_person',
