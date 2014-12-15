@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013 University of Oslo, Norway
+# Copyright 2013, 2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -28,32 +28,32 @@ that way. An example is quarantines that gets activated or deactivated.
 
 """
 
-import sys
-import os
-import getopt
-from mx import DateTime
-
 import cerebrum_path
 import cereconf
 
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 from Cerebrum.modules.dns.Errors import SubnetError
-# Parts of the DNS module raises bofhd exceptions. Need to handle this:
-from Cerebrum.modules.bofhd.errors import CerebrumError as BofhdCerebrumError
-from Cerebrum.modules import dns 
 
+# Parts of the DNS module raises bofhd exceptions. Need to handle this:
+from Cerebrum.modules import dns
 from Cerebrum.modules.tsd import Gateway
 
+# Global logger
 logger = Factory.get_logger('cronjob')
 
-def usage(exitcode=0):
-    print """
-    %(doc)s 
-    
-    Usage: %(file)s TODO
 
-    TODO
+def print_config():
+    """ Print cerebrum_path and cereconf. """
+    # Mostly to get rid of linter errors
+    print 'cererbum_path:', cerebrum_path
+    print 'cereconf:', cereconf
+
+
+def usage(name, exitcode=0):
+    print """%(doc)s
+
+    Usage: %(file)s [--url URL] [-d|--dryrun] [--mock] [-h|--help]
 
     --url URL           The full URL to the Gateway.
                         Example: https://gw.tsd.uio.no:1234/RPC
@@ -70,21 +70,26 @@ def usage(exitcode=0):
     -h --help           Show this and quit.
 
     """ % {'doc': __doc__,
-           'file': os.path.basename(sys.argv[0])}
-    sys.exit(exitcode)
+           'file': name}
+    raise SystemExit(exitcode)
 
-class Project(object):
-    """Container of a project and its data.
 
-    This is to ease the comparement of projects with the Gateway.
+# Structure used to compare projects in Cerbrum and Gateway.
+# TODO: Not used yet
+#
+#   class Project(object):
+#
+#       """Container of a project and its data.
+#
+#       This is to ease the comparement of projects with the Gateway.
+#
+#       """
+#       def __init__(self, entity_id):
+#           self.entity_id = entity_id
 
-    """
-    def __init__(self, entity_id):
-        self.entity_id = entity_id
-        #self.pid = TODO # ?
-        # TODO: add more data
 
 class Processor:
+
     """The processor class, doing the sync with the gateway."""
 
     def __init__(self, gw, dryrun):
@@ -101,90 +106,90 @@ class Processor:
         self.subnet6 = dns.IPv6Subnet.IPv6Subnet(self.db)
         self.subnet = dns.Subnet.Subnet(self.db)
 
+        if self.dryrun:
+            logger.info("Dryrun sync, no gateway changes will be performed")
+
         # Map account_id to account_name:
-        self.acid2acname = dict((row['account_id'], row['name']) for row in
-                                self.ac.search(spread=self.co.spread_gateway_account))
-        logger.debug2("Found %d accounts" % len(self.acid2acname))
+        self.acid2acname = dict(
+            (row['account_id'], row['name']) for row in
+            self.ac.search(spread=self.co.spread_gateway_account))
+        logger.debug2("Found %d accounts", len(self.acid2acname))
+
+        # Quarantined OUs (ou_id)
+        self.quarantined_ous = set(r['entity_id'] for r in
+                                   self.ou.list_entity_quarantines(
+                                       entity_types=self.co.entity_ou,
+                                       only_active=True))
+        logger.debug2("Found %d quarantined projects",
+                      len(self.quarantined_ous))
+
         # Map ou_id to project id:
-        quarantined_ous = set(r['entity_id'] for r in
-                              self.ou.list_entity_quarantines(
-                                        entity_types=self.co.entity_ou,
-                                        only_active=True))
         self.ouid2pid = dict((row['entity_id'], row['external_id']) for row in
                              self.ou.search_external_ids(
-                                entity_type=self.co.entity_ou,
-                                id_type=self.co.externalid_project_id)
-                             if row['entity_id'] not in quarantined_ous)
-        logger.debug2("Found %d project IDs" % len(self.ouid2pid))
+                                 entity_type=self.co.entity_ou,
+                                 id_type=self.co.externalid_project_id)
+                             if row['entity_id'] not in self.quarantined_ous)
+        logger.debug2("Found %d project IDs", len(self.ouid2pid))
 
     def process(self):
-        """Go through all projects in Cerebrum and compare them with the Gateway.
+        """ Sync Cerebrum and Gateway.
 
-        If the Gateway contains mismatches, it should be updated.
+        Goes through all data from the Gateway, and compare it with Cerebrum.
+        If the Gateway contains mismatches, it should be updated with master
+        data from Cerebrum.
 
         """
-        gw_data = dict()
-        for key, meth in (('projects', self.gw.list_projects), 
-                          ('users', self.gw.list_users),
-                          ('groups', self.gw.list_groups),
-                          ('hosts', self.gw.list_hosts),
-                          ('ips', self.gw.list_ips),
-                          ('subnets', self.gw.list_subnets),
-                          ('vlans', self.gw.list_vlans)):
-            logger.debug("Getting %s from GW...", key)
-            gw_data[key] = meth()
-            logger.debug("Got %d %s from GW", len(gw_data[key]), key)
-            for d in gw_data[key]:
-                logger.debug3('From GW, %s: %s', key, d)
         logger.info("Start processing projects")
-        self.process_projects(gw_data['projects'])
+        self.process_projects()
         logger.info("Processing projects done")
+
         logger.info("Start processing users")
-        self.process_users(gw_data['users'])
+        self.process_users()
         logger.info("Processing users done")
+
         logger.info("Start processing DNS data")
-        self.process_dns(gw_data['hosts'], gw_data['subnets'], gw_data['vlans'],
-                         gw_data['ips'])
+        self.process_dns()
         logger.info("Processing DNS data done")
+
         logger.info("Start processing groups")
-        self.process_groups(gw_data['groups'])
+        self.process_groups()
         logger.info("Processing groups done")
 
-    def process_projects(self, gw_projects):
-        """Go through and update the projects from the GW.
+    def process_projects(self):
+        """Sync all projects with the GW.
 
-        Since we should not have that many projects, maybe up to a few hundreds,
-        it loops through each OU by find() and clear(). If TSD would grow larger
-        in size, this script might take too long to finish, so we then might
-        have to cache it.
+        NOTE: There's an expensive clear-find loop here that could be optimized
+        by caching.
 
         """
         processed = set()
         # Update existing projects:
-        for proj in gw_projects:
+        for proj in self.gw.list_projects():
             pid = proj['name']
             try:
                 self.process_project(pid, proj)
             except Gateway.GatewayException, e:
                 logger.warn("GatewayException for %s: %s" % (pid, e))
             processed.add(pid)
+
         # Add new OUs:
-        # TODO: A bug in ou.search does not handle filtering on quarantines that
-        # are not active (yet), as they won't get returned even though they
-        # should. This should be fixed in the API, but as it affects quite a few
-        # exports, it requires a bit more effort.
+        # TODO: A bug in ou.search does not handle filtering on quarantines
+        # that are not active (yet), as they won't get returned even though
+        # they should. This should be fixed in the API, but as it affects quite
+        # a few exports, it requires a bit more effort.
         for row in self.ou.search():
             self.ou.clear()
             self.ou.find(row['ou_id'])
             if self.ou.get_entity_quarantine(only_active=True):
+                logger.debug3("Skipping quarantined project with ou_id=%s",
+                              self.ou.entity_id)
                 continue
             try:
                 pid = self.ou.get_project_id()
             except Errors.NotFoundError, e:
                 logger.warn(e)
             if pid in processed:
-                logger.debug4('Skipping already processed project: %s',
-                                   pid)
+                logger.debug4('Skipping already processed project: %s', pid)
                 continue
             logger.debug2('Creating project: %s', pid)
             self.gw.create_project(pid)
@@ -196,15 +201,15 @@ class Processor:
         The information should be retrieved from the gateway, and is then
         matched against what exist in Cerebrum.
 
-        @type pid: string
-        @param pid: The project ID.
+        :param string pid:
+            The project ID.
 
-        @type proj: dict
-        @param proj: Contains the information about a project and all its
-            elements.
+        :param dict proj:
+            Contains the information about a project and all its elements.
 
         """
         logger.debug("Processing project %s: %s", pid, proj)
+
         self.ou.clear()
         try:
             self.ou.find_by_tsd_projectid(pid)
@@ -217,17 +222,17 @@ class Processor:
             return
 
         quars = dict((row['quarantine_type'], row) for row in
-                            self.ou.get_entity_quarantine(only_active=True))
+                     self.ou.get_entity_quarantine(only_active=True))
 
         # TBD: Delete project when put in end quarantine, or wait for the
         # project to have really been removed? Remember that we must not remove
         # the OU completely, to avoid reuse of the project ID and project name,
-        # so we will then never be able to delete it from the GW, unless we find
-        # a way to delete it.
+        # so we will then never be able to delete it from the GW, unless we
+        # find a way to delete it.
 
-        #if self.co.quarantine_project_end in quars:
-        #    logger.debug("Project %s has ended" % pid)
-        #    self.gw.delete_project(pid)
+        # if self.co.quarantine_project_end in quars:
+        #     logger.debug("Project %s has ended" % pid)
+        #     self.gw.delete_project(pid)
         if len(quars) > 0:
             logger.debug("Project %s has active quarantines: %s", pid, quars)
             if not proj['frozen']:
@@ -236,31 +241,34 @@ class Processor:
             if proj['frozen']:
                 self.gw.thaw_project(pid)
 
-    def process_users(self, gw_users):
+    def process_users(self):
         """Sync all users with the GW."""
         processed = set()
+
         # Get the mapping to each project. Each user can only be part of one
         # project.
         ac2proj = dict()
         for row in self.pu.list_accounts_by_type(
-                            affiliation=self.co.affiliation_project,
-                            filter_expired=True,
-                            account_spread=self.co.spread_gateway_account):
-            if ac2proj.has_key(row['account_id']):
+                affiliation=self.co.affiliation_project,
+                filter_expired=True,
+                account_spread=self.co.spread_gateway_account):
+            if row['account_id'] in ac2proj:
                 logger.warn("Account %s affiliated with more than one project",
                             row['account_id'])
                 continue
             ac2proj[row['account_id']] = row['ou_id']
-        logger.debug2("Found %d accounts connected with projects", len(ac2proj))
+        logger.debug2("Found %d accounts connected with projects",
+                      len(ac2proj))
 
         # Update existing projects:
-        for usr in gw_users:
+        for usr in self.gw.list_users():
             try:
                 self.process_user(usr, ac2proj)
             except Gateway.GatewayException, e:
                 logger.warn("GW exception for user %s: %s", usr['username'],
                             e)
             processed.add(usr['username'])
+
         # Add new users:
         for row in self.pu.search(spread=self.co.spread_gateway_account):
             if row['name'] in processed:
@@ -275,35 +283,35 @@ class Processor:
             # Skip quarantined accounts:
             if tuple(self.pu.get_entity_quarantine(only_active=True)):
                 logger.debug2("Skipping unknown, quarantined account: %s",
-                        row['name'])
+                              row['name'])
                 continue
             # Skip accounts not affiliated with a project.
             pid = self.ouid2pid.get(ac2proj.get(self.pu.entity_id))
             if not pid:
-                logger.debug("Skipping unaffiliated account: %s",
-                        self.pu.entity_id)
+                logger.debug("Skipping non-affiliated account: %s",
+                             self.pu.entity_id)
                 continue
             self.gw.create_user(pid, row['name'], self.pu.posix_uid)
 
     def process_user(self, gw_user, ac2proj):
-        """Sync a given user with the GW.
+        """Process a single user retrieved from the GW.
 
-        @type gw_user: dict
-        @param gw_user: The data about the user from the GW.
+        :param dict gw_user: The data about the user from the GW.
 
-        @type ac2proj: dict
-        @param ac2proj:
+        :param dict ac2proj:
             A mapping from account_id to the ou_id of the project it belongs
             to.
 
         """
         username = gw_user['username']
         logger.debug2("Process user %s: %s" % (username, gw_user))
+
         try:
             pid = gw_user['project']
         except KeyError:
             logger.error("Missing project from GW for user: %s", username)
             return
+
         self.pu.clear()
         try:
             self.pu.find_by_name(username)
@@ -317,7 +325,8 @@ class Processor:
             self.gw.delete_user(pid, username)
             return
         if pid != self.ouid2pid.get(ac2proj[self.pu.entity_id]):
-            logger.error("Danger! Project mismatch in Cerebrum and GW for account %s" % self.pu.entity_id)
+            logger.error("Danger! Project mismatch in Cerebrum and GW for "
+                         "account %s", self.pu.entity_id)
             raise Exception("Project mismatch with GW and Cerebrum")
         quars = [r['quarantine_type'] for r in
                  self.pu.get_entity_quarantine(only_active=True)]
@@ -329,7 +338,7 @@ class Processor:
             if gw_user['frozen']:
                 self.gw.thaw_user(pid, username)
 
-    def process_groups(self, gw_groups):
+    def process_groups(self):
         """Sync all groups with the GW."""
         # Mapping from group_id to project's ou_id:
         gr2proj = dict((r['entity_id'], r['target_id']) for r in
@@ -340,13 +349,14 @@ class Processor:
         processed = set()
 
         # Update existing projects:
-        for grp in gw_groups:
+        for grp in self.gw.list_groups():
             try:
                 self.process_group(grp, gr2proj)
             except Gateway.GatewayException, e:
-                logger.warn("GW exception for group %s: %s", grp['groupname'],
-                            e)
+                logger.warn("GW exception for group %s: %s",
+                            grp['groupname'], e)
             processed.add(grp['groupname'])
+
         # Add new groups:
         for row in self.pg.search(spread=self.co.spread_file_group):
             if row['name'] in processed:
@@ -355,7 +365,7 @@ class Processor:
             # Skip groups not affiliated with a project.
             pid = self.ouid2pid.get(gr2proj.get(row['group_id']))
             if not pid:
-                logger.debug("Skipping unaffiliated group: %s",
+                logger.debug("Skipping non-affiliated group: %s",
                              self.pg.entity_id)
                 continue
             self.pg.clear()
@@ -364,17 +374,16 @@ class Processor:
             except Errors.NotFoundError:
                 logger.debug("Skipping non-posix group: %s", row['name'])
                 continue
+
             gwdata = self.gw.create_group(pid, row['name'], self.pg.posix_gid)
             self.process_group(gwdata, gr2proj)
 
     def process_group(self, gw_group, gr2proj):
-        """Sync a given group with the GW.
+        """Process a single group retrieved from the GW.
 
-        @type gw_group: dict
-        @param gw_group: The data about the group from the GW.
+        :param dict gw_group: The data about the group from the GW.
 
-        @type gr2proj: dict
-        @param gr2proj:
+        :param dict gr2proj:
             A mapping from group_id to the ou_id of the project it belongs to.
 
         """
@@ -406,47 +415,41 @@ class Processor:
         # Fixing the memberships. Only updating user members for now, and
         # therefore including indirect members. The GW might need other member
         # types later.
-        cere_members = set(r['member_name'] for r in self.pg.search_members(
-                                   group_id=self.pg.entity_id,
-                                   member_type=self.co.entity_account,
-                                   indirect_members=True,
-                                   member_spread=self.co.spread_gateway_account,
-                                   include_member_entity_name=True))
+        cere_members = set(
+            r['member_name'] for r in self.pg.search_members(
+                group_id=self.pg.entity_id,
+                member_type=self.co.entity_account,
+                indirect_members=True,
+                member_spread=self.co.spread_gateway_account,
+                include_member_entity_name=True))
         gw_users = set(gw_group.get('users', ()))
         for add in cere_members - gw_users:
             self.gw.add_member(pid, groupname, add)
         for rem in gw_users - cere_members:
             self.gw.remove_member(pid, groupname, rem)
 
-    def process_dns(self, gw_hosts, gw_subnets, gw_vlans, gw_ips):
-        """Sync DNS data with the gateway.
+    def process_dns(self):
+        """Sync all DNS data with the gateway.
 
-        @type gw_hosts: list
-        @param gw_hosts: All given hosts from the GW.
+        In order, this function will:
 
-        @type gw_subnets: list
-        @param gw_projects: All given subnets from the GW.
-
-        @type gw_vlans: list
-        @param gw_vlans: All given VLANS from the GW.
-
-        @type gw_ips: list
-        @param gw_ips: All given IP addresses from the GW.
+          1. Look up Cerebrum subnets and VLANs
+          2. Look up, compare and update VLANs in gateway
+          3. Look up, compare and update subnets in gateway
+          4. Look up Cerebrum hosts and IPs
+          5. Look up, compare and update hosts in gateway
+          6. Look up, compare and update IPs in gateway
 
         """
         logger.debug("Processing DNS")
-        dns_owner = dns.DnsOwner.DnsOwner(self.db)
-        ar = dns.ARecord.ARecord(self.db)
-        aaaar = dns.AAAARecord.AAAARecord(self.db)
-        finder = dns.Utils.Find(self.db, cereconf.DNS_DEFAULT_ZONE)
-        compress = dns.IPv6Utils.IPv6Utils.compress
 
         # Map subnets to projects:
         sub2ouid = dict((row['entity_id'], row['target_id']) for row in
                         self.ent.list_traits(code=self.co.trait_project_subnet)
                         if row['target_id'] in self.ouid2pid)
         sub2ouid.update(dict((row['entity_id'], row['target_id']) for row in
-            self.ent.list_traits(code=self.co.trait_project_subnet6)))
+                             self.ent.list_traits(
+                                 code=self.co.trait_project_subnet6)))
         logger.debug("Mapped %d subnets to OUs", len(sub2ouid))
         sub2pid = dict((k, self.ouid2pid[v]) for k, v in sub2ouid.iteritems()
                        if v in self.ouid2pid)
@@ -454,93 +457,89 @@ class Processor:
 
         # Process subnets and VLANs:
         subnets, vlans = self._get_subnets_and_vlans(sub2pid)
-        self._process_vlans(gw_vlans, vlans)
-        self._process_subnets(gw_subnets, subnets, sub2ouid)
+        self._process_vlans(self.gw.list_vlans(), vlans)
+        self._process_subnets(self.gw.list_subnets(), subnets, sub2ouid)
 
         # Mapping hosts to projects by what subnet they're on:
-        hostid2pid = dict((r['entity_id'], self.ouid2pid[r['target_id']]) for r
-                          in self.ent.list_traits(code=self.co.trait_project_host))
+        hostid2pid = dict(
+            (r['entity_id'], self.ouid2pid[r['target_id']]) for r
+            in self.ent.list_traits(code=self.co.trait_project_host)
+            if r['target_id'] not in self.quarantined_ous)
         host2project = dict()
         host2ips = dict()
-        for row in aaaar.list_ext():
-            if row['dns_owner_id'] not in hostid2pid:
+
+        def _collect(record, ip_attr):
+            if record['dns_owner_id'] not in hostid2pid:
                 # Host is not connected to a project, and is therefore ignored.
-                logger.debug2("Host not connected to project: %s" % row['name'])
-                continue
-            hostname = self._format_hostname(row['name'])
-            host2project[hostname] = hostid2pid[row['dns_owner_id']]
-            host2ips.setdefault(hostname, set()).add(row['aaaa_ip'])
-        for row in ar.list_ext():
-            if row['dns_owner_id'] not in hostid2pid:
-                # Host is not connected to a project, and is therefore ignored.
-                logger.debug2("Host not connected to project: %s" % row['name'])
-                continue
-            hostname = self._format_hostname(row['name'])
-            host2project[hostname] = hostid2pid[row['dns_owner_id']]
-            host2ips.setdefault(hostname, set()).add(row['a_ip'])
+                logger.debug2("Host not connected to project: %s",
+                              record['name'])
+                return
+            hostname = record['name'].rstrip('.')
+            host2project[hostname] = hostid2pid[record['dns_owner_id']]
+            host2ips.setdefault(hostname, set()).add(record[ip_attr])
+
+        for row in dns.AAAARecord.AAAARecord(self.db).list_ext():
+            _collect(row, 'aaaa_ip')
+
+        for row in dns.ARecord.ARecord(self.db).list_ext():
+            _collect(row, 'a_ip')
+
         logger.debug2("Mapped %d hosts to projects", len(host2project))
         logger.debug2("Mapped %d hosts with at least one IP address",
-                len(host2ips))
-        self._process_hosts(gw_hosts, host2project)
-        self._process_ips(gw_ips, host2project, host2ips)
+                      len(host2ips))
 
-    def _format_hostname(self, name):
-        """Return the hostname without the last dot.
-
-        The GW requires the name to be without a trailing dot, otherwize it
-        modifies it itself, which means that this script doesn't recognize it,
-        tries to delete and creates it properly, at each run.
-
-        """
-        if name.endswith('.'):
-            return name[:-1]
-        return name
+        # Process hosts and ips:
+        self._process_hosts(self.gw.list_hosts(), host2project)
+        self._process_ips(self.gw.list_ips(), host2project, host2ips)
 
     def _get_subnets_and_vlans(self, sub2pid):
         """Get subnets and vlans from Cerebrum.
 
-        @type sub2pid: dict
-        @param sub2pid: Mapping from subnet's entity_id to project's ou_id.
-            This is needed to be able to return the correct project ID for an 
+        :param dict sub2pid: Mapping from subnet entity_id to project ou_id.
 
-        @rtype: tuple
-        @return: A two element tuple with data from Cerebrum.
+        :return tuple: A two element tuple with data from Cerebrum.
 
-            First element: a dict with all subnets, identified by their IP
-            address and mask - values are tuples with data about the subnet,
-            e.g. the project id and VLAN number.
+            First element: a dict that maps <ip>/<mask> to a tuple with:
+                - Project ID
+                - Subnet IP
+                - Subnet mask
+                - VLAN
 
-            Second element: all VLANs, identified by their project ID - values
-            are the VLAN number.
+            Second element: all VLANs, as a set of VLAN numbers
 
         """
-        explode = dns.IPv6Utils.IPv6Utils.explode
         subnets = dict()
-        vlans = dict()
+        vlans = set()
+
+        def _collect(subnet, explode=lambda x: x):
+            # Filters and formats a single subnet,
+            # which is added to the subnet map and vlan set
+            if subnet['entity_id'] not in sub2pid:
+                # Skipping non-affiliated subnets
+                logger.debug("Skipping non-affiliated subnet: %s",
+                             subnet['entity_id'])
+                return
+            pid = sub2pid[subnet['entity_id']]
+            if not pid:
+                logger.warn("Unknown project for subnet: %s",
+                            subnet['entity_id'])
+                return
+            key = '%s/%s' % (explode(subnet['subnet_ip']),
+                             subnet['subnet_mask'])
+            subnets[key] = (pid,
+                            explode(subnet['subnet_ip']),
+                            subnet['subnet_mask'],
+                            subnet['vlan_number'], )
+            vlans.add(subnet['vlan_number'])
+
+        # ipv6 subnets
         for row in self.subnet6.search():
-            if row['entity_id'] not in sub2pid:
-                # Skipping non-affiliated subnets
-                continue
-            pid = sub2pid[row['entity_id']]
-            if not pid:
-                logger.warn("Unknown project for subnet: %s", row['entity_id'])
-                continue
-            vlans.setdefault(pid, []).append(row['vlan_number'])
-            ident = '%s/%s' % (explode(row['subnet_ip']), row['subnet_mask'])
-            subnets[ident] = (pid, explode(row['subnet_ip']),
-                              row['subnet_mask'], row['vlan_number'])
+            _collect(row, explode=dns.IPv6Utils.IPv6Utils.explode)
+
+        # ipv4 subnets
         for row in self.subnet.search():
-            if row['entity_id'] not in sub2pid:
-                # Skipping non-affiliated subnets
-                continue
-            pid = sub2pid[row['entity_id']]
-            if not pid:
-                logger.warn("Unknown project for subnet: %s", row['entity_id'])
-                continue
-            vlans.setdefault(pid, []).append(row['vlan_number'])
-            ident = '%s/%s' % (row['subnet_ip'], row['subnet_mask'])
-            subnets[ident] = (pid, row['subnet_ip'], row['subnet_mask'],
-                              row['vlan_number'])
+            _collect(row)
+
         logger.debug2("Found %s subnets for projects", len(subnets))
         logger.debug2("Found %s VLANs for projects", len(vlans))
         return subnets, vlans
@@ -548,61 +547,49 @@ class Processor:
     def _process_vlans(self, gw_vlans, vlans):
         """Sync given VLANs with the GW.
 
-        @type gw_vlans: list
-        @param gw_vlans: The list of registered VLANs from the GW.
-
-        @type vlans: list
-        @param vlans: The list of registered VLANs in Cerebrum.
+        :param list gw_vlans:
+            The list of registered VLANs from the GW.
+        :param set vlans:
+            A set of all registered VLANs in Cerebrum.
 
         """
         processed = set()
         for gw_vlan in gw_vlans:
             vlan = gw_vlan['vlantag']
-            try:
-                pid = gw_vlan['project']
-            except KeyError:
-                logger.error("Missing project for vlan: %s", vlan)
-                continue
+            processed.add(vlan)
+            if vlan not in vlans:
+                try:
+                    self.gw.delete_vlan(vlan)
+                except Gateway.GatewayException, e:
+                    logger.warn("GatewayException deleting VLAN %s: %s",
+                                vlan, e)
 
-            processed.add('%s:%s' % (pid, vlan))
-            if pid not in vlans or vlan not in vlans[pid]:
-                logger.debug3("Unknown VLAN for %s: %s" % (pid, vlan))
-                try:
-                    self.gw.delete_vlan(pid, vlan)
-                except Gateway.GatewayException, e:
-                    logger.warn("GatewayException deleting VLAN %s:%s: %s" %
-                            (pid, vlan, e))
-        for pid, vlns in vlans.iteritems():
-            logger.debug3("Processing VLANs for project %s: %d found", pid,
-                    len(vlns))
-            for vln in vlns:
-                if '%s:%s' % (pid, vln) in processed:
-                    continue
-                logger.debug3("New VLAN for %s: %s" % (pid, vln))
-                try:
-                    self.gw.create_vlan(pid, vln)
-                except Gateway.GatewayException, e:
-                    logger.warn("GatewayException creating VLAN for %s:%s: %s" %
-                            (pid, vln, e))
-                else:
-                    processed.add('%s:%s' % (pid, vlan))
+        for vlan in vlans:
+            if vlan in processed:
+                continue
+            try:
+                self.gw.create_vlan(vlan)
+            except Gateway.GatewayException, e:
+                logger.warn("GatewayException creating VLAN %s: %s",
+                            vlan, e)
+            else:
+                processed.add(vlan)
 
     def _process_subnets(self, gw_subnets, subnets, sub2ouid):
         """Sync given subnets with the GW.
 
-        @type gw_subnets: list
-        @param gw_subnets: The list of registered subnets from the GW.
+        :param list gw_subnets:
+            The list of registered subnets from the GW.
 
-        @type subnets: dict
-        @param subnets: The list of registered subnets from the GW, where the
-            subnet_ip is the key. For IPv6, the IP address must not be in
-            compact format, to easier compare with the GW.
+        :param dict subnets:
+            The list of registered subnets from the GW, where the subnet_ip is
+            the key. For IPv6, the IP address must not be in compact format, to
+            easier compare with the GW.
 
             Note that this comparement does not always work, as you are able to
             save
 
-        @type sub2ouid: dict
-        @param sub2ouid: 
+        :param dict sub2ouid:
             A mapping from each subnet's entity_id, to the entity_id of the
             project it belongs to. Subnets not affiliated with any project
             will not be given to the GW.
@@ -656,13 +643,12 @@ class Processor:
     def _process_hosts(self, gw_hosts, host2project):
         """Sync given hosts with the GW.
 
-        @type gw_hosts: list
-        @param gw_hosts: List of all hosts from the GW.
+        :param list gw_hosts:
+            List of all hosts from the GW.
 
-        @type host2project: dict
-        @param host2project:
-            The hosts registered in Cerebrum. Keys are hostnames, values are the
-            project IDs.
+        :param dict host2project:
+            The hosts registered in Cerebrum. Keys are hostnames, values are
+            the project IDs.
 
         """
         processed = set()
@@ -684,21 +670,21 @@ class Processor:
             try:
                 self.gw.create_host(pid, host)
             except Gateway.GatewayException, e:
-                logger.warn("GatewayException creating host %s:%s: %s" % (pid,
-                    host, e))
+                logger.warn("GatewayException creating host %s:%s: %s",
+                            pid, host, e)
 
     def _process_ips(self, gw_ips, host2project, host2ips):
         """Sync given IPs with the GW.
 
-        @type gw_ips: list
-        @param gw_ips: List of all IP addresses registered in GW.
+        :param list gw_ips:
+            List of all IP addresses registered in GW.
 
-        @type host2project: dict
-        @param host2project: Mapping from hostname to project ID.
+        :param dict host2project:
+            Mapping from hostname to project ID.
 
-        @type host2ips: dict
-        @param host2ips: All IP addresses registered in Cerebrum. The keys are
-            the hostname, and the values are sets with IP addresses.
+        :param dict host2ips:
+            All IP addresses registered in Cerebrum. The keys are the hostname,
+            and the values are sets with IP addresses.
 
         """
         processed = set()
@@ -708,7 +694,8 @@ class Processor:
                 hostname = p['host']
                 pid = p['project']
             except KeyError, e:
-                logger.error("Missing element from GW about IP %s: %e", addr, e)
+                logger.error("Missing element from GW about IP %s: %e",
+                             addr, e)
                 continue
 
             processed.add(':'.join((pid, hostname, addr)))
@@ -741,13 +728,16 @@ class Processor:
                 except Gateway.GatewayException, e:
                     logger.warn("GW exception for new IP %s: %s", adr, e)
 
-def main():
+
+def main(name, args):
+    """ Script invocation. """
+    import getopt
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'hd',
+        opts, args = getopt.getopt(args, 'hd',
                                    ['help', 'url=', 'dryrun', 'mock'])
     except getopt.GetoptError, e:
         print e
-        usage(1)
+        usage(name, 1)
 
     dryrun = False
     mock = False
@@ -755,7 +745,7 @@ def main():
 
     for opt, val in opts:
         if opt in ('-h', '--help'):
-            usage()
+            usage(name)
         elif opt in ('-d', '--dryrun'):
             dryrun = True
         elif opt in ('--mock'):
@@ -765,7 +755,7 @@ def main():
             url = val
         else:
             print "Unknown argument: %s" % opt
-            usage(1)
+            usage(name, 1)
 
     if url:
         gw = Gateway.GatewayClient(logger, uri=url, dryrun=dryrun)
@@ -773,7 +763,6 @@ def main():
         gw = Gateway.GatewayClient(logger, dryrun=dryrun)
 
     if mock:
-        #gw.get_projects = lambda: dict()
         logger.debug("Mocking GW")
         for t in gw.__class__.__dict__:
             if t.startswith('list_'):
@@ -785,5 +774,8 @@ def main():
     p.process()
     logger.info("Finished gw-sync")
 
+
 if __name__ == '__main__':
-    main()
+    from sys import argv
+    from os.path import basename
+    main(basename(argv[0]), argv[1:])
