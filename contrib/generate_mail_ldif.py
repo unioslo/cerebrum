@@ -82,7 +82,7 @@ def dict_to_ldif_string(d):
 
     return "".join(result)
 # end dict_to_ldif_string
-    
+
 
 
 def write_ldif():
@@ -120,7 +120,7 @@ def write_ldif():
         if verbose and (counter % 5000) == 0:
             logger.debug("done %d list_email_targets(): %d sec.",
                          counter, now() - curr)
-            
+
         target = ""
         uid = ""
         rest = ""
@@ -147,7 +147,7 @@ def write_ldif():
                 logger.warn("Target id=%s (type %s): wrong entity type: %s "
                             "(entity_id=%s)", t, tt, et, ei)
                 continue
-            
+
             # Find quota-settings:
             if ldap.targ2quota.has_key(t):
                 soft, hard = ldap.targ2quota[t]
@@ -211,7 +211,7 @@ def write_ldif():
             # ignored.  The email address(es) to forward to is taken
             # from table email_forward.
             pass
-        
+
         elif tt in (co.email_target_pipe, co.email_target_RT,
                     co.email_target_file, co.email_target_Mailman,
                     co.email_target_Sympa):
@@ -248,19 +248,19 @@ def write_ldif():
             # Target is the set of `account`-type targets corresponding to
             # the Accounts that are first-level members of the Group that
             # has group_id == email_target.target_entity_id.
-            
+
             if et == co.entity_group:
                 try:
                     addrs = ldap.read_multi_target(ei)
-                except ValueError:
-                    logger.warn("Target id=%s (type %s)", t, tt)
+                except ValueError, e:
+                    logger.warn("Target id=%s (type %s): %s", t, tt, e)
                     continue
                 for addr in addrs:
                     rest += "forwardDestination: %s\n" % addr
             else:
                 # A 'multi' target with no forwarding; seems odd.
                 logger.warn("Target id=%s (type %s) no forwarding found", t, tt)
-                continue 
+                continue
         else:
             # We don't want to log errors for distributiong groups.
             # This is really a bad hack. This LDIF generator should
@@ -283,7 +283,7 @@ def write_ldif():
             f.write("uid: %s\n" % uid)
         if rest:
             f.write(rest)
-        
+
         # Find primary mail-address:
         if ldap.targ2prim.has_key(t):
             if ldap.aid2addr.has_key(ldap.targ2prim[t]):
@@ -291,7 +291,7 @@ def write_ldif():
             else:
                 logger.debug("Strange: target id=%d, targ2prim[t]: %d, but no aid2addr",
                              t, ldap.targ2prim[t])
-            
+
         # Find addresses for target:
         for a in ldap.targ2addr[t]:
             f.write("mail: %s\n" % a)
@@ -320,7 +320,7 @@ def write_ldif():
         if ldap.targ2filter.has_key(t):
             for a in ldap.targ2filter[t]:
                 f.write("mailFilter: %s\n" % a)
-            
+
         # Find virus-setting:
         if ldap.targ2virus.has_key(t):
             found, rem, enable = ldap.targ2virus[t]
@@ -388,17 +388,17 @@ def get_data(spread):
     if verbose:
         logger.debug("  done in %d sec." % (now() - curr))
         logger.debug("Starting read_server()...")
-        curr = now()    
+        curr = now()
     ldap.read_server(spread)
     if verbose:
         logger.debug("  done in %d sec." % (now() - curr))
         logger.debug("Starting read_vacation()...")
-        curr = now()    
+        curr = now()
     ldap.read_vacation()
     if verbose:
         logger.debug("  done in %d sec." % (now() - curr))
         logger.debug("Starting read_forward()...")
-        curr = now()    
+        curr = now()
     ldap.read_forward()
     if verbose:
         logger.debug("  done in %d sec." % (now() - curr))
