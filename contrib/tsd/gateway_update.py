@@ -50,30 +50,6 @@ def print_config():
     print 'cereconf:', cereconf
 
 
-def usage(name, exitcode=0):
-    print """%(doc)s
-
-    Usage: %(file)s [--url URL] [-d|--dryrun] [--mock] [-h|--help]
-
-    --url URL           The full URL to the Gateway.
-                        Example: https://gw.tsd.uio.no:1234/RPC
-                        Default: cereconf.TSD_GATEWAY_URL
-
-    -d --dryrun         Run the sync in dryrun. Data is retrieved from the
-                        Gateway and compared, but changes are not sent back to
-                        the gateway. Default is to commit the changes.
-
-    --mock              Mock the gateway by returning empty lists instead of
-                        talking with the GW. Usable for testing the
-                        functionality locally.
-
-    -h --help           Show this and quit.
-
-    """ % {'doc': __doc__,
-           'file': name}
-    raise SystemExit(exitcode)
-
-
 # Structure used to compare projects in Cerbrum and Gateway.
 # TODO: Not used yet
 #
@@ -729,40 +705,37 @@ class Processor:
                     logger.warn("GW exception for new IP %s: %s", adr, e)
 
 
-def main(name, args):
+def main():
     """ Script invocation. """
-    import getopt
     try:
-        opts, args = getopt.getopt(args, 'hd',
-                                   ['help', 'url=', 'dryrun', 'mock'])
-    except getopt.GetoptError, e:
-        print e
-        usage(name, 1)
+        import argparse
+    except ImportError:
+        import Cererbum.extlib.argparse as argparse
 
-    dryrun = False
-    mock = False
-    url = None
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        '-u', '--url', dest='url', metavar='URL',
+        default=cereconf.TSD_GATEWAY_URL,
+        help=("The full URL to the Gateway. "
+              "Example: https://gw.tsd.uio.no:1234/RPC "
+              "Default: cereconf.TSD_GATEWAY_URL"))
+    parser.add_argument(
+        '-d', '--dryrun', dest='dryrun', action='store_true', default=False,
+        help=("Run the sync in dryrun. Data is retrieved from the Gateway and "
+              "compared, but changes are not sent back to the gateway. "
+              "Default is to commit the changes."))
+    parser.add_argument(
+        '-m', '--mock', dest='mock', action='store_true', default=False,
+        help=("Mock the gateway by returning empty lists instead with the GW. "
+              "Usable for testing the functionality locally."))
+    args = parser.parse_args()
 
-    for opt, val in opts:
-        if opt in ('-h', '--help'):
-            usage(name)
-        elif opt in ('-d', '--dryrun'):
-            dryrun = True
-        elif opt in ('--mock'):
-            mock = True
-            dryrun = True
-        elif opt in ('--url',):
-            url = val
-        else:
-            print "Unknown argument: %s" % opt
-            usage(name, 1)
-
-    if url:
-        gw = Gateway.GatewayClient(logger, uri=url, dryrun=dryrun)
+    if args.url:
+        gw = Gateway.GatewayClient(logger, uri=args.url, dryrun=args.dryrun)
     else:
-        gw = Gateway.GatewayClient(logger, dryrun=dryrun)
+        raise SystemExit("No url given, and no default url in cereconf")
 
-    if mock:
+    if args.mock:
         logger.debug("Mocking GW")
         for t in gw.__class__.__dict__:
             if t.startswith('list_'):
@@ -770,12 +743,10 @@ def main(name, args):
                 setattr(gw, t, lambda: list())
 
     logger.debug("Start gw-sync against URL: %s", gw)
-    p = Processor(gw, dryrun)
+    p = Processor(gw, args.dryrun)
     p.process()
     logger.info("Finished gw-sync")
 
 
 if __name__ == '__main__':
-    from sys import argv
-    from os.path import basename
-    main(basename(argv[0]), argv[1:])
+    main()
