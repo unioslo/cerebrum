@@ -1,5 +1,8 @@
 2014-12-16    <cerebrum@cleomedes.uit.no-cleomedes>
 
+	* import_sito.py (import_OU): now ou is populated with
+	_withouth_sko to make it call correct populate function
+
 	* export_cristin.py (LTPersonParser.startElement): added to repo. did a few minor changes to get it to run on new cerebrum.
 	mor spesific how we build dict items now also with langauge code.
 

@@ -36,6 +36,7 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Utils
 from Cerebrum.Utils import Factory
+from sito_utils import sitoFactory
 from Cerebrum import Errors
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.Person import PersonFnrMixin
@@ -51,10 +52,15 @@ progname = __file__.split(os.sep)[-1]
 db = Factory.get('Database')()
 db.cl_init(change_program=progname)
 const = Factory.get('Constants')(db)
-ou = Factory.get('OU')(db)
+ou = sitoFactory.get('sito_ou')(db)
 person = Factory.get('Person')(db)
 new_person = Factory.get('Person')(db)
 e = Factory.get('Entity')(db)
+
+
+#sito_fac = Factory()
+#sito_fac.components['SITO_OU'] = 'CLASS_SITO_OU'
+#sito = 
 
 #init the logger.
 logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
@@ -77,6 +83,8 @@ __doc__="""
        [-d|--dryrun]                 - do not write to database
        [-h|--help]                   - this text
 """ % (progname)
+
+
 
 
 
@@ -819,7 +827,7 @@ def import_OU(ou_list,dryrun):
                     ou.populate()
                     populate_the_rest(sito_ou['Name'],sito_ou['Name'],sito_ou['Name'],sito_ou['Name'],1) #KEB
                 else:
-                    ou.populate()
+                    ou.populate_withouth_sko()
                     populate_the_rest(sito_ou['Name'],sito_ou['Name'],sito_ou['Name'],sito_ou['Name'],1) #KEB
                 ou.write_db()
                 ou.affect_external_id(const.system_sito,const.externalid_sito_ou)
