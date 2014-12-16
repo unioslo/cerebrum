@@ -36,7 +36,7 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Utils
 from Cerebrum.Utils import Factory
-from sito_utils import sitoFactory
+from Cerebrum.modules.no.uit.sito_utils import sitoFactory
 from Cerebrum import Errors
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.Person import PersonFnrMixin
