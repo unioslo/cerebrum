@@ -1,3 +1,8 @@
+2014-12-16    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* export_cristin.py (LTPersonParser.startElement): added to repo. did a few minor changes to get it to run on new cerebrum.
+	mor spesific how we build dict items now also with langauge code.
+
 2014-12-09    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* process_students.py (AccountUtil.create_user): set account expire_date the uit way
