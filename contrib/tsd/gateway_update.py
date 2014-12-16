@@ -710,7 +710,7 @@ def main():
     try:
         import argparse
     except ImportError:
-        import Cererbum.extlib.argparse as argparse
+        import Cerebrum.extlib.argparse as argparse
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
