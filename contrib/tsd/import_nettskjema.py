@@ -394,7 +394,7 @@ def _xml2answersdict(xml):
         # an <answerOptions/>. Note that <textAnswer/> could be visible even if
         # the answer is an <answerOption/>.
         answer = None
-        if ans.find('answerOptions/answerOption'):
+        if ans.find('answerOptions/answerOption') is not None:
             #import code
             #code.interact(local=locals())
             for r in ans.iterfind('answerOptions/answerOption/externalAnswerOptionId'):
