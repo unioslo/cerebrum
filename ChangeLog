@@ -1,5 +1,7 @@
 2014-12-16    <cerebrum@cleomedes.uit.no-cleomedes>
 
+	* sito_utils.py: added to repo
+
 	* OU.py (OUEntityExpireMixin.populate_withouth_sko): added function to call popualte for ous withouth stedkode
 
 2014-12-05    <cerebrum@cleomedes.uit.no-cleomedes>
