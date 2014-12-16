@@ -23,19 +23,24 @@ UiT implementation of OU
 from Cerebrum import Utils
 from Cerebrum.Utils import prepare_string
 from Cerebrum import Errors
-
+from Cerebrum.Utils import Factory
 import cereconf
 from Cerebrum.OU import OU
 from Cerebrum.modules.no.uit.EntityExpire import EntityExpire
 from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
+logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
 
-
-class OUEntityExpireMixin(EntityExpire, OU):
+class OUEntityExpireMixin(OU,EntityExpire):
     """ 
     UiT override of OU. expired_before is added as an extra 
     parameter to the overriden methods in this file. The default
     behaviour is to exclude all entitites that are expired at the
     time of the query."""
+    
+    def populate_withouth_sko(self):
+        logger.warn("ui.uo calling real ou.populate")
+        super(OUEntityExpireMixin,self).populate()
+
 
     def get_parent(self, perspective, expired_before=None):
         """
