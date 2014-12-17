@@ -730,17 +730,16 @@ def main():
               "Usable for testing the functionality locally."))
     args = parser.parse_args()
 
-    if args.url:
-        gw = Gateway.GatewayClient(logger, uri=args.url, dryrun=args.dryrun)
-    else:
-        raise SystemExit("No url given, and no default url in cereconf")
+    gw_cls = Gateway.GatewayClient
 
     if args.mock:
-        logger.debug("Mocking GW")
-        for t in gw.__class__.__dict__:
-            if t.startswith('list_'):
-                logger.debug("Mocking: %s", t)
-                setattr(gw, t, lambda: list())
+        from Cerebrum.modules.tsd import GatewayMock
+        gw_cls = GatewayMock.MockClient
+
+    if args.url:
+        gw = gw_cls(logger, uri=args.url, dryrun=args.dryrun)
+    else:
+        raise SystemExit("No url given, and no default url in cereconf")
 
     logger.debug("Start gw-sync against URL: %s", gw)
     p = Processor(gw, args.dryrun)
