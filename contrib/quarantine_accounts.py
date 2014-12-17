@@ -157,11 +157,39 @@ def notify_user(ac, quar_start_in_days):
     :return: If the notification were successfully sent or not.
 
     """
+    addr = None
+
     try:
+        # Be default we use the primary email address
         addr = ac.get_primary_mailaddress()
     except Errors.NotFoundError:
-        # TODO: accept getting e-mail addresses from ContactInfo
-        logger.warn("No email address for %s, can't notify", ac.account_name)
+        pass
+
+    if addr is None:
+        # Look for forward addresses in entity_contact_info for the account
+        try:
+            addr = ac.list_contact_info(
+                entity_id=ac.entity_id,
+                contact_type=co.contact_email)[0]['contact_value']
+            self.logger.debug(
+                "Found email address for account:%s in entity contact info" % ac.account_name)
+        except IndexError:
+            pass
+
+    if addr is None:
+        # Look for forward addresses in entity_contact_info for the account owner
+        try:
+            addr = ac.list_contact_info(
+                entity_id=ac.owner_id,
+                contact_type=co.contact_email)[0]['contact_value']
+            self.logger.debug(
+                "Found email address for account:%s in entity contact info for person:%i" % (
+                    ac.account_name, ac.owner_id))
+        except IndexError:
+            pass
+
+    if addr is None:
+        logger.warn("No email address for account:%s, can't notify", ac.account_name)
         return False
 
     body = email_info['Body']
