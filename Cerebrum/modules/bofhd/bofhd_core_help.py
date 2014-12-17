@@ -680,13 +680,20 @@ arg_help = {
          'displaying OU names and acronyms.'],
     'person_id':
         ['person_id', 'Enter person id',
-         """Enter person id as idtype:id. If idtype=fnr, the idtype does not
-         have to be specified. The currently defined id-types are:
-         - fnr : norwegian fødselsnummer."""],
+         """Enter person id as idtype:id. If idtype is fnr or account, the
+         idtype does not have to be specified. The currently defined id-types
+         are:
+         - account : username
+         - fnr     : norwegian fødselsnummer
+         - id      : entity-id"""],
     'person_id_other':
         ['person_id', 'Enter person id',
-         """Enter person id as idtype:id. If idtype=fnr, the idtype does not
-         have to be specified. You may also use entity_id:id."""],
+         """Enter person id as idtype:id. If idtype is fnr or account, the
+         idtype does not have to be specified. The currently defined id-types
+         are:
+         - account : username
+         - fnr     : norwegian fødselsnummer
+         - id      : entity-id"""],
     'person_id:current':
         ['[id_type:]current_id', 'Enter current person id',
          'Enter current person id.  Example: fnr:01020312345'],
