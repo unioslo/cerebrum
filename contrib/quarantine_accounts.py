@@ -160,7 +160,7 @@ def notify_user(ac, quar_start_in_days):
     addr = None
 
     try:
-        # Be default we use the primary email address
+        # By default we use the primary email address
         addr = ac.get_primary_mailaddress()
     except Errors.NotFoundError:
         pass
