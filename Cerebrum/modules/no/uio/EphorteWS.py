@@ -233,7 +233,7 @@ class Cerebrum2EphorteClient(object):
         return res
 
     def test(self, customer_id='UiO2', user_id='Dummy'):
-        self.client.Test(customer_id, user_id)
+        self.client.Test(self.username, self.password, customer_id, user_id)
         # TODO: Correct to assume that we are OK?
         return True
 
@@ -245,9 +245,12 @@ class Cerebrum2EphorteClient(object):
         :rtype: dict
         :return: Dict with full name and user id.
         """
-        r = self.c.TestWithEphorte(self.customer_id,
-                                   self.database,
-                                   user_id)
+        r = self.client.TestWithEphorte(
+            self.username,
+            self.password,
+            self.customer_id,
+            self.database,
+            user_id)
 
         return self._convert_result(r)
 
@@ -262,7 +265,11 @@ class Cerebrum2EphorteClient(object):
                    'IsTop': False,
                    'Name': u'Apollon'}]
         """
-        r = self.client.GetAllOrgUnits(self.customer_id, self.database)
+        r = self.client.GetAllOrgUnits(
+            self.username,
+            self.password,
+            self.customer_id,
+            self.database)
         if r.OrgUnits:
             return self._convert_result(r.OrgUnits.EphorteOrg)
         else:
@@ -275,7 +282,11 @@ class Cerebrum2EphorteClient(object):
         :return: Key is role-code, value is description.
             I.e. {u'SB2': u'Saksbehandler'}
         """
-        r = self.client.GetAllRoles(self.customer_id, self.database)
+        r = self.client.GetAllRoles(
+            self.username,
+            self.password,
+            self.customer_id,
+            self.database)
         if r.Roles:
             return self._convert_result(r.Roles.EphorteRole)
         else:
@@ -288,7 +299,11 @@ class Cerebrum2EphorteClient(object):
         :return: Key is AccessCode, value is description.
             I.e. {u'AR': u'AR - Under arbeid'}
         """
-        r = self.client.GetAllAccessCodes(self.customer_id, self.database)
+        r = self.client.GetAllAccessCodes(
+            self.username,
+            self.password,
+            self.customer_id,
+            self.database)
         res = {}
         if r.AccessCodes:
             for role in r.AccessCodes.EphorteAccessCode:
@@ -301,7 +316,11 @@ class Cerebrum2EphorteClient(object):
 
         :rtype: list(dict())
         """
-        r = self.client.GetAllUsers(self.customer_id, self.database)
+        r = self.client.GetAllUsers(
+            self.username,
+            self.password,
+            self.customer_id,
+            self.database)
 
         users = {}
         for user in r.Users.EphorteUser:
@@ -346,9 +365,12 @@ class Cerebrum2EphorteClient(object):
         """
         # TODO: Should we rather return a dict, than a tuple? Or maybee a named
         # TODO: tuple? Named tuples are kind of cute.
-        r = self.client.GetUserDetails(self.customer_id,
-                                       self.database,
-                                       user_id)
+        r = self.client.GetUserDetails(
+            self.username,
+            self.password,
+            self.customer_id,
+            self.database,
+            user_id)
 
         if r.User:
             usr = self._convert_result(r.User)
@@ -386,7 +408,12 @@ class Cerebrum2EphorteClient(object):
                    'FullName': u'Jo Sama',
                    'Initials': u'JSAMA'}]
         """
-        r = self.client.GetUserList(self.customer_id, self.database, pattern)
+        r = self.client.GetUserList(
+            self.username,
+            self.password,
+            self.customer_id,
+            self.database,
+            pattern)
 
         if r.Users:
             return self._convert_result(r.Users.EphorteUser)
@@ -422,7 +449,12 @@ class Cerebrum2EphorteClient(object):
         u.City = ' ' if city is None else city
 
         # Ensure that user exists
-        self.client.EnsureUser(self.customer_id, self.database, u)
+        self.client.EnsureUser(
+            self.username,
+            self.password,
+            self.customer_id,
+            self.database,
+            u)
 
 # TODO: job_title, is this the description attached to role_id, as gotten from
 # get_all_roles?! Can we omit?
@@ -447,9 +479,15 @@ class Cerebrum2EphorteClient(object):
         :type default_role: bool
         :param default_role: If this role should be the default role
         """
-        self.client.EnsureRoleForUser(self.customer_id, self.database,
-                                      user_id, job_title, role_id, ou_id,
-                                      arkivdel, journalenhet, default_role)
+        self.client.EnsureRoleForUser(
+            self.username,
+            self.password,
+            self.customer_id,
+            self.database,
+            user_id, job_title,
+            role_id, ou_id,
+            arkivdel, journalenhet,
+            default_role)
 
     def ensure_access_code_authorization(self, user_id, access_code_id,
                                          ou_id, authz_for_all):
@@ -475,6 +513,8 @@ class Cerebrum2EphorteClient(object):
             the entire organization..
         """
         self.client.EnsureAccessCodeAuthorizationForUser(
+            self.username,
+            self.password,
             self.customer_id,
             self.database,
             user_id,
@@ -488,7 +528,12 @@ class Cerebrum2EphorteClient(object):
         :type user_id: str
         :param user_id: The users identificator
         """
-        self.client.DisableUser(self.customer_id, self.database, user_id)
+        self.client.DisableUser(
+            self.username,
+            self.password,
+            self.customer_id,
+            self.database,
+            user_id)
 
     def disable_roles_and_authz_for_user(self, user_id):
         """Disable all roles and authz. for a user.
@@ -496,16 +541,22 @@ class Cerebrum2EphorteClient(object):
         :type user_id: str
         :param user_id: The users id
         """
-        self.client.DisableRolesAndAuthorizationsForUser(self.customer_id,
-                                                         self.database,
-                                                         user_id)
+        self.client.DisableRolesAndAuthorizationsForUser(
+            self.username,
+            self.password,
+            self.customer_id,
+            self.database,
+            user_id)
 
     def get_user_backlog(self, user_id):
         # TODO: Moar doc
         # TODO: Moar result parsing?
         # TODO: We really need this?
         """Fetch information about the users open cases."""
-        r = self.client.GetUserBacklog(self.customer_id,
-                                       self.database,
-                                       user_id)
+        r = self.client.GetUserBacklog(
+            self.username,
+            self.password,
+            self.customer_id,
+            self.database,
+            user_id)
         return self._convert_result(r)
