@@ -343,6 +343,11 @@ class ADclient(PowershellClient):
                 raise ObjectAlreadyExistsException(code, stderr, output)
             if re.search(': The specified \w+ already exists', stderr):
                 raise ObjectAlreadyExistsException(code, stderr, output)
+            if re.search('New-AD.+ : The operation failed because UPN value '
+                         'provided for add.+\n+.+not unique forest', stderr):
+                # User Principal Names (UPN) must be globally unique, and is
+                # therefore considered an identity
+                raise ObjectAlreadyExistsException(code, stderr, output)
             if re.search('(Set-ADObject|New-ADGroup|New-ADObject) '
                          ': The specified account does not exist', stderr):
                 raise SetAttributeException(code, stderr, output)
