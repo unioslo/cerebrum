@@ -38,15 +38,25 @@ class nmhOrgLDIFMixin(OrgLDIF):
         return False
 
     def get_fagomrade(self):
-        """NMH wants 'fagomrade' exported, which consists of 'fagfelt' and
-        'instrument'. Both fields are stored in traits for each person.
-
+        """NMH wants 'fagomrade' exported, which consists of 'fagfelt'.
+        This field is stored in a trait for each person. The trait is a
+        serialized pickle-tuple, since a person can have several entries.
         """
-        fagfelts = dict((row['entity_id'], iso2utf(row['strval'] or '')) for row in
-                    self.person.list_traits(self.const.trait_fagomrade_fagfelt))
-        instr = dict((row['entity_id'], iso2utf(row['strval'] or '')) for row in
-                 self.person.list_traits(self.const.trait_fagomrade_instrument))
-        return fagfelts, instr
+        fagfelt_dict = dict()
+        for row in self.person.list_traits(
+                self.const.trait_fagomrade_fagfelt):
+            fagfelt_string = ''
+
+            if row['strval'] is not None:
+                fagfelt_tuple = pickle.loads(row['strval'])
+                if fagfelt_tuple:
+                    for fagfelt in fagfelt_tuple:
+                        fagfelt_string += fagfelt + ','
+                    fagfelt_string = fagfelt_string[0:-1]
+
+            fagfelt_dict[row['entity_id']] = iso2utf(fagfelt_string)
+
+        return fagfelt_dict
 
     def get_fagmiljo(self):
         """Returns a dict mapping from person_id to 'fagmiljø'.
@@ -117,10 +127,9 @@ class nmhOrgLDIFMixin(OrgLDIF):
         if dn:
             p_id = int(row['person_id'])
             # Add fagfelt and instrument, if registered for the person:
-            fagf = self.pe2fagomr[0].get(p_id, '')
-            inst = self.pe2fagomr[1].get(p_id, '')
-            if fagf or inst:
-                urn = 'urn:mace:feide.no:nmh.no:fagomrade:%s;%s' % (fagf, inst)
+            fagf = self.pe2fagomr.get(p_id, '')
+            if fagf:
+                urn = 'urn:mace:feide.no:nmh.no:fagomrade:%s' % (fagf)
                 entry.setdefault('eduPersonEntitlement', []).append(urn)
             # Add fagmiljø:
             fagm = self.pe2fagmiljo.get(p_id)

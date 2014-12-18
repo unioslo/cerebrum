@@ -25,6 +25,7 @@ import sys
 import getopt
 import time
 import mx
+import pickle
 
 import xml.sax
 
@@ -383,7 +384,13 @@ def process_person_callback(person_info):
 
     # if this is a new Person, there is no entity_id assigned to it
     # until written to the database.
-    op = new_person.write_db()
+    try:
+        op = new_person.write_db()
+    except Exception, e:
+        logger.exception("write_db failed for person %s: %s", fnr, e)
+        # Roll back in case of db exceptions:
+        db.rollback()
+        return
     for a in filter_affiliations(affiliations):
         ou, aff, aff_status = a
         new_person.populate_affiliation(co.system_fs, ou, aff, aff_status)
@@ -425,9 +432,12 @@ def process_person_callback(person_info):
 
     db.commit()
 
+
 def register_fagomrade(person, person_info):
-    """Register 'fagomrade' for a person, if set. It consists of fagfelt and
-    instrument. Not all is registered with this.
+    """Register 'fagomrade' for a person, if set. It consists of fagfelt, which
+    may have multiple values and is stored as a serialized pickle-tuple.
+    Not all is registered with this, which results in an empty serialized
+    pickle-tuple.
 
     @param person:
       Person db proxy associated with a newly created/fetched person.
@@ -440,28 +450,39 @@ def register_fagomrade(person, person_info):
     fnr = "%06d%05d" % (int(person_info["fodselsdato"]),
                         int(person_info["personnr"]))
     c_fagfelt = person.get_trait(co.trait_fagomrade_fagfelt)
-    if c_fagfelt:
-        c_fagfelt = c_fagfelt['strval']
-    c_instrument = person.get_trait(co.trait_fagomrade_instrument)
-    if c_instrument:
-        c_instrument = c_instrument['strval']
 
-    fs_fagfelt = fs_instrument = None
+    value_added = False
+
+    # We want a deserialized tuple if there are existing values,
+    # otherwise create an empty tuple.
+    if c_fagfelt is not None and c_fagfelt['strval'] is not None:
+        c_fagfelt = c_fagfelt['strval']
+
+        # If a pure string has made it's way into the database, put it inside
+        # of a tuple.
+        if "(S'" not in c_fagfelt:
+            c_fagfelt = pickle.dumps((c_fagfelt,))
+        c_fagfelt = pickle.loads(c_fagfelt)
+    else:
+        c_fagfelt = ()
+        value_added = True
+
+    # Add value to c_fagfelt if not already in tuple
     for key, items in person_info.iteritems():
         for data in items:
             if 'fagfelt' in data:
                 fs_fagfelt = data['fagfelt']
-            if 'instrumentnavn' in data:
-                fs_instrument = data['instrumentnavn']
-    if c_fagfelt != fs_fagfelt:
-        logger.debug("For %s, added fagfelt: %s", fnr, fs_fagfelt)
+                if fs_fagfelt not in c_fagfelt:
+                    fs_fagfelt = (fs_fagfelt,)
+                    c_fagfelt += fs_fagfelt
+                    value_added = True
+                    logger.debug("For %s, added fagfelt: %s",
+                                 fnr, fs_fagfelt[0])
+    if value_added:
         person.populate_trait(co.trait_fagomrade_fagfelt, date=now,
-                              strval=fs_fagfelt)
-    if c_instrument != fs_instrument:
-        logger.debug("For %s, added instrument: %s", fnr, fs_instrument)
-        person.populate_trait(co.trait_fagomrade_instrument, date=now,
-                              strval=fs_instrument)
-    person.write_db()
+                              strval=pickle.dumps(c_fagfelt))
+        person.write_db()
+
 
 def main():
     global verbose, ou, logger, fnr2person_id, gen_groups, group
