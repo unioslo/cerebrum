@@ -163,8 +163,9 @@ class Cerebrum2EphorteClientMock(object):
 
 class Cerebrum2EphorteClient(object):
     """Client for connecting and consuming the Cerebrum2Ephorte web-service."""
-    def __init__(self, wsdl, customer_id, database, timeout=None,
-                 client_key=None, client_cert=None, ca_certs=None):
+    def __init__(self, wsdl, customer_id, database, username=None,
+                 password=None, timeout=None, client_key=None,
+                 client_cert=None, ca_certs=None):
         """Initialize client.
 
         :type wsdl: str
@@ -173,6 +174,10 @@ class Cerebrum2EphorteClient(object):
         :param customer_id: The customer identificator, i.e. 'UiO'
         :type database: str
         :param database: The database to connect to
+        :type username: str
+        :param username: The username to authenticate with
+        :type password: str
+        :param password: The password to authenticate with
         :type timeout: int
         :param timeout: Timeout for connections the webservice in seconds
             (default: None)
@@ -186,6 +191,8 @@ class Cerebrum2EphorteClient(object):
         self.wsdl = wsdl
         self.customer_id = customer_id
         self.database = database
+        self.username = username
+        self.password = password
         # TODO: Make client choice configurable
         self.client = SudsClient(wsdl, timeout=timeout,
                                  client_key=client_key,
