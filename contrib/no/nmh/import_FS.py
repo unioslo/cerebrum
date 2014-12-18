@@ -19,24 +19,16 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import re
-import os
 import sys
 import getopt
-import time
 import mx
 import pickle
 
-import xml.sax
-
-import cerebrum_path
 import cereconf
 from Cerebrum import Errors
-from Cerebrum import Person
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uio.AutoStud import StudentInfo
-from Cerebrum.modules.no.uio import AutoStud
 
 default_personfile = "/cerebrum/dumps/FS/merged_persons.xml"
 default_studieprogramfile = "/cerebrum/dumps/FS/studieprog.xml"
@@ -384,13 +376,8 @@ def process_person_callback(person_info):
 
     # if this is a new Person, there is no entity_id assigned to it
     # until written to the database.
-    try:
-        op = new_person.write_db()
-    except Exception, e:
-        logger.exception("write_db failed for person %s: %s", fnr, e)
-        # Roll back in case of db exceptions:
-        db.rollback()
-        return
+    op = new_person.write_db()
+
     for a in filter_affiliations(affiliations):
         ou, aff, aff_status = a
         new_person.populate_affiliation(co.system_fs, ou, aff, aff_status)
