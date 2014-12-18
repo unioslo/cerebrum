@@ -88,7 +88,7 @@ def process_ou_groups(ou, perspective):
     global logger, group_dict, members_dict, ou_affiliates_dict, stedkode_dict, \
            group_delete_list, members_delete_dict, \
            db, default_logger, default_group_visibility, default_creator, default_spread, \
-           group_type_id, default_memberop, account_type_id, description_group_dict
+           group_type_id, default_memberop, account_type_id, group_description_dict, description_group_dict
 
     logger.info("Now processing OU %s (%s)" % (ou.entity_id, ou_name(ou)))
 
@@ -159,6 +159,22 @@ def process_ou_groups(ou, perspective):
                     if aux_affiliate[1] == affiliate[1]:
                         container_exists = True
                         break
+
+                # kbj005 17.12.2014:
+                # We can have a situation where members_dict[current_group] has no members of the type in  
+                # affiliate[1] (e.g. 'STUDENT'), but a container for this type (e.g. 'ou_group:319100:STUDENT') 
+                # exists in the database.
+                # This situation will not be detected by the above test, and container_exists will be False
+                # although the container does exist in the database, leading to an error when the script tries to 
+                # create a group in the database that already exists.
+                # description_group_dict contains info about all ou and container groups in the database, 
+                # so checking if the container is in description_group_dict is a safer way to find out if it 
+                # exists in the database.
+                # NOTE: The test above here could probably be replaced with the test below here, thus avoiding
+                # the need for two tests.
+                if not container_exists:
+                    if description_group_dict.has_key('ou_group:'+stedkode_dict[ou.entity_id]+':'+affiliate[1]):
+                        container_exists = True
 
                 # Create container group
                 if not container_exists:
@@ -395,7 +411,7 @@ def main():
                             members_delete_dict[group['group_id']].append((aux_member_id, possible_type))
                     member_is_ou = False
                     break
-                
+
             if member_is_ou:
                 if not members_dict.has_key(group['group_id']):
                     members_dict[group['group_id']] = []
