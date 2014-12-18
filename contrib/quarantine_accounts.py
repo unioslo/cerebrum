@@ -171,7 +171,7 @@ def notify_user(ac, quar_start_in_days):
             addr = ac.list_contact_info(
                 entity_id=ac.entity_id,
                 contact_type=co.contact_email)[0]['contact_value']
-            self.logger.debug(
+            logger.debug(
                 "Found email address for account:%s in entity contact info" % ac.account_name)
         except IndexError:
             pass
@@ -182,7 +182,7 @@ def notify_user(ac, quar_start_in_days):
             addr = ac.list_contact_info(
                 entity_id=ac.owner_id,
                 contact_type=co.contact_email)[0]['contact_value']
-            self.logger.debug(
+            logger.debug(
                 "Found email address for account:%s in entity contact info for person:%i" % (
                     ac.account_name, ac.owner_id))
         except IndexError:
