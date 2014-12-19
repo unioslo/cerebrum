@@ -24,6 +24,7 @@ import getopt
 import mx
 import pickle
 
+import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.modules.no import fodselsnr
@@ -295,7 +296,6 @@ def process_person_callback(person_info):
         for row in person_info['aktiv']:
             if studieprog2sko[row['studieprogramkode']] is not None:
                 aktiv_sted.append(int(studieprog2sko[row['studieprogramkode']]))
-                logger.debug("App2akrivts")
 
     for dta_type in person_info.keys():
         x = person_info[dta_type]
@@ -421,10 +421,9 @@ def process_person_callback(person_info):
 
 
 def register_fagomrade(person, person_info):
-    """Register 'fagomrade' for a person, if set. It consists of fagfelt, which
-    may have multiple values and is stored as a serialized pickle-tuple.
-    Not all is registered with this, which results in an empty serialized
-    pickle-tuple.
+    """Register 'fagomrade'/'fagfelt' for a person.
+    This is stored in trait_fagomrade_fagfelt as a pickled list of strings.
+    The trait is not set if no 'fagfelt' is registered.
 
     @param person:
       Person db proxy associated with a newly created/fetched person.
@@ -433,42 +432,30 @@ def register_fagomrade(person, person_info):
       Dict returned by StudentInfoParser.
 
     """
-    now = mx.DateTime.now()
     fnr = "%06d%05d" % (int(person_info["fodselsdato"]),
                         int(person_info["personnr"]))
-    c_fagfelt = person.get_trait(co.trait_fagomrade_fagfelt)
 
-    value_added = False
+    fagfelt_trait = person.get_trait(code=co.trait_fagomrade_fagfelt)
+    fagfelt = []
 
-    # We want a deserialized tuple if there are existing values,
-    # otherwise create an empty tuple.
-    if c_fagfelt is not None and c_fagfelt['strval'] is not None:
-        c_fagfelt = c_fagfelt['strval']
+    # Extract fagfelt from any fagperson rows
+    if 'fagperson' in person_info:
+        fagfelt = [data.get('fagfelt') for data in person_info['fagperson']
+                   if data.get('fagfelt') is not None]
+        # Sort alphabetically as the rows are returned in random order
+        fagfelt.sort()
 
-        # If a pure string has made it's way into the database, put it inside
-        # of a tuple.
-        if "(S'" not in c_fagfelt:
-            c_fagfelt = pickle.dumps((c_fagfelt,))
-        c_fagfelt = pickle.loads(c_fagfelt)
-    else:
-        c_fagfelt = ()
-        value_added = True
+    if fagfelt_trait and not fagfelt:
+        logger.debug('Removing fagfelt for %s', fnr)
+        person.delete_trait(code=co.trait_fagomrade_fagfelt)
+    elif fagfelt:
+        logger.debug('Populating fagfelt for %s', fnr)
+        person.populate_trait(
+            code=co.trait_fagomrade_fagfelt,
+            date=mx.DateTime.now(),
+            strval=pickle.dumps(fagfelt))
 
-    # Add value to c_fagfelt if not already in tuple
-    for key, items in person_info.iteritems():
-        for data in items:
-            if 'fagfelt' in data:
-                fs_fagfelt = data['fagfelt']
-                if fs_fagfelt not in c_fagfelt:
-                    fs_fagfelt = (fs_fagfelt,)
-                    c_fagfelt += fs_fagfelt
-                    value_added = True
-                    logger.debug("For %s, added fagfelt: %s",
-                                 fnr, fs_fagfelt[0])
-    if value_added:
-        person.populate_trait(co.trait_fagomrade_fagfelt, date=now,
-                              strval=pickle.dumps(c_fagfelt))
-        person.write_db()
+    person.write_db()
 
 
 def main():

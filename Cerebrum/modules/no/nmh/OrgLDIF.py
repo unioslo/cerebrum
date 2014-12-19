@@ -38,30 +38,28 @@ class nmhOrgLDIFMixin(OrgLDIF):
         return False
 
     def get_fagomrade(self):
-        """NMH wants 'fagomrade' exported, which consists of 'fagfelt'.
-        This field is stored in a trait for each person. The trait is a
-        serialized pickle-tuple, since a person can have several entries.
+        """NMH wants 'fagomrade' exported, which consists one or more 'fagfelt'.
+        This field is stored in a trait for each person. The trait string value 
+        is a pickled list of strings.
         """
-        fagfelt_dict = dict()
-        for row in self.person.list_traits(
-                self.const.trait_fagomrade_fagfelt):
-            fagfelt_string = ''
+        person2fagfelt = dict()
 
-            if row['strval'] is not None:
-                fagfelt_tuple = pickle.loads(row['strval'])
-                if fagfelt_tuple:
-                    for fagfelt in fagfelt_tuple:
-                        fagfelt_string += fagfelt + ','
-                    fagfelt_string = fagfelt_string[0:-1]
+        for row in self.person.list_traits(self.const.trait_fagomrade_fagfelt):
+            try:
+                fagfelt = pickle.loads(row['strval'])
+            except Exception, exc:
+                self.logger.warn("Could not unpickle trait_fagomrade_fagfelt for person:%s, %s",
+                            row['entity_id'], exc)
+                continue
 
-            fagfelt_dict[row['entity_id']] = iso2utf(fagfelt_string)
+            person2fagfelt[row['entity_id']] = [iso2utf(f) for f in fagfelt]
 
-        return fagfelt_dict
+        return person2fagfelt
 
     def get_fagmiljo(self):
-        """Returns a dict mapping from person_id to 'fagmiljÃ¸'.
+        """Returns a dict mapping from person_id to 'fagmiljø'.
 
-        NMH wants 'fagmiljÃ¸' exported, which is retrieved from SAP as 'utvalg'
+        NMH wants 'fagmiljø' exported, which is retrieved from SAP as 'utvalg'
         and stored in a trait for each person. We blindly treat them as
         plaintext.
 
@@ -126,12 +124,12 @@ class nmhOrgLDIFMixin(OrgLDIF):
         dn, entry, alias_info = self.__super.make_person_entry(row)
         if dn:
             p_id = int(row['person_id'])
-            # Add fagfelt and instrument, if registered for the person:
-            fagf = self.pe2fagomr.get(p_id, '')
-            if fagf:
-                urn = 'urn:mace:feide.no:nmh.no:fagomrade:%s' % (fagf)
+            # Add fagomrade/fagfelt, if registered for the person:
+            fagf = self.pe2fagomr.get(p_id, [])
+            for f in fagf:
+                urn = 'urn:mace:feide.no:nmh.no:fagomrade:%s' % (f)
                 entry.setdefault('eduPersonEntitlement', []).append(urn)
-            # Add fagmiljÃ¸:
+            # Add fagmiljø:
             fagm = self.pe2fagmiljo.get(p_id)
             if fagm:
                 urn = 'urn:mace:feide.no:nmh.no:fagmiljo:%s' % fagm
