@@ -435,7 +435,7 @@ def register_fagomrade(person, person_info):
     fnr = "%06d%05d" % (int(person_info["fodselsdato"]),
                         int(person_info["personnr"]))
 
-    fagfelt_trait = person.get_trait(code=co.trait_fagomrade_fagfelt)
+    fagfelt_trait = person.get_trait(trait=co.trait_fagomrade_fagfelt)
     fagfelt = []
 
     # Extract fagfelt from any fagperson rows
