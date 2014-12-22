@@ -1418,6 +1418,37 @@ class BofhdExtension(BofhdCommonMethods):
                 return True
         return False
 
+    # email forward_info
+    all_commands['email_forward_info'] = Command(
+        ('email', 'forward_info'),
+        SimpleString(),
+        perm_filter='can_email_forward_info',
+        fs=FormatSuggestion([
+            ('%s', ('id', ))]))
+
+    def email_forward_info(self, operator, forward_to):
+        """List owners of email forwards."""
+        self.ba.can_email_forward_info(operator.get_entity_id())
+        ef = Email.EmailForward(self.db)
+        et = Email.EmailTarget(self.db)
+        ac = Utils.Factory.get('Account')(self.db)
+        ret = []
+
+        # Different output format for different input.
+        rfun = lambda r: (r if '%' not in forward_to else
+                          '%-12s %s' % (r, fwd['forward_to']))
+
+        for fwd in ef.search(forward_to):
+            try:
+                et.clear()
+                et.find(fwd['target_id'])
+                ac.clear()
+                ac.find(et.email_target_entity_id)
+                ret.append({'id': rfun(ac.account_name)})
+            except Errors.NotFoundError:
+                ret.append({'id': rfun('id:%s' % et.entity_id)})
+        return ret
+
     # email info <account>+
     all_commands['email_info'] = Command(
         ("email", "info"),

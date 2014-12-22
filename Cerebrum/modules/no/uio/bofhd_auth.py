@@ -190,6 +190,19 @@ class BofhdAuth(auth.BofhdAuth):
                 raise PermissionDenied('Unregistered name: %s' % n)
         return True
 
+    def can_email_forward_info(self, operator, query_run_any=False):
+        """Allow access to superusers, postmasters and CERT."""
+        if self.is_superuser(operator):
+            return True
+        if self.is_postmaster(operator):
+            return True
+        if self._has_operation_perm_somewhere(
+            operator, self.const.auth_email_forward_info):
+            return True
+        if query_run_any:
+            return True
+        raise PermissionDenied('Restricted access')
+
     def can_show_history(self, operator, entity=None, query_run_any=False):
         """UiO-specific history-specific authentication rules."""
         if (entity and entity.entity_type == self.const.entity_email_target and
