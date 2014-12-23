@@ -363,6 +363,11 @@ class Constants(Constants.Constants):
         'SITO',
         Constants.Constants.entity_account,
         'Accounts generated for sito users')
+    spread_fronter_dotcom = _SpreadCode(
+        'CF@fronter.com', Constants.Constants.entity_group,
+        'Group representing a course that should be exported to the '
+        'ClassFronter instance on fronter.com. Should only be given to '
+        'groups that have been automatically generated from FS.')
 
     # Email constants
     spread_uit_imap = _SpreadCode(

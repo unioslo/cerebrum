@@ -1,3 +1,7 @@
+2014-12-23    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* Constants.py (Constants): added fronter spread used by populate_fronter_groups.py... not sure if we REALLY want it.. for now it remains in the code..
+
 2014-12-16    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* sito_utils.py: added to repo
