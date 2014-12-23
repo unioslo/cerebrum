@@ -19,6 +19,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+# kbj005 2014.12.23: copied from /home/cerebrum/cerebrum/contrib/no/uio
+
 """Populer Cerebrum med FS-avledede grupper.
 
 Disse gruppene blir bl.a. brukt ved eksport av data til ClassFronter, og ved
@@ -556,14 +558,19 @@ def process_kursdata(role_file, undenh_file, undakt_file,
     # mechanism it would be impossible to automatically delete groups that
     # have been created earlier and that are not longer meaningful.
 
-    logger.info("Oppdaterer supergruppe for alle ekstra grupper")
-    sync_group(None, auto_supergroup,
-               "Ikke-eksporterbar gruppe.  Definerer hvilke andre "+
-               "automatisk opprettede grupper som refererer til "+
-               "grupper speilet fra FS.",
-               co.entity_group,
-               AffiliatedGroups[auto_supergroup], recurse=False)
-    logger.info(" ... done")
+    # kbj005 2014.12.23: Added if-test to avoid the script crashing when auto_supergroup 
+    # hasn't been added to AffiliatedGroups. auto_supergroup only gets added in
+    # populate_ifi_groups() (which we have commented out) or if ifi_hack == True in 
+    # populate_enhet_groups().
+    if auto_supergroup in AffiliatedGroups.keys():
+      logger.info("Oppdaterer supergruppe for alle ekstra grupper")
+      sync_group(None, auto_supergroup,
+                 "Ikke-eksporterbar gruppe.  Definerer hvilke andre "+
+                 "automatisk opprettede grupper som refererer til "+
+                 "grupper speilet fra FS.",
+                 co.entity_group,
+                 AffiliatedGroups[auto_supergroup], recurse=False)
+      logger.info(" ... done")
 
     logger.info("Oppdaterer supergruppe for alle emnekode-supergrupper")
     sync_group(None, fs_supergroup,

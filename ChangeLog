@@ -1,3 +1,8 @@
+2014-12-23  Karen   <cerebrum@cleomedes.uit.no>
+
+    * populate_fronter_groups.py: Added if-test to avoid the script crashing when 
+    auto_supergroup hasn't been added to AffiliatedGroups.
+
 2014-12-16    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* import_sito.py (import_OU): now ou is populated with
