@@ -493,9 +493,10 @@ class BofhdExtension(BofhdCommonMethods,
         sources = []
         for row in person.get_affiliations():
             ou = self._get_ou(ou_id=row['ou_id'])
-            affiliations.append("%s@%s" % (
+            affiliations.append("%s@%s Last seen: %s" % (
                 self.const.PersonAffStatus(row['status']),
-                self._format_ou_name(ou)))
+                self._format_ou_name(ou),
+                row['last_date'].date))
             sources.append(str(self.const.AuthoritativeSystem(row['source_system'])))
         for ss in cereconf.SYSTEM_LOOKUP_ORDER:
             ss = getattr(self.const, ss)
