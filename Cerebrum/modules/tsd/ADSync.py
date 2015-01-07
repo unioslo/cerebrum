@@ -286,12 +286,12 @@ class HostSync(ADSync.HostSync, TSDUtils):
     def fetch_cerebrum_data(self):
         """Override for DNS info."""
         super(HostSync, self).fetch_cerebrum_data()
+
         # Mapping by dns_owner_id
         self.owner2entity = dict((e.dns_owner_id, e) for e in
                                  self.entities.itervalues())
         self.logger.debug("Found %d owners for entities" %
                           len(self.owner2entity))
-
         # This is a slow process, so can't be used for too many hosts. Would
         # then have to cache the mapping from ip to subnet.
         self.logger.debug("Fetching IP addresses")
@@ -310,12 +310,15 @@ class HostSync(ADSync.HostSync, TSDUtils):
                 continue
             ent.ipaddresses.add(row['a_ip'])
             ent.vlans.add(self.subnet.vlan_number)
-            ent.subnets.add("%s/%s" % (self.subnet.subnet_ip,
-                                       self.subnet.subnet_mask))
+            ent.subnets.add("%s/%s/%s" % (self.subnet.vlan_number,
+                                          self.subnet.subnet_ip,
+                                          self.subnet.subnet_mask))
             self.logger.debug2("Host %s (%s): %s (%s)", row['name'],
                                row['dns_owner_id'], row['a_ip'],
                                self.subnet.vlan_number)
             i += 1
+        # Utils:
+        short_ipv6 = dns.IPv6Utils.IPv6Utils.compress
         for row in self.aaaar.list_ext():
             try:
                 ent = self.owner2entity[row['dns_owner_id']]
@@ -330,8 +333,9 @@ class HostSync(ADSync.HostSync, TSDUtils):
                 continue
             ent.ipaddresses.add(row['aaaa_ip'])
             ent.vlans.add(self.subnet6.vlan_number)
-            ent.subnets.add("%s/%s" % (self.subnet6.subnet_ip,
-                                       self.subnet6.subnet_mask))
+            ent.subnets.add("%s/%s/%s" % (self.subnet6.vlan_number,
+                                          short_ipv6(self.subnet6.subnet_ip),
+                                          self.subnet6.subnet_mask))
             self.logger.debug2("Host %s (%s): %s (%s)", row['name'],
                                row['dns_owner_id'], row['aaaa_ip'],
                                self.subnet6.vlan_number)
