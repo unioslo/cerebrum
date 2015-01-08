@@ -204,6 +204,7 @@ class Cerebrum2EphorteClient(object):
         self.database = database
         self.username = username
         self.password = password
+        self.__inject = {}
         # TODO: Make client choice configurable
         self.client = SudsClient(wsdl, timeout=timeout,
                                  client_key=client_key,
@@ -245,6 +246,15 @@ class Cerebrum2EphorteClient(object):
                 # Actually convert
                 res[key] = converter(resp[key])
         return res
+
+    def _set_injection_reply(self, reply):
+        self.__inject = {'__inject': {'reply': reply}}
+
+    def _set_injection_fault(self, fault):
+        self.__inject = {'__inject': {'fault': fault}}
+
+    def _clear_injections(self):
+        self.__inject = {}
 
     def test(self, customer_id='UiO2', user_id='Dummy'):
         self.client.Test(self.username, self.password, customer_id, user_id)
@@ -384,7 +394,8 @@ class Cerebrum2EphorteClient(object):
             self.password,
             self.customer_id,
             self.database,
-            user_id)
+            user_id,
+            **self.__inject)
 
         if r.User:
             usr = self._convert_result(r.User)
