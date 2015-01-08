@@ -27,6 +27,7 @@ from Cerebrum import https
 import suds
 from xml.sax import SAXParseException
 import ssl
+import sys
 
 
 class EphorteWSError(Exception):
@@ -53,8 +54,14 @@ class HTTPSClientCertTransport(suds.transport.http.HttpTransport):
         """
         suds.transport.http.HttpTransport.__init__(self, *args, **kwargs)
         # TODO: Catch exceptions related to nonexistent files?
-        self.ssl_conf = https.SSLConfig(ca_certs, cert_file, key_file,
-                                        timeout=timeout)
+        # Changes in 2.6 in regards to timeouts
+        if sys.version_info < (2, 6):
+            self.ssl_conf = https.SSLConfig(ca_certs, cert_file, key_file,
+                                            timeout=timeout)
+        else:
+            self.ssl_conf = https.SSLConfig(ca_certs, cert_file, key_file)
+            self.ssl_conf.set_verify_hostname(False)
+            self.timeout = timeout
 
     def u2open(self, u2request):
         """
@@ -67,7 +74,11 @@ class HTTPSClientCertTransport(suds.transport.http.HttpTransport):
         hc_cls = https.HTTPSConnection.configure(self.ssl_conf)
         ssl_conn = https.HTTPSHandler(ssl_connection=hc_cls)
         url = urllib2.build_opener(ssl_conn)
-        return url.open(u2request)
+
+        if sys.version_info < (2, 6):
+            return url.open(u2request)
+        else:
+            return url.open(u2request, timeout=self.timeout)
 
 
 class SudsClient(object):
