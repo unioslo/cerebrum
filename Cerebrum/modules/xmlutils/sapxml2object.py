@@ -499,11 +499,14 @@ class XMLPerson2Object(XMLEntity2Object):
 
         kommtype2const = {"Faks arbeid": DataContact.CONTACT_FAX,
                           "Telefaks midlertidig arbeidssted":
-                            DataContact.CONTACT_FAX,
+                          DataContact.CONTACT_FAX,
                           "Arbeidstelefon 1": DataContact.CONTACT_PHONE,
                           "Arbeidstelefon 2": DataContact.CONTACT_PHONE,
                           "Arbeidstelefon 3": DataContact.CONTACT_PHONE,
-                          "Mobilnummer, jobb": DataContact.CONTACT_MOBILE, }
+                          "Mobilnummer, jobb":
+                          DataContact.CONTACT_MOBILE_WORK,
+                          "Mobilnummer, privat":
+                          DataContact.CONTACT_MOBILE_PRIVATE}
 
         ctype = elem.find("Type")
         if (ctype is None
