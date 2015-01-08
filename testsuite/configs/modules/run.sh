@@ -58,6 +58,8 @@ fi
 # It's the directory we're working from, i.e. the dirname of this script. This
 # directory *must* contain a certain set of config files, e.g. 'cereconf.py.in'.
 config=$( abs_dirname "${BASH_SOURCE[0]}" )
+export CONFIG_EWS_WSDL=$( abs_dirname "${BASH_SOURCE[0]}" )/ews.wsdl
+export CONFIG_EWS=$( abs_dirname "${BASH_SOURCE[0]}" )/ews.cfg
 
 # 
 # Setup a new test environmnet 
@@ -82,7 +84,8 @@ fi
 # Setup OK, run tests
 #
 info "Running nosetests"
-${env_dir}/bin/nosetests -c ${config}/noseconfig.cfg ${crb_src}/testsuite/tests/test_ad2
+${env_dir}/bin/nosetests -c ${config}/noseconfig.cfg ${crb_src}/testsuite/tests/test_ad2 \
+    ${crb_src}/testsuite/tests/test_ews
 error=$(($? + $error))
 
 exit $error
