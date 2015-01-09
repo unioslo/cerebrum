@@ -36,6 +36,8 @@ class EphorteWSTest(unittest.TestCase):
         """Test the return of the get_user_details call.
 
         This is done by simulating the actual call."""
+
+        # Test actual call that should be sucessfull.
         response = """<?xml version="1.0" encoding="UTF-8"?>
 <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
    <s:Body>
@@ -81,6 +83,8 @@ Kristen Nygaards hus</StreetAddress>
         self._c._set_injection_reply(response)
         r = self._c.get_user_details('jsama@uio.no')
 
+        # Check that the data structure returned from the EphorteWS-client is
+        # equal to what we expect.
         self.assertEqual(
             r, ({'City': u'OSLO',
                  'StreetAddress': u'Gaustadalleen 23 A\nKristen Nygaards hus',
@@ -100,4 +104,37 @@ Kristen Nygaards hus</StreetAddress>
                  {'AccessCodeId': u'UA',
                   'IsAutorizedForAllOrgUnits': False,
                   'OrgId': None}],
-                []))
+                []),
+            "User details returned by get_user_details not as expected")
+
+        # Test nonexistent user fault.
+        response = """<?xml version="1.0" encoding="UTF-8"?>
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
+    <s:Body>
+        <GetUserDetailsResponse xmlns="http://Cerebrum2Ephorte/Service">
+            <GetUserDetailsResult
+                    xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+                <ErrorMessage>Error Cerebrum2Ephorte Web Service method """ + \
+                   """GetUserDetails()! Message: UserId not found in """ + \
+                   """Ephorte: js@uio.no</ErrorMessage>
+                <HasError>true</HasError>
+                <OccurencesFound i:nil="true"/>
+                <User i:nil="true"/>
+                <UserAuthorizations i:nil="true"/>
+                <UserRoles i:nil="true"/>
+            </GetUserDetailsResult>
+        </GetUserDetailsResponse>
+    </s:Body>
+</s:Envelope>"""
+
+        self._c._clear_injections()
+        self._c._set_injection_reply(response)
+
+        try:
+            self._c.get_user_details('js@uio.no')
+        except EphorteWS.EphorteWSError:
+            # TODO: Should we actually verify how the exception message looks?
+            pass
+        else:
+            self.fail("get_user_details: Nonexistent user "
+                      "does not result in exception.")
