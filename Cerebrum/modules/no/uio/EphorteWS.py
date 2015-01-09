@@ -250,6 +250,9 @@ class Cerebrum2EphorteClient(object):
     def _set_injection_reply(self, reply):
         """Set the message that we should recieve from the WS.
 
+        This can be used for testing this class without acctually connecting to
+        the webservice.
+
         :type reply: str
         :param reply: The XML-message that we should recieve.
         """
@@ -257,6 +260,9 @@ class Cerebrum2EphorteClient(object):
 
     def _set_injection_fault(self, fault):
         """Set the fault that we should recieve from the WS.
+
+        This can be used for testing this class without acctually connecting to
+        the webservice.
 
         :type fault: str
         :param fault: The XML-message that we should recieve.
