@@ -248,12 +248,23 @@ class Cerebrum2EphorteClient(object):
         return res
 
     def _set_injection_reply(self, reply):
+        """Set the message that we should recieve from the WS.
+
+        :type reply: str
+        :param reply: The XML-message that we should recieve.
+        """
         self.__inject = {'__inject': {'reply': reply}}
 
     def _set_injection_fault(self, fault):
+        """Set the fault that we should recieve from the WS.
+
+        :type fault: str
+        :param fault: The XML-message that we should recieve.
+        """
         self.__inject = {'__inject': {'fault': fault}}
 
     def _clear_injections(self):
+        """Clear the injections that have been set."""
         self.__inject = {}
 
     def test(self, customer_id='UiO2', user_id='Dummy'):
