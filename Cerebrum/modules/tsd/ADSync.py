@@ -310,15 +310,13 @@ class HostSync(ADSync.HostSync, TSDUtils):
                 continue
             ent.ipaddresses.add(row['a_ip'])
             ent.vlans.add(self.subnet.vlan_number)
-            ent.subnets.add("%s/%s/%s" % (self.subnet.vlan_number,
-                                          self.subnet.subnet_ip,
-                                          self.subnet.subnet_mask))
+            ent.add_subnet(self.subnet.vlan_number,
+                           self.subnet.subnet_ip,
+                           self.subnet.subnet_mask)
             self.logger.debug2("Host %s (%s): %s (%s)", row['name'],
                                row['dns_owner_id'], row['a_ip'],
                                self.subnet.vlan_number)
             i += 1
-        # Utils:
-        short_ipv6 = dns.IPv6Utils.IPv6Utils.compress
         for row in self.aaaar.list_ext():
             try:
                 ent = self.owner2entity[row['dns_owner_id']]
@@ -333,9 +331,10 @@ class HostSync(ADSync.HostSync, TSDUtils):
                 continue
             ent.ipaddresses.add(row['aaaa_ip'])
             ent.vlans.add(self.subnet6.vlan_number)
-            ent.subnets.add("%s/%s/%s" % (self.subnet6.vlan_number,
-                                          short_ipv6(self.subnet6.subnet_ip),
-                                          self.subnet6.subnet_mask))
+            ent.add_subnet(self.subnet6.vlan_number,
+                           self.subnet6.subnet_ip,
+                           self.subnet6.subnet_mask,
+                           is_ipv6=True)
             self.logger.debug2("Host %s (%s): %s (%s)", row['name'],
                                row['dns_owner_id'], row['aaaa_ip'],
                                self.subnet6.vlan_number)
@@ -400,11 +399,19 @@ class HostEntity(CerebrumEntity):
         self.ipaddresses = set()
         self.fqdn = None
         self.vlans = set()
-        self.subnets = set()
+        self.subnets = list()
 
     def calculate_ad_values(self):
         """Overriden to add TSD specific values."""
         super(HostEntity, self).calculate_ad_values()
+
+    def add_subnet(self, vlan, base, mask, is_ipv6=False):
+        """ Add a subnet to this host. """
+        if is_ipv6:
+            base = dns.IPv6Utils.IPv6Utils.compress(base)
+        self.subnets.append({'vlan': vlan,
+                             'base': base,
+                             'mask': mask, })
 
 
 class HostpolicySync(ADSync.GroupSync, TSDUtils):
