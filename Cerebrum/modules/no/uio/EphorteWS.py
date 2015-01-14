@@ -160,6 +160,13 @@ class Cerebrum2EphorteClientMock(object):
                     city=None):
         pass
 
+    def ensure_role_for_user(self, user_id, job_title, role_id, ou_id,
+                             arkivdel, journalenhet, default_role):
+        pass
+
+    def disable_roles_and_authz_for_user(self, user_id):
+        pass
+
 
 class Cerebrum2EphorteClient(object):
     """Client for connecting and consuming the Cerebrum2Ephorte web-service."""
