@@ -32,6 +32,87 @@ class EphorteWSTest(unittest.TestCase):
         cls._c = EphorteWS.Cerebrum2EphorteClient(
             'file://%s' % wsdl, 'customer_id', 'database', timeout=None)
 
+    def test__convert_result(self):
+        """Test conversion of suds response objects, to python types."""
+        # Construct a suds response object
+        # Get the definition
+        t = self._c.client.client.factory.create('GetUserDetailsResponse')
+        # Set at field to a text string
+        t.GetUserDetailsResult.User.City = 'Oslo'
+
+        # Get user authz definition
+        eua = self._c.client.client.factory.create('EphorteUserAuthorization')
+        # Set some values
+        eua.AccessCodeId = 'AR'
+        eua.IsAutorizedForAllOrgUnits = False
+
+        # Get definition of user authz array
+        aeua = self._c.client.client.factory.create(
+            'ArrayOfEphorteUserAuthorization')
+        # Set user authz object
+        aeua.EphorteUserAuthorization = [eua]
+
+        # Set user authz array object
+        t.GetUserDetailsResult.UserAuthorizations = aeua
+
+        # Get user role definition
+        eur = self._c.client.client.factory.create('EphorteUserRole')
+        eur.FondsSeriesId = "SAK UIO"
+        eur.isDefault = True
+        eur.Org = self._c.client.client.factory.create('EphorteOrg')
+        eur.Org.IsTop = True
+        eur.Org.Name = "UiO"
+        eur.Org.OrgId = "UIO"
+        eur.RegistryManagementUnitId = "J-UIO"
+        eur.Role = self._c.client.client.factory.create('EphorteRole')
+        eur.Role.Description = "Systemansvarlig"
+        eur.Role.RoleId = 'SY'
+        eur.RoleTitle = 'Systemansvarlig UIO'
+        aeur = self._c.client.client.factory.create('ArrayOfEphorteUserRole')
+        aeur.EphorteUserRole = [eur]
+        t.GetUserDetailsResult.UserRoles = aeur
+
+        # Test correct conversion of lists, strings, numbers and dicts
+        r = self._c._convert_result(t)
+        self.assertEqual(
+            r, {
+                'GetUserDetailsResult': {
+                    'OccurencesFound': None,
+                    'UserRoles': {
+                        'EphorteUserRole': [
+                            {'FondsSeriesId': 'SAK UIO',
+                             'JobTitle': None,
+                             'RegistryManagementUnitId': 'J-UIO',
+                             'Role': {
+                                 'RoleId': 'SY',
+                                 'Description': 'Systemansvarlig'},
+                             'isDefault': True,
+                             'Org': {
+                                 'OrgId': 'UIO',
+                                 'ParentOrgId': None,
+                                 'IsTop': True,
+                                 'Name': 'UiO'},
+                             'RoleTitle': 'Systemansvarlig UIO',
+                             'IsDefault': None}]},
+                    'UserAuthorizations': {
+                        'EphorteUserAuthorization': [
+                            {'AccessCodeId': 'AR',
+                             'IsAutorizedForAllOrgUnits': False,
+                             'OrgId': None}]},
+                    'User': {
+                        'City': 'Oslo',
+                        'StreetAddress': None,
+                        'FirstName': None,
+                        'Mobile': None,
+                        'LastName': None,
+                        'UserId': None,
+                        'ZipCode': None,
+                        'Telephone': None,
+                        'MiddelName': None,
+                        'EmailAddress': None,
+                        'FullName': None,
+                        'Initials': None}}})
+
     def test_get_user_details(self):
         """Test the return of the get_user_details call.
 
