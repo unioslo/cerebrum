@@ -460,8 +460,10 @@ class Processor:
         self._process_subnets(gw_subnets, subnets, sub2ouid)
 
         # Mapping hosts to projects by what subnet they're on:
-        hostid2pid = dict((r['entity_id'], self.ouid2pid[r['target_id']]) for r
-                          in self.ent.list_traits(code=self.co.trait_project_host))
+        hostid2pid = dict(
+            (r['entity_id'], self.ouid2pid.get(r['target_id']))
+            for r in self.ent.list_traits(code=self.co.trait_project_host)
+            if r['target_id'] in self.ouid2pid)
         host2project = dict()
         host2ips = dict()
         for row in aaaar.list_ext():
