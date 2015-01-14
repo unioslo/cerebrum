@@ -317,8 +317,10 @@ class Processor:
             self.gw.delete_user(pid, username)
             return
         if pid != self.ouid2pid.get(ac2proj[self.pu.entity_id]):
-            logger.error("Danger! Project mismatch in Cerebrum and GW for account %s" % self.pu.entity_id)
-            raise Exception("Project mismatch with GW and Cerebrum")
+            logger.error('Project mismatch in Cerebrum and GW for account: %s, '
+                         'GW-project: %s', self.pu.entity_id, pid)
+            self.gw.freeze_user(pid, username)
+            return
         quars = [r['quarantine_type'] for r in
                  self.pu.get_entity_quarantine(only_active=True)]
         if quars:
