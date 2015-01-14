@@ -223,6 +223,9 @@ class Cerebrum2EphorteClient(object):
                 # order to convert them.
                 elif isinstance(resp[key], types.InstanceType):
                     converter = Cerebrum2EphorteClient._convert_result
+                # Handle lists with this function (see above).
+                elif isinstance(resp[key], types.ListType):
+                    converter = Cerebrum2EphorteClient._convert_result
                 else:
                     # Pass-trough conversion function
                     converter = lambda x: x
