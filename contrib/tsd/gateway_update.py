@@ -296,14 +296,24 @@ class Processor:
             self.gw.delete_user(pid, username)
             return
         # Skip accounts not affiliated with a project.
-        if not ac2proj.get(self.pu.entity_id):
+        if self.pu.entity_id not in ac2proj:
             logger.info("User %s not affiliated with any project" % username)
             self.gw.delete_user(pid, username)
             return
+        if ac2proj[self.pu.entity_id] in self.quarantined_ous:
+            logger.info("User %s affiliated with a quarantined project",
+                        username)
+            if not gw_user['frozen']:
+                self.gw.freeze_user(pid, username)
+            return
         if pid != self.ouid2pid.get(ac2proj[self.pu.entity_id]):
             logger.error("Danger! Project mismatch in Cerebrum and GW for "
-                         "account %s", self.pu.entity_id)
-            raise Exception("Project mismatch with GW and Cerebrum")
+                         "account %s (entity_id=%s, gw_pid=%s, crb_pid=%s)",
+                         username, self.pu.entity_id, pid,
+                         self.ouid2pid.get(ac2proj[self.pu.entity_id]))
+            if not gw_user['frozen']:
+                self.gw.freeze_user(pid, username)
+            return
         quars = [r['quarantine_type'] for r in
                  self.pu.get_entity_quarantine(only_active=True)]
         if quars:
@@ -440,7 +450,7 @@ class Processor:
         hostid2pid = dict(
             (r['entity_id'], self.ouid2pid[r['target_id']]) for r
             in self.ent.list_traits(code=self.co.trait_project_host)
-            if r['target_id'] not in self.quarantined_ous)
+            if r['target_id'] in self.ouid2pid)
         host2project = dict()
         host2ips = dict()
 
