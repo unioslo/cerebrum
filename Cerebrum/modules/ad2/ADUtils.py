@@ -511,7 +511,10 @@ class ADclient(PowershellClient):
             other = dict()
             other_set = False
         try:
-            for obj in self.get_output_json(commandid, other):
+            output = self.get_output_json(commandid, other)
+            if isinstance(output, dict):
+                output = [output, ]
+            for obj in output:
                 # Some attribute keys are unfortunately not the same when
                 # reading and writing, so we need to translate those here
                 yield dict((attr_map_reverse.get(key, key), value)
@@ -519,10 +522,10 @@ class ADclient(PowershellClient):
         finally:
             # Check for other ouput:
             if not other_set:
-                for type in other:
-                    for o in other[type]:
+                for _type in other:
+                    for o in other[_type]:
                         if o:
-                            self.logger.warn("Unknown output %s: %s" % (type, o))
+                            self.logger.warn("Unknown output %s: %s", _type, o)
 
     def disable_object(self, dn):
         """Set an object as not enabled.
