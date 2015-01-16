@@ -288,7 +288,11 @@ def main():
     parser.add_argument(
         '--commit', help='Run in commit mode', action='store_true')
     parser.add_argument(
-        '--config_help', help='Show configuration help', action='store_true')
+        '--update-person-info', help='Update person info', action='store_true')
+    parser.add_argument(
+        '--update-perms', help='Update permissions', action='store_true')
+    parser.add_argument(
+        '--config-help', help='Show configuration help', action='store_true')
     args = parser.parse_args()
 
     if args.config_help:
@@ -330,7 +334,11 @@ def main():
                        ca_certs=config.ca_certs)
 
     for person in select_for_update(selection_spread):
-        update_person(person, client)
+        if args.update_person_info:
+            update_person(person, client)
+        if args.update_perms:
+            update_perms(person, client)
+
 
     logger.info('All persons syncronized')
 
