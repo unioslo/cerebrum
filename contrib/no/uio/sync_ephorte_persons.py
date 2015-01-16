@@ -157,6 +157,17 @@ def perm_code_id_to_perm(code):
             for x in map(functools.partial(getattr, co), dir(co))
             if isinstance(x, co.EphortePermission))
 
+sko_cache = dict()
+ou = Factory.get("OU")(db)
+def _get_sko(ou_id):
+    ret = sko_cache.get(ou_id)
+    if ret is None:
+        ou.clear()
+        ou.find(ou_id)
+        ret = "%02i%02i%02i" % (ou.fakultet, ou.institutt, ou.avdeling)
+        sko_cache[ou_id] = ret
+    return ret
+
 def select_for_update(selection_spread):
     """Yield persons satisfying criteria.
 
