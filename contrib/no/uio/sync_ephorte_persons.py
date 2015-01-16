@@ -190,6 +190,35 @@ def list_perm_for_person(person):
             sko = None
         ret.append((perm_type, False, sko))
     return ret
+
+def update_perms(person, client, userid=None):
+    try:
+        if userid is None:
+            userid = construct_user_id(person)
+        logger.info("Updating perms for %s", userid)
+        ephorte_perms = set(user_details_to_perms(client.get_user_details(userid)))
+        for perm in ephorte_perms:
+            logger.debug("Found perm for %s in ephorte: %s@%s, authorized=%s", userid, perm[0], perm[2], perm[1])
+        cerebrum_perms = set(list_perm_for_person(person))
+        for perm in cerebrum_perms:
+            logger.debug("Setting perm for %s: %s@%s, authorized=%s", userid, perm[0], perm[2], perm[1])
+
+        # Delete perms?
+        superfluous = ephorte_perms.difference(cerebrum_perms)
+        if superfluous:
+            for perm in superfluous:
+                logger.info("Deleting perm for %s: %s@%s, authorized=%s", userid, perm[0], perm[2], perm[1])
+            client.disable_roles_and_authz_for_user(userid)
+            for perm in cerebrum_perms:
+                if perm in ephorte_perms:
+                    logger.info("Readding perm for %s: %s@%s, authorized=%s", userid, perm[0], perm[2], perm[1])
+                else:
+                    logger.info("Adding new perm for %s: %s@%s, authorized=%s", userid, perm[0], perm[2], perm[1])
+                client.ensure_access_code_authorization(userid, perm[0], perm
+
+    except Exception, e:
+        logger.exception("Something went wrong")
+
 def select_for_update(selection_spread):
     """Yield persons satisfying criteria.
 
