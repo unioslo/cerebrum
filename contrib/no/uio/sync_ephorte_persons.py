@@ -39,6 +39,7 @@ import cereconf
 cerebrum_path, cereconf  # Satisfy the linters.
 
 from Cerebrum.Utils import Factory
+from Cerebrum.Utils import read_password
 from Cerebrum import Errors
 
 from Cerebrum.modules.no.uio.EphorteWS import EphorteWSError
@@ -331,7 +332,9 @@ def main():
     client = EphorteWS(config.wsdl, config.customer_id, config.database,
                        client_key=config.client_key,
                        client_cert=config.client_cert,
-                       ca_certs=config.ca_certs)
+                       ca_certs=config.ca_certs,
+                       username=config.username,
+                       password=read_password(config.username, config.wsdl.split('/')[2]))
 
     for person in select_for_update(selection_spread):
         if args.update_person_info:
