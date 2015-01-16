@@ -42,6 +42,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 
 from Cerebrum.modules.no.uio.EphorteWS import EphorteWSError
+from Cerebrum.modules.no.uio.Ephorte import EphortePermission
 
 db = Factory.get('Database')(client_encoding='utf-8')
 
@@ -144,6 +145,17 @@ def update_person(pe, client):
         logger.warn('Could not ensure existence of %s in ePhorte: %s',
                     user_id, str(e))
 
+_perm_codes = None
+def perm_code_id_to_perm(code):
+    """Convert from ephorte perm code to cerebrum code"""
+    global _perm_codes
+    if _perm_codes:
+        return _perm_codes[code]
+    import functools
+    logger.debug("Mapping perm codes")
+    _perm_codes = dict((str(x), x)
+            for x in map(functools.partial(getattr, co), dir(co))
+            if isinstance(x, co.EphortePermission))
 
 def select_for_update(selection_spread):
     """Yield persons satisfying criteria.
