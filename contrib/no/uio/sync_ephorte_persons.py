@@ -178,6 +178,18 @@ def user_details_to_perms(user_details):
     authzs = user_details[1]
     return [(perm_code_id_to_perm(x['AccessCodeId']), x['IsAutorizedForAllOrgUnits'], x['OrgId'])
             for x in authzs]
+
+def list_perm_for_person(person):
+    ret = []
+    for row in EphortePermission(db).list_permission(person_id=person.entity_id):
+        perm_type = row['perm_type']
+        if perm_type:
+            perm_type = str(co.EphortePermission(perm_type))
+        sko = _get_sko(row['adm_enhet'])
+        if sko == '999999':
+            sko = None
+        ret.append((perm_type, False, sko))
+    return ret
 def select_for_update(selection_spread):
     """Yield persons satisfying criteria.
 
