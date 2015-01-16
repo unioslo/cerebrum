@@ -168,6 +168,16 @@ def _get_sko(ou_id):
         sko_cache[ou_id] = ret
     return ret
 
+
+def user_details_to_perms(user_details):
+    """Convert result from Cerebrum2EphorteClient.get_user_details()
+    :type user_details tuple(dict, list(dict), list)
+    :param user_details: Return value from get_user_details()
+
+    :rtype list(authcode, boolean, ou)"""
+    authzs = user_details[1]
+    return [(perm_code_id_to_perm(x['AccessCodeId']), x['IsAutorizedForAllOrgUnits'], x['OrgId'])
+            for x in authzs]
 def select_for_update(selection_spread):
     """Yield persons satisfying criteria.
 
