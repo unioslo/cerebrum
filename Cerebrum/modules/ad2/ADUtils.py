@@ -879,6 +879,8 @@ class ADclient(PowershellClient):
                 self.logger.debug2("Failed updating all attributes, splitting")
                 success = True
                 for atrname, values in attrs.iteritems():
+                    if isinstance(values, int):
+                        values = [values]
                     for element in values:
                         try:
                             run_setadobject({atrname: element})
