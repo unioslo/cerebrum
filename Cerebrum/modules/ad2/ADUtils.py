@@ -281,10 +281,21 @@ class ADclient(PowershellClient):
             novalueargs = (novalueargs,)
         # The parameter "-Credential $cred" is special, as "$cred" should not be
         # wrapped inside a string. Everything else should, though.
-        return '%s -Credential $cred %s %s' % (command,
-                          ' '.join('-%s %s' % (k, self.escape_to_string(v))
-                                   for k, v in kwargs.iteritems()),
-                          ' '.join('-%s' % v for v in novalueargs))
+
+        # Filter, process and remove empty arguments
+        for k in kwargs.copy():
+            if not kwargs[k] and not isinstance(kwargs[k], bool):
+                self.logger.debug4("Omitting empty value for key %s", k)
+                del kwargs[k]
+            kwargs[k] = self.escape_to_string(kwargs[k])
+            if not kwargs[k]:
+                self.logger.debug4("Omitting empty encoded value for key %s", k)
+                del kwargs[k]
+
+        return '%s -Credential $cred %s %s' % (
+            command,
+            ' '.join('-%s %s' % (k, v) for k, v in kwargs.iteritems()),
+            ' '.join('-%s' % v for v in novalueargs))
 
     def get_data(self, commandid, signal=True, timeout_retries=50):
         """Get the output for a given command.
@@ -741,7 +752,8 @@ class ADclient(PowershellClient):
         if attributes:
             attributes = dict((self.attribute_write_map.get(name, name), value)
                               for name, value in attributes.iteritems()
-                              if value is not None)
+                              if value or isinstance(value, bool))
+        if attributes:
             parameters['OtherAttributes'] = attributes
 
         parameters['Name'] = name
