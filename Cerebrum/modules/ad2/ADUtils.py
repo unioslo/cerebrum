@@ -284,12 +284,10 @@ class ADclient(PowershellClient):
 
         # Filter, process and remove empty arguments
         for k in kwargs.copy():
-            if not kwargs[k] and not isinstance(kwargs[k], bool):
-                self.logger.debug4("Omitting empty value for key %s", k)
-                del kwargs[k]
-            kwargs[k] = self.escape_to_string(kwargs[k])
+            if kwargs[k] or isinstance(kwargs[k], (bool, int, long, float)):
+                kwargs[k] = self.escape_to_string(kwargs[k])
             if not kwargs[k]:
-                self.logger.debug4("Omitting empty encoded value for key %s", k)
+                self.logger.debug4("Omitting empty value for key %s", k)
                 del kwargs[k]
 
         return '%s -Credential $cred %s %s' % (
@@ -752,7 +750,8 @@ class ADclient(PowershellClient):
         if attributes:
             attributes = dict((self.attribute_write_map.get(name, name), value)
                               for name, value in attributes.iteritems()
-                              if value or isinstance(value, bool))
+                              if value or isinstance(value, (bool, int, long,
+                                                             float)))
         if attributes:
             parameters['OtherAttributes'] = attributes
 
