@@ -878,8 +878,23 @@ class ADclient(PowershellClient):
                 # elements separately.
                 self.logger.debug2("Failed updating all attributes, splitting")
                 success = True
+                if isinstance(attrs, set):
+                    try:
+                        run_setadobject(attrs)
+                        return True
+                    except SetAttributeException, e:
+                        self.logger.warn(
+                            "Failed action %s for %s with element: '%s'"
+                            " error: %s", action, ad_id, attrs, e)
+                        return False
+
                 for atrname, values in attrs.iteritems():
-                    if isinstance(values, int):
+                    # Stuff un-itrable types (or types that we do not want to
+                    # iterate, like strings) into a list. It does not handle
+                    # generators.
+                    if (isinstance(values, basestring)
+                            or not (hasattr(values, '__iter__') or
+                                    hasattr(values, '__getitem__'))):
                         values = [values]
                     for element in values:
                         try:
