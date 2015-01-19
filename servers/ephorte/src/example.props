@@ -1,9 +1,0 @@
-url=https://myserver.mydom.no/uio/shared/WebServices/Services.asmx
-uname=admin
-password=admin
-database=mydb
-# For JDBC hack
-db_driver=oracle.jdbc.OracleDriver
-db_url=jdbc:oracle:thin:@hostname.uio.no:port:SID
-db_user=uname
-db_password=password
