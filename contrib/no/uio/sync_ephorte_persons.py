@@ -215,6 +215,7 @@ def user_details_to_perms(user_details):
     return [(perm_code_id_to_perm(x['AccessCodeId']), x['IsAutorizedForAllOrgUnits'], x['OrgId'])
             for x in authzs]
 
+
 def list_perm_for_person(person):
     ret = []
     for row in EphortePermission(db).list_permission(person_id=person.entity_id):
@@ -505,14 +506,34 @@ def get_target_role_by_event(event):
         'adm_enhet': event['dest_entity'],
     }
 
+def user_details_to_roles(user_details):
+    """Convert result from Cerebrum2EphorteClient.get_user_details()
+    to arguments suitable for ensure_role_for_user (user_id omitted).
+    :type user_details tuple(dict, list(dict), list)
+    :param user_details: Return value from get_user_details()
 
-def update_person_roles(pe, client, event=None):
+    :rtype list(dict)"""
+    roles = user_details[2]
+    return [{
+        'arkivdel': x['FondsSeriesId'],
+        'journalenhet': x['RegistryManagementUnitId'],
+        'role_id': x['Role']['RoleId'],
+        'ou_id': x['Org']['OrgId'],
+        'default_role': x['IsDefault'],
+        'job_title': x['JobTitle']
+        } for x in roles]
+
+def update_person_roles(pe, client, event=None, delete_superfluous=False):
     if event:
         target = get_target_role_by_event(event=event)
 
     user_id = construct_user_id(pe=pe)
 
     args = {}
+
+    ephorte_roles = set(tuple(sorted(x.items())) 
+                        for x in user_details_to_roles(client.get_user_details(user_id)))
+    cerebrum_roles = set()
     for role in ephorte_role.list_roles(person_id=pe.entity_id):
         try:
             args['arkivdel'] = str(co.EphorteArkivdel(role['arkivdel']))
@@ -528,10 +549,9 @@ def update_person_roles(pe, client, event=None):
                        role['adm_enhet'] != target['adm_enhet'])):
             continue
 
-        args['user_id'] = user_id
         args['ou_id'] = get_sko(ou_id=role['adm_enhet'])
         args['job_title'] = role['rolletittel']
-        args['default_role'] = True if role['standard_role'] == 'T' else False
+        args['default_role'] = role['standard_role'] == 'T'
 
         # Check if adm_enhet for this role has ePhorte spread
         if not ou_has_ephorte_spread(ou_id=role['adm_enhet']):
@@ -542,21 +562,26 @@ def update_person_roles(pe, client, event=None):
             #                          'sko':sko})
             continue
 
+        cerebrum_roles.add(tuple(sorted(args.items())))
         logger.info('Ensuring role %s@%s for %s, %s',
-                    args['role_id'], args['ou_id'], args['user_id'], args)
+                    args['role_id'], args['ou_id'], user_id, args)
 
         try:
-            client.ensure_role_for_user(**args)
+            client.ensure_role_for_user(user_id, **args)
         except EphorteWSError, e:
             logger.warn('Could not ensure existence of role %s@%s for %s',
-                        args['role_id'], args['ou_id'], args['user_id'])
+                        args['role_id'], args['ou_id'], user_id)
             logger.exception(e)
             raise
 
         # Single event handled, we can exit
         if event:
             return True
-
+    if delete_superfluous:
+        for role in map(dict, ephorte_roles - cerebrum_roles):
+            logger.info('Removing superfluous role %s@%s for %s',
+                    role['role_id'], role['ou_id'], user_id)
+            client.disable_user_role(user_id, role['role_id'], role['ou_id'])
     # If we are here, we have added all roles or failed to handle a single event
     return False if event else True
 
