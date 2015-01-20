@@ -239,7 +239,6 @@ class Cerebrum2EphorteClient(object):
                     # Pass-trough conversion function
                     converter = lambda x: x
                 # TODO: Is it needed to implement more type converting?
-
                 # Actually convert
                 res[key] = converter(resp[key])
         return res
@@ -559,6 +558,49 @@ class Cerebrum2EphorteClient(object):
             self.customer_id,
             self.database,
             user_id)
+
+    def disable_user_role(self, user_id, role_id, ou_id):
+        """Disable a user role
+
+        :type user_id: str
+        :param user_id: The users id
+        
+        :type role_id: str
+        :param role_id: The role code
+
+        :type ou_id: str
+        :param ou_id: OU stedkode
+        """
+        self.client.DisableUserRole(
+                self.username,
+                self.password,
+                self.customer_id,
+                self.database,
+                user_id,
+                role_id,
+                ou_id)
+
+    def disable_user_authz(self, user_id, access_code, ou_id):
+        """Disable a user role
+
+        :type user_id: str
+        :param user_id: The users id
+        
+        :type perm_code: str
+        :param role_id: The role code
+
+        :type ou_id: str
+        :param ou_id: OU stedkode
+        """
+        self.client.DisableUserAuthorization(
+                self.username,
+                self.password,
+                self.customer_id,
+                self.database,
+                user_id,
+                access_code,
+                ou_id)
+
 
     def get_user_backlog(self, user_id):
         # TODO: Moar doc
