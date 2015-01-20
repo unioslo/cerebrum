@@ -446,7 +446,7 @@ class BofhdExtension(BofhdCommonMethods,
     # These are just for show, UiA is not really using this
     _mailman_pipe = "|/fake %(interface)s %(listname)s"
     _mailman_patt = r'\|/fake (\S+) (\S+)$'
-    
+
     # person info
     all_commands['person_info'] = Command(
         ("person", "info"), PersonId(help_ref="id:target:person"),
@@ -479,6 +479,7 @@ class BofhdExtension(BofhdCommonMethods,
             ("Contact:       %s: %s [from %s]", ("contact_type", "contact",
                                                  "contact_src")),
         ]))
+
     def person_info(self, operator, person_id):
         try:
             person = self.util.get_target(person_id, restrict_to=['Person'])
@@ -486,25 +487,32 @@ class BofhdExtension(BofhdCommonMethods,
             raise CerebrumError("Unexpectedly found more than one person")
         try:
             p_name = person.get_name(self.const.system_cached,
-                                     getattr(self.const, cereconf.DEFAULT_GECOS_NAME))
+                                     getattr(self.const,
+                                             cereconf.DEFAULT_GECOS_NAME))
             p_name = p_name + ' [from Cached]'
         except Errors.NotFoundError:
             raise CerebrumError("No name is registered for this person")
+
         data = [{'name': p_name,
                  'entity_id': person.entity_id,
                  'birth': date_to_string(person.birth_date),
                  'entity_id': person.entity_id}]
+
         affiliations = []
         sources = []
         last_seen = []
+
         for row in person.get_affiliations():
             ou = self._get_ou(ou_id=row['ou_id'])
             affiliations.append("%s@%s" % (
                 self.const.PersonAffStatus(row['status']),
                 self._format_ou_name(ou),
             ))
-            sources.append(str(self.const.AuthoritativeSystem(row['source_system'])))
+            sources.append(
+                str(self.const.AuthoritativeSystem(row['source_system']))
+            )
             last_seen.append(row['last_date'].date)
+
         for ss in cereconf.SYSTEM_LOOKUP_ORDER:
             ss = getattr(self.const, ss)
             person_name = ""
@@ -516,7 +524,8 @@ class BofhdExtension(BofhdCommonMethods,
             if person_name:
                 data.append({'names': person_name,
                              'name_src': str(
-                    self.const.AuthoritativeSystem(ss))})
+                                 self.const.AuthoritativeSystem(ss))
+                             })
         if affiliations:
             data[0]['affiliation_1'] = affiliations[0]
             data[0]['source_system_1'] = sources[0]
@@ -532,14 +541,16 @@ class BofhdExtension(BofhdCommonMethods,
                          })
         account = self.Account_class(self.db)
         account_ids = [int(r['account_id'])
-                       for r in account.list_accounts_by_owner_id(person.entity_id)]
+                       for r in account.list_accounts_by_owner_id(
+                           person.entity_id)]
         if (self.ba.is_superuser(operator.get_entity_id()) or
-            operator.get_entity_id() in account_ids):
+                operator.get_entity_id() in account_ids):
             # Show fnr
-            for row in person.get_external_id(id_type=self.const.externalid_fodselsnr):
+            for row in person.get_external_id(
+                    id_type=self.const.externalid_fodselsnr):
                 data.append({'fnr': row['external_id'],
-                             'fnr_src': str(
-                    self.const.AuthoritativeSystem(row['source_system']))})
+                             'fnr_src': str(self.const.AuthoritativeSystem(
+                                            row['source_system']))})
 
         # Show contact info, like address and mobile number, and also external
         # ids from FS and SAP.
@@ -549,24 +560,30 @@ class BofhdExtension(BofhdCommonMethods,
         for a in account_ids:
             try:
                 self.ba.can_set_password(operator.get_entity_id(),
-                                        self._get_account(a, idtype='id'))
+                                         self._get_account(a, idtype='id'))
                 can_show_contact_info = True
                 break
             except PermissionDenied:
                 pass
         if can_show_contact_info:
-            for source, kind in ((self.const.system_sap, self.const.address_post),
-                                 (self.const.system_fs, self.const.address_post),
-                                 (self.const.system_sap, self.const.address_post_private),
-                                 (self.const.system_fs, self.const.address_post_private)):
-                address = person.get_entity_address(source = source, type = kind)
+            for source, kind in ((self.const.system_sap,
+                                  self.const.address_post),
+                                 (self.const.system_fs,
+                                  self.const.address_post),
+                                 (self.const.system_sap,
+                                  self.const.address_post_private),
+                                 (self.const.system_fs,
+                                  self.const.address_post_private)):
+                address = person.get_entity_address(source=source,
+                                                    type=kind)
                 if address:
                     address = address[0]
                     break
                 address = None
             if address:
                 try:
-                    for nr, line in enumerate(address['address_text'].split("\n")):
+                    for nr, line in enumerate(
+                            address['address_text'].split("\n")):
                         if nr is 0:
                             data.append({'address_line_1': line})
                         else:
@@ -578,20 +595,24 @@ class BofhdExtension(BofhdCommonMethods,
                 address_country = ''
                 if address['country']:
                     country_codes = dict((c['code'], c['country']) for c in
-                                                    person.list_country_codes())
+                                         person.list_country_codes())
                     if address['country'] in country_codes:
-                        address_country = str(country_codes[address['country']])
+                        address_country = str(
+                            country_codes[address['country']]
+                        )
                 data.append({'address_country': address_country,
-                             'address_source': 
-                                        str(self.const.AuthoritativeSystem(
-                                                        address['source_system']))})
+                             'address_source':
+                             str(self.const.AuthoritativeSystem(
+                                 address['source_system']))}
+                            )
             # External ids from FS and SAP
             for extid in (self.const.externalid_sap_ansattnr,
                           self.const.externalid_studentnr):
                 for row in person.get_external_id(id_type=extid):
                     data.append({'extid': row['external_id'],
                                  'extid_src': str(
-                        self.const.AuthoritativeSystem(row['source_system']))})
+                                     self.const.AuthoritativeSystem(
+                                         row['source_system']))})
 
             # mobile number
             #systems = getattr(cereconf, 'INDIVIDUATION_PHONE_TYPES', {})
@@ -610,14 +631,19 @@ class BofhdExtension(BofhdCommonMethods,
 
             # Show telephone numbers
             for row in person.get_contact_info():
-                if row['contact_type'] not in (self.const.contact_phone,
-                                               self.const.contact_mobile_phone,
-                                               self.const.contact_phone_private,
-                                               self.const.contact_private_mobile):
+                if (row['contact_type']
+                    not in (self.const.contact_phone,
+                            self.const.contact_mobile_phone,
+                            self.const.contact_phone_private,
+                            self.const.contact_private_mobile)):
                     continue
                 data.append({'contact': row['contact_value'],
-                             'contact_src': str(self.const.AuthoritativeSystem(row['source_system'])),
-                             'contact_type': str(self.const.ContactInfo(row['contact_type']))})
+                             'contact_src': str(
+                                 self.const.AuthoritativeSystem(
+                                     row['source_system'])),
+                             'contact_type': str(
+                                 self.const.ContactInfo(
+                                     row['contact_type']))})
 
             # Office addresses
             for row in person.get_contact_info(self.const.system_sap,
@@ -625,12 +651,11 @@ class BofhdExtension(BofhdCommonMethods,
                 # TODO: add office address here too?
                 data.append({'office_code': row['contact_value'],
                              'office_room': row['contact_alias'],
-                             'office_source': str(self.const.AuthoritativeSystem(row['source_system']))})
-
+                             'office_source': str(
+                                 self.const.AuthoritativeSystem(
+                                     row['source_system']))})
         return data
 
-
-    
     # person student_info
     all_commands['person_student_info'] = Command(
         ("person", "student_info"), PersonId(),
