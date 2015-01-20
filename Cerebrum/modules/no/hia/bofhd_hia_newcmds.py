@@ -454,10 +454,15 @@ class BofhdExtension(BofhdCommonMethods,
             ("Name:          %s\n" +
              "Entity-id:     %i\n" +
              "Birth:         %s\n" +
-             "Affiliations:  %s [from %s]", ("name", "entity_id", "birth",
-                                             "affiliation_1",
-                                             "source_system_1")),
-            ("               %s [from %s]", ("affiliation", "source_system")),
+             "Affiliations:  %s [from %s], last seen: %s", ("name",
+                                                            "entity_id",
+                                                            "birth",
+                                                            "affiliation_1",
+                                                            "source_system_1",
+                                                            "last_seen_1")),
+            ("               %s [from %s], last seen: %s", ("affiliation",
+                                                            "source_system",
+                                                            "last_seen")),
             ("Names:         %s [from %s]", ("names", "name_src")),
             ("Fnr:           %s [from %s]", ("fnr", "fnr_src")),
             ("External id:   %s [from %s]", ("extid", "extid_src")),
@@ -491,13 +496,15 @@ class BofhdExtension(BofhdCommonMethods,
                  'entity_id': person.entity_id}]
         affiliations = []
         sources = []
+        last_seen = []
         for row in person.get_affiliations():
             ou = self._get_ou(ou_id=row['ou_id'])
-            affiliations.append("%s@%s Last seen: %s" % (
+            affiliations.append("%s@%s" % (
                 self.const.PersonAffStatus(row['status']),
                 self._format_ou_name(ou),
-                row['last_date'].date))
+            ))
             sources.append(str(self.const.AuthoritativeSystem(row['source_system'])))
+            last_seen.append(row['last_date'].date)
         for ss in cereconf.SYSTEM_LOOKUP_ORDER:
             ss = getattr(self.const, ss)
             person_name = ""
@@ -513,12 +520,16 @@ class BofhdExtension(BofhdCommonMethods,
         if affiliations:
             data[0]['affiliation_1'] = affiliations[0]
             data[0]['source_system_1'] = sources[0]
+            data[0]['last_seen_1'] = last_seen[0]
         else:
             data[0]['affiliation_1'] = "<none>"
             data[0]['source_system_1'] = "<nowhere>"
+            data[0]['last_seen_1'] = "<never>"
         for i in range(1, len(affiliations)):
             data.append({'affiliation': affiliations[i],
-                         'source_system': sources[i]})
+                         'source_system': sources[i],
+                         'last_seen': last_seen[i],
+                         })
         account = self.Account_class(self.db)
         account_ids = [int(r['account_id'])
                        for r in account.list_accounts_by_owner_id(person.entity_id)]
