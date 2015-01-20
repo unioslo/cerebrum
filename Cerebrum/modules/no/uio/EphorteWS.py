@@ -564,7 +564,7 @@ class Cerebrum2EphorteClient(object):
 
         :type user_id: str
         :param user_id: The users id
-        
+
         :type role_id: str
         :param role_id: The role code
 
@@ -572,35 +572,34 @@ class Cerebrum2EphorteClient(object):
         :param ou_id: OU stedkode
         """
         self.client.DisableUserRole(
-                self.username,
-                self.password,
-                self.customer_id,
-                self.database,
-                user_id,
-                role_id,
-                ou_id)
+            self.username,
+            self.password,
+            self.customer_id,
+            self.database,
+            user_id,
+            role_id,
+            ou_id)
 
     def disable_user_authz(self, user_id, access_code, ou_id):
-        """Disable a user role
+        """Disable a user permission
 
         :type user_id: str
         :param user_id: The users id
-        
-        :type perm_code: str
-        :param role_id: The role code
+
+        :type access_code: str
+        :param access_code: The ePhorte access code
 
         :type ou_id: str
         :param ou_id: OU stedkode
         """
         self.client.DisableUserAuthorization(
-                self.username,
-                self.password,
-                self.customer_id,
-                self.database,
-                user_id,
-                access_code,
-                ou_id)
-
+            self.username,
+            self.password,
+            self.customer_id,
+            self.database,
+            user_id,
+            access_code,
+            ou_id)
 
     def get_user_backlog(self, user_id):
         # TODO: Moar doc
