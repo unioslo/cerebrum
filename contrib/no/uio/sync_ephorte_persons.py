@@ -266,6 +266,20 @@ def select_events_by_person(clh, change_key, change_types, selection_spread):
 
 
 def sanity_check_person(person_id, selection_spread):
+    """Checks that:
+     - the person exists
+     - has a primary account
+     - has ePhorte spread
+
+    :type person_id: int
+    :param person_id: Person ID
+
+    :type selection_spread: Spread
+    :param selection_spread: A person must have this spread
+
+    :rtype: bool
+    :return: True if everything checks out, else False
+    """
     pe = Factory.get('Person')(db)
 
     try:
@@ -377,7 +391,7 @@ def quicksync_roles_and_authz(client, selection_spread, config, commit):
 
 
 def update_person_roles_and_authz(pe, client):
-    """Removes all roles and authorizations, then re-adds everything.
+    """Remove all roles and authorizations, then re-add everything.
 
     :type pe: Person
     :param pe: The person to update
@@ -391,7 +405,7 @@ def update_person_roles_and_authz(pe, client):
 
 
 def remove_person_roles_and_authz(pe, client):
-    """Removes all roles and authorizations for a person.
+    """Remove all roles and authorizations for a person.
 
     :type pe: Person
     :param pe: The person remove roles and authz for
@@ -416,6 +430,14 @@ def update_person_authz(pe, client, event=None):
 
 
 def get_target_role_by_event(event):
+    """Extract role_id, arkivdel and adm_enhet from an event.
+
+    :type event: dict
+    :param event: An event row from CLHandler.get_events()
+
+    :rtype: dict
+    :return: Dictionary with role_id, arkivdel, adm_enhet
+    """
     change_params = pickle.loads(event['change_params'])
 
     # rolle_type and arkivdel may have been set to the code_str or
@@ -438,6 +460,20 @@ def get_target_role_by_event(event):
 
 
 def update_person_roles(pe, client, event=None):
+    """Update roles for a person.
+
+    If no event is given, all roles for this person will be added to ePhorte.
+    If given an event, attempts to match it against all the roles. If found, add that role only.
+
+    :type pe: Person
+    :param pe: The person to update roles for
+
+    :type client: EphorteWS
+    :param client: The client used to talk to ePhorte
+
+    :rtype: bool
+    :return: Roles updated?
+    """
     if event:
         target = get_target_role_by_event(event=event)
 
