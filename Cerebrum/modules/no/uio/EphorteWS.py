@@ -218,6 +218,8 @@ class Cerebrum2EphorteClient(object):
         # Handle lists
         if isinstance(resp, types.ListType):
             res = [Cerebrum2EphorteClient._convert_result(x) for x in resp]
+        elif isinstance(resp, basestring):
+            return resp
         # Handle other types, like dicts and strings
         else:
             res = {}
