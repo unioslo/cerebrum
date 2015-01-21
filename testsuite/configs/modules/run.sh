@@ -59,7 +59,6 @@ fi
 # directory *must* contain a certain set of config files, e.g. 'cereconf.py.in'.
 config=$( abs_dirname "${BASH_SOURCE[0]}" )
 export CONFIG_EWS_WSDL=$( abs_dirname "${BASH_SOURCE[0]}" )/ews.wsdl
-export CONFIG_EWS=$( abs_dirname "${BASH_SOURCE[0]}" )/ews.cfg
 
 # 
 # Setup a new test environmnet 
