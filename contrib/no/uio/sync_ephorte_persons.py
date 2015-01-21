@@ -360,9 +360,8 @@ def fullsync_roles_and_perms(client, selection_spread):
     """
     for person in select_persons_for_update(selection_spread):
         if sanity_check_person(person_id=person.entity_id, selection_spread=selection_spread):
-            update_person_roles(pe=person, client=client)
-            update_person_perms(pe=person, client=client)
-
+            update_person_roles(pe=person, client=client, delete_superfluous=True)
+            update_person_perms(person, client=client, remove_superfluous=True)
 
 def quicksync_roles_and_perms(client, selection_spread, config, commit):
     """Quick sync for roles and permissions.
@@ -507,15 +506,15 @@ def update_person_roles(pe, client, delete_superfluous=False):
 
     for role in ephorte_role.list_roles(person_id=pe.entity_id):
         try:
-            args['arkivdel'] = str(co.EphorteArkivdel(role['arkivdel']))
-            args['journalenhet'] = str(co.EphorteJournalenhet(role['journalenhet']))
-            args['role_id'] = str(co.EphorteRole(role['role_type']))
+            args['arkivdel'] = unicode(co.EphorteArkivdel(role['arkivdel']))
+            args['journalenhet'] = unicode(co.EphorteJournalenhet(role['journalenhet']))
+            args['role_id'] = unicode(co.EphorteRole(role['role_type']))
         except (TypeError, Errors.NotFoundError):
             logger.warn("Unknown arkivdel, journalenhet or role type, skipping role %s", role)
             continue
 
-        args['ou_id'] = get_sko(ou_id=role['adm_enhet'])
-        args['job_title'] = role['rolletittel']
+        args['ou_id'] = unicode(get_sko(ou_id=role['adm_enhet']))
+        args['job_title'] = role['rolletittel'] or None
         args['default_role'] = role['standard_role'] == 'T'
 
         # Check if adm_enhet for this role has ePhorte spread
@@ -537,7 +536,6 @@ def update_person_roles(pe, client, delete_superfluous=False):
             logger.warn('Could not ensure existence of role %s@%s for %s',
                         args['role_id'], args['ou_id'], user_id)
             logger.exception(e)
-            raise
 
     if delete_superfluous:
         for role in map(dict, ephorte_roles - cerebrum_roles):
