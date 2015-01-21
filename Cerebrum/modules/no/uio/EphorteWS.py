@@ -146,6 +146,65 @@ class SudsClient(object):
         else:
             return r
 
+class Config(object):
+    """Read config through ConfigParser."""
+    # TODO: Make this use yaml?
+    # TODO: Is this really a good way to do it?
+    def __init__(self, conf, section='DEFAULT'):
+        """Init. a configuration.
+
+        :type conf: str
+        :param conf: The file name to load (cereconf.CONFIG_PATH prepended if
+            file does not exist)
+        :type section: str
+        :param section: The section of the config file to load
+        """
+        import ConfigParser
+        import os
+        if not os.path.exists(conf):
+            conf = os.path.join(cereconf.CONFIG_PATH, conf)
+        self._config = ConfigParser.ConfigParser()
+        self._config.read(conf)
+        self._section = section
+
+    def __getattribute__(self, key):
+        """Get a config variable.
+
+        :type key: str
+        :param key: The field to return
+        """
+        try:
+            return object.__getattribute__(self, key)
+        except AttributeError:
+            from ConfigParser import NoOptionError
+            try:
+                c = self._config.get(self._section, key)
+                # TODO: This is a bit nasty. Represent this another way?
+                if c == 'None':
+                    c = None
+                return c
+            except NoOptionError:
+                raise AttributeError("'%s' object has no attribute '%s'" %
+                                     (self.__class__.__name__, key))
+
+def make_ephorte_client(config_file, mock=False):
+    """Setup ephorte ws from config file name
+    :type config_file: basestring
+    :param config_file: file name
+    """
+    from Cerebrum.Utils import read_password
+    config = Config(config_file)
+    cls = Cerebrum2EphorteClientMock if mock else Cerebrum2EphorteClient
+    client = cls(wsdl=config.wsdl,
+                 customer_id=config.customer_id,
+                 database=config.database,
+                 client_key=config.client_key,
+                 client_cert=config.client_cert,
+                 ca_certs=config.ca_certs,
+                 username=config.username,
+                 password=read_password(config.username, config.wsdl.split('/')[2]))
+    return client, config
+
 
 class Cerebrum2EphorteClientMock(object):
     """Mock client for "simulating" provisioning in ePhorte."""
