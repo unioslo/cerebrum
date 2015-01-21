@@ -153,9 +153,11 @@ def update_person_info(pe, client):
     :type client: EphorteWS
     :param client: The client used to talk to ePhorte
     """
-    first_name = pe.get_name(co.system_cached, co.name_first)
-    last_name = pe.get_name(co.system_cached, co.name_last)
-    full_name = pe.get_name(co.system_cached, co.name_full)
+    def u(x):
+        return x.decode('UTF-8') if isinstance(x, str) else x
+    first_name = u(pe.get_name(co.system_cached, co.name_first))
+    last_name = u(pe.get_name(co.system_cached, co.name_last))
+    full_name = u(pe.get_name(co.system_cached, co.name_full))
 
     try:
         user_id = construct_user_id(pe)
@@ -166,21 +168,24 @@ def update_person_info(pe, client):
         return
 
     try:
-        email_address = get_email_address(pe)
+        email_address = u(get_email_address(pe))
     except Errors.NotFoundError:
         logger.warn('Email address non-existent for %s', user_id)
         email_address = None
 
-    telephone = (lambda x: x[0]['contact_value'] if len(x) else None)(
-        pe.get_contact_info(source=co.system_sap, type=co.contact_phone))
+    telephone = u(
+            (lambda x: x[0]['contact_value'] if len(x) else None) (pe.get_contact_info(source=co.system_sap, type=co.contact_phone)))
     # TODO: Has not been exported before. Export nao?
     mobile = None
     tmp_addr = (lambda x: x[0] if len(x) else None)(pe.get_entity_address(
         source=co.system_sap, type=co.address_street))
     if tmp_addr:
-        street_address = tmp_addr['address_text']
-        zip_code = tmp_addr['postal_number']
-        city = tmp_addr['city']
+        street_address = u(tmp_addr['address_text'])
+        # There seems to be a limit in ePhorte ...
+        if street_address and len(street_address) > 50:
+            street_address = street_address[0:50]
+        zip_code = u(tmp_addr['postal_number'])
+        city = u(tmp_addr['city'])
     else:
         street_address = zip_code = city = None
 
@@ -214,9 +219,9 @@ def user_details_to_perms(user_details):
     :type user_details tuple(dict, list(dict), list)
     :param user_details: Return value from get_user_details()
 
-    :rtype list(authcode, boolean, ou)"""
+    :rtype list(authcode, ou, boolean)"""
     authzs = user_details[1]
-    return [(perm_code_id_to_perm(x['AccessCodeId']), x['IsAutorizedForAllOrgUnits'], x['OrgId'])
+    return [(x['AccessCodeId'], x['OrgId'], x['IsAutorizedForAllOrgUnits'])
             for x in authzs]
 
 
@@ -229,7 +234,7 @@ def list_perm_for_person(person):
         sko = get_sko(row['adm_enhet'])
         if sko == '999999':
             sko = None
-        ret.append((perm_type, False, sko))
+        ret.append((perm_type, sko, False))
     return ret
 
 
@@ -355,9 +360,8 @@ def fullsync_roles_and_perms(client, selection_spread):
     """
     for person in select_persons_for_update(selection_spread):
         if sanity_check_person(person_id=person.entity_id, selection_spread=selection_spread):
-            update_person_roles(pe=person, client=client)
-            update_person_perms(pe=person, client=client)
-
+            update_person_roles(pe=person, client=client, delete_superfluous=True)
+            update_person_perms(person, client=client, remove_superfluous=True)
 
 def quicksync_roles_and_perms(client, selection_spread, config, commit):
     """Quick sync for roles and permissions.
@@ -396,10 +400,9 @@ def quicksync_roles_and_perms(client, selection_spread, config, commit):
 
         update_roles = any(e['change_type_id'] in change_types_roles for e in events)
         update_perms = any(e['change_type_id'] in change_types_perms for e in events)
-
         if update_roles:
             try:
-                if update_person_roles(pe, client):
+                if update_person_roles(pe, client, delete_superfluous=True):
                     for event in events:
                         if event['change_type_id'] in change_types_roles:
                             clh.confirm_event(event)
@@ -412,7 +415,7 @@ def quicksync_roles_and_perms(client, selection_spread, config, commit):
 
         if update_perms:
             try:
-                if update_person_perms(pe, client):
+                if update_person_perms(pe, client, remove_superfluous=True):
                     for event in events:
                         if event['change_type_id'] in change_types_perms:
                             clh.confirm_event(event)
@@ -436,37 +439,71 @@ def update_person_perms(person, client, userid=None, remove_superfluous=False):
 
         ephorte_perms = set(user_details_to_perms(client.get_user_details(userid)))
         for perm in ephorte_perms:
-            logger.debug("Found perm for %s in ePhorte: %s@%s, authorized=%s",
-                         userid, perm[0], perm[2], perm[1])
-
+            logger.debug("Found perm for %s in ePhorte: %s@%s, authorized=%s", userid, *perm)
         cerebrum_perms = set(list_perm_for_person(person))
         for perm in cerebrum_perms:
-            logger.debug("Setting perm for %s: %s@%s, authorized=%s",
-                         userid, perm[0], perm[2], perm[1])
-
+            logger.debug("Should have perm for %s: %s@%s, authorized=%s", userid, *perm)
         # Delete perms?
         if remove_superfluous:
             superfluous = ephorte_perms.difference(cerebrum_perms)
             if superfluous:
                 for perm in superfluous:
-                    logger.info("Deleting perm for %s: %s@%s, authorized=%s",
-                                userid, perm[0], perm[2], perm[1])
-                client.disable_roles_and_authz_for_user(userid)
+                    logger.info("Deleting perm for %s: %s@%s, authorized=%s", userid, *perm)
+                    client.disable_user_authz(userid, perm[0], perm[1])
 
         for perm in cerebrum_perms:
-            if perm in ephorte_perms:
-                logger.info("Readding perm for %s: %s@%s, authorized=%s",
-                            userid, perm[0], perm[2], perm[1])
+            if perm not in ephorte_perms:
+                logger.info("Adding new perm for %s: %s@%s, authorized=%s", userid, *perm)
             else:
-                logger.info("Adding new perm for %s: %s@%s, authorized=%s",
-                            userid, perm[0], perm[2], perm[1])
-            client.ensure_access_code_authorization(userid, perm[0], perm)
+                logger.info("Ensuring new perm for %s: %s@%s, authorized=%s", userid, *perm)
+            try:
+                client.ensure_access_code_authorization(userid, *perm)
+            except Exception, e:
+                logger.error("Something happened, ephorte says: %s", e.args[0])
     except Exception, e:
-        logger.warn("Something went wrong.")
-        logger.exception(e)
+        logger.exception("update person perms failed")
         return False
     return True
 
+def report_person_perms(person, client):
+    """Generate report for person"""
+    userid = construct_user_id(person)
+
+    ephorte_perms = set(user_details_to_perms(client.get_user_details(userid)))
+    cerebrum_perms = set(list_perm_for_person(person))
+    toadd = cerebrum_perms - ephorte_perms
+    torem = ephorte_perms - cerebrum_perms
+    def format_perm(code, ou, omni):
+        if ou is None:
+            if omni:
+                return "%s - hele uio" % code
+            else:
+                return "%s - egne saker" % code
+        else:
+            return "%s@%s" % (code, ou)
+    if toadd or torem:
+        ret = ["Endringer for %s" % userid]
+        for i in toadd:
+            ret.append(" legger til tilgang: %s" % format_perm(*i))
+        for i in torem:
+            ret.append(" fjerner tilgang: %s" % format_perm(*i))
+        return "\n".join(ret)
+
+def report_perms(client, selection_spread, fil):
+    """Generate perms report"""
+    ret = []
+    first = True
+    for person in select_persons_for_update(selection_spread):
+        if not sanity_check_person(person.entity_id, selection_spread):
+            continue
+        tmp = report_person_perms(person, client)
+        if tmp:
+            if first:
+                first = False
+            else:
+                fil.write("\n\n")
+            fil.write(tmp)
+    fil.close()
 
 def user_details_to_roles(user_details):
     """Convert result from Cerebrum2EphorteClient.get_user_details()
@@ -507,15 +544,15 @@ def update_person_roles(pe, client, delete_superfluous=False):
 
     for role in ephorte_role.list_roles(person_id=pe.entity_id):
         try:
-            args['arkivdel'] = str(co.EphorteArkivdel(role['arkivdel']))
-            args['journalenhet'] = str(co.EphorteJournalenhet(role['journalenhet']))
-            args['role_id'] = str(co.EphorteRole(role['role_type']))
+            args['arkivdel'] = unicode(co.EphorteArkivdel(role['arkivdel']))
+            args['journalenhet'] = unicode(co.EphorteJournalenhet(role['journalenhet']))
+            args['role_id'] = unicode(co.EphorteRole(role['role_type']))
         except (TypeError, Errors.NotFoundError):
             logger.warn("Unknown arkivdel, journalenhet or role type, skipping role %s", role)
             continue
 
-        args['ou_id'] = get_sko(ou_id=role['adm_enhet'])
-        args['job_title'] = role['rolletittel']
+        args['ou_id'] = unicode(get_sko(ou_id=role['adm_enhet']))
+        args['job_title'] = role['rolletittel'] or None
         args['default_role'] = role['standard_role'] == 'T'
 
         # Check if adm_enhet for this role has ePhorte spread
@@ -537,7 +574,6 @@ def update_person_roles(pe, client, delete_superfluous=False):
             logger.warn('Could not ensure existence of role %s@%s for %s',
                         args['role_id'], args['ou_id'], user_id)
             logger.exception(e)
-            raise
 
     if delete_superfluous:
         for role in map(dict, ephorte_roles - cerebrum_roles):
@@ -571,6 +607,9 @@ def main():
         '--quick-roles-perms', help='Quick sync of roles and permissions', action='store_true')
     cmdgrp.add_argument(
         '--config-help', help='Show configuration help', action='store_true')
+    cmdgrp.add_argument(
+        '--permission-report', help="Generate permission report",
+        action="store", type=argparse.FileType(mode="w"))
     parser.add_argument(
         '--commit', help='Run in commit mode', action='store_true')
     args = parser.parse_args()
@@ -622,6 +661,8 @@ def main():
         fullsync_persons(client=client,
                          selection_spread=selection_spread)
         logger.info('Full sync of persons finished')
+    elif args.permission_report:
+        report_perms(client, selection_spread, args.permission_report)
 
 
 if __name__ == '__main__':
