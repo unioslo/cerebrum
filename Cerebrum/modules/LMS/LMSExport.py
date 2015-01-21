@@ -122,9 +122,9 @@ class LMSExport(object):
                 identifier = "fnr:'%s'" % fnr
             else:
                 identifier = "ent_id:'%s'" % entity_id
-            logger.warning("Email not found for person:%s account:%s. Ignoring person" % (
+            logger.warning("Email not found for person:%s account:%s. Exporting without email" % (
                 identifier, primary_account_id))
-            return None
+            data["email"] = None
 
         self.user_entity_id2fnr[primary_account_id] = data["fnr"]
         self.user_entity_id2account[primary_account_id] = data["username"]

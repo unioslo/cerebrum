@@ -302,7 +302,7 @@ class EmailLDAP(DatabaseAccessor):
                     self.pending[int(r['entity_id'])] = True
 
 
-    def read_multi_target(self, group_id):
+    def read_multi_target(self, group_id, ignore_missing=False):
         mail_targ = Email.EmailTarget(self._db)
         grp = Factory.get('Group')(self._db)
         acc = Factory.get('Account')(self._db)
@@ -311,7 +311,8 @@ class EmailLDAP(DatabaseAccessor):
             grp.find(group_id)
         except Errors.NotFoundError:
             raise ValueError, "no group found: %d" % group_id
-        member_addrs = []
+        member_addrs = set()
+        missing_addrs = set()
         for member in grp.search_members(group_id=grp.entity_id,
                                          indirect_members=True,
                                          member_type=self.const.entity_account):
@@ -324,11 +325,16 @@ class EmailLDAP(DatabaseAccessor):
             # be a value the user expects.  Use primary address rather
             # than random element from targ2addr.
             try:
-                member_addrs.append(acc.get_primary_mailaddress())
+                member_addrs.add(acc.get_primary_mailaddress())
             except Errors.NotFoundError:
-                raise ValueError, ("%s in group %s has no primary address" %
-                                   (acc.account_name, grp.group_name))
-        return list(set(member_addrs))
+                missing_addrs.add(acc.account_name)
+                if not ignore_missing:
+                    raise ValueError, ("%s in group %s has no primary address" %
+                                        (acc.account_name, grp.group_name))
+        if ignore_missing:
+            return list(member_addrs), list(missing_addrs)
+        else:
+            return list(member_addrs)
 
 
     def read_target_auth_data(self):

@@ -62,8 +62,11 @@ class XML2Cerebrum:
                               DataContact.CONTACT_EMAIL: const.contact_email,
                               DataContact.CONTACT_PRIVPHONE:
                               const.contact_phone_private,
-                              DataContact.CONTACT_MOBILE:
-                              const.contact_mobile_phone, }
+                              DataContact.CONTACT_MOBILE_WORK:
+                              const.contact_mobile_phone,
+                              DataContact.CONTACT_MOBILE_PRIVATE:
+                              const.contact_private_mobile}
+
         self.xmladdr2db = {DataAddress.ADDRESS_BESOK: const.address_street,
                            DataAddress.ADDRESS_POST: const.address_post,
                            DataAddress.ADDRESS_PRIVATE:
@@ -76,6 +79,7 @@ class XML2Cerebrum:
                 DataAddress.ADDRESS_OTHER_BESOK] = const.address_other_street
 
         self.idxml2db = {HRDataPerson.NO_SSN: const.externalid_fodselsnr,
+                         HRDataPerson.PASSNR: const.externalid_pass_number,
                          SAPPerson.SAP_NR: const.externalid_sap_ansattnr, }
     # end __init__
 
