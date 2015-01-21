@@ -400,7 +400,6 @@ def quicksync_roles_and_perms(client, selection_spread, config, commit):
 
         update_roles = any(e['change_type_id'] in change_types_roles for e in events)
         update_perms = any(e['change_type_id'] in change_types_perms for e in events)
-
         if update_roles:
             try:
                 if update_person_roles(pe, client, delete_superfluous=True):
@@ -466,6 +465,45 @@ def update_person_perms(person, client, userid=None, remove_superfluous=False):
         return False
     return True
 
+def report_person_perms(person, client):
+    """Generate report for person"""
+    userid = construct_user_id(person)
+
+    ephorte_perms = set(user_details_to_perms(client.get_user_details(userid)))
+    cerebrum_perms = set(list_perm_for_person(person))
+    toadd = cerebrum_perms - ephorte_perms
+    torem = ephorte_perms - cerebrum_perms
+    def format_perm(code, ou, omni):
+        if ou is None:
+            if omni:
+                return "%s - hele uio" % code
+            else:
+                return "%s - egne saker" % code
+        else:
+            return "%s@%s" % (code, ou)
+    if toadd or torem:
+        ret = ["Endringer for %s" % userid]
+        for i in toadd:
+            ret.append(" legger til tilgang: %s" % format_perm(*i))
+        for i in torem:
+            ret.append(" fjerner tilgang: %s" % format_perm(*i))
+        return "\n".join(ret)
+
+def report_perms(client, selection_spread, fil):
+    """Generate perms report"""
+    ret = []
+    first = True
+    for person in select_persons_for_update(selection_spread):
+        if not sanity_check_person(person.entity_id, selection_spread):
+            continue
+        tmp = report_person_perms(person, client)
+        if tmp:
+            if first:
+                first = False
+            else:
+                fil.write("\n\n")
+            fil.write(tmp)
+    fil.close()
 
 def user_details_to_roles(user_details):
     """Convert result from Cerebrum2EphorteClient.get_user_details()
@@ -569,6 +607,9 @@ def main():
         '--quick-roles-perms', help='Quick sync of roles and permissions', action='store_true')
     cmdgrp.add_argument(
         '--config-help', help='Show configuration help', action='store_true')
+    cmdgrp.add_argument(
+        '--permission-report', help="Generate permission report",
+        action="store", type=argparse.FileType(mode="w"))
     parser.add_argument(
         '--commit', help='Run in commit mode', action='store_true')
     args = parser.parse_args()
@@ -620,6 +661,8 @@ def main():
         fullsync_persons(client=client,
                          selection_spread=selection_spread)
         logger.info('Full sync of persons finished')
+    elif args.permission_report:
+        report_perms(client, selection_spread, args.permission_report)
 
 
 if __name__ == '__main__':
