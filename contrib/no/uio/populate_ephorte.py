@@ -114,9 +114,9 @@ class PopulateEphorte(object):
                     ewsclient.database)
         ephorte_ous = ewsclient.get_all_org_units()
         self.app_ephorte_ouid2name = {}
-        for ou in ephorte_ous:
-            ephorte_sko = ou['OrgId']
-            ephorte_name = ou['Name']
+        for eou in ephorte_ous:
+            ephorte_sko = eou['OrgId']
+            ephorte_name = eou['Name']
             ou_id = self.sko2ou_id.get(ephorte_sko)
             if ou_id is None:
                 if ephorte_sko not in ephorte_sko_ignore:
