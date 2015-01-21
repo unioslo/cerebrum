@@ -153,6 +153,27 @@ class Cerebrum2EphorteClientMock(object):
     def __init__(self, *args, **kwargs):
         pass
 
+    def test_with_ephorte(self, user_id):
+        pass
+
+    def get_all_org_units(self):
+        pass
+
+    def get_all_roles(self):
+        pass
+
+    def get_all_access_codes(self):
+        pass
+
+    def get_all_users(self):
+        pass
+
+    def get_user_details(self, user_id):
+        pass
+
+    def search_users(self, pattern):
+        pass
+
     def ensure_user(self, user_id, first_name=None, middle_name=None,
                     last_name=None, full_name=None, initials=None,
                     email_address=None, telephone=None, mobile=None,
@@ -164,7 +185,23 @@ class Cerebrum2EphorteClientMock(object):
                              arkivdel, journalenhet, default_role):
         pass
 
+    def ensure_access_code_authorization(self, user_id, access_code_id,
+                                         ou_id, authz_for_all):
+        pass
+
+    def disable_user(self, user_id):
+        pass
+
     def disable_roles_and_authz_for_user(self, user_id):
+        pass
+
+    def disable_user_role(self, user_id, role_id, ou_id):
+        pass
+
+    def disable_user_authz(self, user_id, access_code, ou_id):
+        pass
+
+    def get_user_backlog(self, user_id):
         pass
 
 
