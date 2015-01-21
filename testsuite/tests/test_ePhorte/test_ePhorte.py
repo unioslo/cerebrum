@@ -15,7 +15,8 @@ from dbtools import DatabaseTools
 from mx import DateTime
 import pickle
 
-#TODO: Refactor all the functions.
+# TODO: Refactor all the functions.
+
 
 class EphorteTest(unittest.TestCase):
     @classmethod
@@ -43,8 +44,12 @@ class EphorteTest(unittest.TestCase):
         cls.db_tools.clear_ous()
         cls._db.rollback()
 
+    def tearDown(self):
+        self._db.rollback()
+
     # Test role-related functions
     def test_add_ephorte_role(self):
+        """Testing addition of ePhorte roles."""
         person_id = self.db_tools.create_person(self.person_ds().next())
         ou_id = self.db_tools.create_ou(
             {'name': 'ephorte-test',
@@ -100,7 +105,9 @@ class EphorteTest(unittest.TestCase):
             'Change-params of role added does not match expected values')
 
     def test_remove_ephorte_role(self):
+        """Testing removal of ePhorte roles."""
         person_id = self.db_tools.create_person(self.person_ds().next())
+        account_id = self.db_tools.create_account(self.account_ds().next())
         ou_id = self.db_tools.create_ou(
             {'name': 'ephorte-test',
              'acronym': 'ET',
@@ -112,6 +119,10 @@ class EphorteTest(unittest.TestCase):
             self._co.ephorte_journenhet_uio,
             standard_role='T',
             auto_role='F')
+        # Add a permisson to test the permission removal
+        self._ep.add_permission(
+            person_id, self._co.ephorte_perm_ar,
+            ou_id, account_id)
         self._er.remove_role(
             person_id, self._co.ephorte_role_sb,
             ou_id, self._co.ephorte_arkivdel_sak_uio,
@@ -139,6 +150,7 @@ class EphorteTest(unittest.TestCase):
             'Change-params of role removed does not match expected values')
 
     def test_is_standard_role(self):
+        """Testing standard role check."""
         person_id = self.db_tools.create_person(self.person_ds().next())
         ou_id = self.db_tools.create_ou(
             {'name': 'ephorte-test',
@@ -177,6 +189,7 @@ class EphorteTest(unittest.TestCase):
             'Non-existent role set as default')
 
     def test_get_role(self):
+        """Testing fetching of roles."""
         person_id = self.db_tools.create_person(self.person_ds().next())
         ou_id = self.db_tools.create_ou(
             {'name': 'ephorte-test',
@@ -215,7 +228,9 @@ class EphorteTest(unittest.TestCase):
         self.assertFalse(r, 'Found role that should not be found')
 
     def test_list_roles(self):
+        """Testing listing of roles."""
         person_id = self.db_tools.create_person(self.person_ds().next())
+        person_id2 = self.db_tools.create_person(self.person_ds().next())
         ou_id = self.db_tools.create_ou(
             {'name': 'ephorte-test',
              'acronym': 'ET',
@@ -227,10 +242,19 @@ class EphorteTest(unittest.TestCase):
             self._co.ephorte_journenhet_uio,
             standard_role='T',
             auto_role='F')
+        self._er.add_role(
+            person_id2, self._co.ephorte_role_sb,
+            ou_id, self._co.ephorte_arkivdel_sak_uio,
+            self._co.ephorte_journenhet_uio,
+            standard_role='T',
+            auto_role='F')
         self.assertEqual(len(self._er.list_roles(person_id)), 1,
+                         'Wrong number of roles fetched for person')
+        self.assertEqual(len(self._er.list_roles()), 2,
                          'Wrong number of roles fetched')
 
     def test_set_standard_role_val(self):
+        """Testing if setting of standard role works."""
         person_id = self.db_tools.create_person(self.person_ds().next())
         ou_id = self.db_tools.create_ou(
             {'name': 'ephorte-test',
@@ -271,6 +295,7 @@ class EphorteTest(unittest.TestCase):
 
     # Test permission-related functions.
     def test_add_permission(self):
+        """Testing if addition of permissions work."""
         person_id = self.db_tools.create_person(self.person_ds().next())
         account_id = self.db_tools.create_account(self.account_ds().next())
         ou_id = self.db_tools.create_ou(
@@ -307,6 +332,7 @@ class EphorteTest(unittest.TestCase):
             'Change-params of permission added does not match expected values')
 
     def test_remove_permission(self):
+        """Testing if removal of permissions work."""
         person_id = self.db_tools.create_person(self.person_ds().next())
         account_id = self.db_tools.create_account(self.account_ds().next())
         ou_id = self.db_tools.create_ou(
@@ -346,6 +372,7 @@ class EphorteTest(unittest.TestCase):
             'Change-params of permission added does not match expected values')
 
     def test_list_permission(self):
+        """Testing permission listing."""
         person_id = self.db_tools.create_person(self.person_ds().next())
         account_id = self.db_tools.create_account(self.account_ds().next())
         ou_id = self.db_tools.create_ou(
@@ -353,6 +380,9 @@ class EphorteTest(unittest.TestCase):
              'acronym': 'ET',
              'short_name': 'ePhorte-test',
              'display_name': 'Test OU for ePhorte'})
+
+        self.assertFalse(self._ep.list_permission(),
+                         'Listed permission, should be none')
 
         self._ep.add_permission(
             person_id, self._co.ephorte_perm_ar,
@@ -367,9 +397,12 @@ class EphorteTest(unittest.TestCase):
               account_id, DateTime.today(), None),
              (person_id, self._co.ephorte_perm_ua, ou_id,
               account_id, DateTime.today(), None)],
-            'Failed listing added roles')
+            'Failed listing added roles for person')
+        self.assertEqual(len(self._ep.list_permission()), 2,
+                         'Number of permissions listed not equal')
 
     def test_expire_permission(self):
+        """Testing if expired test works."""
         person_id = self.db_tools.create_person(self.person_ds().next())
         account_id = self.db_tools.create_account(self.account_ds().next())
         ou_id = self.db_tools.create_ou(
@@ -411,6 +444,7 @@ class EphorteTest(unittest.TestCase):
             'Permission could not be expired with date in fututre')
 
     def test_has_permission(self):
+        """Testing if has_permission() works."""
         # TODO: This ain't sane. has_permission returns true, if there exists
         # an expired permission.
         person_id = self.db_tools.create_person(self.person_ds().next())
@@ -429,3 +463,13 @@ class EphorteTest(unittest.TestCase):
                                     self._co.ephorte_perm_ar,
                                     ou_id),
             'Check for existing permission failed')
+
+        self._ep.remove_permission(
+            person_id,
+            self._co.ephorte_perm_ar,
+            ou_id)
+        self.assertFalse(
+            self._ep.has_permission(person_id,
+                                    self._co.ephorte_perm_ar,
+                                    ou_id),
+            'Check for non-existent permission failed')
