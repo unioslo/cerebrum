@@ -404,7 +404,7 @@ def quicksync_roles_and_perms(client, selection_spread, config, commit):
 
         if update_roles:
             try:
-                if update_person_roles(pe, client):
+                if update_person_roles(pe, client, delete_superfluous=True):
                     for event in events:
                         if event['change_type_id'] in change_types_roles:
                             clh.confirm_event(event)
@@ -417,7 +417,7 @@ def quicksync_roles_and_perms(client, selection_spread, config, commit):
 
         if update_perms:
             try:
-                if update_person_perms(pe, client):
+                if update_person_perms(pe, client, remove_superfluous=True):
                     for event in events:
                         if event['change_type_id'] in change_types_perms:
                             clh.confirm_event(event)
