@@ -30,6 +30,7 @@ via the ePhorte web service.
 import sys
 import time
 import pickle
+import functools
 from collections import defaultdict
 
 try:
@@ -56,8 +57,10 @@ co = Factory.get('Constants')(db)
 ou = Factory.get('OU')(db)
 ephorte_role = EphorteRole(db)
 
-ou_to_sko = {}
-ephorte_ous = None
+# Caches
+_ou_to_sko = {}
+_ephorte_ous = None
+_perm_codes = None
 
 
 def get_email_address(pe):
@@ -113,13 +116,13 @@ def get_sko(ou_id):
     :rtype: str
     :return: The six-digit stedkode
     """
-    sko = ou_to_sko.get(ou_id)
+    sko = _ou_to_sko.get(ou_id)
 
     if sko is None:
         ou.clear()
         ou.find(ou_id)
         sko = "%02i%02i%02i" % (ou.fakultet, ou.institutt, ou.avdeling)
-        ou_to_sko[ou_id] = sko
+        _ou_to_sko[ou_id] = sko
 
     return sko
 
@@ -133,13 +136,13 @@ def ou_has_ephorte_spread(ou_id):
     :rtype: bool
     :return: Has spread?
     """
-    global ephorte_ous
+    global _ephorte_ous
 
-    if ephorte_ous is None:
-        ephorte_ous = set([x['entity_id'] for x in
-                          ou.list_all_with_spread(spreads=co.spread_ephorte_ou)])
+    if _ephorte_ous is None:
+        _ephorte_ous = set([x['entity_id'] for x in
+                           ou.list_all_with_spread(spreads=co.spread_ephorte_ou)])
 
-    return ou_id in ephorte_ous
+    return ou_id in _ephorte_ous
 
 
 def update_person_info(pe, client):
@@ -193,17 +196,19 @@ def update_person_info(pe, client):
         logger.warn('Could not ensure existence of %s in ePhorte: %s',
                     user_id, str(e))
 
-_perm_codes = None
+
 def perm_code_id_to_perm(code):
-    """Convert from ephorte perm code to cerebrum code"""
+    """Convert from ePhorte perm code to Cerebrum code"""
     global _perm_codes
+
     if _perm_codes:
         return _perm_codes[code]
-    import functools
+
     logger.debug("Mapping perm codes")
     _perm_codes = dict((str(x), x)
-            for x in map(functools.partial(getattr, co), dir(co))
-            if isinstance(x, co.EphortePermission))
+                       for x in map(functools.partial(getattr, co), dir(co))
+                       if isinstance(x, co.EphortePermission))
+
 
 def user_details_to_perms(user_details):
     """Convert result from Cerebrum2EphorteClient.get_user_details()
@@ -227,6 +232,7 @@ def list_perm_for_person(person):
             sko = None
         ret.append((perm_type, False, sko))
     return ret
+
 
 def fullsync_persons(client, selection_spread):
     """Full sync of person information.
@@ -338,8 +344,8 @@ def sanity_check_person(person_id, selection_spread):
     return True
 
 
-def fullsync_roles_and_authz(client, selection_spread):
-    """Full sync of roles and authorizations.
+def fullsync_roles_and_perms(client, selection_spread):
+    """Full sync of roles and permissions.
 
     :type client: EphorteWS
     :param client: The client used to talk to ePhorte
@@ -349,11 +355,12 @@ def fullsync_roles_and_authz(client, selection_spread):
     """
     for person in select_persons_for_update(selection_spread):
         if sanity_check_person(person_id=person.entity_id, selection_spread=selection_spread):
-            update_person_roles_and_authz(pe=person, client=client)
+            update_person_roles(pe=person, client=client)
+            update_person_perms(pe=person, client=client)
 
 
-def quicksync_roles_and_authz(client, selection_spread, config, commit):
-    """Quick sync for roles and authorizations.
+def quicksync_roles_and_perms(client, selection_spread, config, commit):
+    """Quick sync for roles and permissions.
 
     :type client: EphorteWS
     :param client: The client used to talk to ePhorte
@@ -374,7 +381,6 @@ def quicksync_roles_and_authz(client, selection_spread, config, commit):
     change_key = 'eph_sync'
     change_types_roles = (co.ephorte_role_add, co.ephorte_role_rem, co.ephorte_role_upd)
     change_types_perms = (co.ephorte_perm_add, co.ephorte_perm_rem)
-    change_types_adds = (co.ephorte_role_add, co.ephorte_perm_add)
     change_types = change_types_roles + change_types_perms
 
     event_selector = select_events_by_person(
@@ -387,41 +393,28 @@ def quicksync_roles_and_authz(client, selection_spread, config, commit):
         pe.clear()
         pe.find(person_id)
 
-        # We need to remove all roles and authz, unless we only got 'add' events.
-        remove_all = not all(e['change_type_id'] in change_types_adds for e in events)
+        update_roles = any(e['change_type_id'] in change_types_roles for e in events)
+        update_perms = any(e['change_type_id'] in change_types_perms for e in events)
 
-        if remove_all:
+        if update_roles:
             try:
-                update_person_roles_and_authz(client=client, pe=pe)
+                if update_person_roles(pe, client):
+                    for event in [e for e in events if e['change_type_id'] in change_types_roles]:
+                        clh.confirm_event(event)
             except Exception, e:
-                logger.warn('Failed to update all roles and authz for person_id:%s', person_id)
+                logger.warn('Failed to update roles for person_id:%s', person_id)
                 logger.exception(e)
             else:
-                logger.debug('Confirming events: %s', [e['change_id'] for e in events])
-
-                for event in events:
-                    clh.confirm_event(event)
-
                 if commit:
                     clh.commit_confirmations()
 
-            continue
-
-        # We only need to add roles/authz.
-        for event in events:
-            logger.debug('Processing change_id %s (%s), from %s subject_entity:%s',
-                         event['change_id'],
-                         co.ChangeType(int(event['change_type_id'])),
-                         event['tstamp'],
-                         event['subject_entity'])
-            change_fun = update_person_roles
-            if event['change_type_id'] in change_types_perms:
-                change_fun = update_person_authz
+        if update_perms:
             try:
-                if change_fun(pe, client, event=event):
-                    clh.confirm_event(event)
+                if update_person_perms(pe, client):
+                    for event in [e for e in events if e['change_type_id'] in change_types_perms]:
+                        clh.confirm_event(event)
             except Exception, e:
-                logger.warn('Failed to process change_id:%s', event['change_id'])
+                logger.warn('Failed to update permissions for person_id:%s', person_id)
                 logger.exception(e)
             else:
                 if commit:
@@ -431,102 +424,46 @@ def quicksync_roles_and_authz(client, selection_spread, config, commit):
         clh.commit_confirmations()
 
 
-def update_person_roles_and_authz(pe, client):
-    """Removes all roles and authorizations, then re-adds everything.
-
-    :type pe: Person
-    :param pe: The person to update
-
-    :type client: EphorteWS
-    :param client: The client used to talk to ePhorte
-    """
-    remove_person_roles_and_authz(client=client, pe=pe)
-    update_person_roles(client=client, pe=pe)
-    update_person_authz(client=client, pe=pe)
-
-
-def remove_person_roles_and_authz(pe, client):
-    """Removes all roles and authorizations for a person.
-
-    :type pe: Person
-    :param pe: The person remove roles and authz for
-
-    :type client: EphorteWS
-    :param client: The client used to talk to ePhorte
-    """
-    user_id = construct_user_id(pe=pe)
-
-    try:
-        client.disable_roles_and_authz_for_user(user_id=user_id)
-    except EphorteWSError, e:
-        logger.warn('Could not remove all roles and authz for person_id:%s: %s',
-                    pe.entity_id, e)
-        raise
-
-    logger.info('Removed all roles and authz for person_id:%s', pe.entity_id)
-
-
-def update_person_authz(person, client, userid=None, event=None, remove_ok=False):
+def update_person_perms(person, client, userid=None, event=None, remove_ok=False):
     try:
         if userid is None:
             userid = construct_user_id(person)
+
         logger.info("Updating perms for %s", userid)
+
         ephorte_perms = set(user_details_to_perms(client.get_user_details(userid)))
         for perm in ephorte_perms:
-            logger.debug("Found perm for %s in ephorte: %s@%s, authorized=%s", userid, perm[0], perm[2], perm[1])
+            logger.debug("Found perm for %s in ePhorte: %s@%s, authorized=%s",
+                         userid, perm[0], perm[2], perm[1])
+
         cerebrum_perms = set(list_perm_for_person(person))
         for perm in cerebrum_perms:
-            logger.debug("Setting perm for %s: %s@%s, authorized=%s", userid, perm[0], perm[2], perm[1])
+            logger.debug("Setting perm for %s: %s@%s, authorized=%s",
+                         userid, perm[0], perm[2], perm[1])
 
         # Delete perms?
         if remove_ok:
             superfluous = ephorte_perms.difference(cerebrum_perms)
             if superfluous:
                 for perm in superfluous:
-                    logger.info("Deleting perm for %s: %s@%s, authorized=%s", userid, perm[0], perm[2], perm[1])
+                    logger.info("Deleting perm for %s: %s@%s, authorized=%s",
+                                userid, perm[0], perm[2], perm[1])
                 client.disable_roles_and_authz_for_user(userid)
-            
+
         for perm in cerebrum_perms:
             if perm in ephorte_perms:
-                logger.info("Readding perm for %s: %s@%s, authorized=%s", userid, perm[0], perm[2], perm[1])
+                logger.info("Readding perm for %s: %s@%s, authorized=%s",
+                            userid, perm[0], perm[2], perm[1])
             else:
-                logger.info("Adding new perm for %s: %s@%s, authorized=%s", userid, perm[0], perm[2], perm[1])
-            client.ensure_access_code_authorization(userid, perm[0], perm
-
+                logger.info("Adding new perm for %s: %s@%s, authorized=%s",
+                            userid, perm[0], perm[2], perm[1])
+            client.ensure_access_code_authorization(userid, perm[0], perm)
     except Exception, e:
-        logger.exception("Something went wrong")
+        logger.warn("Something went wrong.")
+        logger.exception(e)
         return False
     return True
 
-
-def get_target_role_by_event(event):
-    """Extract role_id, arkivdel and adm_enhet from an event.
-
-    :type event: dict
-    :param event: An event row from CLHandler.get_events()
-
-    :rtype: dict
-    :return: Dictionary with role_id, arkivdel, adm_enhet
-    """
-    change_params = pickle.loads(event['change_params'])
-
-    # rolle_type and arkivdel may have been set to the code_str or
-    # a string representation of the int
-    try:
-        role_id = int(change_params['rolle_type'])
-    except ValueError:
-        role_id = change_params['rolle_type']
-
-    try:
-        arkivdel = int(change_params['arkivdel'])
-    except ValueError:
-        arkivdel = change_params['arkivdel']
-
-    return {
-        'role_id': str(co.EphorteRole(role_id)),
-        'arkivdel': str(co.EphorteArkivdel(arkivdel)),
-        'adm_enhet': event['dest_entity'],
-    }
 
 def user_details_to_roles(user_details):
     """Convert result from Cerebrum2EphorteClient.get_user_details()
@@ -536,20 +473,17 @@ def user_details_to_roles(user_details):
 
     :rtype list(dict)"""
     roles = user_details[2]
-    return [{
-        'arkivdel': x['FondsSeriesId'],
-        'journalenhet': x['RegistryManagementUnitId'],
-        'role_id': x['Role']['RoleId'],
-        'ou_id': x['Org']['OrgId'],
-        'default_role': x['IsDefault'],
-        'job_title': x['JobTitle']
-        } for x in roles]
+    return [{'arkivdel': x['FondsSeriesId'],
+             'journalenhet': x['RegistryManagementUnitId'],
+             'role_id': x['Role']['RoleId'],
+             'ou_id': x['Org']['OrgId'],
+             'default_role': x['IsDefault'],
+             'job_title': x['JobTitle']}
+            for x in roles]
 
-def update_person_roles(pe, client, event=None, delete_superfluous=False):
+
+def update_person_roles(pe, client, delete_superfluous=False):
     """Updates roles for a person.
-
-    If no event is given, all roles for this person will be added to ePhorte.
-    If given an event, attempts to match it against all the roles. If found, add that role only.
 
     :type pe: Person
     :param pe: The person to update roles for
@@ -560,16 +494,14 @@ def update_person_roles(pe, client, event=None, delete_superfluous=False):
     :rtype: bool
     :return: Roles updated?
     """
-    if event:
-        target = get_target_role_by_event(event=event)
-
     user_id = construct_user_id(pe=pe)
 
     args = {}
 
-    ephorte_roles = set(tuple(sorted(x.items())) 
+    ephorte_roles = set(tuple(sorted(x.items()))
                         for x in user_details_to_roles(client.get_user_details(user_id)))
     cerebrum_roles = set()
+
     for role in ephorte_role.list_roles(person_id=pe.entity_id):
         try:
             args['arkivdel'] = str(co.EphorteArkivdel(role['arkivdel']))
@@ -577,12 +509,6 @@ def update_person_roles(pe, client, event=None, delete_superfluous=False):
             args['role_id'] = str(co.EphorteRole(role['role_type']))
         except (TypeError, Errors.NotFoundError):
             logger.warn("Unknown arkivdel, journalenhet or role type, skipping role %s", role)
-            continue
-
-        # If we are looking for a specific role, is this the one?
-        if (event and (args['role_id'] != target['role_id'] or
-                       args['arkivdel'] != target['arkivdel'] or
-                       role['adm_enhet'] != target['adm_enhet'])):
             continue
 
         args['ou_id'] = get_sko(ou_id=role['adm_enhet'])
@@ -610,16 +536,19 @@ def update_person_roles(pe, client, event=None, delete_superfluous=False):
             logger.exception(e)
             raise
 
-        # Single event handled, we can exit
-        if event:
-            return True
     if delete_superfluous:
         for role in map(dict, ephorte_roles - cerebrum_roles):
             logger.info('Removing superfluous role %s@%s for %s',
-                    role['role_id'], role['ou_id'], user_id)
-            client.disable_user_role(user_id, role['role_id'], role['ou_id'])
-    # If we are here, we have added all roles or failed to handle a single event
-    return False if event else True
+                        role['role_id'], role['ou_id'], user_id)
+            try:
+                client.disable_user_role(user_id, role['role_id'], role['ou_id'])
+            except EphorteWSError, e:
+                logger.warn('Could not remove role %s@%s for %s',
+                            args['role_id'], args['ou_id'], user_id)
+                logger.exception(e)
+                raise
+
+    return True
 
 
 class Config(object):
@@ -668,17 +597,17 @@ def main():
     """User-interface and configuration."""
     # Parse args
     parser = argparse.ArgumentParser(
-        description='Update & provision users in ePhorte')
+        description='Update and provision users, roles and permissions in ePhorte')
     parser.add_argument(
         '--config', metavar='<config>', type=str, default='sync_ephorte.cfg',
         help='Config file to use (default: sync_ephorte.cfg)')
     cmdgrp = parser.add_mutually_exclusive_group()
     cmdgrp.add_argument(
-        '--fullsync-persons', help='Full sync of persons', action='store_true')
+        '--full-persons', help='Full sync of persons', action='store_true')
     cmdgrp.add_argument(
-        '--fullsync-roles-authz', help='Full sync of roles and authz', action='store_true')
+        '--full-roles-perms', help='Full sync of roles and permissions', action='store_true')
     cmdgrp.add_argument(
-        '--quicksync-roles-authz', help='Quick sync of roles and authz', action='store_true')
+        '--quick-roles-perms', help='Quick sync of roles and permissions', action='store_true')
     cmdgrp.add_argument(
         '--config-help', help='Show configuration help', action='store_true')
     parser.add_argument(
@@ -715,7 +644,7 @@ def main():
         int(selection_spread)
         logger.info('Using spread %s as selection criteria', str(selection_spread))
     except Errors.NotFoundError:
-        logger.error('Spread %s could not be found, aborting.', args.spread)
+        logger.error('Spread %s could not be found, aborting.', config.selection_spread)
         sys.exit(1)
 
     client = EphorteWS(wsdl=config.wsdl,
@@ -727,19 +656,19 @@ def main():
                        username=config.username,
                        password=read_password(config.username, config.wsdl.split('/')[2]))
 
-    if args.quicksync_roles_authz:
-        logger.info("Quick sync of roles and authz started")
-        quicksync_roles_and_authz(client=client,
+    if args.quick_roles_perms:
+        logger.info("Quick sync of roles and permissions started")
+        quicksync_roles_and_perms(client=client,
                                   config=config,
                                   selection_spread=selection_spread,
                                   commit=args.commit)
-        logger.info('Quick sync of roles and authz finished')
-    elif args.fullsync_roles_authz:
-        logger.info("Full sync of roles and authz started")
-        fullsync_roles_and_authz(client=client,
+        logger.info('Quick sync of roles and permissions finished')
+    elif args.full_roles_perms:
+        logger.info("Full sync of roles and permissions started")
+        fullsync_roles_and_perms(client=client,
                                  selection_spread=selection_spread)
-        logger.info('Full sync of roles and authz finished')
-    elif args.fullsync_persons:
+        logger.info('Full sync of roles and permissions finished')
+    elif args.full_persons:
         logger.info("Full sync of persons started")
         fullsync_persons(client=client,
                          selection_spread=selection_spread)
