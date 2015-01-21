@@ -219,9 +219,9 @@ def user_details_to_perms(user_details):
     :type user_details tuple(dict, list(dict), list)
     :param user_details: Return value from get_user_details()
 
-    :rtype list(authcode, boolean, ou)"""
+    :rtype list(authcode, ou, boolean)"""
     authzs = user_details[1]
-    return [(perm_code_id_to_perm(x['AccessCodeId']), x['IsAutorizedForAllOrgUnits'], x['OrgId'])
+    return [(x['AccessCodeId'], x['OrgId'], x['IsAutorizedForAllOrgUnits'])
             for x in authzs]
 
 
@@ -234,7 +234,7 @@ def list_perm_for_person(person):
         sko = get_sko(row['adm_enhet'])
         if sko == '999999':
             sko = None
-        ret.append((perm_type, False, sko))
+        ret.append((perm_type, sko, False))
     return ret
 
 
@@ -441,31 +441,27 @@ def update_person_perms(person, client, userid=None, remove_superfluous=False):
 
         ephorte_perms = set(user_details_to_perms(client.get_user_details(userid)))
         for perm in ephorte_perms:
-            logger.debug("Found perm for %s in ePhorte: %s@%s, authorized=%s",
-                         userid, perm[0], perm[2], perm[1])
-
+            logger.debug("Found perm for %s in ePhorte: %s@%s, authorized=%s", userid, *perm)
         cerebrum_perms = set(list_perm_for_person(person))
         for perm in cerebrum_perms:
-            logger.debug("Setting perm for %s: %s@%s, authorized=%s",
-                         userid, perm[0], perm[2], perm[1])
-
+            logger.debug("Should have perm for %s: %s@%s, authorized=%s", userid, *perm)
         # Delete perms?
         if remove_superfluous:
             superfluous = ephorte_perms.difference(cerebrum_perms)
             if superfluous:
                 for perm in superfluous:
-                    logger.info("Deleting perm for %s: %s@%s, authorized=%s",
-                                userid, perm[0], perm[2], perm[1])
-                client.disable_roles_and_authz_for_user(userid)
+                    logger.info("Deleting perm for %s: %s@%s, authorized=%s", userid, *perm)
+                    client.disable_user_authz(userid, perm[0], perm[1])
 
         for perm in cerebrum_perms:
-            if perm in ephorte_perms:
-                logger.info("Readding perm for %s: %s@%s, authorized=%s",
-                            userid, perm[0], perm[2], perm[1])
+            if perm not in ephorte_perms:
+                logger.info("Adding new perm for %s: %s@%s, authorized=%s", userid, *perm)
             else:
-                logger.info("Adding new perm for %s: %s@%s, authorized=%s",
-                            userid, perm[0], perm[2], perm[1])
-            client.ensure_access_code_authorization(userid, perm[0], perm)
+                logger.info("Ensuring new perm for %s: %s@%s, authorized=%s", userid, *perm)
+            try:
+                client.ensure_access_code_authorization(userid, *perm)
+            except Exception, e:
+                logger.error("Something happened, ephorte says: %s", e.args[0])
     except Exception, e:
         logger.warn("Something went wrong.")
         logger.exception(e)
