@@ -95,7 +95,7 @@ class SudsClient(object):
             transport = HTTPSClientCertTransport(ca_certs, client_cert,
                                                  client_key)
         else:
-            transport = suds.transport.http.HttpTransport()
+            transport = suds.transport.http.HttpTransport(timeout=timeout)
         try:
             self.client = suds.client.Client(wsdl, timeout=timeout,
                                              cache=None, transport=transport)
@@ -222,6 +222,7 @@ class Cerebrum2EphorteClientMock(object):
         except:
             def funnyfunc(self, name, argnames, *args, **kw):
                 pass
+            import functools
             for name in ro_mocks:
                 setattr(self, name, functools.partial(self, name,
                     getattr(Cerebrum2EphorteClient, name).__func__.func_code.co_varnames))
@@ -241,9 +242,6 @@ class Cerebrum2EphorteClientMock(object):
         pass
 
     def disable_user_authz(self, user_id, access_code, ou_id):
-        pass
-
-    def ensure_access_code_authorization(self, user_id, access_code, ou_id, all_ous):
         pass
 
     def ensure_access_code_authorization(self, user_id, access_code_id,
