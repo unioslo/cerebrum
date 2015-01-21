@@ -1,14 +1,9 @@
 #!/usr/bin/env python
-"""This script adds ephorte_roles and ephorte-spreads to persons (employees) in
 # coding: utf-8
+u"""This script adds ephorte_roles and ephorte-spreads to persons (employees) in
 Cerebrum according to the rules in ephorte-sync-spec.rst
-
-Usage: populate_ephorte.py [options]
-  -p fname : stedinfo
-
 """
 
-import getopt
 import sys
 import cerebrum_path
 import cereconf
@@ -20,6 +15,11 @@ from Cerebrum.Utils import Factory, XMLHelper, SimilarSizeWriter
 from Cerebrum.modules import CLHandler
 from Cerebrum.modules.no.uio.Ephorte import EphorteRole
 from Cerebrum.modules.no.uio.Ephorte import EphortePermission, _EphortePermTypeCode
+
+try:
+    import argparse
+except ImportError:
+    from Cerebrum.extlib import argparse
 
 db = Factory.get('Database')()
 db.cl_init(change_program="populate_ephorte")
@@ -407,45 +407,44 @@ def send_mail(mailto, mail_template, substitute, debug=False):
     else:
         logger.debug("Sending mail to: %s" % mailto)
 
+def _make_parser():
+    """Make a parser object
+    >>> parser = _make_parser()
+    >>> c = parser.parse_args("-r -p --mail-warnings-to foo@example.com --dryrun".split())
+    >>> c.populate_roles
+    True
+    >>> c.populate_permissions
+    True
+    >>> c.mail_warnings_to
+    'foo@example.com'
+    >>> c.dryrun
+    True
+    """
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("-r", "--populate-roles", action="store_true",
+            help=u"Do populate auto roles in Cerebrum")
+    parser.add_argument("-p", "--populate-permissions", action="store_true", 
+            help=u"Do populate auto permissions in Cerebrum")
+    parser.add_argument("--mail-warnings-to", action="store",
+            help=u"Send warnings to (email address)")
+    parser.add_argument("--dryrun", action="store_true",
+            help=u"Prevent commit to database")
+    return parser
 
 def main():
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'prs:',
-                                   ['populate-roles', 'populate-permissions',
-                                    'stedinfo', 'help', 'mail-warnings-to=',
-                                    'dryrun'])
-    except getopt.GetoptError:
-        usage(1)
+    config = _make_parser().parse_args()
 
-    populate_roles = False    
-    populate_perms = False
-    mail_warnings_to = None
-    dryrun = False
-    for opt, val in opts:
-        if opt in ('--help',):
-            usage()
-        elif opt in ('-s', '--stedinfo'):
-            stedinfo_file = val
-        elif opt in ('-r', '--populate-roles'):
-            populate_roles = True
-        elif opt in ('-p', '--populate-permissions'):
-            populate_perms = True
-        elif opt in ('--mail-warnings-to',):
-            mail_warnings_to = val
-        elif opt in ('--dryrun',):
-            mail_dryrun = True
-    if not opts:
-        usage(1)
+    ephorte_ws_client = None
     
-    pop = PopulateEphorte(stedinfo_file)
-    if populate_roles:
+    pop = PopulateEphorte(ephorte_ws_client)
+    if config.populate_roles:
         pop.populate_roles()
-    if populate_perms:
+    if config.populate_permissions:
         pop.populate_permissions()
-    if mail_warnings_to:
-        mail_warnings(mail_warnings_to, debug=dryrun)
+    if config.mail_warnings_to:
+        mail_warnings(config.mail_warnings_to, debug=config.dryrun)
 
-    if dryrun:
+    if config.dryrun:
         db.rollback()
         logger.info("DRYRUN: Roll back changes")
     else:
