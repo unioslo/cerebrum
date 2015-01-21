@@ -463,8 +463,7 @@ def update_person_perms(person, client, userid=None, remove_superfluous=False):
             except Exception, e:
                 logger.error("Something happened, ephorte says: %s", e.args[0])
     except Exception, e:
-        logger.warn("Something went wrong.")
-        logger.exception(e)
+        logger.exception("update person perms failed")
         return False
     return True
 
