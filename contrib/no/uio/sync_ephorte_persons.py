@@ -29,7 +29,6 @@ via the ePhorte web service.
 
 import sys
 import time
-import pickle
 import functools
 from collections import defaultdict
 
@@ -263,11 +262,14 @@ def select_persons_for_update(selection_spread):
         yield pers
 
 
-def select_events_by_person(clh, change_key, change_types, selection_spread):
+def select_events_by_person(clh, config, change_key, change_types, selection_spread):
     """Yield unhandled events, sorted by person_id.
 
     :type clh: CLHandler
     :param clh: Change log handler instance
+
+    :type config: Config
+    :param config: Configuration
 
     :type change_key: str
     :param change_key: Handled events are marked with this key
@@ -281,9 +283,7 @@ def select_events_by_person(clh, change_key, change_types, selection_spread):
     :rtype: generator
     :return: A generator that yields (person_id, events)
     """
-    #too_old = time.time() - int(self.config['changes_too_old_seconds'])
-    too_old = time.time() - 60*60*24*365
-    # TODO
+    too_old = time.time() - int(config.changes_too_old_days) * 60*60*24
 
     logger.debug("Fetching unhandled events using change key: %s", change_key)
     all_events = clh.get_events(change_key, change_types)
@@ -385,6 +385,7 @@ def quicksync_roles_and_perms(client, selection_spread, config, commit):
 
     event_selector = select_events_by_person(
         clh=clh,
+        config=config,
         change_key=change_key,
         change_types=change_types,
         selection_spread=selection_spread)
@@ -399,8 +400,9 @@ def quicksync_roles_and_perms(client, selection_spread, config, commit):
         if update_roles:
             try:
                 if update_person_roles(pe, client):
-                    for event in [e for e in events if e['change_type_id'] in change_types_roles]:
-                        clh.confirm_event(event)
+                    for event in events:
+                        if event['change_type_id'] in change_types_roles:
+                            clh.confirm_event(event)
             except Exception, e:
                 logger.warn('Failed to update roles for person_id:%s', person_id)
                 logger.exception(e)
@@ -411,8 +413,9 @@ def quicksync_roles_and_perms(client, selection_spread, config, commit):
         if update_perms:
             try:
                 if update_person_perms(pe, client):
-                    for event in [e for e in events if e['change_type_id'] in change_types_perms]:
-                        clh.confirm_event(event)
+                    for event in events:
+                        if event['change_type_id'] in change_types_perms:
+                            clh.confirm_event(event)
             except Exception, e:
                 logger.warn('Failed to update permissions for person_id:%s', person_id)
                 logger.exception(e)
@@ -424,7 +427,7 @@ def quicksync_roles_and_perms(client, selection_spread, config, commit):
         clh.commit_confirmations()
 
 
-def update_person_perms(person, client, userid=None, event=None, remove_ok=False):
+def update_person_perms(person, client, userid=None, remove_superfluous=False):
     try:
         if userid is None:
             userid = construct_user_id(person)
@@ -442,7 +445,7 @@ def update_person_perms(person, client, userid=None, event=None, remove_ok=False
                          userid, perm[0], perm[2], perm[1])
 
         # Delete perms?
-        if remove_ok:
+        if remove_superfluous:
             superfluous = ephorte_perms.difference(cerebrum_perms)
             if superfluous:
                 for perm in superfluous:
