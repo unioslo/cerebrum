@@ -146,33 +146,85 @@ class SudsClient(object):
         else:
             return r
 
+class Config(object):
+    """Read config through ConfigParser."""
+    # TODO: Make this use yaml?
+    # TODO: Is this really a good way to do it?
+    def __init__(self, conf, section='DEFAULT'):
+        """Init. a configuration.
+
+        :type conf: str
+        :param conf: The file name to load (cereconf.CONFIG_PATH prepended if
+            file does not exist)
+        :type section: str
+        :param section: The section of the config file to load
+        """
+        import ConfigParser
+        import os
+        if not os.path.exists(conf):
+            conf = os.path.join(cereconf.CONFIG_PATH, conf)
+        self._config = ConfigParser.ConfigParser()
+        self._config.read(conf)
+        self._section = section
+
+    def __getattribute__(self, key):
+        """Get a config variable.
+
+        :type key: str
+        :param key: The field to return
+        """
+        try:
+            return object.__getattribute__(self, key)
+        except AttributeError:
+            from ConfigParser import NoOptionError
+            try:
+                c = self._config.get(self._section, key)
+                # TODO: This is a bit nasty. Represent this another way?
+                if c == 'None':
+                    c = None
+                return c
+            except NoOptionError:
+                raise AttributeError("'%s' object has no attribute '%s'" %
+                                     (self.__class__.__name__, key))
+
+def make_ephorte_client(config_file, mock=False):
+    """Setup ephorte ws from config file name
+    :type config_file: basestring
+    :param config_file: file name
+    """
+    from Cerebrum.Utils import read_password
+    config = Config(config_file)
+    cls = Cerebrum2EphorteClientMock if mock else Cerebrum2EphorteClient
+    client = cls(wsdl=config.wsdl,
+                 customer_id=config.customer_id,
+                 database=config.database,
+                 client_key=config.client_key,
+                 client_cert=config.client_cert,
+                 ca_certs=config.ca_certs,
+                 username=config.username,
+                 password=read_password(config.username, config.wsdl.split('/')[2]))
+    return client, config
+
 
 class Cerebrum2EphorteClientMock(object):
     """Mock client for "simulating" provisioning in ePhorte."""
     # TODO: Use somethin' like suds SimClient?
     def __init__(self, *args, **kwargs):
-        pass
-
-    def test_with_ephorte(self, user_id):
-        pass
-
-    def get_all_org_units(self):
-        pass
-
-    def get_all_roles(self):
-        pass
-
-    def get_all_access_codes(self):
-        pass
-
-    def get_all_users(self):
-        pass
-
-    def get_user_details(self, user_id):
-        pass
-
-    def search_users(self, pattern):
-        pass
+        self.client = None
+        ro_mocks = """wsdl customer_id database username password
+                      get_all_org_units get_all_roles get_all_access_codes
+                      get_all_users search_users get_user_details
+                      get_user_backlog test_with_ephorte""".split()
+        try:
+            self.client = Cerebrum2EphorteClient(*args, **kwargs)
+            for name in ro_mocks:
+                setattr(self, name, getattr(self.client, name))
+        except:
+            def funnyfunc(self, name, argnames, *args, **kw):
+                pass
+            for name in ro_mocks:
+                setattr(self, name, functools.partial(self, name,
+                    getattr(Cerebrum2EphorteClient, name).__func__.func_code.co_varnames))
 
     def ensure_user(self, user_id, first_name=None, middle_name=None,
                     last_name=None, full_name=None, initials=None,
@@ -185,6 +237,15 @@ class Cerebrum2EphorteClientMock(object):
                              arkivdel, journalenhet, default_role):
         pass
 
+    def disable_user_role(self, user_id, role_id, ou_id):
+        pass
+
+    def disable_user_authz(self, user_id, access_code, ou_id):
+        pass
+
+    def ensure_access_code_authorization(self, user_id, access_code, ou_id, all_ous):
+        pass
+
     def ensure_access_code_authorization(self, user_id, access_code_id,
                                          ou_id, authz_for_all):
         pass
@@ -193,15 +254,6 @@ class Cerebrum2EphorteClientMock(object):
         pass
 
     def disable_roles_and_authz_for_user(self, user_id):
-        pass
-
-    def disable_user_role(self, user_id, role_id, ou_id):
-        pass
-
-    def disable_user_authz(self, user_id, access_code, ou_id):
-        pass
-
-    def get_user_backlog(self, user_id):
         pass
 
 
