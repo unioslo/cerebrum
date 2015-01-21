@@ -153,9 +153,11 @@ def update_person_info(pe, client):
     :type client: EphorteWS
     :param client: The client used to talk to ePhorte
     """
-    first_name = pe.get_name(co.system_cached, co.name_first)
-    last_name = pe.get_name(co.system_cached, co.name_last)
-    full_name = pe.get_name(co.system_cached, co.name_full)
+    def u(x):
+        return x.decode('UTF-8') if isinstance(x, str) else x
+    first_name = u(pe.get_name(co.system_cached, co.name_first))
+    last_name = u(pe.get_name(co.system_cached, co.name_last))
+    full_name = u(pe.get_name(co.system_cached, co.name_full))
 
     try:
         user_id = construct_user_id(pe)
@@ -166,21 +168,24 @@ def update_person_info(pe, client):
         return
 
     try:
-        email_address = get_email_address(pe)
+        email_address = u(get_email_address(pe))
     except Errors.NotFoundError:
         logger.warn('Email address non-existent for %s', user_id)
         email_address = None
 
-    telephone = (lambda x: x[0]['contact_value'] if len(x) else None)(
-        pe.get_contact_info(source=co.system_sap, type=co.contact_phone))
+    telephone = u(
+            (lambda x: x[0]['contact_value'] if len(x) else None) (pe.get_contact_info(source=co.system_sap, type=co.contact_phone)))
     # TODO: Has not been exported before. Export nao?
     mobile = None
     tmp_addr = (lambda x: x[0] if len(x) else None)(pe.get_entity_address(
         source=co.system_sap, type=co.address_street))
     if tmp_addr:
-        street_address = tmp_addr['address_text']
-        zip_code = tmp_addr['postal_number']
-        city = tmp_addr['city']
+        street_address = u(tmp_addr['address_text'])
+        # There seems to be a limit in ePhorte ...
+        if street_address and len(street_address) > 50:
+            street_address = street_address[0:50]
+        zip_code = u(tmp_addr['postal_number'])
+        city = u(tmp_addr['city'])
     else:
         street_address = zip_code = city = None
 
