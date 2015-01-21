@@ -586,48 +586,6 @@ def update_person_roles(pe, client, event=None, delete_superfluous=False):
     return False if event else True
 
 
-class Config(object):
-    """Read config through ConfigParser."""
-    # TODO: Make this use yaml?
-    # TODO: Is this really a good way to do it?
-    def __init__(self, conf, section='DEFAULT'):
-        """Init. a configuration.
-
-        :type conf: str
-        :param conf: The file name to load (cereconf.CONFIG_PATH prepended if
-            file does not exist)
-        :type section: str
-        :param section: The section of the config file to load
-        """
-        import ConfigParser
-        import os
-        if not os.path.exists(conf):
-            conf = os.path.join(cereconf.CONFIG_PATH, conf)
-        self._config = ConfigParser.ConfigParser()
-        self._config.read(conf)
-        self._section = section
-
-    def __getattribute__(self, key):
-        """Get a config variable.
-
-        :type key: str
-        :param key: The field to return
-        """
-        try:
-            return object.__getattribute__(self, key)
-        except AttributeError:
-            from ConfigParser import NoOptionError
-            try:
-                c = self._config.get(self._section, key)
-                # TODO: This is a bit nasty. Represent this another way?
-                if c == 'None':
-                    c = None
-                return c
-            except NoOptionError:
-                raise AttributeError("'%s' object has no attribute '%s'" %
-                                     (self.__class__.__name__, key))
-
-
 def main():
     """User-interface and configuration."""
     # Parse args
@@ -665,14 +623,11 @@ def main():
     # Select proper client depending on commit-argument
     if args.commit:
         logger.info('Running in commit mode')
-        from Cerebrum.modules.no.uio.EphorteWS \
-            import Cerebrum2EphorteClient as EphorteWS
     else:
         logger.info('Not running in commit mode. Using mock client')
-        from Cerebrum.modules.no.uio.EphorteWS \
-            import Cerebrum2EphorteClientMock as EphorteWS
+    from Cerebrum.modules.no.uio.EphorteWS import make_ephorte_client
 
-    config = Config(args.config)
+    client, config = make_ephorte_client(args.config, mock=not args.commit)
 
     try:
         selection_spread = co.Spread(config.selection_spread)
@@ -681,15 +636,6 @@ def main():
     except Errors.NotFoundError:
         logger.error('Spread %s could not be found, aborting.', args.spread)
         sys.exit(1)
-
-    client = EphorteWS(wsdl=config.wsdl,
-                       customer_id=config.customer_id,
-                       database=config.database,
-                       client_key=config.client_key,
-                       client_cert=config.client_cert,
-                       ca_certs=config.ca_certs,
-                       username=config.username,
-                       password=read_password(config.username, config.wsdl.split('/')[2]))
 
     if args.quicksync_roles_authz:
         logger.info("Quick sync of roles and authz started")
