@@ -210,28 +210,21 @@ class Cerebrum2EphorteClientMock(object):
     """Mock client for "simulating" provisioning in ePhorte."""
     # TODO: Use somethin' like suds SimClient?
     def __init__(self, *args, **kwargs):
-        pass
-
-    def test_with_ephorte(self, user_id):
-        pass
-
-    def get_all_org_units(self):
-        pass
-
-    def get_all_roles(self):
-        pass
-
-    def get_all_access_codes(self):
-        pass
-
-    def get_all_users(self):
-        pass
-
-    def get_user_details(self, user_id):
-        pass
-
-    def search_users(self, pattern):
-        pass
+        self.client = None
+        ro_mocks = """wsdl customer_id database username password
+                      get_all_org_units get_all_roles get_all_access_codes
+                      get_all_users search_users get_user_details
+                      get_user_backlog test_with_ephorte""".split()
+        try:
+            self.client = Cerebrum2EphorteClient(*args, **kwargs)
+            for name in ro_mocks:
+                setattr(self, name, getattr(self.client, name))
+        except:
+            def funnyfunc(self, name, argnames, *args, **kw):
+                pass
+            for name in ro_mocks:
+                setattr(self, name, functools.partial(self, name,
+                    getattr(Cerebrum2EphorteClient, name).__func__.func_code.co_varnames))
 
     def ensure_user(self, user_id, first_name=None, middle_name=None,
                     last_name=None, full_name=None, initials=None,
@@ -244,6 +237,15 @@ class Cerebrum2EphorteClientMock(object):
                              arkivdel, journalenhet, default_role):
         pass
 
+    def disable_user_role(self, user_id, role_id, ou_id):
+        pass
+
+    def disable_user_authz(self, user_id, access_code, ou_id):
+        pass
+
+    def ensure_access_code_authorization(self, user_id, access_code, ou_id, all_ous):
+        pass
+
     def ensure_access_code_authorization(self, user_id, access_code_id,
                                          ou_id, authz_for_all):
         pass
@@ -252,15 +254,6 @@ class Cerebrum2EphorteClientMock(object):
         pass
 
     def disable_roles_and_authz_for_user(self, user_id):
-        pass
-
-    def disable_user_role(self, user_id, role_id, ou_id):
-        pass
-
-    def disable_user_authz(self, user_id, access_code, ou_id):
-        pass
-
-    def get_user_backlog(self, user_id):
         pass
 
 
