@@ -197,10 +197,10 @@ class BofhdAuth(auth.BofhdAuth):
         if self.is_postmaster(operator):
             return True
         if self._has_operation_perm_somewhere(
-            operator, self.const.auth_email_forward_info):
+                operator, self.const.auth_email_forward_info):
             return True
         if query_run_any:
-            return True
+            return False
         raise PermissionDenied('Restricted access')
 
     def can_show_history(self, operator, entity=None, query_run_any=False):

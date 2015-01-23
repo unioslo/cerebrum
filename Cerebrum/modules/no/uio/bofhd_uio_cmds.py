@@ -1421,7 +1421,7 @@ class BofhdExtension(BofhdCommonMethods):
     # email forward_info
     all_commands['email_forward_info'] = Command(
         ('email', 'forward_info'),
-        SimpleString(),
+        EmailAddress(),
         perm_filter='can_email_forward_info',
         fs=FormatSuggestion([
             ('%s', ('id', ))]))
