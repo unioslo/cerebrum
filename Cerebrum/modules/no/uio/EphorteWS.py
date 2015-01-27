@@ -56,8 +56,7 @@ class HTTPSClientCertTransport(suds.transport.http.HttpTransport):
         # TODO: Catch exceptions related to nonexistent files?
         # Changes in 2.6 in regards to timeouts
         if sys.version_info < (2, 6):
-            self.ssl_conf = https.SSLConfig(ca_certs, cert_file, key_file,
-                                            timeout=timeout)
+            self.ssl_conf = https.SSLConfig(ca_certs, cert_file, key_file)
         else:
             self.ssl_conf = https.SSLConfig(ca_certs, cert_file, key_file)
             self.ssl_conf.set_verify_hostname(False)
@@ -71,7 +70,12 @@ class HTTPSClientCertTransport(suds.transport.http.HttpTransport):
         :return: The opened file-like urllib2 object.
         :rtype: fp
         """
-        hc_cls = https.HTTPSConnection.configure(self.ssl_conf)
+        if sys.version_info < (2, 6):
+            hc_cls = https.HTTPSConnection.configure(
+                self.ssl_conf, timeout=self.timeout)
+        else:
+            hc_cls = https.HTTPSConnection.configure(self.ssl_conf)
+
         ssl_conn = https.HTTPSHandler(ssl_connection=hc_cls)
         url = urllib2.build_opener(ssl_conn)
 
