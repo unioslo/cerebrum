@@ -1,3 +1,8 @@
+2015-01-28  Karen   <cerebrum@cleomedes.uit.no>
+
+    * ad_export_autogroups_undervisning.py: Added to repo. Copied from Leetah. 
+    Kenneth did some minor changes to get it to run on new cerebrum.
+
 2014-12-23  Karen   <cerebrum@cleomedes.uit.no>
 
     * populate_fronter_groups.py: Added if-test to avoid the script crashing when 
