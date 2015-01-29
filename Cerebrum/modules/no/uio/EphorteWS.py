@@ -161,6 +161,7 @@ class Config(object):
         """
         import ConfigParser
         import os
+        import cereconf
         if not os.path.exists(conf):
             conf = os.path.join(cereconf.CONFIG_PATH, conf)
         self._config = ConfigParser.ConfigParser()
