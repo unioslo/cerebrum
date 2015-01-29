@@ -77,6 +77,11 @@ person_db = Factory.get("Person")(cerebrum_db)
 source_system = None
 
 
+class OUNotFoundException(Exception):
+    """Exception for cases where OU is not defined in XML."""
+    pass
+
+
 def output_element(writer, value, element, attributes=dict()):
     """A helper function to output XML elements.
 
@@ -124,7 +129,7 @@ def xml2dict(xmlobject, attributes):
 
     if "place" not in result:
         logger.error("%s has no place!", xmlobject)
-        raise "AIIIEEEE!"
+        raise OUNotFoundException("%s has no place!", xmlobject)
 
     return result
 # end xml2dict
