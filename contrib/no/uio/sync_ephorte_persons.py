@@ -580,7 +580,8 @@ def update_person_roles(pe, client, delete_superfluous=False):
             logger.info('Removing superfluous role %s@%s for %s',
                         role['role_id'], role['ou_id'], user_id)
             try:
-                client.disable_user_role(user_id, role['role_id'], role['ou_id'])
+                client.disable_user_role(user_id, role['role_id'], role['ou_id'],
+                                         role['arkivdel'], role['journalenhet'])
             except EphorteWSError, e:
                 logger.warn('Could not remove role %s@%s for %s',
                             args['role_id'], args['ou_id'], user_id)

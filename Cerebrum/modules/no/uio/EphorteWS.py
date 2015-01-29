@@ -239,7 +239,7 @@ class Cerebrum2EphorteClientMock(object):
                              arkivdel, journalenhet, default_role):
         pass
 
-    def disable_user_role(self, user_id, role_id, ou_id):
+    def disable_user_role(self, user_id, role_id, ou_id, arkivdel, journalenhet):
         pass
 
     def disable_user_authz(self, user_id, access_code, ou_id):
@@ -647,7 +647,7 @@ class Cerebrum2EphorteClient(object):
             self.database,
             user_id)
 
-    def disable_user_role(self, user_id, role_id, ou_id):
+    def disable_user_role(self, user_id, role_id, ou_id, arkivdel, journalenhet):
         """Disable a user role
 
         :type user_id: str
@@ -658,6 +658,12 @@ class Cerebrum2EphorteClient(object):
 
         :type ou_id: str
         :param ou_id: OU stedkode
+
+        :type arkivdel: str
+        :param arkivdel: Ephorte arkivdel code string
+
+        :type journalenhet: str
+        :param journalenhet: Ephorte journalenhet code string
         """
         self.client.DisableUserRole(
             self.username,
@@ -666,7 +672,9 @@ class Cerebrum2EphorteClient(object):
             self.database,
             user_id,
             role_id,
-            ou_id)
+            ou_id,
+            arkivdel,
+            journalenhet)
 
     def disable_user_authz(self, user_id, access_code, ou_id):
         """Disable a user permission
