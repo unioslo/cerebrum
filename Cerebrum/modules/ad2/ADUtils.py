@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2011-2014 University of Oslo, Norway
+# Copyright 2011-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -42,18 +42,12 @@ talking with the domain controllers through Active Directory Web Service:
 import time
 import re
 import base64
+import json
 
 import cerebrum_path
 import cereconf
 from Cerebrum.Utils import read_password
 from Cerebrum.Utils import Factory
-
-try:
-    import json
-except ImportError:
-    # Until python 2.6, we have our local, partly tweaked json module for python
-    # 2.5. At python 2.6, you _should_ use the proper json module.
-    from Cerebrum.extlib import json
 
 from Cerebrum.modules.ad2.winrm import PowershellClient, iter2stream
 from Cerebrum.modules.ad2.winrm import PowershellException, ExitCodeException
