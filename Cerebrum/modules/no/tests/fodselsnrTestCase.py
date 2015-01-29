@@ -58,7 +58,7 @@ class fodselsnrTestCase(unittest.TestCase):
         for number in self.invalidnumbers:
             try:
                 nr = fodselsnr.personnr_ok(number)
-                raise "Invalid fødelsnr accepted"
+                raise AssertionError("Invalid fødelsnr accepted")
             except:
                 pass
 
