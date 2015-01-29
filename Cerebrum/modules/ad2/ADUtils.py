@@ -52,9 +52,11 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.ad2.winrm import PowershellClient, iter2stream
 from Cerebrum.modules.ad2.winrm import PowershellException, ExitCodeException
 
+
 class ObjectAlreadyExistsException(PowershellException):
     """Exception for telling that an object already exists in AD."""
     pass
+
 
 class NoAccessException(PowershellException):
     """Exception for telling that Cerebrum were not allowed to execute an
@@ -62,6 +64,7 @@ class NoAccessException(PowershellException):
 
     """
     pass
+
 
 class SizeLimitException(PowershellException):
     """Exception for when too many rows are tried to be returned from AD.
@@ -73,6 +76,7 @@ class SizeLimitException(PowershellException):
     """
     pass
 
+
 class OUUnknownException(PowershellException):
     """Exception for when an OU was not found.
 
@@ -81,6 +85,7 @@ class OUUnknownException(PowershellException):
 
     """
     pass
+
 
 class SetAttributeException(PowershellException):
     """Exception for when updating attributes failed.
@@ -93,6 +98,7 @@ class SetAttributeException(PowershellException):
 
     """
     pass
+
 
 class CommandTooLongException(Exception):
     """If the given command is too long to be run through WinRM.
@@ -109,6 +115,7 @@ class CommandTooLongException(Exception):
 
     """
     pass
+
 
 class ADclient(PowershellClient):
     """Client that sends commands to AD for the AD-sync.
@@ -129,7 +136,7 @@ class ADclient(PowershellClient):
     # names are automatically swapped out when needed. The keys are the readable
     # names, while the values are the strings that should be used when updating
     # the attribute in AD:
-    attribute_write_map = {'Surname': 'Sn',}
+    attribute_write_map = {'Surname': 'Sn'}
 
     # The main objectClass that we are targeting in AD. This is used if nothing
     # else is specified when running a command:
@@ -163,7 +170,7 @@ class ADclient(PowershellClient):
         """
         super(ADclient, self).__init__(*args, **kwargs)
         self.add_credentials(username=auth_user,
-                password=unicode(read_password(auth_user, self.host), 'utf-8'))
+                             password=unicode(read_password(auth_user, self.host), 'utf-8'))
 
         # Note that we save the user's password by domain and not the host. It
         # _could_ be the wrong way to do it. TBD: Maybe both host and domain?
@@ -181,7 +188,7 @@ class ADclient(PowershellClient):
         self.dryrun = dryrun
         # Pattern to exclude passwords in plaintext from the server output.
         # Such passwords usually
-        self.exclude_password_patterns =  [
+        self.exclude_password_patterns = [
             re.compile('ConvertTo-SecureString.*?\.\.\.', flags=re.DOTALL)]
         self.db = Factory.get('Database')()
         self.co = Factory.get('Constants')(self.db)
@@ -376,8 +383,8 @@ class ADclient(PowershellClient):
 
         """
         setup = self._pre_execution_code % {
-                        'ad_user': self.escape_to_string(self.ad_account_username),
-                        'ad_pasw': self.escape_to_string(self.ad_account_password)}
+            'ad_user': self.escape_to_string(self.ad_account_username),
+            'ad_pasw': self.escape_to_string(self.ad_account_password)}
         #for a in args:
         #    print a
         self.logger.debug4(u'Executing powershell command: %s',
@@ -408,8 +415,8 @@ class ADclient(PowershellClient):
 
         """
         first_round = True
-        for code, out in super(PowershellClient, self).get_output(commandid,
-                                                       signal, timeout_retries):
+        for code, out in super(PowershellClient, self).get_output(
+                commandid, signal, timeout_retries):
             if first_round:
                 out['stdout'] = out.get('stdout',
                                         '').replace(self.ignore_stdout, '')
@@ -654,7 +661,7 @@ class ADclient(PowershellClient):
                self._generate_ad_command('Get-ADObject', parameters, extra))
         out = self.run(cmd)
         res_list = []
-        json_output = self.get_output_json(out,dict())
+        json_output = self.get_output_json(out, dict())
         if json_output:
             if isinstance(json_output, dict):
                 # In case there is found only one object, get_output_json will
@@ -844,6 +851,7 @@ class ADclient(PowershellClient):
         if action.lower() not in ('add', 'clear', 'remove', 'replace'):
             raise Exception("Invalid action for updating %s: %s" % (ad_id,
                             action))
+
         def run_setadobject(attrs):
             """Helper method for running the Set-ADObject command"""
             cmd = self._generate_ad_command('Set-ADObject',
@@ -1024,8 +1032,7 @@ class ADclient(PowershellClient):
             # not happen, maybe except for the initial sync for an instance.
             if clears:
                 self._setadobject_command_wrapper(ad_id, 'Clear', clears)
-            if updates and not self._setadobject_command_wrapper(ad_id,
-                                                                'Add', updates):
+            if updates and not self._setadobject_command_wrapper(ad_id, 'Add', updates):
                 success = False
         return success
 
@@ -1058,10 +1065,10 @@ class ADclient(PowershellClient):
                                                                 adid))
         # No dryrun here, since it's read-only
         cmdid = self.execute('(%s).%s' % (
-                    self._generate_ad_command('Get-ADObject',
-                                              {'Identity': adid,
-                                               'Properties': attributename}),
-                    attributename))
+            self._generate_ad_command('Get-ADObject',
+                                      {'Identity': adid, 'Properties': attributename}),
+            attributename))
+
         def getout(cmd):
             # TODO: By printing the attribute, it is split out on each line.
             # Note, however, that cmd breaks the lines at 80 or more characters,
@@ -1075,7 +1082,6 @@ class ADclient(PowershellClient):
                     yield line
         # TODO: Make this a decorator instead?
         return lambda: getout(cmdid)
-
 
     # TODO: All the old group-member functionality should be removed, as it is
     # now handled through the regular update of attributes!
@@ -1200,9 +1206,8 @@ class ADclient(PowershellClient):
         for member in members:
             self.logger.debug("Adding member: %s", member)
             cmd = self._generate_ad_command(
-                    'Set-ADObject',
-                    {'Identity': groupid,
-                     'Add': {attribute_name: member}})
+                'Set-ADObject', {'Identity': groupid,
+                                 'Add': {attribute_name: member}})
             if not self.dryrun:
                 try:
                     self.run(cmd)
@@ -1245,9 +1250,8 @@ class ADclient(PowershellClient):
                            ', '.join(tuple(members)[:500]))
         # TODO: Should do the removal in the same way as self.add_member
         cmd = self._generate_ad_command(
-                        'Set-ADObject',
-                        {'Identity': groupid,
-                         'Remove': {attribute_name: members}})
+            'Set-ADObject', {'Identity': groupid,
+                             'Remove': {attribute_name: members}})
         if self.dryrun:
             return True
         output = self.run(cmd)
@@ -1400,6 +1404,7 @@ class ADclient(PowershellClient):
         self.logger.debug("Script %s got executed in %.2f seconds", script,
                           time.time() - t)
 
+
 # TODO: The rest should be modified or removed, as we should not communicate
 # with the old ADServer any more:
 class ADUtils(object):
@@ -1501,6 +1506,7 @@ class ADUtils(object):
             if cb_attr != ad_attr:
                 return cb_attr
 
+
 class ADUserUtils(ADUtils):
     """
     User specific methods
@@ -1528,7 +1534,6 @@ class ADUserUtils(ADUtils):
             if self.get_ou(dn) != self.get_deleted_ou():
                 self.move_user(dn, self.get_deleted_ou())
 
-
     def delete_user(self, dn):
         """
         Delete user object in AD.
@@ -1544,7 +1549,6 @@ class ADUserUtils(ADUtils):
             self.logger.info("Deleting user %s" % dn)
             self.run_cmd('deleteObject')
 
-
     def disable_user(self, dn):
         """
         Disable user in AD.
@@ -1557,7 +1561,6 @@ class ADUserUtils(ADUtils):
             return
         self.logger.info("Disabling user %s" % dn)
         self.commit_changes(dn, ACCOUNTDISABLE=True)
-
 
     def create_ad_account(self, attrs, ou, create_homedir=False):
         """
@@ -1585,7 +1588,7 @@ class ADUserUtils(ADUtils):
 
         # Set properties. First remove any properties that cannot be set like this
         for a in ("distinguishedName", "cn"):
-            if attrs.has_key(a):
+            if a in attrs:
                 del attrs[a]
         # Don't send attrs with value == None
         for k, v in attrs.items():
@@ -1600,6 +1603,7 @@ class ADUserUtils(ADUtils):
                 self.run_cmd("createDir")
         return sid
 
+
 class ADGroupUtils(ADUtils):
     """
     Group specific methods
@@ -1607,7 +1611,6 @@ class ADGroupUtils(ADUtils):
     def __init__(self, db, logger, host, port, ad_domain_admin):
         ADUtils.__init__(self, db, logger, host, port, ad_domain_admin)
         self.group = Factory.get("Group")(self.db)
-
 
     def commit_changes(self, dn, **changes):
         """
@@ -1623,7 +1626,6 @@ class ADGroupUtils(ADUtils):
             # Set attributes in AD
             self.run_cmd('putGroupProperties', changes)
             self.run_cmd('setObject')
-
 
     def create_ad_group(self, attrs, ou):
         """
@@ -1646,13 +1648,12 @@ class ADGroupUtils(ADUtils):
             return
         self.logger.info("created group %s with sid %s", gname, sid)
         # # Set other properties
-        if attrs.has_key("distinguishedName"):
+        if "distinguishedName" in attrs:
             del attrs["distinguishedName"]
         self.run_cmd("putGroupProperties", attrs)
         self.run_cmd("setObject")
         # createObject succeded, return sid
         return sid
-
 
     def delete_group(self, dn):
         """
@@ -1668,7 +1669,6 @@ class ADGroupUtils(ADUtils):
         if self.run_cmd('bindObject', dn):
             self.logger.info("Deleting group %s" % dn)
             self.run_cmd('deleteObject')
-
 
     def sync_members(self, dn, members):
         """
