@@ -423,4 +423,3 @@ del socket
 socket = timeoutsocket
 # Finis
 
-# arch-tag: fa9d0321-512c-4d37-87c1-1c237c3ad147

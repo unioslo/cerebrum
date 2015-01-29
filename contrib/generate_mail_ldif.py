@@ -82,7 +82,7 @@ def dict_to_ldif_string(d):
 
     return "".join(result)
 # end dict_to_ldif_string
-    
+
 
 
 def write_ldif():
@@ -120,7 +120,7 @@ def write_ldif():
         if verbose and (counter % 5000) == 0:
             logger.debug("done %d list_email_targets(): %d sec.",
                          counter, now() - curr)
-            
+
         target = ""
         uid = ""
         rest = ""
@@ -147,7 +147,7 @@ def write_ldif():
                 logger.warn("Target id=%s (type %s): wrong entity type: %s "
                             "(entity_id=%s)", t, tt, et, ei)
                 continue
-            
+
             # Find quota-settings:
             if ldap.targ2quota.has_key(t):
                 soft, hard = ldap.targ2quota[t]
@@ -173,6 +173,22 @@ def write_ldif():
                 if ei in ldap.pending:
                     rest += "mailPause: TRUE\n"
 
+            # Does the event log have an unprocessed primary email change for this email target?
+            # pending_primary_email is populated by EmailLDAPUiOMixin
+            if hasattr(ldap, 'pending_primary_email') and t in ldap.pending_primary_email:
+                # maybe the event has been processed by now?
+                pending_event = False
+
+                for event_id in ldap.pending_primary_email[t]:
+                    try:
+                        db.get_event(event_id=event_id)
+                        pending_event = True
+                    except Errors.NotFoundError:
+                        continue
+
+                if pending_event:
+                    rest += "mailPausePendingEvent: TRUE\n"
+
             # Any server info?
             rest += dict_to_ldif_string(ldap.get_server_info(row))
 
@@ -195,7 +211,7 @@ def write_ldif():
             # ignored.  The email address(es) to forward to is taken
             # from table email_forward.
             pass
-        
+
         elif tt in (co.email_target_pipe, co.email_target_RT,
                     co.email_target_file, co.email_target_Mailman,
                     co.email_target_Sympa):
@@ -232,19 +248,24 @@ def write_ldif():
             # Target is the set of `account`-type targets corresponding to
             # the Accounts that are first-level members of the Group that
             # has group_id == email_target.target_entity_id.
-            
+
             if et == co.entity_group:
                 try:
-                    addrs = ldap.read_multi_target(ei)
-                except ValueError:
-                    logger.warn("Target id=%s (type %s)", t, tt)
+                    addrs, missing = ldap.read_multi_target(ei, ignore_missing=True)
+                except ValueError, e:
+                    logger.warn("Target id=%s (type %s): %s", t, tt, e)
                     continue
                 for addr in addrs:
                     rest += "forwardDestination: %s\n" % addr
+                for addr in missing:
+                    logger.warn("Target id=%s (type %s): "
+                                "Multitarget group id %s: "
+                                "account %s has no primary address",
+                                t, tt, ei, addr)
             else:
                 # A 'multi' target with no forwarding; seems odd.
                 logger.warn("Target id=%s (type %s) no forwarding found", t, tt)
-                continue 
+                continue
         else:
             # We don't want to log errors for distributiong groups.
             # This is really a bad hack. This LDIF generator should
@@ -267,7 +288,7 @@ def write_ldif():
             f.write("uid: %s\n" % uid)
         if rest:
             f.write(rest)
-        
+
         # Find primary mail-address:
         if ldap.targ2prim.has_key(t):
             if ldap.aid2addr.has_key(ldap.targ2prim[t]):
@@ -275,7 +296,7 @@ def write_ldif():
             else:
                 logger.debug("Strange: target id=%d, targ2prim[t]: %d, but no aid2addr",
                              t, ldap.targ2prim[t])
-            
+
         # Find addresses for target:
         for a in ldap.targ2addr[t]:
             f.write("mail: %s\n" % a)
@@ -304,7 +325,7 @@ def write_ldif():
         if ldap.targ2filter.has_key(t):
             for a in ldap.targ2filter[t]:
                 f.write("mailFilter: %s\n" % a)
-            
+
         # Find virus-setting:
         if ldap.targ2virus.has_key(t):
             found, rem, enable = ldap.targ2virus[t]
@@ -372,17 +393,17 @@ def get_data(spread):
     if verbose:
         logger.debug("  done in %d sec." % (now() - curr))
         logger.debug("Starting read_server()...")
-        curr = now()    
+        curr = now()
     ldap.read_server(spread)
     if verbose:
         logger.debug("  done in %d sec." % (now() - curr))
         logger.debug("Starting read_vacation()...")
-        curr = now()    
+        curr = now()
     ldap.read_vacation()
     if verbose:
         logger.debug("  done in %d sec." % (now() - curr))
         logger.debug("Starting read_forward()...")
-        curr = now()    
+        curr = now()
     ldap.read_forward()
     if verbose:
         logger.debug("  done in %d sec." % (now() - curr))
@@ -418,57 +439,35 @@ def get_data(spread):
         logger.debug("  done in %d sec." % (now() - curr))
         logger.debug("Total time: %d" % (now() - start))
 
-
 def main():
     global verbose, f, db, co, ldap, auth
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], "vm:s:iha",
-                                   ("verbose", "mail-file=", "spread=",
-                                    "ignore-size", "help", "no-auth-data"))
-    except getopt.GetoptError, e:
-        usage(str(e))
-    if args:
-        usage("Invalid arguments: " + " ".join(args))
 
-    verbose = 0
-    mail_file = None
-    spread = ldapconf('MAIL', 'spread', None)
-    max_change = None
-    auth = True
-    for opt, val in opts:
-        if opt in ("-v", "--verbose"):
-            verbose += 1
-        elif opt in ("-m", "--mail-file"):
-            mail_file = val
-        elif opt in ("-s", "--spread"):
-            spread = val
-        elif opt in ("-i", "--ignore-size"):
-            max_change = 100
-        elif opt in ("-h", "--help"):
-            usage()
-        elif opt in ("-a", "--no-auth-data"):
-            auth = False
+    import Cerebrum.extlib.argparse as argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-v', "--verbose", action="count", default=0)
+    parser.add_argument('-m', "--mail-file")
+    parser.add_argument('-s', "--spread", default=ldapconf('MAIL', 'spread', None))
+    parser.add_argument('-i', "--ignore-size", dest="max_change", action="store_const", const=100)
+    parser.add_argument('-a', "--no-auth-data", dest="auth", action="store_false", default=True)
+    args = parser.parse_args()
+
+    verbose = args.verbose
+    auth = args.auth
 
     db = Factory.get('Database')()
     co = Factory.get('Constants')(db)
+
+    if verbose:
+        logger.debug("Loading the EmailLDAP module...")
     ldap = Factory.get('EmailLDAP')(db)
+
+    spread = args.spread
     if spread is not None:
         spread = map_spreads(spread, int)
 
-    f = ldif_outfile('MAIL', mail_file, max_change=max_change)
+    f = ldif_outfile('MAIL', args.mail_file, max_change=args.max_change)
     get_data(spread)
     end_ldif_outfile('MAIL', f)
-# end main
-
-
-def usage(err=0):
-    if err:
-        logger.error("%s", err)
-
-    logger.error(__doc__)
-    sys.exit(bool(err))
-# end usage
-
 
 if __name__ == '__main__':
     main()

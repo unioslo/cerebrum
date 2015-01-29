@@ -482,7 +482,9 @@ class BofhdExtension(BofhdCommandBase):
         ("host", "a_add"), HostName(), SubNetOrIP(),
         Force(optional=True), perm_filter='is_dns_superuser')
     # TBD: Comment/contact?
+
     def host_a_add(self, operator, host_name, subnet_or_ip, force=False):
+        """BOFH command for adding a new A/AAAA record to a host."""
         self.ba.assert_dns_superuser(operator.get_entity_id())
         force = self.dns_parser.parse_force(force)
         host_name = host_name.lower()
@@ -494,7 +496,7 @@ class BofhdExtension(BofhdCommandBase):
         else:
             s = IPv6Subnet.IPv6Subnet(self.db)
             a_alloc = lambda *x: IPv6Utils.compress(
-                    self.mb_utils.alloc_aaaa_record(*x))
+                self.mb_utils.alloc_aaaa_record(*x))
 
         subnet_ip = None
         free_ip_numbers = []
@@ -504,15 +506,22 @@ class BofhdExtension(BofhdCommandBase):
             if s.dns_delegated and not force:
                 raise CerebrumError("Must force 'host a_add' for subnets " +
                                     "delegated to external DNS-server")
-            free_ip_numbers = self.mb_utils.get_relevant_ips(subnet_or_ip, force)
+            free_ip_numbers = self.mb_utils.get_relevant_ips(subnet_or_ip,
+                                                             force)
         except SubnetError:
-            if not force:
-                raise SubnetError, "Unknown subnet; must force"
+            # We don't require forcing if there does not exist a IPv6 subnet
+            # for the address, if this is allowed in cereconf.
+            # TODO: This is technical debt and should be fixed!
+            if (not force and
+                    not (cereconf.DNS_HOST_A_ADD_ACCEPT_MISSING_IPV6_SUBNET and
+                         ':' in subnet_or_ip)):
+                raise SubnetError("Unknown subnet; must force")
             if subnet_or_ip.find('/') > 0:
-                raise SubnetError, "Unknown subnet; must use specific ip"
+                raise SubnetError("Unknown subnet; must use specific ip")
             if subnet_or_ip.endswith(".0"):
-                raise CerebrumError, "Unknown subnet; cannot allocate .0-address"
-            free_ip_numbers = [ subnet_or_ip ]
+                raise CerebrumError(
+                    "Unknown subnet; cannot allocate .0-address")
+            free_ip_numbers = [subnet_or_ip]
 
         ip = a_alloc(host_name, subnet_ip, free_ip_numbers[0], force)
         return "OK, ip=%s" % ip
@@ -616,7 +625,7 @@ class BofhdExtension(BofhdCommandBase):
         if not isinstance (obj_ref, CNameRecord.CNameRecord):
             raise CerebrumError("No such cname")
         self.mb_utils.ip_free(dns.DNS_OWNER, cname_name, False)
-        return "OK, cname %s completly removed" % cname_name
+        return "OK, cname %s completely removed" % cname_name
 
     # host comment
     all_commands['host_comment'] = Command(
@@ -740,7 +749,7 @@ class BofhdExtension(BofhdCommandBase):
             self.logger.warn(e)
             self.logger.warn(traceback.format_exc())
         self.mb_utils.ip_free(dns.DNS_OWNER, host_id, force)
-        return "OK, DNS-owner %s completly removed" % host_id
+        return "OK, DNS-owner %s completely removed" % host_id
 
     # host hinfo_list
     all_commands['host_hinfo_list'] = Command(

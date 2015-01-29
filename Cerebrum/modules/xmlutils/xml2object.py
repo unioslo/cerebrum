@@ -103,8 +103,8 @@ class DataAddress(object):
 
 
     def __str__(self):
-        return "%s, %s, %s, %s" % (self.street, self.zip,
-                                   self.city, self.country)
+        return "%s, %s, %s, %s, %s" % (self.kind, self.street, self.zip,
+                                       self.city, self.country)
     # end __str__
 # end DataAddress
 
@@ -117,7 +117,8 @@ class DataContact(object):
     CONTACT_URL        = "url"
     CONTACT_EMAIL      = "e-mail"
     CONTACT_PRIVPHONE  = "private phone"
-    CONTACT_MOBILE     = "cell phone"
+    CONTACT_MOBILE_WORK = "cell phone work"
+    CONTACT_MOBILE_PRIVATE = "cell phone private"
 
     """Class for storing contact information (phone, e-mail, URL, etc.)"""
 
@@ -125,14 +126,15 @@ class DataContact(object):
         self.kind = kind
         assert self.kind in (self.CONTACT_PHONE, self.CONTACT_FAX,
                              self.CONTACT_URL, self.CONTACT_EMAIL,
-                             self.CONTACT_PRIVPHONE, self.CONTACT_MOBILE)
+                             self.CONTACT_PRIVPHONE, self.CONTACT_MOBILE_WORK,
+                             self.CONTACT_MOBILE_PRIVATE)
         self.value = value
         self.priority = priority
     # end __init__
 
 
     def __str__(self):
-        return "contact (%s): %s" % (self.kind, self.value)
+        return "contact (%s %s): %s" % (self.kind, self.priority, self.value)
     # end __str__
 # end DataContact
 
@@ -161,8 +163,8 @@ class DataName(object):
 
     def __str__(self):
         if self.language:
-            return str((self.kind, self.value, self.language))
-        return str((self.kind, self.value))
+            return "%s: %s (%s)" % (self.kind, self.value, self.language)
+        return "%s: %s" % (self.kind, self.value)
 # end DataName
 
 
@@ -242,35 +244,74 @@ class NameContainer(object):
             return None
     # end get_name_with_lang
 # end class NameContainer
-    
 
 
 class DataEmployment(NameContainer):
-    """Class for representing employment information.
 
-    TBD: Do we validate (the parts of) the information against Cerebrum?
-    """
+    """ Class for representing employment information. """
 
+    # Employment types
     HOVEDSTILLING = "hovedstilling"
-    BISTILLING    = "bistilling"
-    GJEST         = "gjest"
-    BILAG         = "bilag"
-    KATEGORI_OEVRIG = "tekadm-øvrig"
-    KATEGORI_VITENSKAPLIG  = "vitenskaplig"
-    WORK_TITLE    = "stillingstittel"
+    BISTILLING = "bistilling"
+    GJEST = "gjest"
+    BILAG = "bilag"
 
-    
+    # Emplyment categories
+    KATEGORI_OEVRIG = "tekadm-øvrig"
+    KATEGORI_VITENSKAPLIG = "vitenskaplig"
+
+    # Work title string
+    WORK_TITLE = "stillingstittel"
+
     def __init__(self, kind, percentage, code, start, end, place, category,
-                 leave=None):
+                 leave=None, mg=None, mug=None):
+        """ Create a new Employment object.
+
+        :type kind: basestring
+        :param kind: Employment type, one of the attributes of this class.
+
+        :type percentage: float
+        :param percentage: Employment percentage, 0.0 - 100.0
+
+        :type code: int
+        :param code: Employment code (stillingskode)
+
+        :type start: mx.DateTime
+        :param start: Start date of the employment
+
+        :type end: mx.DateTime
+        :param end: End date of the employment
+
+        :type place: tuple
+        :param place:
+            Organizational unit where the employment belongs. A tuple
+            consisting of (id-type, id). The id-type should be an attribute of
+            DataOU.
+
+        :type category: basestring
+        :param category:
+            Employment category, one of the attributes of this class.
+
+        :type leave: list
+        :param leave:
+            Periods where the employment is inactive. List of dict(-like)
+            objects. Each object should contain the keys 'start_date' and
+            'end_date', with a mx.DateTime value.
+
+        :type mg: int
+        :param mg: (MEGType, medarbeidergruppe)
+
+        :type mug: int
+        :param mug: (MUGType, medarbeiderundergruppe)
+
+        """
         super(DataEmployment, self).__init__()
         # TBD: Subclass?
         self.kind = kind
         assert self.kind in (self.HOVEDSTILLING, self.BISTILLING,
                              self.GJEST, self.BILAG)
-        # It can be a floating point value.
         self.percentage = percentage
         self.code = code
-        # start/end are mx.DateTime objects (well, only the Date part is used)
         self.start = start
         self.end = end
         # Associated OU identified with (kind, value)-tuple.
@@ -282,20 +323,16 @@ class DataEmployment(NameContainer):
             self.leave = list()
         else:
             self.leave = copy.deepcopy(leave)
-    # end __init__
+        self.mg = mg
+        self.mug = mug
 
-    
     def is_main(self):
         return self.kind == self.HOVEDSTILLING
-    # end is_main
 
-    
     def is_guest(self):
         return self.kind == self.GJEST
-    # end is_guest
 
-    
-    def is_active(self, date = Date(*time.localtime()[:3])):
+    def is_active(self, date=Date(*time.localtime()[:3])):
         # IVR 2009-04-29 Lars Gustav Gudbrandsen requested on 2009-04-22 that
         # all employment-related info should be considered active 14 days
         # prior to the actual start day.
@@ -308,10 +345,8 @@ class DataEmployment(NameContainer):
                     ((not self.end) or (date <= self.end + DateTimeDelta(3))))
 
         return ((not self.end) or (date <= self.end + DateTimeDelta(3)))
-    # end is_active
 
-
-    def has_leave(self, date = Date(*time.localtime()[:3])):
+    def has_leave(self, date=Date(*time.localtime()[:3])):
         """If the employment is on leave, e.g. working somewhere else
         temporarily.
 
@@ -320,19 +355,29 @@ class DataEmployment(NameContainer):
             if l['start_date'] <= date and (date <= l['end_date']):
                 return True
         return False
-    # end has_leave
-
 
     def __str__(self):
         return "(%s) Employment: %s%% %s [%s..%s @ %s]" % (
             self.kind, self.percentage,
-            ", ".join("%s:%s" % (x.language, x.value)
+            ", ".join("%s:%s" % (x[0], map(str, x[1]))
                       for x in self.iternames()),
             self.start, self.end, self.place)
-    # end __str__
-# end DataEmployment
 
 
+class DataExternalWork(object):
+    """Representing external employment or affiliation registered following the
+    University of Oslo's regulations for external work."""
+    def __init__(self, organization, type, extent, start, end, description):
+        self.description = description
+        self.organization = organization
+        self.type = type
+        self.extent = extent
+        self.start = start
+        self.end = end
+
+    def __str__(self):
+        return "Org: %s Type: %s Extent: %s Start: %s End: %s" % (
+                self.organization, self.type, self.extent, self.start, self.end)
 
 class DataEntity(NameContainer):
     """Class for representing common traits of objects in a data source.
@@ -441,10 +486,12 @@ class DataOU(DataEntity):
 
 
     def __str__(self):
-        return "DataOU (valid: %s-%s): %s\n%s\n%s" % (
+        return "DataOU (valid: %s-%s): %s\n| %s\n| %s\n| %s\n__%s\n" % (
             self.start_date, self.end_date,
-            list(self.iterids()), list(self.iternames()),
-            list(self.itercontacts()))
+            list(self.iterids()), ["%s:%s" % (x, map(str, y)) for x, y in self.iternames()],
+            map(str, self.itercontacts()),
+            list(self._usage_codes),
+            ["%s:%s" % (x, str(y)) for x, y in self.iteraddress()])
     # end __str__
 # end DataOU
 
@@ -462,7 +509,8 @@ class DataPerson(DataEntity):
     GENDER_MALE   = "M"
     GENDER_FEMALE = "F"
     GENDER_UNKNOWN = "X"
-    
+
+    PASSNR = "Passport ID"
 
     def __init__(self):
         super(DataPerson, self).__init__()
@@ -470,7 +518,7 @@ class DataPerson(DataEntity):
 
 
     def validate_id(self, kind, value):
-        assert kind in (self.NO_SSN,)
+        assert kind in (self.NO_SSN, self.PASSNR)
     # end validate_id
 
 
@@ -483,7 +531,9 @@ class DataPerson(DataEntity):
     def __str__(self):
         ret = "DataPerson: %s\n" % list(self.iterids())
         for kind, name in self.iternames():
-            ret += "%s: %s\n" % (kind, name.value)
+            #ret += "%s: %s\n" % (kind, name.value)
+            ret += "| %s: %s\n" % (kind, map(str, name))
+        ret += "__\n"
         return ret
     # end __str__
 # end DataPerson
@@ -500,6 +550,7 @@ class HRDataPerson(DataPerson):
         self.birth_date = None
         self.employments = list()
         self.reserved = None
+        self.external_work = list()
     # end __init__
 
 
@@ -507,6 +558,8 @@ class HRDataPerson(DataPerson):
         self.employments.append(emp)
     # end add_employment
 
+    def add_external_work(self, emp):
+        self.external_work.append(emp)
 
     # IVR 2007-03-06 FIXME: ugh! name consistency was not a top priority to
     # say the least :( There should be a "_" here.
@@ -534,15 +587,16 @@ class HRDataPerson(DataPerson):
     def __str__(self):
         spr = super(HRDataPerson, self).__str__()
         result = ("HRDataPerson: %s\n" 
-                  "\tgender: %s\n"
-                  "\tbirth: %s\n"
-                  "\taddress: %s\n"
-                  "\temployment: %s" % (spr, self.gender,
+                  "| gender: %s\n"
+                  "| birth: %s\n"
+                  "| address: %s\n"
+                  "| employment: %s\n__\n" % (spr, self.gender,
                                         self.birth_date,
-                                        [str(x) for x in
-                                         list(self.iteraddress())],
+                                        ['%s: %s' % x for x in self.iteraddress()],
                                         [str(x) for x in
                                          list(self.iteremployment())]))
+        #if self.external_work:
+        #    result += "\n| external work: %s" % map(str, self.external_work)
         return result
     # end __str__
 # end HRDataPerson
@@ -673,7 +727,8 @@ class XMLEntity2Object(object):
         helpful, but very ugly in this code. This should be implemented more
         elegantly.
         """
-        
+
+        import sys
         while 1:
             try:
                 # Fetch the next XML subtree...

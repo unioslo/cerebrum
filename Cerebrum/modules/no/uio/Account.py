@@ -547,6 +547,7 @@ class AccountUiOMixin(Account.Account):
     # may be dropped as using super will be sufficient. Jazz (2013-11)
     #
     def update_email_addresses(self):
+        """Update an accounts email addresses and quotas."""
         spreads = [r['spread'] for r in self.get_spread()]
         if self.const.spread_uio_imap in spreads:
             # Make sure the email target of this account is associated
@@ -558,7 +559,30 @@ class AccountUiOMixin(Account.Account):
             return self.__super.update_email_addresses()
         elif self.const.spread_exchange_account in spreads:
             self.__super.update_email_addresses()
-            return self.update_email_quota(spread=self.const.spread_exchange_account)
+            # Append the default domain for exchange accounts! This should
+            # probably be done elsewhere, but the code is so complex, that
+            # we'll have to live with this solution, until we redesign the
+            # email-module, or force the postmasters to write their own
+            # address-management system.
+            et = Factory.get('EmailTarget')(self._db)
+            ea = Email.EmailAddress(self._db)
+            ed = Email.EmailDomain(self._db)
+            try:
+                ed.find_by_domain(
+                    cereconf.EXCHANGE_DEFAULT_ADDRESS_PLACEHOLDER)
+                et.find_by_target_entity(self.entity_id)
+            except Errors.NotFoundError:
+                return
+            else:
+                try:
+                    ea.find_by_local_part_and_domain(self.account_name,
+                                                     ed.entity_id)
+                except Errors.NotFoundError:
+                    ea.populate(self.account_name, ed.entity_id, et.entity_id,
+                                expire=None)
+                    ea.write_db()
+            return self.update_email_quota(
+                spread=self.const.spread_exchange_account)
 
     def is_employee(self):
         for r in self.get_account_types():
@@ -569,7 +593,7 @@ class AccountUiOMixin(Account.Account):
     def wants_auth_type(self, method):
         if method == self.const.Authentication("PGP-guest_acc"):
             # only store this type for guest accounts
-            return self.get_trait(self.const.trait_guest_owner) is not None
+            return self.get_trait(self.const.trait_uio_guest_owner) is not None
         return self.__super.wants_auth_type(method)
 
     def clear_home(self, spread):
@@ -622,4 +646,3 @@ class AccountUiOMixin(Account.Account):
                         dq.clear(kw['current_id'])
         return ret
 
-# arch-tag: 7bc3f7a8-183f-45c7-8a8f-f2ffff5029c5

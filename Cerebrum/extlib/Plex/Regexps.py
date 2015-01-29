@@ -554,4 +554,3 @@ Eof.__doc__ = \
   """
 Eof.str = "Eof"
 
-# arch-tag: 04d377b3-c3ee-4c94-8a95-401d30cd16a8

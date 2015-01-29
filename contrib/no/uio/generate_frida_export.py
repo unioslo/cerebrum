@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 #
-# Copyright 2006 University of Oslo, Norway
+# Copyright 2006,2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -69,9 +69,6 @@ from Cerebrum.modules.xmlutils.xml2object import DataAddress
 from Cerebrum.modules.xmlutils.xml2object import DataContact
 
 
-
-
-
 logger = Factory.get_logger("cronjob")
 cerebrum_db = Factory.get("Database")()
 constants = Factory.get("Constants")(cerebrum_db)
@@ -80,29 +77,30 @@ person_db = Factory.get("Person")(cerebrum_db)
 source_system = None
 
 
-
-
-
-def output_element(writer, value, element, attributes = dict()):
+def output_element(writer, value, element, attributes=dict()):
     """A helper function to output XML elements.
 
     The output element would look like this:
 
-    <ELEMENT KEY1="VALUE1" KEY2="VALUE2" ... >
-      VALUE
-    </ELEMENT>
+      <ELEMENT KEY1="VALUE1" KEY2="VALUE2" ... >
+        VALUE
+      </ELEMENT>
 
     ... where KEY,VALUE pairs come from ATTRIBUTES
 
     This function is just a shorthand, to avoid mistyping the element names
     in open and close tags.
-    """
 
+    :param xmlprinter writer: The XML writer backend, with an open file.
+    :param str value: The element value
+    :param str element: The tag-name of the element
+    :param dict attributes: Optional set of attributes for the element
+
+    """
     # If there are no attributes and no textual value for the element, we do
     # not need it.
     if not attributes and (value is None or not str(value)):
         return
-    # fi 
 
     writer.startElement(element, attributes)
     writer.data(str(value))
@@ -110,13 +108,12 @@ def output_element(writer, value, element, attributes = dict()):
 # end output_element
 
 
-
 def xml2dict(xmlobject, attributes):
     """Extract the essential attributes from en XML-object.
 
     Returns a dictionary that represents the same information.
-    """
 
+    """
     result = dict()
     for attr in attributes:
         value = getattr(xmlobject, attr)
@@ -131,7 +128,6 @@ def xml2dict(xmlobject, attributes):
 
     return result
 # end xml2dict
-
 
 
 def extract_names(person_db, kinds):
@@ -158,24 +154,21 @@ def extract_names(person_db, kinds):
 # end extract_names
 
 
-
 def output_contact(writer, xmlobject, *seq):
     """Output contact information (seq) for xmlobject.
 
     seq is a sequence of tuples (kind, xml-attribute-name).
+
     """
-    
     for attribute, element in seq:
         # We have to respect the relative priority order
         # TBD: Should we hide this ugliness inside DataContact?
-        contacts = filter(lambda x: x.kind == attribute, xmlobject.itercontacts())
+        contacts = filter(lambda x: x.kind == attribute,
+                          xmlobject.itercontacts())
         contacts.sort(lambda x, y: cmp(x.priority, y.priority))
         if contacts:
             output_element(writer, contacts[0].value, element)
-        # fi
-    # od
 # end output_contact
-
 
 
 def find_publishable_sko(sko, ou_cache):
@@ -183,6 +176,7 @@ def find_publishable_sko(sko, ou_cache):
 
     We walk upwards the hierarchy tree until we run out of parents or a until
     a suitable publishable OU is located.
+
     """
 
     ou = ou_cache.get(sko)
@@ -190,8 +184,8 @@ def find_publishable_sko(sko, ou_cache):
         if ou.publishable:
             publishable_sko = ou.get_id(ou.NO_SKO, None)
             if not publishable_sko:
-                logger.warn("OU %s has to sko and will not be published",
-                            list(publishable_ou.iterids()))
+                logger.warn("OU %s has no SKO and will not be published",
+                            list(ou.iterids()))
             return publishable_sko
 
         parent_sko = None
@@ -204,48 +198,48 @@ def find_publishable_sko(sko, ou_cache):
 # end find_publishable_sko
 
 
-
 def output_OU(writer, ou):
     """Publish a particular OU.
 
     Each OU is described thus:
 
-    <enhet>
-      <institusjonsnr>...</...>      <!-- stedkode.institusjon -->
-      <avdnr>...</avdnr>             <!-- stedkode.fakultet -->
-      <undavdnr>...</undavdnr>       <!-- stedkode.institutt -->
-      <gruppenr>...</gruppenr>       <!-- stedkode.avdeling -->
-      <institusjonsnrUnder>...</...> <!-- parent.stedkode.institusjon -->
-      <avdnrUnder>...</...>          <!-- parent.stedkode.fakultet -->
-      <undavdnrUnder>...</...>       <!-- parent.stedkode.institutt -->
-      <gruppenrUnder>...</...>       <!-- parent.stedkode.avdeling -->
+      <enhet>
+        <institusjonsnr>...</...>      <!-- stedkode.institusjon -->
+        <avdnr>...</avdnr>             <!-- stedkode.fakultet -->
+        <undavdnr>...</undavdnr>       <!-- stedkode.institutt -->
+        <gruppenr>...</gruppenr>       <!-- stedkode.avdeling -->
+        <institusjonsnrUnder>...</...> <!-- parent.stedkode.institusjon -->
+        <avdnrUnder>...</...>          <!-- parent.stedkode.fakultet -->
+        <undavdnrUnder>...</...>       <!-- parent.stedkode.institutt -->
+        <gruppenrUnder>...</...>       <!-- parent.stedkode.avdeling -->
 
-      <datoAktivFra>...</...>        <!-- LT.STED.DATO_OPPRETTET -->
-      <datoAktivTil>...</...>        <!-- LT.STED.DATO_NEDLAGT -->
-      <navnBokmal>...</...>          <!-- LT.STED.STEDLANGNAVN_BOKMAL
-                                                  STEDKORTNAVN_BOKMAL
-                                                  STEDNAVNFULLT
-                                                  STEDNAVN -->
-      <navnEngelsk>...</...>         <!-- LT.STED.STEDLANGNAVN_ENGELSK
-                                                  STEDKORTNAVN_ENGELSK -->
-      <akronym>...</...>             <!-- LT.STED.AKRONYM -->
-      <postadresse>...</...>    <!-- LT.STED.ADDRESSELINJE{1+2}_INTERN_ADR -->
-      <postnrOgPoststed>...</...>    <!-- LT.STED.POSTSTEDNR_INTERN_ADR +
-                                          LT.STED.POSTSTEDNAVN_INTERN_ADR  -->
-      <land>...</...>                <!-- LT.STED.LANDNAVN_INTERN_ADR -->
-      <telefonnr>                    <!-- LT.STEDKOMM.TELEFONNR &&
-                                          LT.STEDKOMM.KOMMTYPEKODE = "TLF" &&
-                                          MIN(LT.STEDKOMM.TLFPREFTEGN) -->
-      <telefaxnr>                    <!-- LT.STEDKOMM.TELEFONNR &&
-                                          LT.STEDKOMM.KOMMTYPEKODE = "FAX"
-                                          MIN(LT.STEDKOMM.TLFPREFTEGN -->
-      <epost>                        <!-- LT.STEDKOMM.KOMMNRVERDI &&
-                                          LT.STEDKOMM.KOMMTYPEKODE = "EPOST"
-                                          MIN(LT.STEDKOMM.TLFPREFTEGN) --> 
-      <URLBokmal>                    <!-- LT.STEDKOMM.KOMMNRVERDI &&
-                                          LT.STEDKOMM.KOMMTYPEKODE = "URL"
-                                          MIN(LT.STEDKOMM.TLFPREFTEGN) -->
-    </enhet>
+        <datoAktivFra>...</...>        <!-- LT.STED.DATO_OPPRETTET -->
+        <datoAktivTil>...</...>        <!-- LT.STED.DATO_NEDLAGT -->
+        <navnBokmal>...</...>          <!-- LT.STED.STEDLANGNAVN_BOKMAL
+                                                    STEDKORTNAVN_BOKMAL
+                                                    STEDNAVNFULLT
+                                                    STEDNAVN -->
+        <navnEngelsk>...</...>         <!-- LT.STED.STEDLANGNAVN_ENGELSK
+                                                    STEDKORTNAVN_ENGELSK -->
+        <akronym>...</...>             <!-- LT.STED.AKRONYM -->
+        <postadresse>...</...>         <!-- LT.STED.ADDRESSELINJE{1+2}_INTERN_ADR -->
+        <postnrOgPoststed>...</...>    <!-- LT.STED.POSTSTEDNR_INTERN_ADR +
+                                            LT.STED.POSTSTEDNAVN_INTERN_ADR -->
+        <land>...</...>                <!-- LT.STED.LANDNAVN_INTERN_ADR -->
+        <telefonnr>                    <!-- LT.STEDKOMM.TELEFONNR &&
+                                            LT.STEDKOMM.KOMMTYPEKODE = "TLF" &&
+                                            MIN(LT.STEDKOMM.TLFPREFTEGN) -->
+        <telefaxnr>                    <!-- LT.STEDKOMM.TELEFONNR &&
+                                            LT.STEDKOMM.KOMMTYPEKODE = "FAX"
+                                            MIN(LT.STEDKOMM.TLFPREFTEGN -->
+        <epost>                        <!-- LT.STEDKOMM.KOMMNRVERDI &&
+                                            LT.STEDKOMM.KOMMTYPEKODE = "EPOST"
+                                            MIN(LT.STEDKOMM.TLFPREFTEGN) -->
+        <URLBokmal>                    <!-- LT.STEDKOMM.KOMMNRVERDI &&
+                                            LT.STEDKOMM.KOMMTYPEKODE = "URL"
+                                            MIN(LT.STEDKOMM.TLFPREFTEGN) -->
+      </enhet>
+
     """
 
     if ou is None:
@@ -259,7 +253,6 @@ def output_OU(writer, ou):
                            (sko[1], "undavdnr"),
                            (sko[2], "gruppenr")):
         output_element(writer, value, element)
-    # od
 
     # Is a missing parent at all possible here?
     if ou.parent:
@@ -267,13 +260,12 @@ def output_OU(writer, ou):
         psko = ou.parent[1]
     else:
         psko = (None, None, None)
-    # fi
+
     for value, element in ((cereconf.DEFAULT_INSTITUSJONSNR, "institusjonsnrUnder"),
                            (psko[0], "avdnrUnder"),
                            (psko[1], "undavdnrUnder"),
                            (psko[2], "gruppenrUnder")):
         output_element(writer, value, element)
-    # od
 
     for attribute, element in (("start_date", "datoAktivFra"),
                                ("end_date", "datoAktivTil")):
@@ -281,20 +273,17 @@ def output_OU(writer, ou):
         if value:
             value = value.strftime("%Y-%m-%d")
         output_element(writer, value, element)
-    # od
 
     for kind, lang, element in ((ou.NAME_LONG, "no", "navnBokmal"),
                                 (ou.NAME_LONG, "nb", "navnBokmal"),
                                 (ou.NAME_LONG, "en", "navnEngelsk")):
         tmp = ou.get_name_with_lang(kind, lang)
         output_element(writer, tmp, element)
-    # od
 
     nsd = ou.get_id(ou.NO_NSD)
     if nsd:
         output_element(writer, str(nsd), "NSDKode")
-    # fi
-    
+
     output_element(writer, ou.get_name_with_lang(ou.NAME_ACRONYM, "no",
                    "nb", "nn", "en"),
                    "akronym")
@@ -316,10 +305,9 @@ def output_OU(writer, ou):
                    (DataContact.CONTACT_FAX, "telefaxnr"),
                    (DataContact.CONTACT_EMAIL, "epost"),
                    (DataContact.CONTACT_URL, "URLBokmal"))
-    
+
     writer.endElement("enhet")
 # end output_OU
-    
 
 
 def output_OUs(writer, sysname, oufile):
@@ -327,8 +315,9 @@ def output_OUs(writer, sysname, oufile):
 
     An OU is interesting to FRIDA, if:
 
-    - the OU is supposed to be published (marked as such in the data source)
-    - it has been less than a year since the OU has been terminated.
+      - the OU is supposed to be published (marked as such in the data source)
+      - it has been less than a year since the OU has been terminated.
+
     """
 
     # First we build an ID cache.
@@ -365,32 +354,35 @@ def output_assignments(writer, sequence, ou_cache, blockname, elemname, attrs):
     """Output tilsetting/gjest information.
 
     The format is:
-    
-    <blockname>
-      <elemname>
-        <k1>x.v1</k1>
-        <k2>x.v2</k2>
-      </elemname>
-    </blockname>
+
+      <blockname>
+        <elemname>
+          <k1>x.v1</k1>
+          <k2>x.v2</k2>
+        </elemname>
+      </blockname>
 
     ... where attrs is a mapping from k1 -> v1 and sequence contains the x's to be
     output.
 
     Parameters:
 
-    writer	helper class to generate XML output
-    sequence	a sequence of objects that we want to output. each object can
-                be indexed as a dictionary.
-    ou_cache	OU mappings registered for this import. Used to locate
-                publishable OUs
-    blockname   XML element name for a grouping represented by sequence.
-    elemname	XML element name for each element of sequence.
-    attrs       A dictionary-like object key->xmlname, where key can be used
-                to extract values from each member of sequence.
+    :param xmliprinter writer: Helper class to generate XML output
+    :param iter sequence: A sequence of objects that we want to output. each
+        object can be indexed as a dictionary.
+    :param dict ou_cache: OU mappings registered for this import. Used to
+        locate publishable OUs (generated by `output_OUs`).
+    :param str blockname: XML element name for a grouping represented by
+        sequence.
+    :param str elemname: XML element name for each element of sequence.
+    :param dict attrs: A dictionary-like object key->xmlname, where key can be
+        used to extract values from each member of sequence.
+
     """
 
     # if there is nothing to output we are done
-    if not sequence: return
+    if not sequence:
+        return
 
     if blockname:
         writer.startElement(blockname)
@@ -419,13 +411,12 @@ def output_assignments(writer, sequence, ou_cache, blockname, elemname, attrs):
             if hasattr(value, "strftime"):
                 value = value.strftime("%Y-%m-%d")
             output_element(writer, value, xmlelement)
-        
+
         writer.endElement(elemname)
 
     if blockname:
         writer.endElement(blockname)
 # end output_assignments
-
 
 
 def output_account_info(writer, person_db):
@@ -435,11 +426,11 @@ def output_account_info(writer, person_db):
     if primary_account is None:
         logger.info("Person %s has no accounts", person_db.entity_id)
         return
-    
+
     account_db = Factory.get("Account")(cerebrum_db)
     account_db.find(primary_account)
     output_element(writer, account_db.get_account_name(), "brukernavn")
-        
+
     try:
         primary_email = account_db.get_primary_mailaddress()
         output_element(writer, primary_email, "epost")
@@ -449,7 +440,6 @@ def output_account_info(writer, person_db):
 # end output_account_info
 
 
-
 def output_employments(writer, person, ou_cache):
     """Output <ansettelser>-element."""
 
@@ -457,7 +447,7 @@ def output_employments(writer, person, ou_cache):
                    if x.kind in (x.HOVEDSTILLING, x.BISTILLING) and
                    x.is_active()]
 
-    # Mapping from employment attribute to xml element name. 
+    # Mapping from employment attribute to xml element name.
     names = dict((("code", "stillingskode"),
                   ("start", "datoFra"),
                   ("end", "datoTil"),
@@ -483,7 +473,6 @@ def output_employments(writer, person, ou_cache):
 # end output_employments
 
 
-
 def output_person(writer, person, phd_cache, ou_cache):
     """Output all information pertinent to a particular person.
 
@@ -505,27 +494,19 @@ def output_person(writer, person, phd_cache, ou_cache):
         ...
       </gjester>
     <person>
+
     """
-
-    employments = filter(lambda x: x.kind in (x.HOVEDSTILLING,
-                                              x.BISTILLING) and
-                                   x.is_active(),
-                         person.iteremployment())
-    guests = filter(lambda x: x.kind == x.GJEST and x.is_active(),
-                    person.iteremployment())
-
-    if not (employments or guests):
-        logger.info("person_id %s has no suitable tils/gjest records",
-                    list(person.iterids()))
-        return
-    # fi
-
     reserved = {True: "J",
                 False: "N",
-                None: "N",}[person.reserved]
+                None: "N", }[person.reserved]
     fnr = person.get_id(person.NO_SSN)
-    writer.startElement("person", { "fnr" : fnr,
-                                    "reservert" : reserved })
+
+    if not fnr:
+        logger.info("Skipping person without fnr. person=%s", str(person))
+        return
+
+    writer.startElement("person", {"fnr": fnr,
+                                   "reservert": reserved, })
     for attribute, element in ((person.NAME_LAST, "etternavn"),
                                (person.NAME_FIRST, "fornavn")):
         name = person.get_name(attribute, None)
@@ -558,7 +539,9 @@ def output_person(writer, person, phd_cache, ou_cache):
                    (DataContact.CONTACT_URL, "URL"))
 
     output_employments(writer, person, ou_cache)
-    
+
+    guests = filter(lambda x: x.kind == x.GJEST and x.is_active(),
+                    person.iteremployment())
     if guests or phds:
         writer.startElement("gjester")
         names = dict((("start", "datoFra"),
@@ -571,9 +554,7 @@ def output_person(writer, person, phd_cache, ou_cache):
         output_assignments(writer, phds, ou_cache, None, "gjest", names)
         writer.endElement("gjester")
 
-        
     writer.endElement("person")
-# end output_person
 
 
 def cache_phd_students():
@@ -582,9 +563,9 @@ def cache_phd_students():
     result = dict()
     person = Factory.get("Person")(cerebrum_db)
     ou_db = Factory.get("OU")(cerebrum_db)
-    
+
     for row in person.list_affiliations(
-        status=constants.affiliation_status_student_drgrad):
+            status=constants.affiliation_status_student_drgrad):
         key = int(row["person_id"])
 
         try:
@@ -594,7 +575,7 @@ def cache_phd_students():
             logger.warn("OU with ou_id %s does not exist. This cannot happen",
                         row["ou_id"])
             continue
-        
+
         value = {"start": row["create_date"],
                  "end": row["deleted_date"],
                  "code": "DOKTORGRADSSTUDENT",
@@ -616,7 +597,7 @@ def output_phd_students(writer, sysname, phd_students, ou_cache):
     # A few helper mappings first
     # source system name => group with individuals hidden in catalogues
     sys2group = {"system_lt": "LT-elektroniske-reservasjoner",
-                 "system_sap": "SAP-lektroniske-reservasjoner",}
+                 "system_sap": "SAP-lektroniske-reservasjoner", }
     # name constant -> xml element for that name constant
     name_kinds = dict(((int(constants.name_last), "etternavn"),
                        (int(constants.name_first), "fornavn")))
@@ -629,9 +610,10 @@ def output_phd_students(writer, sysname, phd_students, ou_cache):
     try:
         group.find_by_name(sys2group[sysname])
         reserved = set(int(x["member_id"]) for x in
-                       group.search_members(group_id=group.entity_id,
-                                        indirect_member=True,
-                                        member_type=constants.entity_account))
+                       group.search_members(
+                           group_id=group.entity_id,
+                           indirect_member=True,
+                           member_type=constants.entity_account))
     except Errors.NotFoundError:
         reserved = set()
 
@@ -665,9 +647,9 @@ def output_phd_students(writer, sysname, phd_students, ou_cache):
                               default="")
         if title:
             output_element(writer, title, "personligTittel")
-                
+
         output_account_info(writer, person_db)
-        
+
         for contact_kind in contact_kinds:
             value = person_db.get_contact_info(source_system, contact_kind)
             if value:
@@ -684,6 +666,50 @@ def output_phd_students(writer, sysname, phd_students, ou_cache):
 # end output_phd_students
 
 
+def should_export_person(person):
+    """ Test to decide whether a person should be exported.
+
+    Returns True by default, unless some exception rule matches (i.e. any
+    person from the SAP import file is exported, unless a filter rule applies).
+
+    NOTE: Any person filtered out by this method can still get exported, if the
+    person has a PhD-affiliation in Cerebrum. PhD-students gets processed
+    separately.
+
+    """
+    # This step is added for clarity in the logs.
+    # Filter out any person that has no employment record.
+    employments = [e for e in person.iteremployment()]
+    if not employments:
+        logger.debug2("Skipping, person_id %s has no employment records",
+                      list(person.iterids()))
+        return False
+
+    # All employments that are *NOT* MG/MUG 4;04
+    # Filters out persons that *only* has 4;04 employment records
+    employments = filter(lambda x: not (x.mg == 4 and x.mug == 4),
+                         person.iteremployment())
+    if not employments:
+        logger.debug2("Skipping, person_id %s only has MG/MUG 404 records",
+                      list(person.iterids()))
+        return False
+
+    # Filters out persons that has no *active* employment of types
+    # 'Hovedstilling', 'Bistilling' or 'Gjest'.
+    active = filter(lambda x: (x.is_active() and x.kind in (x.HOVEDSTILLING,
+                                                            x.BISTILLING,
+                                                            x.GJEST)),
+                    person.iteremployment())
+    if not (active):
+        logger.debug2(
+            "Skipping, person_id %s has no active tils/gjest records",
+            list(person.iterids()))
+        return False
+
+    # Future filters?
+
+    return True
+
 
 def output_people(writer, sysname, personfile, ou_cache):
     """Output information about all interesting people.
@@ -692,8 +718,8 @@ def output_people(writer, sysname, personfile, ou_cache):
     (tilsetting) or active guest records (gjest). A record is considered
     active, if it has a start date in the past (compared to the moment when
     the script is run) and the end date is either unknown or in the future.
-    """
 
+    """
     logger.info("extracting people from %s", personfile)
 
     phd_students = cache_phd_students()
@@ -702,6 +728,9 @@ def output_people(writer, sysname, personfile, ou_cache):
     writer.startElement("personer")
     parser = system2parser(sysname)(personfile, logger, False)
     for person in parser.iter_person():
+        if not should_export_person(person):
+            continue
+
         # NB! phd_students is updated destructively
         output_person(writer, person, phd_students, ou_cache)
 
@@ -716,12 +745,12 @@ def output_xml(output_file, sysname, personfile, oufile):
 
     output_stream = AtomicFileWriter(output_file, "w")
     writer = xmlprinter.xmlprinter(output_stream,
-                                   indent_level = 2,
-                                   data_mode = True,
-                                   input_encoding = "latin1")
+                                   indent_level=2,
+                                   data_mode=True,
+                                   input_encoding="latin1")
 
     # Hardcoded headers
-    writer.startDocument(encoding = "iso8859-1")
+    writer.startDocument(encoding="iso8859-1")
 
     writer.startElement("fridaImport")
 
@@ -745,22 +774,26 @@ def output_xml(output_file, sysname, personfile, oufile):
 
     # Dump all people
     output_people(writer, sysname, personfile, ou_cache)
-    
+
     writer.endElement("fridaImport")
-
     writer.endDocument()
-
     output_stream.close()
 # end output_xml
 
 
 def usage(exitcode=0):
     print """Usage: generate_frida_export.py [options]
-    -o, --output-file: 
-    -s, --source-spec: 
+
+    -o, --output-file  FILE  The ePhorte XML export file
+    -s, --source-spec  SPEC  The source data spec. Format:
+
+    The input SPEC is on the format <system>:<person-file>:<ou-file>, where
+      - system is the source system
+      - person-file is the person source xml file
+      - ou-file is the OU source xml file
     """
     sys.exit(exitcode)
-# end usage    
+# end usage
 
 
 def main():
@@ -769,10 +802,9 @@ def main():
     try:
         options, rest = getopt.getopt(sys.argv[1:],
                                       "o:s:", ["output-file=",
-                                               "source-spec=",])
-    except getopt.GetoptError, val:
+                                               "source-spec=", ])
+    except getopt.GetoptError:
         usage(1)
-    # yrt
 
     output_file = "frida.xml"
 
@@ -781,20 +813,12 @@ def main():
             output_file = value
         elif option in ("-s", "--source-spec"):
             sysname, personfile, oufile = value.split(":")
-        # fi
-    # od
 
     global source_system
     source_system = getattr(constants, sysname)
     output_xml(output_file, sysname, personfile, oufile)
 # end main
-    
-    
-
 
 
 if __name__ == "__main__":
     main()
-# fi
-
-# arch-tag: b2f66d36-be4f-11da-8db7-e72013f34915

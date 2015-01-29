@@ -37,7 +37,8 @@ from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.no.hia import bofhd_hia_help
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailMixin
-from Cerebrum.modules.bofhd.bofhd_email_list import BofhdEmailListMixin
+from Cerebrum.modules.bofhd.bofhd_email_list import BofhdEmailMailmanMixin, \
+    BofhdEmailSympaMixin
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet, BofhdAuthOpTarget, \
@@ -45,7 +46,7 @@ from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet, BofhdAuthOpTarget, \
 from Cerebrum.modules.no.hia.bofhd_uia_auth import BofhdAuth
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.hia.access_FS import FS
-from Cerebrum.modules.no.hia.templates.letters import TemplateHandler
+from Cerebrum.modules.templates.letters import TemplateHandler
 
 def format_day(field):
     fmt = "yyyy-MM-dd"                  # 10 characters wide
@@ -77,7 +78,10 @@ class Mobile(Parameter):
     _help_ref = 'mobile_phone'
 
 
-class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin, BofhdEmailListMixin):
+class BofhdExtension(BofhdCommonMethods,
+                     BofhdEmailMixin,
+                     BofhdEmailMailmanMixin,
+                     BofhdEmailSympaMixin):
 
     """ The main UiA BofhdExtension. """
 
@@ -201,16 +205,25 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin, BofhdEmailListMixin):
                             'email_forward', 'email_info', 'email_move',
                             'email_quota', 'email_update', )
 
-    # Decide which email mixins to use?
-    email_list_mixin_commands = ('email_create_list', 'email_delete_list',
-                                 'email_create_list_alias',
-                                 'email_remove_list_alias', )
+    # Decide which mailman list commands to use?
+    email_mailman_mixin_commands = ('mailman_create_list',
+                                    'mailman_remove_list',
+                                    'mailman_create_list_alias',
+                                    'mailman_remove_list_alias')
+
+    # Decide which sympa list commands to use?
+    email_sympa_mixin_commands = ('sympa_create_list',
+                                  'sympa_remove_list',
+                                  'sympa_create_list_alias',
+                                  'sympa_remove_list_alias',
+                                  'sympa_create_list_in_cerebrum',
+                                  'sympa_reassign_mailman_list')
 
     def __new__(cls, *arg, **karg):
         # A bit hackish.  A better fix is to split bofhd_uio_cmds.py
         # into seperate classes.
         from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as \
-             UiOBofhdExtension
+            UiOBofhdExtension
 
         non_all_cmds = ('num2str', 'user_set_owner_prompt_func',)
         for func in BofhdExtension.copy_commands:
@@ -260,8 +273,12 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin, BofhdEmailListMixin):
             self.all_commands[key] = self.default_email_commands[key]
 
         # ...and the desired email list mixin commands
-        for key in self.email_list_mixin_commands:
-            self.all_commands[key] = self.default_email_list_commands[key]
+        for key in self.email_mailman_mixin_commands:
+            self.all_commands[key] = self.default_mailman_commands[key]
+
+        # ...and the desired email list mixin commands
+        for key in self.email_sympa_mixin_commands:
+            self.all_commands[key] = self.default_sympa_commands[key]
 
     def get_help_strings(self):
         return bofhd_hia_help.get_help_strings(self)
@@ -370,8 +387,9 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin, BofhdEmailListMixin):
         acc = self._get_account(uname)
         self.ba.can_email_move(operator.get_entity_id(), acc)
         # raise error if no e-mail account exist in IMAP
-        if not acc.has_spread(self.const.spread_hia_email):
-            raise CerebrumError("Cannot migrate non-IMAP account %s", uname)
+        if (not acc.has_spread(self.const.spread_hia_email) or 
+                not acc.has_spread(self.const.spread_exchange_acc_old)):
+            raise CerebrumError("No mail spread to migrate from for %s" % uname)
         et = Email.EmailTarget(self.db)
         et.find_by_target_entity(acc.entity_id)
         # raise error if e-mail target is deleted
@@ -383,8 +401,9 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin, BofhdEmailListMixin):
         es.find_by_name('exchkrs01.uia.no')
         et.email_server_id = es.entity_id
         et.write_db()
-        # remove IMAP-spread
+        # remove IMAP- and old Exchange-spread
         acc.delete_spread(self.const.spread_hia_email)
+        acc.delete_spread(self.const.spread_exchange_acc_old)
         acc.write_db()
         # add exchange-spread
         if not acc.has_spread(self.const.spread_exchange_account):
@@ -1307,8 +1326,9 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin, BofhdEmailListMixin):
             posix_user.set_password(passwd)
             if email_spread:
                 if not int(self.const.Spread(email_spread)) in \
-                   [int(self.const.spread_exchange_account),
-                    int(self.const.spread_hia_email)]:
+                                [int(self.const.spread_exchange_account),
+                                 int(self.const.spread_exchange_acc_old),
+                                 int(self.const.spread_hia_email)]:
                     raise CerebrumError, "Not an e-mail spread: %s!" % email_spread
             try:
                 posix_user.add_spread(self.const.Spread(email_spread))
@@ -1489,9 +1509,11 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin, BofhdEmailListMixin):
             raise CerebrumError("User is not a personal account")
         # Look up the mobile number
         if not mobile:
-            phone_types = [(self.const.system_fs,
-                            self.const.contact_mobile_phone),
+            phone_types = [(self.const.system_sap,
+                            self.const.contact_private_mobile),
                            (self.const.system_sap,
+                            self.const.contact_mobile_phone),
+                           (self.const.system_fs,
                             self.const.contact_mobile_phone)]
             mobile = self._get_phone_number(account.owner_id, phone_types)
             if not mobile:

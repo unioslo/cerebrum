@@ -207,7 +207,10 @@ class SocketHandling(object):
         ret += "Post-jobs: %s\n" % job.post
         ret += "Non-concurrent jobs: %s\n" % job.nonconcurrent
         ret += "When: %s, max-freq: %s\n" % (job.when, job.max_freq)
-        ret += "Max duration: %s minutes\n" % (job.max_duration/60)
+        if job.max_duration is not None:
+            ret += "Max duration: %s minutes\n" % (job.max_duration/60)
+        else:
+            ret += "Max duration: %s\n" % (job.max_duration)
         return ret
         
         
@@ -816,4 +819,3 @@ def run_tests():
 if __name__ == '__main__':
     run_tests()
 
-# arch-tag: 58c7665d-7d01-4f98-bb6f-235f5584a0d3

@@ -28,7 +28,7 @@ Example usage and extension:
         some_mixin_setting = 'setting'
 
     datasource = _MyDataSource()
-    items = [d for d in datasource(num=10)]
+    items = [d for d in datasource(limit=10)]
 
     infinite_source = datasource()
     another_item = infinite_source.next()
@@ -364,7 +364,7 @@ class BasicAccountSource(BaseDataSource, NameMixin, ExpireDateMixin,
     """ A simple data source that can generate sets of account data. """
 
     name_attr = 'account_name'
-    name_prefix = '5q3zcx'
+    name_prefix = 'aq3zcx'
 
     passwd_attr = 'password'
     passwd_val = 'adobe123'

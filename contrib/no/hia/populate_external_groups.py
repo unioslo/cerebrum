@@ -257,9 +257,9 @@ class group_tree(object):
             # det lite dette scriptet kan gjøre med, og det bør derfor
             # ikke føre til noen ERROR-loggmelding.
             logger.debug("Ikke gyldig kull eller studieprog: args=%r", args)
-            return () 
-        logger.error("Matchet for mange: self=%r, args=%r, kws=%r, ret=%r",
-                     self, args, kws, ret)
+            return ()
+        logger.warn("Matchet for mange: self=%r, args=%r, kws=%r, ret=%r",
+                    self, args, kws, ret)
         return ()
 
     def sync(self):
@@ -1146,4 +1146,3 @@ if __name__ == '__main__':
 # fi
 
 
-# arch-tag: 08d1695f-8c9b-481d-aa48-fa0bae7d71a8

@@ -89,34 +89,35 @@ class AttrConfig(object):
 
     """
     def __init__(self, default=NotSet, transform=None, spread=None,
-                 source_systems=None, criterias=None):
+                 source_systems=None, criterias=None, ad_transform=None):
         """Setting the basic, most used config variables.
 
-        @type default: mixed
-        @param default:
+        :type default: mixed
+        :param default:
             The default value to set for the attribute if no other value is
             found. Note that if this is a string, it is able to use some of the
             basic variables for the entities: 
-            
-                - entity_name
-                - entity_id
-                - ad_id
-                - ou
 
-            Use these through regular substition, e.g. "%(ad_id)s".
+            - `entity_name'
+            - `entity_id'
+            - `ad_id'
+            - `ou'
 
-            Also note that default values will also be using the L{transform}
-            function for its data, so if you set up a config with special
-            elements like dicts, you need to feed the default value with the
-            same format.
+            Use these through regular substition, e.g. "`%(ad_id)s`".
+
+            Also note that default values will also be passed through the
+            L{transform} function, if defined. If you set up a config with
+            special elements, like dicts, you need to feed the default value
+            with the same format to avoid type conflicts when transforming the
+            values.
 
             Note that L{default} is NOT set if the given criterias is not
             matched for the entity. L{default} is only used if the criterias are
             fullfilled but Cerebrum does not have the needed data for the given
             entity.
 
-        @type transform: function
-        @param transform:
+        :type transform: callable
+        :param transform:
             A function, e.g. a lambda, that should process the given value
             before sending it to AD. This could for instance be used to strip
             whitespace, or lowercase strings. For instance:
@@ -127,14 +128,14 @@ class AttrConfig(object):
 
                 string.lower
 
-        @type spread: SpreadCode or sequence thereof
-        @param spread:
+        :type spread: SpreadCode or sequence thereof
+        :param spread:
             TODO: The spread argument rather belongs to AttrCriterias. Remove
             this when done updating adconf settings.
 
             If set, defines what spread the entity must have for the value to be
             set. If a sequence is given, the entity must have at least one of
-            the spreads. Entitites without any of the given spreads would get
+            the spreads. Entities without any of the given spreads would get
             this attribute blanked out.
 
             Note that spreads were originally meant to control what systems
@@ -145,18 +146,34 @@ class AttrConfig(object):
 
             TODO: This should be moved into AttrCriterias
 
-        @type criterias: AttrCriterias
-        @param criterias:
+        :type criterias: AttrCriterias
+        :param criterias:
             A class that sets what criterias must be fullfilled before a value
             could be set according to this ConfigAttr. This object is asked
             before the given config is used. This includes the L{default}
             setting, which is not set if the given criterias is not fullfilled.
 
-        @type source_systems: AuthoritativeSystemCode or sequence thereof
-        @param source_systems:
+        :type source_systems: AuthoritativeSystemCode or sequence thereof
+        :param source_systems:
             One or more of the given source systems to retrieve the information
             from, in prioritised order. If None is set, the attribute would be
             given from any source system (TODO: need a default order for such).
+
+        :type ad_transform: callable
+        :param ad_transform:
+            A callable for modifying the attribute's value received from AD. The
+            value is modified before comparing it with the value from Cerebrum.
+            This could e.g. be used to ignore certain values in a multivalued
+            list, or lowercase the value(s) to be able to compare it case
+            insensitive.
+
+            The callable is not used if AD didn't have a value for this.
+
+            Examples::
+
+                ad_transform=lambda x: x.lower()
+
+                ad_transform=lambda x: filter(lambda e: e.startswith('x500:'), x)
 
         # TODO: Should attributes behave differently when multiple values are
         # accepted? For instance with the contact types.
@@ -171,6 +188,9 @@ class AttrConfig(object):
         if criterias and not isinstance(criterias, AttrCriterias):
             raise ConfigError('Criterias is not an AttrCriterias object')
         self.criterias = criterias
+        if ad_transform and not callable(ad_transform):
+            raise ConfigError('The ad_transform is not callable')
+        self.ad_transform = ad_transform
 
 def _prepare_constants(input, const_class):
     """Prepare and validate given Cerebrum constant(s).
@@ -184,8 +204,10 @@ def _prepare_constants(input, const_class):
         If a sequence is given, the constants must be an instance of one of the
         classes.
 
-    @rtype: sequence of Cerebrum constants
-    @return: Return the given input, but makes sure that it is iterable.
+    :rtype: sequence of Cerebrum constants
+    :return:
+        Return the given input, but makes sure that it is iterable. If it is not
+        iterable, it is returned as a tuple with one element.
 
     """
     if input:
@@ -323,6 +345,36 @@ class AddressAttr(AttrConfig):
         super(AddressAttr, self).__init__(*args, **kwargs)
         self.address_types = _prepare_constants(address_types,
                                                      const.Address)
+
+class ADAttributeAttr(AttrConfig):
+
+    """ Config for attributes fetched from the AD attribute table in Cerebrum.
+
+    Certain attributes could be stored in the AD attribute table in Cerebrum, if
+    there are nowhere else to put the data. This table should not be used that
+    often, since most of the data Cerebrum should know about is put in other,
+    more proper places. Sometimes this table is needed for data that doesn't
+    belong anywhere else and no other easy options are available.
+
+    The AD attribute table sorts the attributes by spread. You could for
+    instance have a different `RoamingProfile` in two different AD domains.
+
+    """
+    def __init__(self, attributes, *args, **kwargs):
+        """Initiate an AD attribute attribute.
+
+        Might want to be able to override the spread setting in the future, but
+        that is not an option at the moment.
+
+        :type attributes:
+            Cerebrum.modules.ad2.Entity/ADAttribute or sequence thereof
+        :param attributes:
+            The name of the AD attribute constant(s) to use, in prioritized
+            order. The first available attribute that is found is used.
+
+        """
+        super(ADAttributeAttr, self).__init__(*args, **kwargs)
+        self.attributes = _prepare_constants(attributes, const.ADAttribute)
 
 class ExternalIdAttr(AttrConfig):
     """Config for attributes using external IDs.

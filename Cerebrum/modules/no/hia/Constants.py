@@ -184,9 +184,12 @@ class Constants(Constants.Constants):
     spread_hia_ad_account = _SpreadCode(
         'account@ad', Constants.Constants.entity_account,
         'Account included in Active Directory')
+    spread_exchange_acc_old = _SpreadCode(
+        'account@exch_old', Constants.Constants.entity_account,
+        'Account in old Exchange env')
     spread_exchange_account = _SpreadCode(
         'account@exchange', Constants.Constants.entity_account,
-        'Exchange-enabled account')
+        'Account in Exchange')
     spread_hia_ad_group = _SpreadCode(
         'group@ad', Constants.Constants.entity_group,
         'group included in Active Directory')
@@ -223,6 +226,9 @@ class Constants(Constants.Constants):
     spread_uia_ad_group_ehelse_nhn = _SpreadCode(
         'group@ehelse-nhn', Constants.Constants.entity_group,
         'Group included in AD: eHelse NHN')
+    spread_uia_office_365 = _SpreadCode(
+        'acc@office365', Constants.Constants.entity_account,
+        'Account included in Office365')
 
     ## Definisjon av traits
     trait_accept_nondisc = _EntityTraitCode(
@@ -260,4 +266,3 @@ class Constants(Constants.Constants):
 
 # end Constants
 
-# arch-tag: 7cf93c78-fe00-41f3-8fee-1289c86b7086

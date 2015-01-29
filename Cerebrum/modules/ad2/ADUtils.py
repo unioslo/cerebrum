@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# 
-# Copyright 2011-2012 University of Oslo, Norway
+#
+# Copyright 2011-2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -88,6 +88,34 @@ class OUUnknownException(PowershellException):
     """
     pass
 
+class SetAttributeException(PowershellException):
+    """Exception for when updating attributes failed.
+
+    Failing to add an attribute for an object could come of many reasons.
+
+    One example could be that the given attribute element is required to refer
+    to another AD object, which doesn't exist in the given location. This is for
+    instance a common error for the Member attribute.
+
+    """
+    pass
+
+class CommandTooLongException(Exception):
+    """If the given command is too long to be run through WinRM.
+
+    The commands could be limited either by Powershell's command line, cmd's
+    command line, or even WinRM. The maximum length for cmd.exe is 8191 for
+    modern Windows versions (http://support.microsoft.com/kb/830473).
+
+    This is not always enforced in our code, as we are not always sure when it
+    happens, and what situations in the Windows environment that could cause it.
+    It is, for now, only enforced in the more common situations where we could
+    handle it. In the future, we might want to move this into `winrm.py` as one
+    of the regular ExitCodeExceptions.
+
+    """
+    pass
+
 class ADclient(PowershellClient):
     """Client that sends commands to AD for the AD-sync.
 
@@ -129,7 +157,7 @@ class ADclient(PowershellClient):
             'domain/user'.
 
         @type domain: string
-        @param domain: 
+        @param domain:
             The AD domain that we should work against. It is in this client only
             used to set the domain for the domain admin, if not set in the
             'domain_admin' parameter.
@@ -157,6 +185,10 @@ class ADclient(PowershellClient):
         else:
             self.logger.debug2("Not using a domain account")
         self.dryrun = dryrun
+        # Pattern to exclude passwords in plaintext from the server output.
+        # Such passwords usually
+        self.exclude_password_patterns =  [
+            re.compile('ConvertTo-SecureString.*?\.\.\.', flags=re.DOTALL)]
         self.db = Factory.get('Database')()
         self.co = Factory.get('Constants')(self.db)
         self.connect()
@@ -205,11 +237,11 @@ class ADclient(PowershellClient):
             The parameters to feed the command with. Note that the values gets
             sent through L{escape_to_string}, so you shouldn't do this yourself,
             but just sending them in raw format.
-            
+
             Example:
 
                 {'Filter': '*',
-                 'SearchBase': 'OU=Users,DC=kaos', 
+                 'SearchBase': 'OU=Users,DC=kaos',
                  'Properties': ('Name', 'DN', 'SAMAccountName')}
 
             which becomes:
@@ -249,10 +281,19 @@ class ADclient(PowershellClient):
             novalueargs = (novalueargs,)
         # The parameter "-Credential $cred" is special, as "$cred" should not be
         # wrapped inside a string. Everything else should, though.
-        return '%s -Credential $cred %s %s' % (command,
-                          ' '.join('-%s %s' % (k, self.escape_to_string(v))
-                                   for k, v in kwargs.iteritems()),
-                          ' '.join('-%s' % v for v in novalueargs))
+
+        # Filter, process and remove empty arguments
+        for k in kwargs.copy():
+            if kwargs[k] or isinstance(kwargs[k], (bool, int, long, float)):
+                kwargs[k] = self.escape_to_string(kwargs[k])
+            if not kwargs[k]:
+                self.logger.debug4("Omitting empty value for key %s", k)
+                del kwargs[k]
+
+        return '%s -Credential $cred %s %s' % (
+            command,
+            ' '.join('-%s %s' % (k, v) for k, v in kwargs.iteritems()),
+            ' '.join('-%s' % v for v in novalueargs))
 
     def get_data(self, commandid, signal=True, timeout_retries=50):
         """Get the output for a given command.
@@ -269,9 +310,9 @@ class ADclient(PowershellClient):
             +  Add-ADGroupMember <<<<  -Credential $cred -Identity 'CN=testgroup,OU=gro
             ups,OU=cerebrum,DC=kaos,DC=local' -Confirm:$false -Member @('testuser','mrtest
             ','test2')
-                + CategoryInfo          : ObjectNotFound: (testuser:ADPrincipal) [Add-ADGr 
+                + CategoryInfo          : ObjectNotFound: (testuser:ADPrincipal) [Add-ADGr
                oupMember], ADIdentityNotFoundException
-                + FullyQualifiedErrorId : SetADGroupMember.ValidateMembersParameter,Micros 
+                + FullyQualifiedErrorId : SetADGroupMember.ValidateMembersParameter,Micros
                oft.ActiveDirectory.Management.Commands.AddADGroupMember
 
         The first line in the error gives the information that this method
@@ -311,6 +352,16 @@ class ADclient(PowershellClient):
                 raise ObjectAlreadyExistsException(code, stderr, output)
             if re.search(': The specified \w+ already exists', stderr):
                 raise ObjectAlreadyExistsException(code, stderr, output)
+            if re.search('New-AD.+ : The operation failed because UPN value '
+                         'provided for add.+\n+.+not unique forest', stderr):
+                # User Principal Names (UPN) must be globally unique, and is
+                # therefore considered an identity
+                raise ObjectAlreadyExistsException(code, stderr, output)
+            if re.search('(Set-ADObject|New-ADGroup|New-ADObject) '
+                         ': The specified account does not exist', stderr):
+                raise SetAttributeException(code, stderr, output)
+            if 'The command line is too long' in stderr:
+                raise CommandTooLongException(code, stderr, output)
             if re.search("Move-ADObject : .+object's paren.+is either "
                          "uninstantiated or deleted",
                          stderr, re.DOTALL):
@@ -335,6 +386,8 @@ class ADclient(PowershellClient):
                         'ad_pasw': self.escape_to_string(self.ad_account_password)}
         #for a in args:
         #    print a
+        self.logger.debug4(u'Executing powershell command: %s',
+                           u' '.join(args).replace('\n', ' '))
         return super(ADclient, self).execute(setup, *args, **kwargs)
 
     # Standard lines in powershell that we can't get rid of by powershell code.
@@ -364,8 +417,13 @@ class ADclient(PowershellClient):
         for code, out in super(PowershellClient, self).get_output(commandid,
                                                        signal, timeout_retries):
             if first_round:
-                out['stdout'] = out.get('stdout', 
+                out['stdout'] = out.get('stdout',
                                         '').replace(self.ignore_stdout, '')
+            # Exclude password in plaintext from the output
+            if 'stderr' in out:
+                for pat in self.exclude_password_patterns:
+                    out['stderr'] = re.sub(pat, 'PASSWORD HIDDEN',
+                                           out['stderr'])
                 first_round = False
             yield code, out
 
@@ -462,7 +520,10 @@ class ADclient(PowershellClient):
             other = dict()
             other_set = False
         try:
-            for obj in self.get_output_json(commandid, other):
+            output = self.get_output_json(commandid, other)
+            if isinstance(output, dict):
+                output = [output, ]
+            for obj in output:
                 # Some attribute keys are unfortunately not the same when
                 # reading and writing, so we need to translate those here
                 yield dict((attr_map_reverse.get(key, key), value)
@@ -470,10 +531,10 @@ class ADclient(PowershellClient):
         finally:
             # Check for other ouput:
             if not other_set:
-                for type in other:
-                    for o in other[type]:
+                for _type in other:
+                    for o in other[_type]:
                         if o:
-                            self.logger.warn("Unknown output %s: %s" % (type, o))
+                            self.logger.warn("Unknown output %s: %s", _type, o)
 
     def disable_object(self, dn):
         """Set an object as not enabled.
@@ -589,7 +650,7 @@ class ADclient(PowershellClient):
         if name:
             filters['Name'] = name
         if ad_object_class:
-            filter['ObjectClass'] = ad_object_class
+            filters['ObjectClass'] = ad_object_class
         extra = {}
         if filters:
             extra = 'Filter {%s}' % ' -and '.join("%s -eq '%s'" % (k, v)
@@ -598,7 +659,19 @@ class ADclient(PowershellClient):
         cmd = ("if ($str = %s | ConvertTo-Json) { $str -replace '$', ';' }" %
                self._generate_ad_command('Get-ADObject', parameters, extra))
         out = self.run(cmd)
-        return list(self.get_output_json(out, dict()))
+        res_list = []
+        json_output = self.get_output_json(out,dict())
+        if json_output:
+            if isinstance(json_output, dict):
+                # In case there is found only one object, get_output_json will
+                # return a single dictionary. This method however needs to
+                # return a list, so we have to make a list of one element.
+                res_list.append(json_output)
+            else:
+                # With several objects found, get_output_json returns a list of
+                # dicts. No additional transformation needed.
+                res_list = json_output
+        return res_list
 
     def create_object(self, name, path, object_class, attributes=None,
                       parameters=None):
@@ -653,23 +726,49 @@ class ADclient(PowershellClient):
         # TODO: this might be moved into subclasses of ADclient, one per object
         # type? Would probably make easier code... Or we could just depend on
         # the configuration for this behaviour, at least for the attributes.
-        if str(object_class).lower() == 'account':
+        if str(object_class).lower() == 'user':
             # SAMAccountName is mandatory for some object types:
             # TODO: check if this is not necessary any more...
-            if 'SamAccountName' not in attributes:
-                attributes['SamAccountName'] = name
+            # User and group objects on creation should not have
+            # SamAccountName in attributes. They should have it in
+            # parameters instead.
+            if 'SamAccountName' in attributes:
+                parameters['SamAccountName'] = attributes['SamAccountName']
+                del attributes['SamAccountName']
+            else:
+                parameters['SamAccountName'] = name
+            parameters['CannotChangePassword'] = True
+            parameters['PasswordNeverExpires'] = True
+        elif str(object_class).lower() == 'group':
+            if 'SamAccountName' in attributes:
+                parameters['SamAccountName'] = attributes['SamAccountName']
+                del attributes['SamAccountName']
+            else:
+                parameters['SamAccountName'] = name
 
         # Add the attributes, but mapped to correctly name used in AD:
         if attributes:
             attributes = dict((self.attribute_write_map.get(name, name), value)
                               for name, value in attributes.iteritems()
-                              if value is not None)
+                              if value or isinstance(value, (bool, int, long,
+                                                             float)))
+        if attributes:
             parameters['OtherAttributes'] = attributes
 
         parameters['Name'] = name
         parameters['Path'] = path
-        parameters['Type'] = object_class
-        cmd = self._generate_ad_command('New-ADObject', parameters, 'PassThru')
+        if str(object_class).lower() == 'user':
+            parameters['Type'] = object_class
+            cmd = self._generate_ad_command('New-ADUser',
+                                            parameters, 'PassThru')
+        elif str(object_class).lower() == 'group':
+            # For some reason, New-ADGroup does not accept -Type parameter
+            cmd = self._generate_ad_command('New-ADGroup',
+                                            parameters, 'PassThru')
+        else:
+            parameters['Type'] = object_class
+            cmd = self._generate_ad_command('New-ADObject',
+                                            parameters, 'PassThru')
         cmd = '''if ($str = %s | ConvertTo-Json) {
             $str -replace '$',';'
             }''' % cmd
@@ -710,67 +809,141 @@ class ADclient(PowershellClient):
         self.logger.info("Moving %s to OU: %s", ad_id, ou)
         cmd = self._generate_ad_command('Move-ADObject', {'Identity': ad_id,
                                                           'TargetPath': ou})
+        self.logger.debug3("Move command: %s", cmd)
         if self.dryrun:
             return True
         out = self.run(cmd)
         return not out.get('stderr')
 
-    def _setadobject_command_wrapper(self, ad_id, action, attrs):
-        """Generate and execute a Set-ADObject command on a remote AD server
-        to update the object' attributes.
+    def _setadobject_command_wrapper(self, ad_id, action, attributes):
+        """Run Set-ADObject on a given object and update its attributes.
 
-        @type ad_id: string
-        @param ad_id: The ID of the object whose attributes will be updated.
-        
-        @type action: string
-        @param action: What to perform with the object' attributes.
+        If the list of attributes to update makes the query too long, it is
+        split up and run in several commands.
 
-        @type attrs: list
-        @param attrs: List of attributes to update.
+        This method makes sure that if some of the attributes or attributes'
+        elements are not accepted by AD, all of the elements are tried to be set
+        again. This is making this method even more complicated, and could slow
+        the sync down when this situation occurs, but at least we make sure that
+        one single, bogus element will not be able to block the update of the
+        whole AD object.
+
+        :type ad_id: str
+        :param ad_id: The ID of the object whose attributes will be updated.
+
+        :type action: str
+        :param action:
+            What to perform with the object' attributes. Could for instance be
+            `Clear`, `Add` or `Remove`.
+
+        :type attributes: list
+        :param attributes:
+            List of attributes to update. The keys are the name of the
+            attribute, while the value
+
+        :rtype: bool
+        :return:
+            True if the *all* the given attribute elements  were updated
+            properly.
 
         """
-        cmd = self._generate_ad_command('Set-ADObject', 
-                                        {'Identity' : ad_id, 
-                                         action: attrs})
-        
-        self.logger.debug3("Command: %s" % cmd)
-        if self.dryrun:
-            return True
+        if action.lower() not in ('add', 'clear', 'remove', 'replace'):
+            raise Exception("Invalid action for updating %s: %s" % (ad_id,
+                            action))
+        def run_setadobject(attrs):
+            """Helper method for running the Set-ADObject command"""
+            cmd = self._generate_ad_command('Set-ADObject',
+                                            {'Identity': ad_id,
+                                             action: attrs})
+            # PowerShell commands are executed through Windows command line. The
+            # maximum length of the command there is 8191 for modern Windows
+            # versions (http://support.microsoft.com/kb/830473). Due to
+            # additional parameters that other methods add to the command, the
+            # part of it which is generated here has to be even shorter. The
+            # limit at 8000 bytes seems to be working.
+            # TODO: This should be checked for in winrm.py.
+            if len(cmd) > 8000:
+                raise CommandTooLongException('Too long')
+            self.logger.debug3("Command: %s", cmd)
+            if self.dryrun:
+                return True
+            self.run(cmd)
 
-        # PowerShell commands are executed through Windows command line.
-        # The maximum length of the command there is 8191 
-        # for modern Windows versions (http://support.microsoft.com/kb/830473).
-        # Due to additional parameters that other methods add to the command,
-        # the part of it which is generated here has to be even shorter.
-        # The limit at 8000 bytes seems to be working.
-        if len(cmd) < 8000:
-            out = self.run(cmd)
-            return not out.get('stderr')
-        else:
+        def wrap_setadobject(attrs):
+            """Run Set-ADObject aggresively, retrying if it fails.
+
+            The retry is attempted by running separate commands per element per
+            attribute. This could be a slow process if many attributes have
+            failed, but at least we make sure that the valid attribute elements
+            really gets set.
+
+            :raise CommandTooLongException:
+                If the given attributes makes the command too long for WinRM to
+                execute.
+
+            :rtype: bool
+            :return: If *all* the attributes were updated in AD.
+
+            """
+            try:
+                return run_setadobject(attrs)
+            except SetAttributeException:
+                # Not giving up yet! We retry by adding each attribute's
+                # elements separately.
+                self.logger.debug2("Failed updating all attributes, splitting")
+                success = True
+                if isinstance(attrs, set):
+                    try:
+                        run_setadobject(attrs)
+                        return True
+                    except SetAttributeException, e:
+                        self.logger.warn(
+                            "Failed action %s for %s with element: '%s'"
+                            " error: %s", action, ad_id, attrs, e)
+                        return False
+
+                for atrname, values in attrs.iteritems():
+                    # Stuff un-itrable types (or types that we do not want to
+                    # iterate, like strings) into a list. It does not handle
+                    # generators.
+                    if (isinstance(values, basestring)
+                            or not (hasattr(values, '__iter__') or
+                                    hasattr(values, '__getitem__'))):
+                        values = [values]
+                    for element in values:
+                        try:
+                            run_setadobject({atrname: element})
+                        except SetAttributeException, e:
+                            success = False
+                            self.logger.warn(
+                                "Failed updating %s for %s with element: '%s'"
+                                " error: %s", atrname, ad_id, element, e)
+                return success
+
+        try:
+            return wrap_setadobject(attributes)
+        except CommandTooLongException:
             # Strictly speaking, here we have to check if we have to perform
-            # 'Clear' operation, before we go into the loop belove to update 
+            # 'Clear' operation, before we go into the loop below to update
             # attributes. However, the only realistic case here is that
             # the length is exceeded because we have to update too many
             # elements in the attributes, not to clear them.
-            self.logger.debug3("""Command exceeded the maximum length. """
-                              """Trying to break it into smaller chunks.""")
-            for k, v in attrs.iteritems():
+            self.logger.debug3("Command too long, splitting")
+            success = True
+            for k, v in attributes.iteritems():
                 # Elements of the list are approximately the same length
-                # 5000 is empyrically chosen to have some length reserve
+                # 5000 is empirically chosen to have some length reserve
+                # TODO: 5000 is not always enough, we need to be more generic
                 splits = sum(len(elem) for elem in v) / 5000 + 1
-                elems_in_split = len(v) / splits + 1 
+                elems_in_split = len(v) / splits + 1
                 newattrs = {}
                 for i in range(0, splits):
                     newattrs[k] = v[i * elems_in_split:(i+1) * elems_in_split]
-                    cmd = self._generate_ad_command('Set-ADObject', 
-                                                    {'Identity' : ad_id, 
-                                                     action: newattrs})
-                    out = self.run(cmd)
-                    if out.get('stderr'):
-                        return False
-                    self.logger.debug3("Attribute %s partially updated." % k)
-                self.logger.debug3("Attribute %s fully updated" % k)
-            return True
+                    if not wrap_setadobject(newattrs):
+                        success = False
+                    self.logger.debug3("Attribute %s partially updated.", k)
+                self.logger.debug3("Attribute %s fully updated", k)
+            return success
 
     def update_attributes(self, ad_id, attributes, old_attributes=None):
         """Update an AD object with the given attributes.
@@ -787,30 +960,43 @@ class ADclient(PowershellClient):
           -Add      Add an extra value to the attribute.
           -Remove   Remove a given value from the attribute.
 
-        This method only uses -Clear first and then -Add to avoid getting a too
-        complicated method that is still generic.
+        Are there any easier way in AD to modify objects, I wonder?
 
-        @type ad_id: string
-        @param ad_id: The Id of the object to update. Normally the
-            DistinguishedName. A SamAccountName is often not enough to find it.
+        :type ad_id: str
+        :param ad_id:
+            The Id of the object to update. Normally the DistinguishedName. A
+            SamAccountName is often not enough to find it.
 
-        @type attributes: dict
-        @param attributes: The attributes that should be updated in AD.
+        :type attributes: dict
+        :param attributes:
+            The attributes that should be updated in AD. The keys are the name
+            of the attribute, while the value is a dict with different elements
+            for what should be done with elements of the specific attribute,
+            e.g. add, remove or fullupdate.
+
             If an attribute's value is None, it will instead be removed.
 
-        @type old_attributes: dict
-        @param old_attributes: The existing attribute set for the object in AD.
-            This is needed to know how the attribute should be modified in AD,
-            e.g. replaced or added.
+        :type old_attributes: dict
+        :param old_attributes:
+            The existing attribute set for the object in AD. This is needed to
+            know how the attributes should be modified in AD, e.g. replaced or
+            added.
+
+        :rtype: bool
+        :return:
+            True if the object got *fully* updated in AD. False means that the
+            object didn't get updated at all, or that only some of the
+            attributes got updated.
 
         """
-        self.logger.info(u'Updating attributes for %s: %s' % (ad_id,
-                                                            attributes.keys()))
-
+        self.logger.info(u'Updating attributes for %s: %s', ad_id,
+                         ', '.join(attributes.keys()))
+        success = True
         removes = dict()
         adds = dict()
         fullupdates = dict()
-        # Some attributes are named differently when reading and writing, so we
+        # Sort the attributes in what to add, remove or fully update. Some
+        # attributes are named differently when reading and writing in AD, so we
         # need to map them properly.
         for k, v in attributes.iteritems():
             if 'remove' in v:
@@ -818,27 +1004,36 @@ class ADclient(PowershellClient):
             elif 'add' in v:
                 adds[self.attribute_write_map.get(k, k)] = v['add']
             else:
-                fullupdates[self.attribute_write_map.get(k, k)] = \
-                    v['fullupdate']
+                fullupdates[k] = v['fullupdate']
 
         if removes:
             if not self._setadobject_command_wrapper(ad_id, 'Remove', removes):
                 return False
-
         if adds:
             if not self._setadobject_command_wrapper(ad_id, 'Add', adds):
-                return False
-
+                success = False
         if fullupdates:
-            # What attributes need to be cleared before adding the correct attr:
-            clears = set(k for k in fullupdates)
-            if not self._setadobject_command_wrapper(ad_id, 'Clear', clears):
-                return False
-            if not self._setadobject_command_wrapper(ad_id, 'Add', fullupdates):
-                return False
-        
-        return True
-                
+            clears = set()
+            updates = dict()
+            for k, v in fullupdates.iteritems():
+                # What attributes need to be cleared before adding the correct
+                # ones. No need to clear already empty attributes.
+                if old_attributes.get(k):
+                    clears.add(self.attribute_write_map.get(k, k))
+                # Do not update attributes if they are "None" in Cerebrum.
+                # It may lead to strange values in AD in the future.
+                # Just leave them cleared.
+                if v:
+                    updates[self.attribute_write_map.get(k, k)] = v
+            # We could save runtime on combining Clear and Add in the same
+            # commands, but at the cost of more complexity. This should normally
+            # not happen, maybe except for the initial sync for an instance.
+            if clears:
+                self._setadobject_command_wrapper(ad_id, 'Clear', clears)
+            if updates and not self._setadobject_command_wrapper(ad_id,
+                                                                'Add', updates):
+                success = False
+        return success
 
     def get_ad_attribute(self, adid, attributename):
         """Start generating a list of a given object's given AD attribute.
@@ -886,6 +1081,10 @@ class ADclient(PowershellClient):
                     yield line
         # TODO: Make this a decorator instead?
         return lambda: getout(cmdid)
+
+
+    # TODO: All the old group-member functionality should be removed, as it is
+    # now handled through the regular update of attributes!
 
     # The name of the attribute for where the members of the object are located.
     # For a regular Group, 'member' is default, while for e.g. NisNetGroups is
@@ -1038,7 +1237,7 @@ class ADclient(PowershellClient):
         @param attribute_name:
             The name of the member attribute to update in AD. Uses the default
             L{self.attributename_members} if not specified.
-        
+
         # TODO: Add support for not getting exceptions if the members doesn't
         # exist.
 
@@ -1084,7 +1283,7 @@ class ADclient(PowershellClient):
 
         @param ad_id: The Id for the object. Could be the SamAccountName,
             DistinguishedName, SID, UUID and probably some other identifiers.
- 
+
         @type password: string
         @param password: The new passord for the object. Must be in plaintext,
             as that is how AD requires it to be, for now.
@@ -1101,7 +1300,7 @@ class ADclient(PowershellClient):
             %(cmd)s -NewPassword $pwd;
         ''' % {'pwd': self.escape_to_string(password),
                'cmd': self._generate_ad_command('Set-ADAccountPassword',
-                                                {'Identity': ad_id}, 
+                                                {'Identity': ad_id},
                                                 ['Reset'])}
         #Set-ADAccountPassword -Identity %(_ad_id)s -Credential $cred -Reset -NewPassword $pwd
         if self.dryrun:
@@ -1121,7 +1320,7 @@ class ADclient(PowershellClient):
         are normally reached semi-randomly, to avoid that one DC gets overused.
 
         @type reset: bool
-        @param reset: 
+        @param reset:
             If True, we should ignore the already chosen DC and pick one again.
             If False, the already chosen DC is returned.
 
@@ -1140,30 +1339,26 @@ class ADclient(PowershellClient):
             self.logger.debug("Preferred DC: %s", self._chosen_dc)
         return self._chosen_dc
 
-    def update_recipient(self, ad_id):
+    def update_recipient(self, ad_dn):
         """Run the cmdlet Update-Recipient for a given object.
 
-        @param ad_id:
-            The Id for the object. Could be the SamAccountName,
-            DistinguishedName, SID, UUID and probably some other identifiers.
+        @type ad_dn: str
+        @param ad_dn:
+            The Id for the object. Most likely DistinguishedName, but sometimes
+            could also be the SamAccountName, SID, UUID
+            and probably some other identifiers.
 
-        @rtype: TODO
-        @return: TODO
+        @rtype: bool
+        @return:
+            True if there was no error during the command execution (stderr
+            from the command is missing). False otherwise.
 
         """
-        self.logger.info('Run Update-Recipient for: %s', ad_id)
+        self.logger.info("Run Update-Recipient for: %s", ad_dn)
 
         # TODO: Could we use the standard parameters?
-
-        #cmd = self._generate_ad_command
-        #cmd = '''$b = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(%(pwd)s));
-        #    $pwd = ConvertTo-SecureString -AsPlainText -Force $b;
-        #    %(cmd)s -NewPassword $pwd;
-        #''' % {'pwd': self.escape_to_string(password),
-        #       'cmd': self._generate_ad_command('Set-ADAccountPassword',
-        #                                        {'Identity': ad_id}, 
-        #                                        ['Reset'])}
-        ##Set-ADAccountPassword -Identity %(_ad_id)s -Credential $cred -Reset -NewPassword $pwd
+        cmd = self._generate_ad_command('Update-Recipient',
+                                        {'Identity': ad_dn})
         if self.dryrun:
             return True
         out = self.run(cmd)
@@ -1177,8 +1372,8 @@ class ADclient(PowershellClient):
         not before you could execute it. This is up to the administrators of the
         AD domain, as they then have to sign the script.
 
-        TODO: Check if this works! 
-        
+        TODO: Check if this works!
+
         TBD: Should we call it in parallell, thus not getting any feedback from
         it? Or should we get the output and send it by mail to the AD
         administrators?
@@ -1255,7 +1450,7 @@ class ADUtils(object):
         """
         Telling the AD-service to start the Windows Power Shell command
         Update-Recipient on object in order to prep them for Exchange.
-        
+
         @param ad_objs : object to run command on
         @type  ad_objs: str
         """
@@ -1279,13 +1474,13 @@ class ADUtils(object):
     def attr_cmp(self, cb_attr, ad_attr):
         """
         Compare new (attribute calculated from Cerebrum data) and old
-        ad attribute. 
+        ad attribute.
 
         @param cb_attr: attribute calculated from Cerebrum data
         @type cb_attr: unicode, list or tuple
         @param ad_attr: Attribute fetched from AD
         @type ad_attr: list || unicode || str
-        
+
         @rtype: cb_attr or None
         @return: cb_attr if attributes differ. None if no difference or
         comparison cannot be made.
@@ -1293,11 +1488,11 @@ class ADUtils(object):
         # Sometimes attrs from ad are put in a list
         if isinstance(ad_attr, (list, tuple)) and len(ad_attr) == 1:
             ad_attr = ad_attr[0]
-        
+
         # Handle list, tuples and (unicode) strings
         if isinstance(cb_attr, (list, tuple)):
             cb_attr = list(cb_attr)
-            # if cb_attr is a list, make sure ad_attr is a list 
+            # if cb_attr is a list, make sure ad_attr is a list
             if not isinstance(ad_attr, (list, tuple)):
                 ad_attr = [ad_attr]
             cb_attr.sort()
@@ -1344,13 +1539,13 @@ class ADUserUtils(ADUtils):
         """
         Delete user object in AD.
 
-        @param dn: AD attribute distinguishedName 
+        @param dn: AD attribute distinguishedName
         @type dn: str
         """
         if self.dryrun:
             self.logger.debug("DRYRUN: Not deleting user %s" % dn)
             return
-        
+
         if self.run_cmd('bindObject', dn):
             self.logger.info("Deleting user %s" % dn)
             self.run_cmd('deleteObject')
@@ -1360,7 +1555,7 @@ class ADUserUtils(ADUtils):
         """
         Disable user in AD.
 
-        @param dn: AD attribute distinguishedName 
+        @param dn: AD attribute distinguishedName
         @type dn: str
         """
         if self.dryrun:
@@ -1368,22 +1563,22 @@ class ADUserUtils(ADUtils):
             return
         self.logger.info("Disabling user %s" % dn)
         self.commit_changes(dn, ACCOUNTDISABLE=True)
-         
+
 
     def create_ad_account(self, attrs, ou, create_homedir=False):
         """
-        Create AD account, set password and default properties. 
+        Create AD account, set password and default properties.
 
         @param attrs: AD attrs to be set for the account
-        @type attrs: dict        
+        @type attrs: dict
         @param ou: LDAP path to base ou for the entity type
-        @type ou: str        
+        @type ou: str
         """
         uname = attrs.pop("sAMAccountName")
         if self.dryrun:
             self.logger.debug("DRYRUN: Not creating user %s" % uname)
             return
-        
+
         sid = self.run_cmd("createObject", "User", ou, uname)
         if not sid:
             # Don't continue if createObject fails
@@ -1418,13 +1613,13 @@ class ADGroupUtils(ADUtils):
     def __init__(self, db, logger, host, port, ad_domain_admin):
         ADUtils.__init__(self, db, logger, host, port, ad_domain_admin)
         self.group = Factory.get("Group")(self.db)
-    
+
 
     def commit_changes(self, dn, **changes):
         """
         Set attributes for account
 
-        @param dn: AD attribute distinguishedName 
+        @param dn: AD attribute distinguishedName
         @type dn: str
         @param changes: attributes that should be changed in AD
         @type changes: dict (keyword args)
@@ -1441,9 +1636,9 @@ class ADGroupUtils(ADUtils):
         Create AD group.
 
         @param attrs: AD attrs to be set for the account
-        @type attrs: dict        
+        @type attrs: dict
         @param ou: LDAP path to base ou for the entity type
-        @type ou: str        
+        @type ou: str
         """
         gname = attrs.pop("name")
         if self.dryrun:
@@ -1469,7 +1664,7 @@ class ADGroupUtils(ADUtils):
         """
         Delete group object in AD.
 
-        @param dn: AD attribute distinguishedName 
+        @param dn: AD attribute distinguishedName
         @type dn: str
         """
         if self.dryrun:
@@ -1485,11 +1680,11 @@ class ADGroupUtils(ADUtils):
         """
         Sync members for a group to AD.
 
-        @param dn: AD attribute distinguishedName 
+        @param dn: AD attribute distinguishedName
         @type dn: str
         @param members: List of account and group names
         @type members: list
-        
+
         """
         if self.dryrun:
             self.logger.debug("DRYRUN: Not syncing members for %s" % dn)

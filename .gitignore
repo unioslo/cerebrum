@@ -1,2 +1,8 @@
+build/
+dist/
 *.pyc
 *.pyo
+*~
+.*.sw?
+tags
+TAGS

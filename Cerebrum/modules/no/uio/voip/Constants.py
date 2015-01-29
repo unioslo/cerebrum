@@ -82,8 +82,8 @@ class VoipConstants(Constants.Constants):
         )
 
     voip_service_moterom = VoipServiceTypeCode(
-        "voip_service_møterom",
-        "møterom",
+        "voip_service_mÃ¸terom",
+        "mÃ¸terom",
         )
 
     voip_service_resepsjon = VoipServiceTypeCode(
@@ -147,8 +147,8 @@ class VoipConstants(Constants.Constants):
     )
 
     voip_service_tradlos = VoipServiceTypeCode(
-        "voip_service_trådløs",
-        "trådløs",
+        "voip_service_trÃ¥dlÃ¸s",
+        "trÃ¥dlÃ¸s",
     )
     
     ########################################################################
@@ -263,6 +263,16 @@ class VoipConstants(Constants.Constants):
     voip_client_tcis6 = VoipClientInfoCode(
         "003001",
         "Zenitel TCIS-6"
+    )
+
+    voip_client_tciv3 = VoipClientInfoCode(
+        "003002",
+        "Zenitel TCIV-3"
+    )
+
+    voip_client_tciv6 = VoipClientInfoCode(
+        "003003",
+        "Zenitel TCIV-6"
     )
 
     voip_client_sx20 = VoipClientInfoCode(

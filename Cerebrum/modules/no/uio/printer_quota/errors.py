@@ -96,4 +96,3 @@ class NotFoundError(CerebrumError):
 ## PPQUtil.py:  raise CerebrumError, "Cannot undo more pages than was in the job"
 ## PPQUtil.py:  raise ValueError, "oops, page_units=%i" % page_units
 
-# arch-tag: 1856266e-803a-4667-af3b-ac4c4a657110

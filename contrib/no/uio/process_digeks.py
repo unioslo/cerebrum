@@ -63,7 +63,8 @@ Program flow:
 import getopt
 import sys
 import re
-from os.path import basename
+from os.path import basename, dirname, exists
+from os import makedirs
 
 import cereconf
 
@@ -83,7 +84,7 @@ cereconf.DIGEKS_PARENT_GROUP = 'deksamen-test'
 # FIXME: These are the classes that we will be looking up exams for. This list
 # should be replaced by an automated selection of subjects, which is probably
 # another FS lookup.
-cereconf.DIGEKS_EXAMS = ('PPU3310L','JUS4111', )
+cereconf.DIGEKS_EXAMS = ['PPU3310L', 'JUS4111', ]
 
 # When looking up exams, we need to filter out non-digital exams and other
 # deliverables (obligatory assignments). This string will be matched with the
@@ -103,8 +104,7 @@ CSV_SEPARATOR = u';'
 
 
 def usage(exitcode=0):
-    """ Prints script usage, and exits with C{exitcode}.
-    """
+    """ Print script usage, and exits with C{exitcode}. """
     print """ Usage: %(name)s [options]
 
     Sets up exam groups, and generates an export of exams and participants as
@@ -118,7 +118,7 @@ def usage(exitcode=0):
       -s, --subject    <s1,...>  Subjects to look up exams for
       -y, --year       <year>    Restrict to exams in the given year
       -t, --semester   <term>    Restrict to exams in the given term. Tip -
-                                 check encoding, might want to use: 
+                                 check encoding, might want to use:
                                     -t `print '<term>' | iconv -f <enc> -t <enc>`
       -h, --help                 Show this help text.
     """ % {'name': basename(sys.argv[0])}
@@ -127,30 +127,36 @@ def usage(exitcode=0):
 
 
 ## These objects were created as a consequence of debugging: They may not be an
-## ideal representation. We might as well use simple dicts. 
+## ideal representation. We might as well use simple dicts.
 class Exam(object):
-    """ An exam object. Temporary storage of exam info, sanitizes data. Easily
-    converted to a unicode string for writing to CSV file. 
-    
+
+    """ An exam object.
+
+    Temporary storage of exam info, sanitizes data. Easily converted to a
+    unicode string for writing to CSV file.
+
     Attributes
         separator: The separator to use in CSV files.
+
     """
+
     separator = CSV_SEPARATOR
 
     class Candidate(object):
         """ A candidate object. Temporary storage of candidate info, sanitizes
-        data. Easily converted to a unicode string for writing to CSV file. 
+        data. Easily converted to a unicode string for writing to CSV file.
         """
 
         def __init__(self, exam, username, candidate, commision):
             """ Create a new candidate object. Should not be created outside of a Exam object. """
 
             # Check the argument types, and throw error if not as expected
-            for (arg, typ) in (('candidate', int), 
+            for (arg, typ) in (('candidate', int),
                                ('commision', int),
                                ('username', (str, unicode))):
                 val = locals().get(arg)
-                assert isinstance(val, typ), "%s must be %s, was %s" % (arg, repr(typ), type(val))
+                assert isinstance(val, typ), ("%s must be %s, was %s" %
+                                              (arg, repr(typ), type(val)))
 
             self.exam = exam
             self.username = unicode(username)
@@ -173,9 +179,8 @@ class Exam(object):
                 escape_chars(str(self.commision), special=self.exam.separator),
                 escape_chars(self.mobile, special=self.exam.separator), ])
 
-
     def __init__(self, institution, subject, year, timecode, typecode, version,
-            datetime, place, access):
+                 datetime, place, access):
         """ Create a new exam object. """
 
         # Check the argument types, and throw error if not as expected
@@ -198,14 +203,12 @@ class Exam(object):
         self.timecode = unicode(timecode)
         self.typecode = unicode(typecode)
         self.place = unicode(place)
-        self.access = unicode(access) # FIXME if anything changes. We don't know the format
+        self.access = unicode(access)  # FIXME if anything changes.
         self.datetime = DateTime.DateTimeFrom(datetime)
         self.candidates = set()
 
-
     def key(self):
-        """ The exam key is a unique string that identifies an exam. This
-        method returns the exam key for this exam """
+        """ Return the exam key (unique id) for this exam. """
         return self.separator.join([
             str(self.institution),
             escape_chars(self.subject, special=self.separator),
@@ -214,10 +217,13 @@ class Exam(object):
             escape_chars(self.timecode, special=self.separator),
             str(self.year), ])
 
-
     def addCandidate(self, username, candidate, commision):
-        """ Adds a new candidate to this exam. Returns False if candidate was
-        already in this exam"""
+        """ Add a new candidate to this exam.
+
+        Returns True if candidate was added, and False if candidate was already
+        a candidate in this exam.
+
+        """
         candidate = self.Candidate(
             self,
             username,
@@ -240,12 +246,11 @@ class Exam(object):
 
 
 class CandidateCache:
-    """ A caching object, for storing candidate account names and associated
-    data.
-    """
-    
+
+    """ A caching object, for storing candidate account names and data. """
+
     def __init__(self, db, candidates):
-        """ All caching happens on init
+        """ All caching happens on init.
 
         @type db: Cerebrum.DatabaseAccessor
         @param db: A database connection
@@ -253,11 +258,12 @@ class CandidateCache:
         @type candidates: set
         @param candidates: All the candidates that should have their
                            information looked up/cached
+
         """
-        self.accounts = dict()    # mapping account_name -> account_id + owner_id
-        self.mobiles = dict()     # mapping person_id -> mobile
-        self.spreads = list()     # tuple (account_id, spread_code)
-        self.quarantined = dict() # mapping account_id -> [ list of quarantines ]
+        self.accounts = dict()     # mapping account_name -> acc_id + owner_id
+        self.mobiles = dict()      # mapping person_id -> mobile
+        self.spreads = list()      # tuple (account_id, spread_code)
+        self.quarantined = dict()  # mapping account_id -> [ quarantine list ]
 
         self.db = db  # For any future use
         self.co = Factory.get('Constants')(db)
@@ -265,14 +271,16 @@ class CandidateCache:
         self.cacheAccounts(candidates)
 
     def cacheAccounts(self, account_names):
-        """ Cache data for a list of account names, efficiently. 
-        This function has a bit of an overhead, because it looks up all users in
-        the db. It is, however, a lot more efficient than looking up individual
-        accounts when there's a lot of L{account_names}.
+        """ Cache data for a list of account names, efficiently.
+
+        This function has a bit of an overhead, because it looks up all users
+        in the db. It is, however, a lot more efficient than looking up
+        individual accounts when there's a lot of L{account_names}.
 
         @type account_names: set
-        @param account_names: An iterable (ideally set) of account names to cache
-                              data for.
+        @param account_names:
+            An iterable (ideally a set) of account names to cache data for.
+
         """
         ac = Factory.get('Account')(self.db)
         pe = Factory.get('Person')(self.db)
@@ -284,9 +292,10 @@ class CandidateCache:
         # Fetch all accounts. ...would be nice to filter by names in the query
         all_accounts = ac.search(owner_type=self.co.entity_person)
 
-        # self.accounts - Account and owner id for all candidates. Dict mapping:
+        # self.accounts - Account and owner id for all candidates. Dict map:
         #   account_name -> {account_id -> , owner_id -> ,}
-        filtered_accounts = filter(lambda a: a['name'] in account_names, all_accounts)
+        filtered_accounts = filter(lambda a: a['name'] in account_names,
+                                   all_accounts)
         self.accounts = dict((a['name'], {
             'account_id': a['account_id'],
             'owner_id': a['owner_id']}) for a in filtered_accounts)
@@ -954,7 +963,7 @@ class UVDigeks(Digeks):
     def fetch_exam_data(self, subjects, year, timecode=None):
         """ Test for PPU3310L """
 
-        typecode = ('1FAG-HO-H', '2FAG-HO-H')
+        typecode = ('1FAG-HO-H', '2FAG-HO-H', 'H')
 
         binds = {'year': year, }
 
@@ -1111,7 +1120,7 @@ def escape_chars(string, special='', escape='\\'):
                    needs to be escaped (prepended with L{escape}).
 
     @type escape: str
-    @param escape: The escape character(s) to use. 
+    @param escape: The escape character(s) to use.
 
     @rtype: str
     @return: A string with special and escape characters escaped.
@@ -1125,8 +1134,6 @@ def escape_chars(string, special='', escape='\\'):
     for char in special:
         tmp = tmp.replace(char, escape+char)
     return tmp
-
-
 
 def main():
 
@@ -1144,9 +1151,9 @@ def main():
     for opt, val in opts:
         if opt in ('-h', '--help'):
             usage(0)
-        elif opt in ('-d','--dryrun'):
+        elif opt in ('-d', '--dryrun'):
             dryrun = True
-        elif opt in ('-s','--subject'):
+        elif opt in ('-s', '--subject'):
             subjects.extend(val.split(','))
         elif opt in ('-y', '--year'):
             year = val
@@ -1154,12 +1161,18 @@ def main():
             semester = val
         elif opt in ('-c', '--candidate-file'):
             try:
+                candidatedirectory = dirname(val)
+                if not exists(candidatedirectory):
+                    makedirs(candidatedirectory)
                 candidatefile = open(val, 'w')
             except IOError:
                 logger.error('Unable to open candidate file (%s)' % val)
                 sys.exit(1)
         elif opt in ('-e', '--exam-file'):
             try:
+                examdirectory = dirname(val)
+                if not exists(examdirectory):
+                    makedirs(examdirectory)
                 examfile = open(val, 'w')
             except IOError:
                 logger.error('Unable to open exam file (%s)' % val)
@@ -1182,26 +1195,22 @@ def main():
         logger.info('Dryrun is enabled: No changes will be commited to Cerebrum')
 
     # Candidate processing
-    
+
     # Handlers for the different subject codes.
-    handlers = {
-            'UV': {
-                'class': UVDigeks, 
-                'regex': re.compile('^(PPU)[0-9]+$'),
-                'subjects': [],
-                },
-            'JUS': {
-                'class': JUSDigeks,
-                'regex': re.compile('^(JUS|JUR)[0-9]+$'),
-                'subjects': [],
-                },
-            }
+    handlers = {'UV': {'class': UVDigeks,
+                       'regex': re.compile('^(PPU)[0-9]+[A-Z]?$'),
+                       'subjects': [], },
+                'JUS': {'class': JUSDigeks,
+                        'regex': re.compile('^(JUS|JUR)[0-9]+$'),
+                        'subjects': [], }, }
 
     # TEST
-    # Comment out the regular digeks section (if 'PPU', 'JUS', ...), uncomment and fill in the following:
+    # Comment out the regular digeks section (if 'PPU', 'JUS', ...), uncomment
+    # and fill in the following:
     # digeks = DigeksTest('<filename>', ('user1', 'user2', '...'))
-    # where <filename> is a file with the same structure as the exams csv file (e.g. a previously exported file)
-    # and   <user1>, <user2>, ... is a list of exiting users to use as candidates.
+    # where <filename> is a file with the same structure as the exams csv file
+    # (e.g. a previously exported file) and <user1>, <user2>, ... is a list of
+    # exiting users to use as candidates.
     #
     ## TESTING - UNCOMMENT
     #handlers = None
@@ -1213,7 +1222,7 @@ def main():
     # Distribute subjects
     for ident, handler in handlers.items():
         if not handler.get('class'):
-            logger.error("No class for handler '%s', unable to process" % ident)
+            logger.error("No class for handler '%s', unable to process", ident)
             sys.exit(1)
         if not handler.get('regex'):
             logger.error("Invalid regex for handler '%s'" % ident)
@@ -1222,7 +1231,7 @@ def main():
             if handler.get('regex').match(s):
                 handler['subjects'].append(s)
                 subjects.remove(s)
-    
+
     # Leftover subjects (no handler)?
     if subjects:
         logger.error("No handler for subject(s): %s" % str(subjects))
@@ -1234,8 +1243,8 @@ def main():
         if not subs:
             continue
 
-        logger.debug("Using handler %s for subjects: %s" % 
-                (ident, str(handler.get('subjects'))))
+        logger.debug("Using handler %s for subjects: %s",
+                     ident, str(handler.get('subjects')))
         digeks = cls(subs, year, timecode=semester)
 
         logger.debug('Processing candidates...')
@@ -1246,7 +1255,6 @@ def main():
             digeks.rollback()
         else:
             digeks.commit()
-
 
     # Close file handlers
     if not examfile is sys.stdout:

@@ -24,6 +24,7 @@ import cereconf
 from Cerebrum import Group
 from Cerebrum import Utils
 from Cerebrum.Database import Errors
+from Cerebrum.modules import Email
 
 class GroupUiOMixin(Group.Group):
     """Group mixin class providing functionality specific to UiO.
@@ -53,7 +54,7 @@ class GroupUiOMixin(Group.Group):
 
         pg = PosixGroup.PosixGroup(self._db)
         for g in self.search(member_id=member_id,
-                             indirect_members=False,
+                             indirect_members=True,
                              filter_expired=False):
             try:
                 pg.clear()
@@ -64,9 +65,11 @@ class GroupUiOMixin(Group.Group):
             except Errors.NotFoundError:
                 pass
         for k in counts.keys():
-            if counts[k] > 16:
+            if counts[k] > 15:
                 raise self._db.IntegrityError(
-                    "Member of too many groups (%i)" % counts[k])
+                    "Member of too many NIS groups (%i) with the same spread. "
+                    "A user can not be a member of more than 16 groups "
+                    "with the same NIS spread" % (counts[k]))
         super(GroupUiOMixin, self).add_member(member_id)
 
     def add_spread(self, spread):
@@ -117,3 +120,38 @@ class GroupUiOMixin(Group.Group):
             if len(name) > 64:
                 return "Name %s too long (64 char allowed)" % name
         return False
+
+    def delete(self):
+        """Delete the group, along with its EmailTarget."""
+        et = Email.EmailTarget(self._db)
+        ea = Email.EmailAddress(self._db)
+        epat = Email.EmailPrimaryAddressTarget(self._db)
+
+        # If there is not associated an EmailTarget with the group, call delete
+        # from the superclass.
+        try:
+            et.find_by_target_entity(self.entity_id)
+        except Errors.NotFoundError:
+            return super(GroupUiOMixin, self).delete()
+
+        # An EmailTarget exists, so we try to delete its primary address.
+        try:
+            epat.find(et.entity_id)
+            epat.delete()
+        except Errors.NotFoundError:
+            pass
+
+        # We remove all the EmailTargets addresses.
+        try:
+            for row in et.get_addresses():
+                ea.clear()
+                ea.find(row['address_id'])
+                ea.delete()
+        except Errors.NotFoundError:
+            pass
+
+        # Delete the EmailTarget
+        et.delete()
+
+        # Finally! Delete the group!
+        super(GroupUiOMixin, self).delete()

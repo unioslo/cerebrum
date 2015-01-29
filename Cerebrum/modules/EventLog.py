@@ -332,3 +332,61 @@ class EventLog(object):
                 'UPDATE event_log SET failed = failed - 1 WHERE event_id = :id'
                 ' AND target_system = :ts RETURNING event_id',
                 {'id': int(id), 'ts': int(target_system)})
+
+    def search_events(self, id=None, type=None, param=None,
+                      from_ts=None, to_ts=None, target_system=None, fetchall=True):
+        """Search for events based on a given criteria.
+
+        :param int id: The subject- or dest_entity to search for.
+        :param int type: The EventType to search for.
+        :param str param: A substring to search for in change_params.
+        :param DateTime from_ts: Search for events that occoured after this
+            timestamp.
+        :param DateTime to_ts: Search for events that occoured before this
+            timestamp.
+        :param int target_system: The TargetSystem to search for.
+        :param bool fetchall: Wether to return an iterator, or everything.
+            Default is everything.
+        :rtype: list
+        :return: A list of event ids.
+        """
+        q = "SELECT event_id FROM event_log"
+        tmp_q = []
+        parm = {}
+        if id:
+            tmp_q.append("(subject_entity = :id OR dest_entity = :id)")
+            parm['id'] = int(id)
+        if type:
+            if isinstance(type, (list, tuple, set)):
+                tmp_q.append("event_type IN (%s)" % ", ".join(map(str, map(int, type))))
+            else:
+                tmp_q.append("event_type = :type")
+                parm['type'] = int(type)
+        if target_system:
+            tmp_q.append("target_system = :target_system")
+            parm['target_system'] = int(target_system)
+        if param:
+            tmp_q.append("change_params LIKE :param")
+            parm['param'] = "%%%s%%" % param
+        if parm:
+            q += " WHERE "
+            q += ' AND '.join(tmp_q)
+
+        return self.query(q, parm, fetchall=True)
+
+    def get_event_target_type(self, id):
+        """Get the destination and subject entitys entity type.
+
+        :param int id: The events id.
+        :rtype: dbrow
+        :return: The entity type of the destination and subject entity.
+        """
+        r = {}
+        ev = self.get_event(id)
+        q = "SELECT entity_type FROM entity_info WHERE entity_id = :eid"
+        if ev['subject_entity']:
+            r['subject_type'] = self.query_1(q, {'eid': ev['subject_entity']})
+        if ev['dest_entity']:
+            r['dest_type'] = self.query_1(q, {'eid': ev['dest_entity']})
+
+        return r

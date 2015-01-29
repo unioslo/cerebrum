@@ -19,23 +19,17 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import re
-import os
 import sys
 import getopt
-import time
 import mx
-
-import xml.sax
+import pickle
 
 import cerebrum_path
 import cereconf
 from Cerebrum import Errors
-from Cerebrum import Person
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uio.AutoStud import StudentInfo
-from Cerebrum.modules.no.uio import AutoStud
 
 default_personfile = "/cerebrum/dumps/FS/merged_persons.xml"
 default_studieprogramfile = "/cerebrum/dumps/FS/studieprog.xml"
@@ -146,7 +140,7 @@ def _calc_address(person_info):
     # FS.DELTAKER   *_hjem (5) 
     rules = [
         ('fagperson', ('_arbeide', '_hjemsted', '_besok_adr')),
-        ('aktiv', ('_hjemsted', None)),
+        ('aktiv', ('_hjemsted', '_semadr', None)),
         ('evu', ('_job', '_hjem', None)),
         ]
     adr_map = {
@@ -164,13 +158,12 @@ def _calc_address(person_info):
         '_besok_adr': ('institusjonsnr', 'faknr', 'instituttnr', 'gruppenr')
         }
     logger.debug("Getting address for person %s%s" % (person_info['fodselsdato'], person_info['personnr']))
+
     ret = [None, None, None]
     for key, addr_src in rules:
         if not person_info.has_key(key):
             continue
         tmp = person_info[key][0].copy()
-        if key == 'aktiv':
-            tmp = person_info['aktiv'][0].copy()
         for i in range(len(addr_src)):
             addr_cols = adr_map.get(addr_src[i], None)
             if (ret[i] is not None) or not addr_cols:
@@ -303,7 +296,6 @@ def process_person_callback(person_info):
         for row in person_info['aktiv']:
             if studieprog2sko[row['studieprogramkode']] is not None:
                 aktiv_sted.append(int(studieprog2sko[row['studieprogramkode']]))
-                logger.debug("App2akrivts")
 
     for dta_type in person_info.keys():
         x = person_info[dta_type]
@@ -381,9 +373,11 @@ def process_person_callback(person_info):
         if address_info is not None:
             logger.debug("Populating address...")
             new_person.populate_address(co.system_fs, ad_const, **address_info)
+
     # if this is a new Person, there is no entity_id assigned to it
     # until written to the database.
     op = new_person.write_db()
+
     for a in filter_affiliations(affiliations):
         ou, aff, aff_status = a
         new_person.populate_affiliation(co.system_fs, ou, aff, aff_status)
@@ -422,11 +416,14 @@ def process_person_callback(person_info):
             # question at all, or has given an explicit "I don't
             # want to appear in the directory" answer.
             _rem_res(new_person.entity_id)
+
     db.commit()
 
+
 def register_fagomrade(person, person_info):
-    """Register 'fagomrade' for a person, if set. It consists of fagfelt and
-    instrument. Not all is registered with this.
+    """Register 'fagomrade'/'fagfelt' for a person.
+    This is stored in trait_fagomrade_fagfelt as a pickled list of strings.
+    The trait is not set if no 'fagfelt' is registered.
 
     @param person:
       Person db proxy associated with a newly created/fetched person.
@@ -435,32 +432,31 @@ def register_fagomrade(person, person_info):
       Dict returned by StudentInfoParser.
 
     """
-    now = mx.DateTime.now()
     fnr = "%06d%05d" % (int(person_info["fodselsdato"]),
                         int(person_info["personnr"]))
-    c_fagfelt = person.get_trait(co.trait_fagomrade_fagfelt)
-    if c_fagfelt:
-        c_fagfelt = c_fagfelt['strval']
-    c_instrument = person.get_trait(co.trait_fagomrade_instrument)
-    if c_instrument:
-        c_instrument = c_instrument['strval']
 
-    fs_fagfelt = fs_instrument = None
-    for key, items in person_info.iteritems():
-        for data in items:
-            if 'fagfelt' in data:
-                fs_fagfelt = data['fagfelt']
-            if 'instrumentnavn' in data:
-                fs_instrument = data['instrumentnavn']
-    if c_fagfelt != fs_fagfelt:
-        logger.debug("For %s, added fagfelt: %s", fnr, fs_fagfelt)
-        person.populate_trait(co.trait_fagomrade_fagfelt, date=now,
-                              strval=fs_fagfelt)
-    if c_instrument != fs_instrument:
-        logger.debug("For %s, added instrument: %s", fnr, fs_instrument)
-        person.populate_trait(co.trait_fagomrade_instrument, date=now,
-                              strval=fs_instrument)
+    fagfelt_trait = person.get_trait(trait=co.trait_fagomrade_fagfelt)
+    fagfelt = []
+
+    # Extract fagfelt from any fagperson rows
+    if 'fagperson' in person_info:
+        fagfelt = [data.get('fagfelt') for data in person_info['fagperson']
+                   if data.get('fagfelt') is not None]
+        # Sort alphabetically as the rows are returned in random order
+        fagfelt.sort()
+
+    if fagfelt_trait and not fagfelt:
+        logger.debug('Removing fagfelt for %s', fnr)
+        person.delete_trait(code=co.trait_fagomrade_fagfelt)
+    elif fagfelt:
+        logger.debug('Populating fagfelt for %s', fnr)
+        person.populate_trait(
+            code=co.trait_fagomrade_fagfelt,
+            date=mx.DateTime.now(),
+            strval=pickle.dumps(fagfelt))
+
     person.write_db()
+
 
 def main():
     global verbose, ou, logger, fnr2person_id, gen_groups, group

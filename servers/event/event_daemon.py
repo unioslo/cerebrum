@@ -124,6 +124,7 @@ def main():
 
     # Import the event handeler we need to use
     event_handler_class = dyn_import(conf['event_handler_class'])
+    logger.debug("Event_handler_class: %s", event_handler_class)
     
     # Define the queue of events to be processed.
     # We look for classes that we can import dynamically, but if that is not

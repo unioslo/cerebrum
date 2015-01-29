@@ -442,7 +442,8 @@ class ADuserUtil(ADutil):
                 else:
                     tmp = self.get_default_ou(cerebrumusrs[usr])
                     ou = tmp
-                if adusrs[usr]['distinguishedName'] != 'CN=%s,%s' % (usr, ou):
+                dn = 'cn=%s,%s' % (usr, ou)
+                if adusrs[usr]['distinguishedName'].lower() != dn.lower():
                     changes['type'] = 'move_object'
                     changes['OU'] = ou
                     changes['distinguishedName'] = \

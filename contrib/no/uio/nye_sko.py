@@ -139,4 +139,3 @@ if not fac:
 
 reorganise_users(fac, inst, aff, persaff)
 
-# arch-tag: a906182f-560e-446e-b4c4-61dfbcdacca8

@@ -118,4 +118,3 @@ def _unhandledExceptionString(exceptiontuple):
 
 handle_request()
 
-# arch-tag: f9af137d-5f65-4c5b-82bc-5e0a05efb027

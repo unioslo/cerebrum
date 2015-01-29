@@ -247,20 +247,24 @@ def rem_old_aff():
             continue
         aff = aff[0]
 
-        # Check date, do not remove affiliation until last_date has not been
-        # updated in the last 365 days. Only EVU affs should be removed at once.
-        if (int(aff['status']) == int(co.affiliation_status_student_evu) or
-                aff['last_date'] < (mx.DateTime.now() - 365)):
-            person.clear()
-            try:
-                person.find(ent_id)
-            except Errors.NotFoundError:
-                logger.warn("Couldn't find person with id %s", ent_id)
-                continue
-            logger.info("Removing aff %s for person=%s. OU_id=%s",
-                        co.PersonAffiliation(affi), ent_id, ou)
-            person.delete_affiliation(ou_id=ou, affiliation=affi,
-                                      source=co.system_fs)
+        # Check date, do not remove affiliation for active students until end of
+        # grace period. EVU affiliations should be removed at once.
+        grace_days = cereconf.FS_STUDENT_REMOVE_AFF_GRACE_DAYS
+        if (aff['last_date'] > (mx.DateTime.now() - grace_days) and
+              int(aff['status']) != int(co.affiliation_status_student_evu)):
+            logger.info("Too fresh aff for person %s, skipping", ent_id)
+            continue
+
+        person.clear()
+        try:
+            person.find(ent_id)
+        except Errors.NotFoundError:
+            logger.warn("Couldn't find person_id:%s, not removing aff", ent_id)
+            continue
+        logger.info("Removing aff %s for person=%s, at ou_id=%s",
+                    co.PersonAffiliation(affi), ent_id, ou)
+        person.delete_affiliation(ou_id=ou, affiliation=affi,
+                                  source=co.system_fs)
 
 def filter_affiliations(affiliations):
     """The affiliation list with cols (ou, affiliation, status) may
@@ -502,7 +506,14 @@ def process_person_callback(person_info):
             new_person.populate_address(co.system_fs, ad_const, **address_info)
     # if this is a new Person, there is no entity_id assigned to it
     # until written to the database.
-    op = new_person.write_db()
+    try:
+        op = new_person.write_db()
+    except Exception, e:
+        logger.exception("write_db failed for person %s: %s", fnr, e)
+        # Roll back in case of db exceptions:
+        db.rollback()
+        return
+
     for a in filter_affiliations(affiliations):
         ou, aff, aff_status = a
         new_person.populate_affiliation(co.system_fs, ou, aff, aff_status)
@@ -653,4 +664,3 @@ def main():
 if __name__ == '__main__':
     main()
 
-# arch-tag: ff3b202c-7ed2-4744-ac53-cad23a8adeeb

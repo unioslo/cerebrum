@@ -111,13 +111,13 @@ class BofhdUtils(object):
         """
         ac = Factory.get('Account')(self.db)
         ac.find_by_name(guest)
-        trait = ac.get_trait(self.co.trait_guest_owner)
+        trait = ac.get_trait(self.co.trait_uio_guest_owner)
         if trait is None:
             raise GuestAccountException("%s is not a guest" % guest)
         elif trait['target_id'] is None:
             raise GuestAccountException("%s is already available" % guest)
         # Remove owner, i.e set owner_trait to None
-        ac.populate_trait(self.co.trait_guest_owner, target_id=None)
+        ac.populate_trait(self.co.trait_uio_guest_owner, target_id=None)
         self.logger.debug("Removed owner_id in owner_trait for %s" % guest)
         # Remove quarantine set by _alloc_guest and set a new
         # quarantine that kicks in now.
@@ -151,7 +151,7 @@ class BofhdUtils(object):
         """
         ac = Factory.get('Account')(self.db)    
         ac.find_by_name(guestname)
-        owner = ac.get_trait(self.co.trait_guest_owner)
+        owner = ac.get_trait(self.co.trait_uio_guest_owner)
         if not owner:
             raise Errors.NotFoundError("Not a guest account.")
         if not owner['target_id']:
@@ -189,7 +189,7 @@ class BofhdUtils(object):
         quarantined_guests = [q['entity_id'] for q in ac.list_entity_quarantines(
             quarantine_types=self.co.quarantine_guest_release)]
 
-        for row in ac.list_traits(self.co.trait_guest_owner,
+        for row in ac.list_traits(self.co.trait_uio_guest_owner,
                                   target_id=owner_id, return_name=True):
             # If prefix is given, only return guests with this prefix
             if prefix and prefix != row['name'].rstrip("0123456789"):
@@ -229,7 +229,7 @@ class BofhdUtils(object):
             quarantine_types=self.co.quarantine_guest_release, only_active=True)])
         pending_quarantines = set(quarantined_guests.keys()) - active_quarantines
         
-        for row in ac.list_traits(self.co.trait_guest_owner, return_name=True):
+        for row in ac.list_traits(self.co.trait_uio_guest_owner, return_name=True):
             e_id = int(row['entity_id'])
             owner_id = row['target_id'] and int(row['target_id']) or None
             uname = row['name']
@@ -312,7 +312,7 @@ class BofhdUtils(object):
         self.logger.debug("Try to alloc %s" % guest)
         ac.clear()
         ac.find_by_name(guest)
-        if ac.get_trait(self.co.trait_guest_owner)['target_id']:
+        if ac.get_trait(self.co.trait_uio_guest_owner)['target_id']:
             raise GuestAccountException("Guest user %s not available." % guest)
         if ac.get_entity_quarantine(self.co.quarantine_guest_release):
             # This should only happen if someone meddles manually
@@ -326,7 +326,7 @@ class BofhdUtils(object):
         self.logger.debug("Set owner_id in owner_trait for %s" % guest)
         if comment == '':
             comment = None
-        ac.populate_trait(self.co.trait_guest_owner, target_id=owner_id,
+        ac.populate_trait(self.co.trait_uio_guest_owner, target_id=owner_id,
                           strval=comment)
         ac.write_db()
         # Password

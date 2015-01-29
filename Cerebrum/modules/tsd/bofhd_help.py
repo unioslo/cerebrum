@@ -110,4 +110,7 @@ arg_help.update({
   - 'name'
   - 'date' of birth, on format YYYY-MM-DD
   - 'stedkode' - Use project-ID"""],
+    'otp_type':
+        ['otp_type', 'OTP type',
+         'The OTP type, e.g. totp, hotp or smartphone_yes'],
 })

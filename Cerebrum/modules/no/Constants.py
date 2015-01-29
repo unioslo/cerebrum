@@ -41,70 +41,93 @@ from Cerebrum.modules.EntityTrait import \
 
 class ConstantsActiveDirectory(Constants.Constants):
 
-    """AD constants for the old AD-sync. Should be removed when everyone has
-    migrated to the AD sync from 2013."""
+    """ AD constants for the old AD-sync.
+
+    Should be removed when everyone has migrated to the AD sync from 2013.
+
+    """
+
     # FIXME: This Constants-class will eventually be moved to an AD-modul.
     # Jazz, 2009-03-18
     system_ad = _AuthoritativeSystemCode(
-        'AD',
-        'Information from Active Directory')
-    externalid_groupsid = _EntityExternalIdCode('AD_GRPSID',
-                                                Constants.Constants.entity_group,
-                                                "Group's SID, fetched from Active Directory")
-    externalid_accountsid = _EntityExternalIdCode('AD_ACCSID',
-                                                  Constants.Constants.entity_account,
-                                                  "Account's SID, fetched from Active Directory")
+        'AD', 'Information from Active Directory')
+
+    externalid_groupsid = _EntityExternalIdCode(
+        'AD_GRPSID', Constants.Constants.entity_group,
+        "Group's SID, fetched from Active Directory")
+    externalid_accountsid = _EntityExternalIdCode(
+        'AD_ACCSID', Constants.Constants.entity_account,
+        "Account's SID, fetched from Active Directory")
     trait_exchange_mdb = _EntityTraitCode(
         'exchange_mdb', Constants.Constants.entity_account,
         "The assigned mailbox-database in Exchange for the given account.")
 
 
 class ConstantsCommon(Constants.Constants):
+    """ Constants that every instance should have. """
+
+    """ Common constants for all Norwegian installations. """
 
     # external id definitions (NO_NIN, norwegian national id number)
-    externalid_fodselsnr = _EntityExternalIdCode('NO_BIRTHNO',
-                                                 Constants.Constants.entity_person,
-                                                 'Norwegian national ID number')
-    system_override = _AuthoritativeSystemCode('Override',
-                                               'Override information fetched from authoritative systems')
+    externalid_fodselsnr = _EntityExternalIdCode(
+        'NO_BIRTHNO', Constants.Constants.entity_person,
+        'Norwegian national ID number')
 
-    spread_ou_publishable = _SpreadCode('publishable_ou',
-                                        Constants.Constants.entity_ou,
-                                        'OUs publishable in online directories')
+    # External IDs related to A-melding.
+    externalid_pass_number = _EntityExternalIdCode(
+        'PASSNR', Constants.Constants.entity_person,
+        "A persons passport number")
 
-    quarantine_autopassord = _QuarantineCode('autopassord',
-                                             'Passord ikke skiftet trass pålegg')
+    externalid_social_security_number = _EntityExternalIdCode(
+        'SSN', Constants.Constants.entity_person,
+        "A persons social security number")
 
-    quarantine_svakt_passord = _QuarantineCode('svakt_passord',
-                                               'For dårlig passord')
+    externalid_tax_identification_number = _EntityExternalIdCode(
+        'TIN', Constants.Constants.entity_person,
+        "A persons tax identification number")
+
+    externalid_value_added_tax_number = _EntityExternalIdCode(
+        'VAT', Constants.Constants.entity_person,
+        "A persons value added tax identification number")
+
+    system_override = _AuthoritativeSystemCode(
+        'Override', 'Override information fetched from authoritative systems')
+
+    spread_ou_publishable = _SpreadCode(
+        'publishable_ou', Constants.Constants.entity_ou,
+        'OUs publishable in online directories')
+
+    quarantine_autopassord = _QuarantineCode(
+        'autopassord', 'Passord ikke skiftet trass pålegg')
+
+    quarantine_svakt_passord = _QuarantineCode(
+        'svakt_passord', 'For dårlig passord')
 
     trait_auto_group = _EntityTraitCode(
-        'auto_group',
-        Constants.Constants.entity_group,
+        'auto_group', Constants.Constants.entity_group,
         "Trait marking automatically administered groups with person members.")
 
     trait_auto_meta_group = _EntityTraitCode(
-        'auto_meta_group',
-        Constants.Constants.entity_group,
+        'auto_meta_group', Constants.Constants.entity_group,
         "Trait marking automatically administered groups with group members.")
 
     trait_personal_dfg = _EntityTraitCode(
-        'personal_group',
-        Constants.Constants.entity_group,
+        'personal_group', Constants.Constants.entity_group,
         "Group is a personal file group.")
 
     trait_group_entitlement = _EntityTraitCode(
-        'entitlement',
-        Constants.Constants.entity_group,
+        'entitlement', Constants.Constants.entity_group,
         "Trait listing entitlement that members of this group have")
-    
+
     # Traits for the password service (Individuation)
     trait_password_token = _EntityTraitCode(
         "password_token", Constants.Constants.entity_account,
         "Store a one time password for an account")
+
     trait_browser_token = _EntityTraitCode(
         "browser_token", Constants.Constants.entity_account,
         "Store a browser token for an account")
+
     trait_password_failed_attempts = _EntityTraitCode(
         "passw_attempts", Constants.Constants.entity_account,
         "Number of times an account has tried to use sms password service")
@@ -114,6 +137,7 @@ class ConstantsCommon(Constants.Constants):
     trait_reservation_sms_password = _EntityTraitCode(
         'reserve_passw', Constants.Constants.entity_account,
         "Reserving account from using the forgotten password service (SMS)")
+
     # Trait for reservation from being published at the web
     # TODO: should be replaced by a reservation table later
     trait_public_reservation = _EntityTraitCode(
@@ -138,15 +162,6 @@ class ConstantsCommon(Constants.Constants):
         'new_student', Constants.Constants.entity_account,
         "If the student account is newly created or restored")
 
-    # Traits for guest accounts:
-    trait_guest_owner = _EntityTraitCode(
-        'guest_owner', Constants.Constants.entity_account,
-        "Trait for registering the entity that is responsible for the guest "
-        "account.")
-    trait_guest_name = _EntityTraitCode(
-        'guest_name', Constants.Constants.entity_account,
-        "The full name of the guest that should have the guest accounts.")
-
     # Traits for SAP medarbeidergrupper
     trait_sap_mg = _EntityTraitCode(
         'sap_mg', Constants.Constants.entity_account,
@@ -155,6 +170,10 @@ class ConstantsCommon(Constants.Constants):
         'sap_mug', Constants.Constants.entity_account,
         "MUG from SAP - medarbeiderundergruppe")
 
+    # Quarantine to be set automatically when cleaning up in persons that are no
+    # longer affiliated with the instance
+    quarantine_auto_no_aff = _QuarantineCode('auto_no_aff',
+                                            'Ikke tilknyttet person, utestengt')
 
 class ConstantsHigherEdu(Constants.Constants):
 
@@ -164,23 +183,25 @@ class ConstantsHigherEdu(Constants.Constants):
     system_sap = _AuthoritativeSystemCode('SAP', 'SAP')
 
     # external id definitions (student and employee id)
-    externalid_studentnr = _EntityExternalIdCode('NO_STUDNO',
-                                                 Constants.Constants.entity_person,
-                                                 'Student ID number')
-    externalid_sap_ansattnr = _EntityExternalIdCode('NO_SAPNO',
-                                                    Constants.Constants.entity_person,
-                                                    'Employee ID number')
+    externalid_studentnr = _EntityExternalIdCode(
+        'NO_STUDNO', Constants.Constants.entity_person,
+        'Student ID number')
 
-    externalid_sap_ou = _EntityExternalIdCode("SAP_OU_ID",
-                                              Constants.Constants.entity_ou,
-                                              'SAP OU identification')
+    externalid_sap_ansattnr = _EntityExternalIdCode(
+        'NO_SAPNO', Constants.Constants.entity_person,
+        'Employee ID number')
 
-    externalid_uname = _EntityExternalIdCode('UNAME',
-                                             Constants.Constants.entity_person,
-                                             'User name (external system)')
-    externalid_stedkode = _EntityExternalIdCode('STEDKODE',
-                                                Constants.Constants.entity_ou,
-                                                'Stedkode')
+    externalid_sap_ou = _EntityExternalIdCode(
+        "SAP_OU_ID", Constants.Constants.entity_ou,
+        'SAP OU identification')
+
+    externalid_uname = _EntityExternalIdCode(
+        'UNAME', Constants.Constants.entity_person,
+        'User name (external system)')
+
+    externalid_stedkode = _EntityExternalIdCode(
+        'STEDKODE', Constants.Constants.entity_ou,
+        'Stedkode')
 
     # OU-structure perspectives
     perspective_fs = _OUPerspectiveCode('FS', 'FS')
@@ -230,8 +251,8 @@ class ConstantsUniversityColleges(Constants.Constants):
                                              'Manually added information')
 
     # Affiliation for associated people
-    affiliation_tilknyttet = _PersonAffiliationCode('TILKNYTTET',
-                                                    'Assosiert, reg. i kildesystem')
+    affiliation_tilknyttet = _PersonAffiliationCode(
+        'TILKNYTTET', 'Assosiert, reg. i kildesystem')
     affiliation_status_tilknyttet_fagperson = _PersonAffStatusCode(
         affiliation_tilknyttet,
         'fagperson',
@@ -265,29 +286,30 @@ class ConstantsUniversityColleges(Constants.Constants):
         affiliation_tilknyttet,
         'fperson',
         'Dummy, do not use')
-    # quarantine definitions
-    quarantine_generell = _QuarantineCode('generell',
-                                          'Generell sperring')
-    quarantine_teppe = _QuarantineCode('teppe',
-                                       'Kalt inn til samtale')
-    quarantine_auto_emailonly = _QuarantineCode('kunepost',
-                                                'Ikke ordinær student, tilgang til bare e-post')
 
-    quarantine_system = _QuarantineCode('system',
-                                        'Systembruker som ikke skal logge inn')
+    # quarantine definitions
+    quarantine_generell = _QuarantineCode(
+        'generell', 'Generell sperring')
+    quarantine_teppe = _QuarantineCode(
+        'teppe', 'Kalt inn til samtale')
+    quarantine_auto_emailonly = _QuarantineCode(
+        'kunepost', 'Ikke ordinær student, tilgang til bare e-post')
+
+    quarantine_system = _QuarantineCode(
+        'system', 'Systembruker som ikke skal logge inn')
+
     # Cerebrum (internal), used by automagic only
-    quarantine_auto_inaktiv = _QuarantineCode('auto_inaktiv',
-                                              'Ikke aktiv student, utestengt')
-    quarantine_autoemailonly = _QuarantineCode('auto_kunepost',
-                                               'Privatist, kun tilgang til e-post')
-    quarantine_ou_notvalid = _QuarantineCode('ou_notvalid',
-                                             'Sted ugyldig i autoritativ kildesystem')
-    quarantine_ou_remove = _QuarantineCode('ou_remove',
-                                           'Sted fjernet fra autoritativ kildesystem')
-    quarantine_guest_old = _QuarantineCode('guest_old',
-                                           'Old guest accounts are automatically quarantined')
-    quarantine_auto_no_aff = _QuarantineCode('auto_no_aff',
-                                             'Ikke tilknyttet person, utestengt')
+    quarantine_auto_inaktiv = _QuarantineCode(
+        'auto_inaktiv', 'Ikke aktiv student, utestengt')
+
+    quarantine_autoemailonly = _QuarantineCode(
+        'auto_kunepost', 'Privatist, kun tilgang til e-post')
+
+    quarantine_ou_notvalid = _QuarantineCode(
+        'ou_notvalid', 'Sted ugyldig i autoritativ kildesystem')
+
+    quarantine_ou_remove = _QuarantineCode(
+        'ou_remove', 'Sted fjernet fra autoritativ kildesystem')
 
     # Non-personal account codes
     account_test = _AccountCode('testbruker', 'Testkonto')
@@ -297,23 +319,23 @@ class ConstantsUniversityColleges(Constants.Constants):
         'Studentorganisasjonsbruker')
     account_felles = _AccountCode('fellesbruker', 'Fellesbruker')
     account_system = _AccountCode('systembruker', 'Systembruker')
-    account_guest = _AccountCode('gjestebruker', 'Gjestekonto')
 
     # SAP name constants
     name_middle = _PersonNameCode('MIDDLE', 'Mellomnavn')
     name_initials = _PersonNameCode('INITIALS', 'Initialer')
 
     # SAP comm. constants
-    contact_phone_cellular = _ContactInfoCode("CELLPHONE",
-                                              "Mobiltelefonnr")
+    contact_phone_cellular = _ContactInfoCode(
+        "CELLPHONE", "Mobiltelefonnr")
+
     contact_phone_cellular_private = _ContactInfoCode(
-        "PRIVCELLPHONE",
-        "Privat mobiltefonnr")
+        "PRIVCELLPHONE", "Privat mobiltefonnr")
 
     # Spread definitions - user related
     spread_ldap_account = _SpreadCode(
         'account@ldap', Constants.Constants.entity_account,
         'Brukeren kjent i LDAP (FEIDE)')
+
     spread_lms_account = _SpreadCode(
         'account@lms', Constants.Constants.entity_account,
         'Brukeren kjent i LMSen')
@@ -327,6 +349,7 @@ class ConstantsUniversityColleges(Constants.Constants):
     spread_ldap_person = _SpreadCode(
         'person@ldap', Constants.Constants.entity_person,
         'Person kjent i organisasjonstreet (FEIDE-person)')
+
     spread_lms_person = _SpreadCode(
         'person@lms', Constants.Constants.entity_person,
         'Person kjent i organisasjonens LMS')
@@ -349,7 +372,7 @@ class ConstantsUniversityColleges(Constants.Constants):
 
 class SAPStillingsTypeKode(Constants._CerebrumCode):
 
-    "This class represents HOVEDSTILLING, BISTILLING codes."
+    """ This class represents HOVEDSTILLING, BISTILLING codes. """
 
     _lookup_table = "[:table schema=cerebrum name=sap_stillingstype]"
 # end SAPStillingsType
@@ -357,9 +380,7 @@ class SAPStillingsTypeKode(Constants._CerebrumCode):
 
 class SAPLonnsTittelKode(Constants._CerebrumCode):
 
-    """
-    This class represents lonnstittel (SAP.STELL) codes.
-    """
+    """ This class represents lonnstittel (SAP.STELL) codes. """
 
     _lookup_table = "[:table schema=cerebrum name=sap_lonnstittel]"
 
@@ -403,15 +424,15 @@ class SAPLonnsTittelKode(Constants._CerebrumCode):
 
 class SAPCommonConstants(Constants.Constants):
 
-    """This class embodies all constants common to Cerebrum installations with
-    SAP"""
+    """ Common SAP Constants.
+
+    This class embodies all constants common to Cerebrum installations with
+    SAP.
+
+    """
 
     sap_hovedstilling = SAPStillingsTypeKode(
-        "H",
-        "Hovedstilling"
-    )
+        "H", "Hovedstilling")
 
     sap_bistilling = SAPStillingsTypeKode(
-        "B",
-        "Bistilling"
-    )
+        "B", "Bistilling")

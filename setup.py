@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2002-2011 University of Oslo, Norway
 #
@@ -28,7 +28,7 @@ NOTE: At least while developing, I recommend using "--prefix
 otherwise noted.
 
 /
-  README:       usr/share/cerebrum/doc/
+  README.md:       usr/share/cerebrum/doc/
   COPYING:      usr/share/cerebrum/doc/
 
 Cerebrum/
@@ -82,6 +82,9 @@ Other directories/files:
   usr/share/cerebrum/data:
     A number of subdirectories for various backends
 
+TODO:
+  comment on template config files (logging.ini, config.dat, cereconf.py)
+
 To install python modules in standard locations, and cerebrum files
 under /cerebrum, run like:
  python setup.py install install_data --install-dir=/cerebrum
@@ -97,7 +100,6 @@ import os
 import sys
 import pwd
 from glob import glob
-from types import StringType
 
 from distutils import sysconfig
 from distutils.command import install_data
@@ -114,6 +116,25 @@ install_servers = True
 #
 cerebrum_user = "cerebrum"
 
+#
+# Install directory structure, or,
+# where things should be located, Relative to --prefix or root
+#
+prefix = './'  # Is this 'safeguard' really neccessary?
+sharedir = prefix + 'share'
+sbindir = prefix + 'sbin'
+bindir = prefix + 'bin'
+sysconfdir = prefix + os.path.join('etc', 'cerebrum')
+logdir = prefix + os.path.join('var', 'log', 'cerebrum')
+
+#
+# Files that never should overwite installed versions.
+# Example: Template config files, like cereconf.py, logging.ini
+#
+do_not_replace = ('design/cereconf.py',
+                  'servers/bofhd/config.dat',
+                  'design/logging.ini', )
+
 
 class my_install_data (install_data.install_data, object):
 
@@ -129,18 +150,37 @@ class my_install_data (install_data.install_data, object):
         """
         super(my_install_data, self).finalize_options()
 
-        # Wildcard lookup
-        for f in self.data_files:
-            if type(f) != StringType:
-                files = f[1]
-                i = 0
-                while i < len(files):
-                    if files[i][0].find('*') > -1:
-                        for e in glob(files[i][0]):
-                            files.append((e, files[i][1]))
-                        files.pop(i)
-                        i -= 1
-                    i += 1
+        # Wildcard lookup.
+        #
+        # We remove filenames with '*', and expand to (and add) all files that
+        # match the pattern.
+        #
+        # ldata - the location-dict from data_files
+        # fdata - the (filename, mode) tuple from data_files
+        #
+        for ldata, fdata in self.data_files:
+            i = 0
+            while i < len(fdata):
+                if fdata[i][0].find('*') > -1:
+                    for e in glob(fdata[i][0]):
+                        fdata.append((e, fdata[i][1]))
+                    fdata.pop(i)
+                    i -= 1
+                i += 1
+
+        # Remove files from data_files already exists in the target location,
+        # and are in the `do_not_replace' list.
+        for ldata, fdata in self.data_files:
+            path = os.path.realpath(os.path.join(self.install_dir,
+                                                 ldata.get('path')))
+            for fn, mode in fdata[:]:
+                # We iterate through a copy, so that fdata.remove() won't break
+                # the loop
+                if fn in do_not_replace and os.path.exists(
+                        os.path.join(path, os.path.basename(fn))):
+                    print "Ignoring '%s', already exists in '%s'" % (
+                        fn, path)
+                    fdata.remove((fn, mode))
 
         # cerebrum_path.py.in -> cerebrum_path.py
         # TODO/FIXME: We should do this smarter. If sysconfig.get_python_lib()
@@ -204,18 +244,15 @@ class my_install_data (install_data.install_data, object):
                     if(os.geteuid() == 0):
                         os.chown(out, uid, gid)
 
-# Where things should be located, Relative to --prefix or root
-prefix = './'  # Is this 'safeguard' really neccessary?
-sharedir = prefix + 'share'
-sbindir = prefix + 'sbin'
-bindir = prefix + 'bin'
-sysconfdir = prefix + os.path.join('etc', 'cerebrum')
-logdir = prefix + os.path.join('var', 'log', 'cerebrum')
 
+#
+# Files to install
+#
 sbin_files = [
     ('servers/job_runner/job_runner.py', 0755),
     ('makedb.py', 0755)
 ]
+
 if (install_servers):
     sbin_files.append(('servers/bofhd/bofhd.py', 0755))
     sbin_files.append(('servers/event/event_daemon.py', 0755))
@@ -224,6 +261,7 @@ if (install_servers):
     sbin_files.append(('servers/cis/SoapGroupServer.py', 0755))
     sbin_files.append(('servers/cis/SoapGroupPublish.py', 0755))
     sbin_files.append(('servers/cis/SoapVirthomeServer.py', 0755))
+    sbin_files.append(('servers/cis/SoapServer.py', 0755))
 
 bin_files = []
 
@@ -240,7 +278,7 @@ data_files = [
      [('design/cerebrum-core.dia', 0644),
       ('design/cerebrum-core.html', 0644),
       ('design/adminprotocol.html', 0644),
-      ('README', 0644),
+      ('README.md', 0644),
       ('COPYING', 0644), ]),
     ({'path': sbindir,
       'owner': cerebrum_user,
@@ -395,6 +433,7 @@ setup(name="Cerebrum", version=Cerebrum.__version__,
                   'Cerebrum/modules/exchange/v2013',
                   'Cerebrum/modules/hostpolicy',
                   'Cerebrum/modules/bofhd',
+                  'Cerebrum/modules/guest',
                   'Cerebrum/modules/job_runner',
                   'Cerebrum/modules/no',
                   'Cerebrum/modules/no/Indigo',
@@ -403,7 +442,6 @@ setup(name="Cerebrum", version=Cerebrum.__version__,
                   'Cerebrum/modules/no/uio/voip',
                   'Cerebrum/modules/no/uio/AutoStud',
                   'Cerebrum/modules/no/hia',
-                  'Cerebrum/modules/no/hia/templates',
                   'Cerebrum/modules/no/hih',
                   'Cerebrum/modules/no/hiof',
                   'Cerebrum/modules/no/nmh',
@@ -436,3 +474,6 @@ setup(name="Cerebrum", version=Cerebrum.__version__,
       # Overridden command classes
       cmdclass={'install_data': my_install_data, },
       )
+
+setup(name='SoapAPI', packages = ['SoapAPI'])
+setup(name='ClientAPI', packages = ['ClientAPI'])

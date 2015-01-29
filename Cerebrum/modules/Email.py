@@ -1609,13 +1609,13 @@ class EmailTargetFilter(EmailTarget):
         self._db.log_change(self.entity_id,
                             self.const.email_tfilter_rem,
                             None,
-                            change_params={'filter': filter})
+                            change_params={'filter': int(filter)})
         return self.execute("""
         DELETE FROM [:table schema=cerebrum name=email_target_filter]
         WHERE target_id=:t_id AND filter=:filter""",
                             {'t_id': self.entity_id,
                              'filter': filter})
-            
+
     def list_email_target_filter(self, target_id=None, filter=None):
         """List all registered email_target_filters, filtered on target_id
         and/or filter_type."""
@@ -1845,16 +1845,24 @@ class EmailVirusScan(EmailTarget):
              [:table schema=cerebrum name=email_virus_removed_code] r
         WHERE s.found_action = f.code AND s.rem_action = r.code""")
 
+
 class EmailForward(EmailTarget):
 
+    """Forwarding addresses attached to EmailTargets."""
+
     def add_forward(self, forward, enable=True):
+        """Add a forwarding address to an EmailTarget.
+
+        :param str forward: The address to forward to.
+        :param bool enable: Enable or disable this forward.
+        """
         enable = 'F'
         if enable:
             enable = 'T'
-       # exchange-relevant-jazz
+        # exchange-relevant-jazz
         self._db.log_change(self.entity_id,
-                            self.const.email_forward_add, 
-                            self.entity_id,
+                            self.const.email_forward_add,
+                            None,
                             change_params={'forward': forward,
                                            'enable': enable})
         return self.execute("""
@@ -1863,8 +1871,18 @@ class EmailForward(EmailTarget):
         VALUES (:t_id, :forward, :enable)""", {'t_id': self.entity_id,
                                                'forward': forward,
                                                'enable': enable})
- 
+
     def _set_forward_enable(self, forward, enable):
+        if enable == 'F':
+            cat = self.const.email_forward_disable
+        else:
+            cat = self.const.email_forward_enable
+        # exchange-relevant-jazz
+        self._db.log_change(self.entity_id,
+                            cat,
+                            None,
+                            change_params={'forward': forward})
+
         return self.execute("""
         UPDATE [:table schema=cerebrum name=email_forward]
         SET enable=:enable
@@ -1872,32 +1890,36 @@ class EmailForward(EmailTarget):
               forward_to = :fwd""", {'enable': enable,
                                      'fwd': forward,
                                      't_id': self.entity_id})
-        if enable == 'F':
-            cat = const.email_forward_disable
-        else:
-            cat = const.email_forward_enable
-        # exchange-relevant-jazz
-        self._db.log_change(self.target_id,
-                            cat, 
-                            self.entity_id,
-                            change_params={'forward': forward})
 
     def enable_forward(self, forward):
+        """Enable forwarding to a specific (existing) address.
+
+        :param str forward: The address to enable forward for.
+        """
         return self._set_forward_enable(forward, 'T')
 
     def disable_forward(self, forward):
+        """Disable forwarding to a specific (existing) address.
+
+        :param str forward: The address to disable forwarding for.
+        """
         return self._set_forward_enable(forward, 'F')
 
     def get_forward(self):
+        """Fetch all forwards attached to the EmailTarget."""
         return self.query("""
         SELECT forward_to, enable
         FROM [:table schema=cerebrum name=email_forward]
         WHERE target_id=:t_id""", {'t_id': self.entity_id})
 
     def delete_forward(self, forward):
+        """Delete the forwarding address associated with this EmailTarget.
+
+        :param str forward: The forwarding address to delete.
+        """
         # exchange-relevant-jazz
         self._db.log_change(self.entity_id,
-                            self.const.email_forward_rem, 
+                            self.const.email_forward_rem,
                             None,
                             change_params={'forward': forward})
         return self.execute("""
@@ -1907,6 +1929,7 @@ class EmailForward(EmailTarget):
                              'forward': forward})
 
     def list_email_forwards(self):
+        """List all existing forwards."""
         return self.query("""
         SELECT target_id, forward_to, enable
         FROM [:table schema=cerebrum name=email_forward]
@@ -2053,7 +2076,7 @@ class EmailPrimaryAddressTarget(EmailTarget):
                             None,
                             change_params={'addr_id': 
                                            self.email_primaddr_id})
-        ret = self.execute("""
+        return self.execute("""
         DELETE FROM [:table schema=cerebrum name=email_primary_address]
         WHERE target_id=:e_id""", {'e_id': self.entity_id})
 
@@ -2859,4 +2882,3 @@ class PersonEmailMixin(Person.Person):
                 ed.rewrite_special_domains(row['domain'])))
         return ret
 
-# arch-tag: f323adc6-a14f-441c-ab1d-ab203065cae8

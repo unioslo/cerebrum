@@ -118,13 +118,16 @@ class QuarantineHandler(object):
     def _get_matches(self):
         ret = []
         for q in self.quarantines:
-            spread2settings = self.qc2rules[int(q)]
+            try:
+                spread2settings = self.qc2rules[int(q)]
+            except KeyError:
+                continue
             # Note that for each spread, we only extract the first
             # matching setting.  Otherwise it would not be possible to
             # have a quarantine that did not lock the account for a
             # specific spread.
             for spread in self.spreads:
-                if spread2settings.has_key(spread):
+                if spread in spread2settings:
                     ret.append((spread2settings[spread], int(q)))
                     break
         if self._explicit_sort:
@@ -148,8 +151,6 @@ class QuarantineHandler(object):
 
     def is_locked(self):
         """The account should be known, but the account locked"""
-        # Note that if any matching quaratine specifies lock, lock
-        # will be used.
         for m in self._get_matches():
             if m.get('lock', 0):
                 return 1
@@ -204,4 +205,3 @@ def _test():
 if __name__ == '__main__':
     _test()
 
-# arch-tag: cfaaa1c8-a42d-4205-bb13-51dd9954ca8e

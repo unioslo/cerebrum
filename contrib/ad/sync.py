@@ -67,6 +67,11 @@ def usage(exitcode=0):
                     or not. It could be set to any string, but it MUST be
                     different for each sync!
 
+    --change-ids ID Run the quicksync only for a certain change-log event. The
+                    ID(s) must refer to change-log-IDs, which are then processed
+                    as in the quicksync. This is typically for password changes.
+                    The ID could be a comma separated list of IDs.
+
     -d, --dryrun    Do not write changes back to AD, but log them. Usable for
                     testing. Note that the sync is still reading data from AD.
 
@@ -149,7 +154,7 @@ def usage(exitcode=0):
     TODO: Old options, check if we should use any of these later:
 
           --forward-sync: sync forward addresses to AD and Exchange
-          --sec-group-sync: sync security groups to AD 
+          --sec-group-sync: sync security groups to AD
           --dist-group-sync: sync distribution groups to AD and Exchange
           --exchange-sync: Only sync to exhange if exchange-sync is set
           --sec-group-spread SPREAD: overrides spread from cereconf
@@ -169,6 +174,7 @@ def main():
                                     "dryrun",
                                     "debug",
                                     "quick=",
+                                    "change-ids=",
                                     "set=",
                                     "unencrypted",
                                     "dump-cerebrum-data",
@@ -195,6 +201,7 @@ def main():
     sync_classes = []
     # If we should do the quicksync instead of fullsync:
     quicksync = False
+    change_ids = []
     debug = dump_cerebrum_data = dump_diff = False
 
     # The configuration for the sync
@@ -227,6 +234,8 @@ def main():
         elif opt == '--set':
             key, value = val.split('=', 1)
             configuration[key] = value
+        elif opt == '--change-ids':
+            change_ids.extend(int(v) for v in val.split(','))
         elif opt == '--quick':
             quicksync = val
         elif opt == '--debug':
@@ -272,7 +281,9 @@ def main():
         return
 
     try:
-        if quicksync:
+        if change_ids:
+            sync.quicksync(change_ids=change_ids)
+        elif quicksync:
             sync.quicksync(quicksync)
         else:
             sync.fullsync()

@@ -18,9 +18,6 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
-/* SQL script for migrating mod_dns 1.3 to 1.4 */
-
-
 category:drop;
 DROP TABLE dns_ipv6_subnet;
 

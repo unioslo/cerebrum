@@ -62,6 +62,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         self._name_info = {}
 
     def delete(self):
+        """ Actually delete the entity. """
         # Remove person from person_name, person_affiliation,
         # person_affiliation_source, person_info. Super will remove
         # the entity from the mix-in classes
@@ -133,13 +134,16 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         return identical
 
     def write_db(self):
-        """Sync instance with Cerebrum database.
+        """ Sync instance with Cerebrum database.
 
         After an instance's attributes has been set using .populate(),
         this method syncs the instance with the Cerebrum database.
 
         If you want to populate instances with data found in the
         Cerebrum database, use the .find() method.
+
+        :returns: Some convoluted logic that is supposed to indicate what has
+                  changed.
 
         """
         self.__super.write_db()
@@ -202,32 +206,32 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             pop_affil = self.__affil_data
             for prim in pop_affil.keys():
                 idx = "%s:%d" % (prim, pop_affil[prim])
-                if db_affil.has_key(idx):
-                    # this affiliation, including status, exists in the
-                    # database already, but we may have to resurrect it
-                    # if it's deleted.
-                    if db_affil[idx] is not None:
-                        ou_id, affil, status = [int(x) for x in idx.split(":")]
-                        self.add_affiliation(ou_id, affil, source, status)
+                if idx in db_affil:
+                    # This affiliation, including status, exists in the
+                    # database already:
+                    #   - If deleted: ressurect
+                    #   - If not deleted: Update last_date.
+                    ou_id, affil, status = [int(x) for x in idx.split(":")]
+                    self.add_affiliation(ou_id, affil, source, status)
                     del db_affil[idx]
                 else:
-                    # this may be a completely new affiliation, or just a
+                    # This may be a completely new affiliation, or just a
                     # change in status.
                     ou_id, affil, status = [int(x) for x in idx.split(":")]
                     self.add_affiliation(ou_id, affil, source, status)
-                    if is_new <> 1:
+                    if is_new != 1:
                         is_new = False
-                    if db_prim.has_key(prim):
+                    if prim in db_prim:
                         # it was only a change of status.  make sure
                         # the loop below won't delete the affiliation.
                         del db_affil[db_prim[prim]]
-            # delete all the remaining affiliations.  some of them
-            # are already marked as deleted.
+            # Delete all the remaining affiliations. Some of them are already
+            # marked as deleted.
             for idx in db_affil.keys():
                 if db_affil[idx] is None:
                     ou_id, affil, status = [int(x) for x in idx.split(":")]
                     self.delete_affiliation(ou_id, affil, source)
-                    if is_new <> 1:
+                    if is_new != 1:
                         is_new = False
 
         # If affect_names has not been called, we don't care about
@@ -237,7 +241,6 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             for variant in self._pn_affect_variants:
                 try:
                     if not self._compare_names(variant, self):
-                        n = self._name_info.get(variant)
                         self._update_name(
                             self._pn_affect_source,
                             variant,
@@ -245,10 +248,10 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                         is_new = False
                         updated_name = True
                 except MissingOtherException:
-                    if self._name_info.has_key(variant):
+                    if variant in self._name_info:
                         self._set_name(self._pn_affect_source, variant,
                                        self._name_info[variant])
-                        if is_new <> 1:
+                        if is_new != 1:
                             is_new = False
                         updated_name = True
                 except MissingSelfException:

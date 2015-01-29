@@ -404,11 +404,16 @@ class _CerebrumCode(DatabaseAccessor):
              'desc': self._desc})
 
     def delete(self):
+        """Delete itself, the constant, from db and cache."""
+        if hasattr(self, '_cache'):
+            if int(self) in self._cache:
+                del self._cache[int(self)]
+            if str(self) in self._cache:
+                del self._cache[str(self)]
         self.sql.execute("""
         DELETE FROM %s
         WHERE %s=:code""" % (self._lookup_table, self._lookup_code_column),
                          {'code': int(self)})
-# end _CerebrumCode
 
 
 class _LanguageCode(_CerebrumCode):
@@ -416,7 +421,6 @@ class _LanguageCode(_CerebrumCode):
     "Language codes for Cerebrum."
     _lookup_table = '[:table schema=cerebrum name=language_code]'
     pass
-# end _LanguageCode
 
 
 class _EntityTypeCode(_CerebrumCode):
@@ -1152,4 +1156,3 @@ def main():
 if __name__ == '__main__':
     main()
 
-# arch-tag: 187248cd-c3e9-4817-b93e-e6da2a4a53e8

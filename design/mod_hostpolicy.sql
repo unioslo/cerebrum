@@ -18,8 +18,7 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
-/* SQL script for migrating mod_dns 1.2 to 1.3 */
-
+/* SQL script for the hostpolicy tables */
 
 category:metainfo;
 name=hostpolicy;

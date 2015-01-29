@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002, 2003, 2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,6 +18,38 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+""" Management tool for Cerebrum's database.
+
+This script is the main tool for managing Cerebrum's postgres database. It
+supports creating and updating the required tables and Cerebrum constants. The
+script is in most situations required to be run when setting up and when
+upgrading Cerebrum.
+
+The database structure for the various Cerebrum modules are defined in::
+
+    design/*.sql
+
+The files include SQL operations for the different stages/phases of management:
+
+    - metainfo, like the version of the db-table
+
+    - main, for when setting up the database, e.g. creating tables
+
+    - code, for setting up access in the database. Only used for Oracle, which
+      has not been used for a while.
+
+    - drop, for when removing tables and other data
+
+
+Note that the SQL file parser are somewhat limited. For instance, long comments
+(/* ... */) can not start or stop on the same line as proper SQL statements, but
+have to be on their own lines.
+
+TODO: Describe the format of the SQL definitions, or add a reference to where
+that is located.
+
+"""
 
 import sys
 import re
@@ -36,28 +68,37 @@ all_ok = True
 
 
 def usage(exitcode=0):
-    print """makedb.py [options] [sql-file ...]
+    print __doc__
+    print """Usage: makedb.py [options] [sql-file ...]
 
   --extra-file=file
         For each phase, do SQL statements for core Cerebrum first,
         then SQL from 'file'.  This option can be specified more than
         once; for each phase, the additional 'file's will then be run
         in the order they're specified.
+
   --only-insert-codes
         Make sure all code values for the current configuration of
         cereconf.CLASS_CONSTANTS have been inserted into the database.
         Does not create tables.
+
   --update-codes
         Like --only-insert-codes, but will remove constants that
         exists in the database, but not in CLASS_CONSTANTS (subject to
         FK constraints).
+
   --drop
         Perform only the 'drop' phase.
         WARNING: This will remove tables and the data they're holding
                  from your database.
+
   --stage
         Only perform this stage in the files.
-  -d | --debug
+
+  -d --debug
+        Print out more debug information. If added twice, you will get even more
+        information.
+
   -c file | --country-file=file
 
 If one or more 'sql-file' arguments are given, each phase will include
@@ -71,11 +112,12 @@ won't be included.
 def main():
     global meta
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'dc:',
+        opts, args = getopt.getopt(sys.argv[1:], 'dc:h',
                                    ['debug', 'help', 'drop', 'update-codes',
                                     'only-insert-codes', 'country-file=',
                                     'extra-file=', 'stage='])
-    except getopt.GetoptError:
+    except getopt.GetoptError, e:
+        print e
         usage(1)
 
     debug = 0
@@ -100,7 +142,7 @@ def main():
 
     meta = Metainfo.Metainfo(db)
     for opt, val in opts:
-        if opt == '--help':
+        if opt in ('-h', '--help'):
             usage()
         if opt in ('-d', '--debug'):
             debug += 1
@@ -123,6 +165,9 @@ def main():
         elif opt in ('-c', '--country-file'):
             read_country_file(val)
             sys.exit()
+        else:
+            print "Unknown argument: %s" % opt
+            usage(1)
 
     # By having two leading spaces in the '  insert' literal below, we
     # make sure that the 'insert code values' phase won't execute any
@@ -176,7 +221,7 @@ def read_country_file(fname):
     for line in f.readlines():
         if line[0] == '#':
             continue
-        dta = [x.strip() for x in line.split("\t") if x.strip() <> ""]
+        dta = [x.strip() for x in line.split("\t") if x.strip() != ""]
         if len(dta) == 4:
             code_str, foo, country, phone_prefix = dta
             code_obj = const.Country(code_str, country, phone_prefix,
@@ -280,7 +325,7 @@ def check_schema_versions(db, strict=False):
                     exit(1)
         elif name[:10] == 'sqlmodule_':
             name = name[10:]
-            if not modules.has_key(name):
+            if name not in modules:
                 # print "WARNING: unknown module %s" % name
                 # if strict: exit(1)
                 continue
@@ -326,52 +371,83 @@ def get_filelist(db, extra_files=[]):
     return ret
 
 
-def runfile(fname, db, debug, phase):
-    global all_ok
-    print "Reading file (phase=%s): <%s>" % (phase, fname)
-    f = file(fname)
-    text = f.readlines()
-    long_comment_start = re.compile(r"/\*", re.DOTALL)
-    long_comment_stop = re.compile(r".*?\*/", re.DOTALL)
-    long_line_comment = re.compile(r"/\*.*?\*/", re.DOTALL)
+def parsefile(fname):
+    """Parse an SQL definition file and return the statements and categories.
+
+    Iterates through all lines in the file and generate statements from the
+    lines. Comments are for instance filtered out.
+
+    Note that the parser is somewhat limited. Long comments can for instance not
+    be on the same line as SQL statements. Long comments have to start and stop
+    on their own lines. Also, you can't stop and then start a new long comment
+    on the same line.
+
+    @type fname: str
+    @param fname:
+        The file path for the SQL definition file that should be parsed.
+
+    @rtype: list
+    @return:
+        A list of all the statements from the file.
+
+    """
+    # Regex for the parser:
+
+    # Find lines starting long comments: /*
+    long_comment_start = re.compile(r"\s*/\*", re.DOTALL)
+    # Find lines ending long comments: */
+    long_comment_stop = re.compile(r".*\*/", re.DOTALL)
+    # Find lines starting _and_ ending with long comment markers: /* ... */
+    long_line_comment = re.compile(r"\s*/\*.*\*/", re.DOTALL)
+    # Find lines with single line comments: -- ...
     line_comment = re.compile(r"--.*")
+    # Find the end of a statement, i.e. semi-colon, to be able to remove it:
     sc_pat_repl = re.compile(r';\s*')
+    # Find if line is ending a statement, i.e. ends with semi-colon. This is to
+    # know if the statement continues in the next line or not.
     sc_pat = re.compile(r'.*;\s*')
+    # Find any newlines:
     kill_newline_repl = re.compile('\n+')
+    # Find any whitespace. Used to remove any excess whitespace.
     kill_spaces_repl = re.compile('\s+')
 
-
+    # States for when reading the file:
+    inside_comment = False
     function_join_mode = False
-    skip_mode = False
-    tmp = []
     join_str = ''
 
-    # Iterate through all lines in the file, and generate statements
-    # from the lines. We need combine lines like this, in order to support
-    # functions.
-    for x in text:
+    ret = []
+    f = file(fname)
+    for x in f.readlines():
         x = kill_newline_repl.sub('', x)
         x = kill_spaces_repl.sub(' ', x)
-        # Skip long comments
+        # Ignore empty lines:
+        if not x.strip():
+            continue
+
+        # Filter out lines with comments:
+        if re.match(long_line_comment, x):
+            inside_comment = False
+            continue
+        if re.match(long_comment_stop, x):
+            inside_comment = False
+            continue
         if re.match(long_comment_start, x):
-            skip_mode = True
+            inside_comment = True
             continue
-        elif re.match(long_comment_stop, x):
-            skip_mode = False
+        if inside_comment:
             continue
-        elif skip_mode:
+        if re.match(line_comment, x):
             continue
-        # Skip line comments
-        elif re.match(line_comment, x) or re.match(long_line_comment, x):
-            continue
-        # Handle functions correctly
-        elif 'FUNCTION' in x and not 'DROP FUNCTION' in x:
+
+        # Handle functions correctly, as they might contain semi-colons
+        if 'FUNCTION' in x and not 'DROP FUNCTION' in x:
             function_join_mode = True
             join_str += x
         elif 'LANGUAGE' in x:
             function_join_mode = False
             join_str += sc_pat_repl.sub('', x)
-            tmp.append(join_str)
+            ret.append(join_str.strip())
             join_str = ''
         elif function_join_mode:
             join_str += x
@@ -381,22 +457,47 @@ def runfile(fname, db, debug, phase):
                 join_str += x
             else:
                 join_str += sc_pat_repl.sub('', x)
-                tmp.append(join_str)
+                ret.append(join_str.strip())
                 join_str = ''
-    text = tmp
-    
+    f.close()
+    return ret
+
+
+def runfile(fname, db, debug, phase):
+    """Execute an SQL definition file.
+
+    @type fname: str
+    @param fname:
+        The file path for the given SQL definition file.
+
+    @type db: Cerebrum.Database
+    @param db:
+        The Cerebrum database object, used for communicating with the db.
+
+    @type debug: int
+    @param debug:
+        Sets how much debug information that should be printed out, e.g.
+        traceback of errors.
+
+    @type phase: str
+    @param phase:
+        What phase/category/stage that should be executed. This is used to
+        decide what should be executed from the SQL file.
+
+    """
+    global all_ok
+    print "Reading file (phase=%s): <%s>" % (phase, fname)
+    statements = parsefile(fname)
+
     NO_CATEGORY, WRONG_CATEGORY, CORRECT_CATEGORY, SET_METAINFO = 1, 2, 3, 4
     state = NO_CATEGORY
     output_col = None
     max_col = 78
     metainfo = {}
-    for stmt in text:
-        stmt = stmt.strip()
-        if not stmt:
-            continue
+    for stmt in statements:
         if state == NO_CATEGORY:
             (type_id, for_phase) = stmt.split(":", 1)
-            if type_id <> 'category':
+            if type_id != 'category':
                 raise ValueError, \
                     "Illegal type_id in file %s: %s" % (fname, type_id)
             for_rdbms = None
@@ -423,10 +524,11 @@ def runfile(fname, db, debug, phase):
                 status = "."
                 try:
                     db.execute(stmt)
-                except db.DatabaseError:
+                except db.DatabaseError, e:
                     all_ok = False
                     status = "E"
                     print "\n  ERROR: [%s]" % stmt
+                    print e
                     if debug:
                         print "  Database error: ",
                         if debug >= 2:
@@ -435,6 +537,13 @@ def runfile(fname, db, debug, phase):
                             raise
                         else:
                             traceback.print_exc(file=sys.stdout)
+                except Exception, e:
+                    all_ok = False
+                    status = "E"
+                    print "\n  ERROR: [%s]" % (stmt,)
+                    print e
+                    traceback.print_exc(file=sys.stdout)
+                    raise
             finally:
                 if not output_col:
                     status = "    " + status
@@ -455,7 +564,7 @@ def runfile(fname, db, debug, phase):
             version = metainfo['version']
         meta.set_metainfo(name, version)
         db.commit()
-    if state <> NO_CATEGORY:
+    if state != NO_CATEGORY:
         raise ValueError, \
             "Found more category specs than statements in file %s." % fname
     if output_col is not None:
@@ -464,4 +573,3 @@ def runfile(fname, db, debug, phase):
 if __name__ == '__main__':
     main()
 
-# arch-tag: 4b01504e-d98e-4331-acea-9e2d0478a18f

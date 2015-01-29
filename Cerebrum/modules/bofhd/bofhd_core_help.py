@@ -188,6 +188,9 @@ command_help = {
         "email_primary_address":
             "Changes the primary address for the e-mail target to the specified "
             "value",
+        "email_set_primary_address":
+            "Changes the primary address for the e-mail target to the specified "
+            "value",
         "email_quota":
             "Change a user's storage quota for e-mail",
         "email_rt_add_address":
@@ -249,6 +252,7 @@ command_help = {
             'List all members of a group, direct and indirect',
         'group_memberships': 'List all groups an entity is a member of',
         'group_padd': 'Let a person join a group',
+        'group_premove': 'Remove a person from a group',
         'group_personal': 'Create a new personal filegroup for an account',
         'group_promote_posix': 'Make an existing group into a POSIX-group',
         'group_roomlist_create': 
@@ -451,6 +455,10 @@ arg_help = {
     'date':
         ['date', 'Enter date (YYYY-MM-DD)',
          "The legal date format is 2003-12-31"],
+    'datetime':
+        ['datetime', 'Enter datetime YYYY-MM-DD(THH:MM)',
+         "The legal datetime format is 2003-12-31T16:00,\n"
+         "or simply 2003-12-31 (time then defaults to 00:00)"],
     'date_birth':
         ['date', 'Enter date of birth(YYYY-MM-DD)',
          "The legal date format is 2003-12-31"],
@@ -672,13 +680,22 @@ arg_help = {
          'displaying OU names and acronyms.'],
     'person_id':
         ['person_id', 'Enter person id',
-         """Enter person id as idtype:id. If idtype=fnr, the idtype does not
-         have to be specified. The currently defined id-types are:
-         - fnr : norwegian fødselsnummer."""],
+         """Enter person id as idtype:id. If idtype is fnr or account, the
+         idtype does not have to be specified. The currently defined id-types
+         are:
+         - account_name : username
+         - fnr          : norwegian fødselsnummer
+         - id           : entity-id
+         - entity_id    : entity-id"""],
     'person_id_other':
         ['person_id', 'Enter person id',
-         """Enter person id as idtype:id. If idtype=fnr, the idtype does not
-         have to be specified. You may also use entity_id:id."""],
+         """Enter person id as idtype:id. If idtype is fnr or account, the
+         idtype does not have to be specified. The currently defined id-types
+         are:
+         - account_name : username
+         - fnr          : norwegian fødselsnummer
+         - id           : entity-id
+         - entity_id    : entity-id"""],
     'person_id:current':
         ['[id_type:]current_id', 'Enter current person id',
          'Enter current person id.  Example: fnr:01020312345'],
@@ -702,7 +719,14 @@ arg_help = {
          - 'fnr'
          - 'name'
          - 'date' of birth, on format YYYY-MM-DD
-         - 'stedkode'"""],
+         - 'stedkode'
+         - 'ou' (entity id)
+         - 'studnr'
+         - 'sapnr'
+         - 'passnr'
+         - 'ssn' (international social security number)
+         - 'taxid' (tax identification number)
+         - 'vatnr' (value added tax number)"""],
     'posix_shell':
         ['shell', 'Enter shell',
          'Enter the required shell without path.  Example: bash'],

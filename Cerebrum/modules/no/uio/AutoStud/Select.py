@@ -439,4 +439,3 @@ class SelectTool(object):
                                         nivaakode=nivaakode)
         return matches, matched_settings
 
-# arch-tag: 9decddaa-4ba4-49f1-b8bc-7dcdd4809b8b
