@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 #
-# Copyright 2012-2014 University of Oslo, Norway
+# Copyright 2012-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -52,6 +52,7 @@ import socket
 import urllib2
 import httplib
 import csv
+import json
 
 # TODO: remove the exception when ssl is up and running in production:
 try:
@@ -62,11 +63,6 @@ except ImportError:
 CRYPTO = False
 
 from lxml import etree
-
-try:
-    import json
-except ImportError:
-    from Cerebrum.extlib import json
 
 import cerebrum_path
 from Cerebrum.Utils import to_unicode, unicode2str
