@@ -31,8 +31,14 @@ import ssl
 
 class EphorteWSError(Exception):
     """Exception class for Ephorte WebService errors."""
-    pass
+    def __str__(self):
+        try:
+            return super(EphorteWSError, self).__str__()
+        except UnicodeEncodeError:
+            return unicode(self.args[0]).encode('ASCII', 'replace')
 
+    def __unicode__(self):
+        return unicode(self.args[0])
 
 class HTTPSClientCertTransport(suds.transport.http.HttpTransport):
     """Transport wrapper for TLS."""
