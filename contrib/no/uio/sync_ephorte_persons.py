@@ -197,8 +197,8 @@ def update_person_info(pe, client):
                            initials, email_address, telephone, mobile,
                            street_address, zip_code, city)
     except EphorteWSError, e:
-        logger.warn('Could not ensure existence of %s in ePhorte: %s',
-                    user_id, str(e))
+        logger.warn(u'Could not ensure existence of %s in ePhorte: %s',
+                    user_id, unicode(e))
 
 
 def perm_code_id_to_perm(code):
@@ -332,17 +332,17 @@ def sanity_check_person(person_id, selection_spread):
     try:
         pe.find(person_id)
     except Errors.NotFoundError:
-        logger.warn('person_id:%s does not exist, skipping', person_id)
+        logger.error('person_id:%s does not exist, skipping', person_id)
         return False
 
     try:
         construct_user_id(pe)
     except Errors.NotFoundError:
-        logger.warn('person_id:%s does not have a primary account, skipping', person_id)
+        logger.info('person_id:%s does not have a primary account, skipping', person_id)
         return False
 
     if not pe.has_spread(spread=selection_spread):
-        logger.warn('person_id:%s has ePhorte role, but no ePhorte spread, skipping',
+        logger.error('person_id:%s has ePhorte role, but no ePhorte spread, skipping',
                     person_id)
         return False
 
@@ -407,8 +407,8 @@ def quicksync_roles_and_perms(client, selection_spread, config, commit):
                         if event['change_type_id'] in change_types_roles:
                             clh.confirm_event(event)
             except Exception, e:
-                logger.warn('Failed to update roles for person_id:%s', person_id)
-                logger.exception(e)
+                logger.warn('Failed to update roles for person_id:%s', person_id,
+                            exc_info=True)
             else:
                 if commit:
                     clh.commit_confirmations()
@@ -420,8 +420,8 @@ def quicksync_roles_and_perms(client, selection_spread, config, commit):
                         if event['change_type_id'] in change_types_perms:
                             clh.confirm_event(event)
             except Exception, e:
-                logger.warn('Failed to update permissions for person_id:%s', person_id)
-                logger.exception(e)
+                logger.warn('Failed to update permissions for person_id:%s', person_id,
+                            exc_info=True)
             else:
                 if commit:
                     clh.commit_confirmations()
@@ -455,11 +455,11 @@ def update_person_perms(person, client, userid=None, remove_superfluous=False):
             if perm not in ephorte_perms:
                 logger.info("Adding new perm for %s: %s@%s, authorized=%s", userid, *perm)
             else:
-                logger.info("Ensuring new perm for %s: %s@%s, authorized=%s", userid, *perm)
+                logger.debug("Ensuring perm for %s: %s@%s, authorized=%s", userid, *perm)
             try:
                 client.ensure_access_code_authorization(userid, *perm)
             except Exception, e:
-                logger.error("Something happened, ephorte says: %s", e.args[0])
+                logger.error(u"Something happened, ephorte says: %s", e.args[0])
     except Exception, e:
         logger.exception("update person perms failed")
         return False
@@ -564,16 +564,20 @@ def update_person_roles(pe, client, delete_superfluous=False):
             #                          'sko':sko})
             continue
 
-        cerebrum_roles.add(tuple(sorted(args.items())))
-        logger.info('Ensuring role %s@%s for %s, %s',
-                    args['role_id'], args['ou_id'], user_id, args)
+        role_tuple = tuple(sorted(args.items()))
+        cerebrum_roles.add(role_tuple)
+        if role_tuple not in ephorte_roles:
+            logger.info(u'Adding role %s@%s for %s, %s',
+                        args['role_id'], args['ou_id'], user_id, args)
+        else:
+            logger.debug(u'Ensuring role %s@%s for %s, %s',
+                        args['role_id'], args['ou_id'], user_id, args)
 
         try:
             client.ensure_role_for_user(user_id, **args)
         except EphorteWSError, e:
-            logger.warn('Could not ensure existence of role %s@%s for %s',
-                        args['role_id'], args['ou_id'], user_id)
-            logger.exception(e)
+            logger.warn(u'Could not ensure existence of role %s@%s for %s: %s',
+                        args['role_id'], args['ou_id'], user_id, unicode(e))
 
     if delete_superfluous:
         for role in map(dict, ephorte_roles - cerebrum_roles):
@@ -583,9 +587,8 @@ def update_person_roles(pe, client, delete_superfluous=False):
                 client.disable_user_role(user_id, role['role_id'], role['ou_id'],
                                          role['arkivdel'], role['journalenhet'])
             except EphorteWSError, e:
-                logger.warn('Could not remove role %s@%s for %s',
-                            args['role_id'], args['ou_id'], user_id)
-                logger.exception(e)
+                logger.warn(u'Could not remove role %s@%s for %s: %s',
+                            args['role_id'], args['ou_id'], user_id, unicode(e))
                 raise
 
     return True
