@@ -226,12 +226,14 @@ class DataProcesser(object):
 
         if self.ss is None:
             if self.tp.datasource <> self.config.source_system_name:
-                raise "Bad source system: %s" % self.ss
+                raise Errors.CerebrumError("Bad source system: %s" % self.ss)
             self.ss = self.config.source_system_value
         try:
             id = person_ids[self.config.personid_key]
         except KeyError:
-            raise "Fatal error, record did not set %s" % self.config.personid_key
+            raise Errors.CerebrumError(
+                "Fatal error, record did not set %s" %
+                self.config.personid_key)
 
         if self.config.personid_type == const.externalid_fodselsnr:
             id = fodselsnr.personnr_ok(id)
