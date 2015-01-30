@@ -42,18 +42,11 @@ class XMLEntityIterator:
     """
 
     def __init__(self, filename, element):
-        # From version 2.5 (c)ElementTree is in Python's standard
-        # library, under xml.etree
+        # Load cElementTree or ElementTree depending on configuration
         if abcconf.CLASS_XMLPARSER == 'ElementTree':
-            try:
-                from xml.etree.ElementTree import parse, iterparse
-            except ImportError:
-                from elementtree.ElementTree import parse, iterparse
+            from xml.etree.ElementTree import parse, iterparse
         elif abcconf.CLASS_XMLPARSER == 'cElementTree':
-            try:
-                from xml.etree.cElementTree import parse, iterparse
-            except ImportError:
-                from cElementTree import parse, iterparse
+            from xml.etree.cElementTree import parse, iterparse
         else:
             print abcconf.CLASS_XMLPARSER
             print """
