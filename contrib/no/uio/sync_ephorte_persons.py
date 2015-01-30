@@ -583,6 +583,10 @@ def update_person_roles(pe, client, delete_superfluous=False):
             #                          'role_type':role_type,
             #                          'sko':sko})
             continue
+        elif not ephorte_has_ou(client, args['ou_id']):
+            logger.warn("OU %s does not exist in ePhorte for role %s %s",
+                        args['ou_id'], user_id, args)
+            continue
 
         cerebrum_roles.add(tuple(sorted(args.items())))
         logger.info('Ensuring role %s@%s for %s, %s',
