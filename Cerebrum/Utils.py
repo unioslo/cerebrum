@@ -36,7 +36,6 @@ import urllib2
 import urllib
 import urlparse
 import random
-import popen2
 from string import maketrans, ascii_lowercase, digits, rstrip
 from subprocess import Popen, PIPE
 from Cerebrum.UtilsHelper import Latin1
@@ -318,9 +317,7 @@ def read_password(user, system, host=None):
     finally:
         f.close()
 
-
-# TODO: Replace the popen2 module with Popen for this function as well
-def spawn_and_log_output(cmd, log_exit_status=True, connect_to=[]):
+def spawn_and_log_output(cmd, log_exit_status=True, connect_to=[], shell=False):
     """Run command and copy stdout to logger.debug and stderr to
     logger.error.  cmd may be a sequence.  connect_to is a list of
     servers which will be contacted.  If debug_hostlist is set and
@@ -330,6 +327,22 @@ def spawn_and_log_output(cmd, log_exit_status=True, connect_to=[]):
     Return the exit code if the process exits normally, or the
     negative signal value if the process was killed by a signal.
 
+    :type cmd: basestr or sequence of basestr
+    :param cmd: Command, see subprocess.Popen argument args
+
+    :type log_exit_status: bool
+    :param log_exit_status: emit log message with exit status?
+
+    :type connect_to: list of str
+    :param connect_to: Spawned command will connect to resource (hostlist),
+                       only runs command if cereconf.DEBUG_HOSTLIST is None,
+                       or contains the given resource
+
+    :type shell: bool
+    :param shell: run command in shell, or directly with os.exec*()
+
+    :rtype: int
+    :return: spawned programme's exit status
     """
     # select on pipes and Popen3 only works in Unix.
     from select import select
@@ -342,13 +355,14 @@ def spawn_and_log_output(cmd, log_exit_status=True, connect_to=[]):
                              srv, cmd)
                 return EXIT_SUCCESS
 
-    proc = popen2.Popen3(cmd, capturestderr=True, bufsize=10240)
+    proc = Popen(cmd, bufsize=10240, close_fds=True,
+                 stdin=PIPE, stdout=PIPE, stderr=PIPE)
     pid = proc.pid
     if log_exit_status:
         logger.debug('Spawned %r, pid %d', cmd, pid)
-    proc.tochild.close()
-    descriptor = {proc.fromchild: logger.debug,
-                  proc.childerr: logger.error}
+    proc.stdin.close()
+    descriptor = {proc.stdout: logger.debug,
+                  proc.stderr: logger.error}
     while descriptor:
         # select() is called for _every_ line, since we can't inspect
         # the buffering in Python's file object.  This works OK since
