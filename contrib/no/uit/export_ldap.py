@@ -106,4 +106,3 @@ def usage():
 if __name__ == '__main__':
     main()
 
-# arch-tag: 98a2a5fe-d5d7-11da-8094-54c27bff8246

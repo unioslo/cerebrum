@@ -875,6 +875,12 @@ class SAPConstants(Constants.Constants):
         "VIT"
     )
 
+    sap_1200_forstebibliotekar = SAPLonnsTittelKode(
+        "20001200",
+        "1200 Førstebibliotekar",
+        "VIT"
+    )
+
     sap_1203_fagarbeider_m_fagbre = SAPLonnsTittelKode(
         "20001203",
         "1203 Fagarbeider m/fagbre",

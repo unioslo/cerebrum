@@ -65,4 +65,3 @@ class PosixUserNoturMixin(PosixUser.PosixUser):
             raise self._db.IntegrityError, "Illegal Posix UID: %s" % tmp
         self.__super.write_db()
 
-# arch-tag: 174b9c44-dac9-11da-91a8-0e10df6ad6e9

@@ -36,29 +36,21 @@ db = Factory.get("Database")()
 db.cl_init(change_program=sys.argv[0].split('/')[-1])
 
 
-def populate_group(gname, affiliations, source_system=None):
+def populate_group_memberships(gname, affiliations):
     """Add and remove accounts from the group."""
     co = Factory.get('Constants')(db)
     pe = Factory.get('Person')(db)
     gr = Factory.get('Group')(db)
 
-    logger.info('Populating %s with %s as criteria', gname, str(affiliations))
+    logger.info('Populating memberships in %s with %s as criteria',
+                gname, str(affiliations))
 
-    # Find or create the group
+    # Verify group existence
     try:
         gr.find_by_name(gname)
     except Errors.NotFoundError:
-        logger.error('Group %s is not defined! Aborting…', gname)
+        logger.error('Group %s does noe exist! Aborting…', gname)
         sys.exit(1)
-
-    # Look up source system:
-    if source_system:
-        tmp = co.human2constant(source_system)
-        if not tmp:
-            logger.error('Source system %s is unknown! Aborting…',
-                         source_system)
-            sys.exit(2)
-        source_system = tmp
 
     members = set()
     # Look up affiliations
@@ -69,8 +61,7 @@ def populate_group(gname, affiliations, source_system=None):
             ss, aff = aff.split(':')
             tmp_ss = co.human2constant(ss)
             if not tmp_ss:
-                logger.error('Source system %s is unknown! Aborting…',
-                             source_system)
+                logger.error('Source system %s is unknown! Aborting…', ss)
                 sys.exit(3)
             else:
                 ss = tmp_ss
@@ -122,10 +113,31 @@ def populate_group(gname, affiliations, source_system=None):
     logger.info('Finished populating %s', gname)
 
 
-# TODO: Better descriptions of the various options
 def usage(exitcode):
     """Help text for the commandline options."""
-    # TODO: expand me!
+    print("%s [OPTIONS]" % sys.argv[0].split('/')[-1])
+    print(u"Populate memberships in «employee»-ish groups depending on "
+          "affiliation.")
+    print("    -h --help    Show this help")
+    print("       --commit  Run in commit-mode (i.e. all changes will be "
+          "commited to the database")
+    print("")
+    print("See cereconf.COLLECTION_GROUPS in default_config for "
+          "configuration guidelines and more info.")
+    print("")
+    print("The following is copy-pasta from default_config. Might be out of "
+          "date, so check default_config!")
+    print("""
+Groups who has memberships populated by contrib/populate-collection-groups.py
+E.g. [('uio-tilk', ['system_sap:affiliation_tilknyttet',
+                    'system_fs:affiliation_student',
+                    'affiliation_tilknyttet_bilag'])]
+Will result in the group 'uio-tilk' beeing filled with primary accounts who
+have TILKNYTTET affiliations from SAP, STUDENT-affiliations from FS and
+TILKNYTTET/bilag from all source systems.
+
+The groups you specify in this configuration, must be created BEFORE
+populate-collection-groups.py is run!!!""")
     sys.exit(exitcode)
 
 
@@ -147,7 +159,7 @@ def main():
     logger.info('Starting to populate collection groups')
 
     for gname, affs in cereconf.COLLECTION_GROUPS:
-        populate_group(gname, affs)
+        populate_group_memberships(gname, affs)
 
     if commit:
         db.commit()

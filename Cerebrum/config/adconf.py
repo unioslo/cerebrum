@@ -128,9 +128,10 @@ SYNCS = dict()
 #   Default:
 #       True
 #
-# - ca (string):
+# - ca (string|None):
 #   Full path to a file with one or more CA certificates - a bundle. This is
-#   used if encrypted is True,
+#   used if encrypted is True, If not set, or set to None, no certificate
+#   validation will be performed (i.e. default python behaviour).
 #
 # - client_key (string):
 #   Full path to the file with the client's private key. This is used if

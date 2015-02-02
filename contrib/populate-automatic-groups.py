@@ -95,6 +95,7 @@ database.cl_init(change_program="pop-auto-groups")
 constants = Factory.get("Constants")(database)
 INDENT_STEP = 2
 
+ignored_groups = []
 
 class group_attributes(object):
 
@@ -307,6 +308,20 @@ def group_name2group_id(group_name, description, current_groups, trait=NotSet):
     """
     if group_name not in current_groups:
         group = Factory.get("Group")(database)
+
+        # perhaps the group already exists without its trait?
+        # if so we'd like to log a warning and not touch this group
+        try:
+            group.find_by_name(group_name)
+        except Errors.NotFoundError:
+            pass
+        else:
+            if group_name not in ignored_groups:
+                logger.warn("Group %s is missing trait '%s', ignoring group", 
+                            group_name, str(trait))
+                ignored_groups.append(group_name)
+            return None
+
         group.populate(get_create_account_id(),
                        constants.group_visibility_internal,
                        group_name,
@@ -486,9 +501,10 @@ def affiliation2groups(row, current_groups, select_criteria, perspective):
         if group_prefix in cereconf.AUTOMATIC_GROUP_POPULATE_META_PREFIX:
             employee_group_id = group_id
 
-        result.append((person_id, group_id))
-        logger.debug("Added person id=%s to group id=%s, name=%s",
-                     person_id, group_id, group_name)
+        if group_id is not None:
+            result.append((person_id, group_id))
+            logger.debug("Added person id=%s to group id=%s, name=%s",
+                         person_id, group_id, group_name)
 
     # Now the fun begins. All employees are members of certain groups.
     #
@@ -512,11 +528,14 @@ def affiliation2groups(row, current_groups, select_criteria, perspective):
                 description % parent_info["name"],
                 current_groups,
                 constants.trait_auto_meta_group)
-            result.append((employee_group_id, meta_parent_id))
-            logger.debug("Group name=%s (from person_id=%s) added to "
-                         "meta group id=%s, name=%s",
-                         group_prefix + suffix, person_id,
-                         meta_parent_id, parent_name)
+
+            if meta_parent_id is not None:
+                result.append((employee_group_id, meta_parent_id))
+                logger.debug("Group name=%s (from person_id=%s) added to "
+                             "meta group id=%s, name=%s",
+                             group_prefix + suffix, person_id,
+                             meta_parent_id, parent_name)
+
             parent_info = ou_id2parent_info(tmp_ou_id, perspective)
             if parent_info:
                 tmp_ou_id = parent_info["ou_id"]

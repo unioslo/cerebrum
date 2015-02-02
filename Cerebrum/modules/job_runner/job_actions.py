@@ -451,4 +451,3 @@ def _test_time():
 if __name__ == '__main__':
     _test_time()
 
-# arch-tag: 37d161cf-d977-4e15-8ef1-53c64dba60d1

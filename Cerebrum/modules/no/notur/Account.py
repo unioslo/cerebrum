@@ -34,4 +34,3 @@ class AccountNoturMixin(Account.Account):
         return self.__super.illegal_name(name)
 
 
-# arch-tag: e686edd2-d606-11da-94e0-9b20a5786e63

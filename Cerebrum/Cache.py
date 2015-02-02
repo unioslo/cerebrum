@@ -208,4 +208,3 @@ def memoize_function(function, cache_type=Cache, **kwargs):
 
     return memoized
 
-# arch-tag: 40287917-369a-46c5-8154-ca389c695e95

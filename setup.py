@@ -261,6 +261,7 @@ if (install_servers):
     sbin_files.append(('servers/cis/SoapGroupServer.py', 0755))
     sbin_files.append(('servers/cis/SoapGroupPublish.py', 0755))
     sbin_files.append(('servers/cis/SoapVirthomeServer.py', 0755))
+    sbin_files.append(('servers/cis/SoapServer.py', 0755))
 
 bin_files = []
 
@@ -277,7 +278,7 @@ data_files = [
      [('design/cerebrum-core.dia', 0644),
       ('design/cerebrum-core.html', 0644),
       ('design/adminprotocol.html', 0644),
-      ('README', 0644),
+      ('README.md', 0644),
       ('COPYING', 0644), ]),
     ({'path': sbindir,
       'owner': cerebrum_user,
@@ -473,3 +474,6 @@ setup(name="Cerebrum", version=Cerebrum.__version__,
       # Overridden command classes
       cmdclass={'install_data': my_install_data, },
       )
+
+setup(name='SoapAPI', packages = ['SoapAPI'])
+setup(name='ClientAPI', packages = ['ClientAPI'])

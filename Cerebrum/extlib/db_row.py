@@ -1173,4 +1173,3 @@ if __name__ == '__main__':
 
   print 'Tests passed'
 
-# arch-tag: 8aacc7bc-31a2-4545-ad10-a7de82bb95ea

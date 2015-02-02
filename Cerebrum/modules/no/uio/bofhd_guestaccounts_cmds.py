@@ -361,4 +361,3 @@ class BofhdExtension(BofhdCommandBase):
             ret.append(tmp)
         return '\n'.join(ret)
 
-# arch-tag: bddd54d2-6272-11da-906d-7a8b01ac279a
