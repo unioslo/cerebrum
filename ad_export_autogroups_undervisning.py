@@ -96,9 +96,9 @@ def get_skoinfo(fak,inst,avd):
     sko.clear()
     sko.find_stedkode(fakultet=fak,institutt=inst,avdeling=avd,institusjon=186) #TODO 186 from config
     res=dict()
-    res['name']=str(sko.name)
-    res['short_name']=str(sko.short_name)
-    res['acronym']=str(sko.acronym)    
+    res['name']=str(sko.get_name_with_language(co.ou_name, co.language_nb, default=''))
+    res['short_name']=str(sko.get_name_with_language(co.ou_name_short, co.language_nb, default=''))
+    res['acronym']=str(sko.get_name_with_language(co.ou_name_acronym, co.language_nb, default=''))    
     perspective=co.perspective_fs
     root=False
     acrolist=list()
@@ -111,7 +111,7 @@ def get_skoinfo(fak,inst,avd):
         if parentid != None:
             sko.clear()
             sko.find(parentid)
-            acrolist.append(str(sko.acronym))
+            acrolist.append(str(sko.get_name_with_language(co.ou_name_acronym, co.language_nb, default='')))
         else:
             root=currentid
     acrolist.reverse()
@@ -246,17 +246,19 @@ def GetStudieprogramgroups():
         gname=group['name'].replace("%s:" % fg_prefix,'')
         # gname should look like this now "studieprogram:ph-far:studiekull:2009:høst:student"
         (type,stprogkode,xx,aar,sem,rolle)=gname.split(":")
+
+        # Skip this group if it isn't in stprog_info
+        # Note: this implies a mismatch between the database and studieprogfile.
+        if stprogkode not in stprog_info.keys():
+            logger.warning("Group %s is missing in stprog_info", group['group_id'])
+            continue
+
         ad_commonname= ".".join((type,stprogkode,aar,sem,rolle))
         ad_samaccountname=ad_commonname
         email_lp=ac.wash_email_local_part(ad_samaccountname)
         ad_samaccountname=email_lp
         ad_mailnickname=ac.wash_email_local_part(".".join((stprogkode,aar,sem,rolle)))        
         ad_email="@".join((email_lp,autogroups_maildomain))
-        # print "stprogkode:%s" % stprogkode
-        # pprint(stprog_info[stprogkode])
-        # print "stprog_info[stprogkode]['navn']=%s" % stprog_info[stprogkode]['navn']
-        # print "aar:%s" % aar
-        # print "semester:%s" % sem
         ad_descr="Studenter studieprogram %s (%s) kull %s/%s" % (stprogkode.upper(), stprog_info[stprogkode]['navn'], aar,sem)
         ad_displayname=ad_descr
         logger.debug("Group:%s, stprog:%s, CN:%s, mail=%s, descr=%s" %  (gname,stprogkode,ad_commonname,ad_email,ad_descr))
@@ -264,8 +266,13 @@ def GetStudieprogramgroups():
         members=gr.search_members(group_id=group['group_id'])
         member_list=list()
         for member in members:
-            logger.debug("--->Adding %s" % (accid2uname.get(member['member_id'])))
-            member_list.append(accid2uname.get(member['member_id']))
+            # Check if member['member_id'] is in accid2uname before appending it to member_list
+            uname = accid2uname.get(member['member_id'], "")
+            if (uname == ""):
+              logger.error("Group %s has member %s that is not in usercache", gname, member)
+            else:
+              logger.debug("--->Adding %s" % (uname))
+              member_list.append(uname)
 
         fak=str(stprog_info[stprogkode]['fak'])
         inst=str(stprog_info[stprogkode]['inst'])

@@ -1,3 +1,12 @@
+2015-02-02  Karen   <cerebrum@cleomedes.uit.no>
+
+    * ad_export_autogroups_undervisning.py (get_skoinfo): Replaced deprecated use of 
+    OU.name, OU.short_name and OU.acronym with OU.get_name_with_language(). 
+
+    * ad_export_autogroups_undervisning.py (GetStudieprogramgroups): Added two if-tests 
+    to avoid the script crashing when a group is missing in stprog_info or a group 
+    member is missing in accid2uname.
+
 2015-01-28  Karen   <cerebrum@cleomedes.uit.no>
 
     * ad_export_autogroups_undervisning.py: Added to repo. Copied from Leetah. 
