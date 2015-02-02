@@ -376,6 +376,28 @@ class BofhdExtension(BofhdCommonMethods,
             pass
         return info
 
+    def _append_entity_notes(self, info_list, operator, entity_id):
+        """Helper for adding entity notes to the output of info commands,
+        if present and viewable for the operator."""
+        try:
+            self.ba.can_show_notes(operator.get_entity_id())
+
+            enote = Note.EntityNote(self.db)
+            enote.find(entity_id)
+
+            for n in enote.get_notes():
+                info_list.append({
+                    'note_id':
+                    n['note_id'],
+                    'note_subject':
+                    n['subject'] if len(n['subject']) > 0 else '<not set>',
+                    'note_description':
+                    n['description'] if len(n['description']) > 0
+                    else '<not set>'
+                })
+        except:
+            pass
+
     # email migrate
     # will be used for migretion of mail accounts from IMAP to Exchange
     #
@@ -478,6 +500,11 @@ class BofhdExtension(BofhdCommonMethods,
                                                       "office_source")),
             ("Contact:       %s: %s [from %s]", ("contact_type", "contact",
                                                  "contact_src")),
+            ("Note:          (#%d) %s: %s", ('note_id',
+                                             'note_subject',
+                                             'note_description')),
+            ("Title:         %s [from %s]", ("employment_title",
+                                             "source_system"))
         ]))
 
     def person_info(self, operator, person_id):
@@ -614,21 +641,6 @@ class BofhdExtension(BofhdCommonMethods,
                                      self.const.AuthoritativeSystem(
                                          row['source_system']))})
 
-            # mobile number
-            #systems = getattr(cereconf, 'INDIVIDUATION_PHONE_TYPES', {})
-            #for sys in systems:
-            #    for type in systems[sys]['types']:
-            #        for row in person.get_contact_info(source=getattr(self.const, sys),
-            #                                           type=getattr(self.const, type)):
-            #            data.append({
-            #                'mobile': row['contact_value'],
-            #                'mobile_src': str(self.const.AuthoritativeSystem(row['source_system']))})
-            # Telephone numbers
-            #for row in person.get_contact_info(type=self.const.contact_phone,
-            #                                   source=self.const.system_pbx):
-            #    data.append({'phone': row['contact_value'],
-            #                 'phone_src': str(self.const.AuthoritativeSystem(row['source_system']))})
-
             # Show telephone numbers
             for row in person.get_contact_info():
                 if (row['contact_type']
@@ -637,24 +649,54 @@ class BofhdExtension(BofhdCommonMethods,
                             self.const.contact_phone_private,
                             self.const.contact_private_mobile)):
                     continue
+
+                # Get string values of row['source_system'] and
+                # row['contact_type']to avoid insanely long
+                # lines that breaks PEP-8 standards
+                source_system_string = str(self.const.AuthoritativeSystem(
+                                           row['source_system']))
+                contact_type_string = str(self.const.ContactInfo(
+                                          row['contact_type']))
+
+                # Skip phone, private phone and private mobile values from SAP
+                if (source_system_string == str(self.const.system_sap) and
+                    row['contact_type'] in (self.const.contact_phone_private,
+                                            self.const.contact_private_mobile,
+                                            self.const.contact_phone)):
+                    continue
+
                 data.append({'contact': row['contact_value'],
-                             'contact_src': str(
-                                 self.const.AuthoritativeSystem(
-                                     row['source_system'])),
-                             'contact_type': str(
-                                 self.const.ContactInfo(
-                                     row['contact_type']))})
+                             'contact_src': source_system_string,
+                             'contact_type': contact_type_string})
 
             # Office addresses
             for row in person.get_contact_info(self.const.system_sap,
                                                self.const.contact_office):
+
+                source_system_string = str(self.const.AuthoritativeSystem(
+                                           row['source_system']))
+
                 # TODO: add office address here too?
                 data.append({'office_code': row['contact_value'],
                              'office_room': row['contact_alias'],
-                             'office_source': str(
-                                 self.const.AuthoritativeSystem(
-                                     row['source_system']))})
+                             'office_source': source_system_string})
+
+        # Append entity notes to data
+        self._append_entity_notes(data, operator, person.entity_id)
+
+        # Add job title from SAP
+        try:
+            employment = person.search_employment(
+                person_id=person.entity_id, main_employment=True).next()
+            data.append({
+                'employment_title': str(employment['description']),
+                'source_system': str(self.const.AuthoritativeSystem(
+                    employment['source_system']))})
+        except:
+            pass
+
         return data
+
 
     # person student_info
     all_commands['person_student_info'] = Command(
@@ -931,20 +973,8 @@ class BofhdExtension(BofhdCommonMethods,
         if quarantined:
             ret.append({'quarantined': quarantined})
 
-        try:
-            self.ba.can_show_notes(operator.get_entity_id())
-
-            enote = Note.EntityNote(self.db)
-            enote.find(account.entity_id)
-
-            for n in enote.get_notes():
-                ret.append({
-                    'note_id': n['note_id'],
-                    'note_subject': n['subject'] if len(n['subject']) > 0 else '<not set>',
-                    'note_description': n['description'] if len(n['description']) > 0 else '<not set>',
-                })
-        except:
-            pass
+        # Append entity notes
+        self._append_entity_notes(ret, operator, account.entity_id)
 
         return ret
 
