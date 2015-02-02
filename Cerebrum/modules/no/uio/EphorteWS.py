@@ -27,6 +27,7 @@ from Cerebrum import https
 import suds
 from xml.sax import SAXParseException
 import ssl
+import sys
 
 
 class EphorteWSError(Exception):
@@ -53,8 +54,13 @@ class HTTPSClientCertTransport(suds.transport.http.HttpTransport):
         """
         suds.transport.http.HttpTransport.__init__(self, *args, **kwargs)
         # TODO: Catch exceptions related to nonexistent files?
-        self.ssl_conf = https.SSLConfig(ca_certs, cert_file, key_file,
-                                        timeout=timeout)
+        # Changes in 2.6 in regards to timeouts
+        if sys.version_info < (2, 6):
+            self.ssl_conf = https.SSLConfig(ca_certs, cert_file, key_file)
+        else:
+            self.ssl_conf = https.SSLConfig(ca_certs, cert_file, key_file)
+            self.ssl_conf.set_verify_hostname(False)
+            self.timeout = timeout
 
     def u2open(self, u2request):
         """
@@ -64,10 +70,19 @@ class HTTPSClientCertTransport(suds.transport.http.HttpTransport):
         :return: The opened file-like urllib2 object.
         :rtype: fp
         """
-        hc_cls = https.HTTPSConnection.configure(self.ssl_conf)
+        if sys.version_info < (2, 6):
+            hc_cls = https.HTTPSConnection.configure(
+                self.ssl_conf, timeout=self.timeout)
+        else:
+            hc_cls = https.HTTPSConnection.configure(self.ssl_conf)
+
         ssl_conn = https.HTTPSHandler(ssl_connection=hc_cls)
         url = urllib2.build_opener(ssl_conn)
-        return url.open(u2request)
+
+        if sys.version_info < (2, 6):
+            return url.open(u2request)
+        else:
+            return url.open(u2request, timeout=self.timeout)
 
 
 class SudsClient(object):
@@ -193,6 +208,7 @@ class Cerebrum2EphorteClient(object):
         self.database = database
         self.username = username
         self.password = password
+        self.__inject = {}
         # TODO: Make client choice configurable
         self.client = SudsClient(wsdl, timeout=timeout,
                                  client_key=client_key,
@@ -234,6 +250,32 @@ class Cerebrum2EphorteClient(object):
                 # Actually convert
                 res[key] = converter(resp[key])
         return res
+
+    def _set_injection_reply(self, reply):
+        """Set the message that we should recieve from the WS.
+
+        This can be used for testing this class without acctually connecting to
+        the webservice.
+
+        :type reply: str
+        :param reply: The XML-message that we should recieve.
+        """
+        self.__inject = {'__inject': {'reply': reply}}
+
+    def _set_injection_fault(self, fault):
+        """Set the fault that we should recieve from the WS.
+
+        This can be used for testing this class without acctually connecting to
+        the webservice.
+
+        :type fault: str
+        :param fault: The XML-message that we should recieve.
+        """
+        self.__inject = {'__inject': {'fault': fault}}
+
+    def _clear_injections(self):
+        """Clear the injections that have been set."""
+        self.__inject = {}
 
     def test(self, customer_id='UiO2', user_id='Dummy'):
         self.client.Test(self.username, self.password, customer_id, user_id)
@@ -373,7 +415,8 @@ class Cerebrum2EphorteClient(object):
             self.password,
             self.customer_id,
             self.database,
-            user_id)
+            user_id,
+            **self.__inject)
 
         if r.User:
             usr = self._convert_result(r.User)
