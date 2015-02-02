@@ -119,6 +119,9 @@ class Constants(Constants.Constants):
         'email_delete', "Delete e-mail addresses")
     auth_email_info_detail = _AuthRoleOpCode(
         'email_info_det', "View detailed information about e-mail account")
+    auth_email_forward_info = _AuthRoleOpCode(
+        'email_fwd_info',
+        "View & search information about e-mail forwards")
     auth_email_reassign = _AuthRoleOpCode(
         'email_reassign', "Reassign e-mail addresses")
     auth_quarantine_set = _AuthRoleOpCode(
