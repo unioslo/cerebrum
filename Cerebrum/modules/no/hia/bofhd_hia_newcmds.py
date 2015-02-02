@@ -376,12 +376,9 @@ class BofhdExtension(BofhdCommonMethods,
             pass
         return info
 
-    # Help function for adding entity notes in info-commands.
-    # Appends tuples to the passed list with every note related
-    # to the specified entity_id, if the current operator
-    # has permission to view notes. If permission check fails,
-    # it will do so silently and make no changes to the list.
     def _append_entity_notes(self, info_list, operator, entity_id):
+        """Helper for adding entity notes to the output of info commands,
+        if present and viewable for the operator."""
         try:
             self.ba.can_show_notes(operator.get_entity_id())
 
@@ -613,22 +610,6 @@ class BofhdExtension(BofhdCommonMethods,
                                  'extid_src': str(
                         self.const.AuthoritativeSystem(row['source_system']))})
 
-            # TODO: remove?
-            # mobile number
-            #systems = getattr(cereconf, 'INDIVIDUATION_PHONE_TYPES', {})
-            #for sys in systems:
-            #    for type in systems[sys]['types']:
-            #        for row in person.get_contact_info(source=getattr(self.const, sys),
-            #                                           type=getattr(self.const, type)):
-            #            data.append({
-            #                'mobile': row['contact_value'],
-            #                'mobile_src': str(self.const.AuthoritativeSystem(row['source_system']))})
-            # Telephone numbers
-            #for row in person.get_contact_info(type=self.const.contact_phone,
-            #                                   source=self.const.system_pbx):
-            #    data.append({'phone': row['contact_value'],
-            #                 'phone_src': str(self.const.AuthoritativeSystem(row['source_system']))})
-
             # Show telephone numbers
             for row in person.get_contact_info():
                 if row['contact_type'] not in (self.const.contact_phone,
@@ -671,25 +652,15 @@ class BofhdExtension(BofhdCommonMethods,
         # Append entity notes to data
         self._append_entity_notes(data, operator, person.entity_id)
 
-        # This returns an iterator over matching db rows.
-        # Since we filter on main_employment, this should always return
-        # a maximum of 1 row. If the iterator does not return any elements
-        # (the person has no main employment status), no employment info is
-        # added to the returned data.
-        employment_query = person.search_employment(
-            person_id=person.entity_id,
-            main_employment=True
-        )
+        # Add job title from SAP
         try:
-            employment_row = employment_query.next()
-            employment_description = employment_row.fields['description']
-            source_system_code = employment_row.fields['source_system']
-            source_system_string = str(
-                self.const.AuthoritativeSystem(source_system_code)
-            )
-            data.append({'employment_title': str(employment_description),
-                         'source_system': source_system_string})
-        except StopIteration:
+            employment = person.search_employment(
+                person_id=person.entity_id, main_employment=True).next()
+            data.append({
+                'employment_title': str(employment['description']),
+                'source_system': str(self.const.AuthoritativeSystem(
+                    employment['source_system']))})
+        except:
             pass
 
         return data
@@ -970,7 +941,7 @@ class BofhdExtension(BofhdCommonMethods,
         if quarantined:
             ret.append({'quarantined': quarantined})
 
-        # Append notes-info to ret
+        # Append entity notes
         self._append_entity_notes(ret, operator, account.entity_id)
 
         return ret
