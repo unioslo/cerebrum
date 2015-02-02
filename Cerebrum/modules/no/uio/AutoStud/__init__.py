@@ -66,4 +66,3 @@ class AutoStud(object):
                                       member_groups=member_groups,
                                       person_affs=person_affs)
 
-# arch-tag: 0e864798-ed01-4eca-a57d-4a7654072b46

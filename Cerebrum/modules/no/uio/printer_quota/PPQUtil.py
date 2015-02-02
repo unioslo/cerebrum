@@ -336,4 +336,3 @@ class PPQUtil(object):
         return rows, (last_id, pageunits_free, pageunits_paid,
                       pageunits_total, kroner)
 
-# arch-tag: 46f32b24-2441-4162-be3e-d7392874318a

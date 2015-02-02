@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# 
+#
 # Copyright 2011-2013 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -320,7 +320,7 @@ class BaseSync(object):
         self.logger.debug2("Using object classes: %s",
                            ', '.join(config_args['object_classes']))
         self._object_class = self._generate_dynamic_class(
-                config_args['object_classes'], 
+                config_args['object_classes'],
                 '_dynamic_adobject_%s' % self.config['sync_type'])
         if not issubclass(self._object_class, CerebrumEntity):
             raise ConfigError(
@@ -431,13 +431,13 @@ class BaseSync(object):
                 self.logger.warn("Unknown option in ad_admin_message: %s", opt)
             if opt[1] not in ('error', 'warning', 'info', 'debug'):
                 self.logger.warn("Unknown level in ad_admin_message: %s", opt)
-            # some ways 
+            # some ways
             if opt[0] in ('mail', 'file'):
                 if len(opt) <= 2:
                     self.logger.warn("Missing setting in ad_admin_message: %s",
                                      opt)
 
-        # If name_format is string, it should include the '%s' for 
+        # If name_format is string, it should include the '%s' for
         # the entity_name to be put in.
         nformat = self.config.get('name_format', '%s')
         if not callable(nformat) and '%s' not in nformat:
@@ -510,7 +510,7 @@ class BaseSync(object):
     def setup_server(self):
         """Instantiate the server class to use for WinRM."""
         self.server = self.server_class(logger=self.logger,
-                              host=self.config['server'], 
+                              host=self.config['server'],
                               port=self.config.get('port'),
                               auth_user=self.config.get('auth_user'),
                               domain_admin=self.config.get('domain_admin'),
@@ -609,7 +609,7 @@ class BaseSync(object):
         # down connections on the server side:
         self.server.close()
 
-    def quicksync(self, changekey, change_ids=None):
+    def quicksync(self, changekey=None, change_ids=None):
         """Do a quicksync, by sending the latest changes to AD.
 
         All events of the given change_types are processed generically, and in
@@ -646,9 +646,18 @@ class BaseSync(object):
 
         # We do it in the correct order, as the changes could be dependend of
         # each other.
-        events = cl.get_events(changekey, changetypes)
-        self.logger.debug("Processing changekey: %s" % changekey)
-        self.logger.debug("Found %d of changes to process", len(events))
+        if changekey:
+            self.logger.debug("Processing changekey: %s", changekey)
+            events = cl.get_events(changekey, changetypes)
+            self.logger.debug("Found %d of changes to process", len(events))
+        elif change_ids:
+            self.logger.debug("Processing given change_ids: %s", change_ids)
+            events = []
+            for i in change_ids:
+                events.extend(self.db.get_log_events(start_id=i, max_id=i))
+        else:
+            raise Exception("Missing changekey or change_ids")
+
         nr_processed = 0
         for row in events:
             # Ignore too old changes:
@@ -658,7 +667,7 @@ class BaseSync(object):
                 cl.confirm_event(row)
                 continue
             self.logger.debug("Processing change_id %s (%s), from %s "
-                              "subject_entity: %s", row['change_id'], 
+                              "subject_entity: %s", row['change_id'],
                               self.co.ChangeType(int(row['change_type_id'])),
                               row['tstamp'], row['subject_entity'])
             try:
@@ -697,7 +706,7 @@ class BaseSync(object):
             row that should be processed.
 
         @rtype: bool
-        @return: 
+        @return:
             The result from the handler. Should be True if the sync succeeded or
             there was no need for the change to be synced, i.e. the log change
             could be confirmed. Should only return False if the change needs to
@@ -930,8 +939,8 @@ class BaseSync(object):
             ent.calculate_ad_values() # exchange=self.exchange_sync)
 
     def cache_entity(self, entity_id, entity_name, *args, **kwargs):
-        """Wrapper method for creating a cache object for an entity. 
-        
+        """Wrapper method for creating a cache object for an entity.
+
         The object class is created dynamically, depending on the config and
         what subclasses of the sync is in use. This method returns an object
         out of the correct classes.
@@ -1010,7 +1019,7 @@ class BaseSync(object):
         for ad_object in self.server.get_list_objects(commandid):
             if i == 0:
                 self.logger.debug2("Retrieved %d attributes: %s",
-                                   len(ad_object), 
+                                   len(ad_object),
                                    ', '.join(sorted(ad_object.keys())))
             try:
                 self.process_ad_object(ad_object)
@@ -1164,7 +1173,7 @@ class BaseSync(object):
             if mismatch:
                 ret[atr] = dict()
                 if add_elements or remove_elements:
-                    self.logger.debug("Mismatch attr for %s: %s.", 
+                    self.logger.debug("Mismatch attr for %s: %s.",
                                       ent.entity_name, atr)
                     if add_elements:
                         self.logger.debug(
@@ -1395,7 +1404,7 @@ class BaseSync(object):
 
         The entity should be created in AD if active, and should then be updated
         as other, already existing objects.
-        
+
         @type: CerebrumEntity
         @param: An object representing an entity in Cerebrum.
 
@@ -1414,7 +1423,7 @@ class BaseSync(object):
             # It exists in AD, but is probably somewhere out of our search_base.
             # Will try to get it, so we could still update it, and maybe even
             # move it to the correct OU.
-            self.logger.info("Entity already exists: %s", ent.entity_name)
+            self.logger.debug("Entity already exists: %s", ent.entity_name)
             ent.in_ad = True
             attrs = self.config['attributes'].copy()
             if self.config['store_sid'] and 'SID' not in attrs:
@@ -1434,9 +1443,11 @@ class BaseSync(object):
             if len(objects) == 1:
                 # Found only one object, and it is most likely the one we need
                 obj = objects[0]
+                self.logger.debug("Found entity %s (%s)", ent.entity_name,
+                                  obj['DistinguishedName'])
             elif len(objects) == 0:
                 # Strange, we can't find the object though AD says it exists!
-                self.logger.error("Cannot find %s, though AD says it exists" 
+                self.logger.error("Cannot find %s, though AD says it exists"
                                                                     % ent.ad_id)
                 return False
             else:
@@ -1447,7 +1458,7 @@ class BaseSync(object):
                                   """the same name. Cannot determine which """
                                   """one is the right one.""" % ent.ad_id)
                 return False
-        except (ADUtils.SetAttributeException, 
+        except (ADUtils.SetAttributeException,
                 ADUtils.CommandTooLongException), e:
             # The creation of the object may have failed because of entity's
             # attributes. It may have been too many of them and the command
@@ -1457,7 +1468,7 @@ class BaseSync(object):
             # object without attributes now and wait until the next round for
             # its attributes to be updated.
             self.logger.error("""Failed creating %s. """
-                              """Trying to create it without attributes""" 
+                              """Trying to create it without attributes"""
                               % ent.ad_id)
             # SamAccountName is needed to be present upon object's creation.
             # It will default to name if it is not present. But if it is --
@@ -1474,7 +1485,7 @@ class BaseSync(object):
                 self.logger.exception("Failed creating %s." % ent.ad_id)
                 return False
             else:
-                ent.ad_new = True 
+                ent.ad_new = True
         except Exception, e:
             # Unforeseen exception; traceback will be logged
             self.logger.exception("Failed creating %s." % ent.ad_id)
@@ -1491,7 +1502,7 @@ class BaseSync(object):
             self.script('new_object', obj, ent)
         else:
             # It is an existing object, but under wrong OU (otherwise it would
-            # have been fetched earlier). It should be therefore passed to 
+            # have been fetched earlier). It should be therefore passed to
             # process_ad_object, like it was done before for all found objects.
             # NB! For some upper classes process_ad_object is overridden and
             # performs extra actions. In this case they will not be performed,
@@ -1556,8 +1567,8 @@ class BaseSync(object):
             return self.create_object(ent, **parameters)
 
     def downgrade_object(self, ad_object, action):
-        """Do a downgrade of an object in AD. 
-        
+        """Do a downgrade of an object in AD.
+
         The object could for instance be unknown in Cerebrum, or be inactive.
         The AD-object could then be disabled, moved and/or deleted, depending on
         the setting. The configuration says what should be done with such
@@ -1614,6 +1625,7 @@ class BaseSync(object):
 
         """
         dn = ad_object['DistinguishedName']
+        self.logger.debug3("Trying to move %s to %s", dn, ou)
         if ou == dn.split(',', 1)[1]:
             # Already in the correct location
             return
@@ -1639,7 +1651,7 @@ class BaseSync(object):
 
     def store_sid(self, ent, sid):
         """Store the SID for an entity as an external ID in Cerebrum.
-        
+
         @type ent: CerebrumEntity
         @param ent: The object of the Cerebrum entity for which the SID should
             be stored.
@@ -1743,7 +1755,7 @@ class UserSync(BaseSync):
             'CannotChangePassword',
             # 7. The user can send an encrypted password. Updates the value
             #    which in AD is named ADS_UF_ENCRYPTED_TEXT_PASSWORD_ALLOWED.
-            'AllowReversiblePasswordEncryption', 
+            'AllowReversiblePasswordEncryption',
             # 8. The account is for users whose primary account is in another
             #    domain. This account provides local domain access. Also called
             #    "Local user account". Not implemented.
@@ -1752,7 +1764,7 @@ class UserSync(BaseSync):
             #    implemented.
             None, # 'NormalAccount',
             # 10. Trusts the account for other domains. Not implemented.
-            None, # 'InterdomainTrustAccount', 
+            None, # 'InterdomainTrustAccount',
             # 11. If set, this is a computer account. Not implemented. Needs to
             #     be set in other ways.
             None, # 'WorkstationTrustAccount',
@@ -1768,7 +1780,7 @@ class UserSync(BaseSync):
             # 16. If set, this is an MNS logon account.
             'MNSLogonAccount',
             # 17. Force user to log on by smart card. Not implemented.
-            None, # 'SmartcardRequired', 
+            None, # 'SmartcardRequired',
             # 18. The service account is trusted for Kerberos delegation. Any
             #     such service can impersonate a client requesting the service.
             'TrustedForDelegation',
@@ -1779,7 +1791,7 @@ class UserSync(BaseSync):
             'UseDESKeyOnly',
             # 21. Account does not require Kerberos pre-authentication for
             #     logon.
-            'DoesNotRequirePreAuth', 
+            'DoesNotRequirePreAuth',
             # 22. The account's password is expired. Automatically set by AD.
             'PasswordExpired',
             # 23. Enabled for delegation of authentication of others.
@@ -1787,7 +1799,7 @@ class UserSync(BaseSync):
             #     as the account to authenticate as other users!
             'TrustedToAuthForDelegation',
             # 24. Account is used for read-only DCs, and needs protection.
-            None, # 'PartialSecretsAccount', 
+            None, # 'PartialSecretsAccount',
             )
 
     def __init__(self, *args, **kwargs):
@@ -2035,7 +2047,7 @@ class UserSync(BaseSync):
         format of the dict must be matched from this method and the
         CerebrumEntity class. Example on how L{contact_info} could look like:
 
-            {str(contacttypeA): 
+            {str(contacttypeA):
                                 {str(sourcesystemA): str(contactvalue),
                                  str(sourcesystemB): str(contactvalue),
                                  },
@@ -2397,7 +2409,7 @@ class UserSync(BaseSync):
         processing the entities that doesn't exist in AD yet.
 
         The passwords are fetched from the changelog, and only the last and
-        newest password is used. 
+        newest password is used.
 
         """
         self.uname2pasw = {}
@@ -2482,7 +2494,7 @@ class UserSync(BaseSync):
                 # account after a valid password has been set.
                 if ent.active:
                     self.server.enable_object(ret['DistinguishedName'])
-            
+
         # If more functionality gets put here, you should check if the entity is
         # active, and not update it if the config says so (downgrade).
         return ret
@@ -2498,7 +2510,7 @@ class UserSync(BaseSync):
             row that should be processed.
 
         @rtype: bool
-        @return: 
+        @return:
             The result from the handler. Should be True if the sync succeeded or
             there was no need for the change to be synced, i.e. the log change
             could be confirmed. Should only return False if the change needs to
@@ -2748,7 +2760,7 @@ class GroupSync(BaseSync):
                 spr_name = str(spr)
                 if spr_name not in adconf.SYNCS:
                     raise Exception("Illegal spread in 'Member' attribute: %s. "
-                                    "Only spreads that have their own sync" 
+                                    "Only spreads that have their own sync"
                                     "configured can be used in the attribute" %
                                     spr_name)
                 if spr_name == self.config['target_spread']:
@@ -2860,7 +2872,7 @@ class GroupSync(BaseSync):
         no L{MemberAttr} attribute is defined.
 
         """
-        if not ConfigUtils.has_config(self.config['attributes'], 
+        if not ConfigUtils.has_config(self.config['attributes'],
                                   ConfigUtils.MemberAttr):
             # No need for such data
             return
@@ -3082,12 +3094,12 @@ class MailListSync(BaseSync):
         self.rewrite = Email.EmailDomain(self.db).rewrite_special_domains
 
     def fetch_cerebrum_entities(self):
-        """Fetch the mailing lists information from Cerebrum, 
+        """Fetch the mailing lists information from Cerebrum,
         that should be compared against AD.
 
         The configuration is used to know what to cache. All data is put in a
         list, and each entity is put into an object from
-        L{Cerebrum.modules.ad2.CerebrumData} or a subclass, to make it 
+        L{Cerebrum.modules.ad2.CerebrumData} or a subclass, to make it
         easier to later compare with AD objects.
 
         Could be subclassed to fetch more data about each entity to support
@@ -3115,7 +3127,7 @@ class MailListSync(BaseSync):
 class ProxyAddressesCompare(BaseSync):
     """Entities that have ProxyAddresses attribute should have a special
     entity comparison routine.
-    
+
     """
     def attribute_mismatch(self, ent, atr, c, a):
         """Compare an attribute between Cerebrum and AD.

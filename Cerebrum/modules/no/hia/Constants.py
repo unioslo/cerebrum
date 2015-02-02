@@ -226,6 +226,9 @@ class Constants(Constants.Constants):
     spread_uia_ad_group_ehelse_nhn = _SpreadCode(
         'group@ehelse-nhn', Constants.Constants.entity_group,
         'Group included in AD: eHelse NHN')
+    spread_uia_office_365 = _SpreadCode(
+        'acc@office365', Constants.Constants.entity_account,
+        'Account included in Office365')
 
     ## Definisjon av traits
     trait_accept_nondisc = _EntityTraitCode(
@@ -263,4 +266,3 @@ class Constants(Constants.Constants):
 
 # end Constants
 
-# arch-tag: 7cf93c78-fe00-41f3-8fee-1289c86b7086

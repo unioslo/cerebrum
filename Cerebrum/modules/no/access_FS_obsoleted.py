@@ -363,4 +363,3 @@ class FS(access_FS.FS):
     self.alumni = Alumni40(self.db)
     self.evu = EVU40(self.db)
 
-# arch-tag: 70edb55a-ccdf-11d9-9d89-047ae0e47e0e

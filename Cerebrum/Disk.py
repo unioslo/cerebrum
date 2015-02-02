@@ -398,4 +398,3 @@ class Host(EntityName, EntitySpread, Entity_class):
         %s""" % where_str,
                           {'name': name, 'description': description})
 
-# arch-tag: 6a63bc5c-14aa-48f2-9e98-1c8f45ab3e47

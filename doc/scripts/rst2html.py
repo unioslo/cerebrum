@@ -32,4 +32,3 @@ description = ('Generates (X)HTML documents from standalone reStructuredText '
 
 publish_cmdline(writer_name='html', description=description)
 
-# arch-tag: 7cdbf686-d86b-4943-9ecd-8095e296f096

@@ -87,4 +87,3 @@ for (system, pgpkey) in cereconf.AUTH_PGP.items():
     name = "auth_type_pgp_%s" % system
     setattr(Constants, name, auth_code)
 
-# arch-tag: 6ad76a99-2280-4a12-b04d-cf1b8ea40629

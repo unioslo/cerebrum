@@ -85,7 +85,33 @@ class AccountHiAMixin(Account.Account):
                 es.find_by_name(server_name)
                 et.email_server_id=es.entity_id
                 et.write_db()
-        #
+        if spread == self.const.spread_uia_office_365:
+            # Check that users destinied for Office365 are supposed to be in
+            # AD.
+            if not self.has_spread(self.const.spread_hia_ad_account):
+                raise self._db.IntegrityError(
+                    'User does not have AD-spread, aborting')
+
+            # Update the users email-server (and create EmailTarget, if it is
+            # non-existent).
+            self._update_email_server(spread, force=True)
+            self.write_db()
+            # Look up the domain that the user must have an email-address in,
+            # for the cloud stuff to work.
+            ed = Email.EmailDomain(self._db)
+            ed.find_by_domain(cereconf.EMAIL_CLOUD_DOMAIN)
+            # Ensure that the <uname>@thedomainfoundabove.uia.no address
+            # exists.
+            ea = Email.EmailAddress(self._db)
+            try:
+                ea.find_by_local_part_and_domain(self.account_name,
+                                                 ed.entity_id)
+            except Errors.NotFoundError:
+                et = Email.EmailTarget(self._db)
+                et.find_by_target_entity(self.entity_id)
+                ea.populate(self.account_name, ed.entity_id, et.entity_id)
+                ea.write_db()
+
         # (Try to) perform the actual spread addition.
         ret = self.__super.add_spread(spread)
 
@@ -194,7 +220,8 @@ class AccountHiAMixin(Account.Account):
         # update
         if not (self.has_spread(self.const.spread_exchange_account) or
                 self.has_spread(self.const.spread_exchange_acc_old) or
-                self.has_spread(self.const.spread_hia_email)):
+                self.has_spread(self.const.spread_hia_email) or
+                self.has_spread(self.const.spread_uia_office_365)):
             return
         # Find, create or update a proper EmailTarget for this
         # account.
@@ -336,7 +363,8 @@ class AccountHiAMixin(Account.Account):
         es = Email.EmailServer(self._db)
         et = Email.EmailTarget(self._db)
         server_name = 'mail-imap2'
-        if spread == int(self.const.spread_exchange_account):
+        if spread in (int(self.const.spread_exchange_account),
+                      int(self.const.spread_uia_office_365)):
             server_name = 'excas-grm01.uia.no'
         if spread == int(self.const.spread_exchange_acc_old):
             server_name = 'exchkrs01.uia.no'
@@ -407,4 +435,3 @@ class AccountHiAMixin(Account.Account):
                 return True
         return False    
 
-# arch-tag: e0828813-9221-4e43-96f0-0194d131e683

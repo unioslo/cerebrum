@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2002-2011 University of Oslo, Norway
 #
@@ -28,7 +28,7 @@ NOTE: At least while developing, I recommend using "--prefix
 otherwise noted.
 
 /
-  README:       usr/share/cerebrum/doc/
+  README.md:       usr/share/cerebrum/doc/
   COPYING:      usr/share/cerebrum/doc/
 
 Cerebrum/
@@ -82,7 +82,7 @@ Other directories/files:
   usr/share/cerebrum/data:
     A number of subdirectories for various backends
 
-TODO: 
+TODO:
   comment on template config files (logging.ini, config.dat, cereconf.py)
 
 To install python modules in standard locations, and cerebrum files
@@ -100,7 +100,6 @@ import os
 import sys
 import pwd
 from glob import glob
-from types import StringType
 
 from distutils import sysconfig
 from distutils.command import install_data
@@ -262,6 +261,7 @@ if (install_servers):
     sbin_files.append(('servers/cis/SoapGroupServer.py', 0755))
     sbin_files.append(('servers/cis/SoapGroupPublish.py', 0755))
     sbin_files.append(('servers/cis/SoapVirthomeServer.py', 0755))
+    sbin_files.append(('servers/cis/SoapServer.py', 0755))
 
 bin_files = []
 
@@ -278,7 +278,7 @@ data_files = [
      [('design/cerebrum-core.dia', 0644),
       ('design/cerebrum-core.html', 0644),
       ('design/adminprotocol.html', 0644),
-      ('README', 0644),
+      ('README.md', 0644),
       ('COPYING', 0644), ]),
     ({'path': sbindir,
       'owner': cerebrum_user,
@@ -474,3 +474,6 @@ setup(name="Cerebrum", version=Cerebrum.__version__,
       # Overridden command classes
       cmdclass={'install_data': my_install_data, },
       )
+
+setup(name='SoapAPI', packages = ['SoapAPI'])
+setup(name='ClientAPI', packages = ['ClientAPI'])

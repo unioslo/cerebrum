@@ -507,7 +507,8 @@ class DataPerson(DataEntity):
     GENDER_MALE   = "M"
     GENDER_FEMALE = "F"
     GENDER_UNKNOWN = "X"
-    
+
+    PASSNR = "Passport ID"
 
     def __init__(self):
         super(DataPerson, self).__init__()
@@ -515,7 +516,7 @@ class DataPerson(DataEntity):
 
 
     def validate_id(self, kind, value):
-        assert kind in (self.NO_SSN,)
+        assert kind in (self.NO_SSN, self.PASSNR)
     # end validate_id
 
 

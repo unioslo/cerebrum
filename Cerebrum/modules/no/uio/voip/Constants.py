@@ -265,6 +265,16 @@ class VoipConstants(Constants.Constants):
         "Zenitel TCIS-6"
     )
 
+    voip_client_tciv3 = VoipClientInfoCode(
+        "003002",
+        "Zenitel TCIV-3"
+    )
+
+    voip_client_tciv6 = VoipClientInfoCode(
+        "003003",
+        "Zenitel TCIV-6"
+    )
+
     voip_client_sx20 = VoipClientInfoCode(
         "004001",
         "Cisco SX-20"

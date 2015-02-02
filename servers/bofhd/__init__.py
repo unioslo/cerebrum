@@ -18,4 +18,3 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-# arch-tag: fee1d654-9df3-4728-a5d4-449b44958279

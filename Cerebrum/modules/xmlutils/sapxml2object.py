@@ -284,16 +284,19 @@ class XMLPerson2Object(XMLEntity2Object):
                 "Bistilling": DataEmployment.BISTILLING,
                 "Ansattnummer": SAPPerson.SAP_NR, }
 
+    # This map decides which ID-types to import
+    sap2idtype = {"Passnummer": HRDataPerson.PASSNR, }
+
     def _make_address(self, addr_element):
         """Make a DataAddress instance out of an <Adresse>."""
 
         assert addr_element.tag == "Adresse"
 
-        sap2intern = { "Besøksadresse" : DataAddress.ADDRESS_BESOK,
-                       "Postadresse"   : DataAddress.ADDRESS_POST,
-                       "Bostedsadresse" : DataAddress.ADDRESS_PRIVATE, 
-                       "Avvikende postadresse": DataAddress.ADDRESS_OTHER_POST,
-                       "Avvikende besøksadresse": DataAddress.ADDRESS_OTHER_BESOK,}
+        sap2intern = {"Besøksadresse": DataAddress.ADDRESS_BESOK,
+                      "Postadresse": DataAddress.ADDRESS_POST,
+                      "Bostedsadresse": DataAddress.ADDRESS_PRIVATE, 
+                      "Avvikende postadresse": DataAddress.ADDRESS_OTHER_POST,
+                      "Avvikende besøksadresse": DataAddress.ADDRESS_OTHER_BESOK,}
 
         zip = city = country = addr_kind = ""
         street = []
@@ -589,7 +592,7 @@ class XMLPerson2Object(XMLEntity2Object):
                 # '*' did not work all that well as it is used as common
                 # wildcard in SAP. Johannes suggests that we use '@' in
                 # stead. As the data is not updated yet (we don't know when that
-                # will happen) we need to test for '*' as well in order to skipp
+                # will happen) we need to test for '*' as well in order to skip
                 # all the invalid elements
                 #
                 if '*' in value or '@' in value:
@@ -608,7 +611,7 @@ class XMLPerson2Object(XMLEntity2Object):
                     # Se <Fornavn>.
                     return None
                 result.add_name(DataName(self.tag2type[sub.tag], value))
-            elif sub.tag == "Fodselsnummer":
+            elif sub.tag == "Fodselsnummer" and value is not None:
                 result.add_id(self.tag2type[sub.tag], personnr_ok(value))
             elif sub.tag == "Ansattnummer":
                 result.add_id(self.tag2type[sub.tag], value)
@@ -624,6 +627,7 @@ class XMLPerson2Object(XMLEntity2Object):
                 if emp is not None:
                     result.add_employment(emp)
                     if sub.tag == "Hovedstilling":
+                        # TODO: Not used?
                         main = emp
             elif sub.tag == "Roller" and sub.findtext("IKKE-ANGIT") is None:
                 emp = self._make_role(sub)
@@ -638,6 +642,18 @@ class XMLPerson2Object(XMLEntity2Object):
                     personal_title = self._make_title(HRDataPerson.NAME_TITLE, subsub)
                     if personal_title:
                         result.add_name(personal_title)
+            elif sub.tag == "PersonligID":
+                # Store additional person ids, like passport numbers.
+                # Handle passport numbers
+                if sub.find('Type').text in self.sap2idtype:
+                    # Add the passport number to the data-structure
+                    result.add_id(self.sap2idtype[sub.find('Type').text],
+                                  "%s-%s" % (sub.find('Land').text,
+                                             sub.find('Verdi').text))
+                else:
+                    self.logger.debug(
+                        "Unknown %s type '%s': skipping id type",
+                        sub.tag, sub.find('Type').text)
             elif sub.tag == "SGM":
                 # New feature and unique (for now?) for UiO is SGM,
                 # external attachments for person.

@@ -18,4 +18,3 @@ include design/entity_usage.txt
 recursive-include server *.py *.dat
 # prune etc
 
-# arch-tag: 91634460-cf53-473f-b7dd-ea7932a58d8f

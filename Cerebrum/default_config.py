@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002-2012 University of Oslo, Norway
+# Copyright 2002-2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -329,6 +329,10 @@ UA_FTP_UNAME = 'uname'
 # You should set this variable to the location of your logging ini file
 LOGGING_CONFIGFILE = None
 
+# Rules for how quarantines should be handled. I.e. will the quarantine result
+# in the entity becoming locked-out, is there a special shell set, and so on.
+# If a quarantine is not defined, it will not (directly) result in the user
+# becoming locked, or skipped.
 QUARANTINE_RULES = {}
 # QUARANTINE_RULES = {
 #   'system': {'lock': 1, 'shell': '/local/etc/shells/nologin.system'}
@@ -980,13 +984,16 @@ AUTOMATIC_GROUP_POPULATE_META_PREFIX = []
 #           "Tilsatte ved %s og underordnede organisatoriske enheter",}
 AUTOMATIC_GROUP_LEGAL_PREFIXES = {}
 
-# Groups populated by contrib/populate-collection-groups.py
+# Groups who has memberships populated by contrib/populate-collection-groups.py
 # E.g. [('uio-tilk', ['system_sap:affiliation_tilknyttet',
 #                     'system_fs:affiliation_student',
 #                     'affiliation_tilknyttet_bilag'])]
 # Will result in the group 'uio-tilk' beeing filled with primary accounts who
 # have TILKNYTTET affiliations from SAP, STUDENT-affiliations from FS and
 # TILKNYTTET/bilag from all source systems.
+#
+# The groups you specify in this configuration, must be created BEFORE
+# populate-collection-groups.py is run!!!
 COLLECTION_GROUPS = []
 
 # Mapping of affiliations and groups, used for automatic group membership
