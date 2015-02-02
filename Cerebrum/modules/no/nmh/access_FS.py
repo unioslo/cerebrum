@@ -197,10 +197,10 @@ class NMHUndervisning(access_FS.Undervisning):
 
     def list_fagperson_semester(self):
         """Hent ut data om fagpersoner. NMH har et tilleggsbehov for å hente ut
-        fagfelt og instrument for fagpersonene.
+        fagfelt (fagnavn_norsk) for fagpersonene.
 
         """
-        # Note: Not all persons are registered in fagpersoninstrument, so we
+        # Note: Not all persons are registered, so we
         # run a left outer join. In addition, oracle does not allow outer joins
         # if you select from more than one table, which is why we need to
         # explicitly do a JOIN with the regular table fs.fagperson:
@@ -218,7 +218,7 @@ class NMHUndervisning(access_FS.Undervisning):
               fp.instituttnr_ansatt AS instituttnr,
               fp.gruppenr_ansatt AS gruppenr,
               fp.status_aktiv, p.status_reserv_lms AS status_publiseres,
-              fp.fagfelt, i.instrumentnavn,
+              f.fagnavn_norsk AS fagfelt,
               p.kjonn, p.status_dod
         FROM fs.person p
              JOIN fs.fagperson fp
@@ -227,12 +227,16 @@ class NMHUndervisning(access_FS.Undervisning):
                 ON (p.fodselsdato=fpi.fodselsdato AND p.personnr=fpi.personnr)
              LEFT JOIN fs.instrument i
                 ON (fpi.instrumentkode=i.instrumentkode)
+             LEFT JOIN fs.fagpersonfag fpf
+                ON (p.fodselsdato=fpf.fodselsdato AND p.personnr=fpf.personnr)
+             LEFT JOIN fs.fag f
+                ON (fpf.fagkode=f.fagkode)
         WHERE fp.status_aktiv = 'J' AND
               fp.institusjonsnr_ansatt IS NOT NULL AND
               fp.faknr_ansatt IS NOT NULL AND
               fp.instituttnr_ansatt IS NOT NULL AND
               fp.gruppenr_ansatt IS NOT NULL
-        """ 
+        """
         return self.db.query(qry)
 
 class NMHStudieInfo(access_FS.StudieInfo):

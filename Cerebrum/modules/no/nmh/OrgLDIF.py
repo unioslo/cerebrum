@@ -1,5 +1,5 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2006-2007 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2006-2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,6 +22,7 @@ from collections import defaultdict
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.OrgLDIF import *
 
+
 class nmhOrgLDIFMixin(OrgLDIF):
     def __init__(self, db, logger):
         self.__super.__init__(db, logger)
@@ -38,15 +39,24 @@ class nmhOrgLDIFMixin(OrgLDIF):
         return False
 
     def get_fagomrade(self):
-        """NMH wants 'fagomrade' exported, which consists of 'fagfelt' and
-        'instrument'. Both fields are stored in traits for each person.
-
+        """NMH wants 'fagomrade' exported, which consists one or more 'fagfelt'.
+        This field is stored in a trait for each person. The trait string value
+        is a pickled list of strings.
         """
-        fagfelts = dict((row['entity_id'], iso2utf(row['strval'] or '')) for row in
-                    self.person.list_traits(self.const.trait_fagomrade_fagfelt))
-        instr = dict((row['entity_id'], iso2utf(row['strval'] or '')) for row in
-                 self.person.list_traits(self.const.trait_fagomrade_instrument))
-        return fagfelts, instr
+        person2fagfelt = dict()
+
+        for row in self.person.list_traits(self.const.trait_fagomrade_fagfelt):
+            try:
+                fagfelt = pickle.loads(row['strval'])
+            except Exception, exc:
+                self.logger.warn(
+                    "Could not unpickle trait_fagomrade_fagfelt for person:%s, %s",
+                    row['entity_id'], exc)
+                continue
+
+            person2fagfelt[row['entity_id']] = [iso2utf(f) for f in fagfelt]
+
+        return person2fagfelt
 
     def get_fagmiljo(self):
         """Returns a dict mapping from person_id to 'fagmiljø'.
@@ -62,17 +72,16 @@ class nmhOrgLDIFMixin(OrgLDIF):
     def init_attr2id2contacts(self):
         """Override to include more, local data from contact info."""
         sap, fs = self.const.system_sap, self.const.system_fs
-        c = [(a, self.get_contacts(contact_type  = t,
-                                   source_system = s,
-                                   convert       = self.attr2syntax[a][0],
-                                   verify        = self.attr2syntax[a][1],
-                                   normalize     = self.attr2syntax[a][2]))
-             for a,s,t in (('telephoneNumber', sap, self.const.contact_phone),
-                           ('mobile', (sap, fs), self.const.contact_mobile_phone),
-                           ('facsimileTelephoneNumber', sap,
-                                                        self.const.contact_fax),
-                           ('labeledURI', None, self.const.contact_url))]
-        self.id2labeledURI    = c[-1][1]
+        c = [(a, self.get_contacts(contact_type=t,
+                                   source_system=s,
+                                   convert=self.attr2syntax[a][0],
+                                   verify=self.attr2syntax[a][1],
+                                   normalize=self.attr2syntax[a][2]))
+             for a, s, t in (('telephoneNumber', sap, self.const.contact_phone),
+                            ('mobile', (sap, fs), self.const.contact_mobile_phone),
+                            ('facsimileTelephoneNumber', sap, self.const.contact_fax),
+                            ('labeledURI', None, self.const.contact_url))]
+        self.id2labeledURI = c[-1][1]
         self.attr2id2contacts = [v for v in c if v[1]]
 
         # roomNumber
@@ -81,16 +90,16 @@ class nmhOrgLDIFMixin(OrgLDIF):
         attr = 'roomNumber'
         syntax = self.attr2syntax[attr]
         c = self.get_contact_aliases(
-            contact_type  = self.const.contact_office,
-            source_system = self.const.system_sap,
-            convert       = syntax[0],
-            verify        = syntax[1],
-            normalize     = syntax[2])
+            contact_type=self.const.contact_office,
+            source_system=self.const.system_sap,
+            convert=syntax[0],
+            verify=syntax[1],
+            normalize=syntax[2])
         if c:
             self.attr2id2contacts.append((attr, c))
 
-    def get_contact_aliases(self, contact_type=None,
-            source_system=None, convert=None, verify=None, normalize=None):
+    def get_contact_aliases(self, contact_type=None, source_system=None, convert=None,
+                            verify=None, normalize=None):
         """Return a dict {entity_id: [list of contact aliases]}."""
         # The code mimics a reduced modules/OrgLDIF.py:get_contacts().
         entity = Entity.EntityContactInfo(self.db)
@@ -99,8 +108,8 @@ class nmhOrgLDIFMixin(OrgLDIF):
             convert = str
         if not verify:
             verify = bool
-        for row in entity.list_contact_info(source_system = source_system,
-                                            contact_type  = contact_type):
+        for row in entity.list_contact_info(source_system=source_system,
+                                            contact_type=contact_type):
             alias = convert(str(row['contact_alias']))
             if alias and verify(alias):
                 cont_tab[int(row['entity_id'])].append(alias)
@@ -110,17 +119,16 @@ class nmhOrgLDIFMixin(OrgLDIF):
 
     def make_person_entry(self, row):
         """Override the production of a person entry to output.
-        
+
         NMH needs more data for their own use, e.g. to be used by their web
         pages."""
         dn, entry, alias_info = self.__super.make_person_entry(row)
         if dn:
             p_id = int(row['person_id'])
-            # Add fagfelt and instrument, if registered for the person:
-            fagf = self.pe2fagomr[0].get(p_id, '')
-            inst = self.pe2fagomr[1].get(p_id, '')
-            if fagf or inst:
-                urn = 'urn:mace:feide.no:nmh.no:fagomrade:%s;%s' % (fagf, inst)
+            # Add fagomrade/fagfelt, if registered for the person:
+            fagf = self.pe2fagomr.get(p_id, [])
+            for f in fagf:
+                urn = 'urn:mace:feide.no:nmh.no:fagomrade:%s' % (f)
                 entry.setdefault('eduPersonEntitlement', []).append(urn)
             # Add fagmiljø:
             fagm = self.pe2fagmiljo.get(p_id)

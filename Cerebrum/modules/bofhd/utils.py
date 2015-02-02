@@ -119,6 +119,9 @@ class Constants(Constants.Constants):
         'email_delete', "Delete e-mail addresses")
     auth_email_info_detail = _AuthRoleOpCode(
         'email_info_det', "View detailed information about e-mail account")
+    auth_email_forward_info = _AuthRoleOpCode(
+        'email_fwd_info',
+        "View & search information about e-mail forwards")
     auth_email_reassign = _AuthRoleOpCode(
         'email_reassign', "Reassign e-mail addresses")
     auth_quarantine_set = _AuthRoleOpCode(
@@ -129,6 +132,10 @@ class Constants(Constants.Constants):
         'qua_remove', "Remove quarantine on entity")
     auth_guest_request = _AuthRoleOpCode(
         'guest_request', "Request guests")
+    auth_add_affiliation = _AuthRoleOpCode(
+        'add_affiliation', "Add affiliation")
+    auth_remove_affiliation = _AuthRoleOpCode(
+        'rem_affiliation', "Remove affiliation")
     # These are values used as auth_op_target.target_type.  This table
     # doesn't use a code table to map into integers, so we can't use
     # the CerebrumCode framework.  TODO: redefine the database table

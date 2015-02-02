@@ -1177,21 +1177,21 @@ class BaseSync(object):
                                       ent.entity_name, atr)
                     if add_elements:
                         self.logger.debug(
-                                " - adding: %s",
-                                '; '.join('%s (%s)' % (m, type(m)) for m in
-                                          add_elements))
+                            " - adding: %s",
+                            '; '.join('%s (%s)' % (m, type(m)) for m in
+                                      add_elements))
                         ret[atr]['add'] = add_elements
                     if remove_elements:
                         self.logger.debug(
-                                " - removing: %s",
-                                '; '.join('%s (%s)' % (m, type(m)) for m in
-                                          remove_elements))
+                            " - removing: %s",
+                            '; '.join('%s (%s)' % (m, type(m)) for m in
+                                      remove_elements))
                         ret[atr]['remove'] = remove_elements
                 else:
                     self.logger.debug(
-                            "Mismatch attr %s for %s: '%s' (%s) -> '%s' (%s)",
-                            atr, ent.entity_name, ad_value, type(ad_value),
-                            value, type(value))
+                        "Mismatch attr %s for %s: '%s' (%s) -> '%s' (%s)",
+                        atr, ent.entity_name, ad_value, type(ad_value),
+                        value, type(value))
                     ret[atr]['fullupdate'] = value
         return ret
 
@@ -1231,7 +1231,6 @@ class BaseSync(object):
             removed.
 
         """
-
         # TODO: Should we care about case sensitivity?
 
         # Ignore the cases where an attribute is None in Cerebrum and an empty
@@ -1251,8 +1250,9 @@ class BaseSync(object):
             if a is None or c.lower() != a.lower():
                 return (True, None, None)
         # Order does not matter in multivalued attributes
-        types = (list, tuple, set)
-        if isinstance(c, types) and isinstance(a, types):
+        seq = (list, tuple, set)
+        if isinstance(c, seq) and (isinstance(a, seq) or a is None):
+            a = a or list()
             # TODO: Do we in some cases need to unicodify strings before
             # comparement?
             to_add = set(c).difference(a)
@@ -1269,13 +1269,11 @@ class BaseSync(object):
 
         """
         en = Entity.EntityName(self.db)
-        #self.ent.clear()
         try:
             en.find(row['subject_entity'])
-            #self.ent.find(row['subject_entity'])
-        except Errors.NotFoundError, e:
-            self.logger.warn("Could not find entity: %s. Check if entity is nuked." %
-                             row['subject_entity'])
+        except Errors.NotFoundError:
+            self.logger.warn("Could not find entity: %s. Check if entity is "
+                             "nuked.", row['subject_entity'])
             # TODO: ignore this? Are there other reasons than race conditions
             # when the entity is nuked from the database?
 
@@ -1308,9 +1306,9 @@ class BaseSync(object):
         en = Entity.EntityName(self.db)
         try:
             en.find(row['subject_entity'])
-        except Errors.NotFoundError, e:
-            self.logger.warn("Could not find entity: %s. Check if entity is nuked." %
-                             row['subject_entity'])
+        except Errors.NotFoundError:
+            self.logger.warn("Could not find entity: %s. Check if entity is "
+                             "nuked.", row['subject_entity'])
             # TODO: ignore this? Are there other reasons than race conditions
             # when the entity is nuked from the database?
 
