@@ -360,6 +360,8 @@ class BofhdCommandBase(object):
             group = self.Group_class(self.db)
         elif grtype == 'PosixGroup':
             group = Factory.get('PosixGroup')(self.db)
+        elif grtype == 'DistributionGroup':
+             group = Factory.get('DistributionGroup')(self.db)
         else:
             raise CerebrumError("Invalid group type %s" % grtype)
         try:
@@ -369,7 +371,11 @@ class BofhdCommandBase(object):
             if idtype == "name":
                 group.find_by_name(group_id)
             elif idtype == "id":
+                if not (isinstance(group_id, (int, long)) or id.isdigit()):
+                    raise CerebrumError("Non-numeric id lookup (%s)" % id)
                 group.find(group_id)
+            elif idtype == "gid" and grtype == 'PosixGroup':
+                group.find_by_gid(group_id)
             else:
                 raise CerebrumError("Unknown idtype: '%s'" % idtype)
         except Errors.NotFoundError:
