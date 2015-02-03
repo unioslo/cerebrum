@@ -240,7 +240,8 @@ def user_details_to_perms(user_details):
 
 def list_perm_for_person(person):
     ret = []
-    for row in EphortePermission(db).list_permission(person_id=person.entity_id):
+    for row in EphortePermission(db).list_permission(person_id=person.entity_id,
+                                                     filter_expired=True):
         perm_type = row['perm_type']
         if perm_type:
             perm_type = str(co.EphortePermission(perm_type))
@@ -562,7 +563,7 @@ def update_person_roles(pe, client, delete_superfluous=False):
                         for x in user_details_to_roles(client.get_user_details(user_id)))
     cerebrum_roles = set()
 
-    for role in ephorte_role.list_roles(person_id=pe.entity_id):
+    for role in ephorte_role.list_roles(person_id=pe.entity_id, filter_expired=True):
         try:
             args['arkivdel'] = unicode(co.EphorteArkivdel(role['arkivdel']))
             args['journalenhet'] = unicode(co.EphorteJournalenhet(role['journalenhet']))
