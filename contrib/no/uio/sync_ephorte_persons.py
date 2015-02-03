@@ -60,7 +60,7 @@ ephorte_role = EphorteRole(db)
 _ou_to_sko = {}
 _ephorte_ous = None
 _perm_codes = None
-
+_valid_ephorte_ous = None
 
 def get_email_address(pe):
     """Get a persons primary email address.
@@ -142,6 +142,19 @@ def ou_has_ephorte_spread(ou_id):
                            ou.list_all_with_spread(spreads=co.spread_ephorte_ou)])
 
     return ou_id in _ephorte_ous
+
+def ephorte_has_ou(client, sko):
+    """Check for OU in ePhorte
+    :type sko: str
+    :param sko: Stedkode
+    :rtype: dict/None
+    :return: ephorte ou data if exists else None
+    """
+    global _valid_ephorte_ous
+    if _valid_ephorte_ous is None:
+        _valid_ephorte_ous = dict(((x['OrgId'], x) for x in 
+            client.get_all_org_units()))
+    return _valid_ephorte_ous.get(sko, False)
 
 
 def update_person_info(pe, client):
@@ -227,7 +240,8 @@ def user_details_to_perms(user_details):
 
 def list_perm_for_person(person):
     ret = []
-    for row in EphortePermission(db).list_permission(person_id=person.entity_id):
+    for row in EphortePermission(db).list_permission(person_id=person.entity_id,
+                                                     filter_expired=True):
         perm_type = row['perm_type']
         if perm_type:
             perm_type = str(co.EphortePermission(perm_type))
@@ -449,13 +463,20 @@ def update_person_perms(person, client, userid=None, remove_superfluous=False):
             if superfluous:
                 for perm in superfluous:
                     logger.info("Deleting perm for %s: %s@%s, authorized=%s", userid, *perm)
-                    client.disable_user_authz(userid, perm[0], perm[1])
+                    try:
+                        client.disable_user_authz(userid, perm[0], perm[1])
+                    except Exception, e:
+                        logger.exception("Did not delete authz")
 
         for perm in cerebrum_perms:
             if perm not in ephorte_perms:
                 logger.info("Adding new perm for %s: %s@%s, authorized=%s", userid, *perm)
             else:
-                logger.debug("Ensuring perm for %s: %s@%s, authorized=%s", userid, *perm)
+                logger.info("Ensuring new perm for %s: %s@%s, authorized=%s", userid, *perm)
+            if perm[1] and not ephorte_has_ou(client, perm[1]):
+                logger.warn("No OU in ePhorte for %s for perm %s for %s", 
+                            perm[1], perm[0], userid)
+                continue
             try:
                 client.ensure_access_code_authorization(userid, *perm)
             except Exception, e:
@@ -542,7 +563,7 @@ def update_person_roles(pe, client, delete_superfluous=False):
                         for x in user_details_to_roles(client.get_user_details(user_id)))
     cerebrum_roles = set()
 
-    for role in ephorte_role.list_roles(person_id=pe.entity_id):
+    for role in ephorte_role.list_roles(person_id=pe.entity_id, filter_expired=True):
         try:
             args['arkivdel'] = unicode(co.EphorteArkivdel(role['arkivdel']))
             args['journalenhet'] = unicode(co.EphorteJournalenhet(role['journalenhet']))
@@ -562,6 +583,10 @@ def update_person_roles(pe, client, delete_superfluous=False):
             #missing_ou_spread.append({'uname':_get_primary_account(p_id),
             #                          'role_type':role_type,
             #                          'sko':sko})
+            continue
+        elif not ephorte_has_ou(client, args['ou_id']):
+            logger.warn("OU %s does not exist in ePhorte for role %s %s",
+                        args['ou_id'], user_id, args)
             continue
 
         role_tuple = tuple(sorted(args.items()))
