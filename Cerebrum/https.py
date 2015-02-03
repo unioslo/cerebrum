@@ -51,6 +51,9 @@ ssl_match_hostname module that is actually used, so that it's possible to do
       <handle>
 """
 
+SSLError = ssl.SSLError
+u""" Import SSLError directly from https"""
+
 
 class SSLConfig(object):
 
@@ -166,8 +169,8 @@ class SSLConfig(object):
 
         for ftype, path in ((u'certificate', certfile),
                             (u'private key', keyfile)):
-            if ftype is not None and not os.path.exists(path):
-                raise ValueError(u"No % file '%s'" % (ftype, path))
+            if path is not None and not os.path.exists(path):
+                raise ValueError(u"No %s file '%s'" % (ftype, path))
         self._wrap_param['certfile'] = certfile
         self._wrap_param['keyfile'] = keyfile
 
@@ -240,19 +243,26 @@ class SSLConfig(object):
                 return
             raise
 
-    def wrap_socket(self, sock):
+    def wrap_socket(self, sock, server=False):
         u""" Wrap socket with SSLSocket, with the provided settings.
 
         Calls ssl.wrap_socket with ssl parameters from this object.
 
+        :param sock: The socket
+        :param server: True if this is a listening socket.
+
         """
         # Warn about bad decision making:
-        if self._wrap_param.get('cert_reqs', None) != SSLConfig.REQUIRED:
+        if not (server or
+                self._wrap_param.get('cert_reqs', None) == SSLConfig.REQUIRED):
             warn(RuntimeWarning(u'Peer certificate not required'))
-        if not self._do_verify_hostname:
+        if not (server or self._do_verify_hostname):
             warn(RuntimeWarning(u'Certificate hostname validation disabled'))
 
-        return ssl.wrap_socket(sock, **self._wrap_param)
+        params = self._wrap_param.copy()
+        params['server_side'] = server
+
+        return ssl.wrap_socket(sock, **params)
 
     def __unicode__(self):
         u""" Return a unicode representation of this object. """

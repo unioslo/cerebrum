@@ -68,38 +68,23 @@ import socket
 import cerebrum_path
 import cereconf
 
-if sys.version_info < (2, 3):
-    from Cerebrum.extlib import timeoutsocket
-    use_new_timeout = False
-else:
-    use_new_timeout = True
-    # Doesn't work with m2crypto:
-    # socket.setdefaulttimeout(cereconf.BOFHD_CLIENT_SOCKET_TIMEOUT)
 import thread
 import threading
 import time
 import SocketServer
-import SimpleXMLRPCServer
+from SimpleXMLRPCServer import SimpleXMLRPCRequestHandler
 import xmlrpclib
-
-try:
-    from M2Crypto import SSL
-    CRYPTO_AVAILABLE = True
-    # Turn off m2crypto ssl chatter. These flags are NOT documented anywhere
-    # in m2crypto, so use with care :)
-    import M2Crypto
-    M2Crypto.m2.SSL_CB_LOOP = 0
-    M2Crypto.m2.SSL_CB_EXIT = 0
-except ImportError:
-    CRYPTO_AVAILABLE = False
-
-# import SecureXMLRPCServer
 
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum import QuarantineHandler
-from Cerebrum.modules.bofhd.errors import CerebrumError, \
-    UnknownError, ServerRestartedError, SessionExpiredError
+from Cerebrum import https
+
+from Cerebrum.modules.bofhd.errors import CerebrumError
+from Cerebrum.modules.bofhd.errors import SessionExpiredError
+from Cerebrum.modules.bofhd.errors import ServerRestartedError
+from Cerebrum.modules.bofhd.errors import UnknownError
+
 from Cerebrum.modules.bofhd.help import Help
 from Cerebrum.modules.bofhd.xmlutils import xmlrpc_to_native, native_to_xmlrpc
 from Cerebrum.modules.bofhd.utils import BofhdUtils
@@ -113,8 +98,18 @@ from Cerebrum.modules.bofhd.session import BofhdSession
 logger = Utils.Factory.get_logger("bofhd")  # The import modules use the "import" logger
 
 
-class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
-                          object):
+get_thread = lambda: threading.currentThread().getName()
+""" Get thread name. """
+
+format_addr = lambda addr: ':'.join([str(x) for x in addr or ['err', 'err']])
+""" Get ip:port formatted string from address tuple. """
+
+
+# TODO: We need to figure out where the db connection is *really* needed. We
+# need to move it out of the ServerImplementation and into the RequestHandler,
+# so that we can run bofhd 'multithreaded'.
+
+class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
 
     """Class defining all XML-RPC-callable methods.
 
@@ -123,13 +118,34 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
 
     """
 
-    use_encryption = CRYPTO_AVAILABLE
+    def setup(self):
+        """ Setup the request.
+
+        This function will read out the BOFHD_CLIENT_SOCKET_TIMEOUT setting,
+        if no other timeout is given, and apply it to the request socket.
+
+        """
+        if self.timeout is None:
+            self.timeout = getattr(cereconf, 'BOFHD_CLIENT_SOCKET_TIMEOUT')
+        super(BofhdRequestHandler, self).setup()
 
     def _dispatch(self, method, params):
+        """ Call bofhd function and handle errors.
+
+        This method is responsible for mapping the actual XMLRPC method to a
+        function call (i.e. bofhd_get_commands, bofhd_run_command, bofhd_login,
+        etc...)
+
+        :raise NotImplementedError: When an unknown function is called.
+        :raise CerebrumError: When known errors occurs.
+        :raise UnknownError: When unhandled (server errors) occurs.
+
+        """
         try:
             func = getattr(self, 'bofhd_' + method)
         except AttributeError:
-            raise Exception('method "%s" is not supported' % method)
+            raise NotImplementedError('method "%s" is not supported' % method)
+
         try:
             ret = apply(func, xmlrpc_to_native(params))
         except CerebrumError, e:
@@ -167,29 +183,33 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             raise UnknownError(sys.exc_info()[0],
                                sys.exc_info()[1],
                                msg="A server error has been logged.")
+
+        # TODO: Dispatch should maybe handle rollback for all methods?
+
         return native_to_xmlrpc(ret)
 
     def handle(self):
-        if not use_new_timeout:
-            if not self.use_encryption:
-                self.connection.set_timeout(
-                    cereconf.BOFHD_CLIENT_SOCKET_TIMEOUT)
-            try:
-                super(BofhdRequestHandler, self).handle()
-            except timeoutsocket.Timeout, msg:
-                logger.debug("Timeout: %s from %s" % (
-                    msg, ":".join([str(x) for x in self.client_address])))
-                self.server.db.rollback()
-        else:
-            if not self.use_encryption:
-                self.connection.settimeout(
-                    cereconf.BOFHD_CLIENT_SOCKET_TIMEOUT)
-            try:
-                super(BofhdRequestHandler, self).handle()
-            except socket.timeout, msg:
-                logger.debug("Timeout: %s from %s" % (
-                    msg, ":".join([str(x) for x in self.client_address])))
-                self.server.db.rollback()
+        """ Handle request and timeout. """
+        # TODO: Do we need to do db.rollback here? It should probably be moved
+        #       elsewhere.
+        try:
+            super(BofhdRequestHandler, self).handle()
+        except socket.timeout, e:
+            # Timeouts are not 'normal' operation.
+            logger.info("[%s] timeout: %s from %s",
+                        get_thread(), e, format_addr(self.client_address))
+            self.close_connection = 1
+            self.server.db.rollback()
+        except https.SSLError, e:
+            # SSLError could be a timeout, or it could be some other form of
+            # error
+            logger.info("[%s] SSLError: %s from %s",
+                        get_thread(), e, format_addr(self.client_address))
+            self.close_connection = 1
+            self.server.db.rollback()
+        except:
+            self.server.db.rollback()
+            raise
 
     # This method is pretty identical to the one shipped with Python,
     # except that we don't silently eat exceptions
@@ -198,8 +218,8 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
 
         Attempts to interpret all HTTP POST requests as XML-RPC calls,
         which are forwarded to the _dispatch method for handling.
-        """
 
+        """
         # Whenever unexpected exception occurs, we'd like to include
         # as much debugging info as possible.  To avoid raising
         # NameError in the debug-printing code, we pre-initialise a
@@ -212,8 +232,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
 
             # generate response
             try:
-                logger.debug2("[%s] dispatch %s",
-                              threading.currentThread().getName(), method)
+                logger.debug2("[%s] dispatch %s", get_thread(), method)
 
                 response = self._dispatch(method, params)
                 # wrap response in a singleton tuple
@@ -223,7 +242,6 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
                 # we want to report any subclass of CerebrumError as
                 # CerebrumError so that the client can recognize this
                 # as a user-error.
-                # TODO: This is not a perfect solution...
                 if sys.exc_type in (ServerRestartedError,
                                     SessionExpiredError,
                                     UnknownError):
@@ -259,21 +277,11 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             self.send_header("Content-length", str(len(response)))
             self.end_headers()
             self.wfile.write(response)
-
-            # shut down the connection
             self.wfile.flush()
-            self.connection.shutdown(1)
-        logger.debug2("End of" + threading.currentThread().getName())
-
-    def finish(self):
-        if self.use_encryption:
-            self.request.set_shutdown(SSL.SSL_RECEIVED_SHUTDOWN |
-                                      SSL.SSL_SENT_SHUTDOWN)
-            self.request.close()
-        else:
-            super(BofhdRequestHandler, self).finish()
+        logger.debug2("[%s] thread done", get_thread())
 
     def bofhd_login(self, uname, password):
+        """ The bofhd login function. """
         account = Utils.Factory.get('Account')(self.server.db)
         try:
             account.find_by_name(uname)
@@ -362,6 +370,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             raise
 
     def bofhd_logout(self, session_id):
+        """ The bofhd logout function. """
         session = BofhdSession(self.server.db, logger, session_id)
         try:
             session.clear_state()
@@ -564,6 +573,43 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
         return getattr(instance, func.__name__)(session, *args)
 
 
+# TODO: vv move to Cerebrum.modules.bofhd.server vv
+
+class BofhdConfig(object):
+
+    """ Container for parsing and keeping a bofhd config. """
+
+    def __init__(self, filename=None):
+        """ Initialize new config. """
+        self._exts = list()  # NOTE: Must keep order!
+        if filename:
+            self.load_from_file(filename)
+
+    def load_from_file(self, filename):
+        """ Load config file. """
+        with open(filename, 'r') as f:
+            cnt = 0
+            for line in f.readlines():
+                cnt += 1
+                if line:
+                    line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                try:
+                    mod, cls = line.split("/", 1)
+                except:
+                    mod, cls = None, None
+                if not mod or not cls:
+                    raise Exception("Parse error in '%s' on line %d: %r" %
+                                    (filename, cnt, line))
+                self._exts.append((mod, cls))
+
+    def extensions(self):
+        """ All extensions from config. """
+        for mod, cls in self._exts:
+            yield mod, cls
+
+
 class BofhdServerImplementation(object):
     """ Common Server implementation. """
 
@@ -573,6 +619,8 @@ class BofhdServerImplementation(object):
         We must overload the __new__ method to be allowed to call
         object.__init__ with arguments.
 
+        This is a hack.
+
         """
         return super(
             BofhdServerImplementation, cls).__new__(cls, *args, **kwargs)
@@ -580,12 +628,18 @@ class BofhdServerImplementation(object):
     def __init__(self, server_address=None,
                  RequestHandlerClass=BofhdRequestHandler,
                  database=None, config_fname=None, *args, **kws):
-        """ TODO: Document.
+        """ Set up a new bofhd server.
 
-        :param server_address: TODO
-        :param RequestHandlerClass: TODO
-        :param database: TODO
-        :param config_fname: TODO
+        :param tuple server_address:
+            The address to bind to. The address is a tuple consisting of the
+            hostname or -ip and port number.
+        :param type RequestHandlerClass:
+            The class to handle requests with. It should be a subclass of
+            SimpleXMLRPCRequestHandler.
+        :param Cerebrum.Database database:
+            A Cerebrum database connection
+        :param string config_fname:
+            Filename of the bofhd config file.
 
         """
         super(BofhdServerImplementation, self).__init__(
@@ -594,10 +648,16 @@ class BofhdServerImplementation(object):
         self.logRequests = False
         self.db = database
         self.util = BofhdUtils(database)
-        self.config_fname = config_fname
-        self.read_config()
+        self.config = BofhdConfig(config_fname)
+        self.load_extensions()
 
-    def read_config(self):
+    def load_extensions(self):
+        """ Load BofhdExtensions (commands and help texts).
+
+        This will load and initialize the BofhdExtensions specified by the
+        configuration.
+
+        """
         self.const = Utils.Factory.get('Constants')(self.db)
         self.cmd2instance = {}
         self.server_start_time = time.time()
@@ -607,24 +667,15 @@ class BofhdServerImplementation(object):
         self.cmd_instances = []
         self.logger = logger
 
-        config_file = file(self.config_fname)
-        while True:
-            line = config_file.readline()
-            if not line:
-                break
-            line = line.strip()
-            if not line or line.startswith('#'):
-                continue
-            # Import module and create an instance of it; update
-            # mapping from command name to a class instance with a
-            # method that implements that command.  This means that
-            # any command's implementation can be overridden by
-            # providing a new implementation in a later class.
-            modfile, class_name = line.split("/", 1)
+        for modfile, class_name in self.config.extensions():
             mod = Utils.dyn_import(modfile)
             cls = getattr(mod, class_name)
             instance = cls(self)
             self.cmd_instances.append(instance)
+
+            # Map commands to BofhdExtensions
+            # NOTE: Any duplicate command will be overloaded by later
+            #       BofhdExtensions.
             for k in instance.all_commands.keys():
                 self.cmd2instance[k] = instance
             if hasattr(instance, "hidden_commands"):
@@ -658,8 +709,37 @@ class BofhdServerImplementation(object):
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         super(BofhdServerImplementation, self).server_bind()
 
+    def get_request(self):
+        """ Get request socket and client address.
+
+        This is used to log new connections.
+
+        :rtype: tuple
+        :return:
+            A tuple with the request socket, and client address. The client
+            address is a tuple consisting of address and port.
+
+        """
+        sock, addr = super(BofhdServerImplementation, self).get_request()
+        logger.debug("[%s] new connection from %s, %r",
+                     get_thread(), format_addr(addr), sock)
+        return sock, addr
+
     def close_request(self, request):
+        """ Close request socket.
+
+        process_request either leads to:
+          - finish_request, which calls shutdown_request
+          - handle_error, which calls shutdown_request
+
+        shutdown_request should call close_request, with the request socket as
+        argument.
+
+        :param SSLSocket|socketobject request: The request socket to close.
+
+        """
         super(BofhdServerImplementation, self).close_request(request)
+        logger.debug("[%s] closed connection %r", get_thread(), request)
         # Check that the database is alive and well by creating a new
         # cursor.
         #
@@ -675,7 +755,13 @@ class BofhdServerImplementation(object):
 
 class _TCPServer(SocketServer.TCPServer, object):
 
-    "SocketServer.TCPServer as a new-style class."
+    """SocketServer.TCPServer as a new-style class."""
+
+    pass
+
+class _ThreadingMixIn(SocketServer.ThreadingMixIn, object):
+
+    """SocketServer.ThreadingMixIn as a new-style class."""
     pass
 
 
@@ -695,13 +781,8 @@ class BofhdServer(BofhdServerImplementation, _TCPServer):
     pass
 
 
-class _ThreadingMixIn(SocketServer.ThreadingMixIn, object):
-
-    "SocketServer.ThreadingMixIn as a new-style class."
-    pass
-
-
-class ThreadingBofhdServer(BofhdServerImplementation, _ThreadingMixIn,
+class ThreadingBofhdServer(BofhdServerImplementation,
+                           _ThreadingMixIn,
                            _TCPServer):
 
     """Threaded non-encrypted Bofhd server.
@@ -718,48 +799,76 @@ class ThreadingBofhdServer(BofhdServerImplementation, _ThreadingMixIn,
     pass
 
 
-if CRYPTO_AVAILABLE:
-    class _SSLServer(SSL.SSLServer, object):
-        "SSL.SSLServer as a new-style class."
-        pass
+class SSLServer(_TCPServer):
 
-    class SSLBofhdServer(BofhdServerImplementation, _SSLServer):
-        """SSL-enabled Bofhd server.
+    """ Basic SSL server. """
 
-        Constructor accepts the following arguments:
+    def __init__(self, server_address, RequestHandlerClass, ssl_config,
+                 bind_and_activate=True):
+        """ Initialize a basic SSL Server.
 
-          server_address        -- (ipAddr, portNumber) tuple
-          RequestHandlerClass   -- class for handling XML-RPC requests
-          logRequests           -- boolean
-          database              -- Cerebrum Database object
-          config_fname          -- name of Bofhd config file
-          ssl_context           -- SSL.Context object
-
-        """
-        pass
-
-    class _ThreadingSSLServer(SSL.ThreadingSSLServer, object):
-        "SSL.ThreadingSSLServer as a new-style class."
-        pass
-
-    # TODO: Check if it is sufficient to do something like:
-    # class ThreadingSSLBofhdServer(SSL.ThreadingSSLServer, SSLBofhdServer)
-    class ThreadingSSLBofhdServer(BofhdServerImplementation,
-                                  _ThreadingSSLServer):
-        """SSL-enabled threaded Bofhd server.
-
-        Constructor accepts the following arguments:
-
-          server_address        -- (ipAddr, portNumber) tuple
-          RequestHandlerClass   -- class for handling XML-RPC requests
-          logRequests           -- boolean
-          database              -- Cerebrum Database object
-          config_fname          -- name of Bofhd config file
-          ssl_context           -- SSL.Context object
+        :param tuple server_address:
+            A tuple with the listening socket address. The tuple should contain
+            the bind address or ip, and the bind port.
+        :param type RequestHandlerClass:
+            The request handler class, preferably a subtype of
+            SimpleXMLRPCRequestHandler.
+        :param https.SSLConfig ssl_config:
+            A configuration object with SSL parameters.
+        :param boolean bind_and_activate:
+            If bind and activate should be performed on init.
 
         """
-        pass
+        assert isinstance(ssl_config, https.SSLConfig)
+        self.ssl_config = ssl_config
 
+        # We cannot let the superclss perform bind_and_activate before we wrap
+        # the socket.
+        super(SSLServer, self).__init__(server_address, RequestHandlerClass,
+                                        bind_and_activate=False)
+
+        self.socket = ssl_config.wrap_socket(self.socket, server=True)
+
+        if bind_and_activate:
+            self.server_bind()
+            self.server_activate()
+
+
+class SSLBofhdServer(BofhdServerImplementation, SSLServer):
+
+    """SSL-enabled Bofhd server.
+
+    Constructor accepts the following arguments:
+
+      server_address        -- (ipAddr, portNumber) tuple
+      RequestHandlerClass   -- class for handling XML-RPC requests
+      logRequests           -- boolean
+      database              -- Cerebrum Database object
+      config_fname          -- name of Bofhd config file
+      ssl_context           -- SSL.Context object
+
+    """
+    pass
+
+
+class ThreadingSSLBofhdServer(BofhdServerImplementation,
+                              _ThreadingMixIn,
+                              SSLServer):
+    """SSL-enabled threaded Bofhd server.
+
+    Constructor accepts the following arguments:
+
+      server_address        -- (ipAddr, portNumber) tuple
+      RequestHandlerClass   -- class for handling XML-RPC requests
+      logRequests           -- boolean
+      database              -- Cerebrum Database object
+      config_fname          -- name of Bofhd config file
+      ssl_context           -- SSL.Context object
+
+    """
+    pass
+
+# TODO: ^^ move to Cerebrum.modules.bofhd.server ^^
 
 _db_pool_lock = thread.allocate_lock()
 
@@ -783,14 +892,13 @@ class ProxyDBConnection(object):
 
     def __getattr__(self, attrib):
         try:
-            obj = self.active_connections[threading.currentThread().getName()]
+            obj = self.active_connections[get_thread()]
         except KeyError:
             # TODO:
             # - limit max # of simultaneously used db-connections
             # - reduce size of free_pool when size > N
             _db_pool_lock.acquire()
-            logger.debug("Alloc new db-handle for " +
-                         threading.currentThread().getName())
+            logger.debug("[%s] alloc new db-handle", get_thread())
             running_threads = []
             for t in threading.enumerate():
                 running_threads.append(t.getName())
@@ -805,7 +913,7 @@ class ProxyDBConnection(object):
                 obj = self._obj_class()
             else:
                 obj = self.free_pool.pop(0)
-            self.active_connections[threading.currentThread().getName()] = obj
+            self.active_connections[get_thread()] = obj
             logger.debug("  Open: " + str(self.active_connections.keys()))
             _db_pool_lock.release()
         return getattr(obj, attrib)
@@ -821,24 +929,29 @@ def test_help(config, target):
     :param string target: The help texts test
 
     """
-    # This is a bit icky.  What we want to accomplish is to
-    # fetch the results from a bofhd_get_commands client
-    # command.
     db = Utils.Factory.get('Database')()
     server = BofhdServerImplementation(database=db, config_fname=config)
-    commands = {}
+    error = lambda reason: SystemExit("Cannot list help texts: %s" % reason)
 
-    group = Utils.Factory.get('Group')(db)
-    group.find_by_name(cereconf.BOFHD_SUPERUSER_GROUP)
-    const = Utils.Factory.get("Constants")()
-
-    superusers = [int(x["member_id"]) for x in group.search_members(
-        group_id=group.entity_id, indirect_members=True,
-        member_type=const.entity_account)]
+    # Fetch superuser
     try:
+        const = Utils.Factory.get("Constants")()
+        group = Utils.Factory.get('Group')(db)
+        group.find_by_name(cereconf.BOFHD_SUPERUSER_GROUP)
+        superusers = [int(x["member_id"]) for x in group.search_members(
+            group_id=group.entity_id, indirect_members=True,
+            member_type=const.entity_account)]
         some_superuser = superusers[0]
+    except AttributeError:
+        raise error("No superuser group defined in cereconf")
+    except Errors.NotFoundError:
+        raise error("Superuser group %s not found" %
+                    cereconf.BOFHD_SUPERUSER_GROUP)
     except IndexError:
-        raise SystemExit("No superusers: Unable to fetch all commands")
+        raise error("No superusers in %s" % cereconf.BOFHD_SUPERUSER_GROUP)
+
+    # Fetch commands
+    commands = {}
     for inst in server.cmd_instances:
         newcmd = inst.get_commands(some_superuser)
         for k in newcmd.keys():
@@ -846,6 +959,8 @@ def test_help(config, target):
                 print "Skipping:", k
                 continue
             commands[k] = newcmd[k]
+
+    # Action
     if target == '' or target == 'all' or target == 'general':
         print server.help.get_general_help(commands)
     elif target == 'check':
@@ -860,8 +975,9 @@ def test_help(config, target):
 if __name__ == '__main__':
     import argparse
 
-    argp = argparse.ArgumentParser(description=u"The Cerebrum bofh server")
+    auth_dir = lambda f: "%s/%s" % (getattr(cereconf, 'DB_AUTH_DIR', '.'), f)
 
+    argp = argparse.ArgumentParser(description=u"The Cerebrum bofh server")
     argp.add_argument('-c', '--config-file',
                       required=True,
                       default=None,
@@ -892,13 +1008,21 @@ if __name__ == '__main__':
                       dest='test_help',
                       metavar='<test type>',
                       help='Check the consistency of help texts')
+    argp.add_argument('--ca',
+                      default=auth_dir('ca.pem'),
+                      dest='ca_file',
+                      metavar='<PEM-file>',
+                      help='CA certificate chain')
+    argp.add_argument('--cert',
+                      default=auth_dir('server.cert'),
+                      dest='cert_file',
+                      metavar='<PEM-file>',
+                      help='Server certificate and private key')
     args = argp.parse_args()
 
     if args.test_help is not None:
         test_help(args.conffile, args.test_help)
         # Will exit
-
-    BofhdRequestHandler.use_encryption = args.use_encryption
 
     logger.info("Server (%s) connected to DB '%s' starting at port: %d",
                 "multi-threaded" if args.multi_threaded else "single-threaded",
@@ -909,54 +1033,27 @@ if __name__ == '__main__':
     else:
         db = Utils.Factory.get('Database')()
 
+    # All BofhdServerImplementations share these arguments
+    server_args = [(args.host, args.port), BofhdRequestHandler, db,
+                   args.conffile, ]
+
     if args.use_encryption:
         logger.info("Server using encryption")
-        # from echod_lib import init_context
-
-        def init_context(protocol, certfile, cafile, verify, verify_depth=10):
-            ctx = SSL.Context(protocol)
-            ctx.load_cert(certfile)
-            ctx.load_client_ca(cafile)
-            ctx.load_verify_info(cafile)
-            ctx.set_verify(verify, verify_depth)
-            ctx.set_allow_unknown_ca(1)
-            ctx.set_session_id_ctx('echod')
-            ctx.set_info_callback()
-            return ctx
-
-        ctx = init_context('sslv23', '%s/server.cert' % cereconf.DB_AUTH_DIR,
-                           '%s/ca.pem' % cereconf.DB_AUTH_DIR,
-                           SSL.verify_none)
-        ctx.set_tmp_dh('%s/dh1024.pem' % cereconf.DB_AUTH_DIR)
+        ssl_config = https.SSLConfig(ca_certs=args.ca_file,
+                                     certfile=args.cert_file)
+        ssl_config.set_ca_validate(ssl_config.OPTIONAL)
+        server_args.append(ssl_config)
 
         if args.multi_threaded:
-            # UiO has a locally patched M2Crypto that provides a
-            # timeout mechanism for M2Crypto's SSLServer.  The easiest
-            # way to detect this patch is the following look-up:
-            if hasattr(SSL.Connection, "set_default_client_timeout"):
-                server = ThreadingSSLBofhdServer(
-                    (args.host, args.port), BofhdRequestHandler, db,
-                    args.conffile, ctx, default_timeout=SSL.timeout(sec=4))
-            else:
-                server = ThreadingSSLBofhdServer(
-                    (args.host, args.port), BofhdRequestHandler, db,
-                    args.conffile, ctx)
+            server = ThreadingSSLBofhdServer(*server_args)
         else:
-            if hasattr(SSL.Connection, "set_default_client_timeout"):
-                server = SSLBofhdServer(
-                    (args.host, args.port), BofhdRequestHandler, db,
-                    args.conffile, ctx, default_timeout=SSL.timeout(sec=4))
-            else:
-                server = SSLBofhdServer(
-                    (args.host, args.port), BofhdRequestHandler, db,
-                    args.conffile, ctx)
+            server = SSLBofhdServer(*server_args)
     else:
         logger.warning("Server *NOT* using encryption")
+
         if args.multi_threaded:
-            server = ThreadingBofhdServer(
-                (args.host, args.port), BofhdRequestHandler, db, args.conffile)
+            server = ThreadingBofhdServer(*server_args)
         else:
-            server = BofhdServer(
-                (args.host, args.port), BofhdRequestHandler, db, args.conffile)
+            server = BofhdServer(*server_args)
 
     server.serve_forever()
