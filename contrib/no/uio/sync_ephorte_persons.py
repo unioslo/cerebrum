@@ -42,7 +42,6 @@ import cereconf
 cerebrum_path, cereconf  # Satisfy the linters.
 
 from Cerebrum.Utils import Factory
-from Cerebrum.Utils import read_password
 from Cerebrum import Errors
 
 from Cerebrum.modules.no.uio.Ephorte import EphorteRole
@@ -61,6 +60,7 @@ _ou_to_sko = {}
 _ephorte_ous = None
 _perm_codes = None
 _valid_ephorte_ous = None
+
 
 def get_email_address(pe):
     """Get a persons primary email address.
@@ -143,17 +143,20 @@ def ou_has_ephorte_spread(ou_id):
 
     return ou_id in _ephorte_ous
 
+
 def ephorte_has_ou(client, sko):
     """Check for OU in ePhorte
+
     :type sko: str
     :param sko: Stedkode
+
     :rtype: dict/None
     :return: ephorte ou data if exists else None
     """
     global _valid_ephorte_ous
     if _valid_ephorte_ous is None:
-        _valid_ephorte_ous = dict(((x['OrgId'], x) for x in 
-            client.get_all_org_units()))
+        _valid_ephorte_ous = dict(((x['OrgId'], x) for x in
+                                  client.get_all_org_units()))
     return _valid_ephorte_ous.get(sko, False)
 
 
@@ -186,10 +189,12 @@ def update_person_info(pe, client):
         logger.warn('Email address non-existent for %s', user_id)
         email_address = None
 
-    telephone = u(
-            (lambda x: x[0]['contact_value'] if len(x) else None) (pe.get_contact_info(source=co.system_sap, type=co.contact_phone)))
+    telephone = u((lambda x: x[0]['contact_value'] if len(x) else None)
+                  (pe.get_contact_info(source=co.system_sap, type=co.contact_phone)))
+
     # TODO: Has not been exported before. Export nao?
     mobile = None
+
     tmp_addr = (lambda x: x[0] if len(x) else None)(pe.get_entity_address(
         source=co.system_sap, type=co.address_street))
     if tmp_addr:
@@ -229,6 +234,7 @@ def perm_code_id_to_perm(code):
 
 def user_details_to_perms(user_details):
     """Convert result from Cerebrum2EphorteClient.get_user_details()
+
     :type user_details tuple(dict, list(dict), list)
     :param user_details: Return value from get_user_details()
 
@@ -357,7 +363,7 @@ def sanity_check_person(person_id, selection_spread):
 
     if not pe.has_spread(spread=selection_spread):
         logger.error('person_id:%s has ePhorte role, but no ePhorte spread, skipping',
-                    person_id)
+                     person_id)
         return False
 
     return True
@@ -376,6 +382,7 @@ def fullsync_roles_and_perms(client, selection_spread):
         if sanity_check_person(person_id=person.entity_id, selection_spread=selection_spread):
             update_person_roles(pe=person, client=client, delete_superfluous=True)
             update_person_perms(person, client=client, remove_superfluous=True)
+
 
 def quicksync_roles_and_perms(client, selection_spread, config, commit):
     """Quick sync for roles and permissions.
@@ -420,7 +427,7 @@ def quicksync_roles_and_perms(client, selection_spread, config, commit):
                     for event in events:
                         if event['change_type_id'] in change_types_roles:
                             clh.confirm_event(event)
-            except Exception, e:
+            except Exception:
                 logger.warn('Failed to update roles for person_id:%s', person_id,
                             exc_info=True)
             else:
@@ -433,7 +440,7 @@ def quicksync_roles_and_perms(client, selection_spread, config, commit):
                     for event in events:
                         if event['change_type_id'] in change_types_perms:
                             clh.confirm_event(event)
-            except Exception, e:
+            except Exception:
                 logger.warn('Failed to update permissions for person_id:%s', person_id,
                             exc_info=True)
             else:
@@ -474,7 +481,7 @@ def update_person_perms(person, client, userid=None, remove_superfluous=False):
             else:
                 logger.info("Ensuring new perm for %s: %s@%s, authorized=%s", userid, *perm)
             if perm[1] and not ephorte_has_ou(client, perm[1]):
-                logger.warn("No OU in ePhorte for %s for perm %s for %s", 
+                logger.warn("No OU in ePhorte for %s for perm %s for %s",
                             perm[1], perm[0], userid)
                 continue
             try:
@@ -486,6 +493,7 @@ def update_person_perms(person, client, userid=None, remove_superfluous=False):
         return False
     return True
 
+
 def report_person_perms(person, client):
     """Generate report for person"""
     userid = construct_user_id(person)
@@ -494,6 +502,7 @@ def report_person_perms(person, client):
     cerebrum_perms = set(list_perm_for_person(person))
     toadd = cerebrum_perms - ephorte_perms
     torem = ephorte_perms - cerebrum_perms
+
     def format_perm(code, ou, omni):
         if ou is None:
             if omni:
@@ -502,6 +511,7 @@ def report_person_perms(person, client):
                 return "%s - egne saker" % code
         else:
             return "%s@%s" % (code, ou)
+
     if toadd or torem:
         ret = ["Endringer for %s" % userid]
         for i in toadd:
@@ -510,9 +520,9 @@ def report_person_perms(person, client):
             ret.append(" fjerner tilgang: %s" % format_perm(*i))
         return "\n".join(ret)
 
+
 def report_perms(client, selection_spread, fil):
     """Generate perms report"""
-    ret = []
     first = True
     for person in select_persons_for_update(selection_spread):
         if not sanity_check_person(person.entity_id, selection_spread):
@@ -525,6 +535,7 @@ def report_perms(client, selection_spread, fil):
                 fil.write("\n\n")
             fil.write(tmp)
     fil.close()
+
 
 def user_details_to_roles(user_details):
     """Convert result from Cerebrum2EphorteClient.get_user_details()
@@ -596,7 +607,7 @@ def update_person_roles(pe, client, delete_superfluous=False):
                         args['role_id'], args['ou_id'], user_id, args)
         else:
             logger.debug(u'Ensuring role %s@%s for %s, %s',
-                        args['role_id'], args['ou_id'], user_id, args)
+                         args['role_id'], args['ou_id'], user_id, args)
 
         try:
             client.ensure_role_for_user(user_id, **args)
