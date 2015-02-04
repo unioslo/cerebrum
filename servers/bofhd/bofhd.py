@@ -97,8 +97,7 @@ from Cerebrum.modules.bofhd.session import BofhdSession
 # writing to it simultaneously.
 logger = Utils.Factory.get_logger("bofhd")  # The import modules use the "import" logger
 
-
-get_thread = lambda: threading.currentThread().getName()
+thread_name = lambda: threading.currentThread().getName()
 """ Get thread name. """
 
 format_addr = lambda addr: ':'.join([str(x) for x in addr or ['err', 'err']])
@@ -106,9 +105,10 @@ format_addr = lambda addr: ':'.join([str(x) for x in addr or ['err', 'err']])
 
 
 # TODO: We need to figure out where the db connection is *really* needed. We
-# need to move it out of the ServerImplementation and into the RequestHandler,
-# so that we can run bofhd 'multithreaded'.
-
+#       need to either:
+#         1. Fix the DBProxyConnection
+#         2. Move all DB access out of the ServerImplementation and into the
+#            RequestHandler.
 class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
 
     """Class defining all XML-RPC-callable methods.
@@ -197,14 +197,14 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
         except socket.timeout, e:
             # Timeouts are not 'normal' operation.
             logger.info("[%s] timeout: %s from %s",
-                        get_thread(), e, format_addr(self.client_address))
+                        thread_name(), e, format_addr(self.client_address))
             self.close_connection = 1
             self.server.db.rollback()
         except https.SSLError, e:
             # SSLError could be a timeout, or it could be some other form of
             # error
             logger.info("[%s] SSLError: %s from %s",
-                        get_thread(), e, format_addr(self.client_address))
+                        thread_name(), e, format_addr(self.client_address))
             self.close_connection = 1
             self.server.db.rollback()
         except:
@@ -232,7 +232,7 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
 
             # generate response
             try:
-                logger.debug2("[%s] dispatch %s", get_thread(), method)
+                logger.debug2("[%s] dispatch %s", thread_name(), method)
 
                 response = self._dispatch(method, params)
                 # wrap response in a singleton tuple
@@ -278,7 +278,7 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
             self.end_headers()
             self.wfile.write(response)
             self.wfile.flush()
-        logger.debug2("[%s] thread done", get_thread())
+        logger.debug2("[%s] thread done", thread_name())
 
     def _get_quarantines(self, account):
         """ Fetch a list of active lockout quarantines for account.
@@ -726,7 +726,7 @@ class BofhdServerImplementation(object):
         """
         sock, addr = super(BofhdServerImplementation, self).get_request()
         logger.debug("[%s] new connection from %s, %r",
-                     get_thread(), format_addr(addr), sock)
+                     thread_name(), format_addr(addr), sock)
         return sock, addr
 
     def close_request(self, request):
@@ -743,7 +743,7 @@ class BofhdServerImplementation(object):
 
         """
         super(BofhdServerImplementation, self).close_request(request)
-        logger.debug("[%s] closed connection %r", get_thread(), request)
+        logger.debug("[%s] closed connection %r", thread_name(), request)
         # Check that the database is alive and well by creating a new
         # cursor.
         #
@@ -896,13 +896,13 @@ class ProxyDBConnection(object):
 
     def __getattr__(self, attrib):
         try:
-            obj = self.active_connections[get_thread()]
+            obj = self.active_connections[thread_name()]
         except KeyError:
             # TODO:
             # - limit max # of simultaneously used db-connections
             # - reduce size of free_pool when size > N
             _db_pool_lock.acquire()
-            logger.debug("[%s] alloc new db-handle", get_thread())
+            logger.debug("[%s] alloc new db-handle", thread_name())
             running_threads = []
             for t in threading.enumerate():
                 running_threads.append(t.getName())
@@ -917,7 +917,7 @@ class ProxyDBConnection(object):
                 obj = self._obj_class()
             else:
                 obj = self.free_pool.pop(0)
-            self.active_connections[get_thread()] = obj
+            self.active_connections[thread_name()] = obj
             logger.debug("  Open: " + str(self.active_connections.keys()))
             _db_pool_lock.release()
         return getattr(obj, attrib)
