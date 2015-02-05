@@ -6421,6 +6421,7 @@ Addresses and settings:
     # group posix_demote
     all_commands['group_demote_posix'] = Command(
         ("group", "demote_posix"), GroupName(), perm_filter='can_delete_group')
+
     def group_demote_posix(self, operator, group):
         try:
             grp = self._get_group(group, grtype="PosixGroup")
