@@ -26,11 +26,11 @@ import imaplib
 import mx
 import os
 import pickle
-import popen2
 import re
 import sys
 import time
 import socket
+import subprocess
 from select import select
 
 import cerebrum_path
@@ -408,13 +408,15 @@ def email_move_child(host, r):
            '--useheader', 'Message-ID',
            '--regexmess', 's/\\0/ /g',
            '--ssl', '--subscribe', '--nofoldersizes']
-    proc = popen2.Popen3(cmd, capturestderr=True, bufsize=10240)
+    proc = subprocess.Popen(cmd, capturestderr=True, bufsize=10240,
+                            close_fds=True, stdin=subprocess.PIPE,
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     pid = proc.pid
     logger.debug("Called cmd(%d): '%s'", pid, cmd)
-    proc.tochild.close()
+    proc.stdin.close()
     # Stolen from Utils.py:spawn_and_log_output()
-    descriptor = {proc.fromchild: logger.debug,
-                  proc.childerr: logger.info}
+    descriptor = {proc.stdout: logger.debug,
+                  proc.stderr: logger.info}
     while descriptor:
         # select() is called for _every_ line, since we can't inspect
         # the buffering in Python's file object.  This works OK since
