@@ -55,7 +55,6 @@ from Cerebrum import Constants
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.bofhd.errors import CerebrumError
-from Cerebrum.extlib import logging
 
 db = Factory.get('Database')()
 db.cl_init(change_program='process_bofhd_r')

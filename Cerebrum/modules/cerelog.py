@@ -681,11 +681,9 @@ class CerebrumLogger(logging.Logger, object):
             source = os.path.normcase(code_object.co_filename)
 
             # We should test that source is neither *this* file, nor anything
-            # else within the logging framework (be it 2.2 (extlib) og 2.3
-            # version).
+            # else within the logging framework
             if (source and (source != _srcfile) and
-                    (source.find("logging/__init__.py") == -1) and
-                    (source.find("logging.py") == -1)):
+                    (source.find("logging/__init__.py") == -1)):
                 rv = (source, frame.f_lineno, code_object.co_name)
                 break
 

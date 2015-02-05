@@ -35,15 +35,7 @@ configurable flexibility provided by the 'logging' module):
 """
 
 import sys
-if sys.version_info >= (2, 3):
-    # The 'logging' module is bundled with Python 2.3 and newer.
-    import logging
-else:
-    # Even though the 'logging' module might have been installed with
-    # this older-than-2.3 Python, we'd rather not deal with troubles
-    # from using too old versions of the module; use the version
-    # bundled with Cerebrum.
-    from Cerebrum.extlib import logging
+import logging
 
 # Now, any Cerebrum module that does the equivalent of
 #   from Cerebrum import Logging
@@ -59,4 +51,3 @@ del attr
 # Configure for Cerebrum logging.
 import cereconf
 logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
-
