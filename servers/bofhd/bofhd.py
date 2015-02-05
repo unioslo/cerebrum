@@ -613,39 +613,18 @@ class BofhdConfig(object):
 class BofhdServerImplementation(object):
     """ Common Server implementation. """
 
-    def __new__(cls, *args, **kwargs):
-        """ object() fix.
-
-        We must overload the __new__ method to be allowed to call
-        object.__init__ with arguments.
-
-        This is a hack.
-
-        """
-        return super(
-            BofhdServerImplementation, cls).__new__(cls, *args, **kwargs)
-
-    def __init__(self, server_address=None,
-                 RequestHandlerClass=BofhdRequestHandler,
-                 database=None, config_fname=None, *args, **kws):
+    def __init__(self, database=None, config_fname=None, logRequests=False, **kws):
         """ Set up a new bofhd server.
 
-        :param tuple server_address:
-            The address to bind to. The address is a tuple consisting of the
-            hostname or -ip and port number.
-        :param type RequestHandlerClass:
-            The class to handle requests with. It should be a subclass of
-            SimpleXMLRPCRequestHandler.
         :param Cerebrum.Database database:
             A Cerebrum database connection
         :param string config_fname:
             Filename of the bofhd config file.
 
         """
-        super(BofhdServerImplementation, self).__init__(
-            server_address, RequestHandlerClass, *args, **kws)
+        super(BofhdServerImplementation, self).__init__(**kws)
         self.known_sessions = {}
-        self.logRequests = False
+        self.logRequests = logRequests
         self.db = database
         self.util = BofhdUtils(database)
         self.config = BofhdConfig(config_fname)
@@ -754,19 +733,15 @@ class BofhdServerImplementation(object):
 
 
 class _TCPServer(SocketServer.TCPServer, object):
-
     """SocketServer.TCPServer as a new-style class."""
-
     pass
 
 class _ThreadingMixIn(SocketServer.ThreadingMixIn, object):
-
     """SocketServer.ThreadingMixIn as a new-style class."""
     pass
 
 
 class BofhdServer(BofhdServerImplementation, _TCPServer):
-
     """Plain non-encrypted Bofhd server.
 
     Constructor accepts the following arguments:
@@ -803,8 +778,7 @@ class SSLServer(_TCPServer):
 
     """ Basic SSL server. """
 
-    def __init__(self, server_address, RequestHandlerClass, ssl_config,
-                 bind_and_activate=True):
+    def __init__(self, ssl_config=None, bind_and_activate=True, **kws):
         """ Initialize a basic SSL Server.
 
         :param tuple server_address:
@@ -824,8 +798,7 @@ class SSLServer(_TCPServer):
 
         # We cannot let the superclss perform bind_and_activate before we wrap
         # the socket.
-        super(SSLServer, self).__init__(server_address, RequestHandlerClass,
-                                        bind_and_activate=False)
+        super(SSLServer, self).__init__(bind_and_activate=False, **kws)
 
         self.socket = ssl_config.wrap_socket(self.socket, server=True)
 
@@ -1034,26 +1007,29 @@ if __name__ == '__main__':
         db = Utils.Factory.get('Database')()
 
     # All BofhdServerImplementations share these arguments
-    server_args = [(args.host, args.port), BofhdRequestHandler, db,
-                   args.conffile, ]
+    server_args = {
+        'server_address': (args.host, args.port),
+        'database': db,
+        'config_fname': args.conffile
+    }
 
     if args.use_encryption:
         logger.info("Server using encryption")
         ssl_config = https.SSLConfig(ca_certs=args.ca_file,
                                      certfile=args.cert_file)
         ssl_config.set_ca_validate(ssl_config.OPTIONAL)
-        server_args.append(ssl_config)
+        server_args['ssl_config'] = ssl_config
 
         if args.multi_threaded:
-            server = ThreadingSSLBofhdServer(*server_args)
+            cls = ThreadingSSLBofhdServer
         else:
-            server = SSLBofhdServer(*server_args)
+            cls = SSLBofhdServer
     else:
         logger.warning("Server *NOT* using encryption")
 
         if args.multi_threaded:
-            server = ThreadingBofhdServer(*server_args)
+            cls = ThreadingBofhdServer
         else:
-            server = BofhdServer(*server_args)
-
+            cls = BofhdServer
+    server = cls(**server_args)
     server.serve_forever()
