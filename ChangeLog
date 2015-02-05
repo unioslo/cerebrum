@@ -1,3 +1,7 @@
+2015-02-05  Karen   <cerebrum@cleomedes.uit.no>
+
+    * populate_fronter_groups.py: Removed all the uio-ifi-specific things.
+
 2015-02-02  Karen   <cerebrum@cleomedes.uit.no>
 
     * ad_export_autogroups_undervisning.py (get_skoinfo): Replaced deprecated use of 
@@ -14,7 +18,7 @@
 
 2014-12-23  Karen   <cerebrum@cleomedes.uit.no>
 
-    * populate_fronter_groups.py: Added if-test to avoid the script crashing when 
+    * populate_fronter_groups.py(process_kursdata): Added if-test to avoid the script crashing when 
     auto_supergroup hasn't been added to AffiliatedGroups.
 
 2014-12-16    <cerebrum@cleomedes.uit.no-cleomedes>
