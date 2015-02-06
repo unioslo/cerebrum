@@ -375,6 +375,8 @@ class BofhdCommandBase(object):
                     raise CerebrumError("Non-numeric id lookup (%s)" % id)
                 group.find(group_id)
             elif idtype == "gid" and grtype == 'PosixGroup':
+                if not (isinstance(group_id, (int, long)) or id.isdigit()):
+                    raise CerebrumError("Non-numeric gid lookup (%s)" % id)
                 group.find_by_gid(group_id)
             else:
                 raise CerebrumError("Unknown idtype: '%s'" % idtype)
