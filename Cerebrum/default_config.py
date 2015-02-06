@@ -1203,3 +1203,6 @@ BOFHD_ALLOW_MANUAL_MOBILE = False
 # will not be alloced. For the GIDs, 40,41,42,89,90,91,92 will not be alloced.
 UID_RESERVED_RANGE = tuple()
 GID_RESERVED_RANGE = tuple()
+
+# A list of `python -W' (warning filters)
+PYTHONWARNINGS = ['always', ]

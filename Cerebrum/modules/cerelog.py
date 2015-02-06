@@ -89,6 +89,7 @@ else:
     _srcfile = __file__
 _srcfile = os.path.normcase(_srcfile)
 
+
 # Additional debug levels. They will be added to the logging framework
 DEBUG1 = logging.DEBUG - 1
 DEBUG2 = DEBUG1-1
@@ -145,25 +146,29 @@ def init_cerebrum_extensions():
     logging.setLoggerClass(CerebrumLogger)
 
 
-def fetch_logger_arguments(keys):
+def fetch_logger_arguments(options, flags):
     """Extract command line arguments for the cerelog module.
 
-    Unfortunately getopt reacts adversely to unknown arguments. Thus we'd have
-    to process command-line arguments ourselves. Additionally, since most of
-    the code relies on passing sys.argv to the logging framework, this
-    function modifies sys.argv and removes all cerelog specific parameters.
+    Unfortunately getopt and other argument parsers reacts adversely to unknown
+    arguments. Thus we'd have to process command-line arguments ourselves.
 
-    :type keys: sequence (of basestrings)
-    :param keys:
-        A list of arguments to look for in sys.argv. The lookup process is
-        DESTRUCTIVE. This function can be run only once, unless sys.argv is
-        saved before the call and restored after it.
+    The fetching process is DESTRUCTIVE. This function can be run only once,
+    unless sys.argv is saved before the call and restored after it.
+
+    :type options: sequence (of basestrings)
+    :param options:
+        A list of options to look for in sys.argv. Each option will also
+        extract the option value (the next argument).
+
+    :type flags: sequence (of basestrings)
+    :param flags:
+        A list of flags/switches to look for in sys.argv. If the flag is
+        present, we'll return True as it's value.
 
     :rtype: dict (of basestring to basestring)
     :return:
-        A dictionary mapping entries from L{keys} to the values belonging to
-        those arguments on the command line. If no arguments are located, an
-        empty dictionary is returned.
+        A dictionary mapping entries from L{options} and L{flags} to the values
+        belonging to those arguments.
 
     IVR 2007-02-08 TBD: Ideally, we need to whip out our own argument parser
     on top of getopt/optparse that is cerelog-aware and that can ignore
@@ -179,7 +184,7 @@ def fetch_logger_arguments(keys):
 
     i = 0
     while i < len(args):
-        for key in keys:
+        for key in options:
             if not args[i].startswith(key):
                 continue
 
@@ -195,6 +200,11 @@ def fetch_logger_arguments(keys):
                 filter_list.append(i+1)
                 # since we peeked one argument ahead, skip it
                 i += 1
+
+        for key in flags:
+            if args[i] == key:
+                result[key] = True
+                filter_list.append(i)
 
         # next argument
         i += 1
@@ -227,14 +237,28 @@ def process_arguments():
                          module is used (FIXME: This default is different
                          between python 2.2 and 2.3)
 
+    --logger-no-warn     If present, warnings will NOT be captured by the
+                         logger. The default behaviour is to capture warnings.
+
+    --logger-no-exc      If present, exceptions will NOT be captured by the
+                         logger. The default behaviour is to capture warnings.
+
     :rtype: typle (of basestrings)
     :return:
         A tuple containing name of the logger to use and logger's level. Either
         one can be 'missing', in which case None is returned.
 
     """
-    result = fetch_logger_arguments(["--logger-name",
-                                     "--logger-level"])
+    result = fetch_logger_arguments(["--logger-name", "--logger-level", ],
+                                    ["--logger-no-warn", "--logger-no-exc", ])
+
+    # If the option is not given, set the logger to capture warnings.
+    if not result.get("--logger-no-warn", False):
+        captureWarnings(True)
+
+    # If the option is not given, set the logger to capture exceptions
+    if not result.get("--logger-no-exc", False):
+        set_exception_hook(log_exception_handler)
 
     return (result.get("--logger-name", None),
             result.get("--logger-level", None))
@@ -1075,3 +1099,122 @@ class CerebrumSubstituteHandler(CerebrumRotatingHandler):
         for rex, replacement in self.patterns:
             msg = rex.sub(replacement, msg)
         return msg
+
+
+# warnings support
+import warnings
+
+_warnings_showwarning = None
+""" The default warnings.showwarnings function, if overridden. """
+
+
+def _showwarning(message, category, filename, lineno, file=None, line=None):
+    """ cerelog-adapted warnings.showwarning function.
+
+    If cerelog.captureWarnings is enabled, this function will receive warnings.
+    The default behaviour is to log warnings with the initialized logger, with
+    level WARNING.
+
+    If no logger is initialized, or warnings.showwarnings is called with a
+    `file' argument that is not `None', the default warnings.showwarning
+    function is called.
+
+    See L{warnings.showwarning} for documentation of the arguments.
+
+    """
+    logger = _logger_instance
+    if file is not None and logger is not None:
+        if _warnings_showwarning is not None:
+            _warnings_showwarning(message, category, filename, lineno, file,
+                                  line)
+    else:
+        s = warnings.formatwarning(message, category, filename, lineno, line)
+        logger.warning("%s", s)
+
+
+def captureWarnings(capture):
+    """ Capture warnings using cerelog.
+
+    :param boolean capture:
+        If capture of warnings by logging should be enabled.
+
+    """
+    global _warnings_showwarning
+    if capture:
+        if _warnings_showwarning is None:
+            _warnings_showwarning = warnings.showwarning
+            warnings.showwarning = _showwarning
+    else:
+        if _warnings_showwarning is not None:
+            warnings.showwarning = _warnings_showwarning
+            _warnings_showwarning = None
+
+
+_custom_filters = None
+""" The previous set warnings filter. """
+
+
+# TODO: Does this belong here?
+def setup_warnings(filters=[]):
+    """ Re-initialize warning filters without defaults.
+
+    This re-does the warnings initialization without using the python defaults.
+    In stead, we initialize the warnings filters with L{sys.warnoptions}, and
+    the L{filters} argument. The latter will typically come from a
+    configuration file.
+
+    :param list filters:
+        A list of filter strings, (as accepted by `python -W' or
+        `PYTHONWARNINGS', see L{warnings}).
+        The filters are added in reverse priority (the last one takes priority
+        of the first) - just like the `python -W' options or `PYTHONWARNINGS'.
+
+    :raise ValueError: If a filter string is invalid.
+
+    """
+    global _custom_filters
+    if _custom_filters is not None and _custom_filters == filters:
+        # No change
+        return
+    _custom_filters = filters[:]
+
+    warnings.resetwarnings()
+    filters.extend(sys.warnoptions)
+
+    for warnfilter in filters:
+        try:
+            warnings._setoption(warnfilter)
+        except warnings._OptionError, e:
+            raise ValueError("Invalid warning filter: '%s'" % e)
+
+
+# Exception hook to log uncaught exceptions
+
+def log_exception_handler(*args):
+    """ excepthook function that logs the exception.
+
+    This function is intended for use as L{sys.excepthook}, and will call
+    L{sys.__excepthook__} before returning.
+
+    """
+    if _logger_instance is not None:
+        _logger_instance.critical("Uncaught exception", exc_info=args)
+    sys.__excepthook__(*args)
+
+
+# TODO: Does this belong here?
+def set_exception_hook(hook=None):
+    """ Set up error handler.
+
+    :type hook: callable or None
+    :param hook: A new function to use as sys.excepthook, or None to reset.
+
+    :raise TypeError: If L{hook} is not None or callable
+
+    """
+    if hook is None:
+        sys.excepthook = sys.__excepthook__
+    elif callable(hook):
+        sys.excepthook = hook
+    else:
+        raise TypeError("Bad exception hook %r" % hook)
