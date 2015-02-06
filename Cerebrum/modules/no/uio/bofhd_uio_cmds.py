@@ -5637,16 +5637,7 @@ Addresses and settings:
         if not self.ba.is_postmaster(operator.get_entity_id()):
             raise PermissionDenied('No access to group')
 
-        try:
-            grp = self._get_group(groupname, grtype="DistributionGroup")
-        except CerebrumError:
-            if groupname.startswith('gid:'):
-                gid = groupname.split(':',1)[1]
-                raise CerebrumError(
-                    "Could not find DistributionGroup with gid=%s" % gid)
-            else:
-                raise CerebrumError(
-                    "Could not find DistributionGroup with name=%s" % groupname)
+        grp = self._get_group(groupname, grtype="DistributionGroup")
 
         co = self.const
         gr_info = self._entity_info(grp)
@@ -10484,38 +10475,6 @@ Password altered. Use misc list_password to print or view the new password.%s'''
             return host
         except Errors.NotFoundError:
             raise CerebrumError, "Unknown host: %s" % name
-
-    def _get_group(self, id, idtype=None, grtype="Group"):
-        group = None
-        if grtype == "DistributionGroup":
-            group = Utils.Factory.get("DistributionGroup")(self.db)
-        else:
-            return super(BofhdExtension, self)._get_group(id, idtype=idtype,
-                                                          grtype=grtype)
-
-        # This is almost a re-implementation of super._get_group. Maybe this
-        # should have a better implementation to avoid 'reuse'?
-        try:
-            group.clear()
-            if idtype is None:
-                if id.count(':'):
-                    idtype, id = id.split(':', 1)
-                else:
-                    idtype='name'
-            if idtype == 'name':
-                group.find_by_name(id)
-            elif idtype == 'id':
-                if not (isinstance(id, (int, long)) or id.isdigit()):
-                    raise CerebrumError, "Non-numeric id lookup (%s)" % id
-                group.find(id)
-            elif idtype == 'gid':
-                raise Errors.NotFoundError
-            else:
-                raise CerebrumError, "Unknown idtype: '%s', did you mean name:%s:%s?" % (
-                        idtype, idtype, id)
-        except Errors.NotFoundError:
-            raise CerebrumError, "Could not find %s with %s=%s" % (grtype, idtype, id)
-        return group
 
     def _get_shell(self, shell):
         return self._get_constant(self.const.PosixShell, shell, "shell")
