@@ -381,8 +381,8 @@ class BofhdCommandBase(object):
             else:
                 raise CerebrumError("Unknown idtype: '%s'" % idtype)
         except Errors.NotFoundError:
-            raise CerebrumError("Could not find a group with %s=%s" %
-                                (idtype, group_id))
+            raise CerebrumError("Could not find a %s with %s=%s" %
+                                (grtype, idtype, group_id))
         return group
 
     def _get_entity_spreads(self, entity_id):
