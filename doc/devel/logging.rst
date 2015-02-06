@@ -192,7 +192,6 @@ The files of consequence for the logging framework are:
   ``Cerebrum/design/cereconf.py``	``cereconf.LOGGING_CONFIGFILE`` tells
 					where the configuration file is to be
 					found.
-  ``Cerebrum/Logging.py``		Old cruft (no longer relevant).
   ``logging.ini``			Configuration file.
   =====================================	=====================================
 
