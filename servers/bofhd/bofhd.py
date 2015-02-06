@@ -361,7 +361,7 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
             raise CerebrumError('User is expired, login denied')
 
         try:
-            logger.info("Succesful login for %s from %s",
+            logger.info("Successful login for %s from %s",
                         uname, format_addr(self.client_address))
             session = BofhdSession(self.server.db, logger)
             session_id = session.set_authenticated_entity(
