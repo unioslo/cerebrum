@@ -280,20 +280,20 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
             self.wfile.flush()
         logger.debug2("[%s] thread done", thread_name())
 
-    def bofhd_login(self, uname, password):
-        """ The bofhd login function. """
-        account = Utils.Factory.get('Account')(self.server.db)
-        try:
-            account.find_by_name(uname)
-        except Errors.NotFoundError:
-            if isinstance(uname, unicode):
-                uname = uname.encode('utf-8')
-            logger.info("Failed login for %s from %s" % (
-                uname, ":".join([str(x) for x in self.client_address])))
-            raise CerebrumError("Unknown username or password")
+    def _get_quarantines(self, account):
+        """ Fetch a list of active lockout quarantines for account.
 
-        # Check quarantines
-        quarantines = []  # TBD: Should the quarantine-check have a utility-API function?
+        :param Cerebrum.Account account: The account to fetch quarantines for.
+
+        :return list:
+            A list of strings representing each active, lockout quarantines
+            that affects the account.
+
+        """
+        Quarantine = self.server.const.Quarantine
+        nonlock = getattr(cereconf, 'BOFHD_NONLOCK_QUARANTINES', [])
+        active = []
+
         for qrow in account.get_entity_quarantine(only_active=True):
             # The quarantine found in this row is currently
             # active. Some quarantine types may not restrict
@@ -305,60 +305,64 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
             # This should probably be based on spreads or some
             # such mechanism, but quarantinehandler and the import
             # routines don't support a more appopriate solution yet
-            if not (str(self.server.const.Quarantine(qrow['quarantine_type']))
-                    in cereconf.BOFHD_NONLOCK_QUARANTINES):
-                quarantines.append(qrow['quarantine_type'])
-        qh = QuarantineHandler.QuarantineHandler(self.server.db,
-                                                 quarantines)
+            if not (str(Quarantine(qrow['quarantine_type'])) in nonlock):
+                active.append(qrow['quarantine_type'])
+        qh = QuarantineHandler.QuarantineHandler(self.server.db, active)
         if qh.should_skip() or qh.is_locked():
-            qua_repr = ", ".join(self.server.const.Quarantine(q).description
-                                 for q in quarantines)
-            raise CerebrumError("User has active lock/skip quarantines, login "
-                                "denied: %s" % qua_repr)
-        # Check expire_date
-        if account.is_expired():
-            raise CerebrumError("User is expired")
-        # Check password
-        enc_passwords = []
-        for auth in (self.server.const.auth_type_md5_crypt,
-                     self.server.const.auth_type_crypt3_des):
-            try:
-                enc_pass = account.get_account_authentication(auth)
-                if enc_pass:            # Ignore empty password hashes
-                    enc_passwords.append(enc_pass)
-            except Errors.NotFoundError:
-                pass
-        if not enc_passwords:
-            logger.info("Missing password for %s from %s" % (uname,
-                        ":".join([str(x) for x in self.client_address])))
+            return [Quarantine(q).description for q in active]
+        return []
+
+    def bofhd_login(self, uname, password):
+        """ Authenticate and create session.
+
+        :param string uname: The username
+        :param string password: The password, preferably in latin-1
+
+        :return string:
+            If authentication is successful, a session_id registered in
+            BofhdSession is returned. This session_id can be used to run
+            commands that requires authentication.
+
+        :raise CerebrumError: If the user is not allowed to log in.
+
+        """
+        account = Utils.Factory.get('Account')(self.server.db)
+        try:
+            account.find_by_name(uname)
+        except Errors.NotFoundError:
+            if isinstance(uname, unicode):
+                uname = uname.encode('utf-8')
+            logger.info("Failed login for %s from %s: unknown username",
+                        uname, format_addr(self.client_address))
             raise CerebrumError("Unknown username or password")
+
         if isinstance(password, unicode):  # crypt.crypt don't like unicode
             # TODO: ideally we should not hardcode charset here.
             password = password.encode('iso8859-1')
-        # TODO: Add API for credential verification to Account.py.
-        mismatch = map(lambda e: e != crypt.crypt(password, e), enc_passwords)
-        if filter(None, mismatch):
-            # Use same error message as above; un-authenticated
-            # parties should not be told that this in fact is a valid
-            # username.
-            if filter(lambda m: not m, mismatch):
-                mismatch = zip(mismatch, enc_passwords)
-                match = [p[1] for p in mismatch if not p[0]]
-                mismatch = [p[1] for p in mismatch if p[0]]
-                if filter(lambda c: c < '!' or c > '~', password):
-                    chars = 'chars, including [^!-~]'
-                else:
-                    chars = 'good chars'
-                logger.info("Password (%d %s) for user %s matches"
-                            " auth_data '%s' but not '%s'"
-                            % (len(password), chars, uname,
-                               "', '".join(match), "', '".join(mismatch)))
-            logger.info("Failed login for %s from %s" % (
-                uname, ":".join([str(x) for x in self.client_address])))
+        if not account.verify_auth(password):
+            logger.info("Failed login for %s from %s: password mismatch",
+                        uname, format_addr(self.client_address))
             raise CerebrumError("Unknown username or password")
+
+        # Check quarantines
+        quarantines = self._get_quarantines(account)
+        if quarantines:
+            logger.info('Failed login for %s from %s: quarantines %s',
+                        uname, format_addr(self.client_address),
+                        ', '.join(quarantines))
+            raise CerebrumError(
+                'User has active quarantines, login denied: %s' %
+                ', '.join(quarantines))
+
+        # Check expire_date
+        if account.is_expired():
+            logger.info('Failed login for %s from %s: account expired',
+                        uname, format_addr(self.client_address))
+            raise CerebrumError('User is expired, login denied')
+
         try:
-            logger.info("Succesful login for %s from %s" % (
-                uname, ":".join([str(x) for x in self.client_address])))
+            logger.info("Successful login for %s from %s",
+                        uname, format_addr(self.client_address))
             session = BofhdSession(self.server.db, logger)
             session_id = session.set_authenticated_entity(
                 account.entity_id, self.client_address[0])
