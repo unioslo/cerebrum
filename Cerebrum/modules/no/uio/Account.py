@@ -646,3 +646,10 @@ class AccountUiOMixin(Account.Account):
                         dq.clear(kw['current_id'])
         return ret
 
+    def list_sysadm_accounts(self):
+        """Return a list of account id for accounts the trait_sysadm_account trait."""
+
+        accounts = list()
+        for row in self.list_traits(self.const.trait_sysadm_account):
+            accounts.append(row['entity_id'])
+        return accounts
