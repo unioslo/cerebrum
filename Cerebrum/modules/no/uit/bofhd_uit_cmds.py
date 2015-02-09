@@ -152,7 +152,7 @@ class BofhdExtension(object):
             # I don't think connect_ex() can ever return success immediately,
             # it has to wait for a roundtrip.
             assert err
-            if err <> errno.EINPROGRESS:
+            if err != errno.EINPROGRESS:
                 raise ConnectException(errno.errorcode[err])
 
             ignore, wset, ignore = select.select([], [self.sock], [], 1.0)
@@ -467,7 +467,7 @@ class BofhdExtension(object):
             raise CerebrumError, "Can't specify attribute for group access"
 
     def _get_access_id_global_group(self, group):
-        if group is not None and group <> "":
+        if group is not None and group != "":
             raise CerebrumError, "Cannot set domain for global access"
         return None, self.const.auth_target_type_global_group
     def _validate_access_global_group(self, opset, attr):
@@ -488,7 +488,7 @@ class BofhdExtension(object):
                 raise CerebrumError, ("Syntax error in regexp: %s" % e)
 
     def _get_access_id_global_host(self, target_name):
-        if target_name is not None and target_name <> "":
+        if target_name is not None and target_name != "":
             raise CerebrumError, ("You can't specify a hostname")
         return None, self.const.auth_target_type_global_host
     def _validate_access_global_host(self, opset, attr):
@@ -504,7 +504,7 @@ class BofhdExtension(object):
             raise CerebrumError, ("No attribute with maildom.")
 
     def _get_access_id_global_maildom(self, dom):
-        if dom is not None and dom <> '':
+        if dom is not None and dom != '':
             raise CerebrumError, "Cannot set domain for global access"
         return None, self.const.auth_target_type_global_maildomain
     def _validate_access_global_maildom(self, opset, attr):
@@ -723,8 +723,8 @@ class BofhdExtension(object):
         except Errors.NotFoundError:
             raise CerebrumError, "No such e-mail address (%s)" % address
         if ((ttype == int(self.const.email_target_Mailman) and
-             self._get_mailman_list(uname) <> self._get_mailman_list(address))
-            and ea.get_target_id() <> et.entity_id):
+             self._get_mailman_list(uname) != self._get_mailman_list(address))
+            and ea.get_target_id() != et.entity_id):
             raise CerebrumError, ("Address <%s> is not associated with %s" %
                                   (address, uname))
         ed = Email.EmailDomain(self.db)
@@ -776,13 +776,13 @@ class BofhdExtension(object):
             dest_et.find_by_target_entity(dest_acc.entity_id)
         except Errors.NotFoundError:
             raise CerebrumError, "Account %s has no e-mail target" % dest
-        if dest_et.email_target_type <> self.const.email_target_account:
+        if dest_et.email_target_type != self.const.email_target_account:
             raise CerebrumError, ("Can't reassign e-mail address to target "+
                                   "type %s") % self.const.EmailTarget(ttype)
         if source_et.entity_id == dest_et.entity_id:
             return "%s is already connected to %s" % (address, dest)
-        if (source_acc.owner_type <> dest_acc.owner_type or
-            source_acc.owner_id <> dest_acc.owner_id):
+        if (source_acc.owner_type != dest_acc.owner_type or
+            source_acc.owner_id != dest_acc.owner_id):
             raise CerebrumError, ("Can't reassign e-mail address to a "+
                                   "different person.")
         
@@ -835,12 +835,12 @@ class BofhdExtension(object):
                     matches.append(a)
         else:
             for r in fw.get_forward():
-                if addr is None or r['forward_to'].find(addr) <> -1:
+                if addr is None or r['forward_to'].find(addr) != -1:
                     matches.append(r['forward_to'])
         if addr:
             if not matches:
                 raise CerebrumError, "No such forward address: %s" % addr
-            elif len(matches) > 1 and addr <> 'local':
+            elif len(matches) > 1 and addr != 'local':
                 raise CerebrumError, "More than one address matches %s" % addr
         elif not matches:
             raise CerebrumError, "No forward addresses for %s" % uname
@@ -1387,7 +1387,7 @@ class BofhdExtension(object):
         lp, dom = self._split_email_address(addr)
         ed = self._get_email_domain(dom)
         et, acc = self.__get_email_target_and_account(addr)
-        if et.email_target_type <> self.const.email_target_pipe:
+        if et.email_target_type != self.const.email_target_pipe:
             raise CerebrumError, "%s: Not an archive target" % addr
         # we can imagine passing along the name of the mailing list
         # to the auth function in the future.
@@ -1625,7 +1625,7 @@ class BofhdExtension(object):
             return "OK, %d accounts updated" % count
         else:
             old_dom = eed.entity_entity_id
-            if old_dom <> ed.entity_id:
+            if old_dom != ed.entity_id:
                 eed.entity_entity_id = ed.entity_id
                 eed.write_db()
                 count = self._update_email_for_ou(ou.entity_id, aff_id)
@@ -1675,7 +1675,7 @@ class BofhdExtension(object):
             eed.find(ou.entity_id, aff_id)
         except Errors.NotFoundError:
             raise CerebrumError, "No such affiliation for domain"
-        if eed.entity_entity_id <> ed.entity_id:
+        if eed.entity_entity_id != ed.entity_id:
             raise CerebrumError, "No such affiliation for domain"
         eed.delete()
         return "OK, removed domain-affiliation for '%s'" % domainname
@@ -1998,9 +1998,9 @@ class BofhdExtension(object):
         lp, dom = self._split_email_address(addr)
         ed = self._get_email_domain(dom)
         et, acc = self.__get_email_target_and_account(addr)
-        if et.email_target_type <> self.const.email_target_multi:
+        if et.email_target_type != self.const.email_target_multi:
             raise CerebrumError, "%s: Not a multi target" % addr
-        if et.email_target_entity_type <> self.const.entity_group:
+        if et.email_target_entity_type != self.const.entity_group:
             raise CerebrumError, "%s: Does not point to a group!" % addr
         gr = self._get_group(et.email_target_entity_id, idtype="id")
         self.ba.can_email_multi_delete(operator.get_entity_id(), ed, gr)
@@ -2013,7 +2013,7 @@ class BofhdExtension(object):
         else:
             # but if one exists, we require the user to supply that
             # address, not an arbitrary alias.
-            if addr <> self.__get_address(epat):
+            if addr != self.__get_address(epat):
                 raise CerebrumError, ("%s is not the primary address of "+
                                       "the target") % addr
             epat.delete()
@@ -2048,7 +2048,7 @@ class BofhdExtension(object):
             if r['spread'] == int(self.const.spread_uit_imap):
                 raise CerebrumError, "%s is already an IMAP user" % uname
         acc.add_spread(self.const.spread_uit_imap)
-        if op <> acc.entity_id:
+        if op != acc.entity_id:
             # the local sysadmin should get a report as well, if
             # possible, so change the request add_spread() put in so
             # that he is named as the requestee.  the list of requests
@@ -2135,7 +2135,7 @@ class BofhdExtension(object):
         change = False
         try:
             eq.find_by_target_entity(acc.entity_id)
-            if eq.email_quota_hard <> hquota:
+            if eq.email_quota_hard != hquota:
                 change = True
             eq.email_quota_hard = hquota
             eq.email_quota_soft = squota
@@ -3965,7 +3965,7 @@ class BofhdExtension(object):
         has_aff = False
         for a in person.get_affiliations():
             if a['ou_id'] == ou.entity_id and a['affiliation'] == aff:
-                if a['status'] <> aff_status:
+                if a['status'] != aff_status:
                     raise CerebrumError, \
                           "Person has conflicting aff_status for this ou/affiliation combination"
                 has_aff = True
@@ -5302,7 +5302,7 @@ class BofhdExtension(object):
         if password is None:
             password = account.make_passwd(accountname)
         else:	# UIT: hack to allow bofh_admin set a specific password on a user.
-            if ((operator.get_entity_id() <> account.entity_id) and
+            if ((operator.get_entity_id() != account.entity_id) and
                 (self._get_entity_name(None,operator.get_entity_id()) != "bofh_admin")):
                 raise CerebrumError, \
                       "Cannot specify password for another user."

@@ -132,7 +132,7 @@ class AccountType(object):
                                                      int(affiliation),
                                                      'priority': int(priority)})
         else:
-            if orig_pri <> priority:
+            if orig_pri != priority:
                 self._set_account_type_priority(all_pris, orig_pri, priority)
 
     def _set_account_type_priority(self, all_pris, orig_pri, new_pri):

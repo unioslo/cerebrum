@@ -102,7 +102,7 @@ class EntityTrait(Entity):
                 
                     changelog = False
                     for i in ('target_id', 'numval', 'strval'):
-                        if old_trait.get(i) <> self.__traits[code].get(i):
+                        if old_trait.get(i) != self.__traits[code].get(i):
                             changelog = True
                 except Errors.NotFoundError:
                     pass

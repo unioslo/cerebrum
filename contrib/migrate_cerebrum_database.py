@@ -107,7 +107,7 @@ def get_db_version(component='core'):
 
 def assert_db_version(wanted, component="core"):
     version = get_db_version(component=component)
-    if wanted <> version:
+    if wanted != version:
         print "Your database is %s, not %s, aborting" % (version, wanted)
         sys.exit(1)
 

@@ -112,7 +112,7 @@ class Object2Cerebrum(object):
                 entities.append(row['entity_id'])
         entity_id = None
         for id in entities:
-            if entity_id <> id and entity_id <> None:
+            if entity_id != id and entity_id is not None:
                 # There are entities out there with our IDs.
                 # Fat error and exit
                 ou = Factory.get('OU')(self.db)

@@ -130,7 +130,7 @@ def generate_report(output, source_systems, start_date):
             continue
 
         
-        if account.owner_type <> constants.entity_person:
+        if account.owner_type != constants.entity_person:
             owner_type_if += 1
             continue # Filter out non-personal accounts.
 

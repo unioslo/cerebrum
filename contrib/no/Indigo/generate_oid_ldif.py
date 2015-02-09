@@ -72,7 +72,7 @@ def get_account_info():
         if row['method'] is None:
             continue
         a_id2auth.setdefault(aid, [])
-        if len(a_id2auth[aid]) <> 2:
+        if len(a_id2auth[aid]) != 2:
             a_id2auth[aid].insert(0, row['entity_name'])
             a_id2auth[aid].insert(1, dict())
         a_id2auth[aid][1].setdefault(int(row['method']), row['auth_data'])

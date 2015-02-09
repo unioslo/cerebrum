@@ -80,7 +80,7 @@ def change_password(dta):
     for k in 'newpass', 'pass', 'uname':
         if dta.getfirst(k, '') == '':
             return "Field %s cannot be blank" % k
-    if dta.getfirst('newpass') <> dta.getfirst('newpass2'):
+    if dta.getfirst('newpass') != dta.getfirst('newpass2'):
         return "New passwords must be equal"
 
     try:

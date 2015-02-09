@@ -1464,7 +1464,7 @@ class BofhdAuth(DatabaseAccessor):
         # TODO: add a Boolean to _PosixShellCode() signifying whether
         # it should be user selectable or not.
         if (operator == account.entity_id and shell and
-            shell.description.find("/bin/") <> -1):
+            shell.description.find("/bin/") != -1):
             return True
         # TODO 2003-07-04: Bård is going to comment this
         return self.is_account_owner(operator, self.const.auth_set_password,

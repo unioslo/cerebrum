@@ -99,7 +99,7 @@ def init_globals():
     filename = os.path.join(cf_dir, 'test.xml')
     if len(args) == 1:
         filename = args[0]
-    elif len(args) <> 0:
+    elif len(args) != 0:
         usage(2)
 
     global fxml
@@ -188,7 +188,7 @@ def load_acc2name():
             # logger.debug("Person has no account: %d" % pers['person_id']) 
             continue
         if person_name.has_key(int(pers['person_id'])):
-            if len(person_name[int(pers['person_id'])]) <> 3:
+            if len(person_name[int(pers['person_id'])]) != 3:
                 # logger.debug("Person name fault, person_id: %s" % ent_name)
                 continue
             else: 
@@ -648,7 +648,7 @@ def output_group_xml():
             return
         data = new_group[id]
         parent = data['parent']
-        if parent <> id:
+        if parent != id:
             output(parent)
         fxml.group_to_XML(data['CFid'], fronter_lib.Fronter.STATUS_ADD,
                           data)
@@ -751,7 +751,7 @@ def main():
     emne_info = {}
     fakulteter = []
     def finn_emne_info(element, attrs):
-        if element <> 'undenhet':
+        if element != 'undenhet':
             return
         emnekode = attrs['emnekode'].lower()
         faknr = int(attrs['faknr_kontroll'])
@@ -764,7 +764,7 @@ def main():
 
     stprog_info = {}
     def finn_stprog_info(element, attrs):
-        if element <> 'studprog':
+        if element != 'studprog':
             return
         stprog = attrs['studieprogramkode'].lower()
         faknr = int(attrs['faknr_studieansv'])

@@ -586,7 +586,7 @@ def cyrus_delete(host, uname, generation):
         logger.error("bofh_email_delete: %s: %s" % (host.name, e))
         return False
     res, listresp = cyradm.list("user.", pattern=uname)
-    if res <> 'OK' or listresp[0] == None:
+    if res != 'OK' or listresp[0] == None:
         logger.error("bofh_email_delete: %s: no mailboxes", uname)
         cyradm.logout()
         return True
@@ -606,7 +606,7 @@ def cyrus_delete(host, uname, generation):
         logger.debug("deleting %s ... ", folder)
         cyradm.setacl(folder, cereconf.CYRUS_ADMIN, 'c')
         res = cyradm.delete(folder)
-        if res[0] <> 'OK':
+        if res[0] != 'OK':
             logger.error("IMAP delete %s failed: %s", folder, res[1])
             cyradm.logout()
             return False

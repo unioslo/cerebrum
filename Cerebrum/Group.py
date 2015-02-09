@@ -172,7 +172,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             UPDATE [:table schema=cerebrum name=group_info]
             SET %(defs)s
             WHERE group_id=:g_id""" % {'defs': ", ".join(
-                ["%s=%s" % x for x in cols if x[0] <> 'group_id'])},
+                ["%s=%s" % x for x in cols if x[0] != 'group_id'])},
                 {'g_id': self.entity_id,
                  'desc': self.description,
                  'visib': int(self.visibility),

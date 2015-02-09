@@ -139,7 +139,7 @@ class XMLPropertiesParser(object):
                                      ("tagtype", 1)):
                             if not n.tag == t:
                                 continue
-                            if len(n.attrib) <> v:
+                            if len(n.attrib) != v:
                                 raise ABCTypesError, "wrong number of attributes"
                             attr = None
                             subj = n.attrib.get("subject")
@@ -149,7 +149,7 @@ class XMLPropertiesParser(object):
                             else:
                                 attr = (subj, value)
                             self._check_type(t, attr)
-                    elif n.tag <> "types":
+                    elif n.tag != "types":
                         raise ABCTypesError, "got unknown type: %s" % n.tag
         # NB! This is crucial to save memory on XML elements
         element.clear()
@@ -228,13 +228,13 @@ class XMLOrg2Object(XMLEntity2Object):
             if sub.text:
                 value = sub.text.strip().encode("latin1")
             if sub.tag == "orgid":
-                if len(sub.attrib) <> 1:
+                if len(sub.attrib) != 1:
                     raise ABCTypesError, "wrong number of arguments: %s" % value
                 type = sub.attrib.get("orgidtype")
                 result.add_id(ABCTypes.get_type("orgidtype",(type,)),
                               value)
             elif sub.tag == "orgname":
-                if len(sub.attrib) <> 2:
+                if len(sub.attrib) != 2:
                     raise ABCTypesError, "not 2 attributes: %s" % value
                 type = sub.attrib.get("orgnametype")
                 # TODO: support lang
@@ -244,14 +244,14 @@ class XMLOrg2Object(XMLEntity2Object):
             elif sub.tag == "realm":
                 result.realm = value
             elif sub.tag == "address":
-                if len(sub.attrib) <> 1:
+                if len(sub.attrib) != 1:
                     raise ABCTypesError, "error in address: %s" % value
                 type = sub.attrib.get("addresstype")
                 addr_type = ABCTypes.get_type("addresstype",
                                               ("organization", type))
                 result.add_address(addr_type, self._make_address(sub))
             elif sub.tag == "contactinfo":
-                if len(sub.attrib) <> 1:
+                if len(sub.attrib) != 1:
                     raise ABCTypesError, "error in contact: %s" % value
                 if not sub.text:
                     continue
@@ -296,19 +296,19 @@ class XMLOU2Object(XMLEntity2Object):
                 value = sub.text.strip().encode("latin1")
 
             if sub.tag == "ouid":
-                if len(sub.attrib) <> 1:
+                if len(sub.attrib) != 1:
                     raise ABCTypesError, "error in ouid: %s" % value
                 type = sub.attrib.get("ouidtype")
                 result.add_id(ABCTypes.get_type("ouidtype",(type,)),
                               value)
             elif sub.tag == "tag":
-                if len(sub.attrib) <> 1:
+                if len(sub.attrib) != 1:
                     raise ABCTypesError, "error in tag: %s" % value
                 type = sub.attrib.get("tagtype")
                 result.add_tag(ABCTypes.get_type("tagtype",("ou", type)),
                                value)
             elif sub.tag == "ouname":
-                if len(sub.attrib) <> 2:
+                if len(sub.attrib) != 2:
                     raise ABCTypesError, "error in ouname: %s" % value
                 type = sub.attrib.get("ounametype")
                 # TODO: support lang
@@ -316,20 +316,20 @@ class XMLOU2Object(XMLEntity2Object):
                 result.add_name(ABCTypes.get_type("ounametype",(type,)),
                                 value)
             elif sub.tag == "parentid":
-                if len(sub.attrib) <> 1:
+                if len(sub.attrib) != 1:
                     raise ABCTypesError, "error in parentid: %s" % value
                 type = sub.attrib.get("ouidtype")
                 result.parent = (ABCTypes.get_type("ouidtype",(type,)),
                                  value)
             elif sub.tag == "address":
-                if len(sub.attrib) <> 1:
+                if len(sub.attrib) != 1:
                     raise ABCTypesError, "error in address: %s" % value
                 type = sub.attrib.get("addresstype")
                 addr_type = ABCTypes.get_type("addresstype",
                                               ("ou", type))
                 result.add_address(addr_type, self._make_address(sub))
             elif sub.tag == "contactinfo":
-                if len(sub.attrib) <> 1:
+                if len(sub.attrib) != 1:
                     raise ABCTypesError, "error on contactinfo: %s" % value
                 if not sub.text:
                     continue
@@ -377,7 +377,7 @@ class XMLPerson2Object(XMLEntity2Object):
                         if value:
                             result.append((ABCTypes.get_name_type(tag), value))
                         if n.tag in ("partname",):
-                            if len(n.attrib) <> 1:
+                            if len(n.attrib) != 1:
                                 raise ABCTypesError, "error in partname: %s" % value
                             type = ABCTypes.get_type("partname",
                                                      (n.attrib.get("partnametype"),))
@@ -407,13 +407,13 @@ class XMLPerson2Object(XMLEntity2Object):
                 value = sub.text.strip().encode("latin1")
 
             if sub.tag == "personid":
-                if len(sub.attrib) <> 1:
+                if len(sub.attrib) != 1:
                     raise ABCTypesError, "error in personid: %s" % value
                 type = sub.attrib.get("personidtype")
                 result.add_id(ABCTypes.get_type("personidtype",(type,)),
                               value)
             elif sub.tag == "tag":
-                if len(sub.attrib) <> 1:
+                if len(sub.attrib) != 1:
                     raise ABCTypesError, "error in tag: %s" % value
                 type = sub.attrib.get("tagtype")
                 result.add_tag(ABCTypes.get_type("tagtype",("person", type)),
@@ -432,13 +432,13 @@ class XMLPerson2Object(XMLEntity2Object):
             elif sub.tag == "gender":
                 result.gender = value
             elif sub.tag == "address":
-                if len(sub.attrib) <> 1:
+                if len(sub.attrib) != 1:
                     raise ABCTypesError, "error in address: %s" % value
                 type = sub.attrib.get("addresstype")
                 addr_type = ABCTypes.get_type("addresstype",("person", type))
                 result.add_address(addr_type, self._make_address(sub))
             elif sub.tag == "contactinfo":
-                if len(sub.attrib) <> 1:
+                if len(sub.attrib) != 1:
                     raise ABCTypesError, "error in contactinfo: %s" % value
                 if not sub.text:
                     continue
@@ -482,13 +482,13 @@ class XMLGroup2Object(XMLEntity2Object):
                 value = sub.text.strip().encode("latin1")
 
             if sub.tag == "groupid":
-                if len(sub.attrib) <> 1:
+                if len(sub.attrib) != 1:
                     raise ABCTypesError, "error in groupid: %s" % value
                 type = sub.attrib.get("groupidtype")
                 result.add_id(ABCTypes.get_type("groupidtype",(type,)),
                               value)
             elif sub.tag == "tag":
-                if len(sub.attrib) <> 1:
+                if len(sub.attrib) != 1:
                     raise ABCTypesError, "error in tag: %s" % value
                 type = sub.attrib.get("tagtype")
                 result.add_tag(ABCTypes.get_type("tagtype",("group", type)),
@@ -516,14 +516,14 @@ class XMLRelation2Object(XMLEntity2Object):
             if s.text:
                 value = s.text.strip().encode("latin1")
             if s.tag == "personid":
-                if len(s.attrib) <> 1:
+                if len(s.attrib) != 1:
                     raise ABCTypesError, "error in personid: %s" % value
                 type = s.attrib.get("personidtype")
                 result.append(("person", ABCTypes.get_type("personidtype",
                                                  (type,)),
                                value))
             elif s.tag == "groupid":
-                if len(s.attrib) <> 1:
+                if len(s.attrib) != 1:
                     raise ABCTypesError, "error in groupid: %s" % value
                 type = s.attrib.get("groupidtype")
                 result.append(("group", ABCTypes.get_type("groupidtype",
@@ -535,14 +535,14 @@ class XMLRelation2Object(XMLEntity2Object):
                     if o.text:
                         value = o.text.strip().encode("latin1")
                     if o.tag == "orgid":
-                        if len(o.attrib) <> 1:
+                        if len(o.attrib) != 1:
                             raise ABCTypesError, "error in org: %s" % value
                         type = o.attrib.get("orgidtype")
                         org = (ABCTypes.get_type("orgidtype",
                                                  (type,)),
                                value)
                     elif o.tag == "ouid":
-                        if len(o.attrib) <> 1:
+                        if len(o.attrib) != 1:
                             raise ABCTypesError, "error in ouid: %s" % value
                         type = o.attrib.get("ouidtype")
                         ou = (ABCTypes.get_type("ouidtype",
@@ -583,7 +583,7 @@ class XMLRelation2Object(XMLEntity2Object):
 
             if sub.tag == "subject":
                 res = self._get_subvalues(sub.getiterator())
-                if (not isinstance(res, list)) or len(res) <> 1:
+                if (not isinstance(res, list)) or len(res) != 1:
                     raise ABCTypesError, "res is '%s'" % res
                 result.subject = res
             elif sub.tag == "object":

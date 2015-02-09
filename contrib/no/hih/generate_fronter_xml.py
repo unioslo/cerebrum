@@ -369,7 +369,7 @@ def init_globals():
     filename = os.path.join(cf_dir, 'test.xml')
     if len(args) == 1:
         filename = args[0]
-    elif len(args) <> 0:
+    elif len(args) != 0:
         usage(2)
 
     global fxml

@@ -225,7 +225,7 @@ class DataProcesser(object):
                              "  bday:%s" % str(bday)))
 
         if self.ss is None:
-            if self.tp.datasource <> self.config.source_system_name:
+            if self.tp.datasource != self.config.source_system_name:
                 raise Errors.CerebrumError("Bad source system: %s" % self.ss)
             self.ss = self.config.source_system_value
         try:
