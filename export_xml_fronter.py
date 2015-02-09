@@ -114,7 +114,7 @@ def init_globals():
     filename = os.path.join(cf_dir, default_export_file)
     if len(args) == 1:
         filename = args[0]
-    elif len(args) <> 0:
+    elif len(args) != 0:
         usage(2)
 
     global fxml
@@ -668,7 +668,7 @@ def output_group_xml():
 
         data = new_group[id]
         parent = data['parent']
-        if parent <> id:
+        if parent != id:
             output(parent)
         fxml.group_to_XML(data['CFid'], uit_fronter_lib.Fronter.STATUS_ADD, data)
         done[id] = True
@@ -759,7 +759,7 @@ def main():
     fak_emner = {}
     def finn_emne_info(element, attrs):
         
-        if element <> 'undenhet':
+        if element != 'undenhet':
             return
         emnenavnfork = attrs['emnenavnfork']
         emnekode = attrs['emnekode'].lower()
