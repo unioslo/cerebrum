@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2004-2007,2015 University of Oslo, Norway
+# Copyright 2004-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -1150,7 +1150,7 @@ def captureWarnings(capture):
             _warnings_showwarning = None
 
 
-_custom_filters = None
+_cached_filters = None
 """ The previous set warnings filter. """
 
 
@@ -1172,20 +1172,17 @@ def setup_warnings(filters=[]):
     :raise ValueError: If a filter string is invalid.
 
     """
-    global _custom_filters
-    if _custom_filters is not None and _custom_filters == filters:
-        # No change
-        return
-    _custom_filters = filters[:]
-
+    global _cached_filters
+    filters = list(filters)  # Make a copy
+    if _cached_filters is not None and _cached_filters == filters:
+        return  # No change
     warnings.resetwarnings()
-    filters.extend(sys.warnoptions)
-
-    for warnfilter in filters:
+    for warnfilter in filters + sys.warnoptions:
         try:
             warnings._setoption(warnfilter)
         except warnings._OptionError, e:
             raise ValueError("Invalid warning filter: '%s'" % e)
+    _cached_filters = filters
 
 
 # Exception hook to log uncaught exceptions

@@ -1204,5 +1204,8 @@ BOFHD_ALLOW_MANUAL_MOBILE = False
 UID_RESERVED_RANGE = tuple()
 GID_RESERVED_RANGE = tuple()
 
-# A list of `python -W' (warning filters)
-PYTHONWARNINGS = ['always', ]
+# A list of warning filters, as accepted by `python -W'
+PYTHONWARNINGS = ['ignore::BytesWarning',
+                  'ignore::ImportWarning',
+                  'ignore::PendingDeprecationWarning',
+                  'ignore::DeprecationWarning']
