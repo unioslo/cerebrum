@@ -341,7 +341,7 @@ class VoipClient(EntityAuthentication, EntityTrait):
 
 
 
-    def list_voip_attributes(self, voippersons, primary2pid):
+    def list_voip_attributes(self, voippersons, primary2pid, sysadm_aid):
         """Fast version of search() + get_voip_attributes().
 
         Simply put, with tens of thousands of objects, find() +
@@ -370,7 +370,8 @@ class VoipClient(EntityAuthentication, EntityTrait):
         aid2owner = dict()
         account = Factory.get("Account")(self._db)
         for r in account.search(owner_type=self.const.entity_person,
-                                owner_id=voippersons):
+                                owner_id=voippersons,
+                                exclude_account_id=sysadm_aid):
             owner2uname[r["owner_id"]].append(r["name"])
             aid2owner[r["account_id"]] = r["owner_id"]
 
