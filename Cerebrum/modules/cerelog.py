@@ -1177,6 +1177,13 @@ def setup_warnings(filters=[]):
     if _cached_filters is not None and _cached_filters == filters:
         return  # No change
     warnings.resetwarnings()
+
+    # TODO: The default warnings module alters the warnings filter based on
+    # these flags. We should look into:
+    #   - sys.flags.byteswarning (controls default BytesWarning filter)
+    #   - sys.flags.py3k_warning (disables default ignore-filter)
+    #   - sys.flags.division_warning (disables default ignore-filter)
+
     for warnfilter in filters + sys.warnoptions:
         try:
             warnings._setoption(warnfilter)
