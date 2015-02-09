@@ -734,7 +734,13 @@ class BofhdServerImplementation(object):
 
 class _TCPServer(SocketServer.TCPServer, object):
     """SocketServer.TCPServer as a new-style class."""
-    pass
+    # Must override __init__ here to make the super() call work with only kw args.
+    def __init__(self, server_address=None, RequestHandlerClass=None, bind_and_activate=True, **kws):
+        # This should always call SocketServer.TCPServer
+        super(_TCPServer, self).__init__(server_address=server_address,
+                                         RequestHandlerClass=RequestHandlerClass,
+                                         bind_and_activate=bind_and_activate,
+                                         **kws)
 
 class _ThreadingMixIn(SocketServer.ThreadingMixIn, object):
     """SocketServer.ThreadingMixIn as a new-style class."""
