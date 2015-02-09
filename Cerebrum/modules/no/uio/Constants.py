@@ -485,8 +485,8 @@ class Constants(Constants.Constants):
         "A person's chosen primary affiliation, for use at the web presentations")
 
     # Trait for tagging -adm,-drift,-null accounts
-    trait_sys_adm_account = _EntityTraitCode(
-        "sys_adm_account", Constants.Constants.entity_account,
+    trait_sysadm_account = _EntityTraitCode(
+        "sysadm_account", Constants.Constants.entity_account,
         "An account used for system administration, e.g. foo-adm, foo-drift and foo-null users")
 
     address_other_street = _AddressCode('OTHER_STREET', 'Other street address')
