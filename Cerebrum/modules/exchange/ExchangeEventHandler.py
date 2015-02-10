@@ -1413,12 +1413,17 @@ class ExchangeEventHandler(processing.Process):
             except (ExchangeException, ServerUnavailableException), e:
                 self.logger.warn('eid:%d: Can\'t add %s to %s: %s' %
                                  (event['event_id'], uname, gname, e))
-                # Log an event so this will happen sometime (hopefully)
-                ev_mod = event.copy()
-                ev_mod['dest_entity'] = self.ut.get_group_id(group)
-                self.logger.debug1('eid:%d: Creating event: Adding %s to %s' %
-                                   (event['event_id'], uname, gname))
-                self.ut.log_event(ev_mod, 'e_group:add')
+                # Create a faux-event if the event fails, and the entity added
+                # is a person. Do not create a faux-event if the entity added
+                # is a user.
+                # TODO: Define a better criteria for this
+                if len(add_to_groups) > 1:
+                    ev_mod = event.copy()
+                    ev_mod['dest_entity'] = self.ut.get_group_id(group)
+                    self.logger.debug1(
+                        'eid:%d: Creating event: Adding %s to %s' %
+                        (event['event_id'], uname, gname))
+                    self.ut.log_event(ev_mod, 'e_group:add')
             except AlreadyPerformedException:
                 # If we wind up here, the user was allready added. We might, in
                 # some circumstances, want to discard the event completely, but
