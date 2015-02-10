@@ -194,11 +194,18 @@ class XMLOU2Object(XMLEntity2Object):
             value = None
             if sub.text:
                 value = sub.text.strip().encode("latin1")
-
             if sub.tag == "Stedkode":
                 sko = make_sko(value)
                 if sko is not None:
                     result.add_id(self.tag2type[sub.tag], sko)
+                else:
+                    # invalid value for the <Stedkode> tag
+                    if self.logger:
+                        self.logger.warn(
+                            'Detected XML <Stedkode> '
+                            'tag with invalid value: %s',
+                            value
+                        )
             elif sub.tag == "Overordnetstedkode":
                 sko = make_sko(value)
                 if sko is not None:
@@ -239,18 +246,21 @@ class XMLOU2Object(XMLEntity2Object):
         # OUs; we choose to hope that the names will be in place when
         # the OU becomes active.
         if result.get_name(DataOU.NAME_LONG) is None:
+            ou_no_sko_str = result.get_id(DataOU.NO_SKO)
+            if not ou_no_sko_str:
+                ou_no_sko_str = 'Missing a valid NO_SKO value'
             if result.end_date and result.end_date < now():
                 if self.logger:
                     self.logger.debug("No name for expired OU %s",
-                                      result.get_id(DataOU.NO_SKO))
+                                      ou_no_sko_str)
             elif result.start_date and result.start_date > now():
                 if self.logger:
                     self.logger.debug("No name for future OU %s",
-                                      result.get_id(DataOU.NO_SKO))
+                                      ou_no_sko_str)
             else:
                 if self.logger:
                     self.logger.warn("No name available for OU %s",
-                                     result.get_id(DataOU.NO_SKO))
+                                     ou_no_sko_str)
                 return None
 
         return result
