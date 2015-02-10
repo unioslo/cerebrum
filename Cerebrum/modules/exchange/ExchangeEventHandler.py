@@ -1447,9 +1447,6 @@ class ExchangeEventHandler(processing.Process):
         # Look up group information (eid and spreads)
         # Look up member for removal
         # Remove from group type according to spread
-        # TODO: We should check if the user to remove exists first.. If it does
-        # not, it has allready been removed.. This would probably be smart to
-        # do, in order to reduce noise in da logs.
         group_spreads = self.ut.get_group_spreads(event['dest_entity'])
 
         if self.group_spread not in group_spreads:
@@ -1500,6 +1497,9 @@ class ExchangeEventHandler(processing.Process):
 
         for group in rem_from_groups:
             try:
+                # TODO: We should check if the user to remove exists first.. If
+                # it does not, it has allready been removed.. This would
+                # probably be smart to do, in order to reduce noise in da logs.
                 self.ec.remove_distgroup_member(group, uname)
                 self.logger.info('eid:%d: Removed %s from %s' %
                                  (event['event_id'], uname, group))
@@ -1512,13 +1512,13 @@ class ExchangeEventHandler(processing.Process):
             except (ExchangeException, ServerUnavailableException), e:
                 self.logger.warn('eid:%d: Can\'t remove %s from %s: %s' %
                                  (event['event_id'], uname, gname, e))
-                # Log an event so this will happen sometime (hopefully)
-                ev_mod = event.copy()
-                ev_mod['dest_entity'] = self.ut.get_group_id(group)
-                self.logger.debug1(
-                    'eid:%d: Creating event: Removing %s from %s' %
-                    (event['event_id'], uname, group))
-                self.ut.log_event(ev_mod, 'e_group:rem')
+#                # Log an event so this will happen sometime (hopefully)
+#                ev_mod = event.copy()
+#                ev_mod['dest_entity'] = self.ut.get_group_id(group)
+#                self.logger.debug1(
+#                    'eid:%d: Creating event: Removing %s from %s' %
+#                    (event['event_id'], uname, group))
+#                self.ut.log_event(ev_mod, 'e_group:rem')
 
     @EventDecorator.RegisterHandler(['dlgroup:modhidden'])
     def set_group_visibility(self, event):
