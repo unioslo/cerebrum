@@ -704,6 +704,7 @@ class BuildAccounts(object):
             else:
                 make_letters()
         else:
+            logger.info("Dryrun: Rolled back changed")
             db.rollback()
         BuildAccounts._process_unprocessed_students()
     update_accounts_main=staticmethod(update_accounts_main)
