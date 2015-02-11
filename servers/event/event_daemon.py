@@ -23,8 +23,8 @@
 import eventconf
 
 import getopt
-import processing
-from processing import managers
+import multiprocessing
+from multiprocessing import managers
 import Queue
 import threading
 
@@ -72,11 +72,11 @@ def signal_hup_handler(signal, frame):
     frame.f_locals['run_state'].value = 0
 
 def main():
-    log_queue = processing.Queue()
+    log_queue = multiprocessing.Queue()
     # Shared varaiable, used to tell the children to shut down
-    run_state = processing.Value(ctypes.c_int, 1)
+    run_state = multiprocessing.Value(ctypes.c_int, 1)
     # Separate run-state for the logger
-    logger_run_state = processing.Value(ctypes.c_int, 1)
+    logger_run_state = multiprocessing.Value(ctypes.c_int, 1)
     # Start the thread that writes to the log
     logger_thread = threading.Thread(target=log_it,
                                      args=(log_queue, logger_run_state,))
@@ -129,7 +129,7 @@ def main():
     # Define the queue of events to be processed.
     # We look for classes that we can import dynamically, but if that is not
     # defined, we fall back to the BaseQueue-class, which really is
-    # processing.Queue (as of now).
+    # multiprocessing.Queue (as of now).
     # TODO: This is not totally sane? Should we support mixins? We should define
     # a manager in BaseQueue, and implement everything on top of that?
     try:
@@ -137,13 +137,13 @@ def main():
     except KeyError:
         event_queue_class_name = 'Cerebrum.modules.event.BaseQueue'
 
-    class MyManager(managers.BaseManager):
-        event_queue_class = managers.CreatorMethod(
-                                            dyn_import(event_queue_class_name))
-    manager = MyManager()
-    manager.daemon = True
-    manager.start()
-    event_queue = manager.event_queue_class()
+    class QueueManager(managers.BaseManager):
+        pass
+
+    QueueManager.register(event_queue_class_name, dyn_import(event_queue_class_name))
+    q_manager = QueueManager()
+    q_manager.start()
+    event_queue = getattr(q_manager, event_queue_class_name)()
 
     # Create all the event-handeler processes
     for i in range(0, conf['concurrent_workers']):
@@ -188,7 +188,7 @@ def main():
     for x in procs:
         x.join()
 
-    manager.shutdown()
+    q_manager.shutdown()
     
     # Stop the logger
     logger_run_state.value = 0

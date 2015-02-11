@@ -25,7 +25,7 @@ import cerebrum_path
 
 import time
 import random
-import processing
+import multiprocessing
 
 from Queue import Empty
 import pickle
@@ -60,7 +60,7 @@ class PI(object):
         return lambda *args, **kwargs: True
 #ExchangeClient = PI
 
-class ExchangeEventHandler(processing.Process):
+class ExchangeEventHandler(multiprocessing.Process):
     # Event to method lookup table. Populated by decorators.
     _lut_type2meth = {}
     def __init__(self, config, event_queue, logger_queue, run_state):
@@ -70,14 +70,14 @@ class ExchangeEventHandler(processing.Process):
         @param config: Dict containing the config for the ExchangeClient
             and handler
 
-        @type event_queue: processing.Queue
+        @type event_queue: multiprocessing.Queue
         @param event_queue: The queue that events get queued on
         
-        @type logger: processing.Queue
+        @type logger: multiprocessing.Queue
         @param logger: Put tuples like ('warn', 'my message') onto this
             queue in order to have them logged
 
-        @type run_state: processing.Value(ctypes.c_int)
+        @type run_state: multiprocessing.Value(ctypes.c_int)
         @param run_state: A shared object used to determine if we should
             stop execution or not
         """
@@ -165,13 +165,13 @@ class ExchangeEventHandler(processing.Process):
         self.ut = CerebrumUtils()
 
     def run(self):
-        """Main event-processing loop. Spawned by processing.Process.__init__
+        """Main event-multiprocessing loop. Spawned by multiprocessing.Process.__init__
         """
         # When we execute code here, we have forked. We can now initialize
         # the database (and more)
         self._post_fork_init()
 
-        # It is a bit ugly to directly access a processing.Value object
+        # It is a bit ugly to directly access a multiprocessing.Value object
         # like this, but it is simple and it works. Doing something like
         # this with more "pythonic" types adds a lot of complexity.
         self.logger.info('Listening for events')
