@@ -281,10 +281,19 @@ class ADclient(PowershellClient):
             novalueargs = (novalueargs,)
         # The parameter "-Credential $cred" is special, as "$cred" should not be
         # wrapped inside a string. Everything else should, though.
-        return '%s -Credential $cred %s %s' % (command,
-                          ' '.join('-%s %s' % (k, self.escape_to_string(v))
-                                   for k, v in kwargs.iteritems()),
-                          ' '.join('-%s' % v for v in novalueargs))
+
+        # Filter, process and remove empty arguments
+        for k in kwargs.copy():
+            if kwargs[k] or isinstance(kwargs[k], (bool, int, long, float)):
+                kwargs[k] = self.escape_to_string(kwargs[k])
+            if not kwargs[k]:
+                self.logger.debug4("Omitting empty value for key %s", k)
+                del kwargs[k]
+
+        return '%s -Credential $cred %s %s' % (
+            command,
+            ' '.join('-%s %s' % (k, v) for k, v in kwargs.iteritems()),
+            ' '.join('-%s' % v for v in novalueargs))
 
     def get_data(self, commandid, signal=True, timeout_retries=50):
         """Get the output for a given command.
@@ -511,7 +520,10 @@ class ADclient(PowershellClient):
             other = dict()
             other_set = False
         try:
-            for obj in self.get_output_json(commandid, other):
+            output = self.get_output_json(commandid, other)
+            if isinstance(output, dict):
+                output = [output, ]
+            for obj in output:
                 # Some attribute keys are unfortunately not the same when
                 # reading and writing, so we need to translate those here
                 yield dict((attr_map_reverse.get(key, key), value)
@@ -519,10 +531,10 @@ class ADclient(PowershellClient):
         finally:
             # Check for other ouput:
             if not other_set:
-                for type in other:
-                    for o in other[type]:
+                for _type in other:
+                    for o in other[_type]:
                         if o:
-                            self.logger.warn("Unknown output %s: %s" % (type, o))
+                            self.logger.warn("Unknown output %s: %s", _type, o)
 
     def disable_object(self, dn):
         """Set an object as not enabled.
@@ -738,7 +750,9 @@ class ADclient(PowershellClient):
         if attributes:
             attributes = dict((self.attribute_write_map.get(name, name), value)
                               for name, value in attributes.iteritems()
-                              if value is not None)
+                              if value or isinstance(value, (bool, int, long,
+                                                             float)))
+        if attributes:
             parameters['OtherAttributes'] = attributes
 
         parameters['Name'] = name
