@@ -103,7 +103,7 @@ class CerewebMotd(DatabaseAccessor):
             UPDATE [:table schema=cerebrum name=cereweb_motd]
             SET %(defs)s
             WHERE motd_id=:motd_id""" % {'defs': ", ".join(
-                        ["%s=%s" % x for x in cols if x[0] <> 'motd_id'])}, 
+                        ["%s=%s" % x for x in cols if x[0] != 'motd_id'])}, 
                          { 'motd_id': self.motd_id,
                            'create_date': self.create_date,
                            'creator': self.creator,

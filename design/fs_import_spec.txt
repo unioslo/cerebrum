@@ -219,7 +219,7 @@ fs.person.sprakkode_malform populeres ved registrering av
 en person i FS. Det kan dette feltet brukes til å bestemme 
 om brevet som skal sendes skal være på engelsk eller norsk. 
 Kodene her er 'NYNORSK', 'BOKMÅL', 'UKJENT' osv. Dvs. at
-de personene hvis sprakkode_malform <> (BOKMÅL || NYNORSK) 
+de personene hvis sprakkode_malform != (BOKMÅL || NYNORSK) 
 får brev på engelsk. Brev på nynorsk vil bli laget før semesterstart.
 
 

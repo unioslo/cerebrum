@@ -69,7 +69,7 @@ def generate_email_data():
             email_server = "N/A"
         else:
             email_server = et.email_server_id
-        if email_server <> "N/A":
+        if email_server != "N/A":
             es.clear()    
             es.find(et.email_server_id)
             email_server = es.name

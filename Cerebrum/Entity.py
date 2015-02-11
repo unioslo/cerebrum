@@ -120,7 +120,7 @@ class Entity(DatabaseAccessor):
         return identical
 
     def __ne__(self, other):
-        """Define != (aka <>) operator as inverse of the == operator.
+        """Define != operator as inverse of the == operator.
 
         Most Cerebrum classes inherit from Entity.Entity, which means
         we'll won't have to write the inverse definition of __eq__()
@@ -901,7 +901,7 @@ class EntityAddress(Entity):
                          postal_number=None, city=None, country=None):
         if not hasattr(self, '_src_sys'):
             self._src_sys = source_system
-        elif self._src_sys <> source_system:
+        elif self._src_sys != source_system:
             raise ValueError, \
                 "Can't populate multiple `source_system`s w/o write_db()."
         try:
@@ -931,7 +931,7 @@ class EntityAddress(Entity):
                 equals = True
                 for k in ('address_text', 'p_o_box', 'postal_number', 'city',
                           'country'):
-                    if h[k] <> r[k]:
+                    if h[k] != r[k]:
                         equals = False
                 if equals:
                     del data[int(r['address_type'])]

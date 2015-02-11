@@ -195,7 +195,7 @@ class AccountNIHMixin(Account.Account):
             # can be assigned
             return
         for domain in domains:
-            if ed.entity_id <> domain:
+            if ed.entity_id != domain:
                 ed.clear()
                 ed.find(domain)
             # Check for 'cnaddr' category before 'uidaddr', to prefer
@@ -214,7 +214,7 @@ class AccountNIHMixin(Account.Account):
                 ea.clear()
                 try:
                     ea.find_by_local_part_and_domain(lp, ed.entity_id)
-                    if ea.email_addr_target_id <> et.entity_id:
+                    if ea.email_addr_target_id != et.entity_id:
                         # Address already exists, and points to a
                         # target not owned by this Account.
                         #

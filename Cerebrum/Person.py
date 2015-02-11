@@ -546,7 +546,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         if not hasattr(self, '_affil_source'):
             self._affil_source = source_system
             self.__affil_data = {}
-        elif self._affil_source <> source_system:
+        elif self._affil_source != source_system:
             raise ValueError, \
                 "Can't populate multiple `source_system`s w/o write_db()."
         if ou_id is None:

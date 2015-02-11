@@ -75,7 +75,7 @@ class Passwd(object):
         for f in fields:
             if not isinstance(f, str):
                 raise ValueError, "Type of '%r' is not str." % f
-            if f.find(sep) <> -1:
+            if f.find(sep) != -1:
                 raise ValueError, \
                       "Separator '%s' present in string '%s'" % (sep, f)
         return sep.join(fields)

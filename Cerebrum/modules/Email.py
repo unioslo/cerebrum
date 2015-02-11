@@ -2291,7 +2291,7 @@ class AccountEmailMixin(Account.Account):
         primary_set = False
         epat = EmailPrimaryAddressTarget(self._db)
         for domain in domains:
-            if ed.entity_id <> domain:
+            if ed.entity_id != domain:
                 ed.clear()
                 ed.find(domain)
             # Check for 'cnaddr' category before 'uidaddr', to prefer
@@ -2310,7 +2310,7 @@ class AccountEmailMixin(Account.Account):
                 ea.clear()
                 try:
                     ea.find_by_local_part_and_domain(lp, ed.entity_id)
-                    if ea.email_addr_target_id <> et.entity_id:
+                    if ea.email_addr_target_id != et.entity_id:
                         # Address already exists, and points to a
                         # target not owned by this Account.
                         #
@@ -2437,7 +2437,7 @@ class AccountEmailMixin(Account.Account):
         return self.wash_email_local_part(".".join(names))
 
     def get_fullname(self):
-        if self.owner_type <> self.const.entity_person:
+        if self.owner_type != self.const.entity_person:
             # In the Cerebrum core, there is only one place the "full
             # name" of an account can be registered: As the full name
             # of the person owner.  Hence, for non-personal accounts,
