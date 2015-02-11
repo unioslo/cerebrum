@@ -539,11 +539,16 @@ class Find(object):
             ar = AAAARecord.AAAARecord(self._db)
             ip_type = dns.IPv6_NUMBER
             rt = 'AAAA-record'
+        elif host_name.count(':') > 1:
+            # No IP specified.
+            # See if host_name is an IPv6 addr and select an IPv6-type if it is
+            ar = AAAARecord.AAAARecord(self._db)
+            ip_type = dns.IPv6_NUMBER
+            rt = 'AAAA-record'            
         else:
             ar = ARecord.ARecord(self._db)
             ip_type = dns.IP_NUMBER
             rt = 'A-record'
-
         if ip:
             a_ip = ip
             ip = self.find_target_by_parsing(
