@@ -134,10 +134,13 @@ def get_voip_persons_and_primary_accounts():
     for row in va.search(owner_entity_type=const.entity_person):
         voippersons.append(row["owner_entity_id"])
 
+    sysadm_aid = ac.list_sysadm_accounts()
+
     primary2pid = dict((r["account_id"], r["person_id"])
        for r in ac.list_accounts_by_type(primary_only=True,
-                                         person_id=voippersons))
-    return voippersons, primary2pid
+                                         person_id=voippersons,
+                                         exclude_account_id=sysadm_aid))
+    return voippersons, primary2pid, sysadm_aid
 
 def main():
     global logger
@@ -159,9 +162,9 @@ def main():
     output_encoding = "utf-8"
     f = ldif_outfile('VOIP', ofile)
     f.write(container_entry_string('VOIP'))
-    voippersons, primary2pid = get_voip_persons_and_primary_accounts()
-    addr_id2dn = generate_voip_addresses(f, output_encoding, voippersons, primary2pid)
-    generate_voip_clients(f, addr_id2dn, output_encoding, voippersons, primary2pid)
+    voippersons, primary2pid, sysadm_aid = get_voip_persons_and_primary_accounts()
+    addr_id2dn = generate_voip_addresses(f, output_encoding, voippersons, primary2pid, sysadm_aid)
+    generate_voip_clients(f, addr_id2dn, output_encoding, voippersons, primary2pid, sysadm_aid)
     f.close()
 # end main
 
