@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 import re
 import cereconf
 
@@ -17,6 +17,7 @@ from Cerebrum.modules.dns.IPv6Utils import IPv6Calc
 from Cerebrum import Errors
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules import dns
+
 
 class DnsParser(object):
     """Map user-entered data to dns datatypes/database-ids"""
@@ -37,15 +38,14 @@ class DnsParser(object):
         Return: (subnet, a_ip)
           - subnet is None if unknown
           - a_ip is only set if the user requested a spesific IP
-        
+
         A request for a subnet is identified by a trailing /, or an IP
         with < 4 octets.  Example::
 
-          129.240.200    -> adress on 129.240.200.0/23 
-          129.240.200.0/ -> adress on 129.240.200.0/23 
+          129.240.200    -> adress on 129.240.200.0/23
+          129.240.200.0/ -> adress on 129.240.200.0/23
           129.240.200.0  -> explicit IP
         """
-
         tmp = ip_id.split("/")
         ip_id = tmp[0]
         # Support ulrik/
@@ -56,32 +56,26 @@ class DnsParser(object):
                 self._ip_number.clear()
                 self._ip_number.find(self._arecord.ip_number_id)
             except Errors.NotFoundError:
-                raise CerebrumError, "Could not find %s" % ip_id
+                raise CerebrumError("Could not find %s" % ip_id)
             ip_id = self._ip_number.a_ip
-
         if (len(ip_id.split(".")) < 3) and ':' not in ip_id:
-            raise CerebrumError, "'%s' does not look like a subnet" % ip_id
-
+            raise CerebrumError("'%s' does not look like a subnet" % ip_id)
         full_ip = ':' in ip_id or ip_id.count('.') == 3
         if len(tmp) > 1 or not full_ip:  # Trailing "/" or few octets
             full_ip = False
-
         try:
             ipc = Find(self._db, None)
             subnet_ip = ipc._find_subnet(ip_id)
         except DNSError:
             subnet_ip = None
-
         return subnet_ip, full_ip and ip_id or None
-
 
     def parse_force(self, string):
         if string and not string[0] in ('Y', 'y', 'N', 'n'):
-            raise CerebrumError, "Force should be Y or N"
+            raise CerebrumError("Force should be Y or N")
         if string and string[0] in ('Y', 'y'):
             return True
         return False
-
 
     def parse_hostname_repeat(self, name):
         """Handles multiple hostnames with the same prefix and a
@@ -117,7 +111,7 @@ class DnsParser(object):
             try:
                 num = [int(x) for x in m.group(3).split('-')]
             except ValueError, msg:
-                raise CerebrumError, "error parsing number: %s" % msg
+                raise CerebrumError("error parsing number: %s" % msg)
         if len(num) == 2:
             for n in range(num[0], num[1]+1):
                 ret.append(("%s%0"+fill+"i") % (m.group(1), n))
@@ -126,7 +120,7 @@ class DnsParser(object):
             for n in range(start, start+num[0]):
                 ret.append(("%s%0"+fill+"i") % (m.group(1), n))
         if not ret:
-            raise CerebrumError, "'%s' gives no IPs" % name
+            raise CerebrumError("'%s' gives no IPs" % name)
         return ret
 
     def qualify_hostname(self, name):
@@ -139,9 +133,11 @@ class DnsParser(object):
                 chk = postfix[postfix.find('.', 1):-1]
                 if name.endswith(chk):
                     raise CerebrumError(
-                        "The name ends with '%s' which may be ambigous.  Use trailing dot" % chk)
+                        "The name ends with '%s' which may be ambigous.  "
+                        "Use trailing dot" % chk)
                 return name+postfix
         return name
+
 
 class Find(object):
     def __init__(self, db, default_zone):
@@ -160,7 +156,7 @@ class Find(object):
         """Return information about entries using this dns_owner.  If
         only_type=True, returns a list of owner_type.  Otherwise
         returns a list of (owner_type, owner_id) tuples"""
-        
+
         ret = []
         arecord = ARecord.ARecord(self._db)
         for row in arecord.list_ext(dns_owner_id=dns_owner_id):
@@ -177,7 +173,8 @@ class Find(object):
         dns_owner = DnsOwner.DnsOwner(self._db)
         for row in dns_owner.list_srv_records(owner_id=dns_owner_id):
             ret.append((dns.SRV_OWNER, row['service_owner_id']))
-        for row in dns_owner.list_general_dns_records(dns_owner_id=dns_owner_id):
+        for row in dns_owner.list_general_dns_records(
+                dns_owner_id=dns_owner_id):
             ret.append((dns.GENERAL_DNS_RECORD, row['dns_owner_id']))
         cn = CNameRecord.CNameRecord(self._db)
         for row in cn.list_ext(cname_owner=dns_owner_id):
@@ -196,11 +193,10 @@ class Find(object):
         ip = IPv6Number.IPv6Number(self._db)
         for row in ip.list_override(dns_owner_id=dns_owner_id):
             ret.append((dns.IPv6_NUMBER, row['ipv6_number_id'],))
-        
+
         if only_type:
             return [x[0] for x in ret]
         return ret
-
 
     def find_referers(self, ip_number_id=None, dns_owner_id=None,
                       only_type=True, ip_type=dns.IP_NUMBER):
@@ -212,25 +208,31 @@ class Find(object):
         # We choose classes and record type depending on the ip_type
         # parameter. This is a bit dirty, but reduces the amount of
         # functions required.
-        ip_class = IPNumber.IPNumber if ip_type == dns.IP_NUMBER \
-                    else IPv6Number.IPv6Number
-        record_class = ARecord.ARecord if ip_type == dns.IP_NUMBER \
-                    else AAAARecord.AAAARecord
-        record_type = dns.A_RECORD if ip_type == dns.IP_NUMBER \
-                    else dns.AAAA_RECORD
+        ip_class = IPNumber.IPNumber if (
+            ip_type == dns.IP_NUMBER
+        ) else IPv6Number.IPv6Number
+        record_class = ARecord.ARecord if (
+            ip_type == dns.IP_NUMBER
+        ) else AAAARecord.AAAARecord
+        record_type = dns.A_RECORD if (
+            ip_type == dns.IP_NUMBER
+        ) else dns.AAAA_RECORD
 
-        ip_key = 'ip_number_id' if ip_type == dns.IP_NUMBER else \
-                'ipv6_number_id'
-        record_key = 'a_record_id' if ip_type == dns.IP_NUMBER else \
-                'aaaa_record_id'
+        ip_key = 'ip_number_id' if (
+            ip_type == dns.IP_NUMBER
+        ) else 'ipv6_number_id'
+        record_key = 'a_record_id' if (
+            ip_type == dns.IP_NUMBER
+        ) else 'aaaa_record_id'
 
         # Not including entity-note
         assert not (ip_number_id and dns_owner_id)
         ret = []
-        
+
         if ip_number_id and ip_type == dns.REV_IP_NUMBER:
-            for ipn, key in [(IPNumber.IPNumber(self._db), 'ip_number_id'),
-                        (IPv6Number.IPv6Number(self._db), 'ipv6_number_id')]:
+            for ipn, key in [
+                    (IPNumber.IPNumber(self._db), 'ip_number_id'),
+                    (IPv6Number.IPv6Number(self._db), 'ipv6_number_id')]:
                 for row in ipn.list_override(ip_number_id=ip_number_id):
                     ret.append((dns.REV_IP_NUMBER, row[key]))
 
@@ -275,11 +277,10 @@ class Find(object):
 
         Returns dns_owner_id or ip_number_id depending on target_type.
         """
-
         # TODO: handle idtype:id syntax
-        
+
         if not host_id:
-            raise CerebrumError, "Expected hostname/ip, found empty string"
+            raise CerebrumError("Expected hostname/ip, found empty string")
         tmp = host_id.split(".")
 
         if host_id.count(':') > 2:
@@ -288,7 +289,7 @@ class Find(object):
             try:
                 self._ipv6_number.find_by_ip(host_id)
             except Errors.NotFoundError:
-                raise CerebrumError, "Could not find ip-number: %s" % host_id
+                raise CerebrumError("Could not find ip-number: %s" % host_id)
             if target_type == dns.IPv6_NUMBER:
                 return self._ipv6_number.entity_id
 
@@ -296,9 +297,13 @@ class Find(object):
             try:
                 self._aaaarecord.find_by_ip(self._ipv6_number.entity_id)
             except Errors.NotFoundError:
-                raise CerebrumError, "Could not find name for ip-number: %s" % host_id
+                raise CerebrumError(
+                    "Could not find name for ip-number: %s" % host_id
+                )
             except Errors.TooManyRowsError:
-                raise CerebrumError, "Not unique name for ip-number: %s" % host_id
+                raise CerebrumError(
+                    "Not unique name for ip-number: %s" % host_id
+                )
             return self._aaaarecord.dns_owner_id
 
         if tmp[-1].isdigit():
@@ -307,7 +312,7 @@ class Find(object):
             try:
                 self._ip_number.find_by_ip(host_id)
             except Errors.NotFoundError:
-                raise CerebrumError, "Could not find ip-number: %s" % host_id
+                raise CerebrumError("Could not find ip-number: %s" % host_id)
             if target_type == dns.IP_NUMBER:
                 return self._ip_number.entity_id
 
@@ -315,9 +320,13 @@ class Find(object):
             try:
                 self._arecord.find_by_ip(self._ip_number.entity_id)
             except Errors.NotFoundError:
-                raise CerebrumError, "Could not find name for ip-number: %s" % host_id
+                raise CerebrumError(
+                    "Could not find name for ip-number: %s" % host_id
+                )
             except Errors.TooManyRowsError:
-                raise CerebrumError, "Not unique name for ip-number: %s" % host_id
+                raise CerebrumError(
+                    "Not unique name for ip-number: %s" % host_id
+                )
             return self._arecord.dns_owner_id
 
         failed = []
@@ -334,17 +343,19 @@ class Find(object):
             self._dns_owner.find_by_name(host_id)
         except Errors.NotFoundError:
             failed.append(host_id)
-            raise CerebrumError, "'%s' does not exist" % "/".join(failed)
-        
+            raise CerebrumError("'%s' does not exist" % "/".join(failed))
+
         if target_type == dns.DNS_OWNER:
             return self._dns_owner.entity_id
         self._arecord.clear()
         try:
             self._arecord.find_by_dns_owner_id(self._dns_owner.entity_id)
         except Errors.NotFoundError:
-            raise CerebrumError, "Could not find ip-number for name: %s" % host_id
+            raise CerebrumError(
+                "Could not find ip-number for name: %s" % host_id
+            )
         except Errors.TooManyRowsError:
-            raise CerebrumError, "Not ip-number for name: %s" % host_id
+            raise CerebrumError("Not ip-number for name: %s" % host_id)
         return self._arecord.ip_number_id
 
     def find_mx_set(self, name):
@@ -352,7 +363,7 @@ class Find(object):
         try:
             self._mx_set.find_by_name(name)
         except Errors.NotFoundError:
-            raise CerebrumError, "No mx-set with name %s" % name
+            raise CerebrumError("No mx-set with name %s" % name)
         return self._mx_set
 
     def find_target_type(self, owner_id, target_ip=None):
@@ -383,14 +394,14 @@ class Find(object):
         except Errors.NotFoundError:
             pass
         except Errors.TooManyRowsError:
-            raise CerebrumError, "Not unique a-record: %s" % owner_id
+            raise CerebrumError("Not unique a-record: %s" % owner_id)
 
     def find_free_ip(self, subnet, first=None, no_of_addrs=None, start=0):
         """Returns the first free IP on the subnet"""
         a_ip = self._find_available_ip(subnet, no_of_addrs, first or start)
 
         if not a_ip:
-            raise CerebrumError, "No available ip on that subnet"
+            raise CerebrumError("No available ip on that subnet")
         if first is not None:
             a_ip = [i for i in a_ip if i >= first]
 
@@ -409,12 +420,10 @@ class Find(object):
             sub = IPv6Subnet.IPv6Subnet(self._db)
             sub.find(subnet)
         return sub.subnet_ip
-    
 
     def _find_available_ip(self, subnet, no_of_addrs=None, search_start=0):
         """Returns all ips that are not reserved or taken on the given
         subnet in ascending order."""
-
         try:
             sub = Subnet.Subnet(self._db)
             sub.find(subnet)
@@ -428,35 +437,37 @@ class Find(object):
             ip_number = IPv6Number.IPv6Number(self._db)
             ip_key = 'ipv6_number_id'
             ipnr = lambda x: IPv6Calc.ip_to_long(x['aaaa_ip'])
-            # We'll do this, since we don't want bofh to be stuck forever trying
-            # to fetch all IPv6-addresses. This is ugly, but it's not only-only.
-            if no_of_addrs == None:
+            # We'll do this, since we don't want bofh to be stuck forever
+            # trying to fetch all IPv6-addresses.
+            # This is ugly, but it's not only-only.
+            if no_of_addrs is None:
                 no_of_addrs = 100
             # A special case for IPv6 subnets, is that we'll want to be able
-            # to start allocating addresses a given place in the subnet, without
-            # using the reserved-addresses-functionality.
+            # to start allocating addresses a given place in the subnet,
+            # without using the reserved-addresses-functionality.
             if search_start >= sub.ip_min:
                 start = search_start
             else:
-                start = sub.ip_min + cereconf.DEFAULT_IPv6_SUBNET_ALLOCATION_START +\
-                        search_start
-        
+                start = (sub.ip_min +
+                         cereconf.DEFAULT_IPv6_SUBNET_ALLOCATION_START +
+                         search_start)
         try:
             taken = {}
             for row in ip_number.find_in_range(start, sub.ip_max):
                 taken[long(ipnr(row))] = int(row[ip_key])
-            
+
             stop = sub.ip_max - start + 1
             n = 0
             ret = []
             while n < stop:
                 if no_of_addrs is not None and len(ret) == no_of_addrs:
                     break
-                if (not taken.has_key(long(start+n)) and
-                    n+start not in sub.reserved_adr):
+                if (
+                        long(start+n) not in taken and
+                        n+start not in sub.reserved_adr
+                ):
                     ret.append(n+start)
                 n += 1
-
             return ret
         except SubnetError:
             # Unable to find subnet; therefore, no available ips to report
@@ -485,7 +496,6 @@ class Find(object):
         Addresses returned are as xxx.xxx.xxx.xxx, not longs.
 
         """
-
         if '.' in subnet:
             ip_number = IPNumber.IPNumber(self._db)
             sub = Subnet.Subnet(self._db)
@@ -497,13 +507,10 @@ class Find(object):
         ip_number.clear()
         sub.clear()
         sub.find(subnet)
-        
         ret = []
         for row in ip_number.find_in_range(sub.ip_min, sub.ip_max):
             ret.append(row[ip_key])
-
         return ret
-
 
     def find_entity_id_of_dns_target(self, target):
         """Return entity_id for given 'DNS-thing'.
@@ -521,7 +528,6 @@ class Find(object):
         else:
             # If not, must be an IP; other stuff will cause failures (for now)
             return self.find_ip(target)
-
 
     def find_ip(self, a_ip):
         self._ip_number.clear()
@@ -544,7 +550,7 @@ class Find(object):
             # See if host_name is an IPv6 addr and select an IPv6-type if it is
             ar = AAAARecord.AAAARecord(self._db)
             ip_type = dns.IPv6_NUMBER
-            rt = 'AAAA-record'            
+            rt = 'AAAA-record'
         else:
             ar = ARecord.ARecord(self._db)
             ip_type = dns.IP_NUMBER
