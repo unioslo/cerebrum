@@ -1123,12 +1123,18 @@ def _showwarning(message, category, filename, lineno, file=None, line=None):
 
     """
     logger = _logger_instance
+
+    # PY25 compability - only include line if it's actually given.
+    kw = dict()
+    if line is not None:
+        kw['line'] = line
+
     if file is not None and logger is not None:
         if _warnings_showwarning is not None:
-            _warnings_showwarning(message, category, filename, lineno, file,
-                                  line)
+            _warnings_showwarning(message, category, filename, lineno,
+                                  file, **kw)
     else:
-        s = warnings.formatwarning(message, category, filename, lineno, line)
+        s = warnings.formatwarning(message, category, filename, lineno, **kw)
         logger.warning("%s", s)
 
 
