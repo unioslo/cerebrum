@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# 
+#
 # Copyright 2013 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -27,34 +27,32 @@ is not a part of the generic AD-sync.
 
 """
 
-import time
-import pickle
-
 import cerebrum_path
 import cereconf
 import adconf
-from Cerebrum.Utils import unicode2str, Factory, dyn_import, sendmail
-from Cerebrum import Entity, Errors
+from Cerebrum.Utils import Factory
+from Cerebrum import Errors
 from Cerebrum.modules import EntityTrait
-from Cerebrum.modules import CLHandler
 from Cerebrum.modules import dns
 
 from Cerebrum.modules.ad2.CerebrumData import CerebrumEntity
 from Cerebrum.modules.ad2.CerebrumData import CerebrumGroup
 from Cerebrum.modules.ad2 import ADSync
 from Cerebrum.modules.ad2 import ADUtils
-from Cerebrum.modules.ad2.winrm import PowershellException
 
 from Cerebrum.modules.hostpolicy.PolicyComponent import PolicyComponent
 from Cerebrum.modules.hostpolicy.PolicyComponent import Role, Atom
 
+
 class TSDUtils(ADSync.BaseSync):
+
     """Class for utility methods for the AD-syncs for TSD.
 
     This class should be a part of all the sync classes used by TSD, as it adds
     some helper methods, e.g. for getting the correct OU and parsing the domain.
 
     """
+
     def __init__(self, *args, **kwargs):
         super(TSDUtils, self).__init__(*args, **kwargs)
         self.ou = Factory.get('OU')(self.db)
@@ -117,18 +115,20 @@ class TSDUtils(ADSync.BaseSync):
         @rtype: string
         @return: The project ID for the given OU.
 
-        @raise KeyError: 
+        @raise KeyError:
             If OU does not exist or if the OU does not have a project ID.
 
         """
         if not hasattr(self, '_ou2pid'):
             self._ou2pid = dict((r['entity_id'], r['external_id']) for r in
                                 self.ou.search_external_ids(
-                                        id_type=self.co.externalid_project_id))
+                                    id_type=self.co.externalid_project_id))
             self.logger.debug2("Found %d project OUs", len(self._ou2pid))
         return self._ou2pid[ou_id]
 
+
 class UserSync(ADSync.UserSync, TSDUtils):
+
     """TSD's sync of users."""
 
     def fetch_cerebrum_entities(self):
@@ -143,10 +143,10 @@ class UserSync(ADSync.UserSync, TSDUtils):
         """
         # Get a mapping of the accounts to projects
         ac2ouid = dict((r['account_id'], r['ou_id']) for r in
-                      self.ac.list_accounts_by_type(
-                          affiliation=self.co.affiliation_project,
-                          filter_expired=True, primary_only=False,
-                          account_spread=self.config['target_spread']))
+                       self.ac.list_accounts_by_type(
+                           affiliation=self.co.affiliation_project,
+                           filter_expired=True, primary_only=False,
+                           account_spread=self.config['target_spread']))
         self.logger.debug("Mapped %d account to OUs" % len(ac2ouid))
 
         # Find all users with defined spread(s):
@@ -164,7 +164,7 @@ class UserSync(ADSync.UserSync, TSDUtils):
                 continue
             try:
                 pid = self._get_ou_pid(ac2ouid[row['account_id']])
-            except KeyError, e:
+            except KeyError:
                 self.logger.warn("Unknown project ID for %s", row['account_id'])
                 continue
             ent = self.cache_entity(int(row["account_id"]), uname,
@@ -175,14 +175,17 @@ class UserSync(ADSync.UserSync, TSDUtils):
             self.entities[uname] = ent
 
 class GroupSync(ADSync.GroupSync, TSDUtils):
+
     """TSD's sync of file groups."""
 
     def fetch_cerebrum_data(self):
         """Subclassed to also fetch TSD data from Cerebrum, like projects"""
         self.entity2pid = dict((r['entity_id'],
                                self._get_ou_pid(r['target_id'])) for r in
-                               self.gr.list_traits(code=self.co.trait_project_group))
-        self.logger.debug("Mapped %d entities to projects" % len(self.entity2pid))
+                               self.gr.list_traits(
+                                   code=self.co.trait_project_group))
+        self.logger.debug("Mapped %d entities to projects",
+                          len(self.entity2pid))
         return super(GroupSync, self).fetch_cerebrum_data()
 
     def fetch_cerebrum_entities(self):
@@ -199,14 +202,16 @@ class GroupSync(ADSync.GroupSync, TSDUtils):
                 continue
             try:
                 pid = self.entity2pid[row['group_id']]
-            except KeyError, e:
+            except KeyError:
                 self.logger.warn("Unknown project ID for: %s", gname)
                 continue
             ent = self.cache_entity(row["group_id"], gname, row['description'])
             ent.ou = 'OU=filegroups,OU=%s,%s' % (pid, self.config['target_ou'])
             self.entities[gname] = ent
 
+
 class ADNetGroupClient(ADUtils.ADclient):
+
     """Override of the regular AD client to support settings for NIS netgroups.
 
     The functionality in here should hopefully be generic enough to be
@@ -224,7 +229,9 @@ class ADNetGroupClient(ADUtils.ADclient):
 
     attributename_members = 'NisNetGroupTriple'
 
+
 class NetGroupSync(GroupSync, TSDUtils):
+
     """TSD's sync of net groups."""
 
     # We are working with NisNetGroups from the POSIX schema.
@@ -246,14 +253,16 @@ class NetGroupSync(GroupSync, TSDUtils):
                 continue
             try:
                 pid = self.entity2pid[row['group_id']]
-            except KeyError, e:
+            except KeyError:
                 self.logger.warn("Unknown project ID for %s", gname)
                 continue
             ent = self.cache_entity(row["group_id"], gname, row['description'])
             ent.ou = 'OU=netgroups,OU=%s,%s' % (pid, self.config['target_ou'])
             self.entities[gname] = ent
 
+
 class HostSync(ADSync.HostSync, TSDUtils):
+
     """A hostsync, using the DNS module instead of the basic host concept.
 
     The sync is not a sync of DNS, as it does not handle all the details that is
@@ -262,6 +271,7 @@ class HostSync(ADSync.HostSync, TSDUtils):
     AD-DNS should be updated, we need to sync a lot more details.
 
     """
+
     def __init__(self, *args, **kwargs):
         """Instantiate dns specific functionality."""
         super(HostSync, self).__init__(*args, **kwargs)
@@ -276,12 +286,12 @@ class HostSync(ADSync.HostSync, TSDUtils):
     def fetch_cerebrum_data(self):
         """Override for DNS info."""
         super(HostSync, self).fetch_cerebrum_data()
+
         # Mapping by dns_owner_id
         self.owner2entity = dict((e.dns_owner_id, e) for e in
                                  self.entities.itervalues())
         self.logger.debug("Found %d owners for entities" %
                           len(self.owner2entity))
-
         # This is a slow process, so can't be used for too many hosts. Would
         # then have to cache the mapping from ip to subnet.
         self.logger.debug("Fetching IP addresses")
@@ -300,6 +310,9 @@ class HostSync(ADSync.HostSync, TSDUtils):
                 continue
             ent.ipaddresses.add(row['a_ip'])
             ent.vlans.add(self.subnet.vlan_number)
+            ent.add_subnet(self.subnet.vlan_number,
+                           self.subnet.subnet_ip,
+                           self.subnet.subnet_mask)
             self.logger.debug2("Host %s (%s): %s (%s)", row['name'],
                                row['dns_owner_id'], row['a_ip'],
                                self.subnet.vlan_number)
@@ -318,6 +331,10 @@ class HostSync(ADSync.HostSync, TSDUtils):
                 continue
             ent.ipaddresses.add(row['aaaa_ip'])
             ent.vlans.add(self.subnet6.vlan_number)
+            ent.add_subnet(self.subnet6.vlan_number,
+                           self.subnet6.subnet_ip,
+                           self.subnet6.subnet_mask,
+                           is_ipv6=True)
             self.logger.debug2("Host %s (%s): %s (%s)", row['name'],
                                row['dns_owner_id'], row['aaaa_ip'],
                                self.subnet6.vlan_number)
@@ -337,12 +354,13 @@ class HostSync(ADSync.HostSync, TSDUtils):
 
         """
         self.logger.debug("Fetching all DNS host traits")
-        host2pid = dict((r['entity_id'], self._get_ou_pid(r['target_id'])) for r
-                        in self.et.list_traits(code=self.co.trait_project_host))
-        self.logger.debug("Fetched %d hosts mapped to projects" % len(host2pid))
+        host2pid = dict((r['entity_id'], self._get_ou_pid(r['target_id'])) for
+                        r in self.et.list_traits(
+                            code=self.co.trait_project_host))
+        self.logger.debug("Fetched %d hosts mapped to projects", len(host2pid))
         self.logger.debug("Fetching all DNS hosts")
         subset = self.config.get('subset')
-        for row in self.host.search(): # Might want to use a spread later
+        for row in self.host.search():  # Might want to use a spread later
             # TBD: Is it correct to only get the first part of the host, or
             # should we for instance add sub domains to sub-OUs?
             name = self._hostname2adid(row['name'])
@@ -353,10 +371,9 @@ class HostSync(ADSync.HostSync, TSDUtils):
                 self.logger.debug2("Host not connected to project: %s" % name)
                 continue
             try:
-                self.entities[name] = self.cache_entity(row["host_id"],
-                                        name, row['dns_owner_id'],
-                                        host2pid[row['dns_owner_id']],
-                                        row['name'])
+                self.entities[name] = self.cache_entity(
+                    row["host_id"], name, row['dns_owner_id'],
+                    host2pid[row['dns_owner_id']], row['name'])
             except Errors.CerebrumError, e:
                 self.logger.warn("Could not cache %s: %s" % (name, e))
                 continue
@@ -372,17 +389,30 @@ class HostSync(ADSync.HostSync, TSDUtils):
         ent.fqdn = fqdn
         return ent
 
+
 class HostEntity(CerebrumEntity):
+
     """A TSD host"""
+
     def __init__(self, *args, **kwargs):
         super(HostEntity, self).__init__(*args, **kwargs)
         self.ipaddresses = set()
         self.fqdn = None
         self.vlans = set()
+        self.subnets = list()
 
     def calculate_ad_values(self):
         """Overriden to add TSD specific values."""
         super(HostEntity, self).calculate_ad_values()
+
+    def add_subnet(self, vlan, base, mask, is_ipv6=False):
+        """ Add a subnet to this host. """
+        if is_ipv6:
+            base = dns.IPv6Utils.IPv6Utils.compress(base)
+        self.subnets.append({'vlan': vlan,
+                             'base': base,
+                             'mask': mask, })
+
 
 class HostpolicySync(ADSync.GroupSync, TSDUtils):
     """Class for syncing all hostpolicy components to AD.
@@ -424,8 +454,8 @@ class HostpolicySync(ADSync.GroupSync, TSDUtils):
                                                     name, row)
 
     def cache_entity(self, entity_id, entity_name, data):
-        """Wrapper method for creating a cache object for an entity. 
-        
+        """Wrapper method for creating a cache object for an entity.
+
         You should call this method for new cache objects instead of creating it
         directly, for easier subclassing.
 
@@ -463,7 +493,7 @@ class HostpolicySync(ADSync.GroupSync, TSDUtils):
         is by design.
 
         """
-        ret = super(HostpolicySync, self).fetch_cerebrum_data()
+        super(HostpolicySync, self).fetch_cerebrum_data()
 
         # Simulate the host sync to get the correct member data (OU) for hosts:
         self.logger.debug2("Simulating host sync")

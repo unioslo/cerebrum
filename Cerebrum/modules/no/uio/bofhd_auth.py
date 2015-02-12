@@ -189,3 +189,17 @@ class BofhdAuth(auth.BofhdAuth):
             if n not in names:
                 raise PermissionDenied('Unregistered name: %s' % n)
         return True
+
+    def can_email_forward_info(self, operator, query_run_any=False):
+        """Allow access to superusers, postmasters and CERT."""
+        if self.is_superuser(operator):
+            return True
+        if self.is_postmaster(operator):
+            return True
+        if self._has_operation_perm_somewhere(
+                operator, self.const.auth_email_forward_info):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied('Restricted access')
+

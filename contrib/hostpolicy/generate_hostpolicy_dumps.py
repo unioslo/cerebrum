@@ -53,15 +53,16 @@ There are four different files:
 The date format is: YYYY-MM-DD
 """
 
-import sys, os, getopt
-from mx import DateTime
+import sys
+import os
 
-import cerebrum_path, cereconf
-from Cerebrum.Utils import Factory
+import cerebrum_path
+import cereconf
+from Cerebrum.Utils import Factory, SimilarSizeWriter
 from Cerebrum.modules.hostpolicy.PolicyComponent import PolicyComponent, Atom, Role
-from Cerebrum.modules.dns.DnsOwner import DnsOwner
 
 logger = Factory.get_logger('cronjob')
+
 
 def usage(exitcode=0):
     print """Usage: %(filename)s [options]
@@ -84,6 +85,7 @@ def usage(exitcode=0):
            'doc': __doc__}
     sys.exit(exitcode)
 
+
 def process_atoms(stream):
     """Go through all atoms in the database and send them to the stream."""
     logger.info('process_atoms started')
@@ -92,10 +94,11 @@ def process_atoms(stream):
     for row in atom.search():
         stream.write(';'.join((row['name'],
                                row['description'],
-                               row['foundation'] or '', 
+                               row['foundation'] or '',
                                row['create_date'].strftime('%Y-%m-%d'))))
         stream.write('\n')
     logger.info('process_atoms done')
+
 
 def process_roles(stream):
     """Produce a csv list of all roles and its direct members."""
@@ -112,9 +115,10 @@ def process_roles(stream):
                                row['create_date'].strftime('%Y-%m-%d'),
                                ','.join(m['target_name'] for m in
                                         role.search_relations(
-                                              source_id=row['component_id'])))))
+                                            source_id=row['component_id'])))))
         stream.write('\n')
     logger.info('process_roles done')
+
 
 def process_hostpolicies(stream):
     """Produce a csv list of all hostpolicies."""
@@ -130,6 +134,7 @@ def process_hostpolicies(stream):
         stream.write('\n')
     logger.info('process_hostpolicies done')
 
+
 def process_relationships(stream):
     """Produce a csv list of all relationships between source components and
     target components, and their kind of relationship."""
@@ -143,43 +148,44 @@ def process_relationships(stream):
         stream.write('\n')
     logger.info('process_relationships done')
 
+
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'h',
-                ['atoms=', 'roles=', 'hostpolicies=', 'relationships='])
-    except getopt.GetoptError, e:
-        print e
-        usage(1)
+        import argparse
+    except ImportError:
+        from Cerebrum.extlib import argparse
 
-    atomstream = rolestream = hostpolicystream = relationshipstream = None
+    filenames = ('atoms', 'roles', 'hostpolicies', 'relationships')
+    parser = argparse.ArgumentParser(description="Produce host policy files")
+    for filename in filenames:
+        parser.add_argument('--%s' % filename,
+                            dest=filename,
+                            default=None,
+                            metavar='FILE',
+                            help='Write %s to FILE' % filename)
 
-    for opt, arg in opts:
-        if opt in ('-h', '--help'):
-            usage()
-        elif opt == '--atoms':
-            atomstream = open(arg, 'w')
-        elif opt == '--roles':
-            rolestream = open(arg, 'w')
-        elif opt == '--hostpolicies':
-            hostpolicystream = open(arg, 'w')
-        elif opt == '--relationships':
-            relationshipstream = open(arg, 'w')
-        else:
-            print "Unknown argument: %s" % opt
-            usage(1)
-
+    opts = parser.parse_args()
     action = False
-    for stream, process in ((atomstream, process_atoms),
-                            (rolestream, process_roles),
-                            (hostpolicystream, process_hostpolicies),
-                            (relationshipstream, process_relationships)):
-        if stream is not None:
+    streams = []
+
+    for filename, process in ((opts.atoms, process_atoms),
+                              (opts.roles, process_roles),
+                              (opts.hostpolicies, process_hostpolicies),
+                              (opts.relationships, process_relationships)):
+        if filename:
+            stream = SimilarSizeWriter(filename)
+            stream.set_size_change_limit(90)
             process(stream)
-            stream.close()
+            streams.append(stream)
             action = True
+
+    # Don't close streams (commit) until all files have been generated
+    for stream in streams:
+        stream.close()
+
     if not action:
-        print 'No dump specified, got nothing to do'
-        usage(1)
+        parser.error('No dump specified, got nothing to do')
+
 
 if __name__ == '__main__':
     main()

@@ -1177,21 +1177,21 @@ class BaseSync(object):
                                       ent.entity_name, atr)
                     if add_elements:
                         self.logger.debug(
-                                " - adding: %s",
-                                '; '.join('%s (%s)' % (m, type(m)) for m in
-                                          add_elements))
+                            " - adding: %s",
+                            '; '.join('%s (%s)' % (m, type(m)) for m in
+                                      add_elements))
                         ret[atr]['add'] = add_elements
                     if remove_elements:
                         self.logger.debug(
-                                " - removing: %s",
-                                '; '.join('%s (%s)' % (m, type(m)) for m in
-                                          remove_elements))
+                            " - removing: %s",
+                            '; '.join('%s (%s)' % (m, type(m)) for m in
+                                      remove_elements))
                         ret[atr]['remove'] = remove_elements
                 else:
                     self.logger.debug(
-                            "Mismatch attr %s for %s: '%s' (%s) -> '%s' (%s)",
-                            atr, ent.entity_name, ad_value, type(ad_value),
-                            value, type(value))
+                        "Mismatch attr %s for %s: '%s' (%s) -> '%s' (%s)",
+                        atr, ent.entity_name, ad_value, type(ad_value),
+                        value, type(value))
                     ret[atr]['fullupdate'] = value
         return ret
 
@@ -1231,7 +1231,6 @@ class BaseSync(object):
             removed.
 
         """
-
         # TODO: Should we care about case sensitivity?
 
         # Ignore the cases where an attribute is None in Cerebrum and an empty
@@ -1251,8 +1250,9 @@ class BaseSync(object):
             if a is None or c.lower() != a.lower():
                 return (True, None, None)
         # Order does not matter in multivalued attributes
-        types = (list, tuple, set)
-        if isinstance(c, types) and isinstance(a, types):
+        seq = (list, tuple, set)
+        if isinstance(c, seq) and (isinstance(a, seq) or a is None):
+            a = a or list()
             # TODO: Do we in some cases need to unicodify strings before
             # comparement?
             to_add = set(c).difference(a)
@@ -1269,13 +1269,11 @@ class BaseSync(object):
 
         """
         en = Entity.EntityName(self.db)
-        #self.ent.clear()
         try:
             en.find(row['subject_entity'])
-            #self.ent.find(row['subject_entity'])
-        except Errors.NotFoundError, e:
-            self.logger.warn("Could not find entity: %s. Check if entity is nuked." %
-                             row['subject_entity'])
+        except Errors.NotFoundError:
+            self.logger.warn("Could not find entity: %s. Check if entity is "
+                             "nuked.", row['subject_entity'])
             # TODO: ignore this? Are there other reasons than race conditions
             # when the entity is nuked from the database?
 
@@ -1308,9 +1306,9 @@ class BaseSync(object):
         en = Entity.EntityName(self.db)
         try:
             en.find(row['subject_entity'])
-        except Errors.NotFoundError, e:
-            self.logger.warn("Could not find entity: %s. Check if entity is nuked." %
-                             row['subject_entity'])
+        except Errors.NotFoundError:
+            self.logger.warn("Could not find entity: %s. Check if entity is "
+                             "nuked.", row['subject_entity'])
             # TODO: ignore this? Are there other reasons than race conditions
             # when the entity is nuked from the database?
 
@@ -1423,7 +1421,7 @@ class BaseSync(object):
             # It exists in AD, but is probably somewhere out of our search_base.
             # Will try to get it, so we could still update it, and maybe even
             # move it to the correct OU.
-            self.logger.info("Entity already exists: %s", ent.entity_name)
+            self.logger.debug("Entity already exists: %s", ent.entity_name)
             ent.in_ad = True
             attrs = self.config['attributes'].copy()
             if self.config['store_sid'] and 'SID' not in attrs:
@@ -1443,6 +1441,8 @@ class BaseSync(object):
             if len(objects) == 1:
                 # Found only one object, and it is most likely the one we need
                 obj = objects[0]
+                self.logger.debug("Found entity %s (%s)", ent.entity_name,
+                                  obj['DistinguishedName'])
             elif len(objects) == 0:
                 # Strange, we can't find the object though AD says it exists!
                 self.logger.error("Cannot find %s, though AD says it exists"
@@ -1623,6 +1623,7 @@ class BaseSync(object):
 
         """
         dn = ad_object['DistinguishedName']
+        self.logger.debug3("Trying to move %s to %s", dn, ou)
         if ou == dn.split(',', 1)[1]:
             # Already in the correct location
             return

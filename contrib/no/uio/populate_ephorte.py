@@ -75,6 +75,10 @@ class PopulateEphorte(object):
             elif sko in cereconf.EPHORTE_NIKK_SKO:
                 self.ouid_2roleinfo[ou_id] = (
                     int(co.ephorte_arkivdel_sak_nikk), int(co.ephorte_journenhet_nikk))
+            # Special case, FSAT
+            elif sko in cereconf.EPHORTE_FSAT_SKO:
+                self.ouid_2roleinfo[ou_id] = (
+                    int(co.ephorte_arkivdel_sak_fsat), int(co.ephorte_journenhet_fsat))
             # Default case
             else:
                 self.ouid_2roleinfo[ou_id] = (
