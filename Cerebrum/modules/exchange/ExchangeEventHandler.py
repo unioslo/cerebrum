@@ -23,7 +23,7 @@
 import cereconf
 import cerebrum_path
 
-import processing
+import multiprocessing
 
 from Queue import Empty
 import pickle
@@ -62,7 +62,7 @@ from Cerebrum import Errors
 # ExchangeClient = PI
 
 
-class ExchangeEventHandler(processing.Process):
+class ExchangeEventHandler(multiprocessing.Process):
 
     """Event handler for Exchange.
 
@@ -81,14 +81,14 @@ class ExchangeEventHandler(processing.Process):
         :param config: Dict containing the config for the ExchangeClient
             and handler
 
-        :type event_queue: processing.Queue
+        :type event_queue: multiprocessing.Queue
         :param event_queue: The queue that events get queued on
 
-        :type logger: processing.Queue
+        :type logger: multiprocessing.Queue
         :param logger: Put tuples like ('warn', 'my message') onto this
             queue in order to have them logged
 
-        :type run_state: processing.Value(ctypes.c_int)
+        :type run_state: multiprocessing.Value(ctypes.c_int)
         :param run_state: A shared object used to determine if we should
             stop execution or not
         """
@@ -170,15 +170,15 @@ class ExchangeEventHandler(processing.Process):
         self.ut = CerebrumUtils()
 
     def run(self):
-        """Main event-processing loop.
+        """Main event-multiprocessing loop.
 
-        Spawned by processing.Process.__init__
+        Spawned by multiprocessing.Process.__init__
         """
         # When we execute code here, we have forked. We can now initialize
         # the database (and more)
         self._post_fork_init()
 
-        # It is a bit ugly to directly access a processing.Value object
+        # It is a bit ugly to directly access a multiprocessing.Value object
         # like this, but it is simple and it works. Doing something like
         # this with more "pythonic" types adds a lot of complexity.
         self.logger.info('Listening for events')
@@ -215,7 +215,7 @@ class ExchangeEventHandler(processing.Process):
                 try:
                     self.db.remove_event(ev['event_id'])
                 except Errors.NotFoundError:
-                    self.logger.debug3('Event deleted while processing: %s' %
+                    self.logger.debug3('Event deleted while multiprocessing: %s' %
                                        str(ev))
                     self.db.commit()
                     continue
