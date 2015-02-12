@@ -39,7 +39,6 @@ from Cerebrum import Person
 from Cerebrum import Group
 from Cerebrum.modules.no import Stedkode
 from Cerebrum.modules.no.uit import uit_fronter_lib
-from Cerebrum.extlib import logging
 from Cerebrum.modules import Email
 from Cerebrum.modules.no.uit.Email import email_address
 from Cerebrum.modules.no.uit.access_FS import undakt_xml_parser
