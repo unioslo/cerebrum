@@ -19,7 +19,11 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import mx, sys
+from __future__ import with_statement
+
+import mx
+import sys
+from contextlib import closing
 
 import cerebrum_path
 from Cerebrum import Errors
@@ -49,15 +53,32 @@ posix_group = PosixGroup.PosixGroup(db)
 # 1018 characters.  Other systems might be even more limited.
 MAX_LINE_LENGTH = 1000
 
-class NISMapException(Exception): pass
-class UserSkipQuarantine(NISMapException): pass
-class NISMapError(NISMapException): pass
-class BadUsername(NISMapError): pass
-class NoDisk(NISMapError): pass
+
+class NISMapException(Exception):
+    pass
+
+
+class UserSkipQuarantine(NISMapException):
+    pass
+
+
+class NISMapError(NISMapException):
+    pass
+
+
+class BadUsername(NISMapError):
+    pass
+
+
+class NoDisk(NISMapError):
+    pass
+
 
 class Passwd(object):
+
     """Simple class for making a passwd map. generate_passwd() will make
     a list of list that translates to the info found in a passwd file."""
+
     def __init__(self, auth_method, spread=None):
         self.spread = spread
         self.auth_method = auth_method
@@ -69,15 +90,13 @@ class Passwd(object):
         for d in self.disk.list(spread=self.spread):
             self.diskid2path[int(d['disk_id'])] = d['path']
 
-
-
     def join(self, fields, sep=':'):
         for f in fields:
             if not isinstance(f, str):
                 raise ValueError, "Type of '%r' is not str." % f
             if f.find(sep) != -1:
                 raise ValueError, \
-                      "Separator '%s' present in string '%s'" % (sep, f)
+                    "Separator '%s' present in string '%s'" % (sep, f)
         return sep.join(fields)
 
     def process_user(self, user_rows):
@@ -120,18 +139,17 @@ class Passwd(object):
             disk_path = self.diskid2path[int(row['disk_id'])]
         else:
             disk_path = None
-        home=posix_user.resolve_homedir(account_name=uname,
-                                        home=row['home'],
-                                        disk_path=disk_path)
+        home = posix_user.resolve_homedir(account_name=uname,
+                                          home=row['home'],
+                                          disk_path=disk_path)
 
         if home is None:
             # TBD: Is this good enough?
             home = '/'
-            
+
         return [uname, passwd, str(row['posix_uid']),
                 str(posix_group.posix_gid), gecos,
                 str(home), shell]
-
 
     def generate_passwd(self):
         """Data generating method. returns a list of lists which looks like
@@ -151,7 +169,7 @@ class Passwd(object):
             user_iter = posix_user.list_extended_posix_users(
                 # use given value for auth_method, crypt is used
                 auth_method=self.auth_method,
-                spread=self.spread, include_quarantines=True)            
+                spread=self.spread, include_quarantines=True)
         prev_user = None
         user_rows = []
         user_lines = []
@@ -178,7 +196,7 @@ class Passwd(object):
         return user_lines
 
     def write_passwd(self, filename, shadow_file, e_o_f=False):
-        logger.debug("write_passwd: "+str((filename, shadow_file, self.spread)))
+        logger.debug("write_passwd: " + str((filename, shadow_file, self.spread)))
         f = Utils.SimilarSizeWriter(filename, "w")
         f.set_size_change_limit(10)
         if shadow_file:
@@ -200,7 +218,7 @@ class Passwd(object):
                 if not passwd[0] == '*':
                     passwd = "!!"
             line = self.join([uname, passwd] + rest)
-            f.write(line+"\n")
+            f.write(line + "\n")
         if e_o_f:
             f.write('E_O_F\n')
         f.close()
@@ -209,7 +227,9 @@ class Passwd(object):
 
 
 class NISGroupUtil(object):
-    """Utility class for the two group classes.""" 
+
+    """Utility class for the two group classes."""
+
     def __init__(self, namespace, member_type, group_spread, member_spread,
                  tmp_group_prefix='x'):
         self._entity2name = self._build_entity2name_mapping(namespace)
@@ -233,14 +253,14 @@ class NISGroupUtil(object):
 
     def _is_new(self, entity_id):
         """
-        Returns true if there is a change log create event for 
+        Returns true if there is a change log create event for
         entity_id (group or account) since we cached entity names.
         """
         try:
             events = list(db.get_log_events(
-                    types=(co.group_create, co.account_create),
-                    subject_entity=entity_id,
-                    sdate=self._namecachedtime))
+                types=(co.group_create, co.account_create),
+                subject_entity=entity_id,
+                sdate=self._namecachedtime))
             return bool(events)
         except:
             logger.debug("Checking change log failed: %s", sys.exc_value)
@@ -267,7 +287,7 @@ class NISGroupUtil(object):
                     logger.warn("Was %i very recently created?", member_id)
                 continue
             ret_non_groups.add(name)
-        
+
         # subgroups
         for row in self._group.search_members(group_id=gid,
                                               member_type=co.entity_group):
@@ -288,7 +308,7 @@ class NISGroupUtil(object):
             self._num += 1
             if not self._exported_groups.has_key(tmp_gname):
                 return tmp_gname
-        
+
     def _wrap_line(self, group_name, line, g_separator, is_ng=False):
         """ If the line length (total length of member entity names +
         separators) exceeds MAX_LINE_LENGTH, this method will add the offending
@@ -314,18 +334,18 @@ class NISGroupUtil(object):
         return ret + "%s%s%s\n" % (group_name, g_separator, line)
 
     def generate_netgroup(self):
-        """Returns a list of lists. Data looks like
-        (gname, string of groupmembers). This is subject to change to a
-        python structure shortly."""
+        # TODO: What does the "subject to change to a python structure shortly"
+        # part mean? Should this be fixed?
+        """Returns a list of lists. Data looks like (gname, string of groupmembers). This is subject to change to a python structure shortly."""
         netgroups = []
         for group_id in self._exported_groups.keys():
             group_name = self._exported_groups[group_id]
             group_members, user_members = map(list, self._expand_group(group_id))
-            #logger.debug("%s -> g=%s, u=%s" % (
+            # logger.debug("%s -> g=%s, u=%s" % (
             #    group_id, group_members, user_members))
             netgroups.append((group_name,
                               (self._format_members(
-                group_members, user_members, group_name))))
+                                  group_members, user_members, group_name))))
         return netgroups
 
     def write_netgroup(self, filename, e_o_f=False):
@@ -351,8 +371,11 @@ class NISGroupUtil(object):
                 tmp_users.append(uname)
         return tmp_users
 
+
 class FileGroup(NISGroupUtil):
+
     """Class for generating filegroups."""
+
     def __init__(self, group_spread, member_spread):
         super(FileGroup, self).__init__(
             co.account_namespace, co.entity_account,
@@ -362,7 +385,7 @@ class FileGroup(NISGroupUtil):
         for row in posix_user.list_extended_posix_users():
             self._account2def_group[int(row['account_id'])] = int(row['posix_gid'])
         logger.debug("__init__ done")
-      
+
     def _make_tmp_name(self, base):
         """ Helper, generates available filegroup entity names for the
         _wrap_line method, based on the original group entity name.
@@ -406,9 +429,8 @@ class FileGroup(NISGroupUtil):
         return set(), ret
 
     def generate_filegroup(self):
-        """Generates a list of lists. An enty looks like
-        (gname, gid, [members])."""
-        filegroups = []        
+        """Generates a list of lists. An entry looks like (gname, gid, [members])."""
+        filegroups = []
         groups = self._exported_groups.keys()
         groups.sort()
         for group_id in groups:
@@ -424,35 +446,30 @@ class FileGroup(NISGroupUtil):
                 continue
             tmp_users = self._filter_illegal_usernames(user_members, group_name)
 
-            #logger.debug("%s -> g=%s, u=%s" % (
+            # logger.debug("%s -> g=%s, u=%s" % (
             #    group_id, group_members, tmp_users))
-            filegroups.append((group_name,  self._group.posix_gid, tmp_users))
+            filegroups.append((group_name, self._group.posix_gid, tmp_users))
         return filegroups
 
     def write_filegroup(self, filename, e_o_f=False):
+        """Write the filegroups to the given filename.
+        If e_o_f is True, "E_O_F" is written after every written file group.
+        """
         logger.debug("write_filegroup: %s" % filename)
-        f = Utils.SimilarSizeWriter(filename, "w")
-        f.set_size_change_limit(5)
 
-        filegroups = self.generate_filegroup()
-
-        for group_name, gid, users in filegroups:
-            # Special treatment for the groups "ucore" and "hh"
-            # related to testing stuff for the new HNAS storage
-            # system.
-            if group_name in ('hh', 'ucore'):
-                f.write(self._wrap_line(group_name + '-gruppe', ",".join(users),
-                                        ':*:%i:' % gid))
-            f.write(self._wrap_line(group_name, ",".join(users),
-                                  ':*:%i:' % gid))
-        if e_o_f:
-            f.write('E_O_F\n')
-        f.close()
+        with closing(Utils.SimilarSizeWriter(filename, "w")) as f:
+            f.set_size_change_limit(5)
+            for group_name, gid, users in self.generate_filegroup():
+                f.write(self._wrap_line(group_name, ",".join(users), ':*:%i:' % gid))
+            if e_o_f:
+                f.write('E_O_F\n')
 
 
 class UserNetGroup(NISGroupUtil):
+
     """Class for making standard user netgroups. Most of the code
     resides in NISGroupUtil."""
+
     def __init__(self, group_spread, member_spread):
         super(UserNetGroup, self).__init__(
             co.account_namespace, co.entity_account,
@@ -464,9 +481,12 @@ class UserNetGroup(NISGroupUtil):
         return " ".join((" ".join(group_members),
                          " ".join(["(,%s,)" % m for m in tmp_users])))
 
+
 class MachineNetGroup(NISGroupUtil):
+
     """Class for making more complex machine netgroups. Most of
     the code resides in NISGroupUtil."""
+
     def __init__(self, group_spread, member_spread, zone):
         super(MachineNetGroup, self).__init__(
             co.dns_owner_namespace, co.entity_dns_owner,
@@ -493,6 +513,7 @@ class MachineNetGroup(NISGroupUtil):
 
 
 class HackUserNetGroupUIO(UserNetGroup):
+
     """Class for hacking members of {meta_ansatt,ansatt}@<sko> groups.
 
     These groups contain *people* (rather than accounts), which is not what
@@ -506,15 +527,15 @@ class HackUserNetGroupUIO(UserNetGroup):
     used as a filter, and it's always an account that must have this spread if
     it is to be collected into a NIS map.
     """
-    
+
     def __init__(self, group_spread, member_spread):
         super(HackUserNetGroupUIO, self).__init__(group_spread, member_spread)
         # collect person_id -> primary account_id. Notice that we collect
         # accounts with member_spread only. The rest is irrelevant.
         self._person2primary_account = dict()
         for i in Factory.get("Account")(db).list_accounts_by_type(
-                    account_spread=member_spread,
-                    primary_only=True):
+            account_spread=member_spread,
+                primary_only=True):
             self._person2primary_account[i["person_id"]] = i["account_id"]
 
         # auto-generated groups are special. We want to find them quickly.
@@ -523,7 +544,6 @@ class HackUserNetGroupUIO(UserNetGroup):
                                      code=(co.trait_auto_group,
                                            co.trait_auto_meta_group))])
     # end __init__
-
 
     def _expand_group(self, gid):
         ret_groups, ret_non_groups = super(HackUserNetGroupUIO,
@@ -556,5 +576,3 @@ class HackUserNetGroupUIO(UserNetGroup):
 
         return ret_groups, ret_non_groups
     # end _expand_groups
-
-        

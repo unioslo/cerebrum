@@ -45,7 +45,6 @@ from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import AutoStud
 from Cerebrum.modules.no.uio.AutoStud.Util import AutostudError
-from Cerebrum.extlib import logging
 
 db = Factory.get('Database')()
 db.cl_init(change_program='process_bofhd_r')

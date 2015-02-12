@@ -131,6 +131,8 @@ command_help = {
             "Customise the failure message for a deleted account",
         "email_forward":
             "Turn e-mail forwarding for a user on/off",
+        "email_forward_info":
+            "Show information about an address that is forwarded to",
         "email_add_forward":
             "Add a forward address",
         "email_remove_forward":

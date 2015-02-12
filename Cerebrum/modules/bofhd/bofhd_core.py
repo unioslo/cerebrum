@@ -360,6 +360,8 @@ class BofhdCommandBase(object):
             group = self.Group_class(self.db)
         elif grtype == 'PosixGroup':
             group = Factory.get('PosixGroup')(self.db)
+        elif grtype == 'DistributionGroup':
+            group = Factory.get('DistributionGroup')(self.db)
         else:
             raise CerebrumError("Invalid group type %s" % grtype)
         try:
@@ -369,12 +371,22 @@ class BofhdCommandBase(object):
             if idtype == "name":
                 group.find_by_name(group_id)
             elif idtype == "id":
+                if not (isinstance(group_id, (int, long)) or
+                        group_id.isdigit()):
+                    raise CerebrumError(
+                        "Non-numeric id lookup (%s)" % group_id)
                 group.find(group_id)
+            elif idtype == "gid" and grtype == 'PosixGroup':
+                if not (isinstance(group_id, (int, long)) or
+                        group_id.isdigit()):
+                    raise CerebrumError(
+                        "Non-numeric gid lookup (%s)" % group_id)
+                group.find_by_gid(group_id)
             else:
                 raise CerebrumError("Unknown idtype: '%s'" % idtype)
         except Errors.NotFoundError:
-            raise CerebrumError("Could not find a group with %s=%s" %
-                                (idtype, group_id))
+            raise CerebrumError("Could not find a %s with %s=%s" %
+                                (grtype, idtype, group_id))
         return group
 
     def _get_entity_spreads(self, entity_id):
