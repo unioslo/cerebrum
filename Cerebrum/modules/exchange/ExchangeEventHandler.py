@@ -623,6 +623,29 @@ class ExchangeEventHandler(processing.Process):
                 # Exchange :S
                 raise UnrelatedEvent
 
+    # Utility function for setting visibility on accounts in Exchange.
+    def _set_visibility(self, event, uname, vis):
+        state = 'Hiding' if vis else 'Publishing'
+        fail_state = 'hide' if vis else 'publish'
+        try:
+            # We do a not-operation here, since the
+            # set_mailbox_visibility-methods logic about wheter an account
+            # should be hidden or not, is inverse in regards to what we do
+            # above :S
+            self.ec.set_mailbox_visibility(uname, not vis)
+            self.logger.info('eid:%d: %s %s in address book..' %
+                             (event['event_id'],
+                              state,
+                              uname))
+            return True
+        except (ExchangeException, ServerUnavailableException), e:
+            self.logger.warn("eid:%d: Can't %s %s in address book: %s" %
+                             (event['event_id'],
+                              fail_state,
+                              uname,
+                              e))
+            return False
+
     @EventDecorator.RegisterHandler(['trait:add', 'trait:mod', 'trait:del',
                                      'e_group:add', 'e_group:rem'])
     def set_address_book_visibility(self, event):
@@ -691,29 +714,6 @@ class ExchangeEventHandler(processing.Process):
                 hidden_from_address_book = self.ut.is_electronic_reserved(
                     person_id=event['subject_entity'])
 
-        # Utility function for setting visibility on accounts in Exchange.
-        def _set_visibility(uname, vis):
-            state = 'Hiding' if vis else 'Publishing'
-            fail_state = 'hide' if vis else 'publish'
-            try:
-                # We do a not-operation here, since the
-                # set_mailbox_visibility-methods logic about wheter an account
-                # should be hidden or not, is inverse in regards to what we do
-                # above :S
-                self.ec.set_mailbox_visibility(uname, not vis)
-                self.logger.info('eid:%d: %s %s in address book..' %
-                                 (event['event_id'],
-                                  state,
-                                  uname))
-                return True
-            except (ExchangeException, ServerUnavailableException), e:
-                self.logger.warn("eid:%d: Can't %s %s in address book: %s" %
-                                 (event['event_id'],
-                                  fail_state,
-                                  uname,
-                                  e))
-                return False
-
         # Parameter used to decide if any calls to Exchange fails. In order to
         # ensure correct state (this is imperative in regards to visibility),
         # we must always raise EventExecutionException in case one (or more) of
@@ -730,10 +730,12 @@ class ExchangeEventHandler(processing.Process):
                                                       self.mb_spread):
             # Set the state we deduced earlier on the primary account.
             if aid == primary_account_id:
-                tmp_no_fail = _set_visibility(uname, hidden_from_address_book)
+                tmp_no_fail = self._set_visibility(event,
+                                                   uname,
+                                                   hidden_from_address_book)
             # Unprimary-accounts should never be shown in the address book.
             else:
-                tmp_no_fail = _set_visibility(uname, True)
+                tmp_no_fail = self._set_visibility(event, uname, True)
             # Save the potential failure-state
             if not tmp_no_fail:
                 no_fail = False
@@ -743,8 +745,72 @@ class ExchangeEventHandler(processing.Process):
         if not no_fail:
             raise EventExecutionException
 
-        # Log a reciept for this change.
+        # Log a receiept for this change.
         self.ut.log_event_receipt(event, 'exchange:per_e_reserv')
+
+    @EventDecorator.RegisterHandler(['ac_type:add',
+                                     'ac_type:mod',
+                                     'ac_type:del'])
+    def set_address_book_visibility_for_primary_account_change(self, event):
+        """Update address book visibility when primary account changes.
+
+        :param event: The event returned from Change- or EventLog
+        :type event: Cerebrum.extlib.db_row.row
+        :raises ExchangeException: If the visibility can't be set because of an
+            Exchange related error.
+        :raises EventExecutionException: If the event could not be processed
+            properly.
+        """
+        # TODO: This should be re-written as an aggregate-enrich-split-agent,
+        # and a much simpler handler.
+        # TODO: Add some criterias that filter out events that does not result
+        # in primary-user change?
+
+        # Get information about the accounts owner
+        owner_type, owner_id = self.ut.get_account_owner_info(
+            event['subject_entity'])
+
+        # We'll only handle accounts that are owned by persons
+        if owner_type != self.co.entity_person:
+            raise UnrelatedEvent
+
+        # Fetch primary account id
+        new_primary_id = self.ut.get_primary_account(owner_id)
+
+        # Collect reservation-status for primary account.
+        is_reserved = (self.randzone_unreserve_group not in
+                       self.ut.get_person_membership_groupnames(owner_id) and
+                       self.ut.is_electronic_reserved(owner_id))
+
+        # Store success-state
+        no_fail = True
+
+        # Update visibility of the persons accounts
+        accounts = self.ut.get_person_accounts(owner_id, self.mb_spread)
+        for aid, uname in accounts:
+            if aid == new_primary_id and not is_reserved:
+                no_fail = no_fail and self._set_visibility(
+                    event, uname, is_reserved)
+            else:
+                no_fail = no_fail and self._set_visibility(
+                    event, uname, True)  # True means hide.
+
+        # Raise an exception to re-handle the event later, if some of them
+        # fails. We choose to do this after trying to set visibility on all
+        # accounts, so we are a bit more sure that we won't accidentally
+        # expose someone in the address book.
+        if not no_fail:
+            raise EventExecutionException
+
+        # Alter change params and entity id of subject. Log changes for all
+        # affected accounts.
+        for aid, _ in accounts:
+            rcpt = {'subject_entity': aid,
+                    'dest_entity': None,
+                    'change_params': pickle.dumps(
+                        {'visible': (aid == new_primary_id and
+                                     not is_reserved)})}
+            self.ut.log_event_receipt(rcpt, 'exchange:per_e_reserv')
 
     @EventDecorator.RegisterHandler(['email_quota:add_quota',
                                      'email_quota:mod_quota',
