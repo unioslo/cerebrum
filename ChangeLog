@@ -1,3 +1,11 @@
+2015-02-13  Karen   <cerebrum@cleomedes.uit.no>
+
+    * generate_kurs_ldif.py: Added to repo. Copied from contrib/no/uio.
+    Changed 'uio' to 'uit' where relevant.
+
+    * generate_groups_ldif.py: Added to repo. Copied from contrib/no/uio.
+    Changed 'uio' to 'uit' where relevant.
+
 2015-02-05  Karen   <cerebrum@cleomedes.uit.no>
 
     * populate_fronter_groups.py: Removed all the uio-ifi-specific things.
