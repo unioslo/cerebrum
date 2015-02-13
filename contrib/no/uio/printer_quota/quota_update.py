@@ -92,7 +92,10 @@ def set_quota(person_id, has_quota=False, has_blocked_quota=False,
             ppq.set_status_attr(person_id, {'has_quota': has_quota})
             pq_logger.info("set has_quota=%i for %i" % (has_quota, person_id))
         if ppq_info['has_blocked_quota'] != new_blocked:
-            ppq.set_status_attr(person_id, {'has_blocked_quota': has_blocked_quota})
+            ppq.set_status_attr(
+                person_id,
+                {'has_blocked_quota': has_blocked_quota}
+            )
             pq_logger.info("set has_blocked_quota=%i for %i" % (
                 has_blocked_quota, person_id))
     except Errors.NotFoundError:
@@ -111,7 +114,10 @@ def set_quota(person_id, has_quota=False, has_blocked_quota=False,
     if 'default' not in free_this_term.get(person_id, []):
         logger.debug("grant %s for %i" % ('default', person_id))
         pq_logger.info("set initial %s=%i for %i" % (
-            'default', int(autostud.pc.default_values['print_start']), person_id))
+            'default',
+            int(autostud.pc.default_values['print_start']),
+            person_id)
+        )
         pu.set_free_pages(person_id,
                           int(autostud.pc.default_values['print_start']),
                           '%s%s' % (term_init_prefix, 'default'),
@@ -151,11 +157,10 @@ def set_quota(person_id, has_quota=False, has_blocked_quota=False,
                                       update_program=update_program)
                     pq_logger.info("grant %s=%i for %i" % (
                         qid, q[quota_type], person_id))
-        if q.has_key('weekly'):
+        if 'weekly' in q:
             new_weekly = (new_weekly or 0) + q['weekly']
-        if q.has_key('max'):
+        if 'max' in q:
             new_max = (new_max or 0) + q['max']
-    
     if new_weekly != ppq_info['weekly_quota']:
         ppq.set_status_attr(person_id, {'weekly_quota': new_weekly})
         pq_logger.info("set weekly_quota=%i for %i" % (new_weekly, person_id))
@@ -164,6 +169,7 @@ def set_quota(person_id, has_quota=False, has_blocked_quota=False,
         pq_logger.info("set max_quota=%i for %i" % (new_max, person_id))
     db.commit()
 
+
 def recalc_quota_callback(person_info):
     # Kun kvoteverdier styres av studconfig.xml.  De øvrige
     # parameterene er for komplekse til å kunne uttrykkes der uten å
@@ -171,10 +177,11 @@ def recalc_quota_callback(person_info):
     person_id = person_info.get('person_id', None)
     logger.set_indent(0)
     if person_id is None:
-        fnr = fodselsnr.personnr_ok("%06d%05d" % (int(person_info['fodselsdato']),
-                                                  int(person_info['personnr'])))
-
-        if not fnr2pid.has_key(fnr):
+        fnr = fodselsnr.personnr_ok("%06d%05d" % (
+            int(person_info['fodselsdato']),
+            int(person_info['personnr'])
+        ))
+        if fnr not in fnr2pid:
             logger.warn("fnr %s is an unknown person" % fnr)
             return
         person_id = fnr2pid[fnr]
@@ -183,31 +190,41 @@ def recalc_quota_callback(person_info):
     logger.set_indent(3)
 
     # Sjekk at personen er underlagt kvoteregimet
-    if not quota_victims.has_key(person_id):
+    if person_id not in quota_victims:
         logger.debug("not a quota victim %s" % person_id)
         logger.set_indent(0)
         # assert that person does _not_ have quota
         set_quota(person_id, has_quota=False)
         return
-    
+
     # Sjekk matching mot studconfig.xml
-    quota=None
+    quota = None
     try:
-        profile = autostud.get_profile(person_info,
-                                       member_groups=person_id_member.get(person_id, []),
-                                       person_affs=person_id_affs.get(person_id, []))
+        profile = autostud.get_profile(
+            person_info,
+            member_groups=person_id_member.get(
+                person_id,
+                []
+            ),
+            person_affs=person_id_affs.get(
+                person_id,
+                []
+            )
+        )
         quota = profile.get_pquota(as_list=True)
     except AutoStud.ProfileHandler.NoMatchingProfiles, msg:
         # A common situation, so we won't log it
         profile = None
     except Errors.NotFoundError, msg:
-        logger.warn("(person) not found error for %s: %s" %  (person_id, msg))
+        logger.warn("(person) not found error for %s: %s" % (person_id, msg))
         profile = None
     # Blokker de som ikke har betalt/ikke har kopiavgift-fritak
-    if (require_kopipenger and
-        not har_betalt.get(person_id, False) and
-        not kopiavgift_fritak.get(person_id, False) and
-        not (profile and profile.get_printer_kopiavgift_fritak())):
+    if (
+            require_kopipenger and
+            not har_betalt.get(person_id, False) and
+            not kopiavgift_fritak.get(person_id, False) and
+            not (profile and profile.get_printer_kopiavgift_fritak())
+    ):
         logger.debug("block %s (bet=%i, fritak=%i)" % (
             person_id, har_betalt.get(person_id, False),
             kopiavgift_fritak.get(person_id, False)))
@@ -216,8 +233,10 @@ def recalc_quota_callback(person_info):
         return
 
     # Har fritak fra kvote
-    if (betaling_fritak.has_key(person_id) or 
-        profile and profile.get_printer_betaling_fritak()):
+    if (
+            person_id in betaling_fritak or
+            profile and profile.get_printer_betaling_fritak()
+    ):
         logger.debug("%s is exempt from quota", person_id)
         set_quota(person_id, has_quota=False)
         logger.set_indent(0)
@@ -230,28 +249,33 @@ def recalc_quota_callback(person_info):
 def get_bet_fritak_utv_data(sysname, person_file):
     """Finn pc-stuevakter/gruppelærere mfl. ved å parse SAP-dumpen."""
     ret = {}
-    fnr2pid = {}
+    sap_ansattnr2pid = {}
     roller_fritak = cereconf.PQUOTA_ROLLER_FRITAK
+
     for p in person.list_external_ids(source_system=const.system_sap,
-                                      id_type=const.externalid_fodselsnr):
-        fnr2pid[p['external_id']] = int(p['entity_id'])
+                                      id_type=const.externalid_sap_ansattnr):
+        sap_ansattnr2pid[p['external_id']] = int(p['entity_id'])
+
     # Parse person file
     parser = system2parser(sysname)(person_file, logger, False)
     for pers in parser.iter_person():
-        fnr = pers.get_id(pers.NO_SSN)
+        sap_nr = pers.get_id(pers.SAP_NR)
         for employment in pers.iteremployment():
-            if (employment.is_guest() and employment.is_active() and
-                employment.code in roller_fritak):
-                if not fnr2pid.has_key(fnr):
-                    logger.warn("Unknown person from %s %s" % (sysname, fnr))
+            if (
+                    employment.is_guest() and employment.is_active() and
+                    employment.code in roller_fritak
+            ):
+                if sap_nr not in sap_ansattnr2pid:
+                    logger.warn(
+                        "Unknown person from %s %s" % (sysname, sap_nr)
+                    )
                     continue
-                ret[fnr2pid[fnr]] = True
+                ret[sap_ansattnr2pid[sap_nr]] = True
     return ret
 
 
 def get_students():
     """Finner studenter iht. 0.1"""
-    
     ret = []
     tmp_gyldige = {}
     tmp_slettede = {}
@@ -275,8 +299,10 @@ def get_students():
     #                     int(const.affiliation_tilknyttet_bilag))
     logger.debug2("Gyldige: %s" % str(tmp_gyldige))
     for pid in tmp_gyldige.keys():
-        if (int(const.affiliation_student),
-            int(const.affiliation_status_student_aktiv)) in tmp_gyldige[pid]:
+        if (
+                int(const.affiliation_student),
+                int(const.affiliation_status_student_aktiv)
+        ) in tmp_gyldige[pid]:
             # Har minst en gyldig STUDENT/aktiv affiliation
             ret.append(pid)
             logger.debug2("%i: STUDENT/aktiv" % pid)
@@ -284,10 +310,11 @@ def get_students():
         elif [x for x in tmp_gyldige[pid]
               if x[0] == int(const.affiliation_student)]:
             # Har en gyldig STUDENT affiliation (!= aktiv)
-            if not [x for x in tmp_gyldige[pid]
-                    if not (x[0] == int(const.affiliation_student) or
-                            (x[0] == int(const.affiliation_manuell) and
-                             x[1] == int(const.affiliation_manuell_inaktiv_student)))]:
+            if not [x for x in tmp_gyldige[pid] if not (
+                    x[0] == int(const.affiliation_student) or
+                    (x[0] == int(const.affiliation_manuell) and
+                     x[1] == int(const.affiliation_manuell_inaktiv_student))
+            )]:
                 # ... og ingen gyldige ikke-student affiliations
                 ret.append(pid)
                 logger.debug2("%i: stud-aff and no non-studaff" % pid)
@@ -295,16 +322,18 @@ def get_students():
 
     logger.debug2("Slettede: %s" % str(tmp_slettede))
     for pid in tmp_slettede.keys():
-        if tmp_gyldige.has_key(pid):
+        if pid in tmp_gyldige:
             continue
-        if [x for x in tmp_slettede[pid]
-              if x[0] == int(const.affiliation_student)]:
+        if [x for x in tmp_slettede[pid] if x[0] == int(
+                const.affiliation_student
+        )]:
             # Har en slettet STUDENT/* affiliation, og ingen ikke-slettede
             ret.append(pid)
 
     logger.debug("person.list_affiliations -> %i quota_victims" % len(ret))
     logger.debug("Victims: %s" % ret)
     return ret
+
 
 def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file,
                sysname, person_file):
@@ -341,31 +370,35 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file,
         account_id2pid[int(row['account_id'])] = int(row['person_id'])
         has_account[int(row['person_id'])] = True
     for p_id in quota_victim.keys():
-        if not has_account.has_key(p_id):
+        if p_id not in has_account:
             del(quota_victim[p_id])
     logger.debug("after removing non-account people: %i" % len(quota_victim))
 
     # Ansatte har fritak
     # TODO: sparer litt ytelse ved å gjøre dette i get_students()
-    for row in person.list_affiliations(affiliation=const.affiliation_ansatt,
-                          status=(const.affiliation_status_ansatt_bil,
-                                  const.affiliation_status_ansatt_vit,
-                                  const.affiliation_status_ansatt_tekadm,),
-                          source_system=const.system_sap,
-                          include_deleted=False, fetchall=False):
-        if quota_victim.has_key(int(row['person_id'])):
+    for row in person.list_affiliations(
+            affiliation=const.affiliation_ansatt,
+            status=(const.affiliation_status_ansatt_bil,
+                    const.affiliation_status_ansatt_vit,
+                    const.affiliation_status_ansatt_tekadm,),
+            source_system=const.system_sap,
+            include_deleted=False, fetchall=False
+    ):
+        if int(row['person_id']) in quota_victim:
             del(quota_victim[int(row['person_id'])])
     logger.debug("removed employees: %i" % len(quota_victim))
 
     # Alle personer som har disse typer tilknyttet affiliation skal ha fritak
-    for row in person.list_affiliations(affiliation=const.affiliation_tilknyttet,
-                                        status=(const.affiliation_tilknyttet_bilag,
-                                                const.affiliation_tilknyttet_ekst_forsker,
-                                                const.affiliation_tilknyttet_gjesteforsker,
-                                                const.affiliation_tilknyttet_innkjoper,),
-                                        source_system=const.system_sap,
-                                        include_deleted=False, fetchall=False):
-        if quota_victim.has_key(int(row['person_id'])):
+    for row in person.list_affiliations(
+            affiliation=const.affiliation_tilknyttet,
+            status=(const.affiliation_tilknyttet_bilag,
+                    const.affiliation_tilknyttet_ekst_forsker,
+                    const.affiliation_tilknyttet_gjesteforsker,
+                    const.affiliation_tilknyttet_innkjoper,),
+            source_system=const.system_sap,
+            include_deleted=False, fetchall=False
+    ):
+        if int(row['person_id']) in quota_victim:
             del(quota_victim[int(row['person_id'])])
     logger.debug("removed tilknyttet people: %i" % len(quota_victim))
 
@@ -382,8 +415,8 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file,
         pid = fnr2pid.get(fnr, None)
         if not pid:
             continue
-        if quota_victim.has_key(pid):
-            del(quota_victim[pid])        
+        if pid in quota_victim:
+            del(quota_victim[pid])
     logger.debug("removed drgrad: %i" % len(quota_victim))
 
     # map person-id til gruppemedlemskap.  Hvis gruppe-medlemet er av
@@ -400,7 +433,7 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file,
                       group.search_members(group_id=group.entity_id,
                                            indirect_members=True,
                                            member_type=const.entity_account)]):
-            if account_id2pid.has_key(m):
+            if m in account_id2pid:
                 person_id_member.setdefault(account_id2pid[m], []).append(g)
                 count[0] += 1
             else:
@@ -418,7 +451,8 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file,
             affiliation = aff_attrs[0]
             for row in person.list_affiliations(
                 affiliation=affiliation, include_deleted=False,
-                fetchall=False):
+                fetchall=False
+            ):
                 person_id_affs.setdefault(int(row['person_id']), []).append(
                     (int(row['ou_id']),
                      int(row['affiliation']),
@@ -450,7 +484,8 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file,
     free_this_term = {}
     for row in ppq.get_history_payments(
         transaction_type=const.pqtt_quota_fill_free,
-        desc_mask=term_init_prefix+'%%'):
+        desc_mask=term_init_prefix+'%%'
+    ):
         free_this_term.setdefault(int(row['person_id']), []).append(
             row['description'][len(term_init_prefix):])
     logger.debug("free_this_term: %i" % len(free_this_term))
@@ -458,17 +493,19 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file,
     logger.debug("Prefetch returned %i students" % len(quota_victim))
     n = 0
     for pid in betaling_fritak.keys():
-        if quota_victim.has_key(pid):
+        if pid in quota_victim:
             n += 1
     logger.debug("%i av disse har betaling_fritak" % n)
     return (fnr2pid, quota_victim, person_id_member, person_id_affs,
             kopiavgift_fritak, har_betalt, free_this_term, betaling_fritak)
 
+
 def auto_stud(studconfig_file, student_info_file, studieprogs_file,
               emne_info_file, drgrad_file, fritak_kopiavg_file,
               betalt_papir_file, sysname, person_file, ou_perspective=None):
     global fnr2pid, quota_victims, person_id_member, person_id_affs, \
-           kopiavgift_fritak, har_betalt, free_this_term, autostud, betaling_fritak
+        kopiavgift_fritak, har_betalt, free_this_term, autostud, \
+        betaling_fritak
     logger.debug("Preparing AutoStud framework")
     autostud = AutoStud.AutoStud(db, logger, debug=False,
                                  cfg_file=studconfig_file,
@@ -478,10 +515,22 @@ def auto_stud(studconfig_file, student_info_file, studieprogs_file,
 
     # Finne alle personer som skal behandles, deres gruppemedlemskap
     # og evt. fritak fra kopiavgift
-    (fnr2pid, quota_victims, person_id_member, person_id_affs,
-     kopiavgift_fritak, har_betalt, free_this_term, betaling_fritak) = \
-     fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file,
-                sysname, person_file)
+    (
+        fnr2pid,
+        quota_victims,
+        person_id_member,
+        person_id_affs,
+        kopiavgift_fritak,
+        har_betalt,
+        free_this_term,
+        betaling_fritak
+    ) = fetch_data(
+        drgrad_file,
+        fritak_kopiavg_file,
+        betalt_papir_file,
+        sysname,
+        person_file
+    )
     logger.debug2("Victims: %s" % quota_victims)
     # Start call-backs via autostud modulen med vanlig
     # merged_persons.xml fil.  Vi har da mulighet til å styre kvoter
@@ -496,27 +545,27 @@ def auto_stud(studconfig_file, student_info_file, studieprogs_file,
     # quota_callback funksjonen selv.
     logger.info("process persons that didn't get callback")
     for p in quota_victims.keys():
-        if not processed_person.has_key(p):
+        if p not in processed_person:
             recalc_quota_callback({'person_id': p})
 
     # Turn off quota for anyone that has quota and that we didn't
     # process
     logger.info("Turn off quota for those who still has quota")
     for row in ppq.get_quota_status(has_quota_filter=True):
-        if not processed_pids.has_key(int(row['person_id'])):
+        if int(row['person_id']) not in processed_pids:
             set_quota(int(row['person_id']), has_quota=False)
 
-## rogerha 2007-07-16: what is this code? It's buggy and not used so
-## I comment it.
+# # rogerha 2007-07-16: what is this code? It's buggy and not used so
+# # I comment it.
 # def process_data():
 #     has_processed = {}
-#     
+#
 #     # Alle personer med student-affiliation:
 #     for p in fs.getAlleMedStudentAffiliation():
 #         person_id = find_person(p['dato'], p['pnr'])
 #         handle_quota(person_id, p)
 #         has_processed[person_id] = True
-# 
+#
 #     # Alle account som kun har student-affiliations (denne er ment å
 #     # ramme de som tidligere har vært studenter, men som har en konto
 #     # som ikke er sperret enda).
@@ -525,6 +574,7 @@ def auto_stud(studconfig_file, student_info_file, studieprogs_file,
 #         if has_processed.has_key(person_id):
 #             continue
 #         handle_quota(person_id, p)
+
 
 def main():
     global logger
@@ -570,6 +620,7 @@ def main():
                       fritak_kopiavg_file, betalt_papir_file, sysname,
                       person_file, ou_perspective)
 
+
 def usage(exitcode=0):
     print """Usage: [options]
     -s | --student-info-file file:
@@ -586,10 +637,9 @@ def usage(exitcode=0):
 
 contrib/no/uio/quota_update.py -s /cerebrum/dumps/FS/merged_persons_small.xml -e /cerebrum/dumps/FS/emner.xml -C contrib/no/uio/studconfig.xml -S /cerebrum/dumps/FS/studieprogrammer.xml -D /cerebrum/dumps/FS/drgrad.xml -P system_sap:/cerebrum/dumps/SAP/SAP2BAS/sap2bas_2007-7-16-301.xml -f /cerebrum/dumps/FS/fritak_kopi.xml -b /cerebrum/dumps/FS/betalt_papir.xml -r
 """
-    # ./contrib/no/uio/import_from_FS.py --db-user ureg2000 --db-service FSPROD.uio.no --misc-tag drgrad --misc-func GetStudinfDrgrad --misc-file drgrad.xml 
+    # ./contrib/no/uio/import_from_FS.py --db-user ureg2000 --db-service FSPROD.uio.no --misc-tag drgrad --misc-func GetStudinfDrgrad --misc-file drgrad.xml
     # ./contrib/no/uio/import_from_FS.py --db-user ureg2000 --db-service FSPROD.uio.no --misc-tag betfritak --misc-func GetStudFritattKopiavg --misc-file fritak_kopi.xml
     sys.exit(exitcode)
 
 if __name__ == '__main__':
     main()
-
