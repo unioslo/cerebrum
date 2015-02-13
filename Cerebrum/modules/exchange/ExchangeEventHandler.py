@@ -726,8 +726,9 @@ class ExchangeEventHandler(processing.Process):
 
         # Loop trough all the persons accounts, and set the appropriate
         # visibility state for them.
-        for aid, uname in self.ut.get_person_accounts(event['subject_entity'],
-                                                      self.mb_spread):
+        accounts = self.ut.get_person_accounts(event['subject_entity'],
+                                               self.mb_spread)
+        for aid, uname in accounts:
             # Set the state we deduced earlier on the primary account.
             if aid == primary_account_id:
                 tmp_no_fail = self._set_visibility(event,
@@ -745,8 +746,15 @@ class ExchangeEventHandler(processing.Process):
         if not no_fail:
             raise EventExecutionException
 
-        # Log a receiept for this change.
-        self.ut.log_event_receipt(event, 'exchange:per_e_reserv')
+        # Alter change params and entity id of subject. Log changes for all
+        # affected accounts.
+        for aid, _ in accounts:
+            recpt = {'subject_entity': aid,
+                     'dest_entity': None,
+                     'change_params': pickle.dumps(
+                         {'visible': (aid == primary_account_id and
+                                      not hidden_from_address_book)})}
+            self.ut.log_event_receipt(recpt, 'exchange:per_e_reserv')
 
     @EventDecorator.RegisterHandler(['ac_type:add',
                                      'ac_type:mod',
