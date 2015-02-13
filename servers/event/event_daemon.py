@@ -86,10 +86,11 @@ def main():
     # Parse args
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                                    't:nd',
+                                    't:ndm',
                                     ['type=',
                                      'no-notifications',
-                                     'no-delayed-notifications'])
+                                     'no-delayed-notifications',
+                                     'mock'])
     except getopt.GetoptError, err:
         print err
         usage(1)
@@ -97,6 +98,7 @@ def main():
     conf = None
     notifications = True
     delayed_notifications = True
+    mock = False
 
     for opt, val in opts:
         if opt in ('-t', '--type'):
@@ -106,6 +108,8 @@ def main():
             notifications = False
         elif opt in ('-d', '--no-delayed-notifications'):
             delayed_notifications = False
+        elif opt in ('-m', '--mock'):
+            mock = True
 
     # Can't run without a config!
     if not conf:
@@ -148,7 +152,7 @@ def main():
     # Create all the event-handeler processes
     for i in range(0, conf['concurrent_workers']):
         procs.append(event_handler_class(conf, event_queue, log_queue,
-                                                                    run_state))
+                                         run_state, mock))
 
     # Create the NotificationCollector if appropriate
     if notifications:
