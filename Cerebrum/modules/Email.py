@@ -382,6 +382,11 @@ class CLConstants(CLConstants.CLConstants):
                                             'disable forward for %(subject)s',
                                            ('forward=%(string:forward)',
                                             'cat=%(int:cat)'))
+
+    # Local delivery of email forwards
+    email_local_delivery = CLConstants._ChangeTypeCode(
+        'email_forward', 'local_delivery', ('enabled=%(string:enabled)',))
+
     # email vacation (subject here is an email_target)
     # TBD: should we bother to log this? I don't think so, vacation 
     # msg will be moved to exchange

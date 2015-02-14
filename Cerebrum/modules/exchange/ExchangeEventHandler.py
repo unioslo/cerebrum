@@ -508,25 +508,24 @@ class ExchangeEventHandler(processing.Process):
 
             # Set forwarding address
             fwds = self.ut.get_account_forwards(aid)
-            remote_fwds = list(set(fwds) - set(addrs))
-            local_delivery = list(set(fwds) & set(addrs))
+            local_delivery = self.ut.get_account_local_delivery(aid)
 
-            if remote_fwds:
+            if fwds:
                 try:
-                    self.ec.set_forward(uname, remote_fwds[0])
+                    self.ec.set_forward(uname, fwds[0])
                     self.logger.info('eid:%d: Set forward for %s to %s' %
                                      (event['event_id'], uname,
-                                      remote_fwds[0]))
+                                      fwds[0]))
                     # TODO: Log reciept
                 except (ExchangeException, ServerUnavailableException), e:
                     self.logger.warn(
                         'eid:%d: Can\'t set forward for %s to %s: %s' %
-                        (event['event_id'], uname, str(remote_fwds[0]), e))
+                        (event['event_id'], uname, str(fwds[0]), e))
                     # We log an faux event, since setting the forward fails
                     # Collect email target id, and construct our payload
                     etid, tid, tt, hq, sq = self.ut.get_email_target_info(
                         target_entity=aid)
-                    params = {'forward': remote_fwds[0],
+                    params = {'forward': fwds[0],
                               'enable': 'T'}
                     faux_event = {'subject_entity': etid,
                                   'dest_entity': etid,
@@ -534,13 +533,19 @@ class ExchangeEventHandler(processing.Process):
 
                     self.logger.debug1(
                         'eid:%d: Creating event: Set forward %s on %s' %
-                        (event['event_id'], remote_fwds[0], uname))
+                        (event['event_id'], fwds[0], uname))
                     self.ut.log_event(faux_event, 'email_forward:add_forward')
 
             if local_delivery:
                 try:
                     self.ec.set_local_delivery(uname, True)
-                    # TODO: RECIEPT?
+
+                    rcpt = {'subject_entity': tid,
+                            'dest_entity': None,
+                            'change_params': pickle.dumps(
+                                {'enabled': True})}
+                    self.ut.log_event_receipt(rcpt, 'exchange:local_delivery')
+
                     self.logger.info(
                         '%s local delivery for %s' % (
                             'Enabled' if local_delivery else 'Disabled',
@@ -557,16 +562,16 @@ class ExchangeEventHandler(processing.Process):
                     # fails Collect email target id, and construct our payload
                     etid, tid, tt, hq, sq = self.ut.get_email_target_info(
                         target_entity=aid)
-                    params = {'forward': local_delivery[0],
-                              'enable': 'T'}
                     faux_event = {'subject_entity': etid,
-                                  'dest_entity': etid,
-                                  'change_params': pickle.dumps(params)}
+                                  'dest_entity': None,
+                                  'change_params': pickle.dumps(
+                                      {'enabled': True})}
+                    self.ut.log_event(
+                        faux_event, 'email_forward:local_delivery')
 
                     self.logger.debug1(
                         'eid:%d: Creating event: Set local delivery on %s' %
                         (event['event_id'], uname))
-                    self.ut.log_event(faux_event, 'email_forward:add_forward')
 
         # If we wind up here, the spread type is notrelated to our target
         # system
@@ -925,20 +930,16 @@ class ExchangeEventHandler(processing.Process):
                 (event['event_id'], uname, str(address), e))
             raise EventExecutionException
 
-    @EventDecorator.RegisterHandler(['email_forward:add_forward',
-                                     'email_forward:rem_forward',
-                                     'email_forward:enable_forward',
-                                     'email_forward:disable_forward'])
+    @EventDecorator.RegisterHandler(['email_forward:local_delivery'])
     def set_local_delivery(self, event):
         """Event handler method that sets the DeliverToMailboxAndForward option.
 
         :param event: The EventLog entry to process
         :type event: Cerebrum.extlib.db_row.row
-        :raises ExchangeException: If the forward can't be set because of an
+        :raises ExchangeException: If local delivery can't be set because of an
             Exchange related error.
         :raises EventExecutionException: If the event could not be processed
-            properly.
-        """
+            properly."""
         et_eid, tid, tet, hq, sq = self.ut.get_email_target_info(
             target_id=event['subject_entity'])
         if (tet == self.co.entity_account and
@@ -949,33 +950,27 @@ class ExchangeEventHandler(processing.Process):
             raise UnrelatedEvent
 
         params = self.ut.unpickle_event_params(event)
-        addrs = self.ut.get_account_mailaddrs(tid)
-
-        if ('forward' in params and 'enable' in params and
-                params['forward'] in addrs and params['enable'] == 'T'):
-            local_delivery = True
-        elif ('forward' in params and params['forward'] in addrs and
-                'enable' not in params):
-            local_delivery = False
-        else:
-            raise UnrelatedEvent
 
         try:
-            self.ec.set_local_delivery(uname, local_delivery)
-            # TODO: RECIEPT?
+            self.ec.set_local_delivery(uname, params['enabled'])
             self.logger.info(
                 '%s local delivery for %s' % (
-                    'Enabled' if local_delivery else 'Disabled',
+                    'Enabled' if params['enabled'] else 'Disabled',
                     uname))
         except (ExchangeException, ServerUnavailableException), e:
             self.logger.warn(
                 "eid:%d: Can't %s local delivery for %s: %s" % (
                     event['event_id'],
-                    'enable' if local_delivery else 'disable',
+                    'enable' if params['enabled'] else 'disable',
                     uname,
                     e))
             raise EventExecutionException
 
+        rcpt = {'subject_entity': tid,
+                'dest_entity': None,
+                'change_params': pickle.dumps(
+                    {'enabled': params['enabled']})}
+        self.ut.log_event_receipt(rcpt, 'exchange:local_delivery')
 
 # TODO: Are these so "generic"?
 ####

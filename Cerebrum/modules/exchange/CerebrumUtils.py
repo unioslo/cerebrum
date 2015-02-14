@@ -182,6 +182,15 @@ class CerebrumUtils(object):
         self.db.rollback()
         return r
 
+    def get_account_local_delivery(self, account_id):
+        """Check if this account should have local delivery.
+
+        :param int account_id: The account_id representing the object.
+        :rtype: bool
+        :return: Local delivery on or off."""
+        self.ef.clear()
+        self.ef.find_by_target_entity(account_id)
+        return self.ef.local_delivery
 
     def get_account_name(self, account_id):
         """Return information about the account.
