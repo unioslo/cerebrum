@@ -1,5 +1,5 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2003 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2003-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -71,7 +71,7 @@ from Cerebrum import Errors
 
 import cereconf
 
-__version__ = "1.3"
+__version__ = "1.4"
 
 class _EmailTargetCode(Constants._CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=email_target_code]'
@@ -1855,6 +1855,48 @@ class EmailForward(EmailTarget):
 
     """Forwarding addresses attached to EmailTargets."""
 
+    def find(self, target_id):
+        """Find EmailForward, with associated attributes.
+
+        :type target_id: int
+        :param target_id: The EmailTargets entity id."""
+        super(EmailForward, self).find(target_id)
+        try:
+            self.local_delivery = self._db.query_1(
+                """SELECT local_delivery FROM
+                    [:table schema=cerebrum name=email_local_delivery] WHERE
+                    target_id = :t_id""",
+                {'t_id': target_id})
+        except Errors.NotFoundError:
+            self.local_delivery = False
+
+    def enable_local_delivery(self):
+        """Enable local delivery for EmailTarget."""
+        if not self.local_delivery:
+            self.local_delivery = True
+            self._db.log_change(self.entity_id,
+                                self.const.email_local_delivery,
+                                None,
+                                change_params={'enabled': True})
+            self.execute(
+                """INSERT INTO [:table schema=cerebrum name=email_local_delivery]
+                    (target_id, local_delivery) VALUES (:t_id, :ld)""",
+                {'t_id': self.entity_id,
+                 'ld': True})
+
+    def disable_local_delivery(self):
+        """Disable local delivery for EmailTarget."""
+        if self.local_delivery:
+            self.local_delivery = False
+            self._db.log_change(self.entity_id,
+                                self.const.email_local_delivery,
+                                None,
+                                change_params={'enabled': False})
+            self.execute(
+                """DELETE FROM [:table schema=cerebrum name=email_local_delivery]
+                    WHERE target_id = :t_id""",
+                {'t_id': self.entity_id})
+
     def add_forward(self, forward, enable=True):
         """Add a forwarding address to an EmailTarget.
 
@@ -1939,6 +1981,14 @@ class EmailForward(EmailTarget):
         SELECT target_id, forward_to, enable
         FROM [:table schema=cerebrum name=email_forward]
         """, fetchall=False)
+
+    def list_local_delivery(self):
+        """List all local deliveries.
+
+        :rtype: list
+        :return: [(target_id, local_delivery)]."""
+        return self.query("""SELECT * FROM
+        [:table schema=cerebrum name=email_local_delivery]""")
 
     def search(self, forward_to=None, enable=None, target_id=None,
                fetchall=False):

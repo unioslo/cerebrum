@@ -1,5 +1,5 @@
 /*
- * Copyright 2003 University of Oslo, Norway
+ * Copyright 2003-2015 University of Oslo, Norway
  * 
  * This file is part of Cerebrum.
  * 
@@ -22,7 +22,7 @@
 category:metainfo;
 name=email;
 category:metainfo;
-version=1.3;
+version=1.4;
 
 category:code/Oracle;
 CREATE ROLE read_mod_email NOT IDENTIFIED;
@@ -602,6 +602,16 @@ GRANT SELECT ON email_forward TO read_mod_email;
 category:main/Oracle;
 GRANT INSERT, UPDATE, DELETE ON email_forward TO read_mod_email;
 
+/* Local delivery flags for email targets */
+category:main;
+CREATE TABLE email_local_delivery
+(
+  target_id	NUMERIC(12,0) UNIQUE
+		CONSTRAINT email_forward_target_id
+		  REFERENCES email_target(target_id),
+  local_delivery BOOLEAN
+        NOT NULL
+);
 
 /*	email_vacation
 
