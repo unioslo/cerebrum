@@ -672,53 +672,7 @@ class BofhdCommonMethods(BofhdCommandBase):
         return {'group_id': int(g.entity_id)}
 
     #
-    # group delete
-    #
-    #all_commands['group_delete'] = cmd.Command(
-        #("group", "delete"),
-        #cmd.GroupName(),
-        #cmd.YesNo(help_ref="yes_no_force", default="No"),
-        #perm_filter='can_delete_group')
-
-    #def group_delete(self, operator, groupname, force=None):
-        #""" Standard method to delete a group (potentially posix group). """
-
-        ## TODO: Sigh.
-        #grp = self._get_group(groupname)
-        #self.ba.can_delete_group(operator.get_entity_id(), grp)
-        #if grp.group_name == cereconf.BOFHD_SUPERUSER_GROUP:
-            #raise CerebrumError("Can't delete superuser group")
-        #if self._is_yes(force):
-            #try:
-                #pg = self._get_group(groupname, grtype="PosixGroup")
-                #pg.delete()
-            #except CerebrumError:
-                #pass   # Not a PosixGroup
-            #except self.db.DatabaseError, msg:
-                #if re.search("posix_user_gid", str(msg)):
-                    #raise CerebrumError(
-                        #"Assigned as primary group for posix user(s).  "+
-                        #"Use 'group list %s'" % grp.group_name)
-                #raise
-        ## Should we have these here?
-        #self._remove_auth_target("group", grp.entity_id)
-        #self._remove_auth_role(grp.entity_id)
-        #try:
-            #grp.delete()
-        #except self.db.DatabaseError, msg:
-            #if re.search("group_member_exists", str(msg)):
-                #raise CerebrumError(
-                    #"Group is member of groups.  "+
-                    #"Use 'group memberships group %s'" % grp.group_name)
-            #elif re.search("account_info_owner", str(msg)):
-                #raise CerebrumError(
-                    #"Group is owner of an account.  "+
-                    #"Use 'entity accounts group %s'" % grp.group_name)
-            #raise
-        #return "OK, deleted group '%s'" % groupname
-
-    ##
-    ## Entity methods
+    # Entity methods
 
     # entity contactinfo_add <entity> <contact type> <contact value>
     all_commands['entity_contactinfo_add'] = cmd.Command(
@@ -727,8 +681,9 @@ class BofhdCommonMethods(BofhdCommandBase):
         cmd.SimpleString(help_ref='entity_contact_type'),
         cmd.SimpleString(help_ref='entity_contact_value'),
         perm_filter='can_add_contact_info')
+
     def entity_contactinfo_add(self, operator, entity_target,
-                            contact_type, contact_value):
+                               contact_type, contact_value):
         """Manually add contact info to an entity."""
         co = self.const
 

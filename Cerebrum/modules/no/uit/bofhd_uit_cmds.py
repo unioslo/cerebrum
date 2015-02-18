@@ -3070,9 +3070,9 @@ class BofhdExtension(object):
     def group_demote_posix(self, operator, group):
         grp = self._get_group(group, grtype="PosixGroup")
         self.ba.can_delete_group(operator.get_entity_id(), grp)
-        grp.delete()
+        grp.demote_posix()
         return "OK, demoted '%s'" % group
-    
+
     # group search
     all_commands['group_search'] = Command(
         ("group", "search"), SimpleString(help_ref="string_group_filter"),

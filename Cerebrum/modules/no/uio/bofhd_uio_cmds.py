@@ -161,7 +161,7 @@ class BofhdExtension(BofhdCommonMethods):
     external_id_mappings = {}
 
     # This little class is used to store connections to the LDAP servers, and
-    # the LDAP modules needed. The reason for doing things like this instead
+    # the LDAP modules needed. 
     # instead of importing the LDAP module for the entire bofhd_uio_cmds,
     # are amongst others:
     # 1. bofhd_uio_cmds is partially used at other institutions in some form,
@@ -5746,10 +5746,10 @@ Addresses and settings:
         try:
             dl_group.delete_spread(self.const.Spread(cereconf.EXCHANGE_GROUP_SPREAD))
             dl_group.deactivate_dl_mailtarget()
-            dl_group.delete()
+            dl_group.demote_distribution()
         except Errors.NotFoundError:
             return "No Exchange group %s found" % groupname
-        if  self._is_yes(expire_group):
+        if self._is_yes(expire_group):
             # set expire in 90 dates for the remaining Cerebrum-group
             new_expire_date = DateTime.now() + DateTime.DateTimeDelta(90, 0, 0)
             dl_group.expire_date = new_expire_date
@@ -6008,18 +6008,14 @@ Addresses and settings:
         # it should not be possible to remove distribution groups via
         # bofh, as that would "orphan" e-mail target. if need be such groups
         # should be nuked using a cerebrum-side script.
-        try:
-            self._get_group(groupname, grtype="DistributionGroup")
-            return ("Cannot delete distribution groups, use 'group "
-                    "exchangegroup_remove' to deactivate %s" % groupname)
-        except CerebrumError:
-            pass  # Not a distribution group
-        try:
-            self._get_group(groupname, grtype="PosixGroup")
-            return ("This is a posix group, use 'group demote_posix "
-                    "%s' before deleting.") % groupname
-        except CerebrumError:
-            pass  # Not a PosixGroup
+        if grp.has_extension('DistributionGroup'):
+            raise CerebrumError(
+                "Cannot delete distribution groups, use 'group "
+                "exchangegroup_remove' to deactivate %s" % groupname)
+        elif grp.has_extension('PosixGroup'):
+            raise CerebrumError(
+                "This is a posix group, use 'group demote_posix %s' before"
+                " deleting." % groupname)
 
         self._remove_auth_target("group", grp.entity_id)
         self._remove_auth_role(grp.entity_id)
@@ -6424,7 +6420,7 @@ Addresses and settings:
             raise
 
         self.ba.can_delete_group(operator.get_entity_id(), grp)
-        grp.delete()
+        grp.demote_posix()
 
         return "OK, demoted '%s'" % group
 
@@ -8891,14 +8887,10 @@ Addresses and settings:
         # make sure that if anyone uses spread remove instead of
         # group exchangegroup_remove the appropriate clean-up is still
         # done
-        if entity_type == 'group' and \
-                entity.has_spread(cereconf.EXCHANGE_GROUP_SPREAD):
-            # from Cerebrum.modules.exchange.v2013 import ExchangeGroups
-            #dl_group = ExchangeGroups.DistributionGroup(self.db)
-            dl_group = Utils.Factory.get("DistributionGroup")(self.db)
-            dl_group.deactivate_dl_mailtarget()
-            dl_group.delete()
-            # dl_group.delete_spread()
+        if (entity_type == 'group' and
+                entity.has_spread(cereconf.EXCHANGE_GROUP_SPREAD)):
+            raise CerebrumError(
+                "Cannot remove spread from distribution groups")
         if entity.has_spread(spread):
             entity.delete_spread(spread)
         else:

@@ -161,7 +161,12 @@ def destroy_group(group_id, max_recurse):
     if max_recurse < 0:
         logger.fatal("destroy_group(%s): Recursion too deep", gr.group_name)
         sys.exit(3)
-        
+
+    if gr.get_extensions():
+        logger.fatal("destroy_group(%s): Group is %r",
+                     gr.group_name, gr.get_extensions())
+        sys.exit(4)
+
     # If this group is a member of other groups, remove those
     # memberships.
     for r in gr.search(member_id=gr.entity_id, indirect_members=False):
@@ -175,8 +180,8 @@ def destroy_group(group_id, max_recurse):
     # addresses.  There can only be one target per group.
     et = Email.EmailTarget(db)
     try:
-        et.find_by_email_target_attrs(target_type = const.email_target_multi,
-                                      target_entity_id = gr.entity_id)
+        et.find_by_email_target_attrs(target_type=const.email_target_multi,
+                                      target_entity_id=gr.entity_id)
     except Errors.NotFoundError:
         pass
     else:
