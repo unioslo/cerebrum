@@ -353,10 +353,16 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         self._db.log_change(member_id, self.clconst.group_rem, self.entity_id)
     # end remove_member
 
-    def search(self, group_id=None,
-               member_id=None, indirect_members=False,
-               spread=None, name=None, description=None,
-               filter_expired=True, creator_id=None):
+    def search(self,
+               group_id=None,
+               member_id=None,
+               indirect_members=False,
+               spread=None,
+               name=None,
+               description=None,
+               filter_expired=True,
+               creator_id=None,
+               expired_only=False):
         """Search for groups satisfying various filters.
 
         Search **for groups** where the results are filtered by a number of
@@ -426,8 +432,14 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
           result. The keys available in db_rows are the content of the
           group_info table and group's name (if it does not exist, None is
           assigned to the 'name' key).
-        """
 
+        @type expired_only: bool
+        @param expired_only:
+          Filter the resulting group list by expiration date.
+          If set, return ONLY groups 
+          that have expired_date set and expired (relative to the call time).
+          N.B. filter_expired and filter_expired are mutually exclusive
+        """
         # Sanity check: if indirect members is specified, then at least we
         # need one id to go on.
         if indirect_members:
@@ -548,6 +560,11 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         if creator_id is not None:
             where.append(argument_to_sql(creator_id, "gi.creator_id", binds,
                                          int))
+
+        #
+        # expired_only filter
+        if expired_only:
+            where.append("(gi.expire_date IS NOT NULL AND gi.expire_date < [:now])")
 
         where_str = ""
         if where:
