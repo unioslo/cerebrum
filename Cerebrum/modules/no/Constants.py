@@ -421,6 +421,25 @@ class SAPLonnsTittelKode(Constants._CerebrumCode):
                                   code = :code""" % self._lookup_table,
                                 {'code': int(self)})
 
+    def _update_kategori(self, stats):
+        db_kategori = self.sql.query_1("""
+                                       SELECT
+                                         kategori
+                                       FROM
+                                         %s
+                                       WHERE
+                                         code = :code""" % self._lookup_table,
+                                       {'code': int(self)})
+        if self.kategori != db_kategori:
+            stats['updated'] += 1
+            stats['details'].append("Updated kategori for '%s': '%s'"
+                                    % (self, self.kategori))
+            self.sql.execute("""
+                             UPDATE %s SET kategori=:kategori
+                             WHERE code=:code""" %
+                             self._lookup_table, {'code': int(self),
+                                                  'kategori': self.kategori})
+
 
 class SAPCommonConstants(Constants.Constants):
 

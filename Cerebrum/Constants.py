@@ -803,6 +803,9 @@ class ConstantsBase(DatabaseAccessor):
                     except CodeValuePresentError:
                         if update:
                             code._update_description(stats)
+                            # SAP-constants has an extra attribute "kategori"
+                            if hasattr(code, '_update_kategori'):
+                                code._update_kategori(stats)
                             continue
                         raise
                     code.insert()
