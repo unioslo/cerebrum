@@ -372,6 +372,9 @@ class _CerebrumCode(DatabaseAccessor):
         except Errors.NotFoundError:
             pass
 
+    def _update(self, stats):
+        self._update_description(stats)
+
     def _update_description(self, stats):
         if self._desc is None:
             return
@@ -778,14 +781,14 @@ class ConstantsBase(DatabaseAccessor):
             attr = getattr(self, x)
             if isinstance(attr, _CerebrumCode):
                 dep = attr._insert_dependency
-                if not order.has_key(dep):
+                if dep not in order:
                     order[dep] = {}
                 cls = type(attr)
-                if not order[dep].has_key(cls):
+                if cls not in order[dep]:
                     order[dep][cls] = {}
                 order[dep][cls][str(attr)] = attr
-        if not order.has_key(None):
-            raise ValueError, "All code values have circular dependencies."
+        if None not in order:
+            raise ValueError("All code values have circular dependencies.")
         stats = {'total': 0, 'inserted': 0, 'updated': 0, 'details': []}
         if delete:
             stats['deleted'] = 0
@@ -802,10 +805,7 @@ class ConstantsBase(DatabaseAccessor):
                         code._pre_insert_check()
                     except CodeValuePresentError:
                         if update:
-                            code._update_description(stats)
-                            # SAP-constants has an extra attribute "kategori"
-                            if hasattr(code, '_update_kategori'):
-                                code._update_kategori(stats)
+                            code._update(stats)
                             continue
                         raise
                     code.insert()
@@ -835,13 +835,13 @@ class ConstantsBase(DatabaseAccessor):
                                     "Superfluous code: %s ('%s')" %
                                     (cls(c), cls))
                 del order[root][cls]
-                if order.has_key(cls):
+                if cls in order:
                     insert(cls, update)
             del order[root]
 
         insert(None, update)
         if order:
-            raise ValueError, "Some code values have circular dependencies."
+            raise ValueError("Some code values have circular dependencies.")
         return stats
 
     def __init__(self, database=None):

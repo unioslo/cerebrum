@@ -421,6 +421,10 @@ class SAPLonnsTittelKode(Constants._CerebrumCode):
                                   code = :code""" % self._lookup_table,
                                 {'code': int(self)})
 
+    def _update(self, stats):
+        super(SAPLonnsTittelKode, self)._update(stats)
+        self._update_kategori(stats)
+
     def _update_kategori(self, stats):
         db_kategori = self.sql.query_1("""
                                        SELECT
