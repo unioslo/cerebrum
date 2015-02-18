@@ -222,6 +222,13 @@ class AccountHiAMixin(Account.Account):
                 self.has_spread(self.const.spread_exchange_acc_old) or
                 self.has_spread(self.const.spread_hia_email) or
                 self.has_spread(self.const.spread_uia_office_365)):
+            # CRB-742: If spread_uia_office_365 is removed
+            #  MailTarget targettype should be set as "deleted"
+            et = Email.EmailTarget(self._db)
+            et.find_by_email_target_attrs(target_entity_id = self.entity_id)
+            if et.email_target_type != self.const.email_target_deleted:
+                et.email_target_type = self.const.email_target_deleted
+                et.write_db()
             return
         # Find, create or update a proper EmailTarget for this
         # account.
