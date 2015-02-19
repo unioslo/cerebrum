@@ -102,8 +102,7 @@ class AccountHiAMixin(Account.Account):
             ed = Email.EmailDomain(self._db)
             ea = Email.EmailAddress(self._db)
 
-            for domain in (cereconf.EMAIL_CLOUD_DOMAIN,
-                           cereconf.EMAIL_365_DOMAIN):
+            for domain in cereconf.EMAIL_OFFICE_365_DOMAINS:
                 ed.clear()
                 ed.find_by_domain(domain)
                 # Ensure that the <uname>@thedomainfoundabove.uia.no address
