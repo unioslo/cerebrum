@@ -40,7 +40,6 @@ import pickle
 
 import cerebrum_path
 import cereconf
-from Cerebrum.extlib import logging
 from Cerebrum.modules import CLHandler
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors

@@ -1845,8 +1845,13 @@ class PowershellClient(WinRMClient):
             # Dicts are returned as "Hash Tables" for powershell
             ret = []
             for k, v in data.iteritems():
-                ret.append(u'%s=%s' % (self.escape_to_string(k),
-                                       self.escape_to_string(v)))
+                k, v = self.escape_to_string(k), self.escape_to_string(v)
+                if not k or not v:
+                    self.logger.debug4("PowershellClient.escape_to_string: "
+                                       "Omitting empty value in hash table, "
+                                       "k=%r, v=%r", k, v)
+                    continue
+                ret.append(u'%s=%s' % (k, v))
             return u'@{%s}' % u';'.join(ret)
         raise Exception('Unknown data type %s for: %s' % (type(data), data))
 

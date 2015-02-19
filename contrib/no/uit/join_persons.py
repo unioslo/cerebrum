@@ -29,7 +29,6 @@ import cereconf
 from Cerebrum import Constants
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.extlib import logging
 
 def get_constants_by_type(co, class_type):
     ret = []

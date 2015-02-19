@@ -272,7 +272,7 @@ class SAPConstants(Constants.Constants):
     sap_1007_hogskolelaerer_ovings = SAPLonnsTittelKode(
         "20001007",
         "1007 Høgskolelærer/øvings",
-        "ØVR"
+        "VIT"
     )
 
     sap_1008_hogskolelektor = SAPLonnsTittelKode(
@@ -302,7 +302,7 @@ class SAPConstants(Constants.Constants):
     sap_1012_hogskoledosent = SAPLonnsTittelKode(
         "20001012",
         "1012 Høgskoledosent",
-        "ØVR"
+        "VIT"
     )
 
     sap_1013_professor = SAPLonnsTittelKode(
@@ -875,6 +875,12 @@ class SAPConstants(Constants.Constants):
         "VIT"
     )
 
+    sap_1200_forstebibliotekar = SAPLonnsTittelKode(
+        "20001200",
+        "1200 Førstebibliotekar",
+        "VIT"
+    )
+
     sap_1203_fagarbeider_m_fagbre = SAPLonnsTittelKode(
         "20001203",
         "1203 Fagarbeider m/fagbre",
@@ -1214,7 +1220,7 @@ class SAPConstants(Constants.Constants):
     sap_1532_dosent = SAPLonnsTittelKode(
         "20001532",
         "1532 Dosent",
-        "ØVR"
+        "VIT"
     )
 
     sap_9105_departementsrad_utenriksrad_ = SAPLonnsTittelKode(

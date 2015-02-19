@@ -899,7 +899,7 @@ class Factory(object):
             return comp_class
         else:
             raise ValueError("Invalid import spec for component %s: %r" %
-                            (comp, import_spec))
+                             (comp, import_spec))
 
     def get_logger(name=None):
         """Return THE cerebrum logger.
@@ -908,6 +908,8 @@ class Factory(object):
         options open for the future.
         """
         from Cerebrum.modules import cerelog
+
+        cerelog.setup_warnings(getattr(cereconf, 'PYTHONWARNINGS', None) or [])
 
         return cerelog.get_logger(cereconf.LOGGING_CONFIGFILE, name)
 
@@ -946,7 +948,7 @@ class Factory(object):
             return comp_module
         else:
             raise ValueError("Invalid import spec for component %s: %r" %
-                            (comp, import_spec))
+                             (comp, import_spec))
 
     # static methods
     get = staticmethod(get)

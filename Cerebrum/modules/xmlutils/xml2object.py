@@ -55,9 +55,6 @@ import cereconf
 from Cerebrum import Utils
 
 
-
-
-
 #######################################################################
 # Data abstraction for client code: Address, Employment, Person, etc.
 #######################################################################
@@ -68,9 +65,9 @@ class DataAddress(object):
     TBD: We should include some form for address validation.
     """
 
-    ADDRESS_BESOK   = "besøk"
+    ADDRESS_BESOK = "besøk"
     ADDRESS_PRIVATE = "private"
-    ADDRESS_POST    = "post"
+    ADDRESS_POST = "post"
     ADDRESS_OTHER_POST = "addr_other_post"
     ADDRESS_OTHER_BESOK = "addr_other_besok"
 
@@ -78,7 +75,7 @@ class DataAddress(object):
         "": 4, "NO": 4, "DK": 4
         }
 
-    def __init__(self, kind, street = (), zip = "", city = "", country = ""):
+    def __init__(self, kind, street=(), zip="", city="", country=""):
         self.kind = kind
         if isinstance(street, (list, tuple)):
             self.street = "\n".join(filter(None, map(str.strip, street)))
@@ -95,12 +92,19 @@ class DataAddress(object):
                 self.zip = "%0*d" % (self.country2ziplength[country], izip)
         except (ValueError, KeyError):
             self.zip = zip.strip()
-        if self.country not in ("CA", "GB", "IT", "NL", "NO", "RU", "SE", "US"):
+        if self.country not in (
+                "CA",
+                "GB",
+                "IT",
+                "NL",
+                "NO",
+                "RU",
+                "SE",
+                "US"):
             # TBD: Log it with the logger framework?
             self.country = None
         # fi
     # end __init__
-
 
     def __str__(self):
         return "%s, %s, %s, %s, %s" % (self.kind, self.street, self.zip,
@@ -109,15 +113,15 @@ class DataAddress(object):
 # end DataAddress
 
 
-
 class DataContact(object):
 
-    CONTACT_PHONE      = "generic phone"
-    CONTACT_FAX        = "fax"
-    CONTACT_URL        = "url"
-    CONTACT_EMAIL      = "e-mail"
-    CONTACT_PRIVPHONE  = "private phone"
-    CONTACT_MOBILE     = "cell phone"
+    CONTACT_PHONE = "generic phone"
+    CONTACT_FAX = "fax"
+    CONTACT_URL = "url"
+    CONTACT_EMAIL = "e-mail"
+    CONTACT_PRIVPHONE = "private phone"
+    CONTACT_MOBILE_WORK = "cell phone work"
+    CONTACT_MOBILE_PRIVATE = "cell phone private"
 
     """Class for storing contact information (phone, e-mail, URL, etc.)"""
 
@@ -125,17 +129,16 @@ class DataContact(object):
         self.kind = kind
         assert self.kind in (self.CONTACT_PHONE, self.CONTACT_FAX,
                              self.CONTACT_URL, self.CONTACT_EMAIL,
-                             self.CONTACT_PRIVPHONE, self.CONTACT_MOBILE)
+                             self.CONTACT_PRIVPHONE, self.CONTACT_MOBILE_WORK,
+                             self.CONTACT_MOBILE_PRIVATE)
         self.value = value
         self.priority = priority
     # end __init__
-
 
     def __str__(self):
         return "contact (%s %s): %s" % (self.kind, self.priority, self.value)
     # end __str__
 # end DataContact
-
 
 
 class DataName(object):
@@ -158,13 +161,11 @@ class DataName(object):
         self.language = lang
     # end __init__
 
-
     def __str__(self):
         if self.language:
             return "%s: %s (%s)" % (self.kind, self.value, self.language)
         return "%s: %s" % (self.kind, self.value)
 # end DataName
-
 
 
 class NameContainer(object):
@@ -178,14 +179,12 @@ class NameContainer(object):
         self._names = dict()
     # end __init__
 
-
     def validate_name(self, name):
         """By default all names are valid."""
-        
+
         return True
     # end validate_name
 
-    
     def add_name(self, name):
         """Add a new name.
 
@@ -199,21 +198,18 @@ class NameContainer(object):
         if kind in self._names:
             self._names[kind].append(name)
         else:
-            self._names[kind] = [name,]
+            self._names[kind] = [name, ]
     # end add_name
 
-    
     def iternames(self):
         return self._names.iteritems()
     # end iternames
 
-    
     def get_name(self, kind, default=None):
         tmp = self._names.get(kind, default)
         return tmp
     # end get_name
 
-    
     def get_name_with_lang(self, kind, *priority_order):
         """Extract a name of given kind, respecting the given priority order.
 
@@ -224,7 +220,7 @@ class NameContainer(object):
 
         # Names without language come last
         max = len(priority_order)+1
-        weights = { None : max, }
+        weights = {None: max, }
         for i, lang in enumerate(priority_order):
             weights[lang.lower()] = i
 
@@ -232,7 +228,7 @@ class NameContainer(object):
         names = self._names.get(kind, None)
         if not names:
             return None
-        
+
         names = filter(lambda x: x.language in priority_order, names)
         names.sort(lambda x, y: cmp(weights[x.language],
                                     weights[y.language]))
@@ -375,16 +371,21 @@ class DataExternalWork(object):
 
     def __str__(self):
         return "Org: %s Type: %s Extent: %s Start: %s End: %s" % (
-                self.organization, self.type, self.extent, self.start, self.end)
+            self.organization,
+            self.type,
+            self.extent,
+            self.start,
+            self.end
+        )
+
 
 class DataEntity(NameContainer):
     """Class for representing common traits of objects in a data source.
 
     Typically, a subclass of DataEntity will be a Person or an OU.
     """
-    
     def __init__(self):
-        super(DataEntity, self).__init__()        
+        super(DataEntity, self).__init__()
         self._external_ids = dict()
         self._contacts = list()
         self._addresses = dict()
@@ -435,19 +436,18 @@ class DataEntity(NameContainer):
         return self._addresses.get(kind, default)
     # end get_address
 
-# end DataEntity    
-    
+# end DataEntity
 
 
 class DataOU(DataEntity):
     """Class for representing OUs in a data source."""
 
-    NO_SKO       = "sko"
-    NO_NSD       = "nsdkode"
+    NO_SKO = "sko"
+    NO_NSD = "nsdkode"
 
     NAME_ACRONYM = "acronym"
-    NAME_SHORT   = "short"
-    NAME_LONG    = "long"
+    NAME_SHORT = "short"
+    NAME_LONG = "long"
 
     def __init__(self):
         super(DataOU, self).__init__()
@@ -457,36 +457,37 @@ class DataOU(DataEntity):
         self.start_date = None
         self.end_date = None
         # This is just a collection of names. However the name API itself
-        # supports single values of a given type only. 
+        # supports single values of a given type only.
         self._usage_codes = set()
     # end __init__
 
-
     def add_usage_code(self, code):
-        if (hasattr(cereconf, "OU_USAGE_SPREAD") and
-            code in cereconf.OU_USAGE_SPREAD):
+        if (
+                hasattr(cereconf, "OU_USAGE_SPREAD") and
+                code in cereconf.OU_USAGE_SPREAD
+        ):
             self._usage_codes.add(code)
     # end add_usage_code
 
-
     def iter_usage_codes(self):
         return iter(self._usage_codes)
-
 
     def validate_id(self, kind, value):
         assert kind in (self.NO_SKO, self.NO_NSD,)
     # end validate_id
 
-
     def validate_name(self, name):
-        assert name.kind in (self.NAME_ACRONYM, self.NAME_SHORT, self.NAME_LONG)
+        assert name.kind in (self.NAME_ACRONYM,
+                             self.NAME_SHORT,
+                             self.NAME_LONG)
     # end validate_name
-
 
     def __str__(self):
         return "DataOU (valid: %s-%s): %s\n| %s\n| %s\n| %s\n__%s\n" % (
-            self.start_date, self.end_date,
-            list(self.iterids()), ["%s:%s" % (x, map(str, y)) for x, y in self.iternames()],
+            self.start_date,
+            self.end_date,
+            list(self.iterids()),
+            ["%s:%s" % (x, map(str, y)) for x, y in self.iternames()],
             map(str, self.itercontacts()),
             list(self._usage_codes),
             ["%s:%s" % (x, str(y)) for x, y in self.iteraddress()])
@@ -494,17 +495,16 @@ class DataOU(DataEntity):
 # end DataOU
 
 
-
 class DataPerson(DataEntity):
     """Class for representing people in a data source."""
 
     # TBD: Cerebrum constants?
-    NAME_FIRST    = "FIRST"
-    NAME_LAST     = "LAST"
-    NAME_MIDDLE   = "MIDDLE"
-    NAME_TITLE    = "personal title"
-    NO_SSN        = "NO SSN"
-    GENDER_MALE   = "M"
+    NAME_FIRST = "FIRST"
+    NAME_LAST = "LAST"
+    NAME_MIDDLE = "MIDDLE"
+    NAME_TITLE = "personal title"
+    NO_SSN = "NO SSN"
+    GENDER_MALE = "M"
     GENDER_FEMALE = "F"
     GENDER_UNKNOWN = "X"
 
@@ -514,28 +514,24 @@ class DataPerson(DataEntity):
         super(DataPerson, self).__init__()
     # end __init__
 
-
     def validate_id(self, kind, value):
         assert kind in (self.NO_SSN, self.PASSNR)
     # end validate_id
-
 
     def validate_name(self, name):
         assert name.kind in (self.NAME_FIRST, self.NAME_LAST, self.NAME_MIDDLE,
                              self.NAME_TITLE)
     # end validate_name
 
-
     def __str__(self):
         ret = "DataPerson: %s\n" % list(self.iterids())
         for kind, name in self.iternames():
-            #ret += "%s: %s\n" % (kind, name.value)
+            # ret += "%s: %s\n" % (kind, name.value)
             ret += "| %s: %s\n" % (kind, map(str, name))
         ret += "__\n"
         return ret
     # end __str__
 # end DataPerson
-
 
 
 class HRDataPerson(DataPerson):
@@ -551,7 +547,6 @@ class HRDataPerson(DataPerson):
         self.external_work = list()
     # end __init__
 
-
     def add_employment(self, emp):
         self.employments.append(emp)
     # end add_employment
@@ -565,40 +560,47 @@ class HRDataPerson(DataPerson):
         return iter(self.employments)
     # end iteremployment
 
-
-    def has_active_employments(self, timepoint = Date(*time.localtime()[:3])):
+    def has_active_employments(self, timepoint=Date(*time.localtime()[:3])):
         """Decide whether this person has employments at a given timepoint."""
 
         for x in self.iteremployment():
-            if ((x.kind in (x.HOVEDSTILLING, x.BISTILLING) and
-                 x.is_active(timepoint)) or
-                # IVR 2007-01-19 FIXME: This is a horrible, gruesome, vile,
-                # ugly, repulsive and hairy pile of crud. It MUST DIE, once we
-                # get rid of LT.
-                (x.kind == x.GJEST and x.code == "POLS-ANSAT")):
+            if (
+                    (
+                        x.kind in (x.HOVEDSTILLING, x.BISTILLING) and
+                        x.is_active(timepoint)
+                    ) or
+                    # IVR 2007-01-19 FIXME:
+                    # This is a horrible, gruesome, vile,
+                    # ugly, repulsive and hairy pile of crud.
+                    # It MUST DIE, once we get rid of LT.
+                    (x.kind == x.GJEST and x.code == "POLS-ANSAT")
+            ):
                 return True
 
         return False
     # end has_active_employments
 
-
     def __str__(self):
         spr = super(HRDataPerson, self).__str__()
-        result = ("HRDataPerson: %s\n" 
-                  "| gender: %s\n"
-                  "| birth: %s\n"
-                  "| address: %s\n"
-                  "| employment: %s\n__\n" % (spr, self.gender,
-                                        self.birth_date,
-                                        ['%s: %s' % x for x in self.iteraddress()],
-                                        [str(x) for x in
-                                         list(self.iteremployment())]))
-        #if self.external_work:
-        #    result += "\n| external work: %s" % map(str, self.external_work)
+        result = (
+            "HRDataPerson: %s\n"
+            "| gender: %s\n"
+            "| birth: %s\n"
+            "| address: %s\n"
+            "| employment: %s\n__\n" % (
+                spr,
+                self.gender,
+                self.birth_date,
+                ['%s: %s' % x for x in self.iteraddress()],
+                [str(x) for x in
+                 list(self.iteremployment())]
+            )
+        )
+        # if self.external_work:
+        #     result += "\n| external work: %s" % map(str, self.external_work)
         return result
     # end __str__
 # end HRDataPerson
-
 
 
 class AbstractDataGetter(object):
@@ -611,7 +613,7 @@ class AbstractDataGetter(object):
     interfaces.
     """
 
-    def __init__(self, logger, fetchall = True):
+    def __init__(self, logger, fetchall=True):
         """Initialize the data source extractor.
 
         fetchall decides whether the data is fetched incrementally or is
@@ -622,19 +624,16 @@ class AbstractDataGetter(object):
         self.fetch(fetchall)
     # end __init__
 
-
-    def fetch(self, fetchall = True):
+    def fetch(self, fetchall=True):
         """Connect to data source and fetch data."""
         raise NotImplementedError("fetch not implemented")
     # end fetch
-    
-    
+
     def iter_person(self):
         """Give an iterator over person objects in the data source."""
         raise NotImplementedError("iter_person not implemented")
     # end iter_person
 
-            
     def iter_ou(self):
         """Give an iterator over OU objects in the data source."""
         raise NotImplementedError("iter_ou not implemented")
@@ -642,17 +641,15 @@ class AbstractDataGetter(object):
 # end AbstractDataGetter
 
 
-
 class XMLDataGetter(AbstractDataGetter):
     """This class provides abstractions to operate on XML files."""
 
-    def __init__(self, filename, logger, fetchall = True):
+    def __init__(self, filename, logger, fetchall=True):
         self._filename = filename
         self._data_source = None
 
         super(XMLDataGetter, self).__init__(logger, fetchall)
     # end __init__
-
 
     def _make_iterator(self, element, klass):
         """Create an iterator over XML elements.
@@ -660,7 +657,7 @@ class XMLDataGetter(AbstractDataGetter):
         Creates an iterator over XML elements 'element' that returns instances
         of class klass.
         """
-        
+
         if self._data_source:
             it = self._data_source.getiterator(element)
         else:
@@ -669,13 +666,12 @@ class XMLDataGetter(AbstractDataGetter):
         return klass(iter(it), self.logger)
     # end _make_iterator
 
-
-    def fetch(self, fetchall = True):
+    def fetch(self, fetchall=True):
         """Parse the XML file and convert it to HRDataPerson objects."""
         if fetchall:
             # Load the entire tree in memory. NB! Use with caution on large
             # files. The memory footprint is around 5x the file size.
-            # 
+            #
             # If the file is too big, we'd just created iterators for the
             # XML elements on the fly. This provides us with an iterator
             # whose next() is invoked after each 'end element' event. NB!
@@ -685,7 +681,6 @@ class XMLDataGetter(AbstractDataGetter):
             self._data_source = parse(self._filename)
     # end fetch
 # end XMLDataGetter
-
 
 
 class XMLEntity2Object(object):
@@ -707,7 +702,6 @@ class XMLEntity2Object(object):
         self._xmliter = iter(xmliter)
         self.logger = logger
     # end __init__
-
 
     def next(self):
         """Return next object constructed from a suitable XML element
@@ -762,7 +756,6 @@ class XMLEntity2Object(object):
                 element.clear()
     # end next
 
-
     def exception_wrapper(functor, exc_list=None, return_on_exc=None):
         """This is a convenience method for Utils.exception_wrapper.
 
@@ -801,13 +794,11 @@ class XMLEntity2Object(object):
     # end exception_wrapper
     exception_wrapper = staticmethod(exception_wrapper)
 
-
     def __iter__(self):
         return self
     # end __iter__
 
-
-    def _make_mxdate(self, text, format = "%Y%m%d"):
+    def _make_mxdate(self, text, format="%Y%m%d"):
         """Helper method to convert strings to dates.
 
         @param text:
@@ -824,11 +815,10 @@ class XMLEntity2Object(object):
         """
         if not text:
             return None
-        
+
         year, month, day = time.strptime(text, format)[:3]
         return Date(year, month, day)
     # end _make_mxdate
-
 
     def format_xml_element(self, element):
         """Returned a 'serialized' version of an XML element.
@@ -856,14 +846,13 @@ class XMLEntity2Object(object):
 # end XMLEntity2Object
 
 
-    
 class XMLEntityIterator(object):
     """Iterate over an XML file and return complete elements of a given kind.
 
     Iterative parsing in ElementTree is based on (event, element) pairs. For
     dealing with people, OUs and the like, we need look at ('end',<ElementTree
     'something'>) only, where 'something' represents the entity we are
-    interested in. In a sense, this class iterates over XML subtrees. 
+    interested in. In a sense, this class iterates over XML subtrees.
     """
 
     def __init__(self, filename, element):
@@ -874,7 +863,6 @@ class XMLEntityIterator(object):
         # Keep track of the root element (to prevent element caching)
         junk, self._root = self.it.next()
     # end __init__
-        
 
     def next(self):
         """Return next specified element, ignoring all else.
@@ -885,13 +873,13 @@ class XMLEntityIterator(object):
         DataAddress/DataPerson/and so forth, and return a suitable
         Data*-object.
         """
-        
+
         # Each time next is called, we drop whatever is dangling under root.
         # It might be problematic if there is *a lot* of elements between two
         # consecutive self.element_name elements, as all of them are kept in
         # memory (it's like that by design).
         self._root.clear()
-        
+
         for event, element in self.it:
             if event == "end" and element.tag == self.element_name:
                 return element
@@ -901,7 +889,6 @@ class XMLEntityIterator(object):
 
         raise StopIteration
     # end next
-                
 
     def __iter__(self):
         return self
