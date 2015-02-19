@@ -18,7 +18,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from Cerebrum.modules.PosixLDIF import PosixLDIF
-from Cerebrum.modules.no.uit.printer_quota import PaidPrinterQuotas
 from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.Utils import Factory
 
@@ -40,51 +39,46 @@ class PosixLDIF_UiTMixin(PosixLDIF):
     
 
     def init_user(self, *args, **kwargs):
-	# Prepare to include eduPersonAffiliation, taken from OrgLDIF.
-	self.org_ldif = Factory.get('OrgLDIF')(self.db, self.logger)
-	self.org_ldif.init_eduPersonAffiliation_lookup()
-	self.steder = {}
-	self.__super.init_user(*args, **kwargs)
+        # Prepare to include eduPersonAffiliation, taken from OrgLDIF.
+        self.org_ldif = Factory.get('OrgLDIF')(self.db, self.logger)
+        self.org_ldif.init_eduPersonAffiliation_lookup()
+        self.steder = {}
+        self.__super.init_user(*args, **kwargs)
 
-	self.account_aff = account_aff = {}
-	for arow in self.posuser.list_accounts_by_type():
-	    val = (arow['affiliation'], int(arow['ou_id']))
-	    account_id = int(arow['account_id'])
-	    if account_id in account_aff:
-		account_aff[account_id].append(val)
-	    else:
-		account_aff[account_id] = [val]
-
-        self.pq_people = frozenset(
-            int(row['person_id'])
-            for row in PaidPrinterQuotas.PaidPrinterQuotas(self.db).list()
-            if row['has_quota'] == 'T')
+        self.account_aff = account_aff = {}
+        for arow in self.posuser.list_accounts_by_type():
+            val = (arow['affiliation'], int(arow['ou_id']))
+            account_id = int(arow['account_id'])
+            if account_id in account_aff:
+                account_aff[account_id].append(val)
+            else:
+                account_aff[account_id] = [val]
 
     def id2stedkode(self, ou_id):
-	try:
-	    return self.steder[ou_id]
-	except KeyError:
-	    ou = self.org_ldif.ou
-	    ou.clear()
-	    try:
-		ou.find(ou_id)
-	    except Errors.NotFoundError:
-		raise CerebrumError, "Stedkode unknown for ou_id %d" % ou_id
-	    ret = self.steder[ou_id] = \
-		  "%02d%02d%02d" % (ou.fakultet, ou.institutt, ou.avdeling)
-	    return ret
+        try:
+            return self.steder[ou_id]
+        except KeyError:
+            ou = self.org_ldif.ou
+            ou.clear()
+            try:
+                ou.find(ou_id)
+            except Errors.NotFoundError:
+                raise CerebrumError, "Stedkode unknown for ou_id %d" % ou_id
+            ret = self.steder[ou_id] = \
+                  "%02d%02d%02d" % (ou.fakultet, ou.institutt, ou.avdeling)
+            return ret
 
     def update_user_entry(self, account_id, entry, row):
-	# Add some additional attributes that are in use @ UiT
+        # Add some additional attributes that are in use @ UiT
 
-	# eduPersonAffiliation (taken from OrgLDIF)
-	owner_id = int(row['owner_id'])
-	added = self.org_ldif.affiliations.get(owner_id)
-	if added:
-	    added = self.org_ldif.attr_unique(self.org_ldif.select_list(
-		self.org_ldif.eduPersonAff_selector, owner_id, added))
-	    if added:
-		entry['eduPersonAffiliation'] = added
+        # eduPersonAffiliation (taken from OrgLDIF)
+        owner_id = int(row['owner_id'])
+        added = self.org_ldif.affiliations.get(owner_id)
+        if added:
+            added = self.org_ldif.attr_unique(self.org_ldif.select_list(
+                self.org_ldif.eduPersonAff_selector, owner_id, added))
+            if added:
+                entry['eduPersonAffiliation'] = added
 
         # uitAffiliation, uitPrimaryAffiliation
         affs = ["%s@%s" % ((self.const.PersonAffiliation(arow[0]),
@@ -99,18 +93,13 @@ class PosixLDIF_UiTMixin(PosixLDIF):
         # We can simply reuse pid2primary_aid dictionary, that contains
         # all persons with primary accounts
         if (owner_id in self.pid2primary_aid):
-  	    entry['uitPersonID'] = str(owner_id)
+            entry['uitPersonID'] = str(owner_id)
             added = True
 
-        # People with printer quotas.
-        if owner_id in self.pq_people:
-            entry['uitHasPrinterQuota'] = "TRUE"
-            added = True
-
-	# Object class which allows the additional attributes
-	if added:
-	    entry['objectClass'].append('uitAccountObject')
-	return self.__super.update_user_entry(account_id,entry, row)
+        # Object class which allows the additional attributes
+        if added:
+            entry['objectClass'].append('uitAccountObject')
+        return self.__super.update_user_entry(account_id,entry, row)
 
 
 

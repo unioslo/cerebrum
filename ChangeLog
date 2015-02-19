@@ -1,3 +1,9 @@
+2015-02-18  Karen   <cerebrum@cleomedes.uit.no>
+
+    * PosixLDIF.py (PosixLDIF_UiTMixin): Removed the printer quota things. Fixed indentation.
+
+    * OrgLDIF.py: Replaced the uio version of OrgLDIF.py with the hih version of it.
+
 2015-01-21    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* Account.py (AccountUiTMixin.suggest_unames_sito): Added function to create sito usernames. Also updated serial function to generate correct serial value for sito accounts
