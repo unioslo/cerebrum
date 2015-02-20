@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- encoding: iso-8859-1 -*-
+# -*- encoding: utf-8 -*-
 #
 # Copyright 2009-2013 University of Oslo, Norway
 #
@@ -42,6 +42,7 @@ from Cerebrum.modules import Email
 
 from Cerebrum.modules.bofhd import cmd_param as cmd
 
+
 class BofhdCommandBase(object):
     """Base class for bofhd command support.
 
@@ -52,7 +53,7 @@ class BofhdCommandBase(object):
 
     FIXME: Some command writing guidelines (format suggestion, registration in
     all_commands, etc.)
-    
+
     In order to be a proper extension, a site specific bofhd extension class
     must:
 
@@ -61,29 +62,24 @@ class BofhdCommandBase(object):
       attribute), and populate that dict.
     - Define an attribute dealing with authorisation (FIXME: A common class
       for this one as well?) for at least all of the commands implemented.
-    - 
+    -
     """
-
 
     # Each subclass defines its own class attribute containing the relevant
     # commands.
     all_commands = {}
 
-
     def __init__(self, server):
         self._cached_client_commands = Cache.Cache(
             mixins=[Cache.cache_mru, Cache.cache_slots, Cache.cache_timeout],
             size=500,
-            timeout=60*60)
-        
+            timeout=60 * 60)
         # NB! A subclass needs to create its own authenticator.
         self.ba = None
-
         self.server = server
         self.db = server.db
         self.const = Factory.get("Constants")()
         self.logger = server.logger
-
         self.OU_class = Factory.get("OU")
         self.Account_class = Factory.get("Account")
         self.Group_class = Factory.get("Group")
@@ -108,7 +104,6 @@ class BofhdCommandBase(object):
           Returns a dict mapping command names to tuples with information
           about the command. See cmd_param.py:Command:get_struct()'s
           documentation.
-
         """
         try:
             return self._cached_client_commands[int(account_id)]
@@ -148,7 +143,6 @@ class BofhdCommandBase(object):
         @return:
           A dict describing the formatting for the specified command. See
           cmd_param.py:FormatSuggestion.get_format().
-
         """
         return self.all_commands[command].get_fs()
 
@@ -157,7 +151,6 @@ class BofhdCommandBase(object):
 
         Convert a human-friendly representation of boolean to the proper Python
         object.
-
         """
         if onoff.lower() in ('on', 'true', 'yes', 'y'):
             return True
@@ -187,11 +180,9 @@ class BofhdCommandBase(object):
           A tuple (id_type, identification), where id_type is one of:
           'name', 'id'. It is the caller's responsibility to
           ensure that the given id_type makes sense in the caller's context.
-
         """
         if (human_repr is None or human_repr == ""):
             raise CerebrumError("Invalid id: <None>")
-
         # numbers (either as is, or as strings)
         if isinstance(human_repr, (int, long)):
             id_type, ident = "id", human_repr
@@ -208,14 +199,12 @@ class BofhdCommandBase(object):
         else:
             raise CerebrumError("Unknown id type %s for id %s" %
                                 (type(human_repr), human_repr))
-
         if id_type == "id":
             try:
                 ident = int(ident)
             except ValueError:
                 raise CerebrumError("Non-numeric component for id=%s" %
                                     str(ident))
-
         return id_type, ident
 
     def _get_entity(self, entity_type=None, ident=None):
@@ -239,9 +228,11 @@ class BofhdCommandBase(object):
             if id_type == "id":
                 ent = Entity.Entity(self.db)
                 ent.find(ident)
-            else: 
-                raise CerebrumError("Unknown/unsupported id_type %s for id %s" %
-                                    (id_type, str(ident)))
+            else:
+                raise CerebrumError(
+                    "Unknown/unsupported id_type %s for id %s" % (id_type,
+                                                                  str(ident))
+                )
             # The find*() calls give us an entity_id from ident. The call
             # below returns the most specific object for that numeric
             # entity_id.
@@ -262,7 +253,6 @@ class BofhdCommandBase(object):
         @type stedkode: string (DDDDDD, where D is a digit)
         @param stedkode:
           Stedkode for OU if not None.
-
         """
         ou = self.OU_class(self.db)
         ou.clear()
@@ -280,7 +270,6 @@ class BofhdCommandBase(object):
             raise CerebrumError("Unknown OU (%s)" %
                                 (ou_id and ("id=%s" % ou_id) or
                                  ("sko=%s" % stedkode)))
-
         assert False, "NOTREACHED"
 
     def _get_account(self, account_id, idtype=None, actype="Account"):
@@ -305,7 +294,6 @@ class BofhdCommandBase(object):
         @return:
           An account associated with the specified id (or an exception is
           raised if nothing suitable matches)
-
         """
         account = None
         if actype == 'Account':
@@ -352,7 +340,6 @@ class BofhdCommandBase(object):
         @return:
           A group associated with the specified id (or an exception is raised
           if nothing suitable matches)
-
         """
         group = None
         if grtype == 'Group':
@@ -366,7 +353,6 @@ class BofhdCommandBase(object):
         try:
             if idtype is None:
                 idtype, group_id = self._human_repr2id(group_id)
-
             if idtype == "name":
                 group.find_by_name(group_id)
             elif idtype == "id":
@@ -390,12 +376,10 @@ class BofhdCommandBase(object):
 
     def _get_entity_spreads(self, entity_id):
         """ Fetch a human-friendly spread name for the specified entity. """
-
         entity = self._get_entity(ident=entity_id)
         # FIXME: Is this a sensible default behaviour?
         if not isinstance(entity, Entity.EntitySpread):
             return ""
-
         return ",".join(str(self.const.Spread(x['spread']))
                         for x in entity.get_spread())
 
@@ -430,7 +414,6 @@ class BofhdCommandBase(object):
         """ Map <idtype:id> to const.<idtype>, id.
 
         Recognized fodselsnummer without <idtype>. Also recognizes entity_id.
-
         """
         # TODO: The way this function is used is kind of ugly.
         #       Typical usage is:
@@ -440,7 +423,6 @@ class BofhdCommandBase(object):
         if id.find(":") == -1:
             self._get_account(id)  # We assume this is an account
             return "account_name", id
-
         id_type, id = id.split(":", 1)
         if id_type not in ('entity_id', 'id'):
             id_type = self.external_id_mappings.get(id_type, None)
@@ -456,7 +438,6 @@ class BofhdCommandBase(object):
         @type entity: Entity
         @param entity:
             The entity from which we should return the human-readable name.
-
         """
         # optimise for common cases:
         if isinstance(entity, self.Account_class):
@@ -486,7 +467,6 @@ class BofhdCommandBase(object):
           'notfound:<entity id>' is returned (it's not perfect, but it's better
           than nothing at all).
         """
-        
         if entity_type is None:
             ety = Entity.Entity(self.db)
             try:
@@ -494,7 +474,6 @@ class BofhdCommandBase(object):
                 entity_type = self.const.EntityType(ety.entity_type)
             except Errors.NotFoundError:
                 return "notfound:%d" % entity_id
-        
         if entity_type == self.const.entity_account:
             acc = self._get_account(entity_id, idtype='id')
             return acc.account_name
@@ -514,7 +493,6 @@ class BofhdCommandBase(object):
             person.find(entity_id)
             return person.get_name(self.const.system_cached,
                                    self.const.name_full)
-
         # Okey, we've run out of good options. Let's try a sensible fallback:
         # many entities have a generic name in entity_name. Let's use that:
         try:
@@ -528,10 +506,9 @@ class BofhdCommandBase(object):
             else:
                 # ... and if it does not exist -- return the id. We are out of
                 # options at this point.
-                return "%s:%s" % (entity_type, entity_id)    
+                return "%s:%s" % (entity_type, entity_id)
         except Errors.NotFoundError:
             return "notfound:%d" % entity_id
-
         # NOTREACHED
         assert False
 
@@ -555,7 +532,6 @@ class BofhdCommandBase(object):
         @rtype: tuple of (basestring, basestring)
         @return:
           A pair, local part and domain extracted from the L{addr}.
-
         """
         if addr.count('@') == 0:
             raise CerebrumError(
@@ -565,14 +541,13 @@ class BofhdCommandBase(object):
            dom not in cereconf.LDAP['rewrite_email_domain']:
             raise CerebrumError(
                 "E-mail address (%s) can't contain upper case letters" % addr)
-
         if not with_checks:
             return lp, dom
-
         ea = Email.EmailAddress(self.db)
         if not ea.validate_localpart(lp):
             raise CerebrumError("Invalid localpart '%s'" % lp)
         return lp, dom
+
 
 class BofhdCommonMethods(BofhdCommandBase):
     """Class with common methods that is used by most, 'normal' instances.
@@ -585,8 +560,8 @@ class BofhdCommonMethods(BofhdCommandBase):
 
     Since L{all_commands} is a class variable, subclasses won't reach this
     directly. In addition, they have their own command definition dict. If such
-    a subclass wants to make use of superclass's' defined commands, they have to
-    import them in __init__::
+    a subclass wants to make use of superclass's' defined commands, they have
+    to import them in __init__::
 
         for key, cmd in super(BofhdExtension, self).all_commands.iteritems():
             if not self.all_commands.has_key(key):
@@ -595,12 +570,11 @@ class BofhdCommonMethods(BofhdCommandBase):
     This works in they way that the given class imports its direct
     superclass(es)' all_commands, and the superclass's are responsible for
     importing their own superclass's' all_commands. An instance doesn't
-    necessarily want to import all_commands - it could define all of them itself
-    if it wants to. Commands not defined in the instances' all_commands will not
-    be remotely executable.
+    necessarily want to import all_commands - it could define all of them
+    itself if it wants to. Commands not defined in the instances' all_commands
+    will not be remotely executable.
 
     TODO: More to describe here? Other requirements?
-
     """
 
     def __init__(self, server):
@@ -614,12 +588,13 @@ class BofhdCommonMethods(BofhdCommandBase):
     all_commands = {}
 
     ##
-    ## User methods
+    # User methods
 
     # user delete
     all_commands['user_delete'] = cmd.Command(
         ("user", "delete"), cmd.AccountName(),
         perm_filter='can_delete_user')
+
     def user_delete(self, operator, accountname):
         account = self._get_account(accountname)
         self.ba.can_delete_user(operator.get_entity_id(), account)
@@ -630,7 +605,7 @@ class BofhdCommonMethods(BofhdCommandBase):
         return "User %s is deactivated" % account.account_name
 
     ##
-    ## Group methods
+    # Group methods
 
     #
     # group create
@@ -648,23 +623,18 @@ class BofhdCommonMethods(BofhdCommandBase):
 
         BofhdAuth's L{can_create_group} is first checked. The group gets the
         spreads as defined in L{cereconf.BOFHD_NEW_GROUP_SPREADS}.
-
         """
         self.ba.can_create_group(operator.get_entity_id(),
                                  groupname=groupname)
         g = self.Group_class(self.db)
-
         # Check if group name is already in use, raise error if so
         duplicate_test = g.search(name=groupname, filter_expired=False)
         if len(duplicate_test) > 0:
             raise CerebrumError("Group name is already in use")
-
         g.populate(creator_id=operator.get_entity_id(),
                    visibility=self.const.group_visibility_all,
                    name=groupname, description=description)
-
         g.write_db()
-
         for spread in cereconf.BOFHD_NEW_GROUP_SPREADS:
             g.add_spread(self.const.Spread(spread))
             g.write_db()
@@ -673,21 +643,21 @@ class BofhdCommonMethods(BofhdCommandBase):
     #
     # group delete
     #
-    #all_commands['group_delete'] = cmd.Command(
-        #("group", "delete"),
-        #cmd.GroupName(),
-        #cmd.YesNo(help_ref="yes_no_force", default="No"),
-        #perm_filter='can_delete_group')
+    # all_commands['group_delete'] = cmd.Command(
+        # ("group", "delete"),
+        # cmd.GroupName(),
+        # cmd.YesNo(help_ref="yes_no_force", default="No"),
+        # perm_filter='can_delete_group')
 
-    #def group_delete(self, operator, groupname, force=None):
-        #""" Standard method to delete a group (potentially posix group). """
+    # def group_delete(self, operator, groupname, force=None):
+        # """ Standard method to delete a group (potentially posix group). """
 
-        ## TODO: Sigh.
-        #grp = self._get_group(groupname)
-        #self.ba.can_delete_group(operator.get_entity_id(), grp)
-        #if grp.group_name == cereconf.BOFHD_SUPERUSER_GROUP:
-            #raise CerebrumError("Can't delete superuser group")
-        #if self._is_yes(force):
+        # TODO: Sigh.
+        # grp = self._get_group(groupname)
+        # self.ba.can_delete_group(operator.get_entity_id(), grp)
+        # if grp.group_name == cereconf.BOFHD_SUPERUSER_GROUP:
+            # raise CerebrumError("Can't delete superuser group")
+        # if self._is_yes(force):
             #try:
                 #pg = self._get_group(groupname, grtype="PosixGroup")
                 #pg.delete()
@@ -726,8 +696,12 @@ class BofhdCommonMethods(BofhdCommandBase):
         cmd.SimpleString(help_ref='entity_contact_type'),
         cmd.SimpleString(help_ref='entity_contact_value'),
         perm_filter='can_add_contact_info')
-    def entity_contactinfo_add(self, operator, entity_target,
-                            contact_type, contact_value):
+
+    def entity_contactinfo_add(self,
+                               operator,
+                               entity_target,
+                               contact_type,
+                               contact_value):
         """Manually add contact info to an entity."""
         co = self.const
 
@@ -742,12 +716,16 @@ class BofhdCommonMethods(BofhdCommandBase):
         contact_type_code = co.human2constant(contact_type, co.ContactInfo)
         if not contact_type_code:
             # let's try the code in uppercase
-            contact_type_code = co.human2constant(contact_type.upper(), co.ContactInfo)
+            contact_type_code = co.human2constant(contact_type.upper(),
+                                                  co.ContactInfo)
             if not contact_type_code:
-                raise CerebrumError('Invalid contact info type "%s", try one of %s' % (
-                    contact_type, 
-                    ", ".join(str(x) for x in co.fetch_constants(co.ContactInfo))
-                ))
+                raise CerebrumError(
+                    'Invalid contact info type "%s", try one of %s' % (
+                        contact_type,
+                        ", ".join(str(x) for x in co.fetch_constants(
+                            co.ContactInfo))
+                    )
+                )
 
         # check permissions
         self.ba.can_add_contact_info(operator.get_entity_id(),
@@ -766,22 +744,23 @@ class BofhdCommonMethods(BofhdCommandBase):
 
         # validate phone numbers
         if contact_type_code in (co.contact_phone,
-                                co.contact_phone_private,
-                                co.contact_mobile_phone,
-                                co.contact_private_mobile):
+                                 co.contact_phone_private,
+                                 co.contact_mobile_phone,
+                                 co.contact_private_mobile):
             # allows digits and a prefixed '+'
             if not re.match(r"^\+?\d+$", contact_value):
-                raise CerebrumError("Invalid phone number: %s. The number can contain only digits with possible '+' for prefix."
-                    % contact_value)
-
+                raise CerebrumError(
+                    "Invalid phone number: %s. "
+                    "The number can contain only digits "
+                    "with possible '+' for prefix." % contact_value)
         # get existing contact info for this entity and contact type
         try:
             contacts = entity.get_contact_info(source=source_system,
-                                                type=contact_type_code)
+                                               type=contact_type_code)
         except AttributeError:
             # entity has no contact info attributes
             raise CerebrumError("Cannot add contact info to a %s."
-                    % (co.EntityType(entity.entity_type)))
+                                % (co.EntityType(entity.entity_type)))
 
         existing_prefs = [int(row["contact_pref"]) for row in contacts]
 
@@ -805,7 +784,6 @@ class BofhdCommonMethods(BofhdCommandBase):
                                 pref=int(contact_pref),
                                 description=None,
                                 alias=None)
-        
         return "Added contact info %s:%s %s to entity %s" % (
             source_system, contact_type, contact_value, entity_target)
 
@@ -816,10 +794,11 @@ class BofhdCommonMethods(BofhdCommandBase):
         cmd.SourceSystem(help_ref='source_system'),
         cmd.SimpleString(help_ref='entity_contact_type'),
         perm_filter='can_remove_contact_info')
-    def entity_contactinfo_remove(self, operator, entity_target, source_system, 
-            contact_type):
+
+    def entity_contactinfo_remove(self, operator, entity_target, source_system,
+                                  contact_type):
         """Deleting an entity's contact info from a given source system. Useful in
-        cases where the entity has old contact information from a source system 
+        cases where the entity has old contact information from a source system
         he no longer is exported from, i.e. no affiliations."""
 
         co = self.const
@@ -828,24 +807,26 @@ class BofhdCommonMethods(BofhdCommandBase):
         entity = self.util.get_target(entity_target, restrict_to=[])
 
         # check that the specified source system exists
-        source_system_code = co.human2constant(source_system, co.AuthoritativeSystem)
+        source_system_code = co.human2constant(source_system,
+                                               co.AuthoritativeSystem)
         if not source_system_code:
-            raise CerebrumError('No such source system "%s", try one of %s' % (
-                source_system,
-                ", ".join(str(x) for x in co.fetch_constants(co.AuthoritativeSystem))
-            ))
-
+            raise CerebrumError(
+                'No such source system "%s", try one of %s' % (
+                    source_system,
+                    ", ".join(str(x) for x in co.fetch_constants(
+                        co.AuthoritativeSystem))))
         # check that the specified contact info type exists
         contact_type_code = co.human2constant(contact_type, co.ContactInfo)
         if not contact_type_code:
             # let's try the code in uppercase
-            contact_type_code = co.human2constant(contact_type.upper(), co.ContactInfo)
+            contact_type_code = co.human2constant(contact_type.upper(),
+                                                  co.ContactInfo)
             if not contact_type_code:
-                raise CerebrumError('Invalid contact info type "%s", try one of %s' % (
-                    contact_type, 
-                    ", ".join(str(x) for x in co.fetch_constants(co.ContactInfo))
-                ))
-
+                raise CerebrumError(
+                    'Invalid contact info type "%s", try one of %s' % (
+                        contact_type,
+                        ", ".join(str(x) for x in co.fetch_constants(
+                            co.ContactInfo))))
         # check permissions
         self.ba.can_remove_contact_info(operator.get_entity_id(),
                                         entity.entity_id,
@@ -861,15 +842,15 @@ class BofhdCommonMethods(BofhdCommandBase):
                     continue
                 if co.AuthoritativeSystem(a['source_system']) is source_system_code:
                     raise CerebrumError(
-                        'Person has an affiliation from source system ' + \
+                        'Person has an affiliation from source system ' +
                         '%s, cannot remove' % source_system)
 
         # check if given contact info type exists for this entity
         if not entity.get_contact_info(source=source_system_code,
                                        type=contact_type_code):
-            raise CerebrumError("Entity does not have contact info type %s in %s" % 
+            raise CerebrumError(
+                "Entity does not have contact info type %s in %s" %
                 (contact_type_code, source_system))
-
         # all is well, now actually delete the contact info
         try:
             entity.delete_contact_info(source=source_system_code,
@@ -877,8 +858,9 @@ class BofhdCommonMethods(BofhdCommandBase):
             entity.write_db()
         except:
             raise CerebrumError("Could not remove contact info %s:%s from %s" %
-                            (source_system, contact_type_code, entity_target))
+                                (source_system,
+                                 contact_type_code,
+                                 entity_target))
 
         return "Removed contact info %s:%s from entity %s" % (
             source_system, contact_type_code, entity_target)
-
