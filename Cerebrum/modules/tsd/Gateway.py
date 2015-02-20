@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013 University of Oslo, Norway
+# Copyright 2013, 2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -39,9 +39,10 @@ import xmlrpclib
 
 import cerebrum_path
 import cereconf
-from Cerebrum import Errors
+
 
 class GatewayException(Exception):
+
     """Exception raised by the Gateway.
 
     This is normally xmlrpclib.Fault. The Gateway doesn't give much feedback,
@@ -50,7 +51,9 @@ class GatewayException(Exception):
     """
     pass
 
+
 class GatewayClient(xmlrpclib.Server, object):
+
     """The client for communicating with TSD's gateway."""
 
     def __init__(self, logger, uri=cereconf.TSD_GATEWAY_URL, dryrun=False):
@@ -62,7 +65,7 @@ class GatewayClient(xmlrpclib.Server, object):
 
     def __getattr__(self, name):
         """"magic method dispatcher" overrider.
-        
+
         This is added to log and handle Faults, and since __request is
         "private", it needed to be overridden in this subclass.
 
@@ -75,15 +78,15 @@ class GatewayClient(xmlrpclib.Server, object):
         This purpose of this was to make the log easier to watch. Some of the
         more sensitive parameters, like OTP keys, are stripped away.
 
-        @type data: iterable
-        @param data: The parameters that should be sent to the GW.
+        :param iterable data:
+            The parameters that should be sent to the GW.
 
-        @rtype: string
-        @return: A log readable string of all the parameters.
+        :return string: A log readable string of all the parameters.
 
         """
         if len(data) == 0:
             return ''
+
         def prettify(d):
             ret = []
             for k, v in d.iteritems():
@@ -112,8 +115,8 @@ class GatewayClient(xmlrpclib.Server, object):
 
         """
         # Prettify each call's log message:
-        self.logger.info("Gateway call: %s(%s)", methodname,
-                         self._prettify_dict(params))
+        self.logger.debug("Gateway call: %s(%s)", methodname,
+                          self._prettify_dict(params))
         try:
             # Note that we here call a "private" method in
             # xmlrpclib.ServerProxy. Not the best behaviour, but the alternative
@@ -132,8 +135,8 @@ class GatewayClient(xmlrpclib.Server, object):
         This call is not affected by the L{dryrun} option as it makes no changes
         to the GW.
 
-        @rtype: list
-        @return: Each element in the list is a dict from the server, at the time
+        :return list:
+            Each element in the list is a dict from the server, at the time
             containing the elements:
 
             - L{name}: The project-ID
@@ -150,8 +153,8 @@ class GatewayClient(xmlrpclib.Server, object):
         This call is not affected by the L{dryrun} option as it makes no changes
         to the GW.
 
-        @rtype: list
-        @return: Each element in the list is a dict from the server, at the time
+        :return list:
+            Each element in the list is a dict from the server, at the time
             containing the elements:
 
             - L{username} (string): The username
@@ -169,8 +172,7 @@ class GatewayClient(xmlrpclib.Server, object):
         This call is not affected by the L{dryrun} option as it makes no
         changes to the GW.
 
-        @rtype: list
-        @return:
+        :return list:
             Each element in the list is a dict from the server, at the time
             containing the elements:
 
@@ -191,8 +193,8 @@ class GatewayClient(xmlrpclib.Server, object):
         This call is not affected by the L{dryrun} option as it makes no changes
         to the GW.
 
-        @rtype: list
-        @return: Each element in the list is a dict from the server, at the time
+        :return list:
+            Each element in the list is a dict from the server, at the time
             containing the elements:
 
             - L{name} (string): The hostname, in FQDN format.
@@ -210,8 +212,8 @@ class GatewayClient(xmlrpclib.Server, object):
         This call is not affected by the L{dryrun} option as it makes no changes
         to the GW.
 
-        @rtype: list
-        @return: Each element in the list is a dict from the server, at the time
+        :return list:
+            Each element in the list is a dict from the server, at the time
             containing the elements:
 
             - L{project} (string): What project the host belongs to.
@@ -233,8 +235,8 @@ class GatewayClient(xmlrpclib.Server, object):
         This call is not affected by the L{dryrun} option as it makes no changes
         to the GW.
 
-        @rtype: list
-        @return: Each element in the list is a dict from the server, at the time
+        :return list:
+            Each element in the list is a dict from the server, at the time
             containing the elements:
 
             - L{host} (string): The hostname, in FQDN format.
@@ -255,12 +257,11 @@ class GatewayClient(xmlrpclib.Server, object):
         This call is not affected by the L{dryrun} option as it makes no changes
         to the GW.
 
-        @rtype: list
-        @return: Each element in the list is a dict from the server, at the time
+        :return list:
+            Each element in the list is a dict from the server, at the time
             containing the elements:
 
             - L{vlantag} (int): The VLAN tag.
-            - L{project} (string): The project ID the vlan belongs to.
             - L{created} (DateTime): When the VLAN was created.
 
         """
@@ -273,11 +274,11 @@ class GatewayClient(xmlrpclib.Server, object):
         subnets, vlans and anything else that is relevant to Cerebrum. The
         information is then sorted and returned in an easy-to-use format.
 
-        @rtype: dict
-        @return: The keys of the dict are the project-IDs, and each element
-            contains a dict with information about the project. Each project
-            contains information about the project's users, hosts, subnets and
-            vlans. Each element's keys:
+        :return dict:
+            The keys of the dict are the project-IDs, and each element contains
+            a dict with information about the project. Each project contains
+            information about the project's users, hosts, subnets and vlans.
+            Each element's keys:
 
                 - name (string): The project ID
                 - frozen (DateTime): If set, the start time for when the project
@@ -295,8 +296,6 @@ class GatewayClient(xmlrpclib.Server, object):
                 - subnets (list of dict with subnet info): The subnets
                   registered for the given project. See L{list_subnets} for the
                   keys.
-                - vlans (list of dict with vlan info): The vlans registered for
-                  the given project. See L{list_vlans} for the keys.
 
         """
         ret = dict()
@@ -318,9 +317,6 @@ class GatewayClient(xmlrpclib.Server, object):
         # Fetch subnet info:
         for subn in self.list_subnets():
             ret[subn['project']]['subnets'].append(subn)
-        # Fetch vlan info:
-        for vlan in self.list_vlans():
-            ret[vlan['project']]['vlans'].append(vlan)
         return ret
 
     # Project methods
@@ -328,8 +324,7 @@ class GatewayClient(xmlrpclib.Server, object):
     def create_project(self, pid):
         """Create a new project in the GW.
 
-        @type pid: string
-        @param pid: The project ID.
+        :param string pid: The project ID.
 
         """
         self.logger.info("Creating project: %s", pid)
@@ -343,8 +338,7 @@ class GatewayClient(xmlrpclib.Server, object):
         By deleting a given project, the GW will automatically delete the
         corresponding data, like users, hosts and subnets.
 
-        @type pid: string
-        @param pid: The project-ID that should be deleted.
+        :param string pid: The project-ID that should be deleted.
 
         """
         self.logger.info("Deleting project: %s", pid)
@@ -355,11 +349,10 @@ class GatewayClient(xmlrpclib.Server, object):
     def freeze_project(self, pid, when=None):
         """Freeze a project in the GW.
 
-        @type pid: string
-        @param pid: The project ID.
+        :param string pid: The project ID.
 
-        @type when: DateTime
-        @param when: When the freeze should happen. Defaults to now if not set.
+        :param DateTime when:
+            When the freeze should happen. Defaults to now if not set.
 
         """
         self.logger.info("Freezing project: %s", pid)
@@ -372,8 +365,7 @@ class GatewayClient(xmlrpclib.Server, object):
     def thaw_project(self, pid):
         """Unfreeze a project in the GW.
 
-        @type pid: string
-        @param pid: The project ID.
+        :param string pid: The project ID.
 
         """
         self.logger.info("Thawing project: %s", pid)
@@ -386,18 +378,18 @@ class GatewayClient(xmlrpclib.Server, object):
     def create_user(self, pid, username, uid, realname=None):
         """Create a user in the GW.
 
-        @type pid: string
-        @param pid: The project ID.
+        :param string pid:
+            The project ID.
 
-        @type username: string
-        @param username: The username of the user.
+        :param string username:
+            The username of the user.
 
-        @type uid: int
-        @param uid: The posix UID of the user.
+        :param int uid:
+            The posix UID of the user.
 
-        @type realname: string
-        @param realname: The name of the user. It has no practical significance
-            for the gateway. Must not contain colons!
+        :param string realname:
+            The name of the user. It has no practical significance for the
+            gateway. Must not contain colons!
 
         """
         self.logger.info("Creating user: %s", username)
@@ -414,11 +406,9 @@ class GatewayClient(xmlrpclib.Server, object):
     def delete_user(self, pid, username):
         """Delete a user from the GW.
 
-        @type pid: string
-        @param pid: The project ID.
+        :param string pid: The project ID.
 
-        @type username: string
-        @param username: The username of the user.
+        :param string username: The username of the user.
 
         """
         self.logger.info("Deleting user: %s", username)
@@ -430,18 +420,17 @@ class GatewayClient(xmlrpclib.Server, object):
     def freeze_user(self, pid, username, when=None):
         """Freeze an existing user in the GW.
 
-        @type pid: string
-        @param pid: The project ID.
+        :param string pid:
+            The project ID.
 
-        @type username: string
-        @param username: The username of the account
+        :param string username:
+            The username of the account
 
-        @type when: DateTime
-        @param when: When the freeze should happen. Defaults to now if not set.
-            Not implemented yet.
+        :param DateTime when:
+            When the freeze should happen. Defaults to now if not set. Not
+            implemented yet.
 
-        @rtype: bool
-        @return: If the GW accepted the call.
+        :return bool: If the GW accepted the call.
 
         """
         self.logger.info("Freezing account: %s", username)
@@ -454,11 +443,9 @@ class GatewayClient(xmlrpclib.Server, object):
     def thaw_user(self, pid, username):
         """Unfreeze (thaw) a user in the GW.
 
-        @type pid: string
-        @param pid: The project ID.
+        :param string pid: The project ID.
 
-        @type username: string
-        @param username: The username of the account
+        :param string username: The username of the account
 
         """
         self.logger.info("Thawing user: %s", username)
@@ -470,15 +457,15 @@ class GatewayClient(xmlrpclib.Server, object):
     def user_otp(self, pid, username, otpuri):
         """Send a new OTP key for an account to the GW.
 
-        @type pid: string
-        @param pid: The project ID.
+        :param string pid:
+            The project ID.
 
-        @type username: string
-        @param username: The username of the account
+        :param string username:
+            The username of the account
 
-        @type otpuri: string
-        @param otpuri: The OTP key to send, formatted in the proper URI format.
-        
+        :param string otpuri:
+            The OTP key to send, formatted in the proper URI format.
+
         """
         self.logger.info("New OTP key for user: %s", username)
         params = {'project': pid, 'username': username, 'otpuri': otpuri}
@@ -491,14 +478,14 @@ class GatewayClient(xmlrpclib.Server, object):
     def create_group(self, pid, groupname, gid):
         """Create a group in the GW.
 
-        @type pid: string
-        @param pid: The project ID where the group belongs.
+        :param string pid:
+            The project ID where the group belongs.
 
-        @type groupname: string
-        @param groupname: The groupname of the group.
+        :param string groupname:
+            The groupname of the group.
 
-        @type gid: string or int
-        @param gid:
+        :type gid: string or int
+        :param gid:
             The POSIX GID of the group.
 
         """
@@ -511,11 +498,9 @@ class GatewayClient(xmlrpclib.Server, object):
     def delete_group(self, pid, groupname):
         """Delete a group from the GW.
 
-        @type pid: string
-        @param pid: The project ID.
+        :param string pid: The project ID.
 
-        @type groupname: string
-        @param groupname: The groupname of the group.
+        :param string groupname: The groupname of the group.
 
         """
         self.logger.info("Deleting group: %s (%s)", groupname, pid)
@@ -527,17 +512,14 @@ class GatewayClient(xmlrpclib.Server, object):
     def add_member(self, pid, groupname, membername):
         """Add a member to a group in the GW.
 
-        @type pid: string
-        @param pid:
+        :param string pid:
             The project ID for where the group belongs.
-            
-        @type groupname: string
-        @param groupname:
+
+        :param string groupname:
             The name of the target group, for which the member should be added
             to. Must exist in the GW on beforehand.
 
-        @type membername: string
-        @param membername:
+        :param string membername:
             The identifier of the member. For users this would be the
             username. The member must exist in the GW on beforehand.
 
@@ -557,17 +539,14 @@ class GatewayClient(xmlrpclib.Server, object):
     def remove_member(self, pid, groupname, membername):
         """Remove a member from a group in the GW.
 
-        @type pid: string
-        @param pid:
+        :param string pid:
             The project ID for where the group belongs.
-            
-        @type groupname: string
-        @param groupname:
+
+        :param string groupname:
             The name of the target group, for which the member should be
             removed from. The group must exist in the GW on beforehand.
 
-        @type membername: string
-        @param membername:
+        :param string membername:
             The identifier of the member. For users this would be the
             username. The member must exist in the GW on beforehand, and for
             the method to succeed the entity must already be a member of the
@@ -575,7 +554,7 @@ class GatewayClient(xmlrpclib.Server, object):
 
             TODO: Does the GW accept other member types, like groups?
 
-        @raise GatewayException:
+        :raise GatewayException:
             Various situations could trigger an exception from the GW, like:
 
             - The group does not exist in the GW.
@@ -600,11 +579,11 @@ class GatewayClient(xmlrpclib.Server, object):
     def create_host(self, pid, fqdn):
         """Create a new host in the GW.
 
-        @type pid: string
-        @param pid: The project ID.
+        :param string pid:
+            The project ID.
 
-        @type fqdn: string
-        @param fqdn: The fully qualified domain name, and not the cname.
+        :param string fqdn:
+            The fully qualified domain name, and not the cname.
 
         """
         self.logger.info("Create host: %s", fqdn)
@@ -616,11 +595,11 @@ class GatewayClient(xmlrpclib.Server, object):
     def delete_host(self, pid, fqdn):
         """Delete the given host from the GW.
 
-        @type pid: string
-        @param pid: The project ID.
+        :param string pid:
+            The project ID.
 
-        @type fqdn: string
-        @param fqdn: The fully qualified domain name, not the cname.
+        :param string fqdn:
+            The fully qualified domain name, not the cname.
 
         """
         self.logger.info("Delete host: %s", fqdn)
@@ -632,17 +611,17 @@ class GatewayClient(xmlrpclib.Server, object):
     def create_ip(self, pid, fqdn, ipadr, mac=None):
         """Give a host an IP address in the GW.
 
-        @type pid: string
-        @param pid: The project ID.
+        :param string pid:
+            The project ID.
 
-        @type fqdn: string
-        @param fqdn: The fully qualified domain name, not the cname.
+        :param string fqdn:
+            The fully qualified domain name, not the cname.
 
-        @type ipadr: string
-        @param ipadr: The IP address to add.
+        :param string ipadr:
+            The IP address for the host.
 
-        @type mac: string
-        @param mac: The MAC address for the IP address.
+        :param string mac:
+            The MAC address for the host.
 
         """
         self.logger.info("Add IP addr for %s: %s", fqdn, ipadr)
@@ -654,14 +633,14 @@ class GatewayClient(xmlrpclib.Server, object):
     def delete_ip(self, pid, fqdn, ipadr):
         """Delete the given IP address from the host in the GW.
 
-        @type pid: string
-        @param pid: The project ID.
+        :param string pid:
+            The project ID.
 
-        @type fqdn: string
-        @param fqdn: The fully qualified domain name, not the cname.
+        :param string fqdn:
+            The fully qualified domain name, not the cname.
 
-        @type ipadr: string
-        @param ipadr: The IP address to remove.
+        :param string ipadr:
+            The IP address to remove.
 
         """
         self.logger.info("Delete IP addr for %s: %s", fqdn, ipadr)
@@ -675,24 +654,26 @@ class GatewayClient(xmlrpclib.Server, object):
     def create_subnet(self, pid, netaddr, prefixlen, vlan):
         """Send a subnet to the GW.
 
-        @type pid: str
-        @param pid: The project ID.
+        :param string pid:
+            The project ID.
 
-        @type netaddr: str
-        @param netaddr: The network address for the subnet. Both IPv4 and IPv6
-            is accepted. Note: Do not compact IPv6 addresses, the full, verbose
-            address must be given.
+        :param string netaddr:
+            The network address for the subnet. Both IPv4 and IPv6 is accepted.
+            Note: Do not compact IPv6 addresses, the full, verbose address must
+            be given.
 
-        @type prefixlen: str or int
-        @param prefixlen: The prefix length of the subnet. Must be more than 0
-            and lower than max of the IP version (32 for IPv4).
+        :type prefixlen: str or int
+        :param prefixlen:
+            The prefix length of the subnet. Must be more than 0 and lower than
+            max of the IP version (32 for IPv4).
 
-        @type vlan: str or int
-        @param vlan: The VLAN number for the project.
+        :type vlan: str or int
+        :param vlan:
+            The VLAN number for the project.
 
         """
         self.logger.info("Creating subnet for %s: %s/%s, vlan: %s", pid,
-                netaddr, prefixlen, vlan)
+                         netaddr, prefixlen, vlan)
         params = {'netaddr': netaddr, 'prefixlen': prefixlen,
                   'vlantag': str(vlan), 'project': pid}
         if self.dryrun:
@@ -702,15 +683,15 @@ class GatewayClient(xmlrpclib.Server, object):
     def delete_subnet(self, pid, netaddr, prefixlen, vlan):
         """Remove a VLAN from the GW.
 
-        @type pid: str
-        @param pid: The project ID.
+        :param string pid:
+            The project ID.
 
-        @type netaddr: str
-        @param netaddr: The network address for the subnet. Both IPv4 and IPv6
-            is accepted.
+        :param string netaddr:
+            The network address for the subnet. Both IPv4 and IPv6 is accepted.
 
-        @type vlan: str or int
-        @param vlan: The VLAN tag for the subnet.
+        :type vlan: str or int
+        :param vlan:
+            The VLAN tag for the subnet.
 
         """
         self.logger.info("Delete subnet for %s: %s", pid, netaddr)
@@ -722,35 +703,30 @@ class GatewayClient(xmlrpclib.Server, object):
 
     # VLAN methods
 
-    def create_vlan(self, pid, vlan):
+    def create_vlan(self, vlan):
         """Send a VLAN to the GW.
 
-        @type pid: string
-        @param pid: The project ID.
-
-        @type vlan: string or int
-        @param vlan: The VLAN number for the project.
+        :type vlan: string or int
+        :param vlan: The VLAN number for the project.
 
         """
-        self.logger.info("Creating vlan for %s: %s", pid, vlan)
-        params = {'vlantag': str(vlan), 'project': pid}
+        self.logger.info("Creating VLAN %s", vlan)
+        params = {'vlantag': str(vlan), }
         if self.dryrun:
+            # TODO: What does vlan.create return on success?
             return True
         return self.vlan.create(params)
 
-    def delete_vlan(self, pid, vlan):
+    def delete_vlan(self, vlan):
         """Remove a VLAN from the GW.
 
-        @type pid: string
-        @param pid: The project ID.
-
-        @type vlan: string or int
-        @param vlan: The VLAN number for the project.
+        :type vlan: string or int
+        :param vlan: The VLAN number for the project.
 
         """
-        self.logger.info("Delete vlan for %s: %s", pid, vlan)
-        params = {'vlantag': str(vlan), 'project': pid}
+        self.logger.info("Delete VLAN %s", vlan)
+        params = {'vlantag': str(vlan), }
         if self.dryrun:
+            # TODO: What does vlan.delete return on success?
             return True
         return self.vlan.delete(params)
-

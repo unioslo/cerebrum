@@ -100,6 +100,9 @@ arg_help.update({
     'project_statusfilter':
         ['filter', 'Filter on project status',
                    'Not implemented yet'],
+    'vlan':
+        ['vlan', 'VLAN number',
+         'An integer, in the range 0-4094'],
     'entity_type':
         ['entity_type', 'Entity type',
          'Possible values:\n - group\n - account\n - project\n - host'],
