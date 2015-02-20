@@ -1036,6 +1036,12 @@ def perform_delete():
                         group_id, group_name)
             continue
 
+        if group.get_extensions():
+            logger.warn("Group id=%s, name=%s is a %r group, unable to delete",
+                        group.entity_id, group.group_name,
+                        group.get_extensions())
+            continue
+
         if not group_name_is_valid(group_name):
             logger.warn("Group id=%s, name=%s has trait %s and a "
                         "non-conformant name. This should be fixed.",

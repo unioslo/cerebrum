@@ -6010,12 +6010,16 @@ Addresses and settings:
         # should be nuked using a cerebrum-side script.
         if grp.has_extension('DistributionGroup'):
             raise CerebrumError(
-                "Cannot delete distribution groups, use 'group "
-                "exchangegroup_remove' to deactivate %s" % groupname)
+                "Cannot delete distribution groups, use 'group"
+                " exchangegroup_remove' to deactivate %s" % groupname)
         elif grp.has_extension('PosixGroup'):
             raise CerebrumError(
-                "This is a posix group, use 'group demote_posix %s' before"
-                " deleting." % groupname)
+                "Cannot delete posix groups, use 'group demote_posix %s'"
+                " before deleting." % groupname)
+        elif grp.get_extension():
+            raise CerebrumError(
+                "Cannot delete group %s, is type %r" % (groupname,
+                                                        grp.get_extension()))
 
         self._remove_auth_target("group", grp.entity_id)
         self._remove_auth_role(grp.entity_id)

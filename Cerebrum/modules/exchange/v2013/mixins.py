@@ -75,7 +75,7 @@ class DistributionGroupMixin(Group):
         return super(DistributionGroupMixin, self).demote() or res
 
     def demote_distribution(self):
-        """ Remove all posix-related data for the group. """
+        """ Remove all exchange-related data for the group. """
         is_roomlist = None
         try:
             is_roomlist = self._is_roomlist()
@@ -95,12 +95,12 @@ class DistributionGroupMixin(Group):
         return True
 
     def delete(self):
-        """ Delete group, even if PosixGroup. """
+        """ Delete group, even if DistributionGroup. """
         self.demote_distribution()
         super(DistributionGroupMixin, self).delete()
 
     def get_extensions(self):
-        """ Check if this group is a PosixGroup. """
+        """ Check if this group is a DistributionGroup. """
         exts = super(DistributionGroupMixin, self).get_extensions()
         try:
             self._is_roomlist()
