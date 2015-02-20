@@ -2780,12 +2780,9 @@ class BofhdExtension(object):
     def group_delete(self, operator, groupname, force=None):
         grp = self._get_group(groupname)
         self.ba.can_delete_group(operator.get_entity_id(), grp)
-        if self._is_yes(force):
-            try:
-                pg = self._get_group(groupname, grtype="PosixGroup")
-                pg.delete()
-            except CerebrumError:
-                pass   # Not a PosixGroup
+        if not self._is_yes(force) and grp.get_extensions():
+            raise CerebrumError("Cannot delete group %s, is type %r" %
+                                (groupname, grp.get_extensions()))
         self._remove_auth_target("group", grp.entity_id)
         self._remove_auth_role(grp.entity_id)
         grp.delete()
