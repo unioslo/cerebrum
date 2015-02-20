@@ -6016,10 +6016,10 @@ Addresses and settings:
             raise CerebrumError(
                 "Cannot delete posix groups, use 'group demote_posix %s'"
                 " before deleting." % groupname)
-        elif grp.get_extension():
+        elif grp.get_extensions():
             raise CerebrumError(
                 "Cannot delete group %s, is type %r" % (groupname,
-                                                        grp.get_extension()))
+                                                        grp.get_extensions()))
 
         self._remove_auth_target("group", grp.entity_id)
         self._remove_auth_role(grp.entity_id)
