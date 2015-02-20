@@ -223,7 +223,6 @@ class BofhdCommandBase(object):
 
         This method is useful when we have entity_id only, but want the most
         specific object for that id.
-
         """
         if ident is None:
             raise CerebrumError("Invalid id")
@@ -233,6 +232,8 @@ class BofhdCommandBase(object):
             return self._get_group(ident)
         if entity_type == 'stedkode':
             return self._get_ou(stedkode=ident)
+        if entity_type == 'person':
+            return self._get_person(*self._map_person_id(ident))
         if entity_type is None:
             id_type, ident = self._human_repr2id(ident)
             if id_type == "id":
@@ -241,14 +242,12 @@ class BofhdCommandBase(object):
             else: 
                 raise CerebrumError("Unknown/unsupported id_type %s for id %s" %
                                     (id_type, str(ident)))
-
             # The find*() calls give us an entity_id from ident. The call
             # below returns the most specific object for that numeric
             # entity_id.
             entity_id = int(ent.entity_id)
             ent.clear()
             return ent.get_subclassed_object(entity_id)
-
         raise CerebrumError("Invalid entity type: %s" % str(entity_type))
 
     def _get_ou(self, ou_id=None, stedkode=None):
