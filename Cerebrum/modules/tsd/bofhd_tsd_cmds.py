@@ -151,6 +151,8 @@ class TSDBofhdExtension(BofhdCommonMethods):
         # From uio
         self.num2const = {}
         self.str2const = {}
+        self.external_id_mappings = {}
+        self.external_id_mappings['fnr'] = self.const.externalid_fodselsnr
         for c in dir(self.const):
             tmp = getattr(self.const, c)
             if isinstance(tmp, _CerebrumCode):
