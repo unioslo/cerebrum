@@ -102,7 +102,8 @@ arg_help.update({
                    'Not implemented yet'],
     'vlan':
         ['vlan', 'VLAN number',
-         'An integer, in the range 0-4094'],
+         'A number between 0-4094, or a blank value, which defaults to the '
+         'first available VLAN'],
     'entity_type':
         ['entity_type', 'Entity type',
          'Possible values:\n - group\n - account\n - project\n - host'],
