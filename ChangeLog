@@ -1,9 +1,17 @@
+2015-02-24  Karen   <cerebrum@cleomedes.uit.no>
+
+    * export_username_changes: Added to repo. Copied from Leetah.
+
 2015-02-23  Karen   <cerebrum@cleomedes.uit.no>
 
     * export_oid.py: Replaced "Factory.get('Stedkode')(db)" with "Stedkode(db)".
 
     * export_oid.py (load_cb_data): Replaced deprecated use of OU.name with 
     OU.get_name_with_language(). Added ou.find() before call to OU.get_name_with_language().
+
+2015-02-19  Karen   <cerebrum@cleomedes.uit.no>
+
+    * export_oid.py: Added to repo. Copied from Leetah.
 
 2015-02-18  Karen   <cerebrum@cleomedes.uit.no>
 
