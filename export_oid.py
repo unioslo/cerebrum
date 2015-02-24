@@ -41,16 +41,15 @@ from Cerebrum.extlib.xmlprinter import xmlprinter
 from Cerebrum.modules.no.uit.PagaDataParser import PagaDataParserClass
 from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
 
-db=Factory.get('Database')()
-ou = Factory.get('OU')(db)
-sko = Factory.get('Stedkode')(db)
-p=Factory.get('Person')(db)
-co=Factory.get('Constants')(db)
-ac=Factory.get('Account')(db)
-#stedkode = Stedkode(db)
-logger=Factory.get_logger("console")
+db  = Factory.get('Database')()
+ou  = Factory.get('OU')(db)
+sko = Stedkode(db)
+p  = Factory.get('Person')(db)
+co = Factory.get('Constants')(db)
+ac = Factory.get('Account')(db)
+logger = Factory.get_logger("console")
 
-TODAY=mx.DateTime.today().strftime("%Y%m%d")   
+TODAY = mx.DateTime.today().strftime("%Y%m%d")   
 
 # Stedkode CSV Defaults
 default_mapping_file = os.path.join(cereconf.CB_PREFIX, "var", "source", "bas_portal_mapping.csv")
@@ -285,8 +284,9 @@ def load_cb_data():
                 logger.warn('ou: %s does not have stedkode. Removed from oid export' % ou_id)
                 continue
             
-            ou_name = ou.name
-
+            ou.clear()
+            ou.find(ou_id)
+            ou_name = ou.get_name_with_language(co.ou_name, co.language_nb, default='')
 
             sko.clear()
             sko.find(ou_id)
