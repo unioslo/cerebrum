@@ -446,8 +446,6 @@ class OUTSDMixin(OU, EntityTrait):
 
         """
         projectid = self.get_project_id()
-        subnet = dns.Subnet.Subnet(self._db)
-        subnet6 = dns.IPv6Subnet.IPv6Subnet(self._db)
         etrait = EntityTrait(self._db)
 
         if vlan is None:
@@ -463,52 +461,35 @@ class OUTSDMixin(OU, EntityTrait):
         else:
             raise Errors.CerebrumError('VLAN out of range: %s' % vlan)
 
-        my_subnets = set(row['entity_id'] for row in self.list_traits(
-                         code=(self.const.trait_project_subnet,
-                               self.const.trait_project_subnet6),
-                         target_id=self.entity_id))
-
         # TODO: Find a better way for mapping between project ID and VLAN:
         intpid = self.get_project_int()
-        subnetstart, subnet6start = self._get_subnets_by_project_id(project_id=intpid)
+        subnetstart, subnet6start = self._generate_subnets_for_project_id(
+            project_id=intpid)
 
-        # The Subnet module should in populate/write_db know if the subnet
-        # already exists and handle that, but we need to fix this manually here
-        # instead.
-        try:
-            subnet.find(subnetstart)
-        except dns.Errors.SubnetError:
-            subnet.populate(subnetstart, "Subnet for project %s" % projectid, vlan)
-        else:
-            if subnet.entity_id not in my_subnets:
-                raise Exception("Subnet %s exists, but does not belong to %s" %
-                                (subnetstart, projectid))
-        subnet.write_db()
-        etrait.clear()
-        etrait.find(subnet.entity_id)
-        etrait.populate_trait(self.const.trait_project_subnet, date=DateTime.now(),
-                              target_id=self.entity_id)
-        etrait.write_db()
-
-        try:
-            subnet6.find(subnet6start)
-        except dns.Errors.SubnetError:
-            subnet6.populate(subnet6start, "Subnet for project %s" % projectid, vlan)
-        else:
-            if subnet6.entity_id not in my_subnets:
-                raise Exception("Subnet %s exists, but does not belong to %s" %
-                                (subnet6start, projectid))
-        subnet6.write_db()
-        etrait.clear()
-        etrait.find(subnet6.entity_id)
-        etrait.populate_trait(code=self.const.trait_project_subnet6,
-                              date=DateTime.now(),
-                              target_id=self.entity_id)
-        etrait.write_db()
+        for cls, trait, start, my_subnets in (
+                (dns.Subnet.Subnet, self.const.trait_project_subnet,
+                 subnetstart, self.ipv4_subnets),
+                (dns.IPv6Subnet.IPv6Subnet, self.const.trait_project_subnet6,
+                 subnet6start, self.ipv6_subnets)):
+            sub = cls(self._db)
+            try:
+                sub.find(start)
+            except dns.Errors.SubnetError:
+                sub.populate(start, "Subnet for project %s" % projectid, vlan)
+                sub.write_db()
+            else:
+                if sub.entity_id not in my_subnets:
+                    raise Exception("Subnet %s exists, but does not belong"
+                                    " to %s" % (start, projectid))
+            etrait.clear()
+            etrait.find(sub.entity_id)
+            etrait.populate_trait(trait, date=DateTime.now(),
+                                  target_id=self.entity_id)
+            etrait.write_db()
 
         # TODO: Reserve 10 PTR addresses in the start of the subnet!
 
-    def _get_subnets_by_project_id(self, project_id):
+    def _generate_subnets_for_project_id(self, project_id):
         """Calculate which IPv4 and IPv6 subnets should be assigned to a project.
 
         :param int project_id:
@@ -597,9 +578,6 @@ class OUTSDMixin(OU, EntityTrait):
         ipnumber = dns.IPNumber.IPNumber(self._db)
         arecord = dns.ARecord.ARecord(self._db)
 
-        intpid = self.get_project_int()
-        subnetstart, subnet6start = self._get_subnets_by_project_id(project_id=intpid)
-
         try:
             dns_owner.find_by_name(hostname)
         except Errors.NotFoundError:
@@ -613,19 +591,19 @@ class OUTSDMixin(OU, EntityTrait):
                                  target_id=self.entity_id)
         dns_owner.write_db()
 
-        # TODO: check if dnsowner already has an ipv6 address.
-        ip = dnsfind.find_free_ip(subnet6start, no_of_addrs=1)[0]
-        ipv6number.populate(ip)
-        ipv6number.write_db()
-        aaaarecord.populate(dns_owner.entity_id, ipv6number.entity_id)
-        aaaarecord.write_db()
-
-        # TODO: check if dnsowner already has an ipv4 address.
-        ip = dnsfind.find_free_ip(subnetstart, no_of_addrs=1)[0]
-        ipnumber.populate(ip)
-        ipnumber.write_db()
-        arecord.populate(dns_owner.entity_id, ipnumber.entity_id)
-        arecord.write_db()
+        for (subnets, ipnum, record, ipstr) in (
+                (self.ipv6_subnets, ipv6number, aaaarecord, "IPv6"),
+                (self.ipv4_subnets, ipnumber, arecord, "IPv4")):
+            # TODO: check if dnsowner already has an ip address.
+            try:
+                ip = dnsfind.find_free_ip(subnets.next(), no_of_addrs=1)[0]
+            except StopIteration:
+                raise Errors.NotFoundError("No %s-subnet for project %s" %
+                                           (ipstr, self.get_project_id()))
+            ipnum.populate(ip)
+            ipnum.write_db()
+            record.populate(dns_owner.entity_id, ipnum.entity_id)
+            record.write_db()
 
         return dns_owner
 
@@ -650,6 +628,18 @@ class OUTSDMixin(OU, EntityTrait):
                                           self.const.trait_project_subnet),
                                     target_id=self.entity_id):
             yield row
+
+    @property
+    def ipv4_subnets(self):
+        """ Read-only attribute with the IPv4 subnets for this project. """
+        return (row['entity_id'] for row in self.get_project_subnets()
+                if row['code'] == self.const.trait_project_subnet)
+
+    @property
+    def ipv6_subnets(self):
+        """ Read-only attribute with the IPv6 subnets for this project. """
+        return (row['entity_id'] for row in self.get_project_subnets()
+                if row['code'] == self.const.trait_project_subnet6)
 
     def get_pre_approved_persons(self):
         """Get a list of pre approved persons by their fnr.
