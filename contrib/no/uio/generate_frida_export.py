@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 #
-# Copyright 2006,2014 University of Oslo, Norway
+# Copyright 2006-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,14 +22,10 @@
 """
 This file is part of the Cerebrum framework.
 
-It generates an XML file, suitable for importing into the CRISTIN project,
-formerly called FRIDA (for more information on FRIDA, start at <URL:
-http://www.cristin.no/>). The output format is specified in:
+This script generates an XML file, suitable for importing into the CRISTIN
+project, formerly called FRIDA.
 
-<http://www.cristin.no/institusjonsdata/>
-
-The uiocerebrum project has some additional notes
-(cvs.uio.no:/uiocerebrum/docs/frida/frida-export.txt).
+The output format is specified at: <http://www.cristin.no/institusjonsdata/>
 
 Although the original specification places a limit on the length of certain
 (string) values, we do not enforce those. Furthermore, the address
@@ -38,8 +34,8 @@ Although the original specification places a limit on the length of certain
 Since this script aggregates data from various sources, we cannot obtain all
 the necessary information from data files or cerebrum alone. Therefore:
 
-* Most of the information about people is fetched from the source files (SAP
-  or LT). Cerebrum has no information about employments (stillingskode,
+* Most of the information about people is fetched from the SAP source file
+  Cerebrum has no information about employments (stillingskode,
   stillingsandel, aktivDatoFra/Til).
 
 * Most of the information about OUs is fetched from the source files (two
@@ -593,11 +589,6 @@ def output_phd_students(writer, sysname, phd_students, ou_cache):
     all. However, they still need access to FRIDA and we need to gather as
     much information as possible about them.
     """
-
-    # A few helper mappings first
-    # source system name => group with individuals hidden in catalogues
-    sys2group = {"system_lt": "LT-elektroniske-reservasjoner",
-                 "system_sap": "SAP-lektroniske-reservasjoner", }
     # name constant -> xml element for that name constant
     name_kinds = dict(((int(constants.name_last), "etternavn"),
                        (int(constants.name_first), "fornavn")))
@@ -605,17 +596,10 @@ def output_phd_students(writer, sysname, phd_students, ou_cache):
     contact_kinds = dict(((int(constants.contact_phone), "telefonnr"),
                           (int(constants.contact_fax), "telefaxnr"),
                           (int(constants.contact_url), "URL")))
-
-    group = Factory.get("Group")(cerebrum_db)
-    try:
-        group.find_by_name(sys2group[sysname])
-        reserved = set(int(x["member_id"]) for x in
-                       group.search_members(
-                           group_id=group.entity_id,
-                           indirect_member=True,
-                           member_type=constants.entity_account))
-    except Errors.NotFoundError:
-        reserved = set()
+    # person_id -> public reservation status
+    reservations = dict(
+        (row['entity_id'], row['numval']) for row in
+        person_db.list_traits(code=constants.trait_public_reservation))
 
     for person_id, phd_records in phd_students.iteritems():
         try:
@@ -633,7 +617,7 @@ def output_phd_students(writer, sysname, phd_students, ou_cache):
                         person_id)
             continue
 
-        res_status = {True: "J", False: "N"}[person_id in reserved]
+        res_status = 'J' if reservations.get(person_id, True) else 'N'
         writer.startElement("person", {"fnr": fnr, "reservert": res_status})
 
         names = extract_names(person_db, name_kinds)
