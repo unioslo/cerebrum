@@ -402,10 +402,11 @@ class Find(object):
 
         if not a_ip:
             raise CerebrumError("No available ip on that subnet")
+
         if first is not None:
             a_ip = [i for i in a_ip if i >= first]
 
-        ipc = IPCalc if '.' in subnet else IPv6Calc
+        ipc = IPCalc if '.' in self._find_subnet(subnet) else IPv6Calc
         return [ipc.long_to_ip(t) for t in a_ip]
 
     def _find_subnet(self, subnet):
