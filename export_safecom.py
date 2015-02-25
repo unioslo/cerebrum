@@ -30,6 +30,7 @@ import time
 import cerebrum_path
 import cereconf
 from Cerebrum import Errors
+from Cerebrum.modules.no.Stedkode import Stedkode
 from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
 from Cerebrum.Utils import Factory
 from Cerebrum.extlib.xmlprinter import xmlprinter
@@ -38,7 +39,7 @@ from Cerebrum.Constants import _SpreadCode, _CerebrumCode
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 logger = Factory.get_logger('cronjob')
-sko = Factory.get('Stedkode')(db)
+sko = Stedkode(db)
 DEFAULT_OUTPUT = os.path.join(cereconf.DUMPDIR, "safecom","safecom_%s.xml" % time.strftime("%Y%m%d"))
 
 __filename__=os.path.basename(sys.argv[0])
@@ -75,7 +76,7 @@ def write_export(spread, output):
         except EntityExpiredError:
             logger.warn("ou:%s is expired. not exported" % row['ou_id'])
             continue
-        OU2name[int(row["ou_id"])] = sko.display_name
+        OU2name[int(row["ou_id"])] = sko.get_name_with_language(co.ou_name_display, co.language_nb, default='')
     for i in OU2Stedkodemap:
         if i == '321400':
             print "### %s ###" % i

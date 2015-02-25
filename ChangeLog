@@ -1,3 +1,12 @@
+2015-02-25  Karen   <cerebrum@cleomedes.uit.no>
+
+    * export_safecom.py: Added to repo. Copied from Leetah.
+
+    * export_safecom.py: Replaced "Factory.get('Stedkode')(db)" with "Stedkode(db)".
+
+    * export_safecom.py (write_export): Replaced deprecated use of OU.display_name with 
+    OU.get_name_with_language(). 
+
 2015-02-24  Karen   <cerebrum@cleomedes.uit.no>
 
     * export_username_changes: Added to repo. Copied from Leetah.
