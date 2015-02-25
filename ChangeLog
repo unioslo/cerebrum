@@ -5,7 +5,9 @@
     * export_safecom.py: Replaced "Factory.get('Stedkode')(db)" with "Stedkode(db)".
 
     * export_safecom.py (write_export): Replaced deprecated use of OU.display_name with 
-    OU.get_name_with_language(). 
+    OU.get_name_with_language().
+
+    * export_pagaweb_users.py: Added to repo. Copied from Leetah.
 
 2015-02-24  Karen   <cerebrum@cleomedes.uit.no>
 
