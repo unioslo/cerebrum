@@ -678,16 +678,18 @@ class BaseSync(object):
 
         stats = dict(seen=0, processed=0, skipped=0, failed=0)
         for row in events:
-            (timestamp, change_id, subject, change_type, dest, _, _, _) = row
-            timestamp = int(timestamp)
-            handle_key = tuple((int(change_type), subject, dest))
-            change_type = self.co.ChangeType(int(change_type))
+            timestamp = int(row['tstamp'])
+            handle_key = tuple((int(row['change_type_id']),
+                                row['subject_entity'],
+                                row['dest_entity']))
+            change_type = self.co.ChangeType(int(row['change_type_id']))
             stats['seen'] += 1
 
             # Ignore too old changes:
             if timestamp < too_old:
                 stats['skipped'] += 1
-                self.logger.info("Skipping too old change_id: %s", change_id)
+                self.logger.info("Skipping too old change_id: %s",
+                                 row['change_id'])
                 confirm(row)
                 continue
             # Ignore seen (change_type, subject, dest) tuples
@@ -695,26 +697,28 @@ class BaseSync(object):
                 stats['skipped'] += 1
                 self.logger.info(
                     "Skipping change_id %s: Already handled change type %s"
-                    " for subject=%s, dest=%s",
-                    change_id, str(change_type), subject, dest)
+                    " for subject=%s, dest=%s", row['change_id'],
+                    str(change_type), row['subject_entity'],
+                    row['dest_entity'])
                 confirm(row)
                 continue
 
             self.logger.debug(
                 "Processing change_id %s (%s), from %s subject_entity: %s",
-                change_id, change_type, timestamp, subject)
+                row['change_id'], change_type, timestamp,
+                row['subject_entity'])
             try:
                 if self.process_cl_event(row):
                     stats['processed'] += 1
                     confirm(row)
+                    already_handled.add(handle_key)
                 else:
-                    stats['skipped'] += 1  # Or is this a failed attempt?
-                    # raise Exception("handler returned False")
-                already_handled.add(handle_key)
+                    raise Exception("Changetype handler returned False for"
+                                    " %s" % change_type)
             except Exception:
                 stats['failed'] += 1
                 self.logger.error("Failed to process cl_event: %s",
-                                  change_id, exc_info=1)
+                                  row['change_id'], exc_info=1)
                 # TODO: Add subject_entity to a ignore-list, as I think we
                 # should keep changes in order per entity.
             else:
