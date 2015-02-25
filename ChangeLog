@@ -9,6 +9,8 @@
 
     * export_pagaweb_users.py: Added to repo. Copied from Leetah.
 
+    * generate_temp_employee_xml.py: Added to repo. Copied from Leetah.
+
 2015-02-24  Karen   <cerebrum@cleomedes.uit.no>
 
     * export_username_changes: Added to repo. Copied from Leetah.
