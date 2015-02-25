@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2004 University of Oslo, Norway
 #
@@ -34,7 +34,7 @@ The file is latin-1 encoded csv-variant structured thus:
 
 ';' is the separator character. If it happens in the data, it will be quoted
 (with a backslash. The quote character ('\') itself is also quoted). Each
-lines ends with a Unix-style newline character (\n). 
+lines ends with a Unix-style newline character (\n).
 
 This file is generated for all employees (people with
 affiliation=const.affiliation_ansatt). The fields are:
@@ -71,10 +71,10 @@ def build_cache(db):
     for key, value in account.getdict_uname2mailaddr().iteritems():
         cache[key] = value
     logger.debug("... done (total: %d entries)", len(cache))
-    # There should not be collisions between unames and sap_ansattnr :) 
+    # There should not be collisions between unames and sap_ansattnr :)
     logger.debug("Fetching sap_ansattnr->uname...")
     for key, value in person.getdict_external_id2primary_account(
-                                 const.externalid_sap_ansattnr).iteritems():
+            const.externalid_sap_ansattnr).iteritems():
         cache[key] = value
     logger.debug("... done (total: %d entries)", len(cache))
     return cache
@@ -109,7 +109,7 @@ def fetch_person_fields(person, const):
 
     @type person: Person instance.
     @param:
-      Person instance associated with an object in the db. 
+      Person instance associated with an object in the db.
 
     @rtype: tuple (of strings)
     @return:
@@ -131,7 +131,7 @@ def fetch_person_fields(person, const):
     # Select telephone number. We constrain on numbers from VoIP, which are
     # VoIP numbers. Then we sort them based on their priority. Lower is
     # preferred. Finally, set the var, if appropriate.
-    voip = person.get_contact_info(source=const.system_voip, \
+    voip = person.get_contact_info(source=const.system_voip,
                                    type=const.contact_voip_extension)
     voip.sort(key=lambda x: x['contact_pref'])
     voip = voip.pop(0)['contact_value'] if voip else None
@@ -142,12 +142,12 @@ def fetch_person_fields(person, const):
             values[idx] = values[idx].encode("latin-1")
         if not values[idx]:
             continue
-        # The import routine can't cope with quotechars. 
+        # The import routine can't cope with quotechars.
         for forbidden_char in ('\r', '\n', ';'):
             if forbidden_char in values[idx]:
                 logger.warn("Illegal char %s in data %s. %s is skipped.",
                             forbidden_char, values[idx], values)
-                return None    
+                return None
     return values
 
 
@@ -155,25 +155,24 @@ def generate_people(db):
     """Return a sequence of person_id for everybody eligible for this export.
 
     We are supposed to list all persons having ansatt# from SAP and having an
-    active user. 
+    active user.
     """
-
     person = Factory.get("Person")(db)
     account = Factory.get("Account")(db)
     constants = Factory.get("Constants")(db)
-
     logger.debug("Fetching account holders")
     # this yields a set of all persons with an active account.
-    account_holders = set(int(x["owner_id"])
-                          for x in account.search(expire_start='[:now]',
-                                                  owner_type=constants.entity_person))
+    account_holders = set(
+        int(x["owner_id"])
+        for x in account.search(expire_start='[:now]',
+                                owner_type=constants.entity_person))
     logger.debug("Collecting people set")
-    # this yields a set of all persons with a SAP id. 
-    for row in person.list_external_ids(source_system=constants.system_sap,
-                                        id_type=constants.externalid_sap_ansattnr):
+    # this yields a set of all persons with a SAP id.
+    for row in person.list_external_ids(
+            source_system=constants.system_sap,
+            id_type=constants.externalid_sap_ansattnr):
         if int(row["entity_id"]) not in account_holders:
             continue
-
         yield int(row["entity_id"])
 
 
@@ -184,28 +183,24 @@ def generate_file(filename):
     @param filename:
       Output filename
     """
-
     ostream = AtomicFileWriter(filename)
     writer = csv.writer(ostream,
                         delimiter=';',
                         quotechar='\\',
                         quoting=csv.QUOTE_NONE,
-                        # Make sure that lines end with a Unix-style linefeed 
+                        # Make sure that lines end with a Unix-style linefeed
                         lineterminator='\n')
     db = Factory.get("Database")()
     person = Factory.get("Person")(db)
     const = Factory.get("Constants")()
-
     logger.debug("Preloading uname/account data...")
     cache = build_cache(db)
     fetch_person_fields.cache = cache
     logger.debug("...finished")
-
     processed = set()
     for person_id in generate_people(db):
         if person_id in processed:
             continue
-
         logger.debug("Processing person id=%d", person_id)
         processed.add(person_id)
         person.clear()
@@ -215,7 +210,6 @@ def generate_file(filename):
             writer.writerow(fields)
         else:
             logger.info("fnr/ansattnr is missing for person id=%d", person_id)
-
     logger.debug("Output %d people", len(processed))
     ostream.close()
 
@@ -226,12 +220,10 @@ def main():
     options, rest = getopt.getopt(sys.argv[1:],
                                   "f:",
                                   ("file=",))
-
     filename = None
     for option, value in options:
         if option in ("-f", "--file"):
             filename = value
-
     assert filename, "Must provide output filename"
     generate_file(filename)
 
