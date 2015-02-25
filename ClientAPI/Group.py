@@ -145,8 +145,8 @@ class Group(ClientAPI):
             raise Errors.CerebrumRPCException(
                 'Group %s:%s does not exist.' % (group_id_type, group_id))
 
-        lst = [{'name': x.account_name, 'type': 'account_name'} for x in
-               GroupAPI.group_list(gr)]
+        lst = [{'name': x[1], 'type': x[0]} for x in
+               map(Utils.get_entity_designator, GroupAPI.group_list(gr))]
         return lst
 
     @commit_handler()
