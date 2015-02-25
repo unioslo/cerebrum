@@ -447,8 +447,7 @@ class OUTSDMixin(OU, EntityTrait):
         """
         projectid = self.get_project_id()
         etrait = EntityTrait(self._db)
-
-        if vlan is None:
+        if not vlan:
             vlan = self.get_next_free_vlan()
         try:
             vlan = int(vlan)
