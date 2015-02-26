@@ -34,7 +34,7 @@ import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
-#from Cerebrum.modules.no.Stedkode import Stedkode
+from Cerebrum.modules.no.Stedkode import Stedkode
 from Cerebrum.Constants import _CerebrumCode, _SpreadCode
 
 from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
@@ -45,8 +45,7 @@ ou = Factory.get('OU')(db)
 p=Factory.get('Person')(db)
 co=Factory.get('Constants')(db)
 ac=Factory.get('Account')(db)
-#stedkode = Stedkode(db)
-sko = Factory.get('Stedkode')(db)
+sko = Stedkode(db)
 logger=Factory.get_logger("console")
 
 CHARSEP=";"
@@ -125,8 +124,9 @@ def load_cb_data():
                 logger.warn("unable to find stedkode for ou:%s. Not exported." % ou_id)
                 continue
             sko_sted="%02d%02d%02d"  % ( sko.fakultet,sko.institutt,\
-                sko.avdeling)        
-            ou_cache[ou_id]=(ou.name,sko_sted)
+                sko.avdeling)
+            ou_name = ou.get_name_with_language(co.ou_name, co.language_nb, default='')        
+            ou_cache[ou_id]=(ou_name,sko_sted)
         sko_name,sko_sted=ou_cache[ou_id]
 
         p_id = aff['person_id']

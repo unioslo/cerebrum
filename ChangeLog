@@ -11,6 +11,11 @@
 
     * export_securimaster.py: Added to repo. Copied from Leetah.
 
+    * export_securimaster.py: Replaced "Factory.get('Stedkode')(db)" with "Stedkode(db)".
+
+    * export_securimaster.py (load_cb_data): Replaced deprecated use of OU.name with 
+    OU.get_name_with_language().
+
 2015-02-25  Karen   <cerebrum@cleomedes.uit.no>
 
     * export_safecom.py: Added to repo. Copied from Leetah.
