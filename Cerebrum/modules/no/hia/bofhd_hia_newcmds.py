@@ -1395,6 +1395,7 @@ class BofhdExtension(BofhdCommonMethods,
                 if not int(self.const.Spread(email_spread)) in \
                                 [int(self.const.spread_exchange_account),
                                  int(self.const.spread_exchange_acc_old),
+                                 int(self.const.spread_uia_office_365),
                                  int(self.const.spread_hia_email)]:
                     raise CerebrumError, "Not an e-mail spread: %s!" % email_spread
             try:
