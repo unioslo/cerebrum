@@ -413,7 +413,7 @@ class SAPLonnsTittelKode(Constants._CerebrumCode):
         # fi
 
         return self.sql.query_1("SELECT kategori FROM %s WHERE code = %s" %
-                                self._lookup_table, str(int(self)))
+                                self._lookup_table, int(self))
 
     def update(self):
         """
