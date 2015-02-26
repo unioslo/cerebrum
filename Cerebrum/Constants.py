@@ -372,10 +372,26 @@ class _CerebrumCode(DatabaseAccessor):
         except Errors.NotFoundError:
             pass
 
-    def _update(self, stats):
-        self._update_description(stats)
+    def update(self):
+        """
+        Main method for updating constants in Cerebrum database, used for
+        calling the necessary internal update methods. Can be overridden by
+        some types of subclasses that have specific needs.
 
-    def _update_description(self, stats):
+        :returns: a list of strings that contains details of updates that were
+                  made, or None if no updates occured.
+        :rtype: list or None
+        """
+        return self._update_description()
+
+    def _update_description(self):
+        """
+        Updates the description for the given constant in Cerebrum database.
+
+        :returns: a list with a string containing details about the update
+                  if an update was made, otherwise None.
+        :rtype: list or None
+        """
         if self._desc is None:
             return
         new_desc = self._desc
@@ -384,13 +400,12 @@ class _CerebrumCode(DatabaseAccessor):
         db_desc = self._get_description()
         if new_desc != db_desc:
             self._desc = new_desc
-            stats['updated'] += 1
-            stats['details'].append("Updated description for '%s': '%s'"
-                                    % (self, new_desc))
             self.sql.execute("UPDATE %s SET %s=:desc WHERE %s=:code" %
                              (self._lookup_table, self._lookup_desc_column,
                               self._lookup_code_column),
                              {'desc': new_desc, 'code': self.int})
+
+            return ["Updated description for '%s': '%s'" % (self, new_desc)]
 
     def insert(self):
         self.sql.execute("""
@@ -805,7 +820,11 @@ class ConstantsBase(DatabaseAccessor):
                         code._pre_insert_check()
                     except CodeValuePresentError:
                         if update:
-                            code._update(stats)
+                            update_results = code.update()
+                            if update_results is not None:
+                                stats['updated'] += 1
+                                for result in update_results:
+                                    stats['details'].append(result)
                             continue
                         raise
                     code.insert()

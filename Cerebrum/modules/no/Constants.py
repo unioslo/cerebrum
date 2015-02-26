@@ -412,37 +412,44 @@ class SAPLonnsTittelKode(Constants._CerebrumCode):
             return self.kategori
         # fi
 
-        return self.sql.query_1("""
-                                SELECT
-                                  kategori
-                                FROM
-                                  %s
-                                WHERE
-                                  code = :code""" % self._lookup_table,
-                                {'code': int(self)})
+        return self.sql.query_1("SELECT kategori FROM %s WHERE code = %s" %
+                                self._lookup_table, str(int(self)))
 
-    def _update(self, stats):
-        super(SAPLonnsTittelKode, self)._update(stats)
-        self._update_kategori(stats)
+    def update(self):
+        """
+        Updates the description and/or kategori-values for the given constant
+        if there are changes from the current database entry.
 
-    def _update_kategori(self, stats):
-        db_kategori = self.sql.query_1("""
-                                       SELECT
-                                         kategori
-                                       FROM
-                                         %s
-                                       WHERE
-                                         code = :code""" % self._lookup_table,
-                                       {'code': int(self)})
-        if self.kategori != db_kategori:
-            stats['updated'] += 1
-            stats['details'].append("Updated kategori for '%s': '%s'"
-                                    % (self, self.kategori))
-            self.sql.execute("""
-                             UPDATE %s SET kategori=:kategori
-                             WHERE code=:code""" %
-                             self._lookup_table, {'code': int(self),
-                                                  'kategori': self.kategori})
+        :returns: a list with strings containing details about the updates that
+                  were performed, or None if no updates were performed.
+        :rtype: list or None
+        """
+        updated_desc = super(SAPLonnsTittelKode, self).update()
+        updated_kat = self._update_kategori()
+
+        if updated_desc or updated_kat is not None:
+            results = []
+
+            if updated_desc is not None:
+                results.append(updated_desc[0])
+            if updated_kat is not None:
+                results.append(updated_kat[0])
+            return results
+
+    def _update_kategori(self):
+        """
+        Updates the kategori-value for the given constant if value has changed
+        from the current database entry.
+
+        :returns: a string with details of the update that was made.
+        :rtype: list or None
+        """
+        db_kat = self.sql.query_1("SELECT kategori FROM %s WHERE code = %s" %
+                                  (self._lookup_table, int(self)))
+        if self.kategori != db_kat:
+            self.sql.execute("UPDATE %s SET kategori = '%s' WHERE code = %s" %
+                             (self._lookup_table, self.kategori, int(self)))
+            return ["Updated kategori for '%s': '%s'" % (self, self.kategori)]
 
 
 class SAPCommonConstants(Constants.Constants):
