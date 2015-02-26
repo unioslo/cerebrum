@@ -22,10 +22,9 @@
 
 A TSD project is stored as an OU, which then needs some extra functionality,
 e.g. by using the acronym as a unique identifier - the project name - and the
-project ID stored as an external ID. When a project has finished, we will delete
-all details about the project, except the project's OU and its external ID and
-acronym, to avoid reuse of the project ID and name for later projects.
-
+project ID stored as an external ID. When a project has finished, we will
+delete all details about the project, except the project's OU and its external
+ID and acronym, to avoid reuse of the project ID and name for later projects.
 """
 
 import re
@@ -44,16 +43,15 @@ from Cerebrum.modules.tsd import TSDUtils
 
 
 class OUTSDMixin(OU, EntityTrait):
-    """Mixin of OU for TSD. Projects in TSD are stored as OUs, which then has to
+    """
+    Mixin of OU for TSD. Projects in TSD are stored as OUs, which then has to
     be unique.
-
     """
     def find_by_tsd_projectid(self, project_id):
         """TSD specific helper method for finding an OU by the project's ID.
 
         In TSD, each project is stored as an OU, with the project ID stored as
         an external ID.
-
         """
         return self.find_by_external_id(
             entity_type=self.const.entity_ou,
@@ -68,13 +66,13 @@ class OUTSDMixin(OU, EntityTrait):
 
         TODO: All project OUs could be stored under the same OU, if we need
         other OUs than project OUs.
-
         """
         matched = self.search_tsd_projects(name=project_name, exact_match=True)
         if not matched:
             raise Errors.NotFoundError("Unknown project: %s" % project_name)
         if len(matched) != 1:
-            raise Errors.TooManyRowsError("Found several OUs with given name: %s" % project_name)
+            raise Errors.TooManyRowsError(
+                "Found several OUs with given name: %s" % project_name)
         return self.find(matched[0]['entity_id'])
 
     def search_tsd_projects(self, name=None, exact_match=True):
@@ -88,14 +86,13 @@ class OUTSDMixin(OU, EntityTrait):
 
         @type exact_match: bool
         @param exact_match:
-            If it should search for the exact name, or through an sql query with
-            LIKE.
+            If it should search for the exact name, or through an sql query
+            with LIKE.
 
         @rtype: list of db-rows
         @return:
-            The db rows for each project. Each element contains what is returned
-            from L{search_name_with_language}.
-
+            The db rows for each project. Each element contains what is
+            returned from L{search_name_with_language}.
         """
         return self.search_name_with_language(
             entity_type=self.const.entity_ou,
@@ -130,18 +127,18 @@ class OUTSDMixin(OU, EntityTrait):
         - TBD: A maximum length in the name? AD probably has a limit. As a
           prefix, it should be a bit less than AD's limit.
 
-        In practice, we only accept regular alphanumeric characters in ASCII, in
-        addition to some punctuation characters, like colon, dash and question
-        marks. This would need to be extended in the future.
+        In practice, we only accept regular alphanumeric characters in ASCII,
+        in addition to some punctuation characters, like colon, dash and
+        question marks. This would need to be extended in the future.
 
-        @raise Errors.CerebrumError: If the given project name was not accepted.
-
+        @raise Errors.CerebrumError: If the given project name was not accepted
         """
         # TODO: whitelisting accepted characters, might want to extend the list
         # with characters I've forgotten:
         m = re.search('[^A-Za-z0-9_\-:;\*"\'\#\&\=!\?]', name)
         if m:
-            raise Errors.CerebrumError('Invalid characters in projectname: %s' % m.group())
+            raise Errors.CerebrumError(
+                'Invalid characters in projectname: %s' % m.group())
         if len(name) < 3:
             raise Errors.CerebrumError('Project name too short')
         if len(name) > 8:  # TBD: or 6?
@@ -158,7 +155,8 @@ class OUTSDMixin(OU, EntityTrait):
         ret = self.get_external_id(id_type=self.const.externalid_project_id)
         if ret:
             return ret[0]['external_id']
-        raise Errors.NotFoundError('Mandatory project ID not found for %s' % self.entity_id)
+        raise Errors.NotFoundError(
+            'Mandatory project ID not found for %s' % self.entity_id)
 
     def get_project_int(self):
         """Shortcut for getting the "integer" for the project.
@@ -167,7 +165,6 @@ class OUTSDMixin(OU, EntityTrait):
         now, is this mapped from the number in the project ID, so p01 would
         become 1 and p21 would become 21. This might be changed in the future
         when we reach p99.
-
         """
         projectid = self.get_project_id()
         return int(projectid[1:])
@@ -179,15 +176,13 @@ class OUTSDMixin(OU, EntityTrait):
 
         @rtype: bool
         @return: True if the project is approved.
-
         """
-        return not tuple(self.get_entity_quarantine(type=self.const.quarantine_not_approved,
-                                                    only_active=True))
+        return not tuple(self.get_entity_quarantine(
+            type=self.const.quarantine_not_approved,
+            only_active=True))
 
     def add_name_with_language(self, name_variant, name_language, name):
-        """Override to be able to verify project names (acronyms).
-
-        """
+        """Override to be able to verify project names (acronyms)."""
         if name_variant == self.const.ou_name_acronym:
             # TODO: Do we accept *changing* project names?
 
@@ -215,21 +210,27 @@ class OUTSDMixin(OU, EntityTrait):
             except DatabaseError:
                 # Raised by tsd_project_id_seq
                 raise Errors.CerebrumError('No more available project IDs!')
-            # The next test seems silly, but the sequence object is new compared to
-            # TSD. It doesn't do much extra to have this test + loop, and it is
-            # a simple method to sync tsd_project_id_seq with old project ids.
-            if not list(self.list_external_ids(id_type=self.const.externalid_project_id,
-                        external_id=candidate)):
+            # The next test seems silly, but the sequence object is new
+            # compared to TSD. It doesn't do much extra to have this
+            # test + loop, and it is a simple method to sync tsd_project_id_seq
+            # with old project ids.
+            if not list(self.list_external_ids(
+                    id_type=self.const.externalid_project_id,
+                    external_id=candidate)
+            ):
                 return candidate
 
     def populate_external_id(self, source_system, id_type, external_id):
         """Subclass to avoid changing the project IDs and reuse them."""
         # Check that the ID is not in use:
         if id_type == self.const.externalid_project_id:
-            for row in self.list_external_ids(id_type=id_type, external_id=external_id):
+            for row in self.list_external_ids(id_type=id_type,
+                                              external_id=external_id):
                 raise Errors.CerebrumError("Project ID already in use")
 
-        return self.__super.populate_external_id(source_system, id_type, external_id)
+        return self.__super.populate_external_id(source_system,
+                                                 id_type,
+                                                 external_id)
 
     def create_project(self, project_name):
         """Shortcut for creating a project in TSD with necessary data.
@@ -237,19 +238,19 @@ class OUTSDMixin(OU, EntityTrait):
         Note that this method calls `write_db`.
 
         :param str project_name:
-            A unique, short project name to use to identify the project. This is
-            not the *project ID*, which is created automatically.
+            A unique, short project name to use to identify the project.
+            This is not the *project ID*, which is created automatically.
 
         :rtype: str
         :return:
             The generated project ID for the new project. `self` is populated
             with the new project.
-
         """
         # Check if given project name is already in use:
-        if tuple(self.search_tsd_projects(name=project_name, exact_match=True)):
-            raise Errors.CerebrumError('Project name already taken: %s' %
-                                       project_name)
+        if tuple(self.search_tsd_projects(name=project_name,
+                                          exact_match=True)):
+            raise Errors.CerebrumError(
+                'Project name already taken: %s' % project_name)
         self.populate()
         self.write_db()
         # Generate a project ID:
@@ -289,7 +290,6 @@ class OUTSDMixin(OU, EntityTrait):
 
         :param int vlan:
             If given, sets the VLAN number to give to the project's subnets.
-
         """
         if not self.is_approved():
             raise Errors.CerebrumError("Project is not approved, cannot setup")
@@ -305,7 +305,6 @@ class OUTSDMixin(OU, EntityTrait):
         @param creator_id:
             The creator of the project. Either the entity_id of the
             administrator that created the project or a system user.
-
         """
         projectid = self.get_project_id()
         gr = Factory.get("PosixGroup")(self._db)
@@ -326,7 +325,6 @@ class OUTSDMixin(OU, EntityTrait):
             @type spreads: list of str
             @param spreads:
                 A list of strcode for spreads that the group should have.
-
             """
             groupname = '-'.join((projectid, groupname))
             gr.clear()
@@ -349,7 +347,8 @@ class OUTSDMixin(OU, EntityTrait):
                     gr.add_spread(spr)
                     gr.write_db()
 
-        for suffix, desc, spreads in getattr(cereconf, 'TSD_PROJECT_GROUPS', ()):
+        for suffix, desc, spreads in getattr(cereconf,
+                                             'TSD_PROJECT_GROUPS', ()):
             _create_group(suffix, desc, spreads)
 
         def _get_persons_accounts(person_id):
@@ -364,7 +363,6 @@ class OUTSDMixin(OU, EntityTrait):
             @rtype: generator (yielding ints)
             @return:
                 The persons accounts' entity_ids.
-
             """
             return (r['account_id'] for r in
                     ac.list_accounts_by_type(person_id=person_id,
@@ -415,7 +413,6 @@ class OUTSDMixin(OU, EntityTrait):
         :return: An available VLAN number not used by anyone.
 
         :raise Errors.CerebrumError: If no VLAN is available.
-
         """
         taken_vlans = set()
         subnet = dns.Subnet.Subnet(self._db)
@@ -443,12 +440,10 @@ class OUTSDMixin(OU, EntityTrait):
             If given, overrides what VLAN number to set for the project's
             subnets, as long as it is larger than `cereconf.SUBNET_START`.
             If set to None, the first free VLAN will be chosen.
-
         """
         projectid = self.get_project_id()
         etrait = EntityTrait(self._db)
-
-        if vlan is None:
+        if not vlan:
             vlan = self.get_next_free_vlan()
         try:
             vlan = int(vlan)
@@ -498,17 +493,15 @@ class OUTSDMixin(OU, EntityTrait):
         :rtype: tuple of strings
         :return: The (ipv4, ipv6) subnet.
         """
-        # This algorithm will only work until we hit project number 32768, at that
-        # point the subnets will be invalid, like: 10.256.0.0/24
+        # This algorithm will only work until we hit project number 32768,
+        # at that point the subnets will be invalid, like: 10.256.0.0/24
         if project_id > 32767:
-            raise Errors.CerebrumError('Project ID cannot be higher than 32767')
-
+            raise Errors.CerebrumError(
+                'Project ID cannot be higher than 32767')
         # we start at 10.128.0.0/24 for project_id=0
         n = 32768 + project_id
-
         # second octet, third octet
         quotient, remainder = divmod(n, 256)
-
         return (cereconf.SUBNET_START % (quotient, remainder),
                 cereconf.SUBNET_START_6 % hex(n)[2:])
 
@@ -541,8 +534,9 @@ class OUTSDMixin(OU, EntityTrait):
         """Setup POSIX data for the project."""
         ac = Factory.get('Account')(self._db)
         pu = Factory.get('PosixUser')(self._db)
-        for row in ac.list_accounts_by_type(ou_id=self.entity_id,
-                                            affiliation=self.const.affiliation_project):
+        for row in ac.list_accounts_by_type(
+                ou_id=self.entity_id,
+                affiliation=self.const.affiliation_project):
             ac.clear()
             ac.find(row['account_id'])
             pu.clear()
@@ -569,7 +563,6 @@ class OUTSDMixin(OU, EntityTrait):
         :rtype: DnsOwner object
         :return:
             The DnsOwner object that is created or updated.
-
         """
         dns_owner = dns.DnsOwner.DnsOwner(self._db)
         dnsfind = dns.Utils.Find(self._db, cereconf.DNS_DEFAULT_ZONE)
@@ -585,12 +578,10 @@ class OUTSDMixin(OU, EntityTrait):
             dns_owner.populate(self.const.DnsZone(cereconf.DNS_DEFAULT_ZONE),
                                hostname)
             dns_owner.write_db()
-
         # Affiliate with project:
         dns_owner.populate_trait(self.const.trait_project_host,
                                  target_id=self.entity_id)
         dns_owner.write_db()
-
         for (subnets, ipnum, record, ipstr) in (
                 (self.ipv6_subnets, ipv6number, aaaarecord, "IPv6"),
                 (self.ipv4_subnets, ipnumber, arecord, "IPv4")):
@@ -604,7 +595,6 @@ class OUTSDMixin(OU, EntityTrait):
             ipnum.write_db()
             record.populate(dns_owner.entity_id, ipnum.entity_id)
             record.write_db()
-
         return dns_owner
 
     def get_project_subnets(self):
@@ -614,15 +604,14 @@ class OUTSDMixin(OU, EntityTrait):
         affiliations traits for subnets, as that is how
         subnet-to-project-affiliations are represented.
 
-        Both IPv4 and IPv6 subnets are returned. The type could be identified by
-        each returned element's item `entity_type` (and `code`, as it's two
+        Both IPv4 and IPv6 subnets are returned. The type could be identified
+        by each returned element's item `entity_type` (and `code`, as it's two
         different trait types).
 
         :rtype: generator
-        :return: A list of traits db-rows for each subnet. Each element's values
-            that might be relevant are `entity_id`, `entity_type`, `code` and
-            `date`. The other values might not be used.
-
+        :return: A list of traits db-rows for each subnet. Each element's
+            values that might be relevant are `entity_id`, `entity_type`,
+            `code` and `date`. The other values might not be used.
         """
         for row in self.list_traits(code=(self.const.trait_project_subnet6,
                                           self.const.trait_project_subnet),
@@ -650,7 +639,6 @@ class OUTSDMixin(OU, EntityTrait):
 
         @rtype: set
         @return: A set of identifiers for each pre approved person.
-
         """
         tr = self.get_trait(self.const.trait_project_persons_accepted)
         if tr is None:
@@ -665,7 +653,6 @@ class OUTSDMixin(OU, EntityTrait):
 
         @type ids: iterator
         @param ids: All the external IDs for all the pre approved persons.
-
         """
         approvals = self.get_pre_approved_persons()
         approvals.update(ids)
@@ -681,11 +668,9 @@ class OUTSDMixin(OU, EntityTrait):
 
         For the OU object, it does almost the same as L{delete} except from
         deleting the entity itself.
-
         """
         self.write_db()
         ent = EntityTrait(self._db)
-
         # Delete affiliated entities
         # Delete the project's users:
         ac = Factory.get('Account')(self._db)
@@ -718,7 +703,6 @@ class OUTSDMixin(OU, EntityTrait):
                 pass
             gr.find(row['entity_id'])
             gr.delete()
-
         # Delete all subnets
         subnet = dns.Subnet.Subnet(self._db)
         subnet6 = dns.IPv6Subnet.IPv6Subnet(self._db)
@@ -737,14 +721,13 @@ class OUTSDMixin(OU, EntityTrait):
                 subnet6.clear()
                 subnet6.find(row['entity_id'])
                 subnet6.delete()
-
         # Remove all project's DnsOwners (hosts):
         dnsowner = dns.DnsOwner.DnsOwner(self._db)
         for row in ent.list_traits(code=self.const.trait_project_host,
                                    target_id=self.entity_id):
             # TODO: Could we instead update the Subnet classes to use
-            # Factory.get('Entity'), and make use of EntityTrait there to handle
-            # this?
+            # Factory.get('Entity'), and make use of EntityTrait there to
+            # handle this?
             ent.clear()
             ent.find(row['entity_id'])
             ent.delete_trait(row['code'])
@@ -752,8 +735,8 @@ class OUTSDMixin(OU, EntityTrait):
             dnsowner.clear()
             dnsowner.find(row['entity_id'])
             dnsowner.delete()
-
-        # Remove all data from the OU except for the project ID and project name
+        # Remove all data from the OU except for:
+        # The project ID and project name
         for tr in tuple(self.get_traits()):
             self.delete_trait(tr)
         for row in self.get_spread():
@@ -761,7 +744,8 @@ class OUTSDMixin(OU, EntityTrait):
         for row in self.get_contact_info():
             self.delete_contact_info(row['source_system'], row['contact_type'])
         for row in self.get_entity_address():
-            self.delete_entity_address(row['source_system'], row['address_type'])
+            self.delete_entity_address(row['source_system'],
+                                       row['address_type'])
         for row in self.search_name_with_language(entity_id=self.entity_id):
             # The project name must not be removed, to avoid reuse
             if row['name_variant'] == self.const.ou_name_acronym:
