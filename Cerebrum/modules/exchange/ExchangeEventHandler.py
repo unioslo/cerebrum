@@ -399,6 +399,16 @@ class ExchangeEventHandler(processing.Process):
                 ev_mod['subject_entity'] = etid
                 self.ut.log_event(ev_mod, 'email_primary_address:add_primary')
 
+            # Activate SingleItemRecoveryEnabled
+            try:
+                self.ec.set_mailbox_singleitemrecovery(uname,
+                                                   enabled=True)
+            except (ExchangeException, ServerUnavailableException), e:
+                self.logger.warn(
+                    'eid:%d: Failed enabling singleitemrecovery for %s',
+                    event['event_id'], uname)
+                self.ut.log_event(event, 'exchange:item_recovery')
+
             if not hide_from_address_book:
                 try:
                     self.ec.set_mailbox_visibility(
@@ -1632,6 +1642,32 @@ class ExchangeEventHandler(processing.Process):
         else:
             # TODO: Will we ever arrive here? Log this?
             raise UnrelatedEvent
+
+    @EventDecorator.RegisterHandler(['exchange:item_recovery'])
+    def set_item_recovery(self, event):
+        """ Set SingleItemRecovery for mailboxes
+
+        :type event: Cerebrum.extlib.db_row.row
+        :param event: The event returned from Change- or EventLog
+        """
+        try:
+            name = self.ut.get_account_name(event['subject_entity'])
+        except Errors.NotFoundError:
+            raise UnrelatedEvent
+
+        try:
+            self.ec.set_mailbox_singleitemrecovery(name, enabled=True)
+            self.logger.info('eid:%d: SIR %s on %s' % \
+                             (event['event_id'],
+                              ('enabled' if enabled else 'disabled'),
+                              name))
+        except (ExchangeException, ServerUnavailableException), e:
+            self.logger.warn(
+                    'eid:%d: Can\'t %s SIR on account %s: %s' \
+                    % (event['event_id'],
+                       ('enabled' if enabled else 'disabled'),
+                       name, e))
+            raise EventExecutionException
 
     @EventDecorator.RegisterHandler(['exchange:set_ea_policy'])
     def set_address_policy(self, event):

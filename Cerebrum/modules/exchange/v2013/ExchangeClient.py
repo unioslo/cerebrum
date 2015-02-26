@@ -493,7 +493,6 @@ class ExchangeClient(PowershellClient):
                   'Alias': uname,
                   'Name': uname,
                   'DisplayName': display_name,
-                  'SingleItemRecoveryEnabled': True,
                   }
 
         if first_name:
@@ -630,6 +629,27 @@ class ExchangeClient(PowershellClient):
                 'Set-Mailbox',
                {'Identity': uname,
                 'EmailAddressPolicyEnabled': enabled})
+        out = self.run(cmd)
+        if out.has_key('stderr'):
+            raise ExchangeException(out['stderr'])
+        else:
+            return True
+
+    def set_mailbox_singleitemrecovery(self, uname, enabled=True):
+        """Set SingleItemRecoveryEnabled for a mailbox.
+
+        :type uname: string
+        :param uname: The username to look up associated malbox by
+
+        :type enabled: bool
+        :param enabled: Enable or disable SingleItemRecoveryEnabled
+
+        :raise ExchangeException: If the command failed to run for some reason
+        """
+        cmd = self._generate_exchange_command(
+                'Set-Mailbox',
+                {'Identity': uname,
+                 'SingleItemRecoveryEnabled': enabled})
         out = self.run(cmd)
         if out.has_key('stderr'):
             raise ExchangeException(out['stderr'])
