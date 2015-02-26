@@ -1,3 +1,14 @@
+2015-02-26  Karen   <cerebrum@cleomedes.uit.no>
+
+    * generate_temp_employee_xml.py: Replaced "Factory.get('Stedkode')(db)" with "Stedkode(db)".
+
+    * generate_temp_employee_xml.py (get_persons): Replaced deprecated use of OU.acronym with 
+    OU.get_name_with_language().
+
+    * generate_temp_employee_xml.py (get_persons): Added try-except block around call to 
+    account.get_primary_mailaddress() to handle situations where an account has no primary 
+    email address in the database.
+
 2015-02-25  Karen   <cerebrum@cleomedes.uit.no>
 
     * export_safecom.py: Added to repo. Copied from Leetah.

@@ -46,13 +46,15 @@ import cereconf
 from Cerebrum import Utils
 from Cerebrum.Utils import Factory
 from Cerebrum import Group
+from Cerebrum.modules.no.Stedkode import Stedkode
+from Cerebrum import Errors
 db = Factory.get('Database')()
 group = Factory.get('Group')(db)
 person = Factory.get('Person')(db)
 const = Factory.get('Constants')(db)
 account = Factory.get('Account')(db)
 ou = Factory.get('OU')(db)
-sko = Factory.get('Stedkode')(db)
+sko = Stedkode(db)
 #
 # Global variables
 #
@@ -330,7 +332,11 @@ def get_persons(aff_status):
                 account.clear()
                 account.find(acc_id)
                 acc_name = account.get_account_name()
-                email = account.get_primary_mailaddress()
+                try:
+                    email = account.get_primary_mailaddress()
+                except Errors.NotFoundError:
+                    logger.warning("Account %s (%s) has no primary email address", acc_id, acc_name)
+                    email = None
                 sko.clear()
                 try:
                     sko.find(row['ou_id'])
@@ -357,7 +363,7 @@ def get_persons(aff_status):
                 ou.clear()
                 ou.find(my_ou_id)
                 #faculty_name = ou.name
-                faculty_name = ou.acronym
+                faculty_name = ou.get_name_with_language(const.ou_name_acronym, const.language_nb, default='')
                 logger.debug("collecting person from BAS: %s, %s, %s, %s, %s" % (decoded_external_id,acc_name,faculty_name,email,my_stedkode))
                 person_node = temp_vit_person(decoded_external_id,acc_name,faculty_name,email,my_stedkode)
                 person_list.append(person_node)
