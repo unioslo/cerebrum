@@ -9,6 +9,8 @@
     account.get_primary_mailaddress() to handle situations where an account has no primary 
     email address in the database.
 
+    * export_securimaster.py: Added to repo. Copied from Leetah.
+
 2015-02-25  Karen   <cerebrum@cleomedes.uit.no>
 
     * export_safecom.py: Added to repo. Copied from Leetah.
