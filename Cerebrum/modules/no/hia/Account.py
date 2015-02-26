@@ -100,21 +100,26 @@ class AccountHiAMixin(Account.Account):
             # non-existent).
             self._update_email_server(spread, force=True)
             self.write_db()
-            # Look up the domain that the user must have an email-address in,
+
+            # Look up the domains that the user must have an email-address in,
             # for the cloud stuff to work.
             ed = Email.EmailDomain(self._db)
-            ed.find_by_domain(cereconf.EMAIL_CLOUD_DOMAIN)
-            # Ensure that the <uname>@thedomainfoundabove.uia.no address
-            # exists.
             ea = Email.EmailAddress(self._db)
-            try:
-                ea.find_by_local_part_and_domain(self.account_name,
-                                                 ed.entity_id)
-            except Errors.NotFoundError:
-                et = Email.EmailTarget(self._db)
-                et.find_by_target_entity(self.entity_id)
-                ea.populate(self.account_name, ed.entity_id, et.entity_id)
-                ea.write_db()
+
+            for domain in cereconf.EMAIL_OFFICE_365_DOMAINS:
+                ed.clear()
+                ed.find_by_domain(domain)
+                # Ensure that the <uname>@thedomainfoundabove.uia.no address
+                # exists.
+                try:
+                    ea.clear()
+                    ea.find_by_local_part_and_domain(self.account_name,
+                                                     ed.entity_id)
+                except Errors.NotFoundError:
+                    et = Email.EmailTarget(self._db)
+                    et.find_by_target_entity(self.entity_id)
+                    ea.populate(self.account_name, ed.entity_id, et.entity_id)
+                    ea.write_db()
 
         # (Try to) perform the actual spread addition.
         ret = self.__super.add_spread(spread)
