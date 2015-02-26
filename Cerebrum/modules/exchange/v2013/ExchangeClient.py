@@ -493,6 +493,7 @@ class ExchangeClient(PowershellClient):
                   'Alias': uname,
                   'Name': uname,
                   'DisplayName': display_name,
+                  'SingleItemRecoveryEnabled': True,
                   }
 
         if first_name:
