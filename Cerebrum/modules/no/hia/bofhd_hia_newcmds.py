@@ -232,7 +232,7 @@ class BofhdExtension(BofhdCommonMethods,
                 BofhdExtension.all_commands[func] = UiOBofhdExtension.all_commands[func]
 
         #
-        # Importing hidden_commands for Brukerinfo. 
+        # Importing hidden_commands for Brukerinfo.
         # TODO: This is quick, dirty, bad and ugly.
         BofhdExtension.hidden_commands = UiOBofhdExtension.hidden_commands.copy()
 
@@ -409,7 +409,7 @@ class BofhdExtension(BofhdCommonMethods,
         acc = self._get_account(uname)
         self.ba.can_email_move(operator.get_entity_id(), acc)
         # raise error if no e-mail account exist in IMAP
-        if (not acc.has_spread(self.const.spread_hia_email) or 
+        if (not acc.has_spread(self.const.spread_hia_email) or
                 not acc.has_spread(self.const.spread_exchange_acc_old)):
             raise CerebrumError("No mail spread to migrate from for %s" % uname)
         et = Email.EmailTarget(self.db)
@@ -432,7 +432,7 @@ class BofhdExtension(BofhdCommonMethods,
             acc.add_spread(self.const.spread_exchange_account)
             acc.write_db()
         return "OK, migrating %s to Exchange" % (uname)
-    
+
     # email move
     #
     all_commands['email_move'] = Command(
@@ -451,7 +451,7 @@ class BofhdExtension(BofhdCommonMethods,
         et.email_server_id = es.entity_id
         et.write_db()
         return "OK, updated e-mail server for %s (to %s)" % (uname, server)
-    
+
     # mailman-stuff:
     _interface2addrs = {
         'post': ["%(local_part)s@%(domain)s"],
@@ -747,7 +747,7 @@ class BofhdExtension(BofhdCommonMethods,
             ret.append({'ekskode': row['emnekode'],
                         'programmer': ",".join(programmer),
                         'dato': DateTime.DateTimeFromTicks(row['dato_opprettet'])})
-                      
+
         for row in fs.student.get_utdanningsplan(fodselsdato, pnum):
             ret.append({'studieprogramkode': row['studieprogramkode'],
                         'terminkode_bekreft': row['terminkode_bekreft'],
@@ -852,7 +852,7 @@ class BofhdExtension(BofhdCommonMethods,
         account.set_home(int(self._get_constant(self.const.Spread, spread)), homedir_id)
         account.write_db()
         return "Home made for %s in spread %s" % (accountname, spread)
-    
+
     # user info
     #
     all_commands['user_info'] = Command(
@@ -882,7 +882,7 @@ class BofhdExtension(BofhdCommonMethods,
                               ('note_id', 'note_subject', 'note_description'))]))
     def user_info(self, operator, accountname):
         is_posix = False
-        try: 
+        try:
             account = self._get_account(accountname, actype="PosixUser")
             is_posix = True
         except CerebrumError:
@@ -1109,7 +1109,7 @@ class BofhdExtension(BofhdCommonMethods,
         if th._hdr is not None:
             out.write(th._hdr)
         ret = []
-        
+
         num_ok = 0
         for n in self._parse_range(selection):
             n -= 1
@@ -1118,7 +1118,7 @@ class BofhdExtension(BofhdCommonMethods,
                 account = self._get_account(cache[n]['account_id'])
             except IndexError:
                 raise CerebrumError("Number not in valid range")
-            
+
             mapping = {'uname': cache[n]['account_id'],
                        'password': cache[n]['password'],
                        'account_id': account.entity_id,
@@ -1133,7 +1133,7 @@ class BofhdExtension(BofhdCommonMethods,
             if account.owner_type == self.const.entity_group:
                 grp = self._get_group(account.owner_id, idtype='id')
                 mapping['fullname'] = 'group:%s' % grp.group_name
-            elif account.owner_type == self.const.entity_person:    
+            elif account.owner_type == self.const.entity_person:
                 person = self._get_person('entity_id', account.owner_id)
                 fullname = person.get_name(self.const.system_cached, self.const.name_full)
                 mapping['fullname'] =  fullname
@@ -1323,12 +1323,12 @@ class BofhdExtension(BofhdCommonMethods,
     #
     def user_create_prompt_func(self, session, *args):
         return self._user_create_prompt_func_helper('PosixUser', session, *args)
-    
+
     # user_create_basic_prompt_func
     #
     def user_create_basic_prompt_func(self, session, *args):
         return self._user_create_prompt_func_helper('Account', session, *args)
-    
+
     #
     # user create
     all_commands['user_create'] = Command(
@@ -1360,7 +1360,7 @@ class BofhdExtension(BofhdCommonMethods,
             else:
                 if owner_type != self.const.entity_group:
                     raise CerebrumError("Personal account names cannot contain capital letters")
-            
+
         filegroup = 'ansatt'
         group = self._get_group(filegroup, grtype="PosixGroup")
         posix_user = Factory.get('PosixUser')(self.db)
@@ -1374,7 +1374,7 @@ class BofhdExtension(BofhdCommonMethods,
         self.ba.can_create_user(operator.get_entity_id(), owner_id, disk_id)
 
         posix_user.populate(uid, group.entity_id, gecos, shell, name=uname,
-                            owner_type=owner_type, owner_id=owner_id, 
+                            owner_type=owner_type, owner_id=owner_id,
                             np_type=np_type, creator_id=operator.get_entity_id(),
                             expire_date=expire_date)
         try:
@@ -1395,12 +1395,13 @@ class BofhdExtension(BofhdCommonMethods,
                 if not int(self.const.Spread(email_spread)) in \
                                 [int(self.const.spread_exchange_account),
                                  int(self.const.spread_exchange_acc_old),
+                                 int(self.const.spread_uia_office_365),
                                  int(self.const.spread_hia_email)]:
                     raise CerebrumError, "Not an e-mail spread: %s!" % email_spread
             try:
                 posix_user.add_spread(self.const.Spread(email_spread))
             except Errors.NotFoundError:
-                raise CerebrumError, "No such spread %s" % spread                            
+                raise CerebrumError, "No such spread %s" % spread
             # And, to write the new password to the database, we have
             # to .write_db() one more time...
             posix_user.write_db()
@@ -1414,19 +1415,19 @@ class BofhdExtension(BofhdCommonMethods,
                                                     'password': passwd})
         self._meld_inn_i_server_gruppe(int(posix_user.entity_id), operator)
         self._add_radiusans_spread(int(posix_user.entity_id), operator)
-        
+
         return "Ok, create %s" % {'uid': uid}
 
     # helper func, let new account join a random AD-server group
     #
     def _meld_inn_i_server_gruppe(self, acc_id, operator):
-        import random 
+        import random
         grp_choice = random.choice(cereconf.AD_OTHERS_FILEGROUPS)
         grp = Utils.Factory.get("Group")(self.db)
         grp.clear()
         grp.find_by_name(grp_choice)
         grp.add_member(acc_id)
-        
+
     # helper func, set radius-ans spread for employees
     def _add_radiusans_spread(self, acc_id, operator):
         acc = Utils.Factory.get('Account')(self.db)
@@ -1452,7 +1453,7 @@ class BofhdExtension(BofhdCommonMethods,
                                        int(self.const.affiliation_tilknyttet)):
                 return True
         return False
-            
+
     # user move
     #
     all_commands['user_move_nofile'] = Command(
@@ -1479,13 +1480,13 @@ class BofhdExtension(BofhdCommonMethods,
                             disk_id=disk_id)
         account.set_home(spread, ah['homedir_id'])
         account.write_db()
-        return "Ok, user %s moved." % accountname        
+        return "Ok, user %s moved." % accountname
 
 
     all_commands['user_migrate_exchange'] = Command(
-        ("user", "migrate_exchange"), 
+        ("user", "migrate_exchange"),
         AccountName(help_ref="account_name", repeat=True),
-        SimpleString(help_ref='string_mdb'),        
+        SimpleString(help_ref='string_mdb'),
         perm_filter='is_superuser')
     def user_migrate_exchange(self, operator, uname, mdb):
         account = self._get_account(uname)
@@ -1495,16 +1496,16 @@ class BofhdExtension(BofhdCommonMethods,
         mdb = mdb.strip()
         if not mdb in cereconf.EXCHANGE_HOMEMDB_VALID:
             raise CerebrumError, "Unvalid mdb"
-        # Set new mdb value            
+        # Set new mdb value
         account.populate_trait(self.const.trait_exchange_mdb, strval=mdb)
         # Mark that account is being migrated
-        account.populate_trait(self.const.trait_exchange_under_migration)        
+        account.populate_trait(self.const.trait_exchange_under_migration)
         account.write_db()
         return "OK, mdb stored for user %s" % uname
 
 
     all_commands['user_migrate_exchange_finished'] = Command(
-        ("user", "migrate_exchange_finished"), 
+        ("user", "migrate_exchange_finished"),
         AccountName(help_ref="account_name", repeat=True),
         perm_filter='is_superuser')
     def user_migrate_exchange_finished(self, operator, uname):
@@ -1523,7 +1524,7 @@ class BofhdExtension(BofhdCommonMethods,
     def _get_phone_number(self, person_id, phone_types):
         """Search through a person's contact info and return the first found info
         value as defined by the given types and source systems.
-        
+
         @type  person_id: integer
         @param person_id: Entity ID of the person
 
