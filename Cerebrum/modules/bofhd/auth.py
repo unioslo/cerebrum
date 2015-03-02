@@ -1308,43 +1308,32 @@ class BofhdAuth(DatabaseAccessor):
                             aff_status=None, query_run_any=False):
         if self.is_superuser(operator):
             return True
-        # TODO (at a later time): Determine how 'auth_add_affiliation' and
-        # 'auth_remove_affiliation' should be connected to ou etc.
+        # TODO (at a later time): add 'auth_add_affiliation',
+        # 'auth_remove_affiliation'.  Determine how these should be
+        # connected to ou etc.
+        # Currently we allow anyone that can create users to
+        # add/remove any affiliation of type manuell
         if query_run_any:
-            if self._has_operation_perm_somewhere(operator,
-                                                  self.const.auth_add_affiliation):
+            if self._has_operation_perm_somewhere(operator, self.const.auth_create_user):
                 return True
             return False
-        if aff_status is None:
-            raise PermissionDenied("Affiliation status required")
-        aff_with_status = "%s/%s" % (aff, aff_status)
-        if self._has_target_permissions(operator,
-                                        self.const.auth_add_affiliation,
-                                        self.const.auth_target_type_ou,
-                                        person.entity_id, person.entity_id,
-                                        aff_with_status):
+        if (aff == self.const.affiliation_manuell and
+            self._has_operation_perm_somewhere(operator, self.const.auth_create_user)):
             return True
-        raise PermissionDenied("No access for combination %s on person %s in "
-                               "OU %s%s%s" % (aff_with_status, person.entity_id,
-                               ou.fakultet, ou.institutt, ou.avdeling))
+        raise PermissionDenied("No access for that person affiliation combination")
 
     def can_remove_affiliation(self, operator, person=None, ou=None,
                                aff=None, query_run_any=False):
         if self.is_superuser(operator):
             return True
         if query_run_any:
-            if self._has_operation_perm_somewhere(operator,
-                                                  self.const.auth_remove_affiliation):
+            if self._has_operation_perm_somewhere(operator, self.const.auth_create_user):
                 return True
             return False
-        if self._has_target_permissions(operator, self.const.auth_remove_affiliation,
-                                        self.const.auth_target_type_ou,
-                                        person.entity_id, person.entity_id,
-                                        aff):
+        if (aff == self.const.affiliation_manuell and
+            self._has_operation_perm_somewhere(operator, self.const.auth_create_user)):
             return True
-        raise PermissionDenied("No access for affiliation %s on person %s in "
-                               "OU %s%s%s" % (aff, person.entity_id,
-                               ou.fakultet, ou.institutt, ou.avdeling))
+        raise PermissionDenied("Currently limited to superusers")
 
     def can_create_user(self, operator, person=None, disk=None,
                         query_run_any=False):

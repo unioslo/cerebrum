@@ -5637,16 +5637,7 @@ Addresses and settings:
         if not self.ba.is_postmaster(operator.get_entity_id()):
             raise PermissionDenied('No access to group')
 
-        try:
-            grp = self._get_group(groupname, grtype="DistributionGroup")
-        except CerebrumError:
-            if groupname.startswith('gid:'):
-                gid = groupname.split(':',1)[1]
-                raise CerebrumError(
-                    "Could not find DistributionGroup with gid=%s" % gid)
-            else:
-                raise CerebrumError(
-                    "Could not find DistributionGroup with name=%s" % groupname)
+        grp = self._get_group(groupname, grtype="DistributionGroup")
 
         co = self.const
         gr_info = self._entity_info(grp)
@@ -5993,6 +5984,7 @@ Addresses and settings:
     #  group def
     all_commands['group_def'] = Command(
         ('group', 'def'), AccountName(), GroupName(help_ref="group_name_dest"))
+
     def group_def(self, operator, accountname, groupname):
         account = self._get_account(accountname, actype="PosixUser")
         grp = self._get_group(groupname, grtype="PosixGroup")
@@ -6005,9 +5997,9 @@ Addresses and settings:
 
     # group delete
     all_commands['group_delete'] = Command(
-        ("group", "delete"), GroupName(), YesNo(help_ref="yes_no_force", default="No"),
-        perm_filter='can_delete_group')
-    def group_delete(self, operator, groupname, force=None):
+        ("group", "delete"), GroupName(), perm_filter='can_delete_group')
+
+    def group_delete(self, operator, groupname):
         grp = self._get_group(groupname)
         self.ba.can_delete_group(operator.get_entity_id(), grp)
         if grp.group_name == cereconf.BOFHD_SUPERUSER_GROUP:
@@ -6017,23 +6009,18 @@ Addresses and settings:
         # bofh, as that would "orphan" e-mail target. if need be such groups
         # should be nuked using a cerebrum-side script.
         try:
-            dl_group = self._get_group(groupname,
-                                       grtype="DistributionGroup")
-            return "Cannot delete distribution groups, use 'group exchangegroup_remove' to deactivate %s" % groupname
+            self._get_group(groupname, grtype="DistributionGroup")
+            return ("Cannot delete distribution groups, use 'group "
+                    "exchangegroup_remove' to deactivate %s" % groupname)
         except CerebrumError:
-            pass # not a distribution group
-        if self._is_yes(force):
-            try:
-                pg = self._get_group(groupname, grtype="PosixGroup")
-                pg.delete()
-            except CerebrumError:
-                pass   # Not a PosixGroup
-            except self.db.DatabaseError, msg:
-                if re.search("posix_user_gid", str(msg)):
-                    raise CerebrumError(
-                        "Assigned as primary group for posix user(s).  "+
-                        "Use 'group list %s'" % grp.group_name)
-                raise
+            pass  # Not a distribution group
+        try:
+            self._get_group(groupname, grtype="PosixGroup")
+            return ("This is a posix group, use 'group demote_posix "
+                    "%s' before deleting.") % groupname
+        except CerebrumError:
+            pass  # Not a PosixGroup
+
         self._remove_auth_target("group", grp.entity_id)
         self._remove_auth_role(grp.entity_id)
         try:
@@ -6041,12 +6028,12 @@ Addresses and settings:
         except self.db.DatabaseError, msg:
             if re.search("group_member_exists", str(msg)):
                 raise CerebrumError(
-                    "Group is member of groups.  "+
-                    "Use 'group memberships group %s'" % grp.group_name)
+                    ("Group is member of groups.  "
+                     "Use 'group memberships group %s'") % grp.group_name)
             elif re.search("account_info_owner", str(msg)):
                 raise CerebrumError(
-                    "Group is owner of an account.  "+
-                    "Use 'entity accounts group %s'" % grp.group_name)
+                    ("Group is owner of an account.  "
+                     "Use 'entity accounts group %s'") % grp.group_name)
             raise
         return "OK, deleted group '%s'" % groupname
 
@@ -6425,10 +6412,20 @@ Addresses and settings:
     # group posix_demote
     all_commands['group_demote_posix'] = Command(
         ("group", "demote_posix"), GroupName(), perm_filter='can_delete_group')
+
     def group_demote_posix(self, operator, group):
-        grp = self._get_group(group, grtype="PosixGroup")
+        try:
+            grp = self._get_group(group, grtype="PosixGroup")
+        except self.db.DatabaseError, msg:
+            if "posix_user_gid" in str(msg):
+                raise CerebrumError(
+                    ("Assigned as primary group for posix user(s). "
+                     "Use 'group list %s'") % grp.group_name)
+            raise
+
         self.ba.can_delete_group(operator.get_entity_id(), grp)
         grp.delete()
+
         return "OK, demoted '%s'" % group
 
     # group search
@@ -10484,38 +10481,6 @@ Password altered. Use misc list_password to print or view the new password.%s'''
             return host
         except Errors.NotFoundError:
             raise CerebrumError, "Unknown host: %s" % name
-
-    def _get_group(self, id, idtype=None, grtype="Group"):
-        group = None
-        if grtype == "DistributionGroup":
-            group = Utils.Factory.get("DistributionGroup")(self.db)
-        else:
-            return super(BofhdExtension, self)._get_group(id, idtype=idtype,
-                                                          grtype=grtype)
-
-        # This is almost a re-implementation of super._get_group. Maybe this
-        # should have a better implementation to avoid 'reuse'?
-        try:
-            group.clear()
-            if idtype is None:
-                if id.count(':'):
-                    idtype, id = id.split(':', 1)
-                else:
-                    idtype='name'
-            if idtype == 'name':
-                group.find_by_name(id)
-            elif idtype == 'id':
-                if not (isinstance(id, (int, long)) or id.isdigit()):
-                    raise CerebrumError, "Non-numeric id lookup (%s)" % id
-                group.find(id)
-            elif idtype == 'gid':
-                raise Errors.NotFoundError
-            else:
-                raise CerebrumError, "Unknown idtype: '%s', did you mean name:%s:%s?" % (
-                        idtype, idtype, id)
-        except Errors.NotFoundError:
-            raise CerebrumError, "Could not find %s with %s=%s" % (grtype, idtype, id)
-        return group
 
     def _get_shell(self, shell):
         return self._get_constant(self.const.PosixShell, shell, "shell")
