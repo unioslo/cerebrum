@@ -550,6 +550,7 @@ class BofhdExtension(BofhdCommandBase):
         hostnames = self.dns_parser.parse_hostname_repeat(hostname)
         hinfo = self._map_hinfo_code(hinfo)
 
+        # TODO: Add proper ip validators/parsers
         if '.' in subnet_or_ip:
             s = Subnet.Subnet(self.db)
             a_alloc = self.mb_utils.alloc_arecord
@@ -1132,15 +1133,23 @@ class BofhdExtension(BofhdCommandBase):
                             'target': row['target_name']})
         return ret
 
-
     # host rename
     all_commands['host_rename'] = Command(
         ("host", "rename"), HostId(), HostId(), Force(optional=True),
         perm_filter='is_dns_superuser')
+
     def host_rename(self, operator, old_id, new_id, force=False):
-        if old_id == "" or new_id == "" :
-            raise CerebrumError, "Cannot rename without both an old and a new name."
-        new_id = new_id.lower() # All hostnames need to be lowercased; IP's? meh...
+
+        if old_id == "" or new_id == "":
+            raise CerebrumError(("Cannot rename without both an "
+                                 "old and a new name."))
+
+        if self._ip4_validator(new_id):  # Check if new_id is a valid ip4 addr
+            new_id = self._parse_ip4(new_id)
+        # TODO: Support ipv6?
+        else:  # Assume it's a hostname
+            new_id = new_id.lower()  # All hostnames need to be lowercased
+
         self.ba.assert_dns_superuser(operator.get_entity_id())
         # Make sure that any subnet-formatted "new_ip" gets recognized as such later
         if new_id.find('/') > 0:

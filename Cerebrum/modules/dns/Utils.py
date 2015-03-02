@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import re
 import cereconf
+import socket
 
 from Cerebrum.modules.dns import ARecord
 from Cerebrum.modules.dns import AAAARecord
@@ -32,6 +33,22 @@ class DnsParser(object):
         self._cname = CNameRecord.CNameRecord(self._db)
         self._default_zone = default_zone
 
+    def _ip4_validator(self, ip):
+        try:
+            socket.inet_aton(ip)
+            return True
+        except:
+            return False
+
+    def _parse_ip4(self, ip):
+        parts = ip.split('.')
+        # Strip leading zeroes from each part of ip
+        stripped_parts = [part.lstrip('0') if len(part) > 1
+                          else part for part in parts]
+        parsed_ip = '.'.join(stripped_parts)
+        return parsed_ip
+
+
     def parse_subnet_or_ip(self, ip_id):
         """Parse ip_id either as a subnet, or as an IP-number.
 
@@ -48,8 +65,33 @@ class DnsParser(object):
         """
         tmp = ip_id.split("/")
         ip_id = tmp[0]
-        # Support ulrik/
-        if (not ip_id[0:3].isdigit()) and len(tmp) > 1 and ':' not in ip_id:
+        subnet_slash = len(tmp) > 1
+        full_ip = False
+
+        # TODO: make logic more readable
+        if self._ip4_validator(ip_id):  # ipv4
+            ip_id = self._parse_ip4(ip_id)
+
+            if ip_id.count('.') == 3 and not subnet_slash:
+                full_ip = True
+                # TODO: Allow ip's to end with .0?
+
+            elif ip_id.count('.') == 2 and subnet_slash:  # wtf
+                raise CerebrumError(("Invalid syntax. Valid subnet"
+                                     "requests are for example: "
+                                     "'129.240.200.0/', or '129.240.200'"))
+
+            elif ip_id.count('.') == 2 and not subnet_slash:
+                full_ip = False
+
+            else:
+                raise CerebrumError(("'%s' does not look like a valid subnet"
+                                     "or ip-address.") % ip_id)
+
+        elif ':' in ip_id and not subnet_slash:  # ipv6
+            full_ip = True
+            # TODO: import ipv6 verifier?
+        else:  # If not ipv4 or ipv6, assume a hostname was passed.
             try:
                 self._arecord.clear()
                 self._arecord.find_by_name(self.qualify_hostname(ip_id))
@@ -58,17 +100,35 @@ class DnsParser(object):
             except Errors.NotFoundError:
                 raise CerebrumError("Could not find %s" % ip_id)
             ip_id = self._ip_number.a_ip
-        if (len(ip_id.split(".")) < 3) and ':' not in ip_id:
-            raise CerebrumError("'%s' does not look like a subnet" % ip_id)
-        full_ip = ':' in ip_id or ip_id.count('.') == 3
-        if len(tmp) > 1 or not full_ip:  # Trailing "/" or few octets
-            full_ip = False
+
         try:
             ipc = Find(self._db, None)
             subnet_ip = ipc._find_subnet(ip_id)
         except DNSError:
             subnet_ip = None
+
         return subnet_ip, full_ip and ip_id or None
+        # Support ulrik/
+        # if (not ip_id[0:3].isdigit()) and len(tmp) > 1 and ':' not in ip_id:
+        #     try:
+        #         self._arecord.clear()
+        #         self._arecord.find_by_name(self.qualify_hostname(ip_id))
+        #         self._ip_number.clear()
+        #         self._ip_number.find(self._arecord.ip_number_id)
+        #     except Errors.NotFoundError:
+        #         raise CerebrumError("Could not find %s" % ip_id)
+        #     ip_id = self._ip_number.a_ip
+        # if (len(ip_id.split(".")) < 3) and ':' not in ip_id:
+        #     raise CerebrumError("'%s' does not look like a subnet" % ip_id)
+        # full_ip = ':' in ip_id or ip_id.count('.') == 3
+        # if len(tmp) > 1 or not full_ip:  # Trailing "/" or few octets
+        #     full_ip = False
+        # try:
+        #     ipc = Find(self._db, None)
+        #     subnet_ip = ipc._find_subnet(ip_id)
+        # except DNSError:
+        #     subnet_ip = None
+        # return subnet_ip, full_ip and ip_id or None
 
     def parse_force(self, string):
         if string and not string[0] in ('Y', 'y', 'N', 'n'):
