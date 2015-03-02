@@ -431,9 +431,9 @@ class SAPLonnsTittelKode(Constants._CerebrumCode):
             results = []
 
             if updated_desc is not None:
-                results.append(updated_desc[0])
+                results.extend(updated_desc)
             if updated_kat is not None:
-                results.append(updated_kat[0])
+                results.extend(updated_kat)
             return results
 
     def _update_kategori(self):

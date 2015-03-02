@@ -823,8 +823,7 @@ class ConstantsBase(DatabaseAccessor):
                             update_results = code.update()
                             if update_results is not None:
                                 stats['updated'] += 1
-                                for result in update_results:
-                                    stats['details'].append(result)
+                                stats['details'].extend(update_results)
                             continue
                         raise
                     code.insert()
