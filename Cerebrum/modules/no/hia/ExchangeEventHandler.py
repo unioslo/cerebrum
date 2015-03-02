@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2014 University of Oslo, Norway
+# Copyright 2013-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -32,7 +32,6 @@ import pickle
 import traceback
 import os
 
-from Cerebrum.modules.no.hia.ExchangeClient import UiAExchangeClient
 from Cerebrum.modules.exchange.Exceptions import ExchangeException
 #from Cerebrum.modules.exchange.Exceptions import ObjectNotFoundException
 #from Cerebrum.modules.exchange.Exceptions import ADError
@@ -49,21 +48,10 @@ from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 
 
-# The following code can be used for quick testing of the Cerebrum side
-# of stuff. We fake the client, and always return True :D This way, we
-# can quickly run through a fuckton of events.
-class PI(object):
-    def __init__(self, *args, **kwargs):
-        pass
-
-    def __getattr__(self, a):
-        return lambda *args, **kwargs: True
-#ExchangeClient = PI
-
 class ExchangeEventHandler(processing.Process):
     # Event to method lookup table. Populated by decorators.
     _lut_type2meth = {}
-    def __init__(self, config, event_queue, logger_queue, run_state):
+    def __init__(self, config, event_queue, logger_queue, run_state, mock):
         """ExchangeEventHandler initialization routine
 
         @type config: dict
@@ -80,6 +68,9 @@ class ExchangeEventHandler(processing.Process):
         @type run_state: processing.Value(ctypes.c_int)
         @param run_state: A shared object used to determine if we should
             stop execution or not
+
+        :type mock: bool
+        :param mock: Wether to run in mock-mode or not
         """
         self.event_queue = event_queue
         self.run_state = run_state
@@ -87,7 +78,8 @@ class ExchangeEventHandler(processing.Process):
         # TODO: This is a hack. Fix it
         self.logger_queue = logger_queue
         self.logger = Logger(self.logger_queue)
-        
+        self.mock = mock
+
         super(ExchangeEventHandler, self).__init__()
 
     def _post_fork_init(self):
@@ -107,6 +99,14 @@ class ExchangeEventHandler(processing.Process):
         gen_key = lambda: 'CB%s' \
                 % hex(os.getpid())[2:].upper()
         self.key = gen_key
+
+        if self.mock:
+            self.logger.info('Running in mock-mode')
+            from Cerebrum.modules.no.hia.ExchangeClient \
+                import ClientMock as UiAExchangeClient
+        else:
+            from Cerebrum.modules.no.hia.ExchangeClient \
+                import UiAExchangeClient
 
         # Try to connect to Exchange.
         # We do this in a loop, since if we connect while the springboard is

@@ -282,8 +282,8 @@ function install_crb  # source_dir target_dir
         return 1
     fi
 
-    pushd ${source_dir}
-    ${py_bin} setup.py install --prefix=${target_dir}
+    pushd "${source_dir}"
+    ${py_bin} setup.py install --prefix="${target_dir}"
     ret=$?
     popd
     return ${ret}

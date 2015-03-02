@@ -1,5 +1,5 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2011 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2011-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -23,9 +23,7 @@ import mx.DateTime
 import cerebrum_path
 import cereconf
 
-
 from Cerebrum.Utils import argument_to_sql
-
 
 
 class PersonEmploymentMixin(object):
@@ -39,12 +37,8 @@ class PersonEmploymentMixin(object):
 
     table = "[:table schema=cerebrum name=person_employment]"
 
-    
     def write_db(self):
         super(PersonEmploymentMixin, self).write_db()
-    # end write_db
-
-
 
     def delete(self):
         self.execute("""
@@ -52,9 +46,6 @@ class PersonEmploymentMixin(object):
         WHERE person_id = :person_id
         """ % self.table, {"person_id": self.entity_id})
         super(PersonEmploymentMixin, self).delete()
-    # end delete
-
-    
 
     def _human2mxDateTime(self, something):
         """Make an mx.DateTime out of something.
@@ -81,16 +72,13 @@ class PersonEmploymentMixin(object):
                                         something.month,
                                         something.day)
         assert False, "Unknown format for date %s" % repr(something)
-    # end _create_date
-    
 
-    
     def add_employment(self, ou_id, description, source_system,
                        percentage, start_date, end_date,
                        employment_code=None, main_employment=True):
         """Add (or update) a specific employment entry for a person.
         """
-        
+
         assert main_employment in (True, False)
 
         binds = {"person_id": self.entity_id,
@@ -119,10 +107,10 @@ class PersonEmploymentMixin(object):
         row = existing[0]
         # If there is a difference, run an update... (otherwise do nothing)
         if (binds["employment_code"] != row["employment_code"] or
-            binds["start_date"] != row["start_date"] or 
-            binds["end_date"] != row["end_date"] or
-            abs(binds["percentage"] - row["percentage"]) > 0.1 or
-            main_employment != row["main_employment"]):
+                binds["start_date"] != row["start_date"] or
+                binds["end_date"] != row["end_date"] or
+                abs(binds["percentage"] - row["percentage"]) > 0.1 or
+                main_employment != row["main_employment"]):
 
             self.execute("""
             UPDATE %s SET
@@ -137,10 +125,7 @@ class PersonEmploymentMixin(object):
                 description = :description AND
                 source_system = :source_system
             """ % self.table, binds)
-    # end add_employment
 
-
-    
     def delete_employment(self, ou_id, description, source_system):
         """Remove a specific entry from person_employment.
 
@@ -159,13 +144,10 @@ class PersonEmploymentMixin(object):
               description = :description AND
               source_system = :source_system
         """ % self.table, binds)
-    # end delete_employment
-        
-    
-    
+
     def search_employment(self, person_id=None, ou_id=None, description=None,
                           source_system=None, employment_code=None,
-                          include_expired=True):
+                          include_expired=True, main_employment=None):
         """Look for employment entries matching certain criteria.
 
         @type person_id: int or a sequence thereof or None.
@@ -183,6 +165,10 @@ class PersonEmploymentMixin(object):
         @type include_expired: bool
         @param include_expired:
           Filter out results that has an end date in the past.
+
+        @type main_employment: bool
+        @param main_employment:
+          Only return results defined as the person's main employment.
 
         @rtype: iterable over db_rows
         @return:
@@ -204,6 +190,8 @@ class PersonEmploymentMixin(object):
         if employment_code is not None:
             where.append(argument_to_sql(employment_code, "employment_code",
                                          binds, str))
+        if main_employment:
+            where.append(argument_to_sql('T', "main_employment", binds, str))
         if not include_expired:
             where.append('(end_date IS NULL OR end_date > [:now])')
 
@@ -214,7 +202,6 @@ class PersonEmploymentMixin(object):
         WHERE %s
         """ % (self.table, " AND ".join(where))
 
-        #
         # This voodoo is necessary to hide how we represent booleans in the db.
         for row in self.query(query, binds, fetchall=False):
             if row["main_employment"] == 'T':
@@ -224,6 +211,3 @@ class PersonEmploymentMixin(object):
             else:
                 assert False, "This cannot happen!"
             yield row
-    # end search
-# end class PersonEmploymentMixin
-               

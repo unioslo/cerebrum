@@ -78,10 +78,9 @@ fi
 # Setup OK, run tests
 #
 info "Running nosetests"
-# Add something like this below, for testing AD2:
-# ${crb_src}/testsuite/tests/test_ad2 \
-${env_dir}/bin/nosetests -c ${config}/noseconfig.cfg \
-    ${crb_src}/testsuite/tests/test_ePhorte
+${env_dir}/bin/nosetests -c "${config}/noseconfig.cfg" \
+    "${crb_src}/testsuite/tests/test_ad2" \    
+    "${crb_src}/testsuite/tests/test_ePhorte"
 error=$(($? + $error))
 
 exit $error

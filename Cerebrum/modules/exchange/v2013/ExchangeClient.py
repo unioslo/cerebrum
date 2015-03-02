@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2014 University of Oslo, Norway
+# Copyright 2013-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -33,6 +33,15 @@ from Cerebrum.modules.ad2.winrm import PowershellClient
 from Cerebrum.modules.ad2.winrm import WinRMServerException
 from Cerebrum.modules.exchange.Exceptions import *
 import re
+
+
+# Reeeaally  simple and stupid mock of the client…
+class ClientMock(object):
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def __getattr__(self, a):
+        return lambda *args, **kwargs: True
 
 
 class ExchangeClient(PowershellClient):

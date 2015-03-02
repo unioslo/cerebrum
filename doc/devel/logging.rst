@@ -186,17 +186,12 @@ The files of consequence for the logging framework are:
   ``Cerebrum/modules/cerelog.py``       Cerebrum-specific extensions to the
                                         logging framework.
   ``spine/ceresync/cerelog.py``		NTNU's own extensions
-  ``Cerebrum/extlib/logging.py``        This is a copy of python's own 
-                                        ``logging``. Since we are using
-                                        >=python2.3, this is no longer
-					necessary and should be removed.
   ``Cerebrum/Utils.py``			``Factory`` interface to logging. This
 					is the interface that the typical user
 					would see.
   ``Cerebrum/design/cereconf.py``	``cereconf.LOGGING_CONFIGFILE`` tells
 					where the configuration file is to be
 					found.
-  ``Cerebrum/Logging.py``		Old cruft (no longer relevant).
   ``logging.ini``			Configuration file.
   =====================================	=====================================
 
