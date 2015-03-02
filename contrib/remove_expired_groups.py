@@ -27,15 +27,10 @@ import cerebrum_path
 import cereconf
 
 from Cerebrum.Utils import Factory
+from Cerebrum.Database import DatabaseError
 from mx.DateTime import now
 
 logger = Factory.get_logger('cronjob')
-
-
-def remove_group(db, group, entity_id):
-    """
-    """
-    pass
 
 
 def remove_expired_groups(db, days, pretend):
@@ -47,35 +42,78 @@ def remove_expired_groups(db, days, pretend):
     :param bool pretend: If True, do not actually remove from DB
     """
     try:
+        amount_to_be_removed_groups = 0
+        amount_removed_groups = 0
         gr = Factory.get('Group')(db)
         expired_groups = gr.search(filter_expired=False, expired_only=True)
         for group in expired_groups:
-            if group['expire_date'] + days >= now():
-                logger.info('Expired group %s, will now be removed' % (group))
-                if not pretend:
-                    # TODO
-                    pass
-            else:
-                time_until_removal = group['expire_date'] + days - now()
+            removal_deadline = group['expire_date'] + days
+            if now() > removal_deadline:  # deadline passed. remove!
                 logger.debug(
-                    'Expired group %s, will be removed in %d days' % (
-                        group,
+                    'Expired group (%s - %s) ready for removal' % (
+                        group['name'],
+                        group['description'],
+                    )
+                )
+                amount_to_be_removed_groups += 1
+                if not pretend:  # do not actually remove when running with -d
+                    try:
+                        gr.clear()
+                        gr.find(group['group_id'])
+                        gr.delete()
+                        db.commit()
+                        amount_removed_groups += 1
+                        logger.info(
+                            'Expired group (%s - %s) removed' % (
+                                group['name'],
+                                group['description'],
+                            )
+                        )
+                    except DatabaseError, e:
+                        logger.error(
+                            'Database error: Could not delete expired group '
+                            '(%s - %s): %s. Skipping' % (
+                                group['name'],
+                                group['description'],
+                                str(e)
+                            )
+                        )
+                        db.rollback()
+                        continue
+            else:
+                time_until_removal = removal_deadline - now()
+                logger.debug(
+                    'Expired group (%s - %s), will be removed in %d days' % (
+                        group['name'],
+                        group['description'],
                         int(time_until_removal.days)
                     )
                 )
-    except Exception:
-        logger.error('Unexpected exception', exc_info=1)
+    except Exception, e:
+        logger.critical('Unexpected exception: %s' % (str(e)), exc_info=1)
         db.rollback()
         raise
+    finally:
+        logger.info(
+            '%d expired groups, %d selected for removal, '
+            '%d actually removed' % (
+                len(expired_groups),
+                amount_to_be_removed_groups,
+                amount_removed_groups
+            )
+        )
 
 
 def main(args=None):
     """
     """
-    import argparse
+    try:
+        import argparse
+    except ImportError:
+        from Cerebrum.extlib import argparse
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        '-d', '--days',
+        '--days',
         dest='days',
         type=int,
         default=30,
@@ -84,7 +122,7 @@ def main(args=None):
         'removing the group (default: 30'
     )
     parser.add_argument(
-        '-p', '--pretend',
+        '-p', '--pretend', '-d', '--dryrun',
         action='store_true',
         dest='pretend',
         default=False,
