@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2004 University of Oslo, Norway
+# Copyright 2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -46,7 +46,7 @@ affiliation=const.affiliation_ansatt). The fields are:
 <url>            - const.contact_url
 <tlf>            - Office telephone number
 
-<fnr>/<ansattnr> are selected from const.system_sap
+<ansattnr> is selected from const.system_sap
 <full name> is selected from const.system_cached.
 """
 
@@ -86,16 +86,16 @@ def person2e_id(person, eid_type, const):
     We fetch all external ids from system_sap (the rest is of no interest
     here).
 
-    @type person: a Factory.get('Person') instance.
-    @param person:
+    :type person: a Factory.get('Person') instance.
+    :param person:
       Person db proxy associated with a person in Cerebrum.
 
-    @type eid_type: A constant object (or an int)
-    @param eid_type:
+    :type eid_type: A constant object (or an int)
+    :param eid_type:
       External id type we want to locate.
 
-    @type const: A Factory.get('Constants') instance
-    @param const:
+    :type const: A Factory.get('Constants') instance
+    :param const:
       Constant db proxy
     """
     eid = person.get_external_id(const.system_sap, eid_type)
@@ -107,12 +107,12 @@ def person2e_id(person, eid_type, const):
 def fetch_person_fields(person, const):
     """Return a tuple with all of the values to output to the csv file.
 
-    @type person: Person instance.
-    @param:
+    :type person: Person instance.
+    :param:
       Person instance associated with an object in the db.
 
-    @rtype: tuple (of strings)
-    @return:
+    :rtype: tuple (of strings)
+    :return:
       A tuple (ansattnr, full name, uname, e-mail, url, tlf)
     """
     ansattnr = person2e_id(person, const.externalid_sap_ansattnr, const)
@@ -179,8 +179,8 @@ def generate_people(db):
 def generate_file(filename):
     """Write the data about everyone to L{filename}.
 
-    @type filename: basestring
-    @param filename:
+    :type filename: basestring
+    :param filename:
       Output filename
     """
     ostream = AtomicFileWriter(filename)
@@ -209,7 +209,7 @@ def generate_file(filename):
         if fields is not None:
             writer.writerow(fields)
         else:
-            logger.info("fnr/ansattnr is missing for person id=%d", person_id)
+            logger.info("ansattnr is missing for person id=%d", person_id)
     logger.debug("Output %d people", len(processed))
     ostream.close()
 
