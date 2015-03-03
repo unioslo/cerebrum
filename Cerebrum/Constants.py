@@ -372,7 +372,26 @@ class _CerebrumCode(DatabaseAccessor):
         except Errors.NotFoundError:
             pass
 
-    def _update_description(self, stats):
+    def update(self):
+        """
+        Main method for updating constants in Cerebrum database, used for
+        calling the necessary internal update methods. Can be overridden by
+        some types of subclasses that have specific needs.
+
+        :returns: a list of strings that contains details of updates that were
+                  made, or None if no updates occured.
+        :rtype: list or None
+        """
+        return self._update_description()
+
+    def _update_description(self):
+        """
+        Updates the description for the given constant in Cerebrum database.
+
+        :returns: a list with a string containing details about the update
+                  if an update was made, otherwise None.
+        :rtype: list or None
+        """
         if self._desc is None:
             return
         new_desc = self._desc
@@ -381,13 +400,12 @@ class _CerebrumCode(DatabaseAccessor):
         db_desc = self._get_description()
         if new_desc != db_desc:
             self._desc = new_desc
-            stats['updated'] += 1
-            stats['details'].append("Updated description for '%s': '%s'"
-                                    % (self, new_desc))
             self.sql.execute("UPDATE %s SET %s=:desc WHERE %s=:code" %
                              (self._lookup_table, self._lookup_desc_column,
                               self._lookup_code_column),
                              {'desc': new_desc, 'code': self.int})
+
+            return ["Updated description for '%s': '%s'" % (self, new_desc)]
 
     def insert(self):
         self.sql.execute("""
@@ -778,14 +796,14 @@ class ConstantsBase(DatabaseAccessor):
             attr = getattr(self, x)
             if isinstance(attr, _CerebrumCode):
                 dep = attr._insert_dependency
-                if not order.has_key(dep):
+                if dep not in order:
                     order[dep] = {}
                 cls = type(attr)
-                if not order[dep].has_key(cls):
+                if cls not in order[dep]:
                     order[dep][cls] = {}
                 order[dep][cls][str(attr)] = attr
-        if not order.has_key(None):
-            raise ValueError, "All code values have circular dependencies."
+        if None not in order:
+            raise ValueError("All code values have circular dependencies.")
         stats = {'total': 0, 'inserted': 0, 'updated': 0, 'details': []}
         if delete:
             stats['deleted'] = 0
@@ -802,7 +820,10 @@ class ConstantsBase(DatabaseAccessor):
                         code._pre_insert_check()
                     except CodeValuePresentError:
                         if update:
-                            code._update_description(stats)
+                            update_results = code.update()
+                            if update_results is not None:
+                                stats['updated'] += 1
+                                stats['details'].extend(update_results)
                             continue
                         raise
                     code.insert()
@@ -833,13 +854,13 @@ class ConstantsBase(DatabaseAccessor):
                                     "Superfluous code: %s ('%s')" %
                                     (cls(c), cls))
                 del order[root][cls]
-                if order.has_key(cls):
+                if cls in order:
                     insert(cls, update)
             del order[root]
 
         insert(None, update)
         if order:
-            raise ValueError, "Some code values have circular dependencies."
+            raise ValueError("Some code values have circular dependencies.")
         return stats
 
     def __init__(self, database=None):
