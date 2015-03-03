@@ -96,7 +96,7 @@ class GroupUiOMixin(Group.Group):
 
     # exchange-relatert-jazz
     # add som name checks that are related to group name requirements
-    # in AD/Exchange. 
+    # in AD/Exchange.
     def illegal_name(self, name, max_length=32):
         # no group names should start with a period or a space!
         if re.search("^\.|^\s", name):
@@ -105,6 +105,8 @@ class GroupUiOMixin(Group.Group):
         from Cerebrum.modules import PosixGroup
         from Cerebrum.modules.exchange.v2013 import ExchangeGroups
 
+        # TODO: Why? Should this not be implemented as a illegal_name on
+        # PosixGroup?
         if isinstance(self, PosixGroup.PosixGroup):
             if len(name) > max_length:
                 return "name too long (%s characters; %d is max)" % (len(name), max_length)
