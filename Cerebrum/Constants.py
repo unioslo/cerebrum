@@ -821,11 +821,12 @@ class ConstantsBase(DatabaseAccessor):
                     for c in table_vals:
                         if c not in code_vals:
                             if delete:
+                                tmp_cls_c = str(cls(c))
                                 cls(c).delete()
                                 stats['deleted'] += 1
                                 stats['details'].append(
                                     "Deleted code: %s ('%s')" %
-                                    (cls(c), cls))
+                                    (tmp_cls_c, cls))
                             else:
                                 stats['superfluous'] += 1
                                 stats['details'].append(
