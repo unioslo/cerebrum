@@ -52,9 +52,7 @@ def remove_expired_groups(db, days, pretend):
                 logger.debug(
                     'Expired group (%s - %s) ready for removal' % (
                         group['name'],
-                        group['description'],
-                    )
-                )
+                        group['description']))
                 amount_to_be_removed_groups += 1
                 if not pretend:  # do not actually remove when running with -d
                     try:
@@ -66,18 +64,15 @@ def remove_expired_groups(db, days, pretend):
                         logger.info(
                             'Expired group (%s - %s) removed' % (
                                 group['name'],
-                                group['description'],
-                            )
-                        )
+                                group['description']))
                     except DatabaseError, e:
                         logger.error(
                             'Database error: Could not delete expired group '
                             '(%s - %s): %s. Skipping' % (
                                 group['name'],
                                 group['description'],
-                                str(e)
-                            )
-                        )
+                                str(e)),
+                            exc_info=True)
                         db.rollback()
                         continue
             else:
@@ -86,11 +81,9 @@ def remove_expired_groups(db, days, pretend):
                     'Expired group (%s - %s), will be removed in %d days' % (
                         group['name'],
                         group['description'],
-                        int(time_until_removal.days)
-                    )
-                )
+                        int(time_until_removal.days)))
     except Exception, e:
-        logger.critical('Unexpected exception: %s' % (str(e)), exc_info=1)
+        logger.critical('Unexpected exception: %s' % (str(e)), exc_info=True)
         db.rollback()
         raise
     finally:
@@ -99,9 +92,7 @@ def remove_expired_groups(db, days, pretend):
             '%d actually removed' % (
                 len(expired_groups),
                 amount_to_be_removed_groups,
-                amount_removed_groups
-            )
-        )
+                amount_removed_groups))
 
 
 def main(args=None):
