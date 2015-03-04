@@ -639,7 +639,7 @@ def cyrus_set_quota(user_id, hq, host=None, local_db=db):
 
 def archive_cyrus_data(uname, mail_server, generation):
     args = [SUDO_CMD, cereconf.ARCHIVE_MAIL_SCRIPT,
-           mail_server, uname, str(generation)]
+           '-s', mail_server, '-u', uname, '-g', str(generation)]
     to_exec = " ".join(args)
     cmd = SSH_CEREBELLUM + [to_exec,]
     return spawn_and_log_output(cmd, connect_to=[mail_server]) == EXIT_SUCCESS
