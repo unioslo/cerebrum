@@ -322,18 +322,14 @@ class BofhdAuthOpSet(DatabaseAccessor):
             'code': int(op_code), 'op_id': op_id, 'op_set_id': self.op_set_id})
         return op_id
 
-    def del_operation(self, op_code, op_id=-1):
-        extra = ''
-        if op_id != -1:
-            extra = ' AND op_id=:op_id'
+    def del_operation(self, op_code, op_id=None):
+
+        if op_id is not None:
+            self.del_all_op_attrs(op_id)
 
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=auth_operation]
-        WHERE op_code=:op_code AND op_set_id=:op_set_id%s""" % extra, {
-            'op_code': int(op_code),
-            'op_set_id': self.op_set_id,
-            'op_id': int(op_id)
-        })
+        WHERE op_code=%s AND op_set_id=%s""" % (int(op_code), self.op_set_id))
 
     def add_op_attrs(self, op_id, attr):
         self.execute("""
@@ -346,6 +342,11 @@ class BofhdAuthOpSet(DatabaseAccessor):
         DELETE FROM [:table schema=cerebrum name=auth_op_attrs]
         WHERE op_id=:op_id AND attr=:attr""", {
             'op_id': int(op_id), 'attr': attr})
+
+    def del_all_op_attrs(self, op_id):
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=auth_op_attrs]
+        WHERE op_id=%s""" % int(op_id))
 
     def list(self):
         return self.query("""
