@@ -68,7 +68,7 @@ def log_it(queue, run_state):
             run = run_state.value
             continue
         log_func = logger.__getattribute__(entry[0])
-        log_func(entry[1])
+        log_func(*entry[1])
     logger.info('Shutting down logger thread')
 
 

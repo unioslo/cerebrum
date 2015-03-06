@@ -7,7 +7,7 @@ class Logger(object):
 
     def __getattribute__(self, name):
         def put_on_queue(*args, **kwargs):
-            tmp = (name, args[0])
+            tmp = (name, args)
             global_logger_queue.put(tmp)
         return put_on_queue
 
