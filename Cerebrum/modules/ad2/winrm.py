@@ -316,8 +316,7 @@ class WinRMProtocol(object):
             else:
                 ssl_config.set_ca_chain(ca)
                 ssl_config.set_ca_validate(https.SSLConfig.REQUIRED)
-                if check_name:
-                    ssl_config.set_verify_hostname(True)
+                ssl_config.set_verify_hostname(check_name)
 
             if client_cert or client_key:
                 ssl_config.set_cert(client_cert, client_key)
