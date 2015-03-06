@@ -335,7 +335,6 @@ class Object2Cerebrum(object):
                 es.find(int(row['entity_id']))
                 es.delete_spread(int(row['spread']))
                 self.logger.info("Entity: '%d', removed spread '%s'" % (es.entity_id,int(row['spread']))) 
-            
 
     def _update_groups(self):
         """Run through the cache and remove people's group membership if it hasn't
@@ -347,8 +346,8 @@ class Object2Cerebrum(object):
             self._group.clear()
             self._group.find_by_name(grp)
 
-            for member in self._group.search_members(group_id=
-                                                     self._group.entity_id):
+            for member in self._group.search_members(
+                    group_id=self._group.entity_id):
                 member_id = int(member["member_id"])
                 if member_id not in self._groups[grp]:
                     self._group.remove_member(member_id)
@@ -362,12 +361,17 @@ class Object2Cerebrum(object):
         # database if the cache doesn't have them.
         for row in self._group.list_traits(self.co.trait_group_imported):
             name = group_names[int(row['entity_id'])]
-            if not self._groups.has_key(name):
+            if name not in self._groups:
                 self._group.clear()
                 self._group.find_by_name(name)
-                self._group.delete()
-                self.logger.info("Group '%s' deleted as it is no longer in file." % name)
-                
+                if self._group.get_extensions():
+                    self.logger.warning(
+                        "Unable to delete group '%s' because it's a %r group",
+                        name, self._group.get_extensions())
+                else:
+                    self._group.delete()
+                    self.logger.info(
+                        "Group '%s' deleted as it is no longer in file.", name)
 
     def _update_person_affiliations(self):
         """Run through the cache and remove people's affiliation if it hasn't
