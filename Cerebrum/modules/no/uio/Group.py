@@ -98,6 +98,8 @@ class GroupUiOMixin(Group.Group):
     # add som name checks that are related to group name requirements
     # in AD/Exchange.
     def illegal_name(self, name, max_length=32):
+        if len(name) == 0:
+            return "Must specify group name"
         # no group names should start with a period or a space!
         if re.search("^\.|^\s", name):
             return "Names cannot start with period or space (%s)" % name 

@@ -97,6 +97,8 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
     # lengths and max length in database is 256 characters
     def illegal_name(self, name, max_length=256):
         """Return a string with error message if groupname is illegal"""
+        if len(name) == 0:
+            return "Must specify group name"
         if len(name) > max_length:
             return "Name %s too long (%d char allowed)" % (name, max_length)
         return False
