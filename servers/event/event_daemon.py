@@ -34,21 +34,24 @@ import ctypes
 
 from Cerebrum import Utils
 from Cerebrum.modules.event.NotificationCollector import NotificationCollector
-from Cerebrum.modules.event.DelayedNotificationCollector import \
-        DelayedNotificationCollector
+from Cerebrum.modules.event.DelayedNotificationCollector import (
+    DelayedNotificationCollector)
+
 
 logger = Utils.Factory.get_logger('cronjob')
 
+
 def usage(i=0):
     print('usage: python event_daemon.py [--type --no-notifications'
-            '--no-delayed-notifications]')
+          '--no-delayed-notifications]')
     print('-n --no-notifications            Disable the NotificationCollector')
     print('-d --no-delayed-notifications    '
-            'Disable the DelayedNotificationCollector')
+          'Disable the DelayedNotificationCollector')
     print('')
     print('HUP me ONCE (but not my children) if you want to shut me down'
-            'with grace.')
+          'with grace.')
     sys.exit(i)
+
 
 # Logger function that runs in it's own thread. We need to do it like this,
 # since the logger is not process safe
@@ -65,11 +68,13 @@ def log_it(queue, run_state):
             run = run_state.value
             continue
         log_func = logger.__getattribute__(entry[0])
-        log_func(entry[1])
+        log_func(*entry[1])
     logger.info('Shutting down logger thread')
+
 
 def signal_hup_handler(signal, frame):
     frame.f_locals['run_state'].value = 0
+
 
 def main():
     log_queue = processing.Queue()
@@ -80,17 +85,17 @@ def main():
     # Start the thread that writes to the log
     logger_thread = threading.Thread(target=log_it,
                                      args=(log_queue, logger_run_state,))
-    
+
     logger_thread.start()
 
     # Parse args
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                                    't:ndm',
-                                    ['type=',
-                                     'no-notifications',
-                                     'no-delayed-notifications',
-                                     'mock'])
+                                   't:ndm',
+                                   ['type=',
+                                    'no-notifications',
+                                    'no-delayed-notifications',
+                                    'mock'])
     except getopt.GetoptError, err:
         print err
         usage(1)
@@ -129,7 +134,7 @@ def main():
     # Import the event handeler we need to use
     event_handler_class = dyn_import(conf['event_handler_class'])
     logger.debug("Event_handler_class: %s", event_handler_class)
-    
+
     # Define the queue of events to be processed.
     # We look for classes that we can import dynamically, but if that is not
     # defined, we fall back to the BaseQueue-class, which really is
@@ -143,7 +148,7 @@ def main():
 
     class MyManager(managers.BaseManager):
         event_queue_class = managers.CreatorMethod(
-                                            dyn_import(event_queue_class_name))
+            dyn_import(event_queue_class_name))
     manager = MyManager()
     manager.daemon = True
     manager.start()
@@ -160,19 +165,19 @@ def main():
                                    conf['event_channels'],
                                    log_queue,
                                    run_state)
-    
+
     # Create the DelayedNotificationCollector if appropriate
     if delayed_notifications:
         dnc = DelayedNotificationCollector(event_queue,
-                                   conf,
-                                   log_queue,
-                                   run_state)
+                                           conf,
+                                           log_queue,
+                                           run_state)
 
     # Start all processes
     for x in procs:
         x.daemon = True
         x.start()
-   
+
     # Start the NotificationCollector
     if notifications:
         nc.daemon = True
@@ -188,16 +193,16 @@ def main():
     # Trap the Hangup-signal, we use this in order to shut down nicely
     signal.signal(signal.SIGHUP, signal_hup_handler)
     signal.pause()
-    
+
     for x in procs:
         x.join()
 
     manager.shutdown()
-    
+
     # Stop the logger
     logger_run_state.value = 0
     logger_thread.join()
- 
+
     # TODO: Instead of signal.pause, wait for joinage of proccesses or something
 
     # TODO: Here
@@ -206,5 +211,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-

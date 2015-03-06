@@ -18,25 +18,84 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Default Cerebrum settings for the integration against Exchange
 
-Overrides should go in a local, instance specific file named:
+Overrides should go in a local, instance specific module named:
 
     eventconf.py
-
-Each setting should be well commented in this file, to inform developers and
-sysadmin about the usage and consequences of the setting.
 
 """
 
 
 CONFIG = dict()
+""" The configuration structure.
 
-# Following keys should be defined:
-# domain: the resource AD domain
-# server: The springboard server to use
-# management_server: The server Exchange commands sould be run on
-# port: Port that winrm uses
-# auth_user: user that winrm auths as
-# domain_admin: An account in the main AD, should at least have read access to
-#   the main AD
-# ex_domain_admin: The user in the resource AD, which has access to create mailboxes and stuff.
+Each configuration is a dictionary within the CONFIG dictionary. The key is the
+configuration type. Config selection is done with the ``--type`` option to the
+event daemon.
 
+
+Event daemon configuration
+==========================
+The event daemon understands the following settings.
+
+event_handler_class
+    A class to process dispatched events. The event handler may require
+    additional configuration.
+
+concurrent_workers
+    Number of threads to use. Each thread will run one event_handler_class to
+    process events.
+
+event_queue_class
+    The class to used to queue events. This setting is optional, and defaults
+    to ``Cerebrum.modules.event.BaseQueue``.
+
+event_channels
+    TODO
+
+
+Exchange event handler
+=======================
+Exchange configuration dictionary consists of the following settings.
+
+Mandatory settings
+-------------------
+The configuration structure *must* contain the following keys and values.
+
+domain
+    The AD resource domain
+
+server
+    The springboard server to use
+
+management_server
+    The server where the Exchange commands should be executed
+
+port
+    Port number for WinRM
+
+auth_user
+    Domain and Username for to use with WinRM.
+
+domain_admin
+    Domain\\Username for an account that has read access to the main AD
+
+ex_domain_admin
+    Domain\\Username for an admin user in the AD resource domain. This user
+    must have access to create mailboxes, etc...
+
+Passwords for all users should be available in the ``cereconf.AUTH_DIR``, so
+that it can be fetched with ``read_password()``.
+
+
+Optional configuration
+----------------------
+The following keys are recognized and in the configuration structure.
+
+ca
+    A CA certificate to use with WinRM. If present, a WinRM certificate is
+    *required* and will be validated.
+
+    If no CA is given, a Warning will be dispatched for each connection that is
+    made.
+
+"""
