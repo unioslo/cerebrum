@@ -136,6 +136,7 @@ class ExchangeEventHandler(processing.Process):
                     ca=self.config.get('ca'),
                     client_key=self.config.get('client_key'),
                     client_cert=self.config.get('client_cert'),
+                    check_name=self.config.get('check_name', True),
                     encrypted=self.config['encrypted'])
             except URLError:
                 # Here, we handle the rare circumstance that the springboard is
