@@ -412,8 +412,8 @@ class SAPLonnsTittelKode(Constants._CerebrumCode):
             return self.kategori
         # fi
 
-        return self.sql.query_1("SELECT kategori FROM %s WHERE code = %s" %
-                                self._lookup_table, int(self))
+        return self.sql.query_1("SELECT kategori FROM %s WHERE code = :code" %
+                                self._lookup_table, {'code': int(self)})
 
     def update(self):
         """
