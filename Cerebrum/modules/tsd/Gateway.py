@@ -358,8 +358,8 @@ class GatewayClient(xmlrpclib.Server, object):
         self.logger.info("Freezing project: %s", pid)
         if self.dryrun:
             return True
-        params = {'project': pid}
-        # TODO: 'when' not implemented yet!
+        params = {'project': pid,
+                  'when': xmlrpclib.DateTime(when)}
         return self.project.freeze(params)
 
     def thaw_project(self, pid):
