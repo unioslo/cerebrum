@@ -252,7 +252,8 @@ class WinRMProtocol(object):
     _useragent = 'Cerebrum WinRM client'
 
     def __init__(self, host='localhost', port=None, encrypted=True,
-                 logger=None, ca=None, client_key=None, client_cert=None):
+                 logger=None, ca=None, client_key=None, client_cert=None,
+                 check_name=True):
         """Set up the basic configuration. Fill the HTTP headers and set the
         correct port if not given.
 
@@ -287,6 +288,9 @@ class WinRMProtocol(object):
             The absolute location of a file with the client's (signed)
             certificate to be used with client authentication.
 
+        @type check_name: boolean
+        @param check_name: Enable hostname validation (if encrypted).
+
         """
         # TODO: How should we handle no logger?
         self.logger = logger
@@ -312,7 +316,7 @@ class WinRMProtocol(object):
             else:
                 ssl_config.set_ca_chain(ca)
                 ssl_config.set_ca_validate(https.SSLConfig.REQUIRED)
-                ssl_config.set_verify_hostname(True)
+                ssl_config.set_verify_hostname(check_name)
 
             if client_cert or client_key:
                 ssl_config.set_cert(client_cert, client_key)
@@ -325,10 +329,10 @@ class WinRMProtocol(object):
             socket.setdefaulttimeout(self.connection_timeout)
             self._opener = urllib2.build_opener()
         self._http_headers = {
-                'Host': '%s:%s' % (self.host, self.port),
-                'Accept': '*/*',
-                'Content-Type': 'application/soap+xml; charset=utf-8',
-                'User-Agent': self._useragent}
+            'Host': '%s:%s' % (self.host, self.port),
+            'Accept': '*/*',
+            'Content-Type': 'application/soap+xml; charset=utf-8',
+            'User-Agent': self._useragent}
         # Set up the XML parser to expect input in utf-8
         self.xmlparser = etree.XMLParser(encoding='utf-8')
 
