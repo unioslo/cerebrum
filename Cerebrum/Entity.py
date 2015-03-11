@@ -1073,25 +1073,36 @@ class EntityQuarantine(Entity):
 
     # FIXME: builtin "type" should not be shadowed, rename keyword
     # argument to "qtype" or similar
-    def get_entity_quarantine(self, type=None, only_active=False):
+    def get_entity_quarantine(self,
+                              type=None,
+                              only_active=False,
+                              only_not_disabled=False):
         """Return a list of the current entity's quarantines.
 
-        @type type: CerebrumConstant or int
-        @param type: If set, only quarantines of the given type is returned.
+        :type type: CerebrumConstant or int
+        :param type: If set, only quarantines of the given type is returned.
 
-        @type only_active: bool
-        @param only_active: If True, only quarantines with a set start_date in
+        :type only_active: bool
+        :param only_active: If True, only quarantines with a set start_date in
             the past and either a not set end_date or an end_date in the future.
-            In addition, if disable_until is set, it's date must be in the past
+            In addition, if disable_until is set, its date must be in the past
             for the quarantine to be returned with L{only_active} set to True.
 
+        :type only_not_disabled: bool
+        :param only_not_disabled: If True, only quarantines with disable_until
+            not set or its date in the past will be returned.
+            only_active must be False for this argument to have any impact.
         """
         qtype = type
         conditions = ["entity_id = :e_id"]
         if only_active:
-            conditions += ["start_date <= [:now]",
-                           "(end_date IS NULL OR end_date > [:now])",
-                           "(disable_until IS NULL OR disable_until <= [:now])"]
+            conditions += [
+                "start_date <= [:now]",
+                "(end_date IS NULL OR end_date > [:now])",
+                "(disable_until IS NULL OR disable_until <= [:now])"]
+        if not only_active and only_not_disabled:
+            conditions += [
+                "(disable_until IS NULL OR disable_until <= [:now])"]        
         if qtype is not None:
             conditions += ["quarantine_type = :qtype"]
             qtype = int(qtype)
