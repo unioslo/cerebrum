@@ -443,7 +443,7 @@ class OUTSDMixin(OU, EntityTrait):
         """
         projectid = self.get_project_id()
         etrait = EntityTrait(self._db)
-        if not vlan:
+        if not vlan and not isinstance(vlan, (int, long)):
             vlan = self.get_next_free_vlan()
         try:
             vlan = int(vlan)
@@ -451,7 +451,7 @@ class OUTSDMixin(OU, EntityTrait):
             raise Errors.CerebrumError('VLAN not valid: %s' % (vlan,))
         # Checking if the VLAN is in one of the ranges
         for min, max in getattr(cereconf, 'VLAN_RANGES', ()):
-            if vlan >= min and vlan <= max:
+            if min <= vlan <= max:
                 break
         else:
             raise Errors.CerebrumError('VLAN out of range: %s' % vlan)
