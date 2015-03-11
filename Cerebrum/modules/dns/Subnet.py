@@ -434,7 +434,7 @@ class Subnet(Entity):
         if identifier is None:
             raise SubnetError("Unable to find IPv4 subnet identified by '%s'" % identifier)
 
-        if isinstance(identifier, (str, unicode)) and identifier.find(':') >= 2:
+        if isinstance(identifier, (str, unicode)) and identifier.count(':') >= 2:
             # This is probably an IPv6 subnet
             raise SubnetError("Unable to find IPv4 subnet identified by '%s'" % identifier)
 
