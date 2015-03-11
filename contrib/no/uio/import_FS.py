@@ -248,11 +248,10 @@ def rem_old_aff():
         aff = aff[0]
 
         # Check date, do not remove affiliation for active students until end of
-        # grace period. EVU affiliations and fagpersoner should be removed at once.
+        # grace period. EVU affiliations should be removed at once.
         grace_days = cereconf.FS_STUDENT_REMOVE_AFF_GRACE_DAYS
         if (aff['last_date'] > (mx.DateTime.now() - grace_days) and
-              int(aff['status']) != int(co.affiliation_status_student_evu) and
-              int(aff['status']) != int(co.affiliation_tilknyttet_fagperson)):
+              int(aff['status']) != int(co.affiliation_status_student_evu)):
             logger.info("Too fresh aff for person %s, skipping", ent_id)
             continue
 
