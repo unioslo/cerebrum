@@ -52,6 +52,7 @@ import socket
 import urllib2
 import httplib
 import csv
+import re
 
 # TODO: remove the exception when ssl is up and running in production:
 try:
@@ -207,7 +208,61 @@ class PowershellException(ExitCodeException):
        which already existed.
 
     """
-    pass
+    def __init__(self, exitcode, stderr, output=None, msg=None):
+        """Initiate exception for command with exitcode other than 0.
+
+        :type exitcode: int or string
+        :param exitcode: The command's exitcode.
+
+        :type stderr: string
+        :param stderr: The stderr message for the command.
+
+        :type output: dict
+        :param output: All output from the command. It might include the stderr
+            output too, even if that must be present in the L{stderr} argument.
+
+        :type msg: string
+        :param msg: If you want to specify the message that is printed for the
+            exception. Defaults to a generic "command failed" message.
+
+        """
+        self.exitcode = exitcode
+        self.output = output
+        self.stderr = stderr
+
+        # Search for, and attempt to extract error-information from PowerShell
+        # error-messages.
+        m = re.search("(?P<first_error>[\w\s\-'.]+)[+\s]+CategoryInfo[\s:]+"
+                      "(?P<second_error>\w+):\s+\("
+                      "(?P<args>[\w\-:]+)\)\s+\["
+                      "(?P<command>[\w\s-]+)\].*",
+                      stderr,
+                      re.MULTILINE)
+        if msg is not None:
+            r_msg = msg
+        elif m:
+            gd = m.groupdict()
+            cmd = re.sub('\s', '', gd.get('command'))
+            first_err = gd.get('first_error').strip()
+            #  Fix empty argument sequence
+            args = gd.get('args') if gd.get('args') != ':' else ''
+            second_err = gd.get('second_error')
+
+            # We'll differentiate between how we report errors. Exception
+            # information seems to be pattern matchable, but the error message
+            # is not always defined in the same place.
+            r_msg = ("Command '%s' called with args '%s' "
+                     "returned exit code %s: %s" % (
+                         cmd, args, exitcode, first_err or second_err))
+        # Default error representation
+        else:
+            r_msg = 'Command failed: exitcode: %s, stderr: %s' % (exitcode,
+                                                                  stderr)
+
+        super(PowershellException, self).__init__(exitcode,
+                                                  stderr,
+                                                  output=self.output,
+                                                  msg=r_msg)
 
 
 class WinRMProtocol(object):
