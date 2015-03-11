@@ -27,19 +27,21 @@ Following additional parametars are defined:
 Note that distribution groups come in two flavors, based on what kind
 of members they accept. For now only accounts and rooms are allowed.
 """
-
-import string
+import cerebrum_path
+import cereconf
 
 from Cerebrum.Utils import Factory
-from Cerebrum import Utils
-from Cerebrum import Group
 from Cerebrum.Constants import _LanguageCode
 from Cerebrum.modules import Email
 from Cerebrum import Errors
+from .mixins import SecurityGroupMixin, DistributionGroupMixin
 
-import cereconf
 
 Group_class = Factory.get("Group")
+
+assert issubclass(Group_class, SecurityGroupMixin)
+assert issubclass(Group_class, DistributionGroupMixin)
+
 
 # make ready for adding new functionality specific for
 # security groups in exchange (i.e. mail enabled sec groups etc).
@@ -70,8 +72,8 @@ class DistributionGroup(Group_class):
             self.__xerox__(parent)
         else:
             super(DistributionGroup, self).populate(creator_id, visibility,
-                                                    name, description, 
-                                                    create_date, 
+                                                    name, description,
+                                                    create_date,
                                                     expire_date)
         self.__in_db = False
         self.roomlist = roomlist
@@ -92,16 +94,17 @@ class DistributionGroup(Group_class):
               (group_id, roomlist, mngdby_addrid,
                modenable, modby, deprestr,
                joinrestr, hidden)
-            VALUES (:g_id, :roomlist, :mngdby_addrid, 
-                    :modenable, :modby, :deprestr, 
-                    :joinrestr, :hidden)""", {'g_id': self.entity_id,
-                                             'roomlist': self.roomlist,
-                                             'mngdby_addrid': self.mngdby_addrid,
-                                             'modenable': self.modenable,
-                                             'modby': self.modby,
-                                             'deprestr': self.deprestr,
-                                             'joinrestr': self.joinrestr,
-                                             'hidden': self.hidden})
+            VALUES (:g_id, :roomlist, :mngdby_addrid,
+                    :modenable, :modby, :deprestr,
+                    :joinrestr, :hidden)""",
+                         {'g_id': self.entity_id,
+                          'roomlist': self.roomlist,
+                          'mngdby_addrid': self.mngdby_addrid,
+                          'modenable': self.modenable,
+                          'modby': self.modby,
+                          'deprestr': self.deprestr,
+                          'joinrestr': self.joinrestr,
+                          'hidden': self.hidden})
             # exchange-relatert-jazz
             if self.roomlist == 'T':
                 self._db.log_change(self.entity_id,
@@ -149,46 +152,30 @@ class DistributionGroup(Group_class):
 
     def new(self, creator_id, visibility, name, description=None,
             create_date=None, expire_date=None, roomlist=None,
-            mngdby_addrid=None, modenable=None, modby=None, 
+            mngdby_addrid=None, modenable=None, modby=None,
             deprestr=None, joinrestr=None, hidden=None):
-        DistributionGroup.populate(self, creator_id, visibility, name, 
-                                   description, create_date, expire_date, 
-                                   roomlist, mngdby_addrid, modenable, 
+        DistributionGroup.populate(self, creator_id, visibility, name,
+                                   description, create_date, expire_date,
+                                   roomlist, mngdby_addrid, modenable,
                                    modby, deprestr, joinrestr, hidden)
         DistributionGroup.write_db(self)
-        #DistributionGroup.find(self, self.entity_id)
-        
-    # deleting means removing distributiongroup-attributes,
-    # we will not support distgroup-removal because of the
-    # the danger of address re-use
-    def delete(self):
-        if self.__in_db:
-            self._db.log_change(self.entity_id,
-                                self.const.dl_group_remove,
-                                None,
-                                change_params={'name': self.group_name,
-                                               'roomlist': self.roomlist})
-            # Remove entry from distribution_group-table
-            self.execute("""
-            DELETE FROM [:table schema=cerebrum name=distribution_group]
-            WHERE group_id=:g_id""", {'g_id': self.entity_id})
+        # DistributionGroup.find(self, self.entity_id)
 
     def find(self, group_id):
         super(DistributionGroup, self).find(group_id)
         (self.roomlist, self.mngdby_addrid, self.modenable,
-         self.modby, self.deprestr, self.joinrestr, 
+         self.modby, self.deprestr, self.joinrestr,
          self.hidden) = self.query_1("""
-        SELECT roomlist, mngdby_addrid, modenable,
-               modby, deprestr, joinrestr, hidden
+        SELECT roomlist, mngdby_addrid, modenable, modby, deprestr, joinrestr,
+            hidden
         FROM [:table schema=cerebrum name=distribution_group]
         WHERE group_id=:g_id""", {'g_id': self.entity_id})
         self.__in_db = True
         self.__updated = []
 
-
     def list_distribution_groups(self):
         """Return all distributiongroup IDs
-        
+
         @rtype list(db_row.row)
         @return [(group_id,)]
         """
@@ -217,11 +204,11 @@ class DistributionGroup(Group_class):
     # set depart/join restrictions for group
     # implementing this as one method as the restriction rule set
     # is the same for both join and depart. if this should change
-    # in the future  a re-write may be advisable. 
+    # in the future  a re-write may be advisable.
     def set_depjoin_restriction(self, variant="join", restriction="Closed"):
         """ Use this method to modify departure or join restrictions
             for a distribution group. The current accepted rule set is
-            'Closed', 'Open', 'ApprovalRequired' (these are also 
+            'Closed', 'Open', 'ApprovalRequired' (these are also
             implemented in db schema). """
         attribute = None
         cl_type = None

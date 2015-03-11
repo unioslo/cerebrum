@@ -125,15 +125,19 @@ class ExchangeEventHandler(processing.Process):
         while self.run_state.value:
             try:
                 self.ec = ExchangeClient(
-                    logger=self.logger,
-                    host=self.config['server'],
-                    port=self.config['port'],
                     auth_user=self.config['auth_user'],
                     domain_admin=self.config['domain_admin'],
                     ex_domain_admin=self.config['ex_domain_admin'],
                     management_server=self.config['management_server'],
-                    encrypted=self.config['encrypted'],
-                    session_key=gen_key())
+                    session_key=gen_key(),
+                    logger=self.logger,
+                    host=self.config['server'],
+                    port=self.config['port'],
+                    ca=self.config.get('ca'),
+                    client_key=self.config.get('client_key'),
+                    client_cert=self.config.get('client_cert'),
+                    check_name=self.config.get('check_name', True),
+                    encrypted=self.config['encrypted'])
             except URLError:
                 # Here, we handle the rare circumstance that the springboard is
                 # down when we connect to it. We log an error so someone can

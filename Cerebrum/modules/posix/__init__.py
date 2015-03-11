@@ -1,5 +1,7 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2014 University of Oslo, Norway
+#
+# Copyright 2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,32 +18,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Group models."""
+"""The posix sub-package implements posix variants of the base classes."""
 
-from rpclib.model.complex import ComplexModel
-# TODO: Fix'n move
-from Cerebrum.modules.cis.Utils import Unicode, DateTime
-from rpclib.model.primitive import String
-
-NAMESPACE = 'GroupAPI'
-
-
-class GroupInfo(ComplexModel):
-    """Information about a group."""
-    __namespace__ = NAMESPACE
-    __tns__ = NAMESPACE
-
-    name = String
-    description = Unicode
-    expire_date = DateTime
-    visibility = String
-
-
-class GroupMember(ComplexModel):
-    """Information about a group member."""
-    __namespace__ = NAMESPACE
-    __tns__ = NAMESPACE
-
-    type = String
-    name = String
-    # TBD: Not here: id, expire1, expire2, expire_date
+# TODO: Move PosixGroup and PosixAccount into this sub-package
