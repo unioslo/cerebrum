@@ -559,7 +559,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         # Group
         'group_info', 'group_list', 'group_list_expanded', 'group_memberships',
         'group_delete', 'group_set_description', 'group_set_expire',
-        'group_search', 'group_promote_posix',  # 'group_create',
+        'group_search', 'group_promote_posix',  'group_demote_posix',# 'group_create',
         # Quarantine
         'quarantine_disable', 'quarantine_list', 'quarantine_remove',
         'quarantine_set', 'quarantine_show',
