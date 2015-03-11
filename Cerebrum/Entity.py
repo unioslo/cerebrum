@@ -1071,10 +1071,8 @@ class EntityQuarantine(Entity):
         self._db.log_change(self.entity_id, self.const.quarantine_add,
                             None, change_params={'q_type': int(type)})
 
-    # FIXME: builtin "type" should not be shadowed, rename keyword
-    # argument to "qtype" or similar
     def get_entity_quarantine(self,
-                              type=None,
+                              qtype=None,
                               only_active=False,
                               only_not_disabled=False):
         """Return a list of the current entity's quarantines.
@@ -1093,7 +1091,6 @@ class EntityQuarantine(Entity):
             not set or its date in the past will be returned.
             only_active must be False for this argument to have any impact.
         """
-        qtype = type
         conditions = ["entity_id = :e_id"]
         if only_active:
             conditions += [

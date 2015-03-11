@@ -721,7 +721,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
         # Check if the project was already approved
         if not project.get_entity_quarantine(only_active=True,
-                                             type=self.const.quarantine_not_approved):
+                                             qtype=self.const.quarantine_not_approved):
             # raise CerebrumError('Project already approved (no not_approved quarantine)')
             return success_msg + " (already approved, not changing anything)"
 
@@ -754,7 +754,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         """
         project = self._get_project(projectid)
         if not project.get_entity_quarantine(only_active=True,
-                                             type=self.const.quarantine_not_approved):
+                                             qtype=self.const.quarantine_not_approved):
             raise CerebrumError('Can not reject approved projects, you may '
                                 'wish to terminate it instead.')
         project.terminate()

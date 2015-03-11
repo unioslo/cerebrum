@@ -56,7 +56,7 @@ class sut:
             try:
                 self.account.find_by_name(row['username'])
                 quarantines=''
-                quarantines = self.account.get_entity_quarantine(type=self.constants.quarantine_sut_disk_usage)
+                quarantines = self.account.get_entity_quarantine(qtype=self.constants.quarantine_sut_disk_usage)
                 if len(quarantines==0):
                     self.account.add_entity_quarantine(self.constants.quarantine_sut_disk_usage,self.default_creator_id,start=self.quarantine_date)
                 #print "row=%s" % row
