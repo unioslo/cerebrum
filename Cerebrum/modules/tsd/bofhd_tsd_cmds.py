@@ -135,6 +135,12 @@ class SubnetParam(cmd.Parameter):
     _help_ref = 'subnet'
 
 
+class SubnetSearchType(cmd.Parameter):
+    """A subnet search type."""
+    _type = 'searchType'
+    _help_ref = 'subnet_search_type'
+
+
 class VLANParam(cmd.Parameter):
     """A VLAN number"""
     _type = 'vlan'
@@ -947,6 +953,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             ('REK-number:       %s', ('rek',)),
             ('Institution:      %s', ('institution',)),
             ('VM-type:          %s', ('vm_type',)),
+            ('VLAN, Subnet:     %-4s, %s', ('vlan_number', 'subnet')),
         ]),
         perm_filter='is_superuser')
 
@@ -1012,6 +1019,32 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             ret.append({'vm_type': trait['strval']})
         else:
             ret.append({'vm_type': '<Not Set>'})
+
+        # Subnets
+        def _subnet_info(subnet):
+            try:
+                sub = Subnet.Subnet(self.db)
+                sub.find(subnet)
+                return {
+                    'subnet': '%s/%s' % (sub.subnet_ip, sub.subnet_mask),
+                    'vlan_number': str(sub.vlan_number)
+                }
+            except dns.Errors.SubnetError:
+                sub = IPv6Subnet.IPv6Subnet(self.db)
+                sub.find(subnet)
+                compress = dns.IPv6Utils.IPv6Utils.compress
+                return {
+                    'subnet': '%s/%s' % (compress(sub.subnet_ip),
+                                         sub.subnet_mask),
+                    'vlan_number': str(sub.vlan_number)
+                }
+
+        project_subnets = [x['entity_id'] for x in
+                           project.get_project_subnets()]
+
+        for subnet_id in project_subnets:
+            ret.append(_subnet_info(subnet_id))
+
         return ret
 
     all_commands['project_affiliate_entity'] = cmd.Command(
@@ -1711,36 +1744,91 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     #
     # Subnet commands
 
+    def _get_all_subnets(self):
+        ou = self.OU_class(self.db)
+        # Project entity ID -> external project ID
+        ent2ext = dict((x['entity_id'], x['external_id']) for x in
+                       ou.list_external_ids(
+                           id_type=self.const.externalid_project_id))
+
+        # Subnet -> external project ID
+        subnet2project = {}
+        for row in ou.list_traits(code=(self.const.trait_project_subnet6,
+                                        self.const.trait_project_subnet)):
+            subnet2project[row['entity_id']] = ent2ext.get(row['target_id'])
+
+        # IPv4
+        subnet = Subnet.Subnet(self.db)
+        subnets = []
+        for row in subnet.search():
+            subnets.append({
+                'subnet': '%s/%s' % (row['subnet_ip'], row['subnet_mask']),
+                'vlan_number': str(row['vlan_number']),
+                'project_id': subnet2project.get(row['entity_id']),
+                'description': row['description']})
+
+        # IPv6
+        subnet6 = IPv6Subnet.IPv6Subnet(self.db)
+        compress = dns.IPv6Utils.IPv6Utils.compress
+        for row in subnet6.search():
+            subnets.append({
+                'subnet': '%s/%s' % (compress(row['subnet_ip']),
+                                     row['subnet_mask']),
+                'vlan_number': str(row['vlan_number']),
+                'project_id': subnet2project.get(row['entity_id']),
+                'description': row['description']})
+
+        return subnets
+
     all_commands['subnet_list'] = cmd.Command(
         ('subnet', 'list'),
         fs=cmd.FormatSuggestion([(
-            '%-30s %6s %s', ('subnet', 'vlan_number', 'description',),)],
-            hdr='%-30s %6s %s' % ('Subnet', 'VLAN', 'Description')),
+            '%-30s %6s %7s %s', ('subnet', 'vlan_number',
+                                 'project_id', 'description',),)],
+            hdr='%-30s %6s %7s %s' % ('Subnet', 'VLAN',
+                                      'Project', 'Description')),
         perm_filter='is_superuser')
 
     @superuser
     def subnet_list(self, operator):
         """Return a list of all subnets."""
-        ret = []
-        # IPv6:
-        subnet6 = IPv6Subnet.IPv6Subnet(self.db)
-        compress = dns.IPv6Utils.IPv6Utils.compress
-        for row in subnet6.search():
-            ret.append({
-                'subnet': '%s/%s' % (compress(row['subnet_ip']),
-                                     row['subnet_mask']),
-                'vlan_number': str(row['vlan_number']),
-                'description': row['description']})
-        # IPv4:
-        subnet = Subnet.Subnet(self.db)
-        for row in subnet.search():
-            ret.append({
-                'subnet': '%s/%s' % (row['subnet_ip'], row['subnet_mask']),
-                'vlan_number': str(row['vlan_number']),
-                'description': row['description']})
-        self.logger.debug("Found %d subnets", len(ret))
         # Sort by subnet
-        return sorted(ret, key=lambda x: x['subnet'])
+        return sorted(self._get_all_subnets(), key=lambda x: x['subnet'])
+
+    all_commands['subnet_search'] = cmd.Command(
+        ("subnet", "search"),
+        SubnetSearchType(),
+        cmd.SimpleString(),
+        fs=cmd.FormatSuggestion([(
+            '%-30s %6s %7s %s', ('subnet', 'vlan_number',
+                                 'project_id', 'description',),)],
+            hdr='%-30s %6s %7s %s' % ('Subnet', 'VLAN',
+                                      'Project', 'Description')),
+        perm_filter='is_superuser')
+
+    @superuser
+    def subnet_search(self, operator, search_type, pattern):
+        """Wildcard search for subnets."""
+        from fnmatch import fnmatch
+
+        type2filter = {
+            'subnet': 'subnet',
+            'vlan': 'vlan_number',
+            'project': 'project_id',
+            'description': 'description',
+        }
+
+        if search_type not in type2filter.keys():
+            raise CerebrumError("Unknown search type (%s)" % search_type)
+
+        # Fetch and filter subnets
+        subnets = self._get_all_subnets()
+        key = type2filter[search_type]
+        results = [sn for sn in subnets if fnmatch(sn[key], pattern)]
+
+        # Sort by subnet
+        return sorted(results, key=lambda x: x['subnet']) or 'No matches found'
+
 
     # subnet create
     #all_commands['subnet_create'] = cmd.Command(
