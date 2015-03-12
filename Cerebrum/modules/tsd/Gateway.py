@@ -36,6 +36,7 @@ for the available commands at the Gateway.
 """
 
 import xmlrpclib
+import mx
 
 import cerebrum_path
 import cereconf
@@ -122,10 +123,46 @@ class GatewayClient(xmlrpclib.Server, object):
             # xmlrpclib.ServerProxy. Not the best behaviour, but the alternative
             # was to make an almost complete copy of ServerProxy in here, since
             # it has too many private methods and variables...
-            return super(GatewayClient, self)._ServerProxy__request(methodname,
-                                                                    params)
+            return self.__typecast(
+                super(GatewayClient, self)._ServerProxy__request(
+                    methodname, self.__typecast(params)))
         except xmlrpclib.Fault, e:
             raise GatewayException(e)
+
+    def __typecast(self, data):
+        """Typecast specific object types.
+
+        Typecasts:
+        xmlrpclib.DateTime → mx.DateTime.DateTime
+        mx.DateTime.DateTime → xmlrpclib.DateTime
+
+        :param object data: The data to typecast.
+
+        :return object: The typecasted data.
+        """
+        # TODO: Make me configurable!
+
+        def cast_elements(elms):
+            collect = []
+            for elm in data:
+                collect.append(self.__typecast(elm))
+            return collect
+
+        if isinstance(data, list):
+            return cast_elements(data)
+        elif isinstance(data, tuple):
+            return tuple(cast_elements(data))
+        elif isinstance(data, dict):
+            collect = []
+            for k, v in data.items():
+                collect.append((k, self.__typecast(v)))
+            return dict(collect)
+        elif isinstance(data, xmlrpclib.DateTime):
+            return mx.DateTime.strptime(data.value, "%Y%m%dT%H:%M:%S")
+        elif isinstance(data, mx.DateTime.DateTimeType):
+            return xmlrpclib.DateTime(data)
+        else:
+            return data
 
     # List methods
 
