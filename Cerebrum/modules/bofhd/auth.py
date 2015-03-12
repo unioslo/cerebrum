@@ -322,18 +322,14 @@ class BofhdAuthOpSet(DatabaseAccessor):
             'code': int(op_code), 'op_id': op_id, 'op_set_id': self.op_set_id})
         return op_id
 
-    def del_operation(self, op_code, op_id=-1):
-        extra = ''
-        if op_id != -1:
-            extra = ' AND op_id=:op_id'
+    def del_operation(self, op_code, op_id=None):
+
+        if op_id is not None:
+            self.del_all_op_attrs(op_id)
 
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=auth_operation]
-        WHERE op_code=:op_code AND op_set_id=:op_set_id%s""" % extra, {
-            'op_code': int(op_code),
-            'op_set_id': self.op_set_id,
-            'op_id': int(op_id)
-        })
+        WHERE op_code=%s AND op_set_id=%s""" % (int(op_code), self.op_set_id))
 
     def add_op_attrs(self, op_id, attr):
         self.execute("""
@@ -346,6 +342,11 @@ class BofhdAuthOpSet(DatabaseAccessor):
         DELETE FROM [:table schema=cerebrum name=auth_op_attrs]
         WHERE op_id=:op_id AND attr=:attr""", {
             'op_id': int(op_id), 'attr': attr})
+
+    def del_all_op_attrs(self, op_id):
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=auth_op_attrs]
+        WHERE op_id=%s""" % int(op_id))
 
     def list(self):
         return self.query("""
@@ -1481,8 +1482,40 @@ class BofhdAuth(DatabaseAccessor):
                 return True
             return self.is_account_owner(operator, self.const.auth_view_history,
                                          entity)
-        elif entity.entity_type == self.const.entity_group:
-            return self.is_group_owner(operator, self.const.auth_view_history,
+
+        # Check if user has been granted an op-set that allows viewing the
+        # entity's history.
+        for row in self._list_target_permissions(
+                operator, self.const.auth_view_history,
+                self.const.auth_target_type_global_group,
+                None, get_all_op_attrs=True):
+            attr = row.get('operation_attr')
+
+            # Op-set allows viewing history for this entity type
+            # We need try/except here as self.const.EntityType will throw
+            # exceptions if attr is something else than an entity-type
+            # (for example a spread-type).
+            try:
+                if entity.entity_type == int(self.const.EntityType(attr)):
+                    return True
+            except:
+                pass
+
+            # For groups we use the op-set attribute to specify groups that has
+            # specified spreads (for example, postmasters are permitted to view
+            # the entity history of groups with the exchange_group spread).
+            # try/except is needed here for the same reasons as above.
+            if entity.entity_type == self.const.entity_group:
+                try:
+                    spread_type = int(self.const.Spread(attr))
+                    if entity.has_spread(spread_type):
+                        return True
+                except:
+                    pass
+
+        if entity.entity_type == self.const.entity_group:
+            return self.is_group_owner(operator,
+                                       self.const.auth_view_history,
                                        entity)
         raise PermissionDenied("no access for that entity_type")
 

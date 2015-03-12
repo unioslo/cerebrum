@@ -750,14 +750,20 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 # encodestring annoyingly adds a '\n' at the end of
                 # the string, and OpenLDAP won't accept that.
                 # b64encode does not, but it requires Python 2.4
-                return base64.encodestring(hashlib.sha1(plaintext + salt).digest() +
-                                           salt).strip()
+                return base64.encodestring(
+                    hashlib.sha1(plaintext + salt).digest() + salt).strip()
             return crypt.crypt(plaintext, salt)
         elif method == self.const.auth_type_md4_nt:
             # Do the import locally to avoid adding a dependency for
             # those who don't want to support this method.
             import smbpasswd
-            return smbpasswd.nthash(plaintext)
+            # TODO: Temporary (and ugly) fix for CRB-162
+            # Strings should be represented as unicode objects everywhere
+            # in the entire system
+            unicode_plaintext = plaintext
+            if isinstance(plaintext, str):  # will fail in Python 3
+                unicode_plaintext = plaintext.decode('ISO-8859-1')
+            return smbpasswd.nthash(unicode_plaintext)
         elif method == self.const.auth_type_plaintext:
             return plaintext
         elif method == self.const.auth_type_md5_unsalt:

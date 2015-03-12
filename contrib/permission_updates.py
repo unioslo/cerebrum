@@ -105,6 +105,7 @@ def convert_existing_opsets(dryrun):
         db.commit()
         logger.info('Changes committed')
 
+
 def fix_opset(name, contents):
     """Fix an operation set by giving it the operations defined in operation_sets,
     and removing other operations that shouldn't be there. If the opset doesn't
@@ -145,11 +146,13 @@ def fix_opset(name, contents):
         for a in current_attrs:
             baos.del_op_attrs(current_op_id, a)
             logger.info("Remove attr for %s:%s: %s", name, k, a)
+
     for op in current_operations:
-       baos.del_operation(op)  # TBD: In theory this should be op_id, should
-                               # the DB have a unique constraint?
-       logger.info('OpSet %s had unwanted operation %s, removed it', name,
-                                                            co.AuthRoleOp(op))
+        #TBD: In theory this should be op_id, should
+        # the DB have a unique constraint?
+        baos.del_operation(op, current_operations[op])
+        logger.info('OpSet %s had unwanted operation %s, removed it',
+                    name, co.AuthRoleOp(op))
     baos.write_db()
 
 def fix_opsets(dryrun, opsets):

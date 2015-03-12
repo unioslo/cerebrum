@@ -443,7 +443,7 @@ class OUTSDMixin(OU, EntityTrait):
         """
         projectid = self.get_project_id()
         etrait = EntityTrait(self._db)
-        if not vlan:
+        if not vlan and not isinstance(vlan, (int, long)):
             vlan = self.get_next_free_vlan()
         try:
             vlan = int(vlan)
@@ -451,7 +451,7 @@ class OUTSDMixin(OU, EntityTrait):
             raise Errors.CerebrumError('VLAN not valid: %s' % (vlan,))
         # Checking if the VLAN is in one of the ranges
         for min, max in getattr(cereconf, 'VLAN_RANGES', ()):
-            if vlan >= min and vlan <= max:
+            if min <= vlan <= max:
                 break
         else:
             raise Errors.CerebrumError('VLAN out of range: %s' % vlan)
@@ -691,16 +691,9 @@ class OUTSDMixin(OU, EntityTrait):
             pe.write_db()
         # Remove all project's groups:
         gr = Factory.get('Group')(self._db)
-        pg = Factory.get('PosixGroup')(self._db)
         for row in gr.list_traits(code=self.const.trait_project_group,
                                   target_id=self.entity_id):
             gr.clear()
-            pg.clear()
-            try:
-                pg.find(row['entity_id'])
-                pg.delete()
-            except Errors.NotFoundError:
-                pass
             gr.find(row['entity_id'])
             gr.delete()
         # Delete all subnets
@@ -742,7 +735,8 @@ class OUTSDMixin(OU, EntityTrait):
         for row in self.get_spread():
             self.delete_spread(row['spread'])
         for row in self.get_contact_info():
-            self.delete_contact_info(row['source_system'], row['contact_type'])
+            self.delete_contact_info(row['source_system'],
+                                     row['contact_type'])
         for row in self.get_entity_address():
             self.delete_entity_address(row['source_system'],
                                        row['address_type'])
