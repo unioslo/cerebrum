@@ -360,7 +360,7 @@ class GatewayClient(xmlrpclib.Server, object):
             return True
         params = {'project': pid}
         if when is not None:
-            params['when']: xmlrpclib.DateTime(when)
+            params['when'] = xmlrpclib.DateTime(when)
         return self.project.freeze(params)
 
     def thaw_project(self, pid):
