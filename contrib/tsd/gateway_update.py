@@ -196,7 +196,7 @@ class Processor:
             self.gw.delete_project(pid)
             return
         quars = [row for row in self.ou.get_entity_quarantine(
-            only_not_disabled=True)]        
+            self.co.quarantine_frozen)]
         # TBD: Delete project when put in end quarantine, or wait for the
         # project to have really been removed? Remember that we must not remove
         # the OU completely, to avoid reuse of the project ID and project name,
@@ -213,12 +213,7 @@ class Processor:
                          pid,
                          str(quars))
             if not proj['frozen']:
-                # TODO: Check if gw handles when=None in order to remove
-                #       this otherwise unnecessary check
-                if when is not None:  
-                    self.gw.freeze_project(pid, when)
-                else:
-                    self.gw.freeze_project(pid)
+                self.gw.freeze_project(pid, when)
         else:
             if proj['frozen']:
                 self.gw.thaw_project(pid)
