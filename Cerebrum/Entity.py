@@ -1054,22 +1054,22 @@ class EntityQuarantine(Entity):
             self.delete_entity_quarantine(r['quarantine_type'])
         self.__super.delete()
 
-    def add_entity_quarantine(self, type, creator, description=None,
+    def add_entity_quarantine(self, qtype, creator, description=None,
                               start=None, end=None):
-        type = int(type)
+        qtype = int(qtype)
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=entity_quarantine]
           (entity_id, quarantine_type,
            creator_id, description, start_date, end_date)
         VALUES (:e_id, :q_type, :c_id, :description, :start_date, :end_date)""",
                      {'e_id': self.entity_id,
-                      'q_type': int(type),
+                      'q_type': qtype,
                       'c_id': creator,
                       'description': description,
                       'start_date': start,
                       'end_date': end})
         self._db.log_change(self.entity_id, self.const.quarantine_add,
-                            None, change_params={'q_type': int(type)})
+                            None, change_params={'q_type': qtype})
 
     def get_entity_quarantine(self,
                               qtype=None,
@@ -1111,16 +1111,16 @@ class EntityQuarantine(Entity):
                           {'e_id': self.entity_id,
                            'qtype': qtype})
 
-    def disable_entity_quarantine(self, type, until):
+    def disable_entity_quarantine(self, qtype, until):
         self.execute("""
         UPDATE [:table schema=cerebrum name=entity_quarantine]
         SET disable_until=:d_until
         WHERE entity_id=:e_id AND quarantine_type=:q_type""",
                      {'e_id': self.entity_id,
-                      'q_type': int(type),
+                      'q_type': int(qtype),
                       'd_until': until})
         self._db.log_change(self.entity_id, self.const.quarantine_mod,
-                            None, change_params={'q_type': int(type)})
+                            None, change_params={'q_type': int(qtype)})
 
     def delete_entity_quarantine(self, type):
         self.execute("""
