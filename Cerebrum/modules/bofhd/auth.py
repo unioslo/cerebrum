@@ -1477,16 +1477,12 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return self._has_operation_perm_somewhere(operator,
                     self.const.auth_view_history)
-        if entity.entity_type == self.const.entity_account:
-            if self._no_account_home(operator, entity):
-                return True
-            return self.is_account_owner(operator, self.const.auth_view_history,
-                                         entity)
 
         # Check if user has been granted an op-set that allows viewing the
-        # entity's history.
+        # entity's history in some specific fashion.
         for row in self._list_target_permissions(
                 operator, self.const.auth_view_history,
+                # TODO Should the auth target type be generalized?
                 self.const.auth_target_type_global_group,
                 None, get_all_op_attrs=True):
             attr = row.get('operation_attr')
@@ -1513,6 +1509,11 @@ class BofhdAuth(DatabaseAccessor):
                 except:
                     pass
 
+        if entity.entity_type == self.const.entity_account:
+            if self._no_account_home(operator, entity):
+                return True
+            return self.is_account_owner(operator, self.const.auth_view_history,
+                                         entity)
         if entity.entity_type == self.const.entity_group:
             return self.is_group_owner(operator,
                                        self.const.auth_view_history,
