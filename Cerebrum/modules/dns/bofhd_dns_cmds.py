@@ -484,47 +484,59 @@ class BofhdExtension(BofhdCommandBase):
     # TBD: Comment/contact?
 
     def host_a_add(self, operator, host_name, subnet_or_ip, force=False):
-        """BOFH command for adding a new A/AAAA record to a host."""
+        """BOFH command for adding a new A/AAAA record to a host.
+
+        :param operator: The logged-in account calling the method.
+        :type  operator: An account object.
+        :param host_name: The hostname of the host being added.
+        :type  host_name: str
+        :param subnet_or_ip: An IPv4/IPv6-address or subnet.
+        :type  subnet_or_ip: str
+        :param force: Indicates if the method should force the operation, even
+                      if the entered IP is not part of any registered subnet,
+                      or is part of a subnet handled by an external DNS-server.
+        :type  force: boolean
+
+        :returns: A string indicating the added IP for the host.
+        :rtype: str
+        """
         self.ba.assert_dns_superuser(operator.get_entity_id())
         force = self.dns_parser.parse_force(force)
         host_name = host_name.lower()
 
-        # Fast check for IPv4
-        if '.' in subnet_or_ip:
+        subnet, ip = self.dns_parser.parse_subnet_or_ip(subnet_or_ip)
+
+        if subnet is None and not force:
+            raise CerebrumError("Unknown subnet. Must force.")
+
+        if IPUtils.is_valid_ipv4(subnet) or IPUtils.is_valid_ipv4(ip):
             s = Subnet.Subnet(self.db)
             a_alloc = self.mb_utils.alloc_arecord
-        else:
+
+        elif IPv6Utils.verify(subnet) or IPv6Utils.verify(ip):
             s = IPv6Subnet.IPv6Subnet(self.db)
             a_alloc = lambda *x: IPv6Utils.compress(
                 self.mb_utils.alloc_aaaa_record(*x))
+        else:
+            raise CerebrumError("Please specify a valid subnet or IP-address.")
 
-        subnet_ip = None
-        free_ip_numbers = []
-        try:
-            s.find(subnet_or_ip)
-            subnet_ip = s.subnet_ip
+        if subnet is not None:
             if s.dns_delegated and not force:
-                raise CerebrumError("Must force 'host a_add' for subnets " +
-                                    "delegated to external DNS-server")
-            free_ip_numbers = self.mb_utils.get_relevant_ips(subnet_or_ip,
-                                                             force)
-        except SubnetError:
-            # We don't require forcing if there does not exist a IPv6 subnet
-            # for the address, if this is allowed in cereconf.
-            # TODO: This is technical debt and should be fixed!
-            if (not force and
-                    not (cereconf.DNS_HOST_A_ADD_ACCEPT_MISSING_IPV6_SUBNET and
-                         ':' in subnet_or_ip)):
-                raise SubnetError("Unknown subnet; must force")
-            if subnet_or_ip.find('/') > 0:
-                raise SubnetError("Unknown subnet; must use specific ip")
-            if subnet_or_ip.endswith(".0"):
-                raise CerebrumError(
-                    "Unknown subnet; cannot allocate .0-address")
-            free_ip_numbers = [subnet_or_ip]
+                raise CerebrumError(("Must force 'host a_add' for subnets "
+                                     "delegated to external DNS-server"))
 
-        ip = a_alloc(host_name, subnet_ip, free_ip_numbers[0], force)
-        return "OK, ip=%s" % ip
+            if ip is None:
+                new_ip_addr = self.mb_utils.get_relevant_ips(subnet_or_ip,
+                                                             force,
+                                                             no_of_addrs=1)[0]
+        if ip is not None:
+            if ip.endswith('.0'):
+                raise CerebrumError(("Cannot allocate address "
+                                     "that ends with .0"))
+            new_ip_addr = ip
+
+        ip_addr = a_alloc(host_name, subnet, new_ip_addr, force)
+        return "OK, ip=%s" % ip_addr
 
     # host a_remove
     all_commands['host_a_remove'] = Command(
@@ -543,40 +555,70 @@ class BofhdExtension(BofhdCommandBase):
             fs = FormatSuggestion('%-30s %s', ('name', 'ip'),
                                   hdr='%-30s %s' % ('name', 'ip')),
             perm_filter='is_dns_superuser')
+
     def host_add(self, operator, hostname, subnet_or_ip, hinfo,
                  contact, comment, force=False):
+        """
+        Adds a record for a new host.
+
+        :param operator: The logged-in account calling the method.
+        :type  operator: An account object.
+        :param hostname: The hostname of the host being added.
+        :type  hostname: str
+        :param subnet_or_ip: An IPv4/IPv6-address or subnet.
+        :type  subnet_or_ip: str
+        :param hinfo: Host-info code, for example 'win', 'linux', 'printer'
+        :type  hinfo: str
+        :param contact: Email-address for the host's contact-person/department.
+        :type  contact: str
+        :param comment: General info about the host.
+        :type  comment: str
+        :param force: Indicates if the method should force the operation, even
+                      if the entered IP is not part of any registered subnet,
+                      or is part of a subnet handled by an external DNS-server.
+
+        :returns: A list of dictionaries, containing the added hostnames and
+                  their related IPs.
+        :rtype: list
+
+        """
         self.ba.assert_dns_superuser(operator.get_entity_id())
         force = self.dns_parser.parse_force(force)
         hostnames = self.dns_parser.parse_hostname_repeat(hostname)
         hinfo = self._map_hinfo_code(hinfo)
 
-        # TODO: Add proper ip validators/parsers
-        if '.' in subnet_or_ip:
+        subnet, ip = self.dns_parser.parse_subnet_or_ip(subnet_or_ip)
+
+        if subnet is None and not force:
+            raise CerebrumError("Unknown subnet. Must force.")
+
+        if IPUtils.is_valid_ipv4(subnet) or IPUtils.is_valid_ipv4(ip):
             s = Subnet.Subnet(self.db)
             a_alloc = self.mb_utils.alloc_arecord
-        else:
-            s = IPv6Subnet.IPv6Subnet(self.db)
-            a_alloc = self.mb_utils.alloc_aaaa_record
 
-        subnet_ip = None
-        free_ip_numbers = []
-        try:
-            s.find(subnet_or_ip)
-            subnet_ip = s.subnet_ip
-            if s.dns_delegated:
-                raise CerebrumError("Cannot add host to subnet zone " +
-                                    "delegated to external DNS-server")
-            free_ip_numbers = self.mb_utils.get_relevant_ips(subnet_or_ip,
-                                                    force, len(hostnames))
-            
-        except SubnetError:
-            if not force:
-                raise SubnetError, "Unknown subnet; must force"
-            if subnet_or_ip.find('/') > 0:
-                raise SubnetError, "Unknown subnet; must use specific ip"
-            if subnet_or_ip.endswith(".0"):
-                raise CerebrumError, "Unknown subnet; cannot allocate .0-address"
-            free_ip_numbers = [ subnet_or_ip ]
+        elif IPv6Utils.verify(subnet) or IPv6Utils.verify(ip):
+            s = IPv6Subnet.IPv6Subnet(self.db)
+            a_alloc = lambda *x: IPv6Utils.compress(
+                self.mb_utils.alloc_aaaa_record(*x))
+        else:
+            raise CerebrumError("Please specify a valid subnet or IP-address.")
+
+        if subnet is not None:
+
+            if s.dns_delegated and not force:
+                raise CerebrumError(("Cannot add host to subnet zone "
+                                     "delegated to external DNS-server"))
+
+            if ip is None:
+                free_ip_numbers = self.mb_utils.get_relevant_ips(
+                                                    subnet_or_ip,
+                                                    force,
+                                                    no_of_addrs=len(hostnames))
+        if ip is not None:
+            if ip.endswith('.0'):
+                raise CerebrumError(("Cannot allocate address "
+                                     "that ends with .0"))
+            free_ip_numbers = [ip]
 
         if len(free_ip_numbers) < len(hostnames):
             raise CerebrumError("Not enough free ips")
@@ -590,10 +632,10 @@ class BofhdExtension(BofhdCommandBase):
 
         ret = []
         for name in hostnames:
-            # TODO: bruk hinfo ++ for å se etter passende sekvens uten
+            # TODO: bruk hinfo ++ for Ã¥ se etter passende sekvens uten
             # hull (i en passende klasse)
             ip = a_alloc(
-                name, subnet_ip, free_ip_numbers.pop(0), force)
+                name, subnet, free_ip_numbers.pop(0), force)
             self.mb_utils.alloc_host(
                 name, hinfo, mx_set_id, comment, contact)
             ret.append({'name': name, 'ip': ip})
@@ -702,19 +744,21 @@ class BofhdExtension(BofhdCommandBase):
     all_commands['host_remove'] = Command(
         ("host", "remove"), HostId(), Force(optional=True),
         perm_filter='is_dns_superuser')
+
     def host_remove(self, operator, host_id, force=False):
         self.ba.assert_dns_superuser(operator.get_entity_id())
         force = self.dns_parser.parse_force(force)
-        tmp = host_id.split(".")
 
-        # Quick check of IP-proto and loading of appropriate modules.
         ip_type = None
-        if host_id.count(":") > 1:
-            arecord = AAAARecord.AAAARecord(self.db)
-            ip_type = dns.IPv6_NUMBER
-        elif host_id.find(":") == -1 and tmp[-1].isdigit():
+
+        if IPUtils.is_valid_ipv4(host_id):
+            IPUtils.parse_ipv4(host_id)
             arecord = ARecord.ARecord(self.db)
             ip_type = dns.IP_NUMBER
+
+        elif IPv6Utils.verify(host_id):
+            arecord = AAAARecord.AAAARecord(self.db)
+            ip_type = dns.IPv6_NUMBER
 
         if ip_type == dns.IPv6_NUMBER or ip_type == dns.IP_NUMBER:
             # Freeing an ip-number
@@ -985,7 +1029,7 @@ class BofhdExtension(BofhdCommandBase):
             ("In total: %s (from range: %s-%s)", ('unused', 'start', 'stop',))],
                             hdr="Ip"))
     def host_unused_list(self, operator, subnet, num_or_range=None):
-        # TODO: Skal det være mulig å få listet ut ledige reserved IP?
+        # TODO: Skal det vÃ¦re mulig Ã¥ fÃ¥ listet ut ledige reserved IP?
 
         display = range = {}
         if num_or_range:
@@ -1139,70 +1183,105 @@ class BofhdExtension(BofhdCommandBase):
         perm_filter='is_dns_superuser')
 
     def host_rename(self, operator, old_id, new_id, force=False):
+        """
+        Renames a host. Valid inputs for old_id & new_id are hostnames, IPv4 or
+        IPv6. new_id can be both a specific IP, or a subnet. If the method is
+        given a subnet as new_id, the host will be assigned a free IP found in
+        it.
+
+        :param operator: The logged in user calling the method.
+        :type  operator: An account object
+        :param old_id: An existing host's hostname, or IPv4/IPv6-address.
+        :type  old_id: str
+        :param new_id: The new hostname, IPv4/IPv6-address or subnet.
+        :type  new_id: str
+        :param force: Indicates if the method should force the operation, even
+                      if the entered IP is not part of any registered subnet,
+                      or is part of a subnet handled by an external DNS-server.
+        :type  force: boolean
+
+        :returns: A string, indicating the changes made after the operation.
+        :rtype: str
+        """
+        self.ba.assert_dns_superuser(operator.get_entity_id())
+
+        force = self.dns_parser.parse_force(force)
 
         if old_id == "" or new_id == "":
             raise CerebrumError(("Cannot rename without both an "
                                  "old and a new name."))
 
-        if self._ip4_validator(new_id):  # Check if new_id is a valid ip4 addr
-            new_id = self._parse_ip4(new_id)
-        # TODO: Support ipv6?
-        else:  # Assume it's a hostname
-            new_id = new_id.lower()  # All hostnames need to be lowercased
+        if IPUtils.is_valid_ipv4(old_id):
+            IPUtils.parse_ipv4(old_id)
 
-        self.ba.assert_dns_superuser(operator.get_entity_id())
-        # Make sure that any subnet-formatted "new_ip" gets recognized as such later
-        if new_id.find('/') > 0:
-            new_id = new_id.split('/')[0] + "/"
-        lastpart = new_id.split(".")[-1]
-        # Rename by IPv6-number
-        if new_id.count(':') > 2:
-            self.mb_utils.ip_rename(dns.IPv6_NUMBER, old_id, new_id)
-            return "OK, ip-number %s renamed to %s" % (old_id, new_id)
-        # Rename by IPv4-number
-        elif (new_id.find(":") == -1 and lastpart and
-            (lastpart[-1] == '/' or lastpart.isdigit())):
-            free_ip_numbers = self.mb_utils.get_relevant_ips(new_id, force, 1)
-            new_id = free_ip_numbers[0]
-            self.mb_utils.ip_rename(dns.IP_NUMBER, old_id, new_id)
-            return "OK, ip-number %s renamed to %s" % (
-                old_id, new_id)
-        # Rename by dns-owner
-        new_id = self.dns_parser.qualify_hostname(new_id)
-        self.mb_utils.ip_rename(dns.DNS_OWNER, old_id, new_id)
-        owner_id = self._find.find_target_by_parsing(new_id, dns.DNS_OWNER)
+        new_ip_addr = None
 
-        arecord = ARecord.ARecord(self.db)
-        aaaarecord = AAAARecord.AAAARecord(self.db)
-        ips = [row['a_ip'] for row in arecord.list_ext(dns_owner_id=owner_id)]
-        ips += [IPv6Utils.compress(row['aaaa_ip']) for row in \
-                aaaarecord.list_ext(dns_owner_id=owner_id)]
-        return "OK, dns-owner %s renamed to %s (IP: %s)" % (
-            old_id, new_id, ", ".join(ips))
+        try:
+            new_ip_addr = self.mb_utils.get_relevant_ips(subnet_or_ip=new_id,
+                                                         no_of_addrs=1,
+                                                         force=force)[0]
+        except:
+            pass
 
+        if new_ip_addr is not None:
+
+            if IPUtils.is_valid_ipv4(old_id):
+
+                if IPUtils.is_valid_ipv4(new_ip_addr):
+
+                    self.mb_utils.ip_rename(dns.IP_NUMBER, old_id, new_ip_addr)
+                    return "OK, ip-number %s renamed to %s" % (old_id,
+                                                               new_ip_addr)
+                else:
+                    raise CerebrumError(("New IP must be of same type "
+                                         "as old IP (IPv4)."))
+            elif IPv6Utils.verify(old_id):
+
+                if IPv6Utils.verify(new_ip_addr):
+
+                    self.mb_utils.ip_rename(dns.IPv6_NUMBER,
+                                            old_id, new_ip_addr)
+                    return "OK, ip-number %s renamed to %s" % (old_id,
+                                                               new_ip_addr)
+                else:
+                    raise CerebrumError(("New IP must be of same type "
+                                         "as old IP (IPv6)."))
+        else:  # hostname
+            new_id = self.dns_parser.qualify_hostname(new_id)
+            self.mb_utils.ip_rename(dns.DNS_OWNER, old_id, new_id)
+            owner_id = self._find.find_target_by_parsing(new_id, dns.DNS_OWNER)
+            arecord = ARecord.ARecord(self.db)
+            aaaarecord = AAAARecord.AAAARecord(self.db)
+            ips = [row['a_ip'] for row in
+                   arecord.list_ext(dns_owner_id=owner_id)]
+            ips += [IPv6Utils.compress(row['aaaa_ip']) for row in
+                    aaaarecord.list_ext(dns_owner_id=owner_id)]
+
+            return "OK, DNS-owner %s renamed to %s (IP: %s)" % (old_id, new_id,
+                                                                ", ".join(ips))
 
     # host ptr_add
     all_commands['host_ptr_add'] = Command(
         ("host", "ptr_add"), Ip(), HostName(), Force(optional=True),
         perm_filter='is_dns_superuser')
+
     def host_ptr_add(self, operator, ip_host_id, dest_host, force=False):
         self.ba.assert_dns_superuser(operator.get_entity_id())
         force = self.dns_parser.parse_force(force)
-       
-        # Fast check for IPv4
-        if ip_host_id.find('.') != -1:
+
+        if IPUtils.is_valid_ipv4(ip_host_id):
             s = Subnet.Subnet(self.db)
         # Fast check for IPv6
-        elif ip_host_id.find(':') != -1:
+        elif IPv6Utils.verify(ip_host_id):
             s = IPv6Subnet.IPv6Subnet(self.db)
         else:
-            raise CerebrumError, 'IP is invalid'
+            raise CerebrumError('IP is invalid')
 
         s.find(ip_host_id)
         if s.dns_delegated:
             raise CerebrumError("Cannot add reversemap in subnet zone " +
                                 "delegated to external DNS-server")
-        
+
         self.mb_utils.add_revmap_override(ip_host_id, dest_host, force)
 
         return "OK, added reversemap override for %s -> %s" % (
@@ -1212,17 +1291,17 @@ class BofhdExtension(BofhdCommandBase):
     all_commands['host_ptr_remove'] = Command(
         ("host", "ptr_remove"), Ip(), HostName(),
         perm_filter='is_dns_superuser')
+
     def host_ptr_remove(self, operator, ip_host_id, dest_host, force=False):
         self.ba.assert_dns_superuser(operator.get_entity_id())
         force = self.dns_parser.parse_force(force)
-        
-        # Fast IP check
-        if ip_host_id.find('.') != -1:
+
+        if IPUtils.is_valid_ipv4(ip_host_id):
             ip_type = dns.IP_NUMBER
-        elif ip_host_id.find(':') != -1:
+        elif IPv6Utils.verify(ip_host_id):
             ip_type = dns.IPv6_NUMBER
         else:
-            raise CerebrumError, 'IP is invalid.'
+            raise CerebrumError('IP is invalid.')
 
         ip_owner_id = self._find.find_target_by_parsing(
             ip_host_id, ip_type)
@@ -1242,7 +1321,7 @@ class BofhdExtension(BofhdCommandBase):
 
         return "OK, removed reversemap override for %s -> %s" % (
             ip_host_id, dest_host)
-        
+
     # host srv_add
     all_commands['host_srv_add'] = Command(
         ("host", "srv_add"), ServiceName(), Priority(), Weight(),

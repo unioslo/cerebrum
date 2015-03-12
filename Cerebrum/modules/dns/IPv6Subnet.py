@@ -63,14 +63,15 @@ class IPv6Subnet(Entity):
         try:
             ip, mask = subnet.split('/')
         except ValueError:
-            raise SubnetError("Not a valid subnet '%s'" % subnet)
+            return False, "Not a valid subnet '%s'" % subnet
 
-        if not IPv6Calc.verify(ip):
-            raise SubnetError('Invalid adress: %s' % ip)
+        if not IPv6Utils.verify(ip):
+            return False, "Invalid adress: %s" % ip
 
         mask = int(mask)
         if mask < 0 or mask > 128:
-            raise SubnetError("Invalid subnet mask '%s'; outside range 0-128" % mask)
+            return False, ("Invalid subnet mask '%s'; "
+                           "outside range 0-128" % mask)
 
         return True
     is_valid_subnet = staticmethod(is_valid_subnet)
