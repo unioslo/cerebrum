@@ -358,16 +358,17 @@ class GatewayClient(xmlrpclib.Server, object):
 
     # Project methods
 
-    def create_project(self, pid):
+    def create_project(self, pid, expire_date=None):
         """Create a new project in the GW.
 
         :param string pid: The project ID.
+        :param mx.DateTime.DateTime expire_date: The projects expire date.
 
         """
         self.logger.info("Creating project: %s", pid)
         if self.dryrun:
             return True
-        return self.project.create({'project': pid})
+        return self.project.create({'project': pid, 'expires': expire_date})
 
     def delete_project(self, pid):
         """Delete a given project from the GW.
@@ -382,6 +383,19 @@ class GatewayClient(xmlrpclib.Server, object):
         if self.dryrun:
             return True
         return self.project.delete({'project': pid})
+
+    def expire_project(self, pid, expire_date=None):
+        """Set expire-date on project.
+
+        :param string pid: The project identifier.
+        :param mx.DateTime.DateTime expire_date: The projects expire date.
+
+        """
+        self.logger.info("Setting expire date %s on project: %s",
+                         pid, expire_date)
+        if self.dryrun:
+            return True
+        return self.project.expire({'project': pid, 'when': expire_date})
 
     def freeze_project(self, pid, when=None):
         """Freeze a project in the GW.
