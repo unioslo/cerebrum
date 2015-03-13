@@ -168,7 +168,7 @@ class Processor:
                 logger.debug4('Skipping already processed project: %s', pid)
                 continue
             logger.debug2('Creating project: %s', pid)
-            self.gw.create_project(pid)
+            self.gw.create_project(pid, ou.expire_date)
             processed.add(pid)
 
     def process_project(self, pid, proj):
@@ -195,11 +195,17 @@ class Processor:
             # if proj['expires'] and proj['expires'] < DateTime.now():
             self.gw.delete_project(pid)
             return
+
+        if proj['expires'] != self.ou.expire_date:
+            self.gw.expire_project(pid, self.ou.expire_date)
+
         # Since no other quarantine types are handled in this method
         # we only need to select quarantine type frozen
         # This may change in the future
+
         quars = [row for row in self.ou.get_entity_quarantine(
             self.co.quarantine_frozen)]
+
         # TBD: Delete project when put in end quarantine, or wait for the
         # project to have really been removed? Remember that we must not remove
         # the OU completely, to avoid reuse of the project ID and project name,
