@@ -54,6 +54,18 @@ class IPv6Subnet(Entity):
         self.reserved_adr = set()
 
     def is_valid_subnet(subnet):
+        """True/False-check that a subnet specification is correctly
+        formatted and with legal values.
+
+        """
+        try:
+            IPv6Subnet.validate_subnet(subnet)
+            return True
+        except SubnetError:
+            return False
+    is_valid_subnet = staticmethod(is_valid_subnet)
+
+    def validate_subnet(subnet):
         """Validates that a subnet specification is correctly
         formatted and with legal values.
 
@@ -63,18 +75,17 @@ class IPv6Subnet(Entity):
         try:
             ip, mask = subnet.split('/')
         except ValueError:
-            return False, "Not a valid subnet '%s'" % subnet
+            raise SubnetError("Not a valid subnet '%s'" % subnet)
 
         if not IPv6Utils.verify(ip):
-            return False, "Invalid adress: %s" % ip
+            raise SubnetError("Invalid adress: %s" % ip)
 
         mask = int(mask)
         if mask < 0 or mask > 128:
-            return False, ("Invalid subnet mask '%s'; "
-                           "outside range 0-128" % mask)
-
+            raise SubnetError("Invalid subnet mask '%s'; "
+                              "outside range 0-128" % mask)
         return True
-    is_valid_subnet = staticmethod(is_valid_subnet)
+    validate_subnet = staticmethod(validate_subnet)
 
     def calculate_subnet_mask(ip_min, ip_max):
         """Calculates the subnetmask of a subnet based on the highest
