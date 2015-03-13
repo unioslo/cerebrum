@@ -181,6 +181,17 @@ class OUTSDMixin(OU, EntityTrait):
             qtype=self.const.quarantine_not_approved,
             only_active=True))
 
+    @property
+    def expire_date(self):
+        """The projects expire date."""
+        # TODO: Should we define a setter or a deleter?
+        quars = self.get_entity_quarantine(qtype=self.const.quarantine_project_end)
+        if quars:
+            return quars[0]['start_date']
+        else:
+            return None
+
+
     def add_name_with_language(self, name_variant, name_language, name):
         """Override to be able to verify project names (acronyms)."""
         if name_variant == self.const.ou_name_acronym:
