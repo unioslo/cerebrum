@@ -402,7 +402,7 @@ class GatewayClient(xmlrpclib.Server, object):
 
         :param string pid: The project ID.
 
-        :param DateTime when:
+        :param mx.DateTime.DateTime when:
             When the freeze should happen. Defaults to now if not set.
         """
         self.logger.info("Freezing project: %s", pid)
@@ -410,7 +410,7 @@ class GatewayClient(xmlrpclib.Server, object):
             return True
         params = {'project': pid}
         if when is not None:
-            params['when'] = xmlrpclib.DateTime(when)
+            params['when'] = when
         return self.project.freeze(params)
 
     def thaw_project(self, pid):
