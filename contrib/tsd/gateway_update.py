@@ -219,7 +219,7 @@ class Processor:
             if proj['frozen']:
                 # TODO: The next line if code is only temporary
                 # A better way of comparing dates is already been implemented
-                if proj['frozen'].value != when.strftime("%Y%m%dT%H:%M:%S"):
+                if when is None or proj['frozen'].value != when.strftime("%Y%m%dT%H:%M:%S"):
                     self.gw.thaw_project(pid)
                     self.gw.freeze_project(pid, when)
             else:
@@ -336,7 +336,7 @@ class Processor:
             if gw_user['frozen']:
                 # TODO: The next line if code is only temporary
                 # A better way of comparing dates is already been implemented
-                if gw_user['frozen'].value != when.strftime("%Y%m%dT%H:%M:%S"):
+                if when is None or gw_user['frozen'].value != when.strftime("%Y%m%dT%H:%M:%S"):
                     self.gw.thaw_user(pid, username)
                     self.gw.freeze_user(pid, username, when)
             else:
