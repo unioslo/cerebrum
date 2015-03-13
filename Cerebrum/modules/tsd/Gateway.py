@@ -353,7 +353,6 @@ class GatewayClient(xmlrpclib.Server, object):
 
         :param DateTime when:
             When the freeze should happen. Defaults to now if not set.
-
         """
         self.logger.info("Freezing project: %s", pid)
         if self.dryrun:
@@ -428,17 +427,16 @@ class GatewayClient(xmlrpclib.Server, object):
             The username of the account
 
         :param DateTime when:
-            When the freeze should happen. Defaults to now if not set. Not
-            implemented yet.
+            When the freeze should happen. Defaults to now if not set.
 
         :return bool: If the GW accepted the call.
-
         """
         self.logger.info("Freezing account: %s", username)
         params = {'project': pid, 'username': username}
-        # TODO: 'when' not implemented yet!
         if self.dryrun:
             return True
+        if when is not None:
+            params['when'] = xmlrpclib.DateTime(when)
         return self.user.freeze(params)
 
     def thaw_user(self, pid, username):

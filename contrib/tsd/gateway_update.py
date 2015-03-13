@@ -195,6 +195,9 @@ class Processor:
             # if proj['expires'] and proj['expires'] < DateTime.now():
             self.gw.delete_project(pid)
             return
+        # Since no other quarantine types are handled in this method
+        # we only need to select quarantine type frozen
+        # This may change in the future
         quars = [row for row in self.ou.get_entity_quarantine(
             self.co.quarantine_frozen)]
         # TBD: Delete project when put in end quarantine, or wait for the
@@ -207,12 +210,14 @@ class Processor:
         #     logger.debug("Project %s has ended" % pid)
         #     self.gw.delete_project(pid)
         if quars:
+            # sort here in order to be able to show the same list in the log
             quars.sort(key=lambda v: v['start_date'])  # sort by start_date
-            when = quars[0]['start_date']  # the row with the lowest start_date
-            logger.debug("Project %s has active quarantines: %s",
+            logger.debug("Project %s has freeze-quarantines: %s",
                          pid,
                          str(quars))
             if not proj['frozen']:
+                # the row with the lowest start_date
+                when = quars[0]['start_date']
                 self.gw.freeze_project(pid, when)
         else:
             if proj['frozen']:
@@ -315,12 +320,17 @@ class Processor:
             if not gw_user['frozen']:
                 self.gw.freeze_user(pid, username)
             return
-        quars = [r['quarantine_type'] for r in
-                 self.pu.get_entity_quarantine(only_active=True)]
+        quars = [row for row in self.pu.get_entity_quarantine(
+            filter_disable_until=True)]
         if quars:
-            logger.debug2("User %s has quarantines: %s" % (username, quars))
+            # sort here in order to be able to show the same list in the log
+            quars.sort(key=lambda v: v['start_date'])  # sort by start_date
+            logger.debug2("User %s has quarantines: %s" % (username,
+                                                           str(quars)))
             if not gw_user['frozen']:
-                self.gw.freeze_user(pid, username)
+                # the row with the lowest start_date
+                when = quars[0]['start_date']
+                self.gw.freeze_user(pid, username, when)
         else:
             if gw_user['frozen']:
                 self.gw.thaw_user(pid, username)
