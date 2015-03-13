@@ -477,7 +477,7 @@ class GatewayClient(xmlrpclib.Server, object):
         :param string username:
             The username of the account
 
-        :param DateTime when:
+        :param mx.DateTime.DateTime when:
             When the freeze should happen. Defaults to now if not set.
 
         :return bool: If the GW accepted the call.
@@ -487,7 +487,7 @@ class GatewayClient(xmlrpclib.Server, object):
         if self.dryrun:
             return True
         if when is not None:
-            params['when'] = xmlrpclib.DateTime(when)
+            params['when'] = when
         return self.user.freeze(params)
 
     def thaw_user(self, pid, username):
