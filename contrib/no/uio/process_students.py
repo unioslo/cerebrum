@@ -1292,7 +1292,7 @@ def validate_config():
         print ("Missing required parameter(s). 'studconfig_file' (-C), "
                "studieprogs_file' (-S)\nand 'emne_info_file' (-e) needs "
                "to be specified when running --validate.")
-        sys.exit(0)
+        sys.exit(1)
 
     else:
         AutoStud.AutoStud(db, logger, debug=debug, cfg_file=studconfig_file,
