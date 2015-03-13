@@ -178,7 +178,7 @@ class OUTSDMixin(OU, EntityTrait):
         @return: True if the project is approved.
         """
         return not tuple(self.get_entity_quarantine(
-            type=self.const.quarantine_not_approved,
+            qtype=self.const.quarantine_not_approved,
             only_active=True))
 
     def add_name_with_language(self, name_variant, name_language, name):

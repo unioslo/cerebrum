@@ -120,7 +120,7 @@ class SimpleOUTests(TSDOUTest):
                                 strval='win_and_linux_vm')
         # Add quarantine:
         self._ou.add_entity_quarantine(
-            type=self._co.quarantine_not_approved,
+            qtype=self._co.quarantine_not_approved,
             creator=self.db_tools.get_initial_account_id(),
             description='Project not approved yet',
             start=DateTime.now())

@@ -8720,7 +8720,7 @@ Addresses and settings:
         qconst = self._get_constant(self.const.Quarantine, qtype, "quarantine")
         self.ba.can_disable_quarantine(operator.get_entity_id(), entity, qtype)
 
-        if not entity.get_entity_quarantine(type=qconst):
+        if not entity.get_entity_quarantine(qtype=qconst):
             raise CerebrumError("%s does not have a quarantine of type %s" % (
                 self._get_name_from_object(entity), qtype))
 
@@ -8769,7 +8769,7 @@ Addresses and settings:
         qconst = self._get_constant(self.const.Quarantine, qtype, "quarantine")
         self.ba.can_remove_quarantine(operator.get_entity_id(), entity, qconst)
 
-        if not entity.get_entity_quarantine(type=qconst):
+        if not entity.get_entity_quarantine(qtype=qconst):
             raise CerebrumError("%s does not have a quarantine of type %s" % (
                 self._get_name_from_object(entity), qtype))
 
@@ -8788,7 +8788,7 @@ Addresses and settings:
         entity = self._get_entity(entity_type, id)
         qconst = self._get_constant(self.const.Quarantine, qtype, "quarantine")
         self.ba.can_set_quarantine(operator.get_entity_id(), entity, qconst)
-        rows = entity.get_entity_quarantine(type=qconst)
+        rows = entity.get_entity_quarantine(qtype=qconst)
         if rows:
             raise CerebrumError("%s already has a quarantine of type %s" % (
                 self._get_name_from_object(entity), qtype))

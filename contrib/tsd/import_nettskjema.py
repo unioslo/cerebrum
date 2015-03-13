@@ -626,7 +626,7 @@ class Processing(object):
 
         # Always start projects quarantined, needs to be approved first!
         logger.debug("Project %s starting in quarantine 'not_approved'", pid)
-        ou.add_entity_quarantine(type=co.quarantine_not_approved,
+        ou.add_entity_quarantine(qtype=co.quarantine_not_approved,
                                  creator=systemaccount_id,
                                  description='Project not approved yet',
                                  start=DateTime.now())
@@ -636,7 +636,7 @@ class Processing(object):
         endtime = input['project_end']
         if endtime < DateTime.now():
             raise BadInputError("End date of project has passed: %s" % endtime)
-        ou.add_entity_quarantine(type=co.quarantine_project_end,
+        ou.add_entity_quarantine(qtype=co.quarantine_project_end,
                                  creator=systemaccount_id,
                                  description='Initial requested lifetime for project',
                                  start=endtime)
@@ -644,7 +644,7 @@ class Processing(object):
         starttime = input['project_start']
         # We always set the start time quarantine, even if the start time has
         # passed. This is to let the administrators see the start time in bofh.
-        ou.add_entity_quarantine(type=co.quarantine_project_start,
+        ou.add_entity_quarantine(qtype=co.quarantine_project_start,
                                  creator=systemaccount_id,
                                  description='Initial requested starttime for project',
                                  start=DateTime.now() - 1000, end=starttime)
@@ -773,7 +773,7 @@ class Processing(object):
             ac.set_account_type(ou.entity_id, co.affiliation_project)
             realname = pe.get_name(co.system_cached, co.name_full)
             if ou_is_approved:
-                ac.add_entity_quarantine(type=co.quarantine_not_approved,
+                ac.add_entity_quarantine(qtype=co.quarantine_not_approved,
                                          creator=systemaccount_id,
                                          description='Project not yet approved',
                                          start=DateTime.now())
@@ -789,7 +789,7 @@ class Processing(object):
             logger.debug("Account %s pending for project: %s", ac.account_name,
                          pid)
             ac.set_account_type(ou.entity_id, co.affiliation_pending)
-            ac.add_entity_quarantine(type=co.quarantine_not_approved,
+            ac.add_entity_quarantine(qtype=co.quarantine_not_approved,
                                      creator=systemaccount_id,
                                      description='User not yet approved',
                                      start=DateTime.now())

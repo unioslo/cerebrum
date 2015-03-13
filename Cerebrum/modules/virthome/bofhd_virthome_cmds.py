@@ -1881,7 +1881,7 @@ class BofhdVirthomeMiscCommands(BofhdCommandBase):
         qconst = self.const.human2constant(qtype, self.const.Quarantine)
         self.ba.can_manipulate_quarantines(operator.get_entity_id(),
                                            entity.entity_id)
-        rows = list(entity.get_entity_quarantine(type=qconst))
+        rows = list(entity.get_entity_quarantine(qtype=qconst))
         if rows:
             raise CerebrumError("Entity %s %s already has %s quarantine" %
                                 (entity_type, ident, str(qconst)))

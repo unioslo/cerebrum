@@ -670,11 +670,11 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ou.write_db()
 
         # Storing start date
-        ou.add_entity_quarantine(type=self.const.quarantine_project_start,
+        ou.add_entity_quarantine(qtype=self.const.quarantine_project_start,
                                  creator=operator.get_entity_id(), start=DateTime.now(),
                                  end=start, description='Initial start set by superuser')
         # Storing end date
-        ou.add_entity_quarantine(type=self.const.quarantine_project_end,
+        ou.add_entity_quarantine(qtype=self.const.quarantine_project_end,
                                  creator=operator.get_entity_id(), start=end,
                                  description='Initial end set by superuser')
         ou.write_db()
@@ -721,7 +721,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
         # Check if the project was already approved
         if not project.get_entity_quarantine(only_active=True,
-                                             type=self.const.quarantine_not_approved):
+                                             qtype=self.const.quarantine_not_approved):
             # raise CerebrumError('Project already approved (no not_approved quarantine)')
             return success_msg + " (already approved, not changing anything)"
 
@@ -754,7 +754,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         """
         project = self._get_project(projectid)
         if not project.get_entity_quarantine(only_active=True,
-                                             type=self.const.quarantine_not_approved):
+                                             qtype=self.const.quarantine_not_approved):
             raise CerebrumError('Can not reject approved projects, you may '
                                 'wish to terminate it instead.')
         project.terminate()
@@ -783,7 +783,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         for row in project.get_entity_quarantine(qtype):
             project.delete_entity_quarantine(qtype)
             project.write_db()
-        project.add_entity_quarantine(type=qtype,
+        project.add_entity_quarantine(qtype=qtype,
                                       creator=operator.get_entity_id(),
                                       description='Reset lifetime for project',
                                       start=end)
@@ -856,7 +856,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         for row in project.get_entity_quarantine(qtype):
             project.delete_entity_quarantine(qtype)
             project.write_db()
-        project.add_entity_quarantine(type=qtype,
+        project.add_entity_quarantine(qtype=qtype,
                                       creator=operator.get_entity_id(),
                                       description='Project freeze',
                                       start=end)
