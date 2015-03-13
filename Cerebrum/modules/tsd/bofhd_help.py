@@ -117,4 +117,8 @@ arg_help.update({
     'otp_type':
         ['otp_type', 'OTP type',
          'The OTP type, e.g. totp, hotp or smartphone_yes'],
+    'vm_type':
+        ["vm_type", "VM type",
+         ("The type of OS for the project's hosts.\nPossible values are:\n"
+          " - win_vm\n - linux_vm\n - win_and_linux_vm")]
 })
