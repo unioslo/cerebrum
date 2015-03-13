@@ -185,7 +185,6 @@ class Processor:
 
         """
         logger.debug("Processing project %s: %s", pid, proj)
-
         self.ou.clear()
         try:
             self.ou.find_by_tsd_projectid(pid)
@@ -196,10 +195,8 @@ class Processor:
             # if proj['expires'] and proj['expires'] < DateTime.now():
             self.gw.delete_project(pid)
             return
-
-        quars = dict((row['quarantine_type'], row) for row in
-                     self.ou.get_entity_quarantine(only_active=True))
-
+        quars = [row for row in self.ou.get_entity_quarantine(
+            self.co.quarantine_frozen)]
         # TBD: Delete project when put in end quarantine, or wait for the
         # project to have really been removed? Remember that we must not remove
         # the OU completely, to avoid reuse of the project ID and project name,
@@ -209,10 +206,14 @@ class Processor:
         # if self.co.quarantine_project_end in quars:
         #     logger.debug("Project %s has ended" % pid)
         #     self.gw.delete_project(pid)
-        if len(quars) > 0:
-            logger.debug("Project %s has active quarantines: %s", pid, quars)
+        if quars:
+            quars.sort(key=lambda v: v['start_date'])  # sort by start_date
+            when = quars[0]['start_date']  # the row with the lowest start_date
+            logger.debug("Project %s has active quarantines: %s",
+                         pid,
+                         str(quars))
             if not proj['frozen']:
-                self.gw.freeze_project(pid)
+                self.gw.freeze_project(pid, when)
         else:
             if proj['frozen']:
                 self.gw.thaw_project(pid)

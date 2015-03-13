@@ -1076,22 +1076,22 @@ class EntityQuarantine(Entity):
     def get_entity_quarantine(self, type=None, only_active=False):
         """Return a list of the current entity's quarantines.
 
-        @type type: CerebrumConstant or int
-        @param type: If set, only quarantines of the given type is returned.
+        :type type: CerebrumConstant or int
+        :param type: If set, only quarantines of the given type is returned.
 
-        @type only_active: bool
-        @param only_active: If True, only quarantines with a set start_date in
+        :type only_active: bool
+        :param only_active: If True, only quarantines with a set start_date in
             the past and either a not set end_date or an end_date in the future.
-            In addition, if disable_until is set, it's date must be in the past
+            In addition, if disable_until is set, its date must be in the past
             for the quarantine to be returned with L{only_active} set to True.
-
         """
         qtype = type
         conditions = ["entity_id = :e_id"]
         if only_active:
-            conditions += ["start_date <= [:now]",
-                           "(end_date IS NULL OR end_date > [:now])",
-                           "(disable_until IS NULL OR disable_until <= [:now])"]
+            conditions += [
+                "start_date <= [:now]",
+                "(end_date IS NULL OR end_date > [:now])",
+                "(disable_until IS NULL OR disable_until <= [:now])"]
         if qtype is not None:
             conditions += ["quarantine_type = :qtype"]
             qtype = int(qtype)
