@@ -168,7 +168,7 @@ class Processor:
                 logger.debug4('Skipping already processed project: %s', pid)
                 continue
             logger.debug2('Creating project: %s', pid)
-            self.gw.create_project(pid, ou.expire_date)
+            self.gw.create_project(pid, self.ou.expire_date)
             processed.add(pid)
 
     def process_project(self, pid, proj):
