@@ -511,9 +511,7 @@ class OUTSDMixin(OU, EntityTrait):
         host = dns.HostInfo.HostInfo(self._db)
 
         vm_trait = self.get_trait(self.const.trait_project_vm_type)
-        vm_type = 'win_vm'
-        if vm_trait:
-            vm_type = vm_trait['strval']
+        vm_type = vm_trait['strval']
 
         if vm_type in ('win_vm', 'win_and_linux_vm'):
             # Create a Windows host for the whole project
@@ -527,22 +525,6 @@ class OUTSDMixin(OU, EntityTrait):
             host.hinfo = hinfo
             host.write_db()
             for comp in getattr(cereconf, 'TSD_HOSTPOLICIES_WIN', ()):
-                TSDUtils.add_host_to_policy_component(self._db,
-                                                      dnsowner.entity_id, comp)
-
-        if vm_type in ('linux_vm', 'win_and_linux_vm'):
-            # Create a Linux host for the whole project
-            host.clear()
-            hostname = '%s-linux01.tsd.usit.no.' % projectid
-            hinfo = 'IBM-PC\tLINUX'
-            dnsowner = self._populate_dnsowner(hostname)
-            try:
-                host.find_by_dns_owner_id(dnsowner.entity_id)
-            except Errors.NotFoundError:
-                host.populate(dnsowner.entity_id, hinfo)
-            host.hinfo = hinfo
-            host.write_db()
-            for comp in getattr(cereconf, 'TSD_HOSTPOLICIES_LINUX', ()):
                 TSDUtils.add_host_to_policy_component(self._db,
                                                       dnsowner.entity_id, comp)
 

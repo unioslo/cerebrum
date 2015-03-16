@@ -659,7 +659,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                 "Project can not end before it has begun: from %s to %s" %
                 (str(start).split()[0], str(end).split()[0]))
 
-        if vm_type not in ('win_vm', 'linux_vm', 'win_and_linux_vm'):
+        if vm_type not in cereconf.TSD_VM_TYPES:
             raise CerebrumError("Invalid VM-type.")
 
         ou = self.OU_class(self.db)

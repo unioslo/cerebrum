@@ -22,10 +22,15 @@
 from Cerebrum.modules.bofhd.bofhd_core_help import group_help
 from Cerebrum.modules.bofhd.bofhd_core_help import command_help
 from Cerebrum.modules.bofhd.bofhd_core_help import arg_help
+import cereconf
 
 # Add instance specific help text:
 
 group_help['project'] = 'Project related commands'
+
+allowed_vm_types = ''
+for vm_type in cereconf.TSD_VM_TYPES:
+    allowed_vm_types += ' - %s\n' % vm_type
 
 # The texts in command_help are automatically line-wrapped, and should
 # not contain \n
@@ -81,7 +86,8 @@ command_help['project'] = {
 arg_help.update({
     'project_id':
         ['projectID', 'Project ID',
-         'The project ID, normally on the form pXX, where XX goes from 01 to 99'],
+         ('The project ID, normally on the form pXX, '
+          'where XX goes from 01 to 99')],
     'project_name':
         ['projectname', 'Project name',
          'Short, unique name of the project, around 6 digits'],
@@ -119,6 +125,6 @@ arg_help.update({
          'The OTP type, e.g. totp, hotp or smartphone_yes'],
     'vm_type':
         ["vm_type", "VM type",
-         ("The type of OS for the project's hosts.\nPossible values are:\n"
-          " - win_vm\n - linux_vm\n - win_and_linux_vm")]
+         "The type of OS for the project's hosts.\nPossible values are:\n" +
+         allowed_vm_types]
 })
