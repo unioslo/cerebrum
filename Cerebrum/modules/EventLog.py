@@ -334,7 +334,7 @@ class EventLog(object):
                 {'id': int(id), 'ts': int(target_system)})
 
     def search_events(self, id=None, type=None, param=None,
-                      from_ts=None, to_ts=None, fetchall=True):
+                      from_ts=None, to_ts=None, target_system=None, fetchall=True):
         """Search for events based on a given criteria.
 
         :param int id: The subject- or dest_entity to search for.
@@ -344,6 +344,7 @@ class EventLog(object):
             timestamp.
         :param DateTime to_ts: Search for events that occoured before this
             timestamp.
+        :param int target_system: The TargetSystem to search for.
         :param bool fetchall: Wether to return an iterator, or everything.
             Default is everything.
         :rtype: list
@@ -356,8 +357,14 @@ class EventLog(object):
             tmp_q.append("(subject_entity = :id OR dest_entity = :id)")
             parm['id'] = int(id)
         if type:
-            tmp_q.append("event_type = :type")
-            parm['type'] = int(type)
+            if isinstance(type, (list, tuple, set)):
+                tmp_q.append("event_type IN (%s)" % ", ".join(map(str, map(int, type))))
+            else:
+                tmp_q.append("event_type = :type")
+                parm['type'] = int(type)
+        if target_system:
+            tmp_q.append("target_system = :target_system")
+            parm['target_system'] = int(target_system)
         if param:
             tmp_q.append("change_params LIKE :param")
             parm['param'] = "%%%s%%" % param

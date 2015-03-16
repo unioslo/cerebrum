@@ -49,4 +49,3 @@ for ac in all_accounts:
     logger.info("*******************END*************************************")
 db.commit()
 
-# arch-tag: 42dfa468-b42c-11da-833a-f4a65897359f

@@ -34,7 +34,7 @@ from Cerebrum import Database
 
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules import Email
-from Cerebrum.modules.no.hine import bofhd_hine_help
+from Cerebrum.modules.bofhd import bofhd_core_help
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.Constants import _CerebrumCode, _SpreadCode
 from Cerebrum.modules.bofhd.auth import BofhdAuth
@@ -181,9 +181,7 @@ class BofhdExtension(BofhdCommonMethods):
 
 
     def get_help_strings(self):
-        return (bofhd_hine_help.group_help,
-                bofhd_hine_help.command_help,
-                bofhd_hine_help.arg_help)
+        return bofhd_core_help.get_help_strings()
     
     def get_commands(self, account_id):
         try:

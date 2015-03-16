@@ -119,6 +119,9 @@ class Constants(Constants.Constants):
         'email_delete', "Delete e-mail addresses")
     auth_email_info_detail = _AuthRoleOpCode(
         'email_info_det', "View detailed information about e-mail account")
+    auth_email_forward_info = _AuthRoleOpCode(
+        'email_fwd_info',
+        "View & search information about e-mail forwards")
     auth_email_reassign = _AuthRoleOpCode(
         'email_reassign', "Reassign e-mail addresses")
     auth_quarantine_set = _AuthRoleOpCode(
@@ -553,16 +556,15 @@ class BofhdUtils(object):
             """Takes an Account or Group object, and returns a
             PosixUser or PosixGroup object if the entity is also a
             POSIX object.
-            
+
             """
             # FIXME: due to constants being defined in this file, we
             # can't import these at the top level.
-            from Cerebrum.modules.PosixGroup import PosixGroup
 
             if clstype == "account":
                 promoted = Factory.get('PosixUser')(self.db)
             elif clstype == "group":
-                promoted = PosixGroup(self.db)
+                promoted = Factory.get('PosixGroup')(self.db)
             try:
                 promoted.find(int(obj.entity_id))
                 return promoted
@@ -574,10 +576,6 @@ class BofhdUtils(object):
             Account or Group.
 
             """
-            # FIXME: due to constants being defined in this file, we
-            # can't import these at the top level.
-            from Cerebrum.modules.PosixGroup import PosixGroup
-
             # We could use get_target_posix_by_object, but then the
             # common case of a PosixUser would lead to a wasted
             # instantiation of a plain Account object first.
@@ -586,7 +584,7 @@ class BofhdUtils(object):
                 posix_cls = Factory.get("PosixUser")
             elif clstype == "group":
                 plain_cls = Factory.get("Group")
-                posix_cls = PosixGroup
+                posix_cls = Factory.get("PosixGroup")
             try:
                 obj = posix_cls(self.db)
                 obj.find_by_name(name)
@@ -714,4 +712,3 @@ class BofhdUtils(object):
             raise CerebrumError, "Unknown value '%s'" % type_name
         return found
 
-# arch-tag: d6650fa6-6a9b-459f-be7e-80c9e6cbba52

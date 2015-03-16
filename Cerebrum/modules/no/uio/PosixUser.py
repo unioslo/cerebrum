@@ -54,7 +54,7 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
             for row in self.pg.get_spread():
                 self.pg.delete_spread(int(row['spread']))
             self.pg.write_db()
-            self.pg.delete()
+            self.pg.demote_posix()
         return ret
 
     def clear(self):

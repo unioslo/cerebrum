@@ -600,4 +600,3 @@ class LT(object):
     # end GetFnrEndringer
 # end class LT
 
-# arch-tag: a2fc5667-b076-4f4f-a0f8-6266f6898c79

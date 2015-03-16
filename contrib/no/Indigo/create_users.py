@@ -28,7 +28,6 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Constants
 from Cerebrum import Errors
-from Cerebrum.extlib import logging
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import CLHandler
 from Cerebrum.Constants import _SpreadCode

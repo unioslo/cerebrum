@@ -26,22 +26,13 @@ that fashion.  Hence, this module **requires** the caller to supply a
 name when constructing a Group object."""
 
 import mx
-import re
-from mx.DateTime import now
 
 import cereconf
 from Cerebrum import Utils
 from Cerebrum import Errors
-from Cerebrum.Entity import EntityName, EntityQuarantine, \
-    EntityExternalId, EntitySpread, EntityNameWithLanguage
+from Cerebrum.Entity import (EntityName, EntityQuarantine, EntityExternalId,
+                             EntitySpread, EntityNameWithLanguage)
 from Cerebrum.Utils import argument_to_sql, prepare_string
-try:
-    set()
-except NameError:
-    try:
-        from sets import Set as set
-    except ImportError:
-        from Cerebrum.extlib.sets import Set as set
 
 
 Entity_class = Utils.Factory.get("Entity")
@@ -76,7 +67,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         # If __in_db in not present, we'll set it to False.
         try:
             if not self.__in_db:
-                raise RuntimeError, "populate() called multiple times."
+                raise RuntimeError("populate() called multiple times.")
         except AttributeError:
             self.__in_db = False
         self.creator_id = creator_id
@@ -104,9 +95,10 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
     # exchange-relatert-jazz
     # we need to be able to check group names for different
     # lengths and max length in database is 256 characters
-    # 
     def illegal_name(self, name, max_length=256):
         """Return a string with error message if groupname is illegal"""
+        if len(name) == 0:
+            return "Must specify group name"
         if len(name) > max_length:
             return "Name %s too long (%d char allowed)" % (name, max_length)
         return False
@@ -172,7 +164,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             UPDATE [:table schema=cerebrum name=group_info]
             SET %(defs)s
             WHERE group_id=:g_id""" % {'defs': ", ".join(
-                ["%s=%s" % x for x in cols if x[0] <> 'group_id'])},
+                ["%s=%s" % x for x in cols if x[0] != 'group_id'])},
                 {'g_id': self.entity_id,
                  'desc': self.description,
                  'visib': int(self.visibility),
@@ -194,7 +186,22 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         self.__updated = []
         return is_new
 
+    def demote(self):
+        """ Allow partial delete in mixins and subtypes.
+
+        This function should be used by subtypes when the group should be
+        kept, but the subtype-specific data should be deleted.
+
+        E.g. 'demote posix group', to remove the posix group data, but keep the
+        base group.
+
+        :return bool: True if something was demoted.
+
+        """
+        return False
+
     def delete(self):
+        """ Delete group and entity from database."""
         if self.__in_db:
             # Empty this group's set of members.
             self.execute("""
@@ -283,6 +290,33 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             domain = self.const.group_namespace
         EntityName.find_by_name(self, name, domain)
 
+    def get_extensions(self):
+        """ Return all the group subtypes that applies to this group.
+
+        This method returns a list of subtypes that applies to this group.
+        Subtypes should implement a base-mixin to Group that can identify and
+        append the subtype to the return value of this method.
+
+        E.g. For a group that is also PosixGroup and DistributionGroup, this
+        method should return ['PosixGroup', 'DistributionGroup', ].
+
+        :rtype: list
+        :return: A list of all the subtypes that applies to this group.
+
+        """
+        # TBD: Should this return a non-empty list? Should it include 'Group'?
+        return list()
+
+    def has_extension(self, extname):
+        """ Check if a group has a certain subtype associated with it.
+
+        :param basestring extname: The extension/subtype name.
+
+        :return bool: True if the group is a group of type extname.
+
+        """
+        return extname in self.get_extensions()
+
     def add_member(self, member_id):
         """Add L{member_id} to this group.
 
@@ -353,10 +387,16 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         self._db.log_change(member_id, self.clconst.group_rem, self.entity_id)
     # end remove_member
 
-    def search(self, group_id=None,
-               member_id=None, indirect_members=False,
-               spread=None, name=None, description=None,
-               filter_expired=True, creator_id=None):
+    def search(self,
+               group_id=None,
+               member_id=None,
+               indirect_members=False,
+               spread=None,
+               name=None,
+               description=None,
+               filter_expired=True,
+               creator_id=None,
+               expired_only=False):
         """Search for groups satisfying various filters.
 
         Search **for groups** where the results are filtered by a number of
@@ -426,8 +466,14 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
           result. The keys available in db_rows are the content of the
           group_info table and group's name (if it does not exist, None is
           assigned to the 'name' key).
-        """
 
+        @type expired_only: bool
+        @param expired_only:
+          Filter the resulting group list by expiration date.
+          If set, return ONLY groups 
+          that have expired_date set and expired (relative to the call time).
+          N.B. filter_expired and filter_expired are mutually exclusive
+        """
         # Sanity check: if indirect members is specified, then at least we
         # need one id to go on.
         if indirect_members:
@@ -549,6 +595,11 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             where.append(argument_to_sql(creator_id, "gi.creator_id", binds,
                                          int))
 
+        #
+        # expired_only filter
+        if expired_only:
+            where.append("(gi.expire_date IS NOT NULL AND gi.expire_date < [:now])")
+
         where_str = ""
         if where:
             where_str = "WHERE " + " AND ".join(where)
@@ -619,8 +670,8 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
           L{member_id} (but not both).
 
           When combined with L{group_id}, the search means 'return all
-          membership entries where members are direct AND indirect members of the
-          specified group_id(s)'.
+          membership entries where members are direct AND indirect members of
+          the specified group_id(s)'.
 
           When combined with L{member_id}, the search means 'return all
           membership entries where the specified members are direct AND
@@ -753,13 +804,14 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                 # expand group_id to include all direct and indirect *group*
                 # members of the initial set of group ids. This way we get
                 # *all* indirect non-group members
-                group_id = search_transitive_closure(group_id,
-                                                     lambda ids: self.search_members(
-                                                         group_id=ids,
-                                                         indirect_members=False,
-                                                         member_type=self.const.entity_group,
-                                                         member_filter_expired=False),
-                                                     "member_id")
+                group_id = search_transitive_closure(
+                    group_id,
+                    lambda ids: self.search_members(
+                        group_id=ids,
+                        indirect_members=False,
+                        member_type=self.const.entity_group,
+                        member_filter_expired=False),
+                    "member_id")
                 indirect_members = False
 
             where.append(
@@ -775,12 +827,12 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                 # groups of the initial set of member ids. This way, we reach
                 # *all* parent groups starting from a given set of direct
                 # members.
-                member_id = search_transitive_closure(member_id,
-                                                      lambda ids: self.search(
-                                                          member_id=ids,
-                                                      indirect_members=False,
-                                                      filter_expired=False),
-                                                      "group_id")
+                member_id = search_transitive_closure(
+                    member_id,
+                    lambda ids: self.search(member_id=ids,
+                                            indirect_members=False,
+                                            filter_expired=False),
+                    "group_id")
                 indirect_members = False
 
             where.append(
@@ -793,12 +845,12 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         if member_type is not None:
             where.append(argument_to_sql(member_type, "tmp1.member_type",
                                          binds, int))
-        
+
         if member_spread is not None:
-            tables.append("""JOIN [:table schema=cerebrum name=entity_spread] es
-                               ON tmp1.member_id = es.entity_id
-                                  AND %s""" %
-                          argument_to_sql(member_spread, "es.spread", binds, int))
+            tables.append(
+                """JOIN [:table schema=cerebrum name=entity_spread] es
+                   ON tmp1.member_id = es.entity_id AND %s
+                """ % argument_to_sql(member_spread, "es.spread", binds, int))
 
         if member_filter_expired:
             where.append("""(tmp1.expire1 IS NULL OR tmp1.expire1 > [:now]) AND
@@ -851,3 +903,137 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
     # end search_members
 
 # end class Group
+
+
+class GroupAPI(object):
+    """Functional and generalized API that provides common operations."""
+
+    @staticmethod
+    def group_info(gr):
+        """Get information about a group.
+
+          :type gr: <Cerebrum.Group.Group>
+          :param gr: A Cerebrum group object.
+
+          :rtype: dict
+        """
+        co = Utils.Factory.get('Constants')(gr._db)
+
+        info = {
+            'name': gr.group_name,
+            'description': gr.description,
+            'expire_date': gr.expire_date,
+            'visibility': (str(co.GroupVisibility(gr.visibility)) if
+                           gr.visibility else None),
+        }
+
+        return info
+
+    @staticmethod
+    def group_list(gr):
+        """List members of a group.
+
+        :type gr: <Cerebrum.Group.Group>
+        :param gr: A Cerebrum group object.
+
+        :rtype: list(<subclass of Cerebrum.Entity.Entity>)
+        """
+        entity = Utils.Factory.get('Entity')(gr._db)
+
+        ret = []
+        for row in gr.search_members(group_id=gr.entity_id):
+            entity.clear()
+            entity.find(row['member_id'])
+            member = entity.get_subclassed_object()
+            ret.append(member)
+        return ret
+
+    @staticmethod
+    def group_create(gr, creator, visibility, name, description,
+                     expire_date=None):
+        """Create a group.
+
+        :type gr: <Cerebrum.Group.Group>
+        :param gr: A Cerebrum group object.
+
+        :type creator: int
+        :param creator: The creators entity id.
+
+        :type name: str
+        :param name: The groups name.
+
+        :type description: str
+        :param description: The groups description.
+
+        :type expire_date: DateTime
+        :param expire_date: The groups expiration date.
+
+        :type visibility: _GroupVisibilityCode
+        :param visibility: The groups visibility.
+        """
+        gr.populate(creator, visibility, name, description,
+                    expire_date=expire_date)
+        gr.write_db()
+
+    @staticmethod
+    def add_member(gr, member_id):
+        """Add a member to a group.
+
+        :type gr: <Cerebrum.Group.Group>
+        :param gr: A Cerebrum group object.
+
+        :type member_id: int
+        :param member_id: Entity ID of the member to be added
+        """
+        gr.add_member(member_id)
+
+    @staticmethod
+    def remove_member(gr, member_id):
+        """Remove a member from a group.
+
+        :type gr: <Cerebrum.Group.Group>
+        :param gr: A Cerebrum group object.
+
+        :type member_id: int
+        :param member_id: Entity ID of the member to be removed
+        """
+        gr.remove_member(member_id)
+
+    @staticmethod
+    def grant_auth(en, gr, opset):
+        """Grant authorization to a group.
+
+        :type en: <Cerebrum.Entity.Entity>
+        :param en: The entity to grant auth to.
+
+        :type gr: <Cerebrum.Group.Group>
+        :param gr: The group to grant auth on.
+
+        :type opset: str
+        :param opset: The OpSet to be granted."""
+        # TODO: ._db? 'group' to op_target.populate ok? should be derived from
+        # gr, but that means we'll need to do Factory.get in here... :(
+        # TODO: Can this be generalized and moved to utils??
+        from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet, \
+            BofhdAuthOpTarget, BofhdAuthRole
+        op_set = BofhdAuthOpSet(en._db)
+        op_set.find_by_name(opset)
+        op_target = BofhdAuthOpTarget(en._db)
+        op_target.populate(gr.entity_id, 'group')
+        op_target.write_db()
+        role = BofhdAuthRole(en._db)
+        role.grant_auth(en.entity_id, op_set.op_set_id,
+                        op_target.op_target_id)
+
+    @staticmethod
+    def set_expire_date(gr, expire_date=None):
+        """Set expire-date on a group.
+
+        :type gr: <Cerebrum.Group.Group>
+        :param gr: A Cerebrum group object.
+
+        :type expire_date: <mx.DateTime>
+        :param expire_date: The expire-date to set, or None.
+        """
+        gr.expire_date = expire_date
+        gr.write_db()

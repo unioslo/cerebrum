@@ -1,20 +1,20 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
-# 
+#
 # Copyright 2012-2014 University of Oslo, Norway
-# 
+#
 # This file is part of Cerebrum.
-# 
+#
 # Cerebrum is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 2 of the License, or
 # (at your option) any later version.
-# 
+#
 # Cerebrum is distributed in the hope that it will be useful, but
 # WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 # General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
@@ -52,6 +52,7 @@ import socket
 import urllib2
 import httplib
 import csv
+import re
 
 # TODO: remove the exception when ssl is up and running in production:
 try:
@@ -207,176 +208,62 @@ class PowershellException(ExitCodeException):
        which already existed.
 
     """
-    pass
+    def __init__(self, exitcode, stderr, output=None, msg=None):
+        """Initiate exception for command with exitcode other than 0.
 
-class HTTPSAuthConnection(httplib.HTTPSConnection, object):
-    """HTTPSConnection for mutual authentication.
+        :type exitcode: int or string
+        :param exitcode: The command's exitcode.
 
-    The server certificate must be authenticated before proceeding, and our
-    client certificate must be handed out to the server.
+        :type stderr: string
+        :param stderr: The stderr message for the command.
 
-    This wrapper is needed as neither urllib2 nor httplib authenticates the
-    server certificate, even though httplib supports using client certificates.
+        :type output: dict
+        :param output: All output from the command. It might include the stderr
+            output too, even if that must be present in the L{stderr} argument.
 
-    The idea behind this is retrieved from
-    http://stackoverflow.com/questions/1087227/validate-ssl-certificates-with-python
-
-    """
-
-    # For how long we should try to connect to the server. This controls the
-    # socket timeout:
-    default_timeout = 1800
-
-    # Default list of CA certificate files to use for authentication of server
-    # certificate. Gets used if CA certificates are not specified when
-    # instantiated.
-    ca_certs = None
-
-    # The private and public key, used in the connections. TBD: Note that this
-    # is set to the same for all connections, which is mostly what you want, but
-    # not always. We might therefore want to change this later, to be set when
-    # instantiated.
-    client_key = None
-    client_cert = None
-
-    def __init__(self, *args, **kwargs):
-        """Override for specifying a chain of CA certificates.
-
-        @type ca_certs: list
-        @param ca_certs:
-            A list of files with CA certificates. Certificates in a request that
-            has been signed by any of these certificates, directly or
-            indirectly, gets accepted as authenticated. A larger list will
-            therefore accept more server certificates.
+        :type msg: string
+        :param msg: If you want to specify the message that is printed for the
+            exception. Defaults to a generic "command failed" message.
 
         """
-        # TBD: Instantiate with ca, cert and key, if neede later.
-        #self.ca_certs = kwargs.pop('ca_certs', self.ca_certs)
-        super(HTTPSAuthConnection, self).__init__(*args, **kwargs)
+        self.exitcode = exitcode
+        self.output = output
+        self.stderr = stderr
 
-    def _getvalidhostsforcert(self, cert):
-        """Retrieve the registered hostname from a certificate.
+        # Search for, and attempt to extract error-information from PowerShell
+        # error-messages.
+        m = re.search("(?P<first_error>[\w\s\-'.]+)[+\s]+CategoryInfo[\s:]+"
+                      "(?P<second_error>\w+):\s+\("
+                      "(?P<args>[\w\-:]+)\)\s+\["
+                      "(?P<command>[\w\s-]+)\].*",
+                      stderr,
+                      re.MULTILINE)
+        if msg is not None:
+            r_msg = msg
+        elif m:
+            gd = m.groupdict()
+            cmd = re.sub('\s', '', gd.get('command'))
+            first_err = gd.get('first_error').strip()
+            #  Fix empty argument sequence
+            args = gd.get('args') if gd.get('args') != ':' else ''
+            second_err = gd.get('second_error')
 
-        TODO: When is subjectAltName and 'dns' used?
-
-        """
-        print "Certificate: %s" % (cert,)
-
-        if 'subjectAltName' in cert:
-            return [x[1] for x in cert['subjectAltName']
-                         if x[0].lower() == 'dns']
+            # We'll differentiate between how we report errors. Exception
+            # information seems to be pattern matchable, but the error message
+            # is not always defined in the same place.
+            r_msg = ("Command '%s' called with args '%s' "
+                     "returned exit code %s: %s" % (
+                         cmd, args, exitcode, first_err or second_err))
+        # Default error representation
         else:
-            return [x[0][1] for x in cert['subject']
-                            if x[0][0].lower() == 'commonname']
+            r_msg = 'Command failed: exitcode: %s, stderr: %s' % (exitcode,
+                                                                  stderr)
 
-    def _validatecertificatehostname(self, cert, hostname):
-        """Check that the cert's hostname match a given hostname.
+        super(PowershellException, self).__init__(exitcode,
+                                                  stderr,
+                                                  output=self.output,
+                                                  msg=r_msg)
 
-        This is to avoid the use of other certificates for the wrong service,
-        which some attacks rely on. Now you *must* have a certificate registered
-        for the correct host.
-
-        """
-        hosts = self._getvalidhostsforcert(cert)
-        for host in hosts:
-            host_re = host.replace('.', '\.').replace('*', '[^.]*')
-            if re.search('^%s$' % (host_re,), hostname, re.I):
-                return True
-        return False
-
-    def connect(self):
-        """Connect to the server, and setup TLS and authenticate the server."""
-        # For python 2.5 and older:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(self.default_timeout)
-        sock.connect((self.host, self.port))
-        # For python 2.6 and up:
-        #sock = socket.create_connection((self.host, self.port),
-        #                                self.default_timeout)
-
-        # TODO: support tunneling?
-
-        if not CRYPTO:
-            # TODO: this should NOT be put in production!
-            return super(HTTPSAuthConnection, self).connect()
-
-        self.sock = ssl.wrap_socket(sock, keyfile=self.client_key,
-                                    certfile=self.client_cert,
-                                    server_side=False,
-                                    cert_reqs=ssl.CERT_REQUIRED,
-                                    ssl_version=ssl.PROTOCOL_TLSv1,
-                                    ca_certs=self.ca_certs)
-        # Validate the hostname from the certificate:
-        # TODO: test this!
-        cert = self.sock.getpeercert()
-        print "host: ", self.host
-        hostname = self.host.split(':', 0)[0] # TODO: wat?
-        print "hostname: ", hostname
-        if not self._validatecertificatehostname(cert, hostname):
-            raise WinRMAuthenticationException('Hostname mismatch in cert %s' %
-                                               (cert, hostname))
-
-class HTTPSAuthHandler(urllib2.HTTPSHandler, object):
-    """urllib2 handler for support for mutual authentication.
-
-    Urllib2 has the downside of not authenticating server certificates, and has
-    no settings for activating it either. Also, client certificates could not be
-    used.
-
-    Will raise ssl.SSLError instead of urllib2.URLError on TLS related failures.
-
-    This only makes use of httplib's HTTPS functionality for the connection.
-
-    # TODO: server certificate must be authenticated!
-
-    TODO: Should this be moved up in Cerebrum? It might be usable for more than
-    the AD-sync. This functionality should be put somewhere to be used by all
-    clients that requires the use of mutual authentication.
-
-    The idea behind this is retrieved from
-    http://stackoverflow.com/questions/1087227/validate-ssl-certificates-with-python
-
-    """
-    def __init__(self, client_key, client_cert, ca,
-                 ssl_connection=HTTPSAuthConnection):
-        """Override to store the client's private key and client certificate.
-
-        @type key: string
-        @param key: The client's private key.
-
-        @type cert: string
-        @param cert: The client's certificate.
-
-        @type ssl_connection: HTTPSConnection
-        @param ssl_connection:
-            The class that should authenticate the HTTPS connection.
-
-        """
-        super(HTTPSAuthHandler, self).__init__()
-        self.ssl_connection = ssl_connection
-        self.ssl_connection.ca_certs = ca
-        self.ssl_connection.client_cert = client_cert
-        self.ssl_connection.client_key = client_key
-
-    def https_open(self, req):
-        """Process an HTTPS request by wrapping it through SSL.
-
-        The process would raise an SSLError if the authentication fails.
-
-        @raise ssl.SSLError:
-            If the authentication fails somehow.
-
-        """
-        try:
-            return self.do_open(self.ssl_connection, req)
-        except urllib2.URLError, err:
-            # Raising SSLErrors if that's the issue. Note that SSLErrors will
-            # traceback to here, even though they're raised further up.
-            if CRYPTO and hasattr(err, 'reason') and isinstance(err.reason,
-                                                                ssl.SSLError):
-                # TODO: do we need to supply more debug info, e.g. host?
-                raise err.reason
-            raise
 
 class WinRMProtocol(object):
     """The basic protocol for sending correctly formatted SOAP-data to the WinRM
@@ -420,7 +307,8 @@ class WinRMProtocol(object):
     _useragent = 'Cerebrum WinRM client'
 
     def __init__(self, host='localhost', port=None, encrypted=True,
-                 logger=None, ca=None, client_key=None, client_cert=None):
+                 logger=None, ca=None, client_key=None, client_cert=None,
+                 check_name=True):
         """Set up the basic configuration. Fill the HTTP headers and set the
         correct port if not given.
 
@@ -455,6 +343,9 @@ class WinRMProtocol(object):
             The absolute location of a file with the client's (signed)
             certificate to be used with client authentication.
 
+        @type check_name: boolean
+        @param check_name: Enable hostname validation (if encrypted).
+
         """
         # TODO: How should we handle no logger?
         self.logger = logger
@@ -468,18 +359,35 @@ class WinRMProtocol(object):
             self.port = self._default_ports[0]
             if not self.encrypted:
                 self.port = self._default_ports[1]
-        urllib2.socket.setdefaulttimeout(self.connection_timeout)
         if encrypted:
-            self._opener = urllib2.build_opener(HTTPSAuthHandler(client_key,
-                                                                 client_cert,
-                                                                 ca))
+            from Cerebrum import https
+
+            ssl_config = https.SSLConfig()
+            ssl_config.set_ssl_version(https.SSLConfig.TLSv1)
+
+            if ca is None:
+                # No certificate validation!
+                ssl_config.set_ca_validate(https.SSLConfig.NONE)
+            else:
+                ssl_config.set_ca_chain(ca)
+                ssl_config.set_ca_validate(https.SSLConfig.REQUIRED)
+                ssl_config.set_verify_hostname(check_name)
+
+            if client_cert or client_key:
+                ssl_config.set_cert(client_cert, client_key)
+
+            conn = https.HTTPSConnection.configure(
+                ssl_config, timeout=self.connection_timeout)
+            self._opener = urllib2.build_opener(
+                https.HTTPSHandler(ssl_connection=conn))
         else:
+            socket.setdefaulttimeout(self.connection_timeout)
             self._opener = urllib2.build_opener()
         self._http_headers = {
-                'Host': '%s:%s' % (self.host, self.port),
-                'Accept': '*/*',
-                'Content-Type': 'application/soap+xml; charset=utf-8',
-                'User-Agent': self._useragent}
+            'Host': '%s:%s' % (self.host, self.port),
+            'Accept': '*/*',
+            'Content-Type': 'application/soap+xml; charset=utf-8',
+            'User-Agent': self._useragent}
         # Set up the XML parser to expect input in utf-8
         self.xmlparser = etree.XMLParser(encoding='utf-8')
 
@@ -1996,8 +1904,13 @@ class PowershellClient(WinRMClient):
             # Dicts are returned as "Hash Tables" for powershell
             ret = []
             for k, v in data.iteritems():
-                ret.append(u'%s=%s' % (self.escape_to_string(k),
-                                       self.escape_to_string(v)))
+                k, v = self.escape_to_string(k), self.escape_to_string(v)
+                if not k or not v:
+                    self.logger.debug4("PowershellClient.escape_to_string: "
+                                       "Omitting empty value in hash table, "
+                                       "k=%r, v=%r", k, v)
+                    continue
+                ret.append(u'%s=%s' % (k, v))
             return u'@{%s}' % u';'.join(ret)
         raise Exception('Unknown data type %s for: %s' % (type(data), data))
 
@@ -2348,6 +2261,7 @@ class PowershellClient(WinRMClient):
         return r
         # TODO: should we yield it iteratively, to save memory?
 
+
     @staticmethod
     def xml_obj2dict(obj):
         """Helper method for converting an Object from powershell represented in
@@ -2400,7 +2314,9 @@ class PowershellClient(WinRMClient):
         ret = dict()
         for ch in obj.iterchildren():
             if ch.tag != 'Property':
+                # TODO/TBD: Is this method used? no 'self'!
                 self.logger.warn('Unknown element %s for object' % (ch.tag,))
+                # TODO/TBD: Is this method used? no 'elem'!
                 self.logger.debug(etree.tostring(elem))
                 continue
             conv = conv_map.get(ch.get('Type'), None)
@@ -2417,6 +2333,7 @@ class PowershellClient(WinRMClient):
                                                            ret[ch.get('Name')]))
             ret[ch.get('Name')] = ovalue
         return ret
+
 
 class iter2stream(object):
     """Helper class for converting an iterator into a stream.
@@ -2448,4 +2365,3 @@ class iter2stream(object):
             return data + self.read(size - len(data))
         except StopIteration:
             return data
-

@@ -29,7 +29,6 @@ import cereconf
 from Cerebrum import Constants
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.extlib import logging
 
 def get_constants_by_type(co, class_type):
     ret = []
@@ -311,4 +310,3 @@ source_systems = get_constants_by_type(co, Constants._AuthoritativeSystemCode)
 if __name__ == '__main__':
     main()
 
-# arch-tag: 6dc4547c-5906-4db1-958d-a62b1c32a2fc

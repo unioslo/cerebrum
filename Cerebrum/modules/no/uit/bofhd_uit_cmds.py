@@ -2780,12 +2780,9 @@ class BofhdExtension(object):
     def group_delete(self, operator, groupname, force=None):
         grp = self._get_group(groupname)
         self.ba.can_delete_group(operator.get_entity_id(), grp)
-        if self._is_yes(force):
-            try:
-                pg = self._get_group(groupname, grtype="PosixGroup")
-                pg.delete()
-            except CerebrumError:
-                pass   # Not a PosixGroup
+        if not self._is_yes(force) and grp.get_extensions():
+            raise CerebrumError("Cannot delete group %s, is type %r" %
+                                (groupname, grp.get_extensions()))
         self._remove_auth_target("group", grp.entity_id)
         self._remove_auth_role(grp.entity_id)
         grp.delete()
@@ -3070,9 +3067,9 @@ class BofhdExtension(object):
     def group_demote_posix(self, operator, group):
         grp = self._get_group(group, grtype="PosixGroup")
         self.ba.can_delete_group(operator.get_entity_id(), grp)
-        grp.delete()
+        grp.demote_posix()
         return "OK, demoted '%s'" % group
-    
+
     # group search
     all_commands['group_search'] = Command(
         ("group", "search"), SimpleString(help_ref="string_group_filter"),
@@ -6310,4 +6307,3 @@ class BofhdExtension(object):
             uid = pickle.loads(r['change_params'])['uid']
         return uid
 
-# arch-tag: 98930b8a-4170-453a-a5db-34177f3ac40f

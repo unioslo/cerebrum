@@ -66,6 +66,9 @@ Your username is: %(username)s
 Your password is: %(password)s
 The account will expire at %(expire)s"""
 
+GUEST_PASSWORD_SMS = """The password for %(username)s has been changed by %(changeby)s.
+The new password is: %(password)s"""
+
 # Limit user names to 20 characters, RT #1077796
 # sAMAccountName must be less than 20 chars
 GUEST_MAX_LENGTH_USERNAME = 19

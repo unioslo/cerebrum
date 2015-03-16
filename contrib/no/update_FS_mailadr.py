@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003, 2014 University of Oslo, Norway
+# Copyright 2003-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -39,18 +39,18 @@ Cerebrum could, depending on the instance, be considered as the authoritative
 source system in respect to mail addresses and usernames.
 
 As specified by the system owners for FS at the University of Oslo
-(representened by SSA, Central student administration) each student 
-at the University og Oslo has to have a working, official email address 
-registered in FS (more specifically in the table FS.PERSON, the field 
+(representened by SSA, Central student administration) each student
+at the University og Oslo has to have a working, official email address
+registered in FS (more specifically in the table FS.PERSON, the field
 EMAILADRESSE). Any other email addresses (privat email accounts) may be
-registered in the field EMAILADRESSE_PRIVAT. 
+registered in the field EMAILADRESSE_PRIVAT.
 
-Problems: the addresses fetched from Cerebrum do not take the 
-account_type nor the source system into consideration. This means that 
-the default address fetched for a person is the primary address of 
-that person primary account, not the persons primary student account. 
-Something should probably be done about this. There is also a number of 
-users in the Cerebrum database registered with faulty affiliations. 
+Problems: the addresses fetched from Cerebrum do not take the
+account_type nor the source system into consideration. This means that
+the default address fetched for a person is the primary address of
+that person primary account, not the persons primary student account.
+Something should probably be done about this. There is also a number of
+users in the Cerebrum database registered with faulty affiliations.
 This causes a number of persons to be registered with the addresses
 uname@ulrik.uio.no
 
@@ -68,8 +68,8 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.access_FS import FS
 
 
-def synchronize_attribute(cerebrum_lookup, fs_lookup, 
-                          fs_update, index, const):
+def synchronize_attribute(cerebrum_lookup, fs_lookup, fs_update, index,
+                          const, logger, commit_handler):
     """
     Synchronize an attribute A (e-mail or primary account) between Cerebrum
     and FS.  Attribute A's value MUST be unique (or Null).
@@ -93,11 +93,14 @@ def synchronize_attribute(cerebrum_lookup, fs_lookup,
         cere_attribute = fnr2attribute.get(fnr, None)
         fs_attribute = row[index]
 
+        logger.debug3("Considering %s for %s: cerebrum:%s fs:%s",
+                      index, fnr, cere_attribute, fs_attribute)
+
         # Cerebrum has a record of this fnr
         if cere_attribute is not None:
             if fs_attribute is None:
-                logger.debug1("Will add address for %s: %s",
-                              fnr, cere_attribute)
+                logger.debug1("Will add %s for %s: %s",
+                              index, fnr, cere_attribute)
                 additions[cere_attribute] = [row['fodselsdato'],
                                              row['personnr']]
             # We update only when the values differ, but we can't do
@@ -114,12 +117,12 @@ def synchronize_attribute(cerebrum_lookup, fs_lookup,
         else:
 
             if fs_attribute is not None:
-                logger.debug1("Deleting address for %s: %s",
-                              fnr, fs_attribute)
+                logger.debug1("Deleting %s for %s: %s",
+                              index, fnr, fs_attribute)
 
                 # None in FS means "no value"
                 fs_update(row['fodselsdato'], row['personnr'], None)
-                attempt_commit()
+                commit_handler()
 
     for fs_value in updates.keys():
         # Have we already done this update?
@@ -127,7 +130,7 @@ def synchronize_attribute(cerebrum_lookup, fs_lookup,
             continue
 
         fdato, persnr, cere_value = updates[fs_value]
-        
+
         # Does the value we're changing to exist in FS already?  If
         # so, change the person having that value first.  This should
         # be a recursive function, but cascading changes probably
@@ -136,53 +139,49 @@ def synchronize_attribute(cerebrum_lookup, fs_lookup,
         if cere_value in updates:
             u_fs_value = cere_value
             u_fdato, u_persnr, u_cere_value = updates[u_fs_value]
-            logger.debug1("Changing cascading address for %06d%05d: %s -> %s",
-                          u_fdato, u_persnr, u_fs_value, u_cere_value)
+            logger.debug1("Changing cascading %s for %06d%05d: %s -> %s",
+                          index, u_fdato, u_persnr, u_fs_value, u_cere_value)
             fs_update(u_fdato, u_persnr, u_cere_value)
-            attempt_commit()
+            commit_handler()
             # Mark it as done
             updates[cere_value] = None
 
-        logger.debug1("Changing address for %06d%05d: %s -> %s",
-                      fdato, persnr, fs_value, cere_value)
+        logger.debug1("Changing %s for %06d%05d: %s -> %s",
+                      index, fdato, persnr, fs_value, cere_value)
         try:
             fs_update(fdato, persnr, cere_value)
-            attempt_commit()
+            commit_handler()
         except Exception, e:
-            logger.error("Failed updating mailaddr for %06d%05d to %s: %s",
-                         fdato, persnr, cere_value, e)
+            logger.error("Failed updating %s for %06d%05d to %s: %s",
+                         index, fdato, persnr, cere_value, e)
 
     # Now all old values are cleared away, and adding values to new(?)
     # persons can't give duplicates.
 
     for cere_value in additions.keys():
         fdato, persnr = additions[cere_value]
-        logger.debug1("Adding address for %06d%05d: %s", fdato, persnr,
+        logger.debug1("Adding %s for %06d%05d: %s", index, fdato, persnr,
                       cere_value)
         try:
             fs_update(fdato, persnr, cere_value)
-            attempt_commit()
+            commit_handler()
         except Exception, e:
-            logger.error("Failed adding mailaddr for %06d%05d to %s: %s",
-                         fdato, persnr, cere_value, e)
+            logger.error("Failed adding %s for %06d%05d to %s: %s",
+                         index, fdato, persnr, cere_value, e)
 
     logger.debug("Done updating attributes")
 
 
-def usage( exitcode = 0 ):
+def usage(exitcode=0):
     print """
 %(doc)s
 
 Usage: update_FS_mailadr.py [options]
 
 -e --email           Synchronize e-mail information
-
 -a --account         Synchronize account information
-
 -u --db-user NAME    Connect with given database username
-
 -s --db-service NAME Connect to given database
-
 -d --dryrun          Run synchronization, but do *not* update FS
 
 """ % {'doc': __doc__}
@@ -190,20 +189,14 @@ Usage: update_FS_mailadr.py [options]
 
 
 def main():
-    global logger
-
     logger = Factory.get_logger("cronjob")
     logger.info("Synchronizing FS with Cerebrum")
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:],
-                                   "hdu:s:ea",
-                                   ["help",
-                                    "dryrun",
-                                    "db-user=",
-                                    "db-service=",
-                                    "email",
-                                    "account",])
+        opts, args = getopt.getopt(
+            sys.argv[1:],
+            "hdu:s:ea",
+            ["help", "dryrun", "db-user=", "db-service=", "email", "account"])
     except getopt.GetoptError, e:
         print e
         usage(2)
@@ -232,36 +225,37 @@ def main():
             usage(2)
 
     DB_driver = getattr(cereconf, 'DB_DRIVER_ORACLE', 'cx_Oracle')
-    fs_db = Database.connect(user = user, service = service,
-                             DB_driver=DB_driver)
+    fs_db = Database.connect(user=user, service=service, DB_driver=DB_driver)
     fs = FS(fs_db)
 
     db = Factory.get('Database')()
     person = Factory.get('Person')(db)
     const = Factory.get('Constants')(db)
 
-    def my_commit():
+    if dryrun:
+        logger.info('This is a dryrun, changes will be rolled back')
+    else:
+        logger.info('Not a dryrun, changes will be committed')
+
+    def commit_handler():
         if dryrun:
             fs.db.rollback()
             logger.info("Rolled back all changes")
         else:
             fs.db.commit()
-            logger.info("Commited all changes")
-
-    global attempt_commit
-    attempt_commit = my_commit
+            logger.info("Committed all changes")
 
     if email:
         synchronize_attribute(person.getdict_external_id2mailaddr,
                               fs.person.list_email,
                               fs.person.write_email,
-                              "emailadresse", const)
+                              "emailadresse", const, logger, commit_handler)
 
     if account:
         synchronize_attribute(person.getdict_external_id2primary_account,
                               fs.person.list_uname,
                               fs.person.write_uname,
-                              "brukernavn", const)
+                              "brukernavn", const, logger, commit_handler)
 
 
 if __name__ == '__main__':

@@ -176,4 +176,3 @@ if __name__ == '__main__':
         print "Tokens found after last SQL_END_OF_STATEMENT:\n\t", \
               " ".join(stmt)
 
-# arch-tag: fbeea71c-11a1-4388-a046-699266ac5bc2

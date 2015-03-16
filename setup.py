@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2002-2011 University of Oslo, Norway
+# Copyright 2002-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -432,6 +432,7 @@ setup(name="Cerebrum", version=Cerebrum.__version__,
                   'Cerebrum/modules/exchange/v2013',
                   'Cerebrum/modules/hostpolicy',
                   'Cerebrum/modules/bofhd',
+                  'Cerebrum/modules/guest',
                   'Cerebrum/modules/job_runner',
                   'Cerebrum/modules/no',
                   'Cerebrum/modules/no/Indigo',
@@ -447,6 +448,7 @@ setup(name="Cerebrum", version=Cerebrum.__version__,
                   'Cerebrum/modules/no/hine',
                   'Cerebrum/modules/no/notur',
                   #'Cerebrum/modules/no/nvh',
+                  'Cerebrum/modules/posix',
                   'Cerebrum/modules/tsd',
                   'Cerebrum/modules/templates',
                   'Cerebrum/modules/xmlutils',
@@ -472,3 +474,6 @@ setup(name="Cerebrum", version=Cerebrum.__version__,
       # Overridden command classes
       cmdclass={'install_data': my_install_data, },
       )
+
+setup(name='SoapAPI', packages = ['SoapAPI'])
+setup(name='ClientAPI', packages = ['ClientAPI'])

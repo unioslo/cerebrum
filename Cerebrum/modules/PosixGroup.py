@@ -18,21 +18,38 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 """The PosixGroup module implements a specialisation of the `Group'
-core class.  The specialided subclass, called PosixGroup.PosixGroup,
-supports the additional group parameters that are needed for building
-Unix-style file groups.
+core class.
 
-Currently, the only Posix-specific parameter is `posix_gid', which is
-a numeric GID.
+The specialided subclass, called PosixGroup.PosixGroup, supports the additional
+group parameters that are needed for building Unix-style file groups.
+Currently, the only Posix-specific parameter is `posix_gid', which is a numeric
+GID.
+
+When this module is used, the PosixGroupBase should be mixed into the base
+group class. The PosixGroup class should be used when you're working with known
+posix groups.
 
 """
+import cerebrum_path
+import cereconf
 
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
-import cereconf
+from .posix.mixins import PosixGroupMixin
+
 
 Group_class = Factory.get("Group")
+assert issubclass(Group_class, PosixGroupMixin)
+
+
 class PosixGroup(Group_class):
+
+    """ Implementation of posix group.
+
+    A Posix group contains an additional attribute that only applies to Posix
+    groups - the posix GID.
+
+    """
 
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('posix_gid',)
@@ -83,7 +100,7 @@ class PosixGroup(Group_class):
         self._db.log_change(self.entity_id,
                             self.const.posix_group_promote,
                             None,
-                            change_params={'gid': int(self.posix_gid),})
+                            change_params={'gid': int(self.posix_gid), })
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -103,10 +120,7 @@ class PosixGroup(Group_class):
 
     def find(self, group_id):
         super(PosixGroup, self).find(group_id)
-        self.posix_gid = self.query_1("""
-        SELECT posix_gid
-        FROM [:table schema=cerebrum name=posix_group]
-        WHERE group_id=:g_id""", {'g_id': self.entity_id})
+        self.posix_gid = self._get_posix_gid()
         self.__in_db = True
 
     def list_posix_groups(self):
@@ -147,30 +161,4 @@ class PosixGroup(Group_class):
             except Errors.NotFoundError:
                 return gid
 
-    def delete(self):
-        if self.__in_db:
-            self._db.log_change(self.entity_id,
-                                self.const.posix_group_demote,
-                                None,
-                                change_params={'gid': int(self.posix_gid),})
-            # Remove entry in table `posix_group'.
-            self.execute("""
-            DELETE FROM [:table schema=cerebrum name=posix_group]
-            WHERE group_id=:g_id""", {'g_id': self.entity_id})
-
-            
-
-##     def _check_name(self, name):
-##         name_len = len(name)
-##         if name_len == 0:
-##             raise ValueError, "PosixGroup can't have empty name."
-##         if name_len > 8:
-##             raise ValueError,\
-##                   "PosixGroup name '%s' longer than 8 characters." % name
-##         for c in name:
-##             if c not in tuple('abcdefghijklmnopqrstuvwxyz0123456789'):
-##                 raise ValueError, \
-##                       "PosixGroup name '%s' contains illegal char '%s'." % \
-##                       (name, c)
-
-# arch-tag: 79e9fb4a-7366-46ec-b41c-48b046f13838
+    # TODO: Implement search

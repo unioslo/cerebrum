@@ -274,7 +274,7 @@ class AccountTSDMixin(Account.Account):
 
         """
         # Check user quarantine:
-        if self.get_entity_quarantine(type=self.const.quarantine_not_approved,
+        if self.get_entity_quarantine(qtype=self.const.quarantine_not_approved,
                                       only_active=True):
             return False
         # Check if OU is approved:

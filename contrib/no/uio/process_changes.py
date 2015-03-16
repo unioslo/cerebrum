@@ -40,7 +40,6 @@ import pickle
 
 import cerebrum_path
 import cereconf
-from Cerebrum.extlib import logging
 from Cerebrum.modules import CLHandler
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
@@ -330,4 +329,3 @@ def main():
 if __name__ == '__main__':
     main()
 
-# arch-tag: e4f70b5b-763e-485c-9f2e-6d49ccbe320c

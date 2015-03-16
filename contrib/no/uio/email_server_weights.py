@@ -140,4 +140,3 @@ def process_servers(server_type, except_re):
 if __name__ == '__main__':
     main()
 
-# arch-tag: 5c5e7108-4177-11da-8299-58ec234f0d42

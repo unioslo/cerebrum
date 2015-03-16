@@ -58,4 +58,3 @@ sock.send('QUIT\n')
 logger.info("All done")
 sock.close()
 
-# arch-tag: 634835da-c21f-11d9-871c-d27e444cb439

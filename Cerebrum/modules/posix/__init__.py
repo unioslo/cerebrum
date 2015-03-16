@@ -1,7 +1,7 @@
-#!/bin/env python
-# -*- coding: iso-8859-1 -*-
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 #
-# Copyright 2012 University of Oslo, Norway
+# Copyright 2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,3 +18,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""The posix sub-package implements posix variants of the base classes."""
+
+# TODO: Move PosixGroup and PosixAccount into this sub-package

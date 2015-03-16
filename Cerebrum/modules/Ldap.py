@@ -26,7 +26,6 @@ from ldap import modlist
 
 import cereconf
  
-from Cerebrum.extlib import logging
 from Cerebrum import Database
 from Cerebrum.Database import Errors
 from Cerebrum.Utils import Factory
@@ -237,4 +236,3 @@ class LdapCall:
 
 
 
-# arch-tag: 623f4d9e-e3cf-4bfa-8538-7b86a5ab1927

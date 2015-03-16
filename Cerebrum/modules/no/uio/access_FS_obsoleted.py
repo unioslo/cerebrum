@@ -231,4 +231,3 @@ class FS(access_FS.FS):
         self.student = UiOStudent40(self.db)
         self.portal = UiOPortal40(self.db)
 
-# arch-tag: 71768aa6-ccdf-11d9-8d4f-e97d515b8470

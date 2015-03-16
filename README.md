@@ -6,8 +6,31 @@ Cerebrum is a Python/RDBMS framework upon which user administration systems can 
 Requirements
 ------------
 
-* Python 2.2.1
-* SQL Database (PostgreSQL, Oracle)
+* Python 2.5
+* PostgreSQL Database
+
+
+Dependencies
+-------------
+
+* M2Crypto (yum install m2crypto / pip install M2Crypto)
+* psycopg2 (yum install python-psycopg2 / pip install psycopg2)
+* smbpasswd (yum install python-smbpasswd / pip install smbpasswd)
+* ldap (yum install python-ldap / pip install python-ldap)
+* lxml (yum install python-lxml / pip install lxml)
+* processing (? / pip install processing)
+* mx (egenix-mx-base) (yum install python-egenix-mx-base / pip install egenix-mx-base)
+* ssl (backport)
+
+Optional dependencies
+^^^^^^^^^^^^^^^^^^^^^
+
+Some dependencies are optional, depending on what features you want to use:
+
+* twisted - for the webservice daemon CIS
+* soaplib - for webservice communication
+* rpclib - for webservice communication
+
 
 Mailing lists
 -------------

@@ -123,7 +123,7 @@ class AccountUtil(object):
         account.add_student_to_server_group()
         all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
     restore_uname=staticmethod(restore_uname)
-        
+
     def create_user(fnr, profile):
         # dryruning this method is unfortunately a bit tricky
         assert not dryrun
@@ -165,7 +165,7 @@ class AccountUtil(object):
                 assert last_name.count(' ') == 0
             uname = account.suggest_unames(const.account_namespace,
                                            first_name, last_name)[0]
-        logger.info("uname %s will be used", uname) 
+        logger.info("uname %s will be used", uname)
         account.populate(uname,
                          const.entity_person,
                          person.entity_id,
@@ -218,7 +218,7 @@ class AccountUtil(object):
             changes.append(('del_ac_type', (ou, const.affiliation_student)))
         return changes
     _populate_account_affiliations=staticmethod(_populate_account_affiliations)
-    
+
     def _handle_user_changes(changes, account_id, as_posix):
         if as_posix:
             user = posix_user_obj
@@ -230,7 +230,7 @@ class AccountUtil(object):
             shell = default_shell
             account_obj.clear()
             account_obj.find(account_id)
-            user.populate(uid, changes[0][1], None, shell, 
+            user.populate(uid, changes[0][1], None, shell,
                           parent=account_obj, expire_date=default_expire_date)
             user.write_db()
             logger.debug("Used dfg2: "+str(changes[0][1]))
@@ -289,7 +289,7 @@ class AccountUtil(object):
             elif c_id == 'add_quarantine':
                 start_at = strftime('%Y-%m-%d', localtime(dta[1] + time()))
                 # Fix dette!
-                # sett --quarantine-exempt krever 
+                # sett --quarantine-exempt krever
                 # sjekk om opsjonen --quarantine-exempt er på
                 # sjekk om personen har en annen aff og hvis så skip
                 user.add_entity_quarantine(
@@ -395,7 +395,7 @@ class AccountUtil(object):
         for disk_spread in profile.get_disk_spreads():
             if not disk_spread in user_spreads:
                 # The disk-spread in disk-defs was not one of the users spread
-                continue 
+                continue
             current_disk_id, notused = ac.get_home(disk_spread)
             if keep_account_home[fnr] and (move_users or current_disk_id is None):
                 try:
@@ -462,7 +462,7 @@ class AccountUtil(object):
                     if q in [int(const.quarantine_generell),
                              int(const.quarantine_autopassord)]:
                         changes.append(('remove_quarantine_at_restore', q))
-            
+
         if changes:
             AccountUtil._handle_user_changes(changes, account_id, as_posix)
 
@@ -652,7 +652,7 @@ class BuildAccounts(object):
                         profile, fnr, [pinfo.get_best_reserved_ac()])
                 elif pinfo.has_deleted_ac():
                     logger.debug("using deleted: %s" % pinfo.get_best_deleted_ac())
-                    BuildAccounts._update_persons_accounts(profile, 
+                    BuildAccounts._update_persons_accounts(profile,
                                                            fnr, [pinfo.get_best_deleted_ac()])
                 else:
                     account_id = AccountUtil.create_user(fnr, profile)
@@ -671,7 +671,7 @@ class BuildAccounts(object):
         if not dryrun:
             db.commit()
     _process_student=staticmethod(_process_student)
-    
+
     def _update_persons_accounts(profile, fnr, account_ids):
         """Update the account by checking that group, disk and
         affiliations are correct.  For existing accounts, account_info
@@ -704,6 +704,7 @@ class BuildAccounts(object):
             else:
                 make_letters()
         else:
+            logger.info("Dryrun: Rolled back changed")
             db.rollback()
         BuildAccounts._process_unprocessed_students()
     update_accounts_main=staticmethod(update_accounts_main)
@@ -714,7 +715,7 @@ class BuildAccounts(object):
         # TBD: trenger vi skille på de?
         logger.info("process_unprocessed_students")
 
-        for fnr, pinfo in persons.items(): 
+        for fnr, pinfo in persons.items():
             if not pinfo.has_student_ac():
                 continue
             if not processed_students.has_key(fnr):
@@ -788,7 +789,7 @@ class ExistingAccount(object):
 
     def get_quarantines(self):
         return self._quarantines
-    
+
     def is_reserved(self):
         return self._reserved
 
@@ -800,13 +801,13 @@ class ExistingAccount(object):
 
     def set_deleted(self, cond):
         self._deleted = cond
-        
+
     def append_spread(self, spread):
         self._spreads.append(spread)
 
     def get_spreads(self):
         return self._spreads
- 
+
 class ExistingPerson(object):
     def __init__(self):
         self._affs = []
@@ -843,7 +844,7 @@ class ExistingPerson(object):
 
     def has_deleted_ac(self):
         return len(self._deleted_ac) > 0
-    
+
     def append_reserved_ac(self, account_id):
         self._reserved_ac.append(account_id)
 
@@ -999,7 +1000,7 @@ def get_existing_accounts():
         if tmp is not None and row['disk_id']:
             tmp.set_home(int(row['home_spread']), int(row['disk_id']),
                          int(row['homedir_id']))
-            
+
     # Group memberships
     for group_id in autostud.pc.group_defs.keys():
         group_obj.clear()
@@ -1088,7 +1089,7 @@ def make_letters(data_file=None, type=None, range=None):
             # get e-mail address
             primary_email_address = account.get_primary_mailaddress()
         except Errors.NotFoundError:
-            primary_email_address = ""            
+            primary_email_address = ""
         # get valid ou for the student
         ou_id = None
         sko = None
@@ -1142,7 +1143,7 @@ def make_letters(data_file=None, type=None, range=None):
             dta[order_by] = {}
         dta[order_by][account_id] = tpl
 
-    # Do the actual sorting. We end up with one array with account_id's 
+    # Do the actual sorting. We end up with one array with account_id's
     # sorted in groups on sorting criteria.
     sorted_keys = []
     for order in dta.keys():
@@ -1223,7 +1224,7 @@ def make_barcode(account_id):
     else:
         barcode_cmd = "%s -e EAN -E -n -b %012i > barcode_%s.eps" % (cereconf.PRINT_BARCODE,
                                                                      account_id, account_id)
-        
+
     logger.debug("Running barcode-command: '%s'" % barcode_cmd)
     ret = os.system(barcode_cmd)
     if ret:
@@ -1281,10 +1282,22 @@ def _debug_dump_profile_match(profile, fnr):
                   profile.get_grupper(),
                   profile.get_stedkoder()))
 
+
 def validate_config():
-    AutoStud.AutoStud(db, logger, debug=debug, cfg_file=studconfig_file,
-                      studieprogs_file=studieprogs_file,
-                      emne_info_file=emne_info_file)
+
+    if studconfig_file is None or \
+       studieprogs_file is None or \
+       emne_info_file is None:
+
+        print ("Missing required parameter(s). 'studconfig_file' (-C), "
+               "studieprogs_file' (-S)\nand 'emne_info_file' (-e) needs "
+               "to be specified when running --validate.")
+        sys.exit(1)
+
+    else:
+        AutoStud.AutoStud(db, logger, debug=debug, cfg_file=studconfig_file,
+                          studieprogs_file=studieprogs_file,
+                          emne_info_file=emne_info_file)
 
 def process_noncallback_users(reset_diskquota=False):
     """Process accounts on student-disk that did not get a callback
@@ -1296,7 +1309,7 @@ def process_noncallback_users(reset_diskquota=False):
     logger.info("Processing noncallback users")
     on_student_disk = {}
     for row in account_obj.list_account_home():
-        if (row['disk_id'] is not None and 
+        if (row['disk_id'] is not None and
             autostud.disk_tool.get_diskdef_by_diskid(int(row['disk_id']))):
             on_student_disk[int(row['account_id'])] = True
 
@@ -1373,7 +1386,7 @@ def main():
         elif opt in ('--with-diskquota',):
             with_diskquota = True
         elif opt in ('--posix-tables',):
-            posix_tables = True                        
+            posix_tables = True
         elif opt in ('--move-users',):
             move_users = True
         elif opt in ('-C', '--studconfig-file'):
@@ -1493,4 +1506,3 @@ if __name__ == '__main__':
     else:
         main()
 
-# arch-tag: 99817548-9213-4dc3-8d03-002fc6a2f138

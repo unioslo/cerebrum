@@ -64,6 +64,7 @@ class ConstantsActiveDirectory(Constants.Constants):
 
 
 class ConstantsCommon(Constants.Constants):
+    """ Constants that every instance should have. """
 
     """ Common constants for all Norwegian installations. """
 
@@ -71,6 +72,24 @@ class ConstantsCommon(Constants.Constants):
     externalid_fodselsnr = _EntityExternalIdCode(
         'NO_BIRTHNO', Constants.Constants.entity_person,
         'Norwegian national ID number')
+
+    # External IDs related to A-melding.
+    externalid_pass_number = _EntityExternalIdCode(
+        'PASSNR', Constants.Constants.entity_person,
+        "A persons passport number")
+
+    externalid_social_security_number = _EntityExternalIdCode(
+        'SSN', Constants.Constants.entity_person,
+        "A persons social security number")
+
+    externalid_tax_identification_number = _EntityExternalIdCode(
+        'TIN', Constants.Constants.entity_person,
+        "A persons tax identification number")
+
+    externalid_value_added_tax_number = _EntityExternalIdCode(
+        'VAT', Constants.Constants.entity_person,
+        "A persons value added tax identification number")
+
     system_override = _AuthoritativeSystemCode(
         'Override', 'Override information fetched from authoritative systems')
 
@@ -151,6 +170,10 @@ class ConstantsCommon(Constants.Constants):
         'sap_mug', Constants.Constants.entity_account,
         "MUG from SAP - medarbeiderundergruppe")
 
+    # Quarantine to be set automatically when cleaning up in persons that are no
+    # longer affiliated with the instance
+    quarantine_auto_no_aff = _QuarantineCode('auto_no_aff',
+                                            'Ikke tilknyttet person, utestengt')
 
 class ConstantsHigherEdu(Constants.Constants):
 
@@ -288,9 +311,6 @@ class ConstantsUniversityColleges(Constants.Constants):
     quarantine_ou_remove = _QuarantineCode(
         'ou_remove', 'Sted fjernet fra autoritativ kildesystem')
 
-    quarantine_auto_no_aff = _QuarantineCode(
-        'auto_no_aff', 'Ikke tilknyttet person, utestengt')
-
     # Non-personal account codes
     account_test = _AccountCode('testbruker', 'Testkonto')
     account_kurs = _AccountCode('kursbruker', 'Kurskonto')
@@ -392,14 +412,44 @@ class SAPLonnsTittelKode(Constants._CerebrumCode):
             return self.kategori
         # fi
 
-        return self.sql.query_1("""
-                                SELECT
-                                  kategori
-                                FROM
-                                  %s
-                                WHERE
-                                  code = :code""" % self._lookup_table,
-                                {'code': int(self)})
+        return self.sql.query_1("SELECT kategori FROM %s WHERE code = :code" %
+                                self._lookup_table, {'code': int(self)})
+
+    def update(self):
+        """
+        Updates the description and/or kategori-values for the given constant
+        if there are changes from the current database entry.
+
+        :returns: a list with strings containing details about the updates that
+                  were performed, or None if no updates were performed.
+        :rtype: list or None
+        """
+        updated_desc = super(SAPLonnsTittelKode, self).update()
+        updated_kat = self._update_kategori()
+
+        if updated_desc or updated_kat is not None:
+            results = []
+
+            if updated_desc is not None:
+                results.extend(updated_desc)
+            if updated_kat is not None:
+                results.extend(updated_kat)
+            return results
+
+    def _update_kategori(self):
+        """
+        Updates the kategori-value for the given constant if value has changed
+        from the current database entry.
+
+        :returns: a string with details of the update that was made.
+        :rtype: list or None
+        """
+        db_kat = self.sql.query_1("SELECT kategori FROM %s WHERE code = %s" %
+                                  (self._lookup_table, int(self)))
+        if self.kategori != db_kat:
+            self.sql.execute("UPDATE %s SET kategori = '%s' WHERE code = %s" %
+                             (self._lookup_table, self.kategori, int(self)))
+            return ["Updated kategori for '%s': '%s'" % (self, self.kategori)]
 
 
 class SAPCommonConstants(Constants.Constants):
