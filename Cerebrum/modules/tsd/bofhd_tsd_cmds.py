@@ -1088,6 +1088,51 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ent.write_db()
         return "Entity affiliated with project: %s" % ou.get_project_id()
 
+    all_commands['project_list_hosts'] = cmd.Command(
+        ('project', 'list_hosts'), ProjectID(),
+        fs=cmd.FormatSuggestion([(
+            '%-30s %-8s %-20s %-20s', ('name', 'os', 'contact', 'comment'),)],
+            hdr='%-30s %-8s %-20s %-20s' % ('Name', 'OS', 'Contact', 'Comment')),
+        perm_filter='is_superuser')
+
+    @superuser
+    def project_list_hosts(self, operator, projectid):
+        """List hosts by project."""
+        project = self._get_project(projectid)
+        ent = EntityTrait.EntityTrait(self.db)
+        dnsowner = dns.DnsOwner.DnsOwner(self.db)
+        hostinfo = dns.HostInfo.HostInfo(self.db)
+        hosts = []
+
+        for row in ent.list_traits(code=self.const.trait_project_host,
+                                   target_id=project.entity_id):
+            owner_id = row['entity_id']
+            dnsowner.clear()
+            dnsowner.find(owner_id)
+            host = {'name': dnsowner.name}
+
+            for key, trait in (('comment', self.const.trait_dns_comment),
+                               ('contact', self.const.trait_dns_contact)):
+                trait = dnsowner.get_trait(trait)
+                if trait is not None:
+                    host[key] = host[key].get('strval', '<not set>')
+                else:
+                    host[key] = '<not set>'
+
+            try:
+                hostinfo.clear()
+                hostinfo.find_by_dns_owner_id(owner_id)
+                _, hostinfo_os = hostinfo.hinfo.split("\t", 1)
+            except Errors.NotFoundError:
+                hostinfo_os = '<not set>'
+            finally:
+                host['os'] = hostinfo_os
+
+            hosts.append(host)
+
+        # Sort by name
+        return sorted(hosts, key=lambda x: x['name']) or 'No hosts found'
+
     #
     # Person commands
     def _person_affiliation_add_helper(self, operator, person, ou, aff, aff_status):
@@ -1739,6 +1784,38 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             return
         # The PosixUser class should handle most of the functionality
         pu.write_db()
+
+    #
+    # Host commands
+
+    all_commands['host_list_projects'] = cmd.Command(
+        ('host', 'list_projects'), dns.bofhd_dns_cmds.HostId(),
+        fs=cmd.FormatSuggestion([(
+            '%-30s %-10s %-12s', ('name', 'project_id', 'project_name'),)],
+            hdr='%-30s %-10s %-12s' % ('Name', 'Project ID', 'Project name')),
+        perm_filter='is_superuser')
+
+    @superuser
+    def host_list_projects(self, operator, host_id):
+        """List projects by host."""
+        host = self._get_host(host_id)
+        ent = EntityTrait.EntityTrait(self.db)
+        project = self.OU_class(self.db)
+        projects = []
+
+        for row in ent.list_traits(code=self.const.trait_project_host,
+                                   entity_id=host.entity_id):
+            project.clear()
+            project.find(row['target_id'])
+            projects.append({
+                'name': host.name,
+                'project_id': project.get_project_id(),
+                'project_name': project.get_project_name(),
+            })
+
+        # Sort by project ID
+        return sorted(projects, key=lambda x: x['project_id']) or \
+            'No projects found for this host'
 
     #
     # Subnet commands
