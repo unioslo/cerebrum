@@ -110,6 +110,7 @@ class OrgLDIF(object):
             self.init_ou_structure()
         if not hasattr(self, 'attr2id2contacts'):
             self.init_attr2id2contacts()
+        self.ou_attrs = ldapconf('OU', 'ou_attrs', ())
 
     def uninit_ou_dump(self):
         del self.ou, self.ou_tree
@@ -295,6 +296,7 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
             self.logger.warn("No names could be located for ou_id=%s", ou_id)
             return parent_dn, None
         entry = {'objectClass': ['top', 'organizationalUnit']}
+        entry.update(self.ou_attrs)
         if 0 in ou_names:
             self.add_lang_names(entry, 'norEduOrgAcronym', ou_names[0])
         ou_names = [names for pref, names in sorted(ou_names.items())]
