@@ -46,6 +46,8 @@ command_help['group'].update({
 command_help.setdefault('subnet', {}).update({
     'subnet_list':
         'List all subnets',
+    'subnet_search':
+        'Wildcard search for subnets',
 })
 command_help['project'] = {
     'project_approve':
@@ -114,6 +116,13 @@ arg_help.update({
   - 'name'
   - 'date' of birth, on format YYYY-MM-DD
   - 'stedkode' - Use project-ID"""],
+    'subnet_search_type':
+        ['search_type', 'Enter subnet search type',
+        """Possible values:
+  - 'subnet'
+  - 'vlan'
+  - 'project'
+  - 'description'"""],
     'otp_type':
         ['otp_type', 'OTP type',
          'The OTP type, e.g. totp, hotp or smartphone_yes'],
