@@ -141,6 +141,12 @@ class SubnetSearchType(cmd.Parameter):
     _help_ref = 'subnet_search_type'
 
 
+class FnMatchPattern(cmd.Parameter):
+    """A pattern given to fnmatch."""
+    _type = 'pattern'
+    _help_ref = 'fnmatch_pattern'
+
+
 class VLANParam(cmd.Parameter):
     """A VLAN number"""
     _type = 'vlan'
@@ -1878,8 +1884,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
     all_commands['subnet_search'] = cmd.Command(
         ("subnet", "search"),
-        SubnetSearchType(),
-        cmd.SimpleString(),
+        SubnetSearchType(), FnMatchPattern(),
         fs=cmd.FormatSuggestion([(
             '%-30s %6s %7s %s', ('subnet', 'vlan_number',
                                  'project_id', 'description',),)],
@@ -1892,7 +1897,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         """Wildcard search for subnets.
 
         :type search_type: str
-        :param search_type: filter subnets by this
+        :param search_type: filter subnets by this key
 
         :type pattern: str
         :param pattern: wildcard search pattern

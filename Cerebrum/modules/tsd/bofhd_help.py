@@ -133,6 +133,13 @@ arg_help.update({
   - 'vlan'
   - 'project'
   - 'description'"""],
+    'fnmatch_pattern':
+        ['fnmatch_pattern', 'Enter wildcard pattern',
+        """Case-sensitive. Use Unix shell-style wildcards:
+  - *      matches everything
+  - ?      matches any single character
+  - [seq]  matches any character in seq
+  - [!seq] matches any character not in seq"""],
     'otp_type':
         ['otp_type', 'OTP type',
          'The OTP type, e.g. totp, hotp or smartphone_yes'],
