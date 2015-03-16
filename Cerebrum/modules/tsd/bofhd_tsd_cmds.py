@@ -1021,17 +1021,17 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             ret.append({'vm_type': '<Not Set>'})
 
         # Subnets
-        def _subnet_info(subnet):
+        def _subnet_info(subnet_id):
             try:
                 sub = Subnet.Subnet(self.db)
-                sub.find(subnet)
+                sub.find(subnet_id)
                 return {
                     'subnet': '%s/%s' % (sub.subnet_ip, sub.subnet_mask),
                     'vlan_number': str(sub.vlan_number)
                 }
             except dns.Errors.SubnetError:
                 sub = IPv6Subnet.IPv6Subnet(self.db)
-                sub.find(subnet)
+                sub.find(subnet_id)
                 compress = dns.IPv6Utils.IPv6Utils.compress
                 return {
                     'subnet': '%s/%s' % (compress(sub.subnet_ip),
@@ -1039,11 +1039,10 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                     'vlan_number': str(sub.vlan_number)
                 }
 
-        project_subnets = [x['entity_id'] for x in
-                           project.get_project_subnets()]
-
-        for subnet_id in project_subnets:
-            ret.append(_subnet_info(subnet_id))
+        subnets = [_subnet_info(x['entity_id']) for x in
+                   project.get_project_subnets()]
+        for subnet in sorted(subnets, key=lambda x: x['subnet']):
+            ret.append(subnet)
 
         return ret
 
@@ -1745,6 +1744,11 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     # Subnet commands
 
     def _get_all_subnets(self):
+        """Fetch all subnets in a human-readable format.
+
+        :rtype: list
+        :returns: A list with a dictionary per subnet
+        """
         ou = self.OU_class(self.db)
         # Project entity ID -> external project ID
         ent2ext = dict((x['entity_id'], x['external_id']) for x in
@@ -1808,22 +1812,29 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
     @superuser
     def subnet_search(self, operator, search_type, pattern):
-        """Wildcard search for subnets."""
+        """Wildcard search for subnets.
+
+        :type search_type: str
+        :param search_type: filter subnets by this
+
+        :type pattern: str
+        :param pattern: wildcard search pattern
+        """
         from fnmatch import fnmatch
 
-        type2filter = {
+        type2key = {
             'subnet': 'subnet',
             'vlan': 'vlan_number',
             'project': 'project_id',
             'description': 'description',
         }
 
-        if search_type not in type2filter.keys():
+        if search_type not in type2key.keys():
             raise CerebrumError("Unknown search type (%s)" % search_type)
 
         # Fetch and filter subnets
         subnets = self._get_all_subnets()
-        key = type2filter[search_type]
+        key = type2key[search_type]
         results = [sn for sn in subnets if fnmatch(sn[key], pattern)]
 
         # Sort by subnet
