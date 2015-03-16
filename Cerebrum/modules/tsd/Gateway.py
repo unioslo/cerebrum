@@ -426,7 +426,7 @@ class GatewayClient(xmlrpclib.Server, object):
 
     # User methods
 
-    def create_user(self, pid, username, uid, realname=None):
+    def create_user(self, pid, username, uid, realname=None, expire_date=None):
         """Create a user in the GW.
 
         :param string pid:
@@ -442,9 +442,14 @@ class GatewayClient(xmlrpclib.Server, object):
             The name of the user. It has no practical significance for the
             gateway. Must not contain colons!
 
+        :param mx.DateTime.DateTime expire_date: The expiry-date for the user.
+
         """
         self.logger.info("Creating user: %s", username)
-        params = {'project': pid, 'username': username, 'uid': uid}
+        params = {'project': pid,
+                  'username': username,
+                  'uid': uid,
+                  'expires': expire_date}
         if realname:
             if ':' in realname:
                 self.logger.warn("Realname for %s contains colons!", username)
@@ -453,6 +458,27 @@ class GatewayClient(xmlrpclib.Server, object):
         if self.dryrun:
             return True
         return self.user.create(params)
+
+    def expire_user(self, pid, username, expire_date=None):
+        """Set expire-date on the user in the Gateway.
+
+        :param string pid:
+            The project ID.
+
+        :param string username:
+            The username of the user.
+
+        :param mx.DateTime.DateTime expire_date: The expire date of the user.
+
+        """
+        self.logger.info("Setting expire date for %s to %s",
+                         username,
+                         expire_date)
+        if self.dryrun:
+            return True
+        return self.user.expire({'project': pid,
+                                 'username': username,
+                                 'when': expire_date})
 
     def delete_user(self, pid, username):
         """Delete a user from the GW.

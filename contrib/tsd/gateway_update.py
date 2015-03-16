@@ -282,7 +282,10 @@ class Processor:
                 logger.debug("Skipping non-affiliated account: %s",
                              self.pu.entity_id)
                 continue
-            self.gw.create_user(pid, row['name'], self.pu.posix_uid)
+            self.gw.create_user(pid,
+                                row['name'],
+                                self.pu.posix_uid,
+                                expire_date=self.pu.expire_date)
 
     def process_user(self, gw_user, ac2proj):
         """Process a single user retrieved from the GW.
@@ -310,6 +313,10 @@ class Processor:
             logger.info("User %s not found in Cerebrum" % username)
             self.gw.delete_user(pid, username)
             return
+
+        if gw_user['expires'] != self.pu.expire_date:
+            self.gw.expire_user(pid, username, self.pu.expire_date)
+
         # Skip accounts not affiliated with a project.
         if self.pu.entity_id not in ac2proj:
             logger.info("User %s not affiliated with any project" % username)
