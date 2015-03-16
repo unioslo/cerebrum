@@ -8025,39 +8025,53 @@ Addresses and settings:
 
     # person set_name
     all_commands['person_set_name'] = Command(
-        ("person", "set_name"),PersonId(help_ref="person_id_other"),
+        ("person", "set_name"), PersonId(help_ref="person_id_other"),
         PersonName(help_ref="person_name_first"),
         PersonName(help_ref="person_name_last"),
-        fs=FormatSuggestion("Name altered for: %i",
-        ("person_id",)),
+        fs=FormatSuggestion("Name altered for: %i", ("person_id",)),
         perm_filter='can_create_person')
-    def person_set_name(self, operator, person_id, firstname, lastname):
+
+    def person_set_name(self, operator, person_id, first_name, last_name):
         auth_systems = []
         for auth_sys in cereconf.BOFHD_AUTH_SYSTEMS:
-            tmp=getattr(self.const, auth_sys)
+            tmp = getattr(self.const, auth_sys)
             auth_systems.append(int(tmp))
         person = self._get_person(*self._map_person_id(person_id))
         self.ba.can_create_person(operator.get_entity_id())
         for a in person.get_affiliations():
             if int(a['source_system']) in auth_systems:
-                raise PermissionDenied("You are not allowed to alter names registered in authoritative source_systems.")
+                raise PermissionDenied("You are not allowed to alter "
+                                       "names registered in authoritative "
+                                       "source_systems.")
+
+        if last_name == "":
+            raise CerebrumError("Last name is required.")
+
+        if first_name == "":
+            full_name = last_name
+        else:
+            full_name = " ".join((first_name, last_name))
+
         person.affect_names(self.const.system_manual,
                             self.const.name_first,
                             self.const.name_last,
                             self.const.name_full)
-        if lastname == "":
-            raise CerebrumError, "A last name is required"
-        if firstname == "":
-            fullname = lastname
-        else:
-            fullname = firstname + " " + lastname
-        person.populate_name(self.const.name_first, firstname)
-        person.populate_name(self.const.name_last, lastname)
-        person.populate_name(self.const.name_full, fullname)
+
+        # If first_name is an empty string, it should remain unpopulated.
+        # Since it is tagged as an affected name_variant above, this will
+        # trigger the original name_variant-row in the db to be deleted when
+        # running write_db.
+        if first_name != "":
+            person.populate_name(self.const.name_first, first_name)
+
+        person.populate_name(self.const.name_last, last_name)
+        person.populate_name(self.const.name_full, full_name)
+
         try:
             person.write_db()
         except self.db.DatabaseError, m:
-            raise CerebrumError, "Database error: %s" % m
+            raise CerebrumError("Database error: %s" % m)
+
         return {'person_id': person.entity_id}
 
     # person name_suggestions
