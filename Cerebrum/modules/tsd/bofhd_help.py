@@ -134,7 +134,7 @@ arg_help.update({
   - 'project'
   - 'description'"""],
     'fnmatch_pattern':
-        ['fnmatch_pattern', 'Enter wildcard pattern',
+        ['pattern', 'Enter wildcard pattern',
         """Case-sensitive. Use Unix shell-style wildcards:
   - *      matches everything
   - ?      matches any single character
