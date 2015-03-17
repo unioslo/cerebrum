@@ -28,10 +28,6 @@ import cereconf
 
 group_help['project'] = 'Project related commands'
 
-allowed_vm_types = ''
-for vm_type in cereconf.TSD_VM_TYPES:
-    allowed_vm_types += ' - %s\n' % vm_type
-
 # The texts in command_help are automatically line-wrapped, and should
 # not contain \n
 command_help['user'].update({
@@ -126,5 +122,5 @@ arg_help.update({
     'vm_type':
         ["vm_type", "VM type",
          "The type of OS for the project's hosts.\nPossible values are:\n" +
-         allowed_vm_types]
+         "".join([" - %s\n" % x for x in cereconf.TSD_VM_TYPES])]
 })
