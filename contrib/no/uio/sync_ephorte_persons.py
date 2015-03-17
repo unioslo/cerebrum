@@ -498,8 +498,19 @@ def report_person_perms(person, client):
     """Generate report for person"""
     userid = construct_user_id(person)
 
-    ephorte_perms = set(user_details_to_perms(client.get_user_details(userid)))
+    try:
+        ephorte_perms = set(user_details_to_perms(
+            client.get_user_details(userid)))
+    except EphorteWSError, e:
+        if 'UserId not found in Ephorte' in str(e):
+            logger.warn("Fetching of user details for %s failed: %s",
+                        userid, e)
+            return "User %s exists in Cerebrum, but not in ePhorte!" % userid
+        else:
+            raise
+
     cerebrum_perms = set(list_perm_for_person(person))
+
     toadd = cerebrum_perms - ephorte_perms
     torem = ephorte_perms - cerebrum_perms
 
