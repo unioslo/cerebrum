@@ -702,11 +702,28 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
     @superuser
     def project_setup(self, operator, project_id, vlan=None):
+        """
+        Run the setup procedure for a project, updating configuration to
+        current settings.
 
+        :param operator: An BofhdSession-instance of the current user session.
+        :type  operator: BofhdSession
+        :param project_id: Project ID for the given project.
+        :type  project_id: str
+        :param vlan: Sets the VLAN number to give to the project's subnets.
+        :type  vlan: int
+
+        :returns: A statement that the operation was successful.
+        :rtype: str
+
+        """
+
+        op_id = operator.get_entity_id()
         ou = self.OU_class(self.db)
+
         try:
             ou.find_by_tsd_projectid(project_id)
-            ou.setup_project(operator, vlan)
+            ou.setup_project(op_id, vlan)
         except Errors.CerebrumError, e:
             raise CerebrumError(e)
         except:
@@ -1117,14 +1134,30 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
     @superuser
     def project_set_vm_type(self, operator, project_id, vm_type):
+        """
+        Changes the type of VM-host(s) for the given project.
+
+        :param operator: An BofhdSession-instance of the current user session.
+        :type  operator: BofhdSession
+        :param project_id: Project ID for the given project.
+        :type  project_id: str
+        :param vm_type: The new setting for VM-host(s) for the project.
+        :type  vm_type: str
+
+        :returns: A statement that the operation was successful.
+        :rtype: str
+
+        """
+
         project = self._get_project(project_id)
+        op_id = operator.get_entity_id()
 
         if vm_type not in cereconf.TSD_VM_TYPES:
             raise CerebrumError("Invalid VM-type")
 
         project.populate_trait(code='project_vm_type', strval=vm_type)
         project.write_db()
-        project.setup_project(operator)
+        project.setup_project(op_id)
 
         return 'OK, vm_type for %s changed to %s.' % (project_id, vm_type)
     #
