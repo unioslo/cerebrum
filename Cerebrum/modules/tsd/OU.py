@@ -191,6 +191,36 @@ class OUTSDMixin(OU, EntityTrait):
         else:
             return None
 
+    @property
+    def has_freeze_quarantine(self):
+        """
+        has_freeze_quarantine-property - getter
+
+        :rtype: bool
+        :return: Return True if the OU (Project) has freeze quarantine(s),
+            otherwise - False
+        """
+        return bool(
+            self.get_entity_quarantine(
+                qtype=self.const.quarantine_frozen))
+
+    @property
+    def freeze_quarantine_start(self):
+        """
+        freeze_quarantine_start-property - getter
+
+        :rtype: mx.DateTime or None
+        :return: Return the start_date of the freeze quarantine
+            (Note: None will be returned in a case of no freeze-quarantines
+            for the OU (Project). Hence mx.DateTime return value is a proof
+            that the OU (Project) has at least one autofreeze-quarantine,
+            while return value None is not a proof of the opposite
+        """
+        frozen_quarantines = self.get_entity_quarantine(
+            qtype=self.const.quarantine_frozen)
+        if frozen_quarantines:
+            return frozen_quarantines[0]['start_date']
+        return None
 
     def add_name_with_language(self, name_variant, name_language, name):
         """Override to be able to verify project names (acronyms)."""
