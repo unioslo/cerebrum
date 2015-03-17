@@ -223,9 +223,8 @@ class Processor:
                          pid,
                          str(quars))
             if proj['frozen']:
-                if proj['frozen'] != when:
-                    self.gw.thaw_project(pid)
-                    self.gw.freeze_project(pid, when)
+                if proj['frozen'] != when:  # the freeze dates are different
+                    self.gw.freeze_project(pid, when)  # set new freeze date
             else:
                 self.gw.freeze_project(pid, when)
         else:
@@ -345,9 +344,8 @@ class Processor:
             logger.debug2("User %s has quarantines: %s" % (username,
                                                            str(quars)))
             if gw_user['frozen']:
-                if gw_user['frozen'] != when:
-                    self.gw.thaw_user(pid, username)
-                    self.gw.freeze_user(pid, username, when)
+                if gw_user['frozen'] != when:  # the freeze dates are different
+                    self.gw.freeze_user(pid, username, when)  # set new freeze
             else:
                 self.gw.freeze_user(pid, username, when)
         else:
