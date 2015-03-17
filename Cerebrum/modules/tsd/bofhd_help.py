@@ -22,10 +22,15 @@
 from Cerebrum.modules.bofhd.bofhd_core_help import group_help
 from Cerebrum.modules.bofhd.bofhd_core_help import command_help
 from Cerebrum.modules.bofhd.bofhd_core_help import arg_help
+import cereconf
 
 # Add instance specific help text:
 
 group_help['project'] = 'Project related commands'
+
+allowed_vm_types = ''
+for vm_type in cereconf.TSD_VM_TYPES:
+    allowed_vm_types += ' - %s\n' % vm_type
 
 # The texts in command_help are automatically line-wrapped, and should
 # not contain \n
@@ -74,6 +79,10 @@ command_help['project'] = {
         "Reset a project's full name",
     'project_set_shortname':
         "Reset a project's short name",
+    'project_setup':
+        "Rerun an existing project's setup procedure to use new settings.",
+    'project_set_vm_type':
+        "Change the project's vm_type, and re-run setup of project.",
     'project_terminate':
         'Terminate a project by removing all data',
     'project_unapproved':
@@ -126,4 +135,8 @@ arg_help.update({
     'otp_type':
         ['otp_type', 'OTP type',
          'The OTP type, e.g. totp, hotp or smartphone_yes'],
+    'vm_type':
+        ["vm_type", "VM type",
+         "The type of OS for the project's hosts.\nPossible values are:\n" +
+         allowed_vm_types]
 })

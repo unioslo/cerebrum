@@ -146,6 +146,11 @@ class VLANParam(cmd.Parameter):
     _type = 'vlan'
     _help_ref = 'vlan'
 
+class VMType(cmd.Parameter):
+    """Bofhd Parameter for specifying projects' VM-type."""
+    _type = 'vmType'
+    _help_ref = 'vm_type'
+
 
 class TSDBofhdExtension(BofhdCommonMethods):
 
@@ -691,6 +696,24 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
         return "New project created: %s" % pid
 
+    all_commands['project_setup'] = cmd.Command(
+        ('project', 'setup'), ProjectID(), VLANParam(optional=True),
+        perm_filter='is_superuser')
+
+    @superuser
+    def project_setup(self, operator, project_id, vlan=None):
+
+        ou = self.OU_class(self.db)
+        try:
+            ou.find_by_tsd_projectid(project_id)
+            ou.setup_project(operator, vlan)
+        except Errors.CerebrumError, e:
+            raise CerebrumError(e)
+        except:
+            raise
+
+        return 'OK, project reconfigured according to current settings.'
+
     all_commands['project_terminate'] = cmd.Command(
         ('project', 'terminate'), ProjectID(),
         perm_filter='is_superuser')
@@ -1088,6 +1111,22 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ent.write_db()
         return "Entity affiliated with project: %s" % ou.get_project_id()
 
+    all_commands['project_set_vm_type'] = cmd.Command(
+        ('project', 'set_vm_type'), ProjectID(), VMType(),
+        perm_filter='is_superuser')
+
+    @superuser
+    def project_set_vm_type(self, operator, project_id, vm_type):
+        project = self._get_project(project_id)
+
+        if vm_type not in cereconf.TSD_VM_TYPES:
+            raise CerebrumError("Invalid VM-type")
+
+        project.populate_trait(code='project_vm_type', strval=vm_type)
+        project.write_db()
+        project.setup_project(operator)
+
+        return 'OK, vm_type for %s changed to %s.' % (project_id, vm_type)
     #
     # Person commands
     def _person_affiliation_add_helper(self, operator, person, ou, aff, aff_status):
