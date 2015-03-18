@@ -116,8 +116,8 @@ class IPUtils(object):
         # Check for leading zeroes.
         for part in parts:
             if part.startswith('0') and not len(part) == 1:
-                raise CerebrumError(("IP-addresses may not contain leading "
-                                     "zeroes.\n"
-                                     "Valid example: 10.0.0.1\n"
-                                     "Invalid example: 10.0.0.01"))
+                raise CerebrumError("IP-addresses may not contain leading "
+                                    "zeroes.\n"
+                                    "Valid example: 10.0.0.1\n"
+                                    "Invalid example: 10.0.0.01")
     parse_ipv4 = staticmethod(parse_ipv4)

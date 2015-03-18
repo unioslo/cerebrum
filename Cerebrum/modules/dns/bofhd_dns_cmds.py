@@ -522,8 +522,8 @@ class BofhdExtension(BofhdCommandBase):
 
         if subnet is not None:
             if s.dns_delegated and not force:
-                raise CerebrumError(("Must force 'host a_add' for subnets "
-                                     "delegated to external DNS-server"))
+                raise CerebrumError("Must force 'host a_add' for subnets "
+                                    "delegated to external DNS-server")
 
             if ip is None:
                 new_ip_addr = self.mb_utils.get_relevant_ips(subnet_or_ip,
@@ -531,8 +531,8 @@ class BofhdExtension(BofhdCommandBase):
                                                              no_of_addrs=1)[0]
         if ip is not None:
             if ip.endswith('.0'):
-                raise CerebrumError(("Cannot allocate address "
-                                     "that ends with .0"))
+                raise CerebrumError("Cannot allocate address "
+                                    "that ends with .0")
             new_ip_addr = ip
 
         ip_addr = a_alloc(host_name, subnet, new_ip_addr, force)
@@ -616,8 +616,8 @@ class BofhdExtension(BofhdCommandBase):
                                                     no_of_addrs=len(hostnames))
         if ip is not None:
             if ip.endswith('.0'):
-                raise CerebrumError(("Cannot allocate address "
-                                     "that ends with .0"))
+                raise CerebrumError("Cannot allocate address "
+                                     "that ends with .0")
             free_ip_numbers = [ip]
 
         if len(free_ip_numbers) < len(hostnames):
@@ -1233,8 +1233,8 @@ class BofhdExtension(BofhdCommandBase):
                     return "OK, ip-number %s renamed to %s" % (old_id,
                                                                new_ip_addr)
                 else:
-                    raise CerebrumError(("New IP must be of same type "
-                                         "as old IP (IPv4)."))
+                    raise CerebrumError("New IP must be of same type "
+                                        "as old IP (IPv4).")
             elif IPv6Utils.verify(old_id):
 
                 if IPv6Utils.verify(new_ip_addr):
@@ -1244,8 +1244,8 @@ class BofhdExtension(BofhdCommandBase):
                     return "OK, ip-number %s renamed to %s" % (old_id,
                                                                new_ip_addr)
                 else:
-                    raise CerebrumError(("New IP must be of same type "
-                                         "as old IP (IPv6)."))
+                    raise CerebrumError("New IP must be of same type "
+                                        "as old IP (IPv6).")
         else:  # hostname
             new_id = self.dns_parser.qualify_hostname(new_id)
             self.mb_utils.ip_rename(dns.DNS_OWNER, old_id, new_id)
