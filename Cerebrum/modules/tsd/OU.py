@@ -147,8 +147,13 @@ class OUTSDMixin(OU, EntityTrait):
 
     def get_project_name(self):
         """Shortcut for getting the given OU's project name."""
-        return self.get_name_with_language(self.const.ou_name_acronym,
-                                           self.const.language_en)
+        try:
+            project_name = self.get_name_with_language(
+                self.const.ou_name_acronym,
+                self.const.language_en)
+        except Errors.CerebrumError, e:
+            project_name = '<Not Set>'
+        return project_name
 
     def get_project_id(self):
         """Shortcut for getting the given OU's project ID."""

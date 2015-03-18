@@ -33,7 +33,8 @@ logger = Factory.get_logger('cronjob')
 
 def auto_freeze_project_accounts(db,
                                  account_ids,
-                                 auto_freeze_datetime):
+                                 auto_freeze_datetime,
+                                 default_creator_id):
     """
     Sets quarantine with type auto_frozen and with start_date
     = `auto_freeze_datetime` to all
@@ -56,9 +57,11 @@ def auto_freeze_project_accounts(db,
 
     :type auto_freeze_datetime: mx.DateTime or None
     :param auto_freeze_datetime: The start_time for all new quarantines
+
+    :type default_creator_id: int or long
+    :param default_creator_id: the entity_id of the "creator" account
     """
     account = Factory.get('Account')(db)
-    constants = Factory.get('Constants')(db)
     for account_id in account_ids:
         account.clear()
         account.find(account_id)
@@ -87,10 +90,9 @@ def auto_freeze_project_accounts(db,
                     account.account_name,
                     account.entity_id)
                 continue
-            # add new quarantine using the peoject's freeze-start_date
-        account.add_entity_quarantine(
-            qtype=constants.quarantine_auto_frozen,
-            creator=global_default_creator_id,
+        # add new quarantine using the peoject's freeze-start_date
+        account.add_autofreeze_quarantine(
+            creator=default_creator_id,
             description='Auto set due to project-freeze',
             start=auto_freeze_datetime
         )
@@ -144,6 +146,8 @@ def update_user_freeze(db, dryrun):
         constants = Factory.get('Constants')(db)
         project = Factory.get('OU')(db)
         account = Factory.get('Account')(db)
+        account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
+        default_creator_id = account.entity_id
         # create ou_id -> accounts mappings in order to minimize db-load
         ou2accounts = dict()
         account.clear()
@@ -178,9 +182,10 @@ def update_user_freeze(db, dryrun):
                     'Auto-freezing accounts for project %s (entity_id=%d)',
                     project.get_project_name(),
                     project.entity_id)
-                auto_freeze_project_accunts(db,
-                                            ou2accounts[project_row['ou_id']],
-                                            project.freeze_quarantine_start)
+                auto_freeze_project_accounts(db,
+                                             ou2accounts[project_row['ou_id']],
+                                             project.freeze_quarantine_start,
+                                             default_creator_id)
             else:
                 # remove all auto_frozen-quarantines from all accounts
                 # affiliated with this project
@@ -204,7 +209,6 @@ def update_user_freeze(db, dryrun):
 def main(args=None):
     """
     """
-    global global_default_creator_id  # the entity_id for the "creator" account
     try:
         import argparse
     except ImportError:
@@ -222,9 +226,6 @@ def main(args=None):
     args = parser.parse_args(args)
     db = Factory.get('Database')()
     db.cl_init(change_program='update_user_freeze.py')
-    account = Factory.get('Account')(db)
-    account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
-    global_default_creator_id = account.entity_id
     update_user_freeze(db, args.dryrun)
     logger.info('DONE %s', parser.prog)
 

@@ -89,9 +89,18 @@ class AccountTSDMixin(Account.Account):
     def remove_autofreeze_quarantine(self):
         """A wrapper method that removes autofreeze quarantine
         from the account. It is equivalent to:
-        account.delete_entity_quarantine(const.quarantine_auto_frozen)
+        self.delete_entity_quarantine(const.quarantine_auto_frozen)
         """
         self.delete_entity_quarantine(self.const.quarantine_auto_frozen)
+
+    def add_autofreeze_quarantine(self, *args, **kwargs):
+        """A wrapper method that adds autofreeze quarantine
+        to the account. It is equivalent to:
+        self.add_entity_quarantine(const.quarantine_auto_frozen, *args, **kw)
+        """
+        self.add_entity_quarantine(self.const.quarantine_auto_frozen,
+                                   *args,
+                                   **kwargs)
 
     def set_account_type(self, ou_id, affiliation, priority=None):
         """Subclass setting of the account_type.
