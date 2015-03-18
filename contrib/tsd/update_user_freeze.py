@@ -150,7 +150,6 @@ def update_user_freeze(db, dryrun):
         default_creator_id = account.entity_id
         # create ou_id -> accounts mappings in order to minimize db-load
         ou2accounts = dict()
-        account.clear()
         account_rows = account.list_accounts_by_type(
             affiliation=constants.affiliation_project,
             filter_expired=True,
