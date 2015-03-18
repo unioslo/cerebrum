@@ -723,11 +723,16 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
         try:
             ou.find_by_tsd_projectid(project_id)
+
+            if vlan is None:
+                my_subnet = ou.get_project_subnets().next()
+                sub = Subnet.Subnet(self.db)
+                sub.find(my_subnet['entity_id'])
+                vlan = sub.vlan_number
             ou.setup_project(op_id, vlan)
+
         except Errors.CerebrumError, e:
             raise CerebrumError(e)
-        except:
-            raise
 
         return 'OK, project reconfigured according to current settings.'
 
