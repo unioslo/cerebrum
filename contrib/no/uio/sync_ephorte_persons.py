@@ -146,7 +146,8 @@ def ou_has_ephorte_spread(ou_id):
 
     if _ephorte_ous is None:
         _ephorte_ous = set([x['entity_id'] for x in
-                           ou.list_all_with_spread(spreads=co.spread_ephorte_ou)])
+                           ou.list_all_with_spread(
+                            spreads=co.spread_ephorte_ou)])
 
     return ou_id in _ephorte_ous
 
@@ -478,7 +479,8 @@ def update_person_perms(person, client, remove_superfluous=False):
 
         logger.info("Updating perms for %s", userid)
 
-        ephorte_perms = set(user_details_to_perms(client.get_user_details(userid)))
+        ephorte_perms = set(user_details_to_perms(
+            client.get_user_details(userid)))
         for perm in ephorte_perms:
             logger.debug("Found perm for %s in ePhorte: %s@%s, authorized=%s",
                          userid, *perm)
@@ -620,7 +622,8 @@ def update_person_roles(pe, client, remove_superfluous=False):
                                         filter_expired=True):
         try:
             args['arkivdel'] = unicode(co.EphorteArkivdel(role['arkivdel']))
-            args['journalenhet'] = unicode(co.EphorteJournalenhet(role['journalenhet']))
+            args['journalenhet'] = unicode(co.EphorteJournalenhet(
+                role['journalenhet']))
             args['role_id'] = unicode(co.EphorteRole(role['role_type']))
         except (TypeError, Errors.NotFoundError):
             logger.warn(
@@ -675,6 +678,118 @@ def update_person_roles(pe, client, remove_superfluous=False):
     return True
 
 
+def disable_users(client, selection_spread):
+    logger.info('Fetching all users from ePhorte... go grab some coffee.')
+    start = time.time()
+    all_users = client.get_all_users()
+    logger.info('Fetched all users in %s secs', int(time.time() - start))
+
+    ac = Factory.get('Account')(db)
+    pe = Factory.get('Person')(db)
+    at_institution = '@' + cereconf.INSTITUTION_DOMAIN_NAME
+
+    def should_be_disabled(user_id):
+        """Takes a fully qualified user id and considers
+        whether it should be disabled or not.
+
+        :type user_id: str
+        :param user_id: ePhorte user id, including domain
+
+        :rtype: bool
+        :returns: Disable?
+        """
+        user_id = user_id.lower()
+
+        if not user_id.endswith(at_institution):
+            logger.warn(
+                u'No %s in user_id:%s, ignoring', at_institution, user_id)
+            return False
+
+        account_name = user_id.split(at_institution)[0]
+
+        try:
+            ac.clear()
+            ac.find_by_name(account_name)
+        except Errors.NotFoundError:
+            logger.info(u'No such account:%s, user should be disabled',
+                        account_name)
+            return True
+
+        try:
+            pe.clear()
+            pe.find(ac.owner_id)
+        except Errors.NotFoundError:
+            logger.warn(
+                u'No such person_id:%s when '
+                u'looking for owner of account:%s, user should be disabled',
+                ac.owner_id, account_name)
+            return True
+
+        primary_account_id = pe.get_primary_account()
+
+        if not primary_account_id:
+            logger.info(
+                u'Owner of account:%s, person_id:%s, '
+                u'has no primary account, user should be disabled',
+                account_name, ac.owner_id)
+            return True
+
+        ac.clear()
+        ac.find(primary_account_id)
+        primary_account = ac.account_name
+
+        if not pe.has_spread(spread=selection_spread):
+            logger.info(
+                u'Owner of account:%s, person_id:%s, '
+                u'has no ePhorte spread, user should be disabled',
+                account_name, ac.owner_id)
+            return True
+
+        if account_name != primary_account:
+            logger.info(
+                u'Owner of account:%s, person_id:%s, has a different primary '
+                u'account (%s), user should be disabled',
+                account_name, ac.owner_id, primary_account)
+            return True
+
+        return False
+
+    def is_disabled(user_id):
+        user_details = client.get_user_details(user_id)
+        # consider user as disabled if number of roles + permissions is zero
+        disabled = (len(user_details[1]) + len(user_details[2])) == 0
+        logger.debug(u'User %s disabled? %s', user_id, disabled)
+        return disabled
+
+    start = time.time()
+    disabled_previously = 0
+    disabled_now = 0
+    failed = 0
+
+    for eph_user_id in all_users.keys():
+        logger.debug(u'Considering user_id:%s', eph_user_id)
+
+        if should_be_disabled(eph_user_id):
+            try:
+                if not is_disabled(eph_user_id):
+                    client.disable_user(eph_user_id)
+                    logger.info(u'Successfully disabled user %s', eph_user_id)
+                    disabled_now += 1
+                else:
+                    logger.info(u'User %s is already disabled', eph_user_id)
+                    disabled_previously += 1
+            except EphorteWSError, e:
+                logger.warn(u'Could not disable user %s: %s',
+                            eph_user_id, unicode(e), exc_info=True)
+                failed += 1
+
+    logger.info(u'Checked %s users in %s secs',
+                len(all_users), int(time.time() - start))
+    logger.info(u'Users already disabled: %s', disabled_previously)
+    logger.info(u'Users disabled now: %s', disabled_now)
+    logger.info(u'Webservice errors encountered: %s', failed)
+
+
 def show_org_units(client):
     for org in client.get_all_org_units():
         print dict(org)
@@ -684,26 +799,38 @@ def main():
     """User-interface and configuration."""
     # Parse args
     parser = argparse.ArgumentParser(
-        description='Update and provision users, roles and permissions in ePhorte')
-    parser.add_argument(
-        '--config', metavar='<config>', type=str, default='sync_ephorte.cfg',
-        help='Config file to use (default: sync_ephorte.cfg)')
+        description='Update and provision users, ' +
+                    'roles and permissions in ePhorte')
+    parser.add_argument('--config',
+                        metavar='<config>',
+                        type=str,
+                        default='sync_ephorte.cfg',
+                        help='Config file to use (default: sync_ephorte.cfg)')
     cmdgrp = parser.add_mutually_exclusive_group()
-    cmdgrp.add_argument(
-        '--full-persons', help='Full sync of persons', action='store_true')
-    cmdgrp.add_argument(
-        '--full-roles-perms', help='Full sync of roles and permissions', action='store_true')
-    cmdgrp.add_argument(
-        '--quick-roles-perms', help='Quick sync of roles and permissions', action='store_true')
-    cmdgrp.add_argument(
-        '--show-org-units', help='Print org units currently in ePhorte', action='store_true')
-    cmdgrp.add_argument(
-        '--config-help', help='Show configuration help', action='store_true')
-    cmdgrp.add_argument(
-        '--permission-report', help="Generate permission report",
-        action="store", type=argparse.FileType(mode="w"))
-    parser.add_argument(
-        '--commit', help='Run in commit mode', action='store_true')
+    cmdgrp.add_argument('--full-persons',
+                        help='Full sync of persons',
+                        action='store_true')
+    cmdgrp.add_argument('--full-roles-perms',
+                        help='Full sync of roles and permissions',
+                        action='store_true')
+    cmdgrp.add_argument('--quick-roles-perms',
+                        help='Quick sync of roles and permissions',
+                        action='store_true')
+    cmdgrp.add_argument('--disable-users',
+                        help='Disable users',
+                        action='store_true')
+    cmdgrp.add_argument('--show-org-units',
+                        help='Print org units currently in ePhorte',
+                        action='store_true')
+    cmdgrp.add_argument('--config-help',
+                        help='Show configuration help',
+                        action='store_true')
+    cmdgrp.add_argument('--permission-report',
+                        help="Generate permission report",
+                        action="store", type=argparse.FileType(mode="w"))
+    parser.add_argument('--commit',
+                        help='Run in commit mode',
+                        action='store_true')
     args = parser.parse_args()
 
     if args.config_help:
@@ -717,7 +844,7 @@ def main():
   client_cert=None
   ca_certs=None
   selection_spread=ePhorte_person
-  changes_too_old_days=180""")
+  changes_too_old_days=30""")
         sys.exit(0)
 
     # Select proper client depending on commit-argument
@@ -732,9 +859,11 @@ def main():
     try:
         selection_spread = co.Spread(config.selection_spread)
         int(selection_spread)
-        logger.info('Using spread %s as selection criteria', str(selection_spread))
+        logger.info('Using spread %s as selection criteria',
+                    str(selection_spread))
     except Errors.NotFoundError:
-        logger.error('Spread %s could not be found, aborting.', config.selection_spread)
+        logger.error('Spread %s could not be found, aborting.',
+                     config.selection_spread)
         sys.exit(1)
 
     if args.quick_roles_perms:
@@ -749,13 +878,20 @@ def main():
         fullsync_roles_and_perms(client=client,
                                  selection_spread=selection_spread)
         logger.info('Full sync of roles and permissions finished')
+    elif args.disable_users:
+        logger.info('Starting to disable users')
+        disable_users(client=client,
+                      selection_spread=selection_spread)
+        logger.info('Finished disabling users')
     elif args.full_persons:
         logger.info("Full sync of persons started")
         fullsync_persons(client=client,
                          selection_spread=selection_spread)
         logger.info('Full sync of persons finished')
     elif args.permission_report:
+        logger.info("Permission report generation started")
         report_perms(client, selection_spread, args.permission_report)
+        logger.info("Permission report generation finished")
     elif args.show_org_units:
         show_org_units(client)
 
