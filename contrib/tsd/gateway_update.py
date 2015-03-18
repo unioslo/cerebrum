@@ -163,7 +163,8 @@ class Processor:
             try:
                 pid = self.ou.get_project_id()
             except Errors.NotFoundError, e:
-                logger.warn(e)
+                logger.warn("No project id for ou_id %s: %s", row['ou_id'], e)
+                continue
             if pid in processed:
                 logger.debug4('Skipping already processed project: %s', pid)
                 continue
