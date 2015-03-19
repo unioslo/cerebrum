@@ -294,11 +294,7 @@ class TSDBofhdExtension(BofhdCommonMethods):
         """
         if not include_short_name:
             return ou.get_project_id()
-        name = '<Not Set>'
-        try:
-            name = ou.get_project_name()
-        except Errors.CerebrumError, e:
-            self.logger.warn("get_project_name failed: %s", e)
+        name = ou.get_project_name()
         return "%s (%s)" % (ou.get_project_id(), name)
 
     # misc list_passwords

@@ -113,6 +113,8 @@ class Constants(Constants.Constants):
 
     quarantine_frozen = _QuarantineCode('frozen', 'Project is frozen')
 
+    quarantine_auto_frozen = _QuarantineCode('auto_frozen', 'User is auto-frozen')
+
     # Source systems
     system_nettskjema = _AuthoritativeSystemCode('Nettskjema',
                                                  'Information from Nettskjema, registered by anyone')
