@@ -103,7 +103,8 @@ class IPUtils(object):
     def parse_ipv4(ip):
         """
         Checks if an IP has leading zeroes in its parts, which are not handled
-        by the DNS-server. Raises an error if this is the case.
+        by the DNS-server. Raises an error if this is the case. Assumes that
+        ip-param is a valid ip that has passed the is_valid_ipv4 check.
 
         Examples: 10.0.10.1 - valid
                   10.0.10.01 - invalid
