@@ -96,3 +96,7 @@ VLAN_RANGES = ((100, 200), (400, 600), (1800, 1810),)
 SUBNET_START = '10.%d.%d.0/24'
 # Default subnet prefix for IPv6:
 SUBNET_START_6 = 'fd00:c0de:cafe:%s::/64'
+
+CLASS_GROUP = (
+    'Cerebrum.modules.posix.mixins/PosixGroupMixin',
+    'Cerebrum.Group/Group')

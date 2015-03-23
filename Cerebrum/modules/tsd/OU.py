@@ -721,7 +721,8 @@ class OUTSDMixin(OU, EntityTrait):
         ac = Factory.get('Account')(self._db)
         pu = Factory.get('PosixUser')(self._db)
         # Delete PosixUsers
-        for row in ac.list_accounts_by_type(ou_id=self.entity_id):
+        for row in ac.list_accounts_by_type(ou_id=self.entity_id,
+                                            filter_expired=False):
             try:
                 pu.clear()
                 pu.find(row['account_id'])
