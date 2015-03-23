@@ -38,19 +38,12 @@ import cerebrum_path
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 from Cerebrum.modules import CLHandler
-
 try:
     import argparse
 except ImportError:
     from Cerebrum.extlib import argparse
 
-logger = Factory.get_logger('console')
-
-
-
-
-
-
+logger = Factory.get_logger('cronjob')
 
 def main():
 
