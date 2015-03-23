@@ -1477,7 +1477,7 @@ class BaseSync(object):
             #     understanding-unique-attributes-in-active-directory.aspx
             search_attributes = dict((u, ent.attributes[u]) for u
                                      in ['SamAccountName']
-                                     if ent.attibutes.get(u))
+                                     if ent.attributes.get(u))
             objects = self.server.find_object(
                 name=ent.entity_name,
                 attributes=search_attributes,
