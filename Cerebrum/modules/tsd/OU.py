@@ -718,16 +718,9 @@ class OUTSDMixin(OU, EntityTrait):
         """
         self.write_db()
         ent = EntityTrait(self._db)
-        # Remove all project's groups:
-        gr = Factory.get('Group')(self._db)
-        for row in gr.list_traits(code=self.const.trait_project_group,
-                                  target_id=self.entity_id):
-            gr.clear()
-            gr.find(row['entity_id'])
-            gr.delete()
-        # Delete the project's users:
         ac = Factory.get('Account')(self._db)
         pu = Factory.get('PosixUser')(self._db)
+        # Delete PosixUsers
         for row in ac.list_accounts_by_type(ou_id=self.entity_id):
             try:
                 pu.clear()
@@ -735,7 +728,16 @@ class OUTSDMixin(OU, EntityTrait):
                 pu.delete_posixuser()
             except Errors.NotFoundError:
                 # not a PosixUser
-                pass
+                continue
+        # Remove all project's groups
+        gr = Factory.get('Group')(self._db)
+        for row in gr.list_traits(code=self.const.trait_project_group,
+                                  target_id=self.entity_id):
+            gr.clear()
+            gr.find(row['entity_id'])
+            gr.delete()
+        # Delete all users
+        for row in ac.list_accounts_by_type(ou_id=self.entity_id):
             ac.clear()
             ac.find(row['account_id'])
             ac.delete()
