@@ -37,6 +37,7 @@ from Cerebrum.Database import DatabaseError
 from Cerebrum.OU import OU
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import dns
+from Cerebrum.modules.hostpolicy.PolicyComponent import PolicyComponent
 from Cerebrum.modules.EntityTrait import EntityTrait
 
 from Cerebrum.modules.tsd import TSDUtils
@@ -717,9 +718,26 @@ class OUTSDMixin(OU, EntityTrait):
         """
         self.write_db()
         ent = EntityTrait(self._db)
-        # Delete affiliated entities
-        # Delete the project's users:
         ac = Factory.get('Account')(self._db)
+        pu = Factory.get('PosixUser')(self._db)
+        # Delete PosixUsers
+        for row in ac.list_accounts_by_type(ou_id=self.entity_id,
+                                            filter_expired=False):
+            try:
+                pu.clear()
+                pu.find(row['account_id'])
+                pu.delete_posixuser()
+            except Errors.NotFoundError:
+                # not a PosixUser
+                continue
+        # Remove all project's groups
+        gr = Factory.get('Group')(self._db)
+        for row in gr.list_traits(code=self.const.trait_project_group,
+                                  target_id=self.entity_id):
+            gr.clear()
+            gr.find(row['entity_id'])
+            gr.delete()
+        # Delete all users
         for row in ac.list_accounts_by_type(ou_id=self.entity_id):
             ac.clear()
             ac.find(row['account_id'])
@@ -735,13 +753,27 @@ class OUTSDMixin(OU, EntityTrait):
                                 source=row['source_system'],
                                 status=row['status'])
             pe.write_db()
-        # Remove all project's groups:
-        gr = Factory.get('Group')(self._db)
-        for row in gr.list_traits(code=self.const.trait_project_group,
-                                  target_id=self.entity_id):
-            gr.clear()
-            gr.find(row['entity_id'])
-            gr.delete()
+        # Remove all project's DnsOwners (hosts):
+        dnsowner = dns.DnsOwner.DnsOwner(self._db)
+        policy = PolicyComponent(self._db)
+        update_helper = dns.IntegrityHelper.Updater(self._db)
+        for row in ent.list_traits(code=self.const.trait_project_host,
+                                   target_id=self.entity_id):
+            # TODO: Could we instead update the Subnet classes to use
+            # Factory.get('Entity'), and make use of EntityTrait there to
+            # handle this?
+            owner_id = row['entity_id']
+            ent.clear()
+            ent.find(owner_id)
+            ent.delete_trait(row['code'])
+            ent.write_db()
+            # Remove the links to policies if hostpolicy is used
+            for prow in policy.search_hostpolicies(dns_owner_id=owner_id):
+                policy.clear()
+                policy.find(prow['policy_id'])
+                policy.remove_from_host(owner_id)
+            # delete the DNS owner
+            update_helper.full_remove_dns_owner(owner_id)
         # Delete all subnets
         subnet = dns.Subnet.Subnet(self._db)
         subnet6 = dns.IPv6Subnet.IPv6Subnet(self._db)
@@ -760,20 +792,6 @@ class OUTSDMixin(OU, EntityTrait):
                 subnet6.clear()
                 subnet6.find(row['entity_id'])
                 subnet6.delete()
-        # Remove all project's DnsOwners (hosts):
-        dnsowner = dns.DnsOwner.DnsOwner(self._db)
-        for row in ent.list_traits(code=self.const.trait_project_host,
-                                   target_id=self.entity_id):
-            # TODO: Could we instead update the Subnet classes to use
-            # Factory.get('Entity'), and make use of EntityTrait there to
-            # handle this?
-            ent.clear()
-            ent.find(row['entity_id'])
-            ent.delete_trait(row['code'])
-            ent.write_db()
-            dnsowner.clear()
-            dnsowner.find(row['entity_id'])
-            dnsowner.delete()
         # Remove all data from the OU except for:
         # The project ID and project name
         for tr in tuple(self.get_traits()):

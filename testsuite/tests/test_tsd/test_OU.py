@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- encoding: utf-8 -*-
+# -*- coding: utf-8 -*-
 #
 """Tests for TSD's OU mixin - Cerebrum/modules/tsd/OU.py.
 
@@ -15,6 +15,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import dns
+from Cerebrum.modules.EntityTrait import EntityTrait
 
 from datasource import BasicAccountSource, BasicPersonSource
 from dbtools import DatabaseTools
@@ -69,7 +70,7 @@ class SimpleOUTests(TSDOUTest):
     """Test case for simple scenarios."""
 
     def setUp(self):
-        # Save the previous values from cereconf, to add them back in when done:
+        # Save the previous values from cereconf, to add them back in when done
         self._cereconfvalues = cereconf.__dict__
 
     def tearDown(self):
@@ -102,7 +103,7 @@ class SimpleOUTests(TSDOUTest):
         self._ou.setup_project(self.db_tools.get_initial_account_id())
 
         # TODO: Check for host, groups, etc
-        #self.assertTrue(
+        # self.assertTrue(
 
     def test_setup_101_projects(self):
         """With new logic for more than 100 projects, setup 101"""
@@ -160,7 +161,9 @@ class SimpleOUTests(TSDOUTest):
         return vlans
 
     def test_calculate_subnets_for_project(self):
-        """Subnets for projects with ID 0-32767 should be automatically generated."""
+        """
+        Subnets for projects with ID 0-32767 should be automatically generated.
+        """
         # project_id=0
         self.assertEqual(
             ('10.128.0.0/24', 'fd00:c0de:cafe:8000::/64'),
@@ -183,28 +186,39 @@ class SimpleOUTests(TSDOUTest):
             Errors.CerebrumError,
             self._ou._generate_subnets_for_project_id, 100000)
 
-    @unittest.skip
     def test_project_termination(self):
         """Terminated projects should remove its attributes."""
+        entity_trait = EntityTrait(self._db)
         self.setup_project('del_me')
         eid = self._ou.entity_id
         self._ou.terminate()
         self.assertEqual(eid, self._ou.entity_id)
-        # TODO: Search for its attributes and fail if they still exists.
-        # This is subnets, traits, accounts, groups, etc...
         # The OU object itself must remain, and its project ID and project name
-
         # No accounts:
         self.assertEqual(0, len(self._ac.list_accounts_by_type(
             ou_id=eid,
             filter_expired=False)))
+        # No affiliated persons:
+        self.assertEqual(0, len(self._pe.list_affiliations(
+            ou_id=eid,
+            include_deleted=True)))
+        # Checking for different types of traits.
+        # Are there any traits that should be left?
         # No groups:
-        self.assertEqual(0, len(self._gr.list_traits(
-            code=self._co.trait_project_group,
-            target_id=eid)))
-        # TODO: No persons should be affiliated to it anymore
-        # TODO: No subnets
-        # TODO: No hosts
+        # list_traits returns an iterator instead of a list
+        groups = tuple(self._gr.list_traits(
+            code=self._co.trait_project_group, target_id=eid))
+        self.assertEqual(0, len(groups))
+        # No hosts:
+        hosts = tuple(entity_trait.list_traits(
+            target_id=eid, code=self._co.trait_project_host))
+        self.assertEqual(0, len(hosts))
+        # No subnets:
+        subnets = tuple(entity_trait.list_traits(
+            target_id=eid,
+            code=(self._co.trait_project_subnet6,
+                  self._co.trait_project_subnet)))
+        self.assertEqual(0, len(subnets))
         # TODO: No project data, like names, addresses, spreads etc.
 
     def test_new_project_auto_vlan(self):
@@ -243,8 +257,8 @@ class SimpleOUTests(TSDOUTest):
     def test_new_project_reuse_vlan(self):
         """Two projects could share the same VLAN."""
         cereconf.VLAN_RANGES = ((100, 110),)
-        #subnet = dns.Subnet.Subnet(self._db)
-        #subnet6 = dns.IPv6Subnet.IPv6Subnet(self._db)
+        # subnet = dns.Subnet.Subnet(self._db)
+        # subnet6 = dns.IPv6Subnet.IPv6Subnet(self._db)
 
         self.setup_project('reuse1', vlan=105)
         # This should not fail:
