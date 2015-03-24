@@ -194,36 +194,30 @@ class SimpleOUTests(TSDOUTest):
         self._ou.terminate()
         self.assertEqual(eid, self._ou.entity_id)
         # The OU object itself must remain, and its project ID and project name
-
         # No accounts:
         self.assertEqual(0, len(self._ac.list_accounts_by_type(
             ou_id=eid,
             filter_expired=False)))
-
         # No affiliated persons:
         self.assertEqual(0, len(self._pe.list_affiliations(
             ou_id=eid,
             include_deleted=True)))
-
         # Checking for different types of traits.
         # Are there any traits that should be left?
-
         # No groups:
         # list_traits returns an iterator instead of a list
-        groups = [gr for gr in self._gr.list_traits(
-            code=self._co.trait_project_group, target_id=eid)]
+        groups = tuple(self._gr.list_traits(
+            code=self._co.trait_project_group, target_id=eid))
         self.assertEqual(0, len(groups))
-
         # No hosts:
-        hosts = [host for host in entity_trait.list_traits(
-            target_id=eid, code=self._co.trait_project_host)]
+        hosts = tuple(entity_trait.list_traits(
+            target_id=eid, code=self._co.trait_project_host))
         self.assertEqual(0, len(hosts))
-
         # No subnets:
-        subnets = [subnet for subnet in entity_trait.list_traits(
+        subnets = tuple(entity_trait.list_traits(
             target_id=eid,
             code=(self._co.trait_project_subnet6,
-                  self._co.trait_project_subnet))]
+                  self._co.trait_project_subnet)))
         self.assertEqual(0, len(subnets))
         # TODO: No project data, like names, addresses, spreads etc.
 
