@@ -104,6 +104,29 @@ class SimpleOUTests(TSDOUTest):
         # TODO: Check for host, groups, etc
         #self.assertTrue(
 
+    def test_filling_project_ids(self):
+        """Next free project id should always be lowest unused id."""
+        pid1 = self._ou.get_next_free_project_id()
+        pid2 = self._ou.get_next_free_project_id()
+        self.assertEqual(pid1, pid2)
+        # Test that no lower project existst
+        for i in range(1, int(pid1[1:])):
+            self._ou.clear()
+            self._ou.find_by_tsd_projectid(i)
+
+        # set up a pair of projects, delete, and assert that project id is
+        # reused
+        self.setup_project("fillid1")
+        id1 = self._ou.entity_id
+        self.assertEqual(self._ou.get_project_id(), pid2)
+        self.setup_project("fillid2")
+        self._ou.clear()
+        self._ou.find(id1)
+        # Reject project == terminate + delete
+        self._ou.terminate()
+        self._ou.delete()
+        self.assertEqual(self._ou.get_next_free_project_id(), pid2)
+
     def test_setup_101_projects(self):
         """With new logic for more than 100 projects, setup 101"""
         vlan = self._ou.get_next_free_vlan()
