@@ -627,7 +627,15 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             if not key in self.all_commands:
                 self.all_commands[key] = command
 
-    #
+        # CRB-792: We want to set is_superuser filter to all cmds apart from:
+        # user_password, group_add_member and group_remove_member
+        # Instad of this hack, a redesign should be considered in the future.
+        for key in self.all_commands.keys():
+            if key not in ('user_password',
+                           'group_add_member',
+                           'group_remove_member'):
+                self.all_commands[key].perm_filter = 'is_superuser'
+
     # Project commands
     all_commands['project_create'] = cmd.Command(
         ('project', 'create'), ProjectName(), ProjectLongName(),
