@@ -701,7 +701,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         perm_filter='is_superuser')
 
     @superuser
-    def project_setup(self, operator, project_id, vlan=None):
+    def project_setup(self, operator, project_id):
         """
         Run the setup procedure for a project, updating configuration to
         current settings.
@@ -710,8 +710,6 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         :type  operator: BofhdSession
         :param project_id: Project ID for the given project.
         :type  project_id: str
-        :param vlan: Sets the VLAN number to give to the project's subnets.
-        :type  vlan: int
 
         :returns: A statement that the operation was successful.
         :rtype: str
@@ -723,9 +721,10 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
         try:
             ou.find_by_tsd_projectid(project_id)
-            ou.setup_project(op_id, vlan)
-        except Errors.CerebrumError, e:
-            raise CerebrumError(e)
+        except Errors.CerebrumError:
+            raise CerebrumError("Could not find project '%s'" % project_id)
+
+        ou.setup_project(op_id)
 
         return 'OK, project reconfigured according to current settings.'
 

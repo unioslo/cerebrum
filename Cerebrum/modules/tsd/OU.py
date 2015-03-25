@@ -312,7 +312,8 @@ class OUTSDMixin(OU, EntityTrait):
                 sub.find(project_subnet['entity_id'])
                 vlan = sub.vlan_number
             except:
-                pass
+                raise Errors.CerebrumError("Could not determine VLAN-number"
+                                           "for project.")
 
         self._setup_project_dns(creator_id, vlan)
         self._setup_project_hosts(creator_id)
