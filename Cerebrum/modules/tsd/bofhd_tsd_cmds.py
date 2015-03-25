@@ -608,6 +608,14 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
     Here you have the commands that should be available for the superusers."""
 
+    # Commands that should be publicised for an operator, e.g. in jbofh:
+    all_commands = {}
+
+    # Commands that are available, but not publicised, as they are normally
+    # called through other systems, e.g. Brukerinfo. It should NOT be used as a
+    # security feature - thus you have security by obscurity.
+    hidden_commands = {}
+
     # Commands that should be copied from UiO's BofhdExtension. We don't want to
     # copy all of the commands for TSD, but tweak them a bit first.
     copy_commands = (
@@ -1861,6 +1869,15 @@ class EnduserBofhdExtension(TSDBofhdExtension):
 
     End users are Project Administrators (PA), which should have full control of
     their project, and Project Members (PM) which have limited privileges."""
+
+    # Commands that should be publicised for an operator, e.g. in jbofh:
+    all_commands = {}
+
+    # Commands that are available, but not publicised, as they are normally
+    # called through other systems, e.g. Brukerinfo. It should NOT be used as a
+    # security feature - thus you have security by obscurity.
+    hidden_commands = {}
+
     # Commands that should be copied from UiO's BofhdExtension.
     copy_commands = (
         # Helpers
@@ -1888,3 +1905,23 @@ class EnduserBofhdExtension(TSDBofhdExtension):
                     cls.hidden_commands[func] = UiOBofhdExtension.hidden_commands[func]
         x = object.__new__(cls)
         return x
+
+    def __init__(self, server):
+        super(EnduserBofhdExtension, self).__init__(server)
+
+        # Copy in all defined commands from the superclass that are not defined
+        # in this class.
+        for key, command in super(
+                EnduserBofhdExtension, self).all_commands.iteritems():
+            if not key in self.all_commands:
+                self.all_commands[key] = command
+
+        # Only keep commands that are explicitly allowed in the configuration
+        for key in self.all_commands.keys():
+            if key not in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS:
+                del self.all_commands[key]
+
+        # Same for hidden commands
+        for key in self.hidden_commands.keys():
+            if key not in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS:
+                del self.hidden_commands[key]
