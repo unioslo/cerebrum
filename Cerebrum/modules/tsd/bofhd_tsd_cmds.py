@@ -65,6 +65,7 @@ from Cerebrum.modules.tsd.bofhd_auth import TSDBofhdAuth
 from Cerebrum.modules.tsd import bofhd_help
 from Cerebrum.modules.tsd import Gateway
 
+import inspect
 from functools import wraps
 
 
@@ -354,7 +355,6 @@ class TSDBofhdExtension(BofhdCommonMethods):
                     'help_ref': 'print_select_range',
                     'default': str(n-1)}
 
-
 def superuser(fn):
     """Decorator for checking that methods are being executed as operator.
     The first argument of the decorated function must be "self" and the second must be "operator".
@@ -612,7 +612,14 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             UiOBofhdExtension
         non_all_cmds = ('num2str', 'user_set_owner_prompt_func',)
         for func in cls.copy_commands:
-            setattr(cls, func, UiOBofhdExtension.__dict__.get(func))
+            method_ref = UiOBofhdExtension.__dict__.get(func)
+            if (
+                    inspect.isroutine(method_ref) and
+                    func not in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS
+            ):
+                # superuser access enforced for the following function (method)
+                method_ref = superuser(UiOBofhdExtension.__dict__.get(func))
+            setattr(cls, func, method_ref)
             if func[0] != '_' and func not in non_all_cmds:
                 cls.all_commands[func] = UiOBofhdExtension.all_commands[func]
         x = object.__new__(cls)
@@ -631,9 +638,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         # user_password, group_add_member and group_remove_member
         # Instad of this hack, a redesign should be considered in the future.
         for key in self.all_commands.keys():
-            if key not in ('user_password',
-                           'group_add_member',
-                           'group_remove_member'):
+            if key not in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS:
                 self.all_commands[key].perm_filter = 'is_superuser'
 
     # Project commands
