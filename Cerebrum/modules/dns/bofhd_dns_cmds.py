@@ -1272,19 +1272,22 @@ class BofhdExtension(BofhdCommandBase):
     def host_ptr_add(self, operator, ip_host_id, dest_host, force=False):
         self.ba.assert_dns_superuser(operator.get_entity_id())
         force = self.dns_parser.parse_force(force)
+        skip_ipv6 = False
 
         if IPUtils.is_valid_ipv4(ip_host_id):
             s = Subnet.Subnet(self.db)
         # Fast check for IPv6
         elif IPv6Utils.verify(ip_host_id):
+            skip_ipv6 = cereconf.DNS_HOST_A_ADD_ACCEPT_MISSING_IPV6_SUBNET
             s = IPv6Subnet.IPv6Subnet(self.db)
         else:
             raise CerebrumError('IP is invalid')
 
-        s.find(ip_host_id)
-        if s.dns_delegated:
-            raise CerebrumError("Cannot add reversemap in subnet zone " +
-                                "delegated to external DNS-server")
+        if not skip_ipv6:
+            s.find(ip_host_id)
+            if s.dns_delegated:
+                raise CerebrumError("Cannot add reversemap in subnet zone " +
+                                    "delegated to external DNS-server")
 
         self.mb_utils.add_revmap_override(ip_host_id, dest_host, force)
 
