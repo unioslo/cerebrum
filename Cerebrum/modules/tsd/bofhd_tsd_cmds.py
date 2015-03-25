@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013, 2014 University of Oslo, Norway
+# Copyright 2013-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -148,8 +148,15 @@ class VLANParam(cmd.Parameter):
 
 
 class TSDBofhdExtension(BofhdCommonMethods):
-
     """Superclass for common functionality for TSD's bofhd servers."""
+
+    # Commands that should be publicised for an operator, e.g. in jbofh:
+    all_commands = {}
+
+    # Commands that are available, but not publicised, as they are normally
+    # called through other systems, e.g. Brukerinfo. It should NOT be used as a
+    # security feature - thus you have security by obscurity.
+    hidden_commands = {}
 
     def __init__(self, server):
         super(TSDBofhdExtension, self).__init__(server)
@@ -169,7 +176,7 @@ class TSDBofhdExtension(BofhdCommonMethods):
                                                            Cache.cache_timeout],
                                                    size=500,
                                                    timeout=60 * 60)
-        # Copy in all defined commands from the superclass that is not defined
+        # Copy in all defined commands from the superclass that are not defined
         # in this class.
         for key, command in super(TSDBofhdExtension, self).all_commands.iteritems():
             if not key in self.all_commands:
@@ -296,6 +303,72 @@ class TSDBofhdExtension(BofhdCommonMethods):
             return ou.get_project_id()
         name = ou.get_project_name()
         return "%s (%s)" % (ou.get_project_id(), name)
+
+    # user password
+    all_commands['user_password'] = cmd.Command(
+        ('user', 'password'), cmd.AccountName(), cmd.AccountPassword(optional=True))
+
+    def user_password(self, operator, accountname, password=None):
+        """Set password for a user. A modified version of UiO's command."""
+        account = self._get_account(accountname)
+        self.ba.can_set_password(operator.get_entity_id(), account)
+
+        # TSD specific behaviour: Raise error if user isn't approved or
+        # shouldn't be in AD or the GW:
+        if not account.is_approved():
+            raise CerebrumError("User is not approved: %s" % accountname)
+
+        if password is None:
+            password = account.make_passwd(accountname)
+        else:
+            # this is a bit complicated, but the point is that
+            # superusers are allowed to *specify* passwords for other
+            # users if cereconf.BOFHD_SU_CAN_SPECIFY_PASSWORDS=True
+            # otherwise superusers may change passwords by assigning
+            # automatic passwords only.
+            if self.ba.is_superuser(operator.get_entity_id()):
+                if (operator.get_entity_id() != account.entity_id and
+                        not cereconf.BOFHD_SU_CAN_SPECIFY_PASSWORDS):
+                    raise CerebrumError("Superuser cannot specify passwords "
+                                        "for other users")
+            elif operator.get_entity_id() != account.entity_id:
+                raise CerebrumError("Cannot specify password for another user.")
+        try:
+            account.goodenough(account, password)
+        except PasswordChecker.PasswordGoodEnoughException, m:
+            raise CerebrumError("Bad password: %s" % m)
+        ret_msg = 'Password altered'
+        # Set password for all person's accounts:
+        ac = Factory.get('Account')(self.db)
+        for row in ac.search(owner_id=account.owner_id):
+            ac.clear()
+            ac.find(row['account_id'])
+            ac.set_password(password)
+            try:
+                ac.write_db()
+            except self.db.DatabaseError, m:
+                raise CerebrumError("Database error: %s" % m)
+            # Remove "weak password" quarantine
+            for r in ac.get_entity_quarantine():
+                if int(r['quarantine_type']) == self.const.quarantine_autopassord:
+                    ac.delete_entity_quarantine(self.const.quarantine_autopassord)
+                if int(r['quarantine_type']) == self.const.quarantine_svakt_passord:
+                    ac.delete_entity_quarantine(self.const.quarantine_svakt_passord)
+            ac.write_db()
+            ret_msg += "\nNew password for: %s" % ac.account_name
+            if ac.is_deleted():
+                ret_msg += "\nWarning: user is deleted: %s" % ac.account_name
+            elif ac.is_expired():
+                ret_msg += "\nWarning: user is expired: %s" % ac.account_name
+            elif ac.get_entity_quarantine(only_active=True):
+                ret_msg += "\nWarning: user in quarantine: %s" % ac.account_name
+
+        # Only store one of the account's password. Not necessary to store all
+        # of them, as it's the same.
+        operator.store_state("user_passwd", {'account_id': int(account.entity_id),
+                                             'password': password})
+        ret_msg += "\nPlease use misc list_password to print or view the new password."
+        return ret_msg
 
     # misc list_passwords
     def misc_list_passwords_prompt_func(self, session, *args):
@@ -531,20 +604,9 @@ class _Projects:
 
 
 class AdministrationBofhdExtension(TSDBofhdExtension):
-
     """The bofhd commands for the TSD project's system administrators.
 
-    Here you have the commands that should be availble for the superusers
-
-    """
-
-    # Commands that should be publicised for an operator, e.g. in jbofh:
-    all_commands = {}
-
-    # Commands that are available, but not publicised, as they are normally
-    # called through other systems, e.g. Brukerinfo. It should NOT be used as a
-    # security feature - thus you have security by obscurity.
-    hidden_commands = {}
+    Here you have the commands that should be available for the superusers."""
 
     # Commands that should be copied from UiO's BofhdExtension. We don't want to
     # copy all of the commands for TSD, but tweak them a bit first.
@@ -561,26 +623,25 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         # Group
         'group_info', 'group_list', 'group_list_expanded', 'group_memberships',
         'group_delete', 'group_set_description', 'group_set_expire',
-        'group_search', 'group_promote_posix',  'group_demote_posix',# 'group_create',
+        'group_search', 'group_promote_posix',  'group_demote_posix',
         # Quarantine
         'quarantine_disable', 'quarantine_list', 'quarantine_remove',
         'quarantine_set', 'quarantine_show',
         # OU
         'ou_search', 'ou_info', 'ou_tree',
-        # TODO: find out if the remaining methods should be imported too:
-        #
-        # Access:
-        #'access_disk', 'access_group', 'access_ou', 'access_user',
-        #'access_global_group', 'access_global_ou', '_list_access',
-        #'access_grant', 'access_revoke', '_manipulate_access',
-        #'_get_access_id', '_validate_access', '_get_access_id_disk',
-        #'_validate_access_disk', '_get_access_id_group', '_validate_access_group',
-        #'_get_access_id_global_group', '_validate_access_global_group',
-        #'_get_access_id_ou', '_validate_access_ou', '_get_access_id_global_ou',
-        #'_validate_access_global_ou', 'access_list_opsets', 'access_show_opset',
-        #'access_list', '_get_auth_op_target', '_grant_auth', '_revoke_auth',
-        #'_get_opset',
-        #
+        # Access
+        'access_grant', 'access_revoke', 'access_list',
+        '_manipulate_access', '_get_access_id', '_validate_access',
+        '_list_access', '_grant_auth', '_revoke_auth',
+        '_get_opset', '_get_auth_op_target',
+        'access_group', '_get_access_id_group', '_validate_access_group',
+        'access_list_opsets', 'access_show_opset',
+        #'access_global_group', '_get_access_id_global_group',
+        #'_validate_access_global_group', '_validate_access_global_ou',
+        #'access_global_ou', '_get_access_id_global_ou',
+        #'access_disk', '_get_access_id_disk', '_validate_access_disk',
+        #'access_ou', '_get_access_id_ou', '_validate_access_ou',
+        #'access_user',
         # Misc
         'misc_affiliations', 'misc_clear_passwords', 'misc_verify_password',
         'misc_list_passwords',
@@ -621,7 +682,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     def __init__(self, server):
         super(AdministrationBofhdExtension, self).__init__(server)
 
-        # Copy in all defined commands from the superclass that is not defined
+        # Copy in all defined commands from the superclass that are not defined
         # in this class.
         for key, command in super(AdministrationBofhdExtension, self).all_commands.iteritems():
             if not key in self.all_commands:
@@ -1310,73 +1371,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         posix_user.setup_for_project()
         return "Ok, created %s, UID: %s" % (posix_user.account_name, uid)
 
-    # user password
-    all_commands['user_password'] = cmd.Command(
-        ('user', 'password'), cmd.AccountName(), cmd.AccountPassword(optional=True))
-
-    def user_password(self, operator, accountname, password=None):
-        """Set password for a user. A modified version of UiO's command."""
-        account = self._get_account(accountname)
-        self.ba.can_set_password(operator.get_entity_id(), account)
-
-        # TSD specific behaviour: Raise error if user isn't approved or
-        # shouldn't be in AD or the GW:
-        if not account.is_approved():
-            raise CerebrumError("User is not approved: %s" % accountname)
-
-        if password is None:
-            password = account.make_passwd(accountname)
-        else:
-            # this is a bit complicated, but the point is that
-            # superusers are allowed to *specify* passwords for other
-            # users if cereconf.BOFHD_SU_CAN_SPECIFY_PASSWORDS=True
-            # otherwise superusers may change passwords by assigning
-            # automatic passwords only.
-            if self.ba.is_superuser(operator.get_entity_id()):
-                if (operator.get_entity_id() != account.entity_id and
-                        not cereconf.BOFHD_SU_CAN_SPECIFY_PASSWORDS):
-                    raise CerebrumError("Superuser cannot specify passwords "
-                                        "for other users")
-            elif operator.get_entity_id() != account.entity_id:
-                raise CerebrumError("Cannot specify password for another user.")
-        try:
-            account.goodenough(account, password)
-        except PasswordChecker.PasswordGoodEnoughException, m:
-            raise CerebrumError("Bad password: %s" % m)
-        ret_msg = 'Password altered'
-        # Set password for all person's accounts:
-        ac = Factory.get('Account')(self.db)
-        for row in ac.search(owner_id=account.owner_id):
-            ac.clear()
-            ac.find(row['account_id'])
-            ac.set_password(password)
-            try:
-                ac.write_db()
-            except self.db.DatabaseError, m:
-                raise CerebrumError("Database error: %s" % m)
-            # Remove "weak password" quarantine
-            for r in ac.get_entity_quarantine():
-                if int(r['quarantine_type']) == self.const.quarantine_autopassord:
-                    ac.delete_entity_quarantine(self.const.quarantine_autopassord)
-                if int(r['quarantine_type']) == self.const.quarantine_svakt_passord:
-                    ac.delete_entity_quarantine(self.const.quarantine_svakt_passord)
-            ac.write_db()
-            ret_msg += "\nNew password for: %s" % ac.account_name
-            if ac.is_deleted():
-                ret_msg += "\nWarning: user is deleted: %s" % ac.account_name
-            elif ac.is_expired():
-                ret_msg += "\nWarning: user is expired: %s" % ac.account_name
-            elif ac.get_entity_quarantine(only_active=True):
-                ret_msg += "\nWarning: user in quarantine: %s" % ac.account_name
-
-        # Only store one of the account's password. Not necessary to store all
-        # of them, as it's the same.
-        operator.store_state("user_passwd", {'account_id': int(account.entity_id),
-                                             'password': password})
-        ret_msg += "\nPlease use misc list_password to print or view the new password."
-        return ret_msg
-
-    # user password
+    # user generate_otpkey
     all_commands['user_generate_otpkey'] = cmd.Command(
         ('user', 'generate_otpkey'), cmd.AccountName(),
         cmd.SimpleString(help_ref='otp_type', optional=True))
@@ -1865,9 +1860,31 @@ class EnduserBofhdExtension(TSDBofhdExtension):
     """The bofhd commands for the end users of TSD.
 
     End users are Project Administrators (PA), which should have full control of
-    their project, and Project Members (PM) which have limited privileges.
+    their project, and Project Members (PM) which have limited privileges."""
+    # Commands that should be copied from UiO's BofhdExtension.
+    copy_commands = (
+        # Helpers
+        '_fetch_member_names', '_entity_info',
+        # Group
+        'group_info', 'group_list',
+        'group_multi_add', 'group_multi_remove',
+        # Access
+        'access_list_alterable',
+        # User
+        #'user_password' is inherited from TSDBofhdExtension
+    )
 
-    """
-
-    all_commands = {}
-    hidden_commands = {}
+    def __new__(cls, *arg, **karg):
+        """Hackish override to copy in methods from UiO's bofhd."""
+        from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as \
+            UiOBofhdExtension
+        non_all_cmds = ('num2str', 'user_set_owner_prompt_func',)
+        for func in cls.copy_commands:
+            setattr(cls, func, UiOBofhdExtension.__dict__.get(func))
+            if func[0] != '_' and func not in non_all_cmds:
+                if func in UiOBofhdExtension.all_commands:
+                    cls.all_commands[func] = UiOBofhdExtension.all_commands[func]
+                elif func in UiOBofhdExtension.hidden_commands:
+                    cls.hidden_commands[func] = UiOBofhdExtension.hidden_commands[func]
+        x = object.__new__(cls)
+        return x
