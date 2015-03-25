@@ -3,7 +3,6 @@ import struct
 import socket
 from Cerebrum.modules.dns.Errors import DNSError
 from Cerebrum.modules.bofhd.errors import CerebrumError
-
 class IPCalc(object):
     """Methods for playing with IP-numbers"""
 
