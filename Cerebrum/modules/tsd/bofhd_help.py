@@ -83,7 +83,7 @@ arg_help.update({
     'project_id':
         ['projectID', 'Project ID',
          ('The project ID, normally on the form pXX, '
-          'where XX goes from 01 to 99')],
+          'where XX goes from 01 to 32678')],
     'project_name':
         ['projectname', 'Project name',
          'Short, unique name of the project, around 6 digits'],
