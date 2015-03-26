@@ -1120,10 +1120,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             for key, trait in (('comment', self.const.trait_dns_comment),
                                ('contact', self.const.trait_dns_contact)):
                 trait = dnsowner.get_trait(trait)
-                if trait is not None:
-                    host[key] = host[key].get('strval', '<not set>')
-                else:
-                    host[key] = '<not set>'
+                value = trait.get('strval') if trait else None
+                host[key] = value or '<not set>'
 
             try:
                 hostinfo.clear()
