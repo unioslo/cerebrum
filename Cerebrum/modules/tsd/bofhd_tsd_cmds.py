@@ -613,14 +613,18 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         non_all_cmds = ('num2str', 'user_set_owner_prompt_func',)
         for func in cls.copy_commands:
             method_ref = UiOBofhdExtension.__dict__.get(func)
+            # decorate all functions (methods) with @superuser unless they:
+            # - start with '_' (helper functions)
+            # - are listed in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS
             if (
+                    not func.startswith('_') and
                     inspect.isroutine(method_ref) and
                     func not in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS
             ):
                 # superuser access enforced for the following function (method)
                 method_ref = superuser(UiOBofhdExtension.__dict__.get(func))
             setattr(cls, func, method_ref)
-            if func[0] != '_' and func not in non_all_cmds:
+            if not func.startswith('_') and func not in non_all_cmds:
                 cls.all_commands[func] = UiOBofhdExtension.all_commands[func]
         x = object.__new__(cls)
         return x
