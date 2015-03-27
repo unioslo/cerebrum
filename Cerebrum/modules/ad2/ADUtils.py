@@ -42,6 +42,7 @@ talking with the domain controllers through Active Directory Web Service:
 import time
 import re
 import base64
+import functools
 
 import cerebrum_path
 import cereconf
@@ -55,7 +56,7 @@ except ImportError:
     # 2.5. At python 2.6, you _should_ use the proper json module.
     from Cerebrum.extlib import json
 
-from Cerebrum.modules.ad2.winrm import PowershellClient, iter2stream
+from Cerebrum.modules.ad2.winrm import PowershellClient
 from Cerebrum.modules.ad2.winrm import PowershellException, ExitCodeException
 
 class ObjectAlreadyExistsException(PowershellException):
@@ -140,6 +141,81 @@ class ADclient(PowershellClient):
     # The main objectClass that we are targeting in AD. This is used if nothing
     # else is specified when running a command:
     object_class = 'user'
+
+    def update_dn(client, args):
+        """
+        Walk datastructure, and alter DNs.
+
+        If no appropriate DNs are found, or there exists multiple DNs with
+        similar CNs, the DN will not be altered.
+
+        :param args: The datastructure to operate on.
+        :return: The datastructure, with potentially altered DNs.
+        """
+        update_dn = functools.partial(ADclient.update_dn.im_func, client)
+        if isinstance(args, basestring):
+            if (args.upper().startswith('CN') or
+                    args.upper().startswith('OU')):
+                rdn_type = args[:2].upper()
+                rdn = args[3:args.find(',')]
+                try:
+                    hits = client.find_object(
+                        attributes={rdn_type: rdn})
+                    # Use the new DN
+                    if len(hits) == 1 and args != hits[0]['DistinguishedName']:
+                        client.logger.info('Using %s instead of %s as DN',
+                                           hits[0]['DistinguishedName'],
+                                           args)
+                        return hits[0]['DistinguishedName']
+                    # No difference, use the old DN
+                    elif len(hits) == 1:
+                        return args
+                    # Could not find unique RDN, abort
+                    else:
+                        client.logger.info(
+                            'CN=%s exists in multiple DNs, using original',
+                            rdn)
+                        # Provoke error-handler to run
+                        raise Exception
+                except Exception:
+                    return args
+            else:
+                return args
+        elif isinstance(args, (list, tuple)):
+            r = map(update_dn, args)
+            return r
+        elif isinstance(args, dict):
+            k, v = zip(*args.items())
+            v = map(update_dn, v)
+            return dict(zip(k, v))
+        else:
+            return args
+
+    def retry_with_mangled_dn(f):
+        """
+        Try to handle update-failures by searching for alternate DNs.
+
+        If the function `f` fails, try to search for alternate DNs to
+        update.  DNs change, when objects are moved around by hand in
+        Active Directory.
+
+        This function should be used as a decorator.
+        """
+        @functools.wraps(f)
+        def wrapper(*args, **kwds):
+            try:
+                return f(*args, **kwds)
+            except SetAttributeException, e:
+                # Could not find the object, searching for alternative
+                # DN.
+                ar = [args[0]] + ADclient.update_dn.im_func(args[0], args[1:])
+                if ar == args:
+                    # Re-raise the original exception, as no new DNs where
+                    # found.
+                    raise e
+                return f(*ar, **kwds)
+
+        return wrapper
 
     def __init__(self, auth_user, domain_admin, dryrun, domain, *args,
                  **kwargs):
@@ -815,6 +891,26 @@ class ADclient(PowershellClient):
         out = self.run(cmd)
         return not out.get('stderr')
 
+    @retry_with_mangled_dn
+    def _run_setadobject(self, dn, action, attrs):
+        """Helper method for running the Set-ADObject command"""
+        cmd = self._generate_ad_command('Set-ADObject',
+                                        {'Identity': dn,
+                                         action: attrs})
+        # PowerShell commands are executed through Windows command line.
+        # The maximum length of the command there is 8191 for modern
+        # Windows versions (http://support.microsoft.com/kb/830473). Due to
+        # additional parameters that other methods add to the command, the
+        # part of it which is generated here has to be even shorter. The
+        # limit at 8000 bytes seems to be working.
+        # TODO: This should be checked for in winrm.py.
+        if len(cmd) > 8000:
+            raise CommandTooLongException('Too long')
+        self.logger.debug3("Command: %s", cmd)
+        if self.dryrun:
+            return True
+        self.run(cmd)
+
     def _setadobject_command_wrapper(self, ad_id, action, attributes):
         """Run Set-ADObject on a given object and update its attributes.
 
@@ -822,11 +918,11 @@ class ADclient(PowershellClient):
         split up and run in several commands.
 
         This method makes sure that if some of the attributes or attributes'
-        elements are not accepted by AD, all of the elements are tried to be set
-        again. This is making this method even more complicated, and could slow
-        the sync down when this situation occurs, but at least we make sure that
-        one single, bogus element will not be able to block the update of the
-        whole AD object.
+        elements are not accepted by AD, all of the elements are tried to be
+        set again. This is making this method even more complicated, and could
+        slow the sync down when this situation occurs, but at least we make
+        sure that one single, bogus element will not be able to block the
+        update of the whole AD object.
 
         :type ad_id: str
         :param ad_id: The ID of the object whose attributes will be updated.
@@ -850,24 +946,6 @@ class ADclient(PowershellClient):
         if action.lower() not in ('add', 'clear', 'remove', 'replace'):
             raise Exception("Invalid action for updating %s: %s" % (ad_id,
                             action))
-        def run_setadobject(attrs):
-            """Helper method for running the Set-ADObject command"""
-            cmd = self._generate_ad_command('Set-ADObject',
-                                            {'Identity': ad_id,
-                                             action: attrs})
-            # PowerShell commands are executed through Windows command line. The
-            # maximum length of the command there is 8191 for modern Windows
-            # versions (http://support.microsoft.com/kb/830473). Due to
-            # additional parameters that other methods add to the command, the
-            # part of it which is generated here has to be even shorter. The
-            # limit at 8000 bytes seems to be working.
-            # TODO: This should be checked for in winrm.py.
-            if len(cmd) > 8000:
-                raise CommandTooLongException('Too long')
-            self.logger.debug3("Command: %s", cmd)
-            if self.dryrun:
-                return True
-            self.run(cmd)
 
         def wrap_setadobject(attrs):
             """Run Set-ADObject aggresively, retrying if it fails.
@@ -886,7 +964,7 @@ class ADclient(PowershellClient):
 
             """
             try:
-                return run_setadobject(attrs)
+                return self._run_setadobject(ad_id, action, attrs)
             except SetAttributeException:
                 # Not giving up yet! We retry by adding each attribute's
                 # elements separately.
@@ -894,7 +972,7 @@ class ADclient(PowershellClient):
                 success = True
                 if isinstance(attrs, set):
                     try:
-                        run_setadobject(attrs)
+                        self._run_setadobject(ad_id, action, attrs)
                         return True
                     except SetAttributeException, e:
                         self.logger.warn(
@@ -912,7 +990,9 @@ class ADclient(PowershellClient):
                         values = [values]
                     for element in values:
                         try:
-                            run_setadobject({atrname: element})
+                            self._run_setadobject(ad_id,
+                                                 action,
+                                                 {atrname: element})
                         except SetAttributeException, e:
                             success = False
                             self.logger.warn(
