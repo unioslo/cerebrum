@@ -5466,7 +5466,7 @@ Addresses and settings:
         ("group", "exchangegroup_create"),
         GroupName(help_ref="group_name_new"),
         SimpleString(help_ref="group_disp_name", optional='true'),
-        SimpleString(help_ref="string_dl_desc"),
+        SimpleString(help_ref="string_dl_desc", optional='true'),
         EmailAddress(help_ref="group_dl_managedby",
                      default=cereconf.DISTGROUP_DEFAULT_ADMIN),
         SimpleString(help_ref='group_dl_modby'),
@@ -5474,7 +5474,7 @@ Addresses and settings:
         fs=FormatSuggestion("Group created, internal id: %i", ("group_id",)),
         perm_filter='is_postmaster')
     def group_exchangegroup_create(self, operator, groupname, displayname, description, managedby, moderatedby, from_existing=None):
-        # check for appropriate priviledge
+        # check for appropriate privilege
         if not self.ba.is_postmaster(operator.get_entity_id()):
             raise PermissionDenied('No access to group')
         existing_group = False
@@ -5504,6 +5504,10 @@ Addresses and settings:
         modby_unames = self._valid_unames_exchange(moderatedby)
         if not modby_unames:
             return "Can't create Exchange group, no valid moderators in %s" % moderatedby
+        # we need a description, either a new one or an existing one
+        if not description and not existing_group:
+            return "Description is required unless the Exchange group is created from an existing group"
+        # we need confirmation for existing groups
         if existing_group and not self._is_yes(from_existing):
             return "You choose not to create Exchange group from the existing group %s" % groupname
         mngdby_addr = self._valid_address_exchange(managedby)
@@ -5526,7 +5530,8 @@ Addresses and settings:
                          joinrestr=std_values['joinrestr'],
                          hidden=std_values['hidden'])
         else:
-            dl_group.populate(roomlist=std_values['roomlist'],
+            dl_group.populate(description=description,
+                              roomlist=std_values['roomlist'],
                               mngdby_addrid=mngdby_addr,
                               modenable=std_values['modenable'],
                               modby=moderatedby,

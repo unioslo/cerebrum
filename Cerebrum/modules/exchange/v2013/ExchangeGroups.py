@@ -70,6 +70,10 @@ class DistributionGroup(Group_class):
                  hidden=None, parent=None):
         if parent is not None:
             self.__xerox__(parent)
+            # if description is explicitly set, we set it; otherwise we
+            # don't want to overwrite the parent's description with None or ""
+            if description:
+                self.description = description
         else:
             super(DistributionGroup, self).populate(creator_id, visibility,
                                                     name, description,
