@@ -37,18 +37,26 @@ command_help['user'].update({
     'user_password':
         "Set password for a person's users",
 })
+
 command_help['group'].update({
     'group_add_member':
         'Add a member to a group',
     'group_remove_member':
         'Remove a member from a group',
 })
+
 command_help.setdefault('subnet', {}).update({
     'subnet_list':
         'List all subnets',
     'subnet_search':
         'Wildcard search for subnets',
 })
+
+command_help.setdefault('host', {}).update({
+    'host_list_projects':
+        'List all projects associated with a host',
+})
+
 command_help['project'] = {
     'project_approve':
         'Approve a project with the given name',
@@ -78,6 +86,8 @@ command_help['project'] = {
         'Terminate a project by removing all data',
     'project_unapproved':
         'List all projects that has not been approved or rejected yet',
+    'project_list_hosts':
+        'List all hosts associated with a project',
 }
 
 arg_help.update({
@@ -123,6 +133,13 @@ arg_help.update({
   - 'vlan'
   - 'project'
   - 'description'"""],
+    'fnmatch_pattern':
+        ['pattern', 'Enter wildcard pattern',
+        """Case-sensitive. Use Unix shell-style wildcards:
+  - *      matches everything
+  - ?      matches any single character
+  - [seq]  matches any character in seq
+  - [!seq] matches any character not in seq"""],
     'otp_type':
         ['otp_type', 'OTP type',
          'The OTP type, e.g. totp, hotp or smartphone_yes'],
