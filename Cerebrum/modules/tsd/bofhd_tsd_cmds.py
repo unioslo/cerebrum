@@ -65,6 +65,7 @@ from Cerebrum.modules.tsd.bofhd_auth import TSDBofhdAuth
 from Cerebrum.modules.tsd import bofhd_help
 from Cerebrum.modules.tsd import Gateway
 
+import inspect
 from functools import wraps
 
 
@@ -360,7 +361,6 @@ class TSDBofhdExtension(BofhdCommonMethods):
                     'help_ref': 'print_select_range',
                     'default': str(n-1)}
 
-
 def superuser(fn):
     """Decorator for checking that methods are being executed as operator.
     The first argument of the decorated function must be "self" and the second must be "operator".
@@ -618,8 +618,19 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             UiOBofhdExtension
         non_all_cmds = ('num2str', 'user_set_owner_prompt_func',)
         for func in cls.copy_commands:
-            setattr(cls, func, UiOBofhdExtension.__dict__.get(func))
-            if func[0] != '_' and func not in non_all_cmds:
+            method_ref = UiOBofhdExtension.__dict__.get(func)
+            # decorate all functions (methods) with @superuser unless they:
+            # - start with '_' (helper functions)
+            # - are listed in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS
+            if (
+                    not func.startswith('_') and
+                    inspect.isroutine(method_ref) and
+                    func not in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS
+            ):
+                # superuser access enforced for the following function (method)
+                method_ref = superuser(UiOBofhdExtension.__dict__.get(func))
+            setattr(cls, func, method_ref)
+            if not func.startswith('_') and func not in non_all_cmds:
                 cls.all_commands[func] = UiOBofhdExtension.all_commands[func]
         x = object.__new__(cls)
         return x
@@ -633,7 +644,13 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             if not key in self.all_commands:
                 self.all_commands[key] = command
 
-    #
+        # CRB-792: We want to set is_superuser filter to all cmds apart from:
+        # user_password, group_add_member and group_remove_member
+        # Instad of this hack, a redesign should be considered in the future.
+        for key in self.all_commands.keys():
+            if key not in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS:
+                self.all_commands[key].perm_filter = 'is_superuser'
+
     # Project commands
     all_commands['project_create'] = cmd.Command(
         ('project', 'create'), ProjectName(), ProjectLongName(),
