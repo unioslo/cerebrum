@@ -1301,6 +1301,26 @@ class BaseSync(object):
             # comparement?
             to_add = set(c).difference(a)
             to_remove = set(a).difference(c)
+
+            # Search for objects that might have a similar DN to what Cerebrum
+            # expects.  We need to handle this, since people tend to move stuff
+            # about in AD :/ Only the objects that have a unique RDN are
+            # collected.
+            do_not_remove = {}
+            for e in to_remove:
+                if 'cn' in e:
+                    rdn = e[3:e.find(',')]
+                    objects = self.server.find_object(
+                        attributes={'CN': rdn})
+                    if len(objects) == 1:
+                        do_not_remove[rdn] = e
+
+            # Remove the objects that have an alternate unique RDN, from the
+            # list of attributes to remove.
+            c = map(lambda x: do_not_remove.get(x[3:x.find(',')], x), c)
+            # Re-calculate the set-difference
+            to_remove = set(a).difference(c)
+
             return (to_add or to_remove, list(to_add), list(to_remove))
         return (c != a, None, None)
 
@@ -1477,7 +1497,7 @@ class BaseSync(object):
             #     understanding-unique-attributes-in-active-directory.aspx
             search_attributes = dict((u, ent.attributes[u]) for u
                                      in ['SamAccountName']
-                                     if ent.attibutes.get(u))
+                                     if ent.attributes.get(u))
             objects = self.server.find_object(
                 name=ent.entity_name,
                 attributes=search_attributes,

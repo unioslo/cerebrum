@@ -22,7 +22,7 @@
 category:metainfo;
 name=entity_trait;
 category:metainfo;
-version=1.0;
+version=1.1;
 
 /*
  * Module `entity_trait' -- attach auxilliary information to entities.
@@ -102,7 +102,7 @@ CREATE TABLE entity_trait (
 			  REFERENCES entity_info(entity_id),
   date			TIMESTAMP,
   numval		NUMERIC(12,0),
-  strval		CHAR VARYING(512),
+  strval		TEXT,
 
   CONSTRAINT entity_trait_pk PRIMARY KEY (entity_id, code),
   CONSTRAINT entity_trait_entity_id FOREIGN KEY (entity_id, entity_type)

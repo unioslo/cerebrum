@@ -28,6 +28,7 @@ ID and acronym, to avoid reuse of the project ID and name for later projects.
 """
 
 import re
+import itertools
 from mx import DateTime
 
 import cerebrum_path
@@ -37,6 +38,7 @@ from Cerebrum.Database import DatabaseError
 from Cerebrum.OU import OU
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import dns
+from Cerebrum.modules.hostpolicy.PolicyComponent import PolicyComponent
 from Cerebrum.modules.EntityTrait import EntityTrait
 
 from Cerebrum.modules.tsd import TSDUtils
@@ -147,8 +149,13 @@ class OUTSDMixin(OU, EntityTrait):
 
     def get_project_name(self):
         """Shortcut for getting the given OU's project name."""
-        return self.get_name_with_language(self.const.ou_name_acronym,
-                                           self.const.language_en)
+        try:
+            project_name = self.get_name_with_language(
+                self.const.ou_name_acronym,
+                self.const.language_en)
+        except Errors.CerebrumError, e:
+            project_name = '<Not Set>'
+        return project_name
 
     def get_project_id(self):
         """Shortcut for getting the given OU's project ID."""
@@ -191,6 +198,36 @@ class OUTSDMixin(OU, EntityTrait):
         else:
             return None
 
+    @property
+    def has_freeze_quarantine(self):
+        """
+        has_freeze_quarantine-property - getter
+
+        :rtype: bool
+        :return: Return True if the OU (Project) has freeze quarantine(s),
+            otherwise - False
+        """
+        return bool(
+            self.get_entity_quarantine(
+                qtype=self.const.quarantine_frozen))
+
+    @property
+    def freeze_quarantine_start(self):
+        """
+        freeze_quarantine_start-property - getter
+
+        :rtype: mx.DateTime or None
+        :return: Return the start_date of the freeze quarantine
+            (Note: None will be returned in a case of no freeze-quarantines
+            for the OU (Project). Hence mx.DateTime return value is a proof
+            that the OU (Project) has at least one autofreeze-quarantine,
+            while return value None is not a proof of the opposite
+        """
+        frozen_quarantines = self.get_entity_quarantine(
+            qtype=self.const.quarantine_frozen)
+        if frozen_quarantines:
+            return frozen_quarantines[0]['start_date']
+        return None
 
     def add_name_with_language(self, name_variant, name_language, name):
         """Override to be able to verify project names (acronyms)."""
@@ -214,21 +251,12 @@ class OUTSDMixin(OU, EntityTrait):
                                                    name)
 
     def get_next_free_project_id(self):
-        """Return the next project ID that is not in use."""
-        while True:
-            try:
-                candidate = 'p%02d' % self.nextval('tsd_project_id_seq')
-            except DatabaseError:
-                # Raised by tsd_project_id_seq
-                raise Errors.CerebrumError('No more available project IDs!')
-            # The next test seems silly, but the sequence object is new
-            # compared to TSD. It doesn't do much extra to have this
-            # test + loop, and it is a simple method to sync tsd_project_id_seq
-            # with old project ids.
-            if not list(self.list_external_ids(
-                    id_type=self.const.externalid_project_id,
-                    external_id=candidate)
-            ):
+        """Return the first project ID that is not in use."""
+        for number in itertools.count():
+            candidate = 'p%02d' % number
+            if not list(
+                self.list_external_ids(id_type=self.const.externalid_project_id,
+                                       external_id=candidate)):
                 return candidate
 
     def populate_external_id(self, source_system, id_type, external_id):
@@ -533,9 +561,12 @@ class OUTSDMixin(OU, EntityTrait):
         host = dns.HostInfo.HostInfo(self._db)
 
         vm_trait = self.get_trait(self.const.trait_project_vm_type)
-        vm_type = 'win_vm'
+
         if vm_trait:
             vm_type = vm_trait['strval']
+        else:  # Set win as default if trait is not set.
+            vm_type = 'win_vm'
+
 
         if vm_type in ('win_vm', 'win_and_linux_vm'):
             # Create a Windows host for the whole project
@@ -693,9 +724,26 @@ class OUTSDMixin(OU, EntityTrait):
         """
         self.write_db()
         ent = EntityTrait(self._db)
-        # Delete affiliated entities
-        # Delete the project's users:
         ac = Factory.get('Account')(self._db)
+        pu = Factory.get('PosixUser')(self._db)
+        # Delete PosixUsers
+        for row in ac.list_accounts_by_type(ou_id=self.entity_id,
+                                            filter_expired=False):
+            try:
+                pu.clear()
+                pu.find(row['account_id'])
+                pu.delete_posixuser()
+            except Errors.NotFoundError:
+                # not a PosixUser
+                continue
+        # Remove all project's groups
+        gr = Factory.get('Group')(self._db)
+        for row in gr.list_traits(code=self.const.trait_project_group,
+                                  target_id=self.entity_id):
+            gr.clear()
+            gr.find(row['entity_id'])
+            gr.delete()
+        # Delete all users
         for row in ac.list_accounts_by_type(ou_id=self.entity_id):
             ac.clear()
             ac.find(row['account_id'])
@@ -711,13 +759,27 @@ class OUTSDMixin(OU, EntityTrait):
                                 source=row['source_system'],
                                 status=row['status'])
             pe.write_db()
-        # Remove all project's groups:
-        gr = Factory.get('Group')(self._db)
-        for row in gr.list_traits(code=self.const.trait_project_group,
-                                  target_id=self.entity_id):
-            gr.clear()
-            gr.find(row['entity_id'])
-            gr.delete()
+        # Remove all project's DnsOwners (hosts):
+        dnsowner = dns.DnsOwner.DnsOwner(self._db)
+        policy = PolicyComponent(self._db)
+        update_helper = dns.IntegrityHelper.Updater(self._db)
+        for row in ent.list_traits(code=self.const.trait_project_host,
+                                   target_id=self.entity_id):
+            # TODO: Could we instead update the Subnet classes to use
+            # Factory.get('Entity'), and make use of EntityTrait there to
+            # handle this?
+            owner_id = row['entity_id']
+            ent.clear()
+            ent.find(owner_id)
+            ent.delete_trait(row['code'])
+            ent.write_db()
+            # Remove the links to policies if hostpolicy is used
+            for prow in policy.search_hostpolicies(dns_owner_id=owner_id):
+                policy.clear()
+                policy.find(prow['policy_id'])
+                policy.remove_from_host(owner_id)
+            # delete the DNS owner
+            update_helper.full_remove_dns_owner(owner_id)
         # Delete all subnets
         subnet = dns.Subnet.Subnet(self._db)
         subnet6 = dns.IPv6Subnet.IPv6Subnet(self._db)
@@ -736,20 +798,6 @@ class OUTSDMixin(OU, EntityTrait):
                 subnet6.clear()
                 subnet6.find(row['entity_id'])
                 subnet6.delete()
-        # Remove all project's DnsOwners (hosts):
-        dnsowner = dns.DnsOwner.DnsOwner(self._db)
-        for row in ent.list_traits(code=self.const.trait_project_host,
-                                   target_id=self.entity_id):
-            # TODO: Could we instead update the Subnet classes to use
-            # Factory.get('Entity'), and make use of EntityTrait there to
-            # handle this?
-            ent.clear()
-            ent.find(row['entity_id'])
-            ent.delete_trait(row['code'])
-            ent.write_db()
-            dnsowner.clear()
-            dnsowner.find(row['entity_id'])
-            dnsowner.delete()
         # Remove all data from the OU except for:
         # The project ID and project name
         for tr in tuple(self.get_traits()):

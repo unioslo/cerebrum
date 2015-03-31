@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 #
-# Copyright 2006,2014 University of Oslo, Norway
+# Copyright 2006-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,14 +22,10 @@
 """
 This file is part of the Cerebrum framework.
 
-It generates an XML file, suitable for importing into the CRISTIN project,
-formerly called FRIDA (for more information on FRIDA, start at <URL:
-http://www.cristin.no/>). The output format is specified in:
+This script generates an XML file, suitable for importing into the CRISTIN
+project, formerly called FRIDA.
 
-<http://www.cristin.no/institusjonsdata/>
-
-The uiocerebrum project has some additional notes
-(cvs.uio.no:/uiocerebrum/docs/frida/frida-export.txt).
+The output format is specified at: <http://www.cristin.no/institusjonsdata/>
 
 Although the original specification places a limit on the length of certain
 (string) values, we do not enforce those. Furthermore, the address
@@ -38,8 +34,8 @@ Although the original specification places a limit on the length of certain
 Since this script aggregates data from various sources, we cannot obtain all
 the necessary information from data files or cerebrum alone. Therefore:
 
-* Most of the information about people is fetched from the source files (SAP
-  or LT). Cerebrum has no information about employments (stillingskode,
+* Most of the information about people is fetched from the SAP source file
+  Cerebrum has no information about employments (stillingskode,
   stillingsandel, aktivDatoFra/Til).
 
 * Most of the information about OUs is fetched from the source files (two
@@ -105,7 +101,6 @@ def output_element(writer, value, element, attributes=dict()):
     writer.startElement(element, attributes)
     writer.data(str(value))
     writer.endElement(element)
-# end output_element
 
 
 def xml2dict(xmlobject, attributes):
@@ -127,7 +122,6 @@ def xml2dict(xmlobject, attributes):
         raise "AIIIEEEE!"
 
     return result
-# end xml2dict
 
 
 def extract_names(person_db, kinds):
@@ -151,7 +145,6 @@ def extract_names(person_db, kinds):
             result[kind] = value
 
     return result
-# end extract_names
 
 
 def output_contact(writer, xmlobject, *seq):
@@ -168,7 +161,6 @@ def output_contact(writer, xmlobject, *seq):
         contacts.sort(lambda x, y: cmp(x.priority, y.priority))
         if contacts:
             output_element(writer, contacts[0].value, element)
-# end output_contact
 
 
 def find_publishable_sko(sko, ou_cache):
@@ -195,7 +187,6 @@ def find_publishable_sko(sko, ou_cache):
         ou = ou_cache.get(parent_sko)
 
     return None
-# end find_publishable_sko
 
 
 def output_OU(writer, ou):
@@ -222,7 +213,7 @@ def output_OU(writer, ou):
         <navnEngelsk>...</...>         <!-- LT.STED.STEDLANGNAVN_ENGELSK
                                                     STEDKORTNAVN_ENGELSK -->
         <akronym>...</...>             <!-- LT.STED.AKRONYM -->
-        <postadresse>...</...>         <!-- LT.STED.ADDRESSELINJE{1+2}_INTERN_ADR -->
+        <postadresse>...</...>    <!-- LT.STED.ADDRESSELINJE{1+2}_INTERN_ADR -->
         <postnrOgPoststed>...</...>    <!-- LT.STED.POSTSTEDNR_INTERN_ADR +
                                             LT.STED.POSTSTEDNAVN_INTERN_ADR -->
         <land>...</...>                <!-- LT.STED.LANDNAVN_INTERN_ADR -->
@@ -246,7 +237,7 @@ def output_OU(writer, ou):
         return
     sko = ou.get_id(ou.NO_SKO)
 
-    # step2: output OU info
+    # output OU info
     writer.startElement("enhet")
     for value, element in ((cereconf.DEFAULT_INSTITUSJONSNR, "institusjonsnr"),
                            (sko[0], "avdnr"),
@@ -256,15 +247,16 @@ def output_OU(writer, ou):
 
     # Is a missing parent at all possible here?
     if ou.parent:
-        assert ou.parent[0] == ou.NO_SKO 
+        assert ou.parent[0] == ou.NO_SKO
         psko = ou.parent[1]
     else:
         psko = (None, None, None)
 
-    for value, element in ((cereconf.DEFAULT_INSTITUSJONSNR, "institusjonsnrUnder"),
-                           (psko[0], "avdnrUnder"),
-                           (psko[1], "undavdnrUnder"),
-                           (psko[2], "gruppenrUnder")):
+    for value, element in (
+            (cereconf.DEFAULT_INSTITUSJONSNR, "institusjonsnrUnder"),
+            (psko[0], "avdnrUnder"),
+            (psko[1], "undavdnrUnder"),
+            (psko[2], "gruppenrUnder")):
         output_element(writer, value, element)
 
     for attribute, element in (("start_date", "datoAktivFra"),
@@ -297,8 +289,6 @@ def output_OU(writer, ou):
                            "postnrOgPoststed")
             output_element(writer, addr.country, "land")
             break
-        # fi 
-    # od
 
     output_contact(writer, ou,
                    (DataContact.CONTACT_PHONE, "telefonnr"),
@@ -307,7 +297,6 @@ def output_OU(writer, ou):
                    (DataContact.CONTACT_URL, "URLBokmal"))
 
     writer.endElement("enhet")
-# end output_OU
 
 
 def output_OUs(writer, sysname, oufile):
@@ -346,8 +335,6 @@ def output_OUs(writer, sysname, oufile):
 
     writer.endElement("organisasjon")
     return ou_cache
-# end output_OUs
-
 
 
 def output_assignments(writer, sequence, ou_cache, blockname, elemname, attrs):
@@ -362,8 +349,8 @@ def output_assignments(writer, sequence, ou_cache, blockname, elemname, attrs):
         </elemname>
       </blockname>
 
-    ... where attrs is a mapping from k1 -> v1 and sequence contains the x's to be
-    output.
+    ... where attrs is a mapping from k1 -> v1 and sequence contains the x's
+    to be output.
 
     Parameters:
 
@@ -395,10 +382,11 @@ def output_assignments(writer, sequence, ou_cache, blockname, elemname, attrs):
             continue
 
         writer.startElement(elemname)
-        for value, xmlelement in ((cereconf.DEFAULT_INSTITUSJONSNR, "institusjonsnr"),
-                                  (publishable_sko[0], "avdnr"),
-                                  (publishable_sko[1], "undavdnr"),
-                                  (publishable_sko[2], "gruppenr")):
+        for value, xmlelement in (
+                (cereconf.DEFAULT_INSTITUSJONSNR, "institusjonsnr"),
+                (publishable_sko[0], "avdnr"),
+                (publishable_sko[1], "undavdnr"),
+                (publishable_sko[2], "gruppenr")):
             output_element(writer, value, xmlelement)
 
         for key, xmlelement in attrs.iteritems():
@@ -416,7 +404,6 @@ def output_assignments(writer, sequence, ou_cache, blockname, elemname, attrs):
 
     if blockname:
         writer.endElement(blockname)
-# end output_assignments
 
 
 def output_account_info(writer, person_db):
@@ -437,7 +424,6 @@ def output_account_info(writer, person_db):
     except Errors.NotFoundError:
         logger.info("person %s has no primary e-mail address",
                     person_db.entity_id)
-# end output_account_info
 
 
 def output_employments(writer, person, ou_cache):
@@ -470,7 +456,6 @@ def output_employments(writer, person, ou_cache):
     names["place"] = None
     return output_assignments(writer, output_sequence, ou_cache,
                               "ansettelser", "ansettelse", names)
-# end output_employments
 
 
 def output_person(writer, person, phd_cache, ou_cache):
@@ -583,7 +568,6 @@ def cache_phd_students():
         result.setdefault(key, list()).append(value)
 
     return result
-# end cache_phd_students
 
 
 def output_phd_students(writer, sysname, phd_students, ou_cache):
@@ -593,11 +577,6 @@ def output_phd_students(writer, sysname, phd_students, ou_cache):
     all. However, they still need access to FRIDA and we need to gather as
     much information as possible about them.
     """
-
-    # A few helper mappings first
-    # source system name => group with individuals hidden in catalogues
-    sys2group = {"system_lt": "LT-elektroniske-reservasjoner",
-                 "system_sap": "SAP-lektroniske-reservasjoner", }
     # name constant -> xml element for that name constant
     name_kinds = dict(((int(constants.name_last), "etternavn"),
                        (int(constants.name_first), "fornavn")))
@@ -605,35 +584,30 @@ def output_phd_students(writer, sysname, phd_students, ou_cache):
     contact_kinds = dict(((int(constants.contact_phone), "telefonnr"),
                           (int(constants.contact_fax), "telefaxnr"),
                           (int(constants.contact_url), "URL")))
-
-    group = Factory.get("Group")(cerebrum_db)
-    try:
-        group.find_by_name(sys2group[sysname])
-        reserved = set(int(x["member_id"]) for x in
-                       group.search_members(
-                           group_id=group.entity_id,
-                           indirect_member=True,
-                           member_type=constants.entity_account))
-    except Errors.NotFoundError:
-        reserved = set()
+    # person_id -> public reservation status
+    reservations = dict(
+        (row['entity_id'], row['numval']) for row in
+        person_db.list_traits(code=constants.trait_public_reservation))
 
     for person_id, phd_records in phd_students.iteritems():
         try:
             person_db.clear()
             person_db.find(person_id)
             # We can be a bit lenient here.
-            fnr = person_db.get_external_id(id_type=constants.externalid_fodselsnr)
+            fnr = person_db.get_external_id(
+                id_type=constants.externalid_fodselsnr)
             if fnr:
                 fnr = fnr[0]["external_id"]
             else:
                 logger.warn("No fnr for person_id %s", person_id)
                 continue
         except Errors.NotFoundError:
-            logger.warn("Cached id %s not found in the database. This cannot happen",
-                        person_id)
+            logger.warn(
+                "Cached id %s not found in the database. This cannot happen",
+                person_id)
             continue
 
-        res_status = {True: "J", False: "N"}[person_id in reserved]
+        res_status = 'J' if reservations.get(person_id, True) else 'N'
         writer.startElement("person", {"fnr": fnr, "reservert": res_status})
 
         names = extract_names(person_db, name_kinds)
@@ -642,9 +616,9 @@ def output_phd_students(writer, sysname, phd_students, ou_cache):
             if value:
                 output_element(writer, value, xmlname)
         title = person_db.get_name_with_language(
-                              name_variant=constants.personal_title,
-                              name_language=constants.language_nb,
-                              default="")
+            name_variant=constants.personal_title,
+            name_language=constants.language_nb,
+            default="")
         if title:
             output_element(writer, title, "personligTittel")
 
@@ -663,7 +637,6 @@ def output_phd_students(writer, sysname, phd_students, ou_cache):
         output_assignments(writer, phd_records, ou_cache, "gjester", "gjest",
                            names)
         writer.endElement("person")
-# end output_phd_students
 
 
 def should_export_person(person):
@@ -737,7 +710,6 @@ def output_people(writer, sysname, personfile, ou_cache):
     # process whatever is left of phd-students
     output_phd_students(writer, sysname, phd_students, ou_cache)
     writer.endElement("personer")
-# output_people
 
 
 def output_xml(output_file, sysname, personfile, oufile):
@@ -778,7 +750,6 @@ def output_xml(output_file, sysname, personfile, oufile):
     writer.endElement("fridaImport")
     writer.endDocument()
     output_stream.close()
-# end output_xml
 
 
 def usage(exitcode=0):
@@ -793,7 +764,6 @@ def usage(exitcode=0):
       - ou-file is the OU source xml file
     """
     sys.exit(exitcode)
-# end usage
 
 
 def main():
@@ -817,7 +787,6 @@ def main():
     global source_system
     source_system = getattr(constants, sysname)
     output_xml(output_file, sysname, personfile, oufile)
-# end main
 
 
 if __name__ == "__main__":

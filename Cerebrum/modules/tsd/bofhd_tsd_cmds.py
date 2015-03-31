@@ -65,6 +65,7 @@ from Cerebrum.modules.tsd.bofhd_auth import TSDBofhdAuth
 from Cerebrum.modules.tsd import bofhd_help
 from Cerebrum.modules.tsd import Gateway
 
+import inspect
 from functools import wraps
 
 
@@ -139,6 +140,12 @@ class SubnetSearchType(cmd.Parameter):
     """A subnet search type."""
     _type = 'searchType'
     _help_ref = 'subnet_search_type'
+
+
+class FnMatchPattern(cmd.Parameter):
+    """A pattern given to fnmatch."""
+    _type = 'pattern'
+    _help_ref = 'fnmatch_pattern'
 
 
 class VLANParam(cmd.Parameter):
@@ -299,11 +306,7 @@ class TSDBofhdExtension(BofhdCommonMethods):
         """
         if not include_short_name:
             return ou.get_project_id()
-        name = '<Not Set>'
-        try:
-            name = ou.get_project_name()
-        except Errors.CerebrumError, e:
-            self.logger.warn("get_project_name failed: %s", e)
+        name = ou.get_project_name()
         return "%s (%s)" % (ou.get_project_id(), name)
 
     # misc list_passwords
@@ -362,7 +365,6 @@ class TSDBofhdExtension(BofhdCommonMethods):
                     'map': map, 'raw': True,
                     'help_ref': 'print_select_range',
                     'default': str(n-1)}
-
 
 def superuser(fn):
     """Decorator for checking that methods are being executed as operator.
@@ -570,7 +572,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         # Group
         'group_info', 'group_list', 'group_list_expanded', 'group_memberships',
         'group_delete', 'group_set_description', 'group_set_expire',
-        'group_search', 'group_promote_posix',  # 'group_create',
+        'group_search', 'group_promote_posix',  'group_demote_posix',# 'group_create',
         # Quarantine
         'quarantine_disable', 'quarantine_list', 'quarantine_remove',
         'quarantine_set', 'quarantine_show',
@@ -621,8 +623,19 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             UiOBofhdExtension
         non_all_cmds = ('num2str', 'user_set_owner_prompt_func',)
         for func in cls.copy_commands:
-            setattr(cls, func, UiOBofhdExtension.__dict__.get(func))
-            if func[0] != '_' and func not in non_all_cmds:
+            method_ref = UiOBofhdExtension.__dict__.get(func)
+            # decorate all functions (methods) with @superuser unless they:
+            # - start with '_' (helper functions)
+            # - are listed in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS
+            if (
+                    not func.startswith('_') and
+                    inspect.isroutine(method_ref) and
+                    func not in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS
+            ):
+                # superuser access enforced for the following function (method)
+                method_ref = superuser(UiOBofhdExtension.__dict__.get(func))
+            setattr(cls, func, method_ref)
+            if not func.startswith('_') and func not in non_all_cmds:
                 cls.all_commands[func] = UiOBofhdExtension.all_commands[func]
         x = object.__new__(cls)
         return x
@@ -636,17 +649,23 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             if not key in self.all_commands:
                 self.all_commands[key] = command
 
-    #
+        # CRB-792: We want to set is_superuser filter to all cmds apart from:
+        # user_password, group_add_member and group_remove_member
+        # Instad of this hack, a redesign should be considered in the future.
+        for key in self.all_commands.keys():
+            if key not in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS:
+                self.all_commands[key].perm_filter = 'is_superuser'
+
     # Project commands
     all_commands['project_create'] = cmd.Command(
         ('project', 'create'), ProjectName(), ProjectLongName(),
         ProjectShortName(), cmd.Date(help_ref='project_start_date'),
-        cmd.Date(help_ref='project_end_date'), VLANParam(optional=True),
-        perm_filter='is_superuser')
+        cmd.Date(help_ref='project_end_date'), VMType(),
+        VLANParam(optional=True), perm_filter='is_superuser')
 
     @superuser
     def project_create(self, operator, projectname, longname, shortname,
-                       startdate, enddate, vlan=None):
+                       startdate, enddate, vm_type, vlan=None):
         """Create a new TSD project.
 
         :param BofhdSession operator:
@@ -657,6 +676,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         """
         start = self._parse_date(startdate)
         end = self._parse_date(enddate)
+
         if end < DateTime.now():
             raise CerebrumError("End date of project has passed: %s" % str(end).split()[0])
         elif end < start:
@@ -664,7 +684,11 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                 "Project can not end before it has begun: from %s to %s" %
                 (str(start).split()[0], str(end).split()[0]))
 
+        if vm_type not in cereconf.TSD_VM_TYPES:
+            raise CerebrumError("Invalid VM-type.")
+
         ou = self.OU_class(self.db)
+
         try:
             pid = ou.create_project(projectname)
         except Errors.CerebrumError, e:
@@ -688,6 +712,10 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ou.add_entity_quarantine(qtype=self.const.quarantine_project_end,
                                  creator=operator.get_entity_id(), start=end,
                                  description='Initial end set by superuser')
+
+        # Set trait for vm_type
+        ou.populate_trait(self.const.trait_project_vm_type, strval=vm_type)
+
         ou.write_db()
         try:
             ou.setup_project(operator.get_entity_id(), vlan)
@@ -1125,6 +1153,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ent.write_db()
         return "Entity affiliated with project: %s" % ou.get_project_id()
 
+
     all_commands['project_set_vm_type'] = cmd.Command(
         ('project', 'set_vm_type'), ProjectID(), VMType(),
         perm_filter='is_superuser')
@@ -1157,6 +1186,52 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         project.setup_project(op_id)
 
         return 'OK, vm_type for %s changed to %s.' % (project_id, vm_type)
+
+
+    all_commands['project_list_hosts'] = cmd.Command(
+        ('project', 'list_hosts'), ProjectID(),
+        fs=cmd.FormatSuggestion([(
+            '%-30s %-8s %-20s %-20s', ('name', 'os', 'contact', 'comment'),)],
+            hdr='%-30s %-8s %-20s %-20s' % ('Name', 'OS', 'Contact', 'Comment')),
+        perm_filter='is_superuser')
+
+    @superuser
+    def project_list_hosts(self, operator, projectid):
+        """List hosts by project."""
+        project = self._get_project(projectid)
+        ent = EntityTrait.EntityTrait(self.db)
+        dnsowner = dns.DnsOwner.DnsOwner(self.db)
+        hostinfo = dns.HostInfo.HostInfo(self.db)
+        hosts = []
+
+        for row in ent.list_traits(code=self.const.trait_project_host,
+                                   target_id=project.entity_id):
+            owner_id = row['entity_id']
+            dnsowner.clear()
+            dnsowner.find(owner_id)
+            host = {'name': dnsowner.name}
+
+            for key, trait in (('comment', self.const.trait_dns_comment),
+                               ('contact', self.const.trait_dns_contact)):
+                trait = dnsowner.get_trait(trait)
+                value = trait.get('strval') if trait else None
+                host[key] = value or '<not set>'
+
+            try:
+                hostinfo.clear()
+                hostinfo.find_by_dns_owner_id(owner_id)
+                _, hostinfo_os = hostinfo.hinfo.split("\t", 1)
+            except Errors.NotFoundError:
+                hostinfo_os = '<not set>'
+            finally:
+                host['os'] = hostinfo_os
+
+            hosts.append(host)
+
+        # Sort by name
+        return sorted(hosts, key=lambda x: x['name']) or 'No hosts found'
+
+
     #
     # Person commands
     def _person_affiliation_add_helper(self, operator, person, ou, aff, aff_status):
@@ -1810,6 +1885,38 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         pu.write_db()
 
     #
+    # Host commands
+
+    all_commands['host_list_projects'] = cmd.Command(
+        ('host', 'list_projects'), dns.bofhd_dns_cmds.HostId(),
+        fs=cmd.FormatSuggestion([(
+            '%-30s %-10s %-12s', ('name', 'project_id', 'project_name'),)],
+            hdr='%-30s %-10s %-12s' % ('Name', 'Project ID', 'Project name')),
+        perm_filter='is_superuser')
+
+    @superuser
+    def host_list_projects(self, operator, host_id):
+        """List projects by host."""
+        host = self._get_host(host_id)
+        ent = EntityTrait.EntityTrait(self.db)
+        project = self.OU_class(self.db)
+        projects = []
+
+        for row in ent.list_traits(code=self.const.trait_project_host,
+                                   entity_id=host.entity_id):
+            project.clear()
+            project.find(row['target_id'])
+            projects.append({
+                'name': host.name,
+                'project_id': project.get_project_id(),
+                'project_name': project.get_project_name(),
+            })
+
+        # Sort by project ID
+        return sorted(projects, key=lambda x: x['project_id']) or \
+            'No projects found for this host'
+
+    #
     # Subnet commands
 
     def _get_all_subnets(self):
@@ -1870,8 +1977,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
     all_commands['subnet_search'] = cmd.Command(
         ("subnet", "search"),
-        SubnetSearchType(),
-        cmd.SimpleString(),
+        SubnetSearchType(), FnMatchPattern(),
         fs=cmd.FormatSuggestion([(
             '%-30s %6s %7s %s', ('subnet', 'vlan_number',
                                  'project_id', 'description',),)],
@@ -1884,7 +1990,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         """Wildcard search for subnets.
 
         :type search_type: str
-        :param search_type: filter subnets by this
+        :param search_type: filter subnets by this key
 
         :type pattern: str
         :param pattern: wildcard search pattern

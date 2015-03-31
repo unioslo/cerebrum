@@ -35,7 +35,7 @@ from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.dns import IPNumber
-from Cerebrum.modules.dns.IPUtils import IPCalc
+from Cerebrum.modules.dns.IPUtils import IPCalc, IPUtils
 from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthRole, BofhdAuthOpTarget
 
 
@@ -73,7 +73,7 @@ class Subnet(Entity):
         # Set of reserved adresses, represented as longs (i.e. not x.x.x.x)
         self.reserved_adr = set()
 
-    def is_valid_subnet(subnet):
+    def validate_subnet(subnet):
         """Validates that a subnet specification is correctly
         formatted and with legal values.
 
@@ -88,17 +88,34 @@ class Subnet(Entity):
         if len(ip.split('.')) == 3:
             ip = ip + ".0"
         elif len(ip.split('.')) != 4:
-            raise SubnetError("Invalid number of segments in '%s'. Should be 3 or 4" % ip)
+            raise SubnetError("Invalid number of segments in '%s'. "
+                              "Should be 3 or 4" % ip)
 
         for element in ip.split('.'):
             if int(element) < 0 or int(element) > 255:
-                raise SubnetError("Element out of range in '%s': '%s'" % (ip, element))
+                raise SubnetError("Element out of range in '%s': '%s'" % (ip,
+                                                                      element))
 
         mask = int(mask)
         if mask < 0 or mask > 32:
             raise SubnetError("Invalid subnet mask '%s'; outside range 0-32" % mask)
 
         return True
+    validate_subnet = staticmethod(validate_subnet)
+
+    def is_valid_subnet(subnet):
+        """
+        Helper method for giving a simple True/False-result when trying
+        to identify an IP/Subnet-string.
+
+        :param subnet: A string that may or may not reference a valid subnet
+        :return: True or False
+        """
+        try:
+            Subnet.validate_subnet(subnet)
+            return True
+        except:
+            return False
     is_valid_subnet = staticmethod(is_valid_subnet)
 
     def calculate_subnet_mask(ip_min, ip_max):

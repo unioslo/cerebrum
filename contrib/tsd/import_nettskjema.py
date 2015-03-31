@@ -343,8 +343,7 @@ input_values = {
         # The respondent's phone number
         'phone': (input.is_phone, input.str),
         # What resources that should be used in a given project:
-        'vm_descr': (input.in_options(('win_vm', 'linux_vm',
-                                       'win_and_linux_vm')), input.str),
+        'vm_descr': (input.in_options(cereconf.TSD_VM_TYPES), input.str),
         # If the person should use OTP through smartphone or yubikey:
         'smartphone': (lambda x: True, input.str),
         }

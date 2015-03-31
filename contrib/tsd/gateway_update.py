@@ -163,7 +163,8 @@ class Processor:
             try:
                 pid = self.ou.get_project_id()
             except Errors.NotFoundError, e:
-                logger.warn(e)
+                logger.warn("No project id for ou_id %s: %s", row['ou_id'], e)
+                continue
             if pid in processed:
                 logger.debug4('Skipping already processed project: %s', pid)
                 continue
@@ -223,9 +224,8 @@ class Processor:
                          pid,
                          str(quars))
             if proj['frozen']:
-                if proj['frozen'] != when:
-                    self.gw.thaw_project(pid)
-                    self.gw.freeze_project(pid, when)
+                if proj['frozen'] != when:  # the freeze dates are different
+                    self.gw.freeze_project(pid, when)  # set new freeze date
             else:
                 self.gw.freeze_project(pid, when)
         else:
@@ -282,7 +282,10 @@ class Processor:
                 logger.debug("Skipping non-affiliated account: %s",
                              self.pu.entity_id)
                 continue
-            self.gw.create_user(pid, row['name'], self.pu.posix_uid)
+            self.gw.create_user(pid,
+                                row['name'],
+                                self.pu.posix_uid,
+                                expire_date=self.pu.expire_date)
 
     def process_user(self, gw_user, ac2proj):
         """Process a single user retrieved from the GW.
@@ -310,6 +313,10 @@ class Processor:
             logger.info("User %s not found in Cerebrum" % username)
             self.gw.delete_user(pid, username)
             return
+
+        if gw_user['expires'] != self.pu.expire_date:
+            self.gw.expire_user(pid, username, self.pu.expire_date)
+
         # Skip accounts not affiliated with a project.
         if self.pu.entity_id not in ac2proj:
             logger.info("User %s not affiliated with any project" % username)
@@ -338,9 +345,8 @@ class Processor:
             logger.debug2("User %s has quarantines: %s" % (username,
                                                            str(quars)))
             if gw_user['frozen']:
-                if gw_user['frozen'] != when:
-                    self.gw.thaw_user(pid, username)
-                    self.gw.freeze_user(pid, username, when)
+                if gw_user['frozen'] != when:  # the freeze dates are different
+                    self.gw.freeze_user(pid, username, when)  # set new freeze
             else:
                 self.gw.freeze_user(pid, username, when)
         else:

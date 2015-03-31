@@ -55,6 +55,53 @@ class AccountTSDMixin(Account.Account):
 
     # TODO: create and deactive - do they need to be subclassed?
 
+    @property
+    def has_autofreeze_quarantine(self):
+        """
+        has_autofreeze_quarantine-property - getter
+
+        :rtype: bool
+        :return: Return True if the account has autofreeze quarantine(s),
+            otherwise - False
+        """
+        return bool(
+            self.get_entity_quarantine(
+                qtype=self.const.quarantine_auto_frozen))
+
+    @property
+    def autofreeze_quarantine_start(self):
+        """
+        autofreeze_quarantine_start-property - getter
+
+        :rtype: mx.DateTime or None
+        :return: Return the start_date of the autofreeze quarantine
+            (Note: None will be returned in a case of no autofreeze-quarantines
+            for the Account. Hence mx.DateTime return value is a proof that
+            the Account has at least one autofreeze-quarantine, while return
+            value None is not a proof of the opposite
+        """
+        auto_frozen_quarantines = self.get_entity_quarantine(
+            qtype=self.const.quarantine_auto_frozen)
+        if auto_frozen_quarantines:
+            return auto_frozen_quarantines[0]['start_date']
+        return None
+
+    def remove_autofreeze_quarantine(self):
+        """A wrapper method that removes autofreeze quarantine
+        from the account. It is equivalent to:
+        self.delete_entity_quarantine(const.quarantine_auto_frozen)
+        """
+        self.delete_entity_quarantine(self.const.quarantine_auto_frozen)
+
+    def add_autofreeze_quarantine(self, *args, **kwargs):
+        """A wrapper method that adds autofreeze quarantine
+        to the account. It is equivalent to:
+        self.add_entity_quarantine(const.quarantine_auto_frozen, *args, **kw)
+        """
+        self.add_entity_quarantine(self.const.quarantine_auto_frozen,
+                                   *args,
+                                   **kwargs)
+
     def set_account_type(self, ou_id, affiliation, priority=None):
         """Subclass setting of the account_type.
 

@@ -572,4 +572,3 @@ def runfile(fname, db, debug, phase):
 
 if __name__ == '__main__':
     main()
-
