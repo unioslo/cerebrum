@@ -83,6 +83,10 @@ command_help['project'] = {
         "Reset a project's full name",
     'project_set_shortname':
         "Reset a project's short name",
+    'project_setup':
+        "Rerun an existing project's setup procedure to use new settings.",
+    'project_set_vm_type':
+        "Change the project's vm_type, and re-run setup of project.",
     'project_terminate':
         'Terminate a project by removing all data',
     'project_unapproved':

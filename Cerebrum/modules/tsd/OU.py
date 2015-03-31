@@ -332,6 +332,17 @@ class OUTSDMixin(OU, EntityTrait):
         """
         if not self.is_approved():
             raise Errors.CerebrumError("Project is not approved, cannot setup")
+
+        if vlan is None or vlan == "":
+            try:
+                project_subnet = self.get_project_subnets().next()
+                sub = dns.Subnet.Subnet(self._db)
+                sub.find(project_subnet['entity_id'])
+                vlan = sub.vlan_number
+            except:
+                raise Errors.CerebrumError("Could not determine VLAN-number"
+                                           "for project.")
+
         self._setup_project_dns(creator_id, vlan)
         self._setup_project_hosts(creator_id)
         self._setup_project_groups(creator_id)

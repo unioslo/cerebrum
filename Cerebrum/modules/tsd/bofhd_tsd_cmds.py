@@ -724,6 +724,38 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
         return "New project created: %s" % pid
 
+    all_commands['project_setup'] = cmd.Command(
+        ('project', 'setup'), ProjectID(), VLANParam(optional=True),
+        perm_filter='is_superuser')
+
+    @superuser
+    def project_setup(self, operator, project_id):
+        """
+        Run the setup procedure for a project, updating configuration to
+        current settings.
+
+        :param operator: An BofhdSession-instance of the current user session.
+        :type  operator: BofhdSession
+        :param project_id: Project ID for the given project.
+        :type  project_id: str
+
+        :returns: A statement that the operation was successful.
+        :rtype: str
+
+        """
+
+        op_id = operator.get_entity_id()
+        ou = self.OU_class(self.db)
+
+        try:
+            ou.find_by_tsd_projectid(project_id)
+        except Errors.CerebrumError:
+            raise CerebrumError("Could not find project '%s'" % project_id)
+
+        ou.setup_project(op_id)
+
+        return 'OK, project reconfigured according to current settings.'
+
     all_commands['project_terminate'] = cmd.Command(
         ('project', 'terminate'), ProjectID(),
         perm_filter='is_superuser')
@@ -1121,6 +1153,41 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ent.write_db()
         return "Entity affiliated with project: %s" % ou.get_project_id()
 
+
+    all_commands['project_set_vm_type'] = cmd.Command(
+        ('project', 'set_vm_type'), ProjectID(), VMType(),
+        perm_filter='is_superuser')
+
+    @superuser
+    def project_set_vm_type(self, operator, project_id, vm_type):
+        """
+        Changes the type of VM-host(s) for the given project.
+
+        :param operator: An BofhdSession-instance of the current user session.
+        :type  operator: BofhdSession
+        :param project_id: Project ID for the given project.
+        :type  project_id: str
+        :param vm_type: The new setting for VM-host(s) for the project.
+        :type  vm_type: str
+
+        :returns: A statement that the operation was successful.
+        :rtype: str
+
+        """
+
+        project = self._get_project(project_id)
+        op_id = operator.get_entity_id()
+
+        if vm_type not in cereconf.TSD_VM_TYPES:
+            raise CerebrumError("Invalid VM-type")
+
+        project.populate_trait(code='project_vm_type', strval=vm_type)
+        project.write_db()
+        project.setup_project(op_id)
+
+        return 'OK, vm_type for %s changed to %s.' % (project_id, vm_type)
+
+
     all_commands['project_list_hosts'] = cmd.Command(
         ('project', 'list_hosts'), ProjectID(),
         fs=cmd.FormatSuggestion([(
@@ -1163,6 +1230,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
         # Sort by name
         return sorted(hosts, key=lambda x: x['name']) or 'No hosts found'
+
 
     #
     # Person commands
