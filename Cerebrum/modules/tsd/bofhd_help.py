@@ -22,6 +22,7 @@
 from Cerebrum.modules.bofhd.bofhd_core_help import group_help
 from Cerebrum.modules.bofhd.bofhd_core_help import command_help
 from Cerebrum.modules.bofhd.bofhd_core_help import arg_help
+import cereconf
 
 # Add instance specific help text:
 
@@ -93,7 +94,8 @@ command_help['project'] = {
 arg_help.update({
     'project_id':
         ['projectID', 'Project ID',
-         'The project ID, normally on the form pXX, where XX goes from 01 to 99'],
+         ('The project ID, normally on the form pXX, '
+          'where XX goes from 01 to 32678')],
     'project_name':
         ['projectname', 'Project name',
          'Short, unique name of the project, around 6 digits'],
@@ -143,4 +145,8 @@ arg_help.update({
     'otp_type':
         ['otp_type', 'OTP type',
          'The OTP type, e.g. totp, hotp or smartphone_yes'],
+    'vm_type':
+        ["vm_type", "VM type",
+         "The type of OS for the project's hosts.\nPossible values are:\n" +
+         "".join([" - %s\n" % x for x in cereconf.TSD_VM_TYPES])]
 })

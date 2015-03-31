@@ -550,9 +550,12 @@ class OUTSDMixin(OU, EntityTrait):
         host = dns.HostInfo.HostInfo(self._db)
 
         vm_trait = self.get_trait(self.const.trait_project_vm_type)
-        vm_type = 'win_vm'
+
         if vm_trait:
             vm_type = vm_trait['strval']
+        else:  # Set win as default if trait is not set.
+            vm_type = 'win_vm'
+
 
         if vm_type in ('win_vm', 'win_and_linux_vm'):
             # Create a Windows host for the whole project

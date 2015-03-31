@@ -153,6 +153,11 @@ class VLANParam(cmd.Parameter):
     _type = 'vlan'
     _help_ref = 'vlan'
 
+class VMType(cmd.Parameter):
+    """Bofhd Parameter for specifying projects' VM-type."""
+    _type = 'vmType'
+    _help_ref = 'vm_type'
+
 
 class TSDBofhdExtension(BofhdCommonMethods):
 
@@ -655,12 +660,12 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     all_commands['project_create'] = cmd.Command(
         ('project', 'create'), ProjectName(), ProjectLongName(),
         ProjectShortName(), cmd.Date(help_ref='project_start_date'),
-        cmd.Date(help_ref='project_end_date'), VLANParam(optional=True),
-        perm_filter='is_superuser')
+        cmd.Date(help_ref='project_end_date'), VMType(),
+        VLANParam(optional=True), perm_filter='is_superuser')
 
     @superuser
     def project_create(self, operator, projectname, longname, shortname,
-                       startdate, enddate, vlan=None):
+                       startdate, enddate, vm_type, vlan=None):
         """Create a new TSD project.
 
         :param BofhdSession operator:
@@ -671,6 +676,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         """
         start = self._parse_date(startdate)
         end = self._parse_date(enddate)
+
         if end < DateTime.now():
             raise CerebrumError("End date of project has passed: %s" % str(end).split()[0])
         elif end < start:
@@ -678,7 +684,11 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                 "Project can not end before it has begun: from %s to %s" %
                 (str(start).split()[0], str(end).split()[0]))
 
+        if vm_type not in cereconf.TSD_VM_TYPES:
+            raise CerebrumError("Invalid VM-type.")
+
         ou = self.OU_class(self.db)
+
         try:
             pid = ou.create_project(projectname)
         except Errors.CerebrumError, e:
@@ -702,6 +712,10 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ou.add_entity_quarantine(qtype=self.const.quarantine_project_end,
                                  creator=operator.get_entity_id(), start=end,
                                  description='Initial end set by superuser')
+
+        # Set trait for vm_type
+        ou.populate_trait(self.const.trait_project_vm_type, strval=vm_type)
+
         ou.write_db()
         try:
             ou.setup_project(operator.get_entity_id(), vlan)
