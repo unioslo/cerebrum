@@ -1216,6 +1216,7 @@ class BofhdExtension(BofhdCommandBase):
                                  "old and a new name."))
 
         if IPUtils.is_valid_ipv4(old_id):
+            IPUtils.parse_ipv4(new_id)
             IPUtils.parse_ipv4(old_id)
 
         new_ip_addr = None
@@ -1275,6 +1276,7 @@ class BofhdExtension(BofhdCommandBase):
         skip_ipv6 = False
 
         if IPUtils.is_valid_ipv4(ip_host_id):
+            IPUtils.parse_ipv4(ip_host_id)
             s = Subnet.Subnet(self.db)
         # Fast check for IPv6
         elif IPv6Utils.verify(ip_host_id):
@@ -1304,6 +1306,7 @@ class BofhdExtension(BofhdCommandBase):
         force = self.dns_parser.parse_force(force)
 
         if IPUtils.is_valid_ipv4(ip_host_id):
+            IPUtils.parse_ipv4(ip_host_id)
             ip_type = dns.IP_NUMBER
         elif IPv6Utils.verify(ip_host_id):
             ip_type = dns.IPv6_NUMBER
