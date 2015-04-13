@@ -491,7 +491,21 @@ def main():
     address_file_name = dump_directory + datetime + '-' + 'Adr.csv'
     address_part_file_name = dump_directory + datetime + '-' + 'AdrPart.csv'
 
-    org_units = ou.list_all_with_spread(const.spread_uio_org_ou)
+    org_units_tmp = ou.list_all_with_spread(const.spread_uio_org_ou)
+    org_units = []
+
+    # Filter out org_units that have been put in ou_notvalid quarantine
+    for e in org_units_tmp:
+        ou.clear()
+        ou.find(e['entity_id'])
+        ou_is_active = True
+        for q in ou.get_entity_quarantine():
+            if str(const.Quarantine(q['quarantine_type'])) in 'ou_notvalid':
+                logger.warn('OU %02d%02d%02d skipped, in quarantine'
+                            % (ou.fakultet, ou.institutt, ou.avdeling))
+                ou_is_active = False
+        if ou_is_active:
+            org_units.append(e)
     exported_orgs = []
     for e in org_units:
         exported_orgs.append(int(e['entity_id']))
