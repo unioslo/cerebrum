@@ -920,7 +920,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     def project_freeze(self, operator, projectid):
         """Freeze a project."""
         project = self._get_project(projectid)
-        end = DateTime.now()
+        when = DateTime.now()
 
         # The quarantine needs to be removed before it could be added again
         qtype = self.const.quarantine_frozen
@@ -930,7 +930,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         project.add_entity_quarantine(qtype=qtype,
                                       creator=operator.get_entity_id(),
                                       description='Project freeze',
-                                      start=end)
+                                      start=when)
         project.write_db()
         success_msg = 'Project %s is now frozen' % projectid
         try:
@@ -938,6 +938,52 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         except Gateway.GatewayException, e:
             self.logger.warn("From GW: %s", e)
             success_msg += " (bad result from GW)"
+        # Freeze all affiliated acconts:
+        # (This functionality was first developed for update_user_freeze.py)
+        account = Factory.get('Account')(self.db)
+        account_rows = account.list_accounts_by_type(
+            ou_id=project.entity_id,
+            affiliation=self.const.affiliation_project,
+            filter_expired=True,
+            account_spread=self.const.spread_gateway_account)
+        for account_row in account_rows:
+            account.clear()
+            account.find(account_row['account_id'])
+            if account.has_autofreeze_quarantine:
+                if when != account.autofreeze_quarantine_start:
+                    # autofreeze quarantine exists for this account
+                    # but its start_date is not the same as the one for the
+                    # project's freeze quarantine.
+                    # Remove the existing quarantine before adding a new one
+                    account.remove_autofreeze_quarantine()
+                else:
+                    # autofreeze quarantine exists for this account
+                    # and its start_date is the same as the one for the
+                    # project's freeze quarantine. No need to do anything
+                    continue
+                # add new quarantine using the peoject's freeze-start_date
+            account.add_autofreeze_quarantine(
+                creator=operator.get_entity_id(),
+                description='Auto set due to project-freeze',
+                start=when)
+            try:
+                # N.B. If project_freeze ever supports freeze start-date in the
+                # future, the following check prevents bofhd from updating
+                # the gateway with project.freeze start-date in the future when
+                # there is an active quarantine on this account
+                quars = account.get_entity_quarantine(
+                    filter_disable_until=True)
+                if quars:
+                    quars.sort(key=lambda v: v['start_date'])
+                if not quars or when < quars[0]['start_date']:
+                    # no quarantines or freeze.date < lowest startdate
+                    self.gateway.freeze_user(projectid,
+                                             account.account_name,
+                                             when)
+                # else: update_user_freeze.py will make the right decisions
+            except Gateway.GatewayException, e:
+                self.logger.warn("From GW: %s", e)
+                success_msg += " (bad freeze_user result from GW)"
         return success_msg
 
     all_commands['project_unfreeze'] = cmd.Command(
@@ -954,9 +1000,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         for row in project.get_entity_quarantine(qtype):
             project.delete_entity_quarantine(qtype)
             project.write_db()
-
         success_msg = 'Project %s is now unfrozen' % projectid
-
         # Only unthaw projects without quarantines
         if not project.get_entity_quarantine(only_active=True):
             try:
@@ -966,6 +1010,23 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                 success_msg += ' (bad result from GW)'
         else:
             success_msg += ' (project still with other quarantines)'
+        # Unfreeze all affiliated acconts:
+        # (This functionality was first developed for update_user_freeze.py)
+        account = Factory.get('Account')(self.db)
+        account_rows = account.list_accounts_by_type(
+            ou_id=project.entity_id,
+            affiliation=self.const.affiliation_project,
+            filter_expired=True,
+            account_spread=self.const.spread_gateway_account)
+        for account_row in account_rows:
+            account.clear()
+            account.find(account_row['account_id'])
+            if account.has_autofreeze_quarantine:
+                account.remove_autofreeze_quarantine()
+                # Do not send thaw_user to the gateway, since the account
+                # may have other active quarantines
+                # unfreeze is rarely extremely urgent, so we
+                # let the scheduled job gateway_update.py deal with that
         return success_msg
 
     all_commands['project_list'] = cmd.Command(
