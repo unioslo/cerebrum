@@ -63,7 +63,7 @@ class UiAUserSync(UserSync):
                          'proxyaddresses', 'targetaddress', 'homemta',
                          'legacyexchangedn', 'mail', 'msexchmailboxguid',
                          'msexchpoliciesexcluded', 'msexchpoliciesincluded',
-                         'msexchuserculture',
+                         'msexchuserculture', 'msexchhidefromaddresslists'
                          )
         # Force not updating certain Exchange attributes when user has spread
         # for Exchange 2013 (which are updated through event_daemon):
@@ -79,39 +79,3 @@ class UiAUserSync(UserSync):
                                atr, ent)
             return (False, None, None)
         return super(UiAUserSync, self).attribute_mismatch(ent, atr, c, a)
-
-class UiACerebrumUser(CerebrumUser):
-    """UiA specific behaviour and attributes for a user object."""
-
-    def calculate_ad_values(self):
-        """Adding UiA specific attributes."""
-        super(UiACerebrumUser, self).calculate_ad_values()
-
-        # Hide all accounts that are not primary accounts:
-        self.set_attribute('MsExchHideFromAddressLists',
-                           not self.is_primary_account)
-
-
-class UiACerebrumDistGroup(CerebrumGroup):
-    """
-    This class represent a virtual Cerebrum distribution group that
-    contain contact objecs per user at UiA.
-    """
-    def __init__(self, logger, config, entity_id, entity_name,
-                 description = None):
-        """
-        CerebrumDistGroup constructor
-
-        """
-        super(UiACerebrumDistGroup, self).__init__(logger, config, entity_id,
-                                                   entity_name, description)
-
-    def calculate_ad_values(self):
-        """
-        Calculate AD attrs from Cerebrum data.
-
-        """
-        super(UiACerebrumDistGroup, self).calculate_ad_values()
-        self.set_attribute('Member', ["CN=" + y.ad_id + "," + y.ou
-                                      for y in self.forwards_data['members']])
-
