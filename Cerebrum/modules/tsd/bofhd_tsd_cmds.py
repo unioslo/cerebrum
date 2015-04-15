@@ -1882,13 +1882,24 @@ class EnduserBofhdExtension(TSDBofhdExtension):
     copy_commands = (
         # Helpers
         '_fetch_member_names', '_entity_info',
+        '_group_add', '_group_add_entity',
+        '_group_remove', '_group_remove_entity',
         # Group
-        'group_info', 'group_list',
-        'group_multi_add', 'group_multi_remove',
+        'group_info', 'group_list', 'group_memberships',
+        'group_set_description',
+        'group_multi_add',  # hidden
+        'group_multi_remove',  # hidden
+        # Person
+        'person_list_user_priorities',
+        # Spread
+        'spread_list',
         # Access
-        'access_list_alterable',
+        'access_list_alterable',  # hidden
         # User
         #'user_password' is inherited from TSDBofhdExtension
+        # Misc
+        'misc_affiliations',
+        'get_constant_description',  # hidden
     )
 
     def __new__(cls, *arg, **karg):
