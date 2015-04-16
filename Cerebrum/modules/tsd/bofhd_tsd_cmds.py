@@ -1896,9 +1896,10 @@ class EnduserBofhdExtension(TSDBofhdExtension):
         # Access
         'access_list_alterable',  # hidden
         # User
+        'user_info',
         #'user_password' is inherited from TSDBofhdExtension
         # Misc
-        'misc_affiliations',
+        'misc_affiliations', 'misc_check_password', 'misc_verify_password',
         'get_constant_description',  # hidden
     )
 
