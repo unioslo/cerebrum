@@ -711,19 +711,26 @@ def disable_users(client, selection_spread):
             ac.clear()
             ac.find_by_name(account_name)
         except Errors.NotFoundError:
-            logger.info(u'No such account:%s, user should be disabled',
-                        account_name)
-            return True
+            # logger.info(u'No such account:%s, user should be disabled',
+            #             account_name)
+            # return True
+            logger.info(u'No such account:%s, ignoring user', account_name)
+            return False
 
         try:
             pe.clear()
             pe.find(ac.owner_id)
         except Errors.NotFoundError:
-            logger.warn(
+            # logger.warn(
+            #     u'No such person_id:%s when '
+            #     u'looking for owner of account:%s, user should be disabled',
+            #     ac.owner_id, account_name)
+            # return True
+            logger.info(
                 u'No such person_id:%s when '
-                u'looking for owner of account:%s, user should be disabled',
+                u'looking for owner of account:%s, ignoring user',
                 ac.owner_id, account_name)
-            return True
+            return False
 
         primary_account_id = pe.get_primary_account()
 
