@@ -1,3 +1,7 @@
+2015-04-17    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* Stedkode.py (StedkodeMixin.find_by_perspective): removed comments
+
 2015-02-18  Karen   <cerebrum@cleomedes.uit.no>
 
     * PosixLDIF.py (PosixLDIF_UiTMixin): Removed the printer quota things. Fixed indentation.
