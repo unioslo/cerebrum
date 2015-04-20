@@ -401,8 +401,7 @@ class VoipClient(EntityAuthentication, EntityTrait):
                                                        account_id=aid2owner.keys()):
             if row['account_id'] in aid2quarantine:
                 uname2quarantine[row['entity_name']] = aid2quarantine[row["account_id"]]
-            else:
-                uname2ha1[row['entity_name']] = row['auth_data']
+            uname2ha1[row['entity_name']] = row['auth_data']
 
         for row in self.search():
             entry = {"sipClientType": const2str[row["client_type"]],
@@ -425,8 +424,7 @@ class VoipClient(EntityAuthentication, EntityTrait):
                     if uid in uname2quarantine:
                         e["sipQuarantine"] = uname2quarantine[uid]
                         e["sipEnabled"] = "quarantined"
-                    else:
-                        e["ha1MD5password"] = uname2ha1.get(uid) or "missing"
+                    e["ha1MD5password"] = uname2ha1.get(uid) or "missing"
                     # XXX: will be altered in next revision when voip_softphone/softphone
                     # becomes voip_hardhone/softphone.
                     e["sipClientInfo"] = "sbc2phone"
