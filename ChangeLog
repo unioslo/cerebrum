@@ -1,3 +1,7 @@
+2015-04-20    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* process_flyt.py: updated all references to sko to no longer use Factory 
+
 2015-02-26  Karen   <cerebrum@cleomedes.uit.no>
 
     * generate_temp_employee_xml.py: Replaced "Factory.get('Stedkode')(db)" with "Stedkode(db)".
