@@ -1,3 +1,7 @@
+2015-04-20    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* Constants.py (Constants): Added affiliations for HiN flyt persons
+
 2015-04-17    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* Stedkode.py (StedkodeMixin.find_by_perspective): removed comments

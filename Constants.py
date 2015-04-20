@@ -110,7 +110,9 @@ class Constants(Constants.Constants):
         'ANSATT',
         'Ansatt ved UiT (i følge LT)') 
     affiliation_flyt_ansatt_hih = _PersonAffiliationCode('ANSATT_HIH','Ansatt ved HiH')
-    affiliation_flyt_student_hih = _PersonAffiliationCode('STUDENT_HIH','Student ved HiH') 
+    affiliation_flyt_student_hih = _PersonAffiliationCode('STUDENT_HIH','Student ved HiH')
+    affiliation_status_flyt_hin_ansatt_faculty = _PersonAffStatusCode(affiliation_ansatt,'Ansatt HiN','Vitenskapelig')
+    affiliation_status_flyt_hin_ansatt_tekadm = _PersonAffStatusCode(affiliation_ansatt,'ansatt HiN','Teknisk/administrativt')
 
     #
     # Affiliation status
@@ -151,6 +153,8 @@ class Constants(Constants.Constants):
         affiliation_student,
         'student HIFm',
         'Student fra Høyskolen i Alta')
+    affiliation_status_flyt_hin_student_aktiv = _PersonAffStatusCode(
+        affiliation_student,'student HiN','Aktiv student')
     affiliation_status_student_soker = _PersonAffStatusCode(
         affiliation_student, 'soker', 'Registrert med søknad i FS')
 
