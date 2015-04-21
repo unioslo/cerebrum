@@ -179,7 +179,8 @@ class AccountType(object):
                               status=None, filter_expired=True,
                               account_id=None, person_id=None,
                               primary_only=False, person_spread=None,
-                              account_spread=None, fetchall=True):
+                              account_spread=None, fetchall=True,
+                              exclude_account_id=None):
         """Return information about the matching accounts.
 
         TODO: Add rest of the parameters.
@@ -192,6 +193,10 @@ class AccountType(object):
         @type primary_only: bool
         @param primary_only:
             If only the primary account for each person should be returned.
+
+        @param exclude_account_id: Filter out account(s) with given account_id.
+        @type exclude_account_id: Integer, list, tuple, set
+
 
         @rtype: db-rows
         @return: Each row is an account type, containing the person_id, ou_id,
@@ -238,6 +243,8 @@ class AccountType(object):
             join += " JOIN [:table schema=cerebrum name=entity_spread] es" \
                     " ON es.entity_id = at.account_id" \
                     " AND es.spread " + account_spread
+        if exclude_account_id is not None and len(exclude_account_id):
+            extra += " AND NOT " + argument_to_sql(exclude_account_id, "ai.account_id", binds, int)
 
         rows = self.query("""
         SELECT DISTINCT at.person_id, at.ou_id, at.affiliation, at.account_id,
@@ -1439,7 +1446,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         return xlated
 
     def search(self, spread=None, name=None, owner_id=None, owner_type=None,
-               expire_start='[:now]', expire_stop=None):
+               expire_start='[:now]', expire_stop=None, exclude_account_id=None):
         """Retrieves a list of Accounts filtered by the given criterias.
         If no criteria is given, all non-expired accounts are returned.
 
@@ -1471,6 +1478,9 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         expire_date<expire_stop.
         @type expire_stop: Date. Either a string on format 'YYYY-mm-dd' or a
         mx.DateTime object
+
+        @param exclude_account_id: Filter out account(s) with given account_id.
+        @type exclude_account_id: Integer, list, tuple, set
 
         @return a list of tuples with the info (account_id,name,owner_id,
         owner_type,expire_date).
@@ -1524,6 +1534,9 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         elif expire_start is None and expire_stop:
             where.append("ai.expire_date<:expire_stop")
             binds['expire_stop'] = expire_stop
+
+        if exclude_account_id is not None and len(exclude_account_id):
+             where.append("NOT " + argument_to_sql(exclude_account_id, "ai.account_id", binds, int))
 
         where_str = ""
         if where:
