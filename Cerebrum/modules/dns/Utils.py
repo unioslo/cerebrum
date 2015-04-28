@@ -70,7 +70,7 @@ class DnsParser(object):
                 raise CerebrumError(("'%s' does not look like a valid subnet "
                                      "or ip-address.") % ip_id)
 
-        elif IPv6Utils.verify(ip_id):  # full ipv6
+        elif IPv6Utils.is_valid_ipv6(ip_id):  # full ipv6
             full_ip = True
             ip = ip_id
 

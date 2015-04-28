@@ -107,6 +107,8 @@ class IPUtils(object):
 
         Examples: 10.0.10.1 - valid
                   10.0.10.01 - invalid
+                  10.0.10 - valid
+                  10.0.010 - invalid
 
         :param ip: An incomplete or complete IPv4.
         :type  ip: str
@@ -114,10 +116,13 @@ class IPUtils(object):
         """
         parts = ip.split('.')
         # Check for leading zeroes.
+        if not IPUtils.is_valid_ipv4(ip):
+            raise CerebrumError("Invalid IPv4 address: %s" % ip)
         for part in parts:
             if part.startswith('0') and not len(part) == 1:
-                raise CerebrumError("IP-addresses may not contain leading "
-                                    "zeroes.\n"
+                raise CerebrumError("Invalid IPv4-address: %s\n"
+                                    "IPv4-address or subnet-fields may not "
+                                    "contain leading zeroes.\n"
                                     "Valid example: 10.0.0.1\n"
-                                    "Invalid example: 10.0.0.01")
+                                    "Invalid example: 10.0.0.01" % ip)
     parse_ipv4 = staticmethod(parse_ipv4)

@@ -77,7 +77,7 @@ class IPv6Subnet(Entity):
         except ValueError:
             raise SubnetError("Not a valid subnet '%s'" % subnet)
 
-        if not IPv6Utils.verify(ip):
+        if not IPv6Utils.is_valid_ipv6(ip):
             raise SubnetError("Invalid adress: %s" % ip)
 
         mask = int(mask)

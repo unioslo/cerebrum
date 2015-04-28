@@ -19,17 +19,17 @@ class IPUtilsTest(unittest.TestCase):
 
         # Valid IPv6-entries that should pass
 
-        self.assertTrue(IPv6Utils.verify('4534:2342:4543::202'))
-        self.assertTrue(IPv6Utils.verify('4534:2342:4543::'))
-        self.assertTrue(IPv6Utils.verify('2342:3252:2352:2352:2352:2535:6436:1'))
-        self.assertTrue(IPv6Utils.verify('2342::154'))
+        self.assertTrue(IPv6Utils.is_valid_ipv6('4534:2342:4543::202'))
+        self.assertTrue(IPv6Utils.is_valid_ipv6('4534:2342:4543::'))
+        self.assertTrue(IPv6Utils.is_valid_ipv6('2342:3252:2352:2352:2352:2535:6436:1'))
+        self.assertTrue(IPv6Utils.is_valid_ipv6('2342::154'))
 
         # Invalid IPv6-entries that should not pass
 
         # Only 0-FFFF should be accepted values
-        self.assertFalse(IPv6Utils.verify('4534:2342:4546::/64'))
-        self.assertFalse(IPv6Utils.verify('ffxe::1'))
+        self.assertFalse(IPv6Utils.is_valid_ipv6('4534:2342:4546::/64'))
+        self.assertFalse(IPv6Utils.is_valid_ipv6('ffxe::1'))
 
         # Max 8 segments
-        self.assertFalse(IPv6Utils.verify('2342:3252:2352:2352:2352:2535:6436:1:1'))
+        self.assertFalse(IPv6Utils.is_valid_ipv6('2342:3252:2352:2352:2352:2535:6436:1:1'))
 

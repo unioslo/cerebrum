@@ -510,14 +510,14 @@ class BofhdExtension(BofhdCommandBase):
             if not force:
                 # Allow IPv6-addresses if DNS_HOST_A_ADD... is set as True
                 if not cereconf.DNS_HOST_A_ADD_ACCEPT_MISSING_IPV6_SUBNET and \
-                        IPv6Utils.verify(ip):
+                        IPv6Utils.is_valid_ipv6(ip):
                     raise CerebrumError("Unknown subnet. Must force.")
 
         if IPUtils.is_valid_ipv4(subnet) or IPUtils.is_valid_ipv4(ip):
             s = Subnet.Subnet(self.db)
             a_alloc = self.mb_utils.alloc_arecord
 
-        elif IPv6Utils.verify(subnet) or IPv6Utils.verify(ip):
+        elif IPv6Utils.is_valid_ipv6(subnet) or IPv6Utils.is_valid_ipv6(ip):
             s = IPv6Subnet.IPv6Subnet(self.db)
             a_alloc = lambda *x: IPv6Utils.compress(
                 self.mb_utils.alloc_aaaa_record(*x))
@@ -600,7 +600,7 @@ class BofhdExtension(BofhdCommandBase):
             s = Subnet.Subnet(self.db)
             a_alloc = self.mb_utils.alloc_arecord
 
-        elif IPv6Utils.verify(subnet) or IPv6Utils.verify(ip):
+        elif IPv6Utils.is_valid_ipv6(subnet) or IPv6Utils.is_valid_ipv6(ip):
             s = IPv6Subnet.IPv6Subnet(self.db)
             a_alloc = lambda *x: IPv6Utils.compress(
                 self.mb_utils.alloc_aaaa_record(*x))
@@ -760,7 +760,7 @@ class BofhdExtension(BofhdCommandBase):
             arecord = ARecord.ARecord(self.db)
             ip_type = dns.IP_NUMBER
 
-        elif IPv6Utils.verify(host_id):
+        elif IPv6Utils.is_valid_ipv6(host_id):
             arecord = AAAARecord.AAAARecord(self.db)
             ip_type = dns.IPv6_NUMBER
 
@@ -1193,7 +1193,7 @@ class BofhdExtension(BofhdCommandBase):
         given a subnet as new_id, the host will be assigned a free IP found in
         it.
 
-        :param operator: The logged in user calling the method.
+        :param operator: The current Bofhd-Session.
         :type  operator: An account object
         :param old_id: An existing host's hostname, or IPv4/IPv6-address.
         :type  old_id: str
@@ -1212,45 +1212,50 @@ class BofhdExtension(BofhdCommandBase):
         force = self.dns_parser.parse_force(force)
 
         if old_id == "" or new_id == "":
-            raise CerebrumError(("Cannot rename without both an "
-                                 "old and a new name."))
+            raise CerebrumError("Cannot rename without both an "
+                                "old and a new name.")
 
+        # Verify that old_id and new_id is valid and of same type
         if IPUtils.is_valid_ipv4(old_id):
-            IPUtils.parse_ipv4(new_id)
             IPUtils.parse_ipv4(old_id)
+            new_ip_error = None
+            try:
+                IPUtils.parse_ipv4(new_id)
+            except CerebrumError, error:
+                new_ip_error = error
+            if new_ip_error is not None:
+                raise CerebrumError("New host-id must be of same type as old "
+                                    "host-id (IPv4 address or subnet).\n"
+                                    "Error: %s" % new_ip_error)
 
-        new_ip_addr = None
+        elif IPv6Utils.is_valid_ipv6(old_id):
+            if not IPv6Utils.is_valid_ipv6(new_id):
+                raise CerebrumError("New host-id must be of same type as old "
+                                    "host-id (IPv6).")
 
-        try:
+        else:  # hostname
+            if IPUtils.is_valid_ipv4(new_id) or \
+               IPv6Utils.is_valid_ipv6(new_id):
+                raise CerebrumError("New host-id must be of same type as old "
+                                    "host-id (hostname).\n"
+                                    "This is due to the fact that a host may"
+                                    "have multiple A/AAAA-records.")
+
+        # Verify IP in new_id is valid or that subnet in new_id has free IPs.
+        if IPUtils.is_valid_ipv4(new_id) or \
+           IPv6Utils.is_valid_ipv6(new_id):
+
             new_ip_addr = self.mb_utils.get_relevant_ips(subnet_or_ip=new_id,
-                                                         no_of_addrs=1,
-                                                         force=force)[0]
-        except:
-            pass
-
-        if new_ip_addr is not None:
-
+                                                             no_of_addrs=1,
+                                                             force=force)[0]
             if IPUtils.is_valid_ipv4(old_id):
+                ip_type = dns.IP_NUMBER
+            else:
+                ip_type = dns.IPv6_NUMBER
 
-                if IPUtils.is_valid_ipv4(new_ip_addr):
+            self.mb_utils.ip_rename(ip_type, old_id, new_ip_addr)
+            return "OK, ip-number %s renamed to %s" % (old_id, new_ip_addr)
 
-                    self.mb_utils.ip_rename(dns.IP_NUMBER, old_id, new_ip_addr)
-                    return "OK, ip-number %s renamed to %s" % (old_id,
-                                                               new_ip_addr)
-                else:
-                    raise CerebrumError("New IP must be of same type "
-                                        "as old IP (IPv4).")
-            elif IPv6Utils.verify(old_id):
-
-                if IPv6Utils.verify(new_ip_addr):
-
-                    self.mb_utils.ip_rename(dns.IPv6_NUMBER,
-                                            old_id, new_ip_addr)
-                    return "OK, ip-number %s renamed to %s" % (old_id,
-                                                               new_ip_addr)
-                else:
-                    raise CerebrumError("New IP must be of same type "
-                                        "as old IP (IPv6).")
         else:  # hostname
             new_id = self.dns_parser.qualify_hostname(new_id)
             self.mb_utils.ip_rename(dns.DNS_OWNER, old_id, new_id)
@@ -1279,7 +1284,7 @@ class BofhdExtension(BofhdCommandBase):
             IPUtils.parse_ipv4(ip_host_id)
             s = Subnet.Subnet(self.db)
         # Fast check for IPv6
-        elif IPv6Utils.verify(ip_host_id):
+        elif IPv6Utils.is_valid_ipv6(ip_host_id):
             skip_ipv6 = cereconf.DNS_HOST_A_ADD_ACCEPT_MISSING_IPV6_SUBNET
             s = IPv6Subnet.IPv6Subnet(self.db)
         else:
@@ -1308,7 +1313,7 @@ class BofhdExtension(BofhdCommandBase):
         if IPUtils.is_valid_ipv4(ip_host_id):
             IPUtils.parse_ipv4(ip_host_id)
             ip_type = dns.IP_NUMBER
-        elif IPv6Utils.verify(ip_host_id):
+        elif IPv6Utils.is_valid_ipv6(ip_host_id):
             ip_type = dns.IPv6_NUMBER
         else:
             raise CerebrumError('IP is invalid.')

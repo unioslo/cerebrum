@@ -209,7 +209,7 @@ class DnsBofhdUtils(object):
             if IPUtils.is_valid_ipv4(first):
                 first = IPCalc.ip_to_long(first)
 
-            elif IPv6Utils.verify(first):
+            elif IPv6Utils.is_valid_ipv6(first):
                 first = IPCalc.ip_to_long(first)
 
             free_ip_numbers = self._find.find_free_ip(subnet, first=first,
