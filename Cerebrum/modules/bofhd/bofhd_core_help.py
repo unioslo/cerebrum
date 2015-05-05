@@ -390,6 +390,7 @@ command_help = {
         'user_affiliation_add': 'Add affiliation for an account',
         'user_affiliation_remove': 'Remove an affiliation for an account',
         'user_create': 'Create a POSIX user account',
+        'user_create_sysadm': 'Create a sysadm account, e.g. "foo-drift"',
         'user_delete': 'Delete an account',
         'user_demote_posix':
         'Make a POSIX user account into a generic Cerebrum account',
