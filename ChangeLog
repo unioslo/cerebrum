@@ -1,3 +1,7 @@
+2015-02-18  Karen   <cerebrum@cleomedes.uit.no>
+
+    * ldapmodify.py: Added to repo. Copied from Leetah.
+
 2015-04-20    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* process_flyt.py: updated all references to sko to no longer use Factory 
