@@ -9378,6 +9378,7 @@ Addresses and settings:
 
     all_commands['user_create_sysadm'] = Command(
         ("user", "create_sysadm"), AccountName(), OU(optional=True),
+        fs=FormatSuggestion('OK, created %s', ('accountname',)),
         perm_filter='is_superuser')
     def user_create_sysadm(self, operator, accountname, stedkode=None):
         """ Create a sysadm account with the given accountname.
@@ -9386,29 +9387,28 @@ Addresses and settings:
             - Will add the person's primary affiliation, which must be
               of type ANSATT/tekadm.
 
-        @type accountname: str
-        @param accountname:
-          Account to be created. Must include a hyphen and end with one of
-          SYSADM_TYPES.
+        :param accountname: Account to be created. Must include a hyphen and
+            end with one of SYSADM_TYPES.
+        :type accountname: str.
+        :param stedkode:  Optional stedkode to place the sysadm account. Only
+            used if a person have multipile valid affiliations.
+        :type stedkode: str
 
-        @type stedkode: str
-        @param stedkode:
-          Optional stedkode to place the sysadm account. Only used if a person
-          has multpile valid affiliations.
         """
         SYSADM_TYPES = ('adm','drift','null',)
         VALID_STATUS = (self.const.affiliation_status_ansatt_tekadm,)
         DOMAIN = '@ulrik.uio.no'
 
         if not self.ba.is_superuser(operator.get_entity_id()):
-            raise CerebrumError('Only superuser can create sysadm accounts')
+            raise PermissionDenied('Only superuser can create sysadm accounts')
         res = re.search('^([a-z]+)-([a-z]+)$', accountname)
         if res is None:
             raise CerebrumError('Username must be on the form "foo-adm"')
         user, suffix = res.groups()
         if suffix not in SYSADM_TYPES:
-            raise CerebrumError('Username "%s" does not have one of these suffixes: %s' % \
-              (accountname, ', '.join(SYSADM_TYPES)))
+            raise CerebrumError(
+                'Username "%s" does not have one of these suffixes: %s' %
+                (accountname, ', '.join(SYSADM_TYPES)))
         # Funky... better solutions?
         try:
             self._get_account(accountname)
@@ -9443,7 +9443,7 @@ Addresses and settings:
         account.add_spread(self.const.spread_uio_ad_account)
         self.entity_contactinfo_add(operator, accountname, 'EMAIL', user+DOMAIN)
         self.email_create_forward_target(operator, accountname+DOMAIN, user+DOMAIN)
-        return 'OK, created %s'  % accountname
+        return {'accountname': accountname}
 
 
     def _check_for_pipe_run_as(self, account_id):
