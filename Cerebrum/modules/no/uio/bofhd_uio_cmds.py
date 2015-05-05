@@ -9387,12 +9387,13 @@ Addresses and settings:
             - Will add the person's primary affiliation, which must be
               of type ANSATT/tekadm.
 
-        :param accountname: Account to be created. Must include a hyphen and
-            end with one of SYSADM_TYPES.
-        :type accountname: str.
-        :param stedkode:  Optional stedkode to place the sysadm account. Only
-            used if a person have multipile valid affiliations.
-        :type stedkode: str
+        :param str accountname:
+            Account to be created. Must include a hyphen and end with one of
+            SYSADM_TYPES.
+
+        :param str stedkode:
+            Optional stedkode to place the sysadm account. Only used if a
+            person have multipile valid affiliations.
 
         """
         SYSADM_TYPES = ('adm','drift','null',)
