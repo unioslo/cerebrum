@@ -9376,6 +9376,77 @@ Addresses and settings:
                                                     'password': passwd})
         return {'uid': uid}
 
+    all_commands['user_create_sysadm'] = Command(
+        ("user", "create_sysadm"), AccountName(), OU(optional=True),
+        fs=FormatSuggestion('OK, created %s', ('accountname',)),
+        perm_filter='is_superuser')
+    def user_create_sysadm(self, operator, accountname, stedkode=None):
+        """ Create a sysadm account with the given accountname.
+
+        TBD, requirements?
+            - Will add the person's primary affiliation, which must be
+              of type ANSATT/tekadm.
+
+        :param str accountname:
+            Account to be created. Must include a hyphen and end with one of
+            SYSADM_TYPES.
+
+        :param str stedkode:
+            Optional stedkode to place the sysadm account. Only used if a
+            person have multipile valid affiliations.
+
+        """
+        SYSADM_TYPES = ('adm','drift','null',)
+        VALID_STATUS = (self.const.affiliation_status_ansatt_tekadm,)
+        DOMAIN = '@ulrik.uio.no'
+
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied('Only superuser can create sysadm accounts')
+        res = re.search('^([a-z]+)-([a-z]+)$', accountname)
+        if res is None:
+            raise CerebrumError('Username must be on the form "foo-adm"')
+        user, suffix = res.groups()
+        if suffix not in SYSADM_TYPES:
+            raise CerebrumError(
+                'Username "%s" does not have one of these suffixes: %s' %
+                (accountname, ', '.join(SYSADM_TYPES)))
+        # Funky... better solutions?
+        try:
+            self._get_account(accountname)
+        except CerebrumError:
+            pass
+        else:
+            raise CerebrumError('Username already in use')
+        account_owner = self._get_account(user)
+        if account_owner.owner_type != self.const.entity_person:
+            raise CerebrumError('Can only create personal sysadm accounts')
+        person = self._get_person('account_name', user)
+        if stedkode is not None:
+            ou = self._get_ou(stedkode=stedkode)
+            ou_id = ou.entity_id
+        else:
+            ou_id = None
+        valid_aff = person.list_affiliations(person_id=person.entity_id,
+                                               source_system=self.const.system_sap,
+                                               status=VALID_STATUS,
+                                               ou_id=ou_id)
+        status_blob = ', '.join(map(str,VALID_STATUS))
+        if valid_aff == []:
+            raise CerebrumError('Person has no % affiliation' % status_blob)
+        elif len(valid_aff) > 1:
+            raise CerebrumError('More than than one %s affiliation, '
+                                'add stedkode as argument' % status_blob)
+        affiliation = {'aff': valid_aff[0]['affiliation'], 'ou_id': valid_aff[0]['ou_id']}
+        self.user_reserve(operator, 'person', person.entity_id, affiliation, accountname)
+        self.trait_set(operator, accountname, 'sysadm_account', 'strval=on')
+        self.user_promote_posix(operator, accountname, shell='bash', home=':/')
+        account = self._get_account(accountname)
+        account.add_spread(self.const.spread_uio_ad_account)
+        self.entity_contactinfo_add(operator, accountname, 'EMAIL', user+DOMAIN)
+        self.email_create_forward_target(operator, accountname+DOMAIN, user+DOMAIN)
+        return {'accountname': accountname}
+
+
     def _check_for_pipe_run_as(self, account_id):
         et = Email.EmailTarget(self.db)
         try:
