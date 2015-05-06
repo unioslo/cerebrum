@@ -659,7 +659,7 @@ class AccountUiOMixin(Account.Account):
 
     def _has_email_target(self):
         """
-        Returns True is there is an EmailTarget for this account,
+        Returns True if there is an EmailTarget for this account,
         False otherwise.
         """
         et = Email.EmailTarget(self._db)
