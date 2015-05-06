@@ -87,8 +87,17 @@ class AccountUiOMixin(Account.Account):
             if self.has_spread(self.const.spread_uio_imap):
                 raise self._db.IntegrityError, \
                     "Can't add Exchange-spread to an account with IMAP-spread."
-
+            # Check if there is an existing email-target for this account (entity)
+            # before we actually add the spread.
+            is_new_target = False
+            et = Email.EmailTarget(self._db)
+            try:
+                et.find_by_target_entity(self.entity_id)
+            except Errors.NotFoundError:
+                is_new_target = True
         # (Try to) perform the actual spread addition.
+        # An exception will be thrown if the same type of spread exists for
+        # this account (entity-id)
         ret = self.__super.add_spread(spread)
         #
         # Additional post-add magic
@@ -112,14 +121,13 @@ class AccountUiOMixin(Account.Account):
             # target_type is refreshed to "account" and target_server
             # is refreshed to dummy-exchange server. We are, at this
             # point, not interessted in any target-data.
-            et = Email.EmailTarget(self._db)
+            et.clear()
             try:
                 et.find_by_target_entity(self.entity_id)
                 et.email_server_id = es.entity_id
                 et.email_target_type =  self.const.email_target_account
                 # We store a bit of state. Need to do this to know if we should
                 # mangle filters
-                is_new = False
             except Errors.NotFoundError:
                 # No EmailTarget found for account, creating one
                 # after the migration to Exchange is completed this
@@ -133,13 +141,12 @@ class AccountUiOMixin(Account.Account):
                             server_id=es.entity_id)
                 # We store a bit of state. Need to do this to know if we should
                 # mangle filters
-                is_new = True
-            et.write_db()   
+            et.write_db()
             self.update_email_quota(force=True, 
                                     spread=self.const.spread_exchange_account)
             # register default spam and filter settings
             self._UiO_default_spam_settings(et)
-            if is_new:
+            if is_new_target:
                 self._UiO_default_filter_settings(et)
             # The user's email target is now associated with an email
             # server, try generating email addresses connected to the
