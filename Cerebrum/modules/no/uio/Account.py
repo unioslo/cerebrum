@@ -89,12 +89,8 @@ class AccountUiOMixin(Account.Account):
                     "Can't add Exchange-spread to an account with IMAP-spread."
             # Check if there is an existing email-target for this account (entity)
             # before we actually add the spread.
-            is_new_target = False
-            et = Email.EmailTarget(self._db)
-            try:
-                et.find_by_target_entity(self.entity_id)
-            except Errors.NotFoundError:
-                is_new_target = True
+            is_new_target = not self._has_email_target()
+
         # (Try to) perform the actual spread addition.
         # An exception will be thrown if the same type of spread exists for
         # this account (entity-id)
@@ -121,7 +117,7 @@ class AccountUiOMixin(Account.Account):
             # target_type is refreshed to "account" and target_server
             # is refreshed to dummy-exchange server. We are, at this
             # point, not interessted in any target-data.
-            et.clear()
+            et = Email.EmailTarget(self._db)
             try:
                 et.find_by_target_entity(self.entity_id)
                 et.email_server_id = es.entity_id
@@ -605,7 +601,6 @@ class AccountUiOMixin(Account.Account):
 
     def clear_home(self, spread):
         """Remove disk quota before clearing home."""
-
         try:
             homeinfo = self.get_home(spread)
         except Errors.NotFoundError:
@@ -654,9 +649,22 @@ class AccountUiOMixin(Account.Account):
         return ret
 
     def list_sysadm_accounts(self):
-        """Return a list of account id for accounts the trait_sysadm_account trait."""
-
+        """
+        Return a list of account id for accounts the trait_sysadm_account trait
+        """
         accounts = list()
         for row in self.list_traits(self.const.trait_sysadm_account):
             accounts.append(row['entity_id'])
         return accounts
+
+    def _has_email_target(self):
+        """
+        Returns True is there is an EmailTarget for this account,
+        False otherwise.
+        """
+        et = Email.EmailTarget(self._db)
+        try:
+            et.find_by_target_entity(self.entity_id)
+        except Errors.NotFoundError:
+            return False
+        return True
