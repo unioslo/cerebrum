@@ -122,8 +122,6 @@ class AccountUiOMixin(Account.Account):
                 et.find_by_target_entity(self.entity_id)
                 et.email_server_id = es.entity_id
                 et.email_target_type =  self.const.email_target_account
-                # We store a bit of state. Need to do this to know if we should
-                # mangle filters
             except Errors.NotFoundError:
                 # No EmailTarget found for account, creating one
                 # after the migration to Exchange is completed this
@@ -135,8 +133,6 @@ class AccountUiOMixin(Account.Account):
                             self.entity_id,
                             self.const.entity_account,
                             server_id=es.entity_id)
-                # We store a bit of state. Need to do this to know if we should
-                # mangle filters
             et.write_db()
             self.update_email_quota(force=True, 
                                     spread=self.const.spread_exchange_account)
