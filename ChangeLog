@@ -1,3 +1,13 @@
+2015-05-13  Karen   <cerebrum@cleomedes.uit.no>
+
+    * PosixLDIF.py (PosixLDIF_UiTMixin): Added user_object(), which adds displayName, norEduPersonLegalName 
+    and objectClass: norEduPerson to the ldif entries.
+
+    * PosixLDIF.py (PosixLDIF_UiTMixin.update_user_entry): Removed the 'uitAccountObject' object class things.
+    Added the 'eduPerson' object class.
+
+    * PosixExport.py (PosixExport_AffiliationMixin.ldif_user): Removed the 'uitAccountObject' object class things.
+
 2015-04-20    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* Constants.py (Constants): Added affiliations for HiN flyt persons

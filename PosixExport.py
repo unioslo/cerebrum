@@ -57,7 +57,7 @@ class PosixExport_AffiliationMixin(PosixExport):
             return ret
 
     def ldif_user(self, data):
-        # Add eduPersonAffiliation, uitAffiliation, uitPrimaryAffiliation
+        # Add eduPersonAffiliation
         ret = dn, entry = self.__super.ldif_user(data)
 
         # eduPersonAffiliation (taken from OrgLDIF)
@@ -68,19 +68,6 @@ class PosixExport_AffiliationMixin(PosixExport):
                 self.org_ldif.eduPersonAff_selector, owner_id, added))
             if added:
                 entry['eduPersonAffiliation'] = added
-
-        # uitAffiliation, uitPrimaryAffiliation
-        affs = ["%s@%s" % (self.co.PersonAffiliation(aff),
-                           self.id2stedkode(ou_id))
-                for aff, ou_id in self.account_aff.get(data.account_id, ())]
-        if affs:
-            entry['uitAffiliation'] = affs
-            entry['uitPrimaryAffiliation'] = affs[:1]
-            added = True
-
-        # Object class which allows the additional attributes
-        if added:
-            entry['objectClass'].append('uitAccountObject')
 
         return ret
 
