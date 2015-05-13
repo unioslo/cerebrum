@@ -27,7 +27,7 @@
 
 # TBD: If this script is only going to be used for creating users, it
 # should probably be renamed.  There are already other scrits, like
-# nt/notes sync that process the changelog themselves.  We need to
+# nt-sync that process the changelog themselves.  We need to
 # determine wheter it is a good idea to have multiple small scripts
 # doing this, or if there is an advantage into merging all of them
 # into a bigger script, perhaps with some plugin-like structure for
