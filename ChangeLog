@@ -1,3 +1,7 @@
+2015-02-18  Karen   <cerebrum@cleomedes.uit.no>
+
+    * OrgLDIF.py (OrgLDIFUiTMixin): Added update_org_object_entry(), update_ou_entry(), generate_person() and generate_system_object(). These are for adding object classes and attributes that are needed at uit.
+
 2015-05-13  Karen   <cerebrum@cleomedes.uit.no>
 
     * PosixLDIF.py (PosixLDIF_UiTMixin): Added user_object(), which adds displayName, norEduPersonLegalName 

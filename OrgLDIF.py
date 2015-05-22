@@ -42,3 +42,83 @@ class OrgLDIFUiTMixin(OrgLDIF):
                                    normalize     = self.attr2syntax[a][2]))
              for a,s,t in (('mobile', fs, self.const.contact_mobile_phone),)]
         self.attr2id2contacts.extend((v for v in c if v[1]))
+
+    def update_org_object_entry(self, entry):
+        # Changes from superclass:
+        # Add attributes needed by UiT.
+        self.__super.update_org_object_entry(entry)
+  
+        if entry.has_key('o'):
+            entry['o'].append(['University of Tromsoe','Universitetet i Tromso'])
+        else:
+            entry['o'] = (['University of Tromsoe','Universitetet i Tromso'])
+  
+        if entry.has_key('eduOrgLegalName'):
+            entry['eduOrgLegalName'].append(['Universitetet i Tromso','University of Tromsoe'])
+        else:
+            entry['eduOrgLegalName'] = (['Universitetet i Tromso','University of Tromsoe'])
+        
+        entry['norEduOrgNIN'] = (['NO970422528'])
+
+
+    def update_ou_entry(self, entry):
+        # Changes from superclass:
+        # Add object class norEduOrg and its attr norEduOrgUniqueIdentifier
+        entry['objectClass'].append('norEduOrg')
+        entry['norEduOrgUniqueIdentifier'] = self.norEduOrgUniqueID
+
+        # ?? Are these needed?
+        # entry['objectClass'].append('eduOrg')
+        # entry['objectClass'].append('norEduObsolete')
+    
+    def generate_person(self, outfile, alias_outfile, use_mail_module):
+        """Output person tree and aliases if cereconf.LDAP_PERSON['dn'] is set.
+
+        Aliases are only output if cereconf.LDAP_PERSON['aliases'] is true.
+
+        If use_mail_module is set, persons' e-mail addresses are set to
+        their primary users' e-mail addresses.  Otherwise, the addresses
+        are taken from contact info registered for the individual persons."""
+
+        # Changes from superclass:
+        # - Persons with affiliation_ansatt_sito or affiliation_manuell_gjest_u_konto are ignored.
+        # - system object is added.
+        
+        if not self.person_dn:
+            return
+        self.init_person_dump(use_mail_module)
+        if self.person_parent_dn not in (None, self.org_dn):
+            outfile.write(container_entry_string('PERSON'))
+        timer       = self.make_timer("Processing persons...")
+        round_timer = self.make_timer()
+        round       = 0
+        for row in self.list_persons():
+            if(row[2] in [int(self.const.affiliation_ansatt_sito)]):
+                # this person does not qualify to be listed in the FEIDE tree on the ldap server.
+                #self.logger.warn("sito person. Not to be included")
+                continue
+            if (row[2] in [int(self.const.affiliation_manuell_gjest_u_konto)]):
+                #self.logger.warn("person withouth account. not to be included")
+                continue
+            if round % 10000 == 0:
+                round_timer("...rounded %d rows..." % round)
+            round += 1
+            dn, entry, alias_info = self.make_person_entry(row)
+            if dn:
+                if dn in self.used_DNs:
+                    self.logger.warn("Omitting person_id %d: duplicate DN '%s'"
+                                     % (row['person_id'], dn))
+                else:
+                    self.used_DNs[dn] = True
+                    outfile.write(entry_string(dn, entry, False))
+                    if self.aliases and alias_info:
+                        self.write_person_alias(alias_outfile,
+                                                dn, entry, alias_info)
+        timer("...persons done.")
+        self.generate_system_object(outfile)
+
+    def generate_system_object(self,outfile):
+        entry= {'objectClass':['top','uioUntypedObject']}
+        self.ou_dn = "cn=system,dc=uit,dc=no"
+        outfile.write(entry_string(self.ou_dn,entry))
+
