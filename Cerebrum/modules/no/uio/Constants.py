@@ -351,9 +351,6 @@ class Constants(Constants.Constants):
     spread_uio_imap = _SpreadCode(
         'IMAP@uio', Constants.Constants.entity_account,
         'E-mail user at UiO')
-    spread_uio_notes_account = _SpreadCode(
-        'Notes_user', Constants.Constants.entity_account,
-        'Notes user at UiO')
     spread_fronter_kladdebok = _SpreadCode(
         'CF@uio_kladdebok', Constants.Constants.entity_group,
         'Group representing a course that should be exported to the '
@@ -376,9 +373,6 @@ class Constants(Constants.Constants):
         'groups that have been automatically generated from FS.')
 
     # LDAP: Brukere, grupper
-
-    # Notes: OU, brukere, ACL-grupper, andre grupper
-
 
     # TODO: Kunne begrense tillatte spreads for spesielt priviligerte
     # brukere.

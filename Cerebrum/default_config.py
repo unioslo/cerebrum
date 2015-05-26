@@ -70,7 +70,6 @@ CREATE_USER_SCRIPT = '/local/etc/reguser/mkhomedir'
 MVUSER_SCRIPT = '/cerebrum/sbin/mvuser'
 RMUSER_SCRIPT = '/cerebrum/sbin/aruser'
 ARCHIVE_MAIL_SCRIPT = '/cerebrum/sbin/archivemail'
-DIST_NOTESID_SCRIPT = '/cerebrum/sbin/dist_NotesID.pl'
 LEGAL_BATCH_MOVE_TIMES = '20:00-08:00'
 MAILMAN_SCRIPT = None
 SYMPA_SCRIPT = None
@@ -314,13 +313,6 @@ NW_GROUP_SPREAD = ('spread_novell_group',)
 # Printer quota variables
 NW_INITIALQUOTA = 0
 NW_FREEQUOTA = 0
-
-# Notes-spesifikke variable.
-NOTES_SERVER_HOST = 'devel01.uio.no'
-NOTES_SERVER_PORT = 2000
-NOTES_PASSWORD = 'test\n'
-NOTES_DEFAULT_OU = 'andre'
-NOTES_OU_SUFFIX = []
 
 # UA spesific variables
 UA_FTP_HOST = 'uaftp.uio.no'
