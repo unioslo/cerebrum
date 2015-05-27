@@ -1,4 +1,8 @@
-2015-02-18  Karen   <cerebrum@cleomedes.uit.no>
+2015-05-27  Karen   <cerebrum@cleomedes.uit.no>
+
+    * populate_fronter_groups.py: Added code to add spread group@ldap to all groups with spread CF@fronter.com.
+
+2015-05-05  Karen   <cerebrum@cleomedes.uit.no>
 
     * ldapmodify.py: Added to repo. Copied from Leetah.
 

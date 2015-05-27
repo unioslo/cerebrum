@@ -1267,8 +1267,10 @@ def sync_group(affil, gname, descr, mtype, memb, recurse=True,
         logger.debug("Group %s changes fronter spreads", gname)               
         if auto_spread:
             add_spread_to_group(gname, co.spread_fronter_dotcom)
+            add_spread_to_group(gname, co.spread_ldap_group)
         else:
             remove_spread_from_group(gname, co.spread_fronter_dotcom)
+            remove_spread_from_group(gname, co.spread_ldap_group)
     else:
         logger.debug2("Spreads for group %s are unchanged", gname)
 # end sync_group
