@@ -123,7 +123,9 @@ def _event_setup_basic(ctx):
     initiates the User Defined Context.
 
     """
-    log.msg("DEBUG: BasicSoapServer - Calling method %s" % ctx.in_object)
+    # TODO: Re-enable logging of this when SoapListener can filter logging
+    # levels?
+    # log.msg("DEBUG: BasicSoapServer - Calling method %s" % ctx.in_object)
 
     # The UserDefinedContext is The Place to put stuff. Setting it to a dict
     # here, to be able to add different stuff in different Service classes:
