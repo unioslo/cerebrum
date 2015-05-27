@@ -28,7 +28,7 @@ If OpenSSL is complaining about missing DLL, try to install
 Visual C++ 2008 Redistributables from 
 http://www.slproweb.com/products/Win32OpenSSL.html
 
-Download the components of the ADserver from sourceforge: 
+Download the components of the ADserver from the git repo:
 The wanted components must be configured in the MixIn class in 
 ADConstants.py 
 
@@ -39,7 +39,7 @@ ADConstants.py
 * ADaccountDir.py  
 
 Download page:
-http://cerebrum.svn.sourceforge.net/viewvc/cerebrum/trunk/cerebrum/servers/ad/
+https://utv.uio.no/stash/projects/CRB/repos/cerebrum/browse
 
 place them in a suitable place (c:\cerebrum\python)
 
