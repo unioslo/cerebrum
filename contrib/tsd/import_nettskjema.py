@@ -781,7 +781,7 @@ class Processing(object):
                     gateway.create_user(uid=ac.posix_uid, pid=pid, 
                                         username=username, realname=realname)
                 except Gateway.GatewayException:
-                    self.logger.info("User will arrive in GW at next fullsync")
+                    logger.info("User will arrive in GW at next fullsync")
         elif pe.list_affiliations(pe.entity_id, ou_id=ou.entity_id,
                                   affiliation=co.affiliation_pending):
             # Pending account:
