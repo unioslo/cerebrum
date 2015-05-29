@@ -12,12 +12,6 @@
 # in Jenkins, and running tests. Note that in order to run the 'host'-tag
 # (package and db setup), the user must be able to sudo as 'root' and
 # 'postgres'.
-- hosts: localhost
+- hosts: localtests
   roles: 
    - cerebrum-test
-  vars:
-   - virtualenv: /tmp/testenv
-   - crb_db_name: "testdb_1"
-   - crb_db_user: "ceretest"
-   - crb_src_dir: /tmp/cerebrum
-   #- config: "test"

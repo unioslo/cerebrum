@@ -1,6 +1,26 @@
 # This is the main file for setting up a remote host
 #
 
+- set_fact: virtualenv=/tmp/virtualenvs/{{ config | default('default')  }}
+  tags:
+    - always
+  
+- set_fact: crb_db_name="testdb_{{ config | default('default') }}"
+  tags:
+    - always
+
+- debug: var=config
+  tags:
+    - debug
+
+- debug: var=virtualenv
+  tags:
+    - debug
+
+- debug: var=crb_db_name
+  tags:
+    - debug
+  
 # To set up ident authentication for a different set of users, we should
 # overload the system_users variable in the top playbook.
 - include: setup_host.yml
@@ -12,10 +32,6 @@
 # To set up a different database schema, we should overload the crb_extra_files
 # in the top playbook.
 - include: setup_env.yml
-  vars:
-    crb_extra_files:
-     - "mod_changelog.sql"
-     - "mod_password_history.sql"
   tags:
     - env
 
@@ -24,11 +40,8 @@
 # file. The same goes for the report files.
 - include: run_nosetests.yml
   vars:
-    crb_tests:
-      - "test_Cerebrum/test_Database.py"
-      - "test_Cerebrum/test_Group.py"
-    coverage_report: "coverage.xml"
-    xunit_report: "xunit.xml"
+    coverage_report: "{{ config }}_coverage.xml"
+    xunit_report: "{{ config }}_xunit.xml"
   tags:
     - test
     - nose

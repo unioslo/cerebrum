@@ -3,11 +3,11 @@ verbosity=3
 
 # coverage
 with-xcoverage=1
-xcoverage-file={{ coverage_report | default('coverage.xml') }}
+xcoverage-file={{ coverage_report | default('default_coverage.xml') }}
 cover-package=Cerebrum
 cover-inclusive=1
 cover-erase=1
 
 # xUnit
 with-xunit=1
-xunit-file={{ xunit_report | default('nosexunit.xml') }}
+xunit-file={{ xunit_report | default('default_nosexunit.xml') }}

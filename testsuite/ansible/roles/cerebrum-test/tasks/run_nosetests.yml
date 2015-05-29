@@ -51,10 +51,10 @@
 # This will help when figuring out what goes wrong -- pure dumps of
 # stdout/stderr from nosetests
 - name: Write test output stdout
-  local_action: copy content="{{ _test_result | stdout }}" dest=/tmp/test_result.stdout
+  local_action: copy content="{{ _test_result | stdout }}" dest=/tmp/test_{{ config }}_result.stdout
 
 - name: Write test output stderr
-  local_action: copy content="{{ _test_result | stderr }}" dest=/tmp/test_result.stderr
+  local_action: copy content="{{ _test_result | stderr }}" dest=/tmp/test_{{ config }}_result.stderr
 
 # Cause playbook to fail, if test has failed.
 - name: Foul play
