@@ -1,0 +1,17 @@
+# This is a playbook for running the cerebrum-test role on cere-utv02, with a
+# remote connection.
+#
+# When running tests from Jenkins, we don't want the jenkins user to have root
+# access, so we can't run the host setup tag (it requires root access to install
+# packages, su to 'postgres', (re)start the database, etc...). So, in order to
+# set up a test node, we might want to run that task remotely, with a user that
+# can sudo as users 'root' and 'postgres' on the test nodes.
+- hosts: cerebrum-test-node
+  roles: 
+   - cerebrum-test
+  vars:
+   - pip_offline: 'file:///home/ceretest/pypi'
+   - virtualenv: /tmp/testenv
+   - crb_db_name: "testdb_1"
+   - crb_db_user: "ceretest"
+   - crb_src_dir: /tmp/cerebrum

@@ -1,0 +1,17 @@
+# This is a playbook for running the cerebrum-test role on any localhost.
+#
+# Typical usage for this playbook, is:
+#   - Setting up a local test environment on a developers own computer
+#   - Setting up a local test environment on a cerebrum test-node in Jenkins.
+#
+# When running in Jenkins, we'll probably want to run without the 'host' tag, to
+# avoid having the Jenkins-user need root access. This will require running the
+# crbtest_remote playbook to set up package and database stuff when that
+# changes.
+#
+# in Jenkins, and running tests. Note that in order to run the 'host'-tag
+# (package and db setup), the user must be able to sudo as 'root' and
+# 'postgres'.
+- hosts: localtests
+  roles: 
+   - cerebrum-test
