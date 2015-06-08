@@ -70,17 +70,14 @@ class IPv6Subnet(Entity):
         formatted and with legal values.
 
         Raises SubnetError if invalid.
-
         """
         try:
             ip, mask = subnet.split('/')
+            mask = int(mask)
         except ValueError:
             raise SubnetError("Not a valid subnet '%s'" % subnet)
-
         if not IPv6Utils.is_valid_ipv6(ip):
             raise SubnetError("Invalid adress: %s" % ip)
-
-        mask = int(mask)
         if mask < 0 or mask > 128:
             raise SubnetError("Invalid subnet mask '%s'; "
                               "outside range 0-128" % mask)
