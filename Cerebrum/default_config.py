@@ -293,27 +293,6 @@ EXCHANGE_HOMEMDB_PER_AFFILIATION = {}
 AD_OTHERS_FILEGROUPS = []
 AD_STUDENT_FILEGROUPS = []
 
-
-# Novell eDirectory settings.
-NW_LDAPHOST = 'www.nldap.com'
-NW_LDAPPORT = 389
-# Every letter in NW_LDAP_ROOT is case-sensitive
-NW_LDAP_ROOT = 'ou=HiST,ou=user,o=NOVELL'
-NW_SOURCE_SEARCH_ORDER = ('system_fs',)
-NW_CERE_ROOT_OU_ID = 6
-NW_DEFAULT_OU_ID = 13
-NW_ADMINUSER = 'cn=xxxxyyyyy,ou=HiST,ou=user,o=NOVELL'
-NW_PASSWORD = 'pass-here'
-NW_LOST_AND_FOUND = 'ou=lost-n-found'
-# Necessary if groups and users have different namespaces in Cerebrum.
-NW_GROUP_POSTFIX = '-gruppe'
-NW_PASSWORD_EXPIRE = 'FALSE'
-NW_CAN_CHANGE_PW = 'FALSE'
-NW_GROUP_SPREAD = ('spread_novell_group',)
-# Printer quota variables
-NW_INITIALQUOTA = 0
-NW_FREEQUOTA = 0
-
 # UA spesific variables
 UA_FTP_HOST = 'uaftp.uio.no'
 UA_FTP_UNAME = 'uname'
