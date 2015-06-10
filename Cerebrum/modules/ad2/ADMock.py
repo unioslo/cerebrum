@@ -57,3 +57,122 @@ class ADclientMock(ADUtils.ADclient):
         json.dump(self._cache, f)
         f.close()
         # TODO: try-except-whatever
+
+    def create_object(self, name, path, object_class, attributes=None,
+                      parameters=None):
+        """Send a command for creating a new object in AD.
+
+        Note that accounts are set as disabled by default, and cannot be
+        enabled unless a valid password is set for them (or PasswordNotRequired
+        is set).
+
+        TODO: more info
+
+        @type name: string
+        @param name: The name of the object to create.
+
+        @type path: string
+        @param path: The OU to create the object in.
+
+        @type object_class: string
+        @param object_class:
+            Sets the class of the object in AD, e.g. user or group. The class
+            must exist in the AD schema.
+
+        @type attributes: dict
+        @param attributes: All attributes that should be set for the object at
+            once.
+
+        @type parameters: dict
+        @param parameters: Other options to the creation process. The keys are
+            the name of the parameter in the powershell command. For instance
+            will an element named 'GroupScope' with the value 'Global' become::
+
+                -GroupScope 'Global'
+
+        @rtype: dict
+        @return: Basic information about the newly created AD-object, in the
+            same form as the objects from L{get_list_objects}.
+
+        @raise ObjectAlreadyExistsException: If the object already exists in
+            the domain, this exception is raised.
+
+        @raise PowershellException: If the powershell command failed somehow,
+            e.g. if the object already existed, or if the script didn't have
+            access to create the object. The output is put in the exception,
+            you will for example get the information about the object if the
+            object already exists.
+
+        """
+        self.logger.info("Creating %s in AD: %s (%s)",
+                         object_class,
+                         name,
+                         path)
+        if not parameters:
+            parameters = dict()
+
+        # Add some extra parameters for the various types of objects:
+        # TODO: this might be moved into subclasses of ADclient, one per object
+        # type? Would probably make easier code... Or we could just depend on
+        # the configuration for this behaviour, at least for the attributes.
+        if str(object_class).lower() == 'user':
+            # SAMAccountName is mandatory for some object types:
+            # TODO: check if this is not necessary any more...
+            # User and group objects on creation should not have
+            # SamAccountName in attributes. They should have it in
+            # parameters instead.
+            if 'SamAccountName' in attributes:
+                parameters['SamAccountName'] = attributes['SamAccountName']
+                del attributes['SamAccountName']
+            else:
+                parameters['SamAccountName'] = name
+            parameters['CannotChangePassword'] = True
+            parameters['PasswordNeverExpires'] = True
+        elif str(object_class).lower() == 'group':
+            if 'SamAccountName' in attributes:
+                parameters['SamAccountName'] = attributes['SamAccountName']
+                del attributes['SamAccountName']
+            else:
+                parameters['SamAccountName'] = name
+
+        # Add the attributes, but mapped to correctly name used in AD:
+        if attributes:
+            attributes = dict((self.attribute_write_map.get(name, name), value)
+                              for name, value in attributes.iteritems()
+                              if value or isinstance(value, (bool, int, long,
+                                                             float)))
+        if attributes:
+            parameters['OtherAttributes'] = attributes
+
+        parameters['Name'] = name
+        parameters['Path'] = path
+        if str(object_class).lower() == 'user':
+            parameters['Type'] = object_class
+            cmd = self._generate_ad_command('New-ADUser',
+                                            parameters, 'PassThru')
+        elif str(object_class).lower() == 'group':
+            # For some reason, New-ADGroup does not accept -Type parameter
+            cmd = self._generate_ad_command('New-ADGroup',
+                                            parameters, 'PassThru')
+        else:
+            parameters['Type'] = object_class
+            cmd = self._generate_ad_command('New-ADObject',
+                                            parameters, 'PassThru')
+        cmd = '''if ($str = %s | ConvertTo-Json) {
+            $str -replace '$',';'
+            }''' % cmd
+
+        # Some of the variables are mandatory to be returned, so we have to
+        # just put something in them, for the sake of testing:
+        ret = attributes.copy()
+        ret['Name'] = ret['SamAccountName'] = name
+        ret['DistinguishedName'] = 'CN=%s,%s' % (name, path)
+        ret['SID'] = None
+        self.logger.info(
+            "'%s' stored in mock. Would have ran '%s' to create AD-object" %
+            (ret, cmd))
+
+        # Store object in cache
+        ad_id = 'CN=%s,%s' % (name, path)
+        self._cache[ad_id] = ret
+        return ret
