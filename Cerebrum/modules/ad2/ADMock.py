@@ -58,6 +58,20 @@ class ADclientMock(ADUtils.ADclient):
         f.close()
         # TODO: try-except-whatever
 
+    def delete_object(self, dn):
+        """Delete an object from AD.
+
+        This removes the data about an object from AD. It is possible to
+        restore the object if AD is in level 2008 R2 level.
+
+        TODO: the command prompts for confirmation, which we can't give. How to
+        setup the sync to not ask us about this?
+
+        """
+        self.logger.info('Deleting object: %s', (dn,))
+        del self._cache[dn]
+        return True
+
     def get_object(self, ad_id, object_class=None, attributes=None):
         """Send a command for receiving information about an object from AD.
 
