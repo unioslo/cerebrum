@@ -414,3 +414,19 @@ class ADclientMock(ADUtils.ADclient):
         self.logger.info('Enabling object: %s', ad_id)
         # TODO: Update state in cache.
         return True
+
+    def set_password(self, ad_id, password):
+        """Send a new password for a given object.
+
+        This only works for Accounts.
+
+        @param ad_id: The Id for the object. Could be the SamAccountName,
+            DistinguishedName, SID, UUID and probably some other identifiers.
+
+        @type password: string
+        @param password: The new passord for the object. Must be in plaintext,
+            as that is how AD requires it to be, for now.
+
+        """
+        self.logger.info('Setting password for: %s', ad_id)
+        return True
