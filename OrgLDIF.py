@@ -22,15 +22,40 @@
 """Mixin for OrgLDIF for UiT."""
 
 from collections import defaultdict
-
+from os.path import join as join_paths
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.OrgLDIF import *
-
+from pprint import pprint
+        
 class OrgLDIFUiTMixin(OrgLDIF):
     def __init__(self, db, logger):
         self.__super.__init__(db, logger)
         self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
 
+    def init_person_course(self):
+        """Populate dicts with a person's course information."""
+        timer = self.make_timer("Processing person courses...")
+        self.ownerid2urnlist = pickle.load(file(
+            join_paths(ldapconf(None, 'dump_dir'), "ownerid2urnlist.pickle")))
+        timer("...person courses done.")
+    
+    def init_person_groups(self):
+        """Populate dicts with a person's group information."""
+        timer = self.make_timer("Processing person groups...")
+        print "person pickle file location: %s"
+        pprint(join_paths(ldapconf(None, 'dump_dir')))
+        self.person2group = pickle.load(file(
+            join_paths(ldapconf(None, 'dump_dir'), "personid2group.pickle")))
+        timer("...person groups done.")
+
+    def init_person_dump(self, use_mail_module):
+        """Suplement the list of things to run before printing the
+        list of people."""
+        self.__super.init_person_dump(use_mail_module)
+        self.init_person_course()
+        self.init_person_groups()
+
+    
     def init_attr2id2contacts(self):
         """Override to include more, local data from contact info."""
         self.__super.init_attr2id2contacts()
@@ -63,7 +88,7 @@ class OrgLDIFUiTMixin(OrgLDIF):
 
     def update_ou_entry(self, entry):
         # Changes from superclass:
-        # Add object class norEduOrg and its attr norEduOrgUniqueIdentifier
+            # Add object class norEduOrg and its attr norEduOrgUniqueIdentifier
         entry['objectClass'].append('norEduOrg')
         entry['norEduOrgUniqueIdentifier'] = self.norEduOrgUniqueID
 
@@ -93,6 +118,9 @@ class OrgLDIFUiTMixin(OrgLDIF):
         round_timer = self.make_timer()
         round       = 0
         for row in self.list_persons():
+            print "---"
+            pprint(row)
+            print "---"
             if(row[2] in [int(self.const.affiliation_ansatt_sito)]):
                 # this person does not qualify to be listed in the FEIDE tree on the ldap server.
                 #self.logger.warn("sito person. Not to be included")
@@ -121,4 +149,78 @@ class OrgLDIFUiTMixin(OrgLDIF):
         entry= {'objectClass':['top','uioUntypedObject']}
         self.ou_dn = "cn=system,dc=uit,dc=no"
         outfile.write(entry_string(self.ou_dn,entry))
+    
+    def make_uioPersonScopedAffiliation(self, p_id, pri_aff, pri_ou):
+        # [primary|secondary]:<affiliation>@<status>/<stedkode>
+        ret = []
+        pri_aff_str, pri_status_str = pri_aff
+        for aff, status, ou in self.affiliations[p_id]:
+            # populate the caches
+            if self.aff_cache.has_key(aff):
+                aff_str = self.aff_cache[aff]
+            else:
+                aff_str = str(self.const.PersonAffiliation(aff))
+                self.aff_cache[aff] = aff_str
+            if self.status_cache.has_key(status):
+                status_str = self.status_cache[status]
+            else:
+                status_str = str(self.const.PersonAffStatus(status).str)
+                self.status_cache[status] = status_str
+            p = 'secondary'
+            if aff_str == pri_aff_str and status_str == pri_status_str and ou == pri_ou:
+                p = 'primary'
+            ou = self.ou_id2ou_uniq_id[ou]
+            if ou:
+                ret.append(''.join((p,':',aff_str,'/',status_str,'@',ou)))
+        return ret
+        
+    def make_person_entry(self, row):
+        """Add data from person_course to a person entry."""
+        dn, entry, alias_info = self.__super.make_person_entry(row)
+        p_id = int(row['person_id'])
+        if not dn:
+            return dn, entry, alias_info
+        if self.ownerid2urnlist.has_key(p_id):
+            # Some of the chars in the entitlements are outside ascii
+            if entry.has_key('eduPersonEntitlement'):
+                entry['eduPersonEntitlement'].extend(self.ownerid2urnlist[p_id])
+            else:
+                entry['eduPersonEntitlement'] = self.ownerid2urnlist[p_id]
+        entry['uioPersonID'] = str(p_id)
+        
+        #
+        # self.person2group == list over person_id : {gruppe_navn}
+        # p_id == person_id
+        #
+        
+        #print "p_id is:"
+        pprint(self.person2group)
+        pprint("processing p_id:%s" %p_id)
+        if self.person2group.has_key(p_id):
+            print "have correct key"
+            # TODO: remove member and uioPersonObject after transition period
+            entry['uioMemberOf'] = entry['member'] = self.person2group[p_id]
+            entry['objectClass'].extend(('uioMembership', 'uioPersonObject'))
+        
+        pri_edu_aff, pri_ou, pri_aff = self.make_eduPersonPrimaryAffiliation(p_id)
+        entry['uioPersonScopedAffiliation'] = self.make_uioPersonScopedAffiliation(p_id, pri_aff, pri_ou)
+        if 'uioPersonObject' not in entry['objectClass']:
+            entry['objectClass'].extend(('uioPersonObject',))
 
+        # Check if there exists «avvikende» addresses, if so, export them instead:
+        addrs = self.addr_info.get(p_id)
+        # post  = addrs and addrs.get(int(self.const.address_other_post))
+        # if post:
+        #     a_txt, p_o_box, p_num, city, country = post
+        #     post = self.make_address("$", p_o_box,a_txt,p_num,city,country)
+        #     if post:
+        #         entry['postalAddress'] = (post,)
+        # street = addrs and addrs.get(int(self.const.address_other_street))
+        # if street:
+        #     a_txt, p_o_box, p_num, city, country = street
+        #     street = self.make_address(", ", None,a_txt,p_num,city,country)
+        #     if street:
+        #         entry['street'] = (street,)
+
+        return dn, entry, alias_info
+    

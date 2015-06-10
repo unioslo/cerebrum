@@ -1,3 +1,7 @@
+2015-06-10    <cerebrum@cleomedes.uit.no>
+
+	* OrgLDIF.py (OrgLDIFUiTMixin.make_person_entry): Added functions to add groups and members in groups in the ldap export files. (shamelessly stolen from uio.OrgLDIF.py)
+
 2015-02-18  Karen   <cerebrum@cleomedes.uit.no>
 
     * OrgLDIF.py (OrgLDIFUiTMixin): Added update_org_object_entry(), update_ou_entry(), generate_person() and generate_system_object(). These are for adding object classes and attributes that are needed at uit.
