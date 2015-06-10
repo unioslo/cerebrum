@@ -58,6 +58,45 @@ class ADclientMock(ADUtils.ADclient):
         f.close()
         # TODO: try-except-whatever
 
+    def get_object(self, ad_id, object_class=None, attributes=None):
+        """Send a command for receiving information about an object from AD.
+
+        Dryrun does not affect this command, since it works readonly.
+
+        @type ad_id: string
+        @param ad_id: The identification of the object. Could be Distinguished
+            Name (DN), Fully Qualified Domain Name (FQDN), username, UID, GID,
+            SID or anything that AD accepts as identification.
+
+        @type object_class: str
+        @param object_class:
+            Specify what objectClass the returned object should be of, e.g.
+            'user', 'group', or something else. This affects what default
+            attributes are returned and how the given L{ad_id} is used as
+            identifier in AD - for users and security groups you could for
+            instance use SAMAccountName, but OUs and distribution groups would
+            either require the full DN or its GUID.
+
+        @type attributes: dict
+        @param attributes: What attributes that should be returned for the
+            object. Note that standard attributes for the object type is always
+            returned.
+
+        @rtype: dict
+        @return: The object's attributes.
+
+        @raise PowershellException: If the powershell command failed somehow,
+            e.g. if the object was not found or if the script didn't have read
+            access for the object.
+
+        """
+        # TODO: Search for objects in the cache. ad_id might take different
+        # forms.
+        if ad_id in self._cache:
+            return self._cache.get(ad_id)
+        else:
+            raise ADUtils.OUUnknownException('Object not found')
+
     def create_object(self, name, path, object_class, attributes=None,
                       parameters=None):
         """Send a command for creating a new object in AD.
