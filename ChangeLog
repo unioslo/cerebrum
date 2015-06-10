@@ -1,3 +1,13 @@
+2015-06-09  Karen   <cerebrum@cleomedes.uit.no>
+
+    * export_ldap.py (ldap_export): Added group.ldif to the cat command in this script, so group.ldif 
+    is now included in the created diff file (uit_diff_YYYYMMDD).
+
+    * generate_groups_ldif.py (dump_ldif): Replaced objectClass uioGroup with uioUntypedObject.
+
+    * generate_groups_ldif.py (dump_ldif): Added call to iso2utf() when generating a group's dn, so the 
+    dn is utf-8.
+
 2015-05-27  Karen   <cerebrum@cleomedes.uit.no>
 
     * populate_fronter_groups.py: Added code to add spread group@ldap to all groups with spread CF@fronter.com.

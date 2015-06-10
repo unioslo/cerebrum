@@ -59,12 +59,12 @@ def dump_ldif(file_handle):
     for row in group.search(spread=co.spread_ldap_group):
         group.clear()
         group.find(int(row['group_id']))
-        dn = "cn=%s,%s" % (row['name'], top_dn)
+        dn = "cn=%s,%s" % (iso2utf(row['name']), top_dn)
         for mbr in group.search_members(group_id=group.entity_id,
                                         member_type=co.entity_person):
             mbr2grp.setdefault(int(mbr["member_id"]), []).append(dn)
         file_handle.write(entry_string(dn, {
-            'objectClass': ("top", "uioGroup"),
+            'objectClass': ("top", "uioUntypedObject"),
             'description': (iso2utf(row['description']),)}))
         
 def main():

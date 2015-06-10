@@ -50,7 +50,7 @@ def ldap_export():
     # 3 concatenate the two files into a third called temp_uit_ldif
     my_dump = os.path.join(cereconf.DUMPDIR , "ldap")
     
-    script_cmd = "/bin/cat %s/ou_ldif %s/users_ldif %s/var/source/ldap/fake_ldap_users.ldif> %s/temp_uit_ldif" %(my_dump,my_dump,cereconf.CB_PREFIX,my_dump)
+    script_cmd = "/bin/cat %s/ou_ldif %s/group.ldif %s/users_ldif %s/var/source/ldap/fake_ldap_users.ldif> %s/temp_uit_ldif" %(my_dump,my_dump,my_dump,cereconf.CB_PREFIX,my_dump)
     #logger.debug("Running %s" % script_cmd)
     ret = os.system(script_cmd)
     global_ret +=ret
