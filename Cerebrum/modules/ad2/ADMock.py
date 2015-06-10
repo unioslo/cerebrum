@@ -368,3 +368,35 @@ class ADclientMock(ADUtils.ADclient):
             # TODO: Insert members into cache.
             self.logger.debug("Adding member: %s", member)
         return True
+
+    def remove_members(self, groupid, members, attribute_name=None):
+        """Send command for removing given members from a given group in AD.
+
+        Note that if one of the members does not exist in the group, the
+        command will raise an exception.
+
+        @type groupid: string
+        @param groupid: The Id for the group, e.g. DistinguishedName or
+            SamAccountName.
+
+        @type members: set, list or tuple
+        @param members: The list of members to remove from the group. All the
+            given members must be members of the group, and they must be
+            identified by their DistinguishedName.
+
+        @type attribute_name: str
+        @param attribute_name:
+            The name of the member attribute to update in AD. Uses the default
+            L{self.attributename_members} if not specified.
+
+        # TODO: Add support for not getting exceptions if the members doesn't
+        # exist.
+
+        """
+        self.logger.debug("Removing %d members for group: %s" % (len(members),
+                                                                 groupid))
+        # Printing out the first 500 members, for debugging reasons:
+        self.logger.debug2("Removing members for %s: %s...", groupid,
+                           ', '.join(tuple(members)[:500]))
+        # TODO: Remove members from cache.
+        return True
