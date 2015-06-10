@@ -275,3 +275,42 @@ class ADclientMock(ADUtils.ADclient):
         ad_id = 'CN=%s,%s' % (name, path)
         self._cache[ad_id] = ret
         return ret
+
+    def get_ad_attribute(self, adid, attributename):
+        """Start generating a list of a given object's given AD attribute.
+
+        The AD server is asked to generate a list of the attribute, which could
+        be received and parsed by L{get_list_attribute}. The purpose of this
+        separation is that the output could take some time to produce, so you
+        could do something else while waiting.
+
+        @type adid: str
+        @param adid:
+            The idenficator of the object in AD to get the attribute from.
+
+        @type attributename: str
+        @param attributename:
+            The name of the attribute that we should get a list from. Must be a
+            valid attribute name in AD, and should be multivalued to be of any
+            use.
+
+        @rtype: callable
+        @return:
+            A callable that should be called to retrieve the data from the
+            attribute. When called, an iterator of each element in the
+            attribute is returned.
+
+        """
+        var = self._cache.get(adid)
+        try:
+            # TODO: Are there more types that should be handeled?
+            if isinstance(var, basestring):
+                raise TypeError
+            return lambda: (e for e in var)
+        except TypeError:
+            # TODO: Is it OK to force the var to multivalue? Should we rather
+            # raise?
+            self.logger.warn("Attribute '%s' of '%s' is not multivalued."
+                             " Will be returned as multivalued."
+                             % (attributename, adid))
+            return lambda: [var]
