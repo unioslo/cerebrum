@@ -58,6 +58,72 @@ class ADclientMock(ADUtils.ADclient):
         f.close()
         # TODO: try-except-whatever
 
+    def start_list_objects(self, ou, attributes, object_class):
+        """Start to search for objects in AD, but do not retrieve the data yet.
+
+        The server is asked to generate a list of the objects, and returns an
+        ID which we could later use to retrieve the generated list from. It is
+        designed like this because the list could take some time to produce.
+
+        @type ou: string
+        @param ou: The OU in AD to search in. All objects from given OU and its
+            child OUs are returned.
+
+        @type attributes: dict, list or tuple
+        @param attributes:
+            A list of all attributes that should be returned for all the
+            objects that were found. If a dict is given, its keys are used as
+            the attribute list.
+
+        @type object_class: string
+        @param object_class:
+            Specifies what objectClass in AD the returned object must be.
+
+        @rtype: string
+        @return: A string which should be used as a reference to later retrieve
+            the result from AD. This is since AD could be using some time to
+            go through all the objects, and you could then be able to do
+            something more useful while waiting.
+
+        """
+        self.logger.debug("Start fetching %s objects from AD, OU: %s",
+                          object_class, ou)
+        # Return fake command_id
+        return "command_id"
+
+    def get_list_objects(self, commandid, other=None):
+        """Get list of AD objects, as requested by L{start_list_objects}.
+
+        The returned data is parsed into native python elements, as much as is
+        possible with the returned data format. Uses ConvertTo-Json for this.
+
+        The server should have been generating the list of objects in the
+        background, and this method sends a request to get the output.
+
+        Note that some key names are translated, as they are are different
+        between reading and writing. This is done here, so those who use this
+        client should not need to know of this, but only use the standard key.
+        See L{self.attribute_write_map} for the mapping.
+
+        @type commandid: string
+        @param commandid: A CommandId from a previous call to
+            L{start_list_objects}, which is the server reference to the output.
+
+        @type other: dict
+        @param other: A dict to put output from the server that is not a part
+            of the object list. E.g. for different warnings. If not set, all
+            other output will be logged as warnings.
+
+        @rtype: iterator
+        @return: An iterator over each object that is returned from AD. Each
+            object is a dict with the different attributes.
+
+            TODO: How about AccountControl?
+
+        """
+        for key in self._cache:
+            yield self._cache[key]
+
     def disable_object(self, dn):
         """Set an object as not enabled.
 
