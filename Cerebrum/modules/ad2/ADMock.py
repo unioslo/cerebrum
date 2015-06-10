@@ -314,3 +314,16 @@ class ADclientMock(ADUtils.ADclient):
                              " Will be returned as multivalued."
                              % (attributename, adid))
             return lambda: [var]
+
+    def empty_group(self, groupid):
+        """Remove all the members of a given group in AD.
+
+        This could be used when the group has too many members to be able to
+        retrieve them from AD. The group could be then be refilled.
+
+        @type groupid: string
+        @param groupid: The Id of the group in AD.
+
+        """
+        self.logger.debug("Removing all members of group: %s" % groupid)
+        return True
