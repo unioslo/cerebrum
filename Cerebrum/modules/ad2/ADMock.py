@@ -496,3 +496,27 @@ class ADclientMock(ADUtils.ADclient):
         """
         self.logger.info('Setting password for: %s', ad_id)
         return True
+
+    def get_chosen_domaincontroller(self, reset=False):
+        """Fetch and cache a preferred Domain Controller (DC).
+
+        The list of DCs is fetched from AD the first time. The answer is then
+        cached, so the next time asked, we reuse the same DC.
+
+        We cache a preferred DC to sync with to avoid that we have to wait
+        inbetween the updates for the DCs to have synced. We could still go
+        without this, but then we could get race conditions. Domain Controllers
+        are normally reached semi-randomly, to avoid that one DC gets overused.
+
+        @type reset: bool
+        @param reset:
+            If True, we should ignore the already chosen DC and pick one again.
+            If False, the already chosen DC is returned.
+
+        @rtype: str
+        @return:
+            The Name attribute for the chosen DC is returned, as this could be
+            used directly in the powershell commands.
+
+        """
+        return "my.lovely.dc.example.com"
