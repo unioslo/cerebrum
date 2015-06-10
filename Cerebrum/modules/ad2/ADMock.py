@@ -122,6 +122,41 @@ class ADclientMock(ADUtils.ADclient):
         else:
             raise ADUtils.OUUnknownException('Object not found')
 
+    def find_object(self, object_class=None, name=None, ou=None,
+                    attributes=None, ad_object_class=None):
+        """Search for a given object by the given input criterias.
+
+        @type object_class: str
+        @param object_class:
+            What objectClass in AD the object must be of to be returned.
+
+        @type name: str
+        @param name:
+            If specified, the object is searched for by the given Name
+            attribute.
+
+        @type ou: str
+        @param ou:
+            If specified, the search is limited to the given AD OU.
+
+        @type attributes: dict
+        @param attributes:
+            If specified, the given attributes are added as criterias. Could
+            for instance be used to find the object by its given
+            SAMAccountName.
+
+        @type ad_object_class: str
+        @param ad_object_class:
+            If specified, only objects of the given objectClass are returned.
+
+        @rtype: list of dicts
+        @return:
+            The objects from AD that matched the criterias are returned,
+            together with some of their AD attributes.
+
+        """
+        return []
+
     def create_object(self, name, path, object_class, attributes=None,
                       parameters=None):
         """Send a command for creating a new object in AD.
