@@ -327,3 +327,44 @@ class ADclientMock(ADUtils.ADclient):
         """
         self.logger.debug("Removing all members of group: %s" % groupid)
         return True
+
+    def add_members(self, groupid, members, attribute_name=None):
+        """Send command for adding given members to a given group in AD.
+
+        Note that if one of the members already exists in the group, powershell
+        will raise an exception and none of the members will be added.
+
+        There is a limit in CMD, in which a command can only be up to a certain
+        number of characters. This method solves this by splitting the member
+        list over several commands, if the member list is large enough (more
+        than 1000 members).
+
+        @type groupid: string
+        @param groupid:
+            The Id for the group, e.g. DistinguishedName or SamAccountName.
+
+        @type members: set of strings
+        @param members:
+            The set of members to add to the group, identified by their
+            DistinguishedName. The members must not exist in the group, as that
+            would make the powershell command fail. SAMAccountName or Name are
+            not accepted by AD without workarounds.
+
+        @type attribute_name: str
+        @param attribute_name:
+            The name of the member attribute to update in AD. Uses the default
+            L{self.attributename_members} if not specified.
+
+        @rtype: bool
+        @return:
+            Telling if the member add worked or failed.
+
+        # TODO: add support for not having to check the member lists first?
+
+        """
+        self.logger.debug("Adding %d members for object: %s" % (len(members),
+                                                                groupid))
+        for member in members:
+            # TODO: Insert members into cache.
+            self.logger.debug("Adding member: %s", member)
+        return True
