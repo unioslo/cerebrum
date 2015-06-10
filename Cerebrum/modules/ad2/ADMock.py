@@ -58,6 +58,17 @@ class ADclientMock(ADUtils.ADclient):
         f.close()
         # TODO: try-except-whatever
 
+    def disable_object(self, dn):
+        """Set an object as not enabled.
+
+        Note that this only affects accounts, it doesn't look like you can
+        disable other object types.
+
+        """
+        self.logger.info('Disabling object: %s', (dn,))
+        # TODO: Save state in cache.
+        return True
+
     def delete_object(self, dn):
         """Delete an object from AD.
 
