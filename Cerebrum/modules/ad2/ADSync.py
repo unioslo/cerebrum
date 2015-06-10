@@ -58,8 +58,8 @@ import adconf
 
 from Cerebrum.Utils import unicode2str, Factory, dyn_import, sendmail, NotSet
 from Cerebrum import Entity, Errors
-from Cerebrum.modules import CLHandler
-from Cerebrum.modules import Email
+from Cerebrum.modules import CLHandler, Email
+from Cerebrum.modules.EntityTrait import EntityTrait
 
 from Cerebrum.modules.ad2 import ADUtils, ConfigUtils
 from Cerebrum.modules.ad2.CerebrumData import CerebrumEntity
@@ -174,6 +174,7 @@ class BaseSync(object):
         self.co = Factory.get("Constants")(self.db)
         self.ent = Factory.get('Entity')(self.db)
         self._ent_extid = Entity.EntityExternalId(self.db)
+        self._entity_trait = EntityTrait(self.db)
 
         # TODO: A check here for telling us that the mutual authentication is
         # not fully implemented yet. Should be removed when fixed.
@@ -1970,12 +1971,24 @@ class UserSync(BaseSync):
         self.logger.debug("Fetching users with spread %s" %
                           (self.config['target_spread'],))
         subset = self.config.get('subset')
+        account_exempt_traits = list()
+        try:
+            for tr in self._entity_trait.list_traits(
+                    self.co.trait_account_exempt):
+                account_exempt_traits.append(int(tr['entity_id']))
+        except:  # not all instances define co.trait_account_exempt
+            pass
         for row in self.ac.search(spread=self.config['target_spread']):
             uname = row["name"]
             # For testing or special cases where we only want to sync a subset
             # of entities. The subset should contain the entity names, e.g.
             # usernames or group names.
             if subset and uname not in subset:
+                continue
+            if int(row['account_id']) in account_exempt_traits:
+                self.logger.info(
+                    'Account %s (%d) has trait "account_exempt" and '
+                    'will not be exported to AD' % (uname, row['account_id']))
                 continue
             self.entities[uname] = self.cache_entity(
                 int(row["account_id"]),
@@ -2833,6 +2846,13 @@ class GroupSync(BaseSync):
         self.logger.debug("Fetching groups with spread %s" %
                           (self.config['target_spread'],))
         subset = self.config.get('subset')
+        group_exempt_traits = list()
+        try:
+            for tr in self._entity_trait.list_traits(
+                    self.co.trait_group_exempt):
+                group_exempt_traits.append(int(tr['entity_id']))
+        except:  # not all instances define co.trait_group_exempt
+            pass
         for row in self.gr.search(spread=self.config['target_spread']):
             name = row["name"]
             # For testing or special cases where we only want to sync a subset
@@ -2840,8 +2860,15 @@ class GroupSync(BaseSync):
             # usernames or group names.
             if subset and name not in subset:
                 continue
-            self.entities[name] = self.cache_entity(int(row["group_id"]), name,
-                                                    description=row['description'])
+            if int(row['group_id']) in group_exempt_traits:
+                self.logger.info(
+                    'Group %s (%d) has trait "group_exempt" and '
+                    'will not be exported to AD' % (name, row['group_id']))
+                continue
+            self.entities[name] = self.cache_entity(
+                int(row['group_id']),
+                name,
+                description=row['description'])
 
     def _configure_group_member_spreads(self):
         """Process configuration and set needed parameters for extracting
@@ -3128,7 +3155,6 @@ class HostSync(BaseSync):
 
         Could be subclassed to fetch more data about each entity to support
         extra functionality from AD and to override settings.
-
         """
         self.logger.debug("Fetching hosts with spread: %s" %
                           (self.config['target_spread'],))
