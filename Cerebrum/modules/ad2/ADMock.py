@@ -400,3 +400,17 @@ class ADclientMock(ADUtils.ADclient):
                            ', '.join(tuple(members)[:500]))
         # TODO: Remove members from cache.
         return True
+
+    def enable_object(self, ad_id):
+        """Enable a given object in AD. The object must exist.
+
+        This only works for Accounts, as that's the only available command for
+        enabling objects in AD.
+
+        @type ad_id: string
+        @param ad_id: The Id for the object. Normally the DistinguishedName.
+
+        """
+        self.logger.info('Enabling object: %s', ad_id)
+        # TODO: Update state in cache.
+        return True
