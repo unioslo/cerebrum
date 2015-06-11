@@ -1559,10 +1559,6 @@ class BaseSync(object):
         ent.ad_data['dn'] = obj['DistinguishedName']
 
         if ent.ad_new:
-            if ent.ad_new and not self.config['dryrun']:
-                self.logger.debug3(
-                    "Sleeping, wait for AD to sync the controllers...")
-                time.sleep(5)
             self.script('new_object', obj, ent)
         else:
             # It is an existing object, but under wrong OU (otherwise it would
