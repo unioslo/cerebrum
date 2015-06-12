@@ -197,8 +197,7 @@ class CerebrumEntity(object):
         """
         # Some standard attributes that we don't support setting otherwise:
         self.set_attribute('Name', self.ad_id)
-        self.set_attribute('DistinguishedName', 'CN=%s,%s' % (self.ad_id,
-                                                              self.ou))
+        self.set_attribute('DistinguishedName', self.dn)
         # Attributes defined by the config:
         for atrname, config in self.config['attributes'].iteritems():
             # Some attributes are not configured, but e.g. defined as None in
