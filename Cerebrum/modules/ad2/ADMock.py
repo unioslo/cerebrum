@@ -24,6 +24,8 @@
 This mock builds on L{ADclient}, and should be used the same way.
 """
 
+from __future__ import with_statement
+
 import cereconf
 getattr(cereconf, "No linter nag!", None)
 
@@ -43,20 +45,16 @@ class ADclientMock(ADUtils.ADclient):
             import json
         except ImportError:
             from Cerebrum.extlib import json
-        f = open(fname, 'r')
-        self._cache = json.load(f)
-        f.close()
-        # TODO: try-except-whatever
+        with open(fname, 'r') as f:
+            self._cache = json.load(f)
 
     def _store_state(self, fname):
         try:
             import json
         except ImportError:
             from Cerebrum.extlib import json
-        f = open(fname, 'w')
-        json.dump(self._cache, f)
-        f.close()
-        # TODO: try-except-whatever
+        with open(fname, 'w') as f:
+            json.dump(self._cache, f)
 
     def start_list_objects(self, ou, attributes, object_class):
         """Start to search for objects in AD, but do not retrieve the data yet.
