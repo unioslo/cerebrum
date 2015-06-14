@@ -340,6 +340,24 @@ class ADclientMock(ADUtils.ADclient):
         self._cache[ad_id] = ret
         return ret
 
+    def _run_setadobject(self, dn, action, attrs):
+        """Helper method for running the Set-ADObject command"""
+        cmd = self._generate_ad_command('Set-ADObject',
+                                        {'Identity': dn,
+                                         action: attrs})
+        # PowerShell commands are executed through Windows command line.
+        # The maximum length of the command there is 8191 for modern
+        # Windows versions (http://support.microsoft.com/kb/830473). Due to
+        # additional parameters that other methods add to the command, the
+        # part of it which is generated here has to be even shorter. The
+        # limit at 8000 bytes seems to be working.
+        # TODO: This should be checked for in winrm.py.
+        if len(cmd) > 8000:
+            raise ADUtils.CommandTooLongException('Too long')
+        self.logger.info("_run_setadobject would have ran the command: '%s'",
+                         cmd)
+        return True
+
     def get_ad_attribute(self, adid, attributename):
         """Start generating a list of a given object's given AD attribute.
 
