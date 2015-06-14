@@ -518,3 +518,39 @@ class ADclientMock(ADUtils.ADclient):
 
         """
         return "my.lovely.dc.example.com"
+
+    def execute_script(self, script, **kwargs):
+        """Execute a script remotely on the Windows side.
+
+        The given script file gets executed by powershell on the server side.
+        Note that the ExecutionPolicy defines if the script has to be signed or
+        not before you could execute it. This is up to the administrators of
+        the AD domain, as they then have to sign the script.
+
+        TODO: Check if this works!
+
+        TBD: Should we call it in parallell, thus not getting any feedback from
+        it? Or should we get the output and send it by mail to the AD
+        administrators?
+
+        @type script: string
+        @param script: The absolute path to the script that should get
+            executed.
+
+        @type **kwargs: mixed
+        @param **kwargs: All arguments are made into parameters for the
+            command, on the form: -KEY VALUE
+
+        @rtype: NoneType
+        @return: Nothing is returned, as we could run the command in parallell.
+
+        @raise PowershellException: If the script couldn't get executed, if the
+            script contained a syntax error, or any other error that could
+            occur at once.
+
+        """
+        self.logger.info("Executing script %s, args: %s", script, kwargs)
+        params = ' '.join('-%s %s' % (x[0], x[1]) for x in kwargs.iteritems())
+        cmd = '& %(cmd)s %(params)s' % {'cmd': self.escape_to_string(script),
+                                        'params': params}
+        self.logger.debug("Mock would have ran '%s'" % cmd)
