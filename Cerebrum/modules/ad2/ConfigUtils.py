@@ -59,6 +59,7 @@ import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory, NotSet
 
+db = Factory.get('Database')()
 # Note that the constants object is not instantiated, as we only need type
 # checking in here.
 const = Factory.get('Constants')
@@ -648,24 +649,33 @@ class AttrCriterias(object):
             if not self.callback(ent):
                 raise CriteriaError('Callback criteria not fullfilled')
 
+
 class AccountCriterias(AttrCriterias):
     """Account specific criterias for an AttrConfig.
 
     The class could be extended by more criterias.
 
     """
-    def __init__(self, primary_account=None, *args, **kwargs):
+    def __init__(self, primary_account=None, affiliations=None,
+                 *args, **kwargs):
         """Subclass for accounts.
 
-        @type primary_account: True, False or None
-        @param primary_account:
-            True if a given account must be the primary account. If set to False
-            will the AttrConfig be ignored if the account is a primary account.
-            Non personal accounts will never be primary accounts, as they don't
-            have the affiliations to decide that.
+        :type primary_account: True, False or None
+        :param primary_account:
+            True if a given account must be the primary account. If set to
+            False will the AttrConfig be ignored if the account is a primary
+            account.  Non personal accounts will never be primary accounts, as
+            they don't have the affiliations to decide that.
 
+        :type affiliations: String, list of strings or None
+        :param affiliations:
+            The affiliation type to filter by. The account must have these
+            affiliations for the criteria to be in-spec.
         """
         self.primary_account = primary_account
+        if isinstance(affiliations, basestring):
+            affiliations = [affiliations]
+        self.affiliations = affiliations
         super(AccountCriterias, self).__init__(*args, **kwargs)
 
     def check(self, ent):
@@ -674,6 +684,25 @@ class AccountCriterias(AttrCriterias):
         if self.primary_account is not None:
             if bool(self.primary_account) != bool(ent.is_primary_account):
                 raise CriteriaError('Primary account mismatch')
+        if self.affiliations is not None:
+            from Cerebrum import Errors
+            ac = Factory.get('Account')(db)
+            co = Factory.get('Constants')(db)
+            try:
+                ac.find(ent.entity_id)
+            except Errors.NotFoundError:
+                raise CriteriaError(
+                    'Account does not exist, possible race condition')
+
+            required_affs = (co.PersonAffiliation(aff) for aff in
+                             self.affiliations)
+            account_affs = [e['affiliation'] for e in ac.get_account_types()]
+
+            for e in required_affs:
+                if e not in account_affs:
+                    raise CriteriaError(
+                        'Account does not have affiliation %s', str(e))
+
 
 def has_config(config, configclass):
     """Helper function for checking if a given attribute is defined.
