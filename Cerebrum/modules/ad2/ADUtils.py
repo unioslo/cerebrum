@@ -1476,6 +1476,10 @@ class ADclient(PowershellClient):
             at once.
 
         """
+        for k in kwargs.copy():
+            kwargs[k] = self.escape_to_string(kwargs[k])
+            if not kwargs[k]:
+                del kwargs[k]
         self.logger.info("Executing script %s, args: %s", script, kwargs)
         params = ' '.join('-%s %s' % (x[0], x[1]) for x in kwargs.iteritems())
         cmd = '& %(cmd)s %(params)s' % {'cmd': self.escape_to_string(script),
@@ -1485,9 +1489,11 @@ class ADclient(PowershellClient):
         # TODO: How about just executing it, and not getting the feedback from
         # it? Could it be done without WinRM complaining after some attempts?
         t = time.time()
-        self.run(cmd)
+        output = self.run(cmd)
         self.logger.debug("Script %s got executed in %.2f seconds", script,
                           time.time() - t)
+        self.logger.debug4("Script output: %r", output)
+        return output
 
 # TODO: The rest should be modified or removed, as we should not communicate
 # with the old ADServer any more:
