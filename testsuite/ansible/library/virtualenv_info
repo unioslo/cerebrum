@@ -1,0 +1,132 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+DOCUMENTATION = """
+---
+module: virtualenv-info
+short_description: Get info on a remote virtualenv
+description:
+     - Fetches info about a remote virtualenv, e.g. where the site-packages are
+       located, which python version the environment is linked with, ect...
+"""
+
+EXAMPLES = """
+- name: Build db, using an input file
+  virtualenv-info: cmd=site-packages
+                   env=/path/to/virtualenv
+  register: _venv
+
+Would register a variable _venv with an attribute, 'result', containing the
+path.
+
+"""
+
+import os
+
+module = None
+
+
+class _CommandFailed(Exception):
+
+    """ Command was aborted. """
+
+
+def _run_code(python, code, fail_stderr=False, fail_nostdout=True):
+    """ Run python code, and return printed output. """
+    cmd = [python, '-c', code, ]
+
+    rc, out, err = module.run_command(cmd, check_rc=False, )
+    out = out.rstrip('\r\n') if out else None
+    err = err.rstrip('\r\n') if err else None
+
+    if rc != 0:
+        raise _CommandFailed("'%s' returned %d" % (code, rc))
+
+    if fail_stderr and err:
+        raise _CommandFailed("'%s' produced stderr=%s" % (code, err))
+
+    if fail_nostdout and not out:
+        raise _CommandFailed("'%s' produced no output" % code)
+
+    return rc, out, err
+
+
+def get_site_packages(python):
+    """ Get site-packages for a python binary. """
+
+    code = '; '.join([
+        "from distutils.sysconfig import get_python_lib",
+        "print get_python_lib()", ])
+
+    rc, out, err = _run_code(python, code)
+
+    return {'site': out, }
+
+
+def get_python_version(python, part=''):
+    """ Get the python version in virtualenv. """
+
+    parts = {
+        'major': 0,
+        'minor': 1,
+        'patch': 2, }
+
+    if part:
+        part = parts.get(part)
+    if part:
+        code = "import sys; print sys.version_info[%s]" % part
+    else:
+        code = "import sys; print '%d.%d.%d' % sys.version_info[0:3]"
+
+    rc, out, err = _run_code(python, code)
+
+    return {'version': out, }
+
+
+def main():
+    """ Run module. """
+    global module
+    module = AnsibleModule(
+        argument_spec=dict(
+            info=dict(required=True),
+            env=dict(required=True), )
+    )
+
+    commands = {'version': get_python_version,
+                'site': get_site_packages, }
+
+    # Args
+    tasks = module.params.get('info', '').split(',')
+    virtualenv = module.params.get('env')
+    python = os.path.join(virtualenv, 'bin/python')
+
+    json = {
+        'tasks': ','.join(tasks),
+        'virtualenv': virtualenv,
+    }
+
+    if not os.path.isfile(python):
+        json['msg'] = "virtualenv-info: No env in '%s'" % virtualenv
+        module.fail_json(**json)
+
+    illegal_tasks = filter(lambda x: x not in commands, tasks)
+    if illegal_tasks:
+        json['msg'] = ("virtualenv-info: Info task(s) %s does not exist" %
+                       ','.join(illegal_tasks))
+        module.fail_json(**json)
+
+    tasks = [commands[t] for t in tasks]
+    for task in tasks:
+        try:
+            result = task(python)
+        except _CommandFailed, e:
+            json['msg'] = ("virtualenv-info: Command '%s' failed - %s" %
+                           (command, str(e)))
+            module.fail_json(**json)
+        json.update(result)
+
+    module.exit_json(**json)
+
+# import module snippets and run
+from ansible.module_utils.basic import *
+main()

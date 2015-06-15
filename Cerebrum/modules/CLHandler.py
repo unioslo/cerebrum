@@ -1,6 +1,6 @@
-# -*- coding: iso-8859-1 -*-
-
-# Copyright 2003 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+#
+# Copyright 2003, 2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -102,7 +102,7 @@ class CLHandler(DatabaseAccessor):
         # client confirmed this time, as well as what ranges of events the
         # client has previously acknowledged.  Now we iterate over all
         # sent events and determine which range the event corresponds to.
-        # 
+        #
         # Since we know that the _sent_events list does not contain holes,
         # we can update the range with the new end-value if the client
         # confirmed the event.  If the client did not confirm the event,
@@ -118,7 +118,7 @@ class CLHandler(DatabaseAccessor):
                 print "Matching range# %i for %i (len=%i) hole=%s" % (
                     range_no, tmp_evt_id, len(new_ranges), found_hole)
                 print i_confirmed+1,"<=",len(self._confirmed_events)
-                print self._confirmed_events[i_confirmed],"<=",tmp_evt_id   
+                print self._confirmed_events[i_confirmed],"<=",tmp_evt_id
             # Check if the event was confirmed
             while (i_confirmed < len(self._confirmed_events) and
                    self._confirmed_events[i_confirmed] <= tmp_evt_id):
@@ -155,20 +155,40 @@ class CLHandler(DatabaseAccessor):
 
         if not updated:
             return
-        # Update DB, currently using the simple approach of deleting and
-        # re-inserting (maybe TODO: rewrite to use update for speed)
+        self._update_ranges(self._current_key, new_ranges)
+
+    def _update_ranges(self, key, ranges):
+        """Update DB with new ranges for a given handler key.
+
+        Warning: This method does an actual `db.commit()`!
+
+        All the previous ranges will be removed and replaced by the new, given
+        `ranges`. Currently using the simple approach of deleting and
+        re-inserting (maybe TODO: rewrite to use update for speed).
+
+        :param str key: The given change handler key to update for
+        :param list ranges:
+            A list of the new ranges to be set. Each element in the list should
+            be a two element list, where the first element represents the
+            `first_id` and the second the `last_id`. Example:
+
+                [[10, 110],
+                 [112, 201],
+                 [204, 415],
+                 ]
+
+        """
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=change_handler_data]
-        WHERE evthdlr_key=:key""", {'key': self._current_key})
+        WHERE evthdlr_key=:key""", {'key': key})
 
-        for r in new_ranges:
+        for r in ranges:
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=change_handler_data]
                (evthdlr_key, first_id, last_id)
                VALUES (:key, :first, :last)""", {
-                'key': self._current_key, 'first': r[0], 'last': r[1]})
+                'key': key, 'first': r[0], 'last': r[1]})
         self.commit()
-
 
     def _update_last_change_id(self, key, value):
         self.execute("""
@@ -176,3 +196,15 @@ class CLHandler(DatabaseAccessor):
         SET last_id=:value
         WHERE evthdlr_key=:key""", {'key': key, 'value': value})
 
+    def list_handler_data(self):
+        """Return all the registered change handler data.
+
+        This is mostly for debugging. You should probably use `get_events(key)`
+        instead of this method, for retrieving the events in a more suitable
+        fashion.
+
+        """
+        return self.query("""
+            SELECT *
+            FROM [:table schema=cerebrum name=change_handler_data]
+            ORDER BY evthdlr_key""")

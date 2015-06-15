@@ -351,9 +351,6 @@ class Constants(Constants.Constants):
     spread_uio_imap = _SpreadCode(
         'IMAP@uio', Constants.Constants.entity_account,
         'E-mail user at UiO')
-    spread_uio_notes_account = _SpreadCode(
-        'Notes_user', Constants.Constants.entity_account,
-        'Notes user at UiO')
     spread_fronter_kladdebok = _SpreadCode(
         'CF@uio_kladdebok', Constants.Constants.entity_group,
         'Group representing a course that should be exported to the '
@@ -376,9 +373,6 @@ class Constants(Constants.Constants):
         'groups that have been automatically generated from FS.')
 
     # LDAP: Brukere, grupper
-
-    # Notes: OU, brukere, ACL-grupper, andre grupper
-
 
     # TODO: Kunne begrense tillatte spreads for spesielt priviligerte
     # brukere.
@@ -483,6 +477,11 @@ class Constants(Constants.Constants):
     trait_primary_aff = _EntityTraitCode(
         "primary_aff", Constants.Constants.entity_person,
         "A person's chosen primary affiliation, for use at the web presentations")
+
+    # Trait for tagging -adm,-drift,-null accounts
+    trait_sysadm_account = _EntityTraitCode(
+        "sysadm_account", Constants.Constants.entity_account,
+        "An account used for system administration, e.g. foo-adm, foo-drift and foo-null users")
 
     address_other_street = _AddressCode('OTHER_STREET', 'Other street address')
     address_other_post = _AddressCode('OTHER_POST', 'Other post address')

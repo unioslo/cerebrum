@@ -34,6 +34,8 @@ from Cerebrum.modules.no.Constants import ConstantsUniversityColleges, \
 from Cerebrum.modules.PosixUser import _PosixShellCode
 from Cerebrum.modules.bofhd.utils import _BofhdRequestOpCode
 
+from Cerebrum.modules.ad2.Entity import ConstantsActiveDirectory
+from Cerebrum.modules.ad2.Entity import _ADAttrCode
 
 class Constants(Constants.Constants):
 
@@ -130,3 +132,38 @@ class Constants(Constants.Constants):
     # BofhdRequests constants
     bofh_ad_attrs_remove = _BofhdRequestOpCode("br_ad_attr_rem",
                                                "Remove AD attributes for a user")
+
+
+class HiOfConstantsActiveDirectory(ConstantsActiveDirectory):
+    """Special AD-constants for HiOf"""
+
+    ad_attribute_title = _ADAttrCode('Title', 'Title for an account in AD',
+                                     False)
+
+    ad_attribute_office = _ADAttrCode('Office',
+                                      'Office for an object in AD',
+                                      False)
+
+    ad_attribute_department = _ADAttrCode('Department',
+                                          'Department for an object in AD',
+                                          False)
+
+    ad_attribute_extensionattribute1 = _ADAttrCode(
+        'extensionAttribute1',
+        'extensionAttribute1 for an object in AD',
+        False)
+
+    ad_attribute_extensionattribute2 = _ADAttrCode(
+        'extensionAttribute2',
+        'extensionAttribute2 for an object in AD',
+        False)
+
+    ad_attribute_extensionattribute3 = _ADAttrCode(
+        'extensionAttribute3',
+        'extensionAttribute3 for an object in AD',
+        False)
+
+    ad_attribute_extensionattribute4 = _ADAttrCode(
+        'extensionAttribute4',
+        'extensionAttribute4 for an object in AD',
+        False)

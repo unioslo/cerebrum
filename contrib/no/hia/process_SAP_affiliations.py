@@ -82,7 +82,7 @@ def sap_employment2affiliation(sap_lonnstittelkode):
     * aff = ANSATT, and VIT/ØVR depending on lonnstittelkode, when:
       sap_lonnstittelkode != 20009999 (const.sap_9999_dummy_stillingskode)
       fo_kode != 9999
-      
+
     * aff = TILKNYTTET/ekstern, when:
       sap_lonnstittelkode = 20009999 (const.sap_9999_dummy_stillingskode)
       fo_kode != 9999
@@ -166,7 +166,7 @@ def cache_db_affiliations():
                                             ("person_id", "ou_id",
                                              "affiliation", "status",)]
         cache.setdefault(p_id, {})[(ou_id, affiliation)] = status
-        
+
     return cache
 # end cache_db_affiliations
 
@@ -216,7 +216,7 @@ def synchronise_affiliations(aff_cache, person, ou_id, affiliation, status):
 
     logger.debug("Registering affiliation %s/%s for person_id %s",
                  affiliation, status, person.entity_id)
-        
+
     # For accessing aff_cache
     key_level1 = int(person.entity_id)
     key_level2 = (int(ou_id), int(affiliation))
@@ -248,7 +248,7 @@ def synchronise_affiliations(aff_cache, person, ou_id, affiliation, status):
         if cached_status != int(status):
             # add_affiliation performs aff.status updates as well
             person.add_affiliation(ou_id,
-                                   affiliation, 
+                                   affiliation,
                                    constants.system_sap,
                                    status)
             logger.debug("Updating affiliation status %s => %s for "
@@ -269,7 +269,7 @@ def process_affiliations(employment_file, person_file, use_fok,
     #. Scan the file and compare the file data with the cache. When there is a
        match, remove the entry from the cache.
     #. Remove from Cerebrum whatever is left in the cache (once we are done
-       with the file, the cache contains those entries that were in Cerebrum 
+       with the file, the cache contains those entries that were in Cerebrum
     """
 
     expired = load_expired_employees(file(person_file), use_fok, logger)
@@ -293,7 +293,7 @@ def process_affiliations(employment_file, person_file, use_fok,
                          "all employment info will be ignored",
                          tpl.sap_ansattnr)
             continue
-            
+
         # is the entry within a valid time frame?
         # The shift by 180 days has been requested by UiA around 2007-03-27
         if not (tpl.start_date - DateTimeDelta(180) <= today() <= tpl.end_date):
@@ -307,7 +307,7 @@ def process_affiliations(employment_file, person_file, use_fok,
                         "for person sap_id=%s).",
                         tpl.sap_ou_id, tpl.sap_ansattnr)
             continue
-        
+
         person = get_person(tpl.sap_ansattnr)
         if person is None:
             logger.warn("Cannot map SAP ansattnr %s to cerebrum person_id",
@@ -404,8 +404,8 @@ def synchronise_employment(employment_cache, tpl, person, ou_id):
     except TypeError:
         logger.debug("Invalid employment fraction specification in %s",
                      str(tpl))
-        return 
-        
+        return
+
     # This will either insert or update
     person.add_employment(ou_id, title, constants.system_sap,
                           tpl.percentage, tpl.start_date, tpl.end_date,
@@ -439,7 +439,7 @@ def process_employments(employment_file, use_fok, people_to_ignore=None):
             logger.debug("No person is registered for SAP ansatt# %s",
                          tpl.sap_ansattnr)
             continue
-        
+
         synchronise_employment(employment_cache, tpl, person, ou_id)
 
     remove_db_employments(employment_cache)
@@ -454,7 +454,7 @@ def main():
                                   ("employment-file=",
                                    "dryrun",
                                    "person-file=",
-                                   "with-fok", 
+                                   "with-fok",
                                    "without-fok",
                                    "with-employment",))
     employment_file = None
@@ -462,7 +462,7 @@ def main():
     dryrun = False
     use_fok = None
     sync_employment = False
-    
+
     for option, value in options:
         if option in ("-e", "--employment-file"):
             employment_file = value
@@ -476,7 +476,7 @@ def main():
             use_fok = False
         elif option in ("--with-employment",):
             sync_employment = True
-            
+
     assert (person_file is not None and
             os.access(person_file, os.F_OK))
     assert (employment_file is not None and
@@ -502,8 +502,8 @@ def main():
 # end main
 
 
-            
-            
+
+
 
 if __name__ == "__main__":
     main()

@@ -195,6 +195,20 @@ def notify_user(ac, quar_start_in_days):
     body = email_info['Body']
     body = body.replace('${USERNAME}', ac.account_name)
     body = body.replace('${DAYS_TO_START}', str(quar_start_in_days))
+    body = body.replace(
+        '${QUARANTINE_DATE}',
+        (DateTime.now() + quar_start_in_days).Format("%F"))
+
+    try:
+        first_name = (pe.search_person_names(
+            person_id=ac.owner_id,
+            name_variant=co.name_first,
+            source_system=co.system_cached)[0])['name']
+    except IndexError:
+        first_name = ""
+
+    body = body.replace('${FIRST_NAME}', first_name)
+
     subject = email_info['Subject'].replace('${USERNAME}', ac.account_name)
 
     return send_mail(addr, email_info['From'], subject, body, email_info['Cc'])

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import re
 import cereconf
+import socket
 
 from Cerebrum.modules.dns import ARecord
 from Cerebrum.modules.dns import AAAARecord
@@ -12,8 +13,9 @@ from Cerebrum.modules.dns import CNameRecord
 from Cerebrum.modules.dns import Subnet
 from Cerebrum.modules.dns import IPv6Subnet
 from Cerebrum.modules.dns.Errors import DNSError, SubnetError
-from Cerebrum.modules.dns.IPUtils import IPCalc
-from Cerebrum.modules.dns.IPv6Utils import IPv6Calc
+from Cerebrum.modules.dns.IPUtils import IPCalc, IPUtils
+from Cerebrum.modules.dns.IPv6Utils import IPv6Calc, IPv6Utils
+from Cerebrum.modules.dns.IPv6Subnet import IPv6Subnet
 from Cerebrum import Errors
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules import dns
@@ -35,40 +37,62 @@ class DnsParser(object):
     def parse_subnet_or_ip(self, ip_id):
         """Parse ip_id either as a subnet, or as an IP-number.
 
-        Return: (subnet, a_ip)
+        Return: (subnet, ip)
           - subnet is None if unknown
-          - a_ip is only set if the user requested a spesific IP
+          - ip is only set if the user requested a specific IP
 
-        A request for a subnet is identified by a trailing /, or an IP
-        with < 4 octets.  Example::
+        A request for a subnet is identified by a trailing /, or for IPv4 an
+        IP with < 4 octets. IPv6-subnets must always be specified with a
+        trailing /, followed by a mask number. Examples::
 
           129.240.200    -> adress on 129.240.200.0/23
           129.240.200.0/ -> adress on 129.240.200.0/23
           129.240.200.0  -> explicit IP
+          2001:700:100:2::/64 -> address on 2001:700:100:2::/64
+          2001:700:100:2::3   -> explicit IP
         """
         tmp = ip_id.split("/")
-        ip_id = tmp[0]
-        # Support ulrik/
-        if (not ip_id[0:3].isdigit()) and len(tmp) > 1 and ':' not in ip_id:
-            try:
+        ip = tmp[0]
+        subnet_slash = len(tmp) > 1
+        full_ip = False
+
+        if IPUtils.is_valid_ipv4(ip):  # ipv4
+            IPUtils.parse_ipv4(ip)
+
+            if ip.count('.') == 3 and not subnet_slash:
+                full_ip = True
+
+            elif ip.count('.') == 3 and subnet_slash or \
+                    ip.count('.') == 2 and not subnet_slash:
+                pass
+
+            else:
+                raise CerebrumError(("'%s' does not look like a valid subnet "
+                                     "or ip-address.") % ip_id)
+
+        elif IPv6Utils.is_valid_ipv6(ip_id):  # full ipv6
+            full_ip = True
+            ip = ip_id
+
+        elif IPv6Subnet.is_valid_subnet(ip_id):
+            ip = ip_id
+
+        else:
+            try:  # Assume hostname
                 self._arecord.clear()
-                self._arecord.find_by_name(self.qualify_hostname(ip_id))
+                self._arecord.find_by_name(self.qualify_hostname(ip))
                 self._ip_number.clear()
                 self._ip_number.find(self._arecord.ip_number_id)
             except Errors.NotFoundError:
-                raise CerebrumError("Could not find %s" % ip_id)
-            ip_id = self._ip_number.a_ip
-        if (len(ip_id.split(".")) < 3) and ':' not in ip_id:
-            raise CerebrumError("'%s' does not look like a subnet" % ip_id)
-        full_ip = ':' in ip_id or ip_id.count('.') == 3
-        if len(tmp) > 1 or not full_ip:  # Trailing "/" or few octets
-            full_ip = False
+                raise CerebrumError("Could not find %s" % ip)
+            ip = self._ip_number.a_ip
+
         try:
             ipc = Find(self._db, None)
-            subnet_ip = ipc._find_subnet(ip_id)
-        except DNSError:
+            subnet_ip = ipc._find_subnet(ip)
+        except:
             subnet_ip = None
-        return subnet_ip, full_ip and ip_id or None
+        return subnet_ip, full_ip and ip or None
 
     def parse_force(self, string):
         if string and not string[0] in ('Y', 'y', 'N', 'n'):
@@ -418,7 +442,7 @@ class Find(object):
             sub = Subnet.Subnet(self._db)
             sub.find(subnet)
         except SubnetError:
-            sub = IPv6Subnet.IPv6Subnet(self._db)
+            sub = IPv6Subnet(self._db)
             sub.find(subnet)
         return sub.subnet_ip
 
@@ -433,7 +457,7 @@ class Find(object):
             ipnr = lambda x: x['ipnr']
             start = sub.ip_min
         except SubnetError:
-            sub = IPv6Subnet.IPv6Subnet(self._db)
+            sub = IPv6Subnet(self._db)
             sub.find(subnet)
             ip_number = IPv6Number.IPv6Number(self._db)
             ip_key = 'ipv6_number_id'
