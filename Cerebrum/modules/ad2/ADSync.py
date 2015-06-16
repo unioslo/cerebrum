@@ -124,6 +124,7 @@ class BaseSync(object):
     # value. Note that subclasses must define their own list for their own
     # values.
     settings_with_default = (('dryrun', False),
+                             ('mock', False),
                              ('encrypted', True),
                              ('auth_user', 'cereauth'),
                              ('domain_admin', 'cerebrum_sync'),
@@ -377,6 +378,11 @@ class BaseSync(object):
         # Log if in dryrun
         if self.config['dryrun']:
             self.logger.info('In dryrun mode, AD will not be updated')
+
+        if self.config['mock']:
+            self.logger.info('In mock mode, AD will not be connected to')
+            from Cerebrum.modules.ad2 import ADMock
+            self.server_class = ADMock.ADclientMock
 
         # TODO: Check the attributes?
 
