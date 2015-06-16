@@ -2046,7 +2046,8 @@ class UserSync(BaseSync):
                             'Missing or invalid affiliations in ou_mappings')
                     validator = ConfigUtils.AccountCriterias(
                         affiliations=aff_list)
-                    if validator.check(self.entities[uname]):
+                    try:
+                        validator.check(self.entities[uname])
                         self.entities[uname].ou = mapping['ou']
                         self.logger.debug(
                             'Using "ou_mappings". '
@@ -2055,6 +2056,8 @@ class UserSync(BaseSync):
                                 row['account_id'],
                                 mapping['ou']))
                         break
+                    except ConfigUtils.CriteriaError:  # no match
+                        continue
                 else:
                     self.logger.debug(
                         'Using "ou_mappings". '
