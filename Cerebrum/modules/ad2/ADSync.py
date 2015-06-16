@@ -147,6 +147,7 @@ class BaseSync(object):
                              # solution for it.
                              ('group_type', 'security'),
                              ('group_scope', 'global'),
+                             ('ou_mappings', None),
                              ('script', {}),
                              )
 
@@ -2047,7 +2048,20 @@ class UserSync(BaseSync):
                         affiliations=aff_list)
                     if validator.check(self.entities[uname]):
                         self.entities[uname].ou = mapping['ou']
+                        self.logger.debug(
+                            'Using "ou_mappings". '
+                            'OU for account %s (%d) has been set to %s' % (
+                                uname,
+                                row['account_id'],
+                                mapping['ou']))
                         break
+                else:
+                    self.logger.debug(
+                        'Using "ou_mappings". '
+                        'No matching affiliation(s) for account %s (%d). '
+                        'Using "target_ou"' % (
+                            uname,
+                            row['account_id']))
                     
 
     def fetch_names(self):
