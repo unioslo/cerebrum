@@ -1282,10 +1282,22 @@ def _debug_dump_profile_match(profile, fnr):
                   profile.get_grupper(),
                   profile.get_stedkoder()))
 
+
 def validate_config():
-    AutoStud.AutoStud(db, logger, debug=debug, cfg_file=studconfig_file,
-                      studieprogs_file=studieprogs_file,
-                      emne_info_file=emne_info_file)
+
+    if studconfig_file is None or \
+       studieprogs_file is None or \
+       emne_info_file is None:
+
+        print ("Missing required parameter(s). 'studconfig_file' (-C), "
+               "studieprogs_file' (-S)\nand 'emne_info_file' (-e) needs "
+               "to be specified when running --validate.")
+        sys.exit(1)
+
+    else:
+        AutoStud.AutoStud(db, logger, debug=debug, cfg_file=studconfig_file,
+                          studieprogs_file=studieprogs_file,
+                          emne_info_file=emne_info_file)
 
 def process_noncallback_users(reset_diskquota=False):
     """Process accounts on student-disk that did not get a callback

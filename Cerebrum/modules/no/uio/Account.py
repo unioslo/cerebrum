@@ -87,8 +87,13 @@ class AccountUiOMixin(Account.Account):
             if self.has_spread(self.const.spread_uio_imap):
                 raise self._db.IntegrityError, \
                     "Can't add Exchange-spread to an account with IMAP-spread."
+            # Check if there is an existing email-target for this account (entity)
+            # before we actually add the spread.
+            is_new_target = not self._has_email_target()
 
         # (Try to) perform the actual spread addition.
+        # An exception will be thrown if the same type of spread exists for
+        # this account (entity-id)
         ret = self.__super.add_spread(spread)
         #
         # Additional post-add magic
@@ -117,9 +122,6 @@ class AccountUiOMixin(Account.Account):
                 et.find_by_target_entity(self.entity_id)
                 et.email_server_id = es.entity_id
                 et.email_target_type =  self.const.email_target_account
-                # We store a bit of state. Need to do this to know if we should
-                # mangle filters
-                is_new = False
             except Errors.NotFoundError:
                 # No EmailTarget found for account, creating one
                 # after the migration to Exchange is completed this
@@ -131,15 +133,12 @@ class AccountUiOMixin(Account.Account):
                             self.entity_id,
                             self.const.entity_account,
                             server_id=es.entity_id)
-                # We store a bit of state. Need to do this to know if we should
-                # mangle filters
-                is_new = True
-            et.write_db()   
+            et.write_db()
             self.update_email_quota(force=True, 
                                     spread=self.const.spread_exchange_account)
             # register default spam and filter settings
             self._UiO_default_spam_settings(et)
-            if is_new:
+            if is_new_target:
                 self._UiO_default_filter_settings(et)
             # The user's email target is now associated with an email
             # server, try generating email addresses connected to the
@@ -179,10 +178,6 @@ class AccountUiOMixin(Account.Account):
                 self.set_home(spread, tmp['homedir_id'])
             except Errors.NotFoundError:
                 pass  # User has no homedir for this spread yet
-        elif spread == self.const.spread_uio_notes_account:
-            if self.owner_type == self.const.entity_group:
-                raise self._db.IntegrityError, \
-                      "Cannot add Notes-spread to a non-personal account."
         return ret
 
     # exchange-related-jazz
@@ -598,7 +593,6 @@ class AccountUiOMixin(Account.Account):
 
     def clear_home(self, spread):
         """Remove disk quota before clearing home."""
-
         try:
             homeinfo = self.get_home(spread)
         except Errors.NotFoundError:
@@ -646,3 +640,23 @@ class AccountUiOMixin(Account.Account):
                         dq.clear(kw['current_id'])
         return ret
 
+    def list_sysadm_accounts(self):
+        """
+        Return a list of account id for accounts the trait_sysadm_account trait
+        """
+        accounts = list()
+        for row in self.list_traits(self.const.trait_sysadm_account):
+            accounts.append(row['entity_id'])
+        return accounts
+
+    def _has_email_target(self):
+        """
+        Returns True if there is an EmailTarget for this account,
+        False otherwise.
+        """
+        et = Email.EmailTarget(self._db)
+        try:
+            et.find_by_target_entity(self.entity_id)
+        except Errors.NotFoundError:
+            return False
+        return True

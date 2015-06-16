@@ -1,0 +1,39 @@
+# TODO: Create a playbook for setting up a host as jenkins slave
+#
+# Install javasdk
+# Create local jenkins-user + homedir
+# Create keys
+# ... more?
+#
+# Mandatory vars:
+#   jenkins_user:
+#     The username of the user that will be used from jenkins.
+
+- name: Install java runtime
+  yum: name=java-1.7.0-openjdk state=present
+  sudo: yes
+
+- name: Create jenkins user
+  user: name={{ jenkins_user }}
+        createhome=yes
+        home=/home/{{ jenkins_user }}
+        generate_ssh_key=yes
+        ssh_key_bits=4096
+  sudo: yes
+
+- name: Read public key
+  command: cat {{ '/home/' + jenkins_user + '/.ssh/id_rsa.pub' }}
+  register: _pubkey
+  changed_when: false
+  sudo: yes
+  sudo_user: "{{ jenkins_user }}"
+
+- name: Add authorized key
+  authorized_key: state=present
+                  user="{{ jenkins_user }}"
+                  key="{{ _pubkey.stdout }}"
+  sudo: yes
+  sudo_user: "{{ jenkins_user }}"
+
+- name: Key message
+  debug: msg="The user {{ jenkins_user }} should now be able to log in using the private key {{ '/home/' + jenkins_user + '/.ssh/id_rsa' }}"

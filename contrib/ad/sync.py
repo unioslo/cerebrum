@@ -75,6 +75,14 @@ def usage(exitcode=0):
     -d, --dryrun    Do not write changes back to AD, but log them. Usable for
                     testing. Note that the sync is still reading data from AD.
 
+    -m, --mock      Do not connect to AD, run with mock of AD.
+
+    -n, --store-mock-state <FILE>
+                    Store the mock state in a JSON file.
+
+    -l, --load-mock-state <FILE>
+                    Load the mocks state from a JSON file.
+
     --sync_class CLS If some specific class should be used as the sync class.
                     Defaults to using what is defined in the config file for the
                     sync type. Could be specified several times, and be comma
@@ -169,9 +177,12 @@ def usage(exitcode=0):
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                                   "hd",
+                                   "hdmn:l:",
                                    ["help",
                                     "dryrun",
+                                    "mock",
+                                    "store-mock-state=",
+                                    "load-mock-state=",
                                     "debug",
                                     "quick=",
                                     "change-ids=",
@@ -203,6 +214,7 @@ def main():
     quicksync = False
     change_ids = []
     debug = dump_cerebrum_data = dump_diff = False
+    store_mock_state = load_mock_state = None
 
     # The configuration for the sync
     configuration = dict()
@@ -213,6 +225,12 @@ def main():
             usage()
         elif opt in ('-d', '--dryrun'):
             configuration["dryrun"] = True
+        elif opt in ('-m', '--mock'):
+            configuration["mock"] = True
+        elif opt in ('-n', '--store-mock-state'):
+            store_mock_state = val
+        elif opt in ('-l', '--load-mock-state'):
+            load_mock_state = val
         elif opt == '--unencrypted':
             configuration['encrypted'] = False
         elif opt == '--sync_class':
@@ -281,12 +299,17 @@ def main():
         return
 
     try:
+        if load_mock_state:
+            sync.server._load_state(load_mock_state)
+
         if change_ids:
             sync.quicksync(change_ids=change_ids)
         elif quicksync:
             sync.quicksync(quicksync)
         else:
             sync.fullsync()
+        if store_mock_state:
+            sync.server._store_state(store_mock_state)
     finally:
         try:
             sync.server.close()

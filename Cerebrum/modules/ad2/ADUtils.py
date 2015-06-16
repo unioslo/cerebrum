@@ -42,11 +42,14 @@ talking with the domain controllers through Active Directory Web Service:
 import time
 import re
 import base64
+import functools
+import collections
 
 import cerebrum_path
 import cereconf
 from Cerebrum.Utils import read_password
 from Cerebrum.Utils import Factory
+from Cerebrum.Utils import NotSet
 
 try:
     import json
@@ -55,7 +58,7 @@ except ImportError:
     # 2.5. At python 2.6, you _should_ use the proper json module.
     from Cerebrum.extlib import json
 
-from Cerebrum.modules.ad2.winrm import PowershellClient, iter2stream
+from Cerebrum.modules.ad2.winrm import PowershellClient
 from Cerebrum.modules.ad2.winrm import PowershellException, ExitCodeException
 
 class ObjectAlreadyExistsException(PowershellException):
@@ -140,6 +143,81 @@ class ADclient(PowershellClient):
     # The main objectClass that we are targeting in AD. This is used if nothing
     # else is specified when running a command:
     object_class = 'user'
+
+    def update_dn(client, args):
+        """
+        Walk datastructure, and alter DNs.
+
+        If no appropriate DNs are found, or there exists multiple DNs with
+        similar CNs, the DN will not be altered.
+
+        :param args: The datastructure to operate on.
+        :return: The datastructure, with potentially altered DNs.
+        """
+        update_dn = functools.partial(ADclient.update_dn.im_func, client)
+        if isinstance(args, basestring):
+            if (args.upper().startswith('CN') or
+                    args.upper().startswith('OU')):
+                rdn_type = args[:2].upper()
+                rdn = args[3:args.find(',')]
+                try:
+                    hits = client.find_object(
+                        attributes={rdn_type: rdn})
+                    # Use the new DN
+                    if len(hits) == 1 and args != hits[0]['DistinguishedName']:
+                        client.logger.info('Using %s instead of %s as DN',
+                                           hits[0]['DistinguishedName'],
+                                           args)
+                        return hits[0]['DistinguishedName']
+                    # No difference, use the old DN
+                    elif len(hits) == 1:
+                        return args
+                    # Could not find unique RDN, abort
+                    else:
+                        client.logger.info(
+                            'CN=%s exists in multiple DNs, using original',
+                            rdn)
+                        # Provoke error-handler to run
+                        raise Exception
+                except Exception:
+                    return args
+            else:
+                return args
+        elif isinstance(args, (list, tuple)):
+            r = map(update_dn, args)
+            return r
+        elif isinstance(args, dict):
+            k, v = zip(*args.items())
+            v = map(update_dn, v)
+            return dict(zip(k, v))
+        else:
+            return args
+
+    def retry_with_mangled_dn(f):
+        """
+        Try to handle update-failures by searching for alternate DNs.
+
+        If the function `f` fails, try to search for alternate DNs to
+        update.  DNs change, when objects are moved around by hand in
+        Active Directory.
+
+        This function should be used as a decorator.
+        """
+        @functools.wraps(f)
+        def wrapper(*args, **kwds):
+            try:
+                return f(*args, **kwds)
+            except SetAttributeException, e:
+                # Could not find the object, searching for alternative
+                # DN.
+                ar = [args[0]] + ADclient.update_dn.im_func(args[0], args[1:])
+                if ar == args:
+                    # Re-raise the original exception, as no new DNs where
+                    # found.
+                    raise e
+                return f(*ar, **kwds)
+
+        return wrapper
 
     def __init__(self, auth_user, domain_admin, dryrun, domain, *args,
                  **kwargs):
@@ -815,6 +893,25 @@ class ADclient(PowershellClient):
         out = self.run(cmd)
         return not out.get('stderr')
 
+    @retry_with_mangled_dn
+    def _run_setadobject(self, dn, action, attrs):
+        """Helper method for running the Set-ADObject command"""
+        cmd = self._generate_ad_command(
+            'Set-ADObject', {'Identity': dn, action: attrs})
+        # PowerShell commands are executed through Windows command line.
+        # The maximum length of the command there is 8191 for modern
+        # Windows versions (http://support.microsoft.com/kb/830473). Due to
+        # additional parameters that other methods add to the command, the
+        # part of it which is generated here has to be even shorter. The
+        # limit at 8000 bytes seems to be working.
+        # TODO: This should be checked for in winrm.py.
+        if len(cmd) > 8000:
+            raise CommandTooLongException('Too long')
+        self.logger.debug3("Command(dryrun=%r): %s", self.dryrun, cmd)
+        if not self.dryrun:
+            out = self.run(cmd)
+            self.logger.debug5("Command result: %r", out)
+
     def _setadobject_command_wrapper(self, ad_id, action, attributes):
         """Run Set-ADObject on a given object and update its attributes.
 
@@ -822,11 +919,11 @@ class ADclient(PowershellClient):
         split up and run in several commands.
 
         This method makes sure that if some of the attributes or attributes'
-        elements are not accepted by AD, all of the elements are tried to be set
-        again. This is making this method even more complicated, and could slow
-        the sync down when this situation occurs, but at least we make sure that
-        one single, bogus element will not be able to block the update of the
-        whole AD object.
+        elements are not accepted by AD, all of the elements are tried to be
+        set again. This is making this method even more complicated, and could
+        slow the sync down when this situation occurs, but at least we make
+        sure that one single, bogus element will not be able to block the
+        update of the whole AD object.
 
         :type ad_id: str
         :param ad_id: The ID of the object whose attributes will be updated.
@@ -850,24 +947,6 @@ class ADclient(PowershellClient):
         if action.lower() not in ('add', 'clear', 'remove', 'replace'):
             raise Exception("Invalid action for updating %s: %s" % (ad_id,
                             action))
-        def run_setadobject(attrs):
-            """Helper method for running the Set-ADObject command"""
-            cmd = self._generate_ad_command('Set-ADObject',
-                                            {'Identity': ad_id,
-                                             action: attrs})
-            # PowerShell commands are executed through Windows command line. The
-            # maximum length of the command there is 8191 for modern Windows
-            # versions (http://support.microsoft.com/kb/830473). Due to
-            # additional parameters that other methods add to the command, the
-            # part of it which is generated here has to be even shorter. The
-            # limit at 8000 bytes seems to be working.
-            # TODO: This should be checked for in winrm.py.
-            if len(cmd) > 8000:
-                raise CommandTooLongException('Too long')
-            self.logger.debug3("Command: %s", cmd)
-            if self.dryrun:
-                return True
-            self.run(cmd)
 
         def wrap_setadobject(attrs):
             """Run Set-ADObject aggresively, retrying if it fails.
@@ -886,33 +965,33 @@ class ADclient(PowershellClient):
 
             """
             try:
-                return run_setadobject(attrs)
+                self._run_setadobject(ad_id, action, attrs)
+                return True
             except SetAttributeException:
                 # Not giving up yet! We retry by adding each attribute's
                 # elements separately.
                 self.logger.debug2("Failed updating all attributes, splitting")
-                success = True
                 if isinstance(attrs, set):
                     try:
-                        run_setadobject(attrs)
+                        self._run_setadobject(ad_id, action, attrs)
                         return True
                     except SetAttributeException, e:
                         self.logger.warn(
                             "Failed action %s for %s with element: '%s'"
                             " error: %s", action, ad_id, attrs, e)
-                        return False
+                    return False
 
+                success = True
                 for atrname, values in attrs.iteritems():
                     # Stuff un-itrable types (or types that we do not want to
                     # iterate, like strings) into a list. It does not handle
                     # generators.
                     if (isinstance(values, basestring)
-                            or not (hasattr(values, '__iter__') or
-                                    hasattr(values, '__getitem__'))):
+                            or not isinstance(values, collections.Iterable)):
                         values = [values]
                     for element in values:
                         try:
-                            run_setadobject({atrname: element})
+                            self._run_setadobject(ad_id, action, {atrname: element})
                         except SetAttributeException, e:
                             success = False
                             self.logger.warn(
@@ -920,8 +999,9 @@ class ADclient(PowershellClient):
                                 " error: %s", atrname, ad_id, element, e)
                 return success
 
+        success = True
         try:
-            return wrap_setadobject(attributes)
+            success &= wrap_setadobject(attributes)
         except CommandTooLongException:
             # Strictly speaking, here we have to check if we have to perform
             # 'Clear' operation, before we go into the loop below to update
@@ -929,21 +1009,24 @@ class ADclient(PowershellClient):
             # the length is exceeded because we have to update too many
             # elements in the attributes, not to clear them.
             self.logger.debug3("Command too long, splitting")
-            success = True
             for k, v in attributes.iteritems():
                 # Elements of the list are approximately the same length
                 # 5000 is empirically chosen to have some length reserve
                 # TODO: 5000 is not always enough, we need to be more generic
+                # TODO: On clear or remove, `attrs' might be a set
                 splits = sum(len(elem) for elem in v) / 5000 + 1
                 elems_in_split = len(v) / splits + 1
                 newattrs = {}
                 for i in range(0, splits):
                     newattrs[k] = v[i * elems_in_split:(i+1) * elems_in_split]
-                    if not wrap_setadobject(newattrs):
-                        success = False
-                    self.logger.debug3("Attribute %s partially updated.", k)
-                self.logger.debug3("Attribute %s fully updated", k)
-            return success
+                    success &= wrap_setadobject(newattrs)
+                    if success:
+                        self.logger.debug3("Attribute %s partially updated", k)
+                if success:
+                    self.logger.debug3("Attribute %s fully updated", k)
+        if not success:
+            self.logger.warn("Unable to %s attributes for %s", action, ad_id)
+        return success
 
     def update_attributes(self, ad_id, attributes, old_attributes=None):
         """Update an AD object with the given attributes.
@@ -991,13 +1074,12 @@ class ADclient(PowershellClient):
         """
         self.logger.info(u'Updating attributes for %s: %s', ad_id,
                          ', '.join(attributes.keys()))
-        success = True
         removes = dict()
         adds = dict()
         fullupdates = dict()
-        # Sort the attributes in what to add, remove or fully update. Some
-        # attributes are named differently when reading and writing in AD, so we
-        # need to map them properly.
+        # Sort the attributes (add, remove, update).
+        # Some attributes are named differently when reading and writing in AD,
+        # so we need to map them properly.
         for k, v in attributes.iteritems():
             if 'remove' in v:
                 removes[self.attribute_write_map.get(k, k)] = v['remove']
@@ -1006,34 +1088,34 @@ class ADclient(PowershellClient):
             else:
                 fullupdates[k] = v['fullupdate']
 
-        if removes:
-            if not self._setadobject_command_wrapper(ad_id, 'Remove', removes):
-                return False
-        if adds:
-            if not self._setadobject_command_wrapper(ad_id, 'Add', adds):
-                success = False
+        # Remove attributes
+        if (removes and not
+                self._setadobject_command_wrapper(ad_id, 'Remove', removes)):
+            return False
+
+        # Add attributes
+        if adds and not self._setadobject_command_wrapper(ad_id, 'Add', adds):
+            return False
+
+        # Update attributes (clear + add)
+        # TODO: Can we somehow make Replace work with $null values?
         if fullupdates:
             clears = set()
             updates = dict()
             for k, v in fullupdates.iteritems():
-                # What attributes need to be cleared before adding the correct
-                # ones. No need to clear already empty attributes.
-                if old_attributes.get(k):
+                # Attributes in AD with existing values must first be cleared
+                if old_attributes.get(k, NotSet) != NotSet:
                     clears.add(self.attribute_write_map.get(k, k))
-                # Do not update attributes if they are "None" in Cerebrum.
-                # It may lead to strange values in AD in the future.
-                # Just leave them cleared.
-                if v:
+                # Only CLEAR attributes if they are `None' in Cerebrum.
+                if v is not None:
                     updates[self.attribute_write_map.get(k, k)] = v
-            # We could save runtime on combining Clear and Add in the same
-            # commands, but at the cost of more complexity. This should normally
-            # not happen, maybe except for the initial sync for an instance.
-            if clears:
-                self._setadobject_command_wrapper(ad_id, 'Clear', clears)
-            if updates and not self._setadobject_command_wrapper(ad_id,
-                                                                'Add', updates):
-                success = False
-        return success
+            if (clears and not
+                    self._setadobject_command_wrapper(ad_id, 'Clear', clears)):
+                return False
+            if (updates and not
+                    self._setadobject_command_wrapper(ad_id, 'Add', updates)):
+                return False
+        return True
 
     def get_ad_attribute(self, adid, attributename):
         """Start generating a list of a given object's given AD attribute.
@@ -1064,10 +1146,11 @@ class ADclient(PowershellClient):
                                                                 adid))
         # No dryrun here, since it's read-only
         cmdid = self.execute('(%s).%s' % (
-                    self._generate_ad_command('Get-ADObject',
-                                              {'Identity': adid,
-                                               'Properties': attributename}),
-                    attributename))
+            self._generate_ad_command('Get-ADObject',
+                                      {'Identity': adid,
+                                       'Properties': attributename}),
+            attributename))
+
         def getout(cmd):
             # TODO: By printing the attribute, it is split out on each line.
             # Note, however, that cmd breaks the lines at 80 or more characters,
@@ -1393,6 +1476,10 @@ class ADclient(PowershellClient):
             at once.
 
         """
+        for k in kwargs.copy():
+            kwargs[k] = self.escape_to_string(kwargs[k])
+            if not kwargs[k]:
+                del kwargs[k]
         self.logger.info("Executing script %s, args: %s", script, kwargs)
         params = ' '.join('-%s %s' % (x[0], x[1]) for x in kwargs.iteritems())
         cmd = '& %(cmd)s %(params)s' % {'cmd': self.escape_to_string(script),
@@ -1402,9 +1489,11 @@ class ADclient(PowershellClient):
         # TODO: How about just executing it, and not getting the feedback from
         # it? Could it be done without WinRM complaining after some attempts?
         t = time.time()
-        self.run(cmd)
+        output = self.run(cmd)
         self.logger.debug("Script %s got executed in %.2f seconds", script,
                           time.time() - t)
+        self.logger.debug4("Script output: %r", output)
+        return output
 
 # TODO: The rest should be modified or removed, as we should not communicate
 # with the old ADServer any more:

@@ -44,37 +44,37 @@ def remove_expired_groups(db, days, pretend):
     try:
         amount_to_be_removed_groups = 0
         amount_removed_groups = 0
+        if pretend:
+            logger.info('DRYRUN: Rolling back all changes')
         gr = Factory.get('Group')(db)
         expired_groups = gr.search(filter_expired=False, expired_only=True)
         for group in expired_groups:
             removal_deadline = group['expire_date'] + days
             if now() > removal_deadline:  # deadline passed. remove!
-                logger.debug(
-                    'Expired group (%s - %s) ready for removal' % (
-                        group['name'],
-                        group['description']))
                 amount_to_be_removed_groups += 1
-                if not pretend:  # do not actually remove when running with -d
-                    try:
-                        gr.clear()
-                        gr.find(group['group_id'])
-                        gr.delete()
+                try:
+                    gr.clear()
+                    gr.find(group['group_id'])
+                    gr.delete()
+                    if not pretend:
                         db.commit()
-                        amount_removed_groups += 1
-                        logger.info(
-                            'Expired group (%s - %s) removed' % (
-                                group['name'],
-                                group['description']))
-                    except DatabaseError, e:
-                        logger.error(
-                            'Database error: Could not delete expired group '
-                            '(%s - %s): %s. Skipping' % (
-                                group['name'],
-                                group['description'],
-                                str(e)),
-                            exc_info=True)
+                    else:  # do not actually remove when running with -d
                         db.rollback()
-                        continue
+                    amount_removed_groups += 1
+                    logger.info(
+                        'Expired group (%s - %s) removed' % (
+                            group['name'],
+                            group['description']))
+                except DatabaseError, e:
+                    logger.error(
+                        'Database error: Could not delete expired group '
+                        '(%s - %s): %s. Skipping' % (
+                            group['name'],
+                            group['description'],
+                            str(e)),
+                        exc_info=True)
+                    db.rollback()
+                    continue
             else:
                 time_until_removal = removal_deadline - now()
                 logger.debug(

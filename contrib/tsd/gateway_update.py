@@ -163,12 +163,13 @@ class Processor:
             try:
                 pid = self.ou.get_project_id()
             except Errors.NotFoundError, e:
-                logger.warn(e)
+                logger.warn("No project id for ou_id %s: %s", row['ou_id'], e)
+                continue
             if pid in processed:
                 logger.debug4('Skipping already processed project: %s', pid)
                 continue
             logger.debug2('Creating project: %s', pid)
-            self.gw.create_project(pid)
+            self.gw.create_project(pid, self.ou.expire_date)
             processed.add(pid)
 
     def process_project(self, pid, proj):
@@ -185,7 +186,6 @@ class Processor:
 
         """
         logger.debug("Processing project %s: %s", pid, proj)
-
         self.ou.clear()
         try:
             self.ou.find_by_tsd_projectid(pid)
@@ -197,8 +197,15 @@ class Processor:
             self.gw.delete_project(pid)
             return
 
-        quars = dict((row['quarantine_type'], row) for row in
-                     self.ou.get_entity_quarantine(only_active=True))
+        if proj['expires'] != self.ou.expire_date:
+            self.gw.expire_project(pid, self.ou.expire_date)
+
+        # Since no other quarantine types are handled in this method
+        # we only need to select quarantine type frozen
+        # This may change in the future
+
+        quars = [row for row in self.ou.get_entity_quarantine(
+            self.co.quarantine_frozen)]
 
         # TBD: Delete project when put in end quarantine, or wait for the
         # project to have really been removed? Remember that we must not remove
@@ -209,10 +216,18 @@ class Processor:
         # if self.co.quarantine_project_end in quars:
         #     logger.debug("Project %s has ended" % pid)
         #     self.gw.delete_project(pid)
-        if len(quars) > 0:
-            logger.debug("Project %s has active quarantines: %s", pid, quars)
-            if not proj['frozen']:
-                self.gw.freeze_project(pid)
+        if quars:
+            # sort here in order to be able to show the same list in the log
+            quars.sort(key=lambda v: v['start_date'])  # sort by start_date
+            when = quars[0]['start_date']  # the row with the lowest start_date
+            logger.debug("Project %s has freeze-quarantines: %s",
+                         pid,
+                         str(quars))
+            if proj['frozen']:
+                if proj['frozen'] != when:  # the freeze dates are different
+                    self.gw.freeze_project(pid, when)  # set new freeze date
+            else:
+                self.gw.freeze_project(pid, when)
         else:
             if proj['frozen']:
                 self.gw.thaw_project(pid)
@@ -267,7 +282,10 @@ class Processor:
                 logger.debug("Skipping non-affiliated account: %s",
                              self.pu.entity_id)
                 continue
-            self.gw.create_user(pid, row['name'], self.pu.posix_uid)
+            self.gw.create_user(pid,
+                                row['name'],
+                                self.pu.posix_uid,
+                                expire_date=self.pu.expire_date)
 
     def process_user(self, gw_user, ac2proj):
         """Process a single user retrieved from the GW.
@@ -295,6 +313,10 @@ class Processor:
             logger.info("User %s not found in Cerebrum" % username)
             self.gw.delete_user(pid, username)
             return
+
+        if gw_user['expires'] != self.pu.expire_date:
+            self.gw.expire_user(pid, username, self.pu.expire_date)
+
         # Skip accounts not affiliated with a project.
         if self.pu.entity_id not in ac2proj:
             logger.info("User %s not affiliated with any project" % username)
@@ -314,12 +336,19 @@ class Processor:
             if not gw_user['frozen']:
                 self.gw.freeze_user(pid, username)
             return
-        quars = [r['quarantine_type'] for r in
-                 self.pu.get_entity_quarantine(only_active=True)]
+        quars = [row for row in self.pu.get_entity_quarantine(
+            filter_disable_until=True)]
         if quars:
-            logger.debug2("User %s has quarantines: %s" % (username, quars))
-            if not gw_user['frozen']:
-                self.gw.freeze_user(pid, username)
+            # sort here in order to be able to show the same list in the log
+            quars.sort(key=lambda v: v['start_date'])  # sort by start_date
+            when = quars[0]['start_date']  # the row with the lowest start_date
+            logger.debug2("User %s has quarantines: %s" % (username,
+                                                           str(quars)))
+            if gw_user['frozen']:
+                if gw_user['frozen'] != when:  # the freeze dates are different
+                    self.gw.freeze_user(pid, username, when)  # set new freeze
+            else:
+                self.gw.freeze_user(pid, username, when)
         else:
             if gw_user['frozen']:
                 self.gw.thaw_user(pid, username)

@@ -112,7 +112,7 @@ User administration server
 		      completeness (for minimal feature set).  Needs
 		      an operational client for additional testing.
 
-  RESPONSIBILITY OF: RF, HM
+  RESPONSIBILITY OF: RF,ï¿½HM
 
   All "live" Cerebrum access from outside of the Cerebrum installation
   proper should be done through this server.
@@ -414,18 +414,6 @@ Export of OU and person data to LDAP
 
   FILES:
 
-Export of user data to Notes
-----------------------------
-  STATUS: Not started
-
-  RESPONSIBILITY OF: BHMJ, HF, FV
-
-  
-
-  CODE DEPENDENCIES: Core API, maybe also ChangeLog API
-
-  FILES:
-
 Export to LMS ClassFronter
 --------------------------
   STATUS: Not started
@@ -482,7 +470,7 @@ Export to Samba
 
   RESPONSIBILITY OF:
 
-  Export Samba password files.  Requested by the University of Tromsø.
+  Export Samba password files.  Requested by the University of Tromsï¿½.
 
   CODE DEPENDENCIES: Core API
 

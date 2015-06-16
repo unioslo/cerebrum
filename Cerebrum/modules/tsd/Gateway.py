@@ -36,6 +36,7 @@ for the available commands at the Gateway.
 """
 
 import xmlrpclib
+import mx
 
 import cerebrum_path
 import cereconf
@@ -122,10 +123,46 @@ class GatewayClient(xmlrpclib.Server, object):
             # xmlrpclib.ServerProxy. Not the best behaviour, but the alternative
             # was to make an almost complete copy of ServerProxy in here, since
             # it has too many private methods and variables...
-            return super(GatewayClient, self)._ServerProxy__request(methodname,
-                                                                    params)
+            return self.__typecast(
+                super(GatewayClient, self)._ServerProxy__request(
+                    methodname, self.__typecast(params)))
         except xmlrpclib.Fault, e:
             raise GatewayException(e)
+
+    def __typecast(self, data):
+        """Typecast specific object types.
+
+        Typecasts:
+        xmlrpclib.DateTime → mx.DateTime.DateTime
+        mx.DateTime.DateTime → xmlrpclib.DateTime
+
+        :param object data: The data to typecast.
+
+        :return object: The typecasted data.
+        """
+        # TODO: Make me configurable!
+
+        def cast_elements(elms):
+            collect = []
+            for elm in data:
+                collect.append(self.__typecast(elm))
+            return collect
+
+        if isinstance(data, list):
+            return cast_elements(data)
+        elif isinstance(data, tuple):
+            return tuple(cast_elements(data))
+        elif isinstance(data, dict):
+            collect = []
+            for k, v in data.items():
+                collect.append((k, self.__typecast(v)))
+            return dict(collect)
+        elif isinstance(data, xmlrpclib.DateTime):
+            return mx.DateTime.strptime(data.value, "%Y%m%dT%H:%M:%S")
+        elif isinstance(data, mx.DateTime.DateTimeType):
+            return xmlrpclib.DateTime(data)
+        else:
+            return data
 
     # List methods
 
@@ -321,16 +358,17 @@ class GatewayClient(xmlrpclib.Server, object):
 
     # Project methods
 
-    def create_project(self, pid):
+    def create_project(self, pid, expire_date=None):
         """Create a new project in the GW.
 
         :param string pid: The project ID.
+        :param mx.DateTime.DateTime expire_date: The projects expire date.
 
         """
         self.logger.info("Creating project: %s", pid)
         if self.dryrun:
             return True
-        return self.project.create({'project': pid})
+        return self.project.create({'project': pid, 'expires': expire_date})
 
     def delete_project(self, pid):
         """Delete a given project from the GW.
@@ -346,20 +384,33 @@ class GatewayClient(xmlrpclib.Server, object):
             return True
         return self.project.delete({'project': pid})
 
+    def expire_project(self, pid, expire_date=None):
+        """Set expire-date on project.
+
+        :param string pid: The project identifier.
+        :param mx.DateTime.DateTime expire_date: The projects expire date.
+
+        """
+        self.logger.info("Setting expire date %s on project: %s",
+                         pid, expire_date)
+        if self.dryrun:
+            return True
+        return self.project.expire({'project': pid, 'when': expire_date})
+
     def freeze_project(self, pid, when=None):
         """Freeze a project in the GW.
 
         :param string pid: The project ID.
 
-        :param DateTime when:
+        :param mx.DateTime.DateTime when:
             When the freeze should happen. Defaults to now if not set.
-
         """
         self.logger.info("Freezing project: %s", pid)
         if self.dryrun:
             return True
         params = {'project': pid}
-        # TODO: 'when' not implemented yet!
+        if when is not None:
+            params['when'] = when
         return self.project.freeze(params)
 
     def thaw_project(self, pid):
@@ -375,7 +426,7 @@ class GatewayClient(xmlrpclib.Server, object):
 
     # User methods
 
-    def create_user(self, pid, username, uid, realname=None):
+    def create_user(self, pid, username, uid, realname=None, expire_date=None):
         """Create a user in the GW.
 
         :param string pid:
@@ -391,9 +442,14 @@ class GatewayClient(xmlrpclib.Server, object):
             The name of the user. It has no practical significance for the
             gateway. Must not contain colons!
 
+        :param mx.DateTime.DateTime expire_date: The expiry-date for the user.
+
         """
         self.logger.info("Creating user: %s", username)
-        params = {'project': pid, 'username': username, 'uid': uid}
+        params = {'project': pid,
+                  'username': username,
+                  'uid': uid,
+                  'expires': expire_date}
         if realname:
             if ':' in realname:
                 self.logger.warn("Realname for %s contains colons!", username)
@@ -402,6 +458,27 @@ class GatewayClient(xmlrpclib.Server, object):
         if self.dryrun:
             return True
         return self.user.create(params)
+
+    def expire_user(self, pid, username, expire_date=None):
+        """Set expire-date on the user in the Gateway.
+
+        :param string pid:
+            The project ID.
+
+        :param string username:
+            The username of the user.
+
+        :param mx.DateTime.DateTime expire_date: The expire date of the user.
+
+        """
+        self.logger.info("Setting expire date for %s to %s",
+                         username,
+                         expire_date)
+        if self.dryrun:
+            return True
+        return self.user.expire({'project': pid,
+                                 'username': username,
+                                 'when': expire_date})
 
     def delete_user(self, pid, username):
         """Delete a user from the GW.
@@ -426,18 +503,17 @@ class GatewayClient(xmlrpclib.Server, object):
         :param string username:
             The username of the account
 
-        :param DateTime when:
-            When the freeze should happen. Defaults to now if not set. Not
-            implemented yet.
+        :param mx.DateTime.DateTime when:
+            When the freeze should happen. Defaults to now if not set.
 
         :return bool: If the GW accepted the call.
-
         """
         self.logger.info("Freezing account: %s", username)
         params = {'project': pid, 'username': username}
-        # TODO: 'when' not implemented yet!
         if self.dryrun:
             return True
+        if when is not None:
+            params['when'] = when
         return self.user.freeze(params)
 
     def thaw_user(self, pid, username):

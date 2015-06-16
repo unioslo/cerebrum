@@ -125,15 +125,19 @@ class ExchangeEventHandler(processing.Process):
         while self.run_state.value:
             try:
                 self.ec = ExchangeClient(
-                    logger=self.logger,
-                    host=self.config['server'],
-                    port=self.config['port'],
                     auth_user=self.config['auth_user'],
                     domain_admin=self.config['domain_admin'],
                     ex_domain_admin=self.config['ex_domain_admin'],
                     management_server=self.config['management_server'],
-                    encrypted=self.config['encrypted'],
-                    session_key=gen_key())
+                    session_key=gen_key(),
+                    logger=self.logger,
+                    host=self.config['server'],
+                    port=self.config['port'],
+                    ca=self.config.get('ca'),
+                    client_key=self.config.get('client_key'),
+                    client_cert=self.config.get('client_cert'),
+                    check_name=self.config.get('check_name', True),
+                    encrypted=self.config['encrypted'])
             except URLError:
                 # Here, we handle the rare circumstance that the springboard is
                 # down when we connect to it. We log an error so someone can
@@ -398,6 +402,16 @@ class ExchangeEventHandler(processing.Process):
                     target_entity=event['subject_entity'])
                 ev_mod['subject_entity'] = etid
                 self.ut.log_event(ev_mod, 'email_primary_address:add_primary')
+
+            # Activate SingleItemRecoveryEnabled
+            try:
+                self.ec.set_mailbox_singleitemrecovery(uname,
+                                                   enabled=True)
+            except (ExchangeException, ServerUnavailableException), e:
+                self.logger.warn(
+                    'eid:%d: Failed enabling singleitemrecovery for %s',
+                    event['event_id'], uname)
+                self.ut.log_event(event, 'exchange:item_recovery')
 
             if not hide_from_address_book:
                 try:
@@ -1632,6 +1646,32 @@ class ExchangeEventHandler(processing.Process):
         else:
             # TODO: Will we ever arrive here? Log this?
             raise UnrelatedEvent
+
+    @EventDecorator.RegisterHandler(['exchange:item_recovery'])
+    def set_item_recovery(self, event):
+        """ Set SingleItemRecovery for mailboxes
+
+        :type event: Cerebrum.extlib.db_row.row
+        :param event: The event returned from Change- or EventLog
+        """
+        try:
+            name = self.ut.get_account_name(event['subject_entity'])
+        except Errors.NotFoundError:
+            raise UnrelatedEvent
+
+        try:
+            self.ec.set_mailbox_singleitemrecovery(name, enabled=True)
+            self.logger.info('eid:%d: SIR %s on %s' % \
+                             (event['event_id'],
+                              ('enabled' if enabled else 'disabled'),
+                              name))
+        except (ExchangeException, ServerUnavailableException), e:
+            self.logger.warn(
+                    'eid:%d: Can\'t %s SIR on account %s: %s' \
+                    % (event['event_id'],
+                       ('enabled' if enabled else 'disabled'),
+                       name, e))
+            raise EventExecutionException
 
     @EventDecorator.RegisterHandler(['exchange:set_ea_policy'])
     def set_address_policy(self, event):

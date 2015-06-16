@@ -35,3 +35,13 @@ class GroupInfo(ComplexModel):
     description = Unicode
     expire_date = DateTime
     visibility = String
+
+
+class GroupMember(ComplexModel):
+    """Information about a group member."""
+    __namespace__ = NAMESPACE
+    __tns__ = NAMESPACE
+
+    type = String
+    name = String
+    # TBD: Not here: id, expire1, expire2, expire_date

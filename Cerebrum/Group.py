@@ -97,6 +97,8 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
     # lengths and max length in database is 256 characters
     def illegal_name(self, name, max_length=256):
         """Return a string with error message if groupname is illegal"""
+        if len(name) == 0:
+            return "Must specify group name"
         if len(name) > max_length:
             return "Name %s too long (%d char allowed)" % (name, max_length)
         return False
@@ -926,6 +928,25 @@ class GroupAPI(object):
         }
 
         return info
+
+    @staticmethod
+    def group_list(gr):
+        """List members of a group.
+
+        :type gr: <Cerebrum.Group.Group>
+        :param gr: A Cerebrum group object.
+
+        :rtype: list(<subclass of Cerebrum.Entity.Entity>)
+        """
+        entity = Utils.Factory.get('Entity')(gr._db)
+
+        ret = []
+        for row in gr.search_members(group_id=gr.entity_id):
+            entity.clear()
+            entity.find(row['member_id'])
+            member = entity.get_subclassed_object()
+            ret.append(member)
+        return ret
 
     @staticmethod
     def group_create(gr, creator, visibility, name, description,

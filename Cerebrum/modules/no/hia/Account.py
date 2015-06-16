@@ -91,11 +91,9 @@ class AccountHiAMixin(Account.Account):
                 et.email_server_id = es.entity_id
                 et.write_db()
         if spread == self.const.spread_uia_office_365:
-            # Check that users destinied for Office365 are supposed to be in
-            # AD.
-            if not self.has_spread(self.const.spread_hia_ad_account):
-                raise self._db.IntegrityError(
-                    'User does not have AD-spread, aborting')
+            # We except that the user already has an AD spread before setting
+            # the spread for Office 365. This is handled by UiA.
+
             # Update the users email-server (and create EmailTarget, if it is
             # non-existent).
             self._update_email_server(spread, force=True)

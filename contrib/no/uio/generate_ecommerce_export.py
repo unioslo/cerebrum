@@ -252,7 +252,6 @@ def generate_role_file():
     employee_data = fetch_employee_data()
 
 def generate_organization_file(org_units, exported_orgs):
-    org_structure = {}
     org_structure = get_org_unit_data(org_units, exported_orgs)
     org_file = open(org_file_name, 'w')
     address_file = open(address_file_name, 'w')
@@ -294,10 +293,10 @@ def get_org_unit_data(org_units, exported_orgs):
         count_level = 1
         ou.clear()
         try:
-            ou.find(o['entity_id'])
+            ou.find(o[0])
         except Errors.NotFoundError:
             logger.warn("Could not find OU with id: %s (this should never happen!).",
-                        o['entity_id'])
+                        o[0])
         oun_id = '%02d%02d%02d' % (ou.fakultet, ou.institutt, ou.avdeling)
         tmp = ou.search_name_with_language(entity_id=ou.entity_id,
                                            name_language=const.language_nb,
@@ -491,10 +490,12 @@ def main():
     address_file_name = dump_directory + datetime + '-' + 'Adr.csv'
     address_part_file_name = dump_directory + datetime + '-' + 'AdrPart.csv'
 
-    org_units = ou.list_all_with_spread(const.spread_uio_org_ou)
+    org_units = ou.search(spread=const.spread_uio_org_ou,
+                          filter_quarantined=True)
     exported_orgs = []
+
     for e in org_units:
-        exported_orgs.append(int(e['entity_id']))
+        exported_orgs.append(int(e[0]))
     exported_orgs.append(999999)
     
     try:

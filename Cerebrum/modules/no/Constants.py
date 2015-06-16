@@ -61,6 +61,13 @@ class ConstantsActiveDirectory(Constants.Constants):
     trait_exchange_mdb = _EntityTraitCode(
         'exchange_mdb', Constants.Constants.entity_account,
         "The assigned mailbox-database in Exchange for the given account.")
+    # traits used to "exempt" entities from being exported to AD2
+    trait_account_exempt = _EntityTraitCode(
+        'account_exempt', Constants.Constants.entity_account,
+        'Exempt the given account from being exported')
+    trait_group_exempt = _EntityTraitCode(
+        'group_exempt', Constants.Constants.entity_group,
+        'Exempt the given group from being exported')
 
 
 class ConstantsCommon(Constants.Constants):
@@ -412,8 +419,8 @@ class SAPLonnsTittelKode(Constants._CerebrumCode):
             return self.kategori
         # fi
 
-        return self.sql.query_1("SELECT kategori FROM %s WHERE code = %s" %
-                                self._lookup_table, int(self))
+        return self.sql.query_1("SELECT kategori FROM %s WHERE code = :code" %
+                                self._lookup_table, {'code': int(self)})
 
     def update(self):
         """

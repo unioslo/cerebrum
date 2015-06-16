@@ -1,4 +1,5 @@
-# -*- coding: iso-8859-1 -*-
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 #
 # Copyright 2003 University of Oslo, Norway
 #
@@ -18,16 +19,16 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""This module contains a collection of utilities for dealing with
-SAP-specific data.
+""" Module with utilities for dealing with SAP-specific data files.
 
-The public interface is two methods only -- make_person_iterator and
-make_employment_iterator. The rest is meant for internal usage only.
+The public interface is two methods only -- `make_person_iterator` and
+`make_employment_iterator`. The rest is meant for internal usage only.
 
-SAPTupleBase and its descendants provide a tuple/dict-like interface to SSØ
+SAPTupleBase and its descendants provide a tuple/dict-like interface to DFÃ˜'s
 SAP data.
 
-2010-03-31 FIXME: This module MUST be profiled.
+TODO: This module should be profiled.
+
 """
 
 import re
@@ -42,13 +43,13 @@ from mx.DateTime import now
 # Public interface for this module
 #
 def make_person_iterator(source, fok=False, mgmu=False, logger=None):
-    """Iterator for grokking SSØ-SAP person data.
+    """Iterator for grokking SSÃ˜-SAP person data.
 
     @param source:
       Any iterable yielding successive lines with person data.
 
     @param fok:
-      boolean determining whether to respect forretningsområdekode field.
+      boolean determining whether to respect forretningsomrÃ¥dekode field.
     """
 
     if mgmu and fok:
@@ -68,7 +69,7 @@ def make_person_iterator(source, fok=False, mgmu=False, logger=None):
 
 
 def make_employment_iterator(source, fok, logger=None):
-    """Iterator for grokking SSØ-SAP employment data.
+    """Iterator for grokking SSÃ˜-SAP employment data.
 
     @param source:
       Any iterable yielding successive lines with employment data.
@@ -88,7 +89,7 @@ def make_employment_iterator(source, fok, logger=None):
 
 
 def make_utvalg_iterator(source, fok, logger=None):
-    """Iterator for getting SSØ-SAP utvalg data about persons.
+    """Iterator for getting SSÃ˜-SAP utvalg data about persons.
 
     @param source:
         Any iterable yielding successice lines with utvalg data.
@@ -148,7 +149,7 @@ class _MetaTupleBase(type):
     """Metaclass for SAP rule manipulation.
 
     This metaclass is useful for creating rules for processing tuples made out
-    of lines of SAP-SSØ data.
+    of lines of SAP-SSÃ˜ data.
 
     Classes with SAP rules can inherit from _SAPTupleBase. Each class defines
     2 class attributes, _field_count and _field_rules. The former is the
@@ -327,7 +328,7 @@ class _SAPPersonDataTuple(_SAPTupleBase):
        0   SAP person ID
        2   Employment termination date
        3   Name initials
-       4   SSN / norwegian fødselsnr
+       4   SSN / norwegian fÃ¸dselsnr
        5   Birth date
        6   First name
        7   Middle name
@@ -343,7 +344,7 @@ class _SAPPersonDataTuple(_SAPTupleBase):
       22   Bostedsadr. Poststed
       23   Bostedsadr. postnr.
       24   Bostedsadr. Land
-      25   Forretningsområde ID
+      25   ForretningsomrÃ¥de ID
       26   Office building code
       27   Office room number
       28   Work title
@@ -396,7 +397,7 @@ class _SAPPersonDataTuple(_SAPTupleBase):
 
 class _SAPPersonDataTupleFok(_SAPPersonDataTuple):
 
-    """This one has forretningsområdekode."""
+    """This one has forretningsomrÃ¥dekode."""
 
     _field_rules = {'sap_fokode': 25, }
 
@@ -433,7 +434,7 @@ class _SAPEmploymentTuple(_SAPTupleBase):
         1     orgeh (magic number constituting part of the SAP OU id)
         2     funksjonstittel (magic employment code)
         3     lonnstittel     (magic employment code)
-        4     forretningsområdekode (magic number constituting part of the SAP
+        4     forretningsomrÃ¥dekode (magic number constituting part of the SAP
               OU id)
         5     Employment start date
         6     Employment end date
@@ -458,7 +459,7 @@ class _SAPEmploymentTuple(_SAPTupleBase):
 
 class _SAPEmploymentTupleFok(_SAPEmploymentTuple):
 
-    """This time with forretningsområdekode."""
+    """This time with forretningsomrÃ¥dekode."""
 
     _field_rules = {'sap_fokode': 4,
                     'sap_ou_id': ((1, 4), lambda x, y: "%s-%s" % (x, y))}
@@ -479,9 +480,9 @@ class _SAPUtvalgTuple(_SAPTupleBase):
 
       Field  Description
         0    SAP person ID
-        1    Seksjonstilhørighet - forretningsområde ID? - orgeh?
+        1    SeksjonstilhÃ¸righet - forretningsomrÃ¥de ID? - orgeh?
         2    Ansattkode (vert erstatta av MEG/MUG) - employment type?
-        3    Fagmiljø
+        3    FagmiljÃ¸
         4    Start date
         5    End date
         6    Role

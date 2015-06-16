@@ -1,0 +1,64 @@
+# Set up and run tests
+#
+# Will run tests from the file `nosetests.txt' either in `files/<config>/' or
+# `files/'.
+#
+# The file should contain one test file or test folder per line, relative to
+# `<crb_src_dir>/testsuite/tests/'.
+# 
+# Required vars:
+#  - virtualenv
+#      Where our virtualenv is. `nosetests' should be installed in the
+#      virtualenv.
+#  - crb_src_dir
+#      The source directory for Cerebrum.
+#  - crb_tests  TODO: Not currently in use, should we accept tests from this
+#                     variable as well?
+#      The test folders/files to run, relative to {{ crb_src_dir }}/testsuite/tests
+
+# TODO: Should we write a module for this?
+
+- name: Place nose config
+  template: src={{ item }}
+            dest={{ item | tmpfile }}
+  with_file_overload:
+    - base: 'templates'
+    - file: 'noseconfig.j2'
+    - alt: '{{ config | default(None) }}'
+  register: _noseconfig
+
+# Should we use crb_tests? Maybe do a list join?
+#- name: debug tests
+  #debug: var=crb_tests
+
+- name: Run test
+  action: command {{ virtualenv }}/bin/nosetests 
+                  -c {{ _noseconfig | dest }}
+                  {{ lookup('file', item) | split | prefix(crb_src_dir + "/testsuite/tests/") | join(" ") }}
+  with_file_overload:
+    - base: 'files'
+    - file: 'nosetests.txt'
+    - alt: '{{ config | default(None) }}'
+  register: _test_result
+  ignore_errors: yes
+
+
+# Note: The with_file_overload causes the result to be wrapped in a list
+# (results)
+- name: _test_result_var
+  debug: var=_test_result
+
+# This will help when figuring out what goes wrong -- pure dumps of
+# stdout/stderr from nosetests
+- name: Write test output stdout
+  local_action: copy content="{{ _test_result | stdout }}" dest=/tmp/test_{{ config }}_result.stdout
+
+- name: Write test output stderr
+  local_action: copy content="{{ _test_result | stderr }}" dest=/tmp/test_{{ config }}_result.stderr
+
+# Cause playbook to fail, if test has failed.
+- name: Foul play
+  when: _test_result | rc_or != 0
+  debug: msg="Nosetests rc != 0, tests failed. Check output files for errors."
+  failed_when: true
+

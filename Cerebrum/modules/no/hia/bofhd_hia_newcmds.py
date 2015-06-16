@@ -107,6 +107,11 @@ class BofhdExtension(BofhdCommonMethods,
         '_grant_auth', '_revoke_auth', '_get_opset', '_get_access_id_host',
         '_get_host',
         #
+        # copy relevant email-cmds and util methods
+        #
+        'email_add_forward', '_get_email_target_and_address',
+        '_get_email_target_and_account',
+        #
         # copy relevant group-cmds and util methods
         #
         'group_add', 'group_gadd', 'group_padd', '_group_add',
@@ -194,7 +199,7 @@ class BofhdExtension(BofhdCommonMethods,
                             # Filter
                             'email_add_filter', 'email_remove_filter',
                             # Forward
-                            'email_add_forward', 'email_create_forward',
+                            'email_create_forward',
                             'email_remove_forward',
                             # Spam
                             'email_spam_action', 'email_spam_level',

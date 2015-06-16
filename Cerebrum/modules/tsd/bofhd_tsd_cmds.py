@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013, 2014 University of Oslo, Norway
+# Copyright 2013-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -65,6 +65,7 @@ from Cerebrum.modules.tsd.bofhd_auth import TSDBofhdAuth
 from Cerebrum.modules.tsd import bofhd_help
 from Cerebrum.modules.tsd import Gateway
 
+import inspect
 from functools import wraps
 
 
@@ -135,15 +136,39 @@ class SubnetParam(cmd.Parameter):
     _help_ref = 'subnet'
 
 
+class SubnetSearchType(cmd.Parameter):
+    """A subnet search type."""
+    _type = 'searchType'
+    _help_ref = 'subnet_search_type'
+
+
+class FnMatchPattern(cmd.Parameter):
+    """A pattern given to fnmatch."""
+    _type = 'pattern'
+    _help_ref = 'fnmatch_pattern'
+
+
 class VLANParam(cmd.Parameter):
     """A VLAN number"""
     _type = 'vlan'
     _help_ref = 'vlan'
 
+class VMType(cmd.Parameter):
+    """Bofhd Parameter for specifying projects' VM-type."""
+    _type = 'vmType'
+    _help_ref = 'vm_type'
+
 
 class TSDBofhdExtension(BofhdCommonMethods):
-
     """Superclass for common functionality for TSD's bofhd servers."""
+
+    # Commands that should be publicised for an operator, e.g. in jbofh:
+    all_commands = {}
+
+    # Commands that are available, but not publicised, as they are normally
+    # called through other systems, e.g. Brukerinfo. It should NOT be used as a
+    # security feature - thus you have security by obscurity.
+    hidden_commands = {}
 
     def __init__(self, server):
         super(TSDBofhdExtension, self).__init__(server)
@@ -163,7 +188,7 @@ class TSDBofhdExtension(BofhdCommonMethods):
                                                            Cache.cache_timeout],
                                                    size=500,
                                                    timeout=60 * 60)
-        # Copy in all defined commands from the superclass that is not defined
+        # Copy in all defined commands from the superclass that are not defined
         # in this class.
         for key, command in super(TSDBofhdExtension, self).all_commands.iteritems():
             if not key in self.all_commands:
@@ -288,12 +313,74 @@ class TSDBofhdExtension(BofhdCommonMethods):
         """
         if not include_short_name:
             return ou.get_project_id()
-        name = '<Not Set>'
-        try:
-            name = ou.get_project_name()
-        except Errors.CerebrumError, e:
-            self.logger.warn("get_project_name failed: %s", e)
+        name = ou.get_project_name()
         return "%s (%s)" % (ou.get_project_id(), name)
+
+    # user password
+    all_commands['user_password'] = cmd.Command(
+        ('user', 'password'), cmd.AccountName(), cmd.AccountPassword(optional=True))
+
+    def user_password(self, operator, accountname, password=None):
+        """Set password for a user. A modified version of UiO's command."""
+        account = self._get_account(accountname)
+        self.ba.can_set_password(operator.get_entity_id(), account)
+
+        # TSD specific behaviour: Raise error if user isn't approved or
+        # shouldn't be in AD or the GW:
+        if not account.is_approved():
+            raise CerebrumError("User is not approved: %s" % accountname)
+
+        if password is None:
+            password = account.make_passwd(accountname)
+        else:
+            # this is a bit complicated, but the point is that
+            # superusers are allowed to *specify* passwords for other
+            # users if cereconf.BOFHD_SU_CAN_SPECIFY_PASSWORDS=True
+            # otherwise superusers may change passwords by assigning
+            # automatic passwords only.
+            if self.ba.is_superuser(operator.get_entity_id()):
+                if (operator.get_entity_id() != account.entity_id and
+                        not cereconf.BOFHD_SU_CAN_SPECIFY_PASSWORDS):
+                    raise CerebrumError("Superuser cannot specify passwords "
+                                        "for other users")
+            elif operator.get_entity_id() != account.entity_id:
+                raise CerebrumError("Cannot specify password for another user.")
+        try:
+            account.goodenough(account, password)
+        except PasswordChecker.PasswordGoodEnoughException, m:
+            raise CerebrumError("Bad password: %s" % m)
+        ret_msg = 'Password altered'
+        # Set password for all person's accounts:
+        ac = Factory.get('Account')(self.db)
+        for row in ac.search(owner_id=account.owner_id):
+            ac.clear()
+            ac.find(row['account_id'])
+            ac.set_password(password)
+            try:
+                ac.write_db()
+            except self.db.DatabaseError, m:
+                raise CerebrumError("Database error: %s" % m)
+            # Remove "weak password" quarantine
+            for r in ac.get_entity_quarantine():
+                if int(r['quarantine_type']) == self.const.quarantine_autopassord:
+                    ac.delete_entity_quarantine(self.const.quarantine_autopassord)
+                if int(r['quarantine_type']) == self.const.quarantine_svakt_passord:
+                    ac.delete_entity_quarantine(self.const.quarantine_svakt_passord)
+            ac.write_db()
+            ret_msg += "\nNew password for: %s" % ac.account_name
+            if ac.is_deleted():
+                ret_msg += "\nWarning: user is deleted: %s" % ac.account_name
+            elif ac.is_expired():
+                ret_msg += "\nWarning: user is expired: %s" % ac.account_name
+            elif ac.get_entity_quarantine(only_active=True):
+                ret_msg += "\nWarning: user in quarantine: %s" % ac.account_name
+
+        # Only store one of the account's password. Not necessary to store all
+        # of them, as it's the same.
+        operator.store_state("user_passwd", {'account_id': int(account.entity_id),
+                                             'password': password})
+        ret_msg += "\nPlease use misc list_password to print or view the new password."
+        return ret_msg
 
     # misc list_passwords
     def misc_list_passwords_prompt_func(self, session, *args):
@@ -351,7 +438,6 @@ class TSDBofhdExtension(BofhdCommonMethods):
                     'map': map, 'raw': True,
                     'help_ref': 'print_select_range',
                     'default': str(n-1)}
-
 
 def superuser(fn):
     """Decorator for checking that methods are being executed as operator.
@@ -529,12 +615,9 @@ class _Projects:
 
 
 class AdministrationBofhdExtension(TSDBofhdExtension):
-
     """The bofhd commands for the TSD project's system administrators.
 
-    Here you have the commands that should be availble for the superusers
-
-    """
+    Here you have the commands that should be available for the superusers."""
 
     # Commands that should be publicised for an operator, e.g. in jbofh:
     all_commands = {}
@@ -559,26 +642,25 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         # Group
         'group_info', 'group_list', 'group_list_expanded', 'group_memberships',
         'group_delete', 'group_set_description', 'group_set_expire',
-        'group_search', 'group_promote_posix',  # 'group_create',
+        'group_search', 'group_promote_posix',  'group_demote_posix',
         # Quarantine
         'quarantine_disable', 'quarantine_list', 'quarantine_remove',
         'quarantine_set', 'quarantine_show',
         # OU
         'ou_search', 'ou_info', 'ou_tree',
-        # TODO: find out if the remaining methods should be imported too:
-        #
-        # Access:
-        #'access_disk', 'access_group', 'access_ou', 'access_user',
-        #'access_global_group', 'access_global_ou', '_list_access',
-        #'access_grant', 'access_revoke', '_manipulate_access',
-        #'_get_access_id', '_validate_access', '_get_access_id_disk',
-        #'_validate_access_disk', '_get_access_id_group', '_validate_access_group',
-        #'_get_access_id_global_group', '_validate_access_global_group',
-        #'_get_access_id_ou', '_validate_access_ou', '_get_access_id_global_ou',
-        #'_validate_access_global_ou', 'access_list_opsets', 'access_show_opset',
-        #'access_list', '_get_auth_op_target', '_grant_auth', '_revoke_auth',
-        #'_get_opset',
-        #
+        # Access
+        'access_grant', 'access_revoke', 'access_list',
+        '_manipulate_access', '_get_access_id', '_validate_access',
+        '_list_access', '_grant_auth', '_revoke_auth',
+        '_get_opset', '_get_auth_op_target',
+        'access_group', '_get_access_id_group', '_validate_access_group',
+        'access_list_opsets', 'access_show_opset',
+        #'access_global_group', '_get_access_id_global_group',
+        #'_validate_access_global_group', '_validate_access_global_ou',
+        #'access_global_ou', '_get_access_id_global_ou',
+        #'access_disk', '_get_access_id_disk', '_validate_access_disk',
+        #'access_ou', '_get_access_id_ou', '_validate_access_ou',
+        #'access_user',
         # Misc
         'misc_affiliations', 'misc_clear_passwords', 'misc_verify_password',
         'misc_list_passwords',
@@ -610,8 +692,19 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             UiOBofhdExtension
         non_all_cmds = ('num2str', 'user_set_owner_prompt_func',)
         for func in cls.copy_commands:
-            setattr(cls, func, UiOBofhdExtension.__dict__.get(func))
-            if func[0] != '_' and func not in non_all_cmds:
+            method_ref = UiOBofhdExtension.__dict__.get(func)
+            # decorate all functions (methods) with @superuser unless they:
+            # - start with '_' (helper functions)
+            # - are listed in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS
+            if (
+                    not func.startswith('_') and
+                    inspect.isroutine(method_ref) and
+                    func not in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS
+            ):
+                # superuser access enforced for the following function (method)
+                method_ref = superuser(UiOBofhdExtension.__dict__.get(func))
+            setattr(cls, func, method_ref)
+            if not func.startswith('_') and func not in non_all_cmds:
                 cls.all_commands[func] = UiOBofhdExtension.all_commands[func]
         x = object.__new__(cls)
         return x
@@ -619,23 +712,29 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     def __init__(self, server):
         super(AdministrationBofhdExtension, self).__init__(server)
 
-        # Copy in all defined commands from the superclass that is not defined
+        # Copy in all defined commands from the superclass that are not defined
         # in this class.
         for key, command in super(AdministrationBofhdExtension, self).all_commands.iteritems():
             if not key in self.all_commands:
                 self.all_commands[key] = command
 
-    #
+        # CRB-792: We want to set is_superuser filter to all cmds apart from:
+        # user_password, group_add_member and group_remove_member
+        # Instad of this hack, a redesign should be considered in the future.
+        for key in self.all_commands.keys():
+            if key not in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS:
+                self.all_commands[key].perm_filter = 'is_superuser'
+
     # Project commands
     all_commands['project_create'] = cmd.Command(
         ('project', 'create'), ProjectName(), ProjectLongName(),
         ProjectShortName(), cmd.Date(help_ref='project_start_date'),
-        cmd.Date(help_ref='project_end_date'), VLANParam(optional=True),
-        perm_filter='is_superuser')
+        cmd.Date(help_ref='project_end_date'), VMType(),
+        VLANParam(optional=True), perm_filter='is_superuser')
 
     @superuser
     def project_create(self, operator, projectname, longname, shortname,
-                       startdate, enddate, vlan=None):
+                       startdate, enddate, vm_type, vlan=None):
         """Create a new TSD project.
 
         :param BofhdSession operator:
@@ -646,6 +745,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         """
         start = self._parse_date(startdate)
         end = self._parse_date(enddate)
+
         if end < DateTime.now():
             raise CerebrumError("End date of project has passed: %s" % str(end).split()[0])
         elif end < start:
@@ -653,7 +753,11 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                 "Project can not end before it has begun: from %s to %s" %
                 (str(start).split()[0], str(end).split()[0]))
 
+        if vm_type not in cereconf.TSD_VM_TYPES:
+            raise CerebrumError("Invalid VM-type.")
+
         ou = self.OU_class(self.db)
+
         try:
             pid = ou.create_project(projectname)
         except Errors.CerebrumError, e:
@@ -670,13 +774,17 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ou.write_db()
 
         # Storing start date
-        ou.add_entity_quarantine(type=self.const.quarantine_project_start,
+        ou.add_entity_quarantine(qtype=self.const.quarantine_project_start,
                                  creator=operator.get_entity_id(), start=DateTime.now(),
                                  end=start, description='Initial start set by superuser')
         # Storing end date
-        ou.add_entity_quarantine(type=self.const.quarantine_project_end,
+        ou.add_entity_quarantine(qtype=self.const.quarantine_project_end,
                                  creator=operator.get_entity_id(), start=end,
                                  description='Initial end set by superuser')
+
+        # Set trait for vm_type
+        ou.populate_trait(self.const.trait_project_vm_type, strval=vm_type)
+
         ou.write_db()
         try:
             ou.setup_project(operator.get_entity_id(), vlan)
@@ -684,6 +792,38 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             raise CerebrumError(e)
 
         return "New project created: %s" % pid
+
+    all_commands['project_setup'] = cmd.Command(
+        ('project', 'setup'), ProjectID(), VLANParam(optional=True),
+        perm_filter='is_superuser')
+
+    @superuser
+    def project_setup(self, operator, project_id):
+        """
+        Run the setup procedure for a project, updating configuration to
+        current settings.
+
+        :param operator: An BofhdSession-instance of the current user session.
+        :type  operator: BofhdSession
+        :param project_id: Project ID for the given project.
+        :type  project_id: str
+
+        :returns: A statement that the operation was successful.
+        :rtype: str
+
+        """
+
+        op_id = operator.get_entity_id()
+        ou = self.OU_class(self.db)
+
+        try:
+            ou.find_by_tsd_projectid(project_id)
+        except Errors.CerebrumError:
+            raise CerebrumError("Could not find project '%s'" % project_id)
+
+        ou.setup_project(op_id)
+
+        return 'OK, project reconfigured according to current settings.'
 
     all_commands['project_terminate'] = cmd.Command(
         ('project', 'terminate'), ProjectID(),
@@ -721,7 +861,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
         # Check if the project was already approved
         if not project.get_entity_quarantine(only_active=True,
-                                             type=self.const.quarantine_not_approved):
+                                             qtype=self.const.quarantine_not_approved):
             # raise CerebrumError('Project already approved (no not_approved quarantine)')
             return success_msg + " (already approved, not changing anything)"
 
@@ -754,7 +894,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         """
         project = self._get_project(projectid)
         if not project.get_entity_quarantine(only_active=True,
-                                             type=self.const.quarantine_not_approved):
+                                             qtype=self.const.quarantine_not_approved):
             raise CerebrumError('Can not reject approved projects, you may '
                                 'wish to terminate it instead.')
         project.terminate()
@@ -783,7 +923,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         for row in project.get_entity_quarantine(qtype):
             project.delete_entity_quarantine(qtype)
             project.write_db()
-        project.add_entity_quarantine(type=qtype,
+        project.add_entity_quarantine(qtype=qtype,
                                       creator=operator.get_entity_id(),
                                       description='Reset lifetime for project',
                                       start=end)
@@ -849,17 +989,17 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     def project_freeze(self, operator, projectid):
         """Freeze a project."""
         project = self._get_project(projectid)
-        end = DateTime.now()
+        when = DateTime.now()
 
         # The quarantine needs to be removed before it could be added again
         qtype = self.const.quarantine_frozen
         for row in project.get_entity_quarantine(qtype):
             project.delete_entity_quarantine(qtype)
             project.write_db()
-        project.add_entity_quarantine(type=qtype,
+        project.add_entity_quarantine(qtype=qtype,
                                       creator=operator.get_entity_id(),
                                       description='Project freeze',
-                                      start=end)
+                                      start=when)
         project.write_db()
         success_msg = 'Project %s is now frozen' % projectid
         try:
@@ -867,6 +1007,52 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         except Gateway.GatewayException, e:
             self.logger.warn("From GW: %s", e)
             success_msg += " (bad result from GW)"
+        # Freeze all affiliated acconts:
+        # (This functionality was first developed for update_user_freeze.py)
+        account = Factory.get('Account')(self.db)
+        account_rows = account.list_accounts_by_type(
+            ou_id=project.entity_id,
+            affiliation=self.const.affiliation_project,
+            filter_expired=True,
+            account_spread=self.const.spread_gateway_account)
+        for account_row in account_rows:
+            account.clear()
+            account.find(account_row['account_id'])
+            if account.has_autofreeze_quarantine:
+                if when != account.autofreeze_quarantine_start:
+                    # autofreeze quarantine exists for this account
+                    # but its start_date is not the same as the one for the
+                    # project's freeze quarantine.
+                    # Remove the existing quarantine before adding a new one
+                    account.remove_autofreeze_quarantine()
+                else:
+                    # autofreeze quarantine exists for this account
+                    # and its start_date is the same as the one for the
+                    # project's freeze quarantine. No need to do anything
+                    continue
+                # add new quarantine using the peoject's freeze-start_date
+            account.add_autofreeze_quarantine(
+                creator=operator.get_entity_id(),
+                description='Auto set due to project-freeze',
+                start=when)
+            try:
+                # N.B. If project_freeze ever supports freeze start-date in the
+                # future, the following check prevents bofhd from updating
+                # the gateway with project.freeze start-date in the future when
+                # there is an active quarantine on this account
+                quars = account.get_entity_quarantine(
+                    filter_disable_until=True)
+                if quars:
+                    quars.sort(key=lambda v: v['start_date'])
+                if not quars or when < quars[0]['start_date']:
+                    # no quarantines or freeze.date < lowest startdate
+                    self.gateway.freeze_user(projectid,
+                                             account.account_name,
+                                             when)
+                # else: update_user_freeze.py will make the right decisions
+            except Gateway.GatewayException, e:
+                self.logger.warn("From GW: %s", e)
+                success_msg += " (bad freeze_user result from GW)"
         return success_msg
 
     all_commands['project_unfreeze'] = cmd.Command(
@@ -883,9 +1069,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         for row in project.get_entity_quarantine(qtype):
             project.delete_entity_quarantine(qtype)
             project.write_db()
-
         success_msg = 'Project %s is now unfrozen' % projectid
-
         # Only unthaw projects without quarantines
         if not project.get_entity_quarantine(only_active=True):
             try:
@@ -895,6 +1079,23 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                 success_msg += ' (bad result from GW)'
         else:
             success_msg += ' (project still with other quarantines)'
+        # Unfreeze all affiliated acconts:
+        # (This functionality was first developed for update_user_freeze.py)
+        account = Factory.get('Account')(self.db)
+        account_rows = account.list_accounts_by_type(
+            ou_id=project.entity_id,
+            affiliation=self.const.affiliation_project,
+            filter_expired=True,
+            account_spread=self.const.spread_gateway_account)
+        for account_row in account_rows:
+            account.clear()
+            account.find(account_row['account_id'])
+            if account.has_autofreeze_quarantine:
+                account.remove_autofreeze_quarantine()
+                # Do not send thaw_user to the gateway, since the account
+                # may have other active quarantines
+                # unfreeze is rarely extremely urgent, so we
+                # let the scheduled job gateway_update.py deal with that
         return success_msg
 
     all_commands['project_list'] = cmd.Command(
@@ -947,6 +1148,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             ('REK-number:       %s', ('rek',)),
             ('Institution:      %s', ('institution',)),
             ('VM-type:          %s', ('vm_type',)),
+            ('VLAN, Subnet:     %-4s, %s', ('vlan_number', 'subnet')),
         ]),
         perm_filter='is_superuser')
 
@@ -1012,6 +1214,31 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             ret.append({'vm_type': trait['strval']})
         else:
             ret.append({'vm_type': '<Not Set>'})
+
+        # Subnets
+        def _subnet_info(subnet_id):
+            try:
+                sub = Subnet.Subnet(self.db)
+                sub.find(subnet_id)
+                return {
+                    'subnet': '%s/%s' % (sub.subnet_ip, sub.subnet_mask),
+                    'vlan_number': str(sub.vlan_number)
+                }
+            except dns.Errors.SubnetError:
+                sub = IPv6Subnet.IPv6Subnet(self.db)
+                sub.find(subnet_id)
+                compress = dns.IPv6Utils.IPv6Utils.compress
+                return {
+                    'subnet': '%s/%s' % (compress(sub.subnet_ip),
+                                         sub.subnet_mask),
+                    'vlan_number': str(sub.vlan_number)
+                }
+
+        subnets = [_subnet_info(x['entity_id']) for x in
+                   project.get_project_subnets()]
+        for subnet in sorted(subnets, key=lambda x: x['subnet']):
+            ret.append(subnet)
+
         return ret
 
     all_commands['project_affiliate_entity'] = cmd.Command(
@@ -1055,6 +1282,85 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                            date=DateTime.now())
         ent.write_db()
         return "Entity affiliated with project: %s" % ou.get_project_id()
+
+
+    all_commands['project_set_vm_type'] = cmd.Command(
+        ('project', 'set_vm_type'), ProjectID(), VMType(),
+        perm_filter='is_superuser')
+
+    @superuser
+    def project_set_vm_type(self, operator, project_id, vm_type):
+        """
+        Changes the type of VM-host(s) for the given project.
+
+        :param operator: An BofhdSession-instance of the current user session.
+        :type  operator: BofhdSession
+        :param project_id: Project ID for the given project.
+        :type  project_id: str
+        :param vm_type: The new setting for VM-host(s) for the project.
+        :type  vm_type: str
+
+        :returns: A statement that the operation was successful.
+        :rtype: str
+
+        """
+
+        project = self._get_project(project_id)
+        op_id = operator.get_entity_id()
+
+        if vm_type not in cereconf.TSD_VM_TYPES:
+            raise CerebrumError("Invalid VM-type")
+
+        project.populate_trait(code='project_vm_type', strval=vm_type)
+        project.write_db()
+        project.setup_project(op_id)
+
+        return 'OK, vm_type for %s changed to %s.' % (project_id, vm_type)
+
+
+    all_commands['project_list_hosts'] = cmd.Command(
+        ('project', 'list_hosts'), ProjectID(),
+        fs=cmd.FormatSuggestion([(
+            '%-30s %-8s %-20s %-20s', ('name', 'os', 'contact', 'comment'),)],
+            hdr='%-30s %-8s %-20s %-20s' % ('Name', 'OS', 'Contact', 'Comment')),
+        perm_filter='is_superuser')
+
+    @superuser
+    def project_list_hosts(self, operator, projectid):
+        """List hosts by project."""
+        project = self._get_project(projectid)
+        ent = EntityTrait.EntityTrait(self.db)
+        dnsowner = dns.DnsOwner.DnsOwner(self.db)
+        hostinfo = dns.HostInfo.HostInfo(self.db)
+        hosts = []
+
+        for row in ent.list_traits(code=self.const.trait_project_host,
+                                   target_id=project.entity_id):
+            owner_id = row['entity_id']
+            dnsowner.clear()
+            dnsowner.find(owner_id)
+            host = {'name': dnsowner.name}
+
+            for key, trait in (('comment', self.const.trait_dns_comment),
+                               ('contact', self.const.trait_dns_contact)):
+                trait = dnsowner.get_trait(trait)
+                value = trait.get('strval') if trait else None
+                host[key] = value or '<not set>'
+
+            try:
+                hostinfo.clear()
+                hostinfo.find_by_dns_owner_id(owner_id)
+                _, hostinfo_os = hostinfo.hinfo.split("\t", 1)
+            except Errors.NotFoundError:
+                hostinfo_os = '<not set>'
+            finally:
+                host['os'] = hostinfo_os
+
+            hosts.append(host)
+
+        # Sort by name
+        return sorted(hosts, key=lambda x: x['name']) or 'No hosts found'
+
 
     #
     # Person commands
@@ -1282,73 +1588,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         posix_user.setup_for_project()
         return "Ok, created %s, UID: %s" % (posix_user.account_name, uid)
 
-    # user password
-    all_commands['user_password'] = cmd.Command(
-        ('user', 'password'), cmd.AccountName(), cmd.AccountPassword(optional=True))
-
-    def user_password(self, operator, accountname, password=None):
-        """Set password for a user. A modified version of UiO's command."""
-        account = self._get_account(accountname)
-        self.ba.can_set_password(operator.get_entity_id(), account)
-
-        # TSD specific behaviour: Raise error if user isn't approved or
-        # shouldn't be in AD or the GW:
-        if not account.is_approved():
-            raise CerebrumError("User is not approved: %s" % accountname)
-
-        if password is None:
-            password = account.make_passwd(accountname)
-        else:
-            # this is a bit complicated, but the point is that
-            # superusers are allowed to *specify* passwords for other
-            # users if cereconf.BOFHD_SU_CAN_SPECIFY_PASSWORDS=True
-            # otherwise superusers may change passwords by assigning
-            # automatic passwords only.
-            if self.ba.is_superuser(operator.get_entity_id()):
-                if (operator.get_entity_id() != account.entity_id and
-                        not cereconf.BOFHD_SU_CAN_SPECIFY_PASSWORDS):
-                    raise CerebrumError("Superuser cannot specify passwords "
-                                        "for other users")
-            elif operator.get_entity_id() != account.entity_id:
-                raise CerebrumError("Cannot specify password for another user.")
-        try:
-            account.goodenough(account, password)
-        except PasswordChecker.PasswordGoodEnoughException, m:
-            raise CerebrumError("Bad password: %s" % m)
-        ret_msg = 'Password altered'
-        # Set password for all person's accounts:
-        ac = Factory.get('Account')(self.db)
-        for row in ac.search(owner_id=account.owner_id):
-            ac.clear()
-            ac.find(row['account_id'])
-            ac.set_password(password)
-            try:
-                ac.write_db()
-            except self.db.DatabaseError, m:
-                raise CerebrumError("Database error: %s" % m)
-            # Remove "weak password" quarantine
-            for r in ac.get_entity_quarantine():
-                if int(r['quarantine_type']) == self.const.quarantine_autopassord:
-                    ac.delete_entity_quarantine(self.const.quarantine_autopassord)
-                if int(r['quarantine_type']) == self.const.quarantine_svakt_passord:
-                    ac.delete_entity_quarantine(self.const.quarantine_svakt_passord)
-            ac.write_db()
-            ret_msg += "\nNew password for: %s" % ac.account_name
-            if ac.is_deleted():
-                ret_msg += "\nWarning: user is deleted: %s" % ac.account_name
-            elif ac.is_expired():
-                ret_msg += "\nWarning: user is expired: %s" % ac.account_name
-            elif ac.get_entity_quarantine(only_active=True):
-                ret_msg += "\nWarning: user in quarantine: %s" % ac.account_name
-
-        # Only store one of the account's password. Not necessary to store all
-        # of them, as it's the same.
-        operator.store_state("user_passwd", {'account_id': int(account.entity_id),
-                                             'password': password})
-        ret_msg += "\nPlease use misc list_password to print or view the new password."
-        return ret_msg
-
-    # user password
+    # user generate_otpkey
     all_commands['user_generate_otpkey'] = cmd.Command(
         ('user', 'generate_otpkey'), cmd.AccountName(),
         cmd.SimpleString(help_ref='otp_type', optional=True))
@@ -1709,38 +1949,136 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         pu.write_db()
 
     #
+    # Host commands
+
+    all_commands['host_list_projects'] = cmd.Command(
+        ('host', 'list_projects'), dns.bofhd_dns_cmds.HostId(),
+        fs=cmd.FormatSuggestion([(
+            '%-30s %-10s %-12s', ('name', 'project_id', 'project_name'),)],
+            hdr='%-30s %-10s %-12s' % ('Name', 'Project ID', 'Project name')),
+        perm_filter='is_superuser')
+
+    @superuser
+    def host_list_projects(self, operator, host_id):
+        """List projects by host."""
+        host = self._get_host(host_id)
+        ent = EntityTrait.EntityTrait(self.db)
+        project = self.OU_class(self.db)
+        projects = []
+
+        for row in ent.list_traits(code=self.const.trait_project_host,
+                                   entity_id=host.entity_id):
+            project.clear()
+            project.find(row['target_id'])
+            projects.append({
+                'name': host.name,
+                'project_id': project.get_project_id(),
+                'project_name': project.get_project_name(),
+            })
+
+        # Sort by project ID
+        return sorted(projects, key=lambda x: x['project_id']) or \
+            'No projects found for this host'
+
+    #
     # Subnet commands
+
+    def _get_all_subnets(self):
+        """Fetch all subnets in a human-readable format.
+
+        :rtype: list
+        :returns: A list with a dictionary per subnet
+        """
+        ou = self.OU_class(self.db)
+        # Project entity ID -> external project ID
+        ent2ext = dict((x['entity_id'], x['external_id']) for x in
+                       ou.list_external_ids(
+                           id_type=self.const.externalid_project_id))
+
+        # Subnet -> external project ID
+        subnet2project = {}
+        for row in ou.list_traits(code=(self.const.trait_project_subnet6,
+                                        self.const.trait_project_subnet)):
+            subnet2project[row['entity_id']] = ent2ext.get(row['target_id'])
+
+        # IPv4
+        subnet = Subnet.Subnet(self.db)
+        subnets = []
+        for row in subnet.search():
+            subnets.append({
+                'subnet': '%s/%s' % (row['subnet_ip'], row['subnet_mask']),
+                'vlan_number': str(row['vlan_number']),
+                'project_id': subnet2project.get(row['entity_id']),
+                'description': row['description']})
+
+        # IPv6
+        subnet6 = IPv6Subnet.IPv6Subnet(self.db)
+        compress = dns.IPv6Utils.IPv6Utils.compress
+        for row in subnet6.search():
+            subnets.append({
+                'subnet': '%s/%s' % (compress(row['subnet_ip']),
+                                     row['subnet_mask']),
+                'vlan_number': str(row['vlan_number']),
+                'project_id': subnet2project.get(row['entity_id']),
+                'description': row['description']})
+
+        return subnets
 
     all_commands['subnet_list'] = cmd.Command(
         ('subnet', 'list'),
         fs=cmd.FormatSuggestion([(
-            '%-30s %6s %s', ('subnet', 'vlan_number', 'description',),)],
-            hdr='%-30s %6s %s' % ('Subnet', 'VLAN', 'Description')),
+            '%-30s %6s %7s %s', ('subnet', 'vlan_number',
+                                 'project_id', 'description',),)],
+            hdr='%-30s %6s %7s %s' % ('Subnet', 'VLAN',
+                                      'Project', 'Description')),
         perm_filter='is_superuser')
 
     @superuser
     def subnet_list(self, operator):
         """Return a list of all subnets."""
-        ret = []
-        # IPv6:
-        subnet6 = IPv6Subnet.IPv6Subnet(self.db)
-        compress = dns.IPv6Utils.IPv6Utils.compress
-        for row in subnet6.search():
-            ret.append({
-                'subnet': '%s/%s' % (compress(row['subnet_ip']),
-                                     row['subnet_mask']),
-                'vlan_number': str(row['vlan_number']),
-                'description': row['description']})
-        # IPv4:
-        subnet = Subnet.Subnet(self.db)
-        for row in subnet.search():
-            ret.append({
-                'subnet': '%s/%s' % (row['subnet_ip'], row['subnet_mask']),
-                'vlan_number': str(row['vlan_number']),
-                'description': row['description']})
-        self.logger.debug("Found %d subnets", len(ret))
         # Sort by subnet
-        return sorted(ret, key=lambda x: x['subnet'])
+        return sorted(self._get_all_subnets(), key=lambda x: x['subnet'])
+
+    all_commands['subnet_search'] = cmd.Command(
+        ("subnet", "search"),
+        SubnetSearchType(), FnMatchPattern(),
+        fs=cmd.FormatSuggestion([(
+            '%-30s %6s %7s %s', ('subnet', 'vlan_number',
+                                 'project_id', 'description',),)],
+            hdr='%-30s %6s %7s %s' % ('Subnet', 'VLAN',
+                                      'Project', 'Description')),
+        perm_filter='is_superuser')
+
+    @superuser
+    def subnet_search(self, operator, search_type, pattern):
+        """Wildcard search for subnets.
+
+        :type search_type: str
+        :param search_type: filter subnets by this key
+
+        :type pattern: str
+        :param pattern: wildcard search pattern
+        """
+        from fnmatch import fnmatch
+
+        type2key = {
+            'subnet': 'subnet',
+            'vlan': 'vlan_number',
+            'project': 'project_id',
+            'description': 'description',
+        }
+
+        if search_type not in type2key.keys():
+            raise CerebrumError("Unknown search type (%s)" % search_type)
+
+        # Fetch and filter subnets
+        subnets = self._get_all_subnets()
+        key = type2key[search_type]
+        results = [sn for sn in subnets if fnmatch(sn[key], pattern)]
+
+        # Sort by subnet
+        return sorted(results, key=lambda x: x['subnet']) or 'No matches found'
+
 
     # subnet create
     #all_commands['subnet_create'] = cmd.Command(
@@ -1770,9 +2108,72 @@ class EnduserBofhdExtension(TSDBofhdExtension):
     """The bofhd commands for the end users of TSD.
 
     End users are Project Administrators (PA), which should have full control of
-    their project, and Project Members (PM) which have limited privileges.
+    their project, and Project Members (PM) which have limited privileges."""
 
-    """
-
+    # Commands that should be publicised for an operator, e.g. in jbofh:
     all_commands = {}
+
+    # Commands that are available, but not publicised, as they are normally
+    # called through other systems, e.g. Brukerinfo. It should NOT be used as a
+    # security feature - thus you have security by obscurity.
     hidden_commands = {}
+
+    # Commands that should be copied from UiO's BofhdExtension.
+    copy_commands = (
+        # Helpers
+        '_fetch_member_names', '_entity_info',
+        '_group_add', '_group_add_entity',
+        '_group_remove', '_group_remove_entity',
+        # Group
+        'group_info', 'group_list', 'group_memberships',
+        'group_set_description',
+        'group_multi_add',  # hidden
+        'group_multi_remove',  # hidden
+        # Person
+        'person_list_user_priorities',
+        # Spread
+        'spread_list',
+        # Access
+        'access_list_alterable',  # hidden
+        # User
+        'user_info',
+        #'user_password' is inherited from TSDBofhdExtension
+        # Misc
+        'misc_affiliations', 'misc_check_password', 'misc_verify_password',
+        'get_constant_description',  # hidden
+    )
+
+    def __new__(cls, *arg, **karg):
+        """Hackish override to copy in methods from UiO's bofhd."""
+        from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as \
+            UiOBofhdExtension
+        non_all_cmds = ('num2str', 'user_set_owner_prompt_func',)
+        for func in cls.copy_commands:
+            setattr(cls, func, UiOBofhdExtension.__dict__.get(func))
+            if func[0] != '_' and func not in non_all_cmds:
+                if func in UiOBofhdExtension.all_commands:
+                    cls.all_commands[func] = UiOBofhdExtension.all_commands[func]
+                elif func in UiOBofhdExtension.hidden_commands:
+                    cls.hidden_commands[func] = UiOBofhdExtension.hidden_commands[func]
+        x = object.__new__(cls)
+        return x
+
+    def __init__(self, server):
+        super(EnduserBofhdExtension, self).__init__(server)
+
+        # Copy in all defined commands from the superclass that are not defined
+        # in this class.
+        for key, command in super(
+                EnduserBofhdExtension, self).all_commands.iteritems():
+            if not key in self.all_commands:
+                self.all_commands[key] = command
+
+        # Only keep commands that are explicitly allowed in the configuration
+        for key in self.all_commands.keys():
+            if key not in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS:
+                del self.all_commands[key]
+
+        # Same for hidden commands
+        for key in self.hidden_commands.keys():
+            if key not in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS:
+                del self.hidden_commands[key]
