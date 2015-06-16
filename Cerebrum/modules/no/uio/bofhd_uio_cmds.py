@@ -10526,6 +10526,13 @@ Password altered. Use misc list_password to print or view the new password.%s'''
                 if isinstance(id, str) and not id.isdigit():
                     raise CerebrumError, "Entity id must be a number"
                 account.find(id)
+            elif idtype == 'uid':
+                if isinstance(id, str) and not id.isdigit():
+                    raise CerebrumError, 'uid must be a number'
+                if actype != 'PosixUser':
+                    account = Utils.Factory.get('PosixUser')(self.db)
+                    account.clear()
+                account.find_by_uid(id)
             else:
                 raise CerebrumError, "unknown idtype: '%s'" % idtype
         except Errors.NotFoundError:
