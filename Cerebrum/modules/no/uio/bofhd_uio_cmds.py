@@ -6230,8 +6230,14 @@ Addresses and settings:
     # group list
     all_commands['group_list'] = Command(
         ("group", "list"), GroupName(),
-        fs=FormatSuggestion("%-10s %-10s %-10s", ("type", "name", "expired"),
-                            hdr="%-10s %-10s %-10s" % ("Type", "Name", "Expired")))
+        fs=FormatSuggestion("%-10s %-10s %-40s %-10s", ("type",
+                                                        "name",
+                                                        "full_name",
+                                                        "expired"),
+                            hdr="%-10s %-10s %-40s %-10s" % ("Type",
+                                                             "Name",
+                                                             "Full Name",
+                                                             "Expired")))
     def group_list(self, operator, groupname):
         """List direct members of group"""
         def compare(a, b):
@@ -6246,13 +6252,18 @@ Addresses and settings:
             raise CerebrumError("More than %d (%d) matches. Contact superuser "
                                 "to get a listing for %s." %
                                 (cereconf.BOFHD_MAX_MATCHES, len(members), groupname))
+        ac = self.Account_class(self.db)
         for x in self._fetch_member_names(members):
+            if x['member_type'] == int(self.const.entity_account):
+                ac.find(x['member_id'])
             tmp = {'id': x['member_id'],
                    'type': str(self.const.EntityType(x['member_type'])),
                    'name': x['member_name'],
+                   'full_name': ac.get_fullname(),
                    'expired': None}
             if (x["expire_date"] is not None and x["expire_date"] < now):
                 tmp["expired"] = "expired"
+            ac.clear()
             ret.append(tmp)
 
         ret.sort(compare)
