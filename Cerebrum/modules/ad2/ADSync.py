@@ -1691,7 +1691,10 @@ class BaseSync(object):
 
         """
         self.server.enable_object(ad_object['DistinguishedName'])
-        self.script('enable_object', ad_object)
+        # TODO: If we run scripts here, we'll also have to consider
+        #   - set_password + enable_object
+        #   - quicksync + quarantines
+        # self.script('enable_object', ad_object)
 
     def delete_object(self, ad_object):
         """ Delete the given object.
@@ -1700,7 +1703,9 @@ class BaseSync(object):
 
         """
         self.server.delete_object(ad_object['DistinguishedName'])
-        self.script('delete_object', ad_object)
+        # TODO: If we run scripts here, we'll also have to consider
+        #   - quicksync + quarantines
+        # self.script('delete_object', ad_object)
 
     def move_object(self, ad_object, ou):
         """Move a given object to the given OU.
