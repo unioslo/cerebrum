@@ -2034,6 +2034,21 @@ class UserSync(BaseSync):
                 uname,
                 owner_id=int(row['owner_id']),
                 owner_type=int(row['owner_type']))
+            # This functionality makes it possible to set a different AD-OU
+            # based on the type(s) og affiliation(s) (CRB-862)
+            ou_mappings = self.config.get('ou_mappings')
+            if ou_mappings and isinstance(ou_mappings, list):
+                for mapping in ou_mappings:
+                    aff_list = mapping.get('affiliations')
+                    if not aff_list:
+                        raise ConfigUtils.ConfigError(
+                            'Missing or invalid affiliations in ou_mappings')
+                    validator = ConfigUtils.AccountCriterias(
+                        affiliations=aff_list)
+                    if validator.check(self.entities[uname]):
+                        self.entities[uname].ou = mapping['ou']
+                        break
+                    
 
     def fetch_names(self):
         """Fetch all the persons' names and store them for the accounts.
