@@ -64,9 +64,11 @@ db = Factory.get('Database')()
 # checking in here.
 const = Factory.get('Constants')
 
+
 class ConfigError(Exception):
     """Exception for configuration errors."""
     pass
+
 
 class CriteriaError(Exception):
     """Exception for when a AttrCriterias is not fullfilled."""
@@ -79,6 +81,7 @@ class CriteriaError(Exception):
 # their original value, administrered by the AD administrators - Not sure if we
 # should allow this, though - why not set attributes for all entities through
 # bofh?
+
 
 class AttrConfig(object):
     """Configuration settings for an AD attribute.
@@ -174,7 +177,8 @@ class AttrConfig(object):
 
                 ad_transform=lambda x: x.lower()
 
-                ad_transform=lambda x: filter(lambda e: e.startswith('x500:'), x)
+                ad_transform=lambda x: filter(lambda e:
+                    e.startswith('x500:'), x)
 
         # TODO: Should attributes behave differently when multiple values are
         # accepted? For instance with the contact types.
@@ -192,6 +196,7 @@ class AttrConfig(object):
         if ad_transform and not callable(ad_transform):
             raise ConfigError('The ad_transform is not callable')
         self.ad_transform = ad_transform
+
 
 def _prepare_constants(input, const_class):
     """Prepare and validate given Cerebrum constant(s).
@@ -219,6 +224,7 @@ def _prepare_constants(input, const_class):
                 raise ConfigError('Not a %s: %s (%r)' % (const_class, i, i))
     return input
 
+
 class ContactAttr(AttrConfig):
     """Configuration for an attribute containing contact info.
 
@@ -245,7 +251,8 @@ class ContactAttr(AttrConfig):
         """
         super(ContactAttr, self).__init__(*args, **kwargs)
         self.contact_types = _prepare_constants(contact_types,
-                const.ContactInfo)
+                                                const.ContactInfo)
+
 
 class NameAttr(AttrConfig):
     """Configuration for attributes that should contain a name.
@@ -271,9 +278,10 @@ class NameAttr(AttrConfig):
         """
         super(NameAttr, self).__init__(*args, **kwargs)
         self.name_variants = _prepare_constants(name_variants,
-                                                     (const.EntityNameCode,
-                                                      const.PersonName))
+                                                (const.EntityNameCode,
+                                                 const.PersonName))
         self.languages = _prepare_constants(languages, const.LanguageCode)
+
 
 class PersonNameAttr(AttrConfig):
     """Configuration for attributes that should contain person names.
@@ -291,7 +299,8 @@ class PersonNameAttr(AttrConfig):
         """
         super(PersonNameAttr, self).__init__(*args, **kwargs)
         self.name_variants = _prepare_constants(name_variants,
-                                                     const.PersonName)
+                                                const.PersonName)
+
 
 class AddressAttr(AttrConfig):
     """Config for attributes with addresses, or parts of an address.
@@ -345,7 +354,8 @@ class AddressAttr(AttrConfig):
         """
         super(AddressAttr, self).__init__(*args, **kwargs)
         self.address_types = _prepare_constants(address_types,
-                                                     const.Address)
+                                                const.Address)
+
 
 class ADAttributeAttr(AttrConfig):
 
@@ -377,6 +387,7 @@ class ADAttributeAttr(AttrConfig):
         super(ADAttributeAttr, self).__init__(*args, **kwargs)
         self.attributes = _prepare_constants(attributes, const.ADAttribute)
 
+
 class ExternalIdAttr(AttrConfig):
     """Config for attributes using external IDs.
 
@@ -390,7 +401,8 @@ class ExternalIdAttr(AttrConfig):
         """
         super(ExternalIdAttr, self).__init__(*args, **kwargs)
         self.id_types = _prepare_constants(id_types,
-                const.EntityExternalId)
+                                           const.EntityExternalId)
+
 
 class TraitAttr(AttrConfig):
     """Config for attributes retrieved from traits.
@@ -410,6 +422,7 @@ class TraitAttr(AttrConfig):
         """
         super(TraitAttr, self).__init__(*args, **kwargs)
         self.traitcodes = _prepare_constants(traitcodes, const.EntityTrait)
+
 
 class MemberAttr(AttrConfig):
     """Config for Member attribute of groups.
@@ -445,6 +458,7 @@ class MemberAttr(AttrConfig):
         super(MemberAttr, self).__init__(*args, **kwargs)
         self.member_spreads = _prepare_constants(member_spreads, const.Spread)
         self.person2primary = person2primary
+
 
 class CallbackAttr(AttrConfig):
     """A special attribute, using callbacks with the entity as the argument.
@@ -500,6 +514,7 @@ class EmailAddrAttr(AttrConfig):
     """
     pass
 
+
 class EmailQuotaAttr(AttrConfig):
     """Config for e-mail quota, using the Email module in Cerebrum.
 
@@ -513,6 +528,7 @@ class EmailQuotaAttr(AttrConfig):
     """
     pass
 
+
 class EmailForwardAttr(AttrConfig):
     """Config for e-mail forward addresses for an entity from the Email module.
 
@@ -523,6 +539,7 @@ class EmailForwardAttr(AttrConfig):
 
     """
     pass
+
 
 class PosixAttr(AttrConfig):
     """Config for POSIX data, like GID, UID, shell and gecos.
@@ -549,6 +566,7 @@ class PosixAttr(AttrConfig):
     """
     # TODO: Should we have some shortcut settings, for making the config easier?
     pass
+
 
 class HomeAttr(AttrConfig):
     """Config for account's home directories.
@@ -773,7 +791,8 @@ class AccountCriterias(AttrCriterias):
                 return True if int(candidate_ou) in children else False
 
             # Check if the comparison is false only if the first arg is defined
-            ne = lambda x, y: (None if not x else x == y)
+            def ne(x, y):
+                return None if not x else x == y
 
             def choose_comparator(left, right):
                 """Choose comparator function for left & right."""
@@ -884,6 +903,7 @@ def has_config(config, configclass):
             if has_config(c, configclass):
                 return True
     return False
+
 
 def get_config_by_type(config, configclass):
     """Helper function for getting all config by a given type.
