@@ -605,6 +605,48 @@ class HomeAttr(AttrConfig):
             raise ConfigError('Not a Spread: %s' % (home_spread,))
         self.home_spread = home_spread
 
+
+class AlwaysEqual(object):
+    """Make value always compare equal to other"""
+    def __init__(self, value):
+        self.value = value
+
+    def __eq__(self, other):
+        return True
+
+    def __ne__(self, other):
+        return False
+
+    def __str__(self):
+        return "<[writeonly] %s>" % self.value
+
+    def __unicode__(self):
+        return u"<[writeonly] %s>" % self.value
+
+
+def noupdate(ad_transform=None, attrclass=AttrConfig, *rest, **kw):
+    """Make AttrConfig object (or subclass) write once semantic.
+
+    :type ad_transform: Callable
+    :param ad_transform: See AttrConfig
+
+    :type attrclass: Callable with kw argument ad_transform
+    :param attrclass: Should construct some object of type AttrConfig
+
+    :other params: Sent to attrclass
+
+    :return: AttrConfig object
+    """
+
+    def transform(advalue):
+        return advalue if (advalue is None
+                           or advalue == "") else AlwaysEqual(advalue)
+    return attrclass(ad_transform=((lambda x: transform(ad_transform(x)))
+                                   if ad_transform else ad_transform),
+                     *rest,
+                     **kw)
+
+
 class AttrCriterias(object):
     """Config class for setting criterias for entities' AttrConfigs.
 
