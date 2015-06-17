@@ -147,7 +147,7 @@ class BaseSync(object):
                              # solution for it.
                              ('group_type', 'security'),
                              ('group_scope', 'global'),
-                             ('ou_mappings', None),
+                             ('ou_mappings', []),
                              ('script', {}),
                              )
 
