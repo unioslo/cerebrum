@@ -642,7 +642,7 @@ def noupdate(ad_transform=None, attrclass=AttrConfig, *rest, **kw):
         return advalue if (advalue is None
                            or advalue == "") else AlwaysEqual(advalue)
     return attrclass(ad_transform=((lambda x: transform(ad_transform(x)))
-                                   if ad_transform else ad_transform),
+                                   if ad_transform else transform),
                      *rest,
                      **kw)
 
