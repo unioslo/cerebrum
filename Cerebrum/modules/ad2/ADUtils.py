@@ -987,7 +987,8 @@ class ADclient(PowershellClient):
                     # iterate, like strings) into a list. It does not handle
                     # generators.
                     if (isinstance(values, basestring)
-                            or not isinstance(values, collections.Iterable)):
+                            or not (hasattr(values, '__iter__')
+                                    or hasattr(values, '__getitem__'))):
                         values = [values]
                     for element in values:
                         try:
