@@ -147,6 +147,7 @@ class BaseSync(object):
                              # solution for it.
                              ('group_type', 'security'),
                              ('group_scope', 'global'),
+                             ('ou_mappings', []),
                              ('script', {}),
                              )
 
@@ -341,7 +342,7 @@ class BaseSync(object):
             try:
                 int(spread)
             except Errors.NotFoundError:
-                if config_args.has_key('target_type'):
+                if 'target_type' in config_args:
                     self.config['target_type'] = config_args['target_type']
                     self.config['target_spread'] = None
                 else:
@@ -524,9 +525,9 @@ class BaseSync(object):
             domain_admin=self.config.get('domain_admin'),
             domain=self.config.get('domain'),
             encrypted=self.config.get('encrypted', True),
-            ca=self.config.get('ca', None),
-            client_cert=self.config.get('client_cert', None),
-            client_key=self.config.get('client_key', None),
+            ca=self.config.get('ca'),
+            client_cert=self.config.get('client_cert'),
+            client_key=self.config.get('client_key'),
             dryrun=self.config['dryrun'])
 
     def add_admin_message(self, level, msg):
@@ -2006,19 +2007,17 @@ class UserSync(BaseSync):
         @rtype: list
         @return: A list of targeted entities from Cerebrum, wrapped into
             L{CerebrumData} objects.
-
         """
         # Find all users with defined spread(s):
         self.logger.debug("Fetching users with spread %s" %
                           (self.config['target_spread'],))
         subset = self.config.get('subset')
         account_exempt_traits = list()
-        try:
+        # not all instances define co.trait_account_exempt
+        if hasattr(self.co, 'trait_account_exempt'):
             for tr in self._entity_trait.list_traits(
                     self.co.trait_account_exempt):
                 account_exempt_traits.append(int(tr['entity_id']))
-        except:  # not all instances define co.trait_account_exempt
-            pass
         for row in self.ac.search(spread=self.config['target_spread']):
             uname = row["name"]
             # For testing or special cases where we only want to sync a subset
@@ -2032,9 +2031,41 @@ class UserSync(BaseSync):
                     'will not be exported to AD' % (uname, row['account_id']))
                 continue
             self.entities[uname] = self.cache_entity(
-                int(row["account_id"]),
-                uname, owner_id=int(row["owner_id"]),
+                int(row['account_id']),
+                uname,
+                owner_id=int(row['owner_id']),
                 owner_type=int(row['owner_type']))
+            # This functionality makes it possible to set a different AD-OU
+            # based on the type(s) og affiliation(s) (CRB-862)
+            ou_mappings = self.config.get('ou_mappings')
+            if ou_mappings and isinstance(ou_mappings, list):
+                for mapping in ou_mappings:
+                    aff_list = mapping.get('affiliations')
+                    if not aff_list:
+                        raise ConfigUtils.ConfigError(
+                            'Missing or invalid affiliations in ou_mappings')
+                    validator = ConfigUtils.AccountCriterias(
+                        affiliations=aff_list)
+                    try:
+                        validator.check(self.entities[uname])
+                        self.entities[uname].ou = mapping['ou']
+                        self.logger.debug(
+                            'Using "ou_mappings". '
+                            'OU for account %s (%d) has been set to %s' % (
+                                uname,
+                                row['account_id'],
+                                mapping['ou']))
+                        break
+                    except ConfigUtils.CriteriaError:  # no match
+                        continue
+                else:
+                    self.logger.debug(
+                        'Using "ou_mappings". '
+                        'No matching affiliation(s) for account %s (%d). '
+                        'Using "target_ou"' % (
+                            uname,
+                            row['account_id']))
+                    
 
     def fetch_names(self):
         """Fetch all the persons' names and store them for the accounts.
@@ -2893,12 +2924,11 @@ class GroupSync(BaseSync):
                           (self.config['target_spread'],))
         subset = self.config.get('subset')
         group_exempt_traits = list()
-        try:
+        # not all instances define co.trait_group_exempt
+        if hasattr(self.co, 'trait_group_exempt'):
             for tr in self._entity_trait.list_traits(
                     self.co.trait_group_exempt):
                 group_exempt_traits.append(int(tr['entity_id']))
-        except:  # not all instances define co.trait_group_exempt
-            pass
         for row in self.gr.search(spread=self.config['target_spread']):
             name = row["name"]
             # For testing or special cases where we only want to sync a subset
