@@ -6268,7 +6268,7 @@ Addresses and settings:
                 user_name = '<non-account>'
             tmp = {'id': x['member_id'],
                    'type': str(self.const.EntityType(x['member_type'])),
-                   'name': user_name, # Compability with brukerinfo
+                   'name': x['member_name'], # Compability with brukerinfo
                    'user_name': user_name,
                    'full_name': full_name,
                    'expired': None}
