@@ -6257,7 +6257,10 @@ Addresses and settings:
         for x in self._fetch_member_names(members):
             if x['member_type'] == int(self.const.entity_account):
                 ac.find(x['member_id'])
-                full_name = ac.get_fullname()
+                try:
+                    full_name = ac.get_fullname()
+                except Errors.NotFoundError:
+                    full_name = ''
                 user_name = x['member_name']
                 ac.clear()
             else:
@@ -6275,8 +6278,6 @@ Addresses and settings:
 
         ret.sort(compare)
         return ret
-    # end group_list
-
 
     def _fetch_member_names(self, iterable):
         """Locate names for elements in iterable.
