@@ -1668,7 +1668,7 @@ class BaseSync(object):
             self.disable_object(ad_object)
         elif action[0] == 'move':
             if ad_object.get('Enabled'):
-                self.disbale_object(ad_object)
+                self.disable_object(ad_object)
             if not dn.lower().endswith(action[1].lower()):
                 self.logger.debug("Downgrade: moving from '%s' to '%s'", dn,
                                   action[1])
