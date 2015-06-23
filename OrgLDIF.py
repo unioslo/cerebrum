@@ -42,8 +42,6 @@ class OrgLDIFUiTMixin(OrgLDIF):
     def init_person_groups(self):
         """Populate dicts with a person's group information."""
         timer = self.make_timer("Processing person groups...")
-        print "person pickle file location: %s"
-        pprint(join_paths(ldapconf(None, 'dump_dir')))
         self.person2group = pickle.load(file(
             join_paths(ldapconf(None, 'dump_dir'), "personid2group.pickle")))
         timer("...person groups done.")
@@ -186,7 +184,7 @@ class OrgLDIFUiTMixin(OrgLDIF):
                 entry['eduPersonEntitlement'].extend(self.ownerid2urnlist[p_id])
             else:
                 entry['eduPersonEntitlement'] = self.ownerid2urnlist[p_id]
-        entry['uioPersonID'] = str(p_id)
+        #entry['uioPersonID'] = str(p_id)
         
         #
         # self.person2group == list over person_id : {gruppe_navn}
@@ -194,18 +192,18 @@ class OrgLDIFUiTMixin(OrgLDIF):
         #
         
         #print "p_id is:"
-        pprint(self.person2group)
+        #pprint(self.person2group)
         pprint("processing p_id:%s" %p_id)
         if self.person2group.has_key(p_id):
             print "have correct key"
             # TODO: remove member and uioPersonObject after transition period
-            entry['uioMemberOf'] = entry['member'] = self.person2group[p_id]
-            entry['objectClass'].extend(('uioMembership', 'uioPersonObject'))
-        
+            entry['uitMemberOf'] = self.person2group[p_id]
+            #entry['objectClass'].extend(('uioMembership', 'uioPersonObject'))
+            entry['objectClass'].append('uioMembership')
         pri_edu_aff, pri_ou, pri_aff = self.make_eduPersonPrimaryAffiliation(p_id)
-        entry['uioPersonScopedAffiliation'] = self.make_uioPersonScopedAffiliation(p_id, pri_aff, pri_ou)
-        if 'uioPersonObject' not in entry['objectClass']:
-            entry['objectClass'].extend(('uioPersonObject',))
+        #entry['uioPersonScopedAffiliation'] = self.make_uioPersonScopedAffiliation(p_id, pri_aff, pri_ou)
+        #if 'uioPersonObject' not in entry['objectClass']:
+        #    entry['objectClass'].extend(('uioPersonObject',))
 
         # Check if there exists «avvikende» addresses, if so, export them instead:
         addrs = self.addr_info.get(p_id)

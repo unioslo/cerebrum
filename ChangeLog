@@ -1,3 +1,7 @@
+2015-06-23    <cerebrum@cleomedes.uit.no>
+
+	* OrgLDIF.py (OrgLDIFUiTMixin.make_person_entry): removed uioPerson objectclass. not wanted in uit ldap
+
 2015-06-10    <cerebrum@cleomedes.uit.no>
 
 	* OrgLDIF.py (OrgLDIFUiTMixin.make_person_entry): Added functions to add groups and members in groups in the ldap export files. (shamelessly stolen from uio.OrgLDIF.py)
