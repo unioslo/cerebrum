@@ -1,3 +1,7 @@
+2015-06-24    <cerebrum@cleomedes.uit.no>
+
+	* generate_groups_ldif.py (dump_ldif_uit): Added uit function to add account owners into groups
+
 2015-06-09  Karen   <cerebrum@cleomedes.uit.no>
 
     * export_ldap.py (ldap_export): Added group.ldif to the cat command in this script, so group.ldif 

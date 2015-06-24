@@ -52,16 +52,43 @@ db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 group = Factory.get('Group')(db)
 
+account = Factory.get('Account')(db)
 mbr2grp = {}
 top_dn = ldapconf('GROUP', 'dn')
+
+
+
+
+
+def dump_ldif_uit(file_handle):
+    for row in group.search(spread=co.spread_ldap_group):
+        group.clear()
+        group.find(int(row['group_id']))
+        dn = "cn=%s,%s" % (iso2utf(row['name']), top_dn)
+
+        for mbr in group.search_members(group_id=group.entity_id,
+                                        member_type=co.entity_account):
+            account.clear()
+            account.find(mbr["member_id"])
+            person_id = account.owner_id
+            #print "processing group id:%s" % group.entity_id
+            #print "acount id:%s has owner id:%s" % (mbr["member_id"],person_id)  
+            mbr2grp.setdefault(int(person_id), []).append(dn)
+
+        file_handle.write(entry_string(dn, {
+            'objectClass': ("top", "uioUntypedObject"),
+            'description': (iso2utf(row['description']),)}))
+
 
 def dump_ldif(file_handle):
     for row in group.search(spread=co.spread_ldap_group):
         group.clear()
         group.find(int(row['group_id']))
         dn = "cn=%s,%s" % (iso2utf(row['name']), top_dn)
+        #for mbr in group.search_members(group_id=group.entity_id,
+        #                                member_type=co.entity_person):
         for mbr in group.search_members(group_id=group.entity_id,
-                                        member_type=co.entity_person):
+                                        member_type=co.entity_account):
             mbr2grp.setdefault(int(mbr["member_id"]), []).append(dn)
         file_handle.write(entry_string(dn, {
             'objectClass': ("top", "uioUntypedObject"),
@@ -85,7 +112,7 @@ def main():
 
     destfile = ldif_outfile('GROUP', ldiffile)
     destfile.write(container_entry_string('GROUP'))
-    dump_ldif(destfile)
+    dump_ldif_uit(destfile)
     tmpfname = picklefile + ".tmp"
     pickle.dump(mbr2grp, open(tmpfname, "w"))
     os.rename(tmpfname, picklefile)
