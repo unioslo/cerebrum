@@ -1636,6 +1636,18 @@ category:main;
 CREATE INDEX group_member_member_id_idx ON group_member(member_id);
 
 
+category:code;
+CREATE TABLE change_type
+(
+    change_type_id NUMERIC(6,0)
+                   NOT NULL
+                   CONSTRAINT change_type_pk PRIMARY KEY,
+    category       CHAR VARYING(32),
+    type           CHAR VARYING(32),
+    msg_string     CHAR VARYING(60)
+);
+
+
 -- Grant roles to users
 category:main/Oracle;
 GRANT change_core_table TO cerebrum_user;
@@ -1939,6 +1951,8 @@ category:drop;
 DROP TABLE authoritative_system_code;
 category:drop;
 DROP SEQUENCE code_seq;
+category:drop;
+DROP TABLE change_type;
 
 category:drop/Oracle;
 DROP ROLE change_core_table;
