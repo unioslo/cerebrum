@@ -493,7 +493,7 @@ class CerebrumUtils(object):
 
     def log_event(self, event, trigger):
         """Utility method used to create an event only in the EventLog.
-        
+
         @type event: dict
         @param event: Dict representing an event (as returned from get_event).
 
@@ -511,8 +511,8 @@ class CerebrumUtils(object):
         self.db.log_change(event['subject_entity'],
                            int(ct),
                            event['dest_entity'],
-                           param,
-                           event_only=True)
+                           change_params=param,
+                           skip_change=True)
         self.db.commit()
 
     def log_event_receipt(self, event, trigger):
@@ -531,7 +531,7 @@ class CerebrumUtils(object):
         trigger = trigger.split(':')
         ct = self.co.ChangeType(trigger[0], trigger[1])
         parm = {'change_program': 'ExchangeIntegration',
-                'change_only': True}
+                'skip_event': True}
 
         # Only log params if they actually contain something.
         param = self.unpickle_event_params(event)
