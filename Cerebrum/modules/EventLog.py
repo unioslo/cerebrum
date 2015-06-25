@@ -18,13 +18,15 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import cerebrum_path
-from Cerebrum.modules import ChangeLog
+import Cerebrum.ChangeLog
 
 import pickle
 
-__version__='1.0'
 
-class EventLog(object):
+__version__ = '1.0'
+
+
+class EventLog(Cerebrum.ChangeLog.ChangeLog):
     """Class used for registring and managing events."""
     # TODO: Fix everything. The entire module is a hack. log_change()
     # should be renamed to log_event, and log_event should be called
@@ -37,16 +39,19 @@ class EventLog(object):
     # ammount of information on a higher level (speed vs. correctness)
     #
     # Don't want to override the Database constructor
-    def cl_init(self, change_by=None, change_program=None):
+    def cl_init(self, **kw):
+        super(EventLog, self).cl_init(**kw)
         self.events = []
-        super(EventLog, self).cl_init(change_by, change_program)
 
     # TODO: Rename this to log_event, and make all apropriate callers
     # of log_change compatible. Also, make better docstrings!
-    def log_change(self, subject_entity, change_type_id,
-                   destination_entity, change_params=None,
-                   change_by=None, change_program=None,
-                   event_only=False,change_only=False):
+    def log_change(self,
+                   subject_entity,
+                   change_type_id,
+                   destination_entity,
+                   change_params=None,
+                   skip_event=False,
+                   **kw):
         """Register events that should be stored into the database.
         """
         # This is kind of hackish. We want to have the possibility not to
@@ -54,26 +59,28 @@ class EventLog(object):
         # partially fail processing (i.e. new-mailbox fails after new-mailbox,
         # but before addresses are set. Should not happen, but it will
         # eventually), we want to generate new events that must be processed.
-        if not event_only or change_only:
-            super(EventLog, self).log_change(subject_entity, change_type_id,
-                                             destination_entity, change_params,
-                                             change_by, change_program)
-        if not change_only:
-            # TODO: We call dumps.. UTF?
-            self.events.append({'change_type_id': change_type_id,
-                                'subject_entity': subject_entity,
-                                'destination_entity': destination_entity,
-                                'change_params': pickle.dumps(change_params)})
+        super(EventLog, self).log_change(
+            subject_entity,
+            change_type_id,
+            destination_entity,
+            change_params=change_params,
+            **kw)
+
+        if skip_event:
+            return
+        # TODO: We call dumps.. UTF?
+        self.events.append({'change_type_id': change_type_id,
+                            'subject_entity': subject_entity,
+                            'destination_entity': destination_entity,
+                            'change_params': pickle.dumps(change_params)})
 
     def rollback_log(self):
-        """Remove events in queue for writing.
-        """
+        """ Remove events in queue for writing. """
         super(EventLog, self).rollback_log()
         self.events = []
 
     def commit_log(self):
-        """Commit new events to the event log.
-        """
+        """ Commit new events to the event log. """
         super(EventLog, self).commit_log()
         # For each event to log..
         for e in self.events:

@@ -46,15 +46,15 @@ class SimpleLogger(object):
     """
     def error(self, msg):
         print "ERROR: " + msg
-        
+
     def warning(self, msg):
-        print "WARNING: " + msg    
+        print "WARNING: " + msg
 
     def info(self, msg):
-        print "INFO: " + msg    
-            
+        print "INFO: " + msg
+
     def debug(self, msg):
-        print "DEBUG: " + msg    
+        print "DEBUG: " + msg
 
 ## Globals
 log = SimpleLogger()
@@ -308,10 +308,10 @@ class Individuation:
         if not self.send_token(phone_no, token):
             log.error("Couldn't send token to %s for %s" % (phone_no, uname))
             raise Errors.CerebrumRPCException('token_notsent')
-        account._db.log_change(subject_entity=account.entity_id,
-                      change_type_id=self.co.account_password_token,
-                      destination_entity=None,
-                      change_params={'phone_to': phone_no})
+        account._db.log_change(account.entity_id,
+                               self.co.account_password_token,
+                               None,
+                               change_params={'phone_to': phone_no})
         # store password token as a trait
         account.populate_trait(self.co.trait_password_token, date=now(), numval=0,
                           strval=self.hash_token(token, uname))

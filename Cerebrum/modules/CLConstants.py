@@ -21,7 +21,6 @@
 
 import cereconf
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
-from Cerebrum import Constants
 from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.Constants import _ChangeTypeCode
 
