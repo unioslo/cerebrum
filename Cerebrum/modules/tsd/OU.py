@@ -192,7 +192,8 @@ class OUTSDMixin(OU, EntityTrait):
     def expire_date(self):
         """The projects expire date."""
         # TODO: Should we define a setter or a deleter?
-        quars = self.get_entity_quarantine(qtype=self.const.quarantine_project_end)
+        quars = self.get_entity_quarantine(
+            qtype=self.const.quarantine_project_end)
         if quars:
             return quars[0]['start_date']
         else:
@@ -332,16 +333,6 @@ class OUTSDMixin(OU, EntityTrait):
         """
         if not self.is_approved():
             raise Errors.CerebrumError("Project is not approved, cannot setup")
-
-        if vlan is None or vlan == "":
-            try:
-                project_subnet = self.get_project_subnets().next()
-                sub = dns.Subnet.Subnet(self._db)
-                sub.find(project_subnet['entity_id'])
-                vlan = sub.vlan_number
-            except:
-                raise Errors.CerebrumError("Could not determine VLAN-number"
-                                           "for project.")
 
         self._setup_project_dns(creator_id, vlan)
         self._setup_project_hosts(creator_id)
@@ -488,13 +479,20 @@ class OUTSDMixin(OU, EntityTrait):
 
         :param int vlan:
             If given, overrides what VLAN number to set for the project's
-            subnets, as long as it is larger than `cereconf.SUBNET_START`.
+            subnets, as long as it is within one of the ranges defined
+            in `cereconf.VLAN_RANGES`.
             If set to None, the first free VLAN will be chosen.
         """
         projectid = self.get_project_id()
         etrait = EntityTrait(self._db)
-        if not vlan and not isinstance(vlan, (int, long)):
-            vlan = self.get_next_free_vlan()
+        if not vlan:
+            try:
+                # Check if a VLAN is already assigned
+                sub = dns.Subnet.Subnet(self._db)
+                sub.find(self.ipv4_subnets.next())
+                vlan = sub.vlan_number
+            except:
+                vlan = self.get_next_free_vlan()
         try:
             vlan = int(vlan)
         except ValueError:
@@ -535,7 +533,8 @@ class OUTSDMixin(OU, EntityTrait):
         # TODO: Reserve 10 PTR addresses in the start of the subnet!
 
     def _generate_subnets_for_project_id(self, project_id):
-        """Calculate which IPv4 and IPv6 subnets should be assigned to a project.
+        """Calculate which IPv4 and IPv6 subnets should be assigned
+        to a project.
 
         :param int project_id:
             The entity ID of the project.
@@ -566,7 +565,6 @@ class OUTSDMixin(OU, EntityTrait):
             vm_type = vm_trait['strval']
         else:  # Set win as default if trait is not set.
             vm_type = 'win_vm'
-
 
         if vm_type in ('win_vm', 'win_and_linux_vm'):
             # Create a Windows host for the whole project
