@@ -13,13 +13,13 @@ Requirements
 Dependencies
 -------------
 
-* M2Crypto
-* psycopg2
-* smbpasswd
-* ldap
-* lxml
-* processing
-* mx (egenix-mx-base)
+* M2Crypto (yum install m2crypto / pip install M2Crypto)
+* psycopg2 (yum install python-psycopg2 / pip install psycopg2)
+* smbpasswd (yum install python-smbpasswd / pip install smbpasswd)
+* ldap (yum install python-ldap / pip install python-ldap)
+* lxml (yum install python-lxml / pip install lxml)
+* processing (? / pip install processing)
+* mx (egenix-mx-base) (yum install python-egenix-mx-base / pip install egenix-mx-base)
 * ssl (backport)
 
 Optional dependencies

@@ -28,7 +28,7 @@ try:
 except:
     from Cerebrum.extlib.sets import Set as set
 
-__version__ = "1.0"
+__version__ = "1.1"
 
 class _EntityTraitCode(_CerebrumCodeWithEntityType):
     """Code values for entity traits, used in table entity_trait."""
@@ -60,7 +60,7 @@ class TraitConstants(Constants):
                                  "target=%(entity:target_id)s"))
 
     # There are no mandatory EntityTraitCodes
-    
+
     EntityTrait = _EntityTraitCode
 
 class EntityTrait(Entity):
@@ -77,7 +77,7 @@ class EntityTrait(Entity):
             params = params.copy()
             params['date'] = str(params['date'])
         return params
-            
+
 
     def write_db(self):
         self.__super.write_db()
@@ -95,11 +95,11 @@ class EntityTrait(Entity):
                 changelog = True
                 try:
                     old_trait = self.query_1("""
-                    SELECT * 
+                    SELECT *
                     FROM [:table schema=cerebrum name=entity_trait]
                     WHERE entity_id=:entity_id AND code=:code
                     """, {'entity_id': self.entity_id, 'code': int(code)})
-                
+
                     changelog = False
                     for i in ('target_id', 'numval', 'strval'):
                         if old_trait.get(i) != self.__traits[code].get(i):
@@ -205,7 +205,7 @@ class EntityTrait(Entity):
         return traits.get(_EntityTraitCode(trait))
 
     def list_traits(self, code=NotSet, target_id=NotSet, entity_id=NotSet,
-                    date=NotSet, numval=NotSet, strval=NotSet, 
+                    date=NotSet, numval=NotSet, strval=NotSet,
                     strval_like=NotSet, return_name=False, fetchall=False):
         """Returns all the occurences of specified trait(s), optionally
         filtered on values.
@@ -218,7 +218,7 @@ class EntityTrait(Entity):
         that have either trait1 or trait2 in their code attribute.
 
         To match SQL NULL, use None.
-        
+
         To ignore a column, use NotSet (by default all columns are ignored;
         i.e. *all* traits will be returned).
 
@@ -229,7 +229,7 @@ class EntityTrait(Entity):
         @type code:
           1) NotSet OR 2) int/long/EntityTrait instance or a sequence thereof.
         @param code:
-          Filter the result by specific trait(s). 
+          Filter the result by specific trait(s).
 
         @type target_id:
           1) NotSet OR 2) int/long or a sequence thereof.
@@ -261,7 +261,7 @@ class EntityTrait(Entity):
         @param strval_like:
           Filter the result by specific strval associated with the
           trait. strval_like will apply DWIM case sensitivity (see
-          Utils.prepare_sql_pattern). 
+          Utils.prepare_sql_pattern).
 
         @type return_name: bool
         @param return_name:

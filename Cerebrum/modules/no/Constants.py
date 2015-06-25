@@ -61,6 +61,13 @@ class ConstantsActiveDirectory(Constants.Constants):
     trait_exchange_mdb = _EntityTraitCode(
         'exchange_mdb', Constants.Constants.entity_account,
         "The assigned mailbox-database in Exchange for the given account.")
+    # traits used to "exempt" entities from being exported to AD2
+    trait_account_exempt = _EntityTraitCode(
+        'account_exempt', Constants.Constants.entity_account,
+        'Exempt the given account from being exported')
+    trait_group_exempt = _EntityTraitCode(
+        'group_exempt', Constants.Constants.entity_group,
+        'Exempt the given group from being exported')
 
 
 class ConstantsCommon(Constants.Constants):
@@ -412,14 +419,44 @@ class SAPLonnsTittelKode(Constants._CerebrumCode):
             return self.kategori
         # fi
 
-        return self.sql.query_1("""
-                                SELECT
-                                  kategori
-                                FROM
-                                  %s
-                                WHERE
-                                  code = :code""" % self._lookup_table,
-                                {'code': int(self)})
+        return self.sql.query_1("SELECT kategori FROM %s WHERE code = :code" %
+                                self._lookup_table, {'code': int(self)})
+
+    def update(self):
+        """
+        Updates the description and/or kategori-values for the given constant
+        if there are changes from the current database entry.
+
+        :returns: a list with strings containing details about the updates that
+                  were performed, or None if no updates were performed.
+        :rtype: list or None
+        """
+        updated_desc = super(SAPLonnsTittelKode, self).update()
+        updated_kat = self._update_kategori()
+
+        if updated_desc or updated_kat is not None:
+            results = []
+
+            if updated_desc is not None:
+                results.extend(updated_desc)
+            if updated_kat is not None:
+                results.extend(updated_kat)
+            return results
+
+    def _update_kategori(self):
+        """
+        Updates the kategori-value for the given constant if value has changed
+        from the current database entry.
+
+        :returns: a string with details of the update that was made.
+        :rtype: list or None
+        """
+        db_kat = self.sql.query_1("SELECT kategori FROM %s WHERE code = %s" %
+                                  (self._lookup_table, int(self)))
+        if self.kategori != db_kat:
+            self.sql.execute("UPDATE %s SET kategori = '%s' WHERE code = %s" %
+                             (self._lookup_table, self.kategori, int(self)))
+            return ["Updated kategori for '%s': '%s'" % (self, self.kategori)]
 
 
 class SAPCommonConstants(Constants.Constants):

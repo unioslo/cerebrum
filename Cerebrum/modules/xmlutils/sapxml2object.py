@@ -32,9 +32,10 @@ import sys
 import cerebrum_path
 import cereconf
 
-from Cerebrum.modules.xmlutils.xml2object import \
-     XMLDataGetter, XMLEntity2Object, HRDataPerson, DataAddress, \
-     DataEmployment, DataOU, DataContact, DataName, DataExternalWork
+from Cerebrum.modules.xmlutils.xml2object import (
+    XMLDataGetter, XMLEntity2Object, HRDataPerson, DataAddress,
+    DataEmployment, DataOU, DataContact, DataName, DataExternalWork
+)
 from Cerebrum.modules.no.fodselsnr import personnr_ok
 
 
@@ -62,7 +63,7 @@ class SAPPerson(HRDataPerson):
 
 def make_sko(data):
     """Make a sko, (faculty, institute, group)-tuple, out of data."""
-    
+
     # FIXME: re?
     try:
         int(data)
@@ -90,11 +91,12 @@ class XMLOU2Object(XMLEntity2Object):
     """A converter class that maps ElementTree's Element to DataOU."""
 
     # TBD: Bind it to Cerebrum constants?
-    tag2type = { "Stedkode" : DataOU.NO_SKO,
-                 "Akronym"  : DataOU.NAME_ACRONYM,
-                 "Navn20" : DataOU.NAME_SHORT,
-                 "Navn120" : DataOU.NAME_LONG,
-                 }
+    tag2type = {
+        "Stedkode": DataOU.NO_SKO,
+        "Akronym": DataOU.NAME_ACRONYM,
+        "Navn20": DataOU.NAME_SHORT,
+        "Navn120": DataOU.NAME_LONG,
+    }
 
     def _make_contact(self, element):
         comm_type = element.find("Type")
@@ -103,18 +105,22 @@ class XMLOU2Object(XMLEntity2Object):
             return None
 
         priority = element.find("Prioritet")
-        if (priority is not None and
-            priority.text is not None and
-            priority.text.isdigit()):
+        if (
+                priority is not None and
+                priority.text is not None and
+                priority.text.isdigit()
+        ):
             priority = int(priority.text)
         else:
             return None
 
-        comm2const = { "E-post adresse" : DataContact.CONTACT_EMAIL,
-                       "Telefax"        : DataContact.CONTACT_FAX,
-                       "Telefon1"       : DataContact.CONTACT_PHONE,
-                       "Telefon2"       : DataContact.CONTACT_PHONE,
-                       "URL"            : DataContact.CONTACT_URL, }
+        comm2const = {
+            "E-post adresse": DataContact.CONTACT_EMAIL,
+            "Telefax": DataContact.CONTACT_FAX,
+            "Telefon1": DataContact.CONTACT_PHONE,
+            "Telefon2": DataContact.CONTACT_PHONE,
+            "URL": DataContact.CONTACT_URL,
+        }
         comm_type = comm_type.text.encode("latin1")
         if comm_type not in comm2const:
             return None
@@ -135,20 +141,25 @@ class XMLOU2Object(XMLEntity2Object):
         # end
 
         kind = ext("Type")
-        if not kind: return None
+        if not kind:
+            return None
 
-        xml2kind = { "Besøksadresse" : DataAddress.ADDRESS_BESOK,
-                     "Postadresse"   : DataAddress.ADDRESS_POST, }
+        xml2kind = {
+            "Besøksadresse": DataAddress.ADDRESS_BESOK,
+            "Postadresse": DataAddress.ADDRESS_POST,
+        }
         if kind not in xml2kind:
             return None
 
-        result = DataAddress(kind = xml2kind[kind],
-                             street = (ext("CO"),
-                                       ext("Gateadresse"),
-                                       ext("Adressetillegg")),
-                             zip = ext("Postnummer"),
-                             city = ext("Poststed"),
-                             country = ext("Landkode"))
+        result = DataAddress(
+            kind=xml2kind[kind],
+            street=(ext("CO"),
+                    ext("Gateadresse"),
+                    ext("Adressetillegg")),
+            zip=ext("Postnummer"),
+            city=ext("Poststed"),
+            country=ext("Landkode")
+        )
         return result
 
     def _make_names(self, sub):
@@ -169,11 +180,11 @@ class XMLOU2Object(XMLEntity2Object):
             # Common mistake. The keys are, like, right next to each other.
             if language.lower() == "no":
                 language = "nb"
-            
+
             # It has been decided that we need to consider nn/nb/en only
             if language.lower() not in ("nn", "nb", "ny", "en"):
                 continue
-            
+
             result.append(DataName(tag2kind[tmp.tag],
                                    tmp.text.strip().encode("latin1"),
                                    language))
@@ -194,11 +205,18 @@ class XMLOU2Object(XMLEntity2Object):
             value = None
             if sub.text:
                 value = sub.text.strip().encode("latin1")
-
             if sub.tag == "Stedkode":
                 sko = make_sko(value)
                 if sko is not None:
                     result.add_id(self.tag2type[sub.tag], sko)
+                else:
+                    # invalid value for the <Stedkode> tag
+                    if self.logger:
+                        self.logger.warn(
+                            'Detected XML <Stedkode> '
+                            'tag with invalid value: %s',
+                            value
+                        )
             elif sub.tag == "Overordnetstedkode":
                 sko = make_sko(value)
                 if sko is not None:
@@ -239,18 +257,21 @@ class XMLOU2Object(XMLEntity2Object):
         # OUs; we choose to hope that the names will be in place when
         # the OU becomes active.
         if result.get_name(DataOU.NAME_LONG) is None:
+            ou_no_sko_str = result.get_id(DataOU.NO_SKO)
+            if not ou_no_sko_str:
+                ou_no_sko_str = 'Missing a valid NO_SKO value'
             if result.end_date and result.end_date < now():
                 if self.logger:
                     self.logger.debug("No name for expired OU %s",
-                                      result.get_id(DataOU.NO_SKO))
+                                      ou_no_sko_str)
             elif result.start_date and result.start_date > now():
                 if self.logger:
                     self.logger.debug("No name for future OU %s",
-                                      result.get_id(DataOU.NO_SKO))
+                                      ou_no_sko_str)
             else:
                 if self.logger:
                     self.logger.warn("No name available for OU %s",
-                                     result.get_id(DataOU.NO_SKO))
+                                     ou_no_sko_str)
                 return None
 
         return result
@@ -292,11 +313,13 @@ class XMLPerson2Object(XMLEntity2Object):
 
         assert addr_element.tag == "Adresse"
 
-        sap2intern = {"Besøksadresse": DataAddress.ADDRESS_BESOK,
-                      "Postadresse": DataAddress.ADDRESS_POST,
-                      "Bostedsadresse": DataAddress.ADDRESS_PRIVATE, 
-                      "Avvikende postadresse": DataAddress.ADDRESS_OTHER_POST,
-                      "Avvikende besøksadresse": DataAddress.ADDRESS_OTHER_BESOK,}
+        sap2intern = {
+            "Besøksadresse": DataAddress.ADDRESS_BESOK,
+            "Postadresse": DataAddress.ADDRESS_POST,
+            "Bostedsadresse": DataAddress.ADDRESS_PRIVATE,
+            "Avvikende postadresse": DataAddress.ADDRESS_OTHER_POST,
+            "Avvikende besøksadresse": DataAddress.ADDRESS_OTHER_BESOK,
+        }
 
         zip = city = country = addr_kind = ""
         street = []
@@ -594,9 +617,9 @@ class XMLPerson2Object(XMLEntity2Object):
                 # JAZZ 2007-08-01
                 # '*' did not work all that well as it is used as common
                 # wildcard in SAP. Johannes suggests that we use '@' in
-                # stead. As the data is not updated yet (we don't know when that
-                # will happen) we need to test for '*' as well in order to skip
-                # all the invalid elements
+                # stead. As the data is not updated yet (we don't know when
+                # that will happen) we need to test for '*' as well in order
+                # to skip all the invalid elements
                 #
                 if '*' in value or '@' in value:
                     if self.logger:
@@ -642,7 +665,8 @@ class XMLPerson2Object(XMLEntity2Object):
                 # specifically look here for Tittel => personal title,
                 # to avoid confusion with worktitles
                 for subsub in sub.findall("Tittel"):
-                    personal_title = self._make_title(HRDataPerson.NAME_TITLE, subsub)
+                    personal_title = self._make_title(HRDataPerson.NAME_TITLE,
+                                                      subsub)
                     if personal_title:
                         result.add_name(personal_title)
             elif sub.tag == "PersonligID":
@@ -711,8 +735,10 @@ class XMLPerson2Object(XMLEntity2Object):
         # We require people to have first/last name.
         if not (result.get_name(result.NAME_FIRST) and
                 result.get_name(result.NAME_LAST)):
-            self.logger.warn("People must have first and last names. %s skipped",
-                             list(result.iterids()))
+            self.logger.warn(
+                "People must have first and last names. %s skipped",
+                list(result.iterids())
+            )
             return None
 
         return result

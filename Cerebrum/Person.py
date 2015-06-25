@@ -310,19 +310,17 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         WHERE export_id=:export_id""", locals())
         self.find(person_id)
 
-    def _compare_names(self, type, other):
+    def _compare_names(self, variant, other):
         """Returns True if names are equal.
 
         self must be a populated object."""
 
         try:
-            tmp = other.get_name(self._pn_affect_source, type)
-            if len(tmp) == 0:
-                raise KeyError
+            tmp = other.get_name(self._pn_affect_source, variant)
         except:
             raise MissingOtherException
         try:
-            myname = self._name_info[type]
+            myname = self._name_info[variant]
         except:
             raise MissingSelfException
 #        if isinstance(myname, unicode):

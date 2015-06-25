@@ -569,7 +569,7 @@ class VoipAddress(EntityAuthentication, EntityTrait):
         return "@".join((local_part, domain))
     # end _join_address
     
-    def _cache_owner_person_attrs(self, ou2sko, voippersons, primary2pid):
+    def _cache_owner_person_attrs(self, ou2sko, voippersons, primary2pid, sysadm_aid):
         """Preload the person owner attributes (i.e. the ones specific to people)."""
 
         owner_data = dict()
@@ -608,7 +608,8 @@ class VoipAddress(EntityAuthentication, EntityTrait):
             owner_data[row["person_id"]]["voipSKO"].add(ou2sko[row["ou_id"]])
 
         for row in account.search(owner_type=self.const.entity_person,
-                                  owner_id=voippersons):
+                                  owner_id=voippersons,
+                                  exclude_account_id=sysadm_aid):
             if row["owner_id"] not in owner_data:
                 continue
             aid = row["account_id"]

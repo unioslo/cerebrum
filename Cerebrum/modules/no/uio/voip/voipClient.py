@@ -341,7 +341,7 @@ class VoipClient(EntityAuthentication, EntityTrait):
 
 
 
-    def list_voip_attributes(self, voippersons, primary2pid):
+    def list_voip_attributes(self, voippersons, primary2pid, sysadm_aid):
         """Fast version of search() + get_voip_attributes().
 
         Simply put, with tens of thousands of objects, find() +
@@ -370,7 +370,8 @@ class VoipClient(EntityAuthentication, EntityTrait):
         aid2owner = dict()
         account = Factory.get("Account")(self._db)
         for r in account.search(owner_type=self.const.entity_person,
-                                owner_id=voippersons):
+                                owner_id=voippersons,
+                                exclude_account_id=sysadm_aid):
             owner2uname[r["owner_id"]].append(r["name"])
             aid2owner[r["account_id"]] = r["owner_id"]
 
@@ -401,8 +402,7 @@ class VoipClient(EntityAuthentication, EntityTrait):
                                                        account_id=aid2owner.keys()):
             if row['account_id'] in aid2quarantine:
                 uname2quarantine[row['entity_name']] = aid2quarantine[row["account_id"]]
-            else:
-                uname2ha1[row['entity_name']] = row['auth_data']
+            uname2ha1[row['entity_name']] = row['auth_data']
 
         for row in self.search():
             entry = {"sipClientType": const2str[row["client_type"]],
@@ -425,8 +425,7 @@ class VoipClient(EntityAuthentication, EntityTrait):
                     if uid in uname2quarantine:
                         e["sipQuarantine"] = uname2quarantine[uid]
                         e["sipEnabled"] = "quarantined"
-                    else:
-                        e["ha1MD5password"] = uname2ha1.get(uid) or "missing"
+                    e["ha1MD5password"] = uname2ha1.get(uid) or "missing"
                     # XXX: will be altered in next revision when voip_softphone/softphone
                     # becomes voip_hardhone/softphone.
                     e["sipClientInfo"] = "sbc2phone"

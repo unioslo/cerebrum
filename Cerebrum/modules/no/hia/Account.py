@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 # Copyright 2004-2009, 2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -28,6 +28,7 @@ from Cerebrum.modules import Email
 from Cerebrum import Errors
 from Cerebrum.modules import PasswordHistory
 
+
 class AccountHiAMixin(Account.Account):
     def add_spread(self, spread):
         # guest accounts:
@@ -35,18 +36,21 @@ class AccountHiAMixin(Account.Account):
                 self.get_trait(self.const.trait_guest_owner)):
             if spread not in (self.const.spread_ad_guest,
                               self.const.spread_radius_guest):
-                raise self._db.IntegrityError, \
-                      "Guest accounts are not allowed other than guest spreads."
+                raise self._db.IntegrityError(
+                    "Guest accounts are not allowed other than guest spreads."
+                )
         if spread == self.const.spread_nis_user:
             if self.illegal_name(self.account_name):
-                raise self._db.IntegrityError, \
-                      "Can't add NIS spread to an account with illegal name."
-            
+                raise self._db.IntegrityError(
+                    "Can't add NIS spread to an account with illegal name."
+                )
         if spread in (self.const.spread_exchange_account,
                       self.const.spread_exchange_acc_old):
             if self.has_spread(self.const.spread_hia_email):
-                raise self._db.IntegrityError, \
-                          "Cannot add Exchange-spread to an IMAP-account, use email exchange_migrate"
+                raise self._db.IntegrityError(
+                    'Cannot add Exchange-spread to an IMAP-account, '
+                    'use email exchange_migrate'
+                )
             # To be available in Exchange, you need to be in AD
             if not self.has_spread(self.const.spread_hia_ad_account):
                 self.add_spread(self.const.spread_hia_ad_account)
@@ -59,8 +63,10 @@ class AccountHiAMixin(Account.Account):
                 self.populate_trait(self.const.trait_exchange_mdb, strval=mdb)
             elif spread == self.const.spread_exchange_account:
                 if self.has_spread(self.const.spread_exchange_acc_old):
-                    raise self._db.IntegrityError("User has old exchange "
-                                              "spread, cannot add new spread")
+                    raise self._db.IntegrityError(
+                        "User has old exchange "
+                        "spread, cannot add new spread"
+                    )
                 self._update_email_server(spread, force=True)
             self.write_db()
         if spread == self.const.spread_hia_email:
@@ -72,7 +78,7 @@ class AccountHiAMixin(Account.Account):
                 return
             et = Email.EmailTarget(self._db)
             try:
-                et.find_by_email_target_attrs(target_entity_id = self.entity_id)
+                et.find_by_email_target_attrs(target_entity_id=self.entity_id)
             except Errors.NotFoundError:
                 # the user has no previosly assigned e-mail target to
                 # fix, disregard the process
@@ -83,38 +89,39 @@ class AccountHiAMixin(Account.Account):
                 es = Email.EmailServer(self._db)
                 server_name = 'mail-imap2'
                 es.find_by_name(server_name)
-                et.email_server_id=es.entity_id
+                et.email_server_id = es.entity_id
                 et.write_db()
         if spread == self.const.spread_uia_office_365:
-            # Check that users destinied for Office365 are supposed to be in
-            # AD.
-            if not self.has_spread(self.const.spread_hia_ad_account):
-                raise self._db.IntegrityError(
-                    'User does not have AD-spread, aborting')
+            # We except that the user already has an AD spread before setting
+            # the spread for Office 365. This is handled by UiA.
 
             # Update the users email-server (and create EmailTarget, if it is
             # non-existent).
             self._update_email_server(spread, force=True)
             self.write_db()
-            # Look up the domain that the user must have an email-address in,
+
+            # Look up the domains that the user must have an email-address in,
             # for the cloud stuff to work.
             ed = Email.EmailDomain(self._db)
-            ed.find_by_domain(cereconf.EMAIL_CLOUD_DOMAIN)
-            # Ensure that the <uname>@thedomainfoundabove.uia.no address
-            # exists.
             ea = Email.EmailAddress(self._db)
-            try:
-                ea.find_by_local_part_and_domain(self.account_name,
-                                                 ed.entity_id)
-            except Errors.NotFoundError:
-                et = Email.EmailTarget(self._db)
-                et.find_by_target_entity(self.entity_id)
-                ea.populate(self.account_name, ed.entity_id, et.entity_id)
-                ea.write_db()
+
+            for domain in cereconf.EMAIL_OFFICE_365_DOMAINS:
+                ed.clear()
+                ed.find_by_domain(domain)
+                # Ensure that the <uname>@thedomainfoundabove.uia.no address
+                # exists.
+                try:
+                    ea.clear()
+                    ea.find_by_local_part_and_domain(self.account_name,
+                                                     ed.entity_id)
+                except Errors.NotFoundError:
+                    et = Email.EmailTarget(self._db)
+                    et.find_by_target_entity(self.entity_id)
+                    ea.populate(self.account_name, ed.entity_id, et.entity_id)
+                    ea.write_db()
 
         # (Try to) perform the actual spread addition.
         ret = self.__super.add_spread(spread)
-
         return ret
 
     def delete_spread(self, spread):
@@ -122,7 +129,7 @@ class AccountHiAMixin(Account.Account):
         # Pre-remove checks
         #
         spreads = [int(r['spread']) for r in self.get_spread()]
-        if not spread in spreads:  # user doesn't have this spread
+        if spread not in spreads:  # user doesn't have this spread
             return
         if spread == self.const.spread_exchange_acc_old:
             self.delete_trait(self.const.trait_exchange_mdb)
@@ -200,28 +207,44 @@ class AccountHiAMixin(Account.Account):
         mdb_candidates = set(cereconf.EXCHANGE_HOMEMDB_VALID.keys())
         mdb_count = dict()
         for candidate in mdb_candidates:
-            mdb_count[candidate] = len(self.list_traits(code=self.const.trait_exchange_mdb,
-                                                        strval=candidate, fetchall=True))
+            mdb_count[candidate] = len(
+                self.list_traits(
+                    code=self.const.trait_exchange_mdb,
+                    strval=candidate,
+                    fetchall=True
+                )
+            )
         mdb_choice, smallest_mdb_weight = None, 1.0
         for m in mdb_candidates:
             # DBs weighted to zero in cereconf should not be chosen
             # automatically:
             if cereconf.EXCHANGE_HOMEMDB_VALID[m] == 0:
                 continue
-            m_weight = (mdb_count.get(m, 0)*1.0)/cereconf.EXCHANGE_HOMEMDB_VALID[m]
+            m_weight = (
+                mdb_count.get(m, 0)*1.0) / cereconf.EXCHANGE_HOMEMDB_VALID[m]
             if m_weight < smallest_mdb_weight:
                 mdb_choice, smallest_mdb_weight = m, m_weight
         if mdb_choice is None:
             raise self._db.IntegrityError("Cannot assign mdb")
         return mdb_choice
-    
-    def update_email_addresses(self, set_primary = False):
+
+    def update_email_addresses(self, set_primary=False):
         # check if an e-mail spread is registered yet, if not don't
         # update
         if not (self.has_spread(self.const.spread_exchange_account) or
                 self.has_spread(self.const.spread_exchange_acc_old) or
                 self.has_spread(self.const.spread_hia_email) or
                 self.has_spread(self.const.spread_uia_office_365)):
+            # CRB-742: If spread_uia_office_365 is removed
+            #  MailTarget targettype should be set as "deleted"
+            try:
+                et = Email.EmailTarget(self._db)
+                et.find_by_email_target_attrs(target_entity_id=self.entity_id)
+                if et.email_target_type != self.const.email_target_deleted:
+                    et.email_target_type = self.const.email_target_deleted
+                    et.write_db()
+            except Errors.NotFoundError:
+                pass
             return
         # Find, create or update a proper EmailTarget for this
         # account.
@@ -230,7 +253,7 @@ class AccountHiAMixin(Account.Account):
         if self.is_deleted() or self.is_reserved():
             target_type = self.const.email_target_deleted
         try:
-            et.find_by_email_target_attrs(target_entity_id = self.entity_id)
+            et.find_by_email_target_attrs(target_entity_id=self.entity_id)
             et.email_target_type = target_type
         except Errors.NotFoundError:
             # We don't want to create e-mail targets for reserved or
@@ -257,7 +280,8 @@ class AccountHiAMixin(Account.Account):
         # the appropriate server based on spread and account_type
         spread = None
         if not et.email_server_id:
-            if self.get_account_types() or self.owner_type == self.const.entity_group:
+            if self.get_account_types() or \
+               self.owner_type == self.const.entity_group:
                 for s in self.get_spread():
                     if s['spread'] in (int(self.const.spread_exchange_account),
                                        int(self.const.spread_exchange_acc_old),
@@ -265,14 +289,15 @@ class AccountHiAMixin(Account.Account):
                         spread = s['spread']
                 et = self._update_email_server(spread)
             else:
-                # do not set email_server_target until account_type is registered
+                # do not set email_server_target
+                # until account_type is registered
                 return
         # Figure out which domain(s) the user should have addresses
         # in.  Primary domain should be at the front of the resulting
         # list.
         # if the only address found is in EMAIL_DEFAULT_DOMAIN
         # don't set default address. This is done in order to prevent
-        # adresses in default domain being sat as primary 
+        # adresses in default domain being sat as primary
         # TODO: account_types affiliated to OU's  without connected
         # email domain don't get a default address
         primary_set = False
@@ -304,28 +329,33 @@ class AccountHiAMixin(Account.Account):
             ctgs = [int(r['category']) for r in ed.get_categories()]
             local_parts = []
             if int(self.const.email_domain_category_cnaddr) in ctgs:
-                local_parts.append(self.get_email_cn_local_part(given_names=1, max_initials=1))
+                local_parts.append(
+                    self.get_email_cn_local_part(
+                        given_names=1,
+                        max_initials=1
+                    )
+                )
                 local_parts.append(self.account_name)
             elif int(self.const.email_domain_category_uidaddr) in ctgs:
                 local_parts.append(self.account_name)
-	    for lp in local_parts:
-		lp = self.wash_email_local_part(lp)
-		# Is the address taken?
- 		ea.clear()
-		try:
-		    ea.find_by_local_part_and_domain(lp, ed.entity_id)
-		    if ea.email_addr_target_id != et.entity_id:
-			# Address already exists, and points to a
-			# target not owned by this Account.
+            for lp in local_parts:
+                lp = self.wash_email_local_part(lp)
+                # Is the address taken?
+                ea.clear()
+                try:
+                    ea.find_by_local_part_and_domain(lp, ed.entity_id)
+                    if ea.email_addr_target_id != et.entity_id:
+                        # Address already exists, and points to a
+                        # target not owned by this Account.
                         continue
-		    # Address belongs to this account; make sure
-		    # there's no expire_date set on it.
-		    ea.email_addr_expire_date = None
-		except Errors.NotFoundError:
-		    # Address doesn't exist; create it.
-		    ea.populate(lp, ed.entity_id, et.entity_id,
-				expire=None)
-		ea.write_db()
+                    # Address belongs to this account; make sure
+                    # there's no expire_date set on it.
+                    ea.email_addr_expire_date = None
+                except Errors.NotFoundError:
+                    # Address doesn't exist; create it.
+                    ea.populate(lp, ed.entity_id, et.entity_id,
+                                expire=None)
+                ea.write_db()
                 if not primary_set:
                     epat.clear()
                     try:
@@ -333,10 +363,10 @@ class AccountHiAMixin(Account.Account):
                         epat.populate(ea.entity_id)
                     except Errors.NotFoundError:
                         epat.clear()
-                        epat.populate(ea.entity_id, parent = et)
+                        epat.populate(ea.entity_id, parent=et)
                     epat.write_db()
                     primary_set = True
-		self.update_email_quota()
+                self.update_email_quota()
 
     # TODO: check this method, may probably be done better
     def _update_email_server(self, spread, force=False):
@@ -370,9 +400,10 @@ class AccountHiAMixin(Account.Account):
             server_name = 'exchkrs01.uia.no'
         es.find_by_name(server_name)
         try:
-            et.find_by_email_target_attrs(target_entity_id = self.entity_id)
+            et.find_by_email_target_attrs(target_entity_id=self.entity_id)
         except Errors.NotFoundError:
-            # Not really sure about this. it is done at UiO, but maybe it is not
+            # Not really sure about this.
+            # It is done at UiO, but maybe it is not
             # right to make en email_target if one is not found??
             et.clear()
             et.populate(self.const.email_target_account,
@@ -433,5 +464,4 @@ class AccountHiAMixin(Account.Account):
         for r in self.get_account_types():
             if r['affiliation'] == self.const.affiliation_tilknyttet:
                 return True
-        return False    
-
+        return False

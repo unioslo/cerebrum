@@ -1,0 +1,23 @@
+[localhost]
+localhost ansible_connection=local
+
+[cere-utv01]
+cere-utv01.uio.no
+
+[cerebrum-test-node]
+cere-utv02.uio.no
+
+[localtests:children]
+uio
+tsd
+
+[tsd]
+tsd.localhost config=tsd
+
+[uio]
+uio.localhost config=uio
+
+[localtests:vars]
+ansible_connection=local
+crb_db_user=ceretest
+crb_src_dir=/tmp/cerebrum

@@ -48,7 +48,8 @@ targets = {
     'dns': ('dns_1_0', 'dns_1_1', 'dns_1_2', 'dns_1_3', 'dns_1_4'),
     'sap': ('sap_1_0', 'sap_1_1',),
     'printer_quota': ('printer_quota_1_1', 'printer_quota_1_2',),
-    }
+    'entity_trait': ('entity_trait_1_1',),
+}
 
 # Global variables
 makedb_path = design_path = db = co = None
@@ -1000,6 +1001,21 @@ def migrate_to_printer_quota_1_2():
     meta = Metainfo.Metainfo(db)
     meta.set_metainfo("sqlmodule_printer_quota", "1.2")
     print "Migration to printer_quota 1.2 completed successfully"
+    db.commit()
+
+
+def migrate_to_entity_trait_1_1():
+    print "\ndone."
+    meta = Metainfo.Metainfo(db)
+    try:
+        meta.get_metainfo("sqlmodule_entity_trait")
+    except Errors.NotFoundError:
+        print "Schema version for sqlmodule_entity_trait is missing, setting to 1.0"
+        meta.set_metainfo("sqlmodule_entity_trait", "1.0")
+    assert_db_version("1.0", component='entity_trait')
+    makedb('entity_trait_1_1', 'pre')
+    meta.set_metainfo("sqlmodule_entity_trait", "1.1")
+    print "Migration to entity_trait 1.1 completed successfully"
     db.commit()
 
 

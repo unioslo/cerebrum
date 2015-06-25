@@ -52,6 +52,9 @@ class GroupHiAMixin(Group.Group):
         # Avoid circular import dependency
         from Cerebrum.modules import PosixGroup
 
+        if len(name) == 0:
+            return "Must specify group name"
+
         if isinstance(self, PosixGroup.PosixGroup):
             if len(name) > 16:
                 return "name too long (%d characters)" % len(name)

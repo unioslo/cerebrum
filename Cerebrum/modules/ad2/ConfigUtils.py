@@ -59,13 +59,16 @@ import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory, NotSet
 
+db = Factory.get('Database')()
 # Note that the constants object is not instantiated, as we only need type
 # checking in here.
 const = Factory.get('Constants')
 
+
 class ConfigError(Exception):
     """Exception for configuration errors."""
     pass
+
 
 class CriteriaError(Exception):
     """Exception for when a AttrCriterias is not fullfilled."""
@@ -78,6 +81,7 @@ class CriteriaError(Exception):
 # their original value, administrered by the AD administrators - Not sure if we
 # should allow this, though - why not set attributes for all entities through
 # bofh?
+
 
 class AttrConfig(object):
     """Configuration settings for an AD attribute.
@@ -173,7 +177,8 @@ class AttrConfig(object):
 
                 ad_transform=lambda x: x.lower()
 
-                ad_transform=lambda x: filter(lambda e: e.startswith('x500:'), x)
+                ad_transform=lambda x: filter(lambda e:
+                    e.startswith('x500:'), x)
 
         # TODO: Should attributes behave differently when multiple values are
         # accepted? For instance with the contact types.
@@ -191,6 +196,7 @@ class AttrConfig(object):
         if ad_transform and not callable(ad_transform):
             raise ConfigError('The ad_transform is not callable')
         self.ad_transform = ad_transform
+
 
 def _prepare_constants(input, const_class):
     """Prepare and validate given Cerebrum constant(s).
@@ -218,6 +224,7 @@ def _prepare_constants(input, const_class):
                 raise ConfigError('Not a %s: %s (%r)' % (const_class, i, i))
     return input
 
+
 class ContactAttr(AttrConfig):
     """Configuration for an attribute containing contact info.
 
@@ -244,7 +251,8 @@ class ContactAttr(AttrConfig):
         """
         super(ContactAttr, self).__init__(*args, **kwargs)
         self.contact_types = _prepare_constants(contact_types,
-                const.ContactInfo)
+                                                const.ContactInfo)
+
 
 class NameAttr(AttrConfig):
     """Configuration for attributes that should contain a name.
@@ -270,9 +278,10 @@ class NameAttr(AttrConfig):
         """
         super(NameAttr, self).__init__(*args, **kwargs)
         self.name_variants = _prepare_constants(name_variants,
-                                                     (const.EntityNameCode,
-                                                      const.PersonName))
+                                                (const.EntityNameCode,
+                                                 const.PersonName))
         self.languages = _prepare_constants(languages, const.LanguageCode)
+
 
 class PersonNameAttr(AttrConfig):
     """Configuration for attributes that should contain person names.
@@ -290,7 +299,8 @@ class PersonNameAttr(AttrConfig):
         """
         super(PersonNameAttr, self).__init__(*args, **kwargs)
         self.name_variants = _prepare_constants(name_variants,
-                                                     const.PersonName)
+                                                const.PersonName)
+
 
 class AddressAttr(AttrConfig):
     """Config for attributes with addresses, or parts of an address.
@@ -344,7 +354,8 @@ class AddressAttr(AttrConfig):
         """
         super(AddressAttr, self).__init__(*args, **kwargs)
         self.address_types = _prepare_constants(address_types,
-                                                     const.Address)
+                                                const.Address)
+
 
 class ADAttributeAttr(AttrConfig):
 
@@ -376,6 +387,7 @@ class ADAttributeAttr(AttrConfig):
         super(ADAttributeAttr, self).__init__(*args, **kwargs)
         self.attributes = _prepare_constants(attributes, const.ADAttribute)
 
+
 class ExternalIdAttr(AttrConfig):
     """Config for attributes using external IDs.
 
@@ -389,7 +401,8 @@ class ExternalIdAttr(AttrConfig):
         """
         super(ExternalIdAttr, self).__init__(*args, **kwargs)
         self.id_types = _prepare_constants(id_types,
-                const.EntityExternalId)
+                                           const.EntityExternalId)
+
 
 class TraitAttr(AttrConfig):
     """Config for attributes retrieved from traits.
@@ -409,6 +422,7 @@ class TraitAttr(AttrConfig):
         """
         super(TraitAttr, self).__init__(*args, **kwargs)
         self.traitcodes = _prepare_constants(traitcodes, const.EntityTrait)
+
 
 class MemberAttr(AttrConfig):
     """Config for Member attribute of groups.
@@ -444,6 +458,7 @@ class MemberAttr(AttrConfig):
         super(MemberAttr, self).__init__(*args, **kwargs)
         self.member_spreads = _prepare_constants(member_spreads, const.Spread)
         self.person2primary = person2primary
+
 
 class CallbackAttr(AttrConfig):
     """A special attribute, using callbacks with the entity as the argument.
@@ -499,6 +514,7 @@ class EmailAddrAttr(AttrConfig):
     """
     pass
 
+
 class EmailQuotaAttr(AttrConfig):
     """Config for e-mail quota, using the Email module in Cerebrum.
 
@@ -512,6 +528,7 @@ class EmailQuotaAttr(AttrConfig):
     """
     pass
 
+
 class EmailForwardAttr(AttrConfig):
     """Config for e-mail forward addresses for an entity from the Email module.
 
@@ -522,6 +539,7 @@ class EmailForwardAttr(AttrConfig):
 
     """
     pass
+
 
 class PosixAttr(AttrConfig):
     """Config for POSIX data, like GID, UID, shell and gecos.
@@ -548,6 +566,7 @@ class PosixAttr(AttrConfig):
     """
     # TODO: Should we have some shortcut settings, for making the config easier?
     pass
+
 
 class HomeAttr(AttrConfig):
     """Config for account's home directories.
@@ -585,6 +604,48 @@ class HomeAttr(AttrConfig):
         if not isinstance(home_spread, const.Spread):
             raise ConfigError('Not a Spread: %s' % (home_spread,))
         self.home_spread = home_spread
+
+
+class AlwaysEqual(object):
+    """Make value always compare equal to other"""
+    def __init__(self, value):
+        self.value = value
+
+    def __eq__(self, other):
+        return True
+
+    def __ne__(self, other):
+        return False
+
+    def __str__(self):
+        return "<[writeonly] %s>" % self.value
+
+    def __unicode__(self):
+        return u"<[writeonly] %s>" % self.value
+
+
+def noupdate(ad_transform=None, attrclass=AttrConfig, *rest, **kw):
+    """Make AttrConfig object (or subclass) write once semantic.
+
+    :type ad_transform: Callable
+    :param ad_transform: See AttrConfig
+
+    :type attrclass: Callable with kw argument ad_transform
+    :param attrclass: Should construct some object of type AttrConfig
+
+    :other params: Sent to attrclass
+
+    :return: AttrConfig object
+    """
+
+    def transform(advalue):
+        return advalue if (advalue is None
+                           or advalue == "") else AlwaysEqual(advalue)
+    return attrclass(ad_transform=((lambda x: transform(ad_transform(x)))
+                                   if ad_transform else transform),
+                     *rest,
+                     **kw)
+
 
 class AttrCriterias(object):
     """Config class for setting criterias for entities' AttrConfigs.
@@ -648,24 +709,46 @@ class AttrCriterias(object):
             if not self.callback(ent):
                 raise CriteriaError('Callback criteria not fullfilled')
 
+
 class AccountCriterias(AttrCriterias):
     """Account specific criterias for an AttrConfig.
 
     The class could be extended by more criterias.
 
     """
-    def __init__(self, primary_account=None, *args, **kwargs):
+    def __init__(self, primary_account=None, affiliations=None,
+                 *args, **kwargs):
         """Subclass for accounts.
 
-        @type primary_account: True, False or None
-        @param primary_account:
-            True if a given account must be the primary account. If set to False
-            will the AttrConfig be ignored if the account is a primary account.
-            Non personal accounts will never be primary accounts, as they don't
-            have the affiliations to decide that.
+        :type primary_account: True, False or None
+        :param primary_account:
+            True if a given account must be the primary account. If set to
+            False will the AttrConfig be ignored if the account is a primary
+            account.  Non personal accounts will never be primary accounts, as
+            they don't have the affiliations to decide that.
 
+        :type affiliations: String, list of strings or None
+        :param affiliations:
+            The affiliation type to filter by. The account must have these
+            affiliations for the criteria to be in-spec.
+
+            The following list would require all the following affiliations to
+            be present (logical AND). Note that an affiliation can be composed
+            of the affiliation itself, the status and an OU, or an combination:
+
+              ['perspective_fs:STUDENT/aktiv@666', 'ANSATT/tekadm',
+               'TILKNYTTET', 'perspective_sap:TILKNYTTET@666']
+
+            Perspective must be supplied for OU-matching.
+
+            Doing a logical OR between affiliations, can be achieved by
+            chaining instantiation of L{AccountCriteria} in the
+            attribute-configuration.
         """
         self.primary_account = primary_account
+        if isinstance(affiliations, basestring):
+            affiliations = [affiliations]
+        self.affiliations = affiliations
         super(AccountCriterias, self).__init__(*args, **kwargs)
 
     def check(self, ent):
@@ -674,6 +757,164 @@ class AccountCriterias(AttrCriterias):
         if self.primary_account is not None:
             if bool(self.primary_account) != bool(ent.is_primary_account):
                 raise CriteriaError('Primary account mismatch')
+        if self.affiliations is not None:
+            from Cerebrum import Errors
+            ac = Factory.get('Account')(db)
+            co = Factory.get('Constants')(db)
+
+            try:
+                ac.find(ent.entity_id)
+            except Errors.NotFoundError:
+                raise CriteriaError(
+                    "Account '%s' does not exist, possible race condition"
+                    % ent.entity_id)
+
+            def parse_input_affs(affs):
+                """Generator that yields a tuple with elements that should
+                   be used in a search."""
+                # TODO: Redesign the specification that this implements
+                # - Support limiting affiliations to systems
+                # - Perspective should be set differently
+                # - Better regex
+                import re
+                for elm in affs:
+                    ou = None
+                    (ou_perspective, aff, status, ou_str) = (
+                        [x if x else None for x in re.match(
+                            "^([a-z_]*):?([A-Z]*)/?([a-z]*)@?([0-9]*)", elm
+                            ).groups()])
+                    try:
+                        aff = co.PersonAffiliation(aff)
+                    except (TypeError, Errors.NotFoundError):
+                        raise ConfigError("Unknown affiliation '%s'" % aff)
+                    if status:
+                        try:
+                            status = co.PersonAffStatus(aff, status)
+                        except (TypeError, Errors.NotFoundError):
+                            raise ConfigError(
+                                "Unknown affiliation status '%s/%s'"
+                                % (str(aff), status))
+                    if ou_str:
+                        try:
+                            ou_arg = (tuple([ou_str[i]+ou_str[i+1] for i in
+                                            range(0, len(ou_str), 2)])
+                                      + (cereconf.DEFAULT_INSTITUSJONSNR,))
+                            ou = Factory.get('OU')(db)
+                            ou.find_stedkode(*ou_arg)
+                        except Errors.NotFoundError:
+                            raise ConfigError("Stedkode '%s' does not exist"
+                                              % ou_str)
+                    if ou_perspective:
+                        try:
+                            perspective = ou_perspective.split('_')[1].upper()
+                            ou.perspective = co.OUPerspective(perspective)
+                        except Errors.NotFoundError:
+                            raise ConfigError(
+                                "OUPerspective '%s' does not exist"
+                                % ou_perspective)
+
+                    yield (aff, status, ou)
+
+            def compare_ou(ou_criteria, candidate_ou):
+                """Check if an OU is the same as, or a child of, another OU.
+
+                :type ou_criteria: OU
+                :param ou_criteria: The maximum required OU-level.
+
+                :type candidate_ou: int
+                :param candidate_ou: The candidates OUs entity id.
+                """
+                # TODO: Make child-search configurable
+                # TODO: Avoid piggybacking perspective on ou_criteria
+                children = [e['ou_id'] for e in
+                            ou_criteria.list_children(ou_criteria.perspective,
+                                                      recursive=True)]
+                children.append(ou_criteria.entity_id)
+                return True if int(candidate_ou) in children else False
+
+            # Check if the comparison is false only if the first arg is defined
+            def ne(x, y):
+                return None if not x else x == y
+
+            def choose_comparator(left, right):
+                """Choose comparator function for left & right."""
+                if (isinstance(left, Factory.get('OU')) and
+                        hasattr(left, 'perspective')):
+                    return compare_ou(left, right)
+                else:
+                    return False if ne(left, right) is False else True
+
+            # Tuple type for custom field comparison (force choose_comparator
+            # usage for Cerebrum Entities).
+            t = type('T', (tuple,), {
+                '__eq__': lambda x, y: all(
+                    choose_comparator(e1, e2) for
+                    (e1, e2) in zip(x, y))})
+
+            def check_account_aff(ac, aff, ou):
+                """Check an if the account has an appropriate affiliation.
+
+                :type ac: Account
+                :param ac: The account to check.
+
+                :type aff: PersonAffiliation
+                :param aff: The affiliation to check against
+
+                :type ou: OU
+                :param OU: The OU that the account will be checked against
+                """
+                ac_types = [(e['affiliation'], e['ou_id']) for e in
+                            ac.get_account_types()]
+                if t([aff, ou.entity_id if ou else None]) not in ac_types:
+                    raise CriteriaError(
+                        "Account '%s' with '%s' does not match '%s'"
+                        % (ent.entity_id,
+                           [aff, ou.entity_id if ou else None],
+                           ac_types))
+
+            def check_person_aff(ac, aff, status, ou):
+                """Check if the person has the affiliation.
+
+                The OU will match, if the affiliation OU is lower in level that
+                L{ou}.
+
+                :type ac: Account
+                :param ac: The account to check.
+
+                :type aff: PersonAffiliation
+                :param aff: The affiliation to check against
+
+                :type status: PersonAffStatus
+                :param status: The status to check against
+
+                :type ou: OU
+                :param OU: The OU that the accounts owner (person) will be
+                    checked against
+                """
+                pe = Factory.get('Person')(db)
+                try:
+                    pe.find(ac.owner_id)
+                except Errors.NotFoundError:
+                    raise CriteriaError("Owner of account '%s' is not a person"
+                                        % ent.entity_id)
+                affs = [(e['affiliation'], e['status'], e['ou_id']) for e in
+                        pe.get_affiliations()]
+
+                if t([aff, status, ou]) not in affs:
+                    raise CriteriaError(
+                        "Account '%s' with '%s' does "
+                        "not match person affiliations '%s'"
+                        % (ent.entity_id,
+                           [aff, status, ou.entity_id if ou else None],
+                           affs))
+
+            # Perform check of all affiliation criterias
+            for (aff, status, ou) in parse_input_affs(self.affiliations):
+                if not status:
+                    check_account_aff(ac, aff, ou)
+                else:
+                    check_person_aff(ac, aff, status, ou)
+
 
 def has_config(config, configclass):
     """Helper function for checking if a given attribute is defined.
@@ -704,6 +945,7 @@ def has_config(config, configclass):
             if has_config(c, configclass):
                 return True
     return False
+
 
 def get_config_by_type(config, configclass):
     """Helper function for getting all config by a given type.

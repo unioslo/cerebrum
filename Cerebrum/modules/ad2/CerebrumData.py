@@ -63,11 +63,14 @@ import cereconf
 from Cerebrum.Utils import NotSet
 from Cerebrum.modules.ad2 import ConfigUtils
 
+
 class AttrNotFound(Exception):
     """Local exception for attributes that are not found."""
     pass
 
+
 class CerebrumEntity(object):
+
     """A representation for a Cerebrum Entity which may be exported to AD.
 
     This entity cache is for making it easier to compare entities from Cerebrum
@@ -103,8 +106,8 @@ class CerebrumEntity(object):
     TODO: Some reorganisation is needed: The class should do more for the sync.
     My guess is that the logic thing to do is to put all that treats _one_
     entity in here, and let ADSync only do what should be done for all entities.
-
     """
+
     def __init__(self, logger, config, entity_id, entity_name):
         """Set up the basic values for the entity.
 
@@ -149,7 +152,7 @@ class CerebrumEntity(object):
         self.ad_data = dict()
 
         # Changes contains attributes that should be updated in AD:
-        self.changes = dict()   
+        self.changes = dict()
 
         # Set the default target OU, to set where the object should be in AD.
         # Subclasses of CerebrumEntity or ADSync could change this, so that
@@ -178,7 +181,7 @@ class CerebrumEntity(object):
         self.forwards_data = {}
 
         # TODO: Move extra settings to subclasses. This should not be here!
-        self.update_recipient = False # run update_Recipients?
+        self.update_recipient = False  # run update_Recipients?
 
     def __str__(self):
         """A string representation of the entity. For debugging."""
@@ -187,15 +190,14 @@ class CerebrumEntity(object):
     def calculate_ad_values(self):
         """Calculate entity values for AD from Cerebrum data.
 
-        Sets up the automatic AD attributes, for those which hasn't already. The
-        object has to be fed with all the needed data from Cerebrum before
+        Sets up the automatic AD attributes, for those which hasn't already.
+        The object has to be fed with all the needed data from Cerebrum before
         calling this method.
 
         """
         # Some standard attributes that we don't support setting otherwise:
         self.set_attribute('Name', self.ad_id)
-        self.set_attribute('DistinguishedName', 'CN=%s,%s' % (self.ad_id,
-                                                              self.ou))
+        self.set_attribute('DistinguishedName', self.dn)
         # Attributes defined by the config:
         for atrname, config in self.config['attributes'].iteritems():
             # Some attributes are not configured, but e.g. defined as None in
@@ -239,7 +241,7 @@ class CerebrumEntity(object):
         if getattr(config, 'criterias', False):
             try:
                 config.criterias.check(self)
-            except ConfigUtils.CriteriaError, e:
+            except ConfigUtils.CriteriaError:
                 raise AttrNotFound('Attribute criterias not fullfilled')
         # TODO: Remove this when done migrating to the criteria class:
         if getattr(config, 'spread', False):
@@ -260,8 +262,8 @@ class CerebrumEntity(object):
                         if value:
                             return value
                 else:
-                    # TODO: now it's not sorted, need to make use of the default
-                    # order from cereconf!
+                    # TODO: now it's not sorted, need to make use of the
+                    #       default order from cereconf!
                     for value in sources.itervalues():
                         return value
         elif isinstance(config, ConfigUtils.PersonNameAttr):
@@ -363,17 +365,17 @@ class CerebrumEntity(object):
         elif isinstance(config, ConfigUtils.MemberAttr):
             # Member attribute for groups
             if hasattr(self, 'members_by_spread'):
-                # Return only those members who have the spread 
+                # Return only those members who have the spread
                 # defined in this attribute
-                return [member for member in self.members_by_spread 
-                        if any(spr in member.spreads 
+                return [member for member in self.members_by_spread
+                        if any(spr in member.spreads
                                for spr in config.member_spreads)]
         elif isinstance(config, ConfigUtils.CallbackAttr):
             # A callback for an attribute
             return config.callback(self)
 
         # Use default value, if defined by config:
-        if (isinstance(config, ConfigUtils.AttrConfig) and 
+        if (isinstance(config, ConfigUtils.AttrConfig) and
                 config.default is not NotSet):
             # Add some substitution data to be used for strings: TODO: Should we
             # include all the attributes for the entity that contains primitive
@@ -386,7 +388,7 @@ class CerebrumEntity(object):
     def set_attribute(self, key, value, config=None, force=False,
                       transform=True):
         """Setting an attribute for the entity.
-        
+
         An attribute is only set if the key is defined in the config, and could
         normally only be set once, the first set value is used, unless L{force}
         is True. This is so that you could start with setting special values,
@@ -484,11 +486,21 @@ class CerebrumEntity(object):
             return tuple(self._add_attribute_data(e) for e in value)
         if isinstance(value, basestring):
             return value % {'entity_name': self.entity_name,
-                              'entity_id': self.entity_id,
-                              'ad_id': self.ad_id,
-                              'ou': self.ou,
-                              }
+                            'entity_id': self.entity_id,
+                            'ad_id': self.ad_id,
+                            'ou': self.ou, }
         return value
+
+    @property
+    def dn(self):
+        """ Return the DistinguishedName for this Entity.
+
+        :rtype: basestring
+        :returns: The formatted DistinguishedName.
+
+        """
+        return 'CN=%s,%s' % (self.ad_id, self.ou)
+
 
 class CerebrumUser(CerebrumEntity):
     """A representation for a Cerebrum Account which may be exported to AD.

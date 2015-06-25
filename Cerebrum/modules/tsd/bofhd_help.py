@@ -22,6 +22,7 @@
 from Cerebrum.modules.bofhd.bofhd_core_help import group_help
 from Cerebrum.modules.bofhd.bofhd_core_help import command_help
 from Cerebrum.modules.bofhd.bofhd_core_help import arg_help
+import cereconf
 
 # Add instance specific help text:
 
@@ -37,16 +38,26 @@ command_help['user'].update({
     'user_password':
         "Set password for a person's users",
 })
+
 command_help['group'].update({
     'group_add_member':
         'Add a member to a group',
     'group_remove_member':
         'Remove a member from a group',
 })
+
 command_help.setdefault('subnet', {}).update({
     'subnet_list':
         'List all subnets',
+    'subnet_search':
+        'Wildcard search for subnets',
 })
+
+command_help.setdefault('host', {}).update({
+    'host_list_projects':
+        'List all projects associated with a host',
+})
+
 command_help['project'] = {
     'project_approve':
         'Approve a project with the given name',
@@ -72,16 +83,23 @@ command_help['project'] = {
         "Reset a project's full name",
     'project_set_shortname':
         "Reset a project's short name",
+    'project_setup':
+        "Rerun an existing project's setup procedure to use new settings.",
+    'project_set_vm_type':
+        "Change the project's vm_type, and re-run setup of project.",
     'project_terminate':
         'Terminate a project by removing all data',
     'project_unapproved':
         'List all projects that has not been approved or rejected yet',
+    'project_list_hosts':
+        'List all hosts associated with a project',
 }
 
 arg_help.update({
     'project_id':
         ['projectID', 'Project ID',
-         'The project ID, normally on the form pXX, where XX goes from 01 to 99'],
+         ('The project ID, normally on the form pXX, '
+          'where XX goes from 01 to 32678')],
     'project_name':
         ['projectname', 'Project name',
          'Short, unique name of the project, around 6 digits'],
@@ -100,6 +118,10 @@ arg_help.update({
     'project_statusfilter':
         ['filter', 'Filter on project status',
                    'Not implemented yet'],
+    'vlan':
+        ['vlan', 'VLAN number',
+         'A number between 0-4094, or a blank value, which defaults to the '
+         'first available VLAN'],
     'entity_type':
         ['entity_type', 'Entity type',
          'Possible values:\n - group\n - account\n - project\n - host'],
@@ -110,7 +132,25 @@ arg_help.update({
   - 'name'
   - 'date' of birth, on format YYYY-MM-DD
   - 'stedkode' - Use project-ID"""],
+    'subnet_search_type':
+        ['search_type', 'Enter subnet search type',
+        """Possible values:
+  - 'subnet'
+  - 'vlan'
+  - 'project'
+  - 'description'"""],
+    'fnmatch_pattern':
+        ['pattern', 'Enter wildcard pattern',
+        """Case-sensitive. Use Unix shell-style wildcards:
+  - *      matches everything
+  - ?      matches any single character
+  - [seq]  matches any character in seq
+  - [!seq] matches any character not in seq"""],
     'otp_type':
         ['otp_type', 'OTP type',
          'The OTP type, e.g. totp, hotp or smartphone_yes'],
+    'vm_type':
+        ["vm_type", "VM type",
+         "The type of OS for the project's hosts.\nPossible values are:\n" +
+         "".join([" - %s\n" % x for x in cereconf.TSD_VM_TYPES])]
 })

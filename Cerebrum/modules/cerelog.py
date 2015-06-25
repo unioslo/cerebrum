@@ -69,7 +69,6 @@ import cereconf
 
 import ConfigParser
 import codecs
-import inspect
 import locale
 import logging
 import os
@@ -78,6 +77,8 @@ import re
 import sys
 import threading
 import time
+
+from inspect import currentframe
 
 # IVR 2007-02-08: This is to help logging.findCaller(). The problem is that
 # logging.findCaller looks for the first function up the stack that does not
@@ -691,28 +692,23 @@ class CerebrumLogger(logging.Logger, object):
         logging.Logger.__init__(self, name, level)
 
     def findCaller(self):
-        """Find the source of the log call.
+        """Find the stack frame of the caller.
 
-        Returns a tuple of filename, line number and function name.
+        This function overloads the default implementation. This is so that we
+        can ignore this module when looking through the call stack.
 
         """
-        rv = ("(unknown file)", 0, "(unknown function)")
-
-        frame = inspect.currentframe()
-        while frame and hasattr(frame, "f_code"):
-            # psyco replaces frame objects with proxies
-            code_object = frame.f_code
-            source = os.path.normcase(code_object.co_filename)
-
-            # We should test that source is neither *this* file, nor anything
-            # else within the logging framework
-            if (source and (source != _srcfile) and
-                    (source.find("logging/__init__.py") == -1)):
-                rv = (source, frame.f_lineno, code_object.co_name)
-                break
-
-            frame = frame.f_back
-
+        f = currentframe().f_back
+        rv = "(unknown file)", 0, "(unknown function)"
+        while hasattr(f, "f_code"):
+            co = f.f_code
+            filename = os.path.normcase(co.co_filename)
+            if (filename == _srcfile or
+                    filename.find("logging/__init__.py") >= 0):
+                f = f.f_back
+                continue
+            rv = (filename, f.f_lineno, co.co_name)
+            break
         return rv
 
     def __cerebrum_debug(self, level, msg, *args, **kwargs):
@@ -1123,12 +1119,18 @@ def _showwarning(message, category, filename, lineno, file=None, line=None):
 
     """
     logger = _logger_instance
+
+    # PY25 compability - only include line if it's actually given.
+    kw = dict()
+    if line is not None:
+        kw['line'] = line
+
     if file is not None and logger is not None:
         if _warnings_showwarning is not None:
-            _warnings_showwarning(message, category, filename, lineno, file,
-                                  line)
+            _warnings_showwarning(message, category, filename, lineno,
+                                  file, **kw)
     else:
-        s = warnings.formatwarning(message, category, filename, lineno, line)
+        s = warnings.formatwarning(message, category, filename, lineno, **kw)
         logger.warning("%s", s)
 
 

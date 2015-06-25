@@ -1059,12 +1059,12 @@ class BofhdExtension(BofhdCommonMethods):
         perm_filter='can_email_address_add')
     def email_add_address(self, operator, name, address):
         try:
-            et, acc = self.__get_email_target_and_account(name)
+            et, acc = self._get_email_target_and_account(name)
         except CerebrumError, e:
             # check if a distribution-group with an appropriate target
             # is registered by this name
             try:
-                et, grp = self.__get_email_target_and_dlgroup(name)
+                et, grp = self._get_email_target_and_dlgroup(name)
             except CerebrumError, e:
                 raise e
         ttype = et.email_target_type
@@ -1102,12 +1102,12 @@ class BofhdExtension(BofhdCommonMethods):
         perm_filter='can_email_address_delete')
     def email_remove_address(self, operator, name, address):
         try:
-            et, acc = self.__get_email_target_and_account(name)
+            et, acc = self._get_email_target_and_account(name)
         except CerebrumError, e:
             # check if a distribution-group with an appropriate target
             # is registered by this name
             try:
-                et, grp = self.__get_email_target_and_dlgroup(name)
+                et, grp = self._get_email_target_and_dlgroup(name)
             except CerebrumError, e:
                 raise e
         lp, dom = self._split_email_address(address, with_checks=False)
@@ -1156,7 +1156,7 @@ class BofhdExtension(BofhdCommonMethods):
         AccountName(help_ref='account_name'),
         perm_filter='can_email_address_reassign')
     def email_reassign_address(self, operator, address, dest):
-        source_et, source_acc = self.__get_email_target_and_account(address)
+        source_et, source_acc = self._get_email_target_and_account(address)
         ttype = source_et.email_target_type
         if ttype not in (self.const.email_target_account,
                          self.const.email_target_deleted):
@@ -1234,7 +1234,7 @@ class BofhdExtension(BofhdCommonMethods):
         local_delivery = False
 
         if action == 'local' or addr == 'local':
-            valid_addrs = self.__get_valid_email_addrs(fw)
+            valid_addrs = self._get_valid_email_addrs(fw)
             for r in fw.get_forward():
                 if r['forward_to'] in valid_addrs:
                     matches.append(r['forward_to'])
@@ -1278,7 +1278,7 @@ class BofhdExtension(BofhdCommonMethods):
 
     def email_add_forward(self, operator, uname, address):
         """Add an email-forward to a email-target asociated with an account."""
-        et, acc = self.__get_email_target_and_account(uname)
+        et, acc = self._get_email_target_and_account(uname)
         if uname.count('@') and not acc:
             lp, dom = uname.split('@')
             ed = Email.EmailDomain(self.db)
@@ -1327,14 +1327,14 @@ class BofhdExtension(BofhdCommonMethods):
         # Allow us to delete an address, even if it is malformed.
         lp, dom = self._split_email_address(address, with_checks=False)
         ed = self._get_email_domain(dom)
-        et, acc = self.__get_email_target_and_account(address)
+        et, acc = self._get_email_target_and_account(address)
         self.ba.can_email_forward_edit(operator.get_entity_id(), domain=ed)
         epat = Email.EmailPrimaryAddressTarget(self.db)
         try:
             epat.find(et.entity_id)
             # but if one exists, we require the user to supply that
             # address, not an arbitrary alias.
-            if address != self.__get_address(epat):
+            if address != self._get_address(epat):
                 raise CerebrumError("%s is not the primary address of "
                                     "the target" % address)
             epat.delete()
@@ -1357,7 +1357,7 @@ class BofhdExtension(BofhdCommonMethods):
         for r in et.get_addresses():
             ea.clear()
             ea.find(r['address_id'])
-            result.append({'address': self.__get_address(ea)})
+            result.append({'address': self._get_address(ea)})
             ea.delete()
         et.delete()
         return result
@@ -1370,7 +1370,7 @@ class BofhdExtension(BofhdCommonMethods):
         EmailAddress(help_ref='email_address', repeat=True),
         perm_filter='can_email_forward_edit')
     def email_remove_forward(self, operator, uname, address):
-        et, acc = self.__get_email_target_and_account(uname)
+        et, acc = self._get_email_target_and_account(uname)
         if uname.count('@') and not acc:
             lp, dom = uname.split('@')
             ed = Email.EmailDomain(self.db)
@@ -1383,7 +1383,7 @@ class BofhdExtension(BofhdCommonMethods):
         fw.find(et.entity_id)
         addr = self._check_email_address(address)
         if addr == 'local' and acc:
-            locals = self.__get_valid_email_addrs(fw)
+            locals = self._get_valid_email_addrs(fw)
         else:
             locals = [addr]
         removed = 0
@@ -1608,13 +1608,13 @@ class BofhdExtension(BofhdCommonMethods):
         ]))
     def email_info(self, operator, name):
         try:
-            et, acc = self.__get_email_target_and_account(name)
+            et, acc = self._get_email_target_and_account(name)
         except CerebrumError, e:
             # exchange-relatert-jazz
             # check if a distribution-group with an appropriate target
             # is registered by this name
             try:
-                et, grp = self.__get_email_target_and_dlgroup(name)
+                et, grp = self._get_email_target_and_dlgroup(name)
             except CerebrumError, e:
                 # handle accounts with email address stored in contact_info
                 try:
@@ -1657,7 +1657,7 @@ class BofhdExtension(BofhdCommonMethods):
             # exchange-relatert-jazz
             # drop def_addr here, it's introduced at proper placing later
             if ttype != self.const.email_target_dl_group:
-                ret.append({'def_addr': self.__get_address(epat)})
+                ret.append({'def_addr': self._get_address(epat)})
 
         if ttype not in (self.const.email_target_Mailman,
                          self.const.email_target_Sympa,
@@ -1667,7 +1667,7 @@ class BofhdExtension(BofhdCommonMethods):
                          self.const.email_target_dl_group):
             # We want to split the valid addresses into multiple
             # parts for MLs, so there is special code for that.
-            addrs = self.__get_valid_email_addrs(et, special=True, sort=True)
+            addrs = self._get_valid_email_addrs(et, special=True, sort=True)
             if not addrs: addrs = ["<none>"]
             ret.append({'valid_addr_1': addrs[0]})
             for addr in addrs[1:]:
@@ -1752,7 +1752,7 @@ class BofhdExtension(BofhdCommonMethods):
             ret.append({'deletable': deletables})
         return ret
 
-    def __get_valid_email_addrs(self, et, special=False, sort=False):
+    def _get_valid_email_addrs(self, et, special=False, sort=False):
         """Return a list of all valid e-mail addresses for the given
         EmailTarget.  Keep special domain names intact if special is
         True, otherwise re-write them into real domain names."""
@@ -1918,7 +1918,7 @@ class BofhdExtension(BofhdCommonMethods):
     # exchange-relatert-jazz
     # fetch necessary dist group info
     def _email_info_dlgroup(self, groupname):
-        et, dl_group = self.__get_email_target_and_dlgroup(groupname)
+        et, dl_group = self._get_email_target_and_dlgroup(groupname)
         ret = []
         # we need to make the return value conform with the
         # client requeirements
@@ -1960,7 +1960,7 @@ class BofhdExtension(BofhdCommonMethods):
         et_mailman = Email.EmailTarget(self.db)
         et_mailman.clear()
         et_mailman.find(ea.email_addr_target_id)
-        addrs = self.__get_valid_email_addrs(et_mailman, sort=True)
+        addrs = self._get_valid_email_addrs(et_mailman, sort=True)
         ret += self._email_info_forwarding(et_mailman, addrs)
         aliases = []
         for r in et_mailman.get_addresses():
@@ -2065,7 +2065,7 @@ class BofhdExtension(BofhdCommonMethods):
         et_sympa = Email.EmailTarget(self.db)
         et_sympa.clear()
         et_sympa.find(ea.email_addr_target_id)
-        addrs = self.__get_valid_email_addrs(et_sympa, sort=True)
+        addrs = self._get_valid_email_addrs(et_sympa, sort=True)
         # IVR 2008-08-21 According to postmasters, only superusers should see
         # forwarding and delivery host information
         if self.ba.is_postmaster(operator.get_entity_id()):
@@ -2294,7 +2294,7 @@ class BofhdExtension(BofhdCommonMethods):
         if not self.ba.is_postmaster(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
 
-        et, ea = self.__get_email_target_and_address(addr)
+        et, ea = self._get_email_target_and_address(addr)
         if et.email_target_type == self.const.email_target_dl_group:
             return "Cannot change primary for distribution group %s" % addr
         return self._set_email_primary_address(et, ea, addr)
@@ -2322,7 +2322,7 @@ class BofhdExtension(BofhdCommonMethods):
     def email_delete_archive(self, operator, addr):
         lp, dom = self._split_email_address(addr, with_checks=False)
         ed = self._get_email_domain(dom)
-        et, acc = self.__get_email_target_and_account(addr)
+        et, acc = self._get_email_target_and_account(addr)
         if et.email_target_type != self.const.email_target_pipe:
             raise CerebrumError, "%s: Not an archive target" % addr
         # we can imagine passing along the name of the mailing list
@@ -2341,7 +2341,7 @@ class BofhdExtension(BofhdCommonMethods):
         for r in et.get_addresses():
             ea.clear()
             ea.find(r['address_id'])
-            result.append({'address': self.__get_address(ea)})
+            result.append({'address': self._get_address(ea)})
             ea.delete()
         et.delete()
         return result
@@ -2417,7 +2417,7 @@ class BofhdExtension(BofhdCommonMethods):
     def email_failure_message(self, operator, uname, message):
         if not self.ba.is_postmaster(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
-        et, acc = self.__get_email_target_and_account(uname)
+        et, acc = self._get_email_target_and_account(uname)
         if et.email_target_type != self.const.email_target_deleted:
             raise CerebrumError, ("You can only set the failure message "
                                   "for deleted users")
@@ -2777,14 +2777,14 @@ class BofhdExtension(BofhdCommonMethods):
     def _register_spam_settings(self, address, target_type):
         """Register spam settings (level/action) associated with an address."""
 
-        et, addr = self.__get_email_target_and_address(address)
+        et, addr = self._get_email_target_and_address(address)
         esf = Email.EmailSpamFilter(self.db)
         all_targets = [et.entity_id]
         if target_type in (self.const.email_target_Mailman,
                            self.const.email_target_Sympa):
-            all_targets = self.__get_all_related_maillist_targets(addr.get_address())
+            all_targets = self._get_all_related_maillist_targets(addr.get_address())
         elif target_type == self.const.email_target_RT:
-            all_targets = self.__get_all_related_rt_targets(addr.get_address())
+            all_targets = self._get_all_related_rt_targets(addr.get_address())
         target_type = str(target_type)
         if cereconf.EMAIL_DEFAULT_SPAM_SETTINGS.has_key(target_type):
             sl, sa = cereconf.EMAIL_DEFAULT_SPAM_SETTINGS[target_type]
@@ -2801,14 +2801,14 @@ class BofhdExtension(BofhdCommonMethods):
 
     def _register_filter_settings(self, address, target_type):
         """Register spam filter settings associated with an address."""
-        et, addr = self.__get_email_target_and_address(address)
+        et, addr = self._get_email_target_and_address(address)
         etf = Email.EmailTargetFilter(self.db)
         all_targets = [et.entity_id]
         if target_type in (self.const.email_target_Mailman,
                            self.const.email_target_Sympa):
-            all_targets = self.__get_all_related_maillist_targets(addr.get_address())
+            all_targets = self._get_all_related_maillist_targets(addr.get_address())
         elif target_type == self.const.email_target_RT:
-            all_targets = self.__get_all_related_rt_targets(addr.get_address())
+            all_targets = self._get_all_related_rt_targets(addr.get_address())
         target_type = str(target_type)
         if cereconf.EMAIL_DEFAULT_FILTERS.has_key(target_type):
             for f in cereconf.EMAIL_DEFAULT_FILTERS[target_type]:
@@ -3319,7 +3319,7 @@ Addresses and settings:
         YesNo(help_ref="yes_no_force", optional=True),
         perm_filter="can_email_list_create")
     def email_reassign_list_address(self, operator, listname, sympa_delivery_host, force_alias="No"):
-        et_mailman, ea = self.__get_email_target_and_address(listname)
+        et_mailman, ea = self._get_email_target_and_address(listname)
         esf_mailman = Email.EmailSpamFilter(self.db)
         etf_mailman = Email.EmailTargetFilter(self.db)
         esf_mailman.clear()
@@ -3369,14 +3369,14 @@ Addresses and settings:
                 self._create_list_alias(operator, listname, address,
                                         self.const.email_target_Sympa,
                                         delivery_host)
-        et_sympa, ea = self.__get_email_target_and_address(listname)
+        et_sympa, ea = self._get_email_target_and_address(listname)
         if change_filters:
             etf_sympa = Email.EmailTargetFilter(self.db)
             target_ids = [et_sympa.entity_id]
             if int(et_sympa.email_target_type) == self.const.email_target_Sympa:
                # The only way we can get here is if uname is actually an e-mail
                # address on its own.
-               target_ids = self.__get_all_related_maillist_targets(listname)
+               target_ids = self._get_all_related_maillist_targets(listname)
             for target_id in target_ids:
                try:
                   et_sympa.clear()
@@ -3402,7 +3402,7 @@ Addresses and settings:
         # The only way we can get here is if uname is actually an e-mail
         # address on its own.
         if int(et_sympa.email_target_type) == self.const.email_target_Sympa:
-            target_ids = self.__get_all_related_maillist_targets(listname)
+            target_ids = self._get_all_related_maillist_targets(listname)
         for target_id in target_ids:
             try:
                 et_sympa.clear()
@@ -3429,7 +3429,7 @@ Addresses and settings:
         fs=FormatSuggestion([("Deleted address: %s", ("address", ))]),
         perm_filter="can_email_list_delete")
     def email_delete_list(self, operator, listname):
-        et, ea = self.__get_email_target_and_address(listname)
+        et, ea = self._get_email_target_and_address(listname)
         self.ba.can_email_list_delete(operator.get_entity_id(), ea)
         return self._email_delete_list(operator.get_entity_id(), listname, ea)
 
@@ -3505,7 +3505,7 @@ Addresses and settings:
             raise CerebrumError("run-host %s for sympa list %s is not valid" %
                                 (run_host, listname))
 
-        et, ea = self.__get_email_target_and_address(listname)
+        et, ea = self._get_email_target_and_address(listname)
         self.ba.can_email_list_delete(operator.get_entity_id(), ea)
 
         if et.email_target_type != self.const.email_target_Sympa:
@@ -3771,7 +3771,7 @@ Addresses and settings:
     # end _is_mailing_list
 
 
-    def __get_all_related_maillist_targets(self, address):
+    def _get_all_related_maillist_targets(self, address):
         """This method locates and returns all ETs associated with the same ML.
 
         Given any address associated with a ML, this method returns all the
@@ -3795,7 +3795,7 @@ Addresses and settings:
         """
 
         # step 1, find the ET, check its type.
-        et, ea = self.__get_email_target_and_address(address)
+        et, ea = self._get_email_target_and_address(address)
         # Mapping from ML types to (x, y)-tuples, where x is a callable that
         # fetches the ML's official/main address, and y is a set of patterns
         # for EAs that are related to this ML.
@@ -3839,7 +3839,7 @@ Addresses and settings:
             result.add(ea.get_target_id())
 
         return result
-    # end __get_all_related_maillist_targets
+    # end _get_all_related_maillist_targets
 
 
 
@@ -4105,7 +4105,7 @@ Addresses and settings:
     def email_delete_multi(self, operator, addr):
         lp, dom = self._split_email_address(addr)
         ed = self._get_email_domain(dom)
-        et, acc = self.__get_email_target_and_account(addr)
+        et, acc = self._get_email_target_and_account(addr)
         if et.email_target_type != self.const.email_target_multi:
             raise CerebrumError, "%s: Not a multi target" % addr
         if et.email_target_entity_type != self.const.entity_group:
@@ -4121,7 +4121,7 @@ Addresses and settings:
         else:
             # but if one exists, we require the user to supply that
             # address, not an arbitrary alias.
-            if addr != self.__get_address(epat):
+            if addr != self._get_address(epat):
                 raise CerebrumError, ("%s is not the primary address of "+
                                       "the target") % addr
             epat.delete()
@@ -4131,7 +4131,7 @@ Addresses and settings:
         for r in et.get_addresses():
             ea.clear()
             ea.find(r['address_id'])
-            result.append({'address': self.__get_address(ea)})
+            result.append({'address': self._get_address(ea)})
             ea.delete()
         return result
 
@@ -4179,7 +4179,7 @@ Addresses and settings:
                 self.ba.is_postmaster(op)):
             raise CerebrumError, "Illegal address for submission: %s" % addr
         try:
-            et, ea = self.__get_email_target_and_address(addr)
+            et, ea = self._get_email_target_and_address(addr)
         except CerebrumError:
             pass
         else:
@@ -4254,7 +4254,7 @@ Addresses and settings:
         epat = Email.EmailPrimaryAddressTarget(self.db)
         result = []
 
-        for target_id in self.__get_all_related_rt_targets(queuename):
+        for target_id in self._get_all_related_rt_targets(queuename):
             try:
                 et.clear()
                 et.find(target_id)
@@ -4331,7 +4331,7 @@ Addresses and settings:
         self.ba.can_rt_address_add(operator.get_entity_id(),
                                    domain=self._get_email_domain(host))
         rt = self._get_rt_email_target(queue, host)
-        et, ea = self.__get_email_target_and_address(address)
+        et, ea = self._get_email_target_and_address(address)
         if rt.entity_id != et.entity_id:
             raise CerebrumError, \
                   ("Address <%s> is not associated with RT queue %s" %
@@ -4347,7 +4347,7 @@ Addresses and settings:
             raise CerebrumError, "Invalid RT queue name: %s" % queuename
         return queuename.split('@')
 
-    def __get_all_related_rt_targets(self, address):
+    def _get_all_related_rt_targets(self, address):
         """This method locates and returns all ETs associated with the same RT
         queue.
 
@@ -4389,7 +4389,7 @@ Addresses and settings:
 
         return targets
 
-    # end __get_all_related_rt_targets
+    # end _get_all_related_rt_targets
 
     def _get_rt_email_target(self, queue, host):
         et = Email.EmailTarget(self.db)
@@ -4402,7 +4402,7 @@ Addresses and settings:
         return et
 
     def _get_rt_queue_and_host(self, address):
-        et, addr = self.__get_email_target_and_address(address)
+        et, addr = self._get_email_target_and_address(address)
 
         try:
             m = re.match(self._rt_patt, et.get_alias())
@@ -4531,7 +4531,7 @@ Addresses and settings:
         AccountName(help_ref="account_name"),
         perm_filter='can_email_pause')
     def email_pause(self, operator, on_off, uname):
-        et, acc = self.__get_email_target_and_account(uname)
+        et, acc = self._get_email_target_and_account(uname)
 
         # exchange-relatert-jazz
         # there is no point in registering mailPause for
@@ -4680,7 +4680,7 @@ Addresses and settings:
 
     def email_add_filter(self, operator, filter, address):
         """Add a filter to an existing e-mail target."""
-        et, acc = self.__get_email_target_and_account(address)
+        et, acc = self._get_email_target_and_account(address)
         self.ba.can_email_spam_settings(operator.get_entity_id(),
                                         acc, et)
         etf = Email.EmailTargetFilter(self.db)
@@ -4691,9 +4691,9 @@ Addresses and settings:
                                          self.const.email_target_Sympa):
             # The only way we can get here is if uname is actually an e-mail
             # address on its own.
-            target_ids = self.__get_all_related_maillist_targets(address)
+            target_ids = self._get_all_related_maillist_targets(address)
         elif int(et.email_target_type) == (self.const.email_target_RT):
-            target_ids = self.__get_all_related_rt_targets(address)
+            target_ids = self._get_all_related_rt_targets(address)
         for target_id in target_ids:
             try:
                 et.clear()
@@ -4720,7 +4720,7 @@ Addresses and settings:
 
     def email_remove_filter(self, operator, filter, address):
         """Remove email fitler for account."""
-        et, acc = self.__get_email_target_and_account(address)
+        et, acc = self._get_email_target_and_account(address)
         self.ba.can_email_spam_settings(operator.get_entity_id(),
                                         acc, et)
 
@@ -4731,9 +4731,9 @@ Addresses and settings:
                                          self.const.email_target_Sympa):
             # The only way we can get here is if uname is actually an e-mail
             # address on its own.
-            target_ids = self.__get_all_related_maillist_targets(address)
+            target_ids = self._get_all_related_maillist_targets(address)
         elif int(et.email_target_type) == (self.const.email_target_RT):
-            target_ids = self.__get_all_related_rt_targets(address)
+            target_ids = self._get_all_related_rt_targets(address)
         processed = list()
         for target_id in target_ids:
             try:
@@ -4774,12 +4774,12 @@ Addresses and settings:
            raise CerebrumError, ("'%s' does not uniquely identify a spam "+
                                  "level") % level
         try:
-            et, acc = self.__get_email_target_and_account(name)
+            et, acc = self._get_email_target_and_account(name)
         except CerebrumError, e:
             # check if a distribution-group with an appropriate target
             # is registered by this name
             try:
-                et, grp = self.__get_email_target_and_dlgroup(name)
+                et, grp = self._get_email_target_and_dlgroup(name)
             except CerebrumError, e:
                 raise e
         self.ba.can_email_spam_settings(operator.get_entity_id(),
@@ -4794,9 +4794,9 @@ Addresses and settings:
         # address on its own.
         if int(et.email_target_type) in (self.const.email_target_Mailman,
                                          self.const.email_target_Sympa):
-           target_ids = self.__get_all_related_maillist_targets(name)
+           target_ids = self._get_all_related_maillist_targets(name)
         elif int(et.email_target_type) == self.const.email_target_RT:
-           targets_ids = self.__get_all_related_rt_targets(name)
+           targets_ids = self._get_all_related_rt_targets(name)
 
         for target_id in target_ids:
            try:
@@ -4845,12 +4845,12 @@ Addresses and settings:
             raise CerebrumError, ("'%s' does not uniquely identify a spam "+
                                   "action") % action
         try:
-            et, acc = self.__get_email_target_and_account(name)
+            et, acc = self._get_email_target_and_account(name)
         except CerebrumError, e:
             # check if a distribution-group with an appropriate target
             # is registered by this name
             try:
-                et, grp = self.__get_email_target_and_dlgroup(name)
+                et, grp = self._get_email_target_and_dlgroup(name)
             except CerebrumError, e:
                 raise e
         self.ba.can_email_spam_settings(operator.get_entity_id(),
@@ -4865,9 +4865,9 @@ Addresses and settings:
         # address on its own.
         if int(et.email_target_type) in (self.const.email_target_Mailman,
                                          self.const.email_target_Sympa):
-            target_ids = self.__get_all_related_maillist_targets(name)
+            target_ids = self._get_all_related_maillist_targets(name)
         elif int(et.email_target_type) == self.const.email_target_RT:
-            target_ids = self.__get_all_related_rt_targets(name)
+            target_ids = self._get_all_related_rt_targets(name)
 
         for target_id in target_ids:
             try:
@@ -5103,7 +5103,7 @@ Addresses and settings:
 
     # (email virus)
 
-    def __get_email_target_and_address(self, address):
+    def _get_email_target_and_address(self, address):
         """Returns a tuple consisting of the email target associated
         with address and the address object.  If there is no at-sign
         in address, assume it is an account name and return primary
@@ -5143,24 +5143,24 @@ Addresses and settings:
             raise CerebrumError, "Malformed e-mail address (%s)" % address
         return et, ea
 
-    def __get_email_target_and_account(self, address):
+    def _get_email_target_and_account(self, address):
         """Returns a tuple consisting of the email target associated
         with address and the account if the target type is user.  If
         there is no at-sign in address, assume it is an account name.
         Raises CerebrumError if address is unknown."""
-        et, ea = self.__get_email_target_and_address(address)
+        et, ea = self._get_email_target_and_address(address)
         acc = None
         if et.email_target_type in (self.const.email_target_account,
                                     self.const.email_target_deleted):
             acc = self._get_account(et.email_target_entity_id, idtype='id')
         return et, acc
 
-    def __get_email_target_and_dlgroup(self, address):
+    def _get_email_target_and_dlgroup(self, address):
         """Returns a tuple consisting of the email target associated
         with address and the account if the target type is user.  If
         there is no at-sign in address, assume it is an account name.
         Raises CerebrumError if address is unknown."""
-        et, ea = self.__get_email_target_and_address(address)
+        et, ea = self._get_email_target_and_address(address)
         grp = None
         # what will happen if the target was a dl_group but is now
         # deleted? it's possible that we should have created a new
@@ -5172,7 +5172,7 @@ Addresses and settings:
                                     grtype="DistributionGroup")
         return et, grp
 
-    def __get_address(self, etarget):
+    def _get_address(self, etarget):
         """The argument can be
         - EmailPrimaryAddressTarget
         - EmailAddress
@@ -5746,10 +5746,10 @@ Addresses and settings:
         try:
             dl_group.delete_spread(self.const.Spread(cereconf.EXCHANGE_GROUP_SPREAD))
             dl_group.deactivate_dl_mailtarget()
-            dl_group.delete()
+            dl_group.demote_distribution()
         except Errors.NotFoundError:
             return "No Exchange group %s found" % groupname
-        if  self._is_yes(expire_group):
+        if self._is_yes(expire_group):
             # set expire in 90 dates for the remaining Cerebrum-group
             new_expire_date = DateTime.now() + DateTime.DateTimeDelta(90, 0, 0)
             dl_group.expire_date = new_expire_date
@@ -6008,18 +6008,18 @@ Addresses and settings:
         # it should not be possible to remove distribution groups via
         # bofh, as that would "orphan" e-mail target. if need be such groups
         # should be nuked using a cerebrum-side script.
-        try:
-            self._get_group(groupname, grtype="DistributionGroup")
-            return ("Cannot delete distribution groups, use 'group "
-                    "exchangegroup_remove' to deactivate %s" % groupname)
-        except CerebrumError:
-            pass  # Not a distribution group
-        try:
-            self._get_group(groupname, grtype="PosixGroup")
-            return ("This is a posix group, use 'group demote_posix "
-                    "%s' before deleting.") % groupname
-        except CerebrumError:
-            pass  # Not a PosixGroup
+        if grp.has_extension('DistributionGroup'):
+            raise CerebrumError(
+                "Cannot delete distribution groups, use 'group"
+                " exchangegroup_remove' to deactivate %s" % groupname)
+        elif grp.has_extension('PosixGroup'):
+            raise CerebrumError(
+                "Cannot delete posix groups, use 'group demote_posix %s'"
+                " before deleting." % groupname)
+        elif grp.get_extensions():
+            raise CerebrumError(
+                "Cannot delete group %s, is type %r" % (groupname,
+                                                        grp.get_extensions()))
 
         self._remove_auth_target("group", grp.entity_id)
         self._remove_auth_role(grp.entity_id)
@@ -6230,12 +6230,19 @@ Addresses and settings:
     # group list
     all_commands['group_list'] = Command(
         ("group", "list"), GroupName(),
-        fs=FormatSuggestion("%-10s %-10s %-10s", ("type", "name", "expired"),
-                            hdr="%-10s %-10s %-10s" % ("Type", "Name", "Expired")))
+        fs=FormatSuggestion("%-10s %-15s %-45s %-10s", ("type",
+                                                        "user_name",
+                                                        "full_name",
+                                                        "expired"),
+                            hdr="%-10s %-15s %-45s %-10s" % ("Type",
+                                                             "Username",
+                                                             "Fullname",
+                                                             "Expired")))
     def group_list(self, operator, groupname):
         """List direct members of group"""
         def compare(a, b):
-            return cmp(a['type'], b['type']) or cmp(a['name'], b['name'])
+            return cmp(a['type'], b['type']) or \
+                   cmp(a['user_name'], b['user_name'])
         group = self._get_group(groupname)
         ret = []
         now = DateTime.now()
@@ -6246,19 +6253,31 @@ Addresses and settings:
             raise CerebrumError("More than %d (%d) matches. Contact superuser "
                                 "to get a listing for %s." %
                                 (cereconf.BOFHD_MAX_MATCHES, len(members), groupname))
+        ac = self.Account_class(self.db)
         for x in self._fetch_member_names(members):
+            if x['member_type'] == int(self.const.entity_account):
+                ac.find(x['member_id'])
+                try:
+                    full_name = ac.get_fullname()
+                except Errors.NotFoundError:
+                    full_name = ''
+                user_name = x['member_name']
+                ac.clear()
+            else:
+                full_name = x['member_name']
+                user_name = '<non-account>'
             tmp = {'id': x['member_id'],
                    'type': str(self.const.EntityType(x['member_type'])),
-                   'name': x['member_name'],
+                   'name': x['member_name'], # Compability with brukerinfo
+                   'user_name': user_name,
+                   'full_name': full_name,
                    'expired': None}
-            if (x["expire_date"] is not None and x["expire_date"] < now):
+            if x["expire_date"] is not None and x["expire_date"] < now:
                 tmp["expired"] = "expired"
             ret.append(tmp)
 
         ret.sort(compare)
         return ret
-    # end group_list
-
 
     def _fetch_member_names(self, iterable):
         """Locate names for elements in iterable.
@@ -6424,7 +6443,7 @@ Addresses and settings:
             raise
 
         self.ba.can_delete_group(operator.get_entity_id(), grp)
-        grp.delete()
+        grp.demote_posix()
 
         return "OK, demoted '%s'" % group
 
@@ -8025,39 +8044,53 @@ Addresses and settings:
 
     # person set_name
     all_commands['person_set_name'] = Command(
-        ("person", "set_name"),PersonId(help_ref="person_id_other"),
+        ("person", "set_name"), PersonId(help_ref="person_id_other"),
         PersonName(help_ref="person_name_first"),
         PersonName(help_ref="person_name_last"),
-        fs=FormatSuggestion("Name altered for: %i",
-        ("person_id",)),
+        fs=FormatSuggestion("Name altered for: %i", ("person_id",)),
         perm_filter='can_create_person')
-    def person_set_name(self, operator, person_id, firstname, lastname):
+
+    def person_set_name(self, operator, person_id, first_name, last_name):
         auth_systems = []
         for auth_sys in cereconf.BOFHD_AUTH_SYSTEMS:
-            tmp=getattr(self.const, auth_sys)
+            tmp = getattr(self.const, auth_sys)
             auth_systems.append(int(tmp))
         person = self._get_person(*self._map_person_id(person_id))
         self.ba.can_create_person(operator.get_entity_id())
         for a in person.get_affiliations():
             if int(a['source_system']) in auth_systems:
-                raise PermissionDenied("You are not allowed to alter names registered in authoritative source_systems.")
+                raise PermissionDenied("You are not allowed to alter "
+                                       "names registered in authoritative "
+                                       "source_systems.")
+
+        if last_name == "":
+            raise CerebrumError("Last name is required.")
+
+        if first_name == "":
+            full_name = last_name
+        else:
+            full_name = " ".join((first_name, last_name))
+
         person.affect_names(self.const.system_manual,
                             self.const.name_first,
                             self.const.name_last,
                             self.const.name_full)
-        if lastname == "":
-            raise CerebrumError, "A last name is required"
-        if firstname == "":
-            fullname = lastname
-        else:
-            fullname = firstname + " " + lastname
-        person.populate_name(self.const.name_first, firstname)
-        person.populate_name(self.const.name_last, lastname)
-        person.populate_name(self.const.name_full, fullname)
+
+        # If first_name is an empty string, it should remain unpopulated.
+        # Since it is tagged as an affected name_variant above, this will
+        # trigger the original name_variant-row in the db to be deleted when
+        # running write_db.
+        if first_name != "":
+            person.populate_name(self.const.name_first, first_name)
+
+        person.populate_name(self.const.name_last, last_name)
+        person.populate_name(self.const.name_full, full_name)
+
         try:
             person.write_db()
         except self.db.DatabaseError, m:
-            raise CerebrumError, "Database error: %s" % m
+            raise CerebrumError("Database error: %s" % m)
+
         return {'person_id': person.entity_id}
 
     # person name_suggestions
@@ -8720,7 +8753,7 @@ Addresses and settings:
         qconst = self._get_constant(self.const.Quarantine, qtype, "quarantine")
         self.ba.can_disable_quarantine(operator.get_entity_id(), entity, qtype)
 
-        if not entity.get_entity_quarantine(type=qconst):
+        if not entity.get_entity_quarantine(qtype=qconst):
             raise CerebrumError("%s does not have a quarantine of type %s" % (
                 self._get_name_from_object(entity), qtype))
 
@@ -8769,7 +8802,7 @@ Addresses and settings:
         qconst = self._get_constant(self.const.Quarantine, qtype, "quarantine")
         self.ba.can_remove_quarantine(operator.get_entity_id(), entity, qconst)
 
-        if not entity.get_entity_quarantine(type=qconst):
+        if not entity.get_entity_quarantine(qtype=qconst):
             raise CerebrumError("%s does not have a quarantine of type %s" % (
                 self._get_name_from_object(entity), qtype))
 
@@ -8788,7 +8821,7 @@ Addresses and settings:
         entity = self._get_entity(entity_type, id)
         qconst = self._get_constant(self.const.Quarantine, qtype, "quarantine")
         self.ba.can_set_quarantine(operator.get_entity_id(), entity, qconst)
-        rows = entity.get_entity_quarantine(type=qconst)
+        rows = entity.get_entity_quarantine(qtype=qconst)
         if rows:
             raise CerebrumError("%s already has a quarantine of type %s" % (
                 self._get_name_from_object(entity), qtype))
@@ -8891,14 +8924,10 @@ Addresses and settings:
         # make sure that if anyone uses spread remove instead of
         # group exchangegroup_remove the appropriate clean-up is still
         # done
-        if entity_type == 'group' and \
-                entity.has_spread(cereconf.EXCHANGE_GROUP_SPREAD):
-            # from Cerebrum.modules.exchange.v2013 import ExchangeGroups
-            #dl_group = ExchangeGroups.DistributionGroup(self.db)
-            dl_group = Utils.Factory.get("DistributionGroup")(self.db)
-            dl_group.deactivate_dl_mailtarget()
-            dl_group.delete()
-            # dl_group.delete_spread()
+        if (entity_type == 'group' and
+                entity.has_spread(cereconf.EXCHANGE_GROUP_SPREAD)):
+            raise CerebrumError(
+                "Cannot remove spread from distribution groups")
         if entity.has_spread(spread):
             entity.delete_spread(spread)
         else:
@@ -9365,6 +9394,77 @@ Addresses and settings:
         operator.store_state("new_account_passwd", {'account_id': int(posix_user.entity_id),
                                                     'password': passwd})
         return {'uid': uid}
+
+    all_commands['user_create_sysadm'] = Command(
+        ("user", "create_sysadm"), AccountName(), OU(optional=True),
+        fs=FormatSuggestion('OK, created %s', ('accountname',)),
+        perm_filter='is_superuser')
+    def user_create_sysadm(self, operator, accountname, stedkode=None):
+        """ Create a sysadm account with the given accountname.
+
+        TBD, requirements?
+            - Will add the person's primary affiliation, which must be
+              of type ANSATT/tekadm.
+
+        :param str accountname:
+            Account to be created. Must include a hyphen and end with one of
+            SYSADM_TYPES.
+
+        :param str stedkode:
+            Optional stedkode to place the sysadm account. Only used if a
+            person have multipile valid affiliations.
+
+        """
+        SYSADM_TYPES = ('adm','drift','null',)
+        VALID_STATUS = (self.const.affiliation_status_ansatt_tekadm,)
+        DOMAIN = '@ulrik.uio.no'
+
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied('Only superuser can create sysadm accounts')
+        res = re.search('^([a-z]+)-([a-z]+)$', accountname)
+        if res is None:
+            raise CerebrumError('Username must be on the form "foo-adm"')
+        user, suffix = res.groups()
+        if suffix not in SYSADM_TYPES:
+            raise CerebrumError(
+                'Username "%s" does not have one of these suffixes: %s' %
+                (accountname, ', '.join(SYSADM_TYPES)))
+        # Funky... better solutions?
+        try:
+            self._get_account(accountname)
+        except CerebrumError:
+            pass
+        else:
+            raise CerebrumError('Username already in use')
+        account_owner = self._get_account(user)
+        if account_owner.owner_type != self.const.entity_person:
+            raise CerebrumError('Can only create personal sysadm accounts')
+        person = self._get_person('account_name', user)
+        if stedkode is not None:
+            ou = self._get_ou(stedkode=stedkode)
+            ou_id = ou.entity_id
+        else:
+            ou_id = None
+        valid_aff = person.list_affiliations(person_id=person.entity_id,
+                                               source_system=self.const.system_sap,
+                                               status=VALID_STATUS,
+                                               ou_id=ou_id)
+        status_blob = ', '.join(map(str,VALID_STATUS))
+        if valid_aff == []:
+            raise CerebrumError('Person has no % affiliation' % status_blob)
+        elif len(valid_aff) > 1:
+            raise CerebrumError('More than than one %s affiliation, '
+                                'add stedkode as argument' % status_blob)
+        affiliation = {'aff': valid_aff[0]['affiliation'], 'ou_id': valid_aff[0]['ou_id']}
+        self.user_reserve(operator, 'person', person.entity_id, affiliation, accountname)
+        self.trait_set(operator, accountname, 'sysadm_account', 'strval=on')
+        self.user_promote_posix(operator, accountname, shell='bash', home=':/')
+        account = self._get_account(accountname)
+        account.add_spread(self.const.spread_uio_ad_account)
+        self.entity_contactinfo_add(operator, accountname, 'EMAIL', user+DOMAIN)
+        self.email_create_forward_target(operator, accountname+DOMAIN, user+DOMAIN)
+        return {'accountname': accountname}
+
 
     def _check_for_pipe_run_as(self, account_id):
         et = Email.EmailTarget(self.db)
@@ -10445,6 +10545,13 @@ Password altered. Use misc list_password to print or view the new password.%s'''
                 if isinstance(id, str) and not id.isdigit():
                     raise CerebrumError, "Entity id must be a number"
                 account.find(id)
+            elif idtype == 'uid':
+                if isinstance(id, str) and not id.isdigit():
+                    raise CerebrumError, 'uid must be a number'
+                if actype != 'PosixUser':
+                    account = Utils.Factory.get('PosixUser')(self.db)
+                    account.clear()
+                account.find_by_uid(id)
             else:
                 raise CerebrumError, "unknown idtype: '%s'" % idtype
         except Errors.NotFoundError:

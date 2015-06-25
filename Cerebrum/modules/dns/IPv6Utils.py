@@ -47,13 +47,13 @@ class IPv6Calc(object):
 class IPv6Utils(object):
     """Methods for verifying (etc.) IPv6 numbers"""
 
-    def verify(ip):
+    def is_valid_ipv6(ip):
         try:
             socket.inet_pton(socket.AF_INET6, ip)
             return True
         except:
             return False
-    verify = staticmethod(verify)
+    is_valid_ipv6 = staticmethod(is_valid_ipv6)
 
     def compress(ip):
         t = socket.inet_pton(socket.AF_INET6, ip)

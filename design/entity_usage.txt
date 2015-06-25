@@ -49,22 +49,12 @@
 
   pg = PosixGroup(db).find(group_id)
   # DELETE from posix_group.
-  pg.delete()
+  pg.demote_posix()
 
 4.2 Delete both PosixGroup and underlying Group.
 
   pg = PosixGroup(db).find(group_id)
-  # DELETE from posix_group.
   pg.delete()
-  g = Group(db).find(group_id)
-  # DELETE from the following tables, in this order:
-  #   group_member (to empty this Group's set of members.  This method
-  #                 does NOT delete memberships this Group might have
-  #                 in other groups)
-  #   entity_name
-  #   group_info
-  #   entity_info
-  g.delete()
 
 5. Population of attributes from mixin classes.
 
@@ -76,5 +66,3 @@
   # Should remove any 'last'-name-entries with source LT, and do
   # INSERT/UPDATE (as appropriate) of 'full' and 'nick'-entries.
   p.write_db()
-
-arch-tag: ce0eb988-5984-4d92-b59d-93e7624cc6a6

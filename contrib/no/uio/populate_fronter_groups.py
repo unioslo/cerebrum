@@ -1595,7 +1595,12 @@ def destroy_group(gname, max_recurse=2, recurse=True):
     if recurse and max_recurse < 0:
         logger.fatal("destroy_group(%s): Recursion too deep" % gr.group_name)
         sys.exit(3)
-        
+
+    if gr.get_extensions():
+        logger.fatal("destroy_group(%s): Group is %r",
+                     gr.group_name, gr.get_extensions())
+        sys.exit(4)
+
     # If this group is a member of other groups, remove those
     # memberships.
     for r in gr.search(member_id=gr.entity_id, indirect_members=False):
@@ -1664,7 +1669,6 @@ def destroy_group(gname, max_recurse=2, recurse=True):
         for subg in gr_members:
             destroy_group(int(subg["member_id"]), max_recurse - 1)
 # end destroy_group
-
 
 
 def add_spread_to_group(group, spread):
@@ -1832,7 +1836,7 @@ def main():
 
     logger = Factory.get_logger("cronjob")
     logger.debug("populating fronter groups")
-    
+
     # Upper/lowercasing of Norwegian letters.
     locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))
 
@@ -1846,7 +1850,7 @@ def main():
                                     "kull-file=",
                                     "edu-file=",
                                     "dryrun"])
-        
+
     except getopt.GetoptError:
         usage(2)
     dryrun = False

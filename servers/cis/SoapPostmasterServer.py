@@ -137,6 +137,8 @@ if __name__ == '__main__':
     logfilename     = getattr(cisconf, 'LOG_FILE', None)
     instance        = getattr(cisconf, 'CEREBRUM_CLASS', None)
     interface       = getattr(cisconf, 'INTERFACE', None)
+    log_prefix  = getattr(cisconf, 'LOG_PREFIX', None)
+    log_formatters = getattr(cisconf, 'LOG_FORMATTERS', None)
 
     for opt, val in opts:
         if opt in ('--logfile',):
@@ -186,11 +188,15 @@ if __name__ == '__main__':
                     certificate_file = certificate_file,
                     client_ca = client_ca,
                     client_fingerprints = fingerprints,
-                    logfile = logfilename)
+                    logfile = logfilename,
+                    log_prefix = log_prefix,
+                    log_formatters=log_formatters)
     else:
         server = SoapListener.TwistedSoapStarter(port = int(port),
                     applications = PostmasterServer,
-                    logfile = logfilename)
+                    logfile = logfilename,
+                    log_prefix = log_prefix,
+                    log_formatters=log_formatters)
     PostmasterServer.site = server.site # to make it global and reachable (wrong, I know)
 
     # If sessions' behaviour should be changed (e.g. timeout):

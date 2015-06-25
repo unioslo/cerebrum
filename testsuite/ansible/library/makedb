@@ -1,0 +1,148 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+DOCUMENTATION = """
+---
+module: makedb
+short_description: Run the I(makedb.py) script
+description:
+     - Runs the Cerebrum-script I(makedb.py), assuming that all neccessary
+       configuration is set up for this. --extra-args arguments can be read
+       from a file.
+     - If the script depends on a virtualenv environment, this can be supplied.
+     - The prefix where Cerebrum is installed can be supplied. If it is not
+       given, the module will assume that the prefix is the same as the
+       virtualenv root, or '/'
+"""
+
+EXAMPLES = """
+- name: Build db, using an input file
+  makedb: virtualenv=/tmp/env
+          extra_src=input.txt
+
+# with file 'input.txt':
+#    mod_a.sql
+#
+# Would run /tmp/env/bin/python /tmp/env/sbin/makedb.py \
+#             --extra_file /tmp/env/share/cerebrum/design/mod_a.sql
+
+"""
+
+import os
+
+# TODO: Support for other makedb arguments:
+#         + only-insert-codes
+#         + update-codes
+#         + extra-files (as a list input for the module)
+#         + more?
+
+
+def extra_files_to_args(module, design, input_file=None, input_list=[]):
+    """ Turn a list of files into --extra-file args for makedb. """
+
+    sql_extra_args = []
+
+    # Read design files from an input file, and append to list
+    if input_file:
+        # Can we read the file?
+        if not os.path.isfile(input_file):
+            module.fail_json(msg="No input file '%s'" % input_file)
+        if not os.access(input_file, os.R_OK):
+            module.fail_json(msg="Unable to input file '%s'" %
+                             input_file)
+
+        # Read out the filenames from the input file
+        try:
+            with open(input_file, 'r') as f:
+                input_file_list = [line.strip() for line in f.readlines()
+                                   if line.strip()]
+                if input_file_list:
+                    sql_extra_args.extend(input_file_list)
+        except IOError, e:
+            module.fail_json(msg="Unable to read design file '%s': %s" %
+                             (file, str(e)))
+
+    # Append other sql files
+    sql_extra_args.extend(input_list)
+
+    for i, file_name in enumerate(sql_extra_args):
+        file = os.path.join(design, file_name)
+        if not os.path.isfile(file):
+            module.fail_json(msg="No Cerebrum design file '%s'" % file)
+        if not os.access(file, os.R_OK):
+            module.fail_json(msg="Unable to read design file '%s'" % file)
+        sql_extra_args[i] = "--extra-file=%s" % file
+    return sql_extra_args
+
+
+def main():
+    """ Run module. """
+    # TODO: Can we use argument_spec better?
+    module = AnsibleModule(
+        argument_spec=dict(
+            prefix=dict(),
+            extra_files_src=dict(),
+            virtualenv=dict(), )
+    )
+
+    # Makedb arguments
+    args = []
+
+    prefix = module.params.get('prefix')
+    virtualenv = module.params.get('virtualenv')
+
+    # Use virtualenv version of python, or fall back to python from PATH
+    if virtualenv:
+        python = os.path.join(virtualenv, 'bin/python')
+        if not os.path.isfile(python):
+            module.fail_json(msg="makedb: No virtualenv in '%s'" % virtualenv)
+    else:
+        python = 'python'
+
+    # Prefix falls back to virtualenv or '/'
+    if (not prefix) and virtualenv:
+        prefix = virtualenv
+    elif not prefix:
+        prefix = '/'
+
+    # Verify that the cerebrum files exists in our prefix
+    makedb = os.path.join(prefix, 'sbin/makedb.py')
+    design = os.path.join(prefix, 'share/cerebrum/design')
+
+    if not os.path.isfile(makedb):
+        module.fail_json(msg="makedb: No makedb script '%s'" % makedb)
+    if not os.path.isdir(design):
+        module.fail_json(msg="makedb: No design dir '%s'" % design)
+
+    # Build --extra-file arguments
+    # NOTE: This call can cause the module to exit with fail_json 
+    extra_files = extra_files_to_args(
+        module, design, input_file=module.params.get('extra_files_src'))
+    if extra_files:
+        args.extend(extra_files)
+
+    # Run makedb.py
+    cmd = [python, makedb, ]
+    cmd.extend(args)
+
+    rc, out, err = module.run_command(cmd, check_rc=True,
+                                      cwd=os.path.dirname(makedb))
+
+    # Build return dict
+    json = {'cmd': ' '.join(cmd),
+            'stdout': out.rstrip('\r\n') if out else '',
+            'stderr': err.rstrip('\r\n') if err else '',
+            'rc': rc, }
+
+    # Did the command fail?
+    if rc != 0:
+        json['msg'] = "makedb failed"
+        module.fail_json(**json)
+
+    # Or did it succeed?
+    json['changed'] = True
+    module.exit_json(**json)
+
+# import module snippets and run
+from ansible.module_utils.basic import *
+main()

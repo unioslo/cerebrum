@@ -40,6 +40,10 @@ class CLConstants(CLConstants):
     # Ask jsama about this.
     ea_policy = _ChangeTypeCode('exchange', 'set_ea_policy',
                                 'Address book policy changed')
+    # SingleItemRecoveryEnabled
+    # Fake event to be able to requeue if fail
+    item_recovery = _ChangeTypeCode('exchange', 'item_recovery',
+                                    'Set SingleItemRecovery')
 
     # Account mailbox created/deleted
     acc_mbox_create = _ChangeTypeCode('exchange', 'acc_mbox_create',
@@ -55,8 +59,9 @@ class CLConstants(CLConstants):
     acc_primaddr = _ChangeTypeCode('exchange', 'acc_primaddr',
                                    'account primary changed')
     # Electronic reservation registered
-    pers_reservation = _ChangeTypeCode('exchange', 'per_e_reserv',
-                                       'person reservation changed')
+    pers_reservation = _ChangeTypeCode(
+        'exchange', 'per_e_reserv',
+        'address book visibility changed', ('visible = %(string:visible)s',))
 
     # Distribution group create/deleted
     dl_mbox_create = _ChangeTypeCode('exchange', 'dl_mbox_create',
