@@ -302,13 +302,12 @@ def write_ldif():
 
         # Find forward-settings:
         if ldap.targ2forward.has_key(t):
-            for addr,enable in ldap.targ2forward[t]:
+            for addr in ldap.targ2forward[t]:
                 # Skip local forward addresses when the account is deleted, else
                 # they will create an unnecessary bounce message.
                 if tt == co.email_target_deleted and addr in ldap.targ2addr[t]:
                     continue
-                if enable == 'T':
-                    f.write("forwardDestination: %s\n" % addr)
+                f.write("forwardDestination: %s\n" % addr)
 
         # Find spam-settings:
         if ldap.targ2spam.has_key(t):

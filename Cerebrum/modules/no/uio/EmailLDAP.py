@@ -250,13 +250,13 @@ class EmailLDAPUiOMixin(EmailLDAP):
     # exclude forward for accounts with exchange_spread
     def read_forward(self):
         mail_forw = Email.EmailForward(self._db)
-        for row in mail_forw.list_email_forwards():
+        for row in mail_forw.search(enable=True):
             # if the target is recorded as having spread_exchange_acc
             # the whole row is skipped because we don't want to
             # export forwards for such targets to LDAP
             t_id = int(row['target_id'])
             if t_id not in self.targ2spread:
-                self.targ2forward[t_id].append([row['forward_to'],row['enable']])
+                self.targ2forward[t_id].append(row['forward_to'])
     # exchange-relatert-jazz
     # 
     # it would have been more elegant to split read_vacation
