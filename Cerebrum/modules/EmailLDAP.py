@@ -344,27 +344,19 @@ class EmailLDAP(DatabaseAccessor):
         quarantines = {}
         now = mx.DateTime.now()
         for row in a.list_entity_quarantines(
+                only_active=True,
                 entity_types = self.const.entity_account):
-            if (row['start_date'] <= now
-                and (row['end_date'] is None or row['end_date'] >= now)
-                and (row['disable_until'] is None
-                     or row['disable_until'] < now)):
-                # The quarantine in this row is currently active.
-                quarantines[int(row['entity_id'])] = "*locked"
+            quarantines[int(row['entity_id'])] = "*locked"
         for row in a.list_account_authentication():
-            account_id = int(row['account_id'])
-            self.e_id2passwd[account_id] = (
-                row['entity_name'],
-                quarantines.get(account_id) or row['auth_data'])
+            a_id = int(row['account_id'])
+            self.e_id2passwd[a_id] = quarantines.get(a_id) or row['auth_data']
         for row in a.list_account_authentication(self.const.auth_type_crypt3_des):
             # *sigh* Special-cases do exist. If a user is created when the
             # above for-loop runs, this loop gets a row more. Before I ignored
             # this, and the whole thing went BOOM on me.
-            account_id = int(row['account_id'])
-            if not self.e_id2passwd.get(account_id, (0, 0))[1]:
-                self.e_id2passwd[account_id] = (
-                    row['entity_name'],
-                    quarantines.get(account_id) or row['auth_data'])
+            a_id = int(row['account_id'])
+            if not self.e_id2passwd.get(a_id, 0):
+                self.e_id2passwd[a_id] = quarantines.get(a_id) or row['auth_data']
 
 
     def read_misc_target(self):
