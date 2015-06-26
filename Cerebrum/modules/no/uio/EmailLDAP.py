@@ -243,18 +243,16 @@ class EmailLDAPUiOMixin(EmailLDAP):
     # known spreads at this point
     def target2spread_populate(self):
         a = Factory.get('Account')(self._db)
-        spread = self.const.spread_exchange_account
+        exspread = self.const.spread_exchange_account
         ttype = self.const.email_target_account
-        ret = []
         et = Email.EmailTarget(self._db)
-        et2 = Email.EmailTarget(self._db)
+        exchangeaccounts = set()
+        ret = set()
+        for row in a.search(expire_start=None, spread=exspread):
+            exchangeaccounts.add(int(row['account_id']))
         for row in et.list_email_targets_ext(target_type=ttype):
-            et2.clear()
-            et2.find(int(row['target_id']))
-            a.clear()
-            a.find(int(et2.email_target_entity_id))
-            if a.has_spread(spread):
-                ret.append(et2.entity_id)
+            if int(row['target_entity_id']) in exchangeaccounts:
+                ret.add(int(row['target_id']))
         return ret
                 
     # exchange-relatert-jazz
