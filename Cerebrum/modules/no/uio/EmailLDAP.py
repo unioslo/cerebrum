@@ -24,6 +24,8 @@ import string
 import time
 import mx
 
+from collections import defaultdict
+
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
@@ -48,7 +50,7 @@ class EmailLDAPUiOMixin(EmailLDAP):
         # keys: account email target ids with pending 'email_primary_address' events
         # values: list of event ids
         # read_pending_primary_email() is called by read_addr()
-        self.pending_primary_email = {}
+        self.pending_primary_email = defaultdict(list)
     # end __init__
 
     spam_act2dig = {'noaction':   '0',
@@ -186,7 +188,7 @@ class EmailLDAPUiOMixin(EmailLDAP):
                     # would give us 'UIO_GLOBALS'.
                     addr = self._build_addr(lp, row['domain'])
                     t_id = int(row2['target_id'])
-                    self.targ2addr.setdefault(t_id, []).append(addr)
+                    self.targ2addr[t_id].add(addr)
                     # Note: We don't need to update aid2addr here, as
                     # addresses @UIO_GLOBALS aren't allowed to be primary
                     # addresses.
@@ -203,7 +205,7 @@ class EmailLDAPUiOMixin(EmailLDAP):
             self.aid2addr[a_id] = addr
             if glob_addr.has_key(dom) and glob_addr[dom].has_key(lp):
                 continue
-            self.targ2addr.setdefault(t_id, []).append(addr)
+            self.targ2addr[t_id].add(addr)
 
         # look for primary email changes that are still pending in the event log
         self.read_pending_primary_email()
@@ -252,10 +254,9 @@ class EmailLDAPUiOMixin(EmailLDAP):
             # if the target is recorded as having spread_exchange_acc
             # the whole row is skipped because we don't want to
             # export forwards for such targets to LDAP
-            if not int(row['target_id']) in self.targ2spread:
-                self.targ2forward.setdefault(int(row['target_id']),
-                                             []).append([row['forward_to'],
-                                                         row['enable']])
+            t_id = int(row['target_id'])
+            if t_id not in self.targ2spread:
+                self.targ2forward[t_id].append([row['forward_to'],row['enable']])
     # exchange-relatert-jazz
     # 
     # it would have been more elegant to split read_vacation
@@ -333,8 +334,6 @@ class EmailLDAPUiOMixin(EmailLDAP):
             try:
                 event = self._db.get_event(event_id=event_id)
                 target = int(event['subject_entity'])
-                if not target in self.pending_primary_email:
-                    self.pending_primary_email[target] = []
                 self.pending_primary_email[target].append(event_id)
             except Errors.NotFoundError:
                 continue
