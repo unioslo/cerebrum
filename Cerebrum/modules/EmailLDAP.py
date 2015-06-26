@@ -218,9 +218,8 @@ class EmailLDAP(DatabaseAccessor):
 
     def read_forward(self):
         mail_forw = Email.EmailForward(self._db)
-        for row in mail_forw.list_email_forwards():
-            self.targ2forward[int(row['target_id'])].append([row['forward_to'],
-                                                             row['enable']])
+        for row in mail_forw.search(enable=True):
+            self.targ2forward[int(row['target_id'])].append(row['forward_to'])
 
     def read_vacation(self):
         mail_vaca = Email.EmailVacation(self._db)
