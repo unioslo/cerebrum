@@ -25,6 +25,8 @@ import time
 import string
 import mx
 
+from collections import defaultdict
+
 from Cerebrum import Errors
 from Cerebrum.modules import Email
 from Cerebrum.Utils import Factory, mark_update
@@ -44,9 +46,9 @@ class EmailLDAP(DatabaseAccessor):
     __metaclass__ = mark_update
 
     __write_attr__ = ('aid2addr', 'targ2addr', 'targ2prim', 'targ2spam',
-                      'targ2quota', 'targ2virus', 'serv_id2server',
-                      'targ2server_id', 'targ2forward', 'targ2vacation',
-                      'acc2name', 'pending', 'e_id2passwd')
+                      'targ2quota', 'serv_id2server', 'targ2server_id',
+                      'targ2forward', 'targ2vacation', 'acc2name', 'pending',
+                      'e_id2passwd')
 
 
     def __init__(self, db):
@@ -54,15 +56,14 @@ class EmailLDAP(DatabaseAccessor):
         self.const = Factory.get('Constants')(db)
         # Internal structure:
         self.aid2addr = {}
-        self.targ2addr = {}
+        self.targ2addr = defaultdict(set)
         self.targ2prim = {}
         self.targ2spam = {}
-        self.targ2filter = {}
+        self.targ2filter = defaultdict(list)
         self.targ2quota = {}
-        self.targ2virus = {}
         self.serv_id2server = {}
         self.targ2server_id = {}
-        self.targ2forward = {}
+        self.targ2forward = defaultdict(list)
         self.targ2vacation = {}
         self.acc2name = {}
         self.pending = {}
@@ -167,7 +168,7 @@ class EmailLDAP(DatabaseAccessor):
             a_id, t_id = int(row['address_id']), int(row['target_id'])
             lp, dom = row['local_part'], row['domain']
             addr = self._build_addr(lp, dom)
-            self.targ2addr.setdefault(t_id, []).append(addr)
+            self.targ2addr[t_id].add(addr)
             self.aid2addr[a_id] = addr
 
 
@@ -191,13 +192,6 @@ class EmailLDAP(DatabaseAccessor):
                                                       row['quota_hard']]
 
         
-    def read_virus(self):
-        mail_virus = Email.EmailVirusScan(self._db)
-        for row in mail_virus.list_email_virus_ext():
-            self.targ2virus[int(row['target_id'])] = [row['found_str'],
-                                                      row['removed_str'],
-                                                      row['enable']]
-
     def read_target_filter(self):
         const2str = {}
         for c in dir(self.const):
@@ -209,7 +203,7 @@ class EmailLDAP(DatabaseAccessor):
         for row in mail_target_filter.list_email_target_filter():
             t_id = int(row['target_id'])
             f_id = int(row['filter'])
-            self.targ2filter.setdefault(t_id, []).append(const2str[f_id])
+            self.targ2filter[t_id].append(const2str[f_id])
 
     # why is spread sent as a parameter here and then not used?
     # should probably remove the option (Jazz, 2013-12)
@@ -221,12 +215,12 @@ class EmailLDAP(DatabaseAccessor):
         mail_targ = Email.EmailTarget(self._db)
         for row in mail_targ.list_email_server_targets():
             self.targ2server_id[int(row['target_id'])] = int(row['server_id'])
+
     def read_forward(self):
         mail_forw = Email.EmailForward(self._db)
         for row in mail_forw.list_email_forwards():
-            self.targ2forward.setdefault(int(row['target_id']),
-                                         []).append([row['forward_to'],
-                                                     row['enable']])
+            self.targ2forward[int(row['target_id'])].append([row['forward_to'],
+                                                             row['enable']])
 
     def read_vacation(self):
         mail_vaca = Email.EmailVacation(self._db)
