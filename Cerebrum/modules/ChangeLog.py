@@ -105,6 +105,8 @@ class ChangeLog(Cerebrum.ChangeLog.ChangeLog):
             If no entry should be stored in the database for this change.
             Default: False
 
+        NOTE: change_by or change_program must be set when logging a change.
+
         """
         super(ChangeLog, self).log_change(
             subject_entity,
@@ -129,19 +131,19 @@ class ChangeLog(Cerebrum.ChangeLog.ChangeLog):
             change_params = pickle.dumps(change_params)
         self.messages.append(locals())  # ugh
 
-    def rollback_log(self):
-        """See commit_log"""
-        super(ChangeLog, self).rollback_log()
+    def clear_log(self):
+        """See write_log"""
+        super(ChangeLog, self).clear_log()
         self.messages = []
 
-    def commit_log(self):
+    def write_log(self):
         """ Write change entries to the database.
 
         This method should be called right before a database commit to
         synchronize the changes and change entries.
 
         """
-        super(ChangeLog, self).commit_log()
+        super(ChangeLog, self).write_log()
 
         for m in self.messages:
             m['id'] = int(self.nextval('change_log_seq'))

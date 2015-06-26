@@ -1,6 +1,5 @@
 #!/usr/bin/env python
-# -*- encoding: latin-1 -*-
-
+# encoding: utf-8
 """This implements VirtHome extensions to the ChangeLog framework.
 
 The primary purpose of the extensions is to be able to track state change
@@ -14,8 +13,8 @@ them as a one-time password to acknowledge a certain state change. The
 change_log framework in itself is sufficient for the task, except for the
 tidbit where unique keys are linked to the change_log events; such a linkage
 is the main task of this modules.
-"""
 
+"""
 import pickle
 
 import cerebrum_path
@@ -24,8 +23,8 @@ from Cerebrum.modules.ChangeLog import ChangeLog
 from Cerebrum.Utils import argument_to_sql
 
 
-
 class ChangeLogVH(ChangeLog):
+
     """Extension of ChangeLog to accomodate OTP tracking for change log
     events.
 
@@ -33,12 +32,11 @@ class ChangeLogVH(ChangeLog):
     accomodate access to mod_virthome.sql:pending_change_log. This class
     should be usable for general changelogging, so it's important to keep
     compatible with ChangeLog's interface.
+
     """
 
-
     def remove_log_event(self, change_id):
-        """Remove a specific entry from (pending)_change_log.
-        """
+        """Remove a specific entry from (pending)_change_log."""
 
         # Drop entries, if any, from pcl BEFORE deleting the referenced row in
         # the superclass.
@@ -47,9 +45,6 @@ class ChangeLogVH(ChangeLog):
         WHERE change_id=:change_id""", {'change_id': int(change_id)})
 
         super(ChangeLogVH, self).remove_log_event(change_id)
-    # end remove_log_event
-
-
 
     def __create_unique_request_id(self):
         """Return a unique request id.
@@ -60,24 +55,20 @@ class ChangeLogVH(ChangeLog):
         a changelog event that binds entities that the change concerns. Such
         an event has a confirmation key associated with it. This method
         creates such a key. This key can be thought of as a one-time password
-        tied up to a very particular action bound to a specific account. 
+        tied up to a very particular action bound to a specific account.
 
         The easiest choice is probably uuid (although reading /dev/urandom
         will probably work just as well).
 
-        @rtype: basestring
-        @return:
+        :return basestring:
           A unique ID (or, at least an id unique for as long as the request is
           potentially to remain pending/valid).
-        """
 
+        """
         import uuid
         # <http://en.wikipedia.org/wiki/Uuid>
         return str(uuid.uuid4())
-    # end __create_unique_request_id
 
-
-    
     def log_pending_change(self, subject_entity,
                            change_type_id, destination_entity,
                            change_params=None, change_by=None,
@@ -87,11 +78,10 @@ class ChangeLogVH(ChangeLog):
         This is a copy of ChangeLog.log_change(), with the additional
         'confirmation_key' magic.
 
-        @rtype: str
-        @return:
+        :return basestring:
           Return the magic_key associated with this request.
-        """
 
+        """
         confirmation_key = self.__create_unique_request_id()
         if change_by is None and self.change_by is not None:
             change_by = self.change_by
@@ -105,18 +95,15 @@ class ChangeLogVH(ChangeLog):
         self.messages.append(locals())
 
         return confirmation_key
-    # end log_pending_change
 
-
-
-    def commit_log(self):
+    def write_log(self):
         """Commit the accumulated in-memory events to (pending_)change_log.
 
-        The requests/events are accumulated in-memory until commit_log() is
+        The requests/events are accumulated in-memory until write_log() is
         issued. Here we actually write the requests to the db. This method
         looks a lot like superclass' equivalent.
-        """
 
+        """
         for message in self.messages:
             message["change_id"] = int(self.nextval("change_log_seq"))
 
@@ -135,11 +122,9 @@ class ChangeLogVH(ChangeLog):
                 VALUES (:confirmation_key, :change_id)
                 """, message)
         self.messages = list()
-    # end commit_log
-        
-
 
     def get_pending_event(self, confirmation_key):
+        """ Fetch ChangeLog information for a given confirmation key. """
         result = dict(self.query_1("""
         SELECT cl.*, pcl.confirmation_key
         FROM [:table schema=cerebrum name=change_log] cl,
@@ -148,9 +133,6 @@ class ChangeLogVH(ChangeLog):
               pcl.change_id = cl.change_id""",
                                    {"confirmation_key": confirmation_key}))
         return result
-    # end get_pending_event
-
-
 
     def get_pending_events(self, types=None,
                            subject_entity=None,
@@ -164,10 +146,12 @@ class ChangeLogVH(ChangeLog):
         if types is not None:
             where.append(argument_to_sql(types, "cl.change_type_id", binds, int))
         if subject_entity is not None:
-            where.append(argument_to_sql(subject_entity, "cl.subject_entity",
+            where.append(argument_to_sql(subject_entity,
+                                         "cl.subject_entity",
                                          binds, int))
         if confirmation_key is not None:
-            where.append(argument_to_sql(confirmation_key, "pcl.confirmation_key",
+            where.append(argument_to_sql(confirmation_key,
+                                         "pcl.confirmation_key",
                                          binds))
         where_str = ""
         if where:
@@ -180,9 +164,6 @@ class ChangeLogVH(ChangeLog):
           ON cl.change_id = pcl.change_id
         %s
         """ % where_str, binds)
-    # end get_pending_events
-
-        
 
     def remove_pending_log_event(self, confirmation_key):
         change_id = int(self.query_1("""
@@ -191,6 +172,3 @@ class ChangeLogVH(ChangeLog):
         WHERE confirmation_key=:confirmation_key""",
                                      {"confirmation_key": confirmation_key}))
         return self.remove_log_event(change_id)
-    # end remove_pending_log_event
-# end class
-

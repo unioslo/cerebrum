@@ -74,14 +74,14 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
                             'destination_entity': destination_entity,
                             'change_params': pickle.dumps(change_params)})
 
-    def rollback_log(self):
+    def clear_log(self):
         """ Remove events in queue for writing. """
-        super(EventLog, self).rollback_log()
+        super(EventLog, self).clear_log()
         self.events = []
 
-    def commit_log(self):
+    def write_log(self):
         """ Commit new events to the event log. """
-        super(EventLog, self).commit_log()
+        super(EventLog, self).write_log()
         # For each event to log..
         for e in self.events:
             # ..find out which systems should get the event..
@@ -113,7 +113,7 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
 
         @type event_id: int
         @param event_id: The events ID
-        
+
         @type target_system: TargetSystemCode
         @param target_system: The target-system to perform delete on
         """
@@ -148,13 +148,13 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
             WHERE %s""" %
                 ' AND '.join(['%s = :%s' % (k,k) for k in params]),
                 params)
-        
+
     def lock_event(self, event_id):
         """Lock an event for processing.
 
         @type event_id: int
         @param event_id: The event to lock.
-        
+
         @rtype: Cerebrum.extlib.db_row.row
         @return: A DB-row with the event_id
         """
@@ -177,7 +177,7 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
 
         @type target_system: int
         @param target_system: The target system to select events from
-        
+
         @type fail_limit: int
         @param fail_limit: Select only events that have failed a number
             of times lower than fail_limit. Default None.
@@ -185,7 +185,7 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
         @type failed_delay: int
         @param failed_delay: Select only events that does not have a taken_time
             less than now() - failed_delay.
-        
+
         @type unpropagted_delay: int
         @param unpropagated_delay: Select only events that does not have a
             taken_time, and and tstamp less than now() - unpropagated_delay.
@@ -196,7 +196,7 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
 
         @type fetchall: bool
         @param fetchall: If True, fetch all results. Else, return iterator.
-        
+
         @rtype: list(Cerebrum.extlib.db_row.row)
         @return: A list of unprocessed DB-rows
         """
@@ -223,12 +223,10 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
                     unpropagated_delay
         if not include_taken:
             filter += ' AND taken_time IS NULL'
-        
+
         return self.query("""
             SELECT * FROM event_log
-            WHERE %s""" % filter,
-            args,
-            fetchall=fetchall)
+            WHERE %s""" % filter, args, fetchall=fetchall)
 
     def release_event(self, event_id, target_system=None, increment=True):
         """Release a locked/taken event. Releases typically happens
@@ -236,7 +234,7 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
 
         @type event_id: int
         @param event_id: The events id.
-        
+
         @type target_system: TargetSystemCode
         @param target_system: The target-system to perform unlock on
 
@@ -280,17 +278,17 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
         @return: {t_failed, t_locked, total}
         """
         t_locked = self.query_1(
-                'SELECT count(*) FROM event_log WHERE taken_time IS NOT NULL'
-                ' AND target_system = :target_system',
-                {'target_system': int(target_system)})
+            'SELECT count(*) FROM event_log WHERE taken_time IS NOT NULL'
+            ' AND target_system = :target_system',
+            {'target_system': int(target_system)})
         t_failed = self.query_1(
-                'SELECT count(*) FROM event_log WHERE failed >= :fail_limit'
-                ' AND target_system = :target_system',
-                {'target_system': int(target_system), 'fail_limit': fail_limit})
+            'SELECT count(*) FROM event_log WHERE failed >= :fail_limit'
+            ' AND target_system = :target_system',
+            {'target_system': int(target_system), 'fail_limit': fail_limit})
         total = self.query_1(
-                'SELECT count(*) FROM event_log WHERE'
-                ' target_system = :target_system',
-                {'target_system': int(target_system)})
+            'SELECT count(*) FROM event_log WHERE'
+            ' target_system = :target_system',
+            {'target_system': int(target_system)})
         return {'t_locked': t_locked, 't_failed': t_failed, 'total': total}
 
     def get_failed_and_locked_events(self, target_system, fail_limit=10,
@@ -308,7 +306,7 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
 
         @rtype: list(tuple)
         @return: [(event_id, event_type, taken_time, failed,)]
-        
+
         """
         # TODO: Expand me to allow choosing "presicion" on the "locked" rows,
         # like selecting only those locked up until 10 hours ago, for example.
@@ -328,7 +326,7 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
 
     def decrement_failed_count(self, target_system, id):
         """Decrement the failed count on a row
-        
+
         @type target_system: TargetSystemCode
         @param target_system: The target-system to collect from
 
@@ -336,12 +334,13 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
         @param id: The row id to do this in
         """
         self.query_1(
-                'UPDATE event_log SET failed = failed - 1 WHERE event_id = :id'
-                ' AND target_system = :ts RETURNING event_id',
-                {'id': int(id), 'ts': int(target_system)})
+            'UPDATE event_log SET failed = failed - 1 WHERE event_id = :id'
+            ' AND target_system = :ts RETURNING event_id',
+            {'id': int(id), 'ts': int(target_system)})
 
     def search_events(self, id=None, type=None, param=None,
-                      from_ts=None, to_ts=None, target_system=None, fetchall=True):
+                      from_ts=None, to_ts=None, target_system=None,
+                      fetchall=True):
         """Search for events based on a given criteria.
 
         :param int id: The subject- or dest_entity to search for.
