@@ -1,5 +1,7 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2003 University of Oslo, Norway
+#!/usr/bin/env python
+# encoding: utf-8
+#
+# Copyright 2003-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,7 +18,16 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+""" The CLDatabase combines the Database driver and the ChangeLog Event-API.
 
+This class enables synchronization between the database transasction
+commit/rollback with the ChangeLog commit/rollback.
+
+When using the ChangeLog, you'll want to replace the `cereconf.CLASS_DATABASE'
+with this class, or use this class as a mixin for the
+`cereconf.CLASS_DATABASE'.
+
+"""
 from Cerebrum.Utils import Factory
 db = Factory.get('DBDriver')
 cl = Factory.get('ChangeLog')
@@ -29,10 +40,15 @@ class CLDatabase(db, cl):
         super(CLDatabase, self).__init__(*args, **kwd)
 
     def rollback(self):
-        self.rollback_log()
+        self.clear_log()
         super(db, self).rollback()
 
     def commit(self):
-        self.commit_log()
-        super(db, self).commit()
-
+        try:
+            self.write_log()
+            super(db, self).commit()
+        except:
+            self.unpublish_log()
+            raise
+        else:
+            self.publish_log()
