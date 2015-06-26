@@ -310,7 +310,7 @@ class EmailLDAPUiOMixin(EmailLDAP):
             else:
                 if o_spans_now: return False
                 else: return row_is_newer
-        for row in mail_vaca.list_email_vacations():
+        for row in mail_vaca.list_email_active_vacations():
             t_id = int(row['target_id'])
             # exchange-relatert-jazz
             # if the target is recorded as having spread_exchange_acc
