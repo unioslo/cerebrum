@@ -223,51 +223,18 @@ class EmailLDAP(DatabaseAccessor):
 
     def read_vacation(self):
         mail_vaca = Email.EmailVacation(self._db)
-        cur = mx.DateTime.today()
-        def prefer_row(row, oldval):
-            o_txt, o_sdate, o_edate, o_enable = oldval
-            txt, sdate, edate, enable = [row[x]
-                                         for x in ('vacation_text',
-                                                   'start_date',
-                                                   'end_date', 'enable')]
-            spans_now = (sdate <= cur and (edate is None or edate >= cur))
-            o_spans_now = (o_sdate <= cur and (o_edate is None or o_edate >= cur))
-            row_is_newer = sdate > o_sdate
-            if spans_now:
-                if enable == 'T' and o_enable == 'F': return True
-                elif enable == 'T' and o_enable == 'T':
-                    if o_spans_now:
-                        return row_is_newer
-                    else: return True
-                elif enable == 'F' and o_enable == 'T':
-                    if o_spans_now: return False
-                    else: return True
-                else:
-                    if o_spans_now: return row_is_newer
-                    else: return True
-            else:
-                if o_spans_now: return False
-                else: return row_is_newer
-        for row in mail_vaca.list_email_vacations():
+        for row in mail_vaca.list_email_active_vacations():
             t_id = int(row['target_id'])
             insert = False
-            if self.targ2vacation.has_key(t_id):
-                if prefer_row(row, self.targ2vacation[t_id]):
+            if t_id in self.targ2vacation:
+                if row['start_date'] > self.targ2vacation[t_id][1]:
                     insert = True
             else:
                 insert = True
             if insert:
-                # Make sure vacations that doesn't span now aren't marked
-                # as active, even though they might be registered as
-                # 'enabled' in the database.
-                enable = False
-                if row['start_date'] <= cur and (row['end_date'] is None
-                                                 or row['end_date'] >= cur):
-                    enable = (row['enable'] == 'T')
                 self.targ2vacation[t_id] = (iso2utf(row['vacation_text']),
                                             row['start_date'],
-                                            row['end_date'],
-                                            enable)
+                                            row['end_date'])
 
 
     def read_accounts(self, spread):
