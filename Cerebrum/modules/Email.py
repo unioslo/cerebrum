@@ -2048,6 +2048,16 @@ class EmailVacation(EmailTarget):
         FROM [:table schema=cerebrum name=email_vacation]
         """, fetchall=False)
 
+    def list_email_active_vacations(self):
+        import mx
+        return self.query("""
+        SELECT target_id, vacation_text, start_date, end_date, enable
+        FROM [:table schema=cerebrum name=email_vacation]
+        WHERE enable = 'T' AND
+              start_date<=:cur AND
+              end_date>=:cur OR end_date IS NULL
+        """, {'cur': mx.DateTime.today()}, fetchall=False)
+
 class EmailPrimaryAddressTarget(EmailTarget):
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('email_primaddr_id',)
