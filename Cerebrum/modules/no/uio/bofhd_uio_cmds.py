@@ -6230,12 +6230,19 @@ Addresses and settings:
     # group list
     all_commands['group_list'] = Command(
         ("group", "list"), GroupName(),
-        fs=FormatSuggestion("%-10s %-10s %-10s", ("type", "name", "expired"),
-                            hdr="%-10s %-10s %-10s" % ("Type", "Name", "Expired")))
+        fs=FormatSuggestion("%-10s %-15s %-45s %-10s", ("type",
+                                                        "user_name",
+                                                        "full_name",
+                                                        "expired"),
+                            hdr="%-10s %-15s %-45s %-10s" % ("Type",
+                                                             "Username",
+                                                             "Fullname",
+                                                             "Expired")))
     def group_list(self, operator, groupname):
         """List direct members of group"""
         def compare(a, b):
-            return cmp(a['type'], b['type']) or cmp(a['name'], b['name'])
+            return cmp(a['type'], b['type']) or \
+                   cmp(a['user_name'], b['user_name'])
         group = self._get_group(groupname)
         ret = []
         now = DateTime.now()
@@ -6246,19 +6253,31 @@ Addresses and settings:
             raise CerebrumError("More than %d (%d) matches. Contact superuser "
                                 "to get a listing for %s." %
                                 (cereconf.BOFHD_MAX_MATCHES, len(members), groupname))
+        ac = self.Account_class(self.db)
         for x in self._fetch_member_names(members):
+            if x['member_type'] == int(self.const.entity_account):
+                ac.find(x['member_id'])
+                try:
+                    full_name = ac.get_fullname()
+                except Errors.NotFoundError:
+                    full_name = ''
+                user_name = x['member_name']
+                ac.clear()
+            else:
+                full_name = x['member_name']
+                user_name = '<non-account>'
             tmp = {'id': x['member_id'],
                    'type': str(self.const.EntityType(x['member_type'])),
-                   'name': x['member_name'],
+                   'name': x['member_name'], # Compability with brukerinfo
+                   'user_name': user_name,
+                   'full_name': full_name,
                    'expired': None}
-            if (x["expire_date"] is not None and x["expire_date"] < now):
+            if x["expire_date"] is not None and x["expire_date"] < now:
                 tmp["expired"] = "expired"
             ret.append(tmp)
 
         ret.sort(compare)
         return ret
-    # end group_list
-
 
     def _fetch_member_names(self, iterable):
         """Locate names for elements in iterable.
@@ -10526,6 +10545,13 @@ Password altered. Use misc list_password to print or view the new password.%s'''
                 if isinstance(id, str) and not id.isdigit():
                     raise CerebrumError, "Entity id must be a number"
                 account.find(id)
+            elif idtype == 'uid':
+                if isinstance(id, str) and not id.isdigit():
+                    raise CerebrumError, 'uid must be a number'
+                if actype != 'PosixUser':
+                    account = Utils.Factory.get('PosixUser')(self.db)
+                    account.clear()
+                account.find_by_uid(id)
             else:
                 raise CerebrumError, "unknown idtype: '%s'" % idtype
         except Errors.NotFoundError:
