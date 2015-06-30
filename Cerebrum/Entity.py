@@ -1135,7 +1135,8 @@ class EntityQuarantine(Entity):
                             None, change_params={'q_type': int(qtype)})
 
     def list_entity_quarantines(self, entity_types=None, quarantine_types=None,
-                                only_active=False, entity_ids=None):
+                                only_active=False, entity_ids=None,
+                                ignore_quarantine_types=None):
         sel = ""
         where = ""
         binds = dict()
@@ -1145,8 +1146,13 @@ class EntityQuarantine(Entity):
             JOIN [:table schema=cerebrum name=entity_info] ei
               ON ei.entity_id = eq.entity_id AND """
             sel += argument_to_sql(entity_types, "ei.entity_type", binds, int)
+        # argument_to_sql doesn't handle same value in binds twice, e.g. quarantine_type
+        if quarantine_types and ignore_quarantine_types:
+            raise CerebrumError('Can not use both quarantine_types and ignore_quarantine_types')
         if quarantine_types:
             conditions.append(argument_to_sql(quarantine_types, "quarantine_type", binds, int))
+        if ignore_quarantine_types:
+            conditions.append("NOT " + argument_to_sql(ignore_quarantine_types, "quarantine_type", binds, int))
         if only_active:
             conditions.append("""start_date <= [:now] AND
             (end_date IS NULL OR end_date > [:now]) AND
