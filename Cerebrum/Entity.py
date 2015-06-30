@@ -521,7 +521,7 @@ class EntityNameWithLanguage(Entity):
             """, binds)
             self._db.log_change(
                 self.entity_id, self.const.entity_name_mod, None,
-                change_params)
+                change_params=change_params)
         else:
             rv = self.execute("""
             INSERT INTO [:table schema=cerebrum name=entity_language_name]
@@ -529,7 +529,7 @@ class EntityNameWithLanguage(Entity):
             """, binds)
             self._db.log_change(
                 self.entity_id, self.const.entity_name_add, None,
-                change_params)
+                change_params=change_params)
             return rv
     # end add_name_with_language
 

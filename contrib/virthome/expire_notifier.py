@@ -139,7 +139,6 @@ def account_id2attributes(account_id, database):
     except Errors.NotFoundError:
         return None
 # end account_id2attributes
-   
 
 
 def create_request(attrs, cl_event_type, db):
@@ -157,21 +156,13 @@ def create_request(attrs, cl_event_type, db):
                                       attrs.account_id,
                                       change_params={"date": now(),
                                                      "to": attrs.email})
-    # FIXME: This is so fucking ugly. The call above does not write anything
-    # to the db, it simply caches the change_log message in db.messages. If
-    # this action is to be reverted later, db.get_log_events() won't find it,
-    # since it does not inspect the cache. commit_log() flushes the cache to
-    # the database (although it does not actually _commit_ anything
-    # (commit()/rollback() control that behaviour).
-    # There has to be a better way...
-    db.commit_log()
+    db.write_log()
     logger.debug("Created %s request for account %s (id=%s)",
                  str(cl_event_type), attrs.uname, attrs.account_id)
 
     attrs.set_magic_key(magic_key)
     return magic_key
 # end create_request
-
 
 
 def cancel_request(attrs, db):
@@ -193,7 +184,6 @@ def cancel_request(attrs, db):
         # Nothing to do here, since the request is no longer there...
         return
 # end cancel_request
-    
 
 
 def generate_requests(database):
@@ -225,7 +215,6 @@ def generate_requests(database):
 
     return addresses
 # end generate_requests
-
 
 
 def send_email(requests, dryrun, database):
@@ -276,7 +265,6 @@ def send_email(requests, dryrun, database):
 # end send_email
 
 
-
 def get_account(ident, database):
     """Try to locate an account associated with L{ident}.
 
@@ -297,7 +285,6 @@ def get_account(ident, database):
     except Errors.NotFoundError:
         return None
 # end get_account
-
 
 
 def typeset_change_log_row(row, database):
@@ -321,7 +308,6 @@ def typeset_change_log_row(row, database):
         ", params=%s." % repr(pickle.loads(row["change_params"]))
         or ".")
 # end typeset_change_log_row
-
 
 
 def show_requests(ident, database):
@@ -358,12 +344,11 @@ def show_requests(ident, database):
         logger.debug(typeset_change_log_row(row, database))
 # end show_requests
 
-    
 
 def send_expire_warning(ident, dryrun, database):
     """Send an expiration warning to a user, regardless of its expire_date
     status.
-    
+
     This is useful in a situation if a scheduled warning failed for some
     reason or we want to preempt the scheduled warning for some reason.
     """
@@ -374,7 +359,7 @@ def send_expire_warning(ident, dryrun, database):
         logger.debug("No account matches %s. No warning will be generated",
                      ident)
         return
-    
+
     if account.entity_id in collect_warned_accounts(database,
                                                     account.entity_id):
         logger.debug("Account %s (id=%s) has already been warned about "
