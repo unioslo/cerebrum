@@ -82,7 +82,7 @@ class StompClient(object):
         elif self.transactions_enabled:
             if not self.transaction:
                 self.transaction = str(uuid.uuid4())
-            self.client.begin(transaction=self.transaction)
+                self.client.begin(transaction=self.transaction)
             header = {StompSpec.TRANSACTION_HEADER: self.transaction}
         else:
             header = None
