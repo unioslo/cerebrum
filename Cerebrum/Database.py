@@ -1077,7 +1077,7 @@ class PgSQL(PostgreSQLBase):
                 enc = client_encoding
             elif isinstance(client_encoding, tuple):
                 enc = client_encoding[0]
-            self.execute("SET CLIENT_ENCODING TO '%s'" % client_encoding)
+            self.execute("SET CLIENT_ENCODING TO '%s'" % enc)
             # Need to commit here, and as no real work has been done
             # yet, it should be safe.
             #
