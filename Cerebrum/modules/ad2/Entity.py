@@ -206,8 +206,8 @@ class EntityADMixin(Entity):
             WHERE %s""" % ' AND '.join('%s=%s' % (x[0], x[1]) for x in cols),
                 values)
         self._db.log_change(self.entity_id, self.const.ad_attr_del, None,
-                            {'spread': str(spread),
-                             'attr': str(attribute)})
+                            change_params={'spread': str(spread),
+                                           'attr': str(attribute)})
 
     def set_ad_attribute(self, spread, attribute, value, subattr_id=0):
         """Set a given AD-attribute for a given spread for the entity. Note that
@@ -266,6 +266,6 @@ class EntityADMixin(Entity):
                                      'binds': ", ".join([x[1] for x in cols])},
                     values)
         self._db.log_change(self.entity_id, self.const.group_create, None,
-                            {'spread': str(spread),
-                             'attr': str(attribute),
-                             'value': str(value)})
+                            change_params={'spread': str(spread),
+                                           'attr': str(attribute),
+                                           'value': str(value)})

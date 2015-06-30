@@ -1,5 +1,6 @@
-# -*- coding: iso-8859-1 -*-
-
+#!/usr/bin/env python
+# encoding: latin-1
+#
 # Copyright 2006 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -802,9 +803,9 @@ class BofhdExtension(BofhdCommonMethods,
             raise CerebrumError("Person has no such address")
         try:
             person.delete_entity_address(source_type=ss, a_type=addresstype)
-            self.db.log_change(subject_entity=person.entity_id,
-                               change_type_id=self.const.entity_addr_del,
-                               destination_entity=None,
+            self.db.log_change(person.entity_id,
+                               self.const.entity_addr_del,
+                               None,
                                change_params={'subject': person.entity_id})
             person.write_db()
         except:
@@ -1043,9 +1044,9 @@ class BofhdExtension(BofhdCommonMethods,
     # misc list_passwords_prompt_func
     #
     def misc_list_passwords_prompt_func(self, session, *args):
-        """  - GÃ¥r inn i "vis-info-om-oppdaterte-brukere-modus":
+        """  - Går inn i "vis-info-om-oppdaterte-brukere-modus":
   1 Skriv ut passordark
-  1.1 Lister ut templates, ber bofh'er om Ã¥ velge en
+  1.1 Lister ut templates, ber bofh'er om å velge en
   1.1.[0] Spesifiser skriver (for template der dette tillates valgt av
           bofh'er)
   1.1.1 Lister ut alle aktuelle brukernavn, ber bofh'er velge hvilke
