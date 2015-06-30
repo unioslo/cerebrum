@@ -41,6 +41,9 @@ import uuid
 from stompest.config import StompConfig
 from stompest.protocol import StompSpec
 from stompest.sync import Stomp
+from stompest import error
+
+from Cerebrum.modules.event_publisher import ClientErrors
 
 
 class StompClient(object):
@@ -61,11 +64,19 @@ class StompClient(object):
         self.transaction = None
 
         self.client = Stomp(StompConfig(self.host))
-        self.client.connect()
+        try:
+            self.client.connect()
+        except error.StompConnectTimeout as e:
+            raise ClientErrors.ConnectionError(
+                "Could not connect to broker: %s" % e)
 
     def close(self):
         """Close the connection."""
-        self.client.disconnect()
+        try:
+            self.client.disconnect()
+        except error.StompConnectionError as e:
+            raise ClientErrors.ConnectionError(
+                "Could not close connection: %s" % e)
 
     def publish(self, messages, omit_transaction=False):
         """Publish a message to the queue.
@@ -82,7 +93,11 @@ class StompClient(object):
         elif self.transactions_enabled:
             if not self.transaction:
                 self.transaction = str(uuid.uuid4())
-                self.client.begin(transaction=self.transaction)
+                try:
+                    self.client.begin(transaction=self.transaction)
+                except error.StompProtocolError as e:
+                    raise ClientErrors.ProtocolError(
+                        "Could not start transaction: %s" % e)
             header = {StompSpec.TRANSACTION_HEADER: self.transaction}
         else:
             header = None
@@ -90,7 +105,11 @@ class StompClient(object):
         if isinstance(messages, basestring):
             messages = [messages]
         for msg in messages:
-            self.client.send(self.queue, msg, header)
+            try:
+                self.client.send(self.queue, msg, header)
+            except error.StompConnectionError as e:
+                raise ClientErrors.ConnectionError(
+                    "Could not publish '%s' to broker: %s" % (msg, e))
 
     def commit(self):
         """Commit the current transaction."""
