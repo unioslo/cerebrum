@@ -606,6 +606,40 @@ class Cursor(object):
         addressed in database-specific manner.
         """
         self.execute("""SELECT 1 AS foo [:from_dual]""")
+    # end ping
+
+    def acquire_lock(self, table=None, mode='exclusive'):
+        return Lock(cursor=self, table=table, mode=mode)
+
+
+class Lock(object):
+    """Driver-independent class for locking. Default: No locking"""
+    def __init__(self, **kws):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self):
+        self.release()
+
+    def release(self):
+        pass
+
+
+class OraPgLock(Lock):
+    """Lock for Oracle and Postgres. Locks are only released by
+    commit, so no release done.
+    """
+    lock_stmt = "LOCK TABLE %s IN %s MODE"
+
+    def __init__(self, cursor=None, table=None, mode='exclusive'):
+        self.cursor = cursor
+        self.table = table
+        self.acquire(mode)
+
+    def acquire(self, mode):
+        self.cursor.execute(OraPgLock.lock_stmt % (self.table, mode))
 
 
 class RowIterator(object):
@@ -1363,6 +1397,9 @@ class PsycoPGCursor(Cursor):
                 ret[n] = conv(ret[n])
         return ret
 
+    def acquire_lock(self, table=None, mode='exclusive'):
+        return OraPgLock(cursor=self, table=table, mode='exclusive')
+
 
 class PsycoPG2Cursor(PsycoPGCursor):
 
@@ -1593,8 +1630,9 @@ class cx_OracleCursor(Cursor):
                                                 field.day, field.hour,
                                                 field.minute, int(field.second))
         return raw_result
-    # end query
-# end cx_OracleCursor
+
+    def acquire_lock(self, table=None, mode='exclusive'):
+        return OraPgLock(cursor=self, table=None, mode=mode)
 
 
 class SQLite(Database):
