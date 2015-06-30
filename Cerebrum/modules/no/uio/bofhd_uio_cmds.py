@@ -5511,30 +5511,33 @@ Addresses and settings:
                  (managedby != cereconf.DISTGROUP_DEFAULT_ADMIN and \
                       not mngdby_addr):
             return "Cannot create Exchange group without setting ManagedBy attr"
-        if not existing_group:
-            # one could imagine making a helper function in the future
-            # _make_dl_group_new, as the functionality is required
-            # both here and for the roomlist creation (Jazz, 2013-12)
-            dl_group.new(operator.get_entity_id(),
-                         group_vis,
-                         groupname, description=description,
-                         roomlist=std_values['roomlist'],
-                         mngdby_addrid=mngdby_addr,
-                         modenable=std_values['modenable'],
-                         modby=moderatedby,
-                         deprestr=std_values['deprestr'],
-                         joinrestr=std_values['joinrestr'],
-                         hidden=std_values['hidden'])
-        else:
-            dl_group.populate(roomlist=std_values['roomlist'],
-                              mngdby_addrid=mngdby_addr,
-                              modenable=std_values['modenable'],
-                              modby=moderatedby,
-                              deprestr=std_values['deprestr'],
-                              joinrestr=std_values['joinrestr'],
-                              hidden=std_values['hidden'],
-                              parent=grp)
-        dl_group.write_db()
+        try:
+            if not existing_group:
+                # one could imagine making a helper function in the future
+                # _make_dl_group_new, as the functionality is required
+                # both here and for the roomlist creation (Jazz, 2013-12)
+                dl_group.new(operator.get_entity_id(),
+                            group_vis,
+                            groupname, description=description,
+                            roomlist=std_values['roomlist'],
+                            mngdby_addrid=mngdby_addr,
+                            modenable=std_values['modenable'],
+                            modby=moderatedby,
+                            deprestr=std_values['deprestr'],
+                            joinrestr=std_values['joinrestr'],
+                            hidden=std_values['hidden'])
+            else:
+                dl_group.populate(roomlist=std_values['roomlist'],
+                                mngdby_addrid=mngdby_addr,
+                                modenable=std_values['modenable'],
+                                modby=moderatedby,
+                                deprestr=std_values['deprestr'],
+                                joinrestr=std_values['joinrestr'],
+                                hidden=std_values['hidden'],
+                                parent=grp)
+            dl_group.write_db()
+        except self.db.DatabaseError, m:
+            raise CerebrumError, "Database error: %s" % m
         self._set_display_name(groupname, displayname,
                                disp_name_variant, disp_name_language)
         dl_group.create_distgroup_mailtarget()
