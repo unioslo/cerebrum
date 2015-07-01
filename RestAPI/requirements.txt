@@ -1,0 +1,6 @@
+Flask
+flask-restful
+gunicorn
+
+egenix-mx-base  # cerebrum
+psycopg2  # cerebrum
