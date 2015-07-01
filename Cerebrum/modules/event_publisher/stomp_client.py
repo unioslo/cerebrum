@@ -103,7 +103,7 @@ class StompClient(object):
         else:
             header = None
 
-        if isinstance(messages, basestring):
+        if isinstance(messages, (basestring, dict)):
             messages = [messages]
         for msg in messages:
             try:
