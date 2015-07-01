@@ -37,6 +37,7 @@ $ coilmq -b 127.0.0.1 -p 6161 --debug
 """
 
 import uuid
+import json
 
 from stompest.config import StompConfig
 from stompest.protocol import StompSpec
@@ -106,7 +107,7 @@ class StompClient(object):
             messages = [messages]
         for msg in messages:
             try:
-                self.client.send(self.queue, msg, header)
+                self.client.send(self.queue, json.dumps(msg), header)
             except error.StompConnectionError as e:
                 raise ClientErrors.ConnectionError(
                     "Could not publish '%s' to broker: %s" % (msg, e))
