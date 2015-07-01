@@ -79,7 +79,7 @@ class StompClient(object):
             raise ClientErrors.ConnectionError(
                 "Could not close connection: %s" % e)
 
-    def publish(self, messages, omit_transaction=False):
+    def publish(self, messages, omit_transaction=False, durable=True):
         """Publish a message to the queue.
 
         :type message: string or list of strings.
@@ -88,6 +88,9 @@ class StompClient(object):
         :type omit_transaction: bool
         :param omit_transaction: Set to True if you would like to publish a
             message outside a transaction.
+
+        :type durable: bool
+        :param durable: If this message should be durable.
         """
         if omit_transaction:
             header = None
@@ -99,7 +102,8 @@ class StompClient(object):
                 except error.StompProtocolError as e:
                     raise ClientErrors.ProtocolError(
                         "Could not start transaction: %s" % e)
-            header = {StompSpec.TRANSACTION_HEADER: self.transaction}
+            header = {StompSpec.TRANSACTION_HEADER: self.transaction,
+                      'durable': 'true' if durable else 'false'}
         else:
             header = None
 
