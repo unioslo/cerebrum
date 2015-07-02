@@ -13,7 +13,7 @@ class Constant(base.String):
         self.ctype = getattr(co, ctype)
 
     def format(self, code):
-        return str(co.EntityType(code))
+        return str(self.ctype(code))
 
 
 class Spreads(base.Raw):
