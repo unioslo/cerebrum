@@ -1,4 +1,4 @@
-from flask.ext.restful import Resource, abort, reqparse, marshal_with
+from flask.ext.restful import Resource, abort, marshal_with
 from api import db, auth, fields
 from flask_restful_swagger import swagger
 
@@ -8,7 +8,9 @@ from Cerebrum import Errors
 
 @swagger.model
 class AccountResourceFields(object):
-
+    """
+    Data model for Cerebrum-Accounts
+    """
     def __init__(self):
         pass
 
@@ -30,13 +32,12 @@ class AccountResourceFields(object):
         }
     }
 
-class Account(Resource):
+class AccountResource(Resource):
+    """
+    Resource for accounts in Cerebrum.
+    """
     def __init__(self):
-        super(Account, self).__init__()
-        self.reqparse = reqparse.RequestParser()
-        self.reqparse.add_argument('name', type=str)
-        self.reqparse.add_argument('entity_id', type=int)
-        self.args = self.reqparse.parse_args()
+        super(AccountResource, self).__init__()
         self.ac = Factory.get('Account')(db.connection)
 
     @swagger.operation(
@@ -46,8 +47,8 @@ class Account(Resource):
         parameters=[
             {
                 'name': 'lookup',
-                'description': 'The value-type to use when looking up an Cerebrum-account. Valid values are: \
-                                name, entity_id',
+                'description': 'The value-type to use when looking up an Cerebrum-account. \
+                                Valid values are: name, entity_id',
                 'required': True,
                 'allowMultiple': False,
                 'dataType': 'string',
@@ -55,7 +56,8 @@ class Account(Resource):
             },
             {
                 'name': 'identifier',
-                'description': "Account name or entity ID for account (depending on the lookup value-type)",
+                'description': 'Account name or entity ID for account \
+                               (depending on the lookup value-type)',
                 'required': True,
                 'allowMultiple': False,
                 'dataType': 'string',
@@ -66,6 +68,14 @@ class Account(Resource):
     @auth.require()
     @marshal_with(AccountResourceFields.resource_fields)
     def get(self, lookup, identifier):
+        """
+        GET-function for Accounts-route. Will return a JSON with metadata according
+        to the model defined in AccountResourceFields.
+        :param lookup: string specifiying the look-up value-type, either 'name' or 'entity_id'
+        :param identifier: string specifying either the account name or the account's entity_id
+        :return: An object with metadata for the given account.
+        """
+
         if lookup not in ['name', 'entity_id']:
             abort(404, message=u"Invalid lookup value type {}".format(identifier))
 

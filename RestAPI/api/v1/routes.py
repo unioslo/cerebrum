@@ -1,11 +1,8 @@
 from . import api
+from authtest import AuthTest
+from account import AccountResource
+from emailaddress import EmailAddressResource
 
-from api.resources.helloworld import HelloWorld
-from api.resources.authtest import AuthTest
-from api.resources.account import Account
-from api.resources.email import EmailAddressResource
-
-api.add_resource(HelloWorld, '/')
 api.add_resource(AuthTest, '/auth-test')
-api.add_resource(Account, '/account/<string:lookup>/<string:identifier>')
+api.add_resource(AccountResource, '/account/<string:lookup>/<string:identifier>')
 api.add_resource(EmailAddressResource, '/email/<string:email_address>')

@@ -8,6 +8,9 @@ co = Factory.get('Constants')(db.connection)
 
 
 class EntityType(base.Raw):
+    """
+    Takes an entity_type int code, and returns the entity_type string value.
+    """
     def format(self, code):
         return str(co.EntityType(code))
 

@@ -51,7 +51,7 @@ class Authentication(object):
         raise Exception(u"Unknown authentication module " + name)
 
     def authenticate(self, *auth_args, **auth_kwargs):
-        u"""Perform authentication using the currect request."""
+        u"""Perform authentication using the correct request."""
         # TODO: Setup args/kwargs could be used to e.g. restrict allowed
         # authentication backends for a specific call?
         self._module = None

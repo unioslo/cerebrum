@@ -1,5 +1,5 @@
 from flask.ext.restful import Resource
-from api import auth
+from .. import auth
 
 
 class AuthTest(Resource):

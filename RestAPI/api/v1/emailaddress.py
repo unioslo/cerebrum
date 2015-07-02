@@ -7,6 +7,9 @@ from Cerebrum.modules import Email
 
 @swagger.model
 class EmailAddressResourceFields(object):
+    """
+    Data model for Cerebrum Email-addresses.
+    """
 
     def __init__(self):
         pass
@@ -27,16 +30,19 @@ class EmailAddressResourceFields(object):
 
 
 class EmailAddressResource(Resource):
+    """
+    Resource for email-addresses in Cerebrum.
+    """
+
     def __init__(self):
         super(EmailAddressResource, self).__init__()
         self.reqparse = reqparse.RequestParser()
         self.reqparse.add_argument('address', type=str)
         self.args = self.reqparse.parse_args()
-        self.email_target = Email.EmailTarget(db.connection)
         self.email_address = Email.EmailAddress(db.connection)
 
     @swagger.operation(
-        notes='get email-address info',
+        notes='Get email-address metadata',
         nickname='get',
         responseClass=EmailAddressResourceFields,
         parameters=[
@@ -53,6 +59,13 @@ class EmailAddressResource(Resource):
     @auth.require()
     @marshal_with(EmailAddressResourceFields.resource_fields)
     def get(self, email_address):
+        """
+        GET-function for EmailAddress-route. Will return a JSON with metadata according
+        to the model defined in EmailAddressResourceFields.
+
+        :param email_address: Email-address to query Cerebrum for related metadata.
+        :return: An object with metadata for the given email-address.
+        """
 
         lookup = self.email_address.find_by_address
         identifier = email_address
@@ -79,7 +92,7 @@ class EmailAddressResource(Resource):
             if address['address_id'] == self.email_address.entity_id:
                 primary_address = 'true'
             data['all_addresses'] = [{'address_id': address['address_id'],
-                                               'local_part': address['local_part'],
-                                               'domain_id': address['domain_id'],
-                                               'primary_address': primary_address}]
+                                      'local_part': address['local_part'],
+                                      'domain_id': address['domain_id'],
+                                      'primary_address': primary_address}]
         return data
