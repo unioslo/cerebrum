@@ -308,6 +308,7 @@ def check_schema_versions(db, strict=False):
         'email': 'Cerebrum.modules.Email',
         'entity_trait': 'Cerebrum.modules.EntityTrait',
         'eventlog': 'Cerebrum.modules.EventLog',
+        'event-publisher': 'Cerebrum.modules.event_publisher',
         'hostpolicy': 'Cerebrum.modules.hostpolicy',
         'note': 'Cerebrum.modules.Note',
         'password_history': 'Cerebrum.modules.PasswordHistory',
