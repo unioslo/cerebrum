@@ -7,5 +7,5 @@ from api.resources.email import EmailAddressResource
 
 api.add_resource(HelloWorld, '/')
 api.add_resource(AuthTest, '/auth-test')
-api.add_resource(Account, '/account')
-api.add_resource(EmailAddressResource, '/email')
+api.add_resource(Account, '/account/<string:lookup>/<string:identifier>')
+api.add_resource(EmailAddressResource, '/email/<string:email_address>')

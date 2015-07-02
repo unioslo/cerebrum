@@ -31,40 +31,10 @@ class Call(base.Raw):
     def format(self, function):
         return str(function())
 
-# ----- Account fields -----
-
-account_fields = {
-    'account_name': base.String,
-    'entity_id': base.Integer(default=None),
-    'owner_id': base.Integer(default=None),
-    'owner_type': EntityType,
-    'create_date': DateTimeString,
-    'expire_date': DateTimeString,
-    'creator_id': base.Integer(default=None),
-    'spreads': SpreadGet(attribute='get_spread'),
-    'primary_email': Call(attribute='get_primary_mailaddress'),
-}
-
 spread_fields = {
     'spread': base.String,
     'spread_code': base.Integer,
     'description': base.String,
     'entity_type_str': base.String(attribute='entity_type'),
     'entity_type': base.Integer(attribute='entity_type_code'),
-}
-
-# ----- Email fields -----
-
-email_address_fields = {
-    'address_id': base.Integer,
-    'local_part': base.String,
-    'domain_id': base.Integer,
-    'primary_address': base.String
-}
-
-email_fields = {
-    'address_id': base.Integer,
-    'address': base.String,
-    'address_target_id': base.Integer,
-    'all_addresses': base.Nested(email_address_fields),
 }
