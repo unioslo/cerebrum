@@ -267,8 +267,8 @@ class EmailConstants(Constants.Constants):
 
     email_server_type_exchange = _EmailServerTypeCode(
         'exchange',
-        "Exchange server.")    
-    
+        "Exchange server.")
+
     email_target_filter_greylist = _EmailTargetFilterCode(
         'greylist',
         "Delay messages from unknown servers")
@@ -286,39 +286,39 @@ class CLConstants(CLConstants.CLConstants):
     # email change types and categories
     #
     # email domain
-    email_dom_add = CLConstants._ChangeTypeCode('email_domain', 'add_domain', 
+    email_dom_add = CLConstants._ChangeTypeCode('email_domain', 'add_domain',
                                     'add email domain %(subject)s',
                                     ('name=%(string:new_domain_name)'))
-    email_dom_rem = CLConstants._ChangeTypeCode('email_domain', 'rem_domain', 
+    email_dom_rem = CLConstants._ChangeTypeCode('email_domain', 'rem_domain',
                                     'remove email domain %(subject)s',
                                     ('name=%(string:del_domain'))
     # either domain name or domain description has been changed
-    # TODO: these two actions should be splitt? 
-    email_dom_mod = CLConstants._ChangeTypeCode('email_domain', 'mod_domain', 
+    # TODO: these two actions should be splitt?
+    email_dom_mod = CLConstants._ChangeTypeCode('email_domain', 'mod_domain',
                                     'modify email domain %(subject)s',
                                     ('name=%(string:new_domain_name)',
                                      'desc=%(string:new_domain_desc'))
-    email_dom_addcat = CLConstants._ChangeTypeCode('email_domain', 'addcat_domain', 
+    email_dom_addcat = CLConstants._ChangeTypeCode('email_domain', 'addcat_domain',
                                        'add category in email domain %(subject)s',
                                        ('cat=%(int:cat)'))
-    email_dom_remcat = CLConstants._ChangeTypeCode('email_domain', 'remcat_domain', 
+    email_dom_remcat = CLConstants._ChangeTypeCode('email_domain', 'remcat_domain',
                                        'remove category in email domain %(subject)s',
                                        ('cat=%(int:cat)'))
     # email target
-    email_target_add = CLConstants._ChangeTypeCode('email_target', 'add_target', 
+    email_target_add = CLConstants._ChangeTypeCode('email_target', 'add_target',
                                        'add email target %(subject)s',
                                        )
-    email_target_rem = CLConstants._ChangeTypeCode('email_target', 'rem_target', 
+    email_target_rem = CLConstants._ChangeTypeCode('email_target', 'rem_target',
                                        'remove email target %(subject)s')
-    email_target_mod = CLConstants._ChangeTypeCode('email_target', 'mod_target', 
+    email_target_mod = CLConstants._ChangeTypeCode('email_target', 'mod_target',
                                        'modify email target %(subject)s',
                                        ('type=%(int:target_type)',
                                         'server=%(int:server_id)'))
-    email_address_add = CLConstants._ChangeTypeCode('email_address', 'add_address', 
+    email_address_add = CLConstants._ChangeTypeCode('email_address', 'add_address',
                                         'add email address %(subject)s',
                                         ('lp=%(string:lp)s',
                                          'domain=%(int:dom_id)s'))
-    email_address_rem = CLConstants._ChangeTypeCode('email_address', 'rem_address', 
+    email_address_rem = CLConstants._ChangeTypeCode('email_address', 'rem_address',
                                         'remove email address %(subject)s',
                                         ('lp=%(string:lp)s',
                                          'domain=%(int:dom_id)s'))
@@ -332,13 +332,13 @@ class CLConstants(CLConstants.CLConstants):
                                            'modify domain aff for %(subject)s',
                                            ('affiliation=%(int:aff)'))
     # email quota (subject here is an email_target)
-    email_quota_add = CLConstants._ChangeTypeCode('email_quota', 'add_quota', 
+    email_quota_add = CLConstants._ChangeTypeCode('email_quota', 'add_quota',
                                       'add quota for %(subject)s',
                                       ('soft=%(int:soft)',
                                        'hard=%(int:hard)'))
-    email_quota_rem = CLConstants._ChangeTypeCode('email_quota', 'rem_quota', 
+    email_quota_rem = CLConstants._ChangeTypeCode('email_quota', 'rem_quota',
                                       'remove quota for %(subject)s')
-    email_quota_mod = CLConstants._ChangeTypeCode('email_quota', 'mod_quota', 
+    email_quota_mod = CLConstants._ChangeTypeCode('email_quota', 'mod_quota',
                                       'modify quota for %(subject)s',
                                       ('soft=%(int:soft)',
                                        'hard=%(int:hard)'))
@@ -350,67 +350,67 @@ class CLConstants(CLConstants.CLConstants):
                                         'remove tfilter for %(subject)s',
                                         ('filter=%(int:filter)'))
     # email spam_filter
-    email_sfilter_add = CLConstants._ChangeTypeCode('email_sfilter', 'add_sfilter', 
+    email_sfilter_add = CLConstants._ChangeTypeCode('email_sfilter', 'add_sfilter',
                                         'add sfilter for %(subject)s',
                                         ('level=%(int:level)',
                                          'action=%(int:action)'))
-    email_sfilter_mod = CLConstants._ChangeTypeCode('email_sfilter', 'mod_sfilter', 
+    email_sfilter_mod = CLConstants._ChangeTypeCode('email_sfilter', 'mod_sfilter',
                                         'modify sfilter for %(subject)s',
                                         ('level=%(int:level)',
                                          'action=%(int:action)'))
     # email virus scan
-    email_scan_add = CLConstants._ChangeTypeCode('email_scan', 'add_scan', 
+    email_scan_add = CLConstants._ChangeTypeCode('email_scan', 'add_scan',
                                      'add scan for %(subject)s',
                                      ('found=%(int:found)',
                                       'removed=%(int:removed)',
                                       'enable=%(int:enable)'))
-    email_scan_mod = CLConstants._ChangeTypeCode('email_scan', 'mod_scan', 
+    email_scan_mod = CLConstants._ChangeTypeCode('email_scan', 'mod_scan',
                                      'modify scan for %(subject)s')
     # email forward (subject here is an email_target)
-    email_forward_add = CLConstants._ChangeTypeCode('email_forward', 'add_forward', 
+    email_forward_add = CLConstants._ChangeTypeCode('email_forward', 'add_forward',
                                         'add forward for %(subject)s',
                                         ('forward=%(string:forward)',
                                          'enable=%(string:enable)'))
-    email_forward_rem = CLConstants._ChangeTypeCode('email_forward', 'rem_forward', 
+    email_forward_rem = CLConstants._ChangeTypeCode('email_forward', 'rem_forward',
                                         'remove forward for %(subject)s',
                                         ('forward=%(string:forward)'))
-    email_forward_enable = CLConstants._ChangeTypeCode('email_forward', 'enable_forward', 
+    email_forward_enable = CLConstants._ChangeTypeCode('email_forward', 'enable_forward',
                                            'enable forward for %(subject)s',
                                            ('forward=%(string:forward)',
                                             'cat=%(int:cat)'))
-    email_forward_disable = CLConstants._ChangeTypeCode('email_forward', 'disable_forward', 
+    email_forward_disable = CLConstants._ChangeTypeCode('email_forward', 'disable_forward',
                                             'disable forward for %(subject)s',
                                            ('forward=%(string:forward)',
                                             'cat=%(int:cat)'))
     # email vacation (subject here is an email_target)
-    # TBD: should we bother to log this? I don't think so, vacation 
+    # TBD: should we bother to log this? I don't think so, vacation
     # msg will be moved to exchange
-    email_vacation_add = CLConstants._ChangeTypeCode('email_vacation', 'add_vacation', 
+    email_vacation_add = CLConstants._ChangeTypeCode('email_vacation', 'add_vacation',
                                          'add vacation for %(subject)s')
-    email_vacation_rem = CLConstants._ChangeTypeCode('email_vacation', 'rem_vacation', 
+    email_vacation_rem = CLConstants._ChangeTypeCode('email_vacation', 'rem_vacation',
                                         'remove vacation for %(subject)s')
-    email_vacation_enable = CLConstants._ChangeTypeCode('email_vacation', 'enable_vaca', 
+    email_vacation_enable = CLConstants._ChangeTypeCode('email_vacation', 'enable_vaca',
                                            'enable vacation msg for %(subject)s')
-    email_vacation_disable = CLConstants._ChangeTypeCode('email_vacation', 'disable_vaca', 
+    email_vacation_disable = CLConstants._ChangeTypeCode('email_vacation', 'disable_vaca',
                                             'disable vacation msg for %(subject)s')
     # email primary address target (subject here is an email_target)
-    email_primary_address_add = CLConstants._ChangeTypeCode('email_primary_address', 'add_primary', 
+    email_primary_address_add = CLConstants._ChangeTypeCode('email_primary_address', 'add_primary',
                                                 'add primary address for %(subject)s',
                                                 ('primary=%(int:addr_id)'))
-    email_primary_address_rem = CLConstants._ChangeTypeCode('email_primary_address', 'rem_primary', 
+    email_primary_address_rem = CLConstants._ChangeTypeCode('email_primary_address', 'rem_primary',
                                                 'remove primary address for %(subject)s',
                                                 ('primary=%(int:addr_id)'))
-    email_primary_address_mod = CLConstants._ChangeTypeCode('email_primary_address', 'mod_primary', 
+    email_primary_address_mod = CLConstants._ChangeTypeCode('email_primary_address', 'mod_primary',
                                                 'modify primary address for %(subject)s',
                                                 ('primary=%(int:addr_id)'))
     # email server (subject here is an e-mail server)
-    email_server_add = CLConstants._ChangeTypeCode('email_server', 'add_server', 
+    email_server_add = CLConstants._ChangeTypeCode('email_server', 'add_server',
                                        'add email server %(subject)s',
                                        ('type=%(int:server_type)'))
-    email_server_rem = CLConstants._ChangeTypeCode('email_server', 'rem_server', 
+    email_server_rem = CLConstants._ChangeTypeCode('email_server', 'rem_server',
                                        'remove email server %(subject)s',
                                        ('type=%(int:server_type)'))
-    email_server_mod = CLConstants._ChangeTypeCode('email_server', 'mod_server', 
+    email_server_mod = CLConstants._ChangeTypeCode('email_server', 'mod_server',
                                        'modify email server %(subject)s',
                                        ('type=%(int:server_type)'))
 
@@ -446,7 +446,7 @@ class EmailDomain(Entity_class):
 
         @raise AttributeError:
           If domainname fails any of the checks.
-      
+
         """
         uber_hyphen = re.compile(r'--+')
         valid_chars = re.compile(r'^[a-zA-Z\-0-9]+$')
@@ -462,7 +462,7 @@ class EmailDomain(Entity_class):
                 raise AttributeError, ("Illegal name: '%s';" % domainname +
                                        " Invalid character(s)")
 
-        
+
     def populate(self, domain, description, parent=None):
         # conv
         if parent is not None:
@@ -474,20 +474,20 @@ class EmailDomain(Entity_class):
                 raise RuntimeError, "populate() called multiple times."
         except AttributeError:
             self.__in_db = False
-            
+
         self._validate_domain_name(domain)
         self.email_domain_name = domain
         self.email_domain_description = description
-        
+
 
     def delete(self):
         # Need to clean up categories first
         for category_row in self.get_categories():
             self.remove_category(category_row['category'])
-        # exchange-relatert-jazz 
+        # exchange-relatert-jazz
         # requires cl-use!
-        self._db.log_change(self.entity_id, self.const.email_dom_rem, None, 
-                            change_params={'del_domain': 
+        self._db.log_change(self.entity_id, self.const.email_dom_rem, None,
+                            change_params={'del_domain':
                                            self.email_domain_name})
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=email_domain]
@@ -508,13 +508,13 @@ class EmailDomain(Entity_class):
                           'name': self.email_domain_name,
                           'descr': self.email_domain_description})
             #exchange-relatert-jazz
-            self._db.log_change(self.entity_id, 
+            self._db.log_change(self.entity_id,
                                 self.const.email_dom_add,
                                 None,
                                 change_params=
-                                {'new_domain_name': 
+                                {'new_domain_name':
                                  self.email_domain_name,
-                                 'new_domain_desc': 
+                                 'new_domain_desc':
                                  self.email_domain_description})
         else:
             self.execute("""
@@ -525,10 +525,10 @@ class EmailDomain(Entity_class):
                           'name': self.email_domain_name,
                           'descr': self.email_domain_description})
             #exchange-relatert-jazz
-            self._db.log_change(self.entity_id, self.const.email_dom_mod, 
-                                None, change_params= {'mod_domain_name': 
+            self._db.log_change(self.entity_id, self.const.email_dom_mod,
+                                None, change_params= {'mod_domain_name':
                                                       self.email_domain_name,
-                                                      'mod_domain_desc': 
+                                                      'mod_domain_desc':
                                                       self.email_domain_description})
         del self.__in_db
         self.__in_db = True
@@ -538,7 +538,7 @@ class EmailDomain(Entity_class):
     def find(self, domain_id):
         # conv
         self.__super.find(domain_id)
-        
+
         (self.email_domain_name,
          self.email_domain_description) = self.query_1("""
          SELECT domain, description
@@ -582,7 +582,7 @@ class EmailDomain(Entity_class):
 
     def add_category(self, category):
         # exchange-relevant-jazz
-        self._db.log_change(self.entity_id, self.const.email_dom_addcat, 
+        self._db.log_change(self.entity_id, self.const.email_dom_addcat,
                             None, change_params={'category': int(category)})
         # conv
         return self.execute("""
@@ -593,7 +593,7 @@ class EmailDomain(Entity_class):
 
     def remove_category(self, category):
         # exchange-relevant-jazz
-        self._db.log_change(self.entity_id, self.const.email_dom_remcat, 
+        self._db.log_change(self.entity_id, self.const.email_dom_remcat,
                             None, change_params={'category': int(category)})
         # conv
         return self.execute("""
@@ -739,10 +739,10 @@ class EmailTarget(Entity_class):
                           'uid': self.email_target_using_uid,
                           'server_id': self.email_server_id})
             # exchange-relatert-jazz
-            self._db.log_change(self.entity_id, 
+            self._db.log_change(self.entity_id,
                                 self.const.email_target_add,
                                 self.email_target_entity_id,
-                                change_params={'target_type': 
+                                change_params={'target_type':
                                                int(self.email_target_type)})
         else:
             self.execute("""
@@ -759,17 +759,17 @@ class EmailTarget(Entity_class):
                           'uid': self.email_target_using_uid,
                           'server_id': self.email_server_id})
             # exchange-relatert-jazz
-            # we are mostly interested in changes to target_type 
+            # we are mostly interested in changes to target_type
             # and server, ignoring other changes (although it
             # would probably be better to re-write API so that
             # every changes is done separately, but there is no
             # time for that. Jazz (2013-11)
-            self._db.log_change(self.entity_id, 
+            self._db.log_change(self.entity_id,
                                 self.const.email_target_mod,
                                 self.email_target_entity_id,
-                                change_params={'target_type': 
+                                change_params={'target_type':
                                                int(self.email_target_type),
-                                               'server_id': 
+                                               'server_id':
                                                self.email_server_id})
         del self.__in_db
         self.__in_db = True
@@ -779,7 +779,7 @@ class EmailTarget(Entity_class):
     def find(self, target_id):
         # conv
         self.__super.find(target_id)
-        
+
         (self.email_target_type, self.email_target_entity_id,
          self.email_target_entity_type, self.email_target_alias,
          self.email_target_using_uid,
@@ -797,7 +797,7 @@ class EmailTarget(Entity_class):
 
     def delete(self):
         # conv
-        
+
         # We do not delete the corresponding rows in email_address
         # (and by extension, in email_primary_address) to reduce the
         # chance of catastrophic mistakes.
@@ -818,10 +818,10 @@ class EmailTarget(Entity_class):
         DELETE FROM [:table schema=cerebrum name=email_target]
         WHERE target_id=:e_id""", {'e_id': self.entity_id})
         # exchange-relevant-jazz
-        self._db.log_change(self.entity_id, 
+        self._db.log_change(self.entity_id,
                             self.const.email_target_rem,
                             self.email_target_entity_id,
-                            change_params={'target_type': 
+                            change_params={'target_type':
                                            int(self.email_target_type)})
         self.__super.delete()
 
@@ -856,7 +856,7 @@ class EmailTarget(Entity_class):
 
     def find_by_target_entity(self, target_entity_id):
         # NA
-        
+
         # This might find no rows.  In those cases, query_1() will
         # raise an exception.
         target_id = self.query_1("""
@@ -867,7 +867,7 @@ class EmailTarget(Entity_class):
 
     def find_by_alias(self, alias):
         # NA
-        
+
         # This might find no rows, and it might find more than one
         # row.  In those cases, query_1() will raise an exception.
         target_id = self.query_1("""
@@ -878,7 +878,7 @@ class EmailTarget(Entity_class):
 
     def find_by_alias_and_account(self, alias, using_uid):
         # NA
-        
+
         # Due to the UNIQUE constraint in table email_target, this can
         # only find more than one row if both target_entity_id and alias
         # are None.
@@ -928,9 +928,9 @@ class EmailTarget(Entity_class):
     # to optimize targets listing a little bit
     def list_email_targets_ext(self, target_entity_id=None, target_type=None):
         """ Return an iterator over all email_target rows.  If
-            target_entity_id is specified, only return email_targets 
+            target_entity_id is specified, only return email_targets
             with the given target_entity. If target_type is specified
-            return all email_target_rows with the conforming 
+            return all email_target_rows with the conforming
             target_type.
 
         For each row, the following columns are included:
@@ -956,7 +956,7 @@ class EmailTarget(Entity_class):
                server_id
         FROM [:table schema=cerebrum name=email_target]%s
         """ % where_str, binds, fetchall=False)
-    
+
     def list_email_target_primary_addresses(self, target_type=None,
                                                 target_entity_id=None):
         # conv
@@ -980,7 +980,7 @@ class EmailTarget(Entity_class):
             where = "WHERE " + " AND ".join(where)
         else:
             where = ''
- 
+
         return self.query("""
         SELECT et.target_id, et.target_entity_id, ea.local_part, ed.domain,
         et.server_id
@@ -992,7 +992,7 @@ class EmailTarget(Entity_class):
           JOIN [:table schema=cerebrum name=email_domain] ed
             ON ea.domain_id=ed.domain_id
         %s""" % where, binds)
-        
+
     def get_target_type(self):
         # NA
         return self.email_target_type
@@ -1072,15 +1072,15 @@ class EmailAddress(Entity_class):
                           'expire': self.email_addr_expire_date})
             # exchange-relevant-jazz
             # we would like to be able to search for all
-            # changes related to a target. as this includes 
+            # changes related to a target. as this includes
             # address-manipulation subject_entity in change_log
             # will be the target_id and not the address_id
             self._db.log_change(self.email_addr_target_id,
                                 self.const.email_address_add,
                                 self.entity_id,
-                                change_params={'lp': 
+                                change_params={'lp':
                                                self.email_addr_local_part,
-                                               'dom_id': 
+                                               'dom_id':
                                                self.email_addr_domain_id})
         else:
             self.execute("""
@@ -1101,7 +1101,7 @@ class EmailAddress(Entity_class):
     def find(self, address_id):
         # conv
         self.__super.find(address_id)
-        
+
         (self.email_addr_local_part, self.email_addr_domain_id,
          self.email_addr_target_id,
          self.email_addr_expire_date) = self.query_1("""
@@ -1114,7 +1114,7 @@ class EmailAddress(Entity_class):
             pass
         self.__in_db = True
         self.__updated = []
-        
+
     def delete(self):
         # conv
         # We must store these params, in order to remove this address from
@@ -1351,7 +1351,7 @@ class EntityEmailDomain(Entity):
                                 self.const.email_entity_dom_add,
                                 self.entity_id,
                                 change_params={'aff': affiliation})
-            
+
         else:
             # TBD: What about DELETEs?
             self.execute("""
@@ -1411,7 +1411,7 @@ class EntityEmailDomain(Entity):
         self._db.log_change(self.entity_email_domain_id,
                             self.const.email_entity_dom_rem,
                             self.entity_id,
-                            change_params={'aff': 
+                            change_params={'aff':
                                            self.entity_email_affiliation})
         return self.execute("""
         DELETE FROM [:table schema=cerebrum name=email_entity_domain]
@@ -1457,9 +1457,9 @@ class EmailQuota(EmailTarget):
             self._db.log_change(self.entity_id,
                                 self.const.email_quota_add,
                                 None,
-                                change_params={'soft': 
+                                change_params={'soft':
                                                self.email_quota_soft,
-                                               'hard': 
+                                               'hard':
                                                self.email_quota_hard})
         else:
             # TBD: What about DELETEs?
@@ -1474,9 +1474,9 @@ class EmailQuota(EmailTarget):
             self._db.log_change(self.entity_id,
                                 self.const.email_quota_mod,
                                 None,
-                                change_params={'soft': 
+                                change_params={'soft':
                                                self.email_quota_soft,
-                                               'hard': 
+                                               'hard':
                                                self.email_quota_hard})
         del self.__in_db
         self.__in_db = True
@@ -1574,7 +1574,7 @@ class EmailTargetFilter(EmailTarget):
             self._db.log_change(self.entity_id,
                                 self.const.email_tfilter_add,
                                 None,
-                                change_params={'filter': 
+                                change_params={'filter':
                                                int(self.email_target_filter_filter)})
         else:
             # Binary table. No need to update with the same info
@@ -1596,7 +1596,7 @@ class EmailTargetFilter(EmailTarget):
         except AttributeError:
             pass
         self.__in_db = True
-        self.__updated = []    
+        self.__updated = []
 
     def enable_email_target_filter(self, filter):
         """Helper method, used to enable a given filter. Needs
@@ -1673,7 +1673,7 @@ class EmailSpamFilter(EmailTarget):
                                 None,
                                 change_params={'level':
                                                int(self.email_spam_level),
-                                               'action': 
+                                               'action':
                                                int(self.email_spam_action)})
         else:
             # TBD: What about DELETEs?
@@ -1690,7 +1690,7 @@ class EmailSpamFilter(EmailTarget):
                                 None,
                                 change_params={'level':
                                                int(self.email_spam_level),
-                                               'action': 
+                                               'action':
                                                int(self.email_spam_action)})
         del self.__in_db
         self.__in_db = True
@@ -1775,7 +1775,7 @@ class EmailVirusScan(EmailTarget):
                                 None,
                                 change_params={'found':
                                                int(self.email_virus_found_act),
-                                               'removed': 
+                                               'removed':
                                                int(self.email_virus_removed_act),
                                                'enable':
                                                int(self.email_virus_enable)})
@@ -1795,7 +1795,7 @@ class EmailVirusScan(EmailTarget):
                                 None,
                                 change_params={'found':
                                                int(self.email_virus_found_act),
-                                               'removed': 
+                                               'removed':
                                                int(self.email_virus_removed_act),
                                                'enable':
                                                int(self.email_virus_enable)})
@@ -1856,9 +1856,7 @@ class EmailForward(EmailTarget):
         :param str forward: The address to forward to.
         :param bool enable: Enable or disable this forward.
         """
-        enable = 'F'
-        if enable:
-            enable = 'T'
+        enable = 'T' if enable else 'F'
         # exchange-relevant-jazz
         self._db.log_change(self.entity_id,
                             self.const.email_forward_add,
@@ -2093,10 +2091,10 @@ class EmailPrimaryAddressTarget(EmailTarget):
                          {'t_id': self.entity_id,
                           'addr_id': self.email_primaddr_id})
             # exchange-relevant-jazz
-            self._db.log_change(self.entity_id, 
+            self._db.log_change(self.entity_id,
                                 self.const.email_primary_address_add,
                                 None,
-                                change_params={'addr_id': 
+                                change_params={'addr_id':
                                                self.email_primaddr_id})
         else:
             # TBD: What about DELETEs?
@@ -2106,10 +2104,10 @@ class EmailPrimaryAddressTarget(EmailTarget):
             WHERE target_id=:t_id""", {'t_id': self.entity_id,
                                        'addr_id': self.email_primaddr_id})
             # exchange-relevant-jazz
-            self._db.log_change(self.entity_id, 
+            self._db.log_change(self.entity_id,
                                 self.const.email_primary_address_mod,
                                 None,
-                                change_params={'addr_id': 
+                                change_params={'addr_id':
                                                self.email_primaddr_id})
         del self.__in_db
         self.__in_db = True
@@ -2121,10 +2119,10 @@ class EmailPrimaryAddressTarget(EmailTarget):
         delete() in parent.  If you want to delete the EmailTarget as
         well, you need to do so explicitly."""
         # exchange-relevant-jazz
-        self._db.log_change(self.entity_id, 
+        self._db.log_change(self.entity_id,
                             self.const.email_primary_address_rem,
                             None,
-                            change_params={'addr_id': 
+                            change_params={'addr_id':
                                            self.email_primaddr_id})
         return self.execute("""
         DELETE FROM [:table schema=cerebrum name=email_primary_address]
@@ -2190,7 +2188,7 @@ class EmailServer(Host):
             self._db.log_change(self.entity_id,
                                 self.const.email_server_add,
                                 None,
-                                change_params={'server_type': 
+                                change_params={'server_type':
                                                int(self.email_server_type)})
         else:
             # TBD: What about DELETEs?
@@ -2203,7 +2201,7 @@ class EmailServer(Host):
             self._db.log_change(self.entity_id,
                                 self.const.email_server_mod,
                                 None,
-                                change_params={'server_type': 
+                                change_params={'server_type':
                                                int(self.email_server_type)})
         del self.__in_db
         self.__in_db = True
@@ -2219,7 +2217,7 @@ class EmailServer(Host):
         self._db.log_change(self.entity_id,
                             self.const.email_server_rem,
                             None,
-                            change_params={'server_type': 
+                            change_params={'server_type':
                                            int(self.email_server_type)})
         return self.__super.delete()
     # end delete
@@ -2240,7 +2238,7 @@ class EmailServer(Host):
     def list_email_server_ext(self, server_type=None):
         """List all e-mail servers, optionally filtered by
         server_type."""
-        
+
         where = ""
         if server_type is not None:
             where = "WHERE s.server_type = %d" % server_type
@@ -2326,7 +2324,7 @@ class AccountEmailMixin(Account.Account):
         if not et.email_server_id:
             return
         self._update_email_address_domains(et)
-        
+
     def _update_email_address_domains(self, et):
         # Figure out which domain(s) the user should have addresses
         # in.  Primary domain should be at the front of the resulting
@@ -2672,7 +2670,7 @@ class AccountEmailMixin(Account.Account):
              et.target_entity_id = ai.account_id
 
         %s
- 
+
         JOIN [:table schema=cerebrum name=email_domain] ed
           ON ed.domain_id = ea.domain_id
 
@@ -2744,8 +2742,8 @@ class AccountEmailMixin(Account.Account):
         TODO: Note that the EmailTarget and EmailAddresses are automatically
         readded by update_email_addresses if you for instance remove an ac_type
         for the account. Not sure how to avoid this, other than either first
-        disable the account, or 
-        
+        disable the account, or
+
         """
         et = EmailTarget(self._db)
         try:
@@ -2757,7 +2755,7 @@ class AccountEmailMixin(Account.Account):
             try:
                 ep.find(et.entity_id)
                 ep.delete()
-                ep.write_db()        
+                ep.write_db()
             except Errors.NotFoundError:
                 pass
 
@@ -2802,7 +2800,7 @@ class AccountEmailQuotaMixin(Account.Account):
                 eq.write_db()
         if not change:
             return
-        # exchange-relatert-jazz 
+        # exchange-relatert-jazz
         # after migration to exchange is completed this part of the
         # method may be removed along with the default_config.py and
         # cereconf.py definitions of EMAIL_ADD_QUOTA_REQUEST as they
@@ -2835,7 +2833,7 @@ class AccountEmailQuotaMixin(Account.Account):
                 br.add_request(requestor, br.now, self.const.bofh_email_hquota,
                                self.entity_id, None)
 
-    # Calculate quota for this account 
+    # Calculate quota for this account
     def _calculate_account_emailquota(self):
         quota_settings = cereconf.EMAIL_HARD_QUOTA
         if quota_settings is None:
