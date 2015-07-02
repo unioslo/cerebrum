@@ -1,5 +1,5 @@
-from flask.ext.restful import Resource, abort, reqparse, fields, marshal_with
-from api import db, auth
+from flask.ext.restful import Resource, abort, reqparse, marshal_with
+from api import db, auth, fields
 
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
@@ -9,9 +9,9 @@ account_fields = {
     'account_name': fields.String,
     'entity_id': fields.Integer(default=None),
     'owner_id': fields.Integer(default=None),
-    'owner_type': fields.String,
-    'create_date': fields.String,
-    'expire_date': fields.String,
+    'owner_type': fields.EntityType,
+    'create_date': fields.DateTimeString,
+    'expire_date': fields.DateTimeString,
     'creator_id': fields.Integer(default=None),
 }
 
