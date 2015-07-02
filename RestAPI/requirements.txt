@@ -1,5 +1,6 @@
 Flask
 flask-restful
+flask-restful-swagger
 gunicorn
 
 egenix-mx-base  # cerebrum
