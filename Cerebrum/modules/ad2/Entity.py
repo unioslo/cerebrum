@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# 
+#
 # Copyright 2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -265,7 +265,7 @@ class EntityADMixin(Entity):
             VALUES (%(binds)s)""" % {'tcols': ", ".join([x[0] for x in cols]),
                                      'binds': ", ".join([x[1] for x in cols])},
                     values)
-        self._db.log_change(self.entity_id, self.const.group_create, None,
+        self._db.log_change(self.entity_id, self.const.ad_attr_add, None,
                             change_params={'spread': str(spread),
                                            'attr': str(attribute),
                                            'value': str(value)})
