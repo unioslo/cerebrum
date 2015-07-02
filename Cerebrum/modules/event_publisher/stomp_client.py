@@ -55,7 +55,9 @@ class StompClient(object):
         :param config: The configuration for the STOM client.
             I.e. {'host': 'tcp://127.0.0.1',
                   'queue': '/queue/test',
-                  'transaction': True}
+                  'transaction': True,
+                  'username': 'my_username',
+                  'password': 'fido5'}
              The transaction attribute defines if messages should be published
              in transactions.
         """
@@ -64,10 +66,16 @@ class StompClient(object):
         self.transactions_enabled = config['transaction']
         self.transaction = None
 
+        auth_header = {}
+        if 'username' in config and 'password' in config:
+            auth_header.update(
+                {StompSpec.LOGIN_HEADER: config['username'],
+                 StompSpec.PASSCODE_HEADER: config['password']})
+
         self.client = Stomp(StompConfig(self.host))
         try:
-            self.client.connect()
-        except error.StompConnectTimeout as e:
+            self.client.connect(headers=auth_header)
+        except (error.StompConnectTimeout, error.StompProtocolError) as e:
             raise ClientErrors.ConnectionError(
                 "Could not connect to broker: %s" % e)
 
