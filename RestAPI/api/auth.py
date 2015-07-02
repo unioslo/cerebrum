@@ -94,7 +94,6 @@ class Authentication(object):
         :return function:
             Returns a wrapped function.
         """
-        print 'require() auth_obj', auth_obj, 'auth_args', auth_args
         def wrap(function):
             def wrapped(*args, **kwargs):
                 resp = auth_obj.authenticate(*auth_args, **auth_kw)
