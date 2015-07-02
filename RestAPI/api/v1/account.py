@@ -18,11 +18,11 @@ class AccountResourceFields(object):
         'account_name': fields.base.String,
         'entity_id': fields.base.Integer(default=None),
         'owner_id': fields.base.Integer(default=None),
-        'owner_type': fields.EntityType,
-        'create_date': fields.DateTimeString,
-        'expire_date': fields.DateTimeString,
+        'owner_type': fields.Constant(ctype='EntityType'),
+        'create_date': fields.MXDateTime(dt_format='iso8601'),
+        'expire_date': fields.MXDateTime(dt_format='iso8601'),
         'creator_id': fields.base.Integer(default=None),
-        'spreads': fields.SpreadGet(attribute='get_spread'),
+        'spreads': fields.Spreads(attribute='get_spread'),
         'primary_email': fields.Call(attribute='get_primary_mailaddress'),
     }
 

@@ -7,27 +7,28 @@ from Cerebrum.Utils import Factory
 co = Factory.get('Constants')(db.connection)
 
 
-class EntityType(base.Raw):
-    """
-    Takes an entity_type int code, and returns the entity_type string value.
-    """
+class Constant(base.String):
+    def __init__(self, ctype=None):
+        super(Constant, self).__init__()
+        self.ctype = getattr(co, ctype)
+
     def format(self, code):
         return str(co.EntityType(code))
 
 
-class SpreadGet(base.Raw):
+class Spreads(base.Raw):
     def format(self, function):
         return [str(co.Spread(row['spread'])) for row in function()]
+
+
+class MXDateTime(base.DateTime):
+    def format(self, mxdatetime, **kwargs):
+        return super(MXDateTime, self).format(value=mxdatetime.pydatetime(), **kwargs)
 
 
 class SpreadList(base.Raw):
     def format(self, function):
         return marshal(function(), spread_fields)
-
-
-class DateTimeString(base.Raw):
-    def format(self, mxdatetime):
-        return mxdatetime.pydatetime().isoformat('T')
 
 
 class Call(base.Raw):
