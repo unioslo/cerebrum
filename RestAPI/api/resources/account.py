@@ -5,17 +5,6 @@ from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 
 
-account_fields = {
-    'account_name': fields.String,
-    'entity_id': fields.Integer(default=None),
-    'owner_id': fields.Integer(default=None),
-    'owner_type': fields.EntityType,
-    'create_date': fields.DateTimeString,
-    'expire_date': fields.DateTimeString,
-    'creator_id': fields.Integer(default=None),
-}
-
-
 class Account(Resource):
     def __init__(self):
         super(Account, self).__init__()
@@ -26,7 +15,7 @@ class Account(Resource):
         self.ac = Factory.get('Account')(db.connection)
 
     @auth.require()
-    @marshal_with(account_fields)
+    @marshal_with(fields.account_fields)
     def get(self):
         if self.args.name:
             lookup = self.ac.find_by_name
