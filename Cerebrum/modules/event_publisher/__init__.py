@@ -34,29 +34,9 @@ from Cerebrum.Util import Factory
 
 __version__ = '1.0'
 
-constants = Factory.get("Constants")()
-
-
-def change_type_to_message(change_type_code, subject, dest, change_params):
-    """Convert change type to message dicts."""
-    subject = Entity.get_subclassed_object(id=subject)
-    subjecttype = str(constants.EntityType(subject.entitiy_type))
-    if 'spread' in change_params:
-        system = str(constants.SpreadCode(change_params['spread']))
-    else:
-        system = None
-    return {
-        'category': change_type_code.category,
-        'change': change_type_code.type,
-        'system': system,
-        'subjectid': subject.entity_id,
-        'subjecttype': subjecttype,
-        'subject': subject,
-        'params': change_params,
-    }
-
 
 def get_client():
+    # TODO: Config
     from Cerebrum.modules.event_publisher.stomp_client import StompClient
     return StompClient({
         'host': 'tcp://127.0.0.1',
@@ -97,10 +77,10 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
         if skip_publish:
             return
 
-        data = change_type_to_message(change_type_id,
-                                      subject_entity,
-                                      destination_entity,
-                                      change_params)
+        data = self.__change_type_to_message(change_type_id,
+                                             subject_entity,
+                                             destination_entity,
+                                             change_params)
         # Conversion can discard data by returning false value
         if not data:
             return
@@ -169,6 +149,44 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
         ue = self.__get_unpublished_events()
         ue.add_events(self.__queue)
         self.__queue = []
+
+    def __change_type_to_message(self, change_type_code, subject,
+                                 dest, change_params):
+        """Convert change type to message dicts."""
+        constants = Factory.get("Constants")(self)
+        if change_params:
+            change_params = change_params.copy()
+        else:
+            change_params = dict()
+        if subject:
+            subjectid = subject
+            subject = Entity.get_subclassed_object(id=subject)
+            subjecttype = str(constants.EntityType(subject.entitiy_type))
+        else:
+            subjectid = subjecttype = None
+        if dest:
+            destid = dest
+            dest = Entity.get_subclassed_object(id=dest)
+            desttype = str(constants.EntityType(dest.entity_type))
+        else:
+            destid = desttype = None
+        if 'spread' in change_params:
+            system = str(constants.SpreadCode(change_params['spread']))
+            del change_params['spread']
+        else:
+            system = None
+        import Cerebrum.modules.event_publisher.converters as c
+        return c.filter_message({
+            'category': change_type_code.category,
+            'change': change_type_code.type,
+            'system': system,
+            'subjectid': subjectid,
+            'subjecttype': subjecttype,
+            'objectid': destid,
+            'objecttype': desttype,
+            'data': change_params,
+        },
+            subject, dest, change_type_code, self)
 
 
 class UnpublishedEvents(Cerebrum.DatabaseAccessor):
