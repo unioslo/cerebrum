@@ -21,6 +21,7 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.EmailLDAP import EmailLDAP
 
+import re
 
 class EmailLDAPUiAMixin(EmailLDAP):
     """Methods specific for UiA."""
@@ -50,8 +51,11 @@ class EmailLDAPUiAMixin(EmailLDAP):
             host = Factory.get("Host")(self._db)
             try:
                 host.find(server_id)
-                # TODO: tvl will fix the hard-coded hostname later
-                sdict["commandHost"] = host.name + ".uio.no"
+                # XXX Postmaster said this was sufficient for now
+                if re.search('test', host.name):
+                    sdict["commandHost"] = host.name + ".uio.no"
+                else:
+                    sdict["commandHost"] = host.name + ".uia.no"
             except Errors.NotFoundError:
                 pass
 
