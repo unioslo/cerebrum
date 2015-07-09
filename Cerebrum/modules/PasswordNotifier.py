@@ -154,10 +154,16 @@ class PasswordNotifier(object):
         Returns a set of account_id's for candidates.
         """
         from Cerebrum.modules import PasswordHistory
+        account = Utils.Factory.get("Account")(self.db)
         ph = PasswordHistory.PasswordHistory(self.db)
         old_ids = set([int(x['account_id']) for x in ph.find_old_password_accounts((self.today
             - self.config.max_password_age).strftime("%Y-%m-%d"))])
         old_ids.update(set([int(x['account_id']) for x in ph.find_no_history_accounts()]))
+        quarantined_ids = set([x['entity_id'] for x in account.list_entity_quarantines(
+                                                          entity_types=_c.Constants.entity_account,
+                                                          only_active=True,
+                                                          entity_ids=old_ids)])
+        old_ids = old_ids - quarantined_ids
         return old_ids
     # end get_old_account_ids
 
