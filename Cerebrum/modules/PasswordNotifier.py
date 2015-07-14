@@ -306,7 +306,7 @@ class PasswordNotifier(object):
             cl_acc = account.entity_id
         else:
             cl_acc = None
-        self.db.cl_init(cl_acc, self.config.change_log_program)
+        self.db.cl_init(change_by=cl_acc, change_program=self.config.change_log_program)
         for account_id in all_ids:
             account.clear()
             account.find(account_id)
