@@ -5,50 +5,164 @@ from flask_restful_swagger import swagger
 from Cerebrum import Errors
 from Cerebrum.modules import Email
 
-@swagger.model
-class EmailAddressResourceFields(object):
-    """
-    Data model for Cerebrum Email-addresses.
-    """
 
-    def __init__(self):
-        pass
+def find_email_address(address):
+    """Looks up an email address.
 
-    email_address_fields = {
-        'address_id': fields.base.Integer,
-        'local_part': fields.base.String,
-        'domain_id': fields.base.Integer,
-        'primary_address': fields.base.String
+    :param int/str address: Email address entity ID or FQDA
+    :rtype Email.EmailAddress:
+    :return: the email address object
+    """
+    ea = Email.EmailAddress(db.connection)
+    lookup = ea.find_by_address
+    if isinstance(address, (int, long)):
+        lookup = ea.find
+    try:
+        lookup(address)
+    except (Errors.NotFoundError, ValueError):
+        abort(404, message=u"No such email address {}".format(address))
+    return ea
+
+
+def get_email_domain(domain_id):
+    """Looks up a email domain by ID and builds a dictionary suitable for marshalling.
+
+    :param int: Email domain entity ID
+    :rtype: dict
+    :return: Email domain information
+    """
+    ed = Email.EmailDomain(db.connection)
+    ed.find(domain_id)
+    return {
+        'id': ed.entity_id,
+        'name': ed.email_domain_name,
+        'description': ed.email_domain_description,
     }
 
+
+def get_email_target(target_id):
+    """Looks up a email target by ID and builds a dictionary suitable for marshalling.
+
+    :param int: Email target entity ID
+    :rtype: dict
+    :return: Email target information
+    """
+    et = Email.EmailTarget(db.connection)
+    et.find(target_id)
+    return {
+        'id': et.entity_id,
+        'type': et.get_target_type(),
+        'entity': {
+            'id': et.get_target_entity_id(),
+            'type': et.get_target_entity_type(),
+        },
+    }
+
+
+def get_email_address(ea):
+    """Takes an email address by id/address/object and builds a dictionary
+    suitable for marshalling.
+
+    :param int/str/Email.EmailAddress: Email address
+    :rtype: dict
+    :return: Email address information
+    """
+    if not isinstance(ea, Email.EmailAddress):
+        ea = find_email_address(ea)
+    return {
+        'address': ea.get_address(),
+        'local_part': ea.get_localpart(),
+        'id': ea.entity_id,
+        'target': get_email_target(ea.get_target_id()),
+        'domain': get_email_domain(ea.get_domain_id()),
+    }
+
+
+@swagger.model
+class EmailDomain(object):
+    """Data model for an email domain."""
     resource_fields = {
-        'address_id': fields.base.Integer,
+        'id': fields.base.Integer,
+        'name': fields.base.String,
+        'description': fields.base.String,
+    }
+
+    swagger_metadata = {
+        'id': {'description': 'Domain entity ID'},
+        'name': {'description': 'Domain name'},
+        'description': {'description': 'Domain description'},
+    }
+
+
+@swagger.model
+class EmailTargetEntity(object):
+    """Data model for the targeted entity of an email target."""
+    resource_fields = {
+        'id': fields.base.Integer,
+        'type': fields.Constant(ctype='EntityType'),
+        'href': fields.UrlFromEntityType(absolute=True),
+    }
+
+    swagger_metadata = {
+        'id': {'description': 'Entity ID being targeted'},
+        'type': {'description': 'Type of entity being targeted'},
+        'href': {'description': 'URL to the resource being targeted'},
+    }
+
+
+@swagger.model
+@swagger.nested(
+    entity='EmailTargetEntity')
+class EmailTarget(object):
+    """Data model for an email target."""
+    resource_fields = {
+        'id': fields.base.Integer,
+        'type': fields.Constant(ctype='EmailTarget'),
+        'entity': fields.base.Nested(EmailTargetEntity.resource_fields),
+    }
+
+    swagger_metadata = {
+        'id': {'description': 'Email target entity ID'},
+        'type': {'description': 'Email target type'},
+        'entity': {'description': 'Entity being targeted'},
+    }
+
+
+@swagger.model
+@swagger.nested(
+    domain='EmailDomain',
+    target='EmailTarget')
+class EmailAddress(object):
+    """Data model for a single email address."""
+    resource_fields = {
         'address': fields.base.String,
-        'address_target_id': fields.base.Integer,
-        'all_addresses': fields.base.Nested(email_address_fields),
+        'local_part': fields.base.String,
+        'id': fields.base.Integer,
+        'domain': fields.base.Nested(EmailDomain.resource_fields),
+        'target': fields.base.Nested(EmailTarget.resource_fields),
+        'href': fields.UrlFromEntityType(endpoint='.emailaddress'),
+    }
+
+    swagger_metadata = {
+        'address': {'description': 'Fully qualified domain address (FQDA)'},
+        'local_part': {'description': 'The local part of the email address'},
+        'id': {'description': 'Email address entity ID'},
+        'domain': {'description': 'Email domain'},
+        'target': {'description': 'Email target'},
+        'href': {'description': 'URL to this resource'},
     }
 
 
 class EmailAddressResource(Resource):
-    """
-    Resource for email-addresses in Cerebrum.
-    """
-
-    def __init__(self):
-        super(EmailAddressResource, self).__init__()
-        self.reqparse = reqparse.RequestParser()
-        self.reqparse.add_argument('address', type=str)
-        self.args = self.reqparse.parse_args()
-        self.email_address = Email.EmailAddress(db.connection)
-
+    """Resource for a single email address."""
     @swagger.operation(
-        notes='Get email-address metadata',
+        notes='Get email address information',
         nickname='get',
-        responseClass=EmailAddressResourceFields,
+        responseClass=EmailAddress,
         parameters=[
             {
-                'name': 'email_address',
-                'description': 'The requested email-address',
+                'name': 'address',
+                'description': 'The email address',
                 'required': True,
                 'allowMultiple': False,
                 'dataType': 'string',
@@ -57,42 +171,11 @@ class EmailAddressResource(Resource):
         ]
     )
     @auth.require()
-    @marshal_with(EmailAddressResourceFields.resource_fields)
-    def get(self, email_address):
+    @marshal_with(EmailAddress.resource_fields)
+    def get(self, address):
+        """Returns email address information for a single address based on the EmailAddress model.
+
+        :param str address: The email address
+        :return: Information about the email address
         """
-        GET-function for EmailAddress-route. Will return a JSON with metadata according
-        to the model defined in EmailAddressResourceFields.
-
-        :param email_address: Email-address to query Cerebrum for related metadata.
-        :return: An object with metadata for the given email-address.
-        """
-
-        lookup = self.email_address.find_by_address
-        identifier = email_address
-
-        try:
-            lookup(identifier)
-        except Errors.NotFoundError:
-            abort(404, message=u"No such email address {}".format(identifier))
-
-        # Create and populate dict to be returned
-        data = dict()
-        data['address'] = self.email_address.get_address()
-        data['address_id'] = self.email_address.entity_id
-        data['address_target_id'] = self.email_address.get_target_id()
-        data['email_addr_domain_id'] = self.email_address.email_addr_domain_id
-
-        # Get all email-addresses for the target of this email-address
-        data['all_addresses'] = {}
-        all_addresses = self.email_address.list_target_addresses(self.email_address.get_target_id())
-
-        # Populate all addresses field
-        for address in all_addresses:
-            primary_address = 'false'
-            if address['address_id'] == self.email_address.entity_id:
-                primary_address = 'true'
-            data['all_addresses'] = [{'address_id': address['address_id'],
-                                      'local_part': address['local_part'],
-                                      'domain_id': address['domain_id'],
-                                      'primary_address': primary_address}]
-        return data
+        return get_email_address(address)

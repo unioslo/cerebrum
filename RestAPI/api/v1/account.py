@@ -1,47 +1,131 @@
-from flask.ext.restful import Resource, abort, marshal_with
+from flask.ext.restful import Resource, abort, marshal_with, reqparse
+from flask.ext.restful_swagger import swagger
 from api import db, auth, fields
-from flask_restful_swagger import swagger
 
-from Cerebrum.Utils import Factory
+import cereconf
 from Cerebrum import Errors
+from Cerebrum.Utils import Factory
+
+from Cerebrum.modules import Email
+import emailaddress
+
+import ou
+
+co = Factory.get('Constants')(db.connection)
 
 
-class NotFound(Exception):
+class NotFoundError(Exception):
     pass
 
 
-@swagger.model
-class AccountResourceFields(object):
-    """Data model for accounts"""
+def get_account_by_type(identifier, idtype=None, actype='Account'):
+    if actype == 'Account':
+        account = Factory.get('Account')(db.connection)
+    elif actype == 'PosixUser':
+        account = Factory.get('PosixUser')(db.connection)
 
-    account_types_fields = {
+    try:
+        if idtype == 'name':
+            account.find_by_name(identifier, co.account_namespace)
+        elif idtype == 'entity_id':
+            if isinstance(identifier, str) and not identifier.isdigit():
+                raise NotFoundError(u"entity_id must be a number")
+            account.find(identifier)
+        # elif idtype == 'posix_uid':
+        #     if isinstance(identifier, str) and not identifier.isdigit():
+        #         raise NotFound(u"posix_uid must be a number")
+        #     if actype != 'PosixUser':
+        #         account = Factory.get('PosixUser')(db.connection)
+        #         account.clear()
+        #     account.find_by_uid(id)
+        else:
+            raise NotFoundError(u"Invalid identifier type {}".format(idtype))
+    except Errors.NotFoundError:
+        raise NotFoundError(u"No such {} with {}={}".format(actype, idtype, identifier))
+
+    return account
+
+
+def get_account(name_or_id):
+    idtype = 'entity_id' if name_or_id.isdigit() else 'name'
+    try:
+        account = get_account_by_type(identifier=name_or_id, idtype=idtype, actype='PosixUser')
+    except NotFoundError:
+        account = get_account_by_type(identifier=name_or_id, idtype=idtype)
+
+    return account
+
+
+@swagger.model
+@swagger.nested(
+    ou='OU')
+class AccountAffiliation(object):
+    resource_fields = {
         'affiliation': fields.Constant(ctype='PersonAffiliation'),
         'priority': fields.base.Integer,
-        'ou_id': fields.base.Integer,
-    }
-
-    resource_fields = {
-        'account_name': fields.base.String,
-        'entity_id': fields.base.Integer(default=None),
-        'owner_id': fields.base.Integer(default=None),
-        'owner_type': fields.Constant(ctype='EntityType'),
-        'create_date': fields.MXDateTime(dt_format='iso8601'),
-        'expire_date': fields.MXDateTime(dt_format='iso8601'),
-        'creator_id': fields.base.Integer(default=None),
-        'spreads': fields.base.List(fields.base.String),
-        'primary_email': fields.base.String,
-        'affiliations': fields.base.List(fields.base.Nested(account_types_fields)),
-        'posix': fields.base.Boolean(),
-        'posix_uid': fields.base.Integer(default=None),
-        'posix_shell': fields.Constant(ctype='PosixShell'),
-        'deleted': fields.base.Boolean(),
+        'ou': fields.base.Nested(fields.OU.resource_fields),
     }
 
     swagger_metadata = {
-        'account_name': {'description': 'Account name', },
-        'entity_id': {'description': 'Entity ID', },
-        'owner_id': {'description': 'Owner entity ID', },
-        'owner_type': {'description': 'Type of owner', },
+        'affiliation': {'description': 'Affiliation name'},
+        'priority': {'description': 'Affiliation priority'},
+        'ou': {'description': 'Organizational unit'},
+    }
+
+
+@swagger.model
+class AccountHome(object):
+    resource_fields = {
+        'homedir_id': fields.base.Integer,
+        'home': fields.base.String,
+        'system': fields.Constant(ctype='Spread', attribute='spread'),
+        #'spread': fields.Constant(ctype='Spread'),
+        'status': fields.Constant(ctype='AccountHomeStatus'),
+        'disk_id': fields.base.Integer,
+    }
+
+    swagger_metadata = {
+        'homedir_id': {'description': 'Home directory entity ID'},
+        'home': {'description': 'Home directory path'},
+        'system': {'description': ''},
+        'status': {'description': 'Home status'},
+        'disk_id': {'description': 'Disk entity ID'},
+    }
+
+
+@swagger.model
+@swagger.nested(
+    owner='EntityOwner',
+    affiliations='AccountAffiliation',
+    homes='AccountHome',
+    contact='fields.EntityContactInfo')
+class Account(object):
+    """Data model for a single account."""
+
+    resource_fields = {
+        'href': fields.base.Url('.account', absolute=True),
+        'name': fields.base.String,
+        'id': fields.base.Integer(default=None),
+        'owner': fields.base.Nested(fields.EntityOwner.resource_fields),
+        'create_date': fields.DateTime(dt_format='iso8601'),
+        'expire_date': fields.DateTime(dt_format='iso8601'),
+        'creator_id': fields.base.Integer(default=None),
+        'spreads': fields.base.List(fields.Constant(ctype='Spread')),
+        'primary_email': fields.base.String,
+        'affiliations': fields.base.List(fields.base.Nested(AccountAffiliation.resource_fields)),
+        'posix': fields.base.Boolean,
+        'posix_uid': fields.base.Integer(default=None),
+        'posix_shell': fields.Constant(ctype='PosixShell'),
+        'deleted': fields.base.Boolean,
+        'quarantine_status': fields.base.String,
+        'homes': fields.base.List(fields.base.Nested(AccountHome.resource_fields)),
+        'contact': fields.base.List(fields.base.Nested(fields.EntityContactInfo.resource_fields)),
+    }
+
+    swagger_metadata = {
+        'name': {'description': 'Account name', },
+        'id': {'description': 'Entity ID', },
+        'owner': {'description': 'Entity owner'},
         'create_date': {'description': 'Date of account creation', },
         'expire_date': {'description': 'Expiration date', },
         'creator_id': {'description': 'Account creator entity ID', },
@@ -52,106 +136,66 @@ class AccountResourceFields(object):
         'posix_uid': {'description': 'POSIX UID', },
         'posix_shell': {'description': 'POSIX shell', },
         'deleted': {'description': 'Is this account deleted?', },
+        'quarantine_status': {'description': 'Quarantine status', },
     }
 
 
 class AccountResource(Resource):
-    """
-    Resource for accounts in Cerebrum.
-    """
-    def __init__(self):
-        super(AccountResource, self).__init__()
-        self.ac = Factory.get('Account')(db.connection)
-        self.co = Factory.get('Constants')(db.connection)
-
-    def _get_account(self, identifier, idtype=None, actype='Account'):
-        if actype == 'Account':
-            account = Factory.get('Account')(db.connection)
-        elif actype == 'PosixUser':
-            account = Factory.get('PosixUser')(db.connection)
-
-        try:
-            if idtype == 'name':
-                account.find_by_name(identifier, self.co.account_namespace)
-            elif idtype == 'entity_id':
-                if isinstance(identifier, str) and not identifier.isdigit():
-                    raise NotFound(u"entity_id must be a number")
-                account.find(identifier)
-            elif idtype == 'uid':
-                if isinstance(identifier, str) and not identifier.isdigit():
-                    raise NotFound(u"uid must be a number")
-                if actype != 'PosixUser':
-                    account = Factory.get('PosixUser')(db.connection)
-                    account.clear()
-                account.find_by_uid(id)
-            else:
-                raise NotFound(u"Invalid identifier type {}".format(idtype))
-        except Errors.NotFoundError:
-            raise NotFound(u"No such {} with {}={}".format(actype, idtype, identifier))
-        return account
-
+    """Resource for a single account."""
     @swagger.operation(
-        notes='get account information',
+        notes='Get account information',
         nickname='get',
-        responseClass=AccountResourceFields,
+        responseClass='Account',
         parameters=[
             {
-                'name': 'idtype',
-                'description': 'The identifier type to use when looking up an account. \
-                                Valid values are: name, entity_id, uid',
+                'name': 'id',
+                'description': 'Account name or ID',
                 'required': True,
                 'allowMultiple': False,
                 'dataType': 'string',
                 'paramType': 'path'
             },
-            {
-                'name': 'identifier',
-                'description': 'Account name, entity ID or POSIX UID for account, \
-                               depending on the chosen identifier type.',
-                'required': True,
-                'allowMultiple': False,
-                'dataType': 'string',
-                'paramType': 'path'
-            }
         ]
     )
     @auth.require()
-    @marshal_with(AccountResourceFields.resource_fields)
-    def get(self, idtype, identifier):
-        """Returns account information based on the model in AccountResourceFields.
+    @marshal_with(Account.resource_fields)
+    def get(self, id):
+        """Returns account information for a single account based on the Account model.
 
-        :param str idtype: identifier type: 'name', 'entity_id' or 'uid'
-        :param str identifier: the name, entity_id or uid
-
-        :rtype: dict
-        :return: information about the account
+        :param str name_or_id: The account name or account ID
+        :return: Information about the account
         """
-
-        is_posix = False
         try:
-            ac = self._get_account(idtype=idtype, identifier=identifier, actype="PosixUser")
-            is_posix = True
-        except NotFound:
-            try:
-                ac = self._get_account(idtype=idtype, identifier=identifier)
-            except NotFound as e:
-                abort(404, message=str(e))
+            ac = get_account(id)
+        except utils.NotFoundError as e:
+            abort(404, message=str(e))
+
 
         data = {
-            'account_name': ac.account_name,
-            'entity_id': ac.entity_id,
-            'owner_id': ac.owner_id,
-            'owner_type': ac.owner_type,
+            'name': ac.account_name,
+            'id': ac.entity_id,
+            'owner': {
+                'id': ac.owner_id,
+                'type': ac.owner_type,
+            },
             'create_date': ac.create_date,
             'expire_date': ac.expire_date,
             'creator_id': ac.creator_id,
-            'spreads': [str(self.co.Spread(row['spread'])) for row in ac.get_spread()],
+            'spreads': [row['spread'] for row in ac.get_spread()],
             'primary_email': ac.get_primary_mailaddress(),
-            'affiliations': ac.get_account_types(),
-            'posix': is_posix,
             'deleted': ac.is_deleted(),
+            'contact': ac.get_contact_info(),
         }
 
+        # Affiliations
+        for aff in ac.get_account_types():
+            aff = dict(aff)
+            aff['ou'] = {'id': aff.pop('ou_id', None), }
+            data.setdefault('affiliations', []).append(aff)
+
+        # POSIX information
+        is_posix = hasattr(ac, 'posix_uid')
+        data['posix'] = is_posix
         if is_posix:
             #group = self._get_group(account.gid_id, idtype='id', grtype='PosixGroup')
             data.update({
@@ -162,9 +206,201 @@ class AccountResource(Resource):
                 'posix_shell': ac.shell,
             })
 
-        # missing fields:
-        # home dir + status
-        # disk quota?
-        # quarantines / quarantine status
+        # Home directories
+        for home in ac.get_homes():
+            if home['home'] or home['disk_id']:
+                home['home'] = ac.resolve_homedir(disk_id=home['disk_id'], home=home['home'])
+            data.setdefault('homes', []).append(home)
+
+        # Quarantines
+        quarantined = None
+        from mx import DateTime
+        now = DateTime.now()
+        for q in ac.get_entity_quarantine():
+            if q['start_date'] <= now:
+                if (q['end_date'] is not None and
+                    q['end_date'] < now):
+                    quarantined = 'expired'
+                elif (q['disable_until'] is not None and
+                    q['disable_until'] > now):
+                    quarantined = 'disabled'
+                else:
+                    quarantined = 'active'
+                    break
+            else:
+                quarantined = 'pending'
+        if quarantined:
+            data['quarantine_status'] = quarantined
 
         return data
+
+
+@swagger.model
+@swagger.nested(
+    addresses='EmailAddress')
+class AccountEmailAddress(object):
+    resource_fields = {
+        'primary': fields.base.String,
+        'addresses': fields.base.Nested(emailaddress.EmailAddress.resource_fields),
+    }
+
+    swagger_metadata = {
+        'primary': {'description': 'Primary email address for this account'},
+        'addresses': {'description': 'All addresses targeting this account'},
+    }
+
+
+class AccountEmailAddressResource(Resource):
+    """Resource for the email addresses of a single account."""
+    @swagger.operation(
+        notes='Get the email addresses of an account',
+        nickname='get',
+        responseClass=AccountEmailAddress,
+        parameters=[
+            {
+                'name': 'id',
+                'description': 'Account name or ID',
+                'required': True,
+                'allowMultiple': False,
+                'dataType': 'string',
+                'paramType': 'path'
+            },
+        ]
+    )
+    @auth.require()
+    @marshal_with(AccountEmailAddress.resource_fields)
+    def get(self, id):
+        """Returns the email addresses for a single account based on the EmailAddress model.
+
+        :param str id: The account name or account ID
+        :return: Information about the email addresses
+        """
+        try:
+            ac = get_account(id)
+        except utils.NotFoundError as e:
+            abort(404, message=str(e))
+
+        ea = Email.EmailAddress(db.connection)
+        et = Email.EmailTarget(db.connection)
+        et.find_by_target_entity(ac.entity_id)
+        target_addresses = ea.list_target_addresses(et.entity_id)
+        addresses = [emailaddress.get_email_address(a['address_id']) for a in target_addresses]
+        return {
+            'primary': ac.get_primary_mailaddress(),
+            'addresses': addresses,
+        }
+
+
+@swagger.model
+@swagger.nested(
+    owner='EntityOwner')
+class AccountListItem(object):
+    """Data model for an account in a list."""
+    resource_fields = {
+        'href': fields.base.Url('.account', absolute=True),
+        'name': fields.base.String,
+        'id': fields.base.Integer(default=None, attribute='account_id'),
+        'owner': fields.base.Nested(fields.EntityOwner.resource_fields),
+        'expire_date': fields.DateTime(dt_format='iso8601'),
+        'np_type': fields.Constant(ctype='Account'),
+    }
+
+    swagger_metadata = {
+        'href': {'description': 'Account URI'},
+        'name': {'description': 'Account name'},
+        'id': {'description': 'Account entity ID'},
+        'owner': {'description': 'Account owner'},
+        'expire_date': {'description': 'Expiration date'},
+        'np_type': {'description': 'Non-personal account type, null if personal'},
+    }
+
+
+@swagger.model
+@swagger.nested(
+    accounts='AccountListItem')
+class AccountList(object):
+    """Data model for a list of accounts"""
+    resource_fields = {
+        'accounts': fields.base.List(fields.base.Nested(AccountListItem.resource_fields)),
+    }
+
+    swagger_metadata = {
+        'accounts': {'description': 'List of accounts'},
+    }
+
+
+class AccountListResource(Resource):
+    """Resource for list of accounts."""
+    @swagger.operation(
+        notes='Get a list of accounts',
+        nickname='get',
+        responseClass=AccountList.__name__,
+        parameters=[
+            {
+                'name': 'name',
+                'description': 'Filter by account name. Accepts * and ? as wildcards.',
+                'required': False,
+                'allowMultiple': False,
+                'dataType': 'str',
+                'paramType': 'query'
+            },
+            {
+                'name': 'spread',
+                'description': 'Filter by spread. Accepts * and ? as wildcards.',
+                'required': False,
+                'allowMultiple': False,
+                'dataType': 'str',
+                'paramType': 'query'
+            },
+            {
+                'name': 'owner_id',
+                'description': 'Filter by owner entity ID.',
+                'required': False,
+                'allowMultiple': False,
+                'dataType': 'int',
+                'paramType': 'query'
+            },
+            {
+                'name': 'owner_type',
+                'description': 'Filter by owner entity type.',
+                'required': False,
+                'allowMultiple': False,
+                'dataType': 'str',
+                'paramType': 'query'
+            },
+        ],
+    )
+    @auth.require()
+    @marshal_with(AccountList.resource_fields)
+    def get(self):
+        """Returns a list of accounts based on the model in AccountListResourceFields.
+
+        :param str name_or_id: the account name or account ID
+
+        :rtype: list
+        :return: a list of accounts
+        """
+        parser = reqparse.RequestParser()
+        parser.add_argument('name', type=str)
+        parser.add_argument('spread', type=str)
+        parser.add_argument('owner_id', type=int)
+        parser.add_argument('owner_type', type=str)
+        parser.add_argument('expire_start', type=str)
+        parser.add_argument('expire_stop', type=str)
+        args = parser.parse_args()
+        filters = {key: value for (key, value) in args.items() if value is not None}
+
+        ac = Factory.get('Account')(db.connection)
+
+        accounts = list()
+        for row in ac.search(**filters):
+            account = dict(row)
+            account.update({
+                'id': account['name'],
+                'owner': {
+                    'id': account['owner_id'],
+                    'type': account['owner_type'],
+                }
+            })
+            accounts.append(account)
+        return {'accounts': accounts}
