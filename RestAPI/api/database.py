@@ -13,7 +13,7 @@ class Database(object):
         app.teardown_appcontext(self.teardown)
 
     def connect(self):
-        return Factory.get('Database')()
+        return Factory.get('Database')(client_encoding='UTF-8')
 
     def teardown(self, exception):
         """Closes the database connection at the end of the request."""
@@ -28,7 +28,5 @@ class Database(object):
         ctx = stack.top
         if ctx is not None:
             if not hasattr(ctx, 'db'):
-                print 'New database connection'
                 ctx.db = self.connect()
-            print 'Returning database', ctx.db
             return ctx.db
