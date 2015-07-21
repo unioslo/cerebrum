@@ -35,8 +35,23 @@ from Cerebrum.Util import Factory
 __version__ = '1.0'
 
 
+class MockClient(object):
+    def __init__(self):
+        self.transactions_enabled = False
+
+    def publish(self, payload):
+        print "Publishing: %s" % payload
+
+    def rollback(self):
+        print "Rolling back"
+
+    def commit(self):
+        print "Commiting"
+
+
 def get_client():
     # TODO: Config
+    return MockClient()
     from Cerebrum.modules.event_publisher.stomp_client import StompClient
     return StompClient({
         'host': 'tcp://127.0.0.1',
