@@ -102,13 +102,14 @@ def filter_message(msg, subject, dest, change_type, db):
     return msg
 
 
-# Holds the mapping of names.
+# Holds the mapping of names, as registred by dispatch().
 def _identity(msg, *args):
     return msg
 _dispatch = defaultdict(lambda: _identity)
 
 
 def dispatch(cat, change=None):
+    """Wrapper registers transform-functions to change-types."""
     def _fix(fn):
         _dispatch['%s:%s' % (cat, change) if change else cat] = fn
         return fn
