@@ -181,11 +181,12 @@ def password_token(*args):
 
 
 @dispatch('e_account', 'create')
-def account_create(*args):
+def account_create(msg, *args):
     """account create (by write_db)
     attributes other than _auth_info, _acc_affect_auth_types, password
     """
-    return None
+    # TODO: Fix docstring
+    return msg
 
 
 @dispatch('e_account', 'mod')
