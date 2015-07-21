@@ -610,7 +610,7 @@ class Cursor(object):
 
     def acquire_lock(self, table=None, mode='exclusive'):
         """
-        Aquire a lock for some table.
+        acquire a lock for some table.
 
         Locking is not a standard sql feature, but some
         providers have locking. If not implemented, locking
@@ -630,7 +630,7 @@ class Cursor(object):
 class Lock(object):
     """Driver-independent class for locking. Default: No locking"""
     def __init__(self, mode='exclusive', **kws):
-        self.aquire(mode)
+        self.acquire(mode)
 
     def __enter__(self):
         return self
@@ -654,10 +654,10 @@ class OraPgLock(Lock):
     lock_stmt = "LOCK TABLE %s IN %s MODE"
 
     def __init__(self, cursor=None, table=None, **kws):
-        """Init will aquire a lock."""
+        """Init will acquire a lock."""
         self.cursor = cursor
         self.table = table
-        super(self, OraPgLock).__init__(**kws)
+        super(OraPgLock, self).__init__(**kws)
 
     def acquire(self, mode):
         self.cursor.execute(OraPgLock.lock_stmt % (self.table, mode))
