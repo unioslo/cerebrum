@@ -29,8 +29,7 @@ import json
 
 import Cerebrum.ChangeLog
 import Cerebrum.DatabaseAccessor
-from Cerebrum.Entity import Entity
-from Cerebrum.Util import Factory
+from Cerebrum.Utils import Factory
 
 __version__ = '1.0'
 
@@ -139,7 +138,8 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
 
     def __get_unpublished_events(self):
         if not self.__unpublished_events:
-            self.__unpublished_events = UnpublishedEvents(self)
+            db = Factory.get('Database')()
+            self.__unpublished_events = UnpublishedEvents(db)
         return self.__unpublished_events
 
     def __try_send_messages(self):
@@ -157,7 +157,7 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
         except Exception as e:
             Factory.get_logger("cronjob") \
                 .error("Could not write message: %s", e)
-            self.__save_queue
+            self.__save_queue()
 
     def __save_queue(self):
         """Save queue to event queue"""
@@ -168,20 +168,22 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
     def __change_type_to_message(self, change_type_code, subject,
                                  dest, change_params):
         """Convert change type to message dicts."""
-        constants = Factory.get("Constants")(self)
+        database = Factory.get("Database")()
+        constants = Factory.get("Constants")(database)
+        entity = Factory.get("Entity")(database)
         if change_params:
             change_params = change_params.copy()
         else:
             change_params = dict()
         if subject:
             subjectid = subject
-            subject = Entity.get_subclassed_object(id=subject)
-            subjecttype = str(constants.EntityType(subject.entitiy_type))
+            subject = entity.get_subclassed_object(id=subject)
+            subjecttype = str(constants.EntityType(subject.entity_type))
         else:
             subjectid = subjecttype = None
         if dest:
             destid = dest
-            dest = Entity.get_subclassed_object(id=dest)
+            dest = entity.get_subclassed_object(id=dest)
             desttype = str(constants.EntityType(dest.entity_type))
         else:
             destid = desttype = None
@@ -201,10 +203,10 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
             'objecttype': desttype,
             'data': change_params,
         },
-            subject, dest, change_type_code, self)
+            subject, dest, change_type_code, database)
 
 
-class UnpublishedEvents(Cerebrum.DatabaseAccessor):
+class UnpublishedEvents(Cerebrum.DatabaseAccessor.DatabaseAccessor):
     """
     Events that could not be published due to …
 
@@ -212,7 +214,7 @@ class UnpublishedEvents(Cerebrum.DatabaseAccessor):
     it can be sent.
     """
     def __init__(self, database):
-        super(self, UnpublishedEvents).__init__(self, database)
+        super(UnpublishedEvents, self).__init__(database)
         self._lock = None
 
     def _acquire_lock(self, lock=True):

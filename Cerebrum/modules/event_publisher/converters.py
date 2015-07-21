@@ -94,16 +94,17 @@ def filter_message(msg, subject, dest, change_type, db):
     category, change = msg['category'], msg['change']
     msg = _dispatch[category](msg, subject, dest, change_type, db)
     if msg:
-        msg = _dispatch['%s:%s' % category, change](msg,
-                                                    subject,
-                                                    dest,
-                                                    change_type,
-                                                    db)
+        msg = _dispatch['%s:%s' % (category, change)](msg,
+                                                      subject,
+                                                      dest,
+                                                      change_type,
+                                                      db)
     return msg
 
 
 # Holds the mapping of names.
-def _identity(msg, *args): msg
+def _identity(msg, *args):
+    return msg
 _dispatch = defaultdict(lambda: _identity)
 
 
@@ -111,6 +112,8 @@ def dispatch(cat, change=None):
     def _fix(fn):
         _dispatch['%s:%s' % (cat, change) if change else cat] = fn
         return fn
+    return _fix
+
 
 
 """
@@ -189,7 +192,7 @@ def account_mod(msg, *kws):
     """account mod (by write_db)
     attributes that have been changed
     """
-
+    return msg
 
 """
 
