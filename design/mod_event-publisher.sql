@@ -42,9 +42,10 @@ CREATE TABLE unpublished_events
                   NOT NULL,
   eventid         NUMERIC(12,0)
                   NOT NULL
-                  CONSTRAINT change_id_pk PRIMARY KEY,
-  message         CHAR VARYING(4000),
+                  CONSTRAINT event_id_pk PRIMARY KEY,
+  message         TEXT
 );
+
 category:main;
 CREATE INDEX eventpubl_id_by_idx ON unpublished_events(eventid);
 
