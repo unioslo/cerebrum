@@ -1,5 +1,5 @@
 from flask.ext.restful import Resource, abort, marshal_with
-from api import db, auth, fields
+from api import db, auth, fields, utils
 from flask_restful_swagger import swagger
 
 import cereconf
@@ -8,11 +8,13 @@ from Cerebrum import Errors
 
 
 @swagger.model
+@swagger.nested(
+    ou='OU')
 class PersonAffiliation(object):
     resource_fields = {
         'affiliation': fields.Constant(ctype='PersonAffiliation'),
         'status': fields.Constant(ctype='PersonAffStatus'),
-        'ou_id': fields.base.Integer,
+        'ou': fields.base.Nested(fields.OU.resource_fields),
         'create_date': fields.DateTime(dt_format='iso8601'),
         'last_date': fields.DateTime(dt_format='iso8601'),
         'deleted_date': fields.DateTime(dt_format='iso8601'),
@@ -22,7 +24,7 @@ class PersonAffiliation(object):
     swagger_metadata = {
         'affiliation': {'description': 'Affiliation type'},
         'status': {'description': 'Affiliation status'},
-        'ou_id': {'description': 'OU entity ID'},
+        'ou': {'description': 'Organizational unit'},
         'create_date': {'description': 'Creation date'},
         'last_date': {'description': 'Last seen in source system'},
         'deleted_date': {'description': 'Deletion date'},
@@ -33,17 +35,26 @@ class PersonAffiliation(object):
 @swagger.model
 class PersonName(object):
     resource_fields = {
-        #'person_id': fields.base.Integer,
         'source_system': fields.Constant(ctype='AuthoritativeSystem'),
         'variant': fields.Constant(ctype='PersonName', attribute='name_variant'),
         'name': fields.base.String,
     }
 
     swagger_metadata = {
-        #'person_id': {'description': 'Person entity ID'},
         'source_system': {'description': 'Source system'},
         'variant': {'description': 'Name variant'},
         'name': {'description': 'Name'},
+    }
+
+
+@swagger.model
+class PersonAccount(object):
+    resource_fields = {
+        'href': fields.UrlFromEntityType(absolute=True),
+        'id': fields.base.Integer(attribute='account_id'),
+        'name': fields.base.String,
+        'type': fields.Constant(ctype='EntityType'),
+        'primary': fields.base.Boolean,
     }
 
 
@@ -52,7 +63,8 @@ class PersonName(object):
     affiliations='PersonAffiliation',
     names='PersonName',
     external_ids='EntityExternalId',
-    contact='EntityContactInfo')
+    contact='EntityContactInfo',
+    accounts='PersonAccount')
 class Person(object):
     """Data model for a single person"""
     resource_fields = {
@@ -60,7 +72,7 @@ class Person(object):
         'id': fields.base.Integer(default=None),
         'birth_date': fields.DateTime(dt_format='iso8601'),
         'names': fields.base.List(fields.base.Nested(PersonName.resource_fields)),
-        'primary_account': fields.base.String,
+        'accounts': fields.base.List(fields.base.Nested(PersonAccount.resource_fields)),
         'spreads': fields.base.List(fields.Constant(ctype='Spread')),
         'affiliations': fields.base.List(fields.base.Nested(PersonAffiliation.resource_fields)),
         'contact': fields.base.List(fields.base.Nested(fields.EntityContactInfo.resource_fields)),
@@ -82,10 +94,6 @@ class Person(object):
 
 class PersonResource(Resource):
     """Resource for a single person."""
-    def __init__(self):
-        super(PersonResource, self).__init__()
-        self.co = Factory.get('Constants')(db.connection)
-
     @swagger.operation(
         notes='Get person information',
         nickname='get',
@@ -111,21 +119,39 @@ class PersonResource(Resource):
         :rtype: dict
         :return: information about the person
         """
-
         pe = Factory.get('Person')(db.connection)
         try:
             pe.find(id)
         except Errors.NotFoundError:
             abort(404, message=u"No such person with entity_id={}".format(id))
 
+        co = Factory.get('Constants')(db.connection)
+
         data = {
             'id': pe.entity_id,
-            'affiliations': pe.get_affiliations(),
             'spreads': [row['spread'] for row in pe.get_spread()],
             'birth_date': pe.birth_date,
             'contact': pe.get_contact_info(),
             'names': pe.get_all_names(),
             'external_ids': pe.get_external_id(),
         }
+
+        # Accounts
+        primary_account_id = pe.get_primary_account()
+        for row in pe.get_accounts():
+            account_name = utils.get_entity_name(row['account_id'])
+            data.setdefault('accounts', []).append({
+                'account_id': row['account_id'],
+                'id': account_name,
+                'type': co.entity_account,
+                'name': account_name,
+                'primary': (row['account_id'] == primary_account_id),
+            })
+
+        # Affiliations
+        for row in pe.get_affiliations():
+            aff = dict(row)
+            aff['ou'] = {'id': aff.pop('ou_id', None), }
+            data.setdefault('affiliations', []).append(aff)
 
         return data
