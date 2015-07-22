@@ -16,6 +16,7 @@ import api.v1
 def create_app(config):
     app = Flask(__name__)
     app.config.from_object(config)
+    app.config['RESTFUL_JSON'] = {'ensure_ascii': False, 'encoding': 'utf-8'}
     app.wsgi_app = ProxyFix(app.wsgi_app)
 
     app.register_blueprint(api.v1.blueprint, url_prefix='/v1')
@@ -35,6 +36,6 @@ def create_app(config):
         def teardown_request(exception=None):
             diff = time.time() - g.start
             millis = int(round(diff * 1000))
-            print request.full_path, 'Spent', millis, 'ms'
+            print 'Spent', millis, 'ms serving', request.full_path
 
     return app
