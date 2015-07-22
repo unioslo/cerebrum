@@ -35,17 +35,18 @@ __version__ = '1.0'
 
 
 class MockClient(object):
-    def __init__(self):
+    def __init__(self, config):
         self.transactions_enabled = False
+        self.logger = Factory.get_logger("cronjob")
 
     def publish(self, payload):
-        print "Publishing: %s" % payload
+        self.logger.info("Publishing: %s", payload)
 
     def rollback(self):
-        print "Rolling back"
+        self.logger.info("Rolling back")
 
     def commit(self):
-        print "Commiting"
+        self.logger.info("Commiting")
 
 
 def get_client():
