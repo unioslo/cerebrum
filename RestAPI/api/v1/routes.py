@@ -1,6 +1,7 @@
 from . import api
 from authtest import AuthTest
 from account import AccountListResource, AccountResource, AccountEmailAddressResource
+from group import GroupListResource, GroupResource, GroupMemberListResource
 from person import PersonResource
 from emailaddress import EmailAddressResource
 from ou import OrganizationalUnitResource
@@ -21,6 +22,21 @@ api.add_resource(
     AccountEmailAddressResource,
     '/accounts/<string:id>/emailaddresses',
     endpoint='accountemailaddresses')
+
+api.add_resource(
+    GroupListResource,
+    '/groups',
+    endpoint='groups')
+
+api.add_resource(
+    GroupResource,
+    '/groups/<string:id>',
+    endpoint='group')
+
+api.add_resource(
+    GroupMemberListResource,
+    '/groups/<string:id>/members',
+    endpoint='groupmembers')
 
 api.add_resource(
     PersonResource,
