@@ -146,3 +146,33 @@ def get_entity_name(entity):
     elif entity.entity_type == co.entity_group:
         name = entity.group_name
     return name
+
+
+# Used to find auth role owners. Should probably be moved somewhere else.
+# For example (entity_id=group_id, target_type='group') will find group moderators.
+def get_auth_owners(entity, target_type):
+    aot = BofhdAuthOpTarget(db.connection)
+    ar = BofhdAuthRole(db.connection)
+    aos = BofhdAuthOpSet(db.connection)
+    targets = []
+    for row in aot.list(target_type=target_type, entity_id=entity.entity_id):
+        targets.append(int(row['op_target_id']))
+
+    data = []
+    for row in ar.list_owners(targets):
+        print dict(row)
+        aos.clear()
+        aos.find(row['op_set_id'])
+        entity_id = int(row['entity_id'])
+        en = get_entity(identifier=entity_id)
+        if en.entity_type == co.entity_account:
+            owner_id = en.account_name
+        elif en.entity_type == co.entity_group:
+            owner_id = en.group_name
+        else:
+            owner_id = entity_id
+        data.append({
+            'type': en.entity_type,
+            'owner_id': owner_id,
+            'operation_name': aos.name
+        })
