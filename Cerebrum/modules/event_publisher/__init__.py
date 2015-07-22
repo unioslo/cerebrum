@@ -50,14 +50,15 @@ class MockClient(object):
 
 
 def get_client():
-    # TODO: Config
-    return MockClient()
-    from Cerebrum.modules.event_publisher.stomp_client import StompClient
-    return StompClient({
-        'host': 'tcp://127.0.0.1',
-        'queue': '/queue/test',
-        'transaction': True
-    })
+    """Instantiate publishing client.
+
+    Instantiated trough the defined config."""
+    from Cerebrum.config import get_config
+    from Cerebrum.Utils import dyn_import
+    conf = get_config(__name__.split('.')[-1])
+    (mod_name, class_name) = conf.client.split('/', 1)
+    client = getattr(dyn_import(mod_name), class_name)
+    return client(conf)
 
 
 class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
