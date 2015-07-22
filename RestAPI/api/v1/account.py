@@ -1,6 +1,6 @@
 from flask.ext.restful import Resource, abort, marshal_with, reqparse
 from flask.ext.restful_swagger import swagger
-from api import db, auth, fields
+from api import db, auth, fields, utils
 
 import cereconf
 from Cerebrum import Errors
@@ -14,45 +14,15 @@ import ou
 co = Factory.get('Constants')(db.connection)
 
 
-class NotFoundError(Exception):
-    pass
-
-
-def get_account_by_type(identifier, idtype=None, actype='Account'):
-    if actype == 'Account':
-        account = Factory.get('Account')(db.connection)
-    elif actype == 'PosixUser':
-        account = Factory.get('PosixUser')(db.connection)
-
+def find_account(identifier):
+    idtype = 'entity_id' if identifier.isdigit() else 'name'
     try:
-        if idtype == 'name':
-            account.find_by_name(identifier, co.account_namespace)
-        elif idtype == 'entity_id':
-            if isinstance(identifier, str) and not identifier.isdigit():
-                raise NotFoundError(u"entity_id must be a number")
-            account.find(identifier)
-        # elif idtype == 'posix_uid':
-        #     if isinstance(identifier, str) and not identifier.isdigit():
-        #         raise NotFound(u"posix_uid must be a number")
-        #     if actype != 'PosixUser':
-        #         account = Factory.get('PosixUser')(db.connection)
-        #         account.clear()
-        #     account.find_by_uid(id)
-        else:
-            raise NotFoundError(u"Invalid identifier type {}".format(idtype))
-    except Errors.NotFoundError:
-        raise NotFoundError(u"No such {} with {}={}".format(actype, idtype, identifier))
-
-    return account
-
-
-def get_account(name_or_id):
-    idtype = 'entity_id' if name_or_id.isdigit() else 'name'
-    try:
-        account = get_account_by_type(identifier=name_or_id, idtype=idtype, actype='PosixUser')
-    except NotFoundError:
-        account = get_account_by_type(identifier=name_or_id, idtype=idtype)
-
+        try:
+            account = utils.get_account(identifier=identifier, idtype=idtype, actype='PosixUser')
+        except utils.EntityLookupError:
+            account = utils.get_account(identifier=identifier, idtype=idtype)
+    except utils.EntityLookupError as e:
+        abort(404, message=str(e))
     return account
 
 
@@ -79,7 +49,6 @@ class AccountHome(object):
         'homedir_id': fields.base.Integer,
         'home': fields.base.String,
         'system': fields.Constant(ctype='Spread', attribute='spread'),
-        #'spread': fields.Constant(ctype='Spread'),
         'status': fields.Constant(ctype='AccountHomeStatus'),
         'disk_id': fields.base.Integer,
     }
@@ -110,7 +79,7 @@ class Account(object):
         'create_date': fields.DateTime(dt_format='iso8601'),
         'expire_date': fields.DateTime(dt_format='iso8601'),
         'creator_id': fields.base.Integer(default=None),
-        'spreads': fields.base.List(fields.Constant(ctype='Spread')),
+        'systems': fields.base.List(fields.Constant(ctype='Spread')),
         'primary_email': fields.base.String,
         'affiliations': fields.base.List(fields.base.Nested(AccountAffiliation.resource_fields)),
         'posix': fields.base.Boolean,
@@ -123,13 +92,14 @@ class Account(object):
     }
 
     swagger_metadata = {
+        'href': {'description': 'URL to this resource'},
         'name': {'description': 'Account name', },
         'id': {'description': 'Entity ID', },
         'owner': {'description': 'Entity owner'},
         'create_date': {'description': 'Date of account creation', },
         'expire_date': {'description': 'Expiration date', },
         'creator_id': {'description': 'Account creator entity ID', },
-        'spreads': {'description': '', },
+        'systems': {'description': 'Visible to these systems', },
         'primary_email': {'description': 'Primary email address', },
         'affiliations': {'description': 'Account affiliations', },
         'posix': {'description': 'Is this a POSIX account?', },
@@ -137,6 +107,8 @@ class Account(object):
         'posix_shell': {'description': 'POSIX shell', },
         'deleted': {'description': 'Is this account deleted?', },
         'quarantine_status': {'description': 'Quarantine status', },
+        'homes': {'description': 'Home directories'},
+        'contact': {'description': 'Contact information'},
     }
 
 
@@ -165,11 +137,7 @@ class AccountResource(Resource):
         :param str name_or_id: The account name or account ID
         :return: Information about the account
         """
-        try:
-            ac = get_account(id)
-        except utils.NotFoundError as e:
-            abort(404, message=str(e))
-
+        ac = find_account(id)
 
         data = {
             'name': ac.account_name,
@@ -181,7 +149,7 @@ class AccountResource(Resource):
             'create_date': ac.create_date,
             'expire_date': ac.expire_date,
             'creator_id': ac.creator_id,
-            'spreads': [row['spread'] for row in ac.get_spread()],
+            'systems': [row['spread'] for row in ac.get_spread()],
             'primary_email': ac.get_primary_mailaddress(),
             'deleted': ac.is_deleted(),
             'contact': ac.get_contact_info(),
@@ -193,7 +161,7 @@ class AccountResource(Resource):
             aff['ou'] = {'id': aff.pop('ou_id', None), }
             data.setdefault('affiliations', []).append(aff)
 
-        # POSIX information
+        # POSIX
         is_posix = hasattr(ac, 'posix_uid')
         data['posix'] = is_posix
         if is_posix:
@@ -212,17 +180,15 @@ class AccountResource(Resource):
                 home['home'] = ac.resolve_homedir(disk_id=home['disk_id'], home=home['home'])
             data.setdefault('homes', []).append(home)
 
-        # Quarantines
+        # Quarantine status
         quarantined = None
         from mx import DateTime
         now = DateTime.now()
         for q in ac.get_entity_quarantine():
             if q['start_date'] <= now:
-                if (q['end_date'] is not None and
-                    q['end_date'] < now):
+                if (q['end_date'] is not None and q['end_date'] < now):
                     quarantined = 'expired'
-                elif (q['disable_until'] is not None and
-                    q['disable_until'] > now):
+                elif (q['disable_until'] is not None and q['disable_until'] > now):
                     quarantined = 'disabled'
                 else:
                     quarantined = 'active'
@@ -275,10 +241,7 @@ class AccountEmailAddressResource(Resource):
         :param str id: The account name or account ID
         :return: Information about the email addresses
         """
-        try:
-            ac = get_account(id)
-        except utils.NotFoundError as e:
-            abort(404, message=str(e))
+        ac = find_account(id)
 
         ea = Email.EmailAddress(db.connection)
         et = Email.EmailTarget(db.connection)
@@ -345,8 +308,8 @@ class AccountListResource(Resource):
                 'paramType': 'query'
             },
             {
-                'name': 'spread',
-                'description': 'Filter by spread. Accepts * and ? as wildcards.',
+                'name': 'system',
+                'description': 'Filter by system. Accepts * and ? as wildcards.',
                 'required': False,
                 'allowMultiple': False,
                 'dataType': 'str',
@@ -382,13 +345,21 @@ class AccountListResource(Resource):
         """
         parser = reqparse.RequestParser()
         parser.add_argument('name', type=str)
-        parser.add_argument('spread', type=str)
+        parser.add_argument('system', type=str, dest='spread')
         parser.add_argument('owner_id', type=int)
         parser.add_argument('owner_type', type=str)
         parser.add_argument('expire_start', type=str)
         parser.add_argument('expire_stop', type=str)
         args = parser.parse_args()
         filters = {key: value for (key, value) in args.items() if value is not None}
+
+        if 'owner_type' in filters:
+            try:
+                owner_type = co.EntityType(filters['owner_type'])
+                filters['owner_type'] = int(owner_type)
+            except Errors.NotFoundError:
+                abort(404, message=u'Unknown entity type for owner_type={}'.format(
+                    filters['owner_type']))
 
         ac = Factory.get('Account')(db.connection)
 
