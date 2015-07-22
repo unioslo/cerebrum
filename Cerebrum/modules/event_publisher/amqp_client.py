@@ -52,13 +52,31 @@ class AMQP091Client(object):
         self.exchange = self.config.get('exchange-name')
         self.transactions_enabled = self.config.get('transactions-enabled')
         self.transaction = None  # Keep track of if we are in a transaction
-        # TODO: Instantiate pika.credentials.Credentials
-        # TODO: Handle TLS
+        # Define potential credentials
+        if 'username' in self.config:
+            from Cerebrum.Utils import read_password
+            cred = pika.credentials.PlainCredentials(
+                self.config.get('username'),
+                read_password(self.config.get('username'),
+                              self.config.get('hostname')))
+            ssl_opts = None
+        elif ('cert' in self.config and
+              'client-key' in self.config.get('cert')):
+            cred = pika.credentials.ExternalCredentials()
+            ssl_opts = {'keyfile': self.config.get('cert').get('client-key'),
+                        'certfile': self.config.get('cert').get('client-cert')}
+        else:
+            ssl_opts = cred = None
+        # Create connection-object
         self.connection = pika.BlockingConnection(
             pika.ConnectionParameters(
                 host=self.config.get('hostname'),
                 port=int(self.config.get('port')),
-                virtual_host=self.config.get('virtual-host')))
+                virtual_host=self.config.get('virtual-host'),
+                credentials=cred,
+                ssl=True if ssl_opts else False,
+                ssl_options=ssl_opts))
+        # Set up channel
         self.channel = self.connection.channel()
         # Declare exchange
         self.channel.exchange_declare(
@@ -86,6 +104,8 @@ class AMQP091Client(object):
         :type durable: bool
         :param durable: If this message should be durable.
         """
+        # TODO: Implement support for publishing outside transaction? For this
+        # to work, we must create a new channel.
         if isinstance(messages, (basestring, dict)):
             messages = [messages]
         for msg in messages:
