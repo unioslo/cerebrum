@@ -1,4 +1,4 @@
-from flask.ext.restful import Resource, abort, reqparse, marshal_with
+from flask.ext.restful import Resource, abort, marshal_with
 from api import db, auth, fields
 from flask_restful_swagger import swagger
 
