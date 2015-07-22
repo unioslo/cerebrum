@@ -56,7 +56,7 @@ def get_client():
     from Cerebrum.config import get_config
     from Cerebrum.Utils import dyn_import
     conf = get_config(__name__.split('.')[-1])
-    (mod_name, class_name) = conf.client.split('/', 1)
+    (mod_name, class_name) = conf.get('client').split('/', 1)
     client = getattr(dyn_import(mod_name), class_name)
     return client(conf)
 

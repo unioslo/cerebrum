@@ -34,7 +34,7 @@ which should exist in this directory.
 """
 
 
-def get_config(component, section='DEFAULT'):
+def get_config(component):
     """Return instantiated config for a component.
 
     >>> from Cerebrum.config import get_config
@@ -42,45 +42,13 @@ def get_config(component, section='DEFAULT'):
     >>> MyStuff(conf)
     """
     # TODO: Snarf component name from caller?
-    return Config(component, section)
+    import json
+    import os
+    import cereconf
+    if not os.path.exists(component):
+        fname = os.path.join(cereconf.CONFIG_PATH, component)
+    else:
+        fname = component
 
-
-class Config(object):
-    """Read config through ConfigParser."""
-    def __init__(self, conf, section='DEFAULT'):
-        """Init. a configuration.
-
-        :type conf: str
-        :param conf: The file name to load (cereconf.CONFIG_PATH prepended if
-            file does not exist)
-        :type section: str
-        :param section: The section of the config file to load
-        """
-        import ConfigParser
-        import os
-        import cereconf
-        if not os.path.exists(conf):
-            conf = os.path.join(cereconf.CONFIG_PATH, conf)
-        self._config = ConfigParser.ConfigParser()
-        self._config.read(conf)
-        self._section = section
-
-    def __getattribute__(self, key):
-        """Get a config variable.
-
-        :type key: str
-        :param key: The field to return
-        """
-        try:
-            return object.__getattribute__(self, key)
-        except AttributeError:
-            from ConfigParser import NoOptionError
-            try:
-                c = self._config.get(self._section, key)
-                # TODO: This is a bit nasty. Represent this another way?
-                if c == 'None':
-                    c = None
-                return c
-            except NoOptionError:
-                raise AttributeError("'%s' object has no attribute '%s'" %
-                                     (self.__class__.__name__, key))
+    with open(fname, 'r') as f:
+        return json.load(f)
