@@ -50,6 +50,8 @@ class AMQP091Client(object):
         """
         self.config = config
         self.exchange = self.config.get('exchange-name')
+        self.transactions_enabled = self.config.get('transactions-enabled')
+        self.transaction = None  # Keep track of if we are in a transaction
         # TODO: Instantiate pika.credentials.Credentials
         # TODO: Handle TLS
         self.connection = pika.BlockingConnection(
@@ -58,11 +60,18 @@ class AMQP091Client(object):
                 port=int(self.config.get('port')),
                 virtual_host=self.config.get('virtual-host')))
         self.channel = self.connection.channel()
+        # Declare exchange
         self.channel.exchange_declare(
             exchange=self.exchange,
             exchange_type=self.config.get('exchange-type'))
-        self.transactions_enabled = self.config.get('transactions-enabled')
-        self.transaction = None
+        if self.transactions_enabled:
+            # Start transaction
+            self.channel.tx_select()
+            self.transaction = True
+        else:
+            # Ensure that messages are recieved by the broker
+            self.channel.confirm_delivery()
+            self.transaction = 'Never'
 
     def publish(self, messages, omit_transaction=False, durable=True):
         """Publish a message to the exchange.
@@ -83,19 +92,21 @@ class AMQP091Client(object):
             event_type = (
                 '%s:%s' % (msg.get('category'), msg.get('change')) if
                 msg.get('change', None) else msg.get('category'))
-            # TODO Should message persistence be configurable?
             # TODO: Should we handle exceptions?
             if self.channel.basic_publish(exchange=self.exchange,
                                           routing_key=event_type,
                                           body=json.dumps(msg),
                                           properties=pika.BasicProperties(
-                                              # Make message persistent
-                                              # TODO: Is this the correct var?
+                                              # Delivery mode:
+                                              # 1: Non-persistent
+                                              # 2: Persistent
                                               delivery_mode=2,
                                               content_type='application/json'),
                                           # Makes publish return false if
                                           # message not published
-                                          mandatory=True):
+                                          mandatory=True,
+                                          # TODO: Should we enable immediate?
+                                          ):
                 return True
             else:
                 # TODO: Should we rather raise an exception?
@@ -108,12 +119,22 @@ class AMQP091Client(object):
         """Close the connection."""
         self.connection.close()
 
+    def start_transaction(self):
+        assert not self.transaction, "Can't start transaction twice"
+        assert self.transaction != 'Never', ("Can't start transaction, "
+                                             "publisher confirm on")
+        self.channel.tx_select()
+
     def commit(self):
         """Commit the current transaction."""
-        if self.transaction:
-            raise NotImplementedError()
+        assert self.transaction, "Can't commit outside transaction"
+        assert self.transaction != 'Never', ("Can't commit transaction, "
+                                             "publisher confirm on")
+        self.channel.tx_commit()
 
     def rollback(self):
-        """Roll back (ABORT) the current transaction."""
-        if self.transaction:
-            raise NotImplementedError()
+        """Roll back the current transaction."""
+        assert self.transaction, "Can't roll back outside transaction"
+        assert self.transaction != 'Never', ("Can't roll back transaction, "
+                                             "publisher confirm on")
+        self.channel.tx_rollback()
