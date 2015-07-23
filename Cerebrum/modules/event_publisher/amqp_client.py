@@ -80,7 +80,8 @@ class AMQP091Client(object):
         # Declare exchange
         self.channel.exchange_declare(
             exchange=self.exchange,
-            exchange_type=self.config.get('exchange-type'))
+            exchange_type=self.config.get('exchange-type'),
+            durable=self.config.get('exchange-durable'))
         if self.transactions_enabled:
             # Start transaction
             self.channel.tx_select()
