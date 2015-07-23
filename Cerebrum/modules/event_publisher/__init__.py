@@ -121,10 +121,10 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
         """ Publish messages. """
         super(EventPublisher, self).publish_log()
         client = self.__get_client()
-        if not client.transactions_enabled:
-            if self.__queue:
-                self.__try_send_messages()
-        client.commit()
+        if self.__queue:
+            self.__try_send_messages()
+        if client.transactions_enabled:
+            client.commit()
 
     def unpublish_log(self):
         """ Abort message-pub """
