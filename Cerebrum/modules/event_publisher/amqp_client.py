@@ -53,15 +53,14 @@ class AMQP091Client(object):
         self.transactions_enabled = self.config.get('transactions-enabled')
         self.transaction = None  # Keep track of if we are in a transaction
         # Define potential credentials
-        if 'username' in self.config:
+        if self.config.get('username', None):
             from Cerebrum.Utils import read_password
             cred = pika.credentials.PlainCredentials(
                 self.config.get('username'),
                 read_password(self.config.get('username'),
                               self.config.get('hostname')))
             ssl_opts = None
-        elif ('cert' in self.config and
-              'client-key' in self.config.get('cert')):
+        elif self.config.get('cert', None):
             cred = pika.credentials.ExternalCredentials()
             ssl_opts = {'keyfile': self.config.get('cert').get('client-key'),
                         'certfile': self.config.get('cert').get('client-cert')}
@@ -74,7 +73,7 @@ class AMQP091Client(object):
                 port=int(self.config.get('port')),
                 virtual_host=self.config.get('virtual-host'),
                 credentials=cred,
-                ssl=True if ssl_opts else False,
+                ssl=self.config.get('tls-on'),
                 ssl_options=ssl_opts))
         # Set up channel
         self.channel = self.connection.channel()
