@@ -110,7 +110,7 @@ class AMQP091Client(object):
             messages = [messages]
         for msg in messages:
             event_type = (
-                '%s:%s' % (msg.get('category'), msg.get('change')) if
+                '%s.%s' % (msg.get('category'), msg.get('change')) if
                 msg.get('change', None) else msg.get('category'))
             # TODO: Should we handle exceptions?
             if self.channel.basic_publish(exchange=self.exchange,
