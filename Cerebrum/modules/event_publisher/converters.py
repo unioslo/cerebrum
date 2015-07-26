@@ -213,6 +213,7 @@ def account_mod(msg, *kws):
 @dispatch('spread')
 def spread(msg, *args):
     msg['category'] = 'system'
+    return msg
 
 """
     account_type_add = _ChangeTypeCode(

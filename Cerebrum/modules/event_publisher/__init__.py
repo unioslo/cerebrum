@@ -190,7 +190,7 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
         else:
             destid = desttype = None
         if 'spread' in change_params:
-            system = str(constants.SpreadCode(change_params['spread']))
+            system = str(constants.Spread(change_params['spread']))
             del change_params['spread']
         else:
             system = None
