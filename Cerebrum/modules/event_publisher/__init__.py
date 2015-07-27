@@ -30,6 +30,7 @@ import json
 import Cerebrum.ChangeLog
 import Cerebrum.DatabaseAccessor
 from Cerebrum.Utils import Factory
+from Cerebrum import Errors
 
 __version__ = '1.0'
 
@@ -170,23 +171,28 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
     def __change_type_to_message(self, change_type_code, subject,
                                  dest, change_params):
         """Convert change type to message dicts."""
-        database = Factory.get("Database")()
-        constants = Factory.get("Constants")(database)
-        entity = Factory.get("Entity")(database)
+        constants = Factory.get("Constants")(self)
+
+        def get_entity_type(entity_id):
+            entity = Factory.get("Entity")(self)
+            try:
+                ent = entity.get_subclassed_object(id=entity_id)
+                return (entity_id,
+                        ent,
+                        str(constants.EntityType(ent.entity_type)))
+            except Errors.NotFoundError:
+                return (entity_id, None, None)
+
         if change_params:
             change_params = change_params.copy()
         else:
             change_params = dict()
         if subject:
-            subjectid = subject
-            subject = entity.get_subclassed_object(id=subject)
-            subjecttype = str(constants.EntityType(subject.entity_type))
+            (subjectid, subject, subjecttype) = get_entity_type(subject)
         else:
             subjectid = subjecttype = None
         if dest:
-            destid = dest
-            dest = entity.get_subclassed_object(id=dest)
-            desttype = str(constants.EntityType(dest.entity_type))
+            (destid, dest, desttype) = get_entity_type(subject)
         else:
             destid = desttype = None
         if 'spread' in change_params:
@@ -205,7 +211,7 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
             'objecttype': desttype,
             'data': change_params,
         },
-            subject, dest, change_type_code, database)
+            subject, dest, change_type_code, self)
 
 
 class UnpublishedEvents(Cerebrum.DatabaseAccessor.DatabaseAccessor):
