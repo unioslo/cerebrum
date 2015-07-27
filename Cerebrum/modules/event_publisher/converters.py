@@ -31,6 +31,7 @@ message, otherwise it is discarded.
 
 from collections import defaultdict
 from Cerebrum.Utils import Factory
+import re
 
 """
 General fixes:
@@ -94,11 +95,15 @@ def filter_message(msg, subject, dest, change_type, db):
     category, change = msg['category'], msg['change']
     msg = _dispatch[category](msg, subject, dest, change_type, db)
     if msg:
-        msg = _dispatch['%s:%s' % (category, change)](msg,
-                                                      subject,
-                                                      dest,
-                                                      change_type,
-                                                      db)
+        dispatcher = _dispatch.get('%s:%s' % (category, change), None)
+        if not dispatcher:
+            # Search for possible wild-card-employing transform-funcs.
+            for key in _dispatch.keys():
+                if re.match('^%s$' % key, '%s:%s' % (category, change)):
+                    dispatcher = _dispatch.get(key)
+                    break
+        if dispatcher:
+            msg = dispatcher(msg, subject, dest, change_type, db)
     return msg
 
 
