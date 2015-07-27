@@ -112,6 +112,8 @@ class AMQP091Client(object):
             event_type = (
                 '%s.%s' % (msg.get('category'), msg.get('change')) if
                 msg.get('change', None) else msg.get('category'))
+            if msg.get('meta_object_type'):
+                event_type += '.%s' % msg.get('meta_object_type')
             # TODO: Should we handle exceptions?
             if self.channel.basic_publish(exchange=self.exchange,
                                           routing_key=event_type,
