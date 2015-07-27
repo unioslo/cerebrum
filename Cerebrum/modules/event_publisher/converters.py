@@ -390,6 +390,26 @@ def entity_name(msg, *args):
         'person', 'aff_src_del', 'del aff_src for %(subject)s')
 """
 
+
+@dispatch('person')
+def person(msg, subject, dest, change_type, db):
+    return msg
+
+
+@dispatch('person', 'name_.*')
+def person_name_ops(msg, *args):
+    co = Factory.get('Constants')(args[-1])
+    msg['data']['name_variant'] = str(co.PersonName(
+        msg['data']['name_variant'])).lower()
+    msg['data']['src'] = str(co.AuthoritativeSystem(msg['data']['src']))
+    (msg['meta_object_type'], msg['change']) = msg['change'].split('_')
+    return msg
+
+
+@dispatch('person', 'aff_*')
+def person_affiliation_ops(msg, *args):
+    pass
+
 # TODO: What to translate to?
 
 """
