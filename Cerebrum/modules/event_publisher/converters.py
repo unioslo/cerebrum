@@ -440,9 +440,8 @@ def person(msg, subject, dest, change_type, db):
 @dispatch('person', 'name_.*')
 def person_name_ops(msg, *args):
     co = Factory.get('Constants')(args[-1])
-    msg['data']['name_variant'] = str(co.PersonName(
-        msg['data']['name_variant'])).lower()
-    msg['data']['src'] = str(co.AuthoritativeSystem(msg['data']['src']))
+    _stringify_code(msg, 'name_variant', co.PersonName)
+    _stringify_code(msg, 'src', co.AuthoritativeSystem)
     (msg['meta_object_type'], msg['change']) = msg['change'].split('_')
     return msg
 
