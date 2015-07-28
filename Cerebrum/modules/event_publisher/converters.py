@@ -29,7 +29,7 @@ If filter_message returns some value that is boolean true, it is used as the
 message, otherwise it is discarded.
 """
 
-from collections import defaultdict
+from collections import OrderedDict
 from Cerebrum.Utils import Factory
 import re
 
@@ -93,30 +93,24 @@ def filter_message(msg, subject, dest, change_type, db):
     :type change_type: Code ChangeType
     """
     category, change = msg['category'], msg['change']
-    msg = _dispatch[category](msg, subject, dest, change_type, db)
-    if msg:
-        dispatcher = _dispatch.get('%s:%s' % (category, change), None)
-        if not dispatcher:
-            # Search for possible wild-card-employing transform-funcs.
-            for key in _dispatch.keys():
-                if re.match('^%s$' % key, '%s:%s' % (category, change)):
-                    dispatcher = _dispatch.get(key)
-                    break
-        if dispatcher:
-            msg = dispatcher(msg, subject, dest, change_type, db)
+    for key in _dispatch.keys():
+        if re.match('^%s$' % key,
+                    '%s:%s' % (category, change) if change else category):
+            msg = _dispatch.get(key)(
+                msg, subject, dest, change_type, db)
     return msg
 
 
 # Holds the mapping of names, as registred by dispatch().
 def _identity(msg, *args):
     return msg
-_dispatch = defaultdict(lambda: _identity)
+_dispatch = OrderedDict()
 
 
 def dispatch(cat, change=None):
     """Wrapper registers transform-functions to change-types."""
     def _fix(fn):
-        _dispatch['%s:%s' % (cat, change) if change else cat] = fn
+        _dispatch['%s:%s' % (cat, change) if change else '%s:.*' % cat] = fn
         return fn
     return _fix
 
