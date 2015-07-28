@@ -369,6 +369,17 @@ def entity_name(msg, *args):
     _stringify_code(msg, 'name_language', co.LanguageCode)
     return msg
 
+
+@dispatch('entity_cinfo')
+def entity_cinfo(msg, *args):
+    """Convert address type and source constants."""
+    msg['meta_object_type'] = 'contact_info'
+    co = Factory.get('Constants')(args[-1])
+    _stringify_code(msg, 'type', co.ContactInfo)
+    _stringify_code(msg, 'src', co.AuthoritativeSystem)
+    return msg
+
+
 """
     entity_cinfo_add = _ChangeTypeCode(
         'entity_cinfo', 'add', 'add entity_cinfo for %(subject)s')
