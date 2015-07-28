@@ -380,6 +380,11 @@ def entity_cinfo(msg, *args):
     return msg
 
 
+@dispatch('entity_addr')
+def entity_addr(msg, *args):
+    msg['meta_object_type'] = 'address'
+    return msg
+
 """
     entity_cinfo_add = _ChangeTypeCode(
         'entity_cinfo', 'add', 'add entity_cinfo for %(subject)s')
