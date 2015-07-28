@@ -115,6 +115,18 @@ def dispatch(cat, change=None):
     return _fix
 
 
+def _stringify_code(msg, field, code_converter):
+    """Convert a code to a string.
+
+    :type msg: dict
+    :param msg: The message to convert
+    :type field: basestring
+    :param field: The key whose value we'll convert.
+    :type code_converter: _CerebrumCode
+    :param code_converter: The converter to use for the code.
+    """
+    if msg.get('data', {}).get(field):
+        msg['data'][field] = str(code_converter(msg['data'][field]))
 
 """
 
