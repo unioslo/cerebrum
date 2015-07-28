@@ -363,7 +363,10 @@ def entity(*args):
 # TODO: map to account, group, etc?
 @dispatch('entity_name')
 def entity_name(msg, *args):
-    msg['category'] = 'identifier'
+    msg['meta_object_type'] = 'identifier'
+    co = Factory.get('Constants')(args[-1])
+    _stringify_code(msg, 'name_variant', co.EntityNameCode)
+    _stringify_code(msg, 'name_language', co.LanguageCode)
     return msg
 
 """
