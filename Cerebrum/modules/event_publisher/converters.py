@@ -128,6 +128,22 @@ def _stringify_code(msg, field, code_converter):
     if msg.get('data', {}).get(field):
         msg['data'][field] = str(code_converter(msg['data'][field]))
 
+
+# Fix change, category and meta_object_type for all events (cleaning up
+# existing cruft).
+@dispatch('.*_.*')
+def fix_cat_for_entities(msg, *args):
+    if '_' in msg['category']:
+        (msg['category'], msg['meta_object_type']) = msg['category'].split('_')
+    return msg
+
+
+@dispatch('.*', '.*_.*')
+def fix_change_for_all(msg, *args):
+    if '_' in msg['change']:
+        (msg['meta_object_type'], msg['change']) = msg['change'].rsplit('_', 1)
+    return msg
+
 """
 
     # Account changes
