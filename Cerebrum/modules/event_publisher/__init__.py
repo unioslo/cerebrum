@@ -192,7 +192,7 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
         else:
             subjectid = subjecttype = None
         if dest:
-            (destid, dest, desttype) = get_entity_type(subject)
+            (destid, dest, desttype) = get_entity_type(dest)
         else:
             destid = desttype = None
         if 'spread' in change_params:
