@@ -223,6 +223,7 @@ class UnpublishedEvents(Cerebrum.DatabaseAccessor.DatabaseAccessor):
     """
     def __init__(self, database):
         super(UnpublishedEvents, self).__init__(database)
+        self._db = database
         self._lock = None
 
     def _acquire_lock(self, lock=True):
@@ -263,7 +264,9 @@ class UnpublishedEvents(Cerebrum.DatabaseAccessor.DatabaseAccessor):
         dumps = json.dumps
         for event in events:
             # From python docs: use separators to get compact encoding
-            self.execute(qry, {'event': dumps(event, separators=(',', ':'))})
+            self.execute(qry, {'event': dumps(event,
+                                              separators=(',', ':'),
+                                              encoding=self._db.encoding)})
 
 
 if __name__ == '__main__':
