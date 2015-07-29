@@ -110,9 +110,10 @@ class AMQP091Client(object):
             messages = [messages]
         for msg in messages:
             event_type = '.'.join(
-                map(lambda x: msg.get(x), ('category',
-                                           'meta_object_type',
-                                           'change')))
+                filter(lambda y: y is not None,
+                       map(lambda x: msg.get(x), ('category',
+                                                  'meta_object_type',
+                                                  'change'))))
             # TODO: Should we handle exceptions?
             if self.channel.basic_publish(exchange=self.exchange,
                                           routing_key=event_type,
