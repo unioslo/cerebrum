@@ -445,9 +445,16 @@ def person_name_ops(msg, *args):
     return msg
 
 
-@dispatch('person', 'aff_*')
+@dispatch('person', 'aff_(add|mod|del)')
 def person_affiliation_ops(msg, *args):
-    pass
+    msg['meta_object_type'] = 'affiliation'
+    return msg
+
+
+@dispatch('person', 'aff_src.*')
+def person_affiliation_source_ops(msg, *args):
+    msg['meta_object_type'] = 'affiliation-source'
+    return msg
 
 # TODO: What to translate to?
 
