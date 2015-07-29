@@ -24,8 +24,17 @@ The PasswordHistory class is used to keep track of previous passwords for an
 Entity. This allows one to prevent Entities from setting their password to an
 old password.
 
-NOTE:
-    This module requires the design/mod_password_history.sql database module
+NOTE
+----
+This module requires the design/mod_password_history.sql database module
+
+HISTORY
+-------
+This module was moved from Cerebrum.modules.PasswordHistory. For the old
+structure of PasswordHistory, please see:
+
+> commit 9a01d8b6ac93513a57ac8d6393de842939582f51
+> Mon Jul 20 14:12:55 2015 +0200
 
 """
 
