@@ -430,6 +430,12 @@ def entity_addr(msg, *args):
     person_aff_src_del = _ChangeTypeCode(
         'person', 'aff_src_del', 'del aff_src for %(subject)s')
 """
+@dispatch('entity_note')
+def entity_note(msg, *args):
+    # TODO: Should we get the actual note, and send it?
+    return msg
+
+
 
 
 @dispatch('person')
