@@ -436,6 +436,13 @@ def entity_note(msg, *args):
     return msg
 
 
+@dispatch('entity', 'ext_id.*')
+def entity_external_id(msg, *args):
+    msg['meta_object_type'] = 'external-id'
+    co = Factory.get('Constants')(args[-1])
+    _stringify_code(msg, 'src', co.AuthoritativeSystem)
+    _stringify_code(msg, 'id_type', co.EntityExternalId)
+    return msg
 
 
 @dispatch('person')
