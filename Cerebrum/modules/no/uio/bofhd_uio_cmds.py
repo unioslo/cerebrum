@@ -42,7 +42,7 @@ from Cerebrum import Utils
 from Cerebrum.modules import Email
 from Cerebrum.modules.Email import _EmailDomainCategoryCode
 from Cerebrum.modules import PasswordChecker
-from Cerebrum.modules import PasswordHistory
+from Cerebrum.modules.pwcheck.history import PasswordHistory
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.cmd_param import *
@@ -7683,10 +7683,10 @@ Addresses and settings:
         self.ba.can_set_password(operator.get_entity_id(), ac)
         if ac.verify_auth(password):
             return "Password is correct"
-        ph = PasswordHistory.PasswordHistory(self.db)
-        hash = ph.encode_for_history(ac, password)
+        ph = PasswordHistory(self.db)
+        histhash = ph.encode_for_history(ac, password)
         for r in ph.get_history(ac.entity_id):
-            if hash == r['md5base64']:
+            if histhash == r['md5base64']:
                 return ("The password is obsolete, it was set on %s" %
                         r['set_at'])
         return "Incorrect password"

@@ -38,7 +38,8 @@ import base64
 from Cerebrum import Utils, Disk
 from Cerebrum.Entity import EntityName, EntityQuarantine, \
     EntityContactInfo, EntityExternalId, EntitySpread
-from Cerebrum.modules import PasswordChecker, PasswordHistory
+from Cerebrum.modules import PasswordChecker
+from Cerebrum.modules.pwcheck.history import PasswordHistory
 from Cerebrum import Errors
 from Cerebrum.Utils import NotSet
 from Cerebrum.Utils import argument_to_sql, prepare_string
@@ -571,7 +572,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             self.delete_ac_types()
 
             # Remove password history
-            PasswordHistory.PasswordHistory(
+            PasswordHistory(
                 self._db).del_history(
                 self.entity_id)
 
@@ -731,7 +732,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 self.populate_authentication_type(method, enc)
         self.__plaintext_password = plaintext
         if notimplemented:
-            raise Errors.NotImplementedAuthTypeError, "\n".join(notimplemented)
+            raise Errors.NotImplementedAuthTypeError("\n".join(notimplemented))
 
     def encrypt_password(self, method, plaintext, salt=None):
         """Returns the plaintext encrypted according to the specified

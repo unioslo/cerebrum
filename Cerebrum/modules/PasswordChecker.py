@@ -26,7 +26,7 @@ import cerebrum_path
 import cereconf
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory
-from Cerebrum.modules import PasswordHistory
+from Cerebrum.modules.pwcheck.history import PasswordHistory
 from Cerebrum import Errors
 
 
@@ -142,7 +142,7 @@ class PasswordChecker(DatabaseAccessor):
         """Check wether uname had this passwd earlier.  Raises a
         PasswordGoodEnoughException if this is true"""
 
-        pwdhist = PasswordHistory.PasswordHistory(self._db)
+        pwdhist = PasswordHistory(self._db)
         variants = []
         for m in (-1, 0):
             for r in self.what_range(passwd[m]):

@@ -30,7 +30,7 @@ from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
-from Cerebrum.modules import PasswordHistory
+from Cerebrum.modules.pwcheck.history import PasswordHistory
 
 class AccountHiOfMixin(Account.Account):
     """Account mixin class providing functionality specific to HiOf.
@@ -229,7 +229,7 @@ class AccountHiOfMixin(Account.Account):
             plain = None
         ret = self.__super.write_db()
         if plain is not None:
-            ph = PasswordHistory.PasswordHistory(self._db)
+            ph = PasswordHistory(self._db)
             ph.add_history(self, plain)
         return ret
 

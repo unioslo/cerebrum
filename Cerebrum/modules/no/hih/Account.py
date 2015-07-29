@@ -27,7 +27,7 @@ import cereconf
 
 from Cerebrum import Account
 from Cerebrum import Errors
-from Cerebrum.modules import PasswordHistory
+from Cerebrum.modules.pwcheck.history import PasswordHistory
 from Cerebrum.modules import Email
 from Cerebrum.Utils import Factory
 
@@ -228,7 +228,7 @@ class AccountHiHMixin(Account.Account):
             plain = None
         ret = self.__super.write_db()
         if plain is not None:
-            ph = PasswordHistory.PasswordHistory(self._db)
+            ph = PasswordHistory(self._db)
             ph.add_history(self, plain)
         return ret
 

@@ -148,14 +148,14 @@ class PasswordNotifier(object):
                 'Body': msg.get_payload(decode=1)
                 })
     # end __init__
-                
+
     def get_old_account_ids(self):
         """
         Returns a set of account_id's for candidates.
         """
-        from Cerebrum.modules import PasswordHistory
+        from Cerebrum.modules.pwcheck.history import PasswordHistory
         account = Utils.Factory.get("Account")(self.db)
-        ph = PasswordHistory.PasswordHistory(self.db)
+        ph = PasswordHistory(self.db)
         old_ids = set([int(x['account_id']) for x in ph.find_old_password_accounts((self.today
             - self.config.max_password_age).strftime("%Y-%m-%d"))])
         old_ids.update(set([int(x['account_id']) for x in ph.find_no_history_accounts()]))

@@ -25,7 +25,7 @@ from mx import DateTime
 from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum.modules import Email
-from Cerebrum.modules import PasswordHistory
+from Cerebrum.modules.pwcheck.history import PasswordHistory
 from Cerebrum.modules.no.uio.DiskQuota import DiskQuota
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.Utils import pgp_encrypt, Factory
@@ -391,7 +391,7 @@ class AccountUiOMixin(Account.Account):
             plain = None
         ret = self.__super.write_db()
         if plain is not None:
-            ph = PasswordHistory.PasswordHistory(self._db)
+            ph = PasswordHistory(self._db)
             ph.add_history(self, plain)
         return ret
 
