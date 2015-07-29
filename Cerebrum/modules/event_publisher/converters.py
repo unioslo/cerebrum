@@ -312,31 +312,6 @@ def account_type(msg, *args):
     ou_del = _ChangeTypeCode(
         'ou', 'del', 'deleted OU %(subject)s')
 
-    # Person changes
-
-    person_create = _ChangeTypeCode(
-        'person', 'create', 'created %(subject)s')
-    person_update = _ChangeTypeCode(
-        'person', 'update', 'update %(subject)s')
-    person_name_del = _ChangeTypeCode(
-        'person', 'name_del', 'del name for %(subject)s',
-        ('src=%(source_system:src)s, ' +
-         'variant=%(name_variant:name_variant)s',))
-    person_name_add = _ChangeTypeCode(
-        'person', 'name_add', 'add name for %(subject)s',
-        ('name=%(string:name)s, src=%(source_system:src)s, ' +
-         'variant=%(name_variant:name_variant)s',))
-    person_name_mod = _ChangeTypeCode(
-        'person', 'name_mod', 'mod name for %(subject)s',
-        ('name=%(string:name)s, src=%(source_system:src)s, ' +
-         'variant=%(name_variant:name_variant)s',))
-
-    # Entity changes
-
-    entity_add = _ChangeTypeCode(
-        'entity', 'add', 'add entity %(subject)s')
-    entity_del = _ChangeTypeCode(
-        'entity', 'del', 'del entity %(subject)s')
 """
 
 
@@ -344,18 +319,6 @@ def account_type(msg, *args):
 @dispatch('entity')
 def entity(*args):
     return None
-
-"""
-    entity_name_add = _ChangeTypeCode(
-        'entity_name', 'add', 'add entity_name for %(subject)s',
-        ('domain=%(value_domain:domain)s, name=%(string:name)s',))
-    entity_name_mod = _ChangeTypeCode(
-        'entity_name', 'mod', 'mod entity_name for %(subject)s',
-        ('domain=%(value_domain:domain)s, name=%(string:name)s',))
-    entity_name_del = _ChangeTypeCode(
-        'entity_name', 'del', 'del entity_name for %(subject)s',
-        ('domain=%(value_domain:domain)s, name=%(string:name)s',))
-"""
 
 
 # change entity_name to identifier, as this is easier understood
@@ -385,51 +348,7 @@ def entity_addr(msg, *args):
     msg['meta_object_type'] = 'address'
     return msg
 
-"""
-    entity_cinfo_add = _ChangeTypeCode(
-        'entity_cinfo', 'add', 'add entity_cinfo for %(subject)s')
-    entity_cinfo_del = _ChangeTypeCode(
-        'entity_cinfo', 'del', 'del entity_cinfo for %(subject)s')
-    entity_addr_add = _ChangeTypeCode(
-        'entity_addr', 'add', 'add entity_addr for %(subject)s')
-    entity_addr_del = _ChangeTypeCode(
-        'entity_addr', 'del', 'del entity_addr for %(subject)s')
-    entity_note_add = _ChangeTypeCode(
-        'entity_note', 'add', 'add entity_note for %(subject)s',
-        ('note_id=%(int:note_id)s',))
-    entity_note_del = _ChangeTypeCode(
-        'entity_note', 'del', 'del entity_note for %(subject)s',
-        ('note_id=%(int:note_id)s',))
-    entity_ext_id_del = _ChangeTypeCode(
-        'entity', 'ext_id_del', 'del ext_id for %(subject)s',
-        ('src=%(source_system:src)s, type=%(extid:id_type)s',))
-    entity_ext_id_mod = _ChangeTypeCode(
-        'entity', 'ext_id_mod', 'mod ext_id for %(subject)s',
-        ('value=%(string:value)s, src=%(source_system:src)s, ' +
-         'type=%(extid:id_type)s',))
-    entity_ext_id_add = _ChangeTypeCode(
-        'entity', 'ext_id_add', 'add ext_id for %(subject)s',
-        ('value=%(string:value)s, src=%(source_system:src)s, ' +
-         'type=%(extid:id_type)s',))
-"""
-# TODO: more work here
 
-"""
-    # PersonAffiliation changes
-
-    person_aff_add = _ChangeTypeCode(
-        'person', 'aff_add', 'add aff for %(subject)s')
-    person_aff_mod = _ChangeTypeCode(
-        'person', 'aff_mod', 'mod aff for %(subject)s')
-    person_aff_del = _ChangeTypeCode(
-        'person', 'aff_del', 'del aff for %(subject)s')
-    person_aff_src_add = _ChangeTypeCode(
-        'person', 'aff_src_add', 'add aff_src for %(subject)s')
-    person_aff_src_mod = _ChangeTypeCode(
-        'person', 'aff_src_mod', 'mod aff_src for %(subject)s')
-    person_aff_src_del = _ChangeTypeCode(
-        'person', 'aff_src_del', 'del aff_src for %(subject)s')
-"""
 @dispatch('entity_note')
 def entity_note(msg, *args):
     # TODO: Should we get the actual note, and send it?
