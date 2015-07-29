@@ -442,7 +442,6 @@ def person_name_ops(msg, *args):
     co = Factory.get('Constants')(args[-1])
     _stringify_code(msg, 'name_variant', co.PersonName)
     _stringify_code(msg, 'src', co.AuthoritativeSystem)
-    (msg['meta_object_type'], msg['change']) = msg['change'].split('_')
     return msg
 
 
