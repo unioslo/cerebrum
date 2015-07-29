@@ -44,7 +44,6 @@ from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.Utils import NotSet
 from Cerebrum.modules import Email
-from Cerebrum.modules import PasswordHistory
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.Utils import pgp_encrypt, Factory, prepare_string
 from Cerebrum.modules.no.uit.Email import email_address
@@ -498,11 +497,6 @@ class AccountUiTMixin(Account.Account):
         except AttributeError:
             plain = None
         ret = self.__super.write_db()
-        if plain is not None:
-            # uncomment these two when/if we want password history        
-            #ph = PasswordHistory.PasswordHistory(self._db)
-            #ph.add_history(self, plain)
-            pass
         return ret
 
 
