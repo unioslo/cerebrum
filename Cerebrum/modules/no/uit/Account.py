@@ -392,7 +392,6 @@ class AccountUiTMixin(Account.Account):
        else:
            inits = name[0][0:1] + name[-1][0:2]
 
-       
        #sanity check
        p = re.compile('^[a-z]{3}$')
        if (p.match(inits)):
@@ -402,15 +401,8 @@ class AccountUiTMixin(Account.Account):
            raise ValueError("ProgrammingError: A Non ascii-letter in uname!: '%s'" % inits)
 
 
-    def set_password(self, plaintext):
-        # Override Account.set_password so that we get a copy of the
-        # plaintext password. To be used in self.write_db() when/if we implement password history
-        self.__plaintext_password = plaintext
-        self.__super.set_password(plaintext)
-
-
     def list_all(self, spread=None,filter_expired=False):
- 
+
         """List all users,  optionally filtering the
         results on account spread and expiry.
         """
@@ -490,15 +482,6 @@ class AccountUiTMixin(Account.Account):
             et.email_server_id = es.entity_id
             et.write_db()
         return et
-
-    def write_db(self):
-        try:
-            plain = self.__plaintext_password
-        except AttributeError:
-            plain = None
-        ret = self.__super.write_db()
-        return ret
-
 
     def is_employee(self):
         for r in self.get_account_types():

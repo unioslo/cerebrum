@@ -26,7 +26,6 @@ import pickle
 import cereconf
 from Cerebrum import Account
 from Cerebrum import Errors
-from Cerebrum.modules.pwcheck.history import PasswordHistory
 from Cerebrum.modules import Email
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import pgp_encrypt
@@ -76,23 +75,7 @@ class AccountIndigoMixin(Account.Account):
             if r['affiliation'] == self.const.affiliation_ansatt:
                 return True
         return False
-    
-    def set_password(self, plaintext):
-        # Override Account.set_password so that we get a copy of the
-        # plaintext password
-        self.__plaintext_password = plaintext
-        self.__super.set_password(plaintext)
 
-    def write_db(self):
-        try:
-            plain = self.__plaintext_password
-        except AttributeError:
-            plain = None
-        ret = self.__super.write_db()
-        if plain is not None:
-            ph = PasswordHistory(self._db)
-            ph.add_history(self, plain)
-        return ret
 
     def enc_auth_type_pgp_crypt(self, plaintext, salt=None):
         return pgp_encrypt(plaintext, cereconf.PGPID)

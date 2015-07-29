@@ -150,7 +150,7 @@ class PasswordChecker(DatabaseAccessor):
                     tmp = passwd[:m]+chr(r)
                 else:
                     tmp = chr(r)+passwd[m+1:]
-                tmp = pwdhist.encode_for_history(account, tmp)
+                tmp = pwdhist.encode_for_history(account.account_name, tmp)
                 variants.append(tmp)
         for r in pwdhist.get_history(account.entity_id):
             if r['md5base64'] in variants:

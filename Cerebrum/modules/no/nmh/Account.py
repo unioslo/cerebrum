@@ -25,7 +25,6 @@ import cereconf
 
 from Cerebrum import Account
 from Cerebrum import Errors
-from Cerebrum.modules.pwcheck.history import PasswordHistory
 from Cerebrum.Utils import Factory
 
 
@@ -68,23 +67,6 @@ class AccountNMHMixin(Account.Account):
         if re.search("[^a-z]", name):
             return "contains illegal characters (%s); only a-z allowed" % name
         return False
-
-    def set_password(self, plaintext):
-        # Override Account.set_password so that we get a copy of the
-        # plaintext password
-        self.__plaintext_password = plaintext
-        self.__super.set_password(plaintext)
-
-    def write_db(self):
-        try:
-            plain = self.__plaintext_password
-        except AttributeError:
-            plain = None
-        ret = self.__super.write_db()
-        if plain is not None:
-            ph = PasswordHistory(self._db)
-            ph.add_history(self, plain)
-        return ret
 
 
 class AccountNmhEmailMixin(Account.Account):

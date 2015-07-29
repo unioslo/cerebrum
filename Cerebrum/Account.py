@@ -39,7 +39,6 @@ from Cerebrum import Utils, Disk
 from Cerebrum.Entity import EntityName, EntityQuarantine, \
     EntityContactInfo, EntityExternalId, EntitySpread
 from Cerebrum.modules import PasswordChecker
-from Cerebrum.modules.pwcheck.history import PasswordHistory
 from Cerebrum import Errors
 from Cerebrum.Utils import NotSet
 from Cerebrum.Utils import argument_to_sql, prepare_string
@@ -570,11 +569,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
 
             # Remove the account types
             self.delete_ac_types()
-
-            # Remove password history
-            PasswordHistory(
-                self._db).del_history(
-                self.entity_id)
 
             self.execute("""
             DELETE FROM [:table schema=cerebrum name=account_authentication]
@@ -1249,6 +1243,22 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 return r
             except PasswordChecker.PasswordGoodEnoughException:
                 pass  # Wasn't good enough
+
+    def password_good_enough(self, password):
+        """ PasswordChecker API function.
+
+        This function can be used to test if a given password is good enough to
+        be used with this account.
+
+        :param str password: The password to check
+
+        :return: Returns on success
+
+        :raise PasswordNotGoodEnough:
+            Raises an error if password is not good enough.
+
+        """
+        pass
 
     def suggest_unames(self, domain, fname, lname, maxlen=8, suffix="",
                        prefix=""):

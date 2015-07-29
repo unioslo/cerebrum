@@ -7684,7 +7684,7 @@ Addresses and settings:
         if ac.verify_auth(password):
             return "Password is correct"
         ph = PasswordHistory(self.db)
-        histhash = ph.encode_for_history(ac, password)
+        histhash = ph.encode_for_history(ac.account_name, password)
         for r in ph.get_history(ac.entity_id):
             if histhash == r['md5base64']:
                 return ("The password is obsolete, it was set on %s" %

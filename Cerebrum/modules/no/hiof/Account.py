@@ -30,7 +30,6 @@ from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
-from Cerebrum.modules.pwcheck.history import PasswordHistory
 
 class AccountHiOfMixin(Account.Account):
     """Account mixin class providing functionality specific to HiOf.
@@ -215,23 +214,6 @@ class AccountHiOfMixin(Account.Account):
         et.email_server_id = es.entity_id
         et.write_db()
         return et
-
-    def set_password(self, plaintext):
-        # Override Account.set_password so that we get a copy of the
-        # plaintext password
-        self.__plaintext_password = plaintext
-        self.__super.set_password(plaintext)
-
-    def write_db(self):
-        try:
-            plain = self.__plaintext_password
-        except AttributeError:
-            plain = None
-        ret = self.__super.write_db()
-        if plain is not None:
-            ph = PasswordHistory(self._db)
-            ph.add_history(self, plain)
-        return ret
 
     def is_employee(self):
         for r in self.get_account_types():
