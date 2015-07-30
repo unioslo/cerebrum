@@ -25,7 +25,6 @@ import cerebrum_path
 import cereconf
 
 import string
-from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Errors import CerebrumError
 
 
@@ -41,7 +40,7 @@ class PasswordNotGoodEnough(CerebrumError):
     pass
 
 
-class PasswordChecker(DatabaseAccessor):
+class PasswordChecker(object):
 
     """ Password-checker API.
 
