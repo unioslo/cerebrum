@@ -41,7 +41,7 @@ import os
 import re
 import string
 
-from .simple import PasswordNotGoodEnough, PasswordCheckUtils
+from . import common
 
 
 def additional_words():
@@ -49,11 +49,6 @@ def additional_words():
     for w in ('ibm', 'dec', 'sun', 'at&t', 'nasa', 'jan', 'feb', 'mar', 'apr',
               'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'):
         yield w
-
-
-l33t_speak = string.maketrans('4831!05$72', 'abeiiosstz')
-""" Translate strings from 'leet speak'. The value is a translation table
-bytestring for `string.translate' """
 
 
 def look(FH, key, dictn, fold):
@@ -174,7 +169,7 @@ def check_dict(dictionaries, baseword):
         if is_word_in_dicts(dictionaries, [re.sub(r'^[^a-z]+', '', baseword)]):
             return True
 
-    nshort = string.translate(baseword, l33t_speak())
+    nshort = string.translate(baseword, common.l33t_speak)
     if is_word_in_dicts(dictionaries, [nshort]):
         return True
 
@@ -208,7 +203,7 @@ def check_two_word_combinations(dictionaries, word):
         oneup = ''
         if m:
             oneup = m.group(1)
-        npass = string.translate(cword, l33t_speak)
+        npass = string.translate(cword, common.l33t_speak)
 
         npass = re.sub('/[\?\!\.]$', '', npass)
         if re.search(r'.+[A-Z].*[A-Z]', word):
@@ -251,7 +246,7 @@ def check_two_word_combinations(dictionaries, word):
         return None
 
 
-class PasswordDictionaryMixin(PasswordCheckUtils):
+class PasswordDictionaryMixin(object):
 
     """ Check if password contains dictionary words. """
 
@@ -265,18 +260,18 @@ class PasswordDictionaryMixin(PasswordCheckUtils):
         super(PasswordDictionaryMixin, self).password_good_enough(password)
 
         if check_dict(self.password_dictionaries, password[0:8]):
-            raise PasswordNotGoodEnough(
+            raise common.PasswordNotGoodEnough(
                 "Password cannot contain dictionary words.")
 
         err = check_two_word_combinations(self.password_dictionaries,
                                           password[0:8])
         if err and len(err) == 2:
-            raise PasswordNotGoodEnough(
+            raise common.PasswordNotGoodEnough(
                 "You should not combine two words like %s and %s" % err)
 
         for tmp in additional_words():
             if tmp in password[0:8].lower():
-                raise PasswordNotGoodEnough(
+                raise common.PasswordNotGoodEnough(
                     "Password cannot contain dictionary words.")
 
 

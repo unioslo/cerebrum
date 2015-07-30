@@ -42,7 +42,8 @@ import cereconf
 import hashlib
 import base64
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
-from Cerebrum.PasswordChecker import PasswordGoodEnoughException
+
+from .common import PasswordNotGoodEnough
 
 __version__ = "1.0"
 
@@ -120,7 +121,7 @@ class PasswordHistoryMixin(DatabaseAccessor):
                 variants.append(tmp)
         for r in ph.get_history(eid):
             if r['md5base64'] in variants:
-                raise PasswordGoodEnoughException(
+                raise PasswordNotGoodEnough(
                     "Password too similar to an old password.")
 
 
