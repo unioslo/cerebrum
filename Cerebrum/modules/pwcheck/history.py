@@ -112,7 +112,7 @@ class PasswordHistoryMixin(DatabaseAccessor):
 
         variants = []
         for m in (-1, 0):
-            for r in self.what_range(password[m]):
+            for r in what_range(password[m]):
                 if m < 0:
                     tmp = password[:m]+chr(r)
                 else:

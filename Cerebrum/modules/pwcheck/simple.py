@@ -262,20 +262,23 @@ class CheckUsernameMixin(object):
     """ Check for use of the username in the password. """
 
     def password_good_enough(self, password):
-        """ Foo. """
+        """ Does the password contain the username? """
         super(CheckUsernameMixin, self).password_good_enough(password)
-        passwd = password[0:8]
         if not hasattr(self, 'account_name'):
             return
-        self._check_uname_password(self.account_name, passwd)
+        self._check_uname_password(self.account_name, password)
 
     def _check_uname_password(self, uname, passwd):
+        uname = uname.lower()
+        passwd = passwd.lower()
+
         # password cannot equal the username
-        if passwd.lower() == uname:
+        if uname in passwd.lower():
             raise common.PasswordNotGoodEnough(
                 "Password cannot contain your username")
+
         # password cannot equal reversed username
-        if passwd.lower() == uname[::-1]:
+        if uname[::-1] in passwd.lower():
             raise common.PasswordNotGoodEnough(
                 "Password cannot contain your username in reverse")
 
