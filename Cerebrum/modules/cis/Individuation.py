@@ -30,7 +30,7 @@ import cereconf
 import cerebrum_path
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, SMSSender, sendmail
-from Cerebrum.modules import PasswordChecker
+from Cerebrum.modules.pwcheck.common import PasswordNotGoodEnough
 from cisconf import individuation as cisconf
 
 class SimpleLogger(object):
@@ -404,16 +404,15 @@ class Individuation:
         return self._check_password(password)
 
     def _check_password(self, password, account=None):
-        ac = Factory.get('Account')(self.db)
-        uname = None
         if account is None:
-            uname = 'foobar'
+            account = Factory.get('Account')(self.db)
         try:
-            ac.goodenough(account, password, uname=uname)
-        except PasswordChecker.PasswordGoodEnoughException, m:
-            # The PasswordChecker is in iso8859-1, so we need to convert its
-            # message to unicode before we raise it.
-            m = unicode(str(m), 'iso8859-1')
+            account.password_good_enough(password)
+        except PasswordNotGoodEnough, m:
+            try:
+                m = unicode(str(m), 'utf-8', errors='strict')
+            except UnicodeDecodeError:
+                m = unicode(str(m), 'latin-1', errors='replace')
             raise Errors.CerebrumRPCException('password_invalid', m)
         else:
             return True

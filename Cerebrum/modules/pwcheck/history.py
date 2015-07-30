@@ -48,7 +48,17 @@ from .common import PasswordNotGoodEnough
 __version__ = "1.0"
 
 
-class PasswordHistoryMixin(DatabaseAccessor):
+class ClearPasswordHistoryMixin(DatabaseAccessor):
+
+    """ A mixin that will delete password history. """
+
+    def delete(self):
+        if getattr(self, '__in_db', False):
+            PasswordHistory(self._db).del_history(self.entity_id)
+        super(ClearPasswordHistoryMixin, self).delete()
+
+
+class PasswordHistoryMixin(ClearPasswordHistoryMixin):
 
     """ A mixin for use with accounts, etc. """
     # TODO: Should this inherit from Cerebrum.Account or Cerebrum.Entity?
@@ -66,11 +76,6 @@ class PasswordHistoryMixin(DatabaseAccessor):
             ph = PasswordHistory(self._db)
             ph.add_history(self, plain)
         return ret
-
-    def delete(self):
-        if getattr(self, '__in_db', False):
-            PasswordHistory(self._db).del_history(self.entity_id)
-        super(PasswordHistoryMixin, self).delete()
 
     # If, for some reason Cerebrum.Account.set_password stops storing the
     # plaintext, we would need to do that here.
@@ -127,8 +132,7 @@ class PasswordHistoryMixin(DatabaseAccessor):
 
 class PasswordHistory(DatabaseAccessor):
 
-    """PasswordHistory does not enfoce that Entity is an Account as
-    other things also may have passwords"""
+    """PasswordHistory contains an API for accessing password history. """
 
     def encode_for_history(self, name, password):
         m = hashlib.md5("%s%s" % (name, password))

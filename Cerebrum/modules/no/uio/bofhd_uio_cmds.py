@@ -41,8 +41,8 @@ from Cerebrum.Constants import _CerebrumCode, _SpreadCode, _LanguageCode
 from Cerebrum import Utils
 from Cerebrum.modules import Email
 from Cerebrum.modules.Email import _EmailDomainCategoryCode
-from Cerebrum.modules import PasswordChecker
 from Cerebrum.modules.pwcheck.history import PasswordHistory
+from Cerebrum.modules.pwcheck.common import PasswordNotGoodEnough
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.cmd_param import *
@@ -6661,12 +6661,11 @@ Addresses and settings:
     all_commands['misc_check_password'] = Command(
         ("misc", "check_password"), AccountPassword())
     def misc_check_password(self, operator, password):
-        pc = PasswordChecker.PasswordChecker(self.db)
-        try:
-            pc.goodenough(None, password, uname="foobar")
-        except PasswordChecker.PasswordGoodEnoughException, m:
-            raise CerebrumError, "Bad password: %s" % m
         ac = self.Account_class(self.db)
+        try:
+            ac.password_good_enough(password)
+        except PasswordNotGoodEnough, m:
+            raise CerebrumError("Bad password: %s" % m)
         crypt = ac.encrypt_password(self.const.Authentication("crypt3-DES"),
                                     password)
         md5 = ac.encrypt_password(self.const.Authentication("MD5-crypt"),
@@ -10022,9 +10021,9 @@ Addresses and settings:
             elif operator.get_entity_id() != account.entity_id:
                 raise CerebrumError("Cannot specify password for another user.")
         try:
-            account.goodenough(account, password)
-        except PasswordChecker.PasswordGoodEnoughException, m:
-            raise CerebrumError, "Bad password: %s" % m
+            account.password_good_enough(password)
+        except PasswordNotGoodEnough, m:
+            raise CerebrumError("Bad password: %s" % m)
         account.set_password(password)
         try:
             account.write_db()

@@ -58,7 +58,7 @@ from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules import dns
 from Cerebrum.modules.dns import Subnet
 from Cerebrum.modules.dns import IPv6Subnet
-from Cerebrum.modules import PasswordChecker
+from Cerebrum.modules.pwcheck.common import PasswordNotGoodEnough
 from Cerebrum.Constants import _CerebrumCode
 
 from Cerebrum.modules.tsd.bofhd_auth import TSDBofhdAuth
@@ -346,8 +346,8 @@ class TSDBofhdExtension(BofhdCommonMethods):
             elif operator.get_entity_id() != account.entity_id:
                 raise CerebrumError("Cannot specify password for another user.")
         try:
-            account.goodenough(account, password)
-        except PasswordChecker.PasswordGoodEnoughException, m:
+            account.password_good_enough(password)
+        except PasswordNotGoodEnough, m:
             raise CerebrumError("Bad password: %s" % m)
         ret_msg = 'Password altered'
         # Set password for all person's accounts:

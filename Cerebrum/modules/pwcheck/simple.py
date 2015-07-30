@@ -50,11 +50,11 @@ class CheckInvalidCharsMixin(object):
 
     """ Check for illegal characters in password string. """
 
-    illegal_chars = {
+    _password_illegal_chars = {
         '\0': "Password cannot contain the null character.",
         ' ': "Password cannot contain space.", }
 
-    illegal_regex = {
+    _password_illegal_regex = {
         r'[\200-\376]':
             "Password cannot contain 8-bit characters (e.g.  æøå).", }
 
@@ -62,11 +62,11 @@ class CheckInvalidCharsMixin(object):
         """ Check that only valid characters are allowed. """
         super(CheckInvalidCharsMixin, self).password_good_enough(password)
 
-        for char, err in self.illegal_chars.iteritems():
+        for char, err in self._password_illegal_chars.iteritems():
             if char in password:
                 raise common.PasswordNotGoodEnough(err)
 
-        for regex, err in self.illegal_regex.iteritems():
+        for regex, err in self._password_illegal_regex.iteritems():
             if re.search(regex, password):
                 raise common.PasswordNotGoodEnough(err)
 
@@ -75,27 +75,29 @@ class CheckLengthMixin(object):
 
     """ Check for minimum and maximum password length. """
 
-    min_password_length = 8
-    max_password_length = 15
+    _password_min_length = 8
+    _password_max_length = 15
 
     def password_good_enough(self, password):
         """Check the length of the password.
 
-        The password must be at least min_password_length long and at most
-        max_password_length long.
+        The password must be at least _password_min_length long and at most
+        _password_max_length long.
 
         """
         super(CheckLengthMixin, self).password_good_enough(password)
 
-        if len(password) < self.min_password_length:
+        if (self._password_min_length is not None
+                and len(password.strip()) < self._password_min_length):
             raise common.PasswordNotGoodEnough(
                 "Password must be at least %d characters long." %
-                self.min_password_length)
+                self._password_min_length)
 
-        if len(password) > self.max_password_length:
+        if (self._password_max_length is not None
+                and len(password) > self._password_max_length):
             raise common.PasswordNotGoodEnough(
                 "Password must be at most %d characters long." %
-                self.max_password_length)
+                self._password_max_length)
 
 
 class CheckConcatMixin(object):
@@ -293,7 +295,7 @@ class CheckOwnerNameMixin(DatabaseAccessor):
         if not hasattr(self, 'owner_id'):
             return
 
-        self._check_human_owner(self, self.owner_id, password)
+        self._check_human_owner(self.owner_id, password)
 
     def _check_human_owner(self, owner_id, password):
         """Check if password is a variation of the owner's name."""

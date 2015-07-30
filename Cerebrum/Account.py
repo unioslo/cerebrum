@@ -38,7 +38,6 @@ import base64
 from Cerebrum import Utils, Disk
 from Cerebrum.Entity import EntityName, EntityQuarantine, \
     EntityContactInfo, EntityExternalId, EntitySpread
-from Cerebrum.modules import PasswordChecker
 from Cerebrum import Errors
 from Cerebrum.Utils import NotSet
 from Cerebrum.Utils import argument_to_sql, prepare_string
@@ -1233,15 +1232,14 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         pot = string.ascii_letters + string.digits + '-+?=*()/&%#"_!,;.:'
         for i in ['O', 'l']:
             pot = pot.replace(i, '')
-        pc = PasswordChecker.PasswordChecker(self._db)
         while True:
             r = ''
             while len(r) < 8:
                 r += pot[random.randint(0, len(pot) - 1)]
             try:
-                pc.goodenough(None, r, uname=uname)
+                self.password_good_enough(r)
                 return r
-            except PasswordChecker.PasswordGoodEnoughException:
+            except Errors.CerebrumError:  # PasswordNotGoodEnough
                 pass  # Wasn't good enough
 
     def password_good_enough(self, password):

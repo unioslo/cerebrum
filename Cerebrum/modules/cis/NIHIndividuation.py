@@ -25,7 +25,6 @@ Functionality for the Individuation project that is specific to NIH.
 import cereconf, cerebrum_path
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.no.nih import PasswordChecker
 
 from Cerebrum.modules.cis import Individuation
 
