@@ -26,7 +26,16 @@ old password.
 
 NOTE
 ----
-This module requires the design/mod_password_history.sql database module
+This module requires the design/mod_password_history.sql database module.
+
+To use the PasswordHistoryMixin, the base class MUST implement all the public
+methods defined in the mixin:
+
+ - password_good_enough(self, password)
+ - set_password(self, password)
+ - write_db(self)
+ - delete(self)
+ - clear(self)
 
 HISTORY
 -------
@@ -35,6 +44,13 @@ structure of PasswordHistory, please see:
 
 > commit 9a01d8b6ac93513a57ac8d6393de842939582f51
 > Mon Jul 20 14:12:55 2015 +0200
+
+
+TODO
+----
+Make PasswordHistory potentially work for other Entities than Account.
+Currently, an Account-object is passed to add_history, and the `acocunt_name'
+and `entity_id' attributes are used in the password history hash.
 
 """
 
@@ -53,15 +69,15 @@ class ClearPasswordHistoryMixin(DatabaseAccessor):
     """ A mixin that will delete password history. """
 
     def delete(self):
-        if getattr(self, '__in_db', False):
-            PasswordHistory(self._db).del_history(self.entity_id)
+        e_id = getattr(self, 'entity_id', None)
+        if e_id is not None:
+            PasswordHistory(self._db).del_history(e_id)
         super(ClearPasswordHistoryMixin, self).delete()
 
 
 class PasswordHistoryMixin(ClearPasswordHistoryMixin):
 
-    """ A mixin for use with accounts, etc. """
-    # TODO: Should this inherit from Cerebrum.Account or Cerebrum.Entity?
+    """ A mixin for use with entities that should have password history. """
 
     def password_good_enough(self, password):
         """ Match the password against PasswordHistory. """
@@ -69,19 +85,31 @@ class PasswordHistoryMixin(ClearPasswordHistoryMixin):
         self._check_password_history(password)
         self._check_password_history(password[0:8])
 
+    def set_password(self, plaintext):
+        # We need our own copy of __plaintext_password, because the
+        # Account-attribute is mangled ("private"). This also means we will
+        # need to deal with clearing and deleting it ourselves.
+        self.__plaintext_password = plaintext
+        super(PasswordHistoryMixin, self).set_password(plaintext)
+
     def write_db(self):
+        try:
+            plain = self.__plaintext_password
+            del self.__plaintext_password
+        except AttributeError:
+            plain = None
         ret = super(PasswordHistoryMixin, self).write_db()
-        plain = getattr(self, '__plaintext_password', None)
         if plain is not None:
             ph = PasswordHistory(self._db)
             ph.add_history(self, plain)
         return ret
 
-    # If, for some reason Cerebrum.Account.set_password stops storing the
-    # plaintext, we would need to do that here.
-    #   def set_password(self, plaintext):
-    #       self.__plaintext_password = plaintext
-    #       super(PasswordHistoryMixin, self).set_password(plaintext)
+    def clear(self):
+        try:
+            del self.__plaintext_password
+        except AttributeError:
+            pass
+        super(PasswordHistoryMixin, self).clear()
 
     def _check_password_history(self, password):
         """ Check if entity had this passwordearlier.
@@ -96,10 +124,10 @@ class PasswordHistoryMixin(ClearPasswordHistoryMixin):
 
         """
         ph = PasswordHistory(self._db)
-        uname = getattr(self, 'account_name', None)
-        eid = getattr(self, 'entity_id', None)
+        name = getattr(self, 'account_name', None)
+        entity_id = getattr(self, 'entity_id', None)
 
-        if not uname or eid:
+        if not name or not entity_id:
             return
 
         def what_range(ch):
@@ -122,9 +150,9 @@ class PasswordHistoryMixin(ClearPasswordHistoryMixin):
                     tmp = password[:m]+chr(r)
                 else:
                     tmp = chr(r)+password[m+1:]
-                tmp = ph.encode_for_history(uname, tmp)
+                tmp = ph.encode_for_history(name, tmp)
                 variants.append(tmp)
-        for r in ph.get_history(eid):
+        for r in ph.get_history(entity_id):
             if r['md5base64'] in variants:
                 raise PasswordNotGoodEnough(
                     "Password too similar to an old password.")
@@ -140,10 +168,13 @@ class PasswordHistory(DatabaseAccessor):
 
     def add_history(self, account, password, _csum=None, _when=None):
         """Add an entry to the password history."""
+        name = getattr(account, 'account_name')
+        entity_id = getattr(account, 'entity_id')
+
         if _csum is not None:
             csum = _csum
         else:
-            csum = self.encode_for_history(account.account_name, password)
+            csum = self.encode_for_history(name, password)
         if _when is not None:
             col_when = ", set_at"
             val_when = ", :when"
@@ -152,7 +183,7 @@ class PasswordHistory(DatabaseAccessor):
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=password_history]
           (entity_id, md5base64 %s) VALUES (:e_id, :md5 %s)""" % (
-            col_when, val_when), {'e_id': account.entity_id,
+            col_when, val_when), {'e_id': entity_id,
                                   'md5': csum,
                                   'when': _when})
 
