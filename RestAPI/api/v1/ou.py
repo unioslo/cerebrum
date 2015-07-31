@@ -22,7 +22,7 @@ def format_ou(ou):
 
     data = {
         'id': ou.entity_id,
-        'spreads': [row['spread'] for row in ou.get_spread()],
+        'contexts': [row['spread'] for row in ou.get_spread()],
         'contact': ou.get_contact_info(),
         'names': ou.search_name_with_language(entity_id=ou.entity_id),
     }
@@ -52,7 +52,7 @@ class OrganizationalUnit(object):
             fields.EntityContactInfo.resource_fields)),
         'names': fields.base.List(fields.base.Nested(
             fields.EntityNameWithLanguage.resource_fields)),
-        'spreads': fields.base.List(fields.Constant(ctype='Spread')),
+        'contexts': fields.base.List(fields.Constant(ctype='Spread')),
         'stedkode': fields.base.String,
         'fakultet': fields.base.Integer,
         'institutt': fields.base.Integer,

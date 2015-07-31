@@ -73,7 +73,7 @@ class Person(object):
         'birth_date': fields.DateTime(dt_format='iso8601'),
         'names': fields.base.List(fields.base.Nested(PersonName.resource_fields)),
         'accounts': fields.base.List(fields.base.Nested(PersonAccount.resource_fields)),
-        'spreads': fields.base.List(fields.Constant(ctype='Spread')),
+        'contexts': fields.base.List(fields.Constant(ctype='Spread')),
         'affiliations': fields.base.List(fields.base.Nested(PersonAffiliation.resource_fields)),
         'contact': fields.base.List(fields.base.Nested(fields.EntityContactInfo.resource_fields)),
         'external_ids': fields.base.List(fields.base.Nested(
@@ -84,7 +84,7 @@ class Person(object):
         'id': {'description': 'Person entity ID', },
         'birth_date': {'description': 'Birth date', },
         'names': {'description': 'Names', },
-        'spreads': {'description': 'Person spreads', },
+        'contexts': {'description': 'Visible in these contexts', },
         'primary_account': {'description': 'Primary account', },
         'affiliations': {'description': 'Person affiliations', },
         'contact': {'description': 'Contact information', },
@@ -129,7 +129,7 @@ class PersonResource(Resource):
 
         data = {
             'id': pe.entity_id,
-            'spreads': [row['spread'] for row in pe.get_spread()],
+            'contexts': [row['spread'] for row in pe.get_spread()],
             'birth_date': pe.birth_date,
             'contact': pe.get_contact_info(),
             'names': pe.get_all_names(),

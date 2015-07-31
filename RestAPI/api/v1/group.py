@@ -48,7 +48,7 @@ class Group(object):
         'id': fields.base.Integer,
         'name': fields.base.String,
         'description': fields.base.String,
-        'systems': fields.base.List(fields.Constant(ctype='Spread')),
+        'contexts': fields.base.List(fields.Constant(ctype='Spread')),
         'moderators': fields.base.List(fields.base.Nested(GroupModerator.resource_fields)),
         'posix': fields.base.Boolean,
         'posix_gid': fields.base.Integer,
@@ -60,7 +60,7 @@ class Group(object):
         'id': {'description': 'Group entity ID'},
         'name': {'description': 'Group name'},
         'description': {'description': 'Group description'},
-        'systems': {'description': 'Visible to these systems'},
+        'contexts': {'description': 'Visible in these contexts'},
         'moderators': {'description': 'Group moderators'},
         'posix': {'description': 'Is this a POSIX group?'},
         'posix_gid': {'description': 'POSIX GID'},
@@ -101,7 +101,7 @@ class GroupResource(Resource):
             'create_date': gr.create_date,
             'expire_date': gr.expire_date,
             'creator_id': gr.creator_id,
-            'systems': [row['spread'] for row in gr.get_spread()],
+            'contexts': [row['spread'] for row in gr.get_spread()],
             'moderators': utils.get_auth_owners(entity=gr, target_type='group'),
         }
 
@@ -116,7 +116,7 @@ class GroupResource(Resource):
 
 @swagger.model
 class GroupListItem(object):
-    """Data model for an account in a list."""
+    """Data model for an item in a group list."""
     resource_fields = {
         'href': fields.base.Url('.group', absolute=True),
         'name': fields.base.String,
@@ -178,8 +178,8 @@ class GroupListResource(Resource):
                 'paramType': 'query'
             },
             {
-                'name': 'system',
-                'description': 'Filter by system. Accepts * and ? as wildcards.',
+                'name': 'context',
+                'description': 'Filter by context. Accepts * and ? as wildcards.',
                 'required': False,
                 'allowMultiple': False,
                 'dataType': 'str',
@@ -244,7 +244,7 @@ class GroupListResource(Resource):
         parser = reqparse.RequestParser()
         parser.add_argument('name', type=str)
         parser.add_argument('description', type=str)
-        parser.add_argument('system', type=str, dest='spread')
+        parser.add_argument('context', type=str, dest='spread')
         parser.add_argument('member_id', type=int, action='append')
         parser.add_argument('indirect_members', type=bool)
         parser.add_argument('filter_expired', type=bool)
@@ -321,8 +321,8 @@ class GroupMemberListResource(Resource):
                 'paramType': 'query'
             },
             {
-                'name': 'system',
-                'description': 'Filter by system. Accepts * and ? as wildcards.',
+                'name': 'context',
+                'description': 'Filter by context. Accepts * and ? as wildcards.',
                 'required': False,
                 'allowMultiple': False,
                 'dataType': 'str',
@@ -351,7 +351,7 @@ class GroupMemberListResource(Resource):
         """
         parser = reqparse.RequestParser()
         parser.add_argument('type', type=str, dest='member_type')
-        parser.add_argument('system', type=str, dest='member_spread')
+        parser.add_argument('context', type=str, dest='member_spread')
         parser.add_argument('filter_expired', type=bool, dest='member_filter_expired')
         args = parser.parse_args()
         filters = {key: value for (key, value) in args.items() if value is not None}
@@ -369,7 +369,7 @@ class GroupMemberListResource(Resource):
                 member_spread = co.Spread(filters['member_spread'])
                 filters['member_spread'] = int(member_spread)
             except Errors.NotFoundError:
-                abort(404, message=u'Unknown system for system={}'.format(filters['member_spread']))
+                abort(404, message=u'Unknown context for context={}'.format(filters['member_spread']))
 
         gr = find_group(id)
 

@@ -48,7 +48,7 @@ class AccountHome(object):
     resource_fields = {
         'homedir_id': fields.base.Integer,
         'home': fields.base.String,
-        'system': fields.Constant(ctype='Spread', attribute='spread'),
+        'context': fields.Constant(ctype='Spread', attribute='spread'),
         'status': fields.Constant(ctype='AccountHomeStatus'),
         'disk_id': fields.base.Integer,
     }
@@ -56,7 +56,7 @@ class AccountHome(object):
     swagger_metadata = {
         'homedir_id': {'description': 'Home directory entity ID'},
         'home': {'description': 'Home directory path'},
-        'system': {'description': ''},
+        'context': {'description': ''},
         'status': {'description': 'Home status'},
         'disk_id': {'description': 'Disk entity ID'},
     }
@@ -79,7 +79,7 @@ class Account(object):
         'create_date': fields.DateTime(dt_format='iso8601'),
         'expire_date': fields.DateTime(dt_format='iso8601'),
         'creator_id': fields.base.Integer(default=None),
-        'systems': fields.base.List(fields.Constant(ctype='Spread')),
+        'contexts': fields.base.List(fields.Constant(ctype='Spread')),
         'primary_email': fields.base.String,
         'affiliations': fields.base.List(fields.base.Nested(AccountAffiliation.resource_fields)),
         'posix': fields.base.Boolean,
@@ -99,7 +99,7 @@ class Account(object):
         'create_date': {'description': 'Date of account creation', },
         'expire_date': {'description': 'Expiration date', },
         'creator_id': {'description': 'Account creator entity ID', },
-        'systems': {'description': 'Visible to these systems', },
+        'contexts': {'description': 'Visible in these contexts', },
         'primary_email': {'description': 'Primary email address', },
         'affiliations': {'description': 'Account affiliations', },
         'posix': {'description': 'Is this a POSIX account?', },
@@ -149,7 +149,7 @@ class AccountResource(Resource):
             'create_date': ac.create_date,
             'expire_date': ac.expire_date,
             'creator_id': ac.creator_id,
-            'systems': [row['spread'] for row in ac.get_spread()],
+            'contexts': [row['spread'] for row in ac.get_spread()],
             'primary_email': ac.get_primary_mailaddress(),
             'deleted': ac.is_deleted(),
             'contact': ac.get_contact_info(),
@@ -308,8 +308,8 @@ class AccountListResource(Resource):
                 'paramType': 'query'
             },
             {
-                'name': 'system',
-                'description': 'Filter by system. Accepts * and ? as wildcards.',
+                'name': 'context',
+                'description': 'Filter by context. Accepts * and ? as wildcards.',
                 'required': False,
                 'allowMultiple': False,
                 'dataType': 'str',
@@ -345,7 +345,7 @@ class AccountListResource(Resource):
         """
         parser = reqparse.RequestParser()
         parser.add_argument('name', type=str)
-        parser.add_argument('system', type=str, dest='spread')
+        parser.add_argument('context', type=str, dest='spread')
         parser.add_argument('owner_id', type=int)
         parser.add_argument('owner_type', type=str)
         parser.add_argument('expire_start', type=str)
