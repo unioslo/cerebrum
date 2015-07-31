@@ -6,10 +6,10 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 
+import group
+
 from Cerebrum.modules import Email
 import emailaddress
-
-import ou
 
 co = Factory.get('Constants')(db.connection)
 
@@ -375,3 +375,77 @@ class AccountListResource(Resource):
             })
             accounts.append(account)
         return {'accounts': accounts}
+
+
+class AccountGroupListResource(Resource):
+    """Resource for account group memberships."""
+    @swagger.operation(
+        notes='Get a list of groups this account is a member of',
+        nickname='get',
+        responseClass='GroupList',
+        parameters=[
+            {
+                'name': 'id',
+                'description': 'Account name or ID',
+                'required': True,
+                'allowMultiple': False,
+                'dataType': 'string',
+                'paramType': 'path'
+            },
+            {
+                'name': 'indirect_memberships',
+                'description': 'If true, include indirect group memberships.',
+                'required': False,
+                'allowMultiple': False,
+                'dataType': 'bool',
+                'paramType': 'query'
+            },
+            {
+                'name': 'filter_expired',
+                'description': 'If false, include expired groups.',
+                'required': False,
+                'allowMultiple': False,
+                'defaultValue': True,
+                'dataType': 'bool',
+                'paramType': 'query'
+            },
+            {
+                'name': 'expired_only',
+                'description': 'If true, only include expired groups.',
+                'required': False,
+                'allowMultiple': False,
+                'dataType': 'bool',
+                'paramType': 'query'
+            },
+        ],
+    )
+    @auth.require()
+    @marshal_with(group.GroupList.resource_fields)
+    def get(self, id):
+        """Returns the groups this account is a member of.
+
+        :param str id: the account name or id
+
+        :rtype: list
+        :return: a list of groups
+        """
+        ac = find_account(id)
+
+        parser = reqparse.RequestParser()
+        parser.add_argument('indirect_memberships', type=bool, dest='indirect_members')
+        parser.add_argument('filter_expired', type=bool)
+        parser.add_argument('expired_only', type=bool)
+        args = parser.parse_args()
+        filters = {key: value for (key, value) in args.items() if value is not None}
+        filters['member_id'] = ac.entity_id
+
+        gr = Factory.get('Group')(db.connection)
+
+        groups = list()
+        for row in gr.search(**filters):
+            group = dict(row)
+            group.update({
+                'id': group['name'],
+            })
+            groups.append(group)
+        return {'groups': groups}
