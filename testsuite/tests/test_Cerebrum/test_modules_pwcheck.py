@@ -18,8 +18,6 @@ from nose import tools
 from Cerebrum.modules.pwcheck import simple
 from Cerebrum.modules.pwcheck.common import PasswordChecker
 from Cerebrum.modules.pwcheck.common import PasswordNotGoodEnough
-# from Cerebrum.modules.pwcheck.dictionary import PasswordDictionaryMixin
-# from Cerebrum.modules.pwcheck.history import PasswordHistoryMixin
 
 
 class InvalidChars(simple.CheckInvalidCharsMixin, PasswordChecker):
@@ -231,7 +229,3 @@ def test_allowed_name_passwords():
     for name, successes in passing_tests.iteritems():
         for success in successes:
             yield pc._match_password_to_name, name, success
-
-
-# TODO: PasswordHistoryMixin
-# TODO: PasswordDictionaryMixin
