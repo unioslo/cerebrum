@@ -46,6 +46,7 @@ from Cerebrum.Utils import Factory
 from . import common
 
 
+# TODO: Should we really disallow characters from passwords?
 class CheckInvalidCharsMixin(object):
 
     """ Check for illegal characters in password string. """
@@ -100,6 +101,7 @@ class CheckLengthMixin(object):
                 self._password_max_length)
 
 
+# TODO: Can we get rid of this?
 class CheckConcatMixin(object):
 
     """We disallow passwords like 'Camel*Toe'.
@@ -117,7 +119,7 @@ class CheckConcatMixin(object):
         """ This is insane. """
         super(CheckConcatMixin, self).password_good_enough(password)
 
-        first_eight = password[0:7]
+        first_eight = password[0:8]
 
         if (re.search(r'^[A-Z][a-z]+[^A-Za-z0-9][A-Z][a-z]*$', first_eight) or
                 re.search(r'^[A-Z][a-z]+[^A-Za-z0-9][A-Z][a-z]*$', password)):
@@ -144,6 +146,8 @@ class CheckEntropyMixin(object):
 
         super(CheckEntropyMixin, self).password_good_enough(password)
 
+        # TODO: Write proper regex, so that we don't have to truncate the
+        # password
         first_eight = password[0:8]
 
         good_try = variation = 0
@@ -192,6 +196,7 @@ class CheckCharSeqMixin(object):
         """ Check for sequences of closely related characters. """
         super(CheckCharSeqMixin, self).password_good_enough(password)
 
+        # TODO: Clean up this check, and get rid of the trunc
         passwd = password[0:8].lower()
 
         # A sequence of closely related ASCII characters.
@@ -243,6 +248,8 @@ class CheckRepeatedPatternMixin(object):
     def password_good_enough(self, password):
         """ Check for repeated sequences in the first eight chars. """
         super(CheckRepeatedPatternMixin, self).password_good_enough(password)
+
+        # TODO: Clean up this check, and get rid of the trunc
         first_eight = password[0:8]
         repeat_err = common.PasswordNotGoodEnough(
             "Password cannot contain repeated sequences of characters.")
@@ -266,21 +273,18 @@ class CheckUsernameMixin(object):
     def password_good_enough(self, password):
         """ Does the password contain the username? """
         super(CheckUsernameMixin, self).password_good_enough(password)
-        if not hasattr(self, 'account_name'):
-            return
-        self._check_uname_password(self.account_name, password)
+        name = getattr(self, 'account_name', None)
+        if name is not None:
+            self._check_uname_password(name, password)
 
-    def _check_uname_password(self, uname, passwd):
-        uname = uname.lower()
-        passwd = passwd.lower()
-
-        # password cannot equal the username
-        if uname in passwd.lower():
+    def _check_uname_password(self, name, passwd):
+        # password cannot contain the username
+        if name.lower() in passwd.lower():
             raise common.PasswordNotGoodEnough(
                 "Password cannot contain your username")
 
-        # password cannot equal reversed username
-        if uname[::-1] in passwd.lower():
+        # password cannot contain the username reversed
+        if name[::-1].lower() in passwd.lower():
             raise common.PasswordNotGoodEnough(
                 "Password cannot contain your username in reverse")
 
@@ -299,6 +303,9 @@ class CheckOwnerNameMixin(DatabaseAccessor):
 
     def _check_human_owner(self, owner_id, password):
         """Check if password is a variation of the owner's name."""
+        # TODO: Should we not check the name of other owner types as well?
+        #       E.g.: owner=group:foobarbaz, password=fooBARbaz
+
         # First, do we have a human owner at all?
         person = Factory.get("Person")(self._db)
         const = Factory.get("Constants")(self._db)
@@ -307,6 +314,8 @@ class CheckOwnerNameMixin(DatabaseAccessor):
         except NotFoundError:
             return
         # Which name to use? Let's grab the first full name we find
+        # TODO: Why not check _ALL_ the names? What if there are multiple
+        # `name_full' names, but they are different between source systems?
         for row in person.get_all_names():
             if row["name_variant"] == const.name_full:
                 name = row["name"]
