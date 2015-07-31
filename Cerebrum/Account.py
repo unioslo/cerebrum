@@ -701,7 +701,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         notimplemented = []
         for method_name in cereconf.AUTH_CRYPT_METHODS:
             method = self.const.Authentication(method_name)
-            if not method in self._acc_affect_auth_types:
+            if method not in self._acc_affect_auth_types:
                 self._acc_affect_auth_types.append(method)
             if not self.wants_auth_type(method):
                 # affect_auth_types is set above, so existing entries
@@ -723,7 +723,14 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 notimplemented.append(str(e))
             else:
                 self.populate_authentication_type(method, enc)
-        self.__plaintext_password = plaintext
+        try:
+            # Allow multiple writes, even though this is a __read_attr__
+            del self.__plaintext_password
+        except AttributeError:
+            pass
+        finally:
+            self.__plaintext_password = plaintext
+
         if notimplemented:
             raise Errors.NotImplementedAuthTypeError("\n".join(notimplemented))
 
@@ -775,8 +782,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                  cereconf.AUTH_HA1_REALM,
                  plaintext])
             return hashlib.md5(s).hexdigest()
-        raise Errors.NotImplementedAuthTypeError, "Unknown method " + \
-            repr(method)
+        raise Errors.NotImplementedAuthTypeError(
+            "Unknown method %r" % method)
 
     def decrypt_password(self, method, cryptstring):
         """Returns the decrypted plaintext according to the specified
@@ -790,10 +797,10 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                       self.const.auth_type_sha256_crypt,
                       self.const.auth_type_sha512_crypt,
                       self.const.auth_type_md4_nt):
-            raise NotImplementedError, "Can't decrypt %s" % method
+            raise NotImplementedError("Can't decrypt %s" % method)
         elif method == self.const.auth_type_plaintext:
             return cryptstring
-        raise ValueError, "Unknown method " + repr(method)
+        raise ValueError("Unknown method %r" % method)
 
     def verify_password(self, method, plaintext, cryptstring):
         """Returns True if the plaintext matches the cryptstring,
@@ -813,7 +820,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 salt = base64.decodestring(cryptstring)[20:]
             return (self.encrypt_password(method, plaintext, salt=salt) ==
                     cryptstring)
-        raise ValueError, "Unknown method " + repr(method)
+        raise ValueError("Unknown method %r" % method)
 
     def verify_auth(self, plaintext):
         """Try to verify all authentication data stored for an
@@ -995,6 +1002,12 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                     DELETE FROM [:table schema=cerebrum name=account_authentication]
                     WHERE account_id=:acc_id AND method=:method""",
                              {'acc_id': self.entity_id, 'method': k})
+
+        try:
+            del self.__plaintext_password
+        except AttributeError:
+            pass
+
         del self.__in_db
         self.__in_db = True
         self.__updated = []
