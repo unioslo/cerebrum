@@ -397,8 +397,9 @@ class Subnet(Entity):
         targets = [x['op_target_id'] for x in
                    baot.list(entity_id=self.entity_id)]
         if targets:
-            for x in bar.list(op_target_id=targets):
-                bar.revoke_auth(*x)
+            for target in targets:
+                for x in bar.list(op_target_id=target):
+                    bar.revoke_auth(*x)
             bar.commit()
 
         # Remove BofhdAuthOpTarget associated with subnet
