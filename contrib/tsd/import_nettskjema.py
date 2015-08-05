@@ -899,14 +899,13 @@ class Processing(object):
         self._update_person(pe, input)
 
         # Find the project:
-        pname = input['p_id']
+        pid = input['p_id']
         ou.clear()
         try:
-            ou.find_by_tsd_projectname(pname)
+            ou.find_by_tsd_projectid(pid)
         except Errors.NotFoundError: 
             # Retry with lowercase, just in case:
-            ou.find_by_tsd_projectname(pname.lower())
-        pid = ou.get_project_id()
+            ou.find_by_tsd_projectid(pid.lower())
 
         # Check that the person is not already in the project:
         for row in pe.list_affiliations(person_id=pe.entity_id,
