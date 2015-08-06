@@ -958,10 +958,9 @@ class Processing(object):
 
         """
         # Find the project:
-        pname = input['p_id']
+        pid = input['p_id']
         ou.clear()
-        ou.find_by_tsd_projectname(pname)
-        pid = ou.get_project_id()
+        ou.find_by_tsd_projectid(pid)
         logger.info('Approve persons for project: %s', pid)
 
         # Find the requestor
