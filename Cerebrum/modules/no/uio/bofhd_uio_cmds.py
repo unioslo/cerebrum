@@ -43,7 +43,6 @@ from Cerebrum.modules import Email
 from Cerebrum.modules.Email import _EmailDomainCategoryCode
 from Cerebrum.modules import PasswordChecker
 from Cerebrum.modules import PasswordHistory
-from Cerebrum.modules import PosixUser
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
