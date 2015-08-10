@@ -8874,6 +8874,12 @@ Addresses and settings:
         entity = self._get_entity(entity_type, id)
         spread = self._get_constant(self.const.Spread, spread, "spread")
         self.ba.can_add_spread(operator.get_entity_id(), entity, spread)
+
+        if entity.entity_type != spread.entity_type:
+            raise CerebrumError(
+                "Spread '%s' is restricted to '%s', selected entity is '%s'" %
+                (spread, self.const.EntityType(spread.entity_type),
+                 self.const.EntityType(entity.entity_type)))
         # exchange-relatert-jazz
         # NB! no checks are implemented in the group-mixin
         # as we want to let other clients handle these spreads
@@ -8882,14 +8888,11 @@ Addresses and settings:
         if cereconf.EXCHANGE_GROUP_SPREAD and \
                 str(spread) == cereconf.EXCHANGE_GROUP_SPREAD:
             return "Please create distribution group via 'group exchangegroup_create' in bofh"
-        try:
-            if entity.has_spread(spread):
-                raise CerebrumError("entity id=%s already has spread=%s" %
-                                    (id, spread))
-            entity.add_spread(spread)
-            entity.write_db()
-        except self.db.DatabaseError, m:
-            raise CerebrumError, "Database error: %s" % m
+        if entity.has_spread(spread):
+            raise CerebrumError("entity id=%s already has spread=%s" %
+                                (id, spread))
+        entity.add_spread(spread)
+        entity.write_db()
         if entity_type == 'account' and cereconf.POSIX_SPREAD_CODES:
             self._spread_sync_group(entity)
         return "OK, added spread %s for %s" % (
