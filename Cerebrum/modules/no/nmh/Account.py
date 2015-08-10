@@ -100,25 +100,3 @@ class AccountNmhEmailMixin(Account.Account):
             return primary[0]['contact_value']
         else:
             return "<ukjent>"
-
-
-    def get_fullname(self):
-        if self.owner_type <> self.const.entity_person:
-            # In the Cerebrum core, there is only one place the "full
-            # name" of an account can be registered: As the full name
-            # of the person owner.  Hence, for non-personal accounts,
-            # we just use the account name.
-            #
-            # Note that the situation may change for specialisations
-            # of the core Account class; e.g. the PosixUser class
-            # allows full name to be registered directly on the
-            # account, in the `gecos' attribute.  To take such
-            # specialisations into account (for *all* your users),
-            # override this method in an appropriate subclass, and set
-            # cereconf.CLASS_ACCOUNT accordingly.
-            raise Errors.NotFoundError, \
-                  "No full name for non-personal account."
-        p = Factory.get("Person")(self._db)
-        p.find(self.owner_id)
-        full = p.get_name(self.const.system_cached, self.const.name_full)
-        return full

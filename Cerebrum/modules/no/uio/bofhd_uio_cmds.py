@@ -6257,15 +6257,19 @@ Addresses and settings:
                                 "to get a listing for %s." %
                                 (cereconf.BOFHD_MAX_MATCHES, len(members), groupname))
         ac = self.Account_class(self.db)
+        pe = Utils.Factory.get('Person')(self.db)
         for x in self._fetch_member_names(members):
             if x['member_type'] == int(self.const.entity_account):
                 ac.find(x['member_id'])
                 try:
-                    full_name = ac.get_fullname()
+                    pe.find(ac.owner_id)
+                    full_name = pe.get_name(self.const.system_cached,
+                                            self.const.name_full)
                 except Errors.NotFoundError:
                     full_name = ''
                 user_name = x['member_name']
                 ac.clear()
+                pe.clear()
             else:
                 full_name = x['member_name']
                 user_name = '<non-account>'
