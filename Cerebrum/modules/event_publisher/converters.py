@@ -461,6 +461,7 @@ def person_affiliation_source_ops(msg, *args):
 @dispatch('e_group')
 def group(msg, *rest):
     msg['category'] = 'group'
+    del msg['meta_object_type']
     return msg
 
 
