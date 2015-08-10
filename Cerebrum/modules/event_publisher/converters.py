@@ -465,6 +465,13 @@ def group(msg, *rest):
     return msg
 
 
+@dispatch('entity_name')
+def group_name(msg, *args):
+    if msg.get('subjecttype') == 'group' and msg.get('data').get('domain'):
+        del msg['data']['domain']
+    return msg
+
+
 @dispatch('ad_attr')
 def ad_attr(msg, *rest):
     msg['category'] = 'ad_attribute'
