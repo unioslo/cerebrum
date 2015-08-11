@@ -239,7 +239,7 @@ def account_mod(msg, *kws):
 
 @dispatch('spread')
 def spread(msg, *args):
-    msg['category'] = 'system'
+    msg['category'] = 'context'
     return msg
 
 """
