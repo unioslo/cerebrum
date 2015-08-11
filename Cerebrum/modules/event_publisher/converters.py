@@ -238,19 +238,6 @@ def account_mod(msg, *kws):
     """
     return msg
 
-"""
-
-    # Spread changes
-
-    spread_add = _ChangeTypeCode(
-        'spread', 'add', 'add spread for %(subject)s',
-        ('spread=%(spread_code:spread)s',))
-    spread_del = _ChangeTypeCode(
-        'spread', 'delete', 'delete spread for %(subject)s',
-        ('spread=%(spread_code:spread)s',))
-
-"""
-
 
 @dispatch('spread')
 def spread(msg, *args):
@@ -415,20 +402,6 @@ def quarantine(msg, *args):
 # TODO: What to translate to?
 
 """
-    # Quarantine changes
-
-    quarantine_add = _ChangeTypeCode(
-        'quarantine', 'add', 'add quarantine for %(subject)s',
-        ('type=%(quarantine_type:q_type)s',))
-    quarantine_mod = _ChangeTypeCode(
-        'quarantine', 'mod', 'mod quarantine for %(subject)s',
-        ('type=%(quarantine_type:q_type)s',))
-    quarantine_del = _ChangeTypeCode(
-        'quarantine', 'del', 'del quarantine for %(subject)s',
-        ('type=%(quarantine_type:q_type)s',))
-    quarantine_refresh = _ChangeTypeCode(
-        'quarantine', 'refresh', 'refresh quarantine for %(subject)s')
-
     # TBD: Is it correct to have posix_demote in this module?
 
     posix_demote = _ChangeTypeCode(
