@@ -129,6 +129,21 @@ def _stringify_code(msg, field, code_converter):
         msg['data'][field] = str(code_converter(msg['data'][field]))
 
 
+def _rename_key(msg, field, new_field):
+    """Rename a key in the metadata.
+
+    :type msg: dict
+    :param msg: The message to convert
+    :type field: basestring
+    :param field: The key whose key we'll change.
+    :type new_key: basestring
+    :param new_key: The key we'll change to
+    """
+    if msg.get('data', {}).get(field):
+        msg['data'][new_field] = msg['data'][field]
+        del msg['data'][field]
+
+
 # Fix change, category and meta_object_type for all events (cleaning up
 # existing cruft).
 @dispatch('.*_.*')
