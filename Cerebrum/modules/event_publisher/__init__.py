@@ -126,8 +126,7 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
 
     def __get_unpublished_events(self):
         if not self.__unpublished_events:
-            db = Factory.get('Database')()
-            self.__unpublished_events = UnpublishedEvents(db)
+            self.__unpublished_events = UnpublishedEvents(self)
         return self.__unpublished_events
 
     def __try_send_messages(self):
