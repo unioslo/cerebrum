@@ -403,6 +403,15 @@ def person_affiliation_source_ops(msg, *args):
     msg['meta_object_type'] = 'affiliation-source'
     return msg
 
+
+@dispatch('quarantine')
+def quarantine(msg, *args):
+    # TODO: What should we call quarantines?
+    co = Factory.get('Constants')(args[-1])
+    _stringify_code(msg, 'q_type', co.Quarantine)
+    _rename_key(msg, 'q_type', 'type')
+    return msg
+
 # TODO: What to translate to?
 
 """
