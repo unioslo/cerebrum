@@ -1,5 +1,5 @@
-#! /usr/bin/env python
-# encoding: utf-8
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 #
 # Copyright 2015 University of Oslo, Norway
 #
@@ -20,6 +20,21 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 """Errors thrown by wrapped clients used by EventPublisher."""
+
+
+class ConfigurationFormatError(Exception):
+    """Error related to config format."""
+    pass
+
+
+class MessageFormatError(Exception):
+    """Error related to message-format."""
+    pass
+
+
+class MessagePublishingError(Exception):
+    """Error related to message publishing."""
+    pass
 
 
 class ConnectionError(Exception):
