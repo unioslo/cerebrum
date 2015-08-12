@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# encoding: utf-8
+# -*- coding: utf-8 -*-
 #
 # Copyright 2015 University of Oslo, Norway
 #
@@ -35,6 +35,14 @@ from Cerebrum import Errors
 __version__ = '1.0'
 
 
+class MockClient(object):
+    def __init__(self, config):
+        self.logger = Factory.get_logger("cronjob")
+
+    def publish(self, payload):
+        self.logger.info("Publishing: %s", payload)
+
+
 def get_client():
     """Instantiate publishing client.
 
@@ -48,11 +56,9 @@ def get_client():
 
 
 class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
-
     """ Class used to publish changes to an external system.
 
     This class is intended to be used with a Message Broker.
-
     """
 
     def cl_init(self, **kw):
@@ -88,16 +94,6 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
             return
         self.__queue.append(data)
 
-    def write_log(self):
-        """ Flush local queue. """
-        super(EventPublisher, self).write_log()
-
-        client = self.__get_client()
-        if not client.transactions_enabled:
-            return
-        if self.__queue:
-            self.__try_send_messages()
-
     def clear_log(self):
         """ Clear local queue """
         super(EventPublisher, self).clear_log()
@@ -109,15 +105,6 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
         client = self.__get_client()
         if self.__queue:
             self.__try_send_messages()
-        if client.transactions_enabled:
-            client.commit()
-
-    def unpublish_log(self):
-        """ Abort message-pub """
-        super(EventPublisher, self).unpublish_log()
-        client = self.__get_client()
-        if client.transactions_enabled:
-            client.rollback()
 
     def __get_client(self):
         if not self.__client:
