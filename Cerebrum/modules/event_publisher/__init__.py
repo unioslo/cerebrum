@@ -159,15 +159,15 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
         else:
             destid = desttype = None
         if 'spread' in change_params:
-            system = str(constants.Spread(change_params['spread']))
+            context = str(constants.Spread(change_params['spread']))
             del change_params['spread']
         else:
-            system = None
+            context = None
         import Cerebrum.modules.event_publisher.converters as c
         return c.filter_message({
             'category': change_type_code.category,
             'change': change_type_code.type,
-            'system': system,
+            'context': context,
             'subjectid': subjectid,
             'subjecttype': subjecttype,
             'objectid': destid,
