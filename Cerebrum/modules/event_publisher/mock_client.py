@@ -28,10 +28,9 @@ from Cerebrum.Utils import Factory
 
 class MockClient(object):
     def __init__(self, config):
-        self.transactions_enabled = False
         self.logger = Factory.get_logger("cronjob")
 
-    def publish(self, messages, omit_transaction=False, durable=True):
+    def publish(self, messages, durable=True):
         self.logger.info("Publishing: %s", str(messages))
 
     def rollback(self):
