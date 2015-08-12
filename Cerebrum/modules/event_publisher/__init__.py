@@ -35,14 +35,6 @@ from Cerebrum import Errors
 __version__ = '1.0'
 
 
-class MockClient(object):
-    def __init__(self, config):
-        self.logger = Factory.get_logger("cronjob")
-
-    def publish(self, payload):
-        self.logger.info("Publishing: %s", payload)
-
-
 def get_client():
     """Instantiate publishing client.
 
