@@ -283,9 +283,14 @@ class PasswordNotifier(object):
         """Sets a quarantine_autopassord for account"""
         self.splatted_users.append(account.account_name)
         self.logger.debug("Splatting %s" % account.account_name)
-        account.add_entity_quarantine(
-            self.constants.quarantine_autopassord, self.splattee_id,
-            "password not changed", self.now, None)
+        if not account.get_entity_quarantine(
+                qtype=self.constants.quarantine_autopassord):
+            account.add_entity_quarantine(
+                self.constants.quarantine_autopassord, self.splattee_id,
+                "password not changed", self.now, None)
+            return True
+        else:
+            return False
     # end splat_user
 
     def process_accounts(self):
@@ -329,10 +334,10 @@ class PasswordNotifier(object):
             if self.get_deadline(account) <= self.today:
                 # Deadline given in notification is passed, splat.
                 if not self.dryrun:
-                    self.splat_user(account)
+                    num_splatted += 1 if self.splat_user(account) else 0
                 else:
                     self.logger.info("Splat user %s", account.account_name)
-                num_splatted += 1
+                    num_splatted += 1
             elif self.get_num_notifications(account) == 0:
                 # No previously notification/warning sent. Send first-mail
                 if self.notify(account):
