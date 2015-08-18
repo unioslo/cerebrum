@@ -439,7 +439,7 @@ class TSDBofhdExtension(BofhdCommonMethods):
                     'help_ref': 'print_select_range',
                     'default': str(n-1)}
 
-    def _group_add_entity(self, operator, src_entity, dest_group):
+    def _group_add_entity(self, operator, src_entity, member_type, dest_group):
         """Helper method for adding a given entity to given group.
 
         @type operator:
@@ -448,19 +448,24 @@ class TSDBofhdExtension(BofhdCommonMethods):
         @type src_entity: Entity
         @param src_entity: The entity to add as a member.
 
+        @type member_type: String or entity_type
+        @param member_type: The type of entity being added (account or group).
+
         @type dest_group: Group
         @param dest_group: The group the member should be added to.
 
         """
         if operator:
-            self.ba.can_alter_group(operator.get_entity_id(), dest_group)
+            self.ba.can_add_group_member(operator.get_entity_id(), src_entity,
+                                         member_type, dest_group)
+
         src_name = self._get_entity_name(src_entity.entity_id,
                                          src_entity.entity_type)
         # Make the error message for the most common operator error more
         # friendly.  Don't treat this as an error, useful if the operator has
         # specified more than one entity.
         if dest_group.has_member(src_entity.entity_id):
-            return "%s is already a member of %s" % (src_name, dest_group)
+            return "%s is already a member of %s" % (src_name, dest_group.group_name)
         # Make sure that the src_entity does not have dest_group as a member
         # already, to avoid a recursion at export
         if src_entity.entity_type == self.const.entity_group:
@@ -483,19 +488,19 @@ class TSDBofhdExtension(BofhdCommonMethods):
         return "OK, added %s to %s" % (src_name, dest_group.group_name)
 
     # group add_member
+    # This command has previously been available as add_member, but has
+    # been renamed to group_multi_add due to the fact that Brukerinfo uses
+    # group_multi_add in every instance. This avoids having two identical
+    # commands with different names.
     all_commands['group_multi_add'] = cmd.Command(
-        ("group", "multi_add"),
+        ("group", "add_member"),
         cmd.MemberType(), cmd.MemberName(), cmd.GroupName(),
         )
 
     def group_multi_add(self, operator, member_type, src_name, dest_group):
         """
-        Generic method for adding an entity to a given group.
-
-        Superusers should be allowed to add groups/accounts into a project
-        group, regardless if the added group/account is related to the same
-        project. Group moderators however, should be allowed to add members
-        to a group only if the members are part of the same project.
+        Method for adding an entity to a given group. Raises an exception if
+        the entity is of type person, which is not allowed in TSD.
 
         @type operator:
         @param operator:
@@ -508,7 +513,7 @@ class TSDBofhdExtension(BofhdCommonMethods):
             to.
 
         @type member_type: String or EntityTypeCode (CerebrumCode)
-        @param member_type: The entity_type of the member.
+        @param member_type: The EntityType of the member.
 
         """
         if member_type in ("person", self.const.entity_group):
@@ -520,36 +525,17 @@ class TSDBofhdExtension(BofhdCommonMethods):
         else:
             raise CerebrumError('Unknown entity type: %s' % member_type)
 
-        op_id = operator.get_entity_id()
         dest_group = self._get_group(dest_group)
 
-        # If not a superuser, ensure that src_entity is affiliated to the same
-        # project as the destination group.
-        if not self.ba.is_superuser(op_id):
-            try:
-                proj_id = dest_group.get_trait('project_group')['target_id']
-            except:
-                raise CerebrumError('Destination group is not a project '
-                                    'group.')
-            proj_name = self._get_ou(proj_id).get_project_name()
-            if member_type in ("group", self.const.entity_group):
-                try:
-                    group_trait = src_entity.get_trait('project_group')
-                except:
-                    raise CerebrumError('Group to be added is not a project '
-                                        'group.')
-                if not group_trait['target_id'] == proj_id:
-                    raise CerebrumError('Group %s is not affiliated with %s' %
-                                        (src_entity.group_name, proj_name))
-            elif member_type in ("account", self.const.entity_account):
-                if not src_entity.get_tsd_project_id() == proj_id:
-                    raise CerebrumError('Account %s is not affiliated with %s.'
-                                        % (src_entity.account_name, proj_name))
-        return self._group_add_entity(operator, src_entity, dest_group)
+        return self._group_add_entity(operator, src_entity, member_type, dest_group)
 
     # group remove_member
+    # This command has previously been available as remove_member, but has
+    # been renamed to group_multi_remove due to the fact that Brukerinfo uses
+    # group_multi_remove in every instance. This avoids having two identical
+    # commands with different names.
     all_commands['group_multi_remove'] = cmd.Command(
-        ("group", "multi_remove"),
+        ("group", "remove_member"),
         cmd.MemberType(), cmd.MemberName(), cmd.GroupName(),
         perm_filter='can_alter_group')
 
@@ -567,7 +553,7 @@ class TSDBofhdExtension(BofhdCommonMethods):
 
         @type dest_group: String
         @param dest_group: The name/id of the group the member should be removed
-            from.
+                           from.
 
         """
         if member_type in ("group", self.const.entity_group):
@@ -2158,8 +2144,6 @@ class EnduserBofhdExtension(TSDBofhdExtension):
         # Group
         'group_info', 'group_list', 'group_memberships',
         'group_set_description',
-        #'group_multi_add',  # hidden
-        #'group_multi_remove',  # hidden
         # Person
         'person_list_user_priorities',
         # Spread
