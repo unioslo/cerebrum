@@ -2139,11 +2139,9 @@ class EnduserBofhdExtension(TSDBofhdExtension):
     copy_commands = (
         # Helpers
         '_fetch_member_names', '_entity_info',
-        '_group_add', # '_group_add_entity',
-        '_group_remove', # '_group_remove_entity',
         # Group
-        'group_info', 'group_list', 'group_memberships',
-        'group_set_description',
+        '_group_add', '_group_remove', 'group_info', 'group_list',
+        'group_memberships', 'group_set_description',
         # Person
         'person_list_user_priorities',
         # Spread
