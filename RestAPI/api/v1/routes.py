@@ -10,7 +10,11 @@ from account import (AccountListResource,
 from group import (GroupListResource,
                    GroupResource,
                    GroupMemberListResource)
-from person import PersonResource
+from person import (PersonResource,
+                    PersonAffiliationListResource,
+                    PersonContactInfoListResource,
+                    PersonExternalIdListResource,
+                    PersonAccountListResource)
 from emailaddress import EmailAddressResource
 from ou import OrganizationalUnitResource
 
@@ -70,6 +74,26 @@ api.add_resource(
     PersonResource,
     '/persons/<int:id>',
     endpoint='person')
+
+api.add_resource(
+    PersonAffiliationListResource,
+    '/persons/<int:id>/affiliations',
+    endpoint='personaffiliations')
+
+api.add_resource(
+    PersonContactInfoListResource,
+    '/persons/<int:id>/contacts',
+    endpoint='personcontacts')
+
+api.add_resource(
+    PersonExternalIdListResource,
+    '/persons/<int:id>/external-ids',
+    endpoint='personexternalids')
+
+api.add_resource(
+    PersonAccountListResource,
+    '/persons/<int:id>/accounts',
+    endpoint='personaccounts')
 
 api.add_resource(
     EmailAddressResource,

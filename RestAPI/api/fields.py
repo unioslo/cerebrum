@@ -119,6 +119,19 @@ class EntityExternalId(object):
     }
 
 
+@swagger.model
+@swagger.nested(
+    external_ids='EntityExternalId')
+class EntityExternalIdList(object):
+    resource_fields = {
+        'external_ids': base.List(base.Nested(EntityExternalId.resource_fields)),
+    }
+
+    swagger_metadata = {
+        'external_ids': {'description': 'External IDs'},
+    }
+
+
 # Model for data from entity.search_name_with_language()
 @swagger.model
 class EntityNameWithLanguage(object):

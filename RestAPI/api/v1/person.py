@@ -1,3 +1,4 @@
+from flask import url_for
 from flask.ext.restful import Resource, abort, marshal_with
 from api import db, auth, fields, utils
 from flask_restful_swagger import swagger
@@ -6,6 +7,14 @@ import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 
+
+def find_person(id):
+    pe = Factory.get('Person')(db.connection)
+    try:
+        pe.find(id)
+    except Errors.NotFoundError:
+        abort(404, message=u"No such person with entity_id={}".format(id))
+    return pe
 
 @swagger.model
 @swagger.nested(
@@ -50,10 +59,8 @@ class PersonName(object):
 @swagger.model
 class PersonAccount(object):
     resource_fields = {
-        'href': fields.UrlFromEntityType(absolute=True),
-        'id': fields.base.Integer(attribute='account_id'),
-        'name': fields.base.String,
-        'type': fields.Constant(ctype='EntityType'),
+        'href': fields.base.String,
+        'id': fields.base.String,
         'primary': fields.base.Boolean,
     }
 
@@ -72,12 +79,8 @@ class Person(object):
         'id': fields.base.Integer(default=None),
         'birth_date': fields.DateTime(dt_format='iso8601'),
         'names': fields.base.List(fields.base.Nested(PersonName.resource_fields)),
-        'accounts': fields.base.List(fields.base.Nested(PersonAccount.resource_fields)),
         'contexts': fields.base.List(fields.Constant(ctype='Spread')),
-        'affiliations': fields.base.List(fields.base.Nested(PersonAffiliation.resource_fields)),
-        'contact': fields.base.List(fields.base.Nested(fields.EntityContactInfo.resource_fields)),
-        'external_ids': fields.base.List(fields.base.Nested(
-            fields.EntityExternalId.resource_fields)),
+
     }
 
     swagger_metadata = {
@@ -85,10 +88,7 @@ class Person(object):
         'birth_date': {'description': 'Birth date', },
         'names': {'description': 'Names', },
         'contexts': {'description': 'Visible in these contexts', },
-        'primary_account': {'description': 'Primary account', },
-        'affiliations': {'description': 'Person affiliations', },
-        'contact': {'description': 'Contact information', },
-        'external_ids': {'description': 'External IDs', },
+        'accounts': {'description': 'Accounts'},
     }
 
 
@@ -119,39 +119,184 @@ class PersonResource(Resource):
         :rtype: dict
         :return: information about the person
         """
-        pe = Factory.get('Person')(db.connection)
-        try:
-            pe.find(id)
-        except Errors.NotFoundError:
-            abort(404, message=u"No such person with entity_id={}".format(id))
-
-        co = Factory.get('Constants')(db.connection)
+        pe = find_person(id)
 
         data = {
             'id': pe.entity_id,
             'contexts': [row['spread'] for row in pe.get_spread()],
             'birth_date': pe.birth_date,
-            'contact': pe.get_contact_info(),
             'names': pe.get_all_names(),
-            'external_ids': pe.get_external_id(),
         }
 
-        # Accounts
-        primary_account_id = pe.get_primary_account()
-        for row in pe.get_accounts():
-            account_name = utils.get_entity_name(row['account_id'])
-            data.setdefault('accounts', []).append({
-                'account_id': row['account_id'],
-                'id': account_name,
-                'type': co.entity_account,
-                'name': account_name,
-                'primary': (row['account_id'] == primary_account_id),
-            })
+        return data
 
-        # Affiliations
+
+@swagger.model
+@swagger.nested(
+    affiliations='PersonAffiliation')
+class PersonAffiliationList(object):
+    """Data model for a single person"""
+    resource_fields = {
+        'affiliations': fields.base.List(fields.base.Nested(PersonAffiliation.resource_fields))
+    }
+
+    swagger_metadata = {
+        'affiliations': {'description': 'Person affiliations', },
+    }
+
+
+class PersonAffiliationListResource(Resource):
+    """Resource for person affiliations."""
+    @swagger.operation(
+        notes='Get person affiliations',
+        nickname='get',
+        responseClass=PersonAffiliationList,
+        parameters=[
+            {
+                'name': 'id',
+                'description': 'The entity ID of the person',
+                'required': True,
+                'allowMultiple': False,
+                'dataType': 'int',
+                'paramType': 'path'
+            },
+        ]
+    )
+    @auth.require()
+    @marshal_with(PersonAffiliationList.resource_fields)
+    def get(self, id):
+        """Returns person affiliations.
+
+        :param int id: The entity ID of the person
+
+        :rtype: dict
+        :return: person affiliations
+        """
+        pe = find_person(id)
+        affiliations = list()
+
         for row in pe.get_affiliations():
             aff = dict(row)
             aff['ou'] = {'id': aff.pop('ou_id', None), }
-            data.setdefault('affiliations', []).append(aff)
+            affiliations.append(aff)
 
-        return data
+        return {'affiliations': affiliations}
+
+
+class PersonContactInfoListResource(Resource):
+    """Resource for person contact information."""
+    @swagger.operation(
+        notes='Get person contact information',
+        nickname='get',
+        responseClass='EntityContactInfoList',
+        parameters=[
+            {
+                'name': 'id',
+                'description': 'The entity ID of the person',
+                'required': True,
+                'allowMultiple': False,
+                'dataType': 'int',
+                'paramType': 'path'
+            },
+        ]
+    )
+    @auth.require()
+    @marshal_with(fields.EntityContactInfoList.resource_fields)
+    def get(self, id):
+        """Returns person contact information.
+
+        :param int id: The entity ID of the person
+
+        :rtype: dict
+        :return: contact information
+        """
+        pe = find_person(id)
+        contacts = pe.get_contact_info()
+        return {'contacts': contacts}
+
+
+class PersonExternalIdListResource(Resource):
+    """Resource for person external IDs."""
+    @swagger.operation(
+        notes='Get the external IDs of a person',
+        nickname='get',
+        responseClass='EntityContactInfoList',
+        parameters=[
+            {
+                'name': 'id',
+                'description': 'The entity ID of the person',
+                'required': True,
+                'allowMultiple': False,
+                'dataType': 'int',
+                'paramType': 'path'
+            },
+        ]
+    )
+    @auth.require()
+    @marshal_with(fields.EntityExternalIdList.resource_fields)
+    def get(self, id):
+        """Returns the external IDs of a person
+
+        :param int id: The entity ID of the person
+
+        :rtype: dict
+        :return: external ids
+        """
+        pe = find_person(id)
+        external_ids = pe.get_external_id(),
+        return {'external_ids': external_ids}
+
+
+@swagger.model
+@swagger.nested(
+    accounts='PersonAccount')
+class PersonAccountList(object):
+    resource_fields = {
+        'accounts': fields.base.List(fields.base.Nested(PersonAccount.resource_fields)),
+    }
+
+    swagger_metadata = {
+        'accounts': {'description': 'Accounts'},
+    }
+
+
+class PersonAccountListResource(Resource):
+    """Resource for person accounts."""
+    @swagger.operation(
+        notes='Get the accounts of a person',
+        nickname='get',
+        responseClass='PersonAccountList',
+        parameters=[
+            {
+                'name': 'id',
+                'description': 'The entity ID of the person',
+                'required': True,
+                'allowMultiple': False,
+                'dataType': 'int',
+                'paramType': 'path'
+            },
+        ]
+    )
+    @auth.require()
+    @marshal_with(PersonAccountList.resource_fields)
+    def get(self, id):
+        """Returns the accounts of a person.
+
+        :param int id: The entity ID of the person
+
+        :rtype: dict
+        :return: accounts
+        """
+        pe = find_person(id)
+
+        accounts = list()
+        primary_account_id = pe.get_primary_account()
+        for row in pe.get_accounts():
+            account_name = utils.get_entity_name(row['account_id'])
+            accounts.append({
+                'href': url_for('.account', id=account_name, _external=True),
+                'id': account_name,
+                'primary': (row['account_id'] == primary_account_id),
+            })
+
+        return {'accounts': accounts}
