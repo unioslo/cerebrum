@@ -42,7 +42,7 @@ CREATE TABLE unpublished_events
                   NOT NULL,
   eventid         NUMERIC(12,0)
                   NOT NULL
-                  CONSTRAINT event_id_pk PRIMARY KEY,
+                  CONSTRAINT unpublished_event_id_pk PRIMARY KEY,
   message         TEXT
 );
 
