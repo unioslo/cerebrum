@@ -44,30 +44,22 @@ class AccountAffiliation(object):
 
 
 @swagger.model
-class AccountHome(object):
+@swagger.nested(
+    affiliations='AccountAffiliation')
+class AccountAffiliationList(object):
     resource_fields = {
-        'homedir_id': fields.base.Integer,
-        'home': fields.base.String,
-        'context': fields.Constant(ctype='Spread', attribute='spread'),
-        'status': fields.Constant(ctype='AccountHomeStatus'),
-        'disk_id': fields.base.Integer,
+        'affiliations': fields.base.List(fields.base.Nested(AccountAffiliation.resource_fields)),
     }
 
     swagger_metadata = {
-        'homedir_id': {'description': 'Home directory entity ID'},
-        'home': {'description': 'Home directory path'},
-        'context': {'description': ''},
-        'status': {'description': 'Home status'},
-        'disk_id': {'description': 'Disk entity ID'},
+        'affiliations': {'description': 'Account affiliations'},
     }
 
 
 @swagger.model
 @swagger.nested(
     owner='EntityOwner',
-    affiliations='AccountAffiliation',
-    homes='AccountHome',
-    contact='fields.EntityContactInfo')
+    homes='AccountHome')
 class Account(object):
     """Data model for a single account."""
 
@@ -81,14 +73,11 @@ class Account(object):
         'creator_id': fields.base.Integer(default=None),
         'contexts': fields.base.List(fields.Constant(ctype='Spread')),
         'primary_email': fields.base.String,
-        'affiliations': fields.base.List(fields.base.Nested(AccountAffiliation.resource_fields)),
         'posix': fields.base.Boolean,
         'posix_uid': fields.base.Integer(default=None),
         'posix_shell': fields.Constant(ctype='PosixShell'),
         'deleted': fields.base.Boolean,
         'quarantine_status': fields.base.String,
-        'homes': fields.base.List(fields.base.Nested(AccountHome.resource_fields)),
-        'contact': fields.base.List(fields.base.Nested(fields.EntityContactInfo.resource_fields)),
     }
 
     swagger_metadata = {
@@ -101,14 +90,11 @@ class Account(object):
         'creator_id': {'description': 'Account creator entity ID', },
         'contexts': {'description': 'Visible in these contexts', },
         'primary_email': {'description': 'Primary email address', },
-        'affiliations': {'description': 'Account affiliations', },
         'posix': {'description': 'Is this a POSIX account?', },
         'posix_uid': {'description': 'POSIX UID', },
         'posix_shell': {'description': 'POSIX shell', },
         'deleted': {'description': 'Is this account deleted?', },
         'quarantine_status': {'description': 'Quarantine status', },
-        'homes': {'description': 'Home directories'},
-        'contact': {'description': 'Contact information'},
     }
 
 
@@ -152,14 +138,7 @@ class AccountResource(Resource):
             'contexts': [row['spread'] for row in ac.get_spread()],
             'primary_email': ac.get_primary_mailaddress(),
             'deleted': ac.is_deleted(),
-            'contact': ac.get_contact_info(),
         }
-
-        # Affiliations
-        for aff in ac.get_account_types():
-            aff = dict(aff)
-            aff['ou'] = {'id': aff.pop('ou_id', None), }
-            data.setdefault('affiliations', []).append(aff)
 
         # POSIX
         is_posix = hasattr(ac, 'posix_uid')
@@ -173,12 +152,6 @@ class AccountResource(Resource):
                 #'gecos': ac.gecos,
                 'posix_shell': ac.shell,
             })
-
-        # Home directories
-        for home in ac.get_homes():
-            if home['home'] or home['disk_id']:
-                home['home'] = ac.resolve_homedir(disk_id=home['disk_id'], home=home['home'])
-            data.setdefault('homes', []).append(home)
 
         # Quarantine status
         quarantined = None
@@ -449,3 +422,119 @@ class AccountGroupListResource(Resource):
             })
             groups.append(group)
         return {'groups': groups}
+
+
+class AccountContactInfoListResource(Resource):
+    """Resource for account contact information."""
+    @swagger.operation(
+        notes='Get contact information for an account',
+        nickname='get',
+        responseClass='EntityContactInfoList',
+        parameters=[],
+    )
+    @auth.require()
+    @marshal_with(fields.EntityContactInfoList.resource_fields)
+    def get(self, id):
+        """Returns the contact information for an account.
+
+        :param str id: the account name or id
+
+        :rtype: dict
+        :return: contact information
+        """
+        ac = find_account(id)
+        contacts = ac.get_contact_info()
+        return {'contacts': contacts}
+
+
+class AccountAffiliationListResource(Resource):
+    """Resource for account affiliations."""
+    @swagger.operation(
+        notes='Get affiliations for an account',
+        nickname='get',
+        responseClass='AccountAffiliationList',
+        parameters=[],
+    )
+    @auth.require()
+    @marshal_with(AccountAffiliationList.resource_fields)
+    def get(self, id):
+        """Returns the affiliations for an account.
+
+        :param str id: the account name or id
+
+        :rtype: dict
+        :return: affiliations
+        """
+        ac = find_account(id)
+
+        affiliations = list()
+
+        for aff in ac.get_account_types():
+            aff = dict(aff)
+            aff['ou'] = {'id': aff.pop('ou_id', None), }
+            affiliations.append(aff)
+
+        return {'affiliations': affiliations}
+
+
+@swagger.model
+class AccountHome(object):
+    resource_fields = {
+        'homedir_id': fields.base.Integer,
+        'home': fields.base.String,
+        'context': fields.Constant(ctype='Spread', attribute='spread'),
+        'status': fields.Constant(ctype='AccountHomeStatus'),
+        'disk_id': fields.base.Integer,
+    }
+
+    swagger_metadata = {
+        'homedir_id': {'description': 'Home directory entity ID'},
+        'home': {'description': 'Home directory path'},
+        'context': {'description': ''},
+        'status': {'description': 'Home status'},
+        'disk_id': {'description': 'Disk entity ID'},
+    }
+
+
+@swagger.model
+@swagger.nested(
+    homes='AccountHome')
+class AccountHomeList(object):
+    resource_fields = {
+        'homes': fields.base.List(fields.base.Nested(AccountHome.resource_fields)),
+    }
+
+    swagger_metadata = {
+        'homes': {'description': 'Home directories'},
+    }
+
+
+class AccountHomeListResource(Resource):
+    """Resource for account home directories."""
+    @swagger.operation(
+        notes='Get home directories for an account',
+        nickname='get',
+        responseClass='AccountHomeList',
+        parameters=[],
+    )
+    @auth.require()
+    @marshal_with(AccountHomeList.resource_fields)
+    def get(self, id):
+        """Returns the home directories for an account.
+
+        :param str id: the account name or id
+
+        :rtype: dict
+        :return: home directories
+        """
+        ac = find_account(id)
+
+        homes = list()
+
+        # Home directories
+        for home in ac.get_homes():
+            if home['home'] or home['disk_id']:
+                home['home'] = ac.resolve_homedir(disk_id=home['disk_id'], home=home['home'])
+            homes.append(home)
+
+        return {'homes': homes}

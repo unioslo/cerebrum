@@ -49,18 +49,6 @@ class UrlFromEntityType(base.Url):
             return None
 
 
-# Model for data from entity.list_spreads()
-# @swagger.model
-# class Spread(object):
-#     resource_fields = {
-#         'spread': base.String,
-#         'spread_code': base.Integer,
-#         'description': base.String,
-#         'entity_type_str': base.String(attribute='entity_type'),
-#         'entity_type': base.Integer(attribute='entity_type_code'),
-#     }
-
-
 # Model for data from entity.get_contact_info()
 @swagger.model
 class EntityContactInfo(object):
@@ -82,6 +70,19 @@ class EntityContactInfo(object):
         'entity_id': {'description': 'Entity ID'},
         'description': {'description': 'Description'},
         'source_system': {'description': 'Source system'},
+    }
+
+
+@swagger.model
+@swagger.nested(
+    contacts='EntityContactInfo')
+class EntityContactInfoList(object):
+    resource_fields = {
+        'contacts': base.List(base.Nested(EntityContactInfo.resource_fields)),
+    }
+
+    swagger_metadata = {
+        'contacts': {'description': 'Contact information'},
     }
 
 
