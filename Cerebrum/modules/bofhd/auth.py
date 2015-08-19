@@ -1052,6 +1052,21 @@ class BofhdAuth(DatabaseAccessor):
         return self.can_create_host(operator, query_run_any=query_run_any)
 
     def can_alter_group(self, operator, group=None, query_run_any=False):
+        """
+        Checks if the operator has permission to add/remove group members for
+        the given group.
+
+        @type operator: int
+        @param operator: The entity_id of the user performing the operation.
+
+        @type group: An entity of EntityType Group
+        @param group: The group to add/remove members to/from.
+
+        @type query_run_any: True or False
+        @param query_run_any: Check if the operator has permission *somewhere*
+
+        @return: True or False
+        """
         if self.is_superuser(operator):
             return True
         if query_run_any:
