@@ -1173,7 +1173,7 @@ def populate_enhet_groups(enhet_id, role_mapping):
                 # bruke hele navnet med blanke erstattet av
                 # bindestreker.
                 aktnavn = aktivitet["aktivitetsnavn"].lower().strip()
-                m = re.match(r'\S+ (\d+)$', aktnavn)
+                m = re.match(r'\S+ (\d+)', aktnavn)
                 if m:
                     aktnavn = m.group(1)
                 else:
