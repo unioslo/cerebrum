@@ -96,6 +96,7 @@ class Subnet(Entity):
         if mask < 0 or mask > 32:
             raise SubnetError("Invalid subnet mask '%s'; outside range 0-32" % mask)
         return True
+
     validate_subnet = staticmethod(validate_subnet)
 
     def is_valid_subnet(subnet):
