@@ -210,7 +210,7 @@ class DnsBofhdUtils(object):
                 first = IPCalc.ip_to_long(first)
 
             elif IPv6Utils.is_valid_ipv6(first):
-                first = IPCalc.ip_to_long(first)
+                first = None
 
             free_ip_numbers = self._find.find_free_ip(subnet, first=first,
                                                       no_of_addrs=no_of_addrs)
