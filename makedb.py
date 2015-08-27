@@ -313,6 +313,7 @@ def check_schema_versions(db, strict=False):
         'password_history': 'Cerebrum.modules.PasswordHistory',
         'posixuser': 'Cerebrum.modules.PosixUser',
         'stedkode': 'Cerebrum.modules.no.Stedkode',
+        'consent': 'Cerebrum.modules.Consent',
     }
     meta = Metainfo.Metainfo(db)
     for name, value in meta.list():
