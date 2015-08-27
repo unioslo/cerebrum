@@ -545,7 +545,6 @@ class auto_super(type):
         setattr(cls, attr, super(cls))
 
 
-# TODO: Deprecate: needlessly complex in terms of readability and end result
 class mark_update(auto_super):
 
     """Metaclass marking objects as 'updated' per superclass.
