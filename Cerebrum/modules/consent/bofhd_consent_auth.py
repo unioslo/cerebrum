@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2014 University of Oslo, Norway
+# Copyright 2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,10 +19,9 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-""" This is an auth module for use with bofhd_guest_cmds.
+""" This is an auth module for use with bofhd_consent_cmds.
 
 This module controls access to the guest commands.
-
 """
 import cerebrum_path
 
@@ -36,4 +35,23 @@ from Cerebrum.modules.bofhd.errors import PermissionDenied
 
 class BofhdAuth(auth.BofhdAuth):
     """ Methods to control command access. """
-    pass
+
+    def can_create_consent(self, operator, entity):
+        """
+        """
+        pass
+
+    def can_remove_consent(self, operator, entity):
+        """
+        """
+        pass
+
+    def can_do_consent_info(self, operator, entity):
+        """
+        """
+        pass
+
+    def can_list_consents(self, operator):
+        """
+        """
+        pass

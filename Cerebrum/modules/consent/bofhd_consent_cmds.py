@@ -46,10 +46,11 @@ from Cerebrum.modules.bofhd.cmd_param import (Parameter,
                                               PersonName,
                                               FormatSuggestion)
 
+
 class ConsentType(Parameter):
     _type = 'consent_type'
     _help_ref = 'consent_type'
-            
+
 
 def format_date(field):
     """ Date format for FormatSuggestion. """
@@ -58,10 +59,10 @@ def format_date(field):
 
 
 class BofhdExtension(BofhdCommonMethods):
-    """Consent related commands."""
-
+    """
+    Consent related commands.
+    """
     hidden_commands = {}  # Not accessible through bofh
-
     all_commands = {}
 
     def __init__(self, server):
@@ -79,8 +80,9 @@ class BofhdExtension(BofhdCommonMethods):
             'consent': {
                 'consent_create': 'Create / give a new consent',
                 'consent_remove': 'Remove / deactivate a given consent',
-                'consent_info': 'View information about a guest user',
-                'consent_list': 'List out all guest users for a given owner'
+                'consent_info': ('View consent information for '
+                                 'a given account or person'),
+                'consent_list': 'List all available types of consent'
             }
         }
         arg_help = {
@@ -97,13 +99,73 @@ class BofhdExtension(BofhdCommonMethods):
         SimpleString(),
         perm_filter='can_create_consent')
 
-    def consent_create(self, operator, consent_type, entity_type, search_value):
+    def consent_create(self,
+                       operator,
+                       consent_type,
+                       entity_type,
+                       search_value):
         """
         Create / activate consent
         """
         entity = self._get_entity(entity_type, search_value)
         self.ba.can_create_consent(operator.get_entity_id(), entity)
-        pass  #TODO
+        pass  # TODO
+
+    # consent remove
+    all_commands['consent_remove'] = Command(
+        ('consent', 'remove'),
+        ConsentType(),
+        EntityType(default="account"),
+        SimpleString(),
+        perm_filter='can_remove_consent')
+
+    def consent_remove(self,
+                       operator,
+                       consent_type,
+                       entity_type,
+                       search_value):
+        """
+        Remove / deactivate consent
+        """
+        entity = self._get_entity(entity_type, search_value)
+        self.ba.can_remove_consent(operator.get_entity_id(), entity)
+        pass  # TODO
+
+    # consent info
+    all_commands['consent_info'] = Command(
+        ('consent', 'info'),
+        EntityType(default="account"),
+        SimpleString(),
+        fs=FormatSuggestion(
+            '%-16s  %s',
+            ('name', 'value'),
+            hdr='%-15s %s' % ('Name', 'Value')),
+        perm_filter='can_do_consent_info')
+
+    def consent_info(self, operator, entity_type, search_value):
+        """
+        View consent information for a given account or person
+        """
+        entity = self._get_entity(entity_type, search_value)
+        self.ba.can_do_consent_info(operator.get_entity_id(), entity)
+        pass  # TODO
+
+    # consent list
+    all_commands['consent_list'] = Command(
+        ('consent', 'list'),
+        fs=FormatSuggestion(
+            '%-16s  %1s  %s',
+            ('name', 'default', 'desc'),
+            hdr='%-15s %-4s %s' % ('Name', 'Default', 'Description')),
+        perm_filter='can_list_consents')  # Do we really need this? TODO
+
+    def consent_list(self, operator):
+        """
+        View consent information for a given account or person
+        """
+        self.ba.can_list_consents(operator.get_entity_id())
+        ret = []
+        pass  # TODO
 
     def _get_entity(self, entity_type, value=None):
         """
