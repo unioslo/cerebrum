@@ -622,8 +622,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         # deactivated. Makes termination a bit slower.
         self.deactivate()
 
-        # Have to commit latest change_log entries, to be able to remove them:
-        self._db.commit_log()
+        # Have to write latest change_log entries, to be able to remove them:
+        self._db.write_log()
         for row in self._db.get_log_events(any_entity=e_id):
             # TODO: any_entity or just subject_entity?
             self._db.remove_log_event(int(row['change_id']))
@@ -634,7 +634,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         self.clear()
 
         # Remove the log changes from the deletion too:
-        self._db.commit_log()
+        self._db.write_log()
         for row in self._db.get_log_events(any_entity=e_id):
             # TODO: any_entity or just subject_entity?
             self._db.remove_log_event(int(row['change_id']))

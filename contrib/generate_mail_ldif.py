@@ -155,12 +155,11 @@ def write_ldif():
 
             # Find vacations-settings:
             if ldap.targ2vacation.has_key(t):
-                txt, start, end, enable = ldap.targ2vacation[t]
+                txt, start, end = ldap.targ2vacation[t]
                 rest += "tripnote:: %s\n" % \
                         base64.encodestring(txt or "<No message>\n"
                                             ).replace("\n", "")
-                if enable:
-                    rest += "tripnoteActive: TRUE\n"
+                rest += "tripnoteActive: TRUE\n"
 
             # See if e-mail delivery should be suspended.
             # We do try/raise/except to support what might be implemented
@@ -302,13 +301,12 @@ def write_ldif():
 
         # Find forward-settings:
         if ldap.targ2forward.has_key(t):
-            for addr,enable in ldap.targ2forward[t]:
+            for addr in ldap.targ2forward[t]:
                 # Skip local forward addresses when the account is deleted, else
                 # they will create an unnecessary bounce message.
                 if tt == co.email_target_deleted and addr in ldap.targ2addr[t]:
                     continue
-                if enable == 'T':
-                    f.write("forwardDestination: %s\n" % addr)
+                f.write("forwardDestination: %s\n" % addr)
 
         # Find spam-settings:
         if ldap.targ2spam.has_key(t):
@@ -321,29 +319,13 @@ def write_ldif():
             f.write("spamAction: %s\n" % default_spam_action)
 
         # Filters
-        if ldap.targ2filter.has_key(t):
-            for a in ldap.targ2filter[t]:
-                f.write("mailFilter: %s\n" % a)
-
-        # Find virus-setting:
-        if ldap.targ2virus.has_key(t):
-            found, rem, enable = ldap.targ2virus[t]
-            f.write("virusFound: %s\n" % found)
-            f.write("virusRemoved: %s\n" % rem)
-            if enable == 'T':
-                f.write("virusScanning: TRUE\n")
-            else:
-                f.write("virusScanning: FALSE\n")
-        else:
-            # Set default-settings.
-            f.write("virusScanning: TRUE\n")
-            f.write("virusFound: 1\n")
-            f.write("virusRemoved: 1\n")
+        for a in ldap.targ2filter[t]:
+            f.write("mailFilter: %s\n" % a)
 
         # Populate auth-data:
         if auth and tt == co.email_target_account:
             if ldap.e_id2passwd.has_key(ei):
-                uname, passwd = ldap.e_id2passwd[ei]
+                passwd = ldap.e_id2passwd[ei]
                 if not passwd:
                     passwd = "*invalid"
                 f.write("userPassword: {crypt}%s\n" % passwd)
@@ -358,17 +340,10 @@ def write_ldif():
 
 
 def get_data(spread):
-    start = now()
-
     if verbose:
         logger.debug("Starting read_prim()...")
         curr = now()
     ldap.read_prim()
-    if verbose:
-        logger.debug("  done in %d sec." % (now() - curr))
-        logger.debug("Starting read_virus()...")
-        curr = now()
-    ldap.read_virus()
     if verbose:
         logger.debug("  done in %d sec." % (now() - curr))
         logger.debug("Starting read_spam()...")
@@ -406,7 +381,7 @@ def get_data(spread):
     ldap.read_forward()
     if verbose:
         logger.debug("  done in %d sec." % (now() - curr))
-        logger.debug("Starting read_account()...")
+        logger.debug("Starting read_accounts()...")
         curr = now()
     # exchange-relatert-jazz
     # this wil, at UiO work fine as long as all Exchange-accounts
@@ -440,7 +415,7 @@ def get_data(spread):
 
 
 def main():
-    global verbose, f, db, co, ldap, auth
+    global verbose, f, db, co, ldap, auth, start
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-v', "--verbose", action="count", default=0)
@@ -456,9 +431,14 @@ def main():
     db = Factory.get('Database')()
     co = Factory.get('Constants')(db)
 
+    start = now()
+    curr = now()
+
     if verbose:
         logger.debug("Loading the EmailLDAP module...")
     ldap = Factory.get('EmailLDAP')(db)
+    if verbose:
+        logger.debug("  done in %d sec." % (now() - curr))
 
     spread = args.spread
     if spread is not None:

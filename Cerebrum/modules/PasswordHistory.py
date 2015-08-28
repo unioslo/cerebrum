@@ -75,7 +75,6 @@ class PasswordHistory(DatabaseAccessor):
         # Fetch all account_id that:
         # - has spread
         # - has expire_date in the future/not set
-        # - doesn't have any quarantines
         # - newest entry in password_history is older than <date>
         return self.query(
             """SELECT account_id 
@@ -88,10 +87,6 @@ class PasswordHistory(DatabaseAccessor):
                      SELECT 'foo'
                      FROM [:table schema=cerebrum name=entity_spread] es
                      WHERE ai.account_id=es.entity_id)
-                   AND NOT EXISTS (
-                     SELECT 'foo'
-                     FROM [:table schema=cerebrum name=entity_quarantine] eq
-                     WHERE ai.account_id=eq.entity_id)
             GROUP BY ai.account_id
             HAVING MAX(set_at) < :date""", {
             'date': date})

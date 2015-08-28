@@ -43,7 +43,6 @@ from Cerebrum.modules import Email
 from Cerebrum.modules.Email import _EmailDomainCategoryCode
 from Cerebrum.modules import PasswordChecker
 from Cerebrum.modules import PasswordHistory
-from Cerebrum.modules import PosixUser
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
@@ -5511,30 +5510,33 @@ Addresses and settings:
                  (managedby != cereconf.DISTGROUP_DEFAULT_ADMIN and \
                       not mngdby_addr):
             return "Cannot create Exchange group without setting ManagedBy attr"
-        if not existing_group:
-            # one could imagine making a helper function in the future
-            # _make_dl_group_new, as the functionality is required
-            # both here and for the roomlist creation (Jazz, 2013-12)
-            dl_group.new(operator.get_entity_id(),
-                         group_vis,
-                         groupname, description=description,
-                         roomlist=std_values['roomlist'],
-                         mngdby_addrid=mngdby_addr,
-                         modenable=std_values['modenable'],
-                         modby=moderatedby,
-                         deprestr=std_values['deprestr'],
-                         joinrestr=std_values['joinrestr'],
-                         hidden=std_values['hidden'])
-        else:
-            dl_group.populate(roomlist=std_values['roomlist'],
-                              mngdby_addrid=mngdby_addr,
-                              modenable=std_values['modenable'],
-                              modby=moderatedby,
-                              deprestr=std_values['deprestr'],
-                              joinrestr=std_values['joinrestr'],
-                              hidden=std_values['hidden'],
-                              parent=grp)
-        dl_group.write_db()
+        try:
+            if not existing_group:
+                # one could imagine making a helper function in the future
+                # _make_dl_group_new, as the functionality is required
+                # both here and for the roomlist creation (Jazz, 2013-12)
+                dl_group.new(operator.get_entity_id(),
+                            group_vis,
+                            groupname, description=description,
+                            roomlist=std_values['roomlist'],
+                            mngdby_addrid=mngdby_addr,
+                            modenable=std_values['modenable'],
+                            modby=moderatedby,
+                            deprestr=std_values['deprestr'],
+                            joinrestr=std_values['joinrestr'],
+                            hidden=std_values['hidden'])
+            else:
+                dl_group.populate(roomlist=std_values['roomlist'],
+                                mngdby_addrid=mngdby_addr,
+                                modenable=std_values['modenable'],
+                                modby=moderatedby,
+                                deprestr=std_values['deprestr'],
+                                joinrestr=std_values['joinrestr'],
+                                hidden=std_values['hidden'],
+                                parent=grp)
+            dl_group.write_db()
+        except self.db.DatabaseError, m:
+            raise CerebrumError, "Database error: %s" % m
         self._set_display_name(groupname, displayname,
                                disp_name_variant, disp_name_language)
         dl_group.create_distgroup_mailtarget()
@@ -6254,15 +6256,19 @@ Addresses and settings:
                                 "to get a listing for %s." %
                                 (cereconf.BOFHD_MAX_MATCHES, len(members), groupname))
         ac = self.Account_class(self.db)
+        pe = Utils.Factory.get('Person')(self.db)
         for x in self._fetch_member_names(members):
             if x['member_type'] == int(self.const.entity_account):
                 ac.find(x['member_id'])
                 try:
-                    full_name = ac.get_fullname()
+                    pe.find(ac.owner_id)
+                    full_name = pe.get_name(self.const.system_cached,
+                                            self.const.name_full)
                 except Errors.NotFoundError:
                     full_name = ''
                 user_name = x['member_name']
                 ac.clear()
+                pe.clear()
             else:
                 full_name = x['member_name']
                 user_name = '<non-account>'
@@ -8868,6 +8874,12 @@ Addresses and settings:
         entity = self._get_entity(entity_type, id)
         spread = self._get_constant(self.const.Spread, spread, "spread")
         self.ba.can_add_spread(operator.get_entity_id(), entity, spread)
+
+        if entity.entity_type != spread.entity_type:
+            raise CerebrumError(
+                "Spread '%s' is restricted to '%s', selected entity is '%s'" %
+                (spread, self.const.EntityType(spread.entity_type),
+                 self.const.EntityType(entity.entity_type)))
         # exchange-relatert-jazz
         # NB! no checks are implemented in the group-mixin
         # as we want to let other clients handle these spreads
@@ -8876,14 +8888,11 @@ Addresses and settings:
         if cereconf.EXCHANGE_GROUP_SPREAD and \
                 str(spread) == cereconf.EXCHANGE_GROUP_SPREAD:
             return "Please create distribution group via 'group exchangegroup_create' in bofh"
-        try:
-            if entity.has_spread(spread):
-                raise CerebrumError("entity id=%s already has spread=%s" %
-                                    (id, spread))
-            entity.add_spread(spread)
-            entity.write_db()
-        except self.db.DatabaseError, m:
-            raise CerebrumError, "Database error: %s" % m
+        if entity.has_spread(spread):
+            raise CerebrumError("entity id=%s already has spread=%s" %
+                                (id, spread))
+        entity.add_spread(spread)
+        entity.write_db()
         if entity_type == 'account' and cereconf.POSIX_SPREAD_CODES:
             self._spread_sync_group(entity)
         return "OK, added spread %s for %s" % (

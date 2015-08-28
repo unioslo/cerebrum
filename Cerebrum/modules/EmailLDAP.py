@@ -25,6 +25,8 @@ import time
 import string
 import mx
 
+from collections import defaultdict
+
 from Cerebrum import Errors
 from Cerebrum.modules import Email
 from Cerebrum.Utils import Factory, mark_update
@@ -44,9 +46,9 @@ class EmailLDAP(DatabaseAccessor):
     __metaclass__ = mark_update
 
     __write_attr__ = ('aid2addr', 'targ2addr', 'targ2prim', 'targ2spam',
-                      'targ2quota', 'targ2virus', 'serv_id2server',
-                      'targ2server_id', 'targ2forward', 'targ2vacation',
-                      'acc2name', 'pending', 'e_id2passwd')
+                      'targ2quota', 'serv_id2server', 'targ2server_id',
+                      'targ2forward', 'targ2vacation', 'acc2name', 'pending',
+                      'e_id2passwd')
 
 
     def __init__(self, db):
@@ -54,15 +56,14 @@ class EmailLDAP(DatabaseAccessor):
         self.const = Factory.get('Constants')(db)
         # Internal structure:
         self.aid2addr = {}
-        self.targ2addr = {}
+        self.targ2addr = defaultdict(set)
         self.targ2prim = {}
         self.targ2spam = {}
-        self.targ2filter = {}
+        self.targ2filter = defaultdict(list)
         self.targ2quota = {}
-        self.targ2virus = {}
         self.serv_id2server = {}
         self.targ2server_id = {}
-        self.targ2forward = {}
+        self.targ2forward = defaultdict(list)
         self.targ2vacation = {}
         self.acc2name = {}
         self.pending = {}
@@ -167,7 +168,7 @@ class EmailLDAP(DatabaseAccessor):
             a_id, t_id = int(row['address_id']), int(row['target_id'])
             lp, dom = row['local_part'], row['domain']
             addr = self._build_addr(lp, dom)
-            self.targ2addr.setdefault(t_id, []).append(addr)
+            self.targ2addr[t_id].add(addr)
             self.aid2addr[a_id] = addr
 
 
@@ -191,13 +192,6 @@ class EmailLDAP(DatabaseAccessor):
                                                       row['quota_hard']]
 
         
-    def read_virus(self):
-        mail_virus = Email.EmailVirusScan(self._db)
-        for row in mail_virus.list_email_virus_ext():
-            self.targ2virus[int(row['target_id'])] = [row['found_str'],
-                                                      row['removed_str'],
-                                                      row['enable']]
-
     def read_target_filter(self):
         const2str = {}
         for c in dir(self.const):
@@ -209,7 +203,7 @@ class EmailLDAP(DatabaseAccessor):
         for row in mail_target_filter.list_email_target_filter():
             t_id = int(row['target_id'])
             f_id = int(row['filter'])
-            self.targ2filter.setdefault(t_id, []).append(const2str[f_id])
+            self.targ2filter[t_id].append(const2str[f_id])
 
     # why is spread sent as a parameter here and then not used?
     # should probably remove the option (Jazz, 2013-12)
@@ -221,60 +215,26 @@ class EmailLDAP(DatabaseAccessor):
         mail_targ = Email.EmailTarget(self._db)
         for row in mail_targ.list_email_server_targets():
             self.targ2server_id[int(row['target_id'])] = int(row['server_id'])
+
     def read_forward(self):
         mail_forw = Email.EmailForward(self._db)
-        for row in mail_forw.list_email_forwards():
-            self.targ2forward.setdefault(int(row['target_id']),
-                                         []).append([row['forward_to'],
-                                                     row['enable']])
+        for row in mail_forw.search(enable=True):
+            self.targ2forward[int(row['target_id'])].append(row['forward_to'])
 
     def read_vacation(self):
         mail_vaca = Email.EmailVacation(self._db)
-        cur = mx.DateTime.today()
-        def prefer_row(row, oldval):
-            o_txt, o_sdate, o_edate, o_enable = oldval
-            txt, sdate, edate, enable = [row[x]
-                                         for x in ('vacation_text',
-                                                   'start_date',
-                                                   'end_date', 'enable')]
-            spans_now = (sdate <= cur and (edate is None or edate >= cur))
-            o_spans_now = (o_sdate <= cur and (o_edate is None or o_edate >= cur))
-            row_is_newer = sdate > o_sdate
-            if spans_now:
-                if enable == 'T' and o_enable == 'F': return True
-                elif enable == 'T' and o_enable == 'T':
-                    if o_spans_now:
-                        return row_is_newer
-                    else: return True
-                elif enable == 'F' and o_enable == 'T':
-                    if o_spans_now: return False
-                    else: return True
-                else:
-                    if o_spans_now: return row_is_newer
-                    else: return True
-            else:
-                if o_spans_now: return False
-                else: return row_is_newer
-        for row in mail_vaca.list_email_vacations():
+        for row in mail_vaca.list_email_active_vacations():
             t_id = int(row['target_id'])
             insert = False
-            if self.targ2vacation.has_key(t_id):
-                if prefer_row(row, self.targ2vacation[t_id]):
+            if t_id in self.targ2vacation:
+                if row['start_date'] > self.targ2vacation[t_id][1]:
                     insert = True
             else:
                 insert = True
             if insert:
-                # Make sure vacations that doesn't span now aren't marked
-                # as active, even though they might be registered as
-                # 'enabled' in the database.
-                enable = False
-                if row['start_date'] <= cur and (row['end_date'] is None
-                                                 or row['end_date'] >= cur):
-                    enable = (row['enable'] == 'T')
                 self.targ2vacation[t_id] = (iso2utf(row['vacation_text']),
                                             row['start_date'],
-                                            row['end_date'],
-                                            enable)
+                                            row['end_date'])
 
 
     def read_accounts(self, spread):
@@ -344,27 +304,19 @@ class EmailLDAP(DatabaseAccessor):
         quarantines = {}
         now = mx.DateTime.now()
         for row in a.list_entity_quarantines(
+                only_active=True,
                 entity_types = self.const.entity_account):
-            if (row['start_date'] <= now
-                and (row['end_date'] is None or row['end_date'] >= now)
-                and (row['disable_until'] is None
-                     or row['disable_until'] < now)):
-                # The quarantine in this row is currently active.
-                quarantines[int(row['entity_id'])] = "*locked"
+            quarantines[int(row['entity_id'])] = "*locked"
         for row in a.list_account_authentication():
-            account_id = int(row['account_id'])
-            self.e_id2passwd[account_id] = (
-                row['entity_name'],
-                quarantines.get(account_id) or row['auth_data'])
+            a_id = int(row['account_id'])
+            self.e_id2passwd[a_id] = quarantines.get(a_id) or row['auth_data']
         for row in a.list_account_authentication(self.const.auth_type_crypt3_des):
             # *sigh* Special-cases do exist. If a user is created when the
             # above for-loop runs, this loop gets a row more. Before I ignored
             # this, and the whole thing went BOOM on me.
-            account_id = int(row['account_id'])
-            if not self.e_id2passwd.get(account_id, (0, 0))[1]:
-                self.e_id2passwd[account_id] = (
-                    row['entity_name'],
-                    quarantines.get(account_id) or row['auth_data'])
+            a_id = int(row['account_id'])
+            if not self.e_id2passwd.get(a_id, 0):
+                self.e_id2passwd[a_id] = quarantines.get(a_id) or row['auth_data']
 
 
     def read_misc_target(self):
