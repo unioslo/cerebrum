@@ -504,3 +504,10 @@ class Constants(Constants.Constants):
 
     address_other_street = _AddressCode('OTHER_STREET', 'Other street address')
     address_other_post = _AddressCode('OTHER_POST', 'Other post address')
+
+    # Consent related stuff
+    consent_office365 = Consent.Constants.EntityConsent(
+        'office365',
+        entity_type=Constants.Constants.entity_person,
+        consent_type=Consent.Constants.consent_opt_in,
+        description="Export to office365?")
