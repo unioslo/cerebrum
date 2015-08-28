@@ -121,6 +121,22 @@ class Constants(cereconst.Constants):
     consent_opt_out = _ConsentTypeCode('opt-out',
                                        'Consent assumed unless declined')
 
+    # Change log codes
+    consent_approve = cereconst._ChangeTypeCode(
+        'consent', 'approve',
+        '%(subject)s gives consent',
+        ("type=%(string:consent_string)s", "expiry=%(timestamp:expiry)s",
+         "description=%(string:description)s"))
+    consent_decline = cereconst._ChangeTypeCode(
+        'consent', 'decline',
+        '%(subject)s declines consent',
+        ("type=%(string:consent_string)s", "expiry=%(timestamp:expiry)s",
+         "description=%(string:description)s"))
+    consent_remove = cereconst._ChangeTypeCode(
+        'consent', 'delete',
+        '%(subject)s deletes consent',
+        ("type=%(string:consent_string)s", ))
+
 
 class EntityConsentMixin(Entity):
     """Mixin for approve/deny propositions.
@@ -173,6 +189,10 @@ class EntityConsentMixin(Entity):
         """Set/update consent status for self and this consent_code."""
         if not isinstance(consent_code, _EntityConsentCode):
             consent_code = _EntityConsentCode(consent_code)
+        if consent_code.consent_type == Constants.consent_opt_in:
+            change = Constants.consent_approve
+        else:
+            change = Constants.consent_decline
         if consent_code.entity_type != self.entity_type:
             # raise PolicyException("Consent {type} not compatible"
             #                       " with {etype}".format(
@@ -193,6 +213,11 @@ class EntityConsentMixin(Entity):
             self.__consents[code]['description'] = description
         if expiry:
             self.__consents[code]['expiry'] = expiry
+        change_params = self.__consents[code].copy()
+        change_params['consent_code'] = code
+        change_params['consent_string'] = str(consent_code)
+        self._db.log_change(self.entity_id, change, None,
+                            change_params=change_params)
 
     def remove_consent(self, consent_code):
         """Removes a consent of given type"""
@@ -201,6 +226,10 @@ class EntityConsentMixin(Entity):
             self.__consents[code]['deleted'] = True
         else:
             self.__consents[code] = {'deleted': True}
+        self._db.log_change(self.entity_id, Constants.consent_remove, None,
+                            change_params={
+                                'consent_code': code,
+                                'consent_string': str(consent_code)})
 
     def write_db(self):
         insert = """
