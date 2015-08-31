@@ -271,7 +271,7 @@ class SAPConstants(Constants.Constants):
 
     sap_1007_hogskolelaerer_ovings = SAPLonnsTittelKode(
         "20001007",
-        "1007 Høgskolelærer/øvings",
+        "1007 Høgskolelærer/øvingslærer",
         "VIT"
     )
 
@@ -325,13 +325,13 @@ class SAPConstants(Constants.Constants):
 
     sap_1019_vitenskapelig_assist = SAPLonnsTittelKode(
         "20001019",
-        "1019 Vitenskapelig assist",
+        "1019 Vitenskapelig assistent",
         "VIT"
     )
 
     sap_1020_vitenskapelig_assist = SAPLonnsTittelKode(
         "20001020",
-        "1020 Vitenskapelig assist",
+        "1020 Vitenskapelig assistent",
         "VIT"
     )
 
@@ -1261,12 +1261,12 @@ class SAPConstants(Constants.Constants):
 
     sap_9999_dummy_stillingskode = SAPLonnsTittelKode(
         "20009999",
-        "9999 Dummy stillingskode",
+        "9999 Tilknyttet UiA",
         "ØVR"
     )
 
     sap_0000_ekstern_stillingskode = SAPLonnsTittelKode(
         "00000000",
-        "0000 Ekstern tilsatt, ikke lønnet av HiA",
+        "0000 Ekstern tilsatt",
         "ØVR"
     )
