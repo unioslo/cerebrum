@@ -1,5 +1,5 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2004-2012 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2004-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,9 +19,9 @@
 
 from collections import defaultdict
 
-from Cerebrum.modules.LDIFutils import verify_printableString, normalize_string
-
+from Cerebrum.modules.LDIFutils import normalize_string
 from Cerebrum.modules.no.OrgLDIF import *
+
 
 class OrgLDIFHiAMixin(norEduLDIFMixin):
     """Mixin class for norEduLDIFMixin(OrgLDIF) with HiA modifications."""
@@ -37,35 +37,35 @@ class OrgLDIFHiAMixin(norEduLDIFMixin):
         # - Add mobile and roomNumber.
         sap, manual = self.const.system_sap, self.const.system_manual
 
-        c = [(a, self.get_contacts(contact_type  = t,
-                                   source_system = s,
-                                   convert       = self.attr2syntax[a][0],
-                                   verify        = self.attr2syntax[a][1],
-                                   normalize     = self.attr2syntax[a][2]))
-             for a,s,t in (('telephoneNumber', manual, self.const.contact_phone),
-                           ('facsimileTelephoneNumber',
-                            manual, self.const.contact_fax),
-                           ('mobile', sap, self.const.contact_mobile_phone),
-                           ('labeledURI', None, self.const.contact_url))]
-        self.id2labeledURI    = c[-1][1]
-        self.attr2id2contacts = [v for v in c if v[1]]
+        contacts = [(attr, self.get_contacts(contact_type=contact_type,
+                                             source_system=source_system,
+                                             convert=self.attr2syntax[attr][0],
+                                             verify=self.attr2syntax[attr][1],
+                                             normalize=self.attr2syntax[attr][2]))
+                    for attr, source_system, contact_type in (
+                        ('telephoneNumber', manual, self.const.contact_phone),
+                        ('facsimileTelephoneNumber', manual, self.const.contact_fax),
+                        ('mobile', sap, self.const.contact_mobile_phone),
+                        ('labeledURI', None, self.const.contact_url))]
+
+        self.id2labeledURI = contacts[-1][1]
+        self.attr2id2contacts = [v for v in contacts if v[1]]
 
         # roomNumber
         # Some employees have registered their office addresses in SAP. We store
         # this as co.contact_office. The roomNumber is the alias.
         attr = 'roomNumber'
         syntax = self.attr2syntax[attr]
-        c = self.get_contact_aliases(
-            contact_type  = self.const.contact_office,
-            source_system = self.const.system_sap,
-            convert       = syntax[0],
-            verify        = syntax[1],
-            normalize     = syntax[2])
-        if c:
-            self.attr2id2contacts.append((attr, c))
+        contacts = self.get_contact_aliases(contact_type=self.const.contact_office,
+                                            source_system=self.const.system_sap,
+                                            convert=syntax[0],
+                                            verify=syntax[1],
+                                            normalize=syntax[2])
+        if contacts:
+            self.attr2id2contacts.append((attr, contacts))
 
-    def get_contact_aliases(self, contact_type=None,
-            source_system=None, convert=None, verify=None, normalize=None):
+    def get_contact_aliases(self, contact_type=None, source_system=None, convert=None,
+                            verify=None, normalize=None):
         """Return a dict {entity_id: [list of contact aliases]}."""
         # The code mimics a reduced modules/OrgLDIF.py:get_contacts().
         entity = Entity.EntityContactInfo(self.db)
@@ -74,11 +74,24 @@ class OrgLDIFHiAMixin(norEduLDIFMixin):
             convert = str
         if not verify:
             verify = bool
-        for row in entity.list_contact_info(source_system = source_system,
-                                            contact_type  = contact_type):
+        for row in entity.list_contact_info(source_system=source_system,
+                                            contact_type=contact_type):
             alias = convert(str(row['contact_alias']))
             if alias and verify(alias):
                 cont_tab[int(row['entity_id'])].append(alias)
 
         return dict((key, self.attr_unique(values, normalize=normalize))
                     for key, values in cont_tab.iteritems())
+
+    def init_person_titles(self):
+        """Extends the person_titles dict with employment titles available via
+        the PersonEmployment module."""
+        self.__super.init_person_titles()
+
+        timer = self.make_timer("Fetching personal employment titles...")
+        employments = self.person.search_employment(main_employment=True)
+        for emp in employments:
+            if emp['person_id'] not in self.person_titles:
+                title = [(self.const.language_nb, emp['description'])]
+                self.person_titles[emp['person_id']] = title
+        timer("...personal employment titles done.")
