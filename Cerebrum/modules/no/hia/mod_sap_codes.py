@@ -1267,6 +1267,6 @@ class SAPConstants(Constants.Constants):
 
     sap_0000_ekstern_stillingskode = SAPLonnsTittelKode(
         "00000000",
-        "0000 Ekstern tilsatt",
+        "0000 Tilknyttet UiA",
         "ØVR"
     )
