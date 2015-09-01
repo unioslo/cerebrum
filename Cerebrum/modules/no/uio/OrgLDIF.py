@@ -151,11 +151,12 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         timer("...person groups done.")
 
     def init_person_dump(self, use_mail_module):
-        """Suplement the list of things to run before printing the
+        """Supplement the list of things to run before printing the
         list of people."""
         self.__super.init_person_dump(use_mail_module)
         self.init_person_course()
         self.init_person_groups()
+        self.init_person_office365_consents()
 
     def init_person_titles(self):
         # Change from original: Search titles first by system_lookup_order,
@@ -198,25 +199,33 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         return ret
 
     def make_person_entry(self, row, person_id):
-        """Add data from person_course to a person entry."""
+        """ Extend with UiO functionality. """
         dn, entry, alias_info = self.__super.make_person_entry(row, person_id)
         if not dn:
             return dn, entry, alias_info
+
+        # Add or extend entitlements
         if person_id in self.ownerid2urnlist:
-            # Some of the chars in the entitlements are outside ascii
             if 'eduPersonEntitlement' in entry:
                 entry['eduPersonEntitlement'].extend(self.ownerid2urnlist[person_id])
             else:
                 entry['eduPersonEntitlement'] = self.ownerid2urnlist[person_id]
+
+        # Add person ID
         entry['uioPersonID'] = str(person_id)
+
+        # Add group memberships
         if person_id in self.person2group:
             # TODO: remove member and uioPersonObject after transition period
             entry['uioMemberOf'] = entry['member'] = self.person2group[person_id]
             entry['objectClass'].extend(('uioMembership', 'uioPersonObject'))
 
+        # Add scoped affiliations
         pri_edu_aff, pri_ou, pri_aff = self.make_eduPersonPrimaryAffiliation(person_id)
         entry['uioPersonScopedAffiliation'] = self.make_uioPersonScopedAffiliation(
             person_id, pri_aff, pri_ou)
+
+        # Add the uioPersonObject class if missing
         if 'uioPersonObject' not in entry['objectClass']:
             entry['objectClass'].extend(('uioPersonObject',))
 
@@ -234,6 +243,10 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
             street = self.make_address(", ", None, a_txt, p_num, city, country)
             if street:
                 entry['street'] = (street,)
+
+        # Add Office 365 consents
+        if person_id in self.office365_consents:
+            entry['uioOffice365consent'] = 'TRUE'
 
         return dn, entry, alias_info
 
@@ -315,3 +328,10 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
                 return person_id in self.fs_samtykke
         # Otherwise hide the person.
         return False
+
+    def init_person_office365_consents(self):
+        """ Fetch the IDs of persons who have consented to being exported to Office 365. """
+        timer = self.make_timer('Fetching Office 365 consents...')
+        consents = self.person.list_consents(consent_code=self.const.consent_office365)
+        self.office365_consents = set([c['entity_id'] for c in consents])
+        timer('...Office 365 consents done.')
