@@ -117,35 +117,6 @@ class BofhdExtension(BofhdCommonMethods):
             pass
         raise CerebrumError("Invalid template %r" % selection)
 
-    def _get_default_printer(self, session):
-        u""" Get a default printer for the prompt.
-
-        This function fetches the previously selected printer.
-
-        :param BofhdSession session: The current session
-        :param dict template: The selected template
-
-        :return str,None: The default printer, or None.
-
-        """
-        state = session.get_state(state_type=self.__DEFAULT_PRINTER_STATE)
-        if state and state[0]['state_data']:
-            return state[0]['state_data']
-        return None
-
-    def _set_default_printer(self, session, printer):
-        u""" Set the 'default_printer' in session.
-
-        :param BofhdSession session: The current session
-        :param str printer: The new default printer selection.
-
-        """
-        if self._get_default_printer(session) == printer:
-            return
-        session.clear_state(state_types=[self.__DEFAULT_PRINTER_STATE, ])
-        session.store_state(self.__DEFAULT_PRINTER_STATE, printer)
-        self.db.commit()
-
     def __get_cached_passwords(self, session):
         u""" List all new passwords cached in session. """
         cached_passwds = []
@@ -192,23 +163,51 @@ class BofhdExtension(BofhdCommonMethods):
             raise CerebrumError("Invalid selection %r" % selection)
         return ret
 
-    def _get_destination(self, operator, template):
-        u""" Get destination printer preset
+    def _get_default_printer(self, session):
+        u""" Get a default printer for the prompt.
 
-        :param BofhdSession operator: The current session
-        :param dict template: The selected template.
+        This function fetches the previously selected printer.
+
+        :param BofhdSession session: The current session
+        :param dict template: The selected template
+
+        :return str,None: The default printer, or None.
+
+        """
+        state = session.get_state(state_type=self.__DEFAULT_PRINTER_STATE)
+        if state and state[0]['state_data']:
+            return state[0]['state_data']
+        return None
+
+    def _set_default_printer(self, session, printer):
+        u""" Set the 'default_printer' in session.
+
+        :param BofhdSession session: The current session
+        :param str printer: The new default printer selection.
+
+        """
+        if self._get_default_printer(session) == printer:
+            return
+        session.clear_state(state_types=[self.__DEFAULT_PRINTER_STATE, ])
+        session.store_state(self.__DEFAULT_PRINTER_STATE, printer)
+        self.db.commit()
+
+    def _get_printer(self, session, template):
+        u""" Get printer preset for a given operator/template.
+
+        :param BofhdSession session: The current session/operator
+        :param dict template: The selected template
 
         :return str,None:
-            Returns the destination, or None if no destination is found.
+            Returns the printer name, or None if no printer is found.
         """
         return None
 
-    def _get_mappings(self, account, tpl, barcode):
+    def _get_mappings(self, account, tpl):
         u""" Get mappings for a given template.
 
         :param Cerebrum.Account account: The account to generate mappings for
         :param dict tpl: The template to generate mappings for
-        :param str barcode: An optional barcode file to include.
 
         :return dict: A dictionary of mappings for the TemplateHandler.
 
@@ -220,7 +219,20 @@ class BofhdExtension(BofhdCommonMethods):
         return os.path.extsep.join([tpl.get('type'), tpl.get('fmt')])
 
     def _make_password_document(self, filename, account, password, tpl):
-        """ Make the password document to print. """
+        """ Make the password document to print.
+
+        :param str filename:
+            Basename of the document.
+        :param Cerebrum.Account account:
+            The account to generate a password document for.
+        :param str password:
+            The new password for the account.
+        :param dict tpl:
+            The template to use (output from __list_password_print_options).
+
+        :return str: The full path to the generated document.
+
+        """
         self.logger.debug("make_password_document: Selected template %r", tpl)
         th = TemplateHandler(tpl.get('lang'), tpl.get('type'), tpl.get('fmt'))
 
@@ -263,9 +275,10 @@ class BofhdExtension(BofhdCommonMethods):
             output_file = prepare_tex(output_file)
         return output_file
 
-    def _confirm_msg(account, destination, tpl):
+    def _confirm_msg(self, account, destination, tpl):
         u""" Make a confirmation message for the user. """
-        return "OK: print spooled @ %s for %s" % (
+        return "OK: %s/%s.%s spooled @ %s for %s" % (
+            tpl.get('lang'), tpl.get('type'), tpl.get('fmt'),
             destination, account.account_name)
 
     def get_help_strings(self):
@@ -317,7 +330,7 @@ class BofhdExtension(BofhdCommonMethods):
         tpl = self.__get_template(all_args.pop(0))
 
         # Ask for printer argument
-        if not self._get_destination(session, tpl):
+        if not self._get_printer(session, tpl):
             if not all_args:
                 ret = {'prompt': 'Enter printer name'}
                 if self._get_default_printer(session):
@@ -362,7 +375,7 @@ class BofhdExtension(BofhdCommonMethods):
         """
         args = list(args[:])
         template = self.__get_template(args.pop(0))
-        destination = self._get_destination(operator, template)
+        destination = self._get_printer(operator, template)
         if not destination:
             destination = args.pop(0)
         # TODO: Should we check the input here?

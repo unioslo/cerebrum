@@ -32,21 +32,15 @@ class BofhdExtension(base.BofhdExtension):
     u""" Alter how password letters are printed at UiO. """
 
     def _get_default_printer(self, session):
-        u""" Get the 'default_printer' from session. """
+        u""" Get a default printer for the prompt. """
         previous = super(BofhdExtension, self)._get_default_printer(session)
         return previous or 'pullprint'
 
-    def _get_destination(self, session, template):
-        u""" Get destination printer preset. """
+    def _get_printer(self, session, template):
+        u""" Get printer preset. """
         if template.get('lang', '').endswith("letter"):
             return cereconf.PRINT_PRINTER
         return None
-
-    def _confirm_msg(self, account, destination, tpl):
-        u""" Make a confirmation message for the user. """
-        return "OK: %s/%s.%s spooled @ %s for %s" % (
-            tpl.get('lang'), tpl.get('type'), tpl.get('fmt'),
-            destination, account.account_name)
 
     def _get_mappings(self, account, tpl):
         u""" Get mappings for a given template.

@@ -42,7 +42,7 @@ class BofhdExtension(base.BofhdExtension):
         return "%s-%s-%s.%s" % (
             op.account_name, now, os.getpid(), tpl.get('fmt', 'file'))
 
-    def _get_destination(self, operator, template):
+    def _get_printer(self, session, template):
         u""" Get destination printer preset.
 
         UIA doesn't actually print the files, but copies them onto a file
@@ -51,12 +51,6 @@ class BofhdExtension(base.BofhdExtension):
 
         """
         return getattr(cereconf, 'PRINT_PRINTER', 'no_printer')
-
-    def _confirm_msg(self, account, destination, tpl):
-        u""" Make a confirmation message for the user. """
-        return "OK: %s/%s.%s spooled @ %s for %s" % (
-            tpl.get('lang'), tpl.get('type'), tpl.get('fmt'),
-            destination, account.account_name)
 
     def _get_mappings(self, account, tpl):
         u""" Get mappings for a given template.
