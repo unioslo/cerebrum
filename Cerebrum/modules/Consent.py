@@ -249,7 +249,8 @@ class EntityConsentMixin(Entity):
         delete = """DELETE FROM [:table schema=cerebrum name=entity_consent]
         WHERE entity_id=:entity_id AND consent_code=:consent_code"""
         consents = [int(x['consent_code'])
-                    for x in self.list_consents(entity_id=self.entity_id)]
+                    for x in self.list_consents(entity_id=self.entity_id,
+                                                filter_expired=False)]
         for c, obj in self.__consents.items():
             if 'deleted' in obj:
                 self.execute(delete, {
