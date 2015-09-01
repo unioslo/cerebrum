@@ -54,7 +54,6 @@ from Cerebrum.modules.bofhd import bofhd_core_help
 from Cerebrum.modules.no.uio.bofhd_auth import BofhdAuth
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uio.DiskQuota import DiskQuota
-from Cerebrum.modules.templates.letters import TemplateHandler
 # Utils are already being imported; need to "rename" these:
 from Cerebrum.modules.dns import Utils as DNSUtils
 from Cerebrum.modules.dns.Subnet import Subnet
@@ -9832,9 +9831,14 @@ Addresses and settings:
                            account.entity_id, group.entity_id, why)
             return "OK, 'give' registered"
 
+    #
     # user password
+    #
     all_commands['user_password'] = Command(
-        ('user', 'password'), AccountName(), AccountPassword(optional=True))
+        ('user', 'password'),
+        AccountName(),
+        AccountPassword(optional=True))
+
     def user_password(self, operator, accountname, password=None):
         account = self._get_account(accountname)
         self.ba.can_set_password(operator.get_entity_id(), account)
@@ -9848,37 +9852,40 @@ Addresses and settings:
             # automatic passwords only.
             if self.ba.is_superuser(operator.get_entity_id()):
                 if (operator.get_entity_id() != account.entity_id and
-                    not cereconf.BOFHD_SU_CAN_SPECIFY_PASSWORDS):
+                        not cereconf.BOFHD_SU_CAN_SPECIFY_PASSWORDS):
                     raise CerebrumError("Superuser cannot specify passwords "
                                         "for other users")
             elif operator.get_entity_id() != account.entity_id:
-                raise CerebrumError("Cannot specify password for another user.")
+                raise CerebrumError(
+                    "Cannot specify password for another user.")
         try:
             account.goodenough(account, password)
         except PasswordChecker.PasswordGoodEnoughException, m:
-            raise CerebrumError, "Bad password: %s" % m
+            raise CerebrumError("Bad password: %s" % m)
         account.set_password(password)
-        try:
-            account.write_db()
-        except self.db.DatabaseError, m:
-            raise CerebrumError, "Database error: %s" % m
-        operator.store_state("user_passwd", {'account_id': int(account.entity_id),
-                                             'password': password})
+        account.write_db()
+        operator.store_state("user_passwd",
+                             {'account_id': int(account.entity_id),
+                              'password': password})
         # Remove "weak password" quarantine
         for r in account.get_entity_quarantine():
             if int(r['quarantine_type']) == self.const.quarantine_autopassord:
-                account.delete_entity_quarantine(self.const.quarantine_autopassord)
+                account.delete_entity_quarantine(
+                    self.const.quarantine_autopassord)
 
             if int(r['quarantine_type']) == self.const.quarantine_svakt_passord:
-                account.delete_entity_quarantine(self.const.quarantine_svakt_passord)
+                account.delete_entity_quarantine(
+                    self.const.quarantine_svakt_passord)
 
         if account.is_deleted():
             return "OK.  Warning: user is deleted"
         elif account.is_expired():
             return "OK.  Warning: user is expired"
         elif account.get_entity_quarantine(only_active=True):
-            return "Warning: user has an active quarantine"
-        return "Password altered. Please use misc list_password to print or view the new password."
+            return "OK.  Warning: user has an active quarantine"
+        return ("Password altered. Please use misc list_passwords to view the "
+                "new password, or misc print_passwords to print password "
+                "letters.")
 
     # user promote_posix
     all_commands['user_promote_posix'] = Command(
