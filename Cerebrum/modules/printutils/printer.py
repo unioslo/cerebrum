@@ -27,10 +27,10 @@ Configuration
 Print command substitution
     The following values will be substituted in print commands:
 
-    - username ($username, $user)
-    - hostname ($hostname, $host)
+    - username ($username)
+    - hostname ($hostname)
     - destination ($destination, $dest, $printer)
-    - filenames ($file, $files, $filename, $filenames)
+    - filenames ($filename, $filenames)
 
     Note that the substitution strings should be quoted, except for the
     filenames. Filenames are automatically quoted.
@@ -150,21 +150,17 @@ class LinePrinter(object):
         filenames = ' '.join(['"%s"' % f for f in filenames])
         lpr_params = {
             # File to print
-            'file': filenames,
-            'files': filenames,
             'filename': filenames,
             'filenames': filenames,
 
             # Who to print as
-            'user': self.username,
+            'uname': self.username,
             'username': self.username,
 
             # Where to print from
-            'host': self.hostname,
             'hostname': self.hostname,
 
             # Destination queue
-            'dest': self.destination,
             'destination': self.destination,
             'printer': self.destination, }
 

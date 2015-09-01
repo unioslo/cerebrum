@@ -7033,7 +7033,10 @@ Addresses and settings:
     def misc_list_passwords(self, operator, *args):
         u""" List passwords in cache. """
         # NOTE: We keep the *args argument for backwards compability.
-        return self._get_cached_passwords(operator)
+        cache = self._get_cached_passwords(operator)
+        if not cache:
+            raise CerebrumError("No passwords in session")
+        return cache
 
     all_commands['misc_list_bofhd_request_types'] = Command(
         ("misc", "list_bofhd_request_types"),
