@@ -1463,15 +1463,22 @@ def argument_to_sql(argument, sql_attr_name, binds,
 
     if isinstance(argument, (tuple, set, list)):
         assert len(argument) > 0, "List can not be empty."
-        tmp = dict()
-        for index, item in enumerate(argument):
-            name = binds_name + str(index)
-            assert name not in binds
-            tmp[name] = transformation(item)
+        # The binds approach is very slow when argument contains lots of
+        # entries, so then skip it. Also the odds for hitting the sql-query cache
+        # diminishes rapidly, which is what binds is trying to aid.
+        if len(argument) > 8:
+            return '(%s IN (%s))' % (sql_attr_name,
+                                 ', '.join(map(str, map(transformation, argument))))
+        else:
+            tmp = dict()
+            for index, item in enumerate(argument):
+                name = binds_name + str(index)
+                assert name not in binds
+                tmp[name] = transformation(item)
 
-        binds.update(tmp)
-        return ("(%s IN (%s))" % (sql_attr_name,
-                                  ", ".join([":" + x for x in tmp.iterkeys()])))
+            binds.update(tmp)
+            return ('(%s IN (%s))' % (sql_attr_name,
+                                      ', '.join([':' + x for x in tmp.iterkeys()])))
 
     assert binds_name not in binds
     binds[binds_name] = transformation(argument)
