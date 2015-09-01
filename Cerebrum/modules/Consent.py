@@ -48,6 +48,7 @@ Usage
 import Cerebrum.Constants as cereconst
 from Cerebrum.Entity import Entity
 from Cerebrum.Errors import PolicyException
+from Cerebrum.Utils import NotSet
 
 
 __version__ = "1.0"
@@ -185,8 +186,8 @@ class EntityConsentMixin(Entity):
         if ret:
             return ret[0]
 
-    def set_consent(self, consent_code, description=None, expiry=None):
         """Set/update consent status for self and this consent_code."""
+    def set_consent(self, consent_code, description=NotSet, expiry=NotSet):
         if not isinstance(consent_code, _EntityConsentCode):
             consent_code = _EntityConsentCode(consent_code)
         if consent_code.consent_type == Constants.consent_opt_in:
@@ -209,9 +210,9 @@ class EntityConsentMixin(Entity):
             }
         elif 'deleted' in self.__consents[code]:
             del self.__consents[code]['deleted']
-        if description:
+        if description is not NotSet:
             self.__consents[code]['description'] = description
-        if expiry:
+        if expiry is not NotSet:
             self.__consents[code]['expiry'] = expiry
         change_params = self.__consents[code].copy()
         change_params['consent_code'] = code
