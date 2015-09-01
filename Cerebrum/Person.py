@@ -792,16 +792,11 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         return result
     # end getdict_external_id2primary_account
 
-    def list_persons(self, person_id=None):
+    def list_persons(self):
         """Return all persons' person_id and birth_date."""
-        binds = dict()
-        where = ''
-        if person_id is not None:
-            where = 'WHERE ' + argument_to_sql(person_id,'person_id',binds,int)
         return self.query("""
         SELECT person_id, birth_date
-        FROM [:table schema=cerebrum name=person_info]
-        """ + where, binds)
+        FROM [:table schema=cerebrum name=person_info]""")
 
     def getdict_persons_names(self, source_system=None, name_types=None):
         if name_types is None:

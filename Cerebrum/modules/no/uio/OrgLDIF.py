@@ -162,13 +162,13 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         # Change from original: Search titles first by system_lookup_order,
         # then within each system let personal title override work title.
         timer = self.make_timer("Fetching personal titles...")
-        titles = defaultdict(dict)
+        titles = {}
         for name_type in (self.const.personal_title, self.const.work_title):
             for row in self.person.search_name_with_language(
                                        entity_type=self.const.entity_person,
                                        name_variant=name_type,
                                        name_language=self.languages):
-                titles[int(row['entity_id'])].setdefault(
+                titles.setdefault(int(row['entity_id']), {}).setdefault(
                     int(row['name_language']), iso2utf(row['name']))
         self.person_titles = dict([(p_id, t.items())
                                    for p_id, t in titles.items()])
@@ -198,30 +198,31 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
                 ret.append(''.join((p,':',aff_str,'/',status_str,'@',ou)))
         return ret
 
-    def make_person_entry(self, row, person_id):
+    def make_person_entry(self, row):
         """Add data from person_course to a person entry."""
-        dn, entry, alias_info = self.__super.make_person_entry(row, person_id)
+        dn, entry, alias_info = self.__super.make_person_entry(row)
+        p_id = int(row['person_id'])
         if not dn:
             return dn, entry, alias_info
-        if person_id in self.ownerid2urnlist:
+        if self.ownerid2urnlist.has_key(p_id):
             # Some of the chars in the entitlements are outside ascii
             if entry.has_key('eduPersonEntitlement'):
-                entry['eduPersonEntitlement'].extend(self.ownerid2urnlist[person_id])
+                entry['eduPersonEntitlement'].extend(self.ownerid2urnlist[p_id])
             else:
-                entry['eduPersonEntitlement'] = self.ownerid2urnlist[person_id]
-        entry['uioPersonID'] = str(person_id)
-        if person_id in self.person2group:
+                entry['eduPersonEntitlement'] = self.ownerid2urnlist[p_id]
+        entry['uioPersonID'] = str(p_id)
+        if self.person2group.has_key(p_id):
             # TODO: remove member and uioPersonObject after transition period
-            entry['uioMemberOf'] = entry['member'] = self.person2group[person_id]
+            entry['uioMemberOf'] = entry['member'] = self.person2group[p_id]
             entry['objectClass'].extend(('uioMembership', 'uioPersonObject'))
 
-        pri_edu_aff, pri_ou, pri_aff = self.make_eduPersonPrimaryAffiliation(person_id)
-        entry['uioPersonScopedAffiliation'] = self.make_uioPersonScopedAffiliation(person_id, pri_aff, pri_ou)
+        pri_edu_aff, pri_ou, pri_aff = self.make_eduPersonPrimaryAffiliation(p_id)
+        entry['uioPersonScopedAffiliation'] = self.make_uioPersonScopedAffiliation(p_id, pri_aff, pri_ou)
         if 'uioPersonObject' not in entry['objectClass']:
             entry['objectClass'].extend(('uioPersonObject',))
 
         # Check if there exists «avvikende» addresses, if so, export them instead:
-        addrs = self.addr_info.get(person_id)
+        addrs = self.addr_info.get(p_id)
         post  = addrs and addrs.get(int(self.const.address_other_post))
         if post:
             a_txt, p_o_box, p_num, city, country = post

@@ -37,8 +37,8 @@ class HiNeOrgLDIFMixin(OrgLDIF):
     # Fetch mail addresses from entity_contact_info of accounts, not persons.
     person_contact_mail = False
 
-    def update_person_entry(self, entry, row, person_id):
-        self.__super.update_person_entry(entry, row, person_id)
+    def update_person_entry(self, entry, row):
+        self.__super.update_person_entry(entry, row)
         self.ac.clear()
         self.ac.find_by_name(entry['uid'])
         self.pe.clear()

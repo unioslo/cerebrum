@@ -99,15 +99,15 @@ class OrgLdifUitMixin(OrgLDIF):
         timer       = self.make_timer("Processing persons...")
         round_timer = self.make_timer()
         round       = 0
-        for person_id, row in self.person_cache.iteritems():
+        for row in self.list_persons():
             if round % 10000 == 0:
                 round_timer("...rounded %d rows..." % round)
             round += 1
-            dn, entry, alias_info = self.make_person_entry(row, person_id)
+            dn, entry, alias_info = self.make_person_entry(row)
             if dn:
                 if dn in self.used_DNs:
                     self.logger.warn("Omitting person_id %d: duplicate DN '%s'"
-                                     % (person_id, dn))
+                                     % (row['person_id'], dn))
                 else:
                     self.used_DNs[dn] = True
                     outfile.write(entry_string(dn, entry, False))
@@ -168,13 +168,14 @@ class OrgLdifUitMixin(OrgLDIF):
                 if self.FEIDE_schema_version <= '1.1':
                     entry['objectClass'].append('labeledURIObject')
 
-    def make_person_entry(self, row, person_id):
+    def make_person_entry(self, row):
         # Return (dn, person entry, alias_info) for a person to output,
         # or (None, anything, anything) if the person should not be output.
         # bool(alias_info) == False means no alias will be output.
         # Receives a row from list_persons() as a parameter.
-        # The row must have key 'account_id',
+        # The row must have keys 'person_id', 'account_id',
         # and if person_dn_primaryOU() is not overridden: 'ou_id'.
+        person_id  = int(row['person_id'])
         account_id = int(row['account_id'])
 
         p_affiliations = self.affiliations.get(person_id)
@@ -289,7 +290,7 @@ class OrgLdifUitMixin(OrgLDIF):
             entry.update(self.visible_person_attrs)
             alias_info = (primary_ou_dn,)
 
-        self.update_person_entry(entry, row, person_id)
+        self.update_person_entry(entry, row)
         return dn, entry, alias_info
 
     
@@ -331,7 +332,7 @@ class OrgLdifUitMixin(OrgLDIF):
         timer("...account information done.")
 
 
-    def update_person_entry(self,entry, row, person_id):
+    def update_person_entry(self,entry, row):
         # Override this to fill in a person entry further before output.
         #
         # If there is no password, store a useless one instead of no password
@@ -340,7 +341,7 @@ class OrgLdifUitMixin(OrgLDIF):
         #entry.setdefault('nt4_userPassword', ("*Invalid",)) # UIT: changed to MD5 from crypt
 
 
-        self.__super.update_person_entry(entry, row, person_id)
+        self.__super.update_person_entry(entry, row)
         uname = entry.get('uid')
         person_id = int(row['person_id'])
         fnr = self.fodselsnrs.get(person_id)
