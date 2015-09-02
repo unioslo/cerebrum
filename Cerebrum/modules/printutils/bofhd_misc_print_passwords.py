@@ -96,13 +96,15 @@ class BofhdExtension(BofhdCommonMethods):
         tpl_options = self.__list_password_print_options()
 
         # Numeric selection
-        if type(selection) is int:
-            try:
-                return tpl_options[selection-1]
-            except IndexError:
-                raise CerebrumError(
-                    u"Invalid template number %d, must be in range 1-%d" %
-                    (selection, len(tpl_options)))
+        try:
+            return tpl_options[int(selection)-1]
+        except IndexError:
+            raise CerebrumError(
+                u"Invalid template number %d, must be in range 1-%d" %
+                (selection, len(tpl_options)))
+        except ValueError:
+            # int() failed
+            pass
 
         # Text selection
         try:
@@ -326,7 +328,6 @@ class BofhdExtension(BofhdCommonMethods):
             return {'prompt': "Choose template #",
                     'map': mapping,
                     'help_ref': 'print_select_template'}
-
         tpl = self.__get_template(all_args.pop(0))
 
         # Ask for printer argument
@@ -355,6 +356,12 @@ class BofhdExtension(BofhdCommonMethods):
                     'raw': True,
                     'help_ref': 'print_select_range',
                     'default': str(n-1)}
+        all_args.pop(0)
+
+        # Done
+        if len(all_args) == 0:
+            return {'last_arg': True, }
+        raise CerebrumError("Too many arguments: %r" % all_args)
 
     #
     # misc print_passwords [template [printer] [range]]
