@@ -299,6 +299,9 @@ class EntityConsentMixin(Entity):
 
     def write_db(self):
         """Write changes to database."""
+        super(EntityConsentCode, self).write_db()
+        if not self.__consents:
+            return
         insert = """
         INSERT INTO [:table schema=cerebrum name=entity_consent]
         (entity_id, consent_code, description, time_set, expiry)
