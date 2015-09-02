@@ -276,7 +276,7 @@ class EntitySpread(Entity):
         sel = ""
         if spreads:
             sel = """WHERE spread """
-            sel = "WHERE " + argument_to_sql(spreads, 'spread', int, binds)
+            sel = "WHERE " + argument_to_sql(spreads, 'spread', binds, int)
         return self.query("""
         SELECT entity_id, spread
         FROM [:table schema=cerebrum name=entity_spread]""" + sel, binds)
@@ -293,7 +293,7 @@ class EntitySpread(Entity):
             sel = """
             JOIN [:table schema=cerebrum name=entity_info] ei
               ON ei.entity_id = es.entity_id AND """
-            sel += argument_to_sql(entity_type, 'ei.entity_type', int, binds)
+            sel += argument_to_sql(entity_types, 'ei.entity_type', binds, int)
 
         return self.query("""
         SELECT es.entity_id, es.spread
