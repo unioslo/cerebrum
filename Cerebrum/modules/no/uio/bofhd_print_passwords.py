@@ -47,7 +47,6 @@ class BofhdExtension(base.BofhdExtension):
 
         :param Cerebrum.Account account: The account to generate mappings for
         :param dict tpl: The template to generate mappings for
-        :param str barcode: An optional barcode file to include.
 
         :return dict: A dictionary of mappings for the TemplateHandler.
 
@@ -70,13 +69,11 @@ class BofhdExtension(base.BofhdExtension):
         if tpl.get('lang', '').endswith('letter'):
             if account.owner_type != self.const.entity_person:
                 raise CerebrumError(
-                    ("Cannot make letter to non-personal account %s "
-                     "(owner type=%s id=%s)") % (account.account_name,
-                                                 account.owner_type,
-                                                 account.owner_id))
+                    ("Cannot make letter to non-personal account %s " %
+                     account.account_name))
 
             # Barcode
-            mapping['barcode'] = 'barcode_%s.eps' % account.account_name
+            mapping['barcode'] = 'barcode_%s.eps' % account.entity_id
 
             # Address
             address = None

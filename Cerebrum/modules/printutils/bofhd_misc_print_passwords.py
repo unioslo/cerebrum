@@ -45,6 +45,7 @@ JOB_RUNNER_LOG_DIR
 """
 from __future__ import with_statement
 import os
+import re
 
 import cerebrum_path
 import cereconf
@@ -66,21 +67,23 @@ class BofhdExtension(BofhdCommonMethods):
     all_commands = {}
     u""" All exposed commands in this extension. """
 
-    def __init__(self, server):
-        super(BofhdExtension, self).__init__(server)
-
     def __list_password_print_options(self):
         u""" Enumerated list of password print selections. """
         templates = getattr(cereconf, 'BOFHD_TEMPLATES', dict())
         options = list()
-        for k, v in templates.iteritems():
-            for tpl in v:
-                options.append({
-                    'lang': k,       # e.g. en_GB/printer
-                    'type': tpl[0],  # e.g. nytt_passord_nn
-                    'fmt': tpl[1],   # e.g. tex, ps
-                    'desc': tpl[2]   # e.g. Passordbrev til lokal skriver
-                })
+        for lang, templates in templates.iteritems():
+            for tpl in templates:
+                try:
+                    options.append({
+                        'lang': lang,    # e.g. en_GB/printer
+                        'type': tpl[0],  # e.g. nytt_passord_nn
+                        'fmt': tpl[1],   # e.g. tex, ps
+                        'desc': tpl[2]   # e.g. Passordbrev til lokal skriver
+                    })
+                except (IndexError, KeyError, TypeError), err:
+                    self.logger.warn(
+                        "Bad config for template in language %r (%r): %s",
+                        lang, tpl, err)
         return options
 
     def __get_template(self, selection):
@@ -122,15 +125,15 @@ class BofhdExtension(BofhdCommonMethods):
     def __get_cached_passwords(self, session):
         u""" List all new passwords cached in session. """
         cached_passwds = []
-        for r in session.get_state():
+        for row in session.get_state():
             # state_type, entity_id, state_data, set_time
-            if r['state_type'] in ('new_account_passwd', 'user_passwd'):
+            if row['state_type'] in ('new_account_passwd', 'user_passwd'):
                 cached_passwds.append({
                     'username': self._get_entity_name(
-                        r['state_data']['account_id'],
+                        row['state_data']['account_id'],
                         self.const.entity_account),
-                    'password': r['state_data']['password'],
-                    'operation': r['state_type']})
+                    'password': row['state_data']['password'],
+                    'operation': row['state_type']})
         return cached_passwds
 
     def __select_cached_passwords(self, session, selection):
@@ -144,12 +147,12 @@ class BofhdExtension(BofhdCommonMethods):
             except (ValueError, IndexError):
                 raise CerebrumError(u"Invalid selection %r" % idx)
 
-        def get_range(r):
+        def get_range(rangestr):
             try:
-                s, e = str(r).split('-', 1)
-                return range(int(s), int(e) + 1)
+                start, end = str(rangestr).split('-', 1)
+                return range(int(start), int(end) + 1)
             except ValueError:
-                raise CerebrumError(u"Invalid range %r" % r)
+                raise CerebrumError(u"Invalid range %r" % rangestr)
 
         selection = str(selection)
 
@@ -385,7 +388,8 @@ class BofhdExtension(BofhdCommonMethods):
         destination = self._get_printer(operator, template)
         if not destination:
             destination = args.pop(0)
-        # TODO: Should we check the input here?
+        if not destination or re.search(r'[^-_A-Za-z0-9]', destination):
+            raise CerebrumError("Bad printer name %r" % destination)
 
         passwds = self.__select_cached_passwords(operator, args.pop(0))
 

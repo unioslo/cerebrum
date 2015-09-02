@@ -43,7 +43,7 @@ class BofhdExtension(base.BofhdExtension):
             op.account_name, now, os.getpid(), tpl.get('fmt', 'file'))
 
     def _get_printer(self, session, template):
-        u""" Get destination printer preset.
+        u""" Get printer preset.
 
         UIA doesn't actually print the files, but copies them onto a file
         exchange server. We just need a placeholder printer name here to
@@ -53,15 +53,7 @@ class BofhdExtension(base.BofhdExtension):
         return getattr(cereconf, 'PRINT_PRINTER', 'no_printer')
 
     def _get_mappings(self, account, tpl):
-        u""" Get mappings for a given template.
-
-        :param Cerebrum.Account account: The account to generate mappings for
-        :param dict tpl: The template to generate mappings for
-        :param str barcode: An optional barcode file to include.
-
-        :return dict: A dictionary of mappings for the TemplateHandler.
-
-        """
+        u""" Get mappings for a given template. """
         mapping = dict()
 
         if account.owner_type == self.const.entity_group:
