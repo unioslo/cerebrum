@@ -158,12 +158,19 @@ SYNCS = dict()
 #
 # - dc_server (str):
 #   If specified, overrides what Domain Controller the sync shoould be
-#   communicating with. The Domain Controllers controls the AD domain, and the
+#   communicating with. The Domain Controllers control the AD domain, and the
 #   sync is communicating with a DC, but through the WinRM server.
 #
 #   Normally, this should NOT be specified, as the sync will ask AD for the best
 #   DC to talk with. We then use AD's regular load balancing, and avoid adding
-#   too much load on one DC.
+#   too much load on one DC. Only use this setting for special cases, for
+#   instance where you need to talk to a DC in another domain than the WinRM
+#   server is located in.
+#
+#   Examples:
+#       dc1.otherdomain.localhost
+#       dc2.students.uio.no
+#       dc2.students
 #
 # - target_ou (str):
 #   The default OU in AD that the objects should be put in when created, or if
