@@ -40,7 +40,7 @@ from Cerebrum.modules.ad2 import ConfigUtils
 SYNCS = dict()
 # The available settings for each element of SYNCS:
 #
-# - sync_classes (list): 
+# - sync_classes (list):
 #   Contains all the classes that should be used as the sync class. Works like
 #   cereconf.CLASS_CONSTANTS, as the classes gets merged through `type`.
 #   Example:
@@ -156,6 +156,15 @@ SYNCS = dict()
 #   The user that we use to administrate the AD domain with. It is recommended
 #   that this is not the same user as 'auth_user'.
 #
+# - dc_server (str):
+#   If specified, overrides what Domain Controller the sync shoould be
+#   communicating with. The Domain Controllers controls the AD domain, and the
+#   sync is communicating with a DC, but through the WinRM server.
+#
+#   Normally, this should NOT be specified, as the sync will ask AD for the best
+#   DC to talk with. We then use AD's regular load balancing, and avoid adding
+#   too much load on one DC.
+#
 # - target_ou (str):
 #   The default OU in AD that the objects should be put in when created, or if
 #   they should be moved.
@@ -227,7 +236,7 @@ SYNCS = dict()
 #   If SIDs should be retrieved from AD and stored in Cerebrum as external_id.
 #   SIDs can not be set in AD, so we can not write these back to AD. If a
 #   deleted account gets recreated, it gets a new SID.
-#   Default: 
+#   Default:
 #       False
 #
 # - move_objects (bool):
@@ -243,7 +252,7 @@ SYNCS = dict()
 #   change type is added to the list, _all_ such changes will be retrieved from
 #   the change_log, which could be quite a long list. You must then first mark
 #   all those as completed before running the sync - ninja-sql? ;)
-#   
+#
 #   TODO: are there shorter constants names to use instead?
 #
 #   Example:
