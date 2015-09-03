@@ -1,7 +1,7 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+#!/usr/bin/env python2
+# encoding: utf-8
 #
-# Copyright 2012-2015 University of Oslo, Norway
+# Copyright 2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,50 +18,39 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" This is a bofhd module for guest functionality.
-
-The guest commands in this module creates guest accounts.
-
-Guests created by these bofhd-commands are non-personal, owned by a group. A
-trait associates the guest with an existing personal account.
-
-TODO: More info
-"""
-
-from mx import DateTime
+u""" This is a bofhd module for setting consent. """
 
 import cerebrum_path
 import cereconf
 
-from Cerebrum import Errors
-from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
-from Cerebrum.modules.guest.bofhd_consent_auth import BofhdAuth
+from Cerebrum.modules.bofhd.errors import CerebrumError
+from .bofhd_consent_auth import BofhdAuth as ConsentAuth
 
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.cmd_param import (Parameter,
                                               Command,
-                                              AccountName,
-                                              Integer,
-                                              GroupName,
-                                              PersonName,
+                                              Id,
                                               FormatSuggestion)
+
+from .Consent import EntityConsentMixin
 
 
 class ConsentType(Parameter):
+    u""" Consent type parameter. """
     _type = 'consent_type'
     _help_ref = 'consent_type'
 
 
-def format_date(field):
-    """ Date format for FormatSuggestion. """
-    fmt = "yyyy-MM-dd"  # 10 characters wide
+def format_datetime(field):
+    u""" Date format for FormatSuggestion. """
+    fmt = "yyyy-MM-dd HH:mm:SS"  # 19 characters wide
     return ":".join((field, "date", fmt))
 
 
 class BofhdExtension(BofhdCommonMethods):
-    """
-    Consent related commands.
-    """
+
+    u""" Commands for getting, setting and unsetting consent. """
+
     hidden_commands = {}  # Not accessible through bofh
     all_commands = {}
 
@@ -69,129 +58,176 @@ class BofhdExtension(BofhdCommonMethods):
         """
         """
         super(BofhdExtension, self).__init__(server)
-        self.ba = BofhdAuth(self.db)
+        self.ba = ConsentAuth(self.db)
+        self.util = server.util
 
     def get_help_strings(self):
-        """
-        Help strings for our commands and arguments.
-        """
-        group_help = {'consent': 'Commands for handling consents', }
+        u""" Help strings for consent commands. """
+        group_help = {
+            'consent': 'Commands for handling consents', }
+
         command_help = {
             'consent': {
-                'consent_create': 'Create / give a new consent',
-                'consent_remove': 'Remove / deactivate a given consent',
-                'consent_info': ('View consent information for '
-                                 'a given account or person'),
-                'consent_list': 'List all available types of consent'
-            }
-        }
+                'consent_set': self.consent_set.__doc__,
+                'consent_unset': self.consent_unset.__doc__,
+                'consent_info': self.consent_info.__doc__,
+                'consent_list': self.consent_list.__doc__, }, }
+
         arg_help = {
             'consent_type': ['type', 'Enter consent type',
-                             "'consent list' lists defined consents"],
-        }
+                             "'consent list' lists defined consents"], }
+
         return (group_help, command_help, arg_help)
 
-    # consent create
-    all_commands['consent_create'] = Command(
-        ('consent', 'create'),
+    def check_consent_support(self, entity):
+        u""" Assert that entity has EntityConsentMixin.
+
+        :param Cerebrum.Entity entity: The entity to check.
+
+        :raise NotImplementedError: If entity lacks consent support.
+
+        """
+        entity_type = self.const.EntityType(entity.entity_type)
+        if not isinstance(entity, EntityConsentMixin):
+            raise NotImplementedError(
+                u"Entity type '%s' does not support consent." %
+                entity_type)
+
+    #
+    # consent set <ident> <consent_type>
+    #
+    all_commands['consent_set'] = Command(
+        ('consent', 'set'),
+        Id(help_ref="id:target:account"),
         ConsentType(),
-        EntityType(default="account"),
-        SimpleString(),
-        perm_filter='can_create_consent')
+        fs=FormatSuggestion(
+            "OK: Set consent '%s' (%s) for %s '%s' (entity_id=%s)",
+            ('consent_name', 'consent_type', 'entity_type', 'entity_name',
+             'entity_id')),
+        perm_filter='can_set_consent')
 
-    def consent_create(self,
-                       operator,
-                       consent_type,
-                       entity_type,
-                       search_value):
-        """
-        Create / activate consent
-        """
-        entity = self._get_entity(entity_type, search_value)
-        self.ba.can_create_consent(operator.get_entity_id(), entity)
-        pass  # TODO
+    def consent_set(self, operator, entity_ident, consent_ident):
+        """ Set a consent for an entity. """
+        entity = self.util.get_target(entity_ident, restrict_to=[])
+        self.ba.can_set_consent(operator.get_entity_id(), entity)
+        self.check_consent_support(entity)
+        consent = self.const.human2constant(
+            consent_ident, const_type=self.const.EntityConsent)
+        consent_type = self.const.ConsentType(consent.consent_type)
+        entity_name = self._get_entity_name(entity.entity_id,
+                                            entity.entity_type)
+        entity.set_consent(consent)
+        entity.write_db()
+        return {
+            'consent_name': str(consent),
+            'consent_type': str(consent_type),
+            'entity_id': entity.entity_id,
+            'entity_type': str(self.const.EntityType(entity.entity_type)),
+            'entity_name': entity_name,
+        }
 
-    # consent remove
-    all_commands['consent_remove'] = Command(
-        ('consent', 'remove'),
+    #
+    # consent unset <ident> <consent_type>
+    #
+    all_commands['consent_unset'] = Command(
+        ('consent', 'unset'),
+        Id(help_ref="id:target:account"),
         ConsentType(),
-        EntityType(default="account"),
-        SimpleString(),
-        perm_filter='can_remove_consent')
+        fs=FormatSuggestion(
+            "OK: Removed consent '%s' (%s) for %s '%s' (entity_id=%s)",
+            ('consent_name', 'consent_type', 'entity_type', 'entity_name',
+             'entity_id')),
+        perm_filter='can_unset_consent')
 
-    def consent_remove(self,
-                       operator,
-                       consent_type,
-                       entity_type,
-                       search_value):
-        """
-        Remove / deactivate consent
-        """
-        entity = self._get_entity(entity_type, search_value)
-        self.ba.can_remove_consent(operator.get_entity_id(), entity)
-        pass  # TODO
+    def consent_unset(self, operator, entity_ident, consent_ident):
+        """ Remove a previously set consent. """
+        entity = self.util.get_target(entity_ident, restrict_to=[])
+        self.ba.can_unset_consent(operator.get_entity_id(), entity)
+        self.check_consent_support(entity)
+        consent = self.const.human2constant(
+            consent_ident, const_type=self.const.EntityConsent)
+        consent_type = self.const.ConsentType(consent.consent_type)
+        entity_name = self._get_entity_name(entity.entity_id,
+                                            entity.entity_type)
+        entity.remove_consent(consent)
+        entity.write_db()
+        return {
+            'consent_name': str(consent),
+            'consent_type': str(consent_type),
+            'entity_id': entity.entity_id,
+            'entity_type': str(self.const.EntityType(entity.entity_type)),
+            'entity_name': entity_name,
+        }
 
-    # consent info
+    #
+    # consent info <ident>
+    #
     all_commands['consent_info'] = Command(
         ('consent', 'info'),
-        EntityType(default="account"),
-        SimpleString(),
+        Id(help_ref="id:target:account"),
         fs=FormatSuggestion(
-            '%-16s  %s',
-            ('name', 'value'),
-            hdr='%-15s %s' % ('Name', 'Value')),
-        perm_filter='can_do_consent_info')
+            '%-15s %-8s %-20s %-20s %s',
+            ('consent_name',
+             'consent_type',
+             format_datetime('consent_time_set'),
+             format_datetime('consent_time_expire'),
+             'consent_description'),
+            hdr='%-15s %-8s %-20s %-20s %s' % (
+                'Name', 'Type', 'Set at', 'Expires at', 'Description')),
+        perm_filter='can_show_consent_info')
 
-    def consent_info(self, operator, entity_type, search_value):
-        """
-        View consent information for a given account or person
-        """
-        entity = self._get_entity(entity_type, search_value)
-        self.ba.can_do_consent_info(operator.get_entity_id(), entity)
-        pass  # TODO
+    def consent_info(self, operator, ident):
+        u""" View all set consents for a given entity. """
+        entity = self.util.get_target(ident, restrict_to=[])
+        self.check_consent_support(entity)
+        self.ba.can_show_consent_info(operator.get_entity_id(), entity)
 
+        consents = []
+        for row in entity.list_consents(entity_id=entity.entity_id,
+                                        filter_expired=False):
+            consent = self.const.EntityConsent(row['consent_code'])
+            consent_type = self.const.ConsentType(consent.consent_type)
+            consents.append({
+                'consent_name': str(consent),
+                'consent_type': str(consent_type),
+                'consent_time_set': row['time_set'],
+                'consent_time_expire': row['expiry'],
+                'consent_description': row['description'], })
+        if not consents:
+            name = self._get_entity_name(entity.entity_id, entity.entity_type)
+            raise CerebrumError(
+                "'%s' (entity_type=%s, entity_id=%s) has no consents set" % (
+                    name,
+                    self.const.EntityType(entity.entity_type),
+                    entity.entity_id))
+        return consents
+
+    #
     # consent list
+    #
     all_commands['consent_list'] = Command(
         ('consent', 'list'),
         fs=FormatSuggestion(
-            '%-16s  %1s  %s',
-            ('name', 'default', 'desc'),
-            hdr='%-15s %-4s %s' % ('Name', 'Default', 'Description')),
-        perm_filter='can_list_consents')  # Do we really need this? TODO
+            '%-15s  %-8s  %s',
+            ('consent_name', 'consent_type', 'consent_description'),
+            hdr='%-16s %-9s %s' % ('Name', 'Type', 'Description')),
+        perm_filter='can_list_consents')
 
     def consent_list(self, operator):
-        """
-        View consent information for a given account or person
-        """
+        u""" List all consent types. """
         self.ba.can_list_consents(operator.get_entity_id())
-        ret = []
-        pass  # TODO
+        consents = []
+        for consent in self.const.fetch_constants(self.const.EntityConsent):
+            consent_type = self.const.ConsentType(consent.consent_type)
+            consents.append({
+                'consent_name': str(consent),
+                'consent_type': str(consent_type),
+                'consent_description': consent.description, })
+        if not consents:
+            raise CerebrumError("No consent types defined yet")
+        return consents
 
-    def _get_entity(self, entity_type, value=None):
-        """
-        """
-        if not value:  # None, '', 0 ... etc.
-            raise CerebrumError('Invalid value')
-        if entity_type == 'account':
-            return self._get_account(value)
-        if entity_type == 'person':
-            return self._get_person(*self._map_person_id(value))
-        raise CerebrumError("Invalid entity type. "
-                            "Entity type can be either 'account' or 'person'")
 
-    def _get_account(self, value):
-        """
-        """
-        ac = self.Account_class(self.db)
-        ac.clear()
-        try:
-            if value.isdigit():
-                ac.find(int(value))
-            else:
-                ac.find_by_name(value)
-            return ac
-        except Errors.NotFoundError as e:
-            raise CerebrumError('Could not find Account {0}: {1}'.format(value,
-                                                                         e))
-        except Exception as e:
-            raise CerebrumError('{0}'.format(e))
+if __name__ == '__main__':
+    del cerebrum_path
+    del cereconf
