@@ -232,18 +232,17 @@ class norEduLDIFMixin(OrgLDIF):
         self.update_ou_entry(entry)
         return dn, entry
 
-    def make_person_entry(self, row):
+    def make_person_entry(self, row, person_id):
         """Override to add Feide specific functionality."""
-        dn, entry, alias_info = self.__super.make_person_entry(row)
-        p_id = int(row['person_id'])
+        dn, entry, alias_info = self.__super.make_person_entry(row, person_id)
         if not dn:
             return dn, entry, alias_info
-        pri_edu_aff, pri_ou, pri_aff = self.make_eduPersonPrimaryAffiliation(p_id)
+        pri_edu_aff, pri_ou, pri_aff = self.make_eduPersonPrimaryAffiliation(person_id)
         if pri_edu_aff:
             entry['eduPersonPrimaryAffiliation'] = pri_edu_aff
             entry['eduPersonPrimaryOrgUnitDN'] = self.ou2DN.get(int(pri_ou)) or self.dummy_ou_dn
-        if ldapconf('PERSON', 'entitlements_pickle_file') and p_id in self.person2entitlements:
-            entry['eduPersonEntitlement'] = self.person2entitlements[p_id]
+        if ldapconf('PERSON', 'entitlements_pickle_file') and person_id in self.person2entitlements:
+            entry['eduPersonEntitlement'] = self.person2entitlements[person_id]
         return dn, entry, alias_info
 
     def make_ou_dn(self, entry, parent_dn):
@@ -378,19 +377,18 @@ class norEduLDIFMixin(OrgLDIF):
         # Set self.birth_dates = dict {person_id: birth date}
         timer = self.make_timer("Fetching birth dates...")
         self.birth_dates = birth_dates = {}
-        for row in self.person.list_persons():
+        for row in self.person.list_persons(person_id=self.persons):
             birth_date = row['birth_date']
             if birth_date:
                 birth_dates[int(row['person_id'])] = birth_date
         timer("...birth dates done.")
 
-    def update_person_entry(self, entry, row):
+    def update_person_entry(self, entry, row, person_id):
         # Changes from superclass:
         # If possible, add object class norEduPerson and its attributes
         # norEduPersonNIN, norEduPersonBirthDate, eduPersonPrincipalName.
-        self.__super.update_person_entry(entry, row)
+        self.__super.update_person_entry(entry, row, person_id)
         uname = entry.get('uid')
-        person_id = int(row['person_id'])
         fnr = self.fodselsnrs.get(person_id)
         birth_date = self.birth_dates.get(person_id)
 
