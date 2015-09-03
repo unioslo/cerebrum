@@ -32,7 +32,7 @@ class BofhdAuth(auth.BofhdAuth):
 
     u""" Methods to control command access. """
 
-    def _get_operator(self, operator):
+    def _get_operator_account(self, operator):
         u""" Get the operator account.
 
         :param int operator: The operator entity_id.
@@ -54,11 +54,11 @@ class BofhdAuth(auth.BofhdAuth):
             True if operator has the same entity_id as entity.
 
         """
-        op_acc = self._get_operator(operator)
+        op_acc = self._get_operator_account(operator)
         return op_acc.entity_id == getattr(entity, 'entity_id', None)
 
     def is_entity_owner(self, operator, entity):
-        u""" Checks if operator is the entity owner.
+        u""" Checks if operator is the owner of entity.
 
         :param int operator: The operator entity_id
         :param Cerebrum.Entity entity: The entity to check.
@@ -67,10 +67,10 @@ class BofhdAuth(auth.BofhdAuth):
             True if operator is the owner_id of entity.
 
         """
-        op_acc = self._get_operator(operator)
+        op_acc = self._get_operator_account(operator)
         return op_acc.entity_id == getattr(entity, 'owner_id', None)
 
-    def owner_is_entity(self, operator, entity):
+    def is_owned_by_entity(self, operator, entity):
         u""" Checks if entity is the owner of operator.
 
         :param int operator: The operator entity_id
@@ -80,7 +80,7 @@ class BofhdAuth(auth.BofhdAuth):
             True if entity is the owner_id of operator.
 
         """
-        op_acc = self._get_operator(operator)
+        op_acc = self._get_operator_account(operator)
         return op_acc.owner_id == getattr(entity, 'entity_id', None)
 
     def can_set_consent(self, operator, entity=None, query_run_any=False):
@@ -105,9 +105,13 @@ class BofhdAuth(auth.BofhdAuth):
             return True
         if self.is_entity_owner(operator, entity):
             return True
-        if self.owner_is_entity(operator, entity):
+        if self.is_owned_by_entity(operator, entity):
             return True
-        raise PermissionDenied("Can only change consent on yourself.")
+        raise PermissionDenied(
+            "Not allowed to see or change consent on this entity"
+            " (entity_type=%s, entity_id=%s)." % (
+                self.const.EntityType(entity.entity_type),
+                entity.entity_id))
 
     def can_unset_consent(self, operator, entity=None, query_run_any=False):
         u""" Checks if operator can remove consent for entity.
@@ -124,6 +128,7 @@ class BofhdAuth(auth.BofhdAuth):
         :raise PermissionDenied: If authorization is denied.
 
         """
+        # The same rules should apply to unsetting:
         return self.can_set_consent(operator,
                                     entity=entity,
                                     query_run_any=query_run_any)
@@ -146,23 +151,13 @@ class BofhdAuth(auth.BofhdAuth):
         """
         if self.is_superuser(operator, query_run_any=query_run_any):
             return True
+        # The same rules should apply to viewing:
         return self.can_set_consent(operator,
                                     entity=entity,
                                     query_run_any=query_run_any)
 
     def can_list_consents(self, operator, query_run_any=False):
-        u""" Checks if operator can list all consent types.
-
-        :param int operator:
-            The operator entity_id.
-        :param bool query_run_any:
-            If client is fetching list of allowed commands.
-
-        :return bool: True if authorization is granted.
-
-        :raise PermissionDenied: If authorization is denied.
-
-        """
+        u""" Checks if operator can list all consent types. """
         return True
 
 if __name__ == '__main__':

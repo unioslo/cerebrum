@@ -60,6 +60,10 @@ class BofhdExtension(BofhdCommonMethods):
         super(BofhdExtension, self).__init__(server)
         self.ba = ConsentAuth(self.db)
         self.util = server.util
+        # POST:
+        for attr in ('ConsentType', 'EntityConsent'):
+            if not hasattr(self.const, attr):
+                raise RuntimeError('consent: Missing consent constant types')
 
     def get_help_strings(self):
         u""" Help strings for consent commands. """
