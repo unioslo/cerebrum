@@ -108,10 +108,8 @@ class BofhdAuth(auth.BofhdAuth):
         if self.is_owned_by_entity(operator, entity):
             return True
         raise PermissionDenied(
-            "Not allowed to see or change consent on this entity"
-            " (entity_type=%s, entity_id=%s)." % (
-                self.const.EntityType(entity.entity_type),
-                entity.entity_id))
+            "Not allowed to see or change consent on this %s (entity_id=%s)." %
+            (self.const.EntityType(entity.entity_type), entity.entity_id))
 
     def can_unset_consent(self, operator, entity=None, query_run_any=False):
         u""" Checks if operator can remove consent for entity.
