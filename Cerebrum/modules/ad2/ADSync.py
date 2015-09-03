@@ -374,6 +374,9 @@ class BaseSync(object):
             if not self.config['encrypted']:
                 self.config['port'] = 5985
 
+        if config_args.get('dc_server'):
+            self.config['dc_server'] = config_args['dc_server']
+
         if self.config['subset']:
             self.logger.info("Sync will only be run for subset: %s",
                              self.config['subset'])
@@ -529,6 +532,8 @@ class BaseSync(object):
             client_cert=self.config.get('client_cert'),
             client_key=self.config.get('client_key'),
             dryrun=self.config['dryrun'])
+        if 'dc_server' in self.config:
+            self.server.set_domain_controller(self.config['dc_server'])
 
     def add_admin_message(self, level, msg):
         """Add a message to be given to the administrators of the AD domain.
@@ -2065,7 +2070,7 @@ class UserSync(BaseSync):
                         'Using "target_ou"' % (
                             uname,
                             row['account_id']))
-                    
+
 
     def fetch_names(self):
         """Fetch all the persons' names and store them for the accounts.

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# 
-# Copyright 2011, 2012 University of Oslo, Norway
+#
+# Copyright 2011-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,9 +18,11 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
 """Functionality for the Individuation project that is specific to UiO."""
 
 from Cerebrum.modules.cis import Individuation
+
 
 class Individuation(Individuation.Individuation):
     # The feedback messages
@@ -32,7 +34,7 @@ class Individuation(Individuation.Individuation):
             {'en': u'Some of the data is wrong, please try again.',
              'no': u'Noe av den oppgitte informasjonen er feil, vennligst'
                    u' prøv igjen.'},
-        'person_notfound_usernames':   
+        'person_notfound_usernames':
             {'en': u'You are either reserved or have the given wrong information.',
              'no': u'Du er reservert eller har oppgitt feil informasjon.'},
         'person_miss_info':
@@ -46,12 +48,12 @@ class Individuation(Individuation.Individuation):
                    u' med din lokale IT-avdeling.'},
         'account_reserved':
             {'en': u'You are blocked from using this service. Please contact'
-                   u' your local IT.',
+                   u' your local IT department.',
              'no': u'Du er blokkert fra å bruke denne tjenesten. Vennligst ta'
                    u' kontakt med din lokale IT-avdeling.'},
         'account_self_reserved':
             {'en': u'You have reserved yourself from using this service. Please'
-                   u' contact your local IT.',
+                   u' contact your local IT department.',
              'no': u'Du har reservert deg fra å bruke denne tjenesten.'
                    u' Vennligst ta kontakt med din lokale IT-avdeling.'},
         'token_notsent':
@@ -70,13 +72,13 @@ class Individuation(Individuation.Individuation):
             {'en': u'Timeout, one-time password got invalid',
              'no': u'Tidsavbrudd, engangspassord ble gjort ugyldig'},
         'fresh_phonenumber':
-            {'en': u'Your phone number has recently been changed in StudWeb,'
-                   u' and can not, due to security reasons, be used in a few'
-                   u' days. Please contact your local IT-department.',
-             'no': u'Ditt mobilnummer er nylig byttet i StudentWeb, og kan av'
+            {'en': u'Your phone number has recently been changed,'
+                   u' and cannot be used for a few days due to security reasons.'
+                   u' Please contact your local IT department.',
+             'no': u'Ditt mobilnummer er nylig byttet, og kan av'
                    u' sikkerhetsmessige årsaker ikke benyttes før etter noen'
                    u' dager. Vennligst ta kontakt med din lokale IT-avdeling.'},
         'password_invalid':
             {'en': u'Bad password: %s',
              'no': u'Ugyldig passord: %s'},
-        }
+    }
