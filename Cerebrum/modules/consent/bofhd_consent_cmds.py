@@ -23,15 +23,14 @@ u""" This is a bofhd module for setting consent. """
 import cerebrum_path
 import cereconf
 
-from Cerebrum.modules.bofhd.errors import CerebrumError
-from .bofhd_consent_auth import BofhdAuth as ConsentAuth
-
+from Cerebrum import Errors
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.cmd_param import (Parameter,
                                               Command,
                                               Id,
                                               FormatSuggestion)
-
+from Cerebrum.modules.bofhd.errors import CerebrumError
+from .bofhd_consent_auth import BofhdAuth as ConsentAuth
 from .Consent import EntityConsentMixin
 
 
@@ -43,7 +42,7 @@ class ConsentType(Parameter):
 
 def format_datetime(field):
     u""" Date format for FormatSuggestion. """
-    fmt = "yyyy-MM-dd HH:mm:SS"  # 19 characters wide
+    fmt = "yyyy-MM-dd HH:mm"  # 16 characters wide
     return ":".join((field, "date", fmt))
 
 
@@ -97,6 +96,26 @@ class BofhdExtension(BofhdCommonMethods):
                 u"Entity type '%s' does not support consent." %
                 entity_type)
 
+    def _get_consent(self, consent_ident):
+        u""" Get consent constant from constant strval or intval.
+
+        :type consent_ident: int, str, Cerebrum.Constant.ConstantCode
+        :param consent_ident: Something to lookup a consent constant by
+
+        :return tuple:
+            A tuple consisting of a EntityConsent constant and its ConsentType
+            constant.
+
+        :raise Cerebrum.Error.NotFoundError: If the constant cannot be found.
+
+        """
+        consent = self.const.human2constant(
+            consent_ident, const_type=self.const.EntityConsent)
+        if not consent:
+            raise CerebrumError("No consent '%s'" % consent_ident)
+        consent_type = self.const.ConsentType(consent.consent_type)
+        return (consent, consent_type)
+
     #
     # consent set <ident> <consent_type>
     #
@@ -115,9 +134,7 @@ class BofhdExtension(BofhdCommonMethods):
         entity = self.util.get_target(entity_ident, restrict_to=[])
         self.ba.can_set_consent(operator.get_entity_id(), entity)
         self.check_consent_support(entity)
-        consent = self.const.human2constant(
-            consent_ident, const_type=self.const.EntityConsent)
-        consent_type = self.const.ConsentType(consent.consent_type)
+        consent, consent_type = self._get_consent(consent_ident)
         entity_name = self._get_entity_name(entity.entity_id,
                                             entity.entity_type)
         entity.set_consent(consent)
@@ -148,9 +165,7 @@ class BofhdExtension(BofhdCommonMethods):
         entity = self.util.get_target(entity_ident, restrict_to=[])
         self.ba.can_unset_consent(operator.get_entity_id(), entity)
         self.check_consent_support(entity)
-        consent = self.const.human2constant(
-            consent_ident, const_type=self.const.EntityConsent)
-        consent_type = self.const.ConsentType(consent.consent_type)
+        consent, consent_type = self._get_consent(consent_ident)
         entity_name = self._get_entity_name(entity.entity_id,
                                             entity.entity_type)
         entity.remove_consent(consent)
@@ -170,13 +185,13 @@ class BofhdExtension(BofhdCommonMethods):
         ('consent', 'info'),
         Id(help_ref="id:target:account"),
         fs=FormatSuggestion(
-            '%-15s %-8s %-20s %-20s %s',
+            '%-15s %-8s %-17s %-17s %s',
             ('consent_name',
              'consent_type',
              format_datetime('consent_time_set'),
              format_datetime('consent_time_expire'),
              'consent_description'),
-            hdr='%-15s %-8s %-20s %-20s %s' % (
+            hdr='%-15s %-8s %-17s %-17s %s' % (
                 'Name', 'Type', 'Set at', 'Expires at', 'Description')),
         perm_filter='can_show_consent_info')
 
@@ -189,8 +204,7 @@ class BofhdExtension(BofhdCommonMethods):
         consents = []
         for row in entity.list_consents(entity_id=entity.entity_id,
                                         filter_expired=False):
-            consent = self.const.EntityConsent(row['consent_code'])
-            consent_type = self.const.ConsentType(consent.consent_type)
+            consent, consent_type = self._get_consent(int(row['consent_code']))
             consents.append({
                 'consent_name': str(consent),
                 'consent_type': str(consent_type),
@@ -222,7 +236,7 @@ class BofhdExtension(BofhdCommonMethods):
         self.ba.can_list_consents(operator.get_entity_id())
         consents = []
         for consent in self.const.fetch_constants(self.const.EntityConsent):
-            consent_type = self.const.ConsentType(consent.consent_type)
+            consent, consent_type = self._get_consent(int(consent))
             consents.append({
                 'consent_name': str(consent),
                 'consent_type': str(consent_type),
