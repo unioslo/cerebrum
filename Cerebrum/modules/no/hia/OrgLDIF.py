@@ -82,3 +82,16 @@ class OrgLDIFHiAMixin(norEduLDIFMixin):
 
         return dict((key, self.attr_unique(values, normalize=normalize))
                     for key, values in cont_tab.iteritems())
+
+    def init_person_titles(self):
+        """Extends the person_titles dict with employment titles available via
+        the PersonEmployment module."""
+        self.__super.init_person_titles()
+
+        timer = self.make_timer("Fetching personal employment titles...")
+        employments = self.person.search_employment(main_employment=True)
+        for emp in employments:
+            if emp['person_id'] not in self.person_titles:
+                title = [(self.const.language_nb, iso2utf(emp['description']))]
+                self.person_titles[emp['person_id']] = title
+        timer("...personal employment titles done.")
