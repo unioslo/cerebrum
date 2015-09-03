@@ -1353,7 +1353,7 @@ class BofhdAuth(DatabaseAccessor):
         if self._has_target_permissions(operator, self.const.auth_remove_affiliation,
                                         self.const.auth_target_type_ou,
                                         person.entity_id, person.entity_id,
-                                        aff):
+                                        str(aff)):
             return True
         raise PermissionDenied("No access for affiliation %s on person %s in "
                                "OU %02d%02d%02d" % (aff, person.entity_id,
