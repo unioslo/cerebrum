@@ -23,7 +23,6 @@ u""" This is a bofhd module for setting consent. """
 import cerebrum_path
 import cereconf
 
-from Cerebrum import Errors
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.cmd_param import (Parameter,
                                               Command,
@@ -36,6 +35,7 @@ from .Consent import EntityConsentMixin
 
 class ConsentType(Parameter):
     u""" Consent type parameter. """
+
     _type = 'consent_type'
     _help_ref = 'consent_type'
 
@@ -47,7 +47,6 @@ def format_datetime(field):
 
 
 class BofhdExtension(BofhdCommonMethods):
-
     u""" Commands for getting, setting and unsetting consent. """
 
     hidden_commands = {}  # Not accessible through bofh

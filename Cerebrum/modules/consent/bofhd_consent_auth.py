@@ -29,7 +29,6 @@ from Cerebrum.modules.bofhd.errors import PermissionDenied
 
 
 class BofhdAuth(auth.BofhdAuth):
-
     u""" Methods to control command access. """
 
     def _get_operator_account(self, operator):
