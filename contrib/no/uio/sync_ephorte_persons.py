@@ -256,8 +256,8 @@ def user_details_to_perms(user_details):
 
 def list_perm_for_person(person):
     ret = []
-    for row in EphortePermission(db).list_permission(person_id=person.entity_id,
-                                                     filter_expired=True):
+    for row in EphortePermission(db).list_permission(
+            person_id=person.entity_id, filter_expired=True):
         perm_type = row['perm_type']
         if perm_type:
             perm_type = str(co.EphortePermission(perm_type))
@@ -519,7 +519,8 @@ def update_person_perms(person, client, remove_superfluous=False):
             try:
                 client.ensure_access_code_authorization(userid, *perm)
             except Exception, e:
-                logger.error(u"Something happened, ephorte says: %s", e.args[0])
+                logger.error(
+                    u"Something happened, ephorte says: %s", e.args[0])
     except Exception, e:
         logger.exception("update person perms failed")
         return False
@@ -627,8 +628,8 @@ def update_person_roles(pe, client, remove_superfluous=False):
             args['role_id'] = unicode(co.EphorteRole(role['role_type']))
         except (TypeError, Errors.NotFoundError):
             logger.warn(
-                "Unknown arkivdel, journalenhet or role type, skipping role %s",
-                role)
+                "Unknown arkivdel, journalenhet or role type, "
+                "skipping role %s", role)
             continue
 
         args['ou_id'] = unicode(get_sko(ou_id=role['adm_enhet']))
