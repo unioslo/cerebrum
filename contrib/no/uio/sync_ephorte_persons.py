@@ -225,6 +225,14 @@ def update_person_info(pe, client):
                            initials, email_address, telephone, mobile,
                            street_address, zip_code, city)
     except EphorteWSError, e:
+        # Temporary hack to return prettier error-message if EphorteWS returns
+        # an unspecified rule violation for field length.
+        # Should be removed once the WS itself returns the specific field
+        # that caused the exception.
+        if e.message.find('Det er ikke tillatt med mer enn') != -1:
+            max_length = [num for num in e.message.split() if num.isdigit()][0]
+            e = ('Unknown field violating WS-rule of max '
+                 '%s characters.' % max_length)
         logger.warn(u'Could not ensure existence of %s in ePhorte: %s',
                     user_id, unicode(e))
 
