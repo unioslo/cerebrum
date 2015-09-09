@@ -664,7 +664,18 @@ def update_person_roles(pe, client, remove_superfluous=False):
                         args['role_id'], args['ou_id'], user_id, unicode(e))
 
     if remove_superfluous:
-        for role in map(dict, ephorte_roles - cerebrum_roles):
+        # Remove the default role flag. We need to do this before computing the
+        # set difference, or else we'll remove roles that we should have when
+        # changing the standard role.
+        remove_default_flag = lambda l: set(
+            map(
+                lambda e: filter(
+                    lambda e: e[0] is not 'default_role', e),
+                list(l)))
+        for role in map(dict,
+                        remove_default_flag(ephorte_roles)
+                        -
+                        remove_default_flag(cerebrum_roles)):
             logger.info('Removing superfluous role %s@%s for %s',
                         role['role_id'], role['ou_id'], user_id)
             try:
