@@ -1513,6 +1513,20 @@ def prepare_string(value, transform=str.lower):
     return value
 
 
+def make_timer(logger, msg=None):
+    # t = make_timer(message) logs the message and starts a stop watch.
+    # t(message) logs that message and #seconds since last message.
+    def timer(msg):
+        prev = timer.start
+        timer.start = time.time()
+        timer.logger.debug("%s (%d seconds)", msg, timer.start - prev)
+    if msg:
+        logger.debug(msg)
+    timer.start = time.time()
+    timer.logger = logger
+    return timer
+
+
 class Messages(dict):
 
     """Class for handling text in different languages.

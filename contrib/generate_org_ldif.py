@@ -36,7 +36,7 @@ import getopt
 import sys
 
 import cerebrum_path
-from Cerebrum.Utils import Factory
+from Cerebrum.Utils import Factory, make_timer
 from Cerebrum.modules.LDIFutils import ldif_outfile, end_ldif_outfile
 
 
@@ -62,7 +62,7 @@ def main():
             usage()
 
     ldif = Factory.get('OrgLDIF')(Factory.get('Database')(), logger)
-    timer = ldif.make_timer("Starting dump.")
+    timer = make_timer(logger, 'Starting dump.')
     outfile = ldif_outfile('ORG', ofile)
     ldif.generate_org_object(outfile)
     ou_outfile = ldif_outfile('OU', default=outfile, explicit_default=ofile)
