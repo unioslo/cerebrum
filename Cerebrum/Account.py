@@ -1216,12 +1216,13 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             tables.append('[:table schema=cerebrum name=entity_spread] es')
             where.append('ai.account_id=es.entity_id')
             where.append(argument_to_sql(spread, 'es.spread', binds, int))
-            where.append('es.entity_type=:entity_type')
-            binds['entity_type'] = int(self.const.entity_account)
+            where.append(argument_to_sql(self.const.entity_account,
+                                         'es.entity_type', binds, int))
         if filter_expired:
             where.append("(ai.expire_date IS NULL OR ai.expire_date > [:now])")
         if account_id:
-            where.append(argument_to_sql(account_id, 'ai.account_id', binds, int))
+            where.append(argument_to_sql(account_id, 'ai.account_id',
+                                         binds, int))
         where.append('ai.account_id=en.entity_id')
         where = " AND ".join(where)
         if tables:
