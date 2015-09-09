@@ -118,10 +118,10 @@ class PosixLDIF(object):
         code = '_AuthenticationCode'
         # Priority is arg, else cereconf default value
         # auth_meth_l is a list sent to load_auth_tab and contains
-        # all methods minus primary which is called by 
+        # all methods minus primary which is called by
         auth = auth_meth or cereconf.LDAP['auth_attr']
         if isinstance(auth, dict):
-            if not auth.has_key('userPassword'):
+            if 'userPassword' not in auth:
                 self.logger.warn("Only support 'userPassword'-attribute")
                 return None
             default_auth = auth['userPassword'][:1][0]
@@ -158,10 +158,10 @@ class PosixLDIF(object):
                 if not x['account_id'] or not x['method']:
                     continue
                 acc_id, meth = int(x['account_id']), int(x['method'])
-                if not self.auth_data.has_key(acc_id):
-                    self.auth_data[acc_id] = {meth: x['auth_data']}
-                else:
+                if acc_id in self.auth_data:
                     self.auth_data[acc_id][meth] = x['auth_data']
+                else:
+                    self.auth_data[acc_id] = {meth: x['auth_data']}
         timer('... done load_auth_tab')
 
     def load_disk_tab(self):
@@ -197,19 +197,17 @@ class PosixLDIF(object):
         if row['auth_data']:
             if self.auth_format[self.user_auth]['format']:
                 passwd = self.auth_format[self.user_auth]['format'] % \
-                         row['auth_data']
+                    row['auth_data']
             else:
                 passwd = row['auth_data']
-            passwd_attr = self.auth_format[self.user_auth]['attr']
         else:
-            for uauth in [x for x in self.a_meth if self.auth_format.has_key(x)]:
+            for uauth in [x for x in self.a_meth if x in self.auth_format]:
             #method = int(self.const.auth_type_crypt3_des)
                 try:
                     #if uauth in self.auth_format.keys():
                     if self.auth_format[uauth]['format']:
                         passwd = self.auth_format[uauth]['format'] % \
-                                 self.auth_data[account_id][uauth]
-                        passwd_attr = self.auth_format[uauth]['attr']
+                            self.auth_data[account_id][uauth]
                     else:
                         passwd = self.auth_data[account_id][uauth]
 
@@ -219,8 +217,8 @@ class PosixLDIF(object):
             self.logger.warn("User %s have no posix-shell!" % uname)
             return None, None
         else:
-            shell = self.shell_tab[int(row['shell'])] 
-        if self.quarantines.has_key(account_id):
+            shell = self.shell_tab[int(row['shell'])]
+        if account_id in self.quarantines:
             qh = QuarantineHandler(self.db, self.quarantines[account_id])
             if qh.should_skip():
                 return None, None
@@ -261,7 +259,7 @@ class PosixLDIF(object):
                  'loginShell': (shell,),
                  'gecos': (gecos,)}
         self.update_user_entry(account_id, entry, row)
-        if not self.id2uname.has_key(account_id):
+        if not account_id in self.id2uname:
             self.id2uname[account_id] = uname
         else:
             self.logger.warn('Duplicate user-entry: (%s,%s)!',
@@ -270,8 +268,8 @@ class PosixLDIF(object):
         dn = ','.join((('uid=' + uname), self.user_dn))
         return dn, entry
 
-    def update_user_entry(self,account_id,entry,row):
-        """To call Mixin-class. 
+    def update_user_entry(self, account_id, entry, row):
+        """To call Mixin-class.
         (Should consider support for multiple mixin.)
         """
         # FIXME: useless documentation string
@@ -287,7 +285,7 @@ class PosixLDIF(object):
         timer = make_timer(self.logger, 'Starting filegroup_ldif...')
         f = LDIFutils.ldif_outfile('FILEGROUP', filename, self.fd)
         self.init_filegroup()
-        if not self.spread_d.has_key('filegroup'):
+        if 'filegroup' not in self.spread_d:
             self.logger.warn("No spread is given for filegroup!")
         else:
             f.write(LDIFutils.container_entry_string('FILEGROUP'))
@@ -311,10 +309,11 @@ class PosixLDIF(object):
         try:
             self.posgrp.find(row["group_id"])
         except Errors.NotFoundError:
-            self.logger.warn("Group %s has filegroup-spread but lacks posix-data", row['group_id'])
+            self.logger.warn("Group %s has filegroup-spread but lacks posix-data",
+                             row['group_id'])
             return None, None
         gname = LDIFutils.iso2utf(self.posgrp.group_name)
-        if not self.id2uname.has_key(int(row["group_id"])):
+        if int(row["group_id"]) not in self.id2uname:
             self.id2uname[int(row["group_id"])] = gname
         members = []
         entry = {'objectClass': ('top', 'posixGroup'),
@@ -330,7 +329,7 @@ class PosixLDIF(object):
                 member_type=self.const.entity_account,
                 member_spread=self.spread_d["user"][0]):
             uname_id = int(member_row["member_id"])
-            if not self.id2uname.has_key(uname_id) or self.get_name:
+            if uname_id not in self.id2uname or self.get_name:
                 # Have find a way to resolve this problem later
                 # Change this to .warn when various _list() functions do
                 # not list expired accounts.
@@ -353,7 +352,7 @@ class PosixLDIF(object):
         timer = make_timer(self.logger, 'Starting netgroup_ldif...')
         f = LDIFutils.ldif_outfile('NETGROUP', filename, self.fd)
         self.init_netgroup()
-        if not self.spread_d.has_key('netgroup'):
+        if 'netgroup' not in self.spread_d:
             self.logger.warn("No valid netgroup-spread in cereconf or arg!")
         else:
             f.write(LDIFutils.container_entry_string('NETGROUP'))
@@ -381,7 +380,7 @@ class PosixLDIF(object):
                  'cn':                (netgrp_name,),
                  'nisNetgroupTriple': [],
                  'memberNisNetgroup': []}
-        if not self.id2uname.has_key(group_id):
+        if group_id not in self.id2uname:
             self.id2uname[group_id] = netgrp_name
         if self.grp.description:
             entry['description'] = (
@@ -450,5 +449,4 @@ class PosixLDIFRadius(PosixLDIF):
                 # TODO: Remove sambaSamAccount and sambaSID after Radius-testing
                 entry['objectClass'].append('sambaSamAccount')
                 entry['sambaSID'] = entry['uidNumber']
-                added = True
         return self.__super.update_user_entry(account_id, entry, row)
