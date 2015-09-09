@@ -151,17 +151,17 @@ class PosixLDIF(object):
 
     def load_auth_tab(self, auth_meth=None):
         timer = make_timer(self.logger, 'Starting load_auth_tab...')
-        self.auth_data = {}
         self.a_meth = self.auth_methods(auth_meth)
-        if self.a_meth:
-            for x in self.posuser.list_account_authentication(auth_type=self.a_meth):
-                if not x['account_id'] or not x['method']:
-                    continue
-                acc_id, meth = int(x['account_id']), int(x['method'])
-                if acc_id in self.auth_data:
-                    self.auth_data[acc_id][meth] = x['auth_data']
-                else:
-                    self.auth_data[acc_id] = {meth: x['auth_data']}
+        if not self.a_meth:
+            timer('... done load_auth_tab')
+            return
+        self.auth_data = defaultdict(dict)
+        for x in self.posuser.list_account_authentication(auth_type=self.a_meth,
+                                                          spread=self.spread_d['user']):
+            if not x['account_id'] or not x['method']:
+                continue
+            acc_id, meth = int(x['account_id']), int(x['method'])
+            self.auth_data[acc_id][meth] = x['auth_data']
         timer('... done load_auth_tab')
 
     def load_disk_tab(self):
