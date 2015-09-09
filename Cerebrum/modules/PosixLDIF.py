@@ -18,14 +18,12 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Common POSIX LDIF generator. """
 
-import time
-import sys
 import mx
 
 import cereconf
 from Cerebrum.modules import LDIFutils
 from Cerebrum.QuarantineHandler import QuarantineHandler
-from Cerebrum.Utils import Factory, latin1_to_iso646_60, auto_super
+from Cerebrum.Utils import Factory, latin1_to_iso646_60, auto_super, make_timer
 from Cerebrum import Errors
 
 
@@ -51,6 +49,7 @@ class PosixLDIF(object):
 
         """
         super(PosixLDIF, self).__init__(db)
+        timer = make_timer(logger, 'Initing PosixLDIF...')
         from Cerebrum.modules import PosixGroup
         self.db = db
         self.logger = logger
@@ -84,9 +83,11 @@ class PosixLDIF(object):
             self.entity2name.update([
                 (x["entity_id"], x["entity_name"]) for x in
                 self.posgrp.list_names(self.const.group_namespace)])
+        timer('... done initing PosixLDIF.')
 
     def user_ldif(self, filename=None, auth_meth=None):
         """Generate posix-user."""
+        timer = make_timer(self.logger, 'Starting user_ldif...')
         f = LDIFutils.ldif_outfile('USER', filename, self.fd)
         self.init_user(auth_meth)
         f.write(LDIFutils.container_entry_string('USER'))
@@ -98,14 +99,17 @@ class PosixLDIF(object):
             if dn:
                 f.write(LDIFutils.entry_string(dn, entry, False))
         LDIFutils.end_ldif_outfile('USER', f, self.fd)
+        timer('... done user_ldif')
 
     def init_user(self, auth_meth=None):
+        timer = make_timer(self.logger, 'Starting init_user...')
         self.get_name = False
         self.posuser = Factory.get('PosixUser')(self.db)
         self.load_disk_tab()
         self.load_shell_tab()
         self.load_quaratines()
         self.load_auth_tab(auth_meth)
+        timer('... init_user done.')
 
     def auth_methods(self, auth_meth=None):
         """Which authentication methods to fetch. Mixin-support.
@@ -150,6 +154,7 @@ class PosixLDIF(object):
         return auth_meth_l
 
     def load_auth_tab(self, auth_meth=None):
+        timer = make_timer(self.logger, 'Starting load_auth_tab...')
         self.auth_data = {}
         self.a_meth = self.auth_methods(auth_meth)
         if self.a_meth:
@@ -161,20 +166,25 @@ class PosixLDIF(object):
                     self.auth_data[acc_id] = {meth: x['auth_data']}
                 else:
                     self.auth_data[acc_id][meth] = x['auth_data']
+        timer('... done load_auth_tab')
 
     def load_disk_tab(self):
-        #from Cerebrum import Disk
+        timer = make_timer(self.logger, 'Starting load_disk_tab...')
         self.disk = Factory.get('Disk')(self.db)
         self.disk_tab = {}
         for hd in self.disk.list():
             self.disk_tab[int(hd['disk_id'])] = hd['path']
+        timer('... done load_disk_tab')
 
     def load_shell_tab(self):
+        timer = make_timer(self.logger, 'Starting load_shell_tab...')
         self.shell_tab = {}
         for sh in self.posuser.list_shells():
             self.shell_tab[int(sh['code'])] = sh['shell']
+        timer('... done load_shell_tab')
 
     def load_quaratines(self):
+        timer = make_timer(self.logger, 'Starting load_quaratines...')
         self.quarantines = {}
         now = mx.DateTime.now()
         for row in self.posuser.list_entity_quarantines(
@@ -187,6 +197,7 @@ class PosixLDIF(object):
                     # Yes, the quarantine in this row is currently active.
                     self.quarantines.setdefault(int(row['entity_id']), []).append(
                         int(row['quarantine_type']))
+        timer('... done load_quaratines')
 
     def user_object(self, row):
         account_id = int(row['account_id'])
@@ -282,6 +293,7 @@ class PosixLDIF(object):
         internal groups.
 
         """
+        timer = make_timer(self.logger, 'Starting filegroup_ldif...')
         f = LDIFutils.ldif_outfile('FILEGROUP', filename, self.fd)
         self.init_filegroup()
         if not self.spread_d.has_key('filegroup'):
@@ -294,6 +306,7 @@ class PosixLDIF(object):
                 if dn:
                     f.write(LDIFutils.entry_string(dn, entry, False))
         LDIFutils.end_ldif_outfile('FILEGROUP', f, self.fd)
+        timer('... done  filegroup_ldif')
 
     def init_filegroup(self):
         """Initiate modules and constants for posixgroup"""
@@ -346,6 +359,7 @@ class PosixLDIF(object):
 
     def netgroup_ldif(self, filename=None):
         """Generate netgroup with only users."""
+        timer = make_timer(self.logger, 'Starting netgroup_ldif...')
         f = LDIFutils.ldif_outfile('NETGROUP', filename, self.fd)
         self.init_netgroup()
         if not self.spread_d.has_key('netgroup'):
@@ -358,6 +372,7 @@ class PosixLDIF(object):
                 if dn:
                     f.write(LDIFutils.entry_string(dn, entry, False))
         LDIFutils.end_ldif_outfile('NETGROUP', f, self.fd)
+        timer('... done netgroup_ldif')
 
     def init_netgroup(self):
         """Initiate modules and constants."""

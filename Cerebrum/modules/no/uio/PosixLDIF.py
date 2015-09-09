@@ -19,46 +19,48 @@
 
 from Cerebrum.modules.PosixLDIF import PosixLDIF
 from Cerebrum.modules.no.uio.printer_quota import PaidPrinterQuotas
-from Cerebrum.QuarantineHandler import QuarantineHandler
-from Cerebrum.Utils import Factory
+from Cerebrum.Utils import Factory, make_timer
+
 
 class PosixLDIF_UiOMixin(PosixLDIF):
     """PosixLDIF mixin class providing functionality specific to UiO."""
 
-
     def __init__(self, *rest, **kw):
         super(PosixLDIF_UiOMixin, self).__init__(*rest, **kw)
+        timer = make_timer(self.logger, 'Initing PosixLDIF_UiOMixin...')
 
         # load person_id -> primary account_id
         account = Factory.get("Account")(self.db)
         self.pid2primary_aid = dict()
         for row in account.list_accounts_by_type(
-                               primary_only=True,
-                               account_spread=self.spread_d["user"][0]):
+                primary_only=True,
+                account_spread=self.spread_d["user"][0]):
             self.pid2primary_aid[row["person_id"]] = row["account_id"]
+        timer('... done initing PosixLDIF_UiOMixin')
     # end __init__
-    
 
     def init_user(self, *args, **kwargs):
-	# Prepare to include eduPersonAffiliation, taken from OrgLDIF.
-	self.org_ldif = Factory.get('OrgLDIF')(self.db, self.logger)
-	self.org_ldif.init_eduPersonAffiliation_lookup()
-	self.steder = {}
-	self.__super.init_user(*args, **kwargs)
+        self.__super.init_user(*args, **kwargs)
+        timer = make_timer(self.logger, 'Starting UiO init_user...')
+        # Prepare to include eduPersonAffiliation, taken from OrgLDIF.
+        self.org_ldif = Factory.get('OrgLDIF')(self.db, self.logger)
+        self.org_ldif.init_eduPersonAffiliation_lookup()
+        self.steder = {}
 
-	self.account_aff = account_aff = {}
-	for arow in self.posuser.list_accounts_by_type():
-	    val = (arow['affiliation'], int(arow['ou_id']))
-	    account_id = int(arow['account_id'])
-	    if account_id in account_aff:
-		account_aff[account_id].append(val)
-	    else:
-		account_aff[account_id] = [val]
+        self.account_aff = account_aff = {}
+        for arow in self.posuser.list_accounts_by_type():
+            val = (arow['affiliation'], int(arow['ou_id']))
+            account_id = int(arow['account_id'])
+            if account_id in account_aff:
+                account_aff[account_id].append(val)
+            else:
+                account_aff[account_id] = [val]
 
         self.pq_people = frozenset(
             int(row['person_id'])
             for row in PaidPrinterQuotas.PaidPrinterQuotas(self.db).list()
             if row['has_quota'] == 'T')
+        timer('... done UiO init_user')
 
     def id2stedkode(self, ou_id):
 	try:
