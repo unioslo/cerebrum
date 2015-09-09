@@ -18,16 +18,13 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Common POSIX LDIF generator. """
 
-import mx
+from collections import defaultdict
 
 import cereconf
 from Cerebrum.modules import LDIFutils
 from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.Utils import Factory, latin1_to_iso646_60, auto_super, make_timer
 from Cerebrum import Errors
-
-
-# logger = Factory.get_logger("cronjob")
 
 
 class PosixLDIF(object):
@@ -48,7 +45,6 @@ class PosixLDIF(object):
         used in more than one method.
 
         """
-        super(PosixLDIF, self).__init__(db)
         timer = make_timer(logger, 'Initing PosixLDIF...')
         from Cerebrum.modules import PosixGroup
         self.db = db
@@ -185,18 +181,13 @@ class PosixLDIF(object):
 
     def load_quaratines(self):
         timer = make_timer(self.logger, 'Starting load_quaratines...')
-        self.quarantines = {}
-        now = mx.DateTime.now()
+        self.quarantines = defaultdict(list)
         for row in self.posuser.list_entity_quarantines(
-                entity_types=self.const.entity_account):
-            # Is the quarantine currently active?
-            if (row['start_date'] <= now
-                and (row['end_date'] is None or row['end_date'] >= now)
-                and (row['disable_until'] is None
-                     or row['disable_until'] < now)):
-                    # Yes, the quarantine in this row is currently active.
-                    self.quarantines.setdefault(int(row['entity_id']), []).append(
-                        int(row['quarantine_type']))
+                entity_types=self.const.entity_account,
+                only_active=True,
+                spreads=self.spread_d['user']):
+            self.quarantines[int(row['entity_id'])].append(
+                int(row['quarantine_type']))
         timer('... done load_quaratines')
 
     def user_object(self, row):
