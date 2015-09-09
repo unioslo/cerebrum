@@ -1123,7 +1123,7 @@ class EntityQuarantine(Entity):
 
     def list_entity_quarantines(self, entity_types=None, quarantine_types=None,
                                 only_active=False, entity_ids=None,
-                                ignore_quarantine_types=None):
+                                ignore_quarantine_types=None, spreads=None):
         sel = ""
         where = ""
         binds = dict()
@@ -1153,6 +1153,11 @@ class EntityQuarantine(Entity):
         if entity_ids:
             conditions.append(
                 argument_to_sql(entity_ids, "eq.entity_id", binds, int))
+        if spreads:
+            sel += """
+            JOIN [:table schema=cerebrum name=entity_spread] es
+              ON es.entity_id = ei.entity_id AND """
+            sel += argument_to_sql(spreads, "es.spread", binds, int)
         if conditions:
             where = " WHERE " + " AND ".join(conditions)
         return self.query("""
