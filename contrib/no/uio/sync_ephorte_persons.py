@@ -688,7 +688,7 @@ def update_person_roles(pe, client, remove_superfluous=False):
             except EphorteWSError, e:
                 logger.warn(u'Could not remove role %s@%s for %s: %s',
                             role['role_id'], role['ou_id'], user_id,
-                            unicode(e), exc_info=True)
+                            unicode(e))
 
     return True
 
