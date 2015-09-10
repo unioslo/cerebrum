@@ -264,8 +264,8 @@ def user_details_to_perms(user_details):
 
 def list_perm_for_person(person):
     ret = []
-    for row in EphortePermission(db).list_permission(person_id=person.entity_id,
-                                                     filter_expired=True):
+    for row in EphortePermission(db).list_permission(
+            person_id=person.entity_id, filter_expired=True):
         perm_type = row['perm_type']
         if perm_type:
             perm_type = str(co.EphortePermission(perm_type))
@@ -527,7 +527,8 @@ def update_person_perms(person, client, remove_superfluous=False):
             try:
                 client.ensure_access_code_authorization(userid, *perm)
             except Exception, e:
-                logger.error(u"Something happened, ephorte says: %s", e.args[0])
+                logger.error(
+                    u"Something happened, ephorte says: %s", e.args[0])
     except Exception, e:
         logger.exception("update person perms failed")
         return False
@@ -625,6 +626,12 @@ def update_person_roles(pe, client, remove_superfluous=False):
                         for x in user_details_to_roles(
                             client.get_user_details(user_id)))
     cerebrum_roles = set()
+    # These functons can be used to remove the default_role component from
+    # data-structures.
+    remove_default_flag = lambda l: filter(
+        lambda e: e[0] is not 'default_role', l)
+    remove_default_flag_from_set = lambda l: set(
+        map(lambda e: remove_default_flag(e), l))
 
     for role in ephorte_role.list_roles(person_id=pe.entity_id,
                                         filter_expired=True):
@@ -635,8 +642,8 @@ def update_person_roles(pe, client, remove_superfluous=False):
             args['role_id'] = unicode(co.EphorteRole(role['role_type']))
         except (TypeError, Errors.NotFoundError):
             logger.warn(
-                "Unknown arkivdel, journalenhet or role type, skipping role %s",
-                role)
+                "Unknown arkivdel, journalenhet or role type, "
+                "skipping role %s", role)
             continue
 
         args['ou_id'] = unicode(get_sko(ou_id=role['adm_enhet']))
@@ -657,7 +664,9 @@ def update_person_roles(pe, client, remove_superfluous=False):
 
         role_tuple = tuple(sorted(args.items()))
         cerebrum_roles.add(role_tuple)
-        if role_tuple not in ephorte_roles:
+        # Remove the standard role flag in order to log correct message.
+        if (remove_default_flag(role_tuple) not in
+                remove_default_flag_from_set(ephorte_roles)):
             logger.info(u'Adding role %s@%s for %s, %s',
                         args['role_id'], args['ou_id'], user_id, args)
         else:
@@ -671,7 +680,13 @@ def update_person_roles(pe, client, remove_superfluous=False):
                         args['role_id'], args['ou_id'], user_id, unicode(e))
 
     if remove_superfluous:
-        for role in map(dict, ephorte_roles - cerebrum_roles):
+        # Remove the default role flag. We need to do this before computing the
+        # set difference, or else we'll remove roles that we should have when
+        # changing the standard role.
+        for role in map(dict,
+                        remove_default_flag_from_set(ephorte_roles)
+                        -
+                        remove_default_flag_from_set(cerebrum_roles)):
             logger.info('Removing superfluous role %s@%s for %s',
                         role['role_id'], role['ou_id'], user_id)
             try:
@@ -680,8 +695,8 @@ def update_person_roles(pe, client, remove_superfluous=False):
                     role['arkivdel'], role['journalenhet'])
             except EphorteWSError, e:
                 logger.warn(u'Could not remove role %s@%s for %s: %s',
-                            args['role_id'], args['ou_id'], user_id, unicode(e),
-                            exc_info=True)
+                            role['role_id'], role['ou_id'], user_id,
+                            unicode(e))
 
     return True
 
