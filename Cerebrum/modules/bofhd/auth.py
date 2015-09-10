@@ -1324,8 +1324,6 @@ class BofhdAuth(DatabaseAccessor):
                             aff_status=None, query_run_any=False):
         if self.is_superuser(operator):
             return True
-        # TODO (at a later time): Determine how 'auth_add_affiliation' and
-        # 'auth_remove_affiliation' should be connected to ou etc.
         if query_run_any:
             if self._has_operation_perm_somewhere(operator,
                                                   self.const.auth_add_affiliation):
@@ -1334,7 +1332,7 @@ class BofhdAuth(DatabaseAccessor):
         if self._has_target_permissions(operator,
                                         self.const.auth_add_affiliation,
                                         self.const.auth_target_type_ou,
-                                        person.entity_id, person.entity_id,
+                                        ou.entity_id, person.entity_id,
                                         str(aff_status)):
             return True
         raise PermissionDenied("No access for combination %s on person %s in "
@@ -1352,7 +1350,7 @@ class BofhdAuth(DatabaseAccessor):
             return False
         if self._has_target_permissions(operator, self.const.auth_remove_affiliation,
                                         self.const.auth_target_type_ou,
-                                        person.entity_id, person.entity_id,
+                                        ou.entity_id, person.entity_id,
                                         str(aff)):
             return True
         raise PermissionDenied("No access for affiliation %s on person %s in "
