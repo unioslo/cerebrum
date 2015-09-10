@@ -407,8 +407,10 @@ def _json2answersdict(json_data):
         # simple string or integer, or it could be an answerOptionIds array.
         # Note that both elements are always present, though both may be empty.
         answer = None
-        if ans['answerOptionIds']:
-            answer_option = ans['answerOptionIds'][-1]
+        if ans['answerOptions']:
+            # Cumbersome addressing. 'answerOptions' is a list, containing 
+            # only one dict element
+            answer_option = ans['answerOptions'][0]['answerOptionId']
             if answer_option not in answer_options_map:
                 logger.warn("For question %s, got un unknown answerOption: %s",
                             recode_keys[id], answer_option)
