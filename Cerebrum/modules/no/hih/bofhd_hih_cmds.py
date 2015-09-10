@@ -78,7 +78,7 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
         # copy relevant misc-cmds and util methods
         #
         'misc_affiliations', 'misc_check_password', 'misc_clear_passwords',
-        'misc_verify_password',
+        'misc_verify_password', 'misc_list_passwords',
         #
         # copy relevant ou-cmds and util methods
         #
@@ -271,23 +271,11 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
                         'dato_regform_endret': self._convert_ticks_to_timestamp(row['dato_regform_endret'])})
         return ret
 
-    # misc list_passwords
-    #
-    all_commands['misc_list_passwords'] = Command(
-        ("misc", "list_passwords"),
-        fs=FormatSuggestion("%-8s %-20s %s", ("account_id", "operation", "password"),
-                            hdr="%-8s %-20s %s" % ("Id", "Operation", "Password")))
-    def misc_list_passwords(self, operator):
-        ret = self._get_cached_passwords(operator)
-        if not ret:
-            return "Password cache for this session is empty."
-        return ret
-
     # user create prompt
     #
     def user_create_prompt_func(self, session, *args):
         return self._user_create_prompt_func_helper('Account', session, *args)    
-    
+
     # user create
     #
     # FIXME: we should be able to use uio's user create her
