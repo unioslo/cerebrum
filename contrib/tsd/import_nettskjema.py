@@ -177,9 +177,6 @@ def process_files(locations, dryrun, archive=None):
         except InvalidFileError, e:
             logger.warn("Problems with file %s: %s", location, e)
             db.rollback()
-        #except json.decoder.JSONDecodeError, e:
-        #    logger.warn("Syntax error in file %s: %s", location, e)
-        #    db.rollback()
         except Errors.CerebrumError, e:
             logger.exception(e)
             db.rollback()
@@ -448,7 +445,6 @@ def json2answers(json_data):
         from L{input_values} and the values are the filtered answers.
 
     """
-    #!!!answers = _xml2answersdict(xml)
     answers = _json2answersdict(json_data)
     logger.debug2("Answers: %s", answers)
     # Find the correct survey type:
@@ -485,12 +481,10 @@ def json2answers(json_data):
 
 def process_file(file, dryrun):
     logger.info("Processing file: %s", file)
-    #!!!xml = etree.parse(file).getroot()
 
     with open(file, 'r') as json_file:
         json_data = json.load(json_file)
 
-    #!!!stype, answers = xml2answers(xml)
     stype, answers = json2answers(json_data)
     try:
         fnr = json_data['respondentNationalIdNumber'].encode('ascii','replace')
