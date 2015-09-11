@@ -105,23 +105,41 @@ class LinePrinter(object):
     lp_cmd = 'lp -h "$hostname" -U "$username" -d "$destination" -- $filenames'
     u""" Default print command. """
 
-    def __init__(self, dest, uname='unknown', host='localhost', logfile=None):
+    def __init__(self, dest, uname=None, host=None, job=None, logfile=None):
         u""" Set up printer object.
 
         :param str dest:
             The destination printer or queue name.
         :param str uname:
-            Who to print as.
+            Who to print as. Defaults to `default_username' if uname is None.
         :param str host:
-            Use an alternative print server/port. The default is localhost.
+            Use an alternative print server/port. Defaults to
+            `default_hostname' if host is None.
+        :param str job:
+            A name for this job. Defaults to `default_jobname' if job is None.
         :param str logfile:
             Use an alternative log file for output from print command.
 
         """
         self.destination = dest
-        self.username = uname
-        self.hostname = host
+        self.username = uname or self.default_username
+        self.hostname = host or self.default_hostname
+        self.jobname = job or self.default_jobname
         self.logfile = logfile
+
+    @property
+    def default_username(self):
+        u""" Get a default username for printing. """
+        return 'unknown'
+
+    @property
+    def default_hostname(self):
+        u""" Get a default hostname for printing. """
+        return os.uname()[1]
+
+    @property
+    def default_jobname(self):
+        return 'job.ps'
 
     def _build_cmd(self, **params):
         u""" Choose and build the print command.
@@ -159,6 +177,9 @@ class LinePrinter(object):
 
             # Where to print from
             'hostname': self.hostname,
+
+            # Job name
+            'jobname': self.jobname,
 
             # Destination queue
             'destination': self.destination,
