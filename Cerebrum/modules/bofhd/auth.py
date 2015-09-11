@@ -1351,10 +1351,10 @@ class BofhdAuth(DatabaseAccessor):
         if self.is_superuser(operator):
             return True
         if query_run_any:
-            if self._has_operation_perm_somewhere(operator,
-                                                  self.const.auth_remove_affiliation) or
-               self._has_operation_perm_somewhere(operator,
-                                                  self.const.auth_create_user):
+            if (self._has_operation_perm_somewhere(operator,
+                                                   self.const.auth_remove_affiliation) or
+                self._has_operation_perm_somewhere(operator,
+                                                   self.const.auth_create_user)):
                 return True
             return False
         if self._has_target_permissions(operator, self.const.auth_remove_affiliation,
