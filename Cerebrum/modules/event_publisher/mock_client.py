@@ -1,10 +1,5 @@
-<<<<<<< HEAD
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-=======
-#! /usr/bin/env python
 # encoding: utf-8
->>>>>>> python-27-pseudo-master
 #
 # Copyright 2015 University of Oslo, Norway
 #
@@ -24,29 +19,22 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""Errors thrown by wrapped clients used by EventPublisher."""
+"""Mock client usable with the EventPublisher.
+
+Messages and operations (i.e. publish and commit) are logged."""
+
+from Cerebrum.Utils import Factory
 
 
-class ConfigurationFormatError(Exception):
-    """Error related to config format."""
-    pass
+class MockClient(object):
+    def __init__(self, config):
+        self.logger = Factory.get_logger("cronjob")
 
+    def publish(self, messages, durable=True):
+        self.logger.info("Publishing: %s", str(messages))
 
-class MessageFormatError(Exception):
-    """Error related to message-format."""
-    pass
+    def rollback(self):
+        self.logger.info("Rolling back")
 
-
-class MessagePublishingError(Exception):
-    """Error related to message publishing."""
-    pass
-
-
-class ConnectionError(Exception):
-    """Error related to client → broker connection."""
-    pass
-
-
-class ProtocolError(Exception):
-    """Error related to protocol used."""
-    pass
+    def commit(self):
+        self.logger.info("Commiting")
