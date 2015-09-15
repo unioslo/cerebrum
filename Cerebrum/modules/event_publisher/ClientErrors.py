@@ -1,5 +1,10 @@
+<<<<<<< HEAD
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+=======
+#! /usr/bin/env python
+# encoding: utf-8
+>>>>>>> python-27-pseudo-master
 #
 # Copyright 2015 University of Oslo, Norway
 #

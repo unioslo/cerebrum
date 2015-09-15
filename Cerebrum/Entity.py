@@ -1146,25 +1146,33 @@ class EntityQuarantine(Entity):
             JOIN [:table schema=cerebrum name=entity_info] ei
               ON ei.entity_id = eq.entity_id AND """
             sel += argument_to_sql(entity_types, "ei.entity_type", binds, int)
-        # argument_to_sql doesn't handle same value in binds twice, e.g. quarantine_type
+        # argument_to_sql doesn't handle same value in binds twice, e.g.
+        # quarantine_type
         if quarantine_types and ignore_quarantine_types:
-            raise CerebrumError('Can not use both quarantine_types and ignore_quarantine_types')
+            raise Errors.CerebrumError(
+                "Can't use both quarantine_types and ignore_quarantine_types")
         if quarantine_types:
-            conditions.append(argument_to_sql(quarantine_types, "quarantine_type", binds, int))
+            conditions.append(
+                argument_to_sql(quarantine_types, "quarantine_type",
+                                binds, int))
         if ignore_quarantine_types:
-            conditions.append("NOT " + argument_to_sql(ignore_quarantine_types, "quarantine_type", binds, int))
+            conditions.append(
+                "NOT " + argument_to_sql(
+                    ignore_quarantine_types, "quarantine_type", binds, int))
         if only_active:
             conditions.append("""start_date <= [:now] AND
             (end_date IS NULL OR end_date > [:now]) AND
             (disable_until IS NULL OR disable_until <= [:now])""")
         if entity_ids:
-            conditions.append(argument_to_sql(entity_ids, "eq.entity_id", binds, int))
+            conditions.append(
+                argument_to_sql(entity_ids, "eq.entity_id", binds, int))
         if conditions:
             where = " WHERE " + " AND ".join(conditions)
         return self.query("""
         SELECT eq.entity_id, eq.quarantine_type, eq.start_date,
                eq.disable_until, eq.end_date, eq.description
-          FROM [:table schema=cerebrum name=entity_quarantine] eq""" + sel + where, binds)
+          FROM [:table schema=cerebrum name=entity_quarantine] eq""" +
+                          sel + where, binds)
 
 
 class EntityExternalId(Entity):

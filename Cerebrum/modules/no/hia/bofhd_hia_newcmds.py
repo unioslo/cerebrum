@@ -1044,9 +1044,9 @@ class BofhdExtension(BofhdCommonMethods,
     # misc list_passwords_prompt_func
     #
     def misc_list_passwords_prompt_func(self, session, *args):
-        """  - GÃ¥r inn i "vis-info-om-oppdaterte-brukere-modus":
+        """  - Går inn i "vis-info-om-oppdaterte-brukere-modus":
   1 Skriv ut passordark
-  1.1 Lister ut templates, ber bofh'er om Ã¥ velge en
+  1.1 Lister ut templates, ber bofh'er om å velge en
   1.1.[0] Spesifiser skriver (for template der dette tillates valgt av
           bofh'er)
   1.1.1 Lister ut alle aktuelle brukernavn, ber bofh'er velge hvilke

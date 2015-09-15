@@ -458,8 +458,8 @@ class Cursor(object):
                 # any preceding ':'.
                 name = text[1:]
                 if name not in params:
-                    raise self.ProgrammingError, \
-                        "Bind parameter %s has no value." % text
+                    raise self.ProgrammingError(
+                        "Bind parameter %s has no value." % text)
                 translation.append(pconv.register(name))
             else:
                 translation.append(text)
@@ -658,6 +658,60 @@ class OraPgLock(Lock):
         self.cursor = cursor
         self.table = table
         super(OraPgLock, self).__init__(**kws)
+
+    def acquire(self, mode):
+        self.cursor.execute(OraPgLock.lock_stmt % (self.table, mode))
+
+    def acquire_lock(self, table=None, mode='exclusive'):
+        """
+        Aquire a lock for some table.
+
+        Locking is not a standard sql feature, but some
+        providers have locking. If not implemented, locking
+        is a no-op.
+
+        :param table: Database table to lock
+        :type table: str
+
+        :param mode: locking mode, see database driver
+        :type mode: str
+
+        :rtype: Lock
+        """
+        return Lock(cursor=self, table=table, mode=mode)
+
+
+class Lock(object):
+    """Driver-independent class for locking. Default: No locking"""
+    def __init__(self, mode='exclusive', **kws):
+        self.aquire(mode)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self):
+        self.release()
+
+    def acquire(self, mode):
+        pass
+
+    def release(self):
+        pass
+
+
+class OraPgLock(Lock):
+    """Lock for Oracle and Postgres.
+    Locks are only released by commit, so no release is actually done.
+
+    Uses the postgres and oracle LOCK TABLE statement.
+    """
+    lock_stmt = "LOCK TABLE %s IN %s MODE"
+
+    def __init__(self, cursor=None, table=None, **kws):
+        """Init will aquire a lock."""
+        self.cursor = cursor
+        self.table = table
+        super(self, OraPgLock).__init__(**kws)
 
     def acquire(self, mode):
         self.cursor.execute(OraPgLock.lock_stmt % (self.table, mode))
