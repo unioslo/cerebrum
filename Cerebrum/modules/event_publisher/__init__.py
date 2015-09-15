@@ -94,7 +94,6 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
     def publish_log(self):
         """ Publish messages. """
         super(EventPublisher, self).publish_log()
-        client = self.__get_client()
         if self.__queue:
             self.__try_send_messages()
 
