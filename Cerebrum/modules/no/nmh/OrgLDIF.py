@@ -117,21 +117,20 @@ class nmhOrgLDIFMixin(OrgLDIF):
         return dict((key, self.attr_unique(values, normalize=normalize))
                     for key, values in cont_tab.iteritems())
 
-    def make_person_entry(self, row):
+    def make_person_entry(self, row, person_id):
         """Override the production of a person entry to output.
 
         NMH needs more data for their own use, e.g. to be used by their web
         pages."""
-        dn, entry, alias_info = self.__super.make_person_entry(row)
+        dn, entry, alias_info = self.__super.make_person_entry(row, person_id)
         if dn:
-            p_id = int(row['person_id'])
             # Add fagomrade/fagfelt, if registered for the person:
-            fagf = self.pe2fagomr.get(p_id, [])
+            fagf = self.pe2fagomr.get(person_id, [])
             for f in fagf:
                 urn = 'urn:mace:feide.no:nmh.no:fagomrade:%s' % (f)
                 entry.setdefault('eduPersonEntitlement', []).append(urn)
             # Add fagmiljø:
-            fagm = self.pe2fagmiljo.get(p_id)
+            fagm = self.pe2fagmiljo.get(person_id)
             if fagm:
                 urn = 'urn:mace:feide.no:nmh.no:fagmiljo:%s' % fagm
                 entry.setdefault('eduPersonEntitlement', []).append(urn)

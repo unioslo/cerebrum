@@ -382,62 +382,171 @@ class TSDBofhdExtension(BofhdCommonMethods):
         ret_msg += "\nPlease use misc list_password to print or view the new password."
         return ret_msg
 
-    # misc list_passwords
-    def misc_list_passwords_prompt_func(self, session, *args):
-        """  - Går inn i "vis-info-om-oppdaterte-brukere-modus":
-  1 Skriv ut passordark
-  1.1 Lister ut templates, ber bofh'er om å velge en
-  1.1.[0] Spesifiser skriver (for template der dette tillates valgt av
-          bofh'er)
-  1.1.1 Lister ut alle aktuelle brukernavn, ber bofh'er velge hvilke
-        som skal skrives ut ('*' for alle).
-  1.1.2 (skriv ut ark/brev)
-  2 List brukernavn/passord til skjerm
-  """
-        all_args = list(args[:])
-        if not all_args:
-            return {'prompt': "Velg#",
-                    'map': [(("Alternativer",), None),
-                            (("List brukernavn/passord til skjerm",), "skjerm")]}
-        arg = all_args.pop(0)
-        if(arg == "skjerm"):
-            return {'last_arg': True}
-        if not all_args:
-            map = [(("Alternativer",), None)]
-            n = 1
-            for t in self._map_template():
-                map.append(((t,), n))
-                n += 1
-            return {'prompt': "Velg template #", 'map': map,
-                    'help_ref': 'print_select_template'}
-        arg = all_args.pop(0)
-        tpl_lang, tpl_name, tpl_type = self._map_template(arg)
-        if not tpl_lang.endswith("letter"):
-            default_printer = session.get_state(state_type='default_printer')
-            if default_printer:
-                default_printer = default_printer[0]['state_data']
-            if not all_args:
-                ret = {'prompt': 'Oppgi skrivernavn'}
-                if default_printer:
-                    ret['default'] = default_printer
-                return ret
-            skriver = all_args.pop(0)
-            if skriver != default_printer:
-                session.clear_state(state_types=['default_printer'])
-                session.store_state('default_printer', skriver)
-                self.db.commit()
-        if not all_args:
-            n = 1
-            map = [(("%8s %s", "uname", "operation"), None)]
-            for row in self._get_cached_passwords(session):
-                map.append((("%-12s %s", row['account_id'], row['operation']), n))
-                n += 1
-            if n == 1:
-                raise CerebrumError("no users")
-            return {'prompt': 'Velg bruker(e)', 'last_arg': True,
-                    'map': map, 'raw': True,
-                    'help_ref': 'print_select_range',
-                    'default': str(n-1)}
+    def _group_add_entity(self, operator, src_entity, member_type, dest_group):
+        """Helper method for adding a given entity to given group.
+
+        @type operator:
+        @param operator:
+
+        @type src_entity: Entity
+        @param src_entity: The entity to add as a member.
+
+        @type member_type: String or entity_type
+        @param member_type: The type of entity being added (account or group).
+
+        @type dest_group: Group
+        @param dest_group: The group the member should be added to.
+
+        """
+        if operator:
+            self.ba.can_add_group_member(operator.get_entity_id(), src_entity,
+                                         member_type, dest_group)
+
+        src_name = self._get_entity_name(src_entity.entity_id,
+                                         src_entity.entity_type)
+        # Make the error message for the most common operator error more
+        # friendly.  Don't treat this as an error, useful if the operator has
+        # specified more than one entity.
+        if dest_group.has_member(src_entity.entity_id):
+            return "%s is already a member of %s" % (src_name, dest_group.group_name)
+        # Make sure that the src_entity does not have dest_group as a member
+        # already, to avoid a recursion at export
+        if src_entity.entity_type == self.const.entity_group:
+            for row in src_entity.search_members(member_id=dest_group.entity_id,
+                                                 member_type=self.const.entity_group,
+                                                 indirect_members=True,
+                                                 member_filter_expired=False):
+                if row['group_id'] == src_entity.entity_id:
+                    return "Recursive memberships are not allowed (%s is member of %s)" % (
+                        dest_group, src_name)
+        # This can still fail, e.g., if the entity is a member with a different
+        # operation.
+        try:
+            dest_group.add_member(src_entity.entity_id)
+        except self.db.DatabaseError, m:
+            raise CerebrumError("Database error: %s" % m)
+        # TODO: If using older versions of NIS, a user could only be a member of
+        # 16 group. You might want to be warned about this - Or is this only
+        # valid for UiO?
+        return "OK, added %s to %s" % (src_name, dest_group.group_name)
+
+    # group add_member
+    # This command has previously been available as add_member, but has
+    # been renamed to group_multi_add due to the fact that Brukerinfo uses
+    # group_multi_add in every instance. This avoids having two identical
+    # commands with different names.
+    all_commands['group_multi_add'] = cmd.Command(
+        ("group", "add_member"),
+        cmd.MemberType(), cmd.MemberName(), cmd.GroupName(),
+        )
+
+    def group_multi_add(self, operator, member_type, src_name, dest_group):
+        """
+        Method for adding an entity to a given group. Raises an exception if
+        the entity is of type person, which is not allowed in TSD.
+
+        @type operator:
+        @param operator:
+
+        @type src_name: String
+        @param src_name: The name/id of the entity to add as the member.
+
+        @type dest_group: String
+        @param dest_group: The name/id of the group the member should be added
+            to.
+
+        @type member_type: String or EntityTypeCode (CerebrumCode)
+        @param member_type: The EntityType of the member.
+
+        """
+        if member_type in ("person", self.const.entity_group):
+            raise CerebrumError("Can't handle persons in project groups")
+        elif member_type in ("group", self.const.entity_group):
+            src_entity = self._get_group(src_name)
+        elif member_type in ("account", self.const.entity_account):
+            src_entity = self._get_account(src_name)
+        else:
+            raise CerebrumError('Unknown entity type: %s' % member_type)
+
+        dest_group = self._get_group(dest_group)
+
+        return self._group_add_entity(operator, src_entity, member_type, dest_group)
+
+    # group remove_member
+    # This command has previously been available as remove_member, but has
+    # been renamed to group_multi_remove due to the fact that Brukerinfo uses
+    # group_multi_remove in every instance. This avoids having two identical
+    # commands with different names.
+    all_commands['group_multi_remove'] = cmd.Command(
+        ("group", "remove_member"),
+        cmd.MemberType(), cmd.MemberName(), cmd.GroupName(),
+        perm_filter='can_alter_group')
+
+    def group_multi_remove(self, operator, member_type, src_name, dest_group):
+        """Remove a member from a given group.
+
+        @type operator:
+        @param operator:
+
+        @type member_type: String or EntityTypeCode (CerebrumCode)
+        @param member_type: The entity_type of the member.
+
+        @type src_name: String
+        @param src_name: The name/id of the entity to remove as member.
+
+        @type dest_group: String
+        @param dest_group: The name/id of the group the member should be removed
+                           from.
+
+        """
+        if member_type in ("group", self.const.entity_group):
+            src_entity = self._get_group(src_name)
+        elif member_type in ("account", self.const.entity_account):
+            src_entity = self._get_account(src_name)
+        elif member_type in ("person", self.const.entity_person):
+            try:
+                src_entity = self.util.get_target(src_name,
+                                                  restrict_to=['Person'])
+            except Errors.TooManyRowsError:
+                raise CerebrumError("Unexpectedly found more than one person")
+        else:
+            raise CerebrumError('Unknown entity type: %s' % member_type)
+        dest_group = self._get_group(dest_group)
+        return self._group_remove_entity(operator, src_entity, dest_group)
+
+    def _group_remove_entity(self, operator, member, group):
+        """Helper method for removing a member from a group.
+
+        @type operator:
+        @param operator:
+
+        @type member: Entity
+        @param member: The member to remove
+
+        @type group: Group
+        @param group: The group to remove the member from.
+
+        """
+        self.ba.can_alter_group(operator.get_entity_id(), group)
+        member_name = self._get_entity_name(member.entity_id,
+                                            member.entity_type)
+        if not group.has_member(member.entity_id):
+            return ("%s isn't a member of %s" %
+                    (member_name, group.group_name))
+        if member.entity_type == self.const.entity_account:
+            try:
+                pu = Utils.Factory.get('PosixUser')(self.db)
+                pu.find(member.entity_id)
+                if pu.gid_id == group.entity_id:
+                    raise CerebrumError("Can't remove %s from primary group %s" %
+                                        (member_name, group.group_name))
+            except Errors.NotFoundError:
+                pass
+        try:
+            group.remove_member(member.entity_id)
+        except self.db.DatabaseError, m:
+            raise CerebrumError("Database error: %s" % m)
+        return "OK, removed '%s' from '%s'" % (member_name, group.group_name)
 
 def superuser(fn):
     """Decorator for checking that methods are being executed as operator.
@@ -1781,155 +1890,6 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         return "Group %s created, group_id=%s, GID=%s" % (
             gr.group_name, gr.entity_id, gr.posix_gid)
 
-    # group add_member
-    all_commands['group_add_member'] = cmd.Command(
-        ("group", "add_member"),
-        cmd.MemberType(), cmd.MemberName(), cmd.GroupName(),
-        perm_filter='can_alter_group')
-
-    def group_add_member(self, operator, member_type, src_name, dest_group):
-        """Generic method for adding an entity to a given group.
-
-        @type operator:
-        @param operator:
-
-        @type src_name: String
-        @param src_name: The name/id of the entity to add as the member.
-
-        @type dest_group: String
-        @param dest_group: The name/id of the group the member should be added
-            to.
-
-        @type member_type: String or EntityTypeCode (CerebrumCode)
-        @param member_type: The entity_type of the member.
-
-        """
-        if member_type in ("group", self.const.entity_group):
-            src_entity = self._get_group(src_name)
-        elif member_type in ("account", self.const.entity_account):
-            src_entity = self._get_account(src_name)
-        elif member_type in ("person", self.const.entity_person):
-            raise CerebrumError("Can't handle persons in project groups")
-        else:
-            raise CerebrumError('Unknown entity type: %s' % member_type)
-        dest_group = self._get_group(dest_group)
-        return self._group_add_entity(operator, src_entity, dest_group)
-
-    def _group_add_entity(self, operator, src_entity, dest_group):
-        """Helper method for adding a given entity to given group.
-
-        @type operator:
-        @param operator:
-
-        @type src_entity: Entity
-        @param src_entity: The entity to add as a member.
-
-        @type dest_group: Group
-        @param dest_group: The group the member should be added to.
-
-        """
-        if operator:
-            self.ba.can_alter_group(operator.get_entity_id(), dest_group)
-        src_name = self._get_entity_name(src_entity.entity_id,
-                                         src_entity.entity_type)
-        # Make the error message for the most common operator error more
-        # friendly.  Don't treat this as an error, useful if the operator has
-        # specified more than one entity.
-        if dest_group.has_member(src_entity.entity_id):
-            return "%s is already a member of %s" % (src_name, dest_group)
-        # Make sure that the src_entity does not have dest_group as a member
-        # already, to avoid a recursion at export
-        if src_entity.entity_type == self.const.entity_group:
-            for row in src_entity.search_members(member_id=dest_group.entity_id,
-                                                 member_type=self.const.entity_group,
-                                                 indirect_members=True,
-                                                 member_filter_expired=False):
-                if row['group_id'] == src_entity.entity_id:
-                    return "Recursive memberships are not allowed (%s is member of %s)" % (
-                        dest_group, src_name)
-        # This can still fail, e.g., if the entity is a member with a different
-        # operation.
-        try:
-            dest_group.add_member(src_entity.entity_id)
-        except self.db.DatabaseError, m:
-            raise CerebrumError("Database error: %s" % m)
-        # TODO: If using older versions of NIS, a user could only be a member of
-        # 16 group. You might want to be warned about this - Or is this only
-        # valid for UiO?
-        return "OK, added %s to %s" % (src_name, dest_group.group_name)
-
-    # group remove_member
-    all_commands['group_remove_member'] = cmd.Command(
-        ("group", "remove_member"),
-        cmd.MemberType(), cmd.MemberName(), cmd.GroupName(),
-        perm_filter='can_alter_group')
-
-    def group_remove_member(self, operator, member_type, src_name, dest_group):
-        """Remove a member from a given group.
-
-        @type operator:
-        @param operator:
-
-        @type member_type: String or EntityTypeCode (CerebrumCode)
-        @param member_type: The entity_type of the member.
-
-        @type src_name: String
-        @param src_name: The name/id of the entity to remove as member.
-
-        @type dest_group: String
-        @param dest_group: The name/id of the group the member should be removed
-            from.
-
-        """
-        if member_type in ("group", self.const.entity_group):
-            src_entity = self._get_group(src_name)
-        elif member_type in ("account", self.const.entity_account):
-            src_entity = self._get_account(src_name)
-        elif member_type in ("person", self.const.entity_person):
-            try:
-                src_entity = self.util.get_target(src_name,
-                                                  restrict_to=['Person'])
-            except Errors.TooManyRowsError:
-                raise CerebrumError("Unexpectedly found more than one person")
-        else:
-            raise CerebrumError('Unknown entity type: %s' % member_type)
-        dest_group = self._get_group(dest_group)
-        return self._group_remove_entity(operator, src_entity, dest_group)
-
-    def _group_remove_entity(self, operator, member, group):
-        """Helper method for removing a member from a group.
-
-        @type operator:
-        @param operator:
-
-        @type member: Entity
-        @param member: The member to remove
-
-        @type group: Group
-        @param group: The group to remove the member from.
-
-        """
-        self.ba.can_alter_group(operator.get_entity_id(), group)
-        member_name = self._get_entity_name(member.entity_id,
-                                            member.entity_type)
-        if not group.has_member(member.entity_id):
-            return ("%s isn't a member of %s" %
-                    (member_name, group.group_name))
-        if member.entity_type == self.const.entity_account:
-            try:
-                pu = Utils.Factory.get('PosixUser')(self.db)
-                pu.find(member.entity_id)
-                if pu.gid_id == group.entity_id:
-                    raise CerebrumError("Can't remove %s from primary group %s" %
-                                        (member_name, group.group_name))
-            except Errors.NotFoundError:
-                pass
-        try:
-            group.remove_member(member.entity_id)
-        except self.db.DatabaseError, m:
-            raise CerebrumError("Database error: %s" % m)
-        return "OK, removed '%s' from '%s'" % (member_name, group.group_name)
-
     def _spread_sync_group(self, account, group=None):
         """Override from UiO to support personal file groups in TSD.
 
@@ -2122,13 +2082,9 @@ class EnduserBofhdExtension(TSDBofhdExtension):
     copy_commands = (
         # Helpers
         '_fetch_member_names', '_entity_info',
-        '_group_add', '_group_add_entity',
-        '_group_remove', '_group_remove_entity',
         # Group
-        'group_info', 'group_list', 'group_memberships',
-        'group_set_description',
-        'group_multi_add',  # hidden
-        'group_multi_remove',  # hidden
+        '_group_add', '_group_remove', 'group_info', 'group_list',
+        'group_memberships', 'group_set_description',
         # Person
         'person_list_user_priorities',
         # Spread
@@ -2177,3 +2133,5 @@ class EnduserBofhdExtension(TSDBofhdExtension):
         for key in self.hidden_commands.keys():
             if key not in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS:
                 del self.hidden_commands[key]
+
+

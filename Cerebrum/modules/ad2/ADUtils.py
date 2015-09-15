@@ -1392,11 +1392,22 @@ class ADclient(PowershellClient):
         out = self.run(cmd)
         return not out.get('stderr')
 
-    def get_chosen_domaincontroller(self, reset=False):
-        """Fetch and cache a preferred Domain Controller (DC).
+    def set_domain_controller(self, server):
+        """Override what DC server the AD commands are sent to.
 
-        The list of DCs is fetched from AD the first time. The answer is then
-        cached, so the next time asked, we reuse the same DC.
+        This forces what DC the sync should get and set its data for. The sync
+        then doesn't ask AD about what DC to use anymore.
+
+        """
+        # We might want to validate the server name, to give feedback early. If
+        # it's invalid, we get feedback after the first powershell call for AD.
+        self._chosen_dc = server
+
+    def get_chosen_domaincontroller(self, reset=False):
+        """Get the preferred Domain Controller (DC) to talk with.
+
+        If not DC server is set, we ask AD for a preferred DC server. The answer
+        is cached, so the next time asked, we reuse the same DC.
 
         We cache a preferred DC to sync with to avoid that we have to wait
         inbetween the updates for the DCs to have synced. We could still go

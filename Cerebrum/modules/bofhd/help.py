@@ -290,6 +290,9 @@ class Help(object):
         for c in cmd_instances:
             gh, ch, ah = getattr(c, "get_help_strings")()
             for k in gh.keys():
+                if k in self.group_help:
+                    # Don't overwrite existing group help
+                    continue
                 self.group_help[k] = gh[k]
             for k in ch.keys():
                 self.command_help.setdefault(k, {}).update(ch[k])
