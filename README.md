@@ -30,7 +30,7 @@ Some dependencies are optional, depending on what features you want to use:
 * twisted - for the webservice daemon CIS
 * soaplib - for webservice communication
 * rpclib - for webservice communication
-
+* pika - for publishing events to an external broker trough EventPublisher
 
 Mailing lists
 -------------
