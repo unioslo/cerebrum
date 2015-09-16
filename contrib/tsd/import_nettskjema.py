@@ -47,8 +47,8 @@ Tags that are important to us:
    is done in Nettskjema, so we need to do all of that in here. Other question
    types have different tags that is used instead.
 
- - answerOptionIds: Used for questions where it is needed to select one or more alternatives.
-   The contents is the list of IDs of the possible answers
+ - answerOptions: Used for questions where it is needed to select one alternative.
+   The contents is the list of one element -- the ID of the answers.
 """
 
 import sys
@@ -401,7 +401,7 @@ def _json2answersdict(json_data):
             # Ignore undefined questions
             continue
         # Answers could either be put in a unfilteredTextAnswer element, which is then a
-        # simple string or integer, or it could be an answerOptionIds array.
+        # simple string or integer, or it could be an answerOptions array.
         # Note that both elements are always present, though both may be empty.
         answer = None
         if ans['answerOptions']:
@@ -416,7 +416,7 @@ def _json2answersdict(json_data):
                 answer = answer_options_map[answer_option]
         else:
             answer = ans['unfilteredTextAnswer']
-        ret[recode_keys[id]] = answer.encode('ascii','replace')
+        ret[recode_keys[id]] = answer.encode('utf-8')
     return ret
 
 
