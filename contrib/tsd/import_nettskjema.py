@@ -70,7 +70,7 @@ from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.tsd import Gateway
 
 logger = Factory.get_logger('cronjob')
-db = Factory.get('Database')()
+db = Factory.get('Database')(client_encoding = 'utf-8')
 co = Factory.get('Constants')(db)
 ou = Factory.get('OU')(db)
 pe = Factory.get('Person')(db)
