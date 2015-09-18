@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2002-2011 University of Oslo, Norway
+# Copyright 2002-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -259,8 +259,6 @@ if (install_servers):
     sbin_files.append(('servers/cis/SoapIndividuationServer.py', 0755))
     sbin_files.append(('servers/cis/SoapPostmasterServer.py', 0755))
     sbin_files.append(('servers/cis/SoapGroupServer.py', 0755))
-    sbin_files.append(('servers/cis/SoapGroupPublish.py', 0755))
-    sbin_files.append(('servers/cis/SoapVirthomeServer.py', 0755))
     sbin_files.append(('servers/cis/SoapServer.py', 0755))
 
 bin_files = []
@@ -427,6 +425,7 @@ setup(name="Cerebrum", version=Cerebrum.__version__,
                   'Cerebrum/modules',
                   'Cerebrum/modules/ad',
                   'Cerebrum/modules/ad2',
+                  'Cerebrum/modules/consent',
                   'Cerebrum/modules/dns',
                   'Cerebrum/modules/event',
                   'Cerebrum/modules/exchange',
@@ -449,6 +448,8 @@ setup(name="Cerebrum", version=Cerebrum.__version__,
                   'Cerebrum/modules/no/hine',
                   'Cerebrum/modules/no/notur',
                   #'Cerebrum/modules/no/nvh',
+                  'Cerebrum/modules/posix',
+                  'Cerebrum/modules/printutils',
                   'Cerebrum/modules/tsd',
                   'Cerebrum/modules/templates',
                   'Cerebrum/modules/xmlutils',

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2014 University of Oslo, Norway
+# Copyright 2013-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -30,8 +30,6 @@ import pickle
 import traceback
 import os
 
-from Cerebrum.modules.exchange.v2013.ExchangeClient import ExchangeClient
-
 from Cerebrum.modules.exchange.Exceptions import ExchangeException
 from Cerebrum.modules.exchange.Exceptions import ServerUnavailableException
 from Cerebrum.modules.exchange.Exceptions import AlreadyPerformedException
@@ -50,18 +48,6 @@ from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 
 
-# The following code can be used for quick testing of the Cerebrum side
-# of stuff. We fake the client, and always return True :D This way, we
-# can quickly run through a fuckton of events.
-# class PI(object):
-#     def __init__(self, *args, **kwargs):
-#         pass
-#
-#     def __getattr__(self, a):
-#         return lambda *args, **kwargs: True
-# ExchangeClient = PI
-
-
 class ExchangeEventHandler(processing.Process):
 
     """Event handler for Exchange.
@@ -74,7 +60,7 @@ class ExchangeEventHandler(processing.Process):
     # Event to method lookup table. Populated by decorators.
     _lut_type2meth = {}
 
-    def __init__(self, config, event_queue, logger_queue, run_state):
+    def __init__(self, config, event_queue, logger_queue, run_state, mock):
         """ExchangeEventHandler initialization routine.
 
         :type config: dict
@@ -91,6 +77,9 @@ class ExchangeEventHandler(processing.Process):
         :type run_state: processing.Value(ctypes.c_int)
         :param run_state: A shared object used to determine if we should
             stop execution or not
+
+        :type mock: bool
+        :param mock: Wether to run in mock-mode or not
         """
         self.event_queue = event_queue
         self.run_state = run_state
@@ -98,6 +87,7 @@ class ExchangeEventHandler(processing.Process):
         # TODO: This is a hack. Fix it
         self.logger_queue = logger_queue
         self.logger = Logger(self.logger_queue)
+        self.mock = mock
 
         super(ExchangeEventHandler, self).__init__()
 
@@ -123,18 +113,31 @@ class ExchangeEventHandler(processing.Process):
         # down, we need to re-try connecting. Also, the while depens on the run
         # state, so we will shut down if we are signaled to do so.
         self.ec = None
+
+        if self.mock:
+            self.logger.info('Running in mock-mode')
+            from Cerebrum.modules.exchange.v2013.ExchangeClient \
+                import ClientMock as ExchangeClient
+        else:
+            from Cerebrum.modules.exchange.v2013.ExchangeClient \
+                import ExchangeClient
+
         while self.run_state.value:
             try:
                 self.ec = ExchangeClient(
-                    logger=self.logger,
-                    host=self.config['server'],
-                    port=self.config['port'],
                     auth_user=self.config['auth_user'],
                     domain_admin=self.config['domain_admin'],
                     ex_domain_admin=self.config['ex_domain_admin'],
                     management_server=self.config['management_server'],
-                    encrypted=self.config['encrypted'],
-                    session_key=gen_key())
+                    session_key=gen_key(),
+                    logger=self.logger,
+                    host=self.config['server'],
+                    port=self.config['port'],
+                    ca=self.config.get('ca'),
+                    client_key=self.config.get('client_key'),
+                    client_cert=self.config.get('client_cert'),
+                    check_name=self.config.get('check_name', True),
+                    encrypted=self.config['encrypted'])
             except URLError:
                 # Here, we handle the rare circumstance that the springboard is
                 # down when we connect to it. We log an error so someone can
@@ -400,6 +403,16 @@ class ExchangeEventHandler(processing.Process):
                 ev_mod['subject_entity'] = etid
                 self.ut.log_event(ev_mod, 'email_primary_address:add_primary')
 
+            # Activate SingleItemRecoveryEnabled
+            try:
+                self.ec.set_mailbox_singleitemrecovery(uname,
+                                                   enabled=True)
+            except (ExchangeException, ServerUnavailableException), e:
+                self.logger.warn(
+                    'eid:%d: Failed enabling singleitemrecovery for %s',
+                    event['event_id'], uname)
+                self.ut.log_event(event, 'exchange:item_recovery')
+
             if not hide_from_address_book:
                 try:
                     self.ec.set_mailbox_visibility(
@@ -623,6 +636,29 @@ class ExchangeEventHandler(processing.Process):
                 # Exchange :S
                 raise UnrelatedEvent
 
+    # Utility function for setting visibility on accounts in Exchange.
+    def _set_visibility(self, event, uname, vis):
+        state = 'Hiding' if vis else 'Publishing'
+        fail_state = 'hide' if vis else 'publish'
+        try:
+            # We do a not-operation here, since the
+            # set_mailbox_visibility-methods logic about wheter an account
+            # should be hidden or not, is inverse in regards to what we do
+            # above :S
+            self.ec.set_mailbox_visibility(uname, not vis)
+            self.logger.info('eid:%d: %s %s in address book..' %
+                             (event['event_id'],
+                              state,
+                              uname))
+            return True
+        except (ExchangeException, ServerUnavailableException), e:
+            self.logger.warn("eid:%d: Can't %s %s in address book: %s" %
+                             (event['event_id'],
+                              fail_state,
+                              uname,
+                              e))
+            return False
+
     @EventDecorator.RegisterHandler(['trait:add', 'trait:mod', 'trait:del',
                                      'e_group:add', 'e_group:rem'])
     def set_address_book_visibility(self, event):
@@ -691,29 +727,6 @@ class ExchangeEventHandler(processing.Process):
                 hidden_from_address_book = self.ut.is_electronic_reserved(
                     person_id=event['subject_entity'])
 
-        # Utility function for setting visibility on accounts in Exchange.
-        def _set_visibility(uname, vis):
-            state = 'Hiding' if vis else 'Publishing'
-            fail_state = 'hide' if vis else 'publish'
-            try:
-                # We do a not-operation here, since the
-                # set_mailbox_visibility-methods logic about wheter an account
-                # should be hidden or not, is inverse in regards to what we do
-                # above :S
-                self.ec.set_mailbox_visibility(uname, not vis)
-                self.logger.info('eid:%d: %s %s in address book..' %
-                                 (event['event_id'],
-                                  state,
-                                  uname))
-                return True
-            except (ExchangeException, ServerUnavailableException), e:
-                self.logger.warn("eid:%d: Can't %s %s in address book: %s" %
-                                 (event['event_id'],
-                                  fail_state,
-                                  uname,
-                                  e))
-                return False
-
         # Parameter used to decide if any calls to Exchange fails. In order to
         # ensure correct state (this is imperative in regards to visibility),
         # we must always raise EventExecutionException in case one (or more) of
@@ -726,14 +739,17 @@ class ExchangeEventHandler(processing.Process):
 
         # Loop trough all the persons accounts, and set the appropriate
         # visibility state for them.
-        for aid, uname in self.ut.get_person_accounts(event['subject_entity'],
-                                                      self.mb_spread):
+        accounts = self.ut.get_person_accounts(event['subject_entity'],
+                                               self.mb_spread)
+        for aid, uname in accounts:
             # Set the state we deduced earlier on the primary account.
             if aid == primary_account_id:
-                tmp_no_fail = _set_visibility(uname, hidden_from_address_book)
+                tmp_no_fail = self._set_visibility(event,
+                                                   uname,
+                                                   hidden_from_address_book)
             # Unprimary-accounts should never be shown in the address book.
             else:
-                tmp_no_fail = _set_visibility(uname, True)
+                tmp_no_fail = self._set_visibility(event, uname, True)
             # Save the potential failure-state
             if not tmp_no_fail:
                 no_fail = False
@@ -743,8 +759,79 @@ class ExchangeEventHandler(processing.Process):
         if not no_fail:
             raise EventExecutionException
 
-        # Log a reciept for this change.
-        self.ut.log_event_receipt(event, 'exchange:per_e_reserv')
+        # Alter change params and entity id of subject. Log changes for all
+        # affected accounts.
+        for aid, _ in accounts:
+            recpt = {'subject_entity': aid,
+                     'dest_entity': None,
+                     'change_params': pickle.dumps(
+                         {'visible': (aid == primary_account_id and
+                                      not hidden_from_address_book)})}
+            self.ut.log_event_receipt(recpt, 'exchange:per_e_reserv')
+
+    @EventDecorator.RegisterHandler(['ac_type:add',
+                                     'ac_type:mod',
+                                     'ac_type:del'])
+    def set_address_book_visibility_for_primary_account_change(self, event):
+        """Update address book visibility when primary account changes.
+
+        :param event: The event returned from Change- or EventLog
+        :type event: Cerebrum.extlib.db_row.row
+        :raises ExchangeException: If the visibility can't be set because of an
+            Exchange related error.
+        :raises EventExecutionException: If the event could not be processed
+            properly.
+        """
+        # TODO: This should be re-written as an aggregate-enrich-split-agent,
+        # and a much simpler handler.
+        # TODO: Add some criterias that filter out events that does not result
+        # in primary-user change?
+
+        # Get information about the accounts owner
+        owner_type, owner_id = self.ut.get_account_owner_info(
+            event['subject_entity'])
+
+        # We'll only handle accounts that are owned by persons
+        if owner_type != self.co.entity_person:
+            raise UnrelatedEvent
+
+        # Fetch primary account id
+        new_primary_id = self.ut.get_primary_account(owner_id)
+
+        # Collect reservation-status for primary account.
+        is_reserved = (self.randzone_unreserve_group not in
+                       self.ut.get_person_membership_groupnames(owner_id) and
+                       self.ut.is_electronic_reserved(owner_id))
+
+        # Store success-state
+        no_fail = True
+
+        # Update visibility of the persons accounts
+        accounts = self.ut.get_person_accounts(owner_id, self.mb_spread)
+        for aid, uname in accounts:
+            if aid == new_primary_id and not is_reserved:
+                no_fail = no_fail and self._set_visibility(
+                    event, uname, is_reserved)
+            else:
+                no_fail = no_fail and self._set_visibility(
+                    event, uname, True)  # True means hide.
+
+        # Raise an exception to re-handle the event later, if some of them
+        # fails. We choose to do this after trying to set visibility on all
+        # accounts, so we are a bit more sure that we won't accidentally
+        # expose someone in the address book.
+        if not no_fail:
+            raise EventExecutionException
+
+        # Alter change params and entity id of subject. Log changes for all
+        # affected accounts.
+        for aid, _ in accounts:
+            rcpt = {'subject_entity': aid,
+                    'dest_entity': None,
+                    'change_params': pickle.dumps(
+                        {'visible': (aid == new_primary_id and
+                                     not is_reserved)})}
+            self.ut.log_event_receipt(rcpt, 'exchange:per_e_reserv')
 
     @EventDecorator.RegisterHandler(['email_quota:add_quota',
                                      'email_quota:mod_quota',
@@ -1413,12 +1500,18 @@ class ExchangeEventHandler(processing.Process):
             except (ExchangeException, ServerUnavailableException), e:
                 self.logger.warn('eid:%d: Can\'t add %s to %s: %s' %
                                  (event['event_id'], uname, gname, e))
-                # Log an event so this will happen sometime (hopefully)
-                ev_mod = event.copy()
-                ev_mod['dest_entity'] = self.ut.get_group_id(group)
-                self.logger.debug1('eid:%d: Creating event: Adding %s to %s' %
-                                   (event['event_id'], uname, gname))
-                self.ut.log_event(ev_mod, 'e_group:add')
+                # Create a faux-event if the event fails, and the entity added
+                # is a person. Do not create a faux-event if the entity added
+                # is a user.
+                if et == self.co.entity_person:
+                    ev_mod = event.copy()
+                    ev_mod['dest_entity'] = self.ut.get_group_id(group)
+                    self.logger.debug1(
+                        'eid:%d: Creating event: Adding %s to %s' %
+                        (event['event_id'], uname, gname))
+                    self.ut.log_event(ev_mod, 'e_group:add')
+                else:
+                    raise EventExecutionException
             except AlreadyPerformedException:
                 # If we wind up here, the user was allready added. We might, in
                 # some circumstances, want to discard the event completely, but
@@ -1447,9 +1540,6 @@ class ExchangeEventHandler(processing.Process):
         # Look up group information (eid and spreads)
         # Look up member for removal
         # Remove from group type according to spread
-        # TODO: We should check if the user to remove exists first.. If it does
-        # not, it has allready been removed.. This would probably be smart to
-        # do, in order to reduce noise in da logs.
         group_spreads = self.ut.get_group_spreads(event['dest_entity'])
 
         if self.group_spread not in group_spreads:
@@ -1500,6 +1590,9 @@ class ExchangeEventHandler(processing.Process):
 
         for group in rem_from_groups:
             try:
+                # TODO: We should check if the user to remove exists first.. If
+                # it does not, it has allready been removed.. This would
+                # probably be smart to do, in order to reduce noise in da logs.
                 self.ec.remove_distgroup_member(group, uname)
                 self.logger.info('eid:%d: Removed %s from %s' %
                                  (event['event_id'], uname, group))
@@ -1512,13 +1605,13 @@ class ExchangeEventHandler(processing.Process):
             except (ExchangeException, ServerUnavailableException), e:
                 self.logger.warn('eid:%d: Can\'t remove %s from %s: %s' %
                                  (event['event_id'], uname, gname, e))
-                # Log an event so this will happen sometime (hopefully)
-                ev_mod = event.copy()
-                ev_mod['dest_entity'] = self.ut.get_group_id(group)
-                self.logger.debug1(
-                    'eid:%d: Creating event: Removing %s from %s' %
-                    (event['event_id'], uname, group))
-                self.ut.log_event(ev_mod, 'e_group:rem')
+#                # Log an event so this will happen sometime (hopefully)
+#                ev_mod = event.copy()
+#                ev_mod['dest_entity'] = self.ut.get_group_id(group)
+#                self.logger.debug1(
+#                    'eid:%d: Creating event: Removing %s from %s' %
+#                    (event['event_id'], uname, group))
+#                self.ut.log_event(ev_mod, 'e_group:rem')
 
     @EventDecorator.RegisterHandler(['dlgroup:modhidden'])
     def set_group_visibility(self, event):
@@ -1553,6 +1646,32 @@ class ExchangeEventHandler(processing.Process):
         else:
             # TODO: Will we ever arrive here? Log this?
             raise UnrelatedEvent
+
+    @EventDecorator.RegisterHandler(['exchange:item_recovery'])
+    def set_item_recovery(self, event):
+        """ Set SingleItemRecovery for mailboxes
+
+        :type event: Cerebrum.extlib.db_row.row
+        :param event: The event returned from Change- or EventLog
+        """
+        try:
+            name = self.ut.get_account_name(event['subject_entity'])
+        except Errors.NotFoundError:
+            raise UnrelatedEvent
+
+        try:
+            self.ec.set_mailbox_singleitemrecovery(name, enabled=True)
+            self.logger.info('eid:%d: SIR %s on %s' % \
+                             (event['event_id'],
+                              ('enabled' if enabled else 'disabled'),
+                              name))
+        except (ExchangeException, ServerUnavailableException), e:
+            self.logger.warn(
+                    'eid:%d: Can\'t %s SIR on account %s: %s' \
+                    % (event['event_id'],
+                       ('enabled' if enabled else 'disabled'),
+                       name, e))
+            raise EventExecutionException
 
     @EventDecorator.RegisterHandler(['exchange:set_ea_policy'])
     def set_address_policy(self, event):

@@ -714,8 +714,7 @@ class UiOPortal(access_FS.FSObject):
     """Denne funksjonen er ikke lenger i bruk, da portal-ting ikke er i bruk
     lenger. Dersom jobben cerebrum/contrib/no/uio/generate_portal_export.py
     skal settes i produksjon igjen, må denne funksjonen oppdateres til
-    gjeldende FS versjon, med vurderingsmodul, og deretter hentes fra
-    svn-loggen, for eksempel r15833.
+    gjeldende FS versjon, med vurderingsmodul.
 
     """
     pass

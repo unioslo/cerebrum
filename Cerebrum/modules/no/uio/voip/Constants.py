@@ -175,29 +175,9 @@ class VoipConstants(Constants.Constants):
         "softphone client"
         )
 
-    voip_client_ip330 = VoipClientInfoCode(
-        "001001",
-        "Polycom IP330"
-        )
-
     voip_client_ip331 = VoipClientInfoCode(
         "001002",
         "Polycom IP331"
-        )
-
-    voip_client_ip550 = VoipClientInfoCode(
-        "001003",
-        "Polycom IP550"
-        )
-
-    voip_client_ip650 = VoipClientInfoCode(
-        "001004",
-        "Polycom IP650"
-        )
-
-    voip_client_ip670 = VoipClientInfoCode(
-        "001005",
-        "Polycom IP670"
         )
 
     voip_client_vvx310 = VoipClientInfoCode(
@@ -220,19 +200,14 @@ class VoipConstants(Constants.Constants):
         "Polycom IP7000"
         )
 
-    voip_client_spa504g = VoipClientInfoCode(
-        "002001",
-        "Cisco SPA-504G"
+    voip_client_vvx600 = VoipClientInfoCode(
+        "001010",
+        "Polycom VVX600"
         )
-    
+
     voip_client_spa508g = VoipClientInfoCode(
         "002002",
         "Cisco SPA-508G"
-        )
-
-    voip_client_spa509g = VoipClientInfoCode(
-        "002003",
-        "Cisco SPA-509G"
         )
 
     voip_client_spa525g = VoipClientInfoCode(
@@ -275,6 +250,11 @@ class VoipConstants(Constants.Constants):
         "Zenitel TCIV-6"
     )
 
+    voip_client_tcis3 = VoipClientInfoCode(
+        "003004",
+        "Zenitel TCIS-3"
+    )
+
     voip_client_sx20 = VoipClientInfoCode(
         "004001",
         "Cisco SX-20"
@@ -293,6 +273,11 @@ class VoipConstants(Constants.Constants):
     voip_client_c90 = VoipClientInfoCode(
         "004004",
         "Cisco C90"
+    )
+
+    voip_client_sx80 = VoipClientInfoCode(
+        "004005",
+        "Cisco SX80"
     )
 
     ########################################################################

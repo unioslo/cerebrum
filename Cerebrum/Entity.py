@@ -272,16 +272,14 @@ class EntitySpread(Entity):
 
     def list_all_with_spread(self, spreads=None):
         """Return sequence of all 'entity_id's that has ``spread``."""
+        binds = dict()
         sel = ""
         if spreads:
             sel = """WHERE spread """
-            if isinstance(spreads, (set, list, tuple)):
-                sel += "IN (%s)" % ", ".join(map(str, map(int, spreads)))
-            else:
-                sel += "= %d" % spreads
+            sel = "WHERE " + argument_to_sql(spreads, 'spread', binds, int)
         return self.query("""
         SELECT entity_id, spread
-        FROM [:table schema=cerebrum name=entity_spread]""" + sel)
+        FROM [:table schema=cerebrum name=entity_spread]""" + sel, binds)
 
     def list_entity_spreads(self, entity_types=None):
         """Return entities and their spreads, optionally filtered by entity
@@ -289,19 +287,17 @@ class EntitySpread(Entity):
         returned.
 
         See also list_spreads."""
+        binds = dict()
         sel = ""
         if entity_types:
             sel = """
             JOIN [:table schema=cerebrum name=entity_info] ei
-              ON ei.entity_id = es.entity_id AND ei.entity_type """
-            if isinstance(entity_types, (set, list, tuple)):
-                sel += "IN (%s)" % ", ".join(map(str, map(int, entity_types)))
-            else:
-                sel += "= %d" % entity_types
+              ON ei.entity_id = es.entity_id AND """
+            sel += argument_to_sql(entity_types, 'ei.entity_type', binds, int)
 
         return self.query("""
         SELECT es.entity_id, es.spread
-          FROM [:table schema=cerebrum name=entity_spread] es""" + sel)
+          FROM [:table schema=cerebrum name=entity_spread] es""" + sel, binds)
 
     def list_spreads(self, entity_types=None):
         """Return a sequence of spreads, optionally limited by the entity types
@@ -521,7 +517,7 @@ class EntityNameWithLanguage(Entity):
             """, binds)
             self._db.log_change(
                 self.entity_id, self.const.entity_name_mod, None,
-                change_params)
+                change_params=change_params)
         else:
             rv = self.execute("""
             INSERT INTO [:table schema=cerebrum name=entity_language_name]
@@ -529,7 +525,7 @@ class EntityNameWithLanguage(Entity):
             """, binds)
             self._db.log_change(
                 self.entity_id, self.const.entity_name_add, None,
-                change_params)
+                change_params=change_params)
             return rv
     # end add_name_with_language
 
@@ -998,50 +994,34 @@ class EntityAddress(Entity):
             SELECT * FROM [:table schema=cerebrum name=country_code]""")
 
     def list_entity_addresses(self, entity_type=None, source_system=None,
-                              address_type=None):
+                              address_type=None, entity_id=None):
+        binds = dict()
+        where = list()
+
         e_type = ""
-        if entity_type is None:
-            pass  # Ok. No type to filter on.
-        else:
+        if entity_type is not None:
             e_type = """
             JOIN [:table schema=cerebrum name=entity_info] e
-              ON e.entity_id = ea.entity_id AND
-              e.entity_type """
-            if isinstance(entity_type, (list, tuple, set)):
-                e_type += "IN (%s)" % ", ".join(map(str,
-                                                    map(int, entity_type)))
-            else:
-                e_type += "= %s" % int(entity_type)
+              ON e.entity_id = ea.entity_id AND """
+            e_type += argument_to_sql(entity_type, 'e.entity_type', binds, int)
 
-        where = ""
-        if source_system or address_type:
-            where = "WHERE "
+        if source_system is not None:
+            where.append(argument_to_sql(source_system, 'ea.source_system', binds, int))
+        if address_type is not None:
+            where.append(argument_to_sql(address_type, 'ea.address_type', binds, int))
+        if entity_id is not None:
+            where.append(argument_to_sql(entity_id, 'ea.entity_id', binds, int))
 
-        if source_system is None:
-            pass  # No source_system to filter on.
-        elif isinstance(source_system, list):
-            where += "ea.source_system IN (%s)" %\
-                ", ".join(map(str, map(int, source_system)))
-        else:
-            where += "ea.source_system=%s" % int(source_system)
-
-        if source_system and address_type:
-            where += " AND "
-
-        if address_type is None:
-            pass  # No address_type to filter on.
-        elif isinstance(address_type, (list, tuple, set)):
-            where += "ea.address_type IN (%s)" %\
-                ", ".join(map(str, map(int, address_type)))
-        else:
-            where += "ea.address_type=%s" % int(address_type)
+        where_str = ''
+        if where:
+            where_str = 'WHERE ' + ' AND '.join(where)
 
         return self.query("""
         SELECT ea.entity_id, ea.source_system, ea.address_type,
                ea.address_text, ea.p_o_box, ea.postal_number, ea.city,
                ea.country
         FROM [:table schema=cerebrum name=entity_address] ea
-        %s %s""" % (e_type, where))
+        %s %s""" % (e_type, where_str), binds)
 
 
 class EntityQuarantine(Entity):
@@ -1054,44 +1034,52 @@ class EntityQuarantine(Entity):
             self.delete_entity_quarantine(r['quarantine_type'])
         self.__super.delete()
 
-    def add_entity_quarantine(self, type, creator, description=None,
+    def add_entity_quarantine(self, qtype, creator, description=None,
                               start=None, end=None):
-        type = int(type)
+        qtype = int(qtype)
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=entity_quarantine]
           (entity_id, quarantine_type,
            creator_id, description, start_date, end_date)
         VALUES (:e_id, :q_type, :c_id, :description, :start_date, :end_date)""",
                      {'e_id': self.entity_id,
-                      'q_type': int(type),
+                      'q_type': qtype,
                       'c_id': creator,
                       'description': description,
                       'start_date': start,
                       'end_date': end})
         self._db.log_change(self.entity_id, self.const.quarantine_add,
-                            None, change_params={'q_type': int(type)})
+                            None, change_params={'q_type': qtype})
 
-    # FIXME: builtin "type" should not be shadowed, rename keyword
-    # argument to "qtype" or similar
-    def get_entity_quarantine(self, type=None, only_active=False):
+    def get_entity_quarantine(self,
+                              qtype=None,
+                              only_active=False,
+                              filter_disable_until=False):
         """Return a list of the current entity's quarantines.
 
-        @type type: CerebrumConstant or int
-        @param type: If set, only quarantines of the given type is returned.
+        :type qtype: CerebrumConstant or int
+        :param qtype: If set, only quarantines of the given type is returned.
 
-        @type only_active: bool
-        @param only_active: If True, only quarantines with a set start_date in
-            the past and either a not set end_date or an end_date in the future.
-            In addition, if disable_until is set, it's date must be in the past
+        :type only_active: bool
+        :param only_active: If True, only quarantines with a set start_date in
+            the past and either a not set end_date or an end_date in the future
+            In addition, if disable_until is set, its date must be in the past
             for the quarantine to be returned with L{only_active} set to True.
 
+        :type filter_disable_until: bool
+        :param filter_disable_until: If True, only quarantines with
+            disable_until not set or its date in the past will be returned.
+            only_active must be False for this argument to have any impact.
         """
-        qtype = type
         conditions = ["entity_id = :e_id"]
         if only_active:
-            conditions += ["start_date <= [:now]",
-                           "(end_date IS NULL OR end_date > [:now])",
-                           "(disable_until IS NULL OR disable_until <= [:now])"]
+            conditions += [
+                "start_date <= [:now]",
+                "(end_date IS NULL OR end_date > [:now])",
+                "(disable_until IS NULL OR disable_until <= [:now])"]
+        if not only_active and filter_disable_until:
+            conditions += [
+                "(disable_until IS NULL OR disable_until <= [:now])"]
         if qtype is not None:
             conditions += ["quarantine_type = :qtype"]
             qtype = int(qtype)
@@ -1103,28 +1091,32 @@ class EntityQuarantine(Entity):
                           {'e_id': self.entity_id,
                            'qtype': qtype})
 
-    def disable_entity_quarantine(self, type, until):
+    def disable_entity_quarantine(self, qtype, until):
         self.execute("""
         UPDATE [:table schema=cerebrum name=entity_quarantine]
         SET disable_until=:d_until
         WHERE entity_id=:e_id AND quarantine_type=:q_type""",
                      {'e_id': self.entity_id,
-                      'q_type': int(type),
+                      'q_type': int(qtype),
                       'd_until': until})
         self._db.log_change(self.entity_id, self.const.quarantine_mod,
-                            None, change_params={'q_type': int(type)})
+                            None, change_params={'q_type': int(qtype)})
 
+    # TODO: type should be renamed to f.i. qtype
+    # arguments should not overwrite builtin functions
     def delete_entity_quarantine(self, type):
+        qtype = type
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=entity_quarantine]
         WHERE entity_id=:e_id AND quarantine_type=:q_type""",
                      {'e_id': self.entity_id,
-                      'q_type': int(type)})
+                      'q_type': int(qtype)})
         self._db.log_change(self.entity_id, self.const.quarantine_del,
-                            None, change_params={'q_type': int(type)})
+                            None, change_params={'q_type': int(qtype)})
 
     def list_entity_quarantines(self, entity_types=None, quarantine_types=None,
-                                only_active=False, entity_ids=None):
+                                only_active=False, entity_ids=None,
+                                ignore_quarantine_types=None):
         sel = ""
         where = ""
         binds = dict()
@@ -1134,20 +1126,33 @@ class EntityQuarantine(Entity):
             JOIN [:table schema=cerebrum name=entity_info] ei
               ON ei.entity_id = eq.entity_id AND """
             sel += argument_to_sql(entity_types, "ei.entity_type", binds, int)
+        # argument_to_sql doesn't handle same value in binds twice, e.g.
+        # quarantine_type
+        if quarantine_types and ignore_quarantine_types:
+            raise Errors.CerebrumError(
+                "Can't use both quarantine_types and ignore_quarantine_types")
         if quarantine_types:
-            conditions.append(argument_to_sql(quarantine_types, "quarantine_type", binds, int))
+            conditions.append(
+                argument_to_sql(quarantine_types, "quarantine_type",
+                                binds, int))
+        if ignore_quarantine_types:
+            conditions.append(
+                "NOT " + argument_to_sql(
+                    ignore_quarantine_types, "quarantine_type", binds, int))
         if only_active:
             conditions.append("""start_date <= [:now] AND
             (end_date IS NULL OR end_date > [:now]) AND
             (disable_until IS NULL OR disable_until <= [:now])""")
         if entity_ids:
-            conditions.append(argument_to_sql(entity_ids, "eq.entity_id", binds, int))
+            conditions.append(
+                argument_to_sql(entity_ids, "eq.entity_id", binds, int))
         if conditions:
             where = " WHERE " + " AND ".join(conditions)
         return self.query("""
         SELECT eq.entity_id, eq.quarantine_type, eq.start_date,
                eq.disable_until, eq.end_date, eq.description
-          FROM [:table schema=cerebrum name=entity_quarantine] eq""" + sel + where, binds)
+          FROM [:table schema=cerebrum name=entity_quarantine] eq""" +
+                          sel + where, binds)
 
 
 class EntityExternalId(Entity):

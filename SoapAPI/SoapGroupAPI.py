@@ -21,9 +21,10 @@
 
 from Cerebrum.modules.cis import SoapListener, faults
 from rpclib.model.primitive import String, DateTime, Integer, Boolean
+from rpclib.model.complex import Array
 from rpclib.decorator import rpc
 
-from SoapAPI.SoapGroupAPImodel import GroupInfo
+from SoapAPI.SoapGroupAPImodel import GroupInfo, GroupMember
 
 NAMESPACE = 'GroupAPI'
 
@@ -71,6 +72,11 @@ class GroupAPIService(SoapListener.BasicSoapServer):
     def group_info(ctx, group_id_type, group_id):
         return ctx.udc[NAMESPACE].group_info(
             group_id_type, group_id)
+
+    @rpc(String, String,
+         _throws=faults.EndUserFault, _returns=Array(GroupMember))
+    def group_list(ctx, group_id_type, group_id):
+        return ctx.udc[NAMESPACE].group_list(group_id_type, group_id)
 
     @rpc(String, String, DateTime, _throws=faults.EndUserFault)
     def group_set_expire(ctx, group_id_type, group_id, expire_date=None):

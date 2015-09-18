@@ -131,6 +131,8 @@ command_help = {
             "Customise the failure message for a deleted account",
         "email_forward":
             "Turn e-mail forwarding for a user on/off",
+        "email_forward_info":
+            "Show information about an address that is forwarded to",
         "email_add_forward":
             "Add a forward address",
         "email_remove_forward":
@@ -388,6 +390,7 @@ command_help = {
         'user_affiliation_add': 'Add affiliation for an account',
         'user_affiliation_remove': 'Remove an affiliation for an account',
         'user_create': 'Create a POSIX user account',
+        'user_create_sysadm': 'Create a sysadm account, e.g. "foo-drift"',
         'user_delete': 'Delete an account',
         'user_demote_posix':
         'Make a POSIX user account into a generic Cerebrum account',
@@ -680,13 +683,22 @@ arg_help = {
          'displaying OU names and acronyms.'],
     'person_id':
         ['person_id', 'Enter person id',
-         """Enter person id as idtype:id. If idtype=fnr, the idtype does not
-         have to be specified. The currently defined id-types are:
-         - fnr : norwegian fødselsnummer."""],
+         """Enter person id as idtype:id. If idtype is fnr or account, the
+         idtype does not have to be specified. The currently defined id-types
+         are:
+         - account_name : username
+         - fnr          : norwegian fødselsnummer
+         - id           : entity-id
+         - entity_id    : entity-id"""],
     'person_id_other':
         ['person_id', 'Enter person id',
-         """Enter person id as idtype:id. If idtype=fnr, the idtype does not
-         have to be specified. You may also use entity_id:id."""],
+         """Enter person id as idtype:id. If idtype is fnr or account, the
+         idtype does not have to be specified. The currently defined id-types
+         are:
+         - account_name : username
+         - fnr          : norwegian fødselsnummer
+         - id           : entity-id
+         - entity_id    : entity-id"""],
     'person_id:current':
         ['[id_type:]current_id', 'Enter current person id',
          'Enter current person id.  Example: fnr:01020312345'],

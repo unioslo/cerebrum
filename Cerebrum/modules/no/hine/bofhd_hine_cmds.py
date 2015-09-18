@@ -34,7 +34,7 @@ from Cerebrum import Database
 
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules import Email
-from Cerebrum.modules.no.hine import bofhd_hine_help
+from Cerebrum.modules.bofhd import bofhd_core_help
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.Constants import _CerebrumCode, _SpreadCode
 from Cerebrum.modules.bofhd.auth import BofhdAuth
@@ -91,6 +91,7 @@ class BofhdExtension(BofhdCommonMethods):
         # copy relevant misc-cmds and util methods
         #
         'misc_affiliations', 'misc_clear_passwords', 'misc_verify_password',
+        'misc_list_passwords',
         #
         # copy relevant ou-cmds and util methods
         #
@@ -181,9 +182,7 @@ class BofhdExtension(BofhdCommonMethods):
 
 
     def get_help_strings(self):
-        return (bofhd_hine_help.group_help,
-                bofhd_hine_help.command_help,
-                bofhd_hine_help.arg_help)
+        return bofhd_core_help.get_help_strings()
     
     def get_commands(self, account_id):
         try:
@@ -203,19 +202,6 @@ class BofhdExtension(BofhdCommonMethods):
 
     def get_format_suggestion(self, cmd):
         return self.all_commands[cmd].get_fs()
-    
-
-    # misc list_passwords
-    #
-    all_commands['misc_list_passwords'] = Command(
-        ("misc", "list_passwords"),
-        fs=FormatSuggestion("%-8s %-20s %s", ("account_id", "operation", "password"),
-                            hdr="%-8s %-20s %s" % ("Id", "Operation", "Password")))
-    def misc_list_passwords(self, operator):
-        ret = self._get_cached_passwords(operator)
-        if not ret:
-            return "Password cache for this session is empty."
-        return ret
 
     # user create prompt
     #

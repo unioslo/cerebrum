@@ -2,7 +2,10 @@
 Automated tests for Cerebrum
 ==============================
 
-This is a README explaining how the tests and test jobs are structured. 
+This is a README explaining how Cerebrum's test functionality works.
+
+Dependencies
+============
 
 
 File structure
@@ -62,7 +65,7 @@ following files:
   version requirement for that package. In essence, this is the format that
   ``pip freeze`` produces. See
   `<http://www.pip-installer.org/en/latest/cookbook.html>`_ for more info on
-  requirement files. 
+  requirement files.
 
   Note that this file should include any test packages used by the tests. It
   should always contain:
@@ -97,9 +100,13 @@ If you want to setup the test environment for yourself, you need to:
 
 - Install some dependencies:
 
-    - postgres-server
+    - Cerebrum's own dependencies, see the README file in the top directory
 
-    - TODO
+    - python-virtualenv
+
+    - python-pip
+
+    - postgres-server
 
 - Setup postgres-server:
 

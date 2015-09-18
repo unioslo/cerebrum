@@ -52,7 +52,7 @@ def main():
     db = Factory.get("Database")()
     account = Factory.get("Account")(db)
     #account.find_by_name("bootstrap_account")
-    db.cl_init(None, "pw_migrate")
+    db.cl_init(change_program="pw_migrate")
     pw = PasswordNotifier.get_notifier()
     trait = pw.config.trait
     for account_id, info in m.iteritems():

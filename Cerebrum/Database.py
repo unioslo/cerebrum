@@ -348,7 +348,7 @@ class Cursor(object):
                 # The name of the bind variable is the token without
                 # any preceding ':'.
                 name = text[1:]
-                if not params.has_key(name):
+                if name not in params:
                     raise self.ProgrammingError, \
                         "Bind parameter %s has no value." % text
                 translation.append(pconv.register(name))
@@ -502,7 +502,60 @@ class Cursor(object):
         """
         self.execute("""SELECT 1 AS foo [:from_dual]""")
     # end ping
-# end class Cursor
+
+    def acquire_lock(self, table=None, mode='exclusive'):
+        """
+        Aquire a lock for some table.
+
+        Locking is not a standard sql feature, but some
+        providers have locking. If not implemented, locking
+        is a no-op.
+
+        :param table: Database table to lock
+        :type table: str
+
+        :param mode: locking mode, see database driver
+        :type mode: str
+
+        :rtype: Lock
+        """
+        return Lock(cursor=self, table=table, mode=mode)
+
+
+class Lock(object):
+    """Driver-independent class for locking. Default: No locking"""
+    def __init__(self, mode='exclusive', **kws):
+        self.aquire(mode)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self):
+        self.release()
+
+    def acquire(self, mode):
+        pass
+
+    def release(self):
+        pass
+
+
+class OraPgLock(Lock):
+    """Lock for Oracle and Postgres.
+    Locks are only released by commit, so no release is actually done.
+
+    Uses the postgres and oracle LOCK TABLE statement.
+    """
+    lock_stmt = "LOCK TABLE %s IN %s MODE"
+
+    def __init__(self, cursor=None, table=None, **kws):
+        """Init will aquire a lock."""
+        self.cursor = cursor
+        self.table = table
+        super(self, OraPgLock).__init__(**kws)
+
+    def acquire(self, mode):
+        self.cursor.execute(OraPgLock.lock_stmt % (self.table, mode))
 
 
 class RowIterator(object):
@@ -629,8 +682,8 @@ class Database(object):
             #
             # The 'Database' class itself is purely virtual; no
             # instantiation is allowed.
-            raise NotImplementedError, \
-                "Can't instantiate abstract class <Database>."
+            raise NotImplementedError(
+                "Can't instantiate abstract class <Database>.")
         # Figure out if we need to import the driver module.
         mod = self._db_mod or self.__class__.__name__
         if type(mod) == StringType:
@@ -684,8 +737,8 @@ class Database(object):
                 # particular ctor in this class, probably for a good
                 # reason (e.g. the driver module doesn't supply this
                 # type ctor); skip to next ctor.
-# print "Skipping copy of type ctor %s to class %s." % \
-# (ctor_name, self_class.__name__)
+                # print "Skipping copy of type ctor %s to class %s." % \
+                    # (ctor_name, self_class.__name__)
                 continue
             f = getattr(self._db_mod, ctor_name)
             setattr(self_class, ctor_name, staticmethod(f))
@@ -695,8 +748,8 @@ class Database(object):
         for type_name in API_TYPE_NAMES:
             if hasattr(self_class, type_name):
                 # Already present as attribute; skip.
-# print "Skipping copy of type %s to class %s." % \
-# (type_name, self_class.__name__)
+                # print "Skipping copy of type %s to class %s." % \
+                    # (type_name, self_class.__name__)
                 continue
             type_obj = getattr(self._db_mod, type_name)
             setattr(self_class, type_name, type_obj)
@@ -897,7 +950,7 @@ class Database(object):
         """
         return self.query_1("""
         SELECT [:sequence schema=cerebrum name=%s op=set val=%d]""" %
-                           (seq_name, int(val)))
+                            (seq_name, int(val)))
 
     def ping(self):
         """Check that communication with the database works.
@@ -1011,8 +1064,8 @@ class PostgreSQLBase(Database):
         for cls in self.__class__.__mro__:
             if issubclass(cls, PostgreSQLBase):
                 return super(PostgreSQLBase, self).__init__(*args, **kws)
-        raise NotImplementedError, \
-            "Can't instantiate abstract class <PostgreSQLBase>."
+        raise NotImplementedError(
+            "Can't instantiate abstract class <PostgreSQLBase>.")
 
     def _sql_port_table(self, schema, name):
         return [name]
@@ -1025,7 +1078,7 @@ class PostgreSQLBase(Database):
         elif op == 'set' and val is not None:
             return ["setval('%s', %s)" % (name, val)]
         else:
-            raise ValueError, 'Invalid sequnce operation: %s' % op
+            raise ValueError('Invalid sequnce operation: %s' % op)
 
     def _sql_port_sequence_start(self, value):
         return ['START', value]
@@ -1077,7 +1130,7 @@ class PgSQL(PostgreSQLBase):
                 enc = client_encoding
             elif isinstance(client_encoding, tuple):
                 enc = client_encoding[0]
-            self.execute("SET CLIENT_ENCODING TO '%s'" % client_encoding)
+            self.execute("SET CLIENT_ENCODING TO '%s'" % enc)
             # Need to commit here, and as no real work has been done
             # yet, it should be safe.
             #
@@ -1226,7 +1279,8 @@ class PsycoPGCursor(Cursor):
             if type(parameters[k]) is DateTime.DateTimeType:
                 ts = parameters[k]
                 parameters[k] = self.Timestamp(ts.year, ts.month, ts.day,
-                                               ts.hour, ts.minute, int(ts.second))
+                                               ts.hour, ts.minute,
+                                               int(ts.second))
             elif (type(parameters[k]) is unicode and
                   self._db.encoding != 'UTF-8'):
                 # pypgsql1 does not support unicode (only utf-8)
@@ -1246,7 +1300,7 @@ class PsycoPGCursor(Cursor):
         if self.description is not None:
             for n in range(len(self.description)):
                 if (self.description[n][1] == self._db.NUMBER and
-                        self.description[n][5] <= 0):  # pos 5 = scale in DB-API spec
+                        self.description[n][5] <= 0):  # pos 5 = scale in DB-API
                     self._convert_cols[n] = long
                 elif (self._db.encoding == 'UTF-8' and
                       self.description[n][1] == self._db.STRING):
@@ -1274,6 +1328,9 @@ class PsycoPGCursor(Cursor):
             if ret[n] is not None:
                 ret[n] = conv(ret[n])
         return ret
+
+    def acquire_lock(self, table=None, mode='exclusive'):
+        return OraPgLock(cursor=self, table=table, mode='exclusive')
 
 
 class PsycoPG2Cursor(PsycoPGCursor):
@@ -1316,8 +1373,8 @@ class OracleBase(Database):
         for cls in self.__class__.__mro__:
             if issubclass(cls, OracleBase):
                 return super(OracleBase, self).__init__(*args, **kws)
-        raise NotImplementedError, \
-            "Can't instantiate abstract class <OracleBase>."
+        raise NotImplementedError(
+            "Can't instantiate abstract class <OracleBase>.")
 
     def _sql_port_table(self, schema, name):
         return ['%(schema)s.%(name)s' % locals()]
@@ -1505,8 +1562,9 @@ class cx_OracleCursor(Cursor):
                                                 field.day, field.hour,
                                                 field.minute, int(field.second))
         return raw_result
-    # end query
-# end cx_OracleCursor
+
+    def acquire_lock(self, table=None, mode='exclusive'):
+        return OraPgLock(cursor=self, table=None, mode=mode)
 
 
 class SQLite(Database):
@@ -1588,7 +1646,7 @@ class SQLite(Database):
             value = self._currval_sequence(name)
             return ["%d" % value]
         else:
-            raise ValueError, 'Invalid sequnce operation: %s' % op
+            raise ValueError('Invalid sequnce operation: %s' % op)
     # end _sql_port_sequence
 
     def _nextval_sequence(self, name):
@@ -1790,7 +1848,7 @@ Oracle = DCOracle2
 
 def connect(*args, **kws):
     """Return a new instance of this installation's Database subclass."""
-    if kws.has_key('DB_driver'):
+    if 'DB_driver' in kws:
         mod = sys.modules.get(__name__)
         db_driver = kws['DB_driver']
         del kws['DB_driver']

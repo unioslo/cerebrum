@@ -72,10 +72,7 @@ from Cerebrum import Errors
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.Utils import MinimumSizeWriter
 
-if sys.version >= (2, 3):
-    import logging
-else:
-    from Cerebrum.extlib import logging
+import logging
 
 
 # 

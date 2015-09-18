@@ -85,7 +85,13 @@ class EphorteConstants(ConstantsBase):
     ephorte_perm_fo = _EphortePermTypeCode('FO', 'Forskningssaker')
     # new permission, as requested by arkiv 2011-06-17
     ephorte_perm_st = _EphortePermTypeCode('ST', 'Studenttilrettelegging')
-    
+    # new permissions, as requested by eSak 2015-05-11
+    ephorte_perm_va = _EphortePermTypeCode('VA', 'Varsling ansatte')
+    ephorte_perm_vs = _EphortePermTypeCode('VS', 'Varsling studenter')
+    ephorte_perm_pb = _EphortePermTypeCode('PB', 'Personalsaker bilagslønn')
+    ephorte_perm_os = _EphortePermTypeCode('OS', 'Studentombud')
+    ephorte_perm_ai = _EphortePermTypeCode('AI', 'Anskaffelse Innkjøp')
+
     # Values from the ePhorte table ARKIVDEL
     ephorte_arkivdel_avtale_uio = _EphorteArkivdelCode(
         'AVTALE UIO', 'Avtalearkiv ved Universitetet i Oslo')

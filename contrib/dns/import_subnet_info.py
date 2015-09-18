@@ -96,7 +96,7 @@ FORMAT OF VLANFILE (when supplied)
 
 RETURN VALUES
 
- 0 - Completed succesfully (includes when forces)
+ 0 - Completed successfully (includes when forces)
  1 - Option-error (incorrect use; option doesn't exist, etc)
  2 - No datafile supplied
  3 - Data error, import rolled back
@@ -211,7 +211,7 @@ def compare_file_to_db(subnets_in_file, force):
             # Subnet is in file; nothing should be done with it
             if row['description'] != subnets_in_file[subnet_ID][1]:
                 s.clear()
-                s.find('id:' + str(row['entity_id']))
+                s.find(row['entity_id'])
                 s.description = subnets_in_file[subnet_ID][1]
                 s.write_db(perform_checks=False)
                 logger.debug("Updating description of subnet '%s'" % subnet_ID)

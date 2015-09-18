@@ -112,6 +112,22 @@ FINGERPRINT_ALGORITHM = 'sha1'
 # create race conditions and write conflicts.
 LOG_FILE = None
 
+# Regexes that should be applied to emitted logs.
+# I.e.
+#
+# LOG_FORMATTERS = (
+#         # Regexes should not overlap as patterns are matched one after
+#         # another on the same log message. Check
+#         # SoapListener.TwistedCerebrumLogger
+#         (# Filter password values in method calls out of log
+#                      #  pattern
+#             r"(authenticate\(username=.*, ?password=['\"])(.*?)(['\"]\))$",
+#                     #replacement
+#             r"\1secret\3"
+#         ),
+# )
+LOG_FORMATTERS = ()
+
 # The name of the job to be put in the log files. Cerebrum's root logs contains
 # the elements:
 #

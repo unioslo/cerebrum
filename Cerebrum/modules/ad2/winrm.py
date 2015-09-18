@@ -52,6 +52,7 @@ import socket
 import urllib2
 import httplib
 import csv
+import re
 
 # TODO: remove the exception when ssl is up and running in production:
 try:
@@ -207,7 +208,61 @@ class PowershellException(ExitCodeException):
        which already existed.
 
     """
-    pass
+    def __init__(self, exitcode, stderr, output=None, msg=None):
+        """Initiate exception for command with exitcode other than 0.
+
+        :type exitcode: int or string
+        :param exitcode: The command's exitcode.
+
+        :type stderr: string
+        :param stderr: The stderr message for the command.
+
+        :type output: dict
+        :param output: All output from the command. It might include the stderr
+            output too, even if that must be present in the L{stderr} argument.
+
+        :type msg: string
+        :param msg: If you want to specify the message that is printed for the
+            exception. Defaults to a generic "command failed" message.
+
+        """
+        self.exitcode = exitcode
+        self.output = output
+        self.stderr = stderr
+
+        # Search for, and attempt to extract error-information from PowerShell
+        # error-messages.
+        m = re.search("(?P<first_error>[\w\s\-'.]+)[+\s]+CategoryInfo[\s:]+"
+                      "(?P<second_error>\w+):\s+\("
+                      "(?P<args>[\w\-:]+)\)\s+\["
+                      "(?P<command>[\w\s-]+)\].*",
+                      stderr,
+                      re.MULTILINE)
+        if msg is not None:
+            r_msg = msg
+        elif m:
+            gd = m.groupdict()
+            cmd = re.sub('\s', '', gd.get('command'))
+            first_err = gd.get('first_error').strip()
+            #  Fix empty argument sequence
+            args = gd.get('args') if gd.get('args') != ':' else ''
+            second_err = gd.get('second_error')
+
+            # We'll differentiate between how we report errors. Exception
+            # information seems to be pattern matchable, but the error message
+            # is not always defined in the same place.
+            r_msg = ("Command '%s' called with args '%s' "
+                     "returned exit code %s: %s" % (
+                         cmd, args, exitcode, first_err or second_err))
+        # Default error representation
+        else:
+            r_msg = 'Command failed: exitcode: %s, stderr: %s' % (exitcode,
+                                                                  stderr)
+
+        super(PowershellException, self).__init__(exitcode,
+                                                  stderr,
+                                                  output=self.output,
+                                                  msg=r_msg)
 
 
 class WinRMProtocol(object):
@@ -252,7 +307,8 @@ class WinRMProtocol(object):
     _useragent = 'Cerebrum WinRM client'
 
     def __init__(self, host='localhost', port=None, encrypted=True,
-                 logger=None, ca=None, client_key=None, client_cert=None):
+                 logger=None, ca=None, client_key=None, client_cert=None,
+                 check_name=True):
         """Set up the basic configuration. Fill the HTTP headers and set the
         correct port if not given.
 
@@ -287,6 +343,9 @@ class WinRMProtocol(object):
             The absolute location of a file with the client's (signed)
             certificate to be used with client authentication.
 
+        @type check_name: boolean
+        @param check_name: Enable hostname validation (if encrypted).
+
         """
         # TODO: How should we handle no logger?
         self.logger = logger
@@ -312,7 +371,7 @@ class WinRMProtocol(object):
             else:
                 ssl_config.set_ca_chain(ca)
                 ssl_config.set_ca_validate(https.SSLConfig.REQUIRED)
-                ssl_config.set_verify_hostname(True)
+                ssl_config.set_verify_hostname(check_name)
 
             if client_cert or client_key:
                 ssl_config.set_cert(client_cert, client_key)
@@ -325,10 +384,10 @@ class WinRMProtocol(object):
             socket.setdefaulttimeout(self.connection_timeout)
             self._opener = urllib2.build_opener()
         self._http_headers = {
-                'Host': '%s:%s' % (self.host, self.port),
-                'Accept': '*/*',
-                'Content-Type': 'application/soap+xml; charset=utf-8',
-                'User-Agent': self._useragent}
+            'Host': '%s:%s' % (self.host, self.port),
+            'Accept': '*/*',
+            'Content-Type': 'application/soap+xml; charset=utf-8',
+            'User-Agent': self._useragent}
         # Set up the XML parser to expect input in utf-8
         self.xmlparser = etree.XMLParser(encoding='utf-8')
 
@@ -1845,8 +1904,13 @@ class PowershellClient(WinRMClient):
             # Dicts are returned as "Hash Tables" for powershell
             ret = []
             for k, v in data.iteritems():
-                ret.append(u'%s=%s' % (self.escape_to_string(k),
-                                       self.escape_to_string(v)))
+                k, v = self.escape_to_string(k), self.escape_to_string(v)
+                if not k or not v:
+                    self.logger.debug4("PowershellClient.escape_to_string: "
+                                       "Omitting empty value in hash table, "
+                                       "k=%r, v=%r", k, v)
+                    continue
+                ret.append(u'%s=%s' % (k, v))
             return u'@{%s}' % u';'.join(ret)
         raise Exception('Unknown data type %s for: %s' % (type(data), data))
 

@@ -27,7 +27,6 @@
 #
 #
 #
-# eDir : user object is deleted, account@edir spread removed
 # nis  : write "deleted" file
 #        <uname>:<crypt>:<uid>:<gid>:<gecos>:<home>:<shell>
 #        for both nis and nisans, account@nis/nisans removed
@@ -55,7 +54,6 @@ from Cerebrum import Constants
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.bofhd.errors import CerebrumError
-from Cerebrum.extlib import logging
 
 db = Factory.get('Database')()
 db.cl_init(change_program='process_bofhd_r')
@@ -199,25 +197,11 @@ def process_delete_requests():
                 logger.debug("Set home to archived %s (%s)", home['homedir_id'], row['spread'])
                 account.clear_home(row['spread'])
                 account.delete_spread(row['spread'])
-            ## Account was valid in eDir, remove account@edir spread, archive homedir
-            elif row['spread'] == const.spread_hia_novell_user:
-                try:
-                    home = account.get_home(row['spread'])
-                except Errors.NotFoundError:
-                    logger.info("No homedir for %s, skipping homedir-removal", account.account_name)
-                    account.delete_spread(row['spread'])
-                    continue
-                account.set_homedir(current_id=home['homedir_id'],
-                                    status=const.home_status_archived)
-                account.clear_home(row['spread'])
-                logger.debug("clear_home in %s", row['spread'])                
-                logger.debug("Set home to archived %s (%s)", home['homedir_id'], row['spread'])
-                account.delete_spread(row['spread'])
             else:
                 account.delete_spread(row['spread'])
         if posix_user:
             posix_user.delete_posixuser()
-        ## Remove account from all groups (including eDir-server groups)
+        ## Remove account from all groups
         for g in group.search(member_id=account.entity_id,
                               indirect_members=False):
             group.clear()

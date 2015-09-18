@@ -1935,6 +1935,46 @@ class EmailForward(EmailTarget):
         FROM [:table schema=cerebrum name=email_forward]
         """, fetchall=False)
 
+    def search(self, forward_to=None, enable=None, target_id=None,
+               fetchall=False):
+        """Search for email forwards.
+
+        :type forward_to: str
+        :param forward_to: The forward address to search for.
+            May contain % for wildcard matching.
+        :type enable: bool
+        :param enable: Wheter forwards should be enabled or disabled
+            (default: both).
+        :type target_id: int
+        :param target_id: Search for forwards realted to an EmailTarget.
+        :type fetchall: bool
+        :param fetchall: Return iterator or list (default: iterator).
+
+        :rtype: list
+        :return: A list of forwards found. Looks like
+            [(forward_to, enable, target_id)].
+        """
+        conditions = []
+        binds = {}
+
+        if forward_to is not None:
+            binds['forward_to'] = forward_to.lower()
+            conditions.append('LOWER(ef.forward_to) LIKE :forward_to')
+        if enable is not None:
+            binds['enable'] = 'T' if enable is True else 'F'
+            conditions.append('ef.enable = :enable')
+        if target_id is not None:
+            binds['target_id'] = target_id
+            conditions.append('ef.target_id = :target_id')
+
+        where = ""
+        if conditions:
+            where = " WHERE " + " AND ".join(conditions)
+        return self.query(
+            """SELECT *
+            FROM [:table schema=cerebrum name=email_forward] ef""" + where,
+            binds, fetchall=fetchall)
+
 class EmailVacation(EmailTarget):
 
     def add_vacation(self, start, text, end=None, enable=False):
@@ -2007,6 +2047,16 @@ class EmailVacation(EmailTarget):
         SELECT target_id, vacation_text, start_date, end_date, enable
         FROM [:table schema=cerebrum name=email_vacation]
         """, fetchall=False)
+
+    def list_email_active_vacations(self):
+        import mx
+        return self.query("""
+        SELECT target_id, vacation_text, start_date, end_date, enable
+        FROM [:table schema=cerebrum name=email_vacation]
+        WHERE enable = 'T' AND
+              start_date<=:cur AND
+              end_date>=:cur OR end_date IS NULL
+        """, {'cur': mx.DateTime.today()}, fetchall=False)
 
 class EmailPrimaryAddressTarget(EmailTarget):
     __read_attr__ = ('__in_db',)

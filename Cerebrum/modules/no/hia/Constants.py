@@ -126,25 +126,6 @@ class Constants(Constants.Constants):
     posix_shell_csh = _PosixShellCode('csh', '/bin/csh')
     posix_shell_sh = _PosixShellCode('sh', '/bin/sh')
 
-## DEFINISJON AV SPREAD
-    spread_hia_novell_user = _SpreadCode(
-        'account@edir', Constants.Constants.entity_account,
-        'User in Novell domain "uia"')
-    spread_hia_novell_empl = _SpreadCode(
-        'employee@edir', Constants.Constants.entity_account,
-        'Employee in Novell domain "uia"')
-    spread_hia_novell_labuser = _SpreadCode(
-        'account@edirlab', Constants.Constants.entity_account,
-        'User in Novell domain "uia", employee lab-users only')
-    spread_hia_novell_group = _SpreadCode(
-        'group@edir', Constants.Constants.entity_group,
-        'Group in Novell domain "uia"')
-    spread_hia_edir_grpemp = _SpreadCode(
-        'group@ediremp', Constants.Constants.entity_group,
-        'Group in Novell domain "UiA", ou=grp,ou=Ans')
-    spread_hia_edir_grpstud = _SpreadCode(
-        'group@edirstud', Constants.Constants.entity_group,
-        'Group in Novell domain "UiA", ou=grp,ou=Stud')    
     spread_nis_user = _SpreadCode(
         'account@nis', Constants.Constants.entity_account,
         'User in NIS domain "stud"')

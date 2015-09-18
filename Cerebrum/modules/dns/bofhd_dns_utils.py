@@ -10,8 +10,8 @@ from Cerebrum.modules.dns import HostInfo
 from Cerebrum.modules.dns import DnsOwner
 from Cerebrum.modules.dns import IPNumber
 from Cerebrum.modules.dns import IPv6Number
-from Cerebrum.modules.dns.IPUtils import IPCalc
-from Cerebrum.modules.dns.IPv6Utils import IPv6Calc
+from Cerebrum.modules.dns.IPUtils import IPCalc, IPUtils
+from Cerebrum.modules.dns.IPv6Utils import IPv6Calc, IPv6Utils
 from Cerebrum.modules.dns import CNameRecord
 from Cerebrum.modules.dns import IntegrityHelper
 from Cerebrum.modules.dns import Utils
@@ -79,7 +79,7 @@ class DnsBofhdUtils(object):
             self._ipv6_number.find(old_ref)
             self._ipv6_number.aaaa_ip = new_id
             self._ipv6_number.write_db()
-        else:
+        else:  # Assume hostname
             old_ref = self._find.find_target_by_parsing(old_id, dns.DNS_OWNER)
             new_id = self._parser.qualify_hostname(new_id)
             # Check if the name is in use, or is illegal
@@ -172,31 +172,51 @@ class DnsBofhdUtils(object):
         self._dns_owner.write_db()
         return action
 
-
     #
     # IP-numbers
     #
     def get_relevant_ips(self, subnet_or_ip, force=False, no_of_addrs=None):
+        """
+        Returns a list of available IPs. If a subnet is given as input,
+        the list consists of avaiable IPs on the subnet. If a specific IP is
+        given as input, the list will only contain that IP.
+
+        :param subnet_or_ip: An IPv4/IPv6 subnet or IP-address
+        :type  subnet_or_ip: str
+        :param force: Indicates if the method should attempt to force the
+                      operation, even if there is no record that the IP given
+                      as input belongs to any subnet records.
+        :type  force: boolean
+        :param no_of_addrs: The max number of ips to be returned.
+        :type  no_of_addrs: int
+
+        :returns: A list of available IPs found, or a list containing only
+                  the specified IP given to the method in subnet_or_ip, if
+                  it is evaluated to a full IP.
+        :rtype:   list
+        """
         subnet, ip = self._parser.parse_subnet_or_ip(subnet_or_ip)
         if subnet is None and not force:
-            raise CerebrumError, "Unknown subnet.  Must force"
+            raise CerebrumError("Unknown subnet. Must force")
 
-        if not ip:
+        elif subnet is None and ip is None:
+            raise CerebrumError("Please specify a valid subnet or IP-address.")
+
+        elif subnet is not None and ip is None:
+
             first = subnet_or_ip.split('/')[0]
-            if len(first.split('.')) == 4:
+
+            if IPUtils.is_valid_ipv4(first):
                 first = IPCalc.ip_to_long(first)
-            elif first.count(':') == 7:
-                first = IPv6Calc.ip_to_long(first)
-            elif ':' in first:
-                first = abs(IPv6Calc.ip_to_long(first) - IPv6Calc.ip_to_long(subnet))
-            else:
+
+            elif IPv6Utils.is_valid_ipv6(first):
                 first = None
+
             free_ip_numbers = self._find.find_free_ip(subnet, first=first,
-                    no_of_addrs=no_of_addrs)
-            
+                                                      no_of_addrs=no_of_addrs)
         else:
-            free_ip_numbers = [ ip ]
-                
+            free_ip_numbers = [ip]
+
         return free_ip_numbers
 
     def alloc_ip(self, ip, force=False):

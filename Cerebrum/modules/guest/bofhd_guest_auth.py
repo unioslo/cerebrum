@@ -133,7 +133,7 @@ class BofhdAuth(auth.BofhdAuth):
         if self.is_superuser(operator):
             return True
 
-        if not self.is_employee(operator):
+        if not self._is_employee(operator):
             return False
 
         if self._is_personal_guest_owner(operator, guest):

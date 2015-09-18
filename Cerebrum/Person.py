@@ -310,19 +310,17 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         WHERE export_id=:export_id""", locals())
         self.find(person_id)
 
-    def _compare_names(self, type, other):
+    def _compare_names(self, variant, other):
         """Returns True if names are equal.
 
         self must be a populated object."""
 
         try:
-            tmp = other.get_name(self._pn_affect_source, type)
-            if len(tmp) == 0:
-                raise KeyError
+            tmp = other.get_name(self._pn_affect_source, variant)
         except:
             raise MissingOtherException
         try:
-            myname = self._name_info[type]
+            myname = self._name_info[variant]
         except:
             raise MissingSelfException
 #        if isinstance(myname, unicode):
@@ -794,11 +792,16 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         return result
     # end getdict_external_id2primary_account
 
-    def list_persons(self):
+    def list_persons(self, person_id=None):
         """Return all persons' person_id and birth_date."""
+        binds = dict()
+        where = ''
+        if person_id is not None:
+            where = 'WHERE ' + argument_to_sql(person_id,'person_id',binds,int)
         return self.query("""
         SELECT person_id, birth_date
-        FROM [:table schema=cerebrum name=person_info]""")
+        FROM [:table schema=cerebrum name=person_info]
+        """ + where, binds)
 
     def getdict_persons_names(self, source_system=None, name_types=None):
         if name_types is None:

@@ -141,6 +141,24 @@ class Utils(object):
         return obj
 
     @staticmethod
+    def get_entity_designator(entity):
+        """Lookup entity's type, return entity designator compatible with get()
+
+        :type entity: <Cerebrum.Entity.Entity> subtype
+        :param entity: An entity holding the correct type
+
+        :rtype: tuple(str, str)
+        :returns: Values suitable for
+            Utils.get(None, *Utils.get_entity_designator(entity))
+        """
+        if entity.__class__ is Factory.get("Account"):
+            return "account_name", entity.account_name
+        elif entity.__class__ is Factory.get("Group"):
+            return "group_name", entity.group_name
+        else:
+            return "id", str(entity.entity_id)
+
+    @staticmethod
     def get_account(db, id_type, account):
         """Fetch a group by id.
 

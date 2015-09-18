@@ -434,7 +434,7 @@ class BofhdExtension(BofhdCommonMethods):
                           strval='%s %s' % (fname, lname))
 
         # Set the quarantine:
-        ac.add_entity_quarantine(type=self.const.quarantine_guest_old,
+        ac.add_entity_quarantine(qtype=self.const.quarantine_guest_old,
                                  creator=responsible_id,
                                  # TBD: or should creator be bootstrap_account?
                                  description='Guest account auto-expire',
@@ -489,7 +489,7 @@ class BofhdExtension(BofhdCommonMethods):
         except IndexError:
             self.logger.warn('Guest %s didn\'t have expire quarantine, '
                              'deactivated anyway.', account.account_name)
-        account.add_entity_quarantine(type=self.const.quarantine_guest_old,
+        account.add_entity_quarantine(qtype=self.const.quarantine_guest_old,
                                       creator=operator.get_entity_id(),
                                       description='New guest account',
                                       start=DateTime.now())

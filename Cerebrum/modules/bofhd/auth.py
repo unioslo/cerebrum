@@ -322,18 +322,14 @@ class BofhdAuthOpSet(DatabaseAccessor):
             'code': int(op_code), 'op_id': op_id, 'op_set_id': self.op_set_id})
         return op_id
 
-    def del_operation(self, op_code, op_id=-1):
-        extra = ''
-        if op_id != -1:
-            extra = ' AND op_id=:op_id'
+    def del_operation(self, op_code, op_id=None):
+
+        if op_id is not None:
+            self.del_all_op_attrs(op_id)
 
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=auth_operation]
-        WHERE op_code=:op_code AND op_set_id=:op_set_id%s""" % extra, {
-            'op_code': int(op_code),
-            'op_set_id': self.op_set_id,
-            'op_id': int(op_id)
-        })
+        WHERE op_code=%s AND op_set_id=%s""" % (int(op_code), self.op_set_id))
 
     def add_op_attrs(self, op_id, attr):
         self.execute("""
@@ -346,6 +342,11 @@ class BofhdAuthOpSet(DatabaseAccessor):
         DELETE FROM [:table schema=cerebrum name=auth_op_attrs]
         WHERE op_id=:op_id AND attr=:attr""", {
             'op_id': int(op_id), 'attr': attr})
+
+    def del_all_op_attrs(self, op_id):
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=auth_op_attrs]
+        WHERE op_id=%s""" % int(op_id))
 
     def list(self):
         return self.query("""
@@ -1051,6 +1052,21 @@ class BofhdAuth(DatabaseAccessor):
         return self.can_create_host(operator, query_run_any=query_run_any)
 
     def can_alter_group(self, operator, group=None, query_run_any=False):
+        """
+        Checks if the operator has permission to add/remove group members for
+        the given group.
+
+        @type operator: int
+        @param operator: The entity_id of the user performing the operation.
+
+        @type group: An entity of EntityType Group
+        @param group: The group to add/remove members to/from.
+
+        @type query_run_any: True or False
+        @param query_run_any: Check if the operator has permission *somewhere*
+
+        @return: True or False
+        """
         if self.is_superuser(operator):
             return True
         if query_run_any:
@@ -1306,34 +1322,56 @@ class BofhdAuth(DatabaseAccessor):
 
     def can_add_affiliation(self, operator, person=None, ou=None, aff=None,
                             aff_status=None, query_run_any=False):
+        """If the opset has add_affiliation access to the affiliation and
+        status, and the operator has add_affiliation access to the affiliation's
+        OU, allow adding the affiliation to the person."""
         if self.is_superuser(operator):
             return True
-        # TODO (at a later time): add 'auth_add_affiliation',
-        # 'auth_remove_affiliation'.  Determine how these should be
-        # connected to ou etc.
-        # Currently we allow anyone that can create users to
-        # add/remove any affiliation of type manuell
         if query_run_any:
-            if self._has_operation_perm_somewhere(operator, self.const.auth_create_user):
+            if self._has_operation_perm_somewhere(operator,
+                                                  self.const.auth_add_affiliation):
                 return True
             return False
-        if (aff == self.const.affiliation_manuell and
-            self._has_operation_perm_somewhere(operator, self.const.auth_create_user)):
+        if self._has_target_permissions(operator,
+                                        self.const.auth_add_affiliation,
+                                        self.const.auth_target_type_ou,
+                                        ou.entity_id, person.entity_id,
+                                        str(aff_status)):
             return True
-        raise PermissionDenied("No access for that person affiliation combination")
+        raise PermissionDenied("No access for combination %s on person %s in "
+                               "OU %02d%02d%02d" % (aff_status, person.entity_id,
+                               ou.fakultet, ou.institutt, ou.avdeling))
 
     def can_remove_affiliation(self, operator, person=None, ou=None,
                                aff=None, query_run_any=False):
+        """If the opset has rem_affiliation access to the affiliation, and the
+        operator has rem_affiliation access to the affiliation's OU, allow
+        removing the affiliation from the person. Not as strict on MANUELL."""
+
         if self.is_superuser(operator):
             return True
         if query_run_any:
-            if self._has_operation_perm_somewhere(operator, self.const.auth_create_user):
+            if (self._has_operation_perm_somewhere(operator,
+                                                   self.const.auth_remove_affiliation) or
+                self._has_operation_perm_somewhere(operator,
+                                                   self.const.auth_create_user)):
                 return True
             return False
-        if (aff == self.const.affiliation_manuell and
-            self._has_operation_perm_somewhere(operator, self.const.auth_create_user)):
+        if self._has_target_permissions(operator, self.const.auth_remove_affiliation,
+                                        self.const.auth_target_type_ou,
+                                        ou.entity_id, person.entity_id,
+                                        str(aff)):
             return True
-        raise PermissionDenied("Currently limited to superusers")
+        # 2015-09-11: Temporarily (?) allow all LITAs to remove manual affiliations
+        #             from all persons to simplify cleaning up. CERT (bore) has given
+        #             permission to do this. – tvl
+        if (aff == self.const.affiliation_manuell and
+            self._has_operation_perm_somewhere(operator,
+                                               self.const.auth_create_user)):
+            return True
+        raise PermissionDenied("No access for affiliation %s on person %s in "
+                               "OU %02d%02d%02d" % (aff, person.entity_id,
+                               ou.fakultet, ou.institutt, ou.avdeling))
 
     def can_create_user(self, operator, person=None, disk=None,
                         query_run_any=False):
@@ -1476,13 +1514,46 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return self._has_operation_perm_somewhere(operator,
                     self.const.auth_view_history)
+
+        # Check if user has been granted an op-set that allows viewing the
+        # entity's history in some specific fashion.
+        for row in self._list_target_permissions(
+                operator, self.const.auth_view_history,
+                # TODO Should the auth target type be generalized?
+                self.const.auth_target_type_global_group,
+                None, get_all_op_attrs=True):
+            attr = row.get('operation_attr')
+
+            # Op-set allows viewing history for this entity type
+            # We need try/except here as self.const.EntityType will throw
+            # exceptions if attr is something else than an entity-type
+            # (for example a spread-type).
+            try:
+                if entity.entity_type == int(self.const.EntityType(attr)):
+                    return True
+            except:
+                pass
+
+            # For groups we use the op-set attribute to specify groups that has
+            # specified spreads (for example, postmasters are permitted to view
+            # the entity history of groups with the exchange_group spread).
+            # try/except is needed here for the same reasons as above.
+            if entity.entity_type == self.const.entity_group:
+                try:
+                    spread_type = int(self.const.Spread(attr))
+                    if entity.has_spread(spread_type):
+                        return True
+                except:
+                    pass
+
         if entity.entity_type == self.const.entity_account:
             if self._no_account_home(operator, entity):
                 return True
             return self.is_account_owner(operator, self.const.auth_view_history,
                                          entity)
-        elif entity.entity_type == self.const.entity_group:
-            return self.is_group_owner(operator, self.const.auth_view_history,
+        if entity.entity_type == self.const.entity_group:
+            return self.is_group_owner(operator,
+                                       self.const.auth_view_history,
                                        entity)
         raise PermissionDenied("no access for that entity_type")
 
