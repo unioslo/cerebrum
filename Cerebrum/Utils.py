@@ -36,8 +36,12 @@ import urllib2
 import urllib
 import urlparse
 import random
+from io import BytesIO
 from string import maketrans, ascii_lowercase, digits, rstrip
 from subprocess import Popen, PIPE
+
+import gpgme
+
 from Cerebrum.UtilsHelper import Latin1
 
 
@@ -428,13 +432,11 @@ def pgp_encrypt(message, keyid):
     """Encrypts a message using PGP.
 
     Keyword arguments:
-    message -- the message that is to be decrypted
+    message -- the message that is to be encrypted
     keyid -- the private key
 
     Returns the encrypted message. May throw an IOError.
-
     """
-
     cmd = [cereconf.PGPPROG] + cereconf.PGP_ENC_OPTS + \
           ['--recipient', keyid, '--default-key', keyid]
 
@@ -450,9 +452,7 @@ def pgp_decrypt(message, keyid, passphrase):
     passphrase - the password
 
     Returns the decrypted message. May throw an IOError.
-
     """
-
     cmd = [cereconf.PGPPROG] + cereconf.PGP_DEC_OPTS + ['--default-key', keyid]
 
     if passphrase != "":
@@ -460,6 +460,60 @@ def pgp_decrypt(message, keyid, passphrase):
         message = passphrase + "\n" + message
 
     return filtercmd(cmd, message)
+
+
+def gpgme_encrypt(message, recipient_key_id=None):
+    """
+    Encrypts a message using GnuPG (pygpgme).
+
+    Keyword arguments:
+    :param message: the message that is to be encrypted
+    :type message: str or unicode
+    :param recipient_key_id: -- the private key
+    :type recipient_key_id: str or unicode
+
+    :returns: the armor-encrypted message (ciphertext)
+    :rtype: str
+
+    May throw a gpgme.GpgmeError. Should be handled by the caller.
+    """
+    if recipient_key_id is None and hasattr(cereconf,
+                                            'AD_PASSWORD_GPG_RECIPIENT_ID'):
+        recipient_key_id = cereconf.AD_PASSWORD_GPG_RECIPIENT_ID
+    context = gpgme.Context()
+    context.armor = True
+    recipient_key = context.get_key(recipient_key_id)
+    plaintext = BytesIO(unicode2str(message))
+    ciphertext = BytesIO()
+    context.encrypt([recipient_key], 0, plaintext, ciphertext)
+    return ciphertext.getvalue()
+
+
+def gpgme_decrypt(ciphertext):
+    """
+    Decrypts a ciphertext using GnuPG (pygpgme).
+
+    Keyword arguments:
+    :param ciphertext: the ciphertext that is to be decrypted
+    :type ciphertext: str
+
+    :returns: the decrypted ciphertext (message)
+    :rtype: str
+
+    May throw a gpgme.GpgmeError. Should be handled by the caller.
+
+    Just like GnuPG, pygpgme extracts the private key corresponding to the
+    ciphertext (encrypted message) automatically from the local
+    GnuPG keydatabase situated in $GNUPGHOME of the active (Cerebrum) user.
+    """
+    context = gpgme.Context()
+    ciphertext = BytesIO(ciphertext)
+    plaintext = BytesIO()
+    try:
+        context.decrypt(ciphertext, plaintext)
+    except gpgme.GpgmeError as e:
+        print('{}\nException: {} {} {}'.format(dir(e), e.message, e.strerror, e.code))
+    return plaintext.getvalue()
 
 
 def format_as_int(i):
