@@ -36,11 +36,17 @@ import hashlib
 import base64
 
 from Cerebrum import Utils, Disk
-from Cerebrum.Entity import EntityName, EntityQuarantine, \
-    EntityContactInfo, EntityExternalId, EntitySpread
+from Cerebrum.Entity import (EntityName,
+                             EntityQuarantine,
+                             EntityContactInfo,
+                             EntityExternalId,
+                             EntitySpread)
+from Cerebrum.modules import PasswordChecker, PasswordHistory
 from Cerebrum import Errors
-from Cerebrum.Utils import NotSet
-from Cerebrum.Utils import argument_to_sql, prepare_string
+from Cerebrum.Utils import (NotSet,
+                            argument_to_sql,
+                            prepare_string,
+                            gpgme_encrypt)
 
 import cereconf
 
