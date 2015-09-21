@@ -469,13 +469,22 @@ def gpgme_encrypt(message, recipient_key_id=None):
     Keyword arguments:
     :param message: the message that is to be encrypted
     :type message: str or unicode
-    :param recipient_key_id: -- the private key
+    :param recipient_key_id: the private key id
     :type recipient_key_id: str or unicode
 
     :returns: the armor-encrypted message (ciphertext)
     :rtype: str
 
     May throw a gpgme.GpgmeError. Should be handled by the caller.
+
+    The private key id is used by pygpgme to determine which public key
+    to use for encryption.
+    'gpg2 -k --fingerprint' can be used to list all available public keys
+    in the current GnuPG database, along with their fingerprints.
+    Possible values:
+    uid: (f.i. "Cerebrum Test <cerebrum@uio.no>")
+    key-id: (f.i. "FEAC69E4")
+    fingerprint (recommended): (f.i.'78D9E8FEB39594D4EAB7A9B85B17D23FFEAC69E4')
     """
     if recipient_key_id is None and hasattr(cereconf,
                                             'AD_PASSWORD_GPG_RECIPIENT_ID'):
@@ -509,10 +518,7 @@ def gpgme_decrypt(ciphertext):
     context = gpgme.Context()
     ciphertext = BytesIO(ciphertext)
     plaintext = BytesIO()
-    try:
-        context.decrypt(ciphertext, plaintext)
-    except gpgme.GpgmeError as e:
-        print('{}\nException: {} {} {}'.format(dir(e), e.message, e.strerror, e.code))
+    context.decrypt(ciphertext, plaintext)
     return plaintext.getvalue()
 
 
