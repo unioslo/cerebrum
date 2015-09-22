@@ -167,6 +167,27 @@ class QuarantineHandler(object):
             spreads)
     check_entity_quarantines = staticmethod(check_entity_quarantines)
 
+    @staticmethod
+    def get_locked_entities(db, entity_types=None, only_active=True,
+                            entity_ids=None):
+        """Utility method that the returns the entity-id of all locked accounts.
+
+        :param db: A database object
+        :param entity_types: Entity types to filter on
+        :param only_active: Only return locked and active quarantines
+        :param entity_ids: Spesific entity-ids to check"""
+        if not entity_ids:
+            eq = Entity.EntityQuarantine(db)
+            entity_ids = [row['entity_id'] for row in
+                          eq.list_entity_quarantines(
+                              entity_types=entity_types,
+                              only_active=only_active,
+                              entity_ids=entity_ids)]
+
+        is_locked = lambda e_id: QuarantineHandler.check_entity_quarantine(
+            db, e_id).is_locked()
+        return filter(is_locked, set(entity_ids))
+
 
 def _test():
     # TODO: This should use the unit-testing framework, and use common
