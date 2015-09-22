@@ -8662,22 +8662,6 @@ Addresses and settings:
 
         entity.delete_entity_quarantine(qconst)
 
-        # Generate notification email if QUARANTINE_NOTIFY is defined,
-        # and contains instructions for removal of this specific quarantine
-        # type.
-        if hasattr(cereconf, 'QUARANTINE_NOTIFY') and \
-           qtype in cereconf.QUARANTINE_NOTIFY and \
-           'remove' in cereconf.QUARANTINE_NOTIFY[qtype]:
-            subject = 'Removal of quarantine %s on %s' % \
-                      (qtype, self._get_name_from_object(entity))
-            body = 'Quarantine %s removed from %s' % \
-                   (qtype, self._get_name_from_object(entity))
-            notify_data = cereconf.QUARANTINE_NOTIFY[qtype]['remove']
-            Utils.sendmail(notify_data['to_addr'],
-                           notify_data['from_addr'],
-                           subject,
-                           body)
-
         return "OK, removed quarantine %s for %s" % (
             qconst, self._get_name_from_object (entity))
 
