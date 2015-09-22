@@ -314,6 +314,7 @@ def check_schema_versions(db, strict=False):
         'password_history': 'Cerebrum.modules.PasswordHistory',
         'posixuser': 'Cerebrum.modules.PosixUser',
         'stedkode': 'Cerebrum.modules.no.Stedkode',
+        'consent': 'Cerebrum.modules.consent.Consent',
     }
     meta = Metainfo.Metainfo(db)
     for name, value in meta.list():
@@ -325,8 +326,8 @@ def check_schema_versions(db, strict=False):
                           "%d.%d.%d" % value))
                 if strict:
                     exit(1)
-        elif name[:10] == 'sqlmodule_':
-            name = name[10:]
+        elif name.startswith('sqlmodule_'):
+            name = name[len('sqlmodule_'):]
             if name not in modules:
                 # print "WARNING: unknown module %s" % name
                 # if strict: exit(1)
