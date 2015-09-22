@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2012, 2013 University of Oslo, Norway
+# Copyright 2012-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -272,7 +272,7 @@ def main():
 
     # Make use of config file settings, if not set otherwise by arguments
     for key, value in adconf.SYNCS[sync_type].iteritems():
-        if not configuration.has_key(key):
+        if key not in configuration:
             configuration[key] = value
 
     sync_class = BaseSync.get_class(classes=sync_classes, sync_type=sync_type)
