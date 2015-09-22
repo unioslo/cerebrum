@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2004 University of Oslo, Norway
+# Copyright 2004-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -50,6 +50,7 @@ class PosixLDIF(object):
         self.db = db
         self.logger = logger
         self.const = Factory.get('Constants')(self.db)
+        self.grp = Factory.get('Group')(self.db)
         self.posuser = Factory.get('PosixUser')(self.db)
         self.posgrp = PosixGroup.PosixGroup(self.db)
         self.user_dn = LDIFutils.ldapconf('USER', 'dn', None)
@@ -67,25 +68,18 @@ class PosixLDIF(object):
         if 'user' not in self.spread_d:
             raise Errors.ProgrammingError(
                 "Must specify spread-value as 'arg' or in cereconf")
-        self.id2uname = {}
-
-        # preload id->name mapping for later. This is potentially somewhat
-        # memory expensive.
-        # FIXME: do id2uname and entity2name have the same content?
-        if self.get_name:
-            self.entity2name = dict([
-                (x["entity_id"], x["entity_name"]) for x in
-                self.posgrp.list_names(self.const.account_namespace)])
-            self.entity2name.update([
-                (x["entity_id"], x["entity_name"]) for x in
-                self.posgrp.list_names(self.const.group_namespace)])
+        self.account2name = dict()
+        self.groupcache = defaultdict(dict)
+        self.group2groups = defaultdict(set)
+        self.group2users = defaultdict(set)
+        self.group2persons = defaultdict(list)
         timer('... done initing PosixLDIF.')
 
     def user_ldif(self, filename=None, auth_meth=None):
         """Generate posix-user."""
         timer = make_timer(self.logger, 'Starting user_ldif...')
-        f = LDIFutils.ldif_outfile('USER', filename, self.fd)
         self.init_user(auth_meth)
+        f = LDIFutils.ldif_outfile('USER', filename, self.fd)
         f.write(LDIFutils.container_entry_string('USER'))
         for row in self.posuser.list_extended_posix_users(
                 self.user_auth,
@@ -100,12 +94,78 @@ class PosixLDIF(object):
     def init_user(self, auth_meth=None):
         timer = make_timer(self.logger, 'Starting init_user...')
         self.get_name = False
+        self.qh = QuarantineHandler(self.db, None)
         self.posuser = Factory.get('PosixUser')(self.db)
         self.load_disk_tab()
         self.load_shell_tab()
         self.load_quaratines()
         self.load_auth_tab(auth_meth)
+        self.cache_account2name()
+        self.id2uname = {}
         timer('... init_user done.')
+
+    def cache_account2name(self):
+        """Cache account_id to username.
+           This one is a bit more lenient that what the self.id2uname
+           dictionary contains, as it blindly adds users with correct
+           spread."""
+        if not self.get_name:
+            return
+        if len(self.account2name) > 0:
+            return
+        timer = make_timer(self.logger, 'Starting cache_account2name...')
+        self.account2name = dict([
+            (x['entity_id'], x['entity_name']) for x in
+            self.posuser.list_names(self.const.account_namespace,
+                                    spreads=self.spread_d['user'])])
+        timer('... done cache_account2name')
+
+    def cache_group2gid(self):
+        timer = make_timer(self.logger, 'Starting cache_group2gid...')
+        self.group2gid = dict()
+        for row in self.posgrp.list_posix_groups():
+            self.group2gid[row['group_id']] = str(row['posix_gid'])
+        timer('... done cache_group2gid')
+
+    def cache_groups_and_users(self, spread):
+        def get_children_not_in_group2groups():
+            children = set()
+            map(children.update, self.group2groups.itervalues())
+            return children.difference(self.group2groups.keys())
+
+        timer = make_timer(self.logger, 'Starting cache_groups_and_users...')
+        for row in self.grp.search_members(member_type=self.const.entity_group,
+                                           spread=spread):
+            self.group2groups[row['group_id']].add(row['member_id'])
+
+        for row in self.grp.search_members(member_type=self.const.entity_account,
+                                           member_spread=self.spread_d['user'][0],
+                                           spread=spread):
+            self.group2users[row['group_id']].add(row['member_id'])
+
+        children_groups = get_children_not_in_group2groups()
+        self.extra_groups = children_groups.copy()
+        while children_groups:
+            for group_id in children_groups:
+                self.group2groups[group_id] = set()
+            for row in self.grp.search_members(member_type=self.const.entity_group,
+                                               group_id=children_groups):
+                member_id = row['member_id']
+                self.group2groups[row['group_id']].add(member_id)
+                self.extra_groups.add(member_id)
+            children_groups = get_children_not_in_group2groups()
+
+        if self.extra_groups:
+            for row in self.grp.search_members(member_type=self.const.entity_account,
+                                               member_spread=self.spread_d['user'][0],
+                                               group_id=self.extra_groups):
+                self.group2users[row['group_id']].add(row['member_id'])
+
+        timer('... done cache_groups_and_users')
+
+    def cache_group2persons(self):
+        """Cache person members in groups. Not used in main module."""
+        pass
 
     def auth_methods(self, auth_meth=None):
         """Which authentication methods to fetch. Mixin-support.
@@ -187,7 +247,7 @@ class PosixLDIF(object):
                 only_active=True,
                 spreads=self.spread_d['user']):
             self.quarantines[int(row['entity_id'])].append(
-                int(row['quarantine_type']))
+                    int(row['quarantine_type']))
         timer('... done load_quaratines')
 
     def user_object(self, row):
@@ -197,17 +257,15 @@ class PosixLDIF(object):
         if row['auth_data']:
             if self.auth_format[self.user_auth]['format']:
                 passwd = self.auth_format[self.user_auth]['format'] % \
-                    row['auth_data']
+                        row['auth_data']
             else:
                 passwd = row['auth_data']
         else:
             for uauth in [x for x in self.a_meth if x in self.auth_format]:
-            #method = int(self.const.auth_type_crypt3_des)
                 try:
-                    #if uauth in self.auth_format.keys():
                     if self.auth_format[uauth]['format']:
                         passwd = self.auth_format[uauth]['format'] % \
-                            self.auth_data[account_id][uauth]
+                                self.auth_data[account_id][uauth]
                     else:
                         passwd = self.auth_data[account_id][uauth]
 
@@ -219,12 +277,12 @@ class PosixLDIF(object):
         else:
             shell = self.shell_tab[int(row['shell'])]
         if account_id in self.quarantines:
-            qh = QuarantineHandler(self.db, self.quarantines[account_id])
-            if qh.should_skip():
+            self.qh.quarantines = self.quarantines[account_id]
+            if self.qh.should_skip():
                 return None, None
-            if qh.is_locked():
+            if self.qh.is_locked():
                 passwd = '{crypt}' + '*Locked'
-            qshell = qh.get_shell()
+            qshell = self.qh.get_shell()
             if qshell is not None:
                 shell = qshell
         try:
@@ -283,17 +341,38 @@ class PosixLDIF(object):
 
         """
         timer = make_timer(self.logger, 'Starting filegroup_ldif...')
-        f = LDIFutils.ldif_outfile('FILEGROUP', filename, self.fd)
-        self.init_filegroup()
         if 'filegroup' not in self.spread_d:
             self.logger.warn("No spread is given for filegroup!")
-        else:
-            f.write(LDIFutils.container_entry_string('FILEGROUP'))
-            for row in self.posgrp.search(spread=self.spread_d['filegroup'],
-                                          filter_expired=False):
-                dn, entry = self.filegroup_object(row)
-                if dn:
-                    f.write(LDIFutils.entry_string(dn, entry, False))
+            return
+
+        self.init_filegroup()
+        timer2 = make_timer(self.logger, 'Caching filegroups...')
+        if self.extra_groups:
+            for row in self.grp.search(group_id=self.extra_groups):
+                self.create_group_object(row['group_id'], row['name'],
+                                         row['description'])
+        for row in self.posgrp.search(spread=self.spread_d['filegroup'],
+                                      filter_expired=False):
+            group_id = row['group_id']
+            self.create_group_object(group_id, row['name'],
+                                     row['description'])
+            self.create_filegroup_object(group_id)
+            self.update_filegroup_entry(group_id)
+        timer2('... done caching groups')
+        timer2 = make_timer(self.logger, 'Adding users and groups...')
+        for group_id, entry in self.filegroupcache.iteritems():
+            users = self.get_users(group_id, set())
+            unames = self.userid2unames(users, group_id)
+            entry['memberUid'] = unames
+        timer2('... done adding users')
+        timer2 = make_timer(self.logger, 'Writing group objects...')
+        f = LDIFutils.ldif_outfile('FILEGROUP', filename, self.fd)
+        f.write(LDIFutils.container_entry_string('FILEGROUP'))
+        for group_id, entry in self.filegroupcache.iteritems():
+            dn = ','.join(('cn=' + entry['cn'], self.fgrp_dn))
+            f.write(LDIFutils.entry_string(dn, entry, False))
+        timer2('... done writing group objects')
+        self.filegroupcache = None
         LDIFutils.end_ldif_outfile('FILEGROUP', f, self.fd)
         timer('... done  filegroup_ldif')
 
@@ -302,126 +381,157 @@ class PosixLDIF(object):
         from Cerebrum.modules import PosixGroup
         self.posgrp = PosixGroup.PosixGroup(self.db)
         self.fgrp_dn = LDIFutils.ldapconf('FILEGROUP', 'dn')
+        self.filegroupcache = defaultdict(dict)
+        self.cache_account2name()
+        self.cache_group2gid()
+        self.cache_groups_and_users(self.spread_d['filegroup'])
 
-    def filegroup_object(self, row):
-        """Create the group-entry attributes"""
-        self.posgrp.clear()
-        try:
-            self.posgrp.find(row["group_id"])
-        except Errors.NotFoundError:
-            self.logger.warn("Group %s has filegroup-spread but lacks posix-data",
-                             row['group_id'])
-            return None, None
-        gname = LDIFutils.iso2utf(self.posgrp.group_name)
-        if int(row["group_id"]) not in self.id2uname:
-            self.id2uname[int(row["group_id"])] = gname
-        members = []
+    def create_filegroup_object(self, group_id):
+        assert group_id not in self.filegroupcache
+        cache = self.groupcache[group_id]
         entry = {'objectClass': ('top', 'posixGroup'),
-                 'cn':          (gname,),
-                 'gidNumber':   (str(int(self.posgrp.posix_gid)),)}
-        if self.posgrp.description:
-            # latin1_to_iso646_60 later
-            entry['description'] = (LDIFutils.iso2utf(self.posgrp.description),)
+                 'cn':          LDIFutils.iso2utf(cache['name']),
+                 'gidNumber':   self.group2gid[group_id],
+                 }
+        if 'description' in cache:
+            entry['description'] = (LDIFutils.iso2utf(cache['description']),)
+        self.filegroupcache[group_id] = entry
 
-        for member_row in self.posgrp.search_members(
-                group_id=self.posgrp.entity_id,
-                indirect_members=True,
-                member_type=self.const.entity_account,
-                member_spread=self.spread_d["user"][0]):
-            uname_id = int(member_row["member_id"])
-            if uname_id not in self.id2uname or self.get_name:
-                # Have find a way to resolve this problem later
-                # Change this to .warn when various _list() functions do
-                # not list expired accounts.
-                self.logger.info("Could not resolve name on account-id: %s",
-                                 uname_id)
-                continue
-            members.append(self.id2uname[uname_id])
-        # There may be duplicates in the resulting sequence
-        entry['memberUid'] = list(set(members))
-        self.update_filegroup_entry(entry, row)
-        dn = ','.join((('cn=' + gname), self.fgrp_dn))
-        return dn, entry
-
-    def update_filegroup_entry(self, entry, row):
+    def update_filegroup_entry(self, group_id):
         """Future use of mixin-classes"""
         pass
 
     def netgroup_ldif(self, filename=None):
         """Generate netgroup with only users."""
+
         timer = make_timer(self.logger, 'Starting netgroup_ldif...')
-        f = LDIFutils.ldif_outfile('NETGROUP', filename, self.fd)
-        self.init_netgroup()
         if 'netgroup' not in self.spread_d:
             self.logger.warn("No valid netgroup-spread in cereconf or arg!")
-        else:
-            f.write(LDIFutils.container_entry_string('NETGROUP'))
-            for row in self.grp.search(spread=self.spread_d['netgroup'],
-                                       filter_expired=False):
-                dn, entry = self.netgroup_object(row)
-                if dn:
-                    f.write(LDIFutils.entry_string(dn, entry, False))
+            return
+
+        self.init_netgroup()
+        f = LDIFutils.ldif_outfile('NETGROUP', filename, self.fd)
+        timer2 = make_timer(self.logger, 'Caching netgroups...')
+        if self.extra_groups:
+            for row in self.grp.search(group_id=self.extra_groups):
+                self.create_group_object(row['group_id'], row['name'],
+                                         row['description'])
+        for row in self.grp.search(spread=self.spread_d['netgroup'],
+                                   filter_expired=False):
+            group_id = row['group_id']
+            self.create_group_object(group_id, row['name'],
+                                     row['description'])
+            self.create_netgroup_object(group_id)
+        timer2('... done caching groups')
+        timer2 = make_timer(self.logger, 'Adding users and groups...')
+        for group_id, entry in self.netgroupcache.iteritems():
+            users, groups = self.get_users_and_groups(group_id, set(), set(),
+                                                      add_persons=True)
+            unames = self.userid2unames(users, group_id)
+            triple = []
+            for uname in unames:
+                if '_' in uname:
+                    continue
+                triple.append('(,%s,)' % uname)
+
+            netgroup = []
+            for g in groups:
+                netgroup.append(self.netgroupcache[g]['cn'])
+
+            entry['nisNetgroupTriple'] = triple
+            entry['memberNisNetgroup'] = netgroup
+        timer2('... done adding users and groups')
+        f.write(LDIFutils.container_entry_string('NETGROUP'))
+        timer2 = make_timer(self.logger, 'Writing group objects...')
+        for group_id, entry in self.netgroupcache.iteritems():
+            dn = ','.join(('cn=' + entry['cn'], self.ngrp_dn))
+            f.write(LDIFutils.entry_string(dn, entry, False))
         LDIFutils.end_ldif_outfile('NETGROUP', f, self.fd)
+        timer2('... done writing group objects')
+        self.netgroupcache = None
         timer('... done netgroup_ldif')
 
-    def init_netgroup(self):
-        """Initiate modules and constants."""
-        self.ngrp_dn = LDIFutils.ldapconf('NETGROUP', 'dn')
-        self.grp = Factory.get('Group')(self.db)
+    def get_users_and_groups(self, group_id, users, groups, add_persons=False):
+        """Recursive method to get members and groups in a group."""
+        users.update(self.group2users[group_id])
+        if add_persons:
+            if group_id in self.group2persons:
+                users.update(self.group2persons[group_id])
 
-    def netgroup_object(self, row):
-        """Generate netgroup objects."""
-        self._gmemb = {}
-        self.grp.clear()
-        group_id = int(row['group_id'])
-        self.grp.find(group_id)
-        netgrp_name = LDIFutils.iso2utf(self.grp.group_name)
+        for g_id in self.group2groups[group_id]:
+            assert g_id in self.groupcache, "g_id %s in group_id %s missing" % \
+                (g_id, group_id)
+            if g_id in self.netgroupcache:
+                groups.add(g_id)
+            else:
+                users, groups = self.get_users_and_groups(g_id, users, groups,
+                                                          add_persons)
+
+        return users, groups
+
+    def get_users(self, group_id, users, add_persons=False):
+        """Recursive method to get members from a group."""
+        users.update(self.group2users[group_id])
+        if add_persons:
+            if group_id in self.group2persons:
+                users.update(self.group2persons[group_id])
+
+        for g_id in self.group2groups[group_id]:
+            assert g_id in self.groupcache, "g_id %s in group_id %s missing" % \
+                (g_id, group_id)
+            users = self.get_users(g_id, users)
+
+        return users
+
+    def create_netgroup_object(self, group_id):
+        assert group_id not in self.netgroupcache
+        cache = self.groupcache[group_id]
         entry = {'objectClass':       ('top', 'nisNetGroup'),
-                 'cn':                (netgrp_name,),
-                 'nisNetgroupTriple': [],
-                 'memberNisNetgroup': []}
-        if group_id not in self.id2uname:
-            self.id2uname[group_id] = netgrp_name
-        if self.grp.description:
-            entry['description'] = (
-                latin1_to_iso646_60(self.grp.description).rstrip(),)
-        self.get_netgrp(entry['nisNetgroupTriple'], entry['memberNisNetgroup'])
-        dn = ','.join((('cn=' + netgrp_name), self.ngrp_dn))
-        return dn, entry
+                 'cn':  LDIFutils.iso2utf(cache['name'],)
+                 }
+        if 'description' in cache:
+            entry['description'] = \
+                latin1_to_iso646_60(cache['description']).rstrip(),
+        self.netgroupcache[group_id] = entry
 
-    def get_netgrp(self, triples, memgrp):
-        """Recursive method to get members and groups in netgroup."""
-        for row in self.grp.search_members(
-                group_id=self.grp.entity_id,
-                member_spread=self.spread_d["user"][0],
-                member_type=self.const.entity_account):
+    def init_netgroup(self):
+        """Initiate modules, constants and cache"""
+        self.ngrp_dn = LDIFutils.ldapconf('NETGROUP', 'dn')
+        self.cache_account2name() 
+        self.cache_groups_and_users(self.spread_d['netgroup'])
+        self.cache_group2persons()
+        self.netgroupcache = defaultdict(dict)
+
+    def create_group_object(self, group_id, name, description):
+        if group_id in self.groupcache:
+            return
+
+        self.groupcache[group_id] = {'name': name}
+
+        if description:
+            self.groupcache[group_id]['description'] = description
+
+    def userid2unames(self, users, group_id):
+        unames = []
+        for user_id in users:
             if self.get_name:
-                uname_id, uname = (int(row["member_id"]),
-                                   self.entity2name[int(row["member_id"])])
-            else:
-                uname_id = int(row["member_id"])
                 try:
-                    uname = self.id2uname[uname_id]
+                    uname = self.account2name[user_id]
                 except:
-                    self.logger.warn("Cache enabled but user id=%s not found",
-                                     uname_id)
+                    self.logger.info("account2name user id=%s in "
+                                     "group id=%s not found",
+                                     user_id, group_id)
                     continue
-
-            if uname_id in self._gmemb or "_" in uname:
-                continue
-            triples.append("(,%s,)" % uname)
-            self._gmemb[uname_id] = True
-
-        for row in self.grp.search_members(group_id=self.grp.entity_id,
-                                           member_type=self.const.entity_group):
-            self.grp.clear()
-            self.grp.entity_id = int(row["member_id"])
-            if filter(self.grp.has_spread, self.spread_d['netgroup']):
-                name = self.entity2name[int(row["member_id"])]
-                memgrp.append(LDIFutils.iso2utf(name))
             else:
-                self.get_netgrp(triples, memgrp)
-
+                try:
+                    uname = self.id2uname[user_id]
+                except:
+                    self.logger.info("Cache enabled but user id=%s in "
+                                     "group id=%s not found",
+                                     user_id, group_id)
+                    continue
+            unames.append(uname)
+        return unames
 
 class PosixLDIFRadius(PosixLDIF):
     """ General mixin for Radius type attributes. """
@@ -441,8 +551,8 @@ class PosixLDIFRadius(PosixLDIF):
         else:
             skip = False
             if account_id in self.quarantines:
-                qh = QuarantineHandler(self.db, self.quarantines[account_id])
-                if qh.should_skip() or qh.is_locked():
+                self.qh.quarantines = self.quarantines[account_id]
+                if self.qh.should_skip() or self.qh.is_locked():
                     skip = True
             if not skip:
                 entry['sambaNTPassword'] = (hash,)
