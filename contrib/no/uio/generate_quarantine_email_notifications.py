@@ -43,7 +43,6 @@ Usage: %s [options]
 
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
-en = Factory.get('Entity')(db)
 ac = Factory.get('Account')(db)
 cl = CLHandler.CLHandler(db)
 
@@ -96,7 +95,7 @@ def check_changelog_for_quarantine_triggers(logger, debug):
                     if debug:
                         logger.debug('Mail output for change-ID %d:'
                                      % event_info['change_id'])
-                        logger.debug(generate_mail_notification(event_info))
+                        logger.debug(generate_mail_notification(event_info, debug))
                     else:
                         generate_mail_notification(event_info)
                         logger.info('Email for change-ID: %d generated.'
@@ -115,7 +114,7 @@ def check_changelog_for_quarantine_triggers(logger, debug):
             cl.commit_confirmations()
 
 
-def generate_mail_notification(event_info, debug):
+def generate_mail_notification(event_info, debug=False):
     if event_info['change_type'] == 'quarantine:mod':
         event_type = 'altered'
     elif event_info['change_type'] == 'quarantine:add':
