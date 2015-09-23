@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2012 University of Oslo, Norway
+# Copyright 2002-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -487,8 +487,8 @@ def gpgme_encrypt(message, recipient_key_id=None):
     fingerprint (recommended): (f.i.'78D9E8FEB39594D4EAB7A9B85B17D23FFEAC69E4')
     """
     if recipient_key_id is None and hasattr(cereconf,
-                                            'AD_PASSWORD_GPG_RECIPIENT_ID'):
-        recipient_key_id = cereconf.AD_PASSWORD_GPG_RECIPIENT_ID
+                                            'PASSWORD_GPG_RECIPIENT_ID'):
+        recipient_key_id = cereconf.PASSWORD_GPG_RECIPIENT_ID
     context = gpgme.Context()
     context.armor = True
     recipient_key = context.get_key(recipient_key_id)
