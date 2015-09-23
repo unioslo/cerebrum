@@ -1021,8 +1021,8 @@ class BofhdAuth(DatabaseAccessor):
             raise PermissionDenied('Not allowed to set automatic quarantine')
         if self.is_superuser(operator):
             return True
-        #if str(qtype) in getattr(cereconf, 'QUARANTINE_AUTOMATIC', ()):
-        #    raise PermissionDenied('Not allowed to set automatic quarantine')
+        if str(qtype) in getattr(cereconf, 'QUARANTINE_AUTOMATIC', ()):
+            raise PermissionDenied('Not allowed to set automatic quarantine')
         for row in self._list_target_permissions(
                 operator, self.const.auth_quarantine_set,
                 self.const.auth_target_type_global_host,
