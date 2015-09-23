@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002-2006, 2009 University of Oslo, Norway
+# Copyright 2002-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -959,7 +959,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         # criteria.
         try:
             password_str = self.__plaintext_password
-            if hasattr(cereconf, 'AD_PASSWORD_GPG_RECIPIENT_ID'):
+            if hasattr(cereconf, 'PASSWORD_GPG_RECIPIENT_ID'):
                 password_str = gpgme_encrypt(self.__plaintext_password)
         except AttributeError:
             # TODO: this is meant to catch that self.__plaintext_password is
