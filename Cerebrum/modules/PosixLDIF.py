@@ -127,7 +127,7 @@ class PosixLDIF(object):
             self.group2gid[row['group_id']] = str(row['posix_gid'])
         timer('... done cache_group2gid')
 
-    def cache_groups_and_users(self, spread):
+    def cache_groups_and_users(self):
         if len(self.group2groups) or len(self.group2users):
             return
 
@@ -392,7 +392,7 @@ class PosixLDIF(object):
         self.filegroupcache = defaultdict(dict)
         self.cache_account2name()
         self.cache_group2gid()
-        self.cache_groups_and_users(self.spread_d['filegroup'])
+        self.cache_groups_and_users()
 
     def create_filegroup_object(self, group_id):
         assert group_id not in self.filegroupcache
@@ -514,7 +514,7 @@ class PosixLDIF(object):
         """Initiate modules, constants and cache"""
         self.ngrp_dn = LDIFutils.ldapconf('NETGROUP', 'dn')
         self.cache_account2name() 
-        self.cache_groups_and_users(self.spread_d['netgroup'])
+        self.cache_groups_and_users()
         self.cache_group2persons()
         self.netgroupcache = defaultdict(dict)
 
