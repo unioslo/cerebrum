@@ -28,6 +28,7 @@ import mx
 from collections import defaultdict
 
 from Cerebrum import Errors
+from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.modules import Email
 from Cerebrum.Utils import Factory, mark_update
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
@@ -296,27 +297,25 @@ class EmailLDAP(DatabaseAccessor):
         else:
             return list(member_addrs)
 
-
     def read_target_auth_data(self):
         a = Factory.get('Account')(self._db)
         # For the time being, remove passwords for all quarantined
         # accounts, regardless of quarantine type.
-        quarantines = {}
-        now = mx.DateTime.now()
-        for row in a.list_entity_quarantines(
-                only_active=True,
-                entity_types = self.const.entity_account):
-            quarantines[int(row['entity_id'])] = "*locked"
+        quarantines = dict([(x, "*locked") for x in
+                            QuarantineHandler.get_locked_entities(
+                            self._db, entity_types=self.const.entity_account)])
         for row in a.list_account_authentication():
             a_id = int(row['account_id'])
             self.e_id2passwd[a_id] = quarantines.get(a_id) or row['auth_data']
-        for row in a.list_account_authentication(self.const.auth_type_crypt3_des):
+        for row in a.list_account_authentication(
+                self.const.auth_type_crypt3_des):
             # *sigh* Special-cases do exist. If a user is created when the
             # above for-loop runs, this loop gets a row more. Before I ignored
             # this, and the whole thing went BOOM on me.
             a_id = int(row['account_id'])
             if not self.e_id2passwd.get(a_id, 0):
-                self.e_id2passwd[a_id] = quarantines.get(a_id) or row['auth_data']
+                self.e_id2passwd[a_id] = (quarantines.get(a_id) or
+                                          row['auth_data'])
 
 
     def read_misc_target(self):
