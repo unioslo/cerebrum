@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002-2006, 2009 University of Oslo, Norway
+# Copyright 2002-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -36,12 +36,17 @@ import hashlib
 import base64
 
 from Cerebrum import Utils, Disk
-from Cerebrum.Entity import EntityName, EntityQuarantine, \
-    EntityContactInfo, EntityExternalId, EntitySpread
+from Cerebrum.Entity import (EntityName,
+                             EntityQuarantine,
+                             EntityContactInfo,
+                             EntityExternalId,
+                             EntitySpread)
 from Cerebrum.modules import PasswordChecker, PasswordHistory
 from Cerebrum import Errors
-from Cerebrum.Utils import NotSet
-from Cerebrum.Utils import argument_to_sql, prepare_string
+from Cerebrum.Utils import (NotSet,
+                            argument_to_sql,
+                            prepare_string,
+                            gpgme_encrypt)
 
 import cereconf
 
@@ -932,7 +937,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                     ('np_type', ':np_type'),
                     ('creator_id', ':c_id'),
                     ('expire_date', ':exp_date')]
-
             self.execute("""
             UPDATE [:table schema=cerebrum name=account_info]
             SET %(defs)s
@@ -949,13 +953,14 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             if 'account_name' in self.__updated:
                 self.update_entity_name(self.const.account_namespace,
                                         self.account_name)
-
         # We store the plaintext password in the changelog so that
         # other systems that need it may get it.  The changelog
         # handler should remove the plaintext password using some
         # criteria.
         try:
-            plain = self.__plaintext_password
+            password_str = self.__plaintext_password
+            if hasattr(cereconf, 'PASSWORD_GPG_RECIPIENT_ID'):
+                password_str = gpgme_encrypt(self.__plaintext_password)
         except AttributeError:
             # TODO: this is meant to catch that self.__plaintext_password is
             # unset
@@ -963,9 +968,10 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         else:
             # self.__plaintext_password is set.  Put the value in the
             # changelog.
-            self._db.log_change(self.entity_id, self.const.account_password,
-                                None, change_params={'password': plain})
-
+            self._db.log_change(self.entity_id,
+                                self.const.account_password,
+                                None,
+                                change_params={'password': password_str})
         # Store the authentication data.
         for k in self._acc_affect_auth_types:
             k = int(k)
