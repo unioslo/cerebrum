@@ -177,18 +177,19 @@ class QuarantineHandler(object):
         :param only_active: Only return locked and active quarantines
         :param entity_ids: Spesific entity-ids to check
         :param ignore_quarantine_types: Quarantines to ignore"""
-        if not entity_ids:
-            eq = Entity.EntityQuarantine(db)
-            entity_ids = [row['entity_id'] for row in
-                          eq.list_entity_quarantines(
-                              entity_types=entity_types,
-                              only_active=only_active,
-                              entity_ids=entity_ids,
-                              ignore_quarantine_types=ignore_quarantine_types)]
+        cache = {}
+        eq = Entity.EntityQuarantine(db)
+        for row in eq.list_entity_quarantines(
+                entity_types=entity_types,
+                only_active=only_active,
+                entity_ids=entity_ids,
+                ignore_quarantine_types=ignore_quarantine_types):
+            cache.setdefault(row['entity_id'], []).append(
+                row['quarantine_type'])
 
-        is_locked = lambda e_id: QuarantineHandler.check_entity_quarantine(
-            db, e_id).is_locked()
-        return filter(is_locked, set(entity_ids))
+        is_locked = lambda key: QuarantineHandler(db,
+                                                  cache.get(key)).is_locked()
+        return set(filter(is_locked, cache.keys()))
 
 
 def _test():
