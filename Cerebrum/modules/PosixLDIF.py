@@ -128,12 +128,23 @@ class PosixLDIF(object):
         timer('... done cache_group2gid')
 
     def cache_groups_and_users(self, spread):
+        if len(self.group2groups) or len(self.group2users):
+            return
+
         def get_children_not_in_group2groups():
             children = set()
             map(children.update, self.group2groups.itervalues())
             return children.difference(self.group2groups.keys())
 
         timer = make_timer(self.logger, 'Starting cache_groups_and_users...')
+
+        spread = []
+        for s in ('filegroup', 'netgroup'):
+            if s in self.spread_d:
+                spread += self.spread_d[s]
+
+        assert spread
+
         for row in self.grp.search_members(member_type=self.const.entity_group,
                                            spread=spread):
             self.group2groups[row['group_id']].add(row['member_id'])
@@ -144,7 +155,7 @@ class PosixLDIF(object):
             self.group2users[row['group_id']].add(row['member_id'])
 
         children_groups = get_children_not_in_group2groups()
-        self.extra_groups = children_groups.copy()
+        extra_groups = children_groups.copy()
         while children_groups:
             for group_id in children_groups:
                 self.group2groups[group_id] = set()
@@ -152,13 +163,13 @@ class PosixLDIF(object):
                                                group_id=children_groups):
                 member_id = row['member_id']
                 self.group2groups[row['group_id']].add(member_id)
-                self.extra_groups.add(member_id)
+                extra_groups.add(member_id)
             children_groups = get_children_not_in_group2groups()
 
-        if self.extra_groups:
+        if extra_groups:
             for row in self.grp.search_members(member_type=self.const.entity_account,
                                                member_spread=self.spread_d['user'][0],
-                                               group_id=self.extra_groups):
+                                               group_id=extra_groups):
                 self.group2users[row['group_id']].add(row['member_id'])
 
         timer('... done cache_groups_and_users')
@@ -347,10 +358,6 @@ class PosixLDIF(object):
 
         self.init_filegroup()
         timer2 = make_timer(self.logger, 'Caching filegroups...')
-        if self.extra_groups:
-            for row in self.grp.search(group_id=self.extra_groups):
-                self.create_group_object(row['group_id'], row['name'],
-                                         row['description'])
         for row in self.posgrp.search(spread=self.spread_d['filegroup'],
                                       filter_expired=False):
             group_id = row['group_id']
@@ -358,7 +365,8 @@ class PosixLDIF(object):
                                      row['description'])
             self.create_filegroup_object(group_id)
             self.update_filegroup_entry(group_id)
-        timer2('... done caching groups')
+        timer2('... done caching filegroups')
+        self.cache_uncached_children()
         timer2 = make_timer(self.logger, 'Adding users and groups...')
         for group_id, entry in self.filegroupcache.iteritems():
             users = self.get_users(group_id, set())
@@ -410,19 +418,15 @@ class PosixLDIF(object):
             return
 
         self.init_netgroup()
-        f = LDIFutils.ldif_outfile('NETGROUP', filename, self.fd)
         timer2 = make_timer(self.logger, 'Caching netgroups...')
-        if self.extra_groups:
-            for row in self.grp.search(group_id=self.extra_groups):
-                self.create_group_object(row['group_id'], row['name'],
-                                         row['description'])
         for row in self.grp.search(spread=self.spread_d['netgroup'],
                                    filter_expired=False):
             group_id = row['group_id']
             self.create_group_object(group_id, row['name'],
                                      row['description'])
             self.create_netgroup_object(group_id)
-        timer2('... done caching groups')
+        timer2('... done caching filegroups')
+        self.cache_uncached_children()
         timer2 = make_timer(self.logger, 'Adding users and groups...')
         for group_id, entry in self.netgroupcache.iteritems():
             users, groups = self.get_users_and_groups(group_id, set(), set(),
@@ -441,8 +445,9 @@ class PosixLDIF(object):
             entry['nisNetgroupTriple'] = triple
             entry['memberNisNetgroup'] = netgroup
         timer2('... done adding users and groups')
-        f.write(LDIFutils.container_entry_string('NETGROUP'))
         timer2 = make_timer(self.logger, 'Writing group objects...')
+        f = LDIFutils.ldif_outfile('NETGROUP', filename, self.fd)
+        f.write(LDIFutils.container_entry_string('NETGROUP'))
         for group_id, entry in self.netgroupcache.iteritems():
             dn = ','.join(('cn=' + entry['cn'], self.ngrp_dn))
             f.write(LDIFutils.entry_string(dn, entry, False))
@@ -450,6 +455,17 @@ class PosixLDIF(object):
         timer2('... done writing group objects')
         self.netgroupcache = None
         timer('... done netgroup_ldif')
+    
+    def cache_uncached_children(self):
+        timer = make_timer(self.logger, 'Starting cache_uncached_children...')
+        children = set()
+        map(children.update, self.group2groups.itervalues())
+        extra = children.difference(self.groupcache.keys())
+        if extra:
+            for row in self.grp.search(group_id=extra):
+                self.create_group_object(row['group_id'], row['name'],
+                                         row['description'])
+        timer('... done cache_uncached_children')
 
     def get_users_and_groups(self, group_id, users, groups, add_persons=False):
         """Recursive method to get members and groups in a group."""
