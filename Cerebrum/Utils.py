@@ -489,6 +489,9 @@ def gpgme_encrypt(message, recipient_key_id=None):
     if recipient_key_id is None and hasattr(cereconf,
                                             'PASSWORD_GPG_RECIPIENT_ID'):
         recipient_key_id = cereconf.PASSWORD_GPG_RECIPIENT_ID
+    if hasattr(cereconf, 'PASSWORD_GNUPGHOME') and cereconf.PASSWORD_GNUPGHOME:
+        # use alternative GNUPGHOME
+        os.environ['GNUPGHOME'] = cereconf.PASSWORD_GNUPGHOME
     context = gpgme.Context()
     context.armor = True
     recipient_key = context.get_key(recipient_key_id)
@@ -515,6 +518,9 @@ def gpgme_decrypt(ciphertext):
     ciphertext (encrypted message) automatically from the local
     GnuPG keydatabase situated in $GNUPGHOME of the active (Cerebrum) user.
     """
+    if hasattr(cereconf, 'PASSWORD_GNUPGHOME') and cereconf.PASSWORD_GNUPGHOME:
+        # use alternative GNUPGHOME
+        os.environ['GNUPGHOME'] = cereconf.PASSWORD_GNUPGHOME
     context = gpgme.Context()
     ciphertext = BytesIO(ciphertext)
     plaintext = BytesIO()
