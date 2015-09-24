@@ -17,9 +17,16 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from Cerebrum.modules.OrgLDIF import *
+import re
 import pickle
 import os.path
+
+import cereconf
+
+from Cerebrum.modules.OrgLDIF import OrgLDIF
+from Cerebrum.modules.LDIFutils import (
+    ldapconf, normalize_string, verify_IA5String, normalize_IA5String, iso2utf,
+    hex_escape_match, dn_escape_re)
 
 
 class norEduLDIFMixin(OrgLDIF):
@@ -89,7 +96,6 @@ class norEduLDIFMixin(OrgLDIF):
         if not self.homeOrg and self.FEIDE_schema_version >= '1.6':
             # Is this neccessary? We should have this for everyone anyway.
             raise ValueError("HomeOrg is mandatory in schema ver 1.6")
-
 
     def update_org_object_entry(self, entry):
         # Changes from superclass:
@@ -387,24 +393,34 @@ class norEduLDIFMixin(OrgLDIF):
         if not uname:
             return
 
-        # Prior to norEdu 1.5.1, fnr is mandatory
-        if self.FEIDE_schema_version <= '1.5' and fnr:
+        entry['eduPersonPrincipalName'] = '%s@%s' % (uname[0], self.homeOrg)
+
+        # Prior to norEdu 1.5.1, fnr is mandatory for norEduPerson
+        if fnr or self.FEIDE_schema_version >= '1.5.1':
             entry['objectClass'].append('norEduPerson')
-            if self.FEIDE_schema_version >= '1.5':
-                entry['displayName'] = entry['norEduPersonLegalName'] = entry['cn']
+            entry['displayName'] = entry['norEduPersonLegalName'] = entry['cn']
             entry['norEduPersonNIN'] = (str(fnr),)
 
             if birth_date:
                 entry['norEduPersonBirthDate'] = ("%04d%02d%02d" % (
                     birth_date.year, birth_date.month, birth_date.day),)
-        elif self.FEIDE_schema_version >= '1.5.1':
-            entry['objectClass'].append('norEduPerson')
-            entry['displayName'] = entry['norEduPersonLegalName'] = entry['cn']
 
             if fnr:
                 entry['norEduPersonNIN'] = (str(fnr),)
 
-            if birth_date:
-                entry['norEduPersonBirthDate'] = ("%04d%02d%02d" % (
-                    birth_date.year, birth_date.month, birth_date.day),)
-        entry['eduPersonPrincipalName'] = '%s@%s' % (uname[0], self.homeOrg)
+            # norEdu 1.6 introduces two-factor auth:
+            if self.FEIDE_schema_version >= '1.6':
+                self.update_person_authn(entry, person_id)
+
+    def update_person_authn(self, entry, person_id):
+        """ Add authentication info to the entry.
+
+        This method should be overridden to provide the LDAP attributes
+        'norEduPersonAuthnMethod' and 'norEduPersonServiceAuthnLevel', which
+        was introduced in the norEdu 1.6 specification.
+
+        :param dict entry: The person entry to update
+        :param int person_id: The Cerebrum entity_id of the person.
+
+        """
+        pass

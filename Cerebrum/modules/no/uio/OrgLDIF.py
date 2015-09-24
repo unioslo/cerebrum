@@ -20,7 +20,14 @@
 import re
 import pickle
 from os.path import join as join_paths
-from Cerebrum.modules.no.OrgLDIF import *
+from collections import defaultdict
+
+import cereconf
+
+from Cerebrum.modules.no.OrgLDIF import norEduLDIFMixin
+from Cerebrum.modules.OrgLDIF import postal_escape_re
+from Cerebrum.modules.LDIFutils import (
+    ldapconf, normalize_string, hex_escape_match, iso2utf)
 
 # Replace these characters with spaces in OU RDNs.
 ou_rdn2space_re = re.compile('[#\"+,;<>\\\\=\0\\s]+')
