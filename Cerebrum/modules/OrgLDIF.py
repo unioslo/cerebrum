@@ -24,7 +24,7 @@ from collections import defaultdict
 
 import cereconf
 from Cerebrum import Entity
-from Cerebrum.Utils import Factory, auto_super
+from Cerebrum.Utils import Factory, auto_super, make_timer
 from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.modules.LDIFutils import *
 
@@ -60,7 +60,7 @@ class OrgLDIF(object):
     __metaclass__ = auto_super
 
     def __init__(self, db, logger):
-        cereconf.make_timer = self.make_timer
+        cereconf.make_timer = make_timer
         self.db = db
         self.logger = logger
         self.const = Factory.get('Constants')(db)
@@ -119,7 +119,7 @@ class OrgLDIF(object):
     def init_ou_structure(self):
         # Set self.ou_tree = dict {parent ou_id: [child ou_id, ...]}
         # where the root OUs have parent id None.
-        timer = self.make_timer("Fetching OU tree...")
+        timer = make_timer(self.logger, "Fetching OU tree...")
         self.ou.clear()
         ou_list = self.ou.get_structure_mappings(
             self.const.OUPerspective(cereconf.LDAP_OU['perspective']))
@@ -205,7 +205,7 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         if not self.ou_dn:
             return
         self.init_ou_dump()
-        timer = self.make_timer("Processing OUs...")
+        timer = make_timer(self.logger, "Processing OUs...")
         if self.ou_dn != self.org_dn:
             outfile.write(container_entry_string('OU'))
         self.generate_dummy_ou(outfile)
@@ -381,7 +381,7 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         self.accounts = accounts = []
         self.person_cache = person_cache = {}
         self.persons = []
-        timer = self.make_timer("Caching persons and accounts...")
+        timer = make_timer(self.logger, "Caching persons and accounts...")
         for row in self.list_persons():
             accounts.append(row['account_id'])
             person_cache[row['person_id']] = {'account_id': row['account_id'],
@@ -417,7 +417,7 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
 
     def init_person_affiliations(self):
         # Set self.affiliations = dict {person_id: [(aff, status, ou_id), ...]}
-        timer = self.make_timer("Fetching personal affiliations...")
+        timer = make_timer(self.logger, "Fetching personal affiliations...")
         self.affiliations = affiliations = defaultdict(list)
         source = cereconf.LDAP_PERSON['affiliation_source_system']
         if source is not None:
@@ -438,7 +438,7 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
 
     def init_person_names(self):
         # Set self.person_names = dict {person_id: {name_variant: name}}
-        timer = self.make_timer("Fetching personal names...")
+        timer = make_timer(self.logger, "Fetching personal names...")
         self.person_names = person_names = defaultdict(dict)
         for row in self.person.search_person_names(
                 name_variant=[self.const.name_full,
@@ -452,7 +452,7 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
 
     def init_person_titles(self):
         # Set self.person_titles = dict {person_id: [(language,title),...]}
-        timer = self.make_timer("Fetching personal titles...")
+        timer = make_timer(self.logger, "Fetching personal titles...")
         titles = {}
         fill = {
             int(self.const.personal_title): dict.__setitem__,
@@ -473,8 +473,8 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         # Set self.acc_passwd      = dict {account_id: password hash}.
         # Set self.acc_quarantines = dict {account_id: [quarantine list]}.
         # Set acc_locked_quarantines = acc_quarantines or separate dict
-        timer = self.make_timer("Fetching account information...")
-        timer2 = self.make_timer()
+        timer = make_timer(self.logger, "Fetching account information...")
+        timer2 = make_timer(self.logger)
         self.acc_name = acc_name = {}
         self.acc_passwd = {}
         self.acc_locked_quarantines = self.acc_quarantines = acc_quarantines = defaultdict(list)
@@ -516,7 +516,7 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         # Set self.account_mail = None if not use_mail_module, otherwise
         #                         function: account_id -> ('address' or None).
         if use_mail_module:
-            timer = self.make_timer("Fetching account e-mail addresses...")
+            timer = make_timer(self.logger, "Fetching account e-mail addresses...")
             # We don't want to import this if mod_email isn't present.
             from Cerebrum.modules.Email import EmailDomain, EmailTarget
             etarget = EmailTarget(self.db)
@@ -539,7 +539,7 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
 
     def init_person_addresses(self):
         # Set self.addr_info = dict {person_id: {address_type: (addr. data)}}.
-        timer = self.make_timer("Fetching personal addresses...")
+        timer = make_timer(self.logger, "Fetching personal addresses...")
         self.addr_info = addr_info = {}
         addr_types = cereconf.LDAP_PERSON['address_types']
         for row in self.person.list_entity_addresses(
@@ -577,8 +577,8 @@ from None and LDAP_PERSON['dn'].""")
         self.init_person_dump(use_mail_module)
         if self.person_parent_dn not in (None, self.org_dn):
             outfile.write(container_entry_string('PERSON'))
-        timer = self.make_timer("Processing persons...")
-        round_timer = self.make_timer()
+        timer = make_timer(self.logger, "Processing persons...")
+        round_timer = make_timer(self.logger)
         round = 0
         for person_id, row in self.person_cache.iteritems():
             if round % 10000 == 0:
@@ -1089,16 +1089,3 @@ from None and LDAP_PERSON['dn'].""")
                 if not got_given:
                     given.extend(full)
         return [u' '.join(n).encode('utf-8') for n in given, last]
-
-    def make_timer(self, msg=None):
-        # t = make_timer(message) logs the message and starts a stop watch.
-        # t(message) logs that message and #seconds since last message.
-        def timer(msg):
-            prev = timer.start
-            timer.start = time.time()
-            self.logger.debug("%s (%d seconds)", msg, timer.start - prev)
-        if msg:
-            self.logger.debug(msg)
-        timer.start = time.time()
-        return timer
-

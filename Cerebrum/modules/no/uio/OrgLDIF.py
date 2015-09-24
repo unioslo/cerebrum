@@ -21,6 +21,7 @@ import re
 import pickle
 from os.path import join as join_paths
 from Cerebrum.modules.no.OrgLDIF import *
+from Cerebrum.Utils import make_timer
 
 # Replace these characters with spaces in OU RDNs.
 ou_rdn2space_re = re.compile('[#\"+,;<>\\\\=\0\\s]+')
@@ -138,14 +139,14 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
 
     def init_person_course(self):
         """Populate dicts with a person's course information."""
-        timer = self.make_timer("Processing person courses...")
+        timer = make_timer(self.logger, 'Processing person courses...')
         self.ownerid2urnlist = pickle.load(file(
             join_paths(ldapconf(None, 'dump_dir'), "ownerid2urnlist.pickle")))
         timer("...person courses done.")
 
     def init_person_groups(self):
         """Populate dicts with a person's group information."""
-        timer = self.make_timer("Processing person groups...")
+        timer = make_timer(self.logger, 'Processing person groups...')
         self.person2group = pickle.load(file(
             join_paths(ldapconf(None, 'dump_dir'), "personid2group.pickle")))
         timer("...person groups done.")
@@ -161,7 +162,7 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
     def init_person_titles(self):
         # Change from original: Search titles first by system_lookup_order,
         # then within each system let personal title override work title.
-        timer = self.make_timer("Fetching personal titles...")
+        timer = make_timer(self.logger, 'Fetching personal titles...')
         titles = defaultdict(dict)
         for name_type in (self.const.personal_title, self.const.work_title):
             for row in self.person.search_name_with_language(
@@ -331,7 +332,7 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
 
     def init_person_office365_consents(self):
         """ Fetch the IDs of persons who have consented to being exported to Office 365. """
-        timer = self.make_timer('Fetching Office 365 consents...')
+        timer = make_timer(self.logger, 'Fetching Office 365 consents...')
         consents = self.person.list_consents(consent_code=self.const.consent_office365)
         self.office365_consents = set([c['entity_id'] for c in consents])
         timer('...Office 365 consents done.')
