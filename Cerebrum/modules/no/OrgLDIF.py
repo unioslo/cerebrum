@@ -35,7 +35,7 @@ class norEduLDIFMixin(OrgLDIF):
     Either add 'Cerebrum.modules.no.Stedkode/Stedkode' to cereconf.CLASS_OU
     or override get_orgUnitUniqueID() in a cereconf.CLASS_ORGLDIF mixin.
 
-    cereconf.LDAP['FEIDE_schema_version']: '1.1' (current default) to '1.3'.
+    cereconf.LDAP['FEIDE_schema_version']: '1.5' (current default) to '1.5.1'.
     If it is a sequence of two versions, use the high version but
     include obsolete attributes from the low version.  This may be
     useful in a transition stage between schema versions.
@@ -49,48 +49,28 @@ class norEduLDIFMixin(OrgLDIF):
     extensibleObject = (cereconf.LDAP.get('use_extensibleObject', True)
                         and 'extensibleObject') or None
 
-    FEIDE_schema_version = cereconf.LDAP.get('FEIDE_schema_version', '1.1')
+    FEIDE_schema_version = cereconf.LDAP.get('FEIDE_schema_version', '1.5')
     FEIDE_obsolete_version = cereconf.LDAP.get('FEIDE_obsolete_schema_version')
 
     if isinstance(FEIDE_schema_version, (tuple, list)):
         FEIDE_obsolete_version = min(*FEIDE_schema_version)
         FEIDE_schema_version = max(*FEIDE_schema_version)
 
-    if FEIDE_schema_version == '1.1':
-        FEIDE_attr_org_id = 'norEduOrgUniqueNumber'
-        FEIDE_attr_ou_id = 'norEduOrgUnitUniqueNumber'
-    else:
-        FEIDE_attr_org_id = 'norEduOrgUniqueIdentifier'
-        FEIDE_attr_ou_id = 'norEduOrgUnitUniqueIdentifier'
+    FEIDE_attr_org_id = 'norEduOrgUniqueIdentifier'
+    FEIDE_attr_ou_id = 'norEduOrgUnitUniqueIdentifier'
 
     FEIDE_class_obsolete = None
     if FEIDE_obsolete_version:
-        if FEIDE_schema_version >= '1.4':
-            FEIDE_class_obsolete = 'norEduObsolete'
-        elif FEIDE_obsolete_version <= '1.1' < FEIDE_schema_version:
-            FEIDE_class_obsolete = extensibleObject
-        if not FEIDE_class_obsolete:
-            raise ValueError(
-                "cereconf.LDAP: "
-                "'FEIDE_schema_version' of '1.3' needs 'use_extensibleObject'")
+        FEIDE_class_obsolete = 'norEduObsolete'
 
     def __init__(self, db, logger):
         self.__super.__init__(db, logger)
-        try:
-            orgnum = int(cereconf.DEFAULT_INSTITUSJONSNR)
-        except (AttributeError, TypeError):
-            self.norEduOrgUniqueID = None
-            if self.FEIDE_schema_version < '1.4':
-                raise
-        else:
-            # Note: 000 = Norway in FEIDE.
-            self.norEduOrgUniqueID = ("000%05d" % orgnum,)
+        orgnum = int(cereconf.DEFAULT_INSTITUSJONSNR)
+        # Note: 000 = Norway in FEIDE.
+        self.norEduOrgUniqueID = ("000%05d" % orgnum,)
         self.FEIDE_ou_common_attrs = {}
-        if (self.FEIDE_obsolete_version or self.FEIDE_schema_version) == '1.1':
-            self.FEIDE_ou_common_attrs = {
-                'norEduOrgUniqueNumber': self.norEduOrgUniqueID}
         # '@<security domain>' for the eduPersonPrincipalName attribute.
-        self.eduPPN_domain = '@' + cereconf.INSTITUTION_DOMAIN_NAME
+        self.homeOrg = cereconf.INSTITUTION_DOMAIN_NAME
         self.ou_uniq_id2ou_id = {}
         self.ou_id2ou_uniq_id = {}
         self.primary_aff_traits = {}
@@ -98,6 +78,18 @@ class norEduLDIFMixin(OrgLDIF):
         self.aff_cache = {}
         # For caching strings of statuses, int(st) -> str(st).
         self.status_cache = {}
+        logger.debug("OrgLDIF norEduOrgUniqueIdentifier: %s",
+                     self.norEduOrgUniqueID)
+        logger.debug("OrgLDIF schacHomeOrganization: %s",
+                     self.homeOrg)
+        logger.debug("OrgLDIF FEIDE schema version: %s",
+                     self.FEIDE_schema_version)
+        logger.debug("OrgLDIF FEIDE obsolete version: %s",
+                     self.FEIDE_obsolete_version)
+        if not self.homeOrg and self.FEIDE_schema_version >= '1.6':
+            # Is this neccessary? We should have this for everyone anyway.
+            raise ValueError("HomeOrg is mandatory in schema ver 1.6")
+
 
     def update_org_object_entry(self, entry):
         # Changes from superclass:
@@ -111,11 +103,7 @@ class norEduLDIFMixin(OrgLDIF):
             entry['objectClass'].append(self.FEIDE_class_obsolete)
             if self.norEduOrgUniqueID:
                 entry['norEduOrgUniqueNumber'] = self.norEduOrgUniqueID
-        if self.FEIDE_schema_version >= '1.4':
-            entry['norEduOrgSchemaVersion'] = (self.FEIDE_schema_version,)
-        elif self.FEIDE_schema_version > '1.1' and self.extensibleObject:
-            entry['objectClass'].append(self.extensibleObject)
-            entry['federationFeideSchemaVersion'] = (self.FEIDE_schema_version,)
+        entry['norEduOrgSchemaVersion'] = (self.FEIDE_schema_version,)
         uri = entry.get('labeledURI') or entry.get('eduOrgHomePageURI')
         if uri:
             entry.setdefault('eduOrgHomePageURI', uri)
@@ -243,6 +231,9 @@ class norEduLDIFMixin(OrgLDIF):
             entry['eduPersonPrimaryOrgUnitDN'] = self.ou2DN.get(int(pri_ou)) or self.dummy_ou_dn
         if ldapconf('PERSON', 'entitlements_pickle_file') and person_id in self.person2entitlements:
             entry['eduPersonEntitlement'] = self.person2entitlements[person_id]
+
+        entry['schacHomeOrganization'] = self.homeOrg
+
         return dn, entry, alias_info
 
     def make_ou_dn(self, entry, parent_dn):
@@ -401,7 +392,6 @@ class norEduLDIFMixin(OrgLDIF):
             entry['objectClass'].append('norEduPerson')
             if self.FEIDE_schema_version >= '1.5':
                 entry['displayName'] = entry['norEduPersonLegalName'] = entry['cn']
-            entry['eduPersonPrincipalName'] = (uname[0] + self.eduPPN_domain,)
             entry['norEduPersonNIN'] = (str(fnr),)
 
             if birth_date:
@@ -410,7 +400,6 @@ class norEduLDIFMixin(OrgLDIF):
         elif self.FEIDE_schema_version >= '1.5.1':
             entry['objectClass'].append('norEduPerson')
             entry['displayName'] = entry['norEduPersonLegalName'] = entry['cn']
-            entry['eduPersonPrincipalName'] = (uname[0] + self.eduPPN_domain,)
 
             if fnr:
                 entry['norEduPersonNIN'] = (str(fnr),)
@@ -418,3 +407,4 @@ class norEduLDIFMixin(OrgLDIF):
             if birth_date:
                 entry['norEduPersonBirthDate'] = ("%04d%02d%02d" % (
                     birth_date.year, birth_date.month, birth_date.day),)
+        entry['eduPersonPrincipalName'] = '%s@%s' % (uname[0], self.homeOrg)
