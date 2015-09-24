@@ -53,8 +53,9 @@ import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory
 from Cerebrum import Utils
+from Cerebrum.Utils import Factory
+from Cerebrum.QuarantineHandler import QuarantineHandler
 
 logger = Factory.get_logger('cronjob')
 
@@ -256,8 +257,8 @@ def find_candidates(exclude_aff=[], grace=0):
     naffed = set(x['person_id'] for x in pe.list_persons()) - affed
     logger.debug('Found %d persons without affiliations', len(naffed))
 
-    quarantined = set(x['entity_id'] for x in ac.list_entity_quarantines(
-                          entity_types=co.entity_account, only_active=True))
+    quarantined = QuarantineHandler.get_locked_entities(
+        db, entity_types=co.entity_account)
     logger.debug('Found %d quarantined accounts', len(quarantined))
     return {'affiliated': affed, 'not_affiliated': naffed,
             'quarantined': quarantined}
