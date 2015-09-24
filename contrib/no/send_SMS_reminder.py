@@ -45,6 +45,7 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, SMSSender
+from Cerebrum.QuarantineHandler import QuarantineHandler
 
 logger = Factory.get_logger('cronjob')
 db = Factory.get('Database')()
@@ -143,7 +144,8 @@ def process(check_trait, set_trait, days, phone_types, message, only_aff):
         if ac.is_expired():
             logger.info("Account %s is expired, skipping", ac.account_name)
             continue
-        if ac.get_entity_quarantine(only_active=True):
+        if QuarantineHandler.check_entity_quarantines(
+                db, ac.entity_id).is_locked():
             logger.info("Account %s is quarantined, skipping", ac.account_name)
             continue
         if pe_affs and ac.owner_id not in pe_affs:
