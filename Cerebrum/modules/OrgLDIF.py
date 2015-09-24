@@ -580,7 +580,7 @@ from None and LDAP_PERSON['dn'].""")
         if self.person_parent_dn not in (None, self.org_dn):
             outfile.write(container_entry_string('PERSON'))
         timer = make_timer(self.logger, "Processing persons...")
-        round_timer = self.make_timer()
+        round_timer = make_timer(self.logger)
         rounds = 0
         exported = 0
         for person_id, row in self.person_cache.iteritems():
@@ -1099,15 +1099,3 @@ from None and LDAP_PERSON['dn'].""")
                 if not got_given:
                     given.extend(full)
         return [u' '.join(n).encode('utf-8') for n in given, last]
-
-    def make_timer(self, msg=None):
-        # t = make_timer(message) logs the message and starts a stop watch.
-        # t(message) logs that message and #seconds since last message.
-        def timer(msg):
-            prev = timer.start
-            timer.start = time.time()
-            self.logger.debug("%s (%d seconds)", msg, timer.start - prev)
-        if msg:
-            self.logger.debug(msg)
-        timer.start = time.time()
-        return timer
