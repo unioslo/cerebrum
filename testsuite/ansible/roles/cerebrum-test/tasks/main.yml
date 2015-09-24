@@ -9,6 +9,10 @@
   tags:
     - always
 
+- set_fact: gnupg_home_dir=/tmp/gnupghomes/{{ config | default('default') }}/.gnupg
+  tags:
+    - always
+
 - debug: var=config
   tags:
     - debug

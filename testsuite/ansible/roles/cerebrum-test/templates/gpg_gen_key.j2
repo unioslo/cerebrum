@@ -1,0 +1,14 @@
+{{ '%' }}echo Generating GPG key-pair for {{ config }}
+Key-Type: RSA
+Key-Length: 2048
+Subkey-Type: RSA
+#Subkey-Length: 1024
+Name-Real: Cerebrum Test
+#Name-Comment: with stupid passphrase
+Name-Email: cerebrum-test-{{ config }}@uio.no
+Expire-Date: 0
+#Passphrase: abc
+#%pubring foo.pub
+#%secring foo.sec
+{{ '%' }}commit
+{{ '%' }}echo done
