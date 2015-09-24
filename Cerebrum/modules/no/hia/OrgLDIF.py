@@ -22,6 +22,7 @@ from collections import defaultdict
 from Cerebrum import Entity
 from Cerebrum.modules.no.OrgLDIF import norEduLDIFMixin
 from Cerebrum.modules.LDIFutils import normalize_string, iso2utf
+from Cerebrum.Utils import make_timer
 
 
 class OrgLDIFHiAMixin(norEduLDIFMixin):
@@ -91,7 +92,7 @@ class OrgLDIFHiAMixin(norEduLDIFMixin):
         the PersonEmployment module."""
         self.__super.init_person_titles()
 
-        timer = self.make_timer("Fetching personal employment titles...")
+        timer = make_timer(self.logger, 'Fetching personal employment titles...')
         employments = self.person.search_employment(main_employment=True)
         for emp in employments:
             if emp['person_id'] not in self.person_titles:

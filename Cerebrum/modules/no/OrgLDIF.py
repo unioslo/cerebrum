@@ -16,7 +16,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 import re
 import pickle
 import os.path
@@ -27,7 +26,7 @@ from Cerebrum.modules.OrgLDIF import OrgLDIF
 from Cerebrum.modules.LDIFutils import (
     ldapconf, normalize_string, verify_IA5String, normalize_IA5String, iso2utf,
     hex_escape_match, dn_escape_re)
-
+from Cerebrum.Utils import make_timer
 
 class norEduLDIFMixin(OrgLDIF):
     """Mixin class for OrgLDIF, adding FEIDE attributes to the LDIF output.
@@ -337,7 +336,7 @@ class norEduLDIFMixin(OrgLDIF):
         """
         if not hasattr(self.const, 'trait_primary_aff'):
             return
-        timer = self.make_timer("Fetching primary aff traits...")
+        timer = make_timer(self.logger, 'Fetching primary aff traits...')
         for row in self.person.list_traits(code=self.const.trait_primary_aff):
             p_id = row['entity_id']
             val = row['strval']
@@ -356,7 +355,7 @@ class norEduLDIFMixin(OrgLDIF):
 
     def init_person_entitlements(self):
         """Populate dicts with a person's entitlement information."""
-        timer = self.make_timer("Processing person entitlements...")
+        timer = make_timer(self.logger, 'Processing person entitlements...')
         self.person2entitlements = pickle.load(file(
             os.path.join(
                 ldapconf(None, 'dump_dir'),
@@ -366,13 +365,13 @@ class norEduLDIFMixin(OrgLDIF):
     def init_person_fodselsnrs(self):
         # Set self.fodselsnrs = dict {person_id: str or instance with fnr}
         # str(fnr) will return the person's "best" fodselsnr, or ''.
-        timer = self.make_timer("Fetching fodselsnrs...")
+        timer = make_timer(self.logger, 'Fetching fodselsnrs...')
         self.fodselsnrs = self.person.getdict_fodselsnr()
         timer("...fodselsnrs done.")
 
     def init_person_birth_dates(self):
         # Set self.birth_dates = dict {person_id: birth date}
-        timer = self.make_timer("Fetching birth dates...")
+        timer = make_timer(self.logger, 'Fetching birth dates...')
         self.birth_dates = birth_dates = {}
         for row in self.person.list_persons(person_id=self.persons):
             birth_date = row['birth_date']
