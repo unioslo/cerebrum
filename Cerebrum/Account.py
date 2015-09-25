@@ -1211,7 +1211,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         where = []
         if auth_type is None:
             auth_type = self.const.auth_type_md5_crypt
-        where.append(argument_to_sql(auth_type, 'aa.method', binds, int))
+        aa_method = argument_to_sql(auth_type, 'aa.method', binds, int)
         if spread is not None:
             tables.append('[:table schema=cerebrum name=entity_spread] es')
             where.append('ai.account_id=es.entity_id')
@@ -1235,8 +1235,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
              [:table schema=cerebrum name=entity_name] en,
              [:table schema=cerebrum name=account_info] ai
              LEFT JOIN [:table schema=cerebrum name=account_authentication] aa
-               ON ai.account_id=aa.account_id
-        WHERE %s""" % (tables, where), binds)
+               ON ai.account_id=aa.account_id AND %s
+        WHERE %s""" % (tables, aa_method, where), binds)
 
     def get_account_name(self):
         return self.account_name
