@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# 
-# Copyright 2014 University of Oslo, Norway
+#
+# Copyright 2014-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -26,7 +26,9 @@ behaviour of creating, moving and removing AD objects, and the generic
 configuration of attributes.
 
 """
-
+import pickle
+import random
+import string
 import unittest2 as unittest
 
 import cerebrum_path
@@ -34,13 +36,13 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum import Constants
-from Cerebrum.Utils import Factory
-from Cerebrum.Utils import read_password
+from Cerebrum.Utils import Factory, read_password, gpgme_decrypt
 from datasource import BasicAccountSource, BasicPersonSource
 from dbtools import DatabaseTools
 from datasource import expired_filter, nonexpired_filter
 
 from Cerebrum.modules.ad2 import ADSync, ADUtils
+
 
 def read_password_catcher(user, system, host=None):
     """Override to ignore missing password files.
@@ -56,6 +58,7 @@ def read_password_catcher(user, system, host=None):
 Utils.read_password = read_password_catcher
 ADUtils.read_password = read_password_catcher
 
+
 class MockADclient(ADUtils.ADclient):
     """ Mock AD client, to avoid trying to talk with AD.
 
@@ -64,6 +67,7 @@ class MockADclient(ADUtils.ADclient):
         """Override to avoid trying to connect to some AD server."""
         # TODO: get the cls._db from test!
         pass
+
 
 class BaseAD2SyncTest(unittest.TestCase):
 
@@ -78,7 +82,6 @@ class BaseAD2SyncTest(unittest.TestCase):
         """ Setting up the TestCase module.
 
         The AD sync needs to be set up with standard configuration.
-
         """
         cls._db = Factory.get('Database')()
         cls._db.cl_init(change_program='nosetests')
@@ -96,24 +99,24 @@ class BaseAD2SyncTest(unittest.TestCase):
 
         # Add some constanst for the tests
         cls.const_spread_ad_user = cls.db_tools.insert_constant(
-                Constants._SpreadCode, 'account@ad_test',
-                cls._co.entity_account, 'User in test AD')
+            Constants._SpreadCode, 'account@ad_test',
+            cls._co.entity_account, 'User in test AD')
         cls.const_spread_ad_group = cls.db_tools.insert_constant(
-                Constants._SpreadCode, 'group@ad_test',
-                cls._co.entity_group, 'Group in test AD')
+            Constants._SpreadCode, 'group@ad_test',
+            cls._co.entity_group, 'Group in test AD')
 
-        # Creating a sample config to be tweaked on in the different test cases.
+        # Creating a sample config to be tweaked on in the different test cases
         # Override for the different tests.
         cls.standard_config = {
-                'sync_type': 'test123',
-                'domain': 'nose.local',
-                'server': 'localserver',
-                'target_ou': 'OU=Cerebrum,DC=nose,DC=local',
-                'search_ou': 'OU=Cerebrum,DC=nose,DC=local',
-                'object_classes': (
-                    'Cerebrum.modules.ad2.CerebrumData/CerebrumEntity',),
-                'target_type': cls._co.entity_account,
-                }
+            'sync_type': 'test123',
+            'domain': 'nose.local',
+            'server': 'localserver',
+            'target_ou': 'OU=Cerebrum,DC=nose,DC=local',
+            'search_ou': 'OU=Cerebrum,DC=nose,DC=local',
+            'object_classes': (
+                'Cerebrum.modules.ad2.CerebrumData/CerebrumEntity',),
+            'target_type': cls._co.entity_account,
+        }
         # Make sure every reuquired setting is in place:
         for var in ADSync.BaseSync.settings_required:
             if var not in cls.standard_config:
@@ -139,15 +142,14 @@ class BaseAD2SyncTest(unittest.TestCase):
 
         :type classes: list or tuple of str
         :param classes:
-            A list of what classes to use for the sync object. All elements must
-            be subclassed from BaseSync.
+            A list of what classes to use for the sync object. All elements
+            must be subclassed from BaseSync.
 
         :type config: dict
         :param config: The dict to setup with the sync object.
 
         :rtype: Cerebrum.modules.ad2.ADSync.BaseSync
         :return: The instantiated sync class by given configuration.
-
         """
         sync_class = ADSync.BaseSync.get_class(classes=classes)
         sync_class.server_class = MockADclient
@@ -157,10 +159,9 @@ class BaseAD2SyncTest(unittest.TestCase):
 
     # TODO: Create more helper methods
 
+
 class SimpleAD2SyncTest(BaseAD2SyncTest):
-
     """ The test cases for the basic AD sync. """
-
     # The default sync class to use in this testcase:
     base_sync = ['Cerebrum.modules.ad2.ADSync/BaseSync']
 
@@ -174,9 +175,7 @@ class SimpleAD2SyncTest(BaseAD2SyncTest):
 
 
 class UserAD2SyncTest(BaseAD2SyncTest):
-
     """ The test cases that are specific to Accounts. """
-
     # The default sync class to use in this testcase:
     base_sync = ['Cerebrum.modules.ad2.ADSync/UserSync']
 
@@ -187,16 +186,22 @@ class UserAD2SyncTest(BaseAD2SyncTest):
         """ Prepare test.
 
         Sets up some test candidates and the sync itself.
-
         """
+        uni_chars = unicode(string.ascii_letters) + unicode(string.digits)
+        # generate a random 32 characters long unicode string and then append
+        # 'æøå' in order to provoke some errors
+        random_prefix = u''.join(random.choice(uni_chars) for _ in range(32))
+        self.rnd_password_unicode = random_prefix + 'æøå'.decode('utf-8')
+        self.rnd_password_str = self.rnd_password_unicode.encode('utf-8')
+
         person_id = self.db_tools.create_person(
-                                self.person_ds.get_next_item())
+            self.person_ds.get_next_item())
         self.addCleanup(self.db_tools.delete_person_id, person_id)
 
         self._accounts = []
         for account in self.account_ds(limit=10):
             entity_id = self.db_tools.create_account(
-                                account, person_owner_id=person_id)
+                account, person_owner_id=person_id)
             account['entity_id'] = entity_id
             self._accounts.append(account)
             self.addCleanup(self.db_tools.delete_account_id, entity_id)
@@ -204,13 +209,11 @@ class UserAD2SyncTest(BaseAD2SyncTest):
             self._ac.clear()
             self._ac.find(account['entity_id'])
             self._ac.add_spread(self.const_spread_ad_user)
-
         # Setup the sync
         conf = self.standard_config.copy()
         conf['object_classes'] = self.object_classes
         conf['target_spread'] = self.const_spread_ad_user
         self.sync = self.get_adsync_object(self.base_sync, conf)
-
 
     @unittest.skip("Not implemented yet")
     def test_create_user(self):
@@ -219,7 +222,7 @@ class UserAD2SyncTest(BaseAD2SyncTest):
 
         # TODO:
         # 1. Run the fullsync
-        #self.sync..fullsync()
+        # self.sync..fullsync()
         # 2. Feed the sync with an empty list from AD. Needs mocking.
         # 3. Assert that the MockADclient gets a call to create_object with
         #    correct parameters. Find out how unittest2 supports asserting
@@ -261,6 +264,48 @@ class UserAD2SyncTest(BaseAD2SyncTest):
         for i in no_ids:
             self.assertNotIn(i, self.sync.id2entity)
 
+    def test_password_gpgme_encrypt(self):
+        """
+        Test GnuPG and plaintext passwords
+        """
+        for account in self._accounts:
+            self._ac.clear()
+            self._ac.find(account['entity_id'])
+            self._ac.set_password(self.rnd_password_str)
+            self._ac.write_db()
+            passwd_events = filter(
+                lambda x: bool(
+                    x['subject_entity'] == self._ac.entity_id and
+                    x['change_type_id'] == self._co.account_password),
+                self._db.messages)
+            self.assertTrue(bool(passwd_events),
+                            'No password event registered')
+            self.assertIn('change_params',
+                          passwd_events[0],
+                          'No change_params in password event')
+            change_params = pickle.loads(passwd_events[0]['change_params'])
+            self.assertIsInstance(change_params,
+                                  dict,
+                                  'change_params is not a dictionary')
+            self.assertIn('password',
+                          change_params,
+                          'No password-key in change_params')
+            stored_password = change_params['password']
+            if hasattr(cereconf, 'PASSWORD_GPG_RECIPIENT_ID'):
+                # tests when encryption should be performed
+                self.assertIn('-----BEGIN PGP MESSAGE-----',
+                              stored_password,
+                              'Password not encrypted')
+                # test decryption
+                self.assertEqual(gpgme_decrypt(stored_password),
+                                 self.rnd_password_str,
+                                 'Unable to decrypt password')
+            else:
+                # tests when no encryption is performed
+                self.assertIn(self.rnd_password_str,
+                              stored_password,
+                              'Password not stored')
+
     @unittest.skip("Not done yet")
     def test_move_object(self):
         """Move an AD object to another OU in AD."""
@@ -279,9 +324,9 @@ class UserAD2SyncTest(BaseAD2SyncTest):
 
         # Start the fullsync
         self.sync.fetch_cerebrum_data()
-        # TODO: 
+        # TODO:
         # 1. Give input to simulate the response from AD:
         # 2. Assert that the MockADServer.move_object is called, and is given
         # the correct location.
         #
-        #self.assert
+        # self.assert
