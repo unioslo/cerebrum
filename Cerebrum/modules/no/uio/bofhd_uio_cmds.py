@@ -9273,7 +9273,8 @@ Addresses and settings:
 
         """
         SYSADM_TYPES = ('adm','drift','null',)
-        VALID_STATUS = (self.const.affiliation_status_ansatt_tekadm,)
+        VALID_STATUS = (self.const.affiliation_status_ansatt_tekadm,
+                        self.const.affiliation_status_ansatt_vitenskapelig)
         DOMAIN = '@ulrik.uio.no'
 
         if not self.ba.is_superuser(operator.get_entity_id()):
