@@ -1,0 +1,13 @@
+cffi==1.2.1
+egenix-mx-base
+psycopg2
+smbpasswd
+m2crypto
+lxml
+sasl
+backports.ssl_match_hostname
+suds
+rpclib==2.7.0-beta
+twisted==10.2.0
+pyOpenSSL
+python-ldap
