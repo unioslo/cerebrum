@@ -739,7 +739,7 @@ LDAP_PERSON = {
     # publication of entitlements in LDIF is turned off (default behaviour).
     'entitlements_pickle_file': '',
 
-    # Selects which contact info to use for norEduPersonAuthnMethod.
+    # Selects which contact info to use for norEduPersonAuthnMethod (sms).
     #
     # The value is a  dict that maps affiliation (e.g. 'ANSATT' or 'STUDENT')
     # to a tuple consisting of source system and contact type tuples (e.g.
@@ -748,7 +748,7 @@ LDAP_PERSON = {
     # A full config might look like:
     #     'norEduPersonAuthnMethod_selector': {
     #         'ANSATT': ( ('SAP', 'MOBILE'),
-    #                     ('SAP', 'PRIVMOBILE'),
+    #                     ('SAP', 'PRIVATEMOBILE'),
     #                     ('FS', 'MOBILE'), ),
     #     }
     'norEduPersonAuthnMethod_selector': {}

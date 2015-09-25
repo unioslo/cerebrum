@@ -502,19 +502,15 @@ class norEduLDIFMixin(OrgLDIF):
 
         """
         person_affs = [aff for aff, _s, _ou in self.affiliations[person_id]]
-        label = string.Template('${source_system}%20${contact_type}')
-        template = string.Template(
-            'urn:mace:feide.no:auth:method:sms $value label=$label')
+        template = string.Template('urn:mace:feide.no:auth:method:sms $value '
+                                   'label=${source_system}%20${contact_type}')
 
         # Add populated template to norEduPersonAuthnMethod for each configured
         # method, if the contact data exists
         for authn_entry in self.person_authn_methods.get(person_id, []):
-            authn_entry['label'] = label.substitute(authn_entry)
             for aff, selection in self.person_authn_selection.iteritems():
                 if (aff in person_affs
                         and (authn_entry['source_system'],
                              authn_entry['contact_type']) in selection):
-                    entry.setdefault(
-                        'norEduPersonAuthnMethod',
-                        []
-                    ).append(template.substitute(authn_entry))
+                    entry.setdefault('norEduPersonAuthnMethod', list()).append(
+                        template.substitute(authn_entry))
