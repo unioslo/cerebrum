@@ -55,6 +55,7 @@ of spreads, only the default values will be used.
 import cereconf
 from Cerebrum import Entity
 from Cerebrum.Utils import Factory
+from collections import defaultdict
 
 const = Factory.get("Constants")
 
@@ -177,14 +178,14 @@ class QuarantineHandler(object):
         :param only_active: Only return locked and active quarantines
         :param entity_ids: Spesific entity-ids to check
         :param ignore_quarantine_types: Quarantines to ignore"""
-        cache = {}
+        cache = defaultdict(list)
         eq = Entity.EntityQuarantine(db)
         for row in eq.list_entity_quarantines(
                 entity_types=entity_types,
                 only_active=only_active,
                 entity_ids=entity_ids,
                 ignore_quarantine_types=ignore_quarantine_types):
-            cache.setdefault(row['entity_id'], []).append(
+            cache[row['entity_id']].append(
                 row['quarantine_type'])
 
         is_locked = lambda key: QuarantineHandler(db,
