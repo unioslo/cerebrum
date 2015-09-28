@@ -33,6 +33,8 @@ from Cerebrum import Constants
 from Cerebrum.Utils import Factory, read_password, gpgme_encrypt, gpgme_decrypt
 
 
+@unittest.skipIf(not hasattr(cereconf, 'PASSWORD_GPG_RECIPIENT_ID'),
+                 'GnuPG encryption not enabled for this instance')
 class GnuPGPasswordTest(unittest.TestCase):
     """
     Test cases for GPG-passwords
