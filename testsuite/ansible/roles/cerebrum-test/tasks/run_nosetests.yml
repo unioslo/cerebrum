@@ -42,6 +42,18 @@
   register: _test_result
   ignore_errors: yes
 
+- name: Run GnuPG tests
+  when: gnupgtest is defined
+  action: command {{ virtualenv }}/bin/nosetests 
+                  -c {{ _noseconfig | dest }}
+                  {{ lookup('file', item) | split | prefix(crb_src_dir + "/testsuite/tests/") | join(" ") }}
+  with_file_overload:
+    - base: 'files'
+    - file: 'gnupgtests.txt'
+    - alt: '{{ config | default(None) }}'
+  register: _test_result
+  ignore_errors: yes
+
 
 # Note: The with_file_overload causes the result to be wrapped in a list
 # (results)
