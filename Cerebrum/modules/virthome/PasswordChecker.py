@@ -46,13 +46,13 @@ class VirthomePasswordCheckerMixin(CheckLengthMixin,
         r'[\200-\376]':
             "Password cannot contain 8-bit characters (e.g.  æøå).", }
 
-    def password_good_enough(self, password):
+    def password_good_enough(self, password, **kw):
         """ Virthome password check. """
         if not isinstance(password, basestring):
             raise PasswordNotGoodEnough(
                 "Attempting to set non-string password %s" % password)
         super(VirthomePasswordCheckerMixin,
-              self).password_good_enough(password)
+              self).password_good_enough(password, **kw)
 
 
 class PasswordChecker(VirthomePasswordCheckerMixin, PC):

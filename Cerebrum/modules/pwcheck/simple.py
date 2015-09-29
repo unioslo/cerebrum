@@ -58,9 +58,10 @@ class CheckInvalidCharsMixin(common.PasswordChecker):
         r'[\200-\376]':
             "Password cannot contain 8-bit characters (e.g.  æøå).", }
 
-    def password_good_enough(self, password):
+    def password_good_enough(self, password, **kw):
         """ Check that only valid characters are allowed. """
-        super(CheckInvalidCharsMixin, self).password_good_enough(password)
+        super(CheckInvalidCharsMixin, self).password_good_enough(
+            password, **kw)
 
         for char, err in self._password_illegal_chars.iteritems():
             if char in password:
@@ -78,14 +79,16 @@ class CheckLengthMixin(common.PasswordChecker):
     _password_min_length = 8
     _password_max_length = 15
 
-    def password_good_enough(self, password):
+    def password_good_enough(self, password,
+                             **kw):
         """Check the length of the password.
 
         The password must be at least _password_min_length long and at most
         _password_max_length long.
 
         """
-        super(CheckLengthMixin, self).password_good_enough(password)
+        super(CheckLengthMixin, self).password_good_enough(password,
+                                                           **kw)
 
         if (self._password_min_length is not None
                 and len(password.strip()) < self._password_min_length):
@@ -114,9 +117,12 @@ class CheckConcatMixin(common.PasswordChecker):
 
     """
 
-    def password_good_enough(self, password):
+    def password_good_enough(self, password,
+                             **kw):
         """ This is insane. """
-        super(CheckConcatMixin, self).password_good_enough(password)
+        super(CheckConcatMixin, self).password_good_enough(
+            password,
+            **kw)
 
         first_eight = password[0:8]
 
@@ -130,7 +136,8 @@ class CheckEntropyMixin(common.PasswordChecker):
 
     """ Adds a entropy check to password checker. """
 
-    def password_good_enough(self, password):
+    def password_good_enough(self, password,
+                             **kw):
         """ Check that a password use multiple character sets.
 
         The password must contain characters from at least three
@@ -143,7 +150,9 @@ class CheckEntropyMixin(common.PasswordChecker):
 
         """
 
-        super(CheckEntropyMixin, self).password_good_enough(password)
+        super(CheckEntropyMixin, self).password_good_enough(
+            password,
+            **kw)
 
         # TODO: Write proper regex, so that we don't have to truncate the
         # password
@@ -191,9 +200,9 @@ class CheckCharSeqMixin(common.PasswordChecker):
 
     """ Check for sequences of related chars. """
 
-    def password_good_enough(self, password):
+    def password_good_enough(self, password, **kw):
         """ Check for sequences of closely related characters. """
-        super(CheckCharSeqMixin, self).password_good_enough(password)
+        super(CheckCharSeqMixin, self).password_good_enough(password, **kw)
 
         # TODO: Clean up this check, and get rid of the trunc
         passwd = password[0:8].lower()
@@ -244,9 +253,11 @@ class CheckRepeatedPatternMixin(common.PasswordChecker):
 
     """ Check for repeated patterns in password. """
 
-    def password_good_enough(self, password):
+    def password_good_enough(self, password, **kw):
         """ Check for repeated sequences in the first eight chars. """
-        super(CheckRepeatedPatternMixin, self).password_good_enough(password)
+        super(CheckRepeatedPatternMixin, self).password_good_enough(
+            password,
+            **kw)
 
         # TODO: Clean up this check, and get rid of the trunc
         first_eight = password[0:8]
@@ -269,9 +280,9 @@ class CheckUsernameMixin(common.PasswordChecker):
 
     """ Check for use of the username in the password. """
 
-    def password_good_enough(self, password):
+    def password_good_enough(self, password, **kw):
         """ Does the password contain the username? """
-        super(CheckUsernameMixin, self).password_good_enough(password)
+        super(CheckUsernameMixin, self).password_good_enough(password, **kw)
         name = getattr(self, 'account_name', None)
         if name is not None:
             self._check_uname_password(name, password)
@@ -292,8 +303,8 @@ class CheckOwnerNameMixin(common.PasswordChecker):
 
     """ Check for use of the account owners name in the password. """
 
-    def password_good_enough(self, password):
-        super(CheckOwnerNameMixin, self).password_good_enough(password)
+    def password_good_enough(self, password, **kw):
+        super(CheckOwnerNameMixin, self).password_good_enough(password, **kw)
 
         if not hasattr(self, 'owner_id'):
             return

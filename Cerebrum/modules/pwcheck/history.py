@@ -78,9 +78,10 @@ class PasswordHistoryMixin(ClearPasswordHistoryMixin, PasswordChecker):
 
     """ A mixin for use with entities that should have password history. """
 
-    def password_good_enough(self, password):
+    def password_good_enough(self, password, **kw):
         """ Match the password against PasswordHistory. """
-        super(PasswordHistoryMixin, self).password_good_enough(password)
+        super(PasswordHistoryMixin, self).password_good_enough(
+            password, **kw)
         self._check_password_history(password)
         self._check_password_history(password[0:8])
 

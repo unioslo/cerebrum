@@ -39,7 +39,7 @@ class HiNePasswordCheckerMixin(CheckPassphraseMixin):
     _passphrase_max_length = None
     _passphrase_max_length_error_fmt = "%r"
 
-    def password_good_enough(self, passphrase):
+    def password_good_enough(self, passphrase, **kw):
         """Perform a number of checks on a password to see if it is good
         enough.
 
@@ -57,5 +57,6 @@ class HiNePasswordCheckerMixin(CheckPassphraseMixin):
                 raise PasswordNotGoodEnough(
                     "Vennligst ikke bruk andre tegn enn bokstaver og blank.")
 
-        super(HiNePasswordCheckerMixin, self).password_good_enough(passphrase)
+        super(HiNePasswordCheckerMixin, self).password_good_enough(passphrase,
+                                                                   **kw)
         # Super checks length and words

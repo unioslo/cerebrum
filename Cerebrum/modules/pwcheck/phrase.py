@@ -37,9 +37,12 @@ class CheckPhraseLengthMixin(PasswordChecker):
     _passphrase_max_length_error_fmt = ("Password must be at most %d"
                                         " characters.")
 
-    def password_good_enough(self, passphrase):
+    def password_good_enough(self, passphrase,
+                             **kw):
         """ Check that passphrase length is within bounds. """
-        super(CheckPhraseLengthMixin, self).password_good_enough(passphrase)
+        super(CheckPhraseLengthMixin, self).password_good_enough(
+            passphrase,
+            **kw)
 
         if (self._passphrase_min_length is not None and
                 self._passphrase_min_length > len(passphrase)):
@@ -64,14 +67,17 @@ class CheckPhraseWordsMixin(PasswordChecker):
     _passphrase_min_words_error_fmt = ("Password must have at least %d words"
                                        " of length %d")
 
-    def password_good_enough(self, passphrase):
+    def password_good_enough(self, passphrase,
+                             **kw):
         """ Check that passphrase contains enough long words.
 
         Passphrase will require at least `_passphrase_min_words' of length
         `_passphrase_min_word_length'.
 
         """
-        super(CheckPhraseWordsMixin, self).password_good_enough(passphrase)
+        super(CheckPhraseWordsMixin, self).password_good_enough(
+            passphrase,
+            **kw)
 
         wl = self._passphrase_min_word_length
         wds = self._passphrase_min_words

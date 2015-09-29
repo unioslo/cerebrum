@@ -45,7 +45,7 @@ class OfkPasswordCheckerMixin(CheckUsernameMixin,
     # This is a bit hackish, because we want to translate errors,
     # and we DONT want to re-implement all the checks...
 
-    def password_good_enough(self, fullpasswd):
+    def password_good_enough(self, fullpasswd, **kw):
         """Perform a number of checks on a password to see if it is good
         enough.
 
@@ -72,7 +72,7 @@ class OfkPasswordCheckerMixin(CheckUsernameMixin,
         # Reversed patterns: abccba abcddcba
         try:
             pattern = _RepeatedPattern()
-            pattern.password_good_enough(fullpasswd)
+            pattern.password_good_enough(fullpasswd, **kw)
         except PasswordNotGoodEnough:
             raise PasswordNotGoodEnough(
                 "Ikke bruk gjentagende grupper av tegn"
@@ -81,7 +81,7 @@ class OfkPasswordCheckerMixin(CheckUsernameMixin,
         # Check that the characters in the password are not a sequence
         try:
             sequence = _CharSequence()
-            sequence.password_good_enough(fullpasswd)
+            sequence.password_good_enough(fullpasswd, **kw)
         except PasswordNotGoodEnough:
             raise PasswordNotGoodEnough(
                 "Ikke bruk tegn i alfabetisk rekkefølge"
@@ -104,7 +104,7 @@ class OfkPasswordCheckerMixin(CheckUsernameMixin,
 
         try:
             super(OfkPasswordCheckerMixin,
-                  self).password_good_enough(fullpasswd)
+                  self).password_good_enough(fullpasswd, **kw)
         except PasswordNotGoodEnough, e:
             if "username" in str(e):
                 raise PasswordNotGoodEnough(

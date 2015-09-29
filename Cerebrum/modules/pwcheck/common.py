@@ -50,10 +50,12 @@ class PasswordChecker(Account):
 
     """
 
-    def password_good_enough(self, password):
+    def password_good_enough(self, password, **kw):
         """ Check password.
 
         :param str password: The password to check
+
+        :param dict kw: Other params to certain checks
 
         :return: Returns on success
 
