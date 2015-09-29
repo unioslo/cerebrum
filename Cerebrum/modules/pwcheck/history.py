@@ -58,7 +58,6 @@ import cereconf
 import hashlib
 import base64
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
-
 from .common import PasswordNotGoodEnough
 
 __version__ = "1.0"
@@ -186,6 +185,16 @@ class PasswordHistory(DatabaseAccessor):
             col_when, val_when), {'e_id': entity_id,
                                   'md5': csum,
                                   'when': _when})
+
+    def del_exp_history(self, date):
+        """
+        Removes entries before given date in history for all entities.
+        :param date: Date threshold
+        :type: mx.DateTime.DateTime object
+        """
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=password_history]
+        WHERE set_at < :exp_date""", {'exp_date': date})
 
     def del_history(self, entity_id):
         self.execute("""
