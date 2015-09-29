@@ -24,7 +24,7 @@ import mx
 
 import cerebrum_path
 import cereconf
-from Cerebrum.Utils             import Factory
+from Cerebrum.Utils             import Factory, make_timer
 from Cerebrum.modules.LDIFutils import *
 from Cerebrum.modules           import OrgLDIF
 from Cerebrum.QuarantineHandler import QuarantineHandler
@@ -96,8 +96,8 @@ class OrgLdifUitMixin(OrgLDIF):
         self.init_person_dump(use_mail_module)
         if self.person_parent_dn not in (None, self.org_dn):
             outfile.write(container_entry_string('PERSON'))
-        timer       = self.make_timer("Processing persons...")
-        round_timer = self.make_timer()
+        timer       = make_timer(self.logger, 'Processing persons...')
+        round_timer = make_timer(self.logger)
         round       = 0
         for person_id, row in self.person_cache.iteritems():
             if round % 10000 == 0:
@@ -296,8 +296,8 @@ class OrgLdifUitMixin(OrgLDIF):
     
     def init_account_info(self):
 
-        timer = self.make_timer("Fetching account information...")
-        timer2 = self.make_timer()
+        timer = make_timer(self.logger, 'Fetching account information...')
+        timer2 = make_timer(self.logger)
         self.account = Factory.get('Account')(self.db)
         self.acc_name = acc_name = {}
         self.acc_passwd_nt4={}
