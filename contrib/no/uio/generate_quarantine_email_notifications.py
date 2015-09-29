@@ -30,6 +30,7 @@ will be sent instead of outputted to the logger instance.
 
 import pickle
 import cereconf
+import cerebrum_path
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.Utils import Factory
