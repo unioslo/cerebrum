@@ -38,23 +38,25 @@ class CheckPhraseLengthMixin(PasswordChecker):
                                         " characters.")
 
     def password_good_enough(self, passphrase,
+                             skip_rigid_password_tests=False,
                              **kw):
         """ Check that passphrase length is within bounds. """
         super(CheckPhraseLengthMixin, self).password_good_enough(
             passphrase,
-            **kw)
+            skip_rigid_password_tests=skip_rigid_password_tests, **kw)
 
-        if (self._passphrase_min_length is not None and
-                self._passphrase_min_length > len(passphrase)):
-            raise PasswordNotGoodEnough(
-                self._passphrase_min_length_error_fmt %
-                self._passphrase_min_length)
+        if skip_rigid_password_tests:
+            if (self._passphrase_min_length is not None and
+                    self._passphrase_min_length > len(passphrase)):
+                raise PasswordNotGoodEnough(
+                    self._passphrase_min_length_error_fmt %
+                    self._passphrase_min_length)
 
-        if (self._passphrase_max_length is not None and
-                self._passphrase_max_length > len(passphrase)):
-            raise PasswordNotGoodEnough(
-                self._passphrase_max_length_error_fmt %
-                self._passphrase_max_length)
+            if (self._passphrase_max_length is not None and
+                    self._passphrase_max_length > len(passphrase)):
+                raise PasswordNotGoodEnough(
+                    self._passphrase_max_length_error_fmt %
+                    self._passphrase_max_length)
 
 
 class CheckPhraseWordsMixin(PasswordChecker):
@@ -68,6 +70,7 @@ class CheckPhraseWordsMixin(PasswordChecker):
                                        " of length %d")
 
     def password_good_enough(self, passphrase,
+                             skip_rigid_password_tests=False,
                              **kw):
         """ Check that passphrase contains enough long words.
 
@@ -77,8 +80,10 @@ class CheckPhraseWordsMixin(PasswordChecker):
         """
         super(CheckPhraseWordsMixin, self).password_good_enough(
             passphrase,
+            skip_rigid_password_tests=skip_rigid_password_tests,
             **kw)
-
+        if not skip_rigid_password_tests:
+            return
         wl = self._passphrase_min_word_length
         wds = self._passphrase_min_words
         if len([x for x in passphrase.split(" ")

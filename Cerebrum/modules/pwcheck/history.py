@@ -78,12 +78,14 @@ class PasswordHistoryMixin(ClearPasswordHistoryMixin, PasswordChecker):
 
     """ A mixin for use with entities that should have password history. """
 
-    def password_good_enough(self, password, **kw):
+    def password_good_enough(self, password, skip_rigid_password_tests=False,
+                             **kw):
         """ Match the password against PasswordHistory. """
         super(PasswordHistoryMixin, self).password_good_enough(
-            password, **kw)
+            password, skip_rigid_password_tests=skip_rigid_password_tests, **kw)
         self._check_password_history(password)
-        self._check_password_history(password[0:8])
+        if not skip_rigid_password_tests:
+            self._check_password_history(password[0:8])
 
     def set_password(self, plaintext):
         # We need our own copy of __plaintext_password, because the

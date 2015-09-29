@@ -58,11 +58,14 @@ class CheckInvalidCharsMixin(common.PasswordChecker):
         r'[\200-\376]':
             "Password cannot contain 8-bit characters (e.g.  æøå).", }
 
-    def password_good_enough(self, password, **kw):
+    def password_good_enough(self, password, skip_rigid_password_tests=False,
+                             **kw):
         """ Check that only valid characters are allowed. """
         super(CheckInvalidCharsMixin, self).password_good_enough(
-            password, **kw)
+            password, skip_rigid_password_tests=skip_rigid_password_tests, **kw)
 
+        if skip_rigid_password_tests:
+            return
         for char, err in self._password_illegal_chars.iteritems():
             if char in password:
                 raise common.PasswordNotGoodEnough(err)
@@ -118,18 +121,22 @@ class CheckConcatMixin(common.PasswordChecker):
     """
 
     def password_good_enough(self, password,
+                             skip_rigid_password_tests=False,
                              **kw):
         """ This is insane. """
         super(CheckConcatMixin, self).password_good_enough(
             password,
+            skip_rigid_password_tests=skip_rigid_password_tests,
             **kw)
 
-        first_eight = password[0:8]
+        if not skip_rigid_password_tests:
+            first_eight = password[0:8]
 
-        if (re.search(r'^[A-Z][a-z]+[^A-Za-z0-9][A-Z][a-z]*$', first_eight) or
-                re.search(r'^[A-Z][a-z]+[^A-Za-z0-9][A-Z][a-z]*$', password)):
-            raise common.PasswordNotGoodEnough(
-                "Password cannot contain two concatenated words.")
+            if (re.search(r'^[A-Z][a-z]+[^A-Za-z0-9][A-Z][a-z]*$', first_eight)
+                    or re.search(r'^[A-Z][a-z]+[^A-Za-z0-9][A-Z][a-z]*$',
+                                 password)):
+                raise common.PasswordNotGoodEnough(
+                    "Password cannot contain two concatenated words.")
 
 
 class CheckEntropyMixin(common.PasswordChecker):
@@ -137,6 +144,7 @@ class CheckEntropyMixin(common.PasswordChecker):
     """ Adds a entropy check to password checker. """
 
     def password_good_enough(self, password,
+                             skip_rigid_password_tests=False,
                              **kw):
         """ Check that a password use multiple character sets.
 
@@ -152,8 +160,11 @@ class CheckEntropyMixin(common.PasswordChecker):
 
         super(CheckEntropyMixin, self).password_good_enough(
             password,
+            skip_rigid_password_tests=skip_rigid_password_tests,
             **kw)
 
+        if skip_rigid_password_tests:
+            return
         # TODO: Write proper regex, so that we don't have to truncate the
         # password
         first_eight = password[0:8]
@@ -253,11 +264,16 @@ class CheckRepeatedPatternMixin(common.PasswordChecker):
 
     """ Check for repeated patterns in password. """
 
-    def password_good_enough(self, password, **kw):
+    def password_good_enough(self, password, skip_rigid_password_tests=False,
+                             **kw):
         """ Check for repeated sequences in the first eight chars. """
         super(CheckRepeatedPatternMixin, self).password_good_enough(
             password,
+            skip_rigid_password_tests=skip_rigid_password_tests,
             **kw)
+
+        if skip_rigid_password_tests:
+            return
 
         # TODO: Clean up this check, and get rid of the trunc
         first_eight = password[0:8]

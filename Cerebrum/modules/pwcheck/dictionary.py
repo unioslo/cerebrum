@@ -256,11 +256,15 @@ class PasswordDictionaryMixin(common.PasswordChecker):
         """ The dictionary files to check. """
         return getattr(cereconf, 'PASSWORD_DICTIONARIES', [])
 
-    def password_good_enough(self, password, **kw):
+    def password_good_enough(self, password, skip_rigid_password_tests=False,
+                             **kw):
         """ Check password against a dictionary. """
         super(PasswordDictionaryMixin, self).password_good_enough(
             password,
+            skip_rigid_password_tests=skip_rigid_password_tests,
             **kw)
+        if skip_rigid_password_tests:
+            return
 
         if check_dict(self.password_dictionaries, password[0:8]):
             raise common.PasswordNotGoodEnough(
