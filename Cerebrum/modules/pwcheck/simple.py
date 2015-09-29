@@ -37,9 +37,8 @@ import cerebrum_path
 import cereconf
 
 import re
-import string
+import operator
 
-from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory
 
@@ -47,7 +46,7 @@ from . import common
 
 
 # TODO: Should we really disallow characters from passwords?
-class CheckInvalidCharsMixin(object):
+class CheckInvalidCharsMixin(common.PasswordChecker):
 
     """ Check for illegal characters in password string. """
 
@@ -72,7 +71,7 @@ class CheckInvalidCharsMixin(object):
                 raise common.PasswordNotGoodEnough(err)
 
 
-class CheckLengthMixin(object):
+class CheckLengthMixin(common.PasswordChecker):
 
     """ Check for minimum and maximum password length. """
 
@@ -102,7 +101,7 @@ class CheckLengthMixin(object):
 
 
 # TODO: Can we get rid of this?
-class CheckConcatMixin(object):
+class CheckConcatMixin(common.PasswordChecker):
 
     """We disallow passwords like 'Camel*Toe'.
 
@@ -127,7 +126,7 @@ class CheckConcatMixin(object):
                 "Password cannot contain two concatenated words.")
 
 
-class CheckEntropyMixin(object):
+class CheckEntropyMixin(common.PasswordChecker):
 
     """ Adds a entropy check to password checker. """
 
@@ -188,7 +187,7 @@ class CheckEntropyMixin(object):
                     " numbers and special characters.")
 
 
-class CheckCharSeqMixin(object):
+class CheckCharSeqMixin(common.PasswordChecker):
 
     """ Check for sequences of related chars. """
 
@@ -241,7 +240,7 @@ class CheckCharSeqMixin(object):
                 "Password cannot contain neighbouring keyboard keys")
 
 
-class CheckRepeatedPatternMixin(object):
+class CheckRepeatedPatternMixin(common.PasswordChecker):
 
     """ Check for repeated patterns in password. """
 
@@ -266,7 +265,7 @@ class CheckRepeatedPatternMixin(object):
             raise repeat_err
 
 
-class CheckUsernameMixin(object):
+class CheckUsernameMixin(common.PasswordChecker):
 
     """ Check for use of the username in the password. """
 
@@ -289,7 +288,7 @@ class CheckUsernameMixin(object):
                 "Password cannot contain your username in reverse")
 
 
-class CheckOwnerNameMixin(DatabaseAccessor):
+class CheckOwnerNameMixin(common.PasswordChecker):
 
     """ Check for use of the account owners name in the password. """
 

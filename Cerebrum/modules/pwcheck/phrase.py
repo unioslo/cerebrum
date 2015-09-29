@@ -20,13 +20,10 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ This module contains simple password phrase checks. """
 
-import cerebrum_path
-import cereconf
-
-from .common import PasswordNotGoodEnough
+from .common import PasswordNotGoodEnough, PasswordChecker
 
 
-class CheckPhraseLengthMixin(object):
+class CheckPhraseLengthMixin(PasswordChecker):
 
     """ Check passphrase length. """
 
@@ -57,7 +54,7 @@ class CheckPhraseLengthMixin(object):
                 self._passphrase_max_length)
 
 
-class CheckPhraseWordsMixin(object):
+class CheckPhraseWordsMixin(PasswordChecker):
 
     """ Check number of words in passphrase. """
 

@@ -247,7 +247,7 @@ def check_two_word_combinations(dictionaries, word):
         return None
 
 
-class PasswordDictionaryMixin(object):
+class PasswordDictionaryMixin(common.PasswordChecker):
 
     """ Check if password contains dictionary words. """
 

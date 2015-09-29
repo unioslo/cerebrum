@@ -54,12 +54,11 @@ and `entity_id' attributes are used in the password history hash.
 
 """
 
-import cereconf
 import hashlib
 import base64
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 
-from .common import PasswordNotGoodEnough
+from .common import PasswordNotGoodEnough, PasswordChecker
 
 __version__ = "1.0"
 
@@ -75,7 +74,7 @@ class ClearPasswordHistoryMixin(DatabaseAccessor):
         super(ClearPasswordHistoryMixin, self).delete()
 
 
-class PasswordHistoryMixin(ClearPasswordHistoryMixin):
+class PasswordHistoryMixin(ClearPasswordHistoryMixin, PasswordChecker):
 
     """ A mixin for use with entities that should have password history. """
 
