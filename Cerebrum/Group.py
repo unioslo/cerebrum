@@ -612,7 +612,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         return self.query(query_str, binds, fetchall=True)
     # end search
 
-    def search_members(self, group_id=None,
+    def search_members(self, group_id=None, spread=None,
                        member_id=None, member_type=None,
                        indirect_members=False,
                        member_spread=None,
@@ -644,6 +644,11 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
           specified groups will be returned. This is useful for answering
           questions like 'give a list of all members of group <bla>'. See also
           L{indirect_members}.
+
+        @type spread: int or SpreadCode or sequence thereof or None.
+        @param spread:
+          Filter the resulting group list by spread. I.e. only groups with
+          specified spread(s) will be returned.
 
         @type member_id: int or a sequence thereof or None.
         @param member_id:
@@ -821,6 +826,12 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                     binds,
                     int))
 
+        if spread is not None:
+            tables.append(
+                """JOIN [:table schema=cerebrum name=entity_spread] es2
+                   ON (tmp1.group_id = es2.entity_id AND %s)
+                """ % argument_to_sql(spread, "es2.spread", binds, int))
+
         if member_id is not None:
             if indirect_members:
                 # expand member_id to include all direct and indirect *parent*
@@ -849,7 +860,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         if member_spread is not None:
             tables.append(
                 """JOIN [:table schema=cerebrum name=entity_spread] es
-                   ON tmp1.member_id = es.entity_id AND %s
+                   ON (tmp1.member_id = es.entity_id AND %s)
                 """ % argument_to_sql(member_spread, "es.spread", binds, int))
 
         if member_filter_expired:

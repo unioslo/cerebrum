@@ -1205,30 +1205,38 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                                 'o_type': int(owner_type)})
 
     def list_account_authentication(self, auth_type=None, filter_expired=True,
-                                    account_id=None):
+                                    account_id=None, spread=None):
         binds = dict()
-        if auth_type is None:
-            type_str = "= %d" % int(self.const.auth_type_md5_crypt)
-        elif isinstance(auth_type, (list, tuple)):
-            type_str = ("IN (" +
-                        ", ".join([str(int(x)) for x in auth_type]) +
-                        ")")
-        else:
-            type_str = "= %d" % int(auth_type)
+        tables = []
         where = []
-        where.append("ai.account_id=en.entity_id")
+        if auth_type is None:
+            auth_type = self.const.auth_type_md5_crypt
+        aa_method = argument_to_sql(auth_type, 'aa.method', binds, int)
+        if spread is not None:
+            tables.append('[:table schema=cerebrum name=entity_spread] es')
+            where.append('ai.account_id=es.entity_id')
+            where.append(argument_to_sql(spread, 'es.spread', binds, int))
+            where.append(argument_to_sql(self.const.entity_account,
+                                         'es.entity_type', binds, int))
         if filter_expired:
             where.append("(ai.expire_date IS NULL OR ai.expire_date > [:now])")
         if account_id:
-            where.append(argument_to_sql(account_id,"ai.account_id",binds,int))
+            where.append(argument_to_sql(account_id, 'ai.account_id',
+                                         binds, int))
+        where.append('ai.account_id=en.entity_id')
         where = " AND ".join(where)
+        if tables:
+            tables = ','.join(tables) + ','
+        else:
+            tables = ''
         return self.query("""
         SELECT ai.account_id, en.entity_name, aa.method, aa.auth_data
-        FROM [:table schema=cerebrum name=entity_name] en,
+        FROM %s
+             [:table schema=cerebrum name=entity_name] en,
              [:table schema=cerebrum name=account_info] ai
              LEFT JOIN [:table schema=cerebrum name=account_authentication] aa
-               ON ai.account_id=aa.account_id AND aa.method %s
-        WHERE %s""" % (type_str, where), binds)
+               ON ai.account_id=aa.account_id AND %s
+        WHERE %s""" % (tables, aa_method, where), binds)
 
     def get_account_name(self):
         return self.account_name
