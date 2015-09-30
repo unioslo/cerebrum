@@ -28,17 +28,17 @@ class CheckPhraseLengthMixin(PasswordChecker):
     """ Check passphrase length. """
 
     # Minimum length and error message
-    _passphrase_min_length = 12
     _passphrase_min_length_error_fmt = ("Password must be at least %d"
                                         " characters.")
 
     # Maximum length and error message
-    _passphrase_max_length = None
     _passphrase_max_length_error_fmt = ("Password must be at most %d"
                                         " characters.")
 
     def password_good_enough(self, passphrase,
                              skip_rigid_password_tests=False,
+                             passphrase_min_length=12,
+                             passphrase_max_length=None,
                              **kw):
         """ Check that passphrase length is within bounds. """
         super(CheckPhraseLengthMixin, self).password_good_enough(
@@ -46,17 +46,17 @@ class CheckPhraseLengthMixin(PasswordChecker):
             skip_rigid_password_tests=skip_rigid_password_tests, **kw)
 
         if skip_rigid_password_tests:
-            if (self._passphrase_min_length is not None and
-                    self._passphrase_min_length > len(passphrase)):
+            if (passphrase_min_length is not None and
+                    passphrase_min_length > len(passphrase)):
                 raise PasswordNotGoodEnough(
                     self._passphrase_min_length_error_fmt %
-                    self._passphrase_min_length)
+                    passphrase_min_length)
 
-            if (self._passphrase_max_length is not None and
-                    self._passphrase_max_length > len(passphrase)):
+            if (passphrase_max_length is not None and
+                    passphrase_max_length > len(passphrase)):
                 raise PasswordNotGoodEnough(
                     self._passphrase_max_length_error_fmt %
-                    self._passphrase_max_length)
+                    passphrase_max_length)
 
 
 class CheckPhraseWordsMixin(PasswordChecker):
