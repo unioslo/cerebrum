@@ -1003,7 +1003,6 @@ class BofhdAuth(DatabaseAccessor):
             if not attr:
                 return True
             if str(qtype) == attr:
-                print 'Found attr: ', attr
                 return True
 
         return self.is_account_owner(
@@ -1033,7 +1032,6 @@ class BofhdAuth(DatabaseAccessor):
             if not attr:
                 return True
             if str(qtype) == attr:
-                print 'Found attr: ', attr
                 return True
 
         # TODO 2003-07-04: Bård is going to comment this
