@@ -325,15 +325,21 @@ class CheckOwnerNameMixin(common.PasswordChecker):
 
     """ Check for use of the account owners name in the password. """
 
-    def password_good_enough(self, password, **kw):
+    def password_good_enough(self, password, name_seq_len=5, **kw):
         super(CheckOwnerNameMixin, self).password_good_enough(password, **kw)
 
         if not hasattr(self, 'owner_id'):
             return
 
-        self._check_human_owner(self.owner_id, password)
+        if isinstance(password, str):
+            try:
+                password = unicode(password, 'UTF-8')
+            except:
+                password = unicode(password, 'ISO-8859-1')
 
-    def _check_human_owner(self, owner_id, password):
+        self._check_human_owner(self.owner_id, password, name_seq_len)
+
+    def _check_human_owner(self, owner_id, password, seqlen):
         """Check if password is a variation of the owner's name."""
         # TODO: Should we not check the name of other owner types as well?
         #       E.g.: owner=group:foobarbaz, password=fooBARbaz
@@ -354,9 +360,9 @@ class CheckOwnerNameMixin(common.PasswordChecker):
                 break
         else:
             return
-        self._match_password_to_name(name, password)
+        self._match_password_to_name(name, password, seqlen)
 
-    def _match_password_to_name(self, name, password):
+    def _match_password_to_name(self, name, password, seqlen):
         """Check whether password 'matches' (in a sense) name."""
 
         def make_match(name_chunks, pwd_chunks):
@@ -382,15 +388,33 @@ class CheckOwnerNameMixin(common.PasswordChecker):
         name_chunks = [x for x in name.split() if len(x) > 0]
         pwd_chunks = [x for x in re.split(r"[^a-z]+", password) if len(x) > 0]
         pwd_l33t_chunks = [x for x in re.split(
-            r"[^a-z]+", password.translate(common.l33t_speak)) if len(x) > 0]
+            r"[^a-z]+",
+            password.translate(unicode(common.l33t_speak, 'ISO-8859-1')))
+            if len(x) > 0]
 
         # Now, matching_length counts the number of password alpha characters
         # that overlap with the name. Let's say that if more than half the
         # password is, in fact, a match => the password is a copy of the name.
-        if (make_match(name_chunks, pwd_chunks) > len(password)/2 or
-                make_match(name_chunks, pwd_l33t_chunks) > len(password)/2):
+        if (make_match(name_chunks, pwd_chunks) >= seqlen or
+                make_match(name_chunks, pwd_l33t_chunks) >= seqlen):
             raise common.PasswordNotGoodEnough(
                 "Password cannot contain your name.")
+
+        # Join all possible sequences of length
+        def all_chunks(x):
+            tmp = u''.join(x)
+            if len(tmp) > seqlen:
+                for i in range(len(tmp) - seqlen):
+                    yield tmp[i:i+seqlen]
+            else:
+                yield tmp
+
+        all_pw_chunks = set(all_chunks(password.split()))
+        for name in all_chunks(name_chunks):
+            if name in all_pw_chunks:
+                raise common.PasswordNotGoodEnough(
+                    "Password cannot contain %d characters from your name" %
+                    seqlen)
 
 
 class CheckSimpleMixin(CheckInvalidCharsMixin,
