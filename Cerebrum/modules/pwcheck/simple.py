@@ -79,10 +79,8 @@ class CheckLengthMixin(common.PasswordChecker):
 
     """ Check for minimum and maximum password length. """
 
-    _password_min_length = 8
-    _password_max_length = 15
-
     def password_good_enough(self, password,
+                             password_min_length=8, password_max_length=None,
                              **kw):
         """Check the length of the password.
 
@@ -93,17 +91,17 @@ class CheckLengthMixin(common.PasswordChecker):
         super(CheckLengthMixin, self).password_good_enough(password,
                                                            **kw)
 
-        if (self._password_min_length is not None
-                and len(password.strip()) < self._password_min_length):
+        if (password_min_length is not None
+                and len(password.strip()) < password_min_length):
             raise common.PasswordNotGoodEnough(
                 "Password must be at least %d characters long." %
-                self._password_min_length)
+                password_min_length)
 
-        if (self._password_max_length is not None
-                and len(password) > self._password_max_length):
+        if (password_max_length is not None
+                and len(password) > password_max_length):
             raise common.PasswordNotGoodEnough(
                 "Password must be at most %d characters long." %
-                self._password_max_length)
+                password_max_length)
 
 
 # TODO: Can we get rid of this?
