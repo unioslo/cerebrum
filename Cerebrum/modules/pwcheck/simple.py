@@ -209,53 +209,61 @@ class CheckCharSeqMixin(common.PasswordChecker):
 
     """ Check for sequences of related chars. """
 
-    def password_good_enough(self, password, **kw):
+    def password_good_enough(self, password, char_seq_length=3, **kw):
         """ Check for sequences of closely related characters. """
         super(CheckCharSeqMixin, self).password_good_enough(password, **kw)
 
-        # TODO: Clean up this check, and get rid of the trunc
-        passwd = password[0:8].lower()
+        if isinstance(password, str):
+            try:
+                password = unicode(password, 'UTF-8')
+            except UnicodeDecodeError:
+                password = unicode(password, 'ISO-8859-1')
+        passwd = password.lower()
+        ordpw = map(ord, passwd)
+
+        def find_adjacent_runs(seq):
+            def fun(tot, elt):
+                if tot and tot[-1][0] == elt:
+                    tot[-1][1] += 1
+                else:
+                    tot.append([elt, 1])
+                return tot
+            return reduce(fun, seq, [])
 
         # A sequence of closely related ASCII characters.
-        ok = 0
-        for i in range(len(passwd)-1):
-            if abs(ord(passwd[i]) - ord(passwd[i+1])) > 1:
-                ok = 1
-        if not ok:
-            raise common.PasswordNotGoodEnough(
-                "Password cannot contain characters in alpabetical or"
-                " numerical order")
+        for diff, num in find_adjacent_runs(
+                map(operator.sub, ordpw[1:], ordpw[:-1])):
+            if diff in (-1, 1) and num >= char_seq_length:
+                raise common.PasswordNotGoodEnough(
+                    "Password cannot contain characters in alpabetical or"
+                    " numerical order")
 
         # TODO: 'kbd' should probably try a number of typical layouts.
         # Rows may be of different lengths, but the same symbol CANNOT occur
         # more than once.
-        keyboard_rows = ("qwertyuiop[]",
-                         "asdfghjkl;'",
-                         "zxcvbnm,./",
-                         "!@#$%^&*()_+|~",
-                         "-1234567890=\`")
-        tmp = passwd
-        last_index = 0
-        # The idea is to map each keyboard row into its own interval of
-        # consecutive chars (we don't care they may be non-printable). The
-        # code later checks that there does in fact exist at least 2
-        # consecutive chars in the password that differ by more than one.
-        for row in keyboard_rows:
-            translation_map = ''.join(
-                chr(x) for x in range(last_index, last_index+len(row)))
-            last_index += len(row)
-            tmp = string.translate(
-                tmp, string.maketrans(row, translation_map))
+        keyboard_rows = (u"qwertyuiop[]",
+                         u"qwertyuiopå",  # norwegian
+                         u"asdfghjkl;'",
+                         u"asdfghjkløæ",  # norwegian
+                         u"zxcvbnm,./",
+                         u"zxcvbnm,.-",   # norwegian
+                         u"!@#$%^&*()_+|~",
+                         u"§!\"#$%&/()=?",
+                         u"-1234567890=\`",
+                         u"å,.pyfgcrl'",  # dvorak
+                         u"å;:pyfgcrl'",  # dvorak
+                         u"aoeuidhtns-<",  # dvorak
+                         u"øæqjkxbmwvz",  # dvorak
+                         )
 
-        # Is there at least 1 pair of consecutive chars that differ by more
-        # than 1?
-        ok = 0
-        for i in range(len(tmp)-1):
-            if abs(ord(tmp[i]) - ord(tmp[i+1])) > 1:
-                ok = 1
-        if not ok:
-            raise common.PasswordNotGoodEnough(
-                "Password cannot contain neighbouring keyboard keys")
+        for row in keyboard_rows:
+            mapper = dict([(key, val+1) for val, key in enumerate(row)])
+            pw = [mapper.get(x, -1) for x in passwd]
+            runs = find_adjacent_runs(map(operator.sub, pw[1:], pw[:-1]))
+            for diff, num in runs:
+                if diff in (-1, 1) and num >= char_seq_length:
+                    raise common.PasswordNotGoodEnough(
+                        "Password cannot contain neighbouring keyboard keys")
 
 
 class CheckRepeatedPatternMixin(common.PasswordChecker):
