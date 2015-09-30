@@ -66,10 +66,13 @@ class CheckPhraseWordsMixin(PasswordChecker):
     # Minimum word count, length and error message
     _passphrase_min_words_error_fmt = ("Password must have at least %d words"
                                        " of length %d")
+    _passphrase_avg_error_fmt = ("Password words must be in average at least"
+                                 " %s characters long")
 
     def password_good_enough(self, passphrase,
                              passphrase_min_words=4,
                              passphrase_min_word_length=2,
+                             passphrase_avg_length=4,
                              skip_rigid_password_tests=False,
                              **kw):
         """ Check that passphrase contains enough long words.
@@ -86,10 +89,14 @@ class CheckPhraseWordsMixin(PasswordChecker):
             return
         wl = passphrase_min_word_length
         wds = passphrase_min_words
+        avg = passphrase_avg_length
         spl = passphrase.split(" ")
         if len([x for x in spl if len(x) >= wl]) < wds:
             raise PasswordNotGoodEnough(
                 self._passphrase_min_words_error_fmt % (wds, wl))
+        if avg and float(sum(map(len, spl)))/len(spl) < avg:
+            raise PasswordNotGoodEnough(
+                self._passphrase_avg_error_fmt % (avg,))
 
 
 class CheckPassphraseMixin(CheckPhraseWordsMixin, CheckPhraseLengthMixin):
