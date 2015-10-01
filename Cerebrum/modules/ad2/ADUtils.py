@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2011-2014 University of Oslo, Norway
+# Copyright 2011-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -1372,21 +1372,35 @@ class ADclient(PowershellClient):
         @type password: string
         @param password: The new passord for the object. Must be in plaintext,
             as that is how AD requires it to be, for now.
-
         """
         self.logger.info('Setting password for: %s', ad_id)
         # Would like to be able to give AD a hash/crypt in some format that is
         # not readable for others. We convert it to base64 only to avoid any
         # trouble with string escape characters - this is not for security
         # reasons.
+        # We would like to check if 'password' is a GPG-encrypted password or
+        # an old-style plaintext password before converting it to base64.
+        # Encrypted passwords will be handled differently (decrypted) on the
+        # AD-side (Windows server - side).
+        password_is_encrypted = '-----BEGIN PGP MESSAGE-----' in password
         password = base64.b64encode(password)
-        cmd = '''$b = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(%(pwd)s));
+        if password_is_encrypted:
+            cmd = '''$b = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(%(pwd)s));
+            $decrypted_text = $b | gpg -q --batch --decrypt;
+            $pwd = ConvertTo-SecureString -AsPlainText -Force $decrypted_text;
+            %(cmd)s -NewPassword $pwd;
+            ''' % {'pwd': self.escape_to_string(password),
+                   'cmd': self._generate_ad_command('Set-ADAccountPassword',
+                                                    {'Identity': ad_id},
+                                                    ['Reset'])}
+        else:
+            cmd = '''$b = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(%(pwd)s));
             $pwd = ConvertTo-SecureString -AsPlainText -Force $b;
             %(cmd)s -NewPassword $pwd;
-        ''' % {'pwd': self.escape_to_string(password),
-               'cmd': self._generate_ad_command('Set-ADAccountPassword',
-                                                {'Identity': ad_id},
-                                                ['Reset'])}
+            ''' % {'pwd': self.escape_to_string(password),
+                   'cmd': self._generate_ad_command('Set-ADAccountPassword',
+                                                    {'Identity': ad_id},
+                                                    ['Reset'])}
         #Set-ADAccountPassword -Identity %(_ad_id)s -Credential $cred -Reset -NewPassword $pwd
         if self.dryrun:
             return True
