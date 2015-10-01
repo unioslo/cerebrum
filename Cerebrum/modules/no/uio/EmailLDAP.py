@@ -27,6 +27,7 @@ import mx
 from collections import defaultdict
 
 from Cerebrum import Errors
+from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 from Cerebrum.modules.EmailLDAP import EmailLDAP
@@ -213,12 +214,12 @@ class EmailLDAPUiOMixin(EmailLDAP):
     def read_target_auth_data(self):
         a = Factory.get('Account')(self._db)
         # Same as default, but omit co.quarantine_auto_emailonly
-        quarantines = {}
-        for row in a.list_entity_quarantines(
-                only_active=True,
-                entity_types=self.const.entity_account,
-                ignore_quarantine_types=self.const.quarantine_auto_emailonly):
-            quarantines[int(row['entity_id'])] = "*locked"
+        quarantines = dict(
+            [(x, "*locked") for x in
+             QuarantineHandler.get_locked_entities(
+             self._db,
+             entity_types=self.const.entity_account,
+             ignore_quarantine_types=self.const.quarantine_auto_emailonly)])
         for row in a.list_account_authentication():
             a_id = int(row['account_id'])
             self.e_id2passwd[a_id] = quarantines.get(a_id) or row['auth_data']

@@ -31,6 +31,7 @@ import cerebrum_path
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, SMSSender, sendmail
 from Cerebrum.modules import PasswordChecker
+from Cerebrum.QuarantineHandler import QuarantineHandler
 from cisconf import individuation as cisconf
 
 class SimpleLogger(object):
@@ -447,7 +448,8 @@ class Individuation:
             log.warning("user %s is deleted" % uname)
         elif account.is_expired():
             log.warning("user %s is expired" % uname)
-        elif account.get_entity_quarantine(only_active=True):
+        elif QuarantineHandler.check_entity_quarantines(
+                self.db, account.entity_id).is_locked():
             log.info("user %s has an active quarantine" % uname)
         return True
 
