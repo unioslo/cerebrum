@@ -433,7 +433,7 @@ class Constants(Constants.Constants):
         'equant',
         'Brukeren er sperret for Equant tjenesten.')
     quarantine_radius = _QuarantineCode(
-        'radius', "Bruker er sperret for RADIUS-innlogging.")
+        'radius', 'Bruker er sperret for RADIUS-innlogging.')
     email_domain_category_uio_globals = _EmailDomainCategoryCode(
         'UIO_GLOBALS',
         "All local_parts defined in domain 'UIO_GLOBALS' are treated"
