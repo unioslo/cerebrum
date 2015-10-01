@@ -57,6 +57,7 @@ import traceback
 import getopt
 import os
 
+import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory, dyn_import
 from Cerebrum import Metainfo
