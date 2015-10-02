@@ -55,6 +55,7 @@ of spreads, only the default values will be used.
 import cereconf
 from Cerebrum import Entity
 from Cerebrum.Utils import Factory
+from collections import defaultdict
 
 const = Factory.get("Constants")
 
@@ -166,6 +167,30 @@ class QuarantineHandler(object):
                  for row in eq.get_entity_quarantine(only_active=True)],
             spreads)
     check_entity_quarantines = staticmethod(check_entity_quarantines)
+
+    @staticmethod
+    def get_locked_entities(db, entity_types=None, only_active=True,
+                            entity_ids=None, ignore_quarantine_types=None):
+        """Utility method that the returns the entity-id of all locked accounts.
+
+        :param db: A database object
+        :param entity_types: Entity types to filter on
+        :param only_active: Only return locked and active quarantines
+        :param entity_ids: Spesific entity-ids to check
+        :param ignore_quarantine_types: Quarantines to ignore"""
+        cache = defaultdict(list)
+        eq = Entity.EntityQuarantine(db)
+        for row in eq.list_entity_quarantines(
+                entity_types=entity_types,
+                only_active=only_active,
+                entity_ids=entity_ids,
+                ignore_quarantine_types=ignore_quarantine_types):
+            cache[row['entity_id']].append(
+                row['quarantine_type'])
+
+        is_locked = lambda key: QuarantineHandler(db,
+                                                  cache.get(key)).is_locked()
+        return set(filter(is_locked, cache.keys()))
 
 
 def _test():
