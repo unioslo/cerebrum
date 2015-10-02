@@ -70,9 +70,9 @@ class CheckPhraseWordsMixin(PasswordChecker):
                                  " %s characters long")
 
     def password_good_enough(self, passphrase,
-                             passphrase_min_words=4,
-                             passphrase_min_word_length=2,
-                             passphrase_avg_length=4,
+                             passphrase_min_words=None,
+                             passphrase_min_word_length=None,
+                             passphrase_avg_length=None,
                              skip_rigid_password_tests=False,
                              **kw):
         """ Check that passphrase contains enough long words.
@@ -87,8 +87,8 @@ class CheckPhraseWordsMixin(PasswordChecker):
             **kw)
         if not skip_rigid_password_tests:
             return
-        wl = passphrase_min_word_length
-        wds = passphrase_min_words
+        wl = passphrase_min_word_length or 0
+        wds = passphrase_min_words or 0
         avg = passphrase_avg_length
         spl = passphrase.split(" ")
         if len([x for x in spl if len(x) >= wl]) < wds:
