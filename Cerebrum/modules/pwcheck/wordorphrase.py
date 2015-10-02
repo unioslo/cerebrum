@@ -23,6 +23,7 @@
 """
 
 from .common import PasswordChecker
+import cereconf
 
 
 class PhraseWordCheckSplitter(PasswordChecker):
@@ -39,6 +40,14 @@ class PhraseWordCheckSplitter(PasswordChecker):
         `skip_rigid_password_tests` is set to True for further hierarchy calls.
         Else, it is set to False.
         """
-        kw['skip_rigid_password_tests'] = self.is_passphrase(password)
+
+        if 'skip_rigid_password_tests' not in kw:
+            pwstyle = cereconf.PASSWORD_STYLE
+            skip = False
+            if pwstyle == 'mixed':
+                skip = self.is_passphrase(password)
+            elif pwstyle == 'phrase':
+                skip = True
+            kw['skip_rigid_password_tests'] = skip
         return super(PhraseWordCheckSplitter, self).password_good_enough(
             password, **kw)
