@@ -31,7 +31,7 @@ This module requires the design/mod_password_history.sql database module.
 To use the PasswordHistoryMixin, the base class MUST implement all the public
 methods defined in the mixin:
 
- - password_good_enough(self, password)
+ - password_good_enough(self, password, **kw)
  - set_password(self, password)
  - write_db(self)
  - delete(self)
