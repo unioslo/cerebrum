@@ -49,6 +49,10 @@ PASSPHRASE_DICTIONARIES = ()
 # read by Cerebrum.modules.pwcheck.wordorphrase/PhraseWordCheckSplitter
 PASSWORD_STYLE = 'rigid'
 
+# Arguments to test for password_good_enough. Inserted with
+# Cerebrum.modules.pwcheck.confargs/CereconfMixin
+PASSWORD_TEST_ARGUMENTS = {}
+
 # Look for things like person name by evaluating source systems in in
 # this order
 SYSTEM_LOOKUP_ORDER = ("system_manual",)
