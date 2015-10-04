@@ -299,7 +299,7 @@ class EntityConsentMixin(Entity):
 
     def write_db(self):
         """Write changes to database."""
-        super(EntityConsentCode, self).write_db()
+        super(EntityConsentMixin, self).write_db()
         if not self.__consents:
             return
         insert = """

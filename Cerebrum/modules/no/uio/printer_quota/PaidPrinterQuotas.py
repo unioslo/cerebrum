@@ -77,10 +77,13 @@ class PaidPrinterQuotas(DatabaseAccessor):
             FROM [:table schema=cerebrum name=paid_quota_status]
             WHERE person_id=:person_id""", {'person_id': person_id})
 
-    def list(self):
+    def list(self, only_with_quota=False):
+        where = ''
+        if only_with_quota:
+            where = """WHERE has_quota = 'T'"""
         return self.query("""
         SELECT has_quota, has_blocked_quota, person_id
-        FROM [:table schema=cerebrum name=paid_quota_status]""")
+        FROM [:table schema=cerebrum name=paid_quota_status] """ + where)
 
     def new_quota(self, person_id, has_quota=False,
                   has_blocked_quota=False):

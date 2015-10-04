@@ -779,7 +779,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
                 uname, ":".join([str(x) for x in self.client_address])))
             raise CerebrumError("Unknown username or password")
         try:
-            logger.info("Succesful login for %s from %s" % (
+            logger.info("Successful login for %s from %s" % (
                 uname, ":".join([str(x) for x in self.client_address])))
             session = BofhdSession(self.server.db)
             session_id = session.set_authenticated_entity(account.entity_id,
