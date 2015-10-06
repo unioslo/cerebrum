@@ -11,3 +11,4 @@ rpclib==2.7.0-beta
 twisted==10.2.0
 pyOpenSSL
 python-ldap
+cx_Oracle
