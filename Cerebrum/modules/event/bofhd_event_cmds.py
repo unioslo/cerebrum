@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2014 University of Oslo, Norway
+# Copyright 2014-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -35,7 +35,6 @@ import eventconf
 
 # Event spesific params
 class TargetSystem(Parameter):
-
     """Parameter type used for carrying target system names to commands."""
 
     _type = 'targetSystem'
@@ -43,7 +42,6 @@ class TargetSystem(Parameter):
 
 
 class EventId(Parameter):
-
     """Parameter type used for carrying event ids to commands."""
 
     _type = 'eventId'
@@ -51,7 +49,6 @@ class EventId(Parameter):
 
 
 class BofhdExtension(BofhdCommandBase):
-
     """Commands used for managing and inspecting events."""
 
     all_commands = {}
@@ -64,7 +61,7 @@ class BofhdExtension(BofhdCommandBase):
         """Definition of the help text for event-related commands."""
         group_help = {
             'event': "Event related commands",
-            }
+        }
 
         # The texts in command_help are automatically line-wrapped, and should
         # not contain \n
@@ -81,16 +78,16 @@ class BofhdExtension(BofhdCommandBase):
         }
 
         arg_help = {
-            'target_system':
-                ['target_system',
-                 'Target system (i.e. \'Exchange\')',
-                 'Enter the target system for this operation'],
-            'event_id':
-                ['event_id',
-                 'Event Id',
-                 'The numerical identificator of an event'],
-            'search_pattern':
-            ['search_pattern',
+            'target_system': [
+                'target_system',
+                'Target system (i.e. \'Exchange\')',
+                'Enter the target system for this operation'],
+            'event_id': [
+                'event_id',
+                'Event Id',
+                'The numerical identificator of an event'],
+            'search_pattern': [
+                'search_pattern',
                 'Search pattern',
                 'Patterns that can be used:\n'
                 '  id:0             Returns all events where dest- or '
@@ -116,42 +113,38 @@ class BofhdExtension(BofhdCommandBase):
             raise CerebrumError('No such target-system: %s' % target_sys)
         return ts
 
-
-
     # event stat
     all_commands['event_stat'] = Command(
-            ('event', 'stat',), TargetSystem(),
-                fs=FormatSuggestion(
-                    [('Total failed: %d\n'
-                      'Total locked: %d\n'
-                      'Total       : %d',
-                        ('t_failed', 't_locked', 'total',),),]
-                ),
-                perm_filter='is_postmaster'
-    )
+        ('event', 'stat',), TargetSystem(),
+        fs=FormatSuggestion(
+            [('Total failed: %d\n'
+              'Total locked: %d\n'
+              'Total       : %d',
+              ('t_failed', 't_locked', 'total',),), ]),
+        perm_filter='is_postmaster')
+
     def event_stat(self, operator, target_sys):
         if not self.ba.is_postmaster(operator.get_entity_id()):
             raise PermissionDenied('No access to event')
         ts = self._validate_target_system(operator, target_sys)
-        
+
         fail_limit = eventconf.CONFIG[str(ts)]['fail_limit']
         return self.db.get_target_stats(ts, fail_limit)
 
     # event list
     all_commands['event_list'] = Command(
-            ('event', 'list',), TargetSystem(), SimpleString(optional=True),
-                fs=FormatSuggestion(
-                    '%-8d %-28s %-25s %d',
-                        ('id', 'type', 'taken', 'failed',),
-                    hdr='%-8s %-28s %-25s %s' % ('Id', 'Type',
-                                                 'Taken', 'Failed',)
-                                    ,),
-                                    perm_filter='is_postmaster')
+        ('event', 'list',), TargetSystem(), SimpleString(optional=True),
+        fs=FormatSuggestion(
+            '%-8d %-28s %-25s %d',
+            ('id', 'type', 'taken', 'failed',),
+            hdr='%-8s %-28s %-25s %s' % ('Id', 'Type', 'Taken', 'Failed',),),
+        perm_filter='is_postmaster')
+
     def event_list(self, operator, target_sys, args='failed'):
         if not self.ba.is_postmaster(operator.get_entity_id()):
             raise PermissionDenied('No access to event')
         ts = self._validate_target_system(operator, target_sys)
-        
+
         r = []
         # TODO: Check auth on target-system
         #       Remove perm_filter when this is implemented?
@@ -164,23 +157,25 @@ class BofhdExtension(BofhdCommandBase):
         else:
             return []
 
-        for ev in self.db.get_failed_and_locked_events(target_system=ts,
-                                                       fail_limit=fail_limit,
-                                                       locked=locked):
-            tmp = {'id': ev['event_id'],
-                    # TODO: Change this when we create TargetType()
-                   'type': str(self.const.ChangeType(ev['event_type'])),
-                   'taken': str(ev['taken_time']).replace(' ', '_'),
-                   'failed': ev['failed']
-                  }
-            r += [tmp]
+        for ev in self.db.get_failed_and_locked_events(
+                target_system=ts,
+                fail_limit=fail_limit,
+                locked=locked):
+            r += [{
+                'id': ev['event_id'],
+                # TODO: Change this when we create TargetType()
+                'type': str(self.const.ChangeType(ev['event_type'])),
+                'taken': str(ev['taken_time']).replace(' ', '_'),
+                'failed': ev['failed']
+            }]
         return r
 
     # event force
     all_commands['event_force'] = Command(
-            ('event', 'force',), TargetSystem(), EventId(),
-            fs=FormatSuggestion('Forcing %s', ('state',)),
-            perm_filter='is_postmaster')
+        ('event', 'force',), TargetSystem(), EventId(),
+        fs=FormatSuggestion('Forcing %s', ('state',)),
+        perm_filter='is_postmaster')
+
     def event_force(self, operator, target_sys, id):
         if not self.ba.is_postmaster(operator.get_entity_id()):
             raise PermissionDenied('No access to event')
@@ -195,9 +190,10 @@ class BofhdExtension(BofhdCommandBase):
 
     # event unlock
     all_commands['event_unlock'] = Command(
-            ('event', 'unlock',), TargetSystem(), EventId(),
-            fs=FormatSuggestion('Unlock %s', ('state',)),
-                perm_filter='is_postmaster')
+        ('event', 'unlock',), TargetSystem(), EventId(),
+        fs=FormatSuggestion('Unlock %s', ('state',)),
+        perm_filter='is_postmaster')
+
     def event_unlock(self, operator, target_sys, id):
         if not self.ba.is_postmaster(operator.get_entity_id()):
             raise PermissionDenied('No access to event')
@@ -212,9 +208,10 @@ class BofhdExtension(BofhdCommandBase):
 
     # event delete
     all_commands['event_delete'] = Command(
-            ('event', 'delete',), TargetSystem(), EventId(),
-            fs=FormatSuggestion('Deleted %s', ('state',)),
-            perm_filter='is_postmaster')
+        ('event', 'delete',), TargetSystem(), EventId(),
+        fs=FormatSuggestion('Deleted %s', ('state',)),
+        perm_filter='is_postmaster')
+
     def event_delete(self, operator, target_sys, id):
         if not self.ba.is_postmaster(operator.get_entity_id()):
             raise PermissionDenied('No access to event')
@@ -229,9 +226,10 @@ class BofhdExtension(BofhdCommandBase):
 
     # event info
     all_commands['event_info'] = Command(
-            ('event', 'info',), TargetSystem(), EventId(),
-            fs=FormatSuggestion('%s', ('event',)),
-            perm_filter='is_postmaster')
+        ('event', 'info',), TargetSystem(), EventId(),
+        fs=FormatSuggestion('%s', ('event',)),
+        perm_filter='is_postmaster')
+
     def event_info(self, operator, target_sys, id):
         if not self.ba.is_postmaster(operator.get_entity_id()):
             raise PermissionDenied('No access to event')
