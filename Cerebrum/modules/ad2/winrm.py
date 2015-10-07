@@ -376,6 +376,9 @@ class WinRMProtocol(object):
             if client_cert or client_key:
                 ssl_config.set_cert(client_cert, client_key)
 
+            self.logger.debug2("Connection settings: timeout=%r, ssl=%s",
+                               self.connection_timeout, ssl_config)
+
             conn = https.HTTPSConnection.configure(
                 ssl_config, timeout=self.connection_timeout)
             self._opener = urllib2.build_opener(
