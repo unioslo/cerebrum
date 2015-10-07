@@ -45,7 +45,7 @@ from Cerebrum.Utils import read_password
 from Cerebrum.modules.exchange.CerebrumUtils import CerebrumUtils
 import ldap
 
-logger = Utils.Factory.get_logger('cronjob')
+logger = Utils.Factory.get_logger('console')
 
 
 class StateChecker(object):
@@ -271,7 +271,12 @@ class StateChecker(object):
         res = {}
         for acc in self._cache_accounts:
             tmp = {}
-            tid = self._cache_targets[acc['account_id']]['target_id']
+            try:
+                tid = self._cache_targets[acc['account_id']]['target_id']
+            except KeyError:
+                self.logger.warn('Could not find account with ID: %d in list'
+                                 'of targets, skipping..')
+                continue
             # Fetch addresses
             tmp[u'EmailAddresses'] = sorted(self._cache_addresses[tid])
             # Fetch primary address
