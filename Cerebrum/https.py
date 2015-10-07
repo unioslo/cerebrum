@@ -304,9 +304,6 @@ class HTTPSConnection(httplib.HTTPSConnection, object):
 
         """
         self._ssl_config = kwargs.pop(u'ssl_config', self.ssl_config)
-        # TODO/PY26: Python 2.5 has no timeout setting, this needs to go if we
-        #            ever get to python 2.6:
-        self._timeout = kwargs.pop(u'timeout', self.default_timeout)
 
         # These are the options that HTTPSConnection accepts, that we can also
         # set in the SSLConfig. If they are given to HTTPSConnection, we prefer
@@ -329,16 +326,12 @@ class HTTPSConnection(httplib.HTTPSConnection, object):
         if not isinstance(self._ssl_config, SSLConfig):
             raise TypeError(u'ssl_config must be an instance of SSLConfig')
 
-        # TODO/PY26: Do this...
-        # sock = socket.create_connection((self.host, self.port), self.timeout)
-        # if self._tunnel_host:
-        #     self.sock = sock
-        #     self._tunnel()
-        # . not this:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock = socket.create_connection((self.host, self.port),
+                                        self.timeout or self.default_timeout)
+        if self._tunnel_host:
+            self.sock = sock
+            self._tunnel()
         sock.connect((self.host, self.port))
-        if self._timeout is not None:
-            sock.settimeout(float(self._timeout))
 
         self.sock = self._ssl_config.wrap_socket(sock)
         self._ssl_config.verify_hostname(self.sock, self.host)
