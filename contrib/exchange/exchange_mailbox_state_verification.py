@@ -45,7 +45,7 @@ from Cerebrum.Utils import read_password
 from Cerebrum.modules.exchange.CerebrumUtils import CerebrumUtils
 import ldap
 
-logger = Utils.Factory.get_logger('console')
+logger = Utils.Factory.get_logger('cronjob')
 
 
 class StateChecker(object):
