@@ -46,7 +46,7 @@ def format_day(field):
     fmt = "yyyy-MM-dd"                  # 10 characters wide
     return ":".join((field, "date", fmt))
 
-class BofhdExtension(BofhdCommandBase, BofhdEmailMixin):
+class BofhdExtension(BofhdEmailMixin, BofhdCommandBase):
     OU_class = Utils.Factory.get('OU')
     # Done bu super?
     #Account_class = Factory.get('Account')
