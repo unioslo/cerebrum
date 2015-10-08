@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # 
-# Copyright 2013 University of Oslo, Norway
+# Copyright 2013-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -45,7 +45,9 @@ class EventToTargetUtils(object):
         """
         v = {'ts': int(self.co.TargetSystem(target_system)),
                 'et': int(self.co.ChangeType(*event_type.split(':')))}
-        # TODO: If we call this more than once, do we crash?
+        # (target_system, event_type) has an UNIQUE constraint.
+        # Calling this method with the same pair of values will
+        # result in an exception.
         try:
             self.db.execute("""
                 INSERT INTO
