@@ -23,6 +23,7 @@
 
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum import Errors
+from Cerebrum.Utils import Factory
 
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
@@ -31,9 +32,9 @@ from Cerebrum.modules.bofhd.cmd_param import Command, Parameter, \
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 
 import eventconf
+import pickle
 
 
-# Event spesific params
 class TargetSystem(Parameter):
     """Parameter type used for carrying target system names to commands."""
 
@@ -113,6 +114,17 @@ class BofhdExtension(BofhdCommandBase):
             raise CerebrumError('No such target-system: %s' % target_sys)
         return ts
 
+    # Convert dictionary entries known to contain contant codes,
+    # to human-readable text
+    def _make_constants_human_readable(self, data):
+        constant_keys = ['spread', 'entity_type', 'code', 'affiliation']
+        for key in constant_keys:
+            if key in data:
+                value = self.const.human2constant(data[key])
+                if value:
+                    data[key] = str(value)
+        return data
+
     # event stat
     all_commands['event_stat'] = Command(
         ('event', 'stat',), TargetSystem(),
@@ -172,35 +184,31 @@ class BofhdExtension(BofhdCommandBase):
 
     # event force
     all_commands['event_force'] = Command(
-        ('event', 'force',), TargetSystem(), EventId(),
+        ('event', 'force',), EventId(),
         fs=FormatSuggestion('Forcing %s', ('state',)),
         perm_filter='is_postmaster')
 
-    def event_force(self, operator, target_sys, id):
+    def event_force(self, operator, event_id):
         if not self.ba.is_postmaster(operator.get_entity_id()):
             raise PermissionDenied('No access to event')
-        ts = self._validate_target_system(operator, target_sys)
-
         try:
-            self.db.decrement_failed_count(ts, id)
+            self.db.decrement_failed_count(event_id)
             state = True
-        except Errors. NotFoundError:
+        except Errors.NotFoundError:
             state = False
         return {'state': 'failed' if not state else 'succeeded'}
 
     # event unlock
     all_commands['event_unlock'] = Command(
-        ('event', 'unlock',), TargetSystem(), EventId(),
+        ('event', 'unlock',), EventId(),
         fs=FormatSuggestion('Unlock %s', ('state',)),
         perm_filter='is_postmaster')
 
-    def event_unlock(self, operator, target_sys, id):
+    def event_unlock(self, operator, event_id):
         if not self.ba.is_postmaster(operator.get_entity_id()):
             raise PermissionDenied('No access to event')
-        ts = self._validate_target_system(operator, target_sys)
-
         try:
-            self.db.release_event(id, target_system=ts, increment=False)
+            self.db.release_event(event_id, increment=False)
             state = True
         except Errors.NotFoundError:
             state = False
@@ -208,17 +216,16 @@ class BofhdExtension(BofhdCommandBase):
 
     # event delete
     all_commands['event_delete'] = Command(
-        ('event', 'delete',), TargetSystem(), EventId(),
-        fs=FormatSuggestion('Deleted %s', ('state',)),
+        ('event', 'delete',), EventId(),
+        fs=FormatSuggestion('Deletion %s', ('state',)),
         perm_filter='is_postmaster')
 
-    def event_delete(self, operator, target_sys, id):
+    def event_delete(self, operator, event_id):
         if not self.ba.is_postmaster(operator.get_entity_id()):
             raise PermissionDenied('No access to event')
-        ts = self._validate_target_system(operator, target_sys)
 
         try:
-            self.db.remove_event(id, target_system=ts)
+            self.db.remove_event(event_id)
             state = True
         except Errors.NotFoundError:
             state = False
@@ -226,20 +233,64 @@ class BofhdExtension(BofhdCommandBase):
 
     # event info
     all_commands['event_info'] = Command(
-        ('event', 'info',), TargetSystem(), EventId(),
-        fs=FormatSuggestion('%s', ('event',)),
+        ('event', 'info',), EventId(),
+        fs=FormatSuggestion(
+            'Event ID:           %s\n'
+            'Event type:         %s\n'
+            'Target system:      %s\n'
+            'Failed attempts:    %s\n'
+            'Time added:         %s\n'
+            'Time taken:         %s\n'
+            'Subject entity:     %s\n'
+            'Destination entity: %s\n'
+            'Parameters:         %s',
+            ('event_id', 'event_type', 'target_system', 'failed', 'tstamp', 'taken_time',
+             'subject_entity', 'dest_entity', 'change_params')
+        ),
         perm_filter='is_postmaster')
 
-    def event_info(self, operator, target_sys, id):
+    def event_info(self, operator, event_id):
         if not self.ba.is_postmaster(operator.get_entity_id()):
             raise PermissionDenied('No access to event')
-        # TODO: Add handlers for printing out different events in a pretty manner
-        ts = self._validate_target_system(operator, target_sys)
+
         try:
-            ev = self.db.get_event(id, target_system=ts)
+            ev = self.db.get_event(event_id)
         except Errors.NotFoundError:
             raise CerebrumError('Error: No such event exists!')
-        return {'event': str(ev)}
+
+        # For certain keys, convert constants to human-readable representations
+        change_params = ev['change_params']
+        if change_params:
+            change_params = pickle.loads(ev['change_params'])
+            change_params = self._make_constants_human_readable(change_params)
+
+        ret = {
+            'event_id': ev['event_id'],
+            'event_type': str(self.const.ChangeType(ev['event_type'])),
+            'target_system': str(self.const.TargetSystem(ev['target_system'])),
+            'failed': ev['failed'],
+            'tstamp': str(ev['tstamp']),
+            'taken_time': str(ev['taken_time']) if ev['taken_time'] else '<not set>',
+            'subject_entity': ev['subject_entity'] or '<not set>',
+            'dest_entity': ev['dest_entity'] or '<not set>',
+            'change_params': repr(change_params) if change_params else '<not set>'
+        }
+
+        en = Factory.get('Entity')(self.db)
+
+        # Look up types and names for subject and destination entities
+        for key in ('subject_entity', 'dest_entity'):
+            if ev[key]:
+                try:
+                    en.clear()
+                    en.find(ev[key])
+                    entity_type = str(self.const.EntityType(en.entity_type))
+                    entity_name = self._get_entity_name(en.entity_id, en.entity_type)
+                    ret[key] = '%s %s (id:%d)' % (entity_type, entity_name, en.entity_id)
+                except:
+                    pass
+
+        return ret
 
     # event search
     all_commands['event_search'] = Command(
@@ -249,13 +300,8 @@ class BofhdExtension(BofhdCommandBase):
             '%-8d %-35s %-15s %-15s %-25s %-6d %s',
             ('id', 'type', 'subject_type', 'dest_type', 'taken',
                 'failed', 'params'),
-            hdr='%-8s %-35s %-15s %-15s %-25s %-6s %s' % ('Id',
-                                                          'Type',
-                                                          'SubjectType',
-                                                          'DestinationType',
-                                                          'Taken',
-                                                          'Failed',
-                                                          'Params'),
+            hdr='%-8s %-35s %-15s %-15s %-25s %-6s %s' % (
+                'Id', 'Type', 'SubjectType', 'DestinationType', 'Taken', 'Failed', 'Params'),
         ),
         perm_filter='is_postmaster')
 
@@ -315,13 +361,19 @@ class BofhdExtension(BofhdCommandBase):
                 # about a subject- or destination-entity.
                 types = []
 
-            tmp = {'id': ev['event_id'],
-                   # TODO: Change this when we create TargetType()
-                   'type': str(self.const.ChangeType(ev['event_type'])),
-                   'taken': str(ev['taken_time']).replace(' ', '_'),
-                   'failed': ev['failed'],
-                   'params': repr(ev['change_params'])
-                   }
+            change_params = ev['change_params']
+            if ev['change_params']:
+                change_params = pickle.loads(ev['change_params'])
+                change_params = self._make_constants_human_readable(change_params)
+
+            tmp = {
+                'id': ev['event_id'],
+                # TODO: Change this when we create TargetType()
+                'type': str(self.const.ChangeType(ev['event_type'])),
+                'taken': str(ev['taken_time']).replace(' ', '_'),
+                'failed': ev['failed'],
+                'params': repr(change_params)
+            }
 
             if 'dest_type' in types:
                 tmp['dest_type'] = str(self.const.EntityType(
