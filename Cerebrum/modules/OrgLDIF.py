@@ -19,11 +19,12 @@
 
 import re
 import time
-import mx
+
+from collections import defaultdict
 
 import cereconf
 from Cerebrum import Entity
-from Cerebrum.Utils import Factory, auto_super
+from Cerebrum.Utils import Factory, auto_super, make_timer
 from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.modules.LDIFutils import *
 
@@ -59,7 +60,7 @@ class OrgLDIF(object):
     __metaclass__ = auto_super
 
     def __init__(self, db, logger):
-        cereconf.make_timer = self.make_timer
+        cereconf.make_timer = make_timer
         self.db = db
         self.logger = logger
         self.const = Factory.get('Constants')(db)
@@ -118,7 +119,7 @@ class OrgLDIF(object):
     def init_ou_structure(self):
         # Set self.ou_tree = dict {parent ou_id: [child ou_id, ...]}
         # where the root OUs have parent id None.
-        timer = self.make_timer("Fetching OU tree...")
+        timer = make_timer(self.logger, "Fetching OU tree...")
         self.ou.clear()
         ou_list = self.ou.get_structure_mappings(
             self.const.OUPerspective(cereconf.LDAP_OU['perspective']))
@@ -204,7 +205,7 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         if not self.ou_dn:
             return
         self.init_ou_dump()
-        timer = self.make_timer("Processing OUs...")
+        timer = make_timer(self.logger, "Processing OUs...")
         if self.ou_dn != self.org_dn:
             outfile.write(container_entry_string('OU'))
         self.generate_dummy_ou(outfile)
@@ -356,6 +357,7 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         # Set variables for the person dump.
         self.init_person_basic()
         self.init_person_selections()
+        self.init_person_cache()
         self.init_person_affiliations()
         self.init_person_names()
         self.init_person_titles()
@@ -373,6 +375,20 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         if self.person_spread is not None:
             raise NotImplementedError("LDAP_PERSON['spread'] not supported")
         self.init_person_affiliations()
+
+    def init_person_cache(self):
+        self.account = Factory.get('Account')(self.db)
+        self.accounts = accounts = []
+        self.person_cache = person_cache = {}
+        self.persons = []
+        timer = make_timer(self.logger, "Caching persons and accounts...")
+        for row in self.list_persons():
+            accounts.append(row['account_id'])
+            person_cache[row['person_id']] = {'account_id': row['account_id'],
+                                              'ou_id': row['ou_id']}
+
+        self.persons = self.person_cache.keys()
+        timer("... caching done.")
 
     def init_person_basic(self):
         # Set variables to dump or extract some person info
@@ -401,8 +417,8 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
 
     def init_person_affiliations(self):
         # Set self.affiliations = dict {person_id: [(aff, status, ou_id), ...]}
-        timer = self.make_timer("Fetching personal affiliations...")
-        self.affiliations = affiliations = {}
+        timer = make_timer(self.logger, "Fetching personal affiliations...")
+        self.affiliations = affiliations = defaultdict(list)
         source = cereconf.LDAP_PERSON['affiliation_source_system']
         if source is not None:
             if isinstance(source, (list, tuple)):
@@ -417,29 +433,26 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
             affiliation = (int(row['affiliation']), status, int(row['ou_id']))
             if self.select_bool(self.person_aff_selector,
                                 person_id, (affiliation,)):
-                if affiliations.has_key(person_id):
-                    affiliations[person_id].append(affiliation)
-                else:
-                    affiliations[person_id] = [affiliation]
+                affiliations[person_id].append(affiliation)
         timer("...affiliations done.")
 
     def init_person_names(self):
         # Set self.person_names = dict {person_id: {name_variant: name}}
-        timer = self.make_timer("Fetching personal names...")
-        self.person_names = person_names = {}
+        timer = make_timer(self.logger, "Fetching personal names...")
+        self.person_names = person_names = defaultdict(dict)
         for row in self.person.search_person_names(
                 name_variant=[self.const.name_full,
                               self.const.name_first,
                               self.const.name_last],
+                person_id=self.persons,
                 source_system=self.const.system_cached):
             person_id = int(row['person_id'])
-            person_names.setdefault(person_id, {})
             person_names[person_id][int(row['name_variant'])] = row['name']
         timer("...personal names done.")
 
     def init_person_titles(self):
         # Set self.person_titles = dict {person_id: [(language,title),...]}
-        timer = self.make_timer("Fetching personal titles...")
+        timer = make_timer(self.logger, "Fetching personal titles...")
         titles = {}
         fill = {
             int(self.const.personal_title): dict.__setitem__,
@@ -460,13 +473,11 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         # Set self.acc_passwd      = dict {account_id: password hash}.
         # Set self.acc_quarantines = dict {account_id: [quarantine list]}.
         # Set acc_locked_quarantines = acc_quarantines or separate dict
-        timer = self.make_timer("Fetching account information...")
-        timer2 = self.make_timer()
-        self.account = Factory.get('Account')(self.db)
+        timer = make_timer(self.logger, "Fetching account information...")
+        timer2 = make_timer(self.logger)
         self.acc_name = acc_name = {}
         self.acc_passwd = {}
-        self.acc_locked_quarantines = self.acc_quarantines = acc_quarantines = {
-        }
+        self.acc_locked_quarantines = self.acc_quarantines = acc_quarantines = defaultdict(list)
         fill_passwd = {
             int(self.const.auth_type_md5_crypt): self.acc_passwd.__setitem__,
             int(self.const.auth_type_crypt3_des): self.acc_passwd.setdefault}
@@ -483,20 +494,16 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
             int(self.const.Quarantine(code))
             for code in getattr(cereconf, 'QUARANTINE_FEIDE_NONLOCK', ())]
         if nonlock_quarantines:
-            self.acc_locked_quarantines = acc_locked_quarantines = {}
-        now = mx.DateTime.now()
+            self.acc_locked_quarantines = acc_locked_quarantines = defaultdict(list)
         for row in self.account.list_entity_quarantines(
+                entity_ids=self.accounts,
+                only_active=True,
                 entity_types=self.const.entity_account):
-            if (row['start_date'] <= now
-                and (row['end_date'] is None or row['end_date'] >= now)
-                and (row['disable_until'] is None
-                     or row['disable_until'] < now)):
-                # The quarantine in this row is currently active.
-                qt = int(row['quarantine_type'])
-                entity_id = int(row['entity_id'])
-                acc_quarantines.setdefault(entity_id, []).append(qt)
-                if nonlock_quarantines and qt not in nonlock_quarantines:
-                    acc_locked_quarantines.setdefault(entity_id, []).append(qt)
+            qt = int(row['quarantine_type'])
+            entity_id = int(row['entity_id'])
+            acc_quarantines[entity_id].append(qt)
+            if nonlock_quarantines and qt not in nonlock_quarantines:
+                acc_locked_quarantines[entity_id].append(qt)
         timer("...account information done.")
 
     # If fetching addresses from entity_contact_info, this is True
@@ -509,7 +516,7 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         # Set self.account_mail = None if not use_mail_module, otherwise
         #                         function: account_id -> ('address' or None).
         if use_mail_module:
-            timer = self.make_timer("Fetching account e-mail addresses...")
+            timer = make_timer(self.logger, "Fetching account e-mail addresses...")
             # We don't want to import this if mod_email isn't present.
             from Cerebrum.modules.Email import EmailDomain, EmailTarget
             etarget = EmailTarget(self.db)
@@ -532,7 +539,7 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
 
     def init_person_addresses(self):
         # Set self.addr_info = dict {person_id: {address_type: (addr. data)}}.
-        timer = self.make_timer("Fetching personal addresses...")
+        timer = make_timer(self.logger, "Fetching personal addresses...")
         self.addr_info = addr_info = {}
         addr_types = cereconf.LDAP_PERSON['address_types']
         for row in self.person.list_entity_addresses(
@@ -570,18 +577,18 @@ from None and LDAP_PERSON['dn'].""")
         self.init_person_dump(use_mail_module)
         if self.person_parent_dn not in (None, self.org_dn):
             outfile.write(container_entry_string('PERSON'))
-        timer = self.make_timer("Processing persons...")
-        round_timer = self.make_timer()
+        timer = make_timer(self.logger, "Processing persons...")
+        round_timer = make_timer(self.logger)
         round = 0
-        for row in self.list_persons():
+        for person_id, row in self.person_cache.iteritems():
             if round % 10000 == 0:
                 round_timer("...rounded %d rows..." % round)
             round += 1
-            dn, entry, alias_info = self.make_person_entry(row)
+            dn, entry, alias_info = self.make_person_entry(row, person_id)
             if dn:
                 if dn in self.used_DNs:
                     self.logger.warn("Omitting person_id %d: duplicate DN '%s'"
-                                     % (row['person_id'], dn))
+                                     % (person_id, dn))
                 else:
                     self.used_DNs[dn] = True
                     outfile.write(entry_string(dn, entry, False))
@@ -600,14 +607,13 @@ from None and LDAP_PERSON['dn'].""")
         # FIXME
         return [p_ou] + s_ous
 
-    def make_person_entry(self, row):
+    def make_person_entry(self, row, person_id):
         # Return (dn, person entry, alias_info) for a person to output,
         # or (None, anything, anything) if the person should not be output.
         # bool(alias_info) == False means no alias will be output.
         # Receives a row from list_persons() as a parameter.
-        # The row must have keys 'person_id', 'account_id',
+        # The row must have key 'account_id',
         # and if person_dn_primaryOU() is not overridden: 'ou_id'.
-        person_id = int(row['person_id'])
         account_id = int(row['account_id'])
 
         p_affiliations = self.affiliations.get(person_id)
@@ -745,7 +751,7 @@ from None and LDAP_PERSON['dn'].""")
             else:
                 entry[key] = list(values)
 
-        self.update_person_entry(entry, row)
+        self.update_person_entry(entry, row, person_id)
         return dn, entry, alias_info
 
     def is_person_visible(self, person_id):
@@ -767,9 +773,11 @@ from None and LDAP_PERSON['dn'].""")
         # in the entry, insert it in the entry.
         # If an attribute value can match LDIFutils.dn_escape_re, escape
         # it in the DN: dn_escape_re.sub(hex_escape_match, <value>).
-        try:
+        #try:
+        if 'uid' in entry and len(entry['uid']):
             rdn = "uid=" + entry['uid'][0]
-        except KeyError:
+        #except KeyError:
+        else:
             self.logger.warn("Person %d got no account. Skipping.", person_id)
             return None, None
         # If the dummy DN is set, make it the default primary org.unit DN so
@@ -781,7 +789,7 @@ from None and LDAP_PERSON['dn'].""")
                              or self.person_dn)))
         return dn, primary_ou_dn
 
-    def update_person_entry(entry, row):
+    def update_person_entry(entry, row, person_id):
         # Override this to fill in a person entry further before output.
         #
         # If there is no password, store a useless one instead of no password
@@ -1081,16 +1089,3 @@ from None and LDAP_PERSON['dn'].""")
                 if not got_given:
                     given.extend(full)
         return [u' '.join(n).encode('utf-8') for n in given, last]
-
-    def make_timer(self, msg=None):
-        # t = make_timer(message) logs the message and starts a stop watch.
-        # t(message) logs that message and #seconds since last message.
-        def timer(msg):
-            prev = timer.start
-            timer.start = time.time()
-            self.logger.debug("%s (%d seconds)", msg, timer.start - prev)
-        if msg:
-            self.logger.debug(msg)
-        timer.start = time.time()
-        return timer
-

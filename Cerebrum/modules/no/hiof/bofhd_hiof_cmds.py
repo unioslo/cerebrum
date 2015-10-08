@@ -62,7 +62,7 @@ class BofhdExtension(BofhdCommonMethods):
         #
         'ou_search', 'ou_info', 'ou_tree',
         )
-        
+
     def __new__(cls, *arg, **karg):
         # A bit hackish.  A better fix is to split bofhd_uio_cmds.py
         # into seperate classes.

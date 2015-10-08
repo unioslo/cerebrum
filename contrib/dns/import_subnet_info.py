@@ -96,7 +96,7 @@ FORMAT OF VLANFILE (when supplied)
 
 RETURN VALUES
 
- 0 - Completed succesfully (includes when forces)
+ 0 - Completed successfully (includes when forces)
  1 - Option-error (incorrect use; option doesn't exist, etc)
  2 - No datafile supplied
  3 - Data error, import rolled back
