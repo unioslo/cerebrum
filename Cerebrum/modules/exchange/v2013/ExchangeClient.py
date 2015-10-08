@@ -33,7 +33,6 @@ from Cerebrum.modules.ad2.winrm import PowershellClient
 from Cerebrum.modules.ad2.winrm import WinRMServerException
 from Cerebrum.modules.exchange.Exceptions import *
 import re
-import base64
 
 
 # Reeeaally  simple and stupid mock of the client…
@@ -128,12 +127,8 @@ class ExchangeClient(PowershellClient):
                 return user, domain
         # Guess the domain is not set then:
         return name, ''
-
+    
     _pre_execution_code_commented = u"""
-        # Base 64 decode the password. We need to do this since the string
-        # escaping does not cover all the different possibilities of fuck-up.
-        $ex_pasw = [System.Text.Encoding]::UTF8.GetString(`
-        [System.Convert]::FromBase64String(%(ex_pasw)s));
         # Create credentials for the new-PSSession
         $pass = ConvertTo-SecureString -Force -AsPlainText %(ex_pasw)s;
         $cred = New-Object System.Management.Automation.PSCredential( `
@@ -153,27 +148,21 @@ class ExchangeClient(PowershellClient):
         if (($? -and ! $ses) -or ! $?) {
             $ses = New-PSSession -ComputerName %(management_server)s `
             -Credential $cred -Name %(session_key)s;
-
+            
             # We need to access Active-directory in order to find out if a
             # user is in AD:
             Import-Module ActiveDirectory 2> $null > $null;
-
+            
             # Import Exchange stuff or everything else:
             Invoke-Command { . RemoteExchange.ps1 } -Session $ses;
-
+           
             Invoke-Command { $pass = ConvertTo-SecureString -Force `
             -AsPlainText %(ex_pasw)s } -Session $ses;
 
             Invoke-Command { $cred = New-Object `
             System.Management.Automation.PSCredential(%(ex_user)s, $pass) } `
             -Session $ses;
-
-            # Base 64 decode the password. We need to do this since the string
-            # escaping does not cover all the different possibilities of
-            # fuck-up.
-            $ad_pasw = [System.Text.Encoding]::UTF8.GetString(`
-            [System.Convert]::FromBase64String(%(ad_pasw)s));
-
+            
             Invoke-Command { $ad_pass = ConvertTo-SecureString -Force `
             -AsPlainText %(ad_pasw)s } -Session $ses;
 
@@ -209,9 +198,7 @@ class ExchangeClient(PowershellClient):
     # 3.3. Initialize the Exchange module that gives us
     #      management-opportunities
     _pre_execution_code = u"""
-        $ex_pasw = [System.Text.Encoding]::UTF8.GetString(`
-        [System.Convert]::FromBase64String(%(ex_pasw)s));
-        $pass = ConvertTo-SecureString -Force -AsPlainText $ex_pasw;
+        $pass = ConvertTo-SecureString -Force -AsPlainText %(ex_pasw)s;
         $cred = New-Object System.Management.Automation.PSCredential( `
         %(ex_domain_user)s, $pass);
 
@@ -226,31 +213,27 @@ class ExchangeClient(PowershellClient):
         if (($? -and ! $ses) -or ! $?) {
             $ses = New-PSSession -ComputerName %(management_server)s `
             -Credential $cred -Name %(session_key)s;
-
+            
             Import-Module ActiveDirectory 2> $null > $null;
-
+            
             Invoke-Command { . RemoteExchange.ps1 } -Session $ses;
-
+           
             Invoke-Command { $pass = ConvertTo-SecureString -Force `
-            -AsPlainText $ex_pasw } -Session $ses;
+            -AsPlainText %(ex_pasw)s } -Session $ses;
 
             Invoke-Command { $cred = New-Object `
             System.Management.Automation.PSCredential(%(ex_user)s, $pass) } `
             -Session $ses;
-
-
-            $ad_pass = [System.Text.Encoding]::UTF8.GetString(`
-            [System.Convert]::FromBase64String(%(ad_pasw)s));
-
+            
             Invoke-Command { $ad_pass = ConvertTo-SecureString -Force `
-            -AsPlainText $ad_pasw } -Session $ses;
+            -AsPlainText %(ad_pasw)s } -Session $ses;
 
             Invoke-Command { $ad_cred = New-Object `
             System.Management.Automation.PSCredential(`
             %(ad_domain_user)s, $ad_pass) } -Session $ses;
 
             Invoke-Command { Import-Module ActiveDirectory } -Session $ses;
-
+            
             Invoke-Command { function get-credential () { return $cred;} } `
             -Session $ses;
 
@@ -280,21 +263,18 @@ class ExchangeClient(PowershellClient):
         @return: A two element tuple: (ShellId, CommandId). Could later be used
             to get the result of the command.
         """
-        ad_user_password = base64.b64encode(self.ad_user_password)
-        ex_user_password = base64.b64encode(self.ex_user_password)
-
         setup = self._pre_execution_code % {
-            'session_key': self.session_key,
-            'ad_domain_user': self.escape_to_string(
-                '%s\\%s' % (self.ad_domain, self.ad_user)),
-            'ad_user': self.escape_to_string(self.ad_user),
-            'ad_pasw': self.escape_to_string(ad_user_password),
-            'ex_domain_user': self.escape_to_string(
-                '%s\\%s' % (self.ex_domain, self.ex_user)),
-            'ex_user': self.escape_to_string(self.ex_user),
-            'ex_pasw': self.escape_to_string(ex_user_password),
-            'management_server': self.escape_to_string(
-                self.management_server)}
+                    'session_key': self.session_key,
+                    'ad_domain_user': self.escape_to_string('%s\\%s' % 
+                                        (self.ad_domain, self.ad_user)),
+                    'ad_user': self.escape_to_string(self.ad_user),
+                    'ad_pasw': self.escape_to_string(self.ad_user_password),
+                    'ex_domain_user': self.escape_to_string('%s\\%s' % 
+                                        (self.ex_domain, self.ex_user)),
+                    'ex_user': self.escape_to_string(self.ex_user),
+                    'ex_pasw': self.escape_to_string(self.ex_user_password),
+                    'management_server': self.escape_to_string(
+                                                self.management_server)}
         # TODO: Fix this on a lower level
         if kwargs.has_key('kill_session') and kwargs['kill_session']:
             args = (args[0] + self._termination_code, )
