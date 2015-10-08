@@ -53,6 +53,7 @@ import urllib2
 import httplib
 import csv
 import json
+import re
 
 # TODO: remove the exception when ssl is up and running in production:
 try:
