@@ -30,10 +30,10 @@ from Cerebrum.modules.no import fodselsnr
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uio.AutoStud import StudentInfo
 
-default_personfile = "/cerebrum/hine/dumps/FS/merged_persons.xml"
-default_studieprogramfile = "/cerebrum/hine/dumps/FS/studieprog.xml"
-default_ou_file = "/cerebrum/hine/dumps/FS/ou.xml"
-default_emnefile = "/cerebrum/hine/dumps/FS/emner.xml"
+default_personfile = "/cerebrum/var/cache/FS/merged_persons.xml"
+default_studieprogramfile = "/cerebrum/var/cache/FS/studieprog.xml"
+default_ou_file = "/cerebrum/var/cache/FS/ou.xml"
+default_emnefile = "/cerebrum/var/cache/FS/emner.xml"
 group_name = "FS-aktivt-samtykke"
 group_desc = "Internal group for students which will be shown online."
 
