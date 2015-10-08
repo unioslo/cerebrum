@@ -326,12 +326,16 @@ class HTTPSConnection(httplib.HTTPSConnection, object):
         if not isinstance(self._ssl_config, SSLConfig):
             raise TypeError(u'ssl_config must be an instance of SSLConfig')
 
-        sock = socket.create_connection((self.host, self.port),
-                                        self.timeout or self.default_timeout)
+        timeout = socket._GLOBAL_DEFAULT_TIMEOUT
+        if self.timeout is not socket._GLOBAL_DEFAULT_TIMEOUT:
+            timeout = self.timeout
+        elif self.default_timeout:
+            timeout = self.default_timeout
+
+        sock = socket.create_connection((self.host, self.port), timeout)
         if self._tunnel_host:
             self.sock = sock
             self._tunnel()
-        sock.connect((self.host, self.port))
 
         self.sock = self._ssl_config.wrap_socket(sock)
         self._ssl_config.verify_hostname(self.sock, self.host)
