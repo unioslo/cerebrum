@@ -50,7 +50,7 @@ def make_home2spool():
     cname_cache = {}
     # Define domains in zone uio.no whose primary MX is one of our
     # mail servers as "local domains".
-    out = os.popen("/local/bin/host -t mx -l uio.no. nissen.uio.no")
+    out = os.popen("/usr/bin/host -t mx -l uio.no. nissen.uio.no")
     res = out.readlines()
     out.close()
 

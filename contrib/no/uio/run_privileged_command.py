@@ -50,7 +50,7 @@ commands = {
     # operation
     # 'clean_rmuser': [cereconf.CLEAN_RMUSER_SCRIPT, 1],
     # move IMAP users
-    # 'imap_move': ["/local/bin/ssh", 21],
+    # 'imap_move': ["/usr/bin/ssh", 21],
     }
 
 def usage(exitcode=0):

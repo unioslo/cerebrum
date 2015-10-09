@@ -55,7 +55,7 @@ logger = Factory.get_logger("bofhd_req")
 max_requests = 999999
 ou_perspective = None
 
-SSH_CMD = "/local/bin/ssh"
+SSH_CMD = "/usr/bin/ssh"
 SUDO_CMD = "sudo"
 SSH_CEREBELLUM = [SSH_CMD, "cerebrum@cerebellum"]
 
