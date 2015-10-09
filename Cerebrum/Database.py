@@ -699,24 +699,6 @@ class Lock(object):
         pass
 
 
-class OraPgLock(Lock):
-    """Lock for Oracle and Postgres.
-    Locks are only released by commit, so no release is actually done.
-
-    Uses the postgres and oracle LOCK TABLE statement.
-    """
-    lock_stmt = "LOCK TABLE %s IN %s MODE"
-
-    def __init__(self, cursor=None, table=None, **kws):
-        """Init will aquire a lock."""
-        self.cursor = cursor
-        self.table = table
-        super(self, OraPgLock).__init__(**kws)
-
-    def acquire(self, mode):
-        self.cursor.execute(OraPgLock.lock_stmt % (self.table, mode))
-
-
 class RowIterator(object):
 
     def __init__(self, cursor):
