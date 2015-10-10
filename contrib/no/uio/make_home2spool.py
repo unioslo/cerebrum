@@ -85,7 +85,7 @@ def make_home2spool():
     # have explicit MX records).  We also want to accept mail for any
     # CNAME in the uio.no zone pointing to any of these local domains.
 
-    out = os.popen("/local/bin/host -t cname -l uio.no. nissen.uio.no")
+    out = os.popen("/usr/bin/host -t cname -l uio.no. nissen.uio.no")
     res = out.readlines()
     out.close()
 
@@ -104,7 +104,7 @@ def make_home2spool():
     # Define domains in zone ifi.uio.no whose primary MX is one of our
     # mail servers as "local domains".  Cache CNAMEs at the same time.
 
-    out = os.popen("/local/bin/dig \@bestemor.ifi.uio.no ifi.uio.no. axfr")
+    out = os.popen("/usr/bin/dig \@bestemor.ifi.uio.no ifi.uio.no. axfr")
     res = out.readlines()
     out.close()
 
