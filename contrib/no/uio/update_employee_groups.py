@@ -178,6 +178,9 @@ def build_employee_cache(db, sysname, filename):
             employee_cache[pnr2uname[passport_nr]] = (xmlperson.
                                                       has_active_employments(),
                                                       bool(bilag))
+        else:
+            logger.debug("Cerebrum failed to find primary account for person "
+                         "with fnr: %s, passport-nr: %s.", fnr, passport_nr)
 
     # IVR 2007-07-13 FIXME: Is this actually useful?
     del fnr2uname
@@ -327,7 +330,7 @@ def main():
     """Start method for this script."""
 
     global logger
-    logger = Factory.get_logger("cronjob")
+    logger = Factory.get_logger("console")
     logger.info("Performing uio-tils/uio-ans group updates")
 
     try:
